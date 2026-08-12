@@ -16,7 +16,7 @@ Started 2026-08-03. Working chairlift beta in 5 days; see docs/TIMELINE.md.
 | `assets/blender/` | Deterministic Blender/Python generators for every mesh + texture. |
 | `assets/import/` | Generator OUTPUT staged for Editor import (gitignored — regenerable). |
 | `gamedata-mirror/` | Version-controlled backup of our hand-made game-side prefabs (tools/sync-gamedata.ps1). |
-| `docs/` | SPEC, PIPELINE (the runbook), DECISIONS (the ledger), TIMELINE, research/. |
+| `docs/` | SPEC, PIPELINE (the runbook), DECISIONS (the ledger), TIMELINE, research/. Local-only (untracked by design). |
 | `tools/` | preflight.ps1, validate_prefab.ps1, jxr2png.ps1, sync-gamedata.ps1. |
 | `release/` | Paradox Mods staging: listing copy, credits, changelog, screenshots. |
 
