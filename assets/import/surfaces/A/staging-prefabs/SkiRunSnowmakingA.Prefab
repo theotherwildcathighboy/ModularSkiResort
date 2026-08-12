@@ -1,0 +1,104 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.SurfacePrefab, Game",
+    "name": "SkiRunSnowmakingA",
+    "active": true,
+    "version": 1,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 3,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.RenderedArea, Game",
+                "name": "RenderedArea",
+                "active": true,
+                "m_Version": 1,
+                "m_Material": $fstrref:"UnityObjectsMap:a1b9ab64e2f648a4da17231062c1e066",
+                "m_Roundness": 0.8,
+                "m_LodBias": 1,
+                "m_RendererPriority": 2,
+                "m_DecalLayerMask": 1,
+                "m_BaseColor": {
+                    "$type": "3|UnityEngine.Color, UnityEngine.CoreModule",
+                    1,
+                    1,
+                    1,
+                    1
+                },
+                "m_BaseColorMap": $fstrref:"CID:REPLACE_SNOWMAKING_BASECOLOR_CID",
+                "m_NormalMap": $fstrref:"CID:REPLACE_SNOWMAKING_NORMAL_CID",
+                "m_MaskMap": $fstrref:"CID:REPLACE_SNOWMAKING_MASKMAP_CID",
+                "m_Metallic": 0,
+                "m_Smoothness": 0.5,
+                "m_NormalOpacity": 1,
+                "m_MetallicOpacity": 1,
+                "m_NormalAlphaSource": 0,
+                "m_MetallicAlphaSource": 0,
+                "m_UVScale": 0.06,
+                "m_EdgeNormal": 0.664,
+                "m_EdgeFadeRange": {
+                    "$type": "4|Unity.Mathematics.float2, Unity.Mathematics",
+                    "x": 0.55,
+                    "y": 0.45
+                },
+                "m_EdgeNormalRange": {
+                    "$type": 4,
+                    "x": 0.7,
+                    "y": 0.5
+                },
+                "m_EdgeNoise": {
+                    "$type": 4,
+                    "x": 1,
+                    "y": 1
+                }
+            },
+            {
+                "$id": 3,
+                "$type": "5|Game.Prefabs.UIObject, Game",
+                "name": "UIObject",
+                "active": true,
+                "m_Group": $fstrref:"UnityGUID:60c0e17c40a5f1b41bf9d2032670b81d",
+                "m_Priority": 31,
+                "m_Icon": "Media/Game/Icons/SurfaceGrass01.svg",
+                "m_IsDebugObject": false
+            },
+            {
+                "$id": 4,
+                "$type": "6|Game.Prefabs.ServiceObject, Game",
+                "name": "ServiceObject",
+                "active": true,
+                "m_Service": $fstrref:"UnityGUID:5930db6811522d34495a9e16c4fd4c18"
+            }
+        ]
+    },
+    "m_Color": {
+        "$type": 3,
+        0.9,
+        0.94,
+        1,
+        0.196078435
+    },
+    "m_EdgeColor": {
+        "$type": 3,
+        0.9,
+        0.94,
+        1,
+        0.392156869
+    },
+    "m_SelectionColor": {
+        "$type": 3,
+        1,
+        1,
+        1,
+        1
+    },
+    "m_SelectionEdgeColor": {
+        "$type": 3,
+        1,
+        1,
+        1,
+        1
+    }
+}

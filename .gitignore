@@ -1,0 +1,35 @@
+# Generated asset outputs — deterministic (fixed seeds) from assets/blender/ generators;
+# regenerate rather than version. The generators + their constants ARE the source.
+assets/import/**/*.fbx
+assets/import/**/*.png
+assets/preview/
+
+# Build outputs
+mod/SkiResortMod/bin/
+mod/SkiResortMod/obj/
+mod/SkiResortMod/Library/
+
+# Editor/OS noise
+*.user
+Thumbs.db
+desktop.ini
+
+# NOT ignored on purpose:
+#   mod/SkiResortMod/Textures/   — shipped mod content (runtime-loaded PNGs)
+#   gamedata-mirror/             — backup of hand-made prefabs from the game's
+#                                  ImportedData (tools/sync-gamedata.ps1)
+#   release/                     — listing copy + curated screenshots (not regenerable)
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Stray generator-output staging (same class as assets/import outputs)
+assets/staging/
+
+# Local-only by design (user call 2026-08-12): research/docs stay on this machine,
+# asset sources and shipped textures are not for a code repo. All texture PNGs are
+# deterministic generator output (assets/blender) or re-downloadable (ambientCG).
+docs/
+assets/textures/
+mod/SkiResortMod/Textures/

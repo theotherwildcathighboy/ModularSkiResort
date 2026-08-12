@@ -1,0 +1,110 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!--
+	Official Cities: Skylines II mod project (generated from the `dotnet new csiimod` template,
+	then extended). Target framework (net48), LangVersion (9.0), game-DLL search path
+	(CSII_MANAGEDPATH), the Unity.Entities source generators, ModPostProcessor and the
+	deploy-to-CSII_LOCALMODSPATH step all come from Mod.props / Mod.targets in CSII_TOOLPATH.
+	Do not add game references by path; add them by simple name so Mod.props resolves them.
+	-->
+
+	<PropertyGroup>
+		<Configurations>Debug;Release</Configurations>
+
+		<!--The file where mod information which is required for publishing mod on PDX mods are stored-->
+		<PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>
+	</PropertyGroup>
+
+	<!--Imports must be after PropertyGroup block-->
+	<Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.props" />
+	<Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.targets" />
+
+	<ItemGroup>
+		<Reference Include="Game">
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Colossal.Core">
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Colossal.Logging">
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Colossal.IO.AssetDatabase">
+			<Private>false</Private>
+		</Reference>
+		<!-- TextureAsset implements interfaces declared in Colossal.AssetPipeline; the
+		     compiler needs it resolvable to use TextureAsset generics (SkiRunSplatSystem). -->
+		<Reference Include="Colossal.AssetPipeline">
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Colossal.Localization">
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Colossal.Mathematics">
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="UnityEngine.CoreModule">
+			<Private>false</Private>
+		</Reference>
+		<!-- Texture2D.LoadImage lives in the ImageConversion module (SkiRunSplatSystem
+		     loads the run-material PNGs at runtime). -->
+		<Reference Include="UnityEngine.ImageConversionModule">
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Unity.Burst">
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Unity.Collections">
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Unity.Entities">
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Unity.Mathematics">
+			<Private>false</Private>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Reference Update="System">
+			<Private>false</Private>
+		</Reference>
+		<Reference Update="System.Core">
+			<Private>false</Private>
+		</Reference>
+		<Reference Update="System.Data">
+			<Private>false</Private>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="$(ModPropsFile)" Link="Properties\Mod.props" />
+		<None Include="$(ModTargetsFile)" Link="Properties\Mod.targets" />
+	</ItemGroup>
+
+	<!-- Run-material PNGs (SkiRunSplatSystem texture contract). Copied to $(OutDir)\Textures,
+	     which the stock DeployWIP target then mirrors into the Mods folder recursively.
+	     The folder may not exist yet while the textures are being authored — an empty glob
+	     is fine, and the system logs missing files and stays inert until they appear. -->
+	<ItemGroup>
+		<None Include="Textures\**\*.png" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
+	<!--
+	The toolchain's ModPostProcessor.exe targets the .NET 6 runtime, which is not installed on
+	this machine (only .NET 8 is). Its runtimeconfig.json has no rollForward policy, so the run
+	fails with "You must install or update .NET". Overriding the stock RunModPostProcessor
+	target — the exact customization mechanism documented at the top of Mod.targets — reruns the
+	same command with DOTNET_ROLL_FORWARD=LatestMajor, letting it run on the installed .NET 8.
+	On a machine that has .NET 6 the variable is a no-op, so this stays portable.
+	-->
+	<!-- BeforeTargets="DeployWIP" restores the stock ordering (post-process, then deploy):
+	     redefining the target here moves its declaration after DeployWIP, and MSBuild runs
+	     same-hook targets in declaration order, which would deploy an unprocessed DLL. -->
+	<Target Name="RunModPostProcessor" AfterTargets="AfterBuild" BeforeTargets="DeployWIP" Condition="'$(NeedBuild)'">
+		<Error Condition="!Exists('$(ModPostProcessorFullPath)')" Text="Post processor not found, please check the path: $(ModPostProcessorFullPath)" />
+		<Message Text="Run post processor (with DOTNET_ROLL_FORWARD=LatestMajor): $(ModPostProcessorArgs)" Importance="high" />
+		<Exec Command="$(ModPostProcessorArgs)" LogStandardErrorAsError="true" EnvironmentVariables="DOTNET_ROLL_FORWARD=LatestMajor" />
+	</Target>
+
+</Project>

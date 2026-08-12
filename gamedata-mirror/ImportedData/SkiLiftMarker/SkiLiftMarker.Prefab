@@ -1,0 +1,134 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.PowerLinePrefab, Game",
+    "name": "SkiLiftMarker",
+    "active": true,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 4,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.MarkerNet, Game",
+                "name": "MarkerNet",
+                "active": true
+            },
+            {
+                "$id": 3,
+                "$type": "3|Game.Prefabs.PlaceableNet, Game",
+                "name": "PlaceableNet",
+                "active": true,
+                "m_ElevationRange": {
+                    "$type": "4|Colossal.Mathematics.Bounds1, Colossal.Mathematics",
+                    "min": 0,
+                    "max": 0
+                },
+                "m_AllowParallelMode": true,
+                "m_UndergroundPrefab": $fstrref:"UnityGUID:9cbf401c04ad63b44a36c0dc0db26e67",
+                "m_XPReward": 0
+            },
+            {
+                "$id": 4,
+                "$type": "5|Game.Prefabs.ElectricityConnection, Game",
+                "name": "ElectricityConnection",
+                "active": true,
+                "m_Voltage": 1,
+                "m_Direction": 3,
+                "m_Capacity": 800000,
+                "m_RequireAll": {
+                    "$id": 5,
+                    "$type": "6|Game.Prefabs.NetPieceRequirements[], Game",
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_RequireAny": {
+                    "$id": 6,
+                    "$type": 6,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_RequireNone": {
+                    "$id": 7,
+                    "$type": 6,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                }
+            },
+            {
+                "$id": 8,
+                "$type": "7|Game.Prefabs.ServiceObject, Game",
+                "name": "ServiceObject",
+                "active": true,
+                "m_Service": $fstrref:"UnityGUID:a534d6be94fb0cb4eb683f62412d0b1a"
+            }
+        ]
+    },
+    "m_Sections": {
+        "$id": 9,
+        "$type": "8|Game.Prefabs.NetSectionInfo[], Game",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 10,
+                "$type": "9|Game.Prefabs.NetSectionInfo, Game",
+                "m_Section": $fstrref:"CID:83cbb5ffed1c4539b2bbbf8ec7541a02",
+                "m_RequireAll": {
+                    "$id": 11,
+                    "$type": 6,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_RequireAny": {
+                    "$id": 12,
+                    "$type": 6,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_RequireNone": {
+                    "$id": 13,
+                    "$type": 6,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_HiddenLayers": 0,
+                "m_Invert": false,
+                "m_Flip": false,
+                "m_Median": true,
+                "m_HalfLength": false,
+                "m_Offset": {
+                    "$type": "10|Unity.Mathematics.float3, Unity.Mathematics",
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                }
+            }
+        ]
+    },
+    "m_EdgeStates": {
+        "$id": 14,
+        "$type": "11|Game.Prefabs.NetEdgeStateInfo[], Game",
+        "$rlength": 0,
+        "$rcontent": [
+        ]
+    },
+    "m_NodeStates": {
+        "$id": 15,
+        "$type": "12|Game.Prefabs.NetNodeStateInfo[], Game",
+        "$rlength": 0,
+        "$rcontent": [
+        ]
+    },
+    "m_MaxSlopeSteepness": 1,
+    "m_AggregateType": null,
+    "m_StyleType": null,
+    "m_InvertMode": 0,
+    "m_MaxPylonDistance": 25,
+    "m_Hanging": 0
+}

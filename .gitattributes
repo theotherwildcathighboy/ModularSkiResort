@@ -1,0 +1,3 @@
+# Byte-exact repo: no line-ending conversion anywhere. Game-side files (.Prefab, .cid)
+# must round-trip bit-identical through the sync/restore path.
+* -text
