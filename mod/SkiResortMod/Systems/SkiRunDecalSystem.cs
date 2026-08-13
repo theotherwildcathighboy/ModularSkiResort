@@ -114,6 +114,14 @@ namespace SkiResortMod.Systems
             // (HDRP gates on the keyword; the float is the inspector mirror). readonly, not
             // const, so flipping it is a one-token change without unreachable-code warnings.
             public static readonly bool ApplyNormalOnlyMode = false;
+
+            // FIELD-DISABLED 2026-08-12: binding textures into the previously-EMPTY snow
+            // slots switched the decal's snow layer permanently ON — runs rendered solid
+            // white corduroy immune to 50 °C, the dev remove-snow button, and every
+            // snow-mask change (two calibration rounds were judged against this artifact).
+            // The layer is evidently not snow-map-driven by texture presence alone; the
+            // T5 probe must settle the _Snow scalar/keyword semantics before re-enabling.
+            public static readonly bool ApplySnowSlots = false;
         }
 
         // Run surfaces — same tolerant name resolution as the sibling systems.
@@ -464,9 +472,15 @@ namespace SkiResortMod.Systems
                 TrySetTexture(target, props, BaseColorMapProperty, target.BaseColorTex) &
                 TrySetTexture(target, props, NormalMapProperty, target.NormalTex);
 
-            // 2) Snow slots — winter comes from the snow sim, not from us (see header).
-            bool snowBase = TrySetTexture(target, props, SnowBaseColorMapProperty, m_SnowBaseColorTex);
-            bool snowNormal = TrySetTextureAny(target, props, SnowNormalPropertyCandidates, m_SnowNormalTex);
+            // 2) Snow slots — DISABLED pending T5 (Tuning.ApplySnowSlots): binding textures
+            //    into empty slots turned the layer permanently on (solid white immune to
+            //    temperature and the dev remove-snow — the 2026-08-12 field artifact).
+            bool snowBase = false, snowNormal = false;
+            if (Tuning.ApplySnowSlots)
+            {
+                snowBase = TrySetTexture(target, props, SnowBaseColorMapProperty, m_SnowBaseColorTex);
+                snowNormal = TrySetTextureAny(target, props, SnowNormalPropertyCandidates, m_SnowNormalTex);
+            }
             target.SnowPairSet = snowBase & snowNormal;
 
             // 3) Doc-safe scalars, live + prefab mirror (RenderedArea fields exist for all
