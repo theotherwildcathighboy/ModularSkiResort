@@ -156,6 +156,12 @@ namespace SkiResortMod.Systems
             // held snow only where it is locally at/below freezing+GroomedMarginC.
             public const float GroomedMarginC = 0f;
 
+            // Pack guard (field round 4): managed decay outran natural melt — runs
+            // cleared FIRST out of a full winter snowpack (timelapse evidence). When the
+            // map-wide mean depth says a pack covers the world, our decay stands down and
+            // the runs melt WITH the landscape; decay only shapes the shoulder seasons.
+            public const float PackGuardMeanDepthM = 0.02f;
+
             // Cadence: melt between top-ups is millimetres against a 250-350 mm target
             // (doc §4 — even 256 frames would stay invisible), so 64 sim frames carries
             // ~4x headroom. The mask is also rebuilt every top-up: at ~14 m/texel the CPU
@@ -248,6 +254,13 @@ namespace SkiResortMod.Systems
         private int m_LastInjectedTexels;
         private int m_LastLoweredTexels;
         private int m_LastMaskTexels;
+        private float m_LastGlobalMeanDepthM;   // pack guard input (last pass's map mean)
+
+        /// <summary>Mean snow depth (m) over the runs' masked texels, measured each merge
+        /// pass — the decal system dresses trails by SNOW PRESENCE, not temperature, so
+        /// green can never appear while the runs are still white (field round 4).</summary>
+        public float MeanRunSnowDepthM { get; private set; }
+        public bool HasRunSnowMeasurement { get; private set; }
         private bool m_ForceNextTopupLog;
         private string m_LastIdleReason;
 
@@ -320,6 +333,9 @@ namespace SkiResortMod.Systems
             m_LastInjectedTexels = -1;
             m_LastLoweredTexels = -1;
             m_LastMaskTexels = -1;
+            m_LastGlobalMeanDepthM = 0f;
+            MeanRunSnowDepthM = 0f;
+            HasRunSnowMeasurement = false;
             m_ForceNextTopupLog = true;
             m_LastIdleReason = null;
 
@@ -479,18 +495,31 @@ namespace SkiResortMod.Systems
             float[] mask = m_Mask;
             float[] decayMask = m_DecayMask;
             float decayNorm = Tuning.DecayPerTopupM / SnowHeightScaleM;
+            // Pack guard uses LAST pass's map mean (one-window lag, harmless): while a
+            // winter pack covers the world, decay stands down — runs melt with the
+            // landscape, never ahead of it.
+            bool packGuard = m_LastGlobalMeanDepthM > Tuning.PackGuardMeanDepthM;
             int injected = 0, lowered = 0;
+            double globalDepthSum = 0.0, runDepthSum = 0.0;
+            int runTexels = 0;
             for (int i = 0; i < TexelCount; i++)
             {
                 Ushort2 raw = readback[i];
                 float depth = raw.x * inv;
+                globalDepthSum += depth;
                 float target = mask[i];
+                bool onRun = target > 0f || decayMask[i] > 0f;
+                if (onRun)
+                {
+                    runDepthSum += depth;
+                    runTexels++;
+                }
                 if (target > depth)
                 {
                     depth = target;
                     injected++;
                 }
-                else if (target == 0f && decayMask[i] > 0f && depth > 0f)
+                else if (target == 0f && decayMask[i] > 0f && depth > 0f && !packGuard)
                 {
                     // Managed melt: guns off on this run — decay OUR footprint only.
                     depth = math.max(0f, depth - decayNorm);
@@ -498,6 +527,10 @@ namespace SkiResortMod.Systems
                 }
                 upload[i] = new float2(depth, raw.y * inv);
             }
+            m_LastGlobalMeanDepthM = (float)(globalDepthSum / TexelCount) * SnowHeightScaleM;
+            MeanRunSnowDepthM = runTexels > 0
+                ? (float)(runDepthSum / runTexels) * SnowHeightScaleM : 0f;
+            HasRunSnowMeasurement = true;
 
             if (injected + lowered > 0)
             {

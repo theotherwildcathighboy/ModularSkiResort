@@ -128,11 +128,21 @@ namespace SkiResortMod.Systems
 
             // Seasonal dress (2026-08-12 user round: "trails look absurd in summer"):
             // summer wears the green mowed-grass set, winter the wear/corduroy set.
-            // Hysteresis so the boundary can't flap: winter-look turns ON at ambient <=
-            // freezing + On, OFF at ambient > freezing + Off.
+            // Field round 4: the dress is driven by SNOW PRESENCE on the runs (injection
+            // system's measured mean depth) — temperature flipped the trails green while
+            // the world was still white ("green trails in white snow"). Temperature
+            // hysteresis remains only as the fallback when no measurement exists yet.
             public const int SeasonCheckFrames = 1024;
-            public const float WinterLookOnC = 2f;
-            public const float WinterLookOffC = 3f;
+            public const float WinterLookOnC = 2f;    // fallback only
+            public const float WinterLookOffC = 3f;   // fallback only
+            public const float DressSnowyDepthM = 0.02f;  // runs this snowy -> winter dress
+            public const float DressBareDepthM = 0.005f;  // runs this bare -> summer dress
+
+            // Field round 4 ("painted a golf course on the mountains"): the summer green
+            // ships as an opaque terrain texture; as a DECAL it must be a faint worn lane,
+            // not paint. Alpha and RGB are scaled in-place at load.
+            public const float SummerAlphaScale = 0.40f;
+            public const float SummerRgbScale = 0.88f;
         }
 
         // Run surfaces — same tolerant name resolution as the sibling systems.
@@ -242,6 +252,7 @@ namespace SkiResortMod.Systems
         private TextureAsset m_SummerBaseColorAsset;
         private TextureAsset m_SummerNormalAsset;
         private SnowLineSystem m_SnowLineSystem;
+        private SkiSnowInjectionSystem m_SnowInjectionSystem;
 
         // Seasonal look state (per-load evaluated, hysteresis in EvaluateWinterLook).
         private bool m_WinterLook;
@@ -266,6 +277,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_SnowLineSystem = World.GetOrCreateSystemManaged<SnowLineSystem>();
+            m_SnowInjectionSystem = World.GetOrCreateSystemManaged<SkiSnowInjectionSystem>();
             m_PrefabScanQuery = GetEntityQuery(ComponentType.ReadOnly<PrefabData>());
             m_Targets = new[]
             {
@@ -869,7 +881,13 @@ namespace SkiResortMod.Systems
             if (m_SnowNormalTex == null)
                 m_SnowNormalTex = LoadPng(dir, SnowNormalFile, linear: true, missing);
             if (m_SummerBaseColorTex == null)
+            {
                 m_SummerBaseColorTex = LoadPng(dir, SummerBaseColorFile, linear: false, missing);
+                // Round 4: fade the opaque terrain green into a see-through worn lane
+                // BEFORE the asset registration pins the texture.
+                if (m_SummerBaseColorTex != null)
+                    ScaleColors(m_SummerBaseColorTex, Tuning.SummerRgbScale, Tuning.SummerAlphaScale);
+            }
             if (m_SummerNormalTex == null)
                 m_SummerNormalTex = LoadPng(dir, SummerNormalFile, linear: true, missing);
             if (m_SummerBaseColorAsset == null && m_SummerBaseColorTex != null)
@@ -885,16 +903,43 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info($"Decal: 8 texture file(s) ready under '{dir}' (cached across loads)");
         }
 
-        /// <summary>Winter-look hysteresis: ON at ambient <= freezing + WinterLookOnC, OFF at
-        /// ambient > freezing + WinterLookOffC — the boundary can't flap. Pull-based reads
-        /// off the SnowLineSystem climate oracle; safe at any load phase.</summary>
+        /// <summary>Winter-look decision (round 4): primary driver is MEASURED snow on the
+        /// runs (injection system's per-pass mean over run footprints, hysteresis 0.5-2 cm)
+        /// so green can never show while trails are white. Temperature hysteresis is the
+        /// fallback for loads where no measurement has happened yet.</summary>
         private bool EvaluateWinterLook()
         {
+            if (m_SnowInjectionSystem != null && m_SnowInjectionSystem.HasRunSnowMeasurement)
+            {
+                float runDepth = m_SnowInjectionSystem.MeanRunSnowDepthM;
+                return m_WinterLook
+                    ? runDepth > Tuning.DressBareDepthM
+                    : runDepth > Tuning.DressSnowyDepthM;
+            }
             float ambient = m_SnowLineSystem.GetAmbientTemperature();
             float freezing = m_SnowLineSystem.GetFreezingTemperature();
             return m_WinterLook
                 ? ambient <= freezing + Tuning.WinterLookOffC
                 : ambient <= freezing + Tuning.WinterLookOnC;
+        }
+
+        /// <summary>In-place RGB/alpha scale (round 4, summer set only). LoadImage textures
+        /// stay CPU-readable; Apply(true) regenerates mips, readable is kept so a future
+        /// pass could re-scale.</summary>
+        private static void ScaleColors(Texture2D texture, float rgbScale, float alphaScale)
+        {
+            Color32[] pixels = texture.GetPixels32();
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                Color32 p = pixels[i];
+                p.r = (byte)(p.r * rgbScale);
+                p.g = (byte)(p.g * rgbScale);
+                p.b = (byte)(p.b * rgbScale);
+                p.a = (byte)(p.a * alphaScale);
+                pixels[i] = p;
+            }
+            texture.SetPixels32(pixels);
+            texture.Apply(updateMipmaps: true, makeNoLongerReadable: false);
         }
 
         /// <summary>User-db TextureAsset wrapping an already-loaded texture (SkiRunSplatSystem
