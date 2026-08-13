@@ -40,9 +40,13 @@
 //     freezing + SnowmakingMarginC — the same margin constant meaning the attractiveness
 //     score uses (snow guns do not work in warm weather; gameplay, injection and visuals
 //     share one model and cannot disagree).
-//   * Groomed runs (SkiRunGroomedA): target ~0.25 m, but ONLY while ambient is within
-//     GroomedAmbientMarginC of freezing or below — an early/late-season grooming assist;
-//     in summer groomed runs are bare.
+//   * Groomed runs (SkiRunGroomedA): target ~0.08 m where locally at/below
+//     freezing + GroomedMarginC — an early/late-season grooming assist; in summer
+//     groomed runs are bare.
+//   * PER-TEXEL THERMAL LINE (field round 3): both gates evaluate at EACH TEXEL'S OWN
+//     elevation inside the fold, so the snow line crosses a run — top white, bottom
+//     bare, the boundary creeping with the season (the user's "melt from the bottom
+//     up"). Too-warm texels route to the managed-decay mask instead.
 //
 // SCHEDULING & PAUSE: GameSimulation phase, anchored UpdateAfter SnowSystem (write lands
 // after the frame's buffer flip — doc §2). GetUpdateInterval mirrors SnowSystem's 4 so the
@@ -134,7 +138,12 @@ namespace SkiResortMod.Systems
             // this much per top-up window — guns off, groomed surface melts. Off-run
             // snow is never touched; on-run natural winter cover just melts a bit faster
             // than wilderness, which is what a dark, tracked, managed surface does.
-            public const float DecayPerTopupM = 0.02f;
+            // Field round 3 (2026-08-12): 0.02 m/top-up drained a run in seconds of real
+            // time — read as an on/off switch, not melt ("areas around the trails
+            // instantly melt"). 0.004 m stretches a 0.12 m pack over ~30 top-up windows,
+            // and the per-texel thermal line does the spatial shaping (bottom melts
+            // first) — together it reads as weather, not a toggle.
+            public const float DecayPerTopupM = 0.004f;
 
             // Season gates. SnowmakingMarginC MUST track the meaning (and value) of
             // SkiResortAttractivenessSystem.Tuning.SnowmakingMarginC — the attractiveness
@@ -142,7 +151,10 @@ namespace SkiResortMod.Systems
             // the whole consistency argument. Groomed runs only get help while ambient
             // hovers near freezing (early-season grooming; summer = bare).
             public const float SnowmakingMarginC = 2f;
-            public const float GroomedAmbientMarginC = 2f;
+            // Per-texel thermal margins (field round 3): snow guns work down to
+            // freezing+SnowmakingMarginC at each texel's own elevation; groomed runs get
+            // held snow only where it is locally at/below freezing+GroomedMarginC.
+            public const float GroomedMarginC = 0f;
 
             // Cadence: melt between top-ups is millimetres against a 250-350 mm target
             // (doc §4 — even 256 frames would stay invisible), so 64 sim frames carries
@@ -331,14 +343,15 @@ namespace SkiResortMod.Systems
 
                 m_Armed = true;
                 m_InitialTopupPending = true; // first sim tick after load tops up immediately
-                Mod.Log.Info("Snow: ARMED — targets: snowmaking " +
-                             $"{Tuning.SnowmakingTargetDepthM:F2} m when T_local(run mean elev) <= " +
-                             $"freezing+{Tuning.SnowmakingMarginC:F1} C (attractiveness margin), " +
-                             $"groomed {Tuning.GroomedTargetDepthM:F2} m when ambient <= " +
-                             $"freezing+{Tuning.GroomedAmbientMarginC:F1} C; top-up every " +
+                Mod.Log.Info("Snow: ARMED — PER-TEXEL thermal line: snowmaking " +
+                             $"{Tuning.SnowmakingTargetDepthM:F2} m where T_local(texel elev) <= " +
+                             $"freezing+{Tuning.SnowmakingMarginC:F1} C, groomed " +
+                             $"{Tuning.GroomedTargetDepthM:F2} m where <= " +
+                             $"freezing+{Tuning.GroomedMarginC:F1} C; too-warm texels decay " +
+                             $"-{Tuning.DecayPerTopupM:F3} m/top-up (bottom-up melt); top-up every " +
                              $"{Tuning.TopupIntervalFrames} sim frames + once on first sim tick; " +
-                             $"mask supersample {Tuning.SupersampleGrid}x{Tuning.SupersampleGrid}; " +
-                             $"log on count change or every {Tuning.LogEveryNthTopup}th top-up; " +
+                             $"mask supersample {Tuning.SupersampleGrid}x{Tuning.SupersampleGrid}, " +
+                             "fringe contained to run footprints; " +
                              $"{m_SnowmakingPrefabs.Count} snowmaking + {m_GroomedPrefabs.Count} " +
                              "groomed run prefab(s) watched");
             }
@@ -518,8 +531,9 @@ namespace SkiResortMod.Systems
                              $"{stats.GroomedActive}/{stats.GroomedTotal} groomed " +
                              $"@ {Tuning.GroomedTargetDepthM:F2} m, {stats.Triangles} triangle(s)), " +
                              $"ambient {ambient:F1} C, skipped: " +
-                             $"{stats.SnowmakingTotal - stats.SnowmakingActive} warm-snowmaking, " +
-                             $"{stats.GroomedTotal - stats.GroomedActive} warm-groomed, " +
+                             $"{stats.SnowmakingTotal - stats.SnowmakingActive} snowmaking + " +
+                             $"{stats.GroomedTotal - stats.GroomedActive} groomed run(s) fully " +
+                             $"below the line, snow line ~{m_SnowLineSystem.GetSnowLineElevation():F0} m, " +
                              $"{timer.Elapsed.TotalMilliseconds:F1} ms" +
                              (injected == 0 && lowered == 0
                                  ? " (no-op: nothing to raise or melt)" : ""));
@@ -632,19 +646,17 @@ namespace SkiResortMod.Systems
 
             var stats = default(MaskStats);
             float2 texelSize = playSize / TexSize;
-            bool groomedGateOpen = ambient <= freezing + Tuning.GroomedAmbientMarginC;
+            TerrainHeightData heightData = m_TerrainSystem.GetHeightData();
 
             var chunks = m_RunScanQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
             {
                 var prefabRefHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
-                var geometryHandle = GetComponentTypeHandle<Geometry>(isReadOnly: true);
                 var triangleHandle = GetBufferTypeHandle<Triangle>(isReadOnly: true);
                 var nodeHandle = GetBufferTypeHandle<Node>(isReadOnly: true);
                 for (int c = 0; c < chunks.Length; c++)
                 {
                     var prefabRefs = chunks[c].GetNativeArray(ref prefabRefHandle);
-                    var geometries = chunks[c].GetNativeArray(ref geometryHandle);
                     var triangleAccessor = chunks[c].GetBufferAccessor(ref triangleHandle);
                     var nodeAccessor = chunks[c].GetBufferAccessor(ref nodeHandle);
                     for (int i = 0; i < prefabRefs.Length; i++)
@@ -654,34 +666,35 @@ namespace SkiResortMod.Systems
                         if (!snowmaking && !groomed)
                             continue;
 
-                        // Gate-OFF runs still rasterize — into the DECAY mask, so managed
-                        // melt clears them (field round 2: buffer melt alone never does).
+                        // PER-TEXEL THERMAL LINE (2026-08-12 user round, "melt from the
+                        // bottom up"): gating moved from per-run mean elevation into the
+                        // fold — each texel injects or decays by the temperature at ITS
+                        // OWN elevation, so the snow line literally crosses a run: top
+                        // white, bottom bare, boundary creeping with the season.
                         float targetM;
-                        bool gateOpen;
+                        float thermalThresholdC;
                         if (snowmaking)
                         {
                             stats.SnowmakingTotal++;
-                            // Snow guns: local temperature at the run's mean elevation,
-                            // via the validated lapse — the attractiveness gate verbatim.
-                            Bounds3 bounds = geometries[i].m_Bounds;
-                            float meanElevation = (bounds.min.y + bounds.max.y) * 0.5f;
-                            gateOpen = m_SnowLineSystem.GetLocalTemperature(meanElevation) <=
-                                freezing + Tuning.SnowmakingMarginC;
-                            if (gateOpen)
-                                stats.SnowmakingActive++;
                             targetM = Tuning.SnowmakingTargetDepthM;
+                            thermalThresholdC = freezing + Tuning.SnowmakingMarginC;
                         }
                         else
                         {
                             stats.GroomedTotal++;
-                            gateOpen = groomedGateOpen;
-                            if (gateOpen)
-                                stats.GroomedActive++;
                             targetM = Tuning.GroomedTargetDepthM;
+                            thermalThresholdC = freezing + Tuning.GroomedMarginC;
                         }
 
-                        RasterizeRun(triangleAccessor[i], nodeAccessor[i],
-                            playOffset, texelSize, targetM / SnowHeightScaleM, gateOpen, ref stats);
+                        int injectTexelsBefore = stats.MaskTexels;
+                        RasterizeRun(triangleAccessor[i], nodeAccessor[i], playOffset,
+                            texelSize, targetM / SnowHeightScaleM, thermalThresholdC,
+                            ref heightData, ref stats);
+                        if (stats.MaskTexels > injectTexelsBefore)
+                        {
+                            if (snowmaking) stats.SnowmakingActive++;
+                            else stats.GroomedActive++;
+                        }
                     }
                 }
             }
@@ -697,7 +710,8 @@ namespace SkiResortMod.Systems
         /// clears — cost stays proportional to run area). Texels beyond the playable area
         /// are clipped: the snow map ends there (doc §11.5, backdrop runs get nothing).</summary>
         private void RasterizeRun(DynamicBuffer<Triangle> triangles, DynamicBuffer<Node> nodes,
-            float2 playOffset, float2 texelSize, float targetNorm, bool gateOpen, ref MaskStats stats)
+            float2 playOffset, float2 texelSize, float targetNorm, float thermalThresholdC,
+            ref TerrainHeightData heightData, ref MaskStats stats)
         {
             const int s = Tuning.SupersampleGrid;
             const float subStep = 1f / s;
@@ -755,20 +769,26 @@ namespace SkiResortMod.Systems
             if (runX0 > runX1)
                 return; // no coverage (degenerate or fully off-map)
 
-            // Fold pass (edge-ragged, two passes because the neighborhood blur must read
-            // the scratch plane intact): per texel, blur this run's coverage over a
-            // (2F+1)² window, then threshold against two-octave deterministic noise —
-            // interior texels (blur ≈ 1) always pass at full target; boundary texels pass
-            // partially/never depending on the local noise, so the contour wanders in
-            // organic lobes over ~2-4 texels instead of tracing the polygon isoline.
+            // Fold pass (edge-ragged, CONTAINED, per-texel thermal): two passes because the
+            // neighborhood blur must read the scratch plane intact. Per texel:
+            //   * containment (field round 3): only texels the polygon ACTUALLY TOUCHES
+            //     emit anything — the old ±F expansion put a snow/decay halo OUTSIDE the
+            //     decal footprint ("snow instantly appears around the edges of trails");
+            //     the blur still reads ±F neighbors, so edge texels fade INSIDE the run.
+            //   * thermal routing: temperature at THIS texel's elevation decides inject
+            //     vs decay — the snow line crosses the run, bottom-up melt for free.
+            //   * noise threshold + fringe cap as before (ragged contour, sub-saturation
+            //     fringe depths).
             const int F = Tuning.EdgeFeatherTexels;
             const float windowNorm = 1f / ((2 * F + 1) * (2 * F + 1));
-            int foldX0 = math.max(0, runX0 - F), foldX1 = math.min(TexSize - 1, runX1 + F);
-            int foldY0 = math.max(0, runY0 - F), foldY1 = math.min(TexSize - 1, runY1 + F);
-            for (int ty = foldY0; ty <= foldY1; ty++)
+            for (int ty = runY0; ty <= runY1; ty++)
             {
-                for (int tx = foldX0; tx <= foldX1; tx++)
+                for (int tx = runX0; tx <= runX1; tx++)
                 {
+                    int idx = ty * TexSize + tx;
+                    if (m_Scratch[idx] <= 0f)
+                        continue; // containment: outside the polygon, emit nothing
+
                     float sum = 0f;
                     for (int dy = -F; dy <= F; dy++)
                     {
@@ -790,14 +810,15 @@ namespace SkiResortMod.Systems
                     if (blurred <= 0f)
                         continue;
 
-                    int idx = ty * TexSize + tx;
-
-                    // Gate OFF: this run only marks its footprint for managed melt — a
-                    // plain (noise-free) coverage test so the whole former snow footprint,
-                    // fringe included, decays.
-                    if (!gateOpen)
+                    // Thermal routing: sample this texel's terrain elevation and gate by
+                    // the lapsed local temperature. Too warm here → managed melt.
+                    float wx = playOffset.x + (tx + 0.5f) * texelSize.x;
+                    float wz = playOffset.y + (ty + 0.5f) * texelSize.y;
+                    float elevation = TerrainUtils.SampleHeight(ref heightData,
+                        new float3(wx, 0f, wz));
+                    if (m_SnowLineSystem.GetLocalTemperature(elevation) > thermalThresholdC)
                     {
-                        if (blurred > 0.05f && m_DecayMask[idx] == 0f)
+                        if (m_DecayMask[idx] == 0f)
                         {
                             m_DecayMask[idx] = 1f;
                             stats.DecayTexels++;

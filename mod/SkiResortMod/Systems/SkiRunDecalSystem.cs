@@ -122,7 +122,17 @@ namespace SkiResortMod.Systems
             // snow-mask change (two calibration rounds were judged against this artifact).
             // The layer is evidently not snow-map-driven by texture presence alone; the
             // T5 probe must settle the _Snow scalar/keyword semantics before re-enabling.
+            // (Later probe note: vanilla itself binds snowalbedo2 defaults there — see
+            // ledger 62 — but the disable stands until the driver is understood.)
             public static readonly bool ApplySnowSlots = false;
+
+            // Seasonal dress (2026-08-12 user round: "trails look absurd in summer"):
+            // summer wears the green mowed-grass set, winter the wear/corduroy set.
+            // Hysteresis so the boundary can't flap: winter-look turns ON at ambient <=
+            // freezing + On, OFF at ambient > freezing + Off.
+            public const int SeasonCheckFrames = 1024;
+            public const float WinterLookOnC = 2f;
+            public const float WinterLookOffC = 3f;
         }
 
         // Run surfaces — same tolerant name resolution as the sibling systems.
@@ -140,6 +150,10 @@ namespace SkiResortMod.Systems
         // Snow slots reuse the EXISTING splat winter pair — one corduroy source of truth.
         private const string SnowBaseColorFile = "SkiTerrainSnowCorduroy_BaseColor.png";
         private const string SnowNormalFile = "SkiTerrainSnowCorduroy_Normal.png";
+        // Shared summer dress (both run types): green mowed-grass stripes — the same set
+        // the splat route uses, so the two rendering paths agree on what summer looks like.
+        private const string SummerBaseColorFile = "SkiTerrainSummerRun_BaseColor.png";
+        private const string SummerNormalFile = "SkiTerrainSummerRun_Normal.png";
 
         // Shader property names (area-material-override.md §1.1 inventory; every use below
         // is gated on the live shader's ACTUAL property table, so a game patch renaming one
@@ -223,6 +237,15 @@ namespace SkiResortMod.Systems
         private bool m_PrefabsResolved;
         private Texture2D m_SnowBaseColorTex;
         private Texture2D m_SnowNormalTex;
+        private Texture2D m_SummerBaseColorTex;
+        private Texture2D m_SummerNormalTex;
+        private TextureAsset m_SummerBaseColorAsset;
+        private TextureAsset m_SummerNormalAsset;
+        private SnowLineSystem m_SnowLineSystem;
+
+        // Seasonal look state (per-load evaluated, hysteresis in EvaluateWinterLook).
+        private bool m_WinterLook;
+        private int m_FramesUntilSeasonCheck;
 
         // Per-load state.
         private bool m_GameMode;                // prefab-ref patching is Game-mode-only
@@ -242,6 +265,7 @@ namespace SkiResortMod.Systems
         {
             base.OnCreate();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
+            m_SnowLineSystem = World.GetOrCreateSystemManaged<SnowLineSystem>();
             m_PrefabScanQuery = GetEntityQuery(ComponentType.ReadOnly<PrefabData>());
             m_Targets = new[]
             {
@@ -319,6 +343,9 @@ namespace SkiResortMod.Systems
                 m_PendingCount = resolved;
                 m_FramesUntilGiveUp = Tuning.BatchFindDeadlineFrames;
                 m_FramesUntilReassert = Tuning.ReassertCheckFrames;
+                m_FramesUntilSeasonCheck = Tuning.SeasonCheckFrames;
+                m_WinterLook = EvaluateWinterLook();
+                Mod.Log.Info($"Decal [season]: initial dress {(m_WinterLook ? "WINTER (wear/corduroy)" : "SUMMER (green mowed-grass)")}");
                 Mod.Log.Info($"Decal: armed — watching for {resolved} live batch material(s) " +
                              $"(retry every {Tuning.FindRetryIntervalFrames} frames, deadline " +
                              $"~{Tuning.BatchFindDeadlineFrames} frames; probe dump on first find)");
@@ -356,6 +383,25 @@ namespace SkiResortMod.Systems
                 {
                     m_FramesUntilReassert = Tuning.ReassertCheckFrames;
                     Reassert();
+                }
+
+                // Seasonal dress check — cheap, hysteresis-guarded; on a flip every
+                // applied material gets re-dressed with the season-active pair (prefab
+                // references included, so the game's own re-binds stay in season too).
+                if (m_AppliedCount > 0 && --m_FramesUntilSeasonCheck <= 0)
+                {
+                    m_FramesUntilSeasonCheck = Tuning.SeasonCheckFrames;
+                    bool winter = EvaluateWinterLook();
+                    if (winter != m_WinterLook)
+                    {
+                        m_WinterLook = winter;
+                        Mod.Log.Info($"Decal [season]: {(winter ? "-> WINTER dress (wear/corduroy set)" : "-> SUMMER dress (green mowed-grass set)")} — re-dressing {m_AppliedCount} material(s)");
+                        foreach (Target target in m_Targets)
+                        {
+                            if (target.Applied && target.Material != null)
+                                ApplyToMaterial(target);
+                        }
+                    }
                 }
             }
             catch (Exception e)
@@ -509,11 +555,23 @@ namespace SkiResortMod.Systems
             //    re-assert sentinel from here on is pure verification. Game mode only —
             //    editor saves must never capture runtime user-db references (OnGamePreload
             //    restores the originals before any editor session).
+            // Season-active pair (2026-08-12 seasonal dress): winter = the per-run
+            // wear/corduroy set, summer = the shared green mowed-grass set (falls back to
+            // the winter pair if the summer files are missing).
+            Texture2D activeBaseTex = m_WinterLook || m_SummerBaseColorTex == null
+                ? target.BaseColorTex : m_SummerBaseColorTex;
+            Texture2D activeNormalTex = m_WinterLook || m_SummerNormalTex == null
+                ? target.NormalTex : m_SummerNormalTex;
+            TextureAsset activeBaseAsset = m_WinterLook || m_SummerBaseColorAsset == null
+                ? target.BaseColorAsset : m_SummerBaseColorAsset;
+            TextureAsset activeNormalAsset = m_WinterLook || m_SummerNormalAsset == null
+                ? target.NormalAsset : m_SummerNormalAsset;
+
             target.BasePairSet =
-                TrySetTexture(target, props, BaseColorMapProperty, target.BaseColorTex) &
-                TrySetTexture(target, props, NormalMapProperty, target.NormalTex);
+                TrySetTexture(target, props, BaseColorMapProperty, activeBaseTex) &
+                TrySetTexture(target, props, NormalMapProperty, activeNormalTex);
             if (m_GameMode && target.Rendered != null &&
-                target.BaseColorAsset != null && target.NormalAsset != null)
+                activeBaseAsset != null && activeNormalAsset != null)
             {
                 if (!target.OrigRefsCaptured)
                 {
@@ -521,8 +579,8 @@ namespace SkiResortMod.Systems
                     target.OrigNormalRef = target.Rendered.m_NormalMap;
                     target.OrigRefsCaptured = true;
                 }
-                target.Rendered.m_BaseColorMap = target.BaseColorAsset;
-                target.Rendered.m_NormalMap = target.NormalAsset;
+                target.Rendered.m_BaseColorMap = activeBaseAsset;
+                target.Rendered.m_NormalMap = activeNormalAsset;
             }
 
             // 2) Snow slots — DISABLED pending T5 (Tuning.ApplySnowSlots): binding textures
@@ -810,13 +868,33 @@ namespace SkiResortMod.Systems
                 m_SnowBaseColorTex = LoadPng(dir, SnowBaseColorFile, linear: false, missing);
             if (m_SnowNormalTex == null)
                 m_SnowNormalTex = LoadPng(dir, SnowNormalFile, linear: true, missing);
+            if (m_SummerBaseColorTex == null)
+                m_SummerBaseColorTex = LoadPng(dir, SummerBaseColorFile, linear: false, missing);
+            if (m_SummerNormalTex == null)
+                m_SummerNormalTex = LoadPng(dir, SummerNormalFile, linear: true, missing);
+            if (m_SummerBaseColorAsset == null && m_SummerBaseColorTex != null)
+                m_SummerBaseColorAsset = RegisterTextureAsset(m_SummerBaseColorTex);
+            if (m_SummerNormalAsset == null && m_SummerNormalTex != null)
+                m_SummerNormalAsset = RegisterTextureAsset(m_SummerNormalTex);
 
             if (missing.Count > 0)
-                Mod.Log.Warn($"Decal: {missing.Count} of 6 texture file(s) unavailable under " +
+                Mod.Log.Warn($"Decal: {missing.Count} of 8 texture file(s) unavailable under " +
                              $"'{dir}': {string.Join(", ", missing)} — those applications are " +
                              "skipped this load (retried next load); everything else proceeds");
             else
-                Mod.Log.Info($"Decal: 6 texture file(s) ready under '{dir}' (cached across loads)");
+                Mod.Log.Info($"Decal: 8 texture file(s) ready under '{dir}' (cached across loads)");
+        }
+
+        /// <summary>Winter-look hysteresis: ON at ambient <= freezing + WinterLookOnC, OFF at
+        /// ambient > freezing + WinterLookOffC — the boundary can't flap. Pull-based reads
+        /// off the SnowLineSystem climate oracle; safe at any load phase.</summary>
+        private bool EvaluateWinterLook()
+        {
+            float ambient = m_SnowLineSystem.GetAmbientTemperature();
+            float freezing = m_SnowLineSystem.GetFreezingTemperature();
+            return m_WinterLook
+                ? ambient <= freezing + Tuning.WinterLookOffC
+                : ambient <= freezing + Tuning.WinterLookOnC;
         }
 
         /// <summary>User-db TextureAsset wrapping an already-loaded texture (SkiRunSplatSystem
