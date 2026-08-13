@@ -75,6 +75,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Colossal.IO.AssetDatabase;
 using Colossal.Serialization.Entities;
 using Game;
 using Game.Prefabs;
@@ -171,6 +172,16 @@ namespace SkiResortMod.Systems
             public RenderedArea Rendered;      // managed prefab component (scalar mirror)
             public Texture2D BaseColorTex;
             public Texture2D NormalTex;
+            // v2 (the tug-of-war fix): the same textures wrapped as user-db TextureAssets,
+            // written into the PREFAB's texture references so the game's own batch
+            // re-derivation propagates OUR textures instead of re-binding the originals
+            // (field-proven 2026-08-12: the game re-bound the Editor whites twice in
+            // 2.5 min; the live-material swap perpetually lost the race).
+            public TextureAsset BaseColorAsset;
+            public TextureAsset NormalAsset;
+            public AssetReference<TextureAsset> OrigBaseColorRef;
+            public AssetReference<TextureAsset> OrigNormalRef;
+            public bool OrigRefsCaptured;
 
             // Per-load.
             public Material Material;          // the live clone (Destroyed on batch rebuild)
@@ -214,6 +225,7 @@ namespace SkiResortMod.Systems
         private Texture2D m_SnowNormalTex;
 
         // Per-load state.
+        private bool m_GameMode;                // prefab-ref patching is Game-mode-only
         private bool m_Active;
         private bool m_Disabled;                // tripped by the catch; re-armed per load
         private bool m_ErrorLogged;             // one "!!!" with stack per load
@@ -239,9 +251,31 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"{nameof(SkiRunDecalSystem)} created");
         }
 
+        /// <summary>Editor safety (v2): the prefab texture-reference patch must never be
+        /// captured by an editor save of the surface asset — restore the JSON-original
+        /// references before any editor session (same anti-contamination doctrine as
+        /// SkiRunSplatSystem's claim reversion).</summary>
+        protected override void OnGamePreload(Purpose purpose, GameMode mode)
+        {
+            base.OnGamePreload(purpose, mode);
+            if (mode != GameMode.Editor || m_Targets == null)
+                return;
+            foreach (Target target in m_Targets)
+            {
+                if (!target.OrigRefsCaptured || target.Rendered == null)
+                    continue;
+                target.Rendered.m_BaseColorMap = target.OrigBaseColorRef;
+                target.Rendered.m_NormalMap = target.OrigNormalRef;
+                Mod.Log.Info($"Decal: restored '{target.PrefabName}' original texture " +
+                             "references ahead of an editor load (editor saves must never " +
+                             "capture runtime user-db assets)");
+            }
+        }
+
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
         {
             base.OnGameLoadingComplete(purpose, mode);
+            m_GameMode = mode == GameMode.Game;
 
             // Re-arm and reset per load, whatever the mode — the batch clones this system
             // mutated last load are gone (prefab Deleted/Created rebuilds them per load).
@@ -466,11 +500,30 @@ namespace SkiResortMod.Systems
             target.AppliedTextures.Clear();
             target.AppliedFloats.Clear();
 
-            // 1) Our decal texture pair — live material ONLY (prefab fields are asset
-            //    references; see header). '&' not '&&': both attempts must always run.
+            // 1) Our decal texture pair — live material for immediacy, AND (v2, the
+            //    tug-of-war fix) the PREFAB's texture references via runtime TextureAssets:
+            //    AreaBatchSystem re-derives batch material state from the prefab component,
+            //    so a live-only swap perpetually loses to the game's re-binds (field log
+            //    2026-08-12: original whites re-bound twice in 2.5 min). With the prefab
+            //    references patched, the game's own re-binds propagate OUR textures; the
+            //    re-assert sentinel from here on is pure verification. Game mode only —
+            //    editor saves must never capture runtime user-db references (OnGamePreload
+            //    restores the originals before any editor session).
             target.BasePairSet =
                 TrySetTexture(target, props, BaseColorMapProperty, target.BaseColorTex) &
                 TrySetTexture(target, props, NormalMapProperty, target.NormalTex);
+            if (m_GameMode && target.Rendered != null &&
+                target.BaseColorAsset != null && target.NormalAsset != null)
+            {
+                if (!target.OrigRefsCaptured)
+                {
+                    target.OrigBaseColorRef = target.Rendered.m_BaseColorMap;
+                    target.OrigNormalRef = target.Rendered.m_NormalMap;
+                    target.OrigRefsCaptured = true;
+                }
+                target.Rendered.m_BaseColorMap = target.BaseColorAsset;
+                target.Rendered.m_NormalMap = target.NormalAsset;
+            }
 
             // 2) Snow slots — DISABLED pending T5 (Tuning.ApplySnowSlots): binding textures
             //    into empty slots turned the layer permanently on (solid white immune to
@@ -744,6 +797,14 @@ namespace SkiResortMod.Systems
                     target.BaseColorTex = LoadPng(dir, target.BaseColorFileName, linear: false, missing);
                 if (target.NormalTex == null)
                     target.NormalTex = LoadPng(dir, target.NormalFileName, linear: true, missing);
+
+                // v2: wrap the same textures as user-db TextureAssets (in-memory index
+                // entry only, never Saved — the SkiRunSplatSystem claim pattern) so the
+                // PREFAB's texture references can point at them (ApplyToMaterial).
+                if (target.BaseColorAsset == null && target.BaseColorTex != null)
+                    target.BaseColorAsset = RegisterTextureAsset(target.BaseColorTex);
+                if (target.NormalAsset == null && target.NormalTex != null)
+                    target.NormalAsset = RegisterTextureAsset(target.NormalTex);
             }
             if (m_SnowBaseColorTex == null)
                 m_SnowBaseColorTex = LoadPng(dir, SnowBaseColorFile, linear: false, missing);
@@ -756,6 +817,18 @@ namespace SkiResortMod.Systems
                              "skipped this load (retried next load); everything else proceeds");
             else
                 Mod.Log.Info($"Decal: 6 texture file(s) ready under '{dir}' (cached across loads)");
+        }
+
+        /// <summary>User-db TextureAsset wrapping an already-loaded texture (SkiRunSplatSystem
+        /// pattern): AddAsset creates an in-memory index entry only, SetData-pinned by the
+        /// AddAsset overload, nothing ever written to disk. Reuse-safe across loads.</summary>
+        private static TextureAsset RegisterTextureAsset(Texture2D texture)
+        {
+            ILocalAssetDatabase db = AssetDatabase.user;
+            AssetDataPath assetPath = AssetDataPath.Create(nameof(SkiResortMod), texture.name);
+            if (db.Exists(assetPath, out TextureAsset existing) && existing != null)
+                return existing;
+            return db.AddAsset<TextureAsset, Texture>(assetPath, texture);
         }
 
         private static Texture2D LoadPng(string dir, string fileName, bool linear, List<string> missing)

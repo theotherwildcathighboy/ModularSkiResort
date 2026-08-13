@@ -195,6 +195,7 @@ namespace SkiResortMod.Systems
             public int GroomedTotal, GroomedActive;
             public int Triangles;
             public int MaskTexels;
+            public int DecayTexels;
         }
 
         private SnowSystem m_SnowSystem;
@@ -418,10 +419,15 @@ namespace SkiResortMod.Systems
                 SetIdle("no run polygons placed");
                 return;
             }
-            if (stats.MaskTexels == 0)
+            // FIELD BUG FIX 2026-08-12: this early-out previously fired whenever ALL gates
+            // were off — which is EXACTLY when managed decay must run. Idle only when there
+            // is neither anything to inject NOR anything to decay; a gates-off pass with
+            // decay coverage proceeds to the merge (0 raised, N lowered).
+            if (stats.MaskTexels == 0 && stats.DecayTexels == 0)
             {
                 SetIdle($"all {totalRuns} run(s) gated off — too warm " +
-                        $"(ambient {ambient:F1} C, freezing {freezing:F1} C)");
+                        $"(ambient {ambient:F1} C, freezing {freezing:F1} C) and nothing " +
+                        "left to melt in their footprints");
                 return;
             }
 
@@ -791,8 +797,11 @@ namespace SkiResortMod.Systems
                     // fringe included, decays.
                     if (!gateOpen)
                     {
-                        if (blurred > 0.05f)
+                        if (blurred > 0.05f && m_DecayMask[idx] == 0f)
+                        {
                             m_DecayMask[idx] = 1f;
+                            stats.DecayTexels++;
+                        }
                         continue;
                     }
 
