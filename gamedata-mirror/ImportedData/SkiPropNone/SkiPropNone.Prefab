@@ -1,0 +1,38 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.StaticObjectPrefab, Game",
+    "name": "SkiPropNone",
+    "active": true,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.SpawnableObject, Game",
+                "name": "SpawnableObject",
+                "active": true,
+                "m_Placeholders": {
+                    "$id": 3,
+                    "$type": "3|Game.Prefabs.ObjectPrefab[], Game",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        $fstrref:"CID:b85487595016d79b842fcd7bfef0dd34",
+                        $fstrref:"CID:11af4828ac1e5a7f3c1a1f6caa8e2c66"
+                    ]
+                },
+                "m_Probability": 50,
+                "m_RandomizationGroup": null
+            }
+        ]
+    },
+    "m_Meshes": {
+        "$id": 4,
+        "$type": "4|Game.Prefabs.ObjectMeshInfo[], Game",
+        "$rlength": 0,
+        "$rcontent": [
+        ]
+    },
+    "m_Circular": false
+}

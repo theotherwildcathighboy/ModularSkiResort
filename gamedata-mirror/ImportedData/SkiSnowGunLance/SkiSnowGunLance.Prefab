@@ -1,0 +1,86 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.StaticObjectPrefab, Game",
+    "name": "SkiSnowGunLance",
+    "active": true,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 3,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.SpawnableObject, Game",
+                "name": "SpawnableObject",
+                "active": true,
+                "m_Placeholders": {
+                    "$id": 3,
+                    "$type": "3|Game.Prefabs.ObjectPrefab[], Game",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        $fstrref:"CID:b85487595016d79b842fcd7bfef0dd34",
+                        $fstrref:"CID:11af4828ac1e5a7f3c1a1f6caa8e2c66"
+                    ]
+                },
+                "m_Probability": 17,
+                "m_RandomizationGroup": null
+            },
+            {
+                "$id": 4,
+                "$type": "4|Game.Prefabs.SubObjectDefaultProbability, Game",
+                "name": "SubObjectDefaultProbability",
+                "active": true,
+                "m_DefaultProbability": 100,
+                "m_RotationSymmetry": 0
+            },
+            {
+                "$id": 5,
+                "$type": "5|Game.Prefabs.StandingObject, Game",
+                "name": "StandingObject",
+                "active": true,
+                "m_LegSize": {
+                    "$type": "6|Unity.Mathematics.float3, Unity.Mathematics",
+                    "x": 0.6,
+                    "y": 6.82,
+                    "z": 0.6
+                },
+                "m_LegGap": {
+                    "$type": "7|Unity.Mathematics.float2, Unity.Mathematics",
+                    "x": 0,
+                    "y": 0
+                },
+                "m_CircularLeg": false
+            }
+        ]
+    },
+    "m_Meshes": {
+        "$id": 6,
+        "$type": "8|Game.Prefabs.ObjectMeshInfo[], Game",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 7,
+                "$type": "9|Game.Prefabs.ObjectMeshInfo, Game",
+                "m_Mesh": $fstrref:"CID:c7c7964284c9aa34069375ae87f557ce",
+                "m_Position": {
+                    "$type": 6,
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                },
+                "m_Rotation": {
+                    "$type": "10|Unity.Mathematics.quaternion, Unity.Mathematics",
+                    "value": {
+                        "$type": "11|Unity.Mathematics.float4, Unity.Mathematics",
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    }
+                },
+                "m_RequireState": 0
+            }
+        ]
+    },
+    "m_Circular": false
+}

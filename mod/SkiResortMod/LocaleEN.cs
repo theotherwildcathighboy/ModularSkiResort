@@ -89,6 +89,12 @@ namespace SkiResortMod
                     "A groomed run with snowmaking coverage — holds its season longer and " +
                     "scores attractiveness in marginal weather."
                 },
+                { "Assets.NAME[SkiRunNightA]", "Night Skiing Run" },
+                {
+                    "Assets.DESCRIPTION[SkiRunNightA]",
+                    "A snowmaking run with floodlighting for a second, after-dark shift — " +
+                    "the most expensive trail to keep open, and the biggest draw."
+                },
             };
         }
 

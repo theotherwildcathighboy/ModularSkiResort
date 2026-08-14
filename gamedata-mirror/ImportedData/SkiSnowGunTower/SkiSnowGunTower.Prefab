@@ -1,0 +1,136 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.StaticObjectPrefab, Game",
+    "name": "SkiSnowGunTower",
+    "active": true,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 4,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.SpawnableObject, Game",
+                "name": "SpawnableObject",
+                "active": true,
+                "m_Placeholders": {
+                    "$id": 3,
+                    "$type": "3|Game.Prefabs.ObjectPrefab[], Game",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        $fstrref:"CID:b85487595016d79b842fcd7bfef0dd34",
+                        $fstrref:"CID:11af4828ac1e5a7f3c1a1f6caa8e2c66"
+                    ]
+                },
+                "m_Probability": 25,
+                "m_RandomizationGroup": null
+            },
+            {
+                "$id": 4,
+                "$type": "4|Game.Prefabs.SubObjectDefaultProbability, Game",
+                "name": "SubObjectDefaultProbability",
+                "active": true,
+                "m_DefaultProbability": 100,
+                "m_RotationSymmetry": 0
+            },
+            {
+                "$id": 5,
+                "$type": "5|Game.Prefabs.StandingObject, Game",
+                "name": "StandingObject",
+                "active": true,
+                "m_LegSize": {
+                    "$type": "6|Unity.Mathematics.float3, Unity.Mathematics",
+                    "x": 0.8,
+                    "y": 6.25,
+                    "z": 0.8
+                },
+                "m_LegGap": {
+                    "$type": "7|Unity.Mathematics.float2, Unity.Mathematics",
+                    "x": 0,
+                    "y": 0
+                },
+                "m_CircularLeg": false
+            },
+            {
+                "$id": 6,
+                "$type": "8|Game.Prefabs.EffectSource, Game",
+                "name": "EffectSource",
+                "active": true,
+                "m_Effects": {
+                    "$id": 7,
+                    "$type": "9|System.Collections.Generic.List`1[[Game.Prefabs.EffectSource+EffectSettings, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 8,
+                            "$type": "10|Game.Prefabs.EffectSource+EffectSettings, Game",
+                            "m_Effect": $fstrref:"CID:d487a21aa832aaea20c94fb8d04ac3f4",
+                            "m_PositionOffset": {
+                                "$type": 6,
+                                "x": 0,
+                                "y": 1.01,
+                                "z": 0
+                            },
+                            "m_Rotation": {
+                                "$type": "11|Unity.Mathematics.quaternion, Unity.Mathematics",
+                                "value": {
+                                    "$type": "12|Unity.Mathematics.float4, Unity.Mathematics",
+                                    "x": 0,
+                                    "y": 0,
+                                    "z": 0,
+                                    "w": 1
+                                }
+                            },
+                            "m_Scale": {
+                                "$type": 6,
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            },
+                            "m_Intensity": 1,
+                            "m_ParentMesh": 0,
+                            "m_AnimationIndex": -1
+                        }
+                    ]
+                },
+                "m_AnimationCurves": {
+                    "$id": 9,
+                    "$type": "13|System.Collections.Generic.List`1[[Game.Prefabs.EffectSource+AnimationProperties, Game]], mscorlib",
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                }
+            }
+        ]
+    },
+    "m_Meshes": {
+        "$id": 10,
+        "$type": "14|Game.Prefabs.ObjectMeshInfo[], Game",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 11,
+                "$type": "15|Game.Prefabs.ObjectMeshInfo, Game",
+                "m_Mesh": $fstrref:"CID:d9809e3233ee017cbae8a0ff8fa0b3b7",
+                "m_Position": {
+                    "$type": 6,
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                },
+                "m_Rotation": {
+                    "$type": 11,
+                    "value": {
+                        "$type": 12,
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    }
+                },
+                "m_RequireState": 0
+            }
+        ]
+    },
+    "m_Circular": false
+}

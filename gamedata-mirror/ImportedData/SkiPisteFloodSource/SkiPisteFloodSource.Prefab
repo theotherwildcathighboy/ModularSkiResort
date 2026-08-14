@@ -1,7 +1,7 @@
 {
     "$id": 0,
     "$type": "0|Game.Prefabs.EffectPrefab, Game",
-    "name": "SkiTestCtrlLightSource",
+    "name": "SkiPisteFloodSource",
     "active": true,
     "components": {
         "$id": 1,
@@ -13,10 +13,10 @@
                 "$type": "2|Game.Prefabs.Effects.LightEffect, Game",
                 "name": "LightEffect",
                 "active": true,
-                "m_Type": 1,
+                "m_Type": 0,
                 "m_SpotShape": 0,
                 "m_AreaShape": 0,
-                "m_Range": 22,
+                "m_Range": 30,
                 "m_Intensity": 10,
                 "m_LightIntensity": {
                     "$id": 3,
@@ -24,24 +24,24 @@
                     "m_Intensity": 10,
                     "m_LightUnit": 2
                 },
-                "m_LuxAtDistance": 40,
+                "m_LuxAtDistance": 14,
                 "m_LightUnit": 2,
                 "m_EnableSpotReflector": true,
-                "m_SpotAngle": 150,
-                "m_InnerSpotPercentage": 0,
+                "m_SpotAngle": 60,
+                "m_InnerSpotPercentage": 45,
                 "m_ShapeRadius": 0.025,
                 "m_AspectRatio": 1,
                 "m_ShapeWidth": 0.5,
                 "m_ShapeHeight": 0.5,
-                "m_UseColorTemperature": false,
+                "m_UseColorTemperature": true,
                 "m_Color": {
                     "$type": "4|UnityEngine.Color, UnityEngine.CoreModule",
-                    0.05,
                     1,
-                    0.15,
+                    0.9647059,
+                    0.921568632,
                     1
                 },
-                "m_ColorTemperature": 6570,
+                "m_ColorTemperature": 5000,
                 "m_Cookie": null,
                 "m_AffectDiffuse": true,
                 "m_AffectSpecular": true,
@@ -51,14 +51,14 @@
                 "m_BarnDoorAngle": 0,
                 "m_BarnDoorLength": 0,
                 "m_UseVolumetric": true,
-                "m_VolumetricDimmer": 1,
-                "m_VolumetricFadeDistance": 10000
+                "m_VolumetricDimmer": 0.6,
+                "m_VolumetricFadeDistance": 400
             }
         ]
     },
     "m_Conditions": {
         "$type": "5|Game.Prefabs.EffectCondition, Game",
-        "m_RequiredFlags": 0,
+        "m_RequiredFlags": 8192,
         "m_ForbiddenFlags": 0,
         "m_IntensityFlags": 0
     },

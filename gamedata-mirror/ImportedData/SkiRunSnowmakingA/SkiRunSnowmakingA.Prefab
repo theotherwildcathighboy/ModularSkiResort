@@ -107,7 +107,7 @@
                         {
                             "$id": 10,
                             "$type": "11|Game.Prefabs.AreaSubObjectInfo, Game",
-                            "m_Object": $fstrref:"CID:5e91b4d3a7c8426fb0d29a17c3e6f84a",
+                            "m_Object": $fstrref:"CID:b85487595016d79b842fcd7bfef0dd34",
                             "m_BorderPlacement": true
                         }
                     ]

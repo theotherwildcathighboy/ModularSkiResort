@@ -1,0 +1,146 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.SurfacePrefab, Game",
+    "name": "SkiRunNightA",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 5,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.RenderedArea, Game",
+                "name": "RenderedArea",
+                "active": true,
+                "m_Version": 1,
+                "m_Material": $fstrref:"UnityObjectsMap:a1b9ab64e2f648a4da17231062c1e066",
+                "m_Roundness": 0.8,
+                "m_LodBias": 2,
+                "m_RendererPriority": 12,
+                "m_DecalLayerMask": 1,
+                "m_BaseColor": {
+                    "$type": "3|UnityEngine.Color, UnityEngine.CoreModule",
+                    0.92,
+                    0.94,
+                    0.98,
+                    1
+                },
+                "m_BaseColorMap": $fstrref:"CID:85fbab5a34ad4d94b630eeb763477942",
+                "m_NormalMap": $fstrref:"CID:a8b9795efa204b4fb3dedf483692aa92",
+                "m_MaskMap": $fstrref:"CID:6ad2c33908004145a356b00eef625645",
+                "m_Metallic": 0,
+                "m_Smoothness": 0.5,
+                "m_NormalOpacity": 1,
+                "m_MetallicOpacity": 1,
+                "m_NormalAlphaSource": 0,
+                "m_MetallicAlphaSource": 0,
+                "m_UVScale": 0.06,
+                "m_EdgeNormal": 0.664,
+                "m_EdgeFadeRange": {
+                    "$type": "4|Unity.Mathematics.float2, Unity.Mathematics",
+                    "x": 0.55,
+                    "y": 0.45
+                },
+                "m_EdgeNormalRange": {
+                    "$type": 4,
+                    "x": 0.7,
+                    "y": 0.5
+                },
+                "m_EdgeNoise": {
+                    "$type": 4,
+                    "x": 1,
+                    "y": 1
+                }
+            },
+            {
+                "$id": 3,
+                "$type": "5|Game.Prefabs.UIObject, Game",
+                "name": "UIObject",
+                "active": true,
+                "m_Group": $fstrref:"UnityGUID:60c0e17c40a5f1b41bf9d2032670b81d",
+                "m_Priority": 32,
+                "m_Icon": "assetdb://global/bc121f42eed0fd6829eacccc5b69b4f8",
+                "m_IsDebugObject": false
+            },
+            {
+                "$id": 4,
+                "$type": "6|Game.Prefabs.ServiceObject, Game",
+                "name": "ServiceObject",
+                "active": true,
+                "m_Service": $fstrref:"UnityGUID:5930db6811522d34495a9e16c4fd4c18"
+            },
+            {
+                "$id": 5,
+                "$type": "7|Game.Prefabs.Unlockable, Game",
+                "name": "Unlockable",
+                "active": true,
+                "m_RequireAll": {
+                    "$id": 6,
+                    "$type": "8|Game.Prefabs.PrefabBase[], Game",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        $fstrref:"UnityGUID:3e47e765f44f210409edf4e6229fd0df"
+                    ]
+                },
+                "m_RequireAny": {
+                    "$id": 7,
+                    "$type": 8,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_IgnoreDependencies": false
+            },
+            {
+                "$id": 8,
+                "$type": "9|Game.Prefabs.AreaSubObjects, Game",
+                "name": "AreaSubObjects",
+                "active": true,
+                "m_SubObjects": {
+                    "$id": 9,
+                    "$type": "10|Game.Prefabs.AreaSubObjectInfo[], Game",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 10,
+                            "$type": "11|Game.Prefabs.AreaSubObjectInfo, Game",
+                            "m_Object": $fstrref:"CID:11af4828ac1e5a7f3c1a1f6caa8e2c66",
+                            "m_BorderPlacement": true
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "m_Color": {
+        "$type": 3,
+        0.98,
+        0.86,
+        0.55,
+        0.196078435
+    },
+    "m_EdgeColor": {
+        "$type": 3,
+        0.98,
+        0.86,
+        0.55,
+        0.392156869
+    },
+    "m_SelectionColor": {
+        "$type": 3,
+        1,
+        1,
+        1,
+        1
+    },
+    "m_SelectionEdgeColor": {
+        "$type": 3,
+        1,
+        1,
+        1,
+        1
+    }
+}

@@ -1,7 +1,7 @@
 {
     "$id": 0,
     "$type": "0|Game.Prefabs.EffectPrefab, Game",
-    "name": "SkiTestNightLightSource",
+    "name": "SkiSnowGunBeaconSource",
     "active": true,
     "components": {
         "$id": 1,
@@ -16,7 +16,7 @@
                 "m_Type": 1,
                 "m_SpotShape": 0,
                 "m_AreaShape": 0,
-                "m_Range": 22,
+                "m_Range": 5,
                 "m_Intensity": 10,
                 "m_LightIntensity": {
                     "$id": 3,
@@ -24,7 +24,7 @@
                     "m_Intensity": 10,
                     "m_LightUnit": 2
                 },
-                "m_LuxAtDistance": 40,
+                "m_LuxAtDistance": 5,
                 "m_LightUnit": 2,
                 "m_EnableSpotReflector": true,
                 "m_SpotAngle": 150,
@@ -33,12 +33,12 @@
                 "m_AspectRatio": 1,
                 "m_ShapeWidth": 0.5,
                 "m_ShapeHeight": 0.5,
-                "m_UseColorTemperature": false,
+                "m_UseColorTemperature": true,
                 "m_Color": {
                     "$type": "4|UnityEngine.Color, UnityEngine.CoreModule",
                     1,
-                    0.05,
-                    0.75,
+                    0.635294139,
+                    0.0980392173,
                     1
                 },
                 "m_ColorTemperature": 6570,
@@ -46,7 +46,7 @@
                 "m_AffectDiffuse": true,
                 "m_AffectSpecular": true,
                 "m_ApplyRangeAttenuation": true,
-                "m_LightDimmer": 1,
+                "m_LightDimmer": 0.5,
                 "m_LodBias": 0,
                 "m_BarnDoorAngle": 0,
                 "m_BarnDoorLength": 0,
