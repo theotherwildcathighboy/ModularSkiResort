@@ -24,7 +24,7 @@
                     "m_Intensity": 10,
                     "m_LightUnit": 2
                 },
-                "m_LuxAtDistance": 14,
+                "m_LuxAtDistance": 17,
                 "m_LightUnit": 2,
                 "m_EnableSpotReflector": true,
                 "m_SpotAngle": 60,
