@@ -1,0 +1,45 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiPisteFloodlightLowA_LOD1 Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 0,
+        "$rcontent": [
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:e3c21c6b5f95c00e01d9279283ef311b",
+    "m_SurfaceAssets": {
+        "$id": 2,
+        "$type": "2|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:127c7886cecd2e1be19cbaef800a6f92"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "3|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "4|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -0.775,
+            "y": 0.008333206,
+            "z": -0.4423077
+        },
+        "max": {
+            "$type": 4,
+            "x": 0.775,
+            "y": 8.372885,
+            "z": 0.4423077
+        }
+    },
+    "m_SurfaceArea": 7.294586,
+    "m_IndexCount": 348,
+    "m_VertexCount": 334,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

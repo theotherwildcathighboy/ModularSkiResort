@@ -1,0 +1,45 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiSnowGunFanIdleA_LOD1 Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 0,
+        "$rcontent": [
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:79d9cffd0a93bb7c8c2e06d45f72dee8",
+    "m_SurfaceAssets": {
+        "$id": 2,
+        "$type": "2|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:865cb4333c36925cdf471b4b36fa54c8"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "3|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "4|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -0.799999952,
+            "y": 0,
+            "z": -1.35235214
+        },
+        "max": {
+            "$type": 4,
+            "x": 0.8000001,
+            "y": 2.57097721,
+            "z": 1.62000012
+        }
+    },
+    "m_SurfaceArea": 18.9579239,
+    "m_IndexCount": 1884,
+    "m_VertexCount": 1838,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

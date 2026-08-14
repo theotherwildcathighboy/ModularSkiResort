@@ -1,0 +1,45 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiSnowGunTowerA_LOD2 Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 0,
+        "$rcontent": [
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:06451e6551e3f391278cdbaae2def701",
+    "m_SurfaceAssets": {
+        "$id": 2,
+        "$type": "2|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:f98ea3c5f02e2f9324d9f7c7cc6ad0be"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "3|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "4|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -0.6708615,
+            "y": 0.008333206,
+            "z": -0.6743542
+        },
+        "max": {
+            "$type": 4,
+            "x": 0.593412161,
+            "y": 7.62380266,
+            "z": 0.8916601
+        }
+    },
+    "m_SurfaceArea": 19.1742153,
+    "m_IndexCount": 885,
+    "m_VertexCount": 875,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

@@ -8,7 +8,7 @@
     "components": {
         "$id": 1,
         "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
-        "$rlength": 4,
+        "$rlength": 5,
         "$rcontent": [
             {
                 "$id": 2,
@@ -93,6 +93,25 @@
                     ]
                 },
                 "m_IgnoreDependencies": false
+            },
+            {
+                "$id": 8,
+                "$type": "9|Game.Prefabs.AreaSubObjects, Game",
+                "name": "AreaSubObjects",
+                "active": true,
+                "m_SubObjects": {
+                    "$id": 9,
+                    "$type": "10|Game.Prefabs.AreaSubObjectInfo[], Game",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 10,
+                            "$type": "11|Game.Prefabs.AreaSubObjectInfo, Game",
+                            "m_Object": $fstrref:"CID:5e91b4d3a7c8426fb0d29a17c3e6f84a",
+                            "m_BorderPlacement": true
+                        }
+                    ]
+                }
             }
         ]
     },

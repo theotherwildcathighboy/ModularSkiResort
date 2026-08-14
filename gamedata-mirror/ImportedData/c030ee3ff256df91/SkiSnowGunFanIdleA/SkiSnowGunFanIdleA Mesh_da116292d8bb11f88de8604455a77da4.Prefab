@@ -1,0 +1,62 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiSnowGunFanIdleA Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.LodProperties, Game",
+                "name": "LodProperties",
+                "active": true,
+                "m_Bias": 0,
+                "m_ShadowBias": 0,
+                "m_LodMeshes": {
+                    "$id": 3,
+                    "$type": "3|Game.Prefabs.RenderPrefab[], Game",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        $fstrref:"CID:7e098844ce39121c1e4f4b96f701a58b",
+                        $fstrref:"CID:f106ef45f55b56560d935546a9c2c8f8"
+                    ]
+                }
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:4401595cca5fadd1245775d833398b21",
+    "m_SurfaceAssets": {
+        "$id": 4,
+        "$type": "4|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:67d3337a38d3803260002166eda98779"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "5|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "6|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -0.799999952,
+            "y": 0,
+            "z": -1.35235214
+        },
+        "max": {
+            "$type": 6,
+            "x": 0.799999952,
+            "y": 2.57097721,
+            "z": 1.62000012
+        }
+    },
+    "m_SurfaceArea": 20.5645428,
+    "m_IndexCount": 3756,
+    "m_VertexCount": 3620,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

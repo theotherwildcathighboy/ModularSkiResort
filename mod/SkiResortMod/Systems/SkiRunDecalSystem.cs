@@ -22,8 +22,9 @@
 //        * our new decal texture pair -> _BaseColorMap/_NormalMap (live material ONLY — the
 //          prefab's m_BaseColorMap/m_NormalMap are AssetReference<TextureAsset> fields, a
 //          runtime Texture2D cannot go there; live-only is correct, not a shortcut),
-//        * groomed-corduroy winter pair -> the shader's _Snow_BaseColorMap/_Snow_Normal
-//          slots (fed by the game's global _SnowMap — SnowSystem.cs 277/369),
+//        * groomed-corduroy pair -> the shader's _Snow_BaseColorMap/_Snow_Normal slots
+//          (fed by the game's global _SnowMap — SnowSystem.cs 277/369; GROOMED surface
+//          only, round 5 — the T5 texture-swap probe, see Tuning.ApplySnowSlots),
 //        * conservative scalars the research doc marks safe (Tier 0 list): _NormalOpacity 1,
 //          _NormalAlphaSource 1 (normal strength decoupled from BaseColor-alpha coverage),
 //          _Smoothness 0.4 (snow sparkle without gloss) — each mirrored onto the managed
@@ -36,15 +37,18 @@
 // DEFERRED TO THE POST-PROBE ROUND (scaffolded, not flipped):
 //   * _MATERIAL_AFFECTS_ALBEDO stays AS-IS — the alpha-coverage BaseColor already modulates
 //     albedo contribution; normal-only summer mode (T3) is one Tuning bool away.
-//   * _Snow float untouched — T5 must first answer whether it multiplies the global
-//     _SnowMap sample or overrides it. Swapping only the snow TEXTURES is safe either way:
-//     the vanilla material already whitens in winter, we only change what the white is.
+//   * _Snow FLOAT untouched, always — round 5 swaps only the snow TEXTURES (groomed), which
+//     is safe either way the T5 scalar question resolves: the vanilla material already
+//     whitens in winter, we only change what the white is.
 //   * _Wetness/_Porosity polish, _BaseColor alpha (T2b) — probe data first.
 //
-// SEASONAL — DELIBERATELY ABSENT: this system does NO seasonal texture swapping. The snow
-// slots make the winter look ride the game's own snow state (melting at the snow line,
-// accumulating in storms, INCLUDING Layer 1's injected snow) with zero seasonal code of
-// ours. That is the design (run-rendering-synthesis.md Layer 2), not an omission.
+// SEASONAL DRESS (rounds 3-5; supersedes the original "no seasonal code" design): the
+// active texture pair follows SNOW PRESENCE on the runs (injection system's measured mean
+// depth, hysteresis; temperature only as pre-measurement fallback) — winter wears the
+// per-run wear/corduroy set at per-type alpha (snowmaking near-clear: its winter body is
+// Layer 1's injected snow; groomed keeps a visible corduroy lane), summer the shared
+// faded worn-lane green. Prefab texture references are re-pointed per season too, so the
+// game's own batch re-derivations stay in season (the tug-of-war fix, v2).
 //
 // THE m_Version GOTCHA (area-material-override.md §2): AreaBatchSystem mutates
 // RenderedArea.m_Version to OverrideMaterial in place the first time a batch builds with
@@ -116,15 +120,20 @@ namespace SkiResortMod.Systems
             // const, so flipping it is a one-token change without unreachable-code warnings.
             public static readonly bool ApplyNormalOnlyMode = false;
 
-            // FIELD-DISABLED 2026-08-12: binding textures into the previously-EMPTY snow
-            // slots switched the decal's snow layer permanently ON — runs rendered solid
-            // white corduroy immune to 50 °C, the dev remove-snow button, and every
-            // snow-mask change (two calibration rounds were judged against this artifact).
-            // The layer is evidently not snow-map-driven by texture presence alone; the
-            // T5 probe must settle the _Snow scalar/keyword semantics before re-enabling.
-            // (Later probe note: vanilla itself binds snowalbedo2 defaults there — see
-            // ledger 62 — but the disable stands until the driver is understood.)
-            public static readonly bool ApplySnowSlots = false;
+            // T5 PROBE, RE-ENABLED ROUND 5 (was FIELD-DISABLED 2026-08-12): the first
+            // enable bound textures into what we believed were EMPTY snow slots and the
+            // layer locked permanently ON — solid white immune to 50 °C and remove-snow
+            // (two calibration rounds were judged against that artifact). Ledger 62 then
+            // showed vanilla itself ships these slots BOUND (snowalbedo2 defaults) with
+            // _Snow = 0 and no artifact — so texture PRESENCE is not the driver, and
+            // SWAPPING the already-bound textures while touching neither the _Snow float
+            // nor any keyword is the vanilla-parity operation. Re-enabled for the GROOMED
+            // surface only (Target.UseSnowPair): corduroy renders in the snow layer
+            // itself — the run's deep-winter identity, which depth cannot provide (white
+            // saturates at cm scale; field round 4: "impossible to tell it exists").
+            // FIELD DISCRIMINATOR: if groomed runs go solid white and ignore 50 °C /
+            // remove-snow again, THIS flag is the culprit — flip false and report.
+            public static readonly bool ApplySnowSlots = true;
 
             // Seasonal dress (2026-08-12 user round: "trails look absurd in summer"):
             // summer wears the green mowed-grass set, winter the wear/corduroy set.
@@ -140,14 +149,27 @@ namespace SkiResortMod.Systems
 
             // Field round 4 ("painted a golf course on the mountains"): the summer green
             // ships as an opaque terrain texture; as a DECAL it must be a faint worn lane,
-            // not paint. Alpha and RGB are scaled in-place at load.
-            public const float SummerAlphaScale = 0.40f;
+            // not paint. Alpha and RGB are scaled in-place at load. Round 5: 0.40 still
+            // read as paint with a vector edge — the tree-cleared corridor carries the
+            // run's summer identity on its own (user timelapse), the decal only whispers.
+            public const float SummerAlphaScale = 0.20f;
             public const float SummerRgbScale = 0.88f;
+
+            // Round 5 winter dress, PER RUN TYPE — the two runs had opposite failures:
+            // snowmaking's decal edge fought its own injected snow ("vector crisp"), so
+            // its winter body is now Layer 1's snow alone (soft feathered edges through
+            // the real terrain pipeline) and the decal fades to a whisper; groomed was
+            // "impossible to tell it exists", so it KEEPS a visible corduroy lane — and
+            // a machine-cut edge is what grooming actually looks like. RGB untouched;
+            // alpha scaled in-place at load, same mechanism as the summer set.
+            public const float GroomedWinterAlphaScale = 0.55f;
+            public const float SnowmakingWinterAlphaScale = 0.10f;
         }
 
         // Run surfaces — same tolerant name resolution as the sibling systems.
         private const string GroomedPrefabName = "SkiRunGroomedA";
         private const string SnowmakingPrefabName = "SkiRunSnowmakingA";
+        private const string NightPrefabName = "SkiRunNightA";
 
         // Texture file contract (parallel texture agent delivers these; missing files are
         // logged once per load and their applications skipped — retried next load).
@@ -189,6 +211,10 @@ namespace SkiResortMod.Systems
             public readonly string PrefabName;
             public readonly string BaseColorFileName;
             public readonly string NormalFileName;
+            // Round 5 per-type dress: winter decal alpha (scaled once at load) and
+            // whether this surface binds the corduroy pair into the shader's snow slots.
+            public readonly float WinterAlphaScale;
+            public readonly bool UseSnowPair;
 
             // Session-cached (prefabs and loaded textures outlive individual loads).
             public bool Resolved;
@@ -219,11 +245,14 @@ namespace SkiResortMod.Systems
             public readonly List<(int id, string name, float value)> AppliedFloats =
                 new List<(int, string, float)>();
 
-            public Target(string prefabName, string baseColorFileName, string normalFileName)
+            public Target(string prefabName, string baseColorFileName, string normalFileName,
+                float winterAlphaScale, bool useSnowPair)
             {
                 PrefabName = prefabName;
                 BaseColorFileName = baseColorFileName;
                 NormalFileName = normalFileName;
+                WinterAlphaScale = winterAlphaScale;
+                UseSnowPair = useSnowPair;
             }
 
             public void ResetPerLoad()
@@ -281,8 +310,15 @@ namespace SkiResortMod.Systems
             m_PrefabScanQuery = GetEntityQuery(ComponentType.ReadOnly<PrefabData>());
             m_Targets = new[]
             {
-                new Target(GroomedPrefabName, GroomedBaseColorFile, GroomedNormalFile),
-                new Target(SnowmakingPrefabName, SnowmakingBaseColorFile, SnowmakingNormalFile),
+                new Target(GroomedPrefabName, GroomedBaseColorFile, GroomedNormalFile,
+                    Tuning.GroomedWinterAlphaScale, useSnowPair: true),
+                new Target(SnowmakingPrefabName, SnowmakingBaseColorFile, SnowmakingNormalFile,
+                    Tuning.SnowmakingWinterAlphaScale, useSnowPair: false),
+                // Night runs wear snowmaking's dress — same textures, same near-clear
+                // winter alpha. A night run's snow IS snowmaking snow (§4.1); the run's
+                // identity comes from its floodlight masts, not a different decal.
+                new Target(NightPrefabName, SnowmakingBaseColorFile, SnowmakingNormalFile,
+                    Tuning.SnowmakingWinterAlphaScale, useSnowPair: false),
             };
             Mod.Log.Info($"{nameof(SkiRunDecalSystem)} created");
         }
@@ -595,11 +631,14 @@ namespace SkiResortMod.Systems
                 target.Rendered.m_NormalMap = activeNormalAsset;
             }
 
-            // 2) Snow slots — DISABLED pending T5 (Tuning.ApplySnowSlots): binding textures
-            //    into empty slots turned the layer permanently on (solid white immune to
-            //    temperature and the dev remove-snow — the 2026-08-12 field artifact).
+            // 2) Snow slots — T5 probe live for the GROOMED surface only (round 5): swap
+            //    the vanilla-bound snowalbedo2 pair for our corduroy, touching neither the
+            //    _Snow float nor any keyword (the vanilla-parity operation — see the
+            //    Tuning.ApplySnowSlots note and its field discriminator). Live-material
+            //    only (RenderedArea exposes no snow refs); the re-assert sentinel restores
+            //    it after the game's re-derivations.
             bool snowBase = false, snowNormal = false;
-            if (Tuning.ApplySnowSlots)
+            if (Tuning.ApplySnowSlots && target.UseSnowPair)
             {
                 snowBase = TrySetTexture(target, props, SnowBaseColorMapProperty, m_SnowBaseColorTex);
                 snowNormal = TrySetTextureAny(target, props, SnowNormalPropertyCandidates, m_SnowNormalTex);
@@ -864,9 +903,28 @@ namespace SkiResortMod.Systems
             foreach (Target target in m_Targets)
             {
                 if (target.BaseColorTex == null)
+                {
                     target.BaseColorTex = LoadPng(dir, target.BaseColorFileName, linear: false, missing);
+                    // Round 5 per-type winter fade — once, before asset registration pins
+                    // the texture (same ordering rule as the summer set below).
+                    if (target.BaseColorTex != null && target.WinterAlphaScale < 1f)
+                        ScaleColors(target.BaseColorTex, 1f, target.WinterAlphaScale);
+                    // Night round: two targets may LOAD THE SAME FILE (night wears
+                    // snowmaking's dress). RegisterTextureAsset keys the user-db entry on
+                    // texture.name, which comes from the FILENAME — so without a
+                    // per-target prefix the second target's asset would resolve to the
+                    // FIRST target's texture instance, and the drift sentinel would
+                    // re-apply forever (its own instance vs the shared asset's). Names
+                    // are runtime-only, never saved.
+                    if (target.BaseColorTex != null)
+                        target.BaseColorTex.name = target.PrefabName + target.BaseColorTex.name;
+                }
                 if (target.NormalTex == null)
+                {
                     target.NormalTex = LoadPng(dir, target.NormalFileName, linear: true, missing);
+                    if (target.NormalTex != null)
+                        target.NormalTex.name = target.PrefabName + target.NormalTex.name;
+                }
 
                 // v2: wrap the same textures as user-db TextureAssets (in-memory index
                 // entry only, never Saved — the SkiRunSplatSystem claim pattern) so the

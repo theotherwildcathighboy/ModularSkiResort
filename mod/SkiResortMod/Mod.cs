@@ -141,6 +141,53 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<SkiSnowInjectionSystem, Game.Simulation.SnowSystem>(
                 SystemUpdatePhase.GameSimulation);
 
+            // Vertex-prop bridge (DECISIONS 71): vanilla area-props (AreaSubObjects ->
+            // one border prop per polygon vertex) are lot-class-gated — LotPrefab's
+            // archetype hard-adds the runtime Game.Objects.SubObject buffer the spawner
+            // queries for, SurfacePrefab's does not. This system adds that buffer (and
+            // ensures Updated) on OUR run surfaces so the VANILLA spawner does the rest.
+            // Phase is load-bearing twice over: SecondaryObjectSystem consumes the
+            // Updated tag at Modification4B and Cleanup wipes the tag every frame — the
+            // bridge must land earlier in the SAME frame's Modification4B, so it anchors
+            // directly before the vanilla spawner (the PowerBridgeSystem precedent).
+            // Game mode only: spawned props must never be baked into maps.
+            updateSystem.UpdateBefore<SkiRunPropSystem, Game.Objects.SecondaryObjectSystem>(
+                SystemUpdatePhase.Modification4B);
+
+            // Night-light refresh (DECISIONS 84 / research/light-refresh-mechanism.md).
+            // Nothing in the engine re-evaluates a Night-gated LightEffect on a static
+            // area sub-object — field-proven by the control-mast test (magenta stuck ON
+            // all day until a tool hover rebuilt the props). This is our
+            // StreetLightSystem: stamp EffectsUpdated on run-owned props at every
+            // day/night flip. Anchor AND interval are load-bearing: we read the flag
+            // EffectFlagSystem just wrote (public GetData), and offset inheritance
+            // requires equal intervals (2048) — the entry-79 lesson applied again.
+            updateSystem.UpdateAfter<SkiNightLightSystem, Game.Effects.EffectFlagSystem>(
+                SystemUpdatePhase.GameSimulation);
+
+            // Prop snow sync (DECISIONS 79 / research/surface-snow-sync.md). SurfacePrefab
+            // adds Game.Areas.Surface — an EMPTY TAG — not the Game.Objects.Surface weather
+            // struct the renderer's owner-walk looks for, so props parented to our runs
+            // render snow-free in every season. This gives run areas that component and
+            // tracks it to measured run depth. BOTH the anchor and the interval are
+            // load-bearing: BatchDataSystem only re-reads surface wetness when
+            // WetnessSystem's LastSystemVersion moves (so we must write in vanilla's own
+            // tick), and UpdateSystem inherits an anchor's offset only when the intervals
+            // match — hence GetUpdateInterval == WetnessSystem's 256.
+            updateSystem.UpdateAfter<SkiRunSurfaceSystem, Game.Simulation.WetnessSystem>(
+                SystemUpdatePhase.GameSimulation);
+
+            // Run operating costs (DECISIONS 67 — the design triangle: snowmaking >
+            // groomed > natural = free). Bills PlayerMoney on the City entity from the
+            // injection system's per-type ACTIVE thermal mask, so money, visuals and
+            // attractiveness share one climate model. No budget-panel line item —
+            // ExpenseSource is a closed enum, extending it needs Harmony (banned).
+            // Phase is load-bearing: GameSimulation means pause stops the meter and the
+            // Editor never bills; anchored after the injection system so a same-frame
+            // top-up publishes its mask before the charge pass reads it.
+            updateSystem.UpdateAfter<SkiRunUpkeepSystem, SkiSnowInjectionSystem>(
+                SystemUpdatePhase.GameSimulation);
+
             // Ski-run decal upgrade (run-rendering Layer 2): probes and mutates the LIVE
             // "Area batch (<run surface>)" material clones — the new alpha-coverage decal
             // texture pairs, the shader's built-in snow slots (winter look rides the game's

@@ -1,0 +1,103 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiSnowGunTowerTallA Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 2,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.EmissiveProperties, Game",
+                "name": "EmissiveProperties",
+                "active": true,
+                "m_SingleLights": {
+                    "$id": 3,
+                    "$type": "3|System.Collections.Generic.List`1[[Game.Prefabs.EmissiveProperties+SingleLightMapping, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 4,
+                            "$type": "4|Game.Prefabs.EmissiveProperties+SingleLightMapping, Game",
+                            "previewState": false,
+                            "purpose": 34,
+                            "color": {
+                                "$type": "5|UnityEngine.Color, UnityEngine.CoreModule",
+                                1,
+                                1,
+                                1,
+                                1
+                            },
+                            "colorOff": {
+                                "$type": 5,
+                                0,
+                                0,
+                                0,
+                                1
+                            },
+                            "intensity": 5,
+                            "luminance": 0,
+                            "responseTime": 0,
+                            "animationIndex": -1,
+                            "materialId": 0
+                        }
+                    ]
+                },
+                "m_MultiLights": null,
+                "m_AnimationCurves": null,
+                "m_SignalGroupAnimations": null
+            },
+            {
+                "$id": 5,
+                "$type": "6|Game.Prefabs.LodProperties, Game",
+                "name": "LodProperties",
+                "active": true,
+                "m_Bias": 0,
+                "m_ShadowBias": 0,
+                "m_LodMeshes": {
+                    "$id": 6,
+                    "$type": "7|Game.Prefabs.RenderPrefab[], Game",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        $fstrref:"CID:c15f13e8368791bd4df343f7f4b5e7c8",
+                        $fstrref:"CID:04d5ab22feb71a9f73638ec7bf0fcb8d"
+                    ]
+                }
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:804622e0d3471ddea65cf1b2aa9f46b0",
+    "m_SurfaceAssets": {
+        "$id": 7,
+        "$type": "8|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:03d7b131d2b31bb26e5c898d6d77a9b3"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "9|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "10|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -0.676905036,
+            "y": 0,
+            "z": -0.6621217
+        },
+        "max": {
+            "$type": 10,
+            "x": 0.6135932,
+            "y": 9.144021,
+            "z": 0.892132938
+        }
+    },
+    "m_SurfaceArea": 29.9776421,
+    "m_IndexCount": 5082,
+    "m_VertexCount": 4566,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

@@ -109,6 +109,15 @@ namespace SkiResortMod.Systems
             public const float SnowmakingMarginC = 2f;
             public const float SummerFloor = 0.25f;
 
+            // Night skiing (night-skiing-run.md §4.4): NO time-of-day hook exists anywhere
+            // in vanilla tourism/leisure desirability, so the bonus is FLAT — weighted by
+            // the lit share of the resort's run area and implicitly gated on cover (the
+            // night term accumulates cover × area, so an unlit-able warm run contributes
+            // nothing: you only get the bonus while you are also paying the 800 rate).
+            // TourismSystem SQUARES the provider, so +12 on a score of 40 is +69% to that
+            // lodge's tourist draw.
+            public const float NightBonus = 12f;
+
             // Seasonal drift refresh: 256 of our 16-frame ticks = 4096 frames.
             public const int PeriodicRefreshTicks = 256;
 
@@ -120,6 +129,7 @@ namespace SkiResortMod.Systems
         private static readonly string[] LodgePrefabNames = { "SkiAFrameDayLodge" };
         private static readonly string[] GroomedSurfaceNames = { "SkiRunGroomedA" };
         private static readonly string[] SnowmakingSurfaceNames = { "SkiRunSnowmakingA" };
+        private static readonly string[] NightSurfaceNames = { "SkiRunNightA" };
 
         private PrefabSystem m_PrefabSystem;
         private PowerBridgeSystem m_PowerBridgeSystem; // shared station prefab set
@@ -128,6 +138,7 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_LodgePrefabs = new HashSet<Entity>();
         private readonly HashSet<Entity> m_GroomedPrefabs = new HashSet<Entity>();
         private readonly HashSet<Entity> m_SnowmakingPrefabs = new HashSet<Entity>();
+        private readonly HashSet<Entity> m_NightPrefabs = new HashSet<Entity>();
 
         /// <summary>Lodge entity → cached score, refreshed by Recompute, written every tick.</summary>
         private readonly Dictionary<Entity, int> m_Scores = new Dictionary<Entity, int>();
@@ -263,7 +274,8 @@ namespace SkiResortMod.Systems
                         m_PowerBridgeSystem.GetResolvedStationPrefabs()))
                     m_RecomputePending = true;
                 if (!m_RecomputePending && !m_AreaEventQuery.IsEmptyIgnoreFilter &&
-                    AnyMatchingPrefab(m_AreaEventQuery, m_GroomedPrefabs, m_SnowmakingPrefabs))
+                    AnyMatchingPrefab(m_AreaEventQuery, m_GroomedPrefabs, m_SnowmakingPrefabs,
+                        m_NightPrefabs))
                     m_RecomputePending = true;
 
                 // Periodic refresh: seasons move the snow line without touching entities.
@@ -303,7 +315,8 @@ namespace SkiResortMod.Systems
             public float m_Area;      // Geometry.m_SurfaceArea (triangulated, true m²)
             public float m_BottomY;   // Geometry.m_Bounds min y (terrain-conformed)
             public float m_TopY;      // Geometry.m_Bounds max y
-            public bool m_Snowmaking;
+            public bool m_Snowmaking; // true for night runs too — they ARE snowmaking runs
+            public bool m_Night;
         }
 
         private void Recompute()
@@ -326,7 +339,12 @@ namespace SkiResortMod.Systems
                     var geometries = areaChunks[c].GetNativeArray(ref geometryHandle);
                     for (int i = 0; i < prefabRefs.Length; i++)
                     {
-                        bool snowmaking = m_SnowmakingPrefabs.Contains(prefabRefs[i].m_Prefab);
+                        // Night first; night runs count as snowmaking for the seasonal
+                        // cover branch (same guns, same margin) and additionally as
+                        // night for the flat bonus.
+                        bool night = m_NightPrefabs.Contains(prefabRefs[i].m_Prefab);
+                        bool snowmaking = night ||
+                            m_SnowmakingPrefabs.Contains(prefabRefs[i].m_Prefab);
                         if (!snowmaking && !m_GroomedPrefabs.Contains(prefabRefs[i].m_Prefab))
                             continue;
                         Geometry geometry = geometries[i];
@@ -337,6 +355,7 @@ namespace SkiResortMod.Systems
                             m_BottomY = geometry.m_Bounds.min.y,
                             m_TopY = geometry.m_Bounds.max.y,
                             m_Snowmaking = snowmaking,
+                            m_Night = night,
                         });
                     }
                 }
@@ -382,6 +401,7 @@ namespace SkiResortMod.Systems
                 float radiusSq = Tuning.LodgeRadiusMeters * Tuning.LodgeRadiusMeters;
 
                 float sqrtAreaSum = 0f, maxDrop = 0f, areaSum = 0f, coveredAreaSum = 0f;
+                float nightCoveredAreaSum = 0f;
                 int trailCount = 0;
                 foreach (TrailInfo trail in trails)
                 {
@@ -403,6 +423,8 @@ namespace SkiResortMod.Systems
                         cover = math.saturate((trail.m_TopY - snowLine) / math.max(vertical, 1f));
                     areaSum += trail.m_Area;
                     coveredAreaSum += cover * trail.m_Area;
+                    if (trail.m_Night)
+                        nightCoveredAreaSum += cover * trail.m_Area;
                 }
 
                 int stationCount = 0;
@@ -418,13 +440,21 @@ namespace SkiResortMod.Systems
                 float liftsTerm = math.min(Tuning.PerStationBonus * stationCount, Tuning.LiftsTermCap);
                 float coverage = areaSum > 0f ? coveredAreaSum / areaSum : 0f;
                 float season = math.max(coverage, Tuning.SummerFloor);
-                int score = (int)math.round((Tuning.TierOneBase + trailsTerm + liftsTerm) * season);
+                // Night term: flat bonus weighted by the LIT share of run area, using
+                // cover-weighted areas on both sides of the ratio — so a night run only
+                // scores while its guns can actually hold snow (the same window it bills
+                // the 800 rate for). No time-of-day factor exists to ride (§4.4).
+                float nightTerm = Tuning.NightBonus *
+                    (nightCoveredAreaSum / math.max(areaSum, 1f));
+                int score = (int)math.round(
+                    (Tuning.TierOneBase + trailsTerm + liftsTerm + nightTerm) * season);
 
                 m_Scores[lodge] = score;
                 Mod.Log.Info(
                     $"Attractiveness: lodge '{m_PrefabSystem.GetPrefabName(EntityManager.GetComponentData<PrefabRef>(lodge).m_Prefab)}' " +
                     $"= {score} ({trailCount} trail(s) {areaSum:F0} m², drop {maxDrop:F0} m, " +
-                    $"{stationCount} station(s), snow coverage {coverage:P0}, season ×{season:F2})");
+                    $"{stationCount} station(s), snow coverage {coverage:P0}, " +
+                    $"night term +{nightTerm:F1}, season ×{season:F2})");
             }
         }
 
@@ -468,8 +498,10 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>True when any entity in the (event) query's chunks has a PrefabRef in
-        /// either set. Runs only on event ticks; chunk-level iteration.</summary>
-        private bool AnyMatchingPrefab(EntityQuery query, HashSet<Entity> setA, HashSet<Entity> setB)
+        /// any of the given sets. Runs only on event ticks; chunk-level iteration.
+        /// Widened from two fixed sets to params when the night run type arrived —
+        /// the params array allocation is once per EVENT tick, not per frame.</summary>
+        private bool AnyMatchingPrefab(EntityQuery query, params HashSet<Entity>[] sets)
         {
             var chunks = query.ToArchetypeChunkArray(Allocator.Temp);
             try
@@ -481,8 +513,11 @@ namespace SkiResortMod.Systems
                     for (int i = 0; i < prefabRefs.Length; i++)
                     {
                         Entity prefab = prefabRefs[i].m_Prefab;
-                        if (setA.Contains(prefab) || setB.Contains(prefab))
-                            return true;
+                        for (int s = 0; s < sets.Length; s++)
+                        {
+                            if (sets[s].Contains(prefab))
+                                return true;
+                        }
                     }
                 }
             }
@@ -507,6 +542,7 @@ namespace SkiResortMod.Systems
             ResolveSet(LodgePrefabNames, nameof(BuildingPrefab), m_LodgePrefabs, "lodge");
             ResolveSet(GroomedSurfaceNames, "SurfacePrefab", m_GroomedPrefabs, "groomed surface");
             ResolveSet(SnowmakingSurfaceNames, "SurfacePrefab", m_SnowmakingPrefabs, "snowmaking surface");
+            ResolveSet(NightSurfaceNames, "SurfacePrefab", m_NightPrefabs, "night surface");
 
             if (m_LodgePrefabs.Count == 0)
                 Mod.Log.Info("Attractiveness: lodge prefab not present — system inert until " +

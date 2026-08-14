@@ -23,10 +23,13 @@
 //     AssetDatabase.global.resources.shaders.snowUpdate, :233). The blocking readback
 //     closes Path B's async-latency window: read, merge, upload all happen in one frame,
 //     so no natural accumulation is ever reverted.
-//   * Semantics: MAX-BLEND for injection — r = max(r, target × coverage). Idempotent,
-//     monotone between top-ups, and a structural no-op wherever natural winter snow
-//     already exceeds the target (deep winter = zero injected texels, by design). Never
-//     additive, G channel untouched. AMENDED field round 2 with scoped MANAGED MELT:
+//   * Semantics: RAMPED APPROACH under the run mask (field round 5, was max-blend) —
+//     r moves TOWARD target × coverage by a noisy per-texel step, never past it and
+//     never down, so a thermal gate opening reads as snow guns building base patch by
+//     patch instead of a light switch ("the snowmaking run pops in"). Monotone between
+//     top-ups, still a structural no-op wherever natural winter snow already exceeds
+//     the target (deep winter = zero raised texels, by design). Never additive, G
+//     channel untouched. AMENDED field round 2 with scoped MANAGED MELT:
 //     when a run's gate is OFF (too warm to make snow), texels inside OUR OWN mask decay
 //     by Tuning.DecayPerTopupM per top-up — buffer melt at run altitude measured ~zero,
 //     so without this, injected snow is immortal (legacy 0.35 m sat unchanged through
@@ -131,6 +134,21 @@ namespace SkiResortMod.Systems
             // only full-interior texels get the run target.
             public const float FringeMaxDepthM = 0.02f;
 
+            // Spine rescue (field round 7, "the trails seem to almost start in the
+            // middle"): the (2F+1)² blur only lets a texel reach FULL target when its
+            // whole 7x7 neighborhood is in-polygon — which needs the run to be ~7
+            // texels (~100 m) wide. Typical drawn runs are 30-60 m, so entire narrow
+            // sections rode the sub-saturation fringe cap and read as "not started
+            // yet"; only wide bowls went solid ("starts where it widens"). A second
+            // 3x3 pass detects the run SPINE: texels whose immediate neighborhood is
+            // (nearly) all in-polygon carry full target regardless of the wide blur.
+            // The boundary ring still belongs to the coarse noise fold (dropouts +
+            // fringe partials), so edges keep their ragged character — lobe depth is
+            // reduced to that ring, accepted trade. Runs narrower than ~2 texels
+            // (~28 m) still have no spine and stay soft: draw wider, or accept.
+            public const float SpineCoverageFloor = 0.60f; // 3x3 coverage where spine ramps in
+            public const float SpineSoftness = 0.30f;      // full spine at coverage 0.90
+
             // Managed melt (field round 2): buffer melt at run altitude is ~zero — the
             // legacy 0.35 m injections sat unchanged deep into July while the SEASONAL
             // snow line (shader-side, climate-driven) retreated past them. When a run's
@@ -145,12 +163,47 @@ namespace SkiResortMod.Systems
             // first) — together it reads as weather, not a toggle.
             public const float DecayPerTopupM = 0.004f;
 
+            // Ramp-up (field round 5): the old max-merge jumped a texel 0 -> full target
+            // the tick its thermal gate opened — the run "popped in". Injection now
+            // approaches the target at a noisy per-texel rate: RampPerTopupM scaled
+            // RampRateMin..(Min+Span)x by the same two-octave spatial noise family as the
+            // edge fold, so coarse ~112 m lobes whiten at different speeds — guns building
+            // base, not a switch. The VISIBLE fade-in is time-to-white-saturation
+            // (~0.02 m): ~3-20 top-up windows across a run; the slow tail past saturation
+            // is invisible and only pads melt duration. Mean step ≈ DecayPerTopupM, so
+            // buildup and managed melt stay symmetric.
+            public const float RampPerTopupM = 0.004f;
+            public const float RampRateMin = 0.25f;
+            public const float RampRateSpan = 1.75f;
+
+            // Chill bias (field round 6, "snow was made from the bottom up"): the R5 field
+            // log showed a climate-time scrub dropped ambient 18.8 -> 3.0 °C in ONE top-up
+            // window — the whole run gated open at once, fill order fell to pure noise, and
+            // noise reads bottom-up on typical run geometry (wide solid-white base bowls,
+            // narrow fringe-capped chutes). Real snowmaking physics is the fix: gun output
+            // follows how far below threshold the air is (wet-bulb). Ramp rate is scaled by
+            // saturate((threshold − T_local) / ChillSpanC) mapped to Floor..Floor+Gain —
+            // the top of a run is ALWAYS colder at the same instant, so fill reads
+            // top-down in every scenario, organic cooling and scrubs alike.
+            public const float RampChillSpanC = 4f;    // °C below threshold for full output
+            public const float RampChillFloor = 0.35f; // marginal-temperature gun output
+            public const float RampChillGain = 1.65f;  // full-cold gun output = Floor+Gain
+
             // Season gates. SnowmakingMarginC MUST track the meaning (and value) of
             // SkiResortAttractivenessSystem.Tuning.SnowmakingMarginC — the attractiveness
             // score, this injection and the snow shader share one climate model, which is
             // the whole consistency argument. Groomed runs only get help while ambient
             // hovers near freezing (early-season grooming; summer = bare).
             public const float SnowmakingMarginC = 2f;
+
+            // NIGHT RUNS ARE SNOWMAKING RUNS — identical physics BY DESIGN, not by
+            // laziness (night-skiing-run.md §4.1): same guns, same water, same thermal
+            // window. These are explicit ALIASES; do not "fix" the duplication by
+            // diverging them — the one-climate-model consistency argument depends on it.
+            // What differs is ACCOUNTING: night texels are counted separately so the
+            // upkeep system can bill them at the night rate.
+            public const float NightTargetDepthM = SnowmakingTargetDepthM;
+            public const float NightMarginC = SnowmakingMarginC;
             // Per-texel thermal margins (field round 3): snow guns work down to
             // freezing+SnowmakingMarginC at each texel's own elevation; groomed runs get
             // held snow only where it is locally at/below freezing+GroomedMarginC.
@@ -191,11 +244,13 @@ namespace SkiResortMod.Systems
         private const int TexSize = 1024;
         private const int TexelCount = TexSize * TexSize;
         private const float SnowHeightScaleM = 8f;
+        private const float HalfQuantum = 0.5f / 65535f; // R16_UNorm rounding tolerance
         private const string LoadKernelName = "LoadR16G16_UNorm";
 
         // Run surfaces — same tolerant name resolution as the other run-aware systems.
         private static readonly string[] SnowmakingSurfaceNames = { "SkiRunSnowmakingA" };
         private static readonly string[] GroomedSurfaceNames = { "SkiRunGroomedA" };
+        private static readonly string[] NightSurfaceNames = { "SkiRunNightA" };
 
         /// <summary>R16G16_UNorm texel as AsyncGPUReadback delivers it (matches the
         /// layout SnowSystem.Serialize reads back, fullsrc :244-266).</summary>
@@ -211,9 +266,16 @@ namespace SkiResortMod.Systems
         {
             public int SnowmakingTotal, SnowmakingActive;
             public int GroomedTotal, GroomedActive;
+            public int NightTotal, NightActive;
             public int Triangles;
             public int MaskTexels;
             public int DecayTexels;
+            // Per-type ACTIVE texel split (upkeep round): a texel claimed by two
+            // overlapping runs counts once, for whichever run claimed it first —
+            // no double-charging by construction.
+            public int SnowmakingMaskTexels;
+            public int GroomedMaskTexels;
+            public int NightMaskTexels;
         }
 
         private SnowSystem m_SnowSystem;
@@ -227,12 +289,14 @@ namespace SkiResortMod.Systems
 
         private readonly HashSet<Entity> m_SnowmakingPrefabs = new HashSet<Entity>();
         private readonly HashSet<Entity> m_GroomedPrefabs = new HashSet<Entity>();
+        private readonly HashSet<Entity> m_NightPrefabs = new HashSet<Entity>();
         private bool m_PrefabsResolved;            // session cache (PrefabSystem outlives loads)
 
         // Working buffers — created lazily on first use, kept for the session (28 MB total:
         // 2x float[1M] managed + 4 MB readback + 8 MB upload staging + 8 MB GPU buffer).
         private float[] m_Mask;                    // target depth (normalized /8 m) per texel
         private float[] m_DecayMask;               // 1 where a gate-OFF run manages melt
+        private float[] m_RampMask;                // chill factor 0..1 per texel (gun output)
         private float[] m_Scratch;                 // per-run additive coverage accumulator
         private NativeArray<Ushort2> m_Readback;
         private NativeArray<float2> m_Upload;
@@ -261,6 +325,16 @@ namespace SkiResortMod.Systems
         /// green can never appear while the runs are still white (field round 4).</summary>
         public float MeanRunSnowDepthM { get; private set; }
         public bool HasRunSnowMeasurement { get; private set; }
+
+        /// <summary>Per-type ACTIVE (thermally gated ON) masked texel counts + texel area,
+        /// refreshed each top-up pass. The upkeep system charges snowmaking/grooming
+        /// operating costs from EXACTLY the mask the injection writes — money, visuals
+        /// and attractiveness share one climate model and cannot disagree.</summary>
+        public int SnowmakingActiveTexels { get; private set; }
+        public int GroomedActiveTexels { get; private set; }
+        public int NightActiveTexels { get; private set; }
+        public float TexelAreaM2 { get; private set; }
+        public bool HasMaskMeasurement { get; private set; }
         private bool m_ForceNextTopupLog;
         private string m_LastIdleReason;
 
@@ -336,6 +410,11 @@ namespace SkiResortMod.Systems
             m_LastGlobalMeanDepthM = 0f;
             MeanRunSnowDepthM = 0f;
             HasRunSnowMeasurement = false;
+            SnowmakingActiveTexels = 0;
+            GroomedActiveTexels = 0;
+            NightActiveTexels = 0;
+            TexelAreaM2 = 0f;
+            HasMaskMeasurement = false;
             m_ForceNextTopupLog = true;
             m_LastIdleReason = null;
 
@@ -348,7 +427,8 @@ namespace SkiResortMod.Systems
             try
             {
                 ResolveRunPrefabs();
-                if (m_SnowmakingPrefabs.Count == 0 && m_GroomedPrefabs.Count == 0)
+                if (m_SnowmakingPrefabs.Count == 0 && m_GroomedPrefabs.Count == 0 &&
+                    m_NightPrefabs.Count == 0)
                 {
                     Mod.Log.Info("Snow: no run surface prefab present — injection inert until " +
                                  $"'{string.Join("', '", SnowmakingSurfaceNames)}' / " +
@@ -363,13 +443,16 @@ namespace SkiResortMod.Systems
                              $"{Tuning.SnowmakingTargetDepthM:F2} m where T_local(texel elev) <= " +
                              $"freezing+{Tuning.SnowmakingMarginC:F1} C, groomed " +
                              $"{Tuning.GroomedTargetDepthM:F2} m where <= " +
-                             $"freezing+{Tuning.GroomedMarginC:F1} C; too-warm texels decay " +
+                             $"freezing+{Tuning.GroomedMarginC:F1} C; ramp " +
+                             $"+{Tuning.RampPerTopupM:F3} m/top-up x{Tuning.RampRateMin:F2}-" +
+                             $"{Tuning.RampRateMin + Tuning.RampRateSpan:F2} noisy (no pop-in); " +
+                             $"too-warm texels decay " +
                              $"-{Tuning.DecayPerTopupM:F3} m/top-up (bottom-up melt); top-up every " +
                              $"{Tuning.TopupIntervalFrames} sim frames + once on first sim tick; " +
                              $"mask supersample {Tuning.SupersampleGrid}x{Tuning.SupersampleGrid}, " +
                              "fringe contained to run footprints; " +
                              $"{m_SnowmakingPrefabs.Count} snowmaking + {m_GroomedPrefabs.Count} " +
-                             "groomed run prefab(s) watched");
+                             $"groomed + {m_NightPrefabs.Count} night run prefab(s) watched");
             }
             catch (Exception e)
             {
@@ -442,7 +525,16 @@ namespace SkiResortMod.Systems
             float freezing = m_SnowLineSystem.GetFreezingTemperature();
 
             MaskStats stats = BuildMask(playOffset, playSize, ambient, freezing);
-            int totalRuns = stats.SnowmakingTotal + stats.GroomedTotal;
+            // Publish the per-type active mask before ANY early-out below: "all gates
+            // off" and "no runs placed" both mean zero billable operations, and the
+            // upkeep system must see that zero, not a stale count.
+            float2 texelDims = playSize / TexSize;
+            TexelAreaM2 = texelDims.x * texelDims.y;
+            SnowmakingActiveTexels = stats.SnowmakingMaskTexels;
+            GroomedActiveTexels = stats.GroomedMaskTexels;
+            NightActiveTexels = stats.NightMaskTexels;
+            HasMaskMeasurement = true;
+            int totalRuns = stats.SnowmakingTotal + stats.GroomedTotal + stats.NightTotal;
             if (totalRuns == 0)
             {
                 SetIdle("no run polygons placed");
@@ -495,6 +587,7 @@ namespace SkiResortMod.Systems
             float[] mask = m_Mask;
             float[] decayMask = m_DecayMask;
             float decayNorm = Tuning.DecayPerTopupM / SnowHeightScaleM;
+            float rampNormBase = Tuning.RampPerTopupM / SnowHeightScaleM;
             // Pack guard uses LAST pass's map mean (one-window lag, harmless): while a
             // winter pack covers the world, decay stands down — runs melt with the
             // landscape, never ahead of it.
@@ -514,9 +607,24 @@ namespace SkiResortMod.Systems
                     runDepthSum += depth;
                     runTexels++;
                 }
-                if (target > depth)
+                // Half-quantum tolerance (round 6): setting depth exactly to target lets
+                // the R16_UNorm store round DOWN half a quantum, so those texels counted
+                // as "raised" every pass forever (field log: 2128 of 2700 permanently
+                // raised at steady state). Sub-quantum shortfall is not a raise.
+                if (target - depth > HalfQuantum)
                 {
-                    depth = target;
+                    // Ramp toward target (round 5): coarse-lobe rate noise, same family
+                    // as the edge fold — deterministic, so every patch keeps its own
+                    // speed between top-ups and the fill pattern never shimmers.
+                    // Round 6: scaled by the chill factor — cold texels (run tops) fill
+                    // first, marginal texels (run bases) trickle. See Tuning.RampChill*.
+                    int ty = i / TexSize, tx = i - ty * TexSize;
+                    float rate = 0.65f * Hash01(tx >> 3, ty >> 3, 0x6ADE)
+                               + 0.35f * Hash01(tx, ty, 0x6AF7);
+                    float gunOutput = Tuning.RampChillFloor +
+                                      Tuning.RampChillGain * m_RampMask[i];
+                    depth = math.min(target, depth + rampNormBase *
+                        (Tuning.RampRateMin + Tuning.RampRateSpan * rate) * gunOutput);
                     injected++;
                 }
                 else if (target == 0f && decayMask[i] > 0f && depth > 0f && !packGuard)
@@ -558,11 +666,13 @@ namespace SkiResortMod.Systems
                 m_ForceNextTopupLog = false;
                 Mod.Log.Info($"Snow [topup] {injected} texel(s) raised of {stats.MaskTexels} " +
                              $"masked, {lowered} lowered by managed melt " +
-                             $"(-{Tuning.DecayPerTopupM:F2} m/top-up on gate-off runs) " +
+                             $"(-{Tuning.DecayPerTopupM:F3} m/top-up on gate-off runs) " +
                              $"({stats.SnowmakingActive}/{stats.SnowmakingTotal} snowmaking " +
                              $"@ {Tuning.SnowmakingTargetDepthM:F2} m, " +
                              $"{stats.GroomedActive}/{stats.GroomedTotal} groomed " +
-                             $"@ {Tuning.GroomedTargetDepthM:F2} m, {stats.Triangles} triangle(s)), " +
+                             $"@ {Tuning.GroomedTargetDepthM:F2} m, " +
+                             $"{stats.NightActive}/{stats.NightTotal} night, " +
+                             $"{stats.Triangles} triangle(s)), " +
                              $"ambient {ambient:F1} C, skipped: " +
                              $"{stats.SnowmakingTotal - stats.SnowmakingActive} snowmaking + " +
                              $"{stats.GroomedTotal - stats.GroomedActive} groomed run(s) fully " +
@@ -672,10 +782,12 @@ namespace SkiResortMod.Systems
             {
                 m_Mask = new float[TexelCount];
                 m_DecayMask = new float[TexelCount];
+                m_RampMask = new float[TexelCount];
                 m_Scratch = new float[TexelCount]; // stays zeroed between runs by the fold
             }
             Array.Clear(m_Mask, 0, TexelCount);
             Array.Clear(m_DecayMask, 0, TexelCount);
+            Array.Clear(m_RampMask, 0, TexelCount);
 
             var stats = default(MaskStats);
             float2 texelSize = playSize / TexSize;
@@ -694,9 +806,15 @@ namespace SkiResortMod.Systems
                     var nodeAccessor = chunks[c].GetBufferAccessor(ref nodeHandle);
                     for (int i = 0; i < prefabRefs.Length; i++)
                     {
-                        bool snowmaking = m_SnowmakingPrefabs.Contains(prefabRefs[i].m_Prefab);
-                        bool groomed = !snowmaking && m_GroomedPrefabs.Contains(prefabRefs[i].m_Prefab);
-                        if (!snowmaking && !groomed)
+                        // Night FIRST (night-skiing-run.md §4.1): if a night prefab ever
+                        // also landed in the snowmaking set, classifying night first
+                        // guarantees it can never be mis-billed at the snowmaking rate.
+                        bool nightRun = m_NightPrefabs.Contains(prefabRefs[i].m_Prefab);
+                        bool snowmaking = !nightRun &&
+                            m_SnowmakingPrefabs.Contains(prefabRefs[i].m_Prefab);
+                        bool groomed = !nightRun && !snowmaking &&
+                            m_GroomedPrefabs.Contains(prefabRefs[i].m_Prefab);
+                        if (!nightRun && !snowmaking && !groomed)
                             continue;
 
                         // PER-TEXEL THERMAL LINE (2026-08-12 user round, "melt from the
@@ -706,7 +824,15 @@ namespace SkiResortMod.Systems
                         // white, bottom bare, boundary creeping with the season.
                         float targetM;
                         float thermalThresholdC;
-                        if (snowmaking)
+                        if (nightRun)
+                        {
+                            // Aliases of the snowmaking values — identical physics by
+                            // design, separate counters for billing (§4.1).
+                            stats.NightTotal++;
+                            targetM = Tuning.NightTargetDepthM;
+                            thermalThresholdC = freezing + Tuning.NightMarginC;
+                        }
+                        else if (snowmaking)
                         {
                             stats.SnowmakingTotal++;
                             targetM = Tuning.SnowmakingTargetDepthM;
@@ -723,10 +849,24 @@ namespace SkiResortMod.Systems
                         RasterizeRun(triangleAccessor[i], nodeAccessor[i], playOffset,
                             texelSize, targetM / SnowHeightScaleM, thermalThresholdC,
                             ref heightData, ref stats);
-                        if (stats.MaskTexels > injectTexelsBefore)
+                        int newTexels = stats.MaskTexels - injectTexelsBefore;
+                        if (newTexels > 0)
                         {
-                            if (snowmaking) stats.SnowmakingActive++;
-                            else stats.GroomedActive++;
+                            if (nightRun)
+                            {
+                                stats.NightActive++;
+                                stats.NightMaskTexels += newTexels;
+                            }
+                            else if (snowmaking)
+                            {
+                                stats.SnowmakingActive++;
+                                stats.SnowmakingMaskTexels += newTexels;
+                            }
+                            else
+                            {
+                                stats.GroomedActive++;
+                                stats.GroomedMaskTexels += newTexels;
+                            }
                         }
                     }
                 }
@@ -823,6 +963,7 @@ namespace SkiResortMod.Systems
                         continue; // containment: outside the polygon, emit nothing
 
                     float sum = 0f;
+                    float sumFine = 0f; // 3x3 spine window (round 7), gathered in-loop
                     for (int dy = -F; dy <= F; dy++)
                     {
                         int yy = ty + dy;
@@ -836,7 +977,10 @@ namespace SkiResortMod.Systems
                                 continue;
                             // Edge-inclusive point tests can double-count subsamples on
                             // shared triangle edges — clamp per neighbor before summing.
-                            sum += math.min(m_Scratch[nRow + xx], 1f);
+                            float coverage = math.min(m_Scratch[nRow + xx], 1f);
+                            sum += coverage;
+                            if (dy >= -1 && dy <= 1 && dx >= -1 && dx <= 1)
+                                sumFine += coverage;
                         }
                     }
                     float blurred = sum * windowNorm;
@@ -849,7 +993,8 @@ namespace SkiResortMod.Systems
                     float wz = playOffset.y + (ty + 0.5f) * texelSize.y;
                     float elevation = TerrainUtils.SampleHeight(ref heightData,
                         new float3(wx, 0f, wz));
-                    if (m_SnowLineSystem.GetLocalTemperature(elevation) > thermalThresholdC)
+                    float localT = m_SnowLineSystem.GetLocalTemperature(elevation);
+                    if (localT > thermalThresholdC)
                     {
                         if (m_DecayMask[idx] == 0f)
                         {
@@ -867,22 +1012,36 @@ namespace SkiResortMod.Systems
                     float t = math.saturate(
                         (blurred - (Tuning.EdgeNoiseFloor + noise * Tuning.EdgeNoiseSpan))
                         / Tuning.EdgeSoftness);
-                    if (t <= 0f)
+                    // Spine (round 7): a texel whose 3x3 neighborhood is (nearly) all
+                    // in-polygon is run interior no matter what the 7x7 blur says —
+                    // narrow chutes get a full-depth centerline, and the noise dropout
+                    // may only claim texels outside the spine.
+                    float tFine = math.saturate(
+                        (sumFine * (1f / 9f) - Tuning.SpineCoverageFloor) / Tuning.SpineSoftness);
+                    if (t <= 0f && tFine <= 0f)
                         continue;
 
                     // Fringe profile (field round 2): partial texels are capped at
                     // FringeMaxDepthM — around the shader's white-saturation depth — so a
                     // visible partial-white band can exist; only full-interior texels
-                    // (t == 1) carry the run target.
-                    float value = t >= 1f
+                    // (coarse t == 1, or spine tFine == 1) carry the run target.
+                    float value = t >= 1f || tFine >= 1f
                         ? targetNorm
-                        : math.min(t * (Tuning.FringeMaxDepthM / SnowHeightScaleM), targetNorm);
+                        : math.min(math.max(t, tFine) * (Tuning.FringeMaxDepthM / SnowHeightScaleM),
+                            targetNorm);
                     if (value > m_Mask[idx])
                     {
                         if (m_Mask[idx] == 0f)
                             stats.MaskTexels++;
                         m_Mask[idx] = value;
                     }
+
+                    // Chill factor for the merge's ramp (round 6): gun output follows how
+                    // far below threshold this texel's air is — top-down fill emerges in
+                    // every cooling scenario. Max-merge across overlapping runs.
+                    float chill = math.saturate((thermalThresholdC - localT) / Tuning.RampChillSpanC);
+                    if (chill > m_RampMask[idx])
+                        m_RampMask[idx] = chill;
                 }
             }
 
@@ -934,6 +1093,7 @@ namespace SkiResortMod.Systems
             m_PrefabsResolved = true;
             ResolvePrefabSet(SnowmakingSurfaceNames, m_SnowmakingPrefabs);
             ResolvePrefabSet(GroomedSurfaceNames, m_GroomedPrefabs);
+            ResolvePrefabSet(NightSurfaceNames, m_NightPrefabs);
         }
 
         private void ResolvePrefabSet(string[] names, HashSet<Entity> target)

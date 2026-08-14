@@ -572,6 +572,313 @@ def paint_pad_strip(base, nrm, msk, ctl, A):
     base[dot0:dot1, cx - bw:cx + bw, 0:3] = dark
 
 
+# --------------------------------------------------------------------------------------
+# Snowmaking prop family atlas (docs/research/art/snow-prop-materials.md)
+#
+# A FAMILY-PRIVATE recipe living BESIDE lift_atlas_quads, never replacing or extending it.
+# QUADS, QUAD_RESERVED_TOP and unwrap_into_quadrant are untouched, so no shipped lift asset
+# re-imports. Quads 0 and 1 are deliberately byte-identical to the lift recipe (same
+# Concrete034 at tint 0.58, same Metal032) so the pack still reads as one machine shop;
+# quad 2 is re-cut into rubber / grate / safety-plastic zones, and quad 3 is split into a
+# recolourable livery rect and a recolourable accent rect, because every documented
+# manufacturer livery is two-tone.
+#
+# Why this exists: snow guns need materials the lift atlas has no slot for. The first draft
+# of snow_props.py put TYRES, HOSES AND THE FAN INTAKE on the glass quad at 0.92 smoothness
+# (mirror-finish rubber) and the ORANGE HYDRANT LID on recolour slot 1, so the safety cap
+# would have recoloured with the manufacturer livery.
+#
+# Recolour slots: R = livery paint, G = safety orange (PAD_RGB, unchanged), B = accent.
+# --------------------------------------------------------------------------------------
+
+RUBBER_RGB  = (0.055, 0.055, 0.060)
+GRATE_RGB   = (0.090, 0.095, 0.100)
+AMBER_RGB   = (0.860, 0.460, 0.040)
+FLOODLENS_RGB = (0.780, 0.800, 0.820)   # 4000-5000 K cool white, unlit
+REFLECT_RGB = (0.780, 0.790, 0.800)
+PLATE_RGB   = (0.160, 0.170, 0.180)
+
+
+def _rect_px(rect, A):
+    """UV rect (u0, v0, u1, v1) -> (row0, row1, col0, col1) texel slice bounds."""
+    u0, v0, u1, v1 = rect
+    return int(v0 * A), int(v1 * A), int(u0 * A), int(u1 * A)
+
+
+def height_to_normal(height, nrm_view, strength=4.0):
+    """Finite-difference a height field into a tangent-space normal (GL convention),
+    written into nrm_view in place. Factored out of paint_panel_detail's idiom so every
+    rect painter shares one implementation."""
+    gy, gx = np.gradient(height.astype(np.float32))
+    nx = np.clip(0.5 - gx * strength, 0.0, 1.0)
+    ny = np.clip(0.5 + gy * strength, 0.0, 1.0)
+    nrm_view[..., 0] = nx
+    nrm_view[..., 1] = ny
+    nrm_view[..., 2] = 1.0
+    nrm_view[..., 3] = 1.0
+
+
+def snow_prop_zones(A):
+    """
+    Named atlas rects for the snowmaking prop family, in atlas UV.
+
+    The stamped detail strip is ONE full-width band at the very top of the atlas rather
+    than a reservation inside a quad: apply_finish_textures packs AO islands into the
+    tallest reserved-free v-band, so a strip buried at a quad boundary would halve the
+    usable texel density. STRIP_PX is defined in TEXELS so a stamped chevron is equally
+    crisp at any atlas size.
+    """
+    strip_px = 48 if A >= 512 else 32
+    vs = (A - strip_px) / float(A)          # strip bottom
+    h = vs - 0.5                            # usable height of the upper quads
+    e = 0.004                               # edge inset, keeps bilinear off the seams
+    return {
+        # quad 2, re-cut
+        "rubber":  (e,     0.5,                e + 0.492, 0.5 + 0.40 * h),
+        "grate":   (e,     0.5 + 0.41 * h,     e + 0.492, 0.5 + 0.62 * h),
+        "plastic": (e,     0.5 + 0.63 * h,     e + 0.492, vs - e),
+        # quad 3, split
+        "livery":  (0.504, 0.5,                0.770,     vs - e),
+        "accent":  (0.775, 0.5,                0.996,     vs - e),
+        # the stamped strip. `floodlens` is cool-white and DELIBERATELY separate from
+        # `amber`: a piste floodlight is 4000-5000 K, and reusing the beacon's amber would
+        # tie the floodlight visually to the snow gun — backwards, since telling the two
+        # masts apart at a glance is the whole design goal (piste-floodlight-spec.md).
+        "chevron":   (0.000, vs,               0.360,     1.0),
+        "reflect":   (0.360, vs,               0.540,     1.0),
+        "amber":     (0.540, vs,               0.630,     1.0),
+        "floodlens": (0.630, vs,               0.720,     1.0),
+        "plate":     (0.720, vs,               0.860,     1.0),
+        "label":     (0.860, vs,               1.000,     1.0),
+        "strip":   (0.000, vs,                 1.000,     1.0),
+        # untouched photo quads, addressable by name
+        "concrete": (0.0, 0.0, 0.5, 0.5),
+        "galv":     (0.5, 0.0, 1.0, 0.5),
+    }
+
+
+def snow_prop_atlas_quads(tex_root):
+    """
+    Family-private atlas recipe. Returns (quad_sets, control_quads) for
+    make_texture_set_atlas; pair it with post=snow_prop_post.
+
+    control_quads writes ControlMask R across quad 3; snow_prop_post then ZEROES R over the
+    accent rect and sets B there instead, so the two paint zones answer to different
+    recolour slots from one quad.
+    """
+    quad_sets = {
+        0: {"set": os.path.join(tex_root, "Concrete034"), "tint": 0.58},
+        1: os.path.join(tex_root, "Metal032"),
+        # Quad 2 is fully overpainted by snow_prop_post; this is just a sane ground.
+        2: {"rgb": GRATE_RGB, "noise": 0.004, "smooth": 0.30, "metal": 0.0},
+        3: {"rgb": (RECOLOR_ALBEDO, RECOLOR_ALBEDO, RECOLOR_ALBEDO),
+            "noise": 0.010, "smooth": 0.60, "metal": 0.05,
+            "panels": True, "seam_px": 96},
+    }
+    return quad_sets, (0.0, 0.0, 0.0, 1.0)
+
+
+def snow_prop_post(base, nrm, msk, ctl, A):
+    """make_texture_set_atlas `post` hook for the snowmaking family."""
+    Z = snow_prop_zones(A)
+    rng = np.random.default_rng(37)
+
+    def sl(name):
+        r0, r1, c0, c1 = _rect_px(Z[name], A)
+        return (slice(r0, r1), slice(c0, c1)), (r1 - r0, c1 - c0)
+
+    # ---- rubber: tyres, hoses, intake shadow. Matte, dielectric, faint moulding ribs.
+    s, (h, w) = sl("rubber")
+    for ch in range(3):
+        base[s][..., ch] = np.clip(RUBBER_RGB[ch] + rng.normal(0, 0.006, (h, w)), 0, 1)
+    base[s][..., 3] = 1.0
+    msk[s][..., 0] = 0.0
+    msk[s][..., 3] = 0.18
+    ctl[s][..., 0] = 0.0
+    rib = np.zeros((h, w), dtype=np.float32)
+    rib[::3, :] = 0.035
+    height_to_normal(rib, nrm[s], strength=3.0)
+
+    # ---- grate: intake mesh, platform grating, cabinet louvres.
+    s, (h, w) = sl("grate")
+    for ch in range(3):
+        base[s][..., ch] = GRATE_RGB[ch]
+    holes = np.zeros((h, w), dtype=np.float32)
+    holes[::9, :] = 1.0
+    holes[:, ::9] = 1.0
+    base[s][..., 0:3] *= (1.0 - 0.55 * holes)[..., None]
+    base[s][..., 3] = 1.0
+    msk[s][..., 0] = 0.35
+    msk[s][..., 3] = 0.30
+    ctl[s][..., 0] = 0.0
+    height_to_normal(-holes * 0.05, nrm[s], strength=3.5)
+
+    # ---- plastic: hydrant lids, valve handwheels, marker caps. RECOLOUR SLOT 2 (orange).
+    s, (h, w) = sl("plastic")
+    for ch in range(3):
+        base[s][..., ch] = np.clip(RECOLOR_ALBEDO + rng.normal(0, 0.010, (h, w)), 0, 1)
+    base[s][..., 3] = 1.0
+    msk[s][..., 0] = 0.0
+    msk[s][..., 3] = 0.55
+    ctl[s][..., 0] = 0.0
+    ctl[s][..., 1] = 1.0
+    pebble = rng.normal(0.0, 0.010, (h, w)).astype(np.float32)
+    pebble[int(h * 0.32):int(h * 0.36), :] += 0.05      # two moulded ribs
+    pebble[int(h * 0.64):int(h * 0.68), :] += 0.05
+    height_to_normal(pebble, nrm[s], strength=3.0)
+
+    # ---- accent: second livery tone. Quad 3 already carries R=1 from control_quads;
+    #      hand this rect to slot 3 instead so chassis and housing recolour separately.
+    s, (h, w) = sl("accent")
+    ctl[s][..., 0] = 0.0
+    ctl[s][..., 2] = 1.0
+    msk[s][..., 3] = 0.55
+
+    # ---- chevron: hazard band. paint_pad_strip's exact idiom — light field on slot 2,
+    #      dark chevrons masked OUT of the slot so painted symbols never tint.
+    s, (h, w) = sl("chevron")
+    for ch in range(3):
+        base[s][..., ch] = RECOLOR_ALBEDO
+    base[s][..., 3] = 1.0
+    msk[s][..., 0] = 0.0
+    msk[s][..., 3] = 0.45
+    ctl[s][..., 0] = 0.0
+    ctl[s][..., 1] = 1.0
+    r0, r1, c0, c1 = _rect_px(Z["chevron"], A)
+    period = max(6, h * 2)
+    yy, xx = np.mgrid[0:h, 0:w]
+    stripe = (((xx + yy) % period) < (period // 2))
+    band = base[r0:r1, c0:c1]
+    band[..., 0:3] = np.where(stripe[..., None], 0.09, band[..., 0:3])
+    ctl[r0:r1, c0:c1, 1] = np.where(stripe, 0.0, 1.0)
+    grooves = np.where(stripe, 0.02, 0.0).astype(np.float32)
+    height_to_normal(grooves, nrm[r0:r1, c0:c1], strength=2.0)
+
+    # ---- reflective band (marker poles) and amber beacon lens.
+    s, (h, w) = sl("reflect")
+    for ch in range(3):
+        base[s][..., ch] = REFLECT_RGB[ch]
+    base[s][..., 3] = 1.0
+    msk[s][..., 0] = 0.0
+    msk[s][..., 3] = 0.88
+    ctl[s][..., 0] = 0.0
+
+    s, (h, w) = sl("amber")
+    for ch in range(3):
+        base[s][..., ch] = AMBER_RGB[ch]
+    base[s][..., 3] = 1.0
+    msk[s][..., 0] = 0.0
+    msk[s][..., 3] = 0.92
+    ctl[s][..., 0] = 0.0
+    fres = np.zeros((h, w), dtype=np.float32)
+    fres[:, ::2] = 0.03
+    height_to_normal(fres, nrm[s], strength=2.5)
+
+    # ---- floodlight lens: cool white, very smooth, faint prismatic ribbing. This is the
+    #      surface the emissive map will drive at night.
+    s, (h, w) = sl("floodlens")
+    for ch, v in enumerate(FLOODLENS_RGB):
+        base[s][..., ch] = v
+    base[s][..., 3] = 1.0
+    msk[s][..., 0] = 0.0
+    msk[s][..., 3] = 0.94
+    ctl[s][..., 0] = 0.0
+    prism = np.zeros((h, w), dtype=np.float32)
+    prism[:, ::3] = 0.02
+    height_to_normal(prism, nrm[s], strength=2.0)
+
+    # ---- maker's plate and warning label. Generic marks only — no trademarks.
+    s, (h, w) = sl("plate")
+    for ch in range(3):
+        base[s][..., ch] = PLATE_RGB[ch]
+    base[s][..., 3] = 1.0
+    msk[s][..., 0] = 0.55
+    msk[s][..., 3] = 0.70
+    ctl[s][..., 0] = 0.0
+
+    s, (h, w) = sl("label")
+    for ch in range(3):
+        base[s][..., ch] = 0.88
+    base[s][..., 3] = 1.0
+    msk[s][..., 0] = 0.0
+    msk[s][..., 3] = 0.50
+    ctl[s][..., 0] = 0.0
+    r0, r1, c0, c1 = _rect_px(Z["label"], A)
+    T = max(3, int(h * 0.70))
+    cx = c0 + (c1 - c0) // 2
+    y0 = r0 + int(h * 0.15)
+    for row in range(T):
+        half = max(1, int((c1 - c0) * 0.16 * (1.0 - row / T)))
+        base[y0 + row, cx - half:cx + half, 0:3] = (0.95, 0.78, 0.05)
+
+
+def make_snow_prop_emissive(out_dir, name, quad_size, lit=None):
+    """
+    Write the fifth map, `<name>_Emissive.png`, for the snowmaking prop family.
+
+    THREE THINGS THAT ARE EASY TO GET WRONG (docs/research/art/prop-emissive-lights.md):
+      * It is **sRGB, not linear**. The asset pipeline maps `*_Emissive` to the default
+        texture profile (linearTexture:false), unlike _MaskMap/_ControlMask which go to
+        the linear profile. So it is written is_data=False.
+      * It must be **RGBA**. A 3-channel PNG skips BC compression entirely
+        (CompressBC returns early when channels != 4).
+      * It is **emitted colour, not a mask**: the shader multiplies this by the
+        EmissiveProperties intensity (0.6, which the bake scales x100 to a shader
+        multiplier of 60). Black means "not emissive".
+
+    `lit` maps zone name -> (r, g, b) emitted colour. Default lights the two lens zones:
+    the floodlight lens at full cool white, the amber beacon dimmer because a beacon is a
+    marker rather than a source. Everything else stays black.
+    """
+    S = quad_size
+    A = S * 2
+    emi = np.zeros((A, A, 4), dtype=np.float32)
+    emi[..., 3] = 1.0
+
+    zones = snow_prop_zones(A)
+    if lit is None:
+        lit = {
+            "floodlens": (0.95, 0.97, 1.00),   # 4000-5000 K, the piste floodlight
+            "amber":     (0.55, 0.28, 0.03),   # beacon: present, not a light source
+        }
+    for zone, rgb in lit.items():
+        if zone not in zones:
+            continue
+        r0, r1, c0, c1 = _rect_px(zones[zone], A)
+        for ch in range(3):
+            emi[r0:r1, c0:c1, ch] = rgb[ch]
+
+    path = os.path.join(out_dir, f"{name}_Emissive.png")
+    _write_png_raw(path, f"{name}_Emissive", emi, A, is_data=False)
+    return os.path.basename(path)
+
+
+def unwrap_into_rect(obj, rect, A, inset_px=3):
+    """
+    Smart-project one object's UVs and squeeze them into an arbitrary atlas rect.
+
+    Generalises unwrap_into_quadrant (left untouched for lift assets). The inset is in
+    TEXELS rather than UV, so a small rect on a small atlas keeps a real bilinear guard
+    band instead of a sub-pixel one.
+    """
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.smart_project(angle_limit=math.radians(66.0), island_margin=0.02)
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    u0, v0, u1, v1 = rect
+    ins = inset_px / float(A)
+    du = max((u1 - u0) - 2 * ins, 1e-4)
+    dv = max((v1 - v0) - 2 * ins, 1e-4)
+    for loop_uv in obj.data.uv_layers.active.data:
+        u, v = loop_uv.uv
+        loop_uv.uv = (u0 + ins + min(max(u, 0.0), 1.0) * du,
+                      v0 + ins + min(max(v, 0.0), 1.0) * dv)
+
+
 def preview_material(obj, asset_dir, name):
     """Attach the BaseColor for preview renders only (strip again before export_fbx)."""
     mat = bpy.data.materials.new(name + "Preview")
@@ -621,8 +928,15 @@ def write_settings(out_dir, name, supplied_lods=()):
     {"mode": "Skip"} so the pipeline uses ours, and its textures are pointed back at LOD0's
     via sharedAssets rather than duplicating multi-megabyte PNGs.
 
-    Empty tuple (the default) means: ship LOD0 only and let LODPostProcessor generate the
-    rest by edge collapse.
+    CORRECTED 2026-08-13 (docs/research/art/prop-lod-and-lighting.md §11). This docstring
+    used to claim that an empty tuple lets LODPostProcessor generate the chain by edge
+    collapse. It does not. LODPostProcessor CAN edge-collapse, but PostProcessSettings'
+    default is {"LOD1": Skip, "LOD2": Skip} and ShouldExecute returns false the moment a
+    second LOD FBX exists — so generation is OPT-IN PER LEVEL and mutually exclusive with
+    authored LODs. Empty tuple therefore means "this asset ships LOD0 only and has NO
+    chain", which is the right answer for small props (91-98% of comparable vanilla props
+    ship none) but is not the same statement. SPEC §11.1 and lift_tower's --lods help text
+    carry the same inverted claim and want the same correction.
     """
     settings = {}
     shared = {}

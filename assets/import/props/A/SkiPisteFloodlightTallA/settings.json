@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiPisteFloodlightTallA_LOD1_BaseColor.png": "SkiPisteFloodlightTallA_BaseColor.png",
+    "SkiPisteFloodlightTallA_LOD1_ControlMask.png": "SkiPisteFloodlightTallA_ControlMask.png",
+    "SkiPisteFloodlightTallA_LOD1_MaskMap.png": "SkiPisteFloodlightTallA_MaskMap.png",
+    "SkiPisteFloodlightTallA_LOD1_Normal.png": "SkiPisteFloodlightTallA_Normal.png",
+    "SkiPisteFloodlightTallA_LOD2_BaseColor.png": "SkiPisteFloodlightTallA_BaseColor.png",
+    "SkiPisteFloodlightTallA_LOD2_ControlMask.png": "SkiPisteFloodlightTallA_ControlMask.png",
+    "SkiPisteFloodlightTallA_LOD2_MaskMap.png": "SkiPisteFloodlightTallA_MaskMap.png",
+    "SkiPisteFloodlightTallA_LOD2_Normal.png": "SkiPisteFloodlightTallA_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

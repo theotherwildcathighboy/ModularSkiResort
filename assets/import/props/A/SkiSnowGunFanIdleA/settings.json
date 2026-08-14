@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiSnowGunFanIdleA_LOD1_BaseColor.png": "SkiSnowGunFanIdleA_BaseColor.png",
+    "SkiSnowGunFanIdleA_LOD1_ControlMask.png": "SkiSnowGunFanIdleA_ControlMask.png",
+    "SkiSnowGunFanIdleA_LOD1_MaskMap.png": "SkiSnowGunFanIdleA_MaskMap.png",
+    "SkiSnowGunFanIdleA_LOD1_Normal.png": "SkiSnowGunFanIdleA_Normal.png",
+    "SkiSnowGunFanIdleA_LOD2_BaseColor.png": "SkiSnowGunFanIdleA_BaseColor.png",
+    "SkiSnowGunFanIdleA_LOD2_ControlMask.png": "SkiSnowGunFanIdleA_ControlMask.png",
+    "SkiSnowGunFanIdleA_LOD2_MaskMap.png": "SkiSnowGunFanIdleA_MaskMap.png",
+    "SkiSnowGunFanIdleA_LOD2_Normal.png": "SkiSnowGunFanIdleA_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}
