@@ -65,6 +65,29 @@ namespace SkiResortMod.Systems
                    (elevation - m_ClimateSystem.temperatureBaseHeight) * m_ClimateSystem.snowTemperatureHeightScale;
         }
 
+        /// <summary>The lapse as its three RAW coefficients, for Burst jobs that cannot
+        /// call back into a managed system. Consumers MUST evaluate the exact expression
+        /// <see cref="GetLocalTemperature"/> uses — `ambient - (elevation - baseHeight) *
+        /// scale` — so job-side routing stays BIT-identical to the managed oracle (the
+        /// entry-88 review caught that pre-folding these into two coefficients shifts
+        /// threshold-adjacent texels by a float ulp). The null-climate fallback
+        /// (ambient = FallbackAmbientC, base = 0, scale = 0) reproduces the old constant
+        /// at every elevation.</summary>
+        public void GetLocalTemperatureCoefficients(out float ambient, out float baseHeight,
+            out float scale)
+        {
+            if (m_ClimateSystem == null)
+            {
+                ambient = FallbackAmbientC;
+                baseHeight = 0f;
+                scale = 0f;
+                return;
+            }
+            ambient = GetAmbientTemperature();
+            baseHeight = m_ClimateSystem.temperatureBaseHeight;
+            scale = m_ClimateSystem.snowTemperatureHeightScale;
+        }
+
         /// <summary>Elevation of the current snow line (T_local == freezing). Terrain above
         /// this holds natural snow. float.MaxValue when the lapse is degenerate (no snow
         /// anywhere); float.MinValue never occurs (a negative ambient just lowers the line).</summary>

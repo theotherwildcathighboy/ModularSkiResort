@@ -87,9 +87,11 @@ using Game.Common;
 using Game.Prefabs;
 using Game.Simulation;
 using Game.Tools;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -278,6 +280,272 @@ namespace SkiResortMod.Systems
             public int NightMaskTexels;
         }
 
+        // ── Row-parallel jobs (perf round, entry 88) ─────────────────────────────────────
+        // The same math the managed loops ran, split over texture rows: each worker owns
+        // whole rows, so no two threads ever write the same texel (the fold READS neighbor
+        // rows, but only from the read-only scratch plane — safe). Counts reduce exactly;
+        // the float depth sums change only in association order, which is sub-quantum
+        // against their byte-level consumers. [BurstCompile] is best-effort: if the game
+        // does not Burst-compile mod jobs, these still run parallel as managed IL, which
+        // alone retires the main-thread hitch this round exists to fix.
+
+        /// <summary>Rows per work-stealing batch — coarse enough that scheduling overhead
+        /// stays invisible, fine enough that a 100-row run still spreads across cores.</summary>
+        private const int RowBatch = 8;
+
+        /// <summary>Triangle pre-clipped to texel space on the main thread; jobs never
+        /// touch ECS buffers.</summary>
+        private struct TriData
+        {
+            public float2 A, B, C;      // world XZ
+            public int X0, Y0, X1, Y1;  // texel bbox, clipped to the texture
+        }
+
+        private struct FoldRowPartial
+        {
+            public int NewMaskTexels;
+            public int NewDecayTexels;
+        }
+
+        private struct MergeRowPartial
+        {
+            public int Injected, Lowered, RunTexels;
+            public double GlobalDepthSum, RunDepthSum;
+        }
+
+        [BurstCompile]
+        private struct ClearPlanesJob : IJobFor
+        {
+            [NativeDisableParallelForRestriction] public NativeArray<float> Mask;
+            [NativeDisableParallelForRestriction] public NativeArray<float> DecayMask;
+            [NativeDisableParallelForRestriction] public NativeArray<float> RampMask;
+
+            public void Execute(int row)
+            {
+                int rowBase = row * TexSize;
+                for (int tx = 0; tx < TexSize; tx++)
+                {
+                    Mask[rowBase + tx] = 0f;
+                    DecayMask[rowBase + tx] = 0f;
+                    RampMask[rowBase + tx] = 0f;
+                }
+            }
+        }
+
+        [BurstCompile]
+        private struct RasterizeRowsJob : IJobFor
+        {
+            [ReadOnly] public NativeArray<TriData> Tris;
+            [NativeDisableParallelForRestriction] public NativeArray<float> Scratch;
+            public int RunY0;
+            public float2 PlayOffset;
+            public float2 TexelSize;
+
+            public void Execute(int r)
+            {
+                const int s = Tuning.SupersampleGrid;
+                const float subStep = 1f / s;
+                const float subWeight = 1f / (s * s);
+                int ty = RunY0 + r;
+                int rowBase = ty * TexSize;
+                for (int t = 0; t < Tris.Length; t++)
+                {
+                    TriData tri = Tris[t];
+                    if (ty < tri.Y0 || ty > tri.Y1)
+                        continue;
+                    for (int tx = tri.X0; tx <= tri.X1; tx++)
+                    {
+                        int hits = 0;
+                        for (int sy = 0; sy < s; sy++)
+                        {
+                            float wz = PlayOffset.y + (ty + (sy + 0.5f) * subStep) * TexelSize.y;
+                            for (int sx = 0; sx < s; sx++)
+                            {
+                                float wx = PlayOffset.x + (tx + (sx + 0.5f) * subStep) * TexelSize.x;
+                                if (PointInTriangle(new float2(wx, wz), tri.A, tri.B, tri.C))
+                                    hits++;
+                            }
+                        }
+                        if (hits > 0)
+                            Scratch[rowBase + tx] += hits * subWeight;
+                    }
+                }
+            }
+        }
+
+        /// <summary>The fold pass of one run — body ported VERBATIM from the managed loop
+        /// (entry 88). The lapse is inlined because a job cannot call the managed
+        /// SnowLineSystem, as the EXACT expression GetLocalTemperature evaluates —
+        /// `ambient - (elevation - baseHeight) * scale` — with its three raw
+        /// coefficients, so threshold routing is BIT-identical to the old per-texel
+        /// managed call (review finding: pre-folding the coefficients shifted
+        /// threshold-adjacent texels by a float ulp).</summary>
+        [BurstCompile]
+        private struct FoldRowsJob : IJobFor
+        {
+            [ReadOnly] public NativeArray<float> Scratch;
+            [NativeDisableParallelForRestriction] public NativeArray<float> Mask;
+            [NativeDisableParallelForRestriction] public NativeArray<float> DecayMask;
+            [NativeDisableParallelForRestriction] public NativeArray<float> RampMask;
+            public NativeArray<FoldRowPartial> Partials;
+            [ReadOnly] public TerrainHeightData HeightData;
+            public int RunY0, RunX0, RunX1;
+            public float2 PlayOffset;
+            public float2 TexelSize;
+            public float TargetNorm;
+            public float ThermalThresholdC;
+            public float LapseAmbient;
+            public float LapseBaseHeight;
+            public float LapseScale;
+
+            public void Execute(int r)
+            {
+                const int F = Tuning.EdgeFeatherTexels;
+                const float windowNorm = 1f / ((2 * F + 1) * (2 * F + 1));
+                int ty = RunY0 + r;
+                var partial = default(FoldRowPartial);
+                for (int tx = RunX0; tx <= RunX1; tx++)
+                {
+                    int idx = ty * TexSize + tx;
+                    if (Scratch[idx] <= 0f)
+                        continue; // containment: outside the polygon, emit nothing
+
+                    float sum = 0f;
+                    float sumFine = 0f; // 3x3 spine window (round 7), gathered in-loop
+                    for (int dy = -F; dy <= F; dy++)
+                    {
+                        int yy = ty + dy;
+                        if (yy < 0 || yy >= TexSize)
+                            continue;
+                        int nRow = yy * TexSize;
+                        for (int dx = -F; dx <= F; dx++)
+                        {
+                            int xx = tx + dx;
+                            if (xx < 0 || xx >= TexSize)
+                                continue;
+                            float coverage = math.min(Scratch[nRow + xx], 1f);
+                            sum += coverage;
+                            if (dy >= -1 && dy <= 1 && dx >= -1 && dx <= 1)
+                                sumFine += coverage;
+                        }
+                    }
+                    float blurred = sum * windowNorm;
+                    if (blurred <= 0f)
+                        continue;
+
+                    float wx = PlayOffset.x + (tx + 0.5f) * TexelSize.x;
+                    float wz = PlayOffset.y + (ty + 0.5f) * TexelSize.y;
+                    float elevation = TerrainUtils.SampleHeight(ref HeightData,
+                        new float3(wx, 0f, wz));
+                    float localT = LapseAmbient - (elevation - LapseBaseHeight) * LapseScale;
+                    if (localT > ThermalThresholdC)
+                    {
+                        if (DecayMask[idx] == 0f)
+                        {
+                            DecayMask[idx] = 1f;
+                            partial.NewDecayTexels++;
+                        }
+                        continue;
+                    }
+
+                    float noise = 0.65f * Hash01(tx >> 3, ty >> 3, 0x5EED)
+                                + 0.35f * Hash01(tx, ty, 0x51DE);
+                    float t = math.saturate(
+                        (blurred - (Tuning.EdgeNoiseFloor + noise * Tuning.EdgeNoiseSpan))
+                        / Tuning.EdgeSoftness);
+                    float tFine = math.saturate(
+                        (sumFine * (1f / 9f) - Tuning.SpineCoverageFloor) / Tuning.SpineSoftness);
+                    if (t <= 0f && tFine <= 0f)
+                        continue;
+
+                    float value = t >= 1f || tFine >= 1f
+                        ? TargetNorm
+                        : math.min(math.max(t, tFine) * (Tuning.FringeMaxDepthM / SnowHeightScaleM),
+                            TargetNorm);
+                    if (value > Mask[idx])
+                    {
+                        if (Mask[idx] == 0f)
+                            partial.NewMaskTexels++;
+                        Mask[idx] = value;
+                    }
+
+                    float chill = math.saturate((ThermalThresholdC - localT) / Tuning.RampChillSpanC);
+                    if (chill > RampMask[idx])
+                        RampMask[idx] = chill;
+                }
+                Partials[r] = partial;
+            }
+        }
+
+        [BurstCompile]
+        private struct ClearScratchRowsJob : IJobFor
+        {
+            [NativeDisableParallelForRestriction] public NativeArray<float> Scratch;
+            public int RunY0, RunX0, RunX1;
+
+            public void Execute(int r)
+            {
+                int rowBase = (RunY0 + r) * TexSize;
+                for (int tx = RunX0; tx <= RunX1; tx++)
+                    Scratch[rowBase + tx] = 0f;
+            }
+        }
+
+        /// <summary>The CPU max-merge — body ported VERBATIM from the managed loop
+        /// (entry 88); semantic comments live at the merge call site in Topup.</summary>
+        [BurstCompile]
+        private struct MergeRowsJob : IJobFor
+        {
+            [ReadOnly] public NativeArray<Ushort2> Readback;
+            [ReadOnly] public NativeArray<float> Mask;
+            [ReadOnly] public NativeArray<float> DecayMask;
+            [ReadOnly] public NativeArray<float> RampMask;
+            [NativeDisableParallelForRestriction] public NativeArray<float2> Upload;
+            public NativeArray<MergeRowPartial> Partials;
+            public bool PackGuard;
+            public float DecayNorm;
+            public float RampNormBase;
+
+            public void Execute(int row)
+            {
+                const float inv = 1f / 65535f;
+                int rowBase = row * TexSize;
+                var p = default(MergeRowPartial);
+                for (int tx = 0; tx < TexSize; tx++)
+                {
+                    int i = rowBase + tx;
+                    Ushort2 raw = Readback[i];
+                    float depth = raw.x * inv;
+                    p.GlobalDepthSum += depth;
+                    float target = Mask[i];
+                    bool onRun = target > 0f || DecayMask[i] > 0f;
+                    if (onRun)
+                    {
+                        p.RunDepthSum += depth;
+                        p.RunTexels++;
+                    }
+                    // Half-quantum tolerance (round 6): sub-quantum shortfall is not a raise.
+                    if (target - depth > HalfQuantum)
+                    {
+                        float rate = 0.65f * Hash01(tx >> 3, row >> 3, 0x6ADE)
+                                   + 0.35f * Hash01(tx, row, 0x6AF7);
+                        float gunOutput = Tuning.RampChillFloor +
+                                          Tuning.RampChillGain * RampMask[i];
+                        depth = math.min(target, depth + RampNormBase *
+                            (Tuning.RampRateMin + Tuning.RampRateSpan * rate) * gunOutput);
+                        p.Injected++;
+                    }
+                    else if (target == 0f && DecayMask[i] > 0f && depth > 0f && !PackGuard)
+                    {
+                        depth = math.max(0f, depth - DecayNorm);
+                        p.Lowered++;
+                    }
+                    Upload[i] = new float2(depth, raw.y * inv);
+                }
+                Partials[row] = p;
+            }
+        }
+
         private SnowSystem m_SnowSystem;
         private TerrainSystem m_TerrainSystem;
         private SimulationSystem m_SimulationSystem;
@@ -292,12 +560,15 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_NightPrefabs = new HashSet<Entity>();
         private bool m_PrefabsResolved;            // session cache (PrefabSystem outlives loads)
 
-        // Working buffers — created lazily on first use, kept for the session (28 MB total:
-        // 2x float[1M] managed + 4 MB readback + 8 MB upload staging + 8 MB GPU buffer).
-        private float[] m_Mask;                    // target depth (normalized /8 m) per texel
-        private float[] m_DecayMask;               // 1 where a gate-OFF run manages melt
-        private float[] m_RampMask;                // chill factor 0..1 per texel (gun output)
-        private float[] m_Scratch;                 // per-run additive coverage accumulator
+        // Working buffers — created lazily on first use, kept for the session (~32 MB:
+        // 4x NativeArray<float>[1M] planes + 4 MB readback + 8 MB upload staging + 8 MB GPU
+        // buffer). Native rather than managed since the perf round (entry 88): every
+        // per-texel loop now runs as a row-parallel Burst job, and jobs cannot touch
+        // managed arrays.
+        private NativeArray<float> m_Mask;         // target depth (normalized /8 m) per texel
+        private NativeArray<float> m_DecayMask;    // 1 where a gate-OFF run manages melt
+        private NativeArray<float> m_RampMask;     // chill factor 0..1 per texel (gun output)
+        private NativeArray<float> m_Scratch;      // per-run additive coverage accumulator
         private NativeArray<Ushort2> m_Readback;
         private NativeArray<float2> m_Upload;
         private ComputeBuffer m_UploadBuffer;
@@ -373,6 +644,14 @@ namespace SkiResortMod.Systems
 
         protected override void OnDestroy()
         {
+            if (m_Mask.IsCreated)
+                m_Mask.Dispose();
+            if (m_DecayMask.IsCreated)
+                m_DecayMask.Dispose();
+            if (m_RampMask.IsCreated)
+                m_RampMask.Dispose();
+            if (m_Scratch.IsCreated)
+                m_Scratch.Dispose();
             if (m_Readback.IsCreated)
                 m_Readback.Dispose();
             if (m_Upload.IsCreated)
@@ -503,10 +782,22 @@ namespace SkiResortMod.Systems
         // ─────────────────────────────────────────────────────────────────────────────────
         // The whole hot path: gate + rasterize mask, validate buffer (once), blocking
         // readback, CPU max-merge, upload via the vanilla Load kernel. Every 64 sim frames.
+        //
+        // PERF SHAPE (entry 88): every per-texel loop is a row-parallel Burst job; the
+        // managed code left here is orchestration. The blocking readback is DELIBERATE and
+        // stays: the merge writes the FULL texture back (the vanilla Load kernel has no
+        // sub-rect parameters — verified against its complete ShaderIDs surface), so a
+        // stale async snapshot would revert natural snowfall map-wide on upload. Vanilla's
+        // rolling-async mirror pattern (water/terrain) is read-only and does not apply.
+        // Same-frame atomicity is proven: GameSimulation systems run sequentially on the
+        // main thread, SnowSystem is the sole gameplay-time writer, and same-queue GPU
+        // ordering covers the rest. The per-phase ms split in the top-up log line is the
+        // field instrument for whatever cost remains.
         // ─────────────────────────────────────────────────────────────────────────────────
         private void Topup()
         {
             var timer = System.Diagnostics.Stopwatch.StartNew();
+            double tMask = 0, tReadback = 0, tMerge = 0;
 
             float2 playOffset = m_TerrainSystem.playableOffset;
             float2 playSize = m_TerrainSystem.playableArea;
@@ -525,6 +816,7 @@ namespace SkiResortMod.Systems
             float freezing = m_SnowLineSystem.GetFreezingTemperature();
 
             MaskStats stats = BuildMask(playOffset, playSize, ambient, freezing);
+            tMask = timer.Elapsed.TotalMilliseconds;
             // Publish the per-type active mask before ANY early-out below: "all gates
             // off" and "no runs placed" both mean zero billable operations, and the
             // upkeep system must see that zero, not a stale count.
@@ -576,65 +868,51 @@ namespace SkiResortMod.Systems
                 }
                 return;
             }
+            tReadback = timer.Elapsed.TotalMilliseconds;
 
-            // CPU max-merge. R: r = max(r, target×coverage) — idempotent, monotone, never
-            // reduces. G: exact ushort round-trip (k/65535 re-quantizes to k), water is
-            // untouched. Deep winter: natural depth already exceeds every target, injected
-            // stays 0, and the upload below is skipped — the no-op by design.
-            const float inv = 1f / 65535f;
-            NativeArray<Ushort2> readback = m_Readback;
-            NativeArray<float2> upload = m_Upload;
-            float[] mask = m_Mask;
-            float[] decayMask = m_DecayMask;
-            float decayNorm = Tuning.DecayPerTopupM / SnowHeightScaleM;
-            float rampNormBase = Tuning.RampPerTopupM / SnowHeightScaleM;
-            // Pack guard uses LAST pass's map mean (one-window lag, harmless): while a
-            // winter pack covers the world, decay stands down — runs melt with the
-            // landscape, never ahead of it.
+            // CPU max-merge (MergeRowsJob). R: r = max(r, target×coverage) — idempotent,
+            // monotone, never reduces. G: exact ushort round-trip (k/65535 re-quantizes
+            // to k), water is untouched. Deep winter: natural depth already exceeds every
+            // target, injected stays 0, and the upload below is skipped — the no-op by
+            // design. Ramp semantics (rounds 5/6): coarse-lobe rate noise + chill factor,
+            // deterministic per texel — see the job body. Pack guard uses LAST pass's map
+            // mean (one-window lag, harmless): while a winter pack covers the world,
+            // decay stands down — runs melt with the landscape, never ahead of it.
             bool packGuard = m_LastGlobalMeanDepthM > Tuning.PackGuardMeanDepthM;
             int injected = 0, lowered = 0;
             double globalDepthSum = 0.0, runDepthSum = 0.0;
             int runTexels = 0;
-            for (int i = 0; i < TexelCount; i++)
+            var mergePartials = new NativeArray<MergeRowPartial>(TexSize, Allocator.TempJob);
+            try
             {
-                Ushort2 raw = readback[i];
-                float depth = raw.x * inv;
-                globalDepthSum += depth;
-                float target = mask[i];
-                bool onRun = target > 0f || decayMask[i] > 0f;
-                if (onRun)
+                new MergeRowsJob
                 {
-                    runDepthSum += depth;
-                    runTexels++;
-                }
-                // Half-quantum tolerance (round 6): setting depth exactly to target lets
-                // the R16_UNorm store round DOWN half a quantum, so those texels counted
-                // as "raised" every pass forever (field log: 2128 of 2700 permanently
-                // raised at steady state). Sub-quantum shortfall is not a raise.
-                if (target - depth > HalfQuantum)
+                    Readback = m_Readback,
+                    Mask = m_Mask,
+                    DecayMask = m_DecayMask,
+                    RampMask = m_RampMask,
+                    Upload = m_Upload,
+                    Partials = mergePartials,
+                    PackGuard = packGuard,
+                    DecayNorm = Tuning.DecayPerTopupM / SnowHeightScaleM,
+                    RampNormBase = Tuning.RampPerTopupM / SnowHeightScaleM,
+                }.ScheduleParallel(TexSize, RowBatch, default).Complete();
+
+                for (int r = 0; r < TexSize; r++)
                 {
-                    // Ramp toward target (round 5): coarse-lobe rate noise, same family
-                    // as the edge fold — deterministic, so every patch keeps its own
-                    // speed between top-ups and the fill pattern never shimmers.
-                    // Round 6: scaled by the chill factor — cold texels (run tops) fill
-                    // first, marginal texels (run bases) trickle. See Tuning.RampChill*.
-                    int ty = i / TexSize, tx = i - ty * TexSize;
-                    float rate = 0.65f * Hash01(tx >> 3, ty >> 3, 0x6ADE)
-                               + 0.35f * Hash01(tx, ty, 0x6AF7);
-                    float gunOutput = Tuning.RampChillFloor +
-                                      Tuning.RampChillGain * m_RampMask[i];
-                    depth = math.min(target, depth + rampNormBase *
-                        (Tuning.RampRateMin + Tuning.RampRateSpan * rate) * gunOutput);
-                    injected++;
+                    MergeRowPartial p = mergePartials[r];
+                    injected += p.Injected;
+                    lowered += p.Lowered;
+                    runTexels += p.RunTexels;
+                    globalDepthSum += p.GlobalDepthSum;
+                    runDepthSum += p.RunDepthSum;
                 }
-                else if (target == 0f && decayMask[i] > 0f && depth > 0f && !packGuard)
-                {
-                    // Managed melt: guns off on this run — decay OUR footprint only.
-                    depth = math.max(0f, depth - decayNorm);
-                    lowered++;
-                }
-                upload[i] = new float2(depth, raw.y * inv);
             }
+            finally
+            {
+                mergePartials.Dispose();
+            }
+            tMerge = timer.Elapsed.TotalMilliseconds;
             m_LastGlobalMeanDepthM = (float)(globalDepthSum / TexelCount) * SnowHeightScaleM;
             MeanRunSnowDepthM = runTexels > 0
                 ? (float)(runDepthSum / runTexels) * SnowHeightScaleM : 0f;
@@ -646,7 +924,7 @@ namespace SkiResortMod.Systems
                 // the Read buffer only: the renderer samples it as _SnowMap immediately,
                 // and the next AddSnow consumes it as _Previous — the Write buffer is
                 // fully rewritten from Read every snow tick, so it needs no copy.
-                m_UploadBuffer.SetData(upload);
+                m_UploadBuffer.SetData(m_Upload);
                 m_SnowUpdateShader.SetBuffer(m_LoadKernel, m_LoadSourceId, m_UploadBuffer);
                 m_SnowUpdateShader.SetTexture(m_LoadKernel, m_ResultId, snowDepth);
                 m_SnowUpdateShader.Dispatch(m_LoadKernel, 64, 64, 1); // 16x16 threads, mirrors vanilla
@@ -677,7 +955,10 @@ namespace SkiResortMod.Systems
                              $"{stats.SnowmakingTotal - stats.SnowmakingActive} snowmaking + " +
                              $"{stats.GroomedTotal - stats.GroomedActive} groomed run(s) fully " +
                              $"below the line, snow line ~{m_SnowLineSystem.GetSnowLineElevation():F0} m, " +
-                             $"{timer.Elapsed.TotalMilliseconds:F1} ms" +
+                             $"{timer.Elapsed.TotalMilliseconds:F1} ms " +
+                             $"(mask {tMask:F1} + readback {tReadback - tMask:F1} + merge " +
+                             $"{tMerge - tReadback:F1} + upload " +
+                             $"{timer.Elapsed.TotalMilliseconds - tMerge:F1})" +
                              (injected == 0 && lowered == 0
                                  ? " (no-op: nothing to raise or melt)" : ""));
             }
@@ -776,23 +1057,46 @@ namespace SkiResortMod.Systems
         // coverages on shared texels sum correctly), then fold max(coverage × target) into
         // the mask — max-blend across runs, so overlapping runs take the deeper target.
         // ─────────────────────────────────────────────────────────────────────────────────
+        /// <summary>One scheduled run's pending results, reduced after the single
+        /// Complete(): per-run Active attribution stays exactly what the sequential fold
+        /// produced — a texel counts for whichever run claimed it first.</summary>
+        private struct PendingRun
+        {
+            public int Kind; // 0 night, 1 snowmaking, 2 groomed — night-first precedence
+            public NativeList<TriData> Tris;
+            public NativeArray<FoldRowPartial> Partials;
+        }
+
         private MaskStats BuildMask(float2 playOffset, float2 playSize, float ambient, float freezing)
         {
-            if (m_Mask == null)
+            if (!m_Mask.IsCreated)
             {
-                m_Mask = new float[TexelCount];
-                m_DecayMask = new float[TexelCount];
-                m_RampMask = new float[TexelCount];
-                m_Scratch = new float[TexelCount]; // stays zeroed between runs by the fold
+                m_Mask = new NativeArray<float>(TexelCount, Allocator.Persistent);
+                m_DecayMask = new NativeArray<float>(TexelCount, Allocator.Persistent);
+                m_RampMask = new NativeArray<float>(TexelCount, Allocator.Persistent);
+                m_Scratch = new NativeArray<float>(TexelCount, Allocator.Persistent);
             }
-            Array.Clear(m_Mask, 0, TexelCount);
-            Array.Clear(m_DecayMask, 0, TexelCount);
-            Array.Clear(m_RampMask, 0, TexelCount);
 
             var stats = default(MaskStats);
             float2 texelSize = playSize / TexSize;
             TerrainHeightData heightData = m_TerrainSystem.GetHeightData();
+            m_SnowLineSystem.GetLocalTemperatureCoefficients(out float lapseAmbient,
+                out float lapseBaseHeight, out float lapseScale);
 
+            // ONE chained job graph, ONE Complete(): clear planes, then per run
+            // rasterize -> fold -> scratch re-zero. Runs are chained SEQUENTIALLY — the
+            // fold max-blends into shared planes and the scratch plane is reused — which
+            // is also what preserves the "first run claims the texel" attribution rule.
+            // The main thread meanwhile only reads ECS buffers and builds TriData, which
+            // the jobs never touch.
+            JobHandle chain = new ClearPlanesJob
+            {
+                Mask = m_Mask,
+                DecayMask = m_DecayMask,
+                RampMask = m_RampMask,
+            }.ScheduleParallel(TexSize, RowBatch, default);
+
+            var pending = new List<PendingRun>();
             var chunks = m_RunScanQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
             {
@@ -818,12 +1122,13 @@ namespace SkiResortMod.Systems
                             continue;
 
                         // PER-TEXEL THERMAL LINE (2026-08-12 user round, "melt from the
-                        // bottom up"): gating moved from per-run mean elevation into the
-                        // fold — each texel injects or decays by the temperature at ITS
-                        // OWN elevation, so the snow line literally crosses a run: top
-                        // white, bottom bare, boundary creeping with the season.
+                        // bottom up"): gating lives in the fold — each texel injects or
+                        // decays by the temperature at ITS OWN elevation, so the snow
+                        // line literally crosses a run: top white, bottom bare, boundary
+                        // creeping with the season.
                         float targetM;
                         float thermalThresholdC;
+                        int kind;
                         if (nightRun)
                         {
                             // Aliases of the snowmaking values — identical physics by
@@ -831,68 +1136,128 @@ namespace SkiResortMod.Systems
                             stats.NightTotal++;
                             targetM = Tuning.NightTargetDepthM;
                             thermalThresholdC = freezing + Tuning.NightMarginC;
+                            kind = 0;
                         }
                         else if (snowmaking)
                         {
                             stats.SnowmakingTotal++;
                             targetM = Tuning.SnowmakingTargetDepthM;
                             thermalThresholdC = freezing + Tuning.SnowmakingMarginC;
+                            kind = 1;
                         }
                         else
                         {
                             stats.GroomedTotal++;
                             targetM = Tuning.GroomedTargetDepthM;
                             thermalThresholdC = freezing + Tuning.GroomedMarginC;
+                            kind = 2;
                         }
 
-                        int injectTexelsBefore = stats.MaskTexels;
-                        RasterizeRun(triangleAccessor[i], nodeAccessor[i], playOffset,
-                            texelSize, targetM / SnowHeightScaleM, thermalThresholdC,
-                            ref heightData, ref stats);
-                        int newTexels = stats.MaskTexels - injectTexelsBefore;
-                        if (newTexels > 0)
-                        {
-                            if (nightRun)
-                            {
-                                stats.NightActive++;
-                                stats.NightMaskTexels += newTexels;
-                            }
-                            else if (snowmaking)
-                            {
-                                stats.SnowmakingActive++;
-                                stats.SnowmakingMaskTexels += newTexels;
-                            }
-                            else
-                            {
-                                stats.GroomedActive++;
-                                stats.GroomedMaskTexels += newTexels;
-                            }
-                        }
+                        ScheduleRun(triangleAccessor[i], nodeAccessor[i],
+                            playOffset, texelSize, targetM / SnowHeightScaleM,
+                            thermalThresholdC, heightData, lapseAmbient,
+                            lapseBaseHeight, lapseScale, kind, ref chain, pending,
+                            ref stats);
                     }
                 }
+            }
+            catch
+            {
+                // A managed throw mid-schedule must not leave jobs in flight against
+                // arrays a later pass (or OnDestroy) will touch: drain the chain and
+                // free the per-run buffers, then let the outer catch disable the system.
+                // ScheduleRun reassigns `chain` after EVERY ScheduleParallel and registers
+                // its buffers in `pending` BEFORE scheduling, so nothing escapes this.
+                chain.Complete();
+                foreach (PendingRun run in pending)
+                {
+                    run.Partials.Dispose();
+                    run.Tris.Dispose();
+                }
+                // An interrupted run may have rasterized coverage whose scratch re-zero
+                // never got scheduled. m_Disabled is per-LOAD but m_Scratch is per-SESSION
+                // — a dirty scratch plane would read as phantom polygon coverage after the
+                // next load. Restore the scratch-is-zero invariant before rethrowing.
+                if (m_Scratch.IsCreated)
+                {
+                    new ClearScratchRowsJob
+                    {
+                        Scratch = m_Scratch,
+                        RunY0 = 0,
+                        RunX0 = 0,
+                        RunX1 = TexSize - 1,
+                    }.ScheduleParallel(TexSize, RowBatch, default).Complete();
+                }
+                throw;
             }
             finally
             {
                 chunks.Dispose();
             }
+
+            // Vanilla contract for job-side height reads (AreaResourceSystem /
+            // GeometrySystem / LaneSystem precedent): register the chain as a CPU-height
+            // reader so terrain writers gate on it. Redundant today — the chain completes
+            // inside this same OnUpdate — but it makes the safety proof structural
+            // instead of incidental.
+            m_TerrainSystem.AddCPUHeightReader(chain);
+            chain.Complete();
+
+            // Reduce per-run partials in schedule order — identical attribution to the
+            // old sequential fold.
+            for (int p = 0; p < pending.Count; p++)
+            {
+                PendingRun run = pending[p];
+                int newTexels = 0, newDecay = 0;
+                for (int r = 0; r < run.Partials.Length; r++)
+                {
+                    newTexels += run.Partials[r].NewMaskTexels;
+                    newDecay += run.Partials[r].NewDecayTexels;
+                }
+                stats.MaskTexels += newTexels;
+                stats.DecayTexels += newDecay;
+                if (newTexels > 0)
+                {
+                    if (run.Kind == 0)
+                    {
+                        stats.NightActive++;
+                        stats.NightMaskTexels += newTexels;
+                    }
+                    else if (run.Kind == 1)
+                    {
+                        stats.SnowmakingActive++;
+                        stats.SnowmakingMaskTexels += newTexels;
+                    }
+                    else
+                    {
+                        stats.GroomedActive++;
+                        stats.GroomedMaskTexels += newTexels;
+                    }
+                }
+                run.Partials.Dispose();
+                run.Tris.Dispose();
+            }
             return stats;
         }
 
-        /// <summary>One run polygon: additive coverage into the scratch plane, then fold
-        /// into the mask over the run's texel bounds and re-zero the scratch (no full-plane
+        /// <summary>One run polygon: pre-clip its triangles to texel space (main thread —
+        /// jobs never touch ECS buffers), then append rasterize -> fold -> scratch
+        /// re-zero to the chain. Additive coverage into the scratch plane, fold into the
+        /// mask over the run's texel bounds, re-zero only the touched bbox (no full-plane
         /// clears — cost stays proportional to run area). Texels beyond the playable area
-        /// are clipped: the snow map ends there (doc §11.5, backdrop runs get nothing).</summary>
-        private void RasterizeRun(DynamicBuffer<Triangle> triangles, DynamicBuffer<Node> nodes,
+        /// are clipped: the snow map ends there (doc §11.5, backdrop runs get nothing).
+        /// The fold's semantic load — containment, thermal routing, edge noise, spine,
+        /// fringe cap (field rounds 2-7) — lives in FoldRowsJob, ported verbatim.</summary>
+        private void ScheduleRun(DynamicBuffer<Triangle> triangles, DynamicBuffer<Node> nodes,
             float2 playOffset, float2 texelSize, float targetNorm, float thermalThresholdC,
-            ref TerrainHeightData heightData, ref MaskStats stats)
+            TerrainHeightData heightData, float lapseAmbient, float lapseBaseHeight,
+            float lapseScale, int kind, ref JobHandle chain, List<PendingRun> pending,
+            ref MaskStats stats)
         {
-            const int s = Tuning.SupersampleGrid;
-            const float subStep = 1f / s;
-            const float subWeight = 1f / (s * s);
-
             int runX0 = int.MaxValue, runY0 = int.MaxValue;
             int runX1 = int.MinValue, runY1 = int.MinValue;
 
+            var tris = new NativeList<TriData>(math.max(triangles.Length, 1), Allocator.TempJob);
             for (int t = 0; t < triangles.Length; t++)
             {
                 int3 indices = triangles[t].m_Indices;
@@ -916,143 +1281,61 @@ namespace SkiResortMod.Systems
                 runY0 = math.min(runY0, y0);
                 runX1 = math.max(runX1, x1);
                 runY1 = math.max(runY1, y1);
-
-                for (int ty = y0; ty <= y1; ty++)
-                {
-                    int rowBase = ty * TexSize;
-                    for (int tx = x0; tx <= x1; tx++)
-                    {
-                        int hits = 0;
-                        for (int sy = 0; sy < s; sy++)
-                        {
-                            float wz = playOffset.y + (ty + (sy + 0.5f) * subStep) * texelSize.y;
-                            for (int sx = 0; sx < s; sx++)
-                            {
-                                float wx = playOffset.x + (tx + (sx + 0.5f) * subStep) * texelSize.x;
-                                if (PointInTriangle(new float2(wx, wz), a, b, cc))
-                                    hits++;
-                            }
-                        }
-                        if (hits > 0)
-                            m_Scratch[rowBase + tx] += hits * subWeight;
-                    }
-                }
+                tris.Add(new TriData { A = a, B = b, C = cc, X0 = x0, Y0 = y0, X1 = x1, Y1 = y1 });
             }
 
             if (runX0 > runX1)
+            {
+                tris.Dispose();
                 return; // no coverage (degenerate or fully off-map)
-
-            // Fold pass (edge-ragged, CONTAINED, per-texel thermal): two passes because the
-            // neighborhood blur must read the scratch plane intact. Per texel:
-            //   * containment (field round 3): only texels the polygon ACTUALLY TOUCHES
-            //     emit anything — the old ±F expansion put a snow/decay halo OUTSIDE the
-            //     decal footprint ("snow instantly appears around the edges of trails");
-            //     the blur still reads ±F neighbors, so edge texels fade INSIDE the run.
-            //   * thermal routing: temperature at THIS texel's elevation decides inject
-            //     vs decay — the snow line crosses the run, bottom-up melt for free.
-            //   * noise threshold + fringe cap as before (ragged contour, sub-saturation
-            //     fringe depths).
-            const int F = Tuning.EdgeFeatherTexels;
-            const float windowNorm = 1f / ((2 * F + 1) * (2 * F + 1));
-            for (int ty = runY0; ty <= runY1; ty++)
-            {
-                for (int tx = runX0; tx <= runX1; tx++)
-                {
-                    int idx = ty * TexSize + tx;
-                    if (m_Scratch[idx] <= 0f)
-                        continue; // containment: outside the polygon, emit nothing
-
-                    float sum = 0f;
-                    float sumFine = 0f; // 3x3 spine window (round 7), gathered in-loop
-                    for (int dy = -F; dy <= F; dy++)
-                    {
-                        int yy = ty + dy;
-                        if (yy < 0 || yy >= TexSize)
-                            continue;
-                        int nRow = yy * TexSize;
-                        for (int dx = -F; dx <= F; dx++)
-                        {
-                            int xx = tx + dx;
-                            if (xx < 0 || xx >= TexSize)
-                                continue;
-                            // Edge-inclusive point tests can double-count subsamples on
-                            // shared triangle edges — clamp per neighbor before summing.
-                            float coverage = math.min(m_Scratch[nRow + xx], 1f);
-                            sum += coverage;
-                            if (dy >= -1 && dy <= 1 && dx >= -1 && dx <= 1)
-                                sumFine += coverage;
-                        }
-                    }
-                    float blurred = sum * windowNorm;
-                    if (blurred <= 0f)
-                        continue;
-
-                    // Thermal routing: sample this texel's terrain elevation and gate by
-                    // the lapsed local temperature. Too warm here → managed melt.
-                    float wx = playOffset.x + (tx + 0.5f) * texelSize.x;
-                    float wz = playOffset.y + (ty + 0.5f) * texelSize.y;
-                    float elevation = TerrainUtils.SampleHeight(ref heightData,
-                        new float3(wx, 0f, wz));
-                    float localT = m_SnowLineSystem.GetLocalTemperature(elevation);
-                    if (localT > thermalThresholdC)
-                    {
-                        if (m_DecayMask[idx] == 0f)
-                        {
-                            m_DecayMask[idx] = 1f;
-                            stats.DecayTexels++;
-                        }
-                        continue;
-                    }
-
-                    // Two octaves: coarse (8-texel cells ≈ 112 m) shapes the lobes, fine
-                    // (per-texel) roughs the lobe rims. Deterministic — the contour is
-                    // stable across top-ups, so no shimmer between passes.
-                    float noise = 0.65f * Hash01(tx >> 3, ty >> 3, 0x5EED)
-                                + 0.35f * Hash01(tx, ty, 0x51DE);
-                    float t = math.saturate(
-                        (blurred - (Tuning.EdgeNoiseFloor + noise * Tuning.EdgeNoiseSpan))
-                        / Tuning.EdgeSoftness);
-                    // Spine (round 7): a texel whose 3x3 neighborhood is (nearly) all
-                    // in-polygon is run interior no matter what the 7x7 blur says —
-                    // narrow chutes get a full-depth centerline, and the noise dropout
-                    // may only claim texels outside the spine.
-                    float tFine = math.saturate(
-                        (sumFine * (1f / 9f) - Tuning.SpineCoverageFloor) / Tuning.SpineSoftness);
-                    if (t <= 0f && tFine <= 0f)
-                        continue;
-
-                    // Fringe profile (field round 2): partial texels are capped at
-                    // FringeMaxDepthM — around the shader's white-saturation depth — so a
-                    // visible partial-white band can exist; only full-interior texels
-                    // (coarse t == 1, or spine tFine == 1) carry the run target.
-                    float value = t >= 1f || tFine >= 1f
-                        ? targetNorm
-                        : math.min(math.max(t, tFine) * (Tuning.FringeMaxDepthM / SnowHeightScaleM),
-                            targetNorm);
-                    if (value > m_Mask[idx])
-                    {
-                        if (m_Mask[idx] == 0f)
-                            stats.MaskTexels++;
-                        m_Mask[idx] = value;
-                    }
-
-                    // Chill factor for the merge's ramp (round 6): gun output follows how
-                    // far below threshold this texel's air is — top-down fill emerges in
-                    // every cooling scenario. Max-merge across overlapping runs.
-                    float chill = math.saturate((thermalThresholdC - localT) / Tuning.RampChillSpanC);
-                    if (chill > m_RampMask[idx])
-                        m_RampMask[idx] = chill;
-                }
             }
 
-            // Re-zero pass: only where this run's rasterizer actually wrote.
-            for (int ty = runY0; ty <= runY1; ty++)
+            int rowCount = runY1 - runY0 + 1;
+            var partials = new NativeArray<FoldRowPartial>(rowCount, Allocator.TempJob);
+            // Register for cleanup BEFORE scheduling, and reassign the caller's chain
+            // (by ref) after EVERY ScheduleParallel: whatever throws mid-way, BuildMask's
+            // catch-drain can always complete every scheduled job and dispose every
+            // buffer (review finding — the original shape leaked both on a throw here).
+            pending.Add(new PendingRun { Kind = kind, Tris = tris, Partials = partials });
+
+            chain = new RasterizeRowsJob
             {
-                int rowBase = ty * TexSize;
-                for (int tx = runX0; tx <= runX1; tx++)
-                    m_Scratch[rowBase + tx] = 0f;
-            }
+                Tris = tris.AsArray(),
+                Scratch = m_Scratch,
+                RunY0 = runY0,
+                PlayOffset = playOffset,
+                TexelSize = texelSize,
+            }.ScheduleParallel(rowCount, RowBatch, chain);
+
+            chain = new FoldRowsJob
+            {
+                Scratch = m_Scratch,
+                Mask = m_Mask,
+                DecayMask = m_DecayMask,
+                RampMask = m_RampMask,
+                Partials = partials,
+                HeightData = heightData,
+                RunY0 = runY0,
+                RunX0 = runX0,
+                RunX1 = runX1,
+                PlayOffset = playOffset,
+                TexelSize = texelSize,
+                TargetNorm = targetNorm,
+                ThermalThresholdC = thermalThresholdC,
+                LapseAmbient = lapseAmbient,
+                LapseBaseHeight = lapseBaseHeight,
+                LapseScale = lapseScale,
+            }.ScheduleParallel(rowCount, RowBatch, chain);
+
+            chain = new ClearScratchRowsJob
+            {
+                Scratch = m_Scratch,
+                RunY0 = runY0,
+                RunX0 = runX0,
+                RunX1 = runX1,
+            }.ScheduleParallel(rowCount, RowBatch, chain);
         }
+
 
         /// <summary>Deterministic per-cell hash noise in [0,1) — integer mix, no state,
         /// identical every top-up (a shimmering edge would read as simulation noise).</summary>
