@@ -80,20 +80,44 @@ namespace SkiResortMod
                 { "Assets.NAME[SkiRunGroomedA]", "Groomed Ski Run" },
                 {
                     "Assets.DESCRIPTION[SkiRunGroomedA]",
-                    "Freeform ski run. Paint the trail; grooming appears on the mountain and " +
-                    "counts toward the resort's attractiveness."
+                    "Freeform ski run. Paint the trail within 5 km of a Ski Area Welcome " +
+                    "Sign; grooming appears on the mountain and counts toward the " +
+                    "resort's attractiveness."
                 },
                 { "Assets.NAME[SkiRunSnowmakingA]", "Ski Run with Snowmaking" },
                 {
                     "Assets.DESCRIPTION[SkiRunSnowmakingA]",
                     "A groomed run with snowmaking coverage — holds its season longer and " +
-                    "scores attractiveness in marginal weather."
+                    "scores attractiveness in marginal weather. Operates within 5 km of a " +
+                    "Ski Area Welcome Sign."
                 },
                 { "Assets.NAME[SkiRunNightA]", "Night Skiing Run" },
                 {
                     "Assets.DESCRIPTION[SkiRunNightA]",
                     "A snowmaking run with floodlighting for a second, after-dark shift — " +
-                    "the most expensive trail to keep open, and the biggest draw."
+                    "the most expensive trail to keep open, and the biggest draw. Operates " +
+                    "within 5 km of a Ski Area Welcome Sign."
+                },
+
+                // Upgrade-panel keys (the gate's sub-menu shows UPGRADE_* for
+                // ServiceUpgrade assets — the lodge precedent).
+                { "Assets.UPGRADE_NAME[SkiRunGroomedA]", "Groomed Ski Run" },
+                {
+                    "Assets.UPGRADE_DESCRIPTION[SkiRunGroomedA]",
+                    "Draw a groomed trail for this resort. One-time trail-cutting charge; " +
+                    "free to keep open."
+                },
+                { "Assets.UPGRADE_NAME[SkiRunSnowmakingA]", "Ski Run with Snowmaking" },
+                {
+                    "Assets.UPGRADE_DESCRIPTION[SkiRunSnowmakingA]",
+                    "Draw a snowmaking trail for this resort. One-time installation " +
+                    "charge, then per-hectare operating costs while the guns run."
+                },
+                { "Assets.UPGRADE_NAME[SkiRunNightA]", "Night Skiing Run" },
+                {
+                    "Assets.UPGRADE_DESCRIPTION[SkiRunNightA]",
+                    "Draw a floodlit snowmaking trail for this resort. The highest " +
+                    "installation and operating costs — and the biggest draw."
                 },
             };
         }

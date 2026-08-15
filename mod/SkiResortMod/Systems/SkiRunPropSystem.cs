@@ -210,6 +210,15 @@ namespace SkiResortMod.Systems
                         seed = HashSeed(nodes[0].m_Position);
                     EntityManager.AddComponentData(area, new PseudoRandomSeed(seed));
 
+                    // Seed the weather struct at zero in the SAME pass (DECISIONS 90):
+                    // runs may now carry Owner -> gate, and the prop shader's snow
+                    // lookup walks Owner chains until it finds Game.Objects.Surface
+                    // (BatchDataSystem:801-816) — without this, a freshly bridged run's
+                    // props would inherit the GATE's surface state for up to 256 frames
+                    // until SkiRunSurfaceSystem's first write. That system SETS both
+                    // fields every pass, so a zero seed is never fought over.
+                    EntityManager.AddComponent<Game.Objects.Surface>(area);
+
                     // Pre-existing areas (older saves) carry no Updated this frame —
                     // add it so SecondaryObjectSystem processes them once, right after
                     // us in this same Modification4B pass. Freshly drawn areas already

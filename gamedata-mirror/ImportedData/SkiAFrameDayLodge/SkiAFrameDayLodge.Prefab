@@ -37,7 +37,7 @@
                 "m_UpgradeCost": 40000,
                 "m_XPReward": 100,
                 "m_MaxPlacementOffset": 3,
-                "m_MaxPlacementDistance": 1000,
+                "m_MaxPlacementDistance": 5000,
                 "m_ForbidMultiple": false
             },
             {

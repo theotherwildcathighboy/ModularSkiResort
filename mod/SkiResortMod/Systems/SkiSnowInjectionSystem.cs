@@ -78,6 +78,7 @@
 
 using System;
 using System.Collections.Generic;
+using Colossal.Entities;
 using Colossal.IO.AssetDatabase;
 using Colossal.Mathematics;
 using Colossal.Serialization.Entities;
@@ -253,6 +254,8 @@ namespace SkiResortMod.Systems
         private static readonly string[] SnowmakingSurfaceNames = { "SkiRunSnowmakingA" };
         private static readonly string[] GroomedSurfaceNames = { "SkiRunGroomedA" };
         private static readonly string[] NightSurfaceNames = { "SkiRunNightA" };
+        // The gate whose ownership arms a run (DECISIONS 90 — the IsRunBound gate).
+        private static readonly string[] GateNames = { "SkiResortGate" };
 
         /// <summary>R16G16_UNorm texel as AsyncGPUReadback delivers it (matches the
         /// layout SnowSystem.Serialize reads back, fullsrc :244-266).</summary>
@@ -278,6 +281,10 @@ namespace SkiResortMod.Systems
             public int SnowmakingMaskTexels;
             public int GroomedMaskTexels;
             public int NightMaskTexels;
+            // Runs skipped because no live gate owns them (DECISIONS 90) — they count
+            // in the Totals (they exist) but never rasterize, so they cannot inject,
+            // bill or score.
+            public int UnboundRuns;
         }
 
         // ── Row-parallel jobs (perf round, entry 88) ─────────────────────────────────────
@@ -558,6 +565,7 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_SnowmakingPrefabs = new HashSet<Entity>();
         private readonly HashSet<Entity> m_GroomedPrefabs = new HashSet<Entity>();
         private readonly HashSet<Entity> m_NightPrefabs = new HashSet<Entity>();
+        private readonly HashSet<Entity> m_GatePrefabs = new HashSet<Entity>();
         private bool m_PrefabsResolved;            // session cache (PrefabSystem outlives loads)
 
         // Working buffers — created lazily on first use, kept for the session (~32 MB:
@@ -838,9 +846,14 @@ namespace SkiResortMod.Systems
             // decay coverage proceeds to the merge (0 raised, N lowered).
             if (stats.MaskTexels == 0 && stats.DecayTexels == 0)
             {
-                SetIdle($"all {totalRuns} run(s) gated off — too warm " +
-                        $"(ambient {ambient:F1} C, freezing {freezing:F1} C) and nothing " +
-                        "left to melt in their footprints");
+                SetIdle(stats.UnboundRuns == totalRuns
+                    ? $"all {totalRuns} run(s) UNBOUND — no Ski Area Welcome Sign within " +
+                      "5 km owns them; place a gate and the next sweep arms them"
+                    : $"all {totalRuns} run(s) inert — too warm " +
+                      $"(ambient {ambient:F1} C, freezing {freezing:F1} C), nothing left " +
+                      "to melt in bound footprints" +
+                      (stats.UnboundRuns > 0
+                          ? $", {stats.UnboundRuns} unbound (no gate in range)" : ""));
                 return;
             }
 
@@ -954,7 +967,11 @@ namespace SkiResortMod.Systems
                              $"ambient {ambient:F1} C, skipped: " +
                              $"{stats.SnowmakingTotal - stats.SnowmakingActive} snowmaking + " +
                              $"{stats.GroomedTotal - stats.GroomedActive} groomed run(s) fully " +
-                             $"below the line, snow line ~{m_SnowLineSystem.GetSnowLineElevation():F0} m, " +
+                             "below the line" +
+                             (stats.UnboundRuns > 0
+                                 ? $" (incl. {stats.UnboundRuns} unbound — no gate in range)"
+                                 : "") +
+                             $", snow line ~{m_SnowLineSystem.GetSnowLineElevation():F0} m, " +
                              $"{timer.Elapsed.TotalMilliseconds:F1} ms " +
                              $"(mask {tMask:F1} + readback {tReadback - tMask:F1} + merge " +
                              $"{tMerge - tReadback:F1} + upload " +
@@ -1100,11 +1117,13 @@ namespace SkiResortMod.Systems
             var chunks = m_RunScanQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
             {
+                var entityHandle = GetEntityTypeHandle();
                 var prefabRefHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
                 var triangleHandle = GetBufferTypeHandle<Triangle>(isReadOnly: true);
                 var nodeHandle = GetBufferTypeHandle<Node>(isReadOnly: true);
                 for (int c = 0; c < chunks.Length; c++)
                 {
+                    var entities = chunks[c].GetNativeArray(entityHandle);
                     var prefabRefs = chunks[c].GetNativeArray(ref prefabRefHandle);
                     var triangleAccessor = chunks[c].GetBufferAccessor(ref triangleHandle);
                     var nodeAccessor = chunks[c].GetBufferAccessor(ref nodeHandle);
@@ -1151,6 +1170,14 @@ namespace SkiResortMod.Systems
                             targetM = Tuning.GroomedTargetDepthM;
                             thermalThresholdC = freezing + Tuning.GroomedMarginC;
                             kind = 2;
+                        }
+
+                        // Tether enforcement (DECISIONS 90): unbound runs exist in the
+                        // Totals but never rasterize — no snow, no bill, no score.
+                        if (!IsRunBound(entities[i]))
+                        {
+                            stats.UnboundRuns++;
+                            continue;
                         }
 
                         ScheduleRun(triangleAccessor[i], nodeAccessor[i],
@@ -1377,6 +1404,23 @@ namespace SkiResortMod.Systems
             ResolvePrefabSet(SnowmakingSurfaceNames, m_SnowmakingPrefabs);
             ResolvePrefabSet(GroomedSurfaceNames, m_GroomedPrefabs);
             ResolvePrefabSet(NightSurfaceNames, m_NightPrefabs);
+            ResolvePrefabSet(GateNames, m_GatePrefabs);
+        }
+
+        /// <summary>The tether's teeth (DECISIONS 90): a run only operates — injects,
+        /// bills, scores — while bound to a live gate. SkiRunOwnershipSystem does the
+        /// binding (nearest gate within 5 km); this is the one enforcement point, so
+        /// every downstream consumer (upkeep reads active texels, attractiveness reads
+        /// cover) gates for free. Unbound runs stay summer-bare; border props still
+        /// spawn deliberately — installed hardware without snow is the player-visible
+        /// "no gate in range" signal.</summary>
+        private bool IsRunBound(Entity run)
+        {
+            return EntityManager.TryGetComponent(run, out Owner owner) &&
+                   EntityManager.Exists(owner.m_Owner) &&
+                   !EntityManager.HasComponent<Deleted>(owner.m_Owner) &&
+                   EntityManager.TryGetComponent(owner.m_Owner, out PrefabRef ownerPrefab) &&
+                   m_GatePrefabs.Contains(ownerPrefab.m_Prefab);
         }
 
         private void ResolvePrefabSet(string[] names, HashSet<Entity> target)

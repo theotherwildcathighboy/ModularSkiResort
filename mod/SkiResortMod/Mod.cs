@@ -188,6 +188,15 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<SkiRunUpkeepSystem, SkiSnowInjectionSystem>(
                 SystemUpdatePhase.GameSimulation);
 
+            // Run-to-gate binding (DECISIONS 90): supplies the Owner, one-time bind
+            // charge, tether and bulldoze-cascade wiring that vanilla only implements
+            // for OBJECT ServiceUpgrades — area upgrades are a menu entry with no
+            // install path (all four writers are Object-gated, see the system header).
+            // Anchored before the injection system in the same phase so a bind and the
+            // first snow of a freshly bound run can land in one 64-frame window.
+            updateSystem.UpdateBefore<SkiRunOwnershipSystem, SkiSnowInjectionSystem>(
+                SystemUpdatePhase.GameSimulation);
+
             // Ski-run decal upgrade (run-rendering Layer 2): probes and mutates the LIVE
             // "Area batch (<run surface>)" material clones — the new alpha-coverage decal
             // texture pairs, the shader's built-in snow slots (winter look rides the game's
