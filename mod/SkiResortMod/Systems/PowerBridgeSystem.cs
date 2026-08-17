@@ -108,7 +108,6 @@ namespace SkiResortMod.Systems
         private bool m_FullPassPending;
         private bool m_Disabled;    // tripped by the catch; re-armed per load (v1.2.1 hardening)
         private bool m_ErrorLogged; // one error with stack per load
-        private bool m_OrphanStationWarned; // ownerless station on the repair pass (entry 93)
 
         protected override void OnCreate()
         {
@@ -175,7 +174,6 @@ namespace SkiResortMod.Systems
             // Re-arm per load (an error no longer kills the whole app run).
             m_Disabled = false;
             m_ErrorLogged = false;
-            m_OrphanStationWarned = false;
         }
 
         protected override void OnUpdate()
@@ -255,31 +253,28 @@ namespace SkiResortMod.Systems
                         valvesCreated += created;
                         stationsTouched++;
 
-                        // Repair/load pass: EBGS's subject is the GATE (the station's
-                        // owner) — it cannot see ServiceUpgrade carriers at all — so a
-                        // healed valve only takes effect once the gate reprocesses. Tag
-                        // the gate Updated; we run before EBGS in Modification4B, so
+                        // Repair/load pass: tag whichever entity EBGS actually processes.
+                        // TOP-LEVEL station (the shipped configuration, entry 96): the
+                        // station itself — EBGS's Building+Transformer arm matches it.
+                        // If a station ever carries Owner again (the entry-93 upgrade
+                        // experiment, reverted for Move It but kept working here), EBGS
+                        // cannot see ServiceUpgrade carriers, so the tag must go to the
+                        // OWNER. Either way we run before EBGS in Modification4B, so
                         // registration completes this same frame (CleanUpSystem sweeps
-                        // the tag at end of frame). A station with no owner is a
-                        // placement anomaly: log once, skip (nothing to tag).
+                        // the tag at end of frame).
                         if (tagStationsUpdated)
                         {
+                            Entity tagTarget = station;
                             if (EntityManager.TryGetComponent(station, out Owner owner) &&
                                 EntityManager.Exists(owner.m_Owner) &&
                                 !EntityManager.HasComponent<Deleted>(owner.m_Owner))
                             {
-                                if (!EntityManager.HasComponent<Updated>(owner.m_Owner) &&
-                                    !EntityManager.HasComponent<Created>(owner.m_Owner))
-                                {
-                                    EntityManager.AddComponent<Updated>(owner.m_Owner);
-                                }
+                                tagTarget = owner.m_Owner;
                             }
-                            else if (!m_OrphanStationWarned)
+                            if (!EntityManager.HasComponent<Updated>(tagTarget) &&
+                                !EntityManager.HasComponent<Created>(tagTarget))
                             {
-                                m_OrphanStationWarned = true;
-                                Mod.Log.Warn("PowerBridge: station has no live owner gate — " +
-                                             "valve seeded but EBGS registration deferred " +
-                                             "until its gate next updates (warned once per load)");
+                                EntityManager.AddComponent<Updated>(tagTarget);
                             }
                         }
                     }
