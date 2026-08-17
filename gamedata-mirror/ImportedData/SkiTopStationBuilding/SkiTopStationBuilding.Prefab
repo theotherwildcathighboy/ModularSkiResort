@@ -6,7 +6,7 @@
     "components": {
         "$id": 1,
         "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
-        "$rlength": 9,
+        "$rlength": 10,
         "$rcontent": [
             {
                 "$id": 2,
@@ -38,15 +38,15 @@
                 "name": "PlaceableObject",
                 "active": true,
                 "m_ConstructionCost": 30000,
-                "m_XPReward": 40
+                "m_XPReward": 0
             },
             {
                 "$id": 6,
                 "$type": "6|Game.Prefabs.UIObject, Game",
                 "name": "UIObject",
                 "active": true,
-                "m_Group": $fstrref:"CID:a2547ca73ed441efb4867f9e1ba64ffa",
-                "m_Priority": 53,
+                "m_Group": null,
+                "m_Priority": 31,
                 "m_Icon": "assetdb://global/3eb0d7b98fc9ee162816d9bb77056956",
                 "m_IsDebugObject": false
             },
@@ -338,6 +338,25 @@
                         }
                     ]
                 }
+            },
+            {
+                "$id": 60,
+                "$type": "26|Game.Prefabs.ServiceUpgrade, Game",
+                "name": "ServiceUpgrade",
+                "active": true,
+                "m_Buildings": {
+                    "$id": 61,
+                    "$type": "27|Game.Prefabs.BuildingPrefab[], Game",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        $fstrref:"CID:4d1c1615eb1bd62b7caa7235bb671e5f"
+                    ]
+                },
+                "m_UpgradeCost": 30000,
+                "m_XPReward": 40,
+                "m_MaxPlacementOffset": 3,
+                "m_MaxPlacementDistance": 5000,
+                "m_ForbidMultiple": false
             }
         ]
     },

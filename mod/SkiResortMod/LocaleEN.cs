@@ -69,6 +69,21 @@ namespace SkiResortMod
                     "Return terminal of a fixed-grip chairlift. Power flows up the line from " +
                     "the base."
                 },
+
+                // Upgrade-panel keys — stations moved into the gate's sub-menu
+                // (DECISIONS 93; lodge precedent for the key pattern).
+                { "Assets.UPGRADE_NAME[SkiBaseStationBuilding]", "Chairlift Base Station" },
+                {
+                    "Assets.UPGRADE_DESCRIPTION[SkiBaseStationBuilding]",
+                    "Drive terminal of a fixed-grip chairlift, built for this resort. Place " +
+                    "before drawing the lift line; no road connection needed."
+                },
+                { "Assets.UPGRADE_NAME[SkiTopStationBuilding]", "Chairlift Top Station" },
+                {
+                    "Assets.UPGRADE_DESCRIPTION[SkiTopStationBuilding]",
+                    "Return terminal of a fixed-grip chairlift, built for this resort. Power " +
+                    "flows up the line from the base; no road connection needed."
+                },
                 { "Assets.NAME[SkiChairliftHV]", "Fixed-Grip Chairlift" },
                 {
                     "Assets.DESCRIPTION[SkiChairliftHV]",

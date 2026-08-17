@@ -23,9 +23,16 @@
 //     prefab's ElectricityConnectionData (SkiLiftMarker: voltage HV, direction Both,
 //     capacity 800000), wires transformer↔valve, and EnsureMarkerNodeEdgeConnections wires
 //     the marker to any attached lift-line edges (dedup via HasAnyFlowEdge);
-//   * CreateOrUpdateBuildingNodes builds the building side for the station's actual
-//     component mix (Transformer + ElectricityConsumer from ServiceConsumption 800) and
-//     adds ElectricityBuildingConnection;
+//   * CreateOrUpdateBuildingNodes builds the building side — SINCE THE STATION-AS-
+//     UPGRADE MIGRATION (entry 93) that side lives on the GATE, not the station: a
+//     ServiceUpgrade-carrying station loses runtime Transformer (Transformer.cs
+//     archetype guard) and is excluded from every EBGS building arm
+//     (None{ServiceUpgrade}, EBGS:574-578). ServiceUpgradeSystem instead applies
+//     Transformer+Efficiency to the gate on install, EBGS registers the GATE, and its
+//     InstalledUpgrade recursion (EBGS:189-199) walks into the station's own SubNet
+//     buffer — where it hits the same valve||IsOrphan gate this system exists to
+//     satisfy. The stub edge stays station-owned, so IsOrphan still fails and the
+//     valve bootstrap is still load-bearing, unchanged;
 //   * ElectricityEdgeGraphSystem (Modification2B) already self-wires newly drawn line edges
 //     to any node carrying ElectricityNodeConnection (GetOrCreateNetNodeConnection), so
 //     later line draws/deletes need nothing from us;
@@ -50,10 +57,13 @@
 // SCHEDULING (load-bearing): anchored UpdateBefore<PowerBridgeSystem, EBGS> at
 // Modification4B — EBGS's own phase (SystemOrder line 185). Our EntityManager writes are
 // immediate, so EBGS's job (scheduled after us, same frame) sees the valve and takes its
-// maintain path instead of its delete path for the very frame the station is Created or
-// Updated. Subnet node entities exist by then (EBGS itself reads them at 4B). On the load
-// pass we bootstrap stations from pre-mod saves and tag them Updated so EBGS processes them
-// this same frame (Updated is swept by CleanUpSystem at end of frame either way).
+// maintain path instead of its delete path. Fresh panel placement needs no tagging from
+// us: ApplyObjectsSystem:595 tags the GATE Updated when its upgrade temp applies, and
+// the gate carries Transformer by the time EBGS runs (ServiceUpgradeSystem adds it at
+// the Modification4 barrier, which plays back before 4B). On the repair/load pass we
+// tag the station's OWNER (the gate) Updated — tagging the station itself would be
+// useless, EBGS cannot see ServiceUpgrade carriers (mod-era saves reload the whole flow
+// graph natively; this pass only heals valve loss, and is idempotent).
 //
 // SAFETY: touches ONLY nodes owned by our station prefabs (name-resolved, same pattern as
 // ChairPinSystem); every other building keeps the untouched vanilla path. Defensive
@@ -98,6 +108,7 @@ namespace SkiResortMod.Systems
         private bool m_FullPassPending;
         private bool m_Disabled;    // tripped by the catch; re-armed per load (v1.2.1 hardening)
         private bool m_ErrorLogged; // one error with stack per load
+        private bool m_OrphanStationWarned; // ownerless station on the repair pass (entry 93)
 
         protected override void OnCreate()
         {
@@ -105,14 +116,16 @@ namespace SkiResortMod.Systems
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_ElectricityFlowSystem = World.GetOrCreateSystemManaged<ElectricityFlowSystem>();
 
-            // Mirrors EBGS's own transformer-building query arm (Building + Transformer,
-            // Any Created/Updated, no Temp) so we react on exactly the frames EBGS does.
+            // NO Transformer requirement (entry 93): as ServiceUpgrade children the
+            // stations never carry runtime Game.Buildings.Transformer — requiring it
+            // made both queries silently empty post-migration (dead lifts). The prefab
+            // filter in the pass loop is the real selector; Building+SubNet is just the
+            // cheap chunk-level narrowing.
             m_UpdatedStationQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
                 {
                     ComponentType.ReadOnly<Building>(),
-                    ComponentType.ReadOnly<Game.Buildings.Transformer>(),
                     ComponentType.ReadOnly<Game.Net.SubNet>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                 },
@@ -133,7 +146,6 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Building>(),
-                    ComponentType.ReadOnly<Game.Buildings.Transformer>(),
                     ComponentType.ReadOnly<Game.Net.SubNet>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                 },
@@ -163,6 +175,7 @@ namespace SkiResortMod.Systems
             // Re-arm per load (an error no longer kills the whole app run).
             m_Disabled = false;
             m_ErrorLogged = false;
+            m_OrphanStationWarned = false;
         }
 
         protected override void OnUpdate()
@@ -242,15 +255,32 @@ namespace SkiResortMod.Systems
                         valvesCreated += created;
                         stationsTouched++;
 
-                        // Load pass: the station carries no change tag, so EBGS would not
-                        // process it. Tag it Updated — we run before EBGS in Modification4B,
-                        // so the registration completes this same frame; CleanUpSystem
-                        // sweeps the tag at end of frame.
-                        if (tagStationsUpdated &&
-                            !EntityManager.HasComponent<Updated>(station) &&
-                            !EntityManager.HasComponent<Created>(station))
+                        // Repair/load pass: EBGS's subject is the GATE (the station's
+                        // owner) — it cannot see ServiceUpgrade carriers at all — so a
+                        // healed valve only takes effect once the gate reprocesses. Tag
+                        // the gate Updated; we run before EBGS in Modification4B, so
+                        // registration completes this same frame (CleanUpSystem sweeps
+                        // the tag at end of frame). A station with no owner is a
+                        // placement anomaly: log once, skip (nothing to tag).
+                        if (tagStationsUpdated)
                         {
-                            EntityManager.AddComponent<Updated>(station);
+                            if (EntityManager.TryGetComponent(station, out Owner owner) &&
+                                EntityManager.Exists(owner.m_Owner) &&
+                                !EntityManager.HasComponent<Deleted>(owner.m_Owner))
+                            {
+                                if (!EntityManager.HasComponent<Updated>(owner.m_Owner) &&
+                                    !EntityManager.HasComponent<Created>(owner.m_Owner))
+                                {
+                                    EntityManager.AddComponent<Updated>(owner.m_Owner);
+                                }
+                            }
+                            else if (!m_OrphanStationWarned)
+                            {
+                                m_OrphanStationWarned = true;
+                                Mod.Log.Warn("PowerBridge: station has no live owner gate — " +
+                                             "valve seeded but EBGS registration deferred " +
+                                             "until its gate next updates (warned once per load)");
+                            }
                         }
                     }
                 }
