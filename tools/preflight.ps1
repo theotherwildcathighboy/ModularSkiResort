@@ -36,6 +36,7 @@ $KnownVanilla = @{
     "9cbf401c04ad63b44a36c0dc0db26e67" = "vanilla underground line (m_UndergroundPrefab)"
     "3e47e765f44f210409edf4e6229fd0df" = "Grass Surface 01 unlock requirement (verified: vanilla Grass 01 ships same ref)"
     "ec48568022d46c1448c6620d95f993c1" = "ParkSign placeholder (vanilla CityPark01/02/04 host it; resolves ParkSign01-03)"
+    "4010d5851d69dbb418c62e6bd4d19759" = "PowerLinePole01 placeholder (verified: Low-voltage Line NetSubObjects m_Object + PowerLinePole8m01 SpawnableObject back-ref; resolves PowerLinePole 8/13/18m)"
 }
 
 # The all-zeros CID is the engine's null-asset sentinel (vanilla HV Cables Piece ships it

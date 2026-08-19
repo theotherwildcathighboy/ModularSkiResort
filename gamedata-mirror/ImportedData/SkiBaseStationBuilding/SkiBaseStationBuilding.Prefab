@@ -20,7 +20,7 @@
                 "name": "ServiceConsumption",
                 "active": true,
                 "m_Upkeep": 3000,
-                "m_ElectricityConsumption": 750,
+                "m_ElectricityConsumption": 1500,
                 "m_WaterConsumption": 0,
                 "m_GarbageAccumulation": 0,
                 "m_TelecomNeed": 0
@@ -118,25 +118,25 @@
                                 "$type": 10,
                                 "a": {
                                     "$type": 11,
-                                    "x": 3,
+                                    "x": 6,
                                     "y": 0,
                                     "z": -9
                                 },
                                 "b": {
                                     "$type": 11,
-                                    "x": 3,
+                                    "x": 6,
                                     "y": 0,
                                     "z": -10
                                 },
                                 "c": {
                                     "$type": 11,
-                                    "x": 3,
+                                    "x": 6,
                                     "y": 0,
                                     "z": -11
                                 },
                                 "d": {
                                     "$type": 11,
-                                    "x": 3,
+                                    "x": 6,
                                     "y": 0,
                                     "z": -12
                                 }
@@ -359,7 +359,7 @@
                 "m_SubObjects": {
                     "$id": 51,
                     "$type": "24|Game.Prefabs.ObjectSubObjectInfo[], Game",
-                    "$rlength": 1,
+                    "$rlength": 2,
                     "$rcontent": [
                         {
                             "$id": 52,
@@ -379,6 +379,30 @@
                                     "y": 1,
                                     "z": 0,
                                     "w": 0
+                                }
+                            },
+                            "m_ParentMesh": -1,
+                            "m_GroupIndex": 0,
+                            "m_Probability": 100
+                        },
+                        {
+                            "$id": 70,
+                            "$type": 25,
+                            "m_Object": $fstrref:"UnityGUID:4010d5851d69dbb418c62e6bd4d19759",
+                            "m_Position": {
+                                "$type": 11,
+                                "x": 6,
+                                "y": 0,
+                                "z": -12
+                            },
+                            "m_Rotation": {
+                                "$type": 21,
+                                "value": {
+                                    "$type": 22,
+                                    "x": 0,
+                                    "y": 0,
+                                    "z": 0,
+                                    "w": 1
                                 }
                             },
                             "m_ParentMesh": -1,

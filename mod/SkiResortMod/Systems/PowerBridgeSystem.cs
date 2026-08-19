@@ -115,11 +115,12 @@ namespace SkiResortMod.Systems
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_ElectricityFlowSystem = World.GetOrCreateSystemManaged<ElectricityFlowSystem>();
 
-            // NO Transformer requirement (entry 93): as ServiceUpgrade children the
-            // stations never carry runtime Game.Buildings.Transformer — requiring it
-            // made both queries silently empty post-migration (dead lifts). The prefab
-            // filter in the pass loop is the real selector; Building+SubNet is just the
-            // cheap chunk-level narrowing.
+            // NO Transformer requirement in the QUERIES (entry 93 lesson: a chunk-level
+            // Transformer term once made both queries silently empty — dead lifts).
+            // Since entry 97 the TOP station intentionally has no Transformer at all, so
+            // the requirement lives as an explicit per-entity check in the pass loop,
+            // where it can't silently zero the query. The prefab filter is the real
+            // selector; Building+SubNet is just the cheap chunk-level narrowing.
             m_UpdatedStationQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -245,6 +246,15 @@ namespace SkiResortMod.Systems
                     // EBGS maintains marker/valve wiring for destroyed buildings itself —
                     // but we don't bootstrap NEW valves onto a ruin.
                     if (EntityManager.HasComponent<Destroyed>(station))
+                        continue;
+
+                    // Only transformer stations get bridged (entry 97): the top station
+                    // sheds its prefab Transformer + LV stub so it stops demanding a
+                    // PowerlineLow feed — the resort's power enters at the base drive
+                    // terminal only. A transformer-less building matches no EBGS building
+                    // arm, so a valve bootstrapped here would be a stranded flow node
+                    // nothing ever wires.
+                    if (!EntityManager.HasComponent<Game.Buildings.Transformer>(station))
                         continue;
 
                     int created = BridgeStation(station);

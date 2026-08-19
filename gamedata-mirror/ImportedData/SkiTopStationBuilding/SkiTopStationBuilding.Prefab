@@ -6,21 +6,15 @@
     "components": {
         "$id": 1,
         "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
-        "$rlength": 9,
+        "$rlength": 8,
         "$rcontent": [
-            {
-                "$id": 2,
-                "$type": "2|Game.Prefabs.Transformer, Game",
-                "name": "Transformer",
-                "active": true
-            },
             {
                 "$id": 3,
                 "$type": "3|Game.Prefabs.ServiceConsumption, Game",
                 "name": "ServiceConsumption",
                 "active": true,
                 "m_Upkeep": 1000,
-                "m_ElectricityConsumption": 750,
+                "m_ElectricityConsumption": 0,
                 "m_WaterConsumption": 0,
                 "m_GarbageAccumulation": 0,
                 "m_TelecomNeed": 0
@@ -59,7 +53,7 @@
                 "m_SubNets": {
                     "$id": 8,
                     "$type": "8|Game.Prefabs.ObjectSubNetInfo[], Game",
-                    "$rlength": 2,
+                    "$rlength": 1,
                     "$rcontent": [
                         {
                             "$id": 9,
@@ -105,55 +99,6 @@
                             "m_Upgrades": {
                                 "$id": 10,
                                 "$type": "13|Game.Prefabs.NetPieceRequirements[], Game",
-                                "$rlength": 0,
-                                "$rcontent": [
-                                ]
-                            }
-                        },
-                        {
-                            "$id": 62,
-                            "$type": 9,
-                            "m_NetPrefab": $fstrref:"CID:877654d1d5694351b8025f24abe00194",
-                            "m_BezierCurve": {
-                                "$type": 10,
-                                "a": {
-                                    "$type": 11,
-                                    "x": 3,
-                                    "y": 0,
-                                    "z": -9
-                                },
-                                "b": {
-                                    "$type": 11,
-                                    "x": 3,
-                                    "y": 0,
-                                    "z": -10
-                                },
-                                "c": {
-                                    "$type": 11,
-                                    "x": 3,
-                                    "y": 0,
-                                    "z": -11
-                                },
-                                "d": {
-                                    "$type": 11,
-                                    "x": 3,
-                                    "y": 0,
-                                    "z": -12
-                                }
-                            },
-                            "m_NodeIndex": {
-                                "$type": 12,
-                                "x": 2,
-                                "y": 3
-                            },
-                            "m_ParentMesh": {
-                                "$type": 12,
-                                "x": -1,
-                                "y": -1
-                            },
-                            "m_Upgrades": {
-                                "$id": 63,
-                                "$type": 13,
                                 "$rlength": 0,
                                 "$rcontent": [
                                 ]

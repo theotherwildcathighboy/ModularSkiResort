@@ -61,13 +61,14 @@ namespace SkiResortMod
                 {
                     "Assets.DESCRIPTION[SkiBaseStationBuilding]",
                     "Drive terminal of a fixed-grip chairlift. Place before drawing the lift " +
-                    "line, or snap onto an existing line end."
+                    "line, or snap onto an existing line end. The drive motor needs power: " +
+                    "connect a low-voltage power line to the wooden pole beside the terminal."
                 },
                 { "Assets.NAME[SkiTopStationBuilding]", "Chairlift Top Station" },
                 {
                     "Assets.DESCRIPTION[SkiTopStationBuilding]",
                     "Return terminal of a fixed-grip chairlift. Power flows up the line from " +
-                    "the base."
+                    "the base — no hookup needed here."
                 },
                 { "Assets.NAME[SkiChairliftHV]", "Fixed-Grip Chairlift" },
                 {
