@@ -242,6 +242,22 @@ namespace SkiResortMod.Systems
         private int m_DiagStations;                // station buildings found
         private int m_DiagChairsMatched;           // chair-prefab entities found by the rebuild
         private int m_DiagEnrolled;                // InterpolatedTransform enrollments, last rebuild
+        private readonly List<string> m_DiagStationLines = new List<string>(); // per-station census, last rebuild
+
+        // ── Bullwheel centres per station prefab (entry 103), station-local, rope height ──
+        // Source of truth: assets/blender/lift_terminal.py — build_terminal_pali (drive):
+        // wheel_x, wheel_z = 0.2, 3.5 "bullwheel centre - loading height (INVARIANT)";
+        // build_return_simple (return): wheel_z = 3.7 at the origin; rope over the wheel is
+        // wheel_z + 0.05; wheel radius 1.8 = half the 3.6 m rope gauge. Authoring frame
+        // (+X travel, Y lateral, Z up) → prefab-local (X lateral, Y up, Z travel)
+        // (cs2_asset.py rotate-then-bake), so authoring (x, y, z) lands at (y, z, x).
+        // Add a line here when a new terminal generation ships; unknown names fall back
+        // to the plain terminal semicircle (LiftLoopCache.AppendTerminalTurn).
+        private static readonly Dictionary<string, float3> StationWheelLocal = new Dictionary<string, float3>
+        {
+            { "SkiBaseStationBuilding", new float3(0f, 3.55f, 0.2f) },
+            { "SkiTopStationBuilding", new float3(0f, 3.75f, 0f) },
+        };
 
         // v1.2.1 observability contract: SILENCE MUST BE IMPOSSIBLE. Every way this system
         // can fail or idle now has a distinct, unmissable log signature:
@@ -1004,6 +1020,8 @@ namespace SkiResortMod.Systems
             var stationPrefabs = World.GetOrCreateSystemManaged<PowerBridgeSystem>().GetResolvedStationPrefabs();
             var stations = new List<Entity>();
             var stationPositions = new List<float3>();
+            var stationWheels = new List<float3>();
+            m_DiagStationLines.Clear();
             var chunks = m_StationQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
             {
@@ -1017,11 +1035,24 @@ namespace SkiResortMod.Systems
                     var transforms = chunks[c].GetNativeArray(ref transformHandle);
                     for (int i = 0; i < entities.Length; i++)
                     {
-                        if (stationPrefabs.Contains(prefabRefs[i].m_Prefab))
-                        {
-                            stations.Add(entities[i]);
-                            stationPositions.Add(transforms[i].m_Position);
-                        }
+                        if (!stationPrefabs.Contains(prefabRefs[i].m_Prefab))
+                            continue;
+                        stations.Add(entities[i]);
+                        stationPositions.Add(transforms[i].m_Position);
+
+                        // Bullwheel centre (entry 103): rope height over the wheel, in
+                        // station-local space, from the terminal generator's INVARIANT wheel
+                        // placement (lift_terminal.py: drive wheel_x/z 0.2/3.5, return 0/3.7,
+                        // rope = wheel + 0.05; authoring +X = travel maps to prefab +Z).
+                        string name = m_PrefabSystem.GetPrefabName(prefabRefs[i].m_Prefab);
+                        float3 wheel = StationWheelLocal.TryGetValue(name, out float3 local)
+                            ? ObjectUtils.LocalToWorld(transforms[i], local)
+                            : new float3(float.NaN);
+                        stationWheels.Add(wheel);
+                        m_DiagStationLines.Add(
+                            $"station {stations.Count - 1}: {name} {entities[i].Index}:{entities[i].Version} " +
+                            $"at ({transforms[i].m_Position.x:F1},{transforms[i].m_Position.y:F1},{transforms[i].m_Position.z:F1}) " +
+                            $"wheel {(math.all(math.isfinite(wheel)) ? $"({wheel.x:F1},{wheel.y:F1},{wheel.z:F1})" : "unknown")}");
                     }
                 }
             }
@@ -1096,7 +1127,7 @@ namespace SkiResortMod.Systems
                     for (int k = 0; k < subNets.Length; k++)
                         stationByOwnerIndex[subNets[k].m_SubNet.Index] = i;
             }
-            m_LoopCache.Build(lanes, stations, stationPositions, stationByOwnerIndex);
+            m_LoopCache.Build(lanes, stations, stationPositions, stationByOwnerIndex, stationWheels);
 
             m_DiagRebuilds++;
             m_DiagLastRebuildFrame = m_RenderingSystem.frameIndex;

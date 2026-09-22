@@ -137,7 +137,7 @@ namespace SkiResortMod.Systems
         /// Never throws on bad topology — lifts that do not close simply produce no loop
         /// and count as unclosed chains; the reasons land in m_BuildNotes/m_ChainDiags.</summary>
         public void Build(List<CableLane> lanes, List<Entity> stations, List<float3> stationPositions,
-            Dictionary<int, int> stationByOwnerIndex)
+            Dictionary<int, int> stationByOwnerIndex, List<float3> stationWheelCenters)
         {
             Clear();
             if (lanes.Count == 0 || stations.Count == 0)
@@ -266,7 +266,12 @@ namespace SkiResortMod.Systems
                     ? stationA : stationB;
                 int topStation = baseStation == stationA ? stationB : stationA;
 
-                if (!TryCloseLoop(lanes, kv.Value[0], kv.Value[1], baseStation, topStation, out Loop loop, out string why))
+                float3 baseWheel = stationWheelCenters != null && baseStation < stationWheelCenters.Count
+                    ? stationWheelCenters[baseStation] : new float3(float.NaN);
+                float3 topWheel = stationWheelCenters != null && topStation < stationWheelCenters.Count
+                    ? stationWheelCenters[topStation] : new float3(float.NaN);
+                if (!TryCloseLoop(lanes, kv.Value[0], kv.Value[1], baseStation, topStation, baseWheel, topWheel,
+                        out Loop loop, out string why))
                 {
                     m_UnclosedChainCount += 2;
                     m_BuildNotes.Add($"stations ({stationA},{stationB}): closure failed — {why}");
@@ -339,7 +344,7 @@ namespace SkiResortMod.Systems
 
         // ── Loop closing ──────────────────────────────────────────────────────────────
         private bool TryCloseLoop(List<CableLane> lanes, Chain chainA, Chain chainB,
-            int baseStation, int topStation, out Loop loop, out string why)
+            int baseStation, int topStation, float3 baseWheel, float3 topWheel, out Loop loop, out string why)
         {
             loop = new Loop();
             why = null;
@@ -348,13 +353,13 @@ namespace SkiResortMod.Systems
             OrientChain(chainA, baseStation);
             OrientChain(chainB, topStation);
 
-            // Terminal geometry for the two bullwheel arcs.
+            // Terminal geometry for the two bullwheel turns.
             GetChainEndpoint(lanes, chainA, atEnd: true, out float3 aTop, out float3 aTopTangent);
             GetChainEndpoint(lanes, chainB, atEnd: false, out float3 bTop, out _);
             GetChainEndpoint(lanes, chainB, atEnd: true, out float3 bBase, out float3 bBaseTangent);
             GetChainEndpoint(lanes, chainA, atEnd: false, out float3 aBase, out _);
 
-            // Sanity: the arc diameter is the cable gauge (expect ~3.6 m). Wildly off means
+            // Sanity: the turn diameter is the cable gauge (expect ~3.6 m). Wildly off means
             // the anchors are not where this model thinks — degrade to static pinning.
             float topGap = math.distance(aTop, bTop), baseGap = math.distance(bBase, aBase);
             if (!ArcSane(aTop, bTop) || !ArcSane(bBase, aBase))
@@ -365,17 +370,18 @@ namespace SkiResortMod.Systems
 
             double cum = 0.0;
             AppendChain(lanes, chainA, loop, ref cum);
-            if (!AppendArc(aTop, bTop, aTopTangent, loop, ref cum))
+            if (!AppendTerminalTurn(aTop, bTop, aTopTangent, topWheel, loop, ref cum, out string topNote))
             {
-                why = "top arc degenerate (travel tangent parallel to the gap)";
+                why = "top turn degenerate: " + topNote;
                 return false;
             }
             AppendChain(lanes, chainB, loop, ref cum);
-            if (!AppendArc(bBase, aBase, bBaseTangent, loop, ref cum))
+            if (!AppendTerminalTurn(bBase, aBase, bBaseTangent, baseWheel, loop, ref cum, out string baseNote))
             {
-                why = "base arc degenerate (travel tangent parallel to the gap)";
+                why = "base turn degenerate: " + baseNote;
                 return false;
             }
+            m_BuildNotes.Add($"top turn: {topNote}; base turn: {baseNote}");
 
             loop.m_Length = cum;
             if (loop.m_Length <= 1.0)
@@ -384,6 +390,86 @@ namespace SkiResortMod.Systems
                 return false;
             }
             return true;
+        }
+
+        /// <summary>Longest plausible straight run from a chain terminal to the station's
+        /// bullwheel tangent point (the base terminal sits ~7 m out, a line-first top
+        /// terminal ~10 m; anything beyond is a mis-located wheel — fall back).</summary>
+        private const float MaxWheelRunMeters = 30f;
+
+        /// <summary>The turnaround at a station (entry 103). With a known bullwheel centre W
+        /// (rope height, station-local from the terminal generator, mapped to world): a
+        /// straight run from the terminal to the wheel's tangent point, a half-circle of
+        /// the rope gauge around W bulging into the station, and a straight run back out to
+        /// the other terminal — the rope's actual path (entry tower → dive → wheel → dive
+        /// → entry tower), so chairs visibly round the bullwheel. Without a wheel (unknown
+        /// station prefab, or implausible geometry): the milestone-2 semicircle between
+        /// the two terminals.</summary>
+        private static bool AppendTerminalTurn(float3 from, float3 to, float3 inTangent, float3 wheel,
+            Loop loop, ref double cum, out string note)
+        {
+            if (math.all(math.isfinite(wheel)))
+            {
+                float3 mid = (from + to) * 0.5f;
+                float3 d = wheel - mid;
+                d.y = 0f;                                   // approach direction, horizontal
+                float r = math.max(0.5f, math.distance(from, to) * 0.5f);
+                float3 l = from - to;
+                if (math.lengthsq(d) > 0.01f)
+                {
+                    d = math.normalize(d);
+                    l -= d * math.dot(l, d);                // lateral, perpendicular to the approach
+                    if (math.lengthsq(l) > 1e-4f)
+                    {
+                        l = math.normalize(l);
+                        float3 p1 = wheel + l * r;          // tangent point on the incoming side
+                        float3 p2 = wheel - l * r;          // tangent point on the outgoing side
+                        float run1 = math.distance(from, p1), run2 = math.distance(p2, to);
+                        bool ahead = math.dot(p1 - from, d) > 0f;
+                        if (ahead && run1 <= MaxWheelRunMeters && run2 <= MaxWheelRunMeters)
+                        {
+                            if (run1 > 0.05f) AppendLine(from, p1, loop, ref cum);
+                            if (!AppendArc(p1, p2, d, loop, ref cum))
+                            {
+                                note = "wheel arc degenerate";
+                                return false;
+                            }
+                            if (run2 > 0.05f) AppendLine(p2, to, loop, ref cum);
+                            note = $"wheel at {Fmt(wheel)}, runs {run1:F1} m in / {run2:F1} m out, r {r:F2}";
+                            return true;
+                        }
+                        note = $"wheel {Fmt(wheel)} implausible (ahead={ahead}, runs {run1:F1}/{run2:F1} m) — plain arc";
+                    }
+                    else note = "terminal gap parallel to the approach — plain arc";
+                }
+                else note = "wheel over the terminal midpoint — plain arc";
+            }
+            else note = "no wheel for this station — plain arc";
+
+            if (!AppendArc(from, to, inTangent, loop, ref cum))
+            {
+                note += " (degenerate)";
+                return false;
+            }
+            return true;
+        }
+
+        private static string Fmt(float3 v) => $"({v.x:F1},{v.y:F1},{v.z:F1})";
+
+        /// <summary>Straight segment as a linear bezier (same sampling path as lanes).</summary>
+        private static void AppendLine(float3 a, float3 b, Loop loop, ref double cum)
+        {
+            float length = math.max(math.distance(a, b), 0.01f);
+            loop.m_Segments.Add(new Segment
+            {
+                m_IsArc = false,
+                m_Owner = Entity.Null,
+                m_Bezier = new Bezier4x3(a, math.lerp(a, b, 1f / 3f), math.lerp(a, b, 2f / 3f), b),
+                m_Reversed = false,
+                m_Length = length,
+                m_CumStart = cum,
+            });
+            cum += length;
         }
 
         private static bool ArcSane(float3 from, float3 to)

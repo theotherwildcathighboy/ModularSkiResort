@@ -277,6 +277,8 @@ namespace SkiResortMod.Systems
 
                 // Topology census (entry 102): how each chain terminated and why pairs did
                 // or did not close — the fork the first dump could not resolve.
+                for (int s = 0; s < m_DiagStationLines.Count; s++)
+                    sb.AppendLine("  " + m_DiagStationLines[s]);
                 for (int c = 0; c < m_LoopCache.m_ChainDiags.Count; c++)
                 {
                     var d = m_LoopCache.m_ChainDiags[c];
