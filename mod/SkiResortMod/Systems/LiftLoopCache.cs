@@ -87,6 +87,25 @@ namespace SkiResortMod.Systems
         public int m_ChainCount;
         public int m_UnclosedChainCount;
 
+        /// <summary>Chain terminals within this distance of a station count as that
+        /// station's even when the terminal PathNode is not station-owned (entry 102: a
+        /// final lane whose endpoint never received a station anchor keeps the lift's own
+        /// edge/node PathNode). Terminals only — the walk-stop rule stays owner-based.</summary>
+        private const float StationTerminalRadius = 20f;
+
+        // ── Build diagnostics (entry 102): what the last Build saw, per chain, for the
+        // developer-tab dump. Plain data, rebuilt every Build, never consulted by Sample.
+        internal struct ChainDiag
+        {
+            public int m_Links;
+            public int m_StartOwner, m_EndOwner;      // PathNode owner entity indices
+            public int m_StartStation, m_EndStation;  // station list index or -1
+            public string m_StartHow, m_EndHow;       // "owner" / "child" / "pos 8.3m" / "none (nearest 41m)"
+            public float3 m_StartPos, m_EndPos;
+        }
+        internal readonly List<ChainDiag> m_ChainDiags = new List<ChainDiag>();
+        internal readonly List<string> m_BuildNotes = new List<string>();
+
         private struct ChainLink
         {
             public int m_LaneIndex;
@@ -107,16 +126,25 @@ namespace SkiResortMod.Systems
             m_Loops.Clear();
             m_ChainCount = 0;
             m_UnclosedChainCount = 0;
+            m_ChainDiags.Clear();
+            m_BuildNotes.Clear();
         }
 
         /// <summary>Builds loops from harvested lanes + station entities (with world
-        /// positions, for base-first orientation). Never throws on bad topology — lifts
-        /// that do not close simply produce no loop and count as unclosed chains.</summary>
-        public void Build(List<CableLane> lanes, List<Entity> stations, List<float3> stationPositions)
+        /// positions, for base-first orientation). <paramref name="stationByOwnerIndex"/>
+        /// maps entity INDEX → station list index for each station AND its children
+        /// (sub-objects, sub-net nodes/edges) — PathNode owners are stored as indices.
+        /// Never throws on bad topology — lifts that do not close simply produce no loop
+        /// and count as unclosed chains; the reasons land in m_BuildNotes/m_ChainDiags.</summary>
+        public void Build(List<CableLane> lanes, List<Entity> stations, List<float3> stationPositions,
+            Dictionary<int, int> stationByOwnerIndex)
         {
             Clear();
             if (lanes.Count == 0 || stations.Count == 0)
+            {
+                m_BuildNotes.Add($"nothing to chain: {lanes.Count} lane(s), {stations.Count} station(s)");
                 return;
+            }
 
             // Endpoint index: PathNode -> lane indices sharing it (exact equality; PathNode
             // hashes on its full search key).
@@ -126,11 +154,8 @@ namespace SkiResortMod.Systems
                 AddEndpoint(nodeMap, lanes[i].m_Start, i);
                 AddEndpoint(nodeMap, lanes[i].m_End, i);
             }
-
-            // Station owner-index lookup (PathNode owner is stored as an entity INDEX).
-            var stationByOwnerIndex = new Dictionary<int, int>(stations.Count);
             for (int i = 0; i < stations.Count; i++)
-                stationByOwnerIndex[stations[i].Index] = i;
+                stationByOwnerIndex[stations[i].Index] = i; // the station itself, always
 
             // ── Chain building ─────────────────────────────────────────────────────────
             var chains = new List<Chain>();
@@ -181,22 +206,41 @@ namespace SkiResortMod.Systems
                 }
                 chain.m_EndTerminal = cursor;
 
-                if (stationByOwnerIndex.TryGetValue(chain.m_StartTerminal.GetOwnerIndex(), out int s0))
-                    chain.m_StartStation = s0;
-                if (stationByOwnerIndex.TryGetValue(chain.m_EndTerminal.GetOwnerIndex(), out int s1))
-                    chain.m_EndStation = s1;
+                // Terminal classification: owner match first (station or any child of it),
+                // position fallback second (entry 102). Terminals only.
+                GetChainEndpoint(lanes, chain, atEnd: false, out float3 startPos, out _);
+                GetChainEndpoint(lanes, chain, atEnd: true, out float3 endPos, out _);
+                chain.m_StartStation = ClassifyTerminal(chain.m_StartTerminal, startPos, stations,
+                    stationPositions, stationByOwnerIndex, out string startHow);
+                chain.m_EndStation = ClassifyTerminal(chain.m_EndTerminal, endPos, stations,
+                    stationPositions, stationByOwnerIndex, out string endHow);
                 chains.Add(chain);
+                m_ChainDiags.Add(new ChainDiag
+                {
+                    m_Links = chain.m_Links.Count,
+                    m_StartOwner = chain.m_StartTerminal.GetOwnerIndex(),
+                    m_EndOwner = chain.m_EndTerminal.GetOwnerIndex(),
+                    m_StartStation = chain.m_StartStation,
+                    m_EndStation = chain.m_EndStation,
+                    m_StartHow = startHow,
+                    m_EndHow = endHow,
+                    m_StartPos = startPos,
+                    m_EndPos = endPos,
+                });
             }
             m_ChainCount = chains.Count;
 
             // ── Pair chains by station pair, close each pair into a loop ─────────────────
             var byPair = new Dictionary<(int, int), List<Chain>>();
-            foreach (var chain in chains)
+            for (int c = 0; c < chains.Count; c++)
             {
+                Chain chain = chains[c];
                 if (chain.m_StartStation < 0 || chain.m_EndStation < 0 ||
                     chain.m_StartStation == chain.m_EndStation)
                 {
                     m_UnclosedChainCount++;
+                    m_BuildNotes.Add($"chain {c}: unclosed — terminals station {chain.m_StartStation} → " +
+                                     $"{chain.m_EndStation} ({m_ChainDiags[c].m_StartHow} / {m_ChainDiags[c].m_EndHow})");
                     continue;
                 }
                 var key = chain.m_StartStation < chain.m_EndStation
@@ -212,6 +256,7 @@ namespace SkiResortMod.Systems
                 if (kv.Value.Count != 2)
                 {
                     m_UnclosedChainCount += kv.Value.Count;
+                    m_BuildNotes.Add($"stations ({kv.Key.Item1},{kv.Key.Item2}): {kv.Value.Count} chain(s), need exactly 2");
                     continue;
                 }
                 // Base station = the lower of the two terminals (a ski lift climbs); loop
@@ -221,13 +266,48 @@ namespace SkiResortMod.Systems
                     ? stationA : stationB;
                 int topStation = baseStation == stationA ? stationB : stationA;
 
-                if (!TryCloseLoop(lanes, kv.Value[0], kv.Value[1], baseStation, topStation, out Loop loop))
+                if (!TryCloseLoop(lanes, kv.Value[0], kv.Value[1], baseStation, topStation, out Loop loop, out string why))
                 {
                     m_UnclosedChainCount += 2;
+                    m_BuildNotes.Add($"stations ({stationA},{stationB}): closure failed — {why}");
                     continue;
                 }
                 m_Loops.Add(loop);
+                m_BuildNotes.Add($"stations ({stationA},{stationB}): loop closed, {loop.m_Length:F1} m, " +
+                                 $"{loop.m_Segments.Count} segments (base = station {baseStation})");
             }
+        }
+
+        /// <summary>Which station a chain terminal belongs to: the PathNode owner is the
+        /// station or one of its children, else the nearest station within
+        /// StationTerminalRadius of the terminal's world position, else -1.</summary>
+        private static int ClassifyTerminal(PathNode terminal, float3 position, List<Entity> stations,
+            List<float3> stationPositions, Dictionary<int, int> stationByOwnerIndex, out string how)
+        {
+            int ownerIndex = terminal.GetOwnerIndex();
+            if (stationByOwnerIndex.TryGetValue(ownerIndex, out int byOwner))
+            {
+                how = ownerIndex == stations[byOwner].Index ? "owner" : "child";
+                return byOwner;
+            }
+            int best = -1;
+            float bestDist = float.MaxValue;
+            for (int i = 0; i < stationPositions.Count; i++)
+            {
+                float d = math.distance(position, stationPositions[i]);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = i;
+                }
+            }
+            if (best >= 0 && bestDist <= StationTerminalRadius)
+            {
+                how = $"pos {bestDist:F1}m";
+                return best;
+            }
+            how = best >= 0 ? $"none (owner {ownerIndex}, nearest station {bestDist:F0}m)" : "none (no stations)";
+            return -1;
         }
 
         private static void AddEndpoint(Dictionary<PathNode, List<int>> nodeMap, PathNode node, int laneIndex)
@@ -259,9 +339,10 @@ namespace SkiResortMod.Systems
 
         // ── Loop closing ──────────────────────────────────────────────────────────────
         private bool TryCloseLoop(List<CableLane> lanes, Chain chainA, Chain chainB,
-            int baseStation, int topStation, out Loop loop)
+            int baseStation, int topStation, out Loop loop, out string why)
         {
             loop = new Loop();
+            why = null;
 
             // Orient both chains: A travels base -> top, B travels top -> base.
             OrientChain(chainA, baseStation);
@@ -275,19 +356,34 @@ namespace SkiResortMod.Systems
 
             // Sanity: the arc diameter is the cable gauge (expect ~3.6 m). Wildly off means
             // the anchors are not where this model thinks — degrade to static pinning.
+            float topGap = math.distance(aTop, bTop), baseGap = math.distance(bBase, aBase);
             if (!ArcSane(aTop, bTop) || !ArcSane(bBase, aBase))
+            {
+                why = $"terminal gap out of range (top {topGap:F2} m, base {baseGap:F2} m; want 1–10)";
                 return false;
+            }
 
             double cum = 0.0;
             AppendChain(lanes, chainA, loop, ref cum);
             if (!AppendArc(aTop, bTop, aTopTangent, loop, ref cum))
+            {
+                why = "top arc degenerate (travel tangent parallel to the gap)";
                 return false;
+            }
             AppendChain(lanes, chainB, loop, ref cum);
             if (!AppendArc(bBase, aBase, bBaseTangent, loop, ref cum))
+            {
+                why = "base arc degenerate (travel tangent parallel to the gap)";
                 return false;
+            }
 
             loop.m_Length = cum;
-            return loop.m_Length > 1.0;
+            if (loop.m_Length <= 1.0)
+            {
+                why = $"loop too short ({loop.m_Length:F2} m)";
+                return false;
+            }
+            return true;
         }
 
         private static bool ArcSane(float3 from, float3 to)

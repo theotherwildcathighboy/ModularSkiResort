@@ -1079,7 +1079,24 @@ namespace SkiResortMod.Systems
             }
 
             m_LastBuildHadLanes = lanes.Count > 0;
-            m_LoopCache.Build(lanes, stations, stationPositions);
+
+            // Station ownership map for the loop walk (entry 102): PathNode owners are
+            // entity indices, and a station's anchors may be stamped with the station
+            // itself OR one of its children (sub-objects, sub-net nodes/edges) — collect
+            // them all so terminals classify and the walk still stops at shared stations.
+            var stationByOwnerIndex = new Dictionary<int, int>();
+            for (int i = 0; i < stations.Count; i++)
+            {
+                Entity station = stations[i];
+                stationByOwnerIndex[station.Index] = i;
+                if (EntityManager.TryGetBuffer<Game.Objects.SubObject>(station, isReadOnly: true, out var subObjects))
+                    for (int k = 0; k < subObjects.Length; k++)
+                        stationByOwnerIndex[subObjects[k].m_SubObject.Index] = i;
+                if (EntityManager.TryGetBuffer<Game.Net.SubNet>(station, isReadOnly: true, out var subNets))
+                    for (int k = 0; k < subNets.Length; k++)
+                        stationByOwnerIndex[subNets[k].m_SubNet.Index] = i;
+            }
+            m_LoopCache.Build(lanes, stations, stationPositions, stationByOwnerIndex);
 
             m_DiagRebuilds++;
             m_DiagLastRebuildFrame = m_RenderingSystem.frameIndex;

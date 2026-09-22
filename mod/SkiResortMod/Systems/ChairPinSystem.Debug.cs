@@ -275,6 +275,18 @@ namespace SkiResortMod.Systems
                               $"tempChairQuery={m_TempChairQuery.CalculateEntityCount()}, " +
                               $"laneQuery={m_LaneQuery.CalculateEntityCount()}, stationQuery={m_StationQuery.CalculateEntityCount()}");
 
+                // Topology census (entry 102): how each chain terminated and why pairs did
+                // or did not close — the fork the first dump could not resolve.
+                for (int c = 0; c < m_LoopCache.m_ChainDiags.Count; c++)
+                {
+                    var d = m_LoopCache.m_ChainDiags[c];
+                    sb.AppendLine($"  chain {c}: {d.m_Links} link(s); start owner {d.m_StartOwner} → station {d.m_StartStation} " +
+                                  $"[{d.m_StartHow}] at {Vec(d.m_StartPos)}; end owner {d.m_EndOwner} → station {d.m_EndStation} " +
+                                  $"[{d.m_EndHow}] at {Vec(d.m_EndPos)}");
+                }
+                for (int n = 0; n < m_LoopCache.m_BuildNotes.Count; n++)
+                    sb.AppendLine("  build: " + m_LoopCache.m_BuildNotes[n]);
+
                 int written = 0;
                 for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
                 {
