@@ -128,8 +128,9 @@ namespace SkiResortMod.Systems
         // ── Milestone 2: moving chairs (kill-switch) ─────────────────────────────────────
         // true = chairs ride the cable loop (see the milestone-2 header block). false = the
         // milestone-1 static flow, untouched, wholesale. Promote to a SkiResortSettings
-        // toggle for shipping.
-        private static readonly bool MovingChairs = true;
+        // toggle for shipping. Not readonly since entry 101: the Ski Resort developer-menu
+        // tab flips it at runtime for A/B checks (a flip requests a full pass).
+        private static bool MovingChairs = true;
         private const float ChairSpeedMetersPerSecond = 2.5f;
 
         // Moving-mode tuning. Bounds refresh: chairs' CullingInfo/search-tree entries are
@@ -221,6 +222,26 @@ namespace SkiResortMod.Systems
         private int m_StaticFallbackChairs;        // chairs static-pinned by the last rebuild
         private bool m_LastBuildHadLanes;          // last rebuild found chairlift cable lanes
         private string m_LastBuildSignature;       // count fingerprint — gates the rebuild log
+
+        // ── L0 observability (entry 101): plain counters the Ski Resort developer-menu tab
+        // reads at 10 Hz (ChairPinSystem.Debug.cs). Written only where the work already
+        // happens; never consulted by the mover itself. All transient, reset per load.
+        private int m_DiagUpdateCalls;             // OnUpdate entries this load
+        private long m_DiagLastUpdateFrame = -1;   // RenderingSystem.frameIndex at the last entry
+        private string m_DiagLastExit = "never ran"; // which branch the last OnUpdate took
+        private string m_LastError;                // message + stack of the tripping exception
+        private int m_DiagProbeUpdatedChairs;      // chairs matched by the change probe, last pass
+        private double m_DiagLastPhase;            // derived clock, last mover pass (metres)
+        private int m_DiagLastMoved, m_DiagLastInPlace, m_DiagLastMissing, m_DiagLastRiding;
+        private int m_DiagPassesWithMoves;         // mover passes that wrote ≥1 Transform
+        private int m_DiagPausedSkips;             // mover passes skipped (phase unchanged)
+        private int m_DiagRebuilds;                // loop-cache rebuilds this load
+        private long m_DiagLastRebuildFrame = -1;
+        private int m_DiagLaneTotal;               // m_LaneQuery entity count at the last rebuild
+        private int m_DiagLanesMatched;            // lanes owned by the chairlift net, HV
+        private int m_DiagStations;                // station buildings found
+        private int m_DiagChairsMatched;           // chair-prefab entities found by the rebuild
+        private int m_DiagEnrolled;                // InterpolatedTransform enrollments, last rebuild
 
         // v1.2.1 observability contract: SILENCE MUST BE IMPOSSIBLE. Every way this system
         // can fail or idle now has a distinct, unmissable log signature:
@@ -374,14 +395,34 @@ namespace SkiResortMod.Systems
             m_LoopWarnLogged = false;
             m_LastBuildHadLanes = true;  // assume lanes until the first rebuild proves otherwise
             m_LastBuildSignature = null; // first rebuild per load always logs
+
+            // Entry 101: developer-tab counters are per load.
+            m_DiagUpdateCalls = 0;
+            m_DiagLastUpdateFrame = -1;
+            m_DiagLastExit = "load complete, no update yet";
+            m_LastError = null;
+            m_DiagProbeUpdatedChairs = 0;
+            m_DiagLastPhase = 0.0;
+            m_DiagLastMoved = m_DiagLastInPlace = m_DiagLastMissing = m_DiagLastRiding = 0;
+            m_DiagPassesWithMoves = 0;
+            m_DiagPausedSkips = 0;
+            m_DiagRebuilds = 0;
+            m_DiagLastRebuildFrame = -1;
+            m_DiagLaneTotal = m_DiagLanesMatched = m_DiagStations = m_DiagChairsMatched = m_DiagEnrolled = 0;
         }
 
         protected override void OnUpdate()
         {
+            m_DiagUpdateCalls++;
+            m_DiagLastUpdateFrame = m_RenderingSystem.frameIndex;
             try
             {
                 if (m_Disabled || m_ChairPrefabs.Count == 0)
-                    return; // error-tripped this load, or chair prefab missing — logged already
+                {
+                    // error-tripped this load, or chair prefab missing — logged already
+                    m_DiagLastExit = m_Disabled ? "disabled by exception" : "no chair prefab resolved";
+                    return;
+                }
 
                 if (MovingChairs && m_ChairliftPrefab != Entity.Null)
                 {
@@ -389,6 +430,9 @@ namespace SkiResortMod.Systems
                     return;
                 }
                 // (chairlift net prefab unresolved → the static flow below still pins)
+                m_DiagLastExit = MovingChairs
+                    ? "static flow (chairlift net prefab unresolved)"
+                    : "static flow (moving mode off)";
 
                 if (m_FullPassPending)
                 {
@@ -466,6 +510,8 @@ namespace SkiResortMod.Systems
                 // Never throw into the game loop. Unmissable, with the full stack, once per
                 // load; the prefab table is KEPT so the next load re-arms automatically.
                 m_Disabled = true;
+                m_LastError = e.ToString();
+                m_DiagLastExit = "exception (see Last error)";
                 if (!m_ErrorLogged)
                 {
                     m_ErrorLogged = true;
@@ -736,7 +782,10 @@ namespace SkiResortMod.Systems
             // touched the fleet (lift edit, respawn after reconnect) — rebuild the cache.
             // Our own bounds-refresh Updated tags can never re-enter here: tags added at
             // Modification4B are stripped by CleanUpSystem at the end of the SAME frame.
-            if (!m_UpdatedChairQuery.IsEmptyIgnoreFilter && CountMatchingChairs(m_UpdatedChairQuery) > 0)
+            m_DiagProbeUpdatedChairs = m_UpdatedChairQuery.IsEmptyIgnoreFilter
+                ? 0
+                : CountMatchingChairs(m_UpdatedChairQuery);
+            if (m_DiagProbeUpdatedChairs > 0)
             {
                 m_LoopCacheDirty = true;
                 m_EmptyRosterRetries = 0; // real chair activity re-arms the roster retry
@@ -778,10 +827,16 @@ namespace SkiResortMod.Systems
             double phase = ChairSpeedMetersPerSecond *
                 (((double)m_RenderingSystem.frameIndex + m_RenderingSystem.frameTime) / 60.0);
             if (phase == m_LastMovePhase && !rebuilt)
-                return; // paused — the derived positions are identical, write nothing
+            {
+                // paused — the derived positions are identical, write nothing
+                m_DiagPausedSkips++;
+                m_DiagLastExit = "moving: phase unchanged (paused)";
+                return;
+            }
             m_LastMovePhase = phase;
+            m_DiagLastPhase = phase;
 
-            int moved = 0, missing = 0, riding = 0;
+            int moved = 0, inPlace = 0, missing = 0, riding = 0;
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
             {
                 LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
@@ -792,12 +847,23 @@ namespace SkiResortMod.Systems
                     switch (MoveChair(loop.m_Chairs[i], loop.m_GripTops[i], loop, s))
                     {
                         case MoveResult.Moved: moved++; break;
+                        case MoveResult.InPlace: inPlace++; break;
                         case MoveResult.Missing: missing++; break;
                     }
                 }
             }
             if (missing > 0)
                 m_LoopCacheDirty = true; // roster chair died mid-window — heal next rebuild
+
+            m_DiagLastMoved = moved;
+            m_DiagLastInPlace = inPlace;
+            m_DiagLastMissing = missing;
+            m_DiagLastRiding = riding;
+            if (moved > 0)
+                m_DiagPassesWithMoves++;
+            m_DiagLastExit = riding == 0
+                ? "moving: empty roster (no closed loop has chairs)"
+                : $"moving: {moved} moved / {inPlace} in place / {missing} missing of {riding}";
 
             if (moved > 0 && !m_MovingAliveLogged)
             {
@@ -1015,6 +1081,12 @@ namespace SkiResortMod.Systems
             m_LastBuildHadLanes = lanes.Count > 0;
             m_LoopCache.Build(lanes, stations, stationPositions);
 
+            m_DiagRebuilds++;
+            m_DiagLastRebuildFrame = m_RenderingSystem.frameIndex;
+            m_DiagStations = stations.Count;
+            m_DiagLanesMatched = lanes.Count;
+            m_DiagLaneTotal = m_LaneQuery.CalculateEntityCount();
+
             // 3. Roster: every live chair joins its loop (by owner edge) or falls back to
             //    milestone-1 static pinning. Riding chairs are enrolled once with vanilla
             //    InterpolatedTransform (+ one Updated so batches/culling re-evaluate).
@@ -1038,6 +1110,7 @@ namespace SkiResortMod.Systems
                     }
                 }
 
+                m_DiagChairsMatched = chairs.Length;
                 for (int i = 0; i < chairs.Length; i++)
                 {
                     Entity chair = chairs[i];
@@ -1084,6 +1157,7 @@ namespace SkiResortMod.Systems
                 chunks.Dispose();
                 chairs.Dispose();
             }
+            m_DiagEnrolled = enrolled;
 
             // 4. Slot assignment (review fix, entry 98): even spacing. An identity rebuild
             //    carries every offset forward BY ENTITY (same chairs, unchanged loop length

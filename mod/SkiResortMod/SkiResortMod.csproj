@@ -46,6 +46,12 @@
 		<Reference Include="UnityEngine.CoreModule">
 			<Private>false</Private>
 		</Reference>
+		<!-- UnityEngine.Rendering.DebugUI (the developer-menu widget model the game's own
+		     debug tabs are built from) lives in the render-pipeline core assembly. Used only
+		     by the Ski Resort developer-menu tab (ChairPinSystem.Debug.cs, entry 101). -->
+		<Reference Include="Unity.RenderPipelines.Core.Runtime">
+			<Private>false</Private>
+		</Reference>
 		<!-- Texture2D.LoadImage lives in the ImageConversion module (SkiRunSplatSystem
 		     loads the run-material PNGs at runtime). -->
 		<Reference Include="UnityEngine.ImageConversionModule">
