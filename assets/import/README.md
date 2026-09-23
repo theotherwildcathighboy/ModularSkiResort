@@ -21,8 +21,8 @@ Export/import staging for CS2 Editor assets, organized `<category>/<generation l
   ground level on the machine's own footprint centre; per-instance offset and yaw come
   from the prefab's SubObject transform, NOT from baked mesh offsets.
 
-Current shipping generation per category: towers **N**, stations **K**, chairs **K**,
-props **A** (first generation).
+Current shipping generation per category: towers **N**, stations **L**, chairs **L**,
+props **A** (first generation), probes **A** (import-behaviour probes, not shipped).
 Generator `--out` paths must target the letter folder, e.g. `--out ../import/towers/N`.
 Never reuse a generation letter (the Editor mints a new mesh CID per import; hand-made
 prefabs repoint by CID — see docs/PIPELINE.md).

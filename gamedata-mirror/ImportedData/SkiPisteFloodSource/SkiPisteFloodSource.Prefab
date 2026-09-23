@@ -27,8 +27,8 @@
                 "m_LuxAtDistance": 17,
                 "m_LightUnit": 2,
                 "m_EnableSpotReflector": true,
-                "m_SpotAngle": 60,
-                "m_InnerSpotPercentage": 45,
+                "m_SpotAngle": 110,
+                "m_InnerSpotPercentage": 75,
                 "m_ShapeRadius": 0.025,
                 "m_AspectRatio": 1,
                 "m_ShapeWidth": 0.5,
@@ -47,12 +47,12 @@
                 "m_AffectSpecular": true,
                 "m_ApplyRangeAttenuation": true,
                 "m_LightDimmer": 1,
-                "m_LodBias": 0,
+                "m_LodBias": -1,
                 "m_BarnDoorAngle": 0,
                 "m_BarnDoorLength": 0,
                 "m_UseVolumetric": true,
-                "m_VolumetricDimmer": 0.6,
-                "m_VolumetricFadeDistance": 400
+                "m_VolumetricDimmer": 1,
+                "m_VolumetricFadeDistance": 10000
             }
         ]
     },

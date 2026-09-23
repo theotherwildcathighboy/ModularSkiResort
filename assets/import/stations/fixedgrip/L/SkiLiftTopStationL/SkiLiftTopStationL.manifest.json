@@ -1,0 +1,155 @@
+{
+  "name": "SkiLiftTopStationL",
+  "written_utc": "2026-09-23T03:53:17Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiLiftTopStationL.fbx": {
+      "bytes": 207628,
+      "sha1": "c539b05eb73d9877b6ac7de4ca2c4478ae1bf3dd"
+    },
+    "SkiLiftTopStationL_BaseColor.png": {
+      "bytes": 2807268,
+      "sha1": "b55e4cf575a23ee2c6bdecd2d25c5649730a6514"
+    },
+    "SkiLiftTopStationL_ControlMask.png": {
+      "bytes": 136929,
+      "sha1": "f606eb0d9e5a290432af07d733758520e4f66d4a"
+    },
+    "SkiLiftTopStationL_LOD1.fbx": {
+      "bytes": 115884,
+      "sha1": "64adf0b1f216432bfabcd71220b1500e0eb3bca5"
+    },
+    "SkiLiftTopStationL_LOD1_Win.fbx": {
+      "bytes": 13068,
+      "sha1": "c0779ec43f94beaa2206a11c78a938f0d59de679"
+    },
+    "SkiLiftTopStationL_LOD2.fbx": {
+      "bytes": 42588,
+      "sha1": "28bf1a168d12f67a3ac9d5449bfccafba260d812"
+    },
+    "SkiLiftTopStationL_LOD2_Win.fbx": {
+      "bytes": 13068,
+      "sha1": "a8a24fa388749b2559cf6b29ffc2f35f9e5fae94"
+    },
+    "SkiLiftTopStationL_MaskMap.png": {
+      "bytes": 1381263,
+      "sha1": "cbbc98935090f1b5b93c44d2b9c17c63ae355e42"
+    },
+    "SkiLiftTopStationL_Normal.png": {
+      "bytes": 2306737,
+      "sha1": "8302fb2d6d84b7ab7fdeb87ad70c2a8345ad929f"
+    },
+    "SkiLiftTopStationL_Win.fbx": {
+      "bytes": 13052,
+      "sha1": "9b0741dc71e38a9dd630337165ea3204329bce22"
+    },
+    "settings.json": {
+      "bytes": 751,
+      "sha1": "0c90b08fe4383c6235c15281ce2ff011c8c4df0a"
+    }
+  },
+  "generator": "lift_terminal.py",
+  "kind": "return",
+  "spec": "roundL",
+  "tris": {
+    "0": 2470,
+    "1": 1112,
+    "2": 400
+  },
+  "parts": 78,
+  "atlas_px": 2048,
+  "finish": {
+    "packer": "cs2_uv.pack_unique(margin_px=6)",
+    "ao_samples": 48,
+    "detail": [
+      "beam_",
+      "cabin",
+      "cabinet",
+      "cabmull_",
+      "divrope",
+      "door_hut_leaf",
+      "grate_catwalk",
+      "grate_catwalk_lip",
+      "hut",
+      "hutbase",
+      "hutroof",
+      "leg_",
+      "machinebox",
+      "mast",
+      "mastcollar",
+      "rail_",
+      "rail_catwalk",
+      "rail_knoll",
+      "tcable_",
+      "wheelrope"
+    ],
+    "height_range_m": [
+      -0.007261383812874556,
+      0.006945299915969372
+    ]
+  },
+  "density_worst": [
+    {
+      "part": "bolt_mastbase_1",
+      "source_px_per_m": 8458.1,
+      "shipped_px_per_m": 70.1
+    },
+    {
+      "part": "bolt_mastbase_2",
+      "source_px_per_m": 8458.1,
+      "shipped_px_per_m": 70.1
+    },
+    {
+      "part": "bolt_mastbase_0",
+      "source_px_per_m": 8458.1,
+      "shipped_px_per_m": 70.1
+    },
+    {
+      "part": "bolt_mastbase_3",
+      "source_px_per_m": 8458.1,
+      "shipped_px_per_m": 70.1
+    },
+    {
+      "part": "bolt_mastbase_4",
+      "source_px_per_m": 8458.1,
+      "shipped_px_per_m": 70.1
+    },
+    {
+      "part": "bolt_mastbase_5",
+      "source_px_per_m": 8458.1,
+      "shipped_px_per_m": 70.1
+    },
+    {
+      "part": "bolt_mastbase_6",
+      "source_px_per_m": 8458.1,
+      "shipped_px_per_m": 70.1
+    },
+    {
+      "part": "bolt_mastbase_7",
+      "source_px_per_m": 8458.1,
+      "shipped_px_per_m": 70.1
+    }
+  ],
+  "submeshes": [
+    "Win"
+  ],
+  "engine_base": {
+    "verdict": "OK",
+    "ok_edges": 21,
+    "blocked_edges": 0
+  },
+  "lod_switch_m": {
+    "csum": 21.779635429382324,
+    "bias": 0.0,
+    "distances": [
+      95.24194759827974,
+      141.94638958589138,
+      236.67192798425762
+    ],
+    "switch": {
+      "1": 141.94638958589138,
+      "2": 236.67192798425762
+    },
+    "cull": 4733.440766652425
+  }
+}

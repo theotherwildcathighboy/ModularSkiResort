@@ -846,9 +846,21 @@ def make_lod(source, ratio, name):
 # --------------------------------------------------------------------------------------
 
 def apply_finish_textures(tower, asset_dir, name, atlas_size,
-                          reserved_strips=None, ao_samples=48):
+                          reserved_strips=None, ao_samples=48, *,
+                          packer=None, post_compose=None):
     """
     Bake ambient occlusion into the asset's own atlas BaseColor.
+
+    L hooks (art-pipeline-v2, keyword-only, default None = the byte-identical legacy path):
+      packer(obj, mesh, A, reserved)  replaces ONLY step 1's pack+squeeze on the already
+                                      created, active "UVUnique" layer (cs2_uv.finish_packer:
+                                      pin by deselection, average_islands_scale, density_w,
+                                      one pack_islands, v-band squeeze).
+      post_compose(base, nrm, msk, ctl, ao, mesh, A) -> (base, nrm, msk, ctl)
+                                      called in LINEAR space after the AO multiply and
+                                      BEFORE the sRGB encode (the detail layer /
+                                      cs2_compose.compose_maps go here; pass ao=None to
+                                      compose_maps or the occlusion is applied twice).
 
     The naive version (bake AO over the existing UVs, multiply into BaseColor) CANNOT
     work with our layout: every part is smart-projected into a shared quadrant, so
@@ -895,55 +907,61 @@ def apply_finish_textures(tower, asset_dir, name, atlas_size,
         uniq = mesh.uv_layers.new(name="UVUnique", do_init=True)   # copies UVAtlas
         mesh.uv_layers.active = uniq
 
-        eps = 1e-4
-        uvd = uniq.data
+        if packer is not None:
+            # L: the caller's packer owns the layout (cs2_uv.finish_packer); it must leave
+            # the object in OBJECT mode with "UVUnique" active, exactly as the inline
+            # block below does.
+            packer(tower, mesh, A, reserved)
+        else:
+            eps = 1e-4
+            uvd = uniq.data
 
-        def in_reserved(u, v):
-            return any(u0 - eps <= u <= u1 + eps and v0 - eps <= v <= v1 + eps
-                       for (u0, v0, u1, v1) in reserved)
+            def in_reserved(u, v):
+                return any(u0 - eps <= u <= u1 + eps and v0 - eps <= v <= v1 + eps
+                           for (u0, v0, u1, v1) in reserved)
 
-        pinned = {poly.index for poly in mesh.polygons
-                  if all(in_reserved(*uvd[li].uv) for li in poly.loop_indices)}
+            pinned = {poly.index for poly in mesh.polygons
+                      if all(in_reserved(*uvd[li].uv) for li in poly.loop_indices)}
 
-        bpy.ops.object.select_all(action="DESELECT")
-        tower.select_set(True)
-        bpy.context.view_layer.objects.active = tower
-        scene.tool_settings.use_uv_select_sync = True
-        bpy.ops.object.mode_set(mode="EDIT")
-        bpy.ops.mesh.select_mode(type="FACE")
-        bpy.ops.mesh.select_all(action="SELECT")
-        bm = bmesh.from_edit_mesh(mesh)
-        bm.faces.ensure_lookup_table()
-        for i in pinned:
-            bm.faces[i].select_set(False)       # pack_islands only moves selected islands
-        bmesh.update_edit_mesh(mesh)
-        try:
-            bpy.ops.uv.pack_islands(rotate=False, margin=0.004)
-        except TypeError:
-            bpy.ops.uv.pack_islands(margin=0.004)                  # older signature
-        bpy.ops.object.mode_set(mode="OBJECT")
+            bpy.ops.object.select_all(action="DESELECT")
+            tower.select_set(True)
+            bpy.context.view_layer.objects.active = tower
+            scene.tool_settings.use_uv_select_sync = True
+            bpy.ops.object.mode_set(mode="EDIT")
+            bpy.ops.mesh.select_mode(type="FACE")
+            bpy.ops.mesh.select_all(action="SELECT")
+            bm = bmesh.from_edit_mesh(mesh)
+            bm.faces.ensure_lookup_table()
+            for i in pinned:
+                bm.faces[i].select_set(False)       # pack_islands only moves selected islands
+            bmesh.update_edit_mesh(mesh)
+            try:
+                bpy.ops.uv.pack_islands(rotate=False, margin=0.004)
+            except TypeError:
+                bpy.ops.uv.pack_islands(margin=0.004)                  # older signature
+            bpy.ops.object.mode_set(mode="OBJECT")
 
-        # Squeeze the packed islands into the tallest v-band free of EVERY reserved
-        # rect (rects treated as full-width - conservative). Uniform per-loop
-        # v-scale+offset is island-safe (linear map). With the historical top strips
-        # (crash pad / tension scale, v >= 0.945) the tallest free band is v 0..0.945
-        # and, with the 0.005 margin, this reproduces the original v * 0.94 squeeze
-        # exactly. MID-ATLAS strips (the lodge's wood/stone bands) are honoured too:
-        # packed islands can no longer land inside a rect where the 1:1 restore
-        # below would stomp them, and the AO bake never sees overlapped islands.
-        v_edges = sorted({0.0, 1.0} | {r[1] for r in reserved} | {r[3] for r in reserved})
-        free = [(a, b) for a, b in zip(v_edges, v_edges[1:])
-                if not any(v0 - eps <= (a + b) / 2.0 <= v1 + eps
-                           for (_u0, v0, _u1, v1) in reserved)]
-        g0, g1 = max(free, key=lambda s: s[1] - s[0])
-        lo = g0 + (0.005 if g0 > 0.0 else 0.0)
-        hi = g1 - 0.005
-        uvd = mesh.uv_layers["UVUnique"].data   # re-fetch: mode switches invalidate it
-        for poly in mesh.polygons:
-            if poly.index not in pinned:
-                for li in poly.loop_indices:
-                    u, v = uvd[li].uv
-                    uvd[li].uv = (u, lo + v * (hi - lo))
+            # Squeeze the packed islands into the tallest v-band free of EVERY reserved
+            # rect (rects treated as full-width - conservative). Uniform per-loop
+            # v-scale+offset is island-safe (linear map). With the historical top strips
+            # (crash pad / tension scale, v >= 0.945) the tallest free band is v 0..0.945
+            # and, with the 0.005 margin, this reproduces the original v * 0.94 squeeze
+            # exactly. MID-ATLAS strips (the lodge's wood/stone bands) are honoured too:
+            # packed islands can no longer land inside a rect where the 1:1 restore
+            # below would stomp them, and the AO bake never sees overlapped islands.
+            v_edges = sorted({0.0, 1.0} | {r[1] for r in reserved} | {r[3] for r in reserved})
+            free = [(a, b) for a, b in zip(v_edges, v_edges[1:])
+                    if not any(v0 - eps <= (a + b) / 2.0 <= v1 + eps
+                               for (_u0, v0, _u1, v1) in reserved)]
+            g0, g1 = max(free, key=lambda s: s[1] - s[0])
+            lo = g0 + (0.005 if g0 > 0.0 else 0.0)
+            hi = g1 - 0.005
+            uvd = mesh.uv_layers["UVUnique"].data   # re-fetch: mode switches invalidate it
+            for poly in mesh.polygons:
+                if poly.index not in pinned:
+                    for li in poly.loop_indices:
+                        u, v = uvd[li].uv
+                        uvd[li].uv = (u, lo + v * (hi - lo))
 
         # -- 2. bake material: emission of the old-UV atlas, target = active image ----
         mat = bpy.data.materials.new(name + "BakeMat")
@@ -1035,6 +1053,10 @@ def apply_finish_textures(tower, asset_dir, name, atlas_size,
         # AO is smooth, it darkens the stamp without blurring it.
         occ = np.clip(ao[..., 0:1] * 0.92 + 0.08, 0.0, 1.0)
         base[..., 0:3] *= occ
+        if post_compose is not None:
+            # L: detail layer / compositing in LINEAR space (cs2_compose), before the
+            # encode. The hook returns the four arrays (compose_maps makes new ones).
+            base, nrm, msk, ctl = post_compose(base, nrm, msk, ctl, ao, mesh, A)
         # COLORSPACE: Cycles sampled the sRGB source through an sRGB->linear conversion
         # and the EMIT bake wrote LINEAR values, but Image.pixels round-trips RAW buffer
         # values - our PNGs store display-encoded texels. Without re-encoding, the saved
@@ -1270,9 +1292,10 @@ def parse_args():
     )
     ap.add_argument(
         "--lods", action="store_true",
-        help="also export hand-decimated LOD1/LOD2. Off by default: CS2's LODPostProcessor "
-             "generates LODs by edge collapse at import. Use this only to compare against "
-             "the automatic result (see SPEC 11.1).",
+        help="also export decimated LOD1/LOD2 (TowerParams.lod_ratios). Without them the "
+             "tower ships LOD0-only: the importer generates NOTHING by default "
+             "(LODPostProcessor Skip/Skip - DECISIONS 77/104, art-pipeline-v2.md). The "
+             "tower round (M) makes the chain the default.",
     )
     ap.add_argument(
         "--finish", action="store_true",
@@ -1353,7 +1376,8 @@ def main():
     # no FbxFileTexture, yet imports with all four textures bound. Textures are matched by MESH
     # NAME against the sibling PNGs, so a clean name is what matters, not material wiring.
 
-    # LODs are opt-in - LODPostProcessor generates them at import unless we say Skip.
+    # LODs are opt-in HERE (the tower round M flips the default). The importer generates
+    # none on its own - DECISIONS 77/104.
     lods = []
     if args.lods:
         for i, ratio in enumerate(p.lod_ratios, start=1):

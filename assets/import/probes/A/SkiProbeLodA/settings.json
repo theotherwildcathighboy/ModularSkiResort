@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiProbeLodA_LOD1_BaseColor.png": "SkiProbeLodA_BaseColor.png",
+    "SkiProbeLodA_LOD1_ControlMask.png": "SkiProbeLodA_ControlMask.png",
+    "SkiProbeLodA_LOD1_MaskMap.png": "SkiProbeLodA_MaskMap.png",
+    "SkiProbeLodA_LOD1_Normal.png": "SkiProbeLodA_Normal.png",
+    "SkiProbeLodA_LOD2_BaseColor.png": "SkiProbeLodA_LOD2_BaseColor.png",
+    "SkiProbeLodA_LOD2_ControlMask.png": "SkiProbeLodA_LOD2_ControlMask.png",
+    "SkiProbeLodA_LOD2_MaskMap.png": "SkiProbeLodA_LOD2_MaskMap.png",
+    "SkiProbeLodA_LOD2_Normal.png": "SkiProbeLodA_LOD2_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

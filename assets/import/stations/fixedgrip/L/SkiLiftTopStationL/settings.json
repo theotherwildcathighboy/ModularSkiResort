@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiLiftTopStationL_LOD1_BaseColor.png": "SkiLiftTopStationL_BaseColor.png",
+    "SkiLiftTopStationL_LOD1_ControlMask.png": "SkiLiftTopStationL_ControlMask.png",
+    "SkiLiftTopStationL_LOD1_MaskMap.png": "SkiLiftTopStationL_MaskMap.png",
+    "SkiLiftTopStationL_LOD1_Normal.png": "SkiLiftTopStationL_Normal.png",
+    "SkiLiftTopStationL_LOD2_BaseColor.png": "SkiLiftTopStationL_BaseColor.png",
+    "SkiLiftTopStationL_LOD2_ControlMask.png": "SkiLiftTopStationL_ControlMask.png",
+    "SkiLiftTopStationL_LOD2_MaskMap.png": "SkiLiftTopStationL_MaskMap.png",
+    "SkiLiftTopStationL_LOD2_Normal.png": "SkiLiftTopStationL_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

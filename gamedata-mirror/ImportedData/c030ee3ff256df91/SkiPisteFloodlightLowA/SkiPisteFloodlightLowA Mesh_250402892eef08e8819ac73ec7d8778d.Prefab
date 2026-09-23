@@ -15,7 +15,7 @@
                 "$type": "2|Game.Prefabs.LodProperties, Game",
                 "name": "LodProperties",
                 "active": true,
-                "m_Bias": 0,
+                "m_Bias": -3,
                 "m_ShadowBias": 0,
                 "m_LodMeshes": {
                     "$id": 3,

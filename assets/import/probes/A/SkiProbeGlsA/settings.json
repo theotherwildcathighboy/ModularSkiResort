@@ -1,0 +1,11 @@
+{
+  "sharedAssets": {
+    "SkiProbeGlsA_LOD1_BaseColor.png": "SkiProbeGlsA_BaseColor.png",
+    "SkiProbeGlsA_LOD1_ControlMask.png": "SkiProbeGlsA_ControlMask.png",
+    "SkiProbeGlsA_LOD1_MaskMap.png": "SkiProbeGlsA_MaskMap.png",
+    "SkiProbeGlsA_LOD1_Normal.png": "SkiProbeGlsA_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  }
+}

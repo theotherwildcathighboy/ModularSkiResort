@@ -25,6 +25,7 @@ reaches the file. That is what happened on the first attempt.
 """
 
 import bpy
+import bmesh
 import json
 import math
 import os
@@ -920,13 +921,231 @@ def unwrap_into_quadrant(obj, quad, texel_density=None):
         u, v = loop_uv.uv
         loop_uv.uv = (uo + inset + u * scale, vo + inset + v * v_scale)
 
-def write_settings(out_dir, name, supplied_lods=()):
+
+# --------------------------------------------------------------------------------------
+# Shading (art pipeline v2 - docs/research/art/art-pipeline-v2.md section 3.1)
+#
+# Every part shipped so far was FLAT-shaded (Blender primitive default). The FBX exporter
+# writes per-corner normals straight from the mesh (io_scene_fbx/export_fbx_bin.py:1198)
+# and the game's importer copies them verbatim (FBXImporter.cs -> NativeModelImport, whose
+# ImportSettings has CalculateTangents only), so a 16-gon mast reached the game as sixteen
+# lit facets. Probed in probe_smooth.py (Blender 5.2.2): after an FBX round trip
+# shade_smooth_by_angle leaves 2 normals per side vertex (smooth side + cap), the flat
+# default leaves 3.
+# --------------------------------------------------------------------------------------
+
+def shade_by_angle(obj, angle_deg=66.0, weighted=True):
+    """
+    Smooth-shade every face and mark edges sharper than `angle_deg` as sharp (the wiki's
+    ">= 60 deg auto-smooth" rule). 66 keeps 6-segment tubes (60 deg between faces) smooth
+    while every box edge (90) and ramp break (~68) stays crisp. Uses the ATTRIBUTE route
+    (`sharp_edge` + face smooth flags), not the Smooth-by-Angle modifier: attributes
+    survive `join`, `remove_doubles`, the finish repack and decimation; modifiers do not.
+
+    `weighted` applies a Weighted Normal modifier (face-area, keep_sharp) so the 0.02 m
+    finish bevels do not smear a shading gradient across the big flat faces beside them.
+    Call on the JOINED mesh after remove_doubles, before the finish bake and export.
+    """
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    if bpy.context.object.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.shade_smooth_by_angle(angle=math.radians(angle_deg), keep_sharp_edges=True)
+    if weighted:
+        mod = obj.modifiers.new("WeightedNormal", type="WEIGHTED_NORMAL")
+        mod.mode = "FACE_AREA"
+        mod.keep_sharp = True
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+    me = obj.data
+    flat = sum(1 for p in me.polygons if not p.use_smooth)
+    if flat:
+        raise RuntimeError(f"{obj.name}: shade_by_angle left {flat} flat faces")
+    attr = me.attributes.get("sharp_edge")
+    n_sharp = sum(1 for v in attr.data if v.value) if attr is not None else 0
+    print(f"[shade] {obj.name}: {len(me.polygons)} faces smooth, {n_sharp} sharp edges "
+          f"(> {angle_deg:.0f} deg){', weighted normals' if weighted else ''}")
+
+
+# --------------------------------------------------------------------------------------
+# Part tags + authored LOD chain (art pipeline v2 section 3.7)
+#
+# The importer generates NO LODs by default (DECISIONS 77/104), and a chain must be
+# decimated from the FINISHED mesh - the finish pass repacks UVs, so only a decimated copy
+# samples the shipped atlas correctly. Collapse decimation alone ruins thin tubes and small
+# hardware, so each level first deletes whole parts by name prefix (the snow-prop recipe,
+# prop-lod-and-lighting.md section 5). Part names die at `join`; the INT face attribute
+# "part" written by tag_parts survives it, remove_doubles, and the finish pass.
+# --------------------------------------------------------------------------------------
+
+PART_TABLE_PROP = "cs2_part_table"
+
+
+def canonical_order(obj):
+    """
+    Sort a part's vertices and faces by their coordinates so element order is a pure
+    function of the geometry. Every downstream step is order-dependent (smart_project
+    island ids, the unique pack, the AO bake, collapse decimation), and one order-unstable
+    builder (bmesh.ops.spin in cs2_kit.sheave, review F1 / DECISIONS 107) was enough to
+    ship different textures from two identical builds. Attributes, UV layers and custom
+    props survive the bmesh round trip; call BEFORE shading (sharp_edge would not).
+    """
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    canonical_order_bmesh(bm)
+    bm.to_mesh(obj.data)
+    bm.free()
+
+
+def _rank_sort(seq, keyfn):
+    """bmesh's BMElemSeq.sort only takes a NUMERIC key: compute the lexicographic order
+    in Python and hand bmesh the rank of each element instead."""
+    seq.index_update()
+    seq.ensure_lookup_table()
+    order = sorted(range(len(seq)), key=lambda i: keyfn(seq[i]))
+    rank = [0] * len(order)
+    for r, i in enumerate(order):
+        rank[i] = r
+    seq.sort(key=lambda e: rank[e.index])
+    seq.index_update()
+    seq.ensure_lookup_table()
+
+
+def canonical_order_bmesh(bm):
+    """In-place canonical vertex + face order for a bmesh (see canonical_order)."""
+    _rank_sort(bm.verts, lambda v: (round(v.co.x, 5), round(v.co.y, 5), round(v.co.z, 5)))
+    _rank_sort(bm.faces, lambda f: tuple(round(c, 5) for c in f.calc_center_median()))
+
+
+def tag_parts(parts):
+    """
+    Stamp every face of every part with the INT face attribute "part" (1-based index into
+    the returned name table). Call AFTER bevels (chamfer faces belong to the part) and
+    BEFORE joining. `parts` is the generator's [(obj, quad), ...] list. Every part is put
+    into canonical element order first (see canonical_order) so builds are reproducible.
+    """
+    table = []
+    for i, (obj, _quad) in enumerate(parts, start=1):
+        canonical_order(obj)
+        me = obj.data
+        attr = me.attributes.get("part") or me.attributes.new("part", "INT", "FACE")
+        attr.data.foreach_set("value", [i] * len(me.polygons))
+        table.append(obj.name)
+    return table
+
+
+def store_part_table(obj, table):
+    """Attach the name table to the joined mesh and verify no part lost its tag."""
+    attr = obj.data.attributes.get("part")
+    if attr is None:
+        raise RuntimeError(f"{obj.name}: 'part' face attribute did not survive the join")
+    seen = {v.value for v in attr.data}
+    missing = [n for i, n in enumerate(table, start=1) if i not in seen]
+    if missing:
+        raise RuntimeError(f"{obj.name}: parts lost their tag through join: {missing[:8]}")
+    obj.data[PART_TABLE_PROP] = json.dumps(table)
+
+
+def tri_count(obj):
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+    n = len(bm.faces)
+    bm.free()
+    return n
+
+
+def _delete_tagged_faces(obj, table, prefixes):
+    """Delete every face whose part name starts with one of `prefixes`; returns the count."""
+    if not prefixes:
+        return 0
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    layer = bm.faces.layers.int.get("part")
+    if layer is None:
+        bm.free()
+        raise RuntimeError(f"{obj.name}: no 'part' layer for LOD deletion")
+    kill = [f for f in bm.faces if table[f[layer] - 1].startswith(prefixes)]
+    bmesh.ops.delete(bm, geom=kill, context="FACES")
+    bm.to_mesh(obj.data)
+    bm.free()
+    return len(kill)
+
+
+def make_lod_chain(obj, name, targets, delete_prefixes, tol=0.25, min_tris=60,
+                   shade_angle=66.0):
+    """
+    Build LOD1..n as decimated copies of the finished `obj`. `targets` are ABSOLUTE
+    triangle counts per level (wiki: LOD1 < 50 % of LOD0, LOD2 <= 500 for buildings);
+    `delete_prefixes` is one tuple of part-name prefixes per level, deleted outright
+    before decimation. Each level is re-shaded (decimate drops custom normals) and must
+    land within `tol` of its target. Returns the LOD objects; the caller exports and
+    removes them. Bounds drift is reported because LOD prefabs carry their own m_Bounds
+    (the top-anchor / chair-height contracts apply to every level).
+    """
+    table = json.loads(obj.data[PART_TABLE_PROP])
+    bb0 = [obj.bound_box[0][:], obj.bound_box[6][:]]
+    lods = []
+    for level, (target, prefixes) in enumerate(zip(targets, delete_prefixes), start=1):
+        lod = obj.copy()
+        lod.data = obj.data.copy()
+        lod.name = f"{name}_LOD{level}"
+        lod.data.name = lod.name
+        bpy.context.collection.objects.link(lod)
+        removed = _delete_tagged_faces(lod, table, tuple(prefixes))
+        before = tri_count(lod)
+        ratio = min(1.0, max(min_tris, target) / max(before, 1))
+        bpy.ops.object.select_all(action="DESELECT")
+        lod.select_set(True)
+        bpy.context.view_layer.objects.active = lod
+        if ratio < 0.999:
+            mod = lod.modifiers.new("Decimate", type="DECIMATE")
+            mod.decimate_type = "COLLAPSE"
+            mod.ratio = ratio
+            mod.use_collapse_triangulate = True
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+            # Collapse leaves a few zero-area faces that the FBX round trip drops (review
+            # F3: 2702 in the mesh, 2694 in the file). Dissolve them so the counts we
+            # assert and write to the manifest are the counts the game sees.
+            bm = bmesh.new()
+            bm.from_mesh(lod.data)
+            bmesh.ops.dissolve_degenerate(bm, dist=1e-5, edges=bm.edges[:])
+            # Collinear slivers have long edges and zero area: dissolve_degenerate keeps
+            # them, the FBX round trip drops them. Delete them here so the count in the
+            # manifest is the count in the file.
+            slivers = [f for f in bm.faces if f.calc_area() < 1e-8]
+            if slivers:
+                bmesh.ops.delete(bm, geom=slivers, context="FACES")
+            bm.to_mesh(lod.data)
+            bm.free()
+        shade_by_angle(lod, shade_angle, weighted=False)
+        tris = tri_count(lod)
+        bb = [lod.bound_box[0][:], lod.bound_box[6][:]]
+        drift = max(abs(a - b) for p, q in zip(bb0, bb) for a, b in zip(p, q))
+        print(f"[lod] {lod.name}: deleted {removed} faces, {before} -> {tris} tris "
+              f"(target {target}, ratio {ratio:.3f}), bounds drift {drift:.3f} m")
+        if abs(tris - target) > tol * target:
+            raise RuntimeError(f"{lod.name}: {tris} tris vs target {target} (+-{tol:.0%})")
+        if drift > 0.05:
+            print(f"[lod] WARNING {lod.name}: bounds moved {drift:.3f} m - re-check the "
+                  f"anchor/height contracts on this level")
+        lods.append(lod)
+    return lods
+
+
+def write_settings(out_dir, name, supplied_lods=(), dedicated_texture_lods=()):
     """
     Write settings.json.
 
     `supplied_lods` is e.g. (1, 2) when LOD FBXs are shipped alongside; each gets
     {"mode": "Skip"} so the pipeline uses ours, and its textures are pointed back at LOD0's
     via sharedAssets rather than duplicating multi-megabyte PNGs.
+
+    `dedicated_texture_lods` (L, art-pipeline-v2 3.7 / SkiProbeLodA): levels that ship
+    their OWN `<name>_LOD<k>_<map>.png` set beside the FBX get IDENTITY sharedAssets
+    entries (`<name>_LOD2_BaseColor.png` -> itself) instead of the LOD0 repoint - the
+    ExampleBakedAlphaFence pattern. A level listed here must also be in `supplied_lods`.
+    Default (empty) output is byte-identical to before.
 
     CORRECTED 2026-08-13 (docs/research/art/prop-lod-and-lighting.md §11). This docstring
     used to claim that an empty tuple lets LODPostProcessor generate the chain by edge
@@ -940,9 +1159,11 @@ def write_settings(out_dir, name, supplied_lods=()):
     """
     settings = {}
     shared = {}
+    dedicated = set(dedicated_texture_lods or ())
     for lod in supplied_lods:
         for m in ("BaseColor", "ControlMask", "MaskMap", "Normal"):
-            shared[f"{name}_LOD{lod}_{m}.png"] = f"{name}_{m}.png"
+            key = f"{name}_LOD{lod}_{m}.png"
+            shared[key] = key if lod in dedicated else f"{name}_{m}.png"
         settings[f"LOD{lod}"] = {"mode": "Skip"}
 
     if shared:

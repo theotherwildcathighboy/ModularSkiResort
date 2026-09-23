@@ -11,6 +11,33 @@ SkiLiftTowerET62 at the return, standing at x -6.9 / -4.9 with the anchor at axl
 5.84 / 5.24). The interior static ropes keep their exact start points, which is the whole
 contract between the two halves. Stations also moved to a 4096 atlas (quad_size=2048).
 
+L (art pipeline v2, DECISIONS 103/104): the baked static chairs are GONE - the live chairs
+now dive from the entry tower, round the bullwheel and climb back out on the modelled rope
+(ChairPinSystem), so a static chair would duplicate a moving one. Every part is smooth-shaded
+by angle with weighted normals (cs2_asset.shade_by_angle - the flat primitive default reached
+the game as lit facets), parts are tagged before the join, and --lods ships an authored
+LOD1/LOD2 chain decimated from the finished mesh (cs2_asset.make_lod_chain).
+
+L full v2 (roundL-spec, 2026-09-22):
+  * ENGINE BASE instead of the modelled 3 m skirts: pad / hut base / knoll ramps + crest are
+    OPEN-BOTTOM parts with their side-face bottom edges exactly at z = 0 (cs2_kit.add_box /
+    add_wedge open_bottom=True). BatchMeshHelpers.AddBaseLines builds the foundation skirt
+    from those edges and DROPS any edge that touches a face lying at/below y = 0, which is
+    why the closed E pads floated and K needed skirts. cs2_validate.ground_ring_report is
+    the acceptance check (main() refuses to export when the pad / hut base are not "OK").
+  * Parts kit v1 (cs2_kit): leg flanges with real studs, portal gussets, rail stiffener
+    rings, groove-profile bank sheaves and bullwheel rim (rope torus 1.82 and the wheel
+    centre unchanged), cable clamps, catwalk grating + handrail, hut doors, louvred
+    hatches, roof drip edges; return station: mast base/collar flanges, knoll handrails.
+  * `_Win` sub-meshes: the hut and cabin glass bands leave the main mesh (cs2_submesh,
+    room cells (2,1) hut / (3,2) cabin) and ship as <Name>_Win.fbx + <Name>_LOD1_Win.fbx.
+  * Textures 2048 (quad_size 1024): unique repack with density control (cs2_uv.finish_packer,
+    corrugated walls x2), geometry-keyed relief layer (cs2_compose: corrugation 0.076 m on
+    machinebox/cabin/hut, seams 1.2 m + bolt rows on legs/beams/rails, 0.10 m helix on
+    ropes, grate on the catwalk) blended into the Normal, per-part value noise, AO.
+  * Validators + manifest (cs2_validate) and the shared preview rig (cs2_preview:
+    pbr / dusk / normals / lod / ab vs K).
+
 Atlas quadrants:
     0 concrete   (pad)                          not recolourable
     1 galvanized (columns, shaft, cabinet)      not recolourable
@@ -24,6 +51,7 @@ Import contract as ever (SPEC 11.0): base-pivoted, +X travel pre-conversion, no 
 
 import bpy
 import bmesh
+import json
 import math
 import os
 import sys
@@ -31,11 +59,17 @@ import argparse
 from dataclasses import dataclass
 
 import mathutils
+import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cs2_asset  # noqa: E402
-import lift_tower  # noqa: E402  (reuses its preview camera helpers)
-import lift_chair  # noqa: E402  (a chair is baked into each terminal at load/unload)
+import cs2_kit  # noqa: E402
+import cs2_uv  # noqa: E402
+import cs2_compose  # noqa: E402
+import cs2_submesh  # noqa: E402
+import cs2_validate  # noqa: E402
+import cs2_preview  # noqa: E402
+import lift_tower  # noqa: E402  (reuses its preview camera helpers + finish pass)
 
 TEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "textures")
 
@@ -149,14 +183,14 @@ def build_spoked_wheel(cx, cy, cz, prefix=""):
     hub - you can see straight through it. The old flat cylinder read as a dinner plate.
     Rim outer edge sits at r=1.80 so the rope torus (r 1.82) lies proud in the groove and
     chair grips at radial 1.84 stay clear, exactly as before.
+
+    L: the rim is the cs2_kit.sheave groove profile spun 32 times (r 1.80, width 0.40,
+    groove 0.06 deep, inner radius 1.55 so the spokes bury in it) instead of the K torus;
+    outer edge still 1.80, centre untouched. Name: sheave_<prefix>bull_rim.
     """
     parts = []
-    bpy.ops.mesh.primitive_torus_add(major_radius=1.66, minor_radius=0.14,
-                                     major_segments=24, minor_segments=6,
-                                     location=(cx, cy, cz))
-    rim = bpy.context.active_object
-    rim.name = f"{prefix}wheelrim"
-    parts.append((rim, QUAD_PAINT))
+    parts.extend(cs2_kit.sheave(f"{prefix}bull", 1.80, 0.40, (cx, cy, cz), "Z", segs=32,
+                                quad_rim=QUAD_PAINT, hub=False, groove=0.06, r_hub=1.55))
     for k in range(8):
         a = k * math.pi / 4.0
         sp = add_box(f"{prefix}spoke{k}", (1.34, 0.09, 0.055),
@@ -253,22 +287,148 @@ def set_plate_uvs(obj, outboard, ascending):
                 uv.data[li].uv = (SCALE_U0 + t * (SCALE_U1 - SCALE_U0),
                                   SCALE_V0 + s * (SCALE_V1 - SCALE_V0))
         else:
+            # Tiny NON-DEGENERATE patch on quiet paint texels (was a single point:
+            # zero-area islands upset tangent export and, since the finish pass,
+            # pack_islands during the unique repack). L: projected along the face's
+            # own dominant axis - the x/z projection left the +-X end faces and the
+            # top/bottom faces with zero UV area (cs2_validate uv-zero).
+            n = poly.normal
+            ax = max(range(3), key=lambda i: abs(n[i]))
+            others = [i for i in range(3) if i != ax]
+            ext = [(min(v.co[i] for v in mesh.vertices), max(v.co[i] for v in mesh.vertices))
+                   for i in range(3)]
             for li in poly.loop_indices:
                 co = mesh.vertices[mesh.loops[li].vertex_index].co
-                # Tiny NON-DEGENERATE patch on quiet paint texels (was a single point:
-                # zero-area islands upset tangent export and, since the finish pass,
-                # pack_islands during the unique repack).
-                uv.data[li].uv = (0.555 + 0.008 * (co.x - x0) / max(x1 - x0, 1e-6),
-                                  0.555 + 0.008 * (co.z - z0) / max(z1 - z0, 1e-6))
+                a, b = others
+                uv.data[li].uv = (0.555 + 0.008 * (co[a] - ext[a][0]) / max(ext[a][1] - ext[a][0], 1e-6),
+                                  0.555 + 0.008 * (co[b] - ext[b][0]) / max(ext[b][1] - ext[b][0], 1e-6))
 
 
-# Boxy parts that take the finishing-pass bevel. Glass bands, the rope torus and the
-# baked chairs are excluded (chairs are lift_chair's domain and stay untouched).
-BEVEL_PREFIXES = ("pad", "skirt", "beam_", "saddle_", "endmember_", "carr_",
+# Boxy parts that take the finishing-pass bevel. Glass bands and the rope torus are
+# excluded. (L: the baked static chairs are gone - live chairs ride through the terminal;
+# the skirts are gone too - the ENGINE builds the foundation from the open-bottom ground
+# parts' z = 0 edges, which are boundary edges and therefore never bevelled.)
+BEVEL_PREFIXES = ("pad", "beam_", "saddle_", "endmember_", "carr_",
                   "machfloor", "machinebox", "boxroof", "cabfloor", "cabin", "cabroof",
-                  "hutbase", "hut", "hutroof", "cabinet", "legfoot_", "bankmount_",
+                  "hutbase", "hut", "hutroof", "cabinet", "bankmount_",
                   "plinth", "crest", "rampup", "rampdown")
 BEVEL_EXCLUDE = ("hutwin", "cabwin")
+
+# Smooth-by-angle threshold (art-pipeline-v2.md 3.1): 66 keeps the 6-segment tubes
+# (60 deg between faces) smooth, every box edge (90) and the knoll ramp breaks (~68) sharp.
+SHADE_ANGLE = 66.0
+
+# Authored LOD chain (art-pipeline-v2.md 3.7): parts deleted outright per level, the rest
+# collapse-decimated to an absolute triangle target (LOD1 = 45 % of LOD0, LOD2 = 500 drive /
+# 400 return). Level 1 drops sub-pixel hardware (L: + every kit stud, clamp, drip edge,
+# hatch, handrail post and kick plate); level 2 keeps only the masses that make a terminal
+# recognisable at 300 m: pad, legs, beams, rails, housing, cabin, hut, wheel rim.
+# NOTE the kit's rail prefix: the catwalk / knoll handrails are "rail_catwalk_*" /
+# "rail_knoll_*" - never a bare "rail_", which would also match the main tube rails.
+LOD1_DELETE = ("raillug_", "cabmull_", "stovepipe", "wx", "lrung_", "post_",
+               "tcable_", "ropeguard_", "sheave_bank", "bankmount_", "cwplate",
+               "hatch_", "bolt_", "clamp_", "drip_", "kick_")
+LOD2_DELETE = LOD1_DELETE + ("spoke", "tspoke", "wheelhub", "twheelhub", "rail_catwalk",
+                             "rail_knoll", "rail_bay", "lrail_", "grate_", "scale_", "railcap_",
+                             "flange_", "gusset_", "stiff_", "door_",
+                             "saddle_", "endmember_", "carr_", "cabinet", "hutroof",
+                             "boxroof", "cabroof", "machfloor", "cabfloor", "mastcollar",
+                             "plinth", "wheelshaft", "cweight", "divrope", "wheelrope")
+
+# Texel-density weights for the unique repack (cs2_uv.set_density, longest prefix wins):
+# corrugated walls x2 (the 0.076 m corrugation needs >= ~53 px/m to clear the 2-texel
+# floor at 2048), ropes x1.5 for the helix, legs/beams/rails x1.5 for the bolt rows.
+DENSITY_WEIGHTS = {
+    "machinebox": 2.0, "cabin": 2.0, "cabinet": 1.0, "cabmull_": 1.0,
+    "hut": 2.0, "hutbase": 1.0, "hutroof": 1.0, "hutwin": 1.0, "cabwin": 1.0,
+    "divrope": 1.5, "wheelrope": 1.5, "tcable_": 1.5,
+    "leg_": 1.5, "beam_": 1.5, "rail_": 1.5, "rail_catwalk": 1.0, "rail_knoll": 1.0,
+    "mast": 1.5, "mastcollar": 1.0,
+}
+
+# Shipping texture recipe (L): 2048 atlas = quad_size 1024, finish at the same size.
+ATLAS_QUAD_PX = 1024
+FINISH_ATLAS = 2048
+AO_SAMPLES = 48
+# Island margin for the unique repack, in texels. cs2_uv's default max(16, A // 64) is
+# 32 px at 2048 (64 px between neighbours): with ~300-960 smart-projected islands that
+# packed the stations at a median 36 px/m (12 px: 35 px/m - the gap, not the margin
+# formula, dominates at this island count). 6 px = 12 px gap = 1.5 texels at mip 3,
+# the same gap-per-mip K shipped at 4096 (margin 0.004); the bake margin (8 px EXTEND)
+# fills the gutter with the island's own tone either way.
+PACK_MARGIN_PX = 6
+
+
+def finish_packer(obj, mesh, A, reserved):
+    """
+    lift_tower.apply_finish_textures `packer` hook: cs2_uv.pack_unique with the station
+    margin (PACK_MARGIN_PX) instead of cs2_uv.finish_packer's default. The finish pass
+    has already created "UVUnique" from "UVAtlas"; pack_unique rebuilds it from the
+    active source layer, so the source is re-activated first (same result, tighter pack).
+    """
+    mesh.uv_layers.active = mesh.uv_layers["UVAtlas"]
+    cs2_uv.pack_unique(obj, A, reserved, margin_px=PACK_MARGIN_PX)
+LOD0_CAP = {"drive": 7000, "return": 3600}
+LOD2_TARGET = {"drive": 500, "return": 400}
+
+
+def detail_specs():
+    """
+    Relief layer keyed by part-name prefix (cs2_compose.detail_height, longest prefix
+    wins; an empty DetailSpec() EXCLUDES a longer name from a shorter prefix's feature):
+    corrugation 0.076 m on machinebox / cabin / hut, seams 1.2 m + bolt rows on legs,
+    beams, rails and the return mast, 0.10 m helix on every rope, painted grate on the
+    catwalk, pressed seams on the door leaves.
+    """
+    D = cs2_compose.DetailSpec
+    corr = dict(corrugation_m=0.076, corr_depth_m=0.002)
+    # 36 mm heads (M24 structural bolts): 2 texels at >= 56 px/m, which the legs / rails /
+    # beams reach at their 1.5x density weight on the 2048 atlas (28 mm heads did not).
+    steel_rings = dict(seams_m=1.2, bolt_pitch_m=0.15, bolt_r_m=0.018, seam_axes="rings")
+    return {
+        "machinebox": D(**corr), "cabin": D(**corr), "cabinet": D(), "cabmull_": D(),
+        "hut": D(**corr), "hutbase": D(), "hutroof": D(),
+        "leg_": D(**steel_rings),
+        "beam_": D(seams_m=1.2, bolt_pitch_m=0.15, bolt_r_m=0.018),
+        "rail_": D(**steel_rings), "rail_catwalk": D(), "rail_knoll": D(),
+        "mast": D(**steel_rings), "mastcollar": D(),
+        "divrope": D(helix_m=0.10), "wheelrope": D(helix_m=0.10), "tcable_": D(helix_m=0.10),
+        "grate_catwalk": D(grate_m=0.03), "grate_catwalk_lip": D(),
+        "door_hut_leaf": D(seams_m=0.30, seam_depth_m=0.003, seam_axes="rings"),
+    }
+
+
+def make_post_compose(obj, reserved):
+    """
+    lift_tower.apply_finish_textures `post_compose` hook (linear space, after the AO
+    multiply): rasterise the relief layer on the unique layout, composite it through
+    cs2_compose.compose_maps (per-part value noise, RNM detail normal, gloss variation,
+    channel rules; ao=None because the finish pass already multiplied its AO in), print
+    the density report while both UV layers still exist, then give the uncovered gutter
+    a flat normal and renormalise the covered texels (photo normal sets are not unit
+    length; nz clamped >= 0.05 keeps B > 0.5 everywhere).
+    """
+    def hook(base, nrm, msk, ctl, ao, mesh, A):
+        hook.density = cs2_uv.density_report(obj, A, reserved_rects=reserved)
+        part_map, ppm_map = cs2_compose.rasterise_face_fields(mesh, A)
+        h = cs2_compose.detail_height(mesh, A, detail_specs())
+        hook.height_range = (float(h.min()), float(h.max()))
+        uncovered = nrm[..., 0:3].max(axis=-1) < 1e-3       # EMIT bake left them black
+        base, nrm, msk, ctl = cs2_compose.compose_maps(
+            base, nrm, msk, ctl, None, h, ppm_map,
+            {"reserved": reserved, "part_map": part_map, "seed": 0})
+        n = nrm[..., 0:3] * 2.0 - 1.0
+        n[..., 2] = np.maximum(n[..., 2], 0.05)
+        n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-6)
+        nrm[..., 0:3] = n * 0.5 + 0.5
+        nrm[uncovered, 0:3] = (0.5, 0.5, 1.0)
+        nrm[..., 3] = 1.0
+        print(f"[terminal] compose: relief height {h.min():+.4f} .. {h.max():+.4f} m, "
+              f"{int((~uncovered).sum())} covered texels @ {A}")
+        return base, nrm, msk, ctl
+    hook.density = None
+    hook.height_range = None
+    return hook
 
 
 def apply_finish_bevels(parts):
@@ -303,30 +463,58 @@ def build_return_simple(p: TerminalParams, finish=False):
     rope_y = 1.8
     wheel_z = 3.7                     # rope over the wheel: seat ~2.05 m, crest 1.42 m
     crest_z = 1.42
-    mound_w = 5.4                     # spans both rope lines plus chair overhang
+    mound_w = 6.0                     # spans both rope lines plus chair overhang (L: 5.4 ->
+                                      # 6.0 so the knoll handrails at +-2.9 clear a chair
+                                      # riding at y 1.8 +- 0.9)
 
     # Unload knoll: up-ramp facing the line, crest deck under the wheel, run-out down back.
-    # E: shortened both ramps (footprint was sprawling on slopes) and added a FOUNDATION
-    # SKIRT below y=0 - with the no-flatten terraform the ground is never levelled, so on
-    # steep terrain the downhill edge used to hang in the air. The skirt buries into the
-    # hill instead (the tower's sunken pad proved below-origin geometry renders fine).
-    parts.append((add_wedge("rampup", -4.6, -1.1, mound_w, 0.02, crest_z), QUAD_CONCRETE))
-    parts.append((add_box("crest", (2.4, mound_w, crest_z),
-                          (0.1, 0, crest_z / 2.0)), QUAD_CONCRETE))
-    parts.append((add_wedge("rampdown", 1.3, 2.6, mound_w, crest_z, 0.02), QUAD_CONCRETE))
-    parts.append((add_box("skirt", (7.2, mound_w, 3.0), (-1.0, 0, -1.5)), QUAD_CONCRETE))
+    # E: shortened both ramps (footprint was sprawling on slopes). L: the K foundation
+    # skirt is GONE - the knoll is OPEN-BOTTOM with its side-face bottom edges exactly at
+    # z = 0 (ramp toes at 0.0, not -0.02), so the ENGINE extrudes the foundation from those
+    # edges down to the terrain (BatchMeshHelpers.AddBaseLines; see the module docstring).
+    # The crest box drops its +-X faces: they would coincide with the ramps' end faces.
+    parts.append((cs2_kit.add_wedge("rampup", -4.6, -1.1, mound_w, 0.0, crest_z,
+                                    open_bottom=True), QUAD_CONCRETE))
+    parts.append((cs2_kit.add_box("crest", (2.4, mound_w, crest_z), (0.1, 0, crest_z / 2.0),
+                                  open_bottom=True, drop=("+X", "-X", "+Y")), QUAD_CONCRETE))
+    parts.append((cs2_kit.add_wedge("rampdown", 1.3, 2.6, mound_w, crest_z, 0.0,
+                                    open_bottom=True), QUAD_CONCRETE))
+    # L (user verdict): the liftie box stands LEVEL WITH THE CREST, not on the ground beside
+    # the knoll ("a liftie looking out would just be staring at a wall"). A concrete bay on
+    # the +Y side of the knoll carries it: open-bottom, edges at z 0 (engine base), top at
+    # crest_z, 3.6 m along the line so it also retains the up-ramp and run-out beside it
+    # (its -X/+X faces stand above the ramps as retaining walls). The crest drops its +Y
+    # face - buried inside the bay.
+    bay = (3.6, 2.6, crest_z)
+    bay_x, bay_y = 0.1, mound_w / 2.0 + bay[1] / 2.0
+    parts.append((cs2_kit.add_box("liftiebay", bay, (bay_x, bay_y, crest_z / 2.0),
+                                  open_bottom=True), QUAD_CONCRETE))
+
+    def z_rampup(x):
+        return crest_z * (x + 4.6) / 3.5
+
+    def z_rampdown(x):
+        return crest_z * (2.6 - x) / 1.3
 
     # Stout centre mast on a plinth. Liftblog img_6900 (the real Pali summit): one FAT
     # clean tube, no gussets, wheel right on top - so the old thin mast+fin cluster is
     # replaced by a thicker tube with a collar flange under the wheel bearing.
     # Everything stays inside r=0.6 of centre - the chairs' swing circle.
-    parts.append((add_box("plinth", (0.9, 0.9, 0.35),
-                          (0, 0, crest_z + 0.175)), QUAD_CONCRETE))
+    parts.append((cs2_kit.add_box("plinth", (0.9, 0.9, 0.35), (0, 0, crest_z + 0.175),
+                                  open_bottom=True), QUAD_CONCRETE))
     parts.append((add_cyl("mast", 0.42, wheel_z - 0.17 - crest_z,
                           (0, 0, crest_z + (wheel_z - 0.17 - crest_z) / 2.0),
                           segments=14), QUAD_PAINT))
     parts.append((add_cyl("mastcollar", 0.52, 0.18,
                           (0, 0, wheel_z - 0.38), segments=14), QUAD_PAINT))
+    # L kit: bolted base flange on the plinth (real studs - ground level) and a plain
+    # collar flange (painted bolt circle) under the wheel bearing; both inside r 0.6.
+    parts.extend(cs2_kit.flange("mastbase", 0.58, 0.04, bolts=8, segs=16,
+                                loc=(0, 0, crest_z + 0.35 + 0.02), axis="Z",
+                                bolt_geo=True, caps="top"))
+    parts.extend(cs2_kit.flange("mastcollar", 0.58, 0.03, bolts=12, segs=16,
+                                loc=(0, 0, wheel_z - 0.38 + 0.09 + 0.015), axis="Z",
+                                bolt_geo=False))
 
     # The fixed bullwheel at the breakover - spoked, because from the unload you look
     # straight up through it (img_6900 shows the light spoke web against the dark rim)
@@ -357,36 +545,56 @@ def build_return_simple(p: TerminalParams, finish=False):
     _torus.name = "wheelrope"
     parts.append((_torus, QUAD_PAINT))
 
-    # An arriving chair right at the breakover - riders about to stand up and ski off.
-    # Grip ON the modelled dive rope at its x (rope z 3.86 here, not wheel height - at
-    # 3.7 the grip floated 15 cm below the rope); the footrest skims the crest deck by
-    # centimetres, exactly like a real unload.
-    parts.extend(lift_chair.build_chair_parts(lift_chair.ChairParams(),
-                                              offset=(-0.6, -rope_y, 3.86),
-                                              prefix="uchair", facing=1))
-    # ...and an empty chair mid-dive on the departure side, heading back down the hill
-    # (the game's chairs stop at the portal anchor - the static segment rides alone).
-    parts.extend(lift_chair.build_chair_parts(lift_chair.ChairParams(),
-                                              offset=(-2.5, rope_y, 4.66),
-                                              prefix="dchair", facing=-1))
+    # L: NO baked chairs. The live chairs (ChairPinSystem, DECISIONS 103) dive from the
+    # entry tower, round this wheel and climb back out on exactly the rope modelled above;
+    # a static chair here duplicated a moving one and faced against travel on its side.
 
-    # Liftie box on flat ground beside the crest, sightline down the unload
+    # L kit: guard rails along both knoll edges (h 1.10), from the up-ramp to the run-out,
+    # 0.1 m inside the mound edge so posts stand on concrete. Names post_knoll_*,
+    # rail_knoll_*_top/_knee, kick_knoll_*.
+    ry_ = -(mound_w / 2.0 - 0.1)
+    path = [(-4.0, ry_, z_rampup(-4.0)), (-1.1, ry_, crest_z),
+            (1.3, ry_, crest_z), (2.3, ry_, z_rampdown(2.3))]
+    parts.extend(cs2_kit.handrail("knoll_-1", path, h=1.10, knee=0.55, kick=0.10,
+                                  post_every=1.5, segs=6, radius=0.028))
+    # +Y side: the knoll rail runs up the ramp to the bay's -X wall, then a second rail
+    # wraps the bay's three outer edges (0.1 m inside them) at crest height.
+    ry_ = mound_w / 2.0 - 0.1
+    bx0, bx1 = bay_x - bay[0] / 2.0, bay_x + bay[0] / 2.0
+    parts.extend(cs2_kit.handrail("knoll_1", [(-4.0, ry_, z_rampup(-4.0)),
+                                              (bx0 - 0.05, ry_, z_rampup(bx0 - 0.05))],
+                                  h=1.10, knee=0.55, kick=0.10, post_every=1.5, segs=6,
+                                  radius=0.028))
+    by1 = bay_y + bay[1] / 2.0
+    parts.extend(cs2_kit.handrail("bay", [(bx0 + 0.1, mound_w / 2.0 + 0.05, crest_z),
+                                          (bx0 + 0.1, by1 - 0.1, crest_z),
+                                          (bx1 - 0.1, by1 - 0.1, crest_z),
+                                          (bx1 - 0.1, mound_w / 2.0 + 0.05, crest_z)],
+                                  h=1.10, knee=0.55, kick=0.10, post_every=1.5, segs=6,
+                                  radius=0.028))
+
+    # Liftie box ON the bay, level with the crest: glazing toward the unload (-Y), the
+    # arriving line (-X) and the back (+Y); the door is on the downhill end wall (+X) so
+    # no pane faces a wall. The slab drops its bottom face (buried in the bay top).
     hut = (1.8, 1.6, 2.3)
-    hx, hy = -1.3, mound_w / 2.0 + hut[1] / 2.0 + 0.7
-    parts.append((add_box("hutbase", (hut[0] + 0.3, hut[1] + 0.3, 0.15),
-                          (hx, hy, 0.075)), QUAD_CONCRETE))
-    # K: the hut footprint gets its OWN below-grade skirt, same 3 m depth as the main
-    # structure's - it stands off the knoll on raw terrain, and with the no-flatten
-    # terraform the box floated on its 15 cm base wherever the ground dropped.
-    parts.append((add_box("hutskirt", (hut[0] + 0.3, hut[1] + 0.3, 3.0),
-                          (hx, hy, -1.5)), QUAD_CONCRETE))
-    parts.append((add_box("hut", hut, (hx, hy, 0.15 + hut[2] / 2.0)), QUAD_PAINT))
-    parts.append((add_box("hutwin", (hut[0] + 0.05, hut[1] + 0.05, 0.7),
-                          (hx, hy, 0.15 + hut[2] * 0.62)), QUAD_GLASS))
-    parts.append((add_box("hutroof", (hut[0] + 0.2, hut[1] + 0.2, 0.08),
-                          (hx, hy, 0.15 + hut[2] + 0.04)), QUAD_GALV))
+    hx, hy = bay_x, mound_w / 2.0 + 0.3 + hut[1] / 2.0
+    hz0 = crest_z + 0.15                     # hut floor = bay top + slab
+    parts.append((cs2_kit.add_box("hutbase", (hut[0] + 0.3, hut[1] + 0.3, 0.15),
+                                  (hx, hy, crest_z + 0.075), drop=("-Z",)), QUAD_CONCRETE))
+    parts.append((add_box("hut", hut, (hx, hy, hz0 + hut[2] / 2.0)), QUAD_PAINT))
+    # Glass band leaves the main mesh as the `_Win` sub-mesh (main() splits it off); the
+    # +X (door) pane is dropped.
+    parts.append((cs2_kit.add_box("hutwin", (hut[0] + 0.05, hut[1] + 0.05, 0.7),
+                                  (hx, hy, hz0 + hut[2] * 0.62), drop=("+X",)), QUAD_GLASS))
+    parts.extend(cs2_kit.door("hut", w=0.85, h=1.95, reveal=0.04,
+                              loc=(hx + hut[0] / 2.0, hy - 0.2, hz0), facing="+X",
+                              quad=QUAD_PAINT, quad_frame=QUAD_GALV))
+    hutroof = add_box("hutroof", (hut[0] + 0.2, hut[1] + 0.2, 0.08),
+                      (hx, hy, hz0 + hut[2] + 0.04))
+    parts.append((hutroof, QUAD_GALV))
+    parts.extend(cs2_kit.drip_edge(hutroof, drop=0.06, t=0.02))
     # Weather mast on the hut roof (img_6900: anemometer pole over the summit hut)
-    wm_z = 0.15 + hut[2] + 0.08
+    wm_z = hz0 + hut[2] + 0.08
     parts.append((add_cyl("wxmast", 0.025, 1.3,
                           (hx - 0.55, hy - 0.45, wm_z + 0.65), segments=6), QUAD_GALV))
     parts.append((add_cyl("wxarm", 0.018, 0.36,
@@ -395,10 +603,22 @@ def build_return_simple(p: TerminalParams, finish=False):
     parts.append((add_box("wxbox", (0.09, 0.09, 0.14),
                           (hx - 0.55, hy - 0.45, wm_z + 1.36)), QUAD_GALV))
 
+    return _assemble(parts, finish)
+
+
+def _assemble(parts, finish):
+    """
+    Shared tail of both builders (L): bevels -> density weights -> part tags -> quadrant
+    unwrap -> join -> remove_doubles -> part table -> shade -> base pivot -> orient_for_net.
+    Parts with quad None (the tension-scale plates) keep their hand-set UVs.
+    """
     if finish:
         apply_finish_bevels(parts)
+    cs2_uv.set_density(parts, DENSITY_WEIGHTS)   # float FACE attr, survives the join
+    table = cs2_asset.tag_parts(parts)           # after bevels, before the join (L)
     for obj, quad in parts:
-        cs2_asset.unwrap_into_quadrant(obj, quad)
+        if quad is not None:
+            cs2_asset.unwrap_into_quadrant(obj, quad)
     bpy.ops.object.select_all(action="DESELECT")
     for obj, _ in parts:
         obj.select_set(True)
@@ -409,9 +629,14 @@ def build_return_simple(p: TerminalParams, finish=False):
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.mesh.remove_doubles(threshold=0.0005)
     bpy.ops.object.mode_set(mode="OBJECT")
+    cs2_asset.store_part_table(t, table)
+    cs2_asset.shade_by_angle(t, SHADE_ANGLE)    # L: smooth tubes, crisp boxes
     bpy.context.scene.cursor.location = (0.0, 0.0, 0.0)
     bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
     cs2_asset.orient_for_net(t)
+    n_kit = sum(1 for n in table if n.startswith(cs2_kit.PREFIXES))
+    print(f"[terminal] assembled {len(table)} parts ({n_kit} kit parts), "
+          f"{cs2_asset.tri_count(t)} tris")
     return t
 
 
@@ -446,22 +671,31 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
     deck_z = rail_z + 0.35           # top-of-rail deck the boxes stand on
     pad = (11.0, 7.6, 0.3)
 
-    parts.append((add_box("pad", pad, (0, 0, pad[2] / 2.0)), QUAD_CONCRETE))
-    # Foundation skirt below y=0: buries into un-flattened slopes (see build_return_simple)
-    parts.append((add_box("skirt", (pad[0], pad[1], 3.0), (0, 0, -1.5)), QUAD_CONCRETE))
+    # L: OPEN-BOTTOM pad with its side-face bottom edges exactly at z = 0 - the ENGINE
+    # builds the foundation skirt from them (module docstring); the K skirt box is gone.
+    parts.append((cs2_kit.add_box("pad", pad, (0, 0, pad[2] / 2.0), open_bottom=True),
+                  QUAD_CONCRETE))
 
     # FOUR fat tube legs (img_6870: ~0.6 m round columns, not lattice), one pair per
     # portal plane, standing outside the corridor, each pair tied by a transverse box
     # beam whose top carries the rails. Saddle blocks make the rail/beam joints read
-    # heavy instead of tangent.
+    # heavy instead of tangent. L kit: bolted base flanges (8 real studs each, ground
+    # level) replace the legfoot boxes; twin gusset webs tie every leg to its beam.
     beam_z = 4.55                    # beam centre; beam spans z 4.35..4.75
     for lx in (front_x, back_x):
         for ly in (-leg_y, leg_y):
             parts.append((add_cyl(f"leg_{lx:.0f}_{ly:.0f}", 0.30, beam_z - 0.2 - pad[2],
                                   (lx, ly, pad[2] + (beam_z - 0.2 - pad[2]) / 2.0),
                                   segments=14), QUAD_PAINT))
-            parts.append((add_box(f"legfoot_{lx:.0f}_{ly:.0f}", (0.85, 0.85, 0.14),
-                                  (lx, ly, pad[2] + 0.07)), QUAD_PAINT))
+            parts.extend(cs2_kit.flange(f"leg_{lx:.0f}_{ly:.0f}", 0.46, 0.04, bolts=8,
+                                        segs=16, loc=(lx, ly, pad[2] + 0.02), axis="Z",
+                                        bolt_geo=True, caps="top"))
+            sgn = 1.0 if ly > 0 else -1.0
+            for k, gx in enumerate((-0.15, 0.15)):
+                # web in the YZ plane: local +X -> inboard (-sgn Y), local +Z -> down
+                parts.extend(cs2_kit.gusset(f"leg_{lx:.0f}_{ly:.0f}_{k}", 0.55, 0.55, 0.02,
+                                            loc=(lx + gx, ly - sgn * 0.25, beam_z - 0.2),
+                                            rot=(math.pi, 0.0, -sgn * math.pi / 2.0)))
         parts.append((add_box(f"beam_{lx:.0f}", (0.5, leg_y * 2 + 0.7, 0.4),
                               (lx, 0, beam_z)), QUAD_PAINT))
         for ry in (-rail_y, rail_y):
@@ -475,6 +709,12 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
     for ry in (-rail_y, rail_y):
         parts.append((add_cyl(f"rail_{ry:.0f}", rail_r, rail_len, (0, ry, rail_z),
                               segments=16, rotation=(0, math.radians(90), 0)), QUAD_PAINT))
+        # L kit: welded stiffener rings. The painted tension scale occupies x -0.3..3.7
+        # and the back saddle / end member 3.7..4.8, so the rings sit on the front span
+        # and in the gap before the end member (3 per rail).
+        for i, sx in enumerate((-3.6, -2.0, 4.36)):
+            parts.extend(cs2_kit.stiffener_ring(f"rail_{ry:.0f}_{i}", rail_r, w=0.06, t=0.02,
+                                                loc=(sx, ry, rail_z), axis="X", segs=16))
         for ex in (-rail_len / 2, rail_len / 2):
             parts.append((add_cyl(f"railcap_{ry:.0f}_{ex:.0f}", rail_r + 0.05, 0.10,
                                   (ex, ry, rail_z), segments=16,
@@ -517,10 +757,18 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
                           segments=16), QUAD_PAINT))
     parts.append((add_box("cwplate", (0.9, 0.9, 0.10), (cw_x, 0, cw_top + 0.05)), QUAD_PAINT))
     for s in (-1, 1):
-        parts.append((add_strut(f"tcable_a_{s}", (wheel_x + 0.35, s * 0.5, 4.55),
-                                (4.42, s * 0.5, 4.80), 0.030), QUAD_PAINT))
-        parts.append((add_strut(f"tcable_b_{s}", (4.60, s * 0.45, 4.80),
-                                (cw_x + 0.05, s * 0.45, cw_top), 0.030), QUAD_PAINT))
+        a0, a1 = (wheel_x + 0.35, s * 0.5, 4.55), (4.42, s * 0.5, 4.80)
+        b0, b1 = (4.60, s * 0.45, 4.80), (cw_x + 0.05, s * 0.45, cw_top)
+        parts.append((add_strut(f"tcable_a_{s}", a0, a1, 0.030), QUAD_PAINT))
+        parts.append((add_strut(f"tcable_b_{s}", b0, b1, 0.030), QUAD_PAINT))
+        # L kit: two-piece cable clamps at the yoke end and at the drum end (local X
+        # along the cable), 0.10 m in from the cable ends.
+        for tag, p0, p1, at_start in (("a", a0, a1, True), ("b", b0, b1, False)):
+            d = mathutils.Vector(p1) - mathutils.Vector(p0)
+            u = d.normalized()
+            c = mathutils.Vector(p0) + u * 0.10 if at_start else mathutils.Vector(p1) - u * 0.10
+            parts.extend(cs2_kit.cable_clamp(f"tc{tag}_{s}", 0.030, loc=tuple(c),
+                                             rot=u.to_track_quat("X", "Z").to_euler()))
 
     # J-generation: the built-in ENTRY TOWER is GONE. A hosted sub-object tower (the
     # standalone SkiLiftTowerET68 asset, same sheave-train geometry) now stands at
@@ -546,10 +794,10 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
     for ry in (-rope_y, rope_y):
         parts.append((add_box(f"bankmount_{ry:.0f}", (0.55, 0.14, 0.35),
                               (front_x, ry, bank_z + 0.28)), QUAD_PAINT))
-        for sxo in (-0.2, 0.2):
-            parts.append((add_cyl(f"banksheave_{ry:.0f}_{sxo}", 0.17, 0.13,
-                                  (front_x + sxo, ry, bank_z), segments=10,
-                                  rotation=(math.radians(90), 0, 0)), QUAD_GALV))
+        for k, sxo in enumerate((-0.2, 0.2)):
+            # L kit: groove-profile sheaves (sheave_bank_<ry>_<k>_rim / _hub), axle on Y
+            parts.extend(cs2_kit.sheave(f"bank_{ry:.0f}_{k}", 0.17, 0.13,
+                                        (front_x + sxo, ry, bank_z), "Y", segs=12))
         guard = add_box(f"ropeguard_{ry:.0f}", (0.75, 0.04, 0.26),
                         (front_x, ry + math.copysign(0.13, ry), bank_z + 0.02))
         guard.rotation_euler = (0, math.radians(25), 0)
@@ -562,22 +810,9 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
         parts.append((add_strut(f"divropeb_{ry:.0f}", (front_x - 0.24, ry, rope_at_bank),
                                 (tan_x, ry, tan_z), 0.055), QUAD_PAINT))
 
-    # Rope height on segment B at a given x - chairs bake with their grips exactly here
-    def rope_b_z(x):
-        t = (x - (front_x - 0.24)) / (tan_x - (front_x - 0.24))
-        return rope_at_bank + t * (tan_z - rope_at_bank)
-
-    # A chair at the load point: just off the wheel wrap, riders facing the line (-X),
-    # about to head uphill. Grip ON the modelled rope, clear of the rim (radial 1.84 m
-    # vs rim 1.80) and of the carriage above.
-    parts.extend(lift_chair.build_chair_parts(lift_chair.ChairParams(),
-                                              offset=(-0.2, rope_y, rope_b_z(-0.2)),
-                                              prefix="lchair", facing=-1))
-    # ...and one on the arrival side under the frame: the game's own chairs stop at the
-    # tower anchor, so the static rope between tower and wheel needs its own riders.
-    parts.extend(lift_chair.build_chair_parts(lift_chair.ChairParams(),
-                                              offset=(-2.0, -rope_y, rope_b_z(-2.0)),
-                                              prefix="achair", facing=1))
+    # L: NO baked chairs at the load point or under the frame. The live chairs
+    # (ChairPinSystem, DECISIONS 103) ride segment A, the bank, segment B and the wheel
+    # wrap; the K-generation static pair duplicated them and faced against travel.
 
     # -------- topside: machinery box over the wheel, operator cabin at the back -------
     # Machinery box directly above the carriage/wheel (drive machinery drives the wheel
@@ -588,13 +823,17 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
     parts.append((add_box("machfloor", (box[0] + 0.1, box[1] + 0.1, 0.12),
                           (bx, 0, deck_z - 0.06)), QUAD_PAINT))
     parts.append((add_box("machinebox", box, (bx, 0, deck_z + box[2] / 2.0)), QUAD_PAINT))
-    parts.append((add_box("hatch", (0.06, 0.8, 1.3),
-                          (bx - box[0] / 2 - 0.01, 0.3, deck_z + 0.75)), QUAD_GALV))
-    for i in range(3):
-        parts.append((add_box(f"boxvent_{i}", (0.05, box[1] * 0.5, 0.09),
-                              (bx + box[0] / 2 + 0.01, 0, deck_z + 0.5 + i * 0.24)), QUAD_GALV))
-    parts.append((add_box("boxroof", (box[0] + 0.25, box[1] + 0.25, 0.09),
-                          (bx, 0, deck_z + box[2] + 0.045)), QUAD_GALV))
+    # L kit: louvred access hatch on the line-side (-X) wall replaces the hatch slab, a
+    # wide louvred vent hatch on the +X wall replaces the three vent slats; drip edge
+    # flashing around the roof box.
+    parts.extend(cs2_kit.hatch("mach", 0.8, 1.3, reveal=0.03,
+                               loc=(bx - box[0] / 2, 0.3, deck_z + 0.75), facing="-X"))
+    parts.extend(cs2_kit.hatch("vent", 1.2, 0.6, reveal=0.03,
+                               loc=(bx + box[0] / 2, 0, deck_z + 0.9), facing="+X"))
+    boxroof = add_box("boxroof", (box[0] + 0.25, box[1] + 0.25, 0.09),
+                      (bx, 0, deck_z + box[2] + 0.045))
+    parts.append((boxroof, QUAD_GALV))
+    parts.extend(cs2_kit.drip_edge(boxroof, drop=0.06, t=0.02))
 
     # Operator cabin ON the frame toward the back (img_6828/6870: corrugated black box,
     # wrap-around glass band, roof overhang, stovepipe) - in ADDITION to the ground hut.
@@ -604,33 +843,38 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
                           (cx, 0, deck_z - 0.06)), QUAD_PAINT))
     parts.append((add_box("cabin", cab, (cx, 0, deck_z + cab[2] / 2.0)), QUAD_PAINT))
     cab_band_z = deck_z + cab[2] * 0.62
-    parts.append((add_box("cabwin", (cab[0] + 0.05, cab[1] + 0.05, 0.72),
-                          (cx, 0, cab_band_z)), QUAD_GLASS))
+    # Wrap-around glass band: leaves the main mesh as the `_Win` sub-mesh (main() splits
+    # it off, room cell (3, 2)); the corner mullions stay in the main mesh.
+    parts.append((cs2_kit.add_box("cabwin", (cab[0] + 0.05, cab[1] + 0.05, 0.72),
+                                  (cx, 0, cab_band_z)), QUAD_GLASS))
     for mx, my in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
         parts.append((add_box(f"cabmull_{mx}{my}", (0.07, 0.07, 0.72),
                               (cx + mx * cab[0] / 2.0, my * cab[1] / 2.0, cab_band_z)),
                       QUAD_GALV))
-    parts.append((add_box("cabroof", (cab[0] + 0.24, cab[1] + 0.24, 0.09),
-                          (cx, 0, deck_z + cab[2] + 0.045)), QUAD_GALV))
+    cabroof = add_box("cabroof", (cab[0] + 0.24, cab[1] + 0.24, 0.09),
+                      (cx, 0, deck_z + cab[2] + 0.045))
+    parts.append((cabroof, QUAD_GALV))
+    parts.extend(cs2_kit.drip_edge(cabroof, drop=0.06, t=0.02))
     parts.append((add_cyl("stovepipe", 0.055, 0.85,
                           (cx - 0.85, -0.85, deck_z + cab[2] + 0.5), segments=8), QUAD_GALV))
 
-    # Catwalk plank along the +Y side of the deck with a thin railing (img_6828: the
-    # operator walks the frame between ladder and cabin).
-    parts.append((add_box("catwalk", (6.8, 0.55, 0.06), (1.6, 1.73, deck_z - 0.03)),
-                  QUAD_GALV))
-    for i, rx in enumerate((-1.6, 0.0, 1.6, 3.2, 4.8)):
-        parts.append((add_cyl(f"railpost_{i}", 0.025, 0.95,
-                              (rx, 1.97, deck_z + 0.475), segments=6), QUAD_GALV))
-    for hz in (deck_z + 0.55, deck_z + 0.93):
-        parts.append((add_strut(f"handrail_{hz:.1f}", (-1.7, 1.97, hz),
-                                (4.9, 1.97, hz), 0.028, segments=6), QUAD_GALV))
+    # Catwalk along the +Y side of the deck (img_6828: the operator walks the frame
+    # between ladder and cabin). L kit: opaque painted grating (holes in the normal map -
+    # a see-through cutout would flip the whole surface to DefaultCutout) and a proper
+    # guard rail (h 1.10, knee rail, kick plate) on the outboard edge.
+    parts.extend(cs2_kit.grating("catwalk", 6.8, 0.55, t=0.06, loc=(1.6, 1.73, deck_z - 0.03)))
+    parts.extend(cs2_kit.handrail("catwalk", [(-1.8, 1.95, deck_z), (5.0, 1.95, deck_z)],
+                                  h=1.10, knee=0.55, kick=0.10, post_every=1.5, segs=6,
+                                  radius=0.028))
 
     # Ladder up the back end to the deck (img_6828: straight ladder to the cabin)
     lad_x, lad_top = rail_len / 2 + 0.25, deck_z + 0.25
     for ly in (-0.25, 0.25):
-        parts.append((add_cyl(f"lrail_{ly}", 0.035, lad_top,
-                              (lad_x, ly, lad_top / 2.0), segments=6), QUAD_GALV))
+        # L: the rails stand ON the pad (z 0.3), bottom cap buried - a rail starting at
+        # z = 0 put a face into the engine's ground band and BLOCKED the base there.
+        parts.append((cs2_kit.add_cyl(f"lrail_{ly}", 0.035, lad_top - pad[2],
+                                      (lad_x, ly, (lad_top + pad[2]) / 2.0), segments=6,
+                                      caps="top"), QUAD_GALV))
     for i in range(1, 10):
         parts.append((add_cyl(f"lrung_{i}", 0.024, 0.5,
                               (lad_x, 0, i * lad_top / 10.0),
@@ -640,17 +884,21 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
     # electrical cabinet on the pad.
     hut = (1.8, 1.6, 2.3)
     hx, hy = -1.2, pad[1] / 2.0 + hut[1] / 2.0 + 0.55
-    parts.append((add_box("hutbase", (hut[0] + 0.3, hut[1] + 0.3, 0.15),
-                          (hx, hy, 0.075)), QUAD_CONCRETE))
-    # K: below-grade skirt under the hut footprint (it stands OFF the pad, on raw
-    # terrain, and floated on dropping ground) - same 3 m depth as the main skirt.
-    parts.append((add_box("hutskirt", (hut[0] + 0.3, hut[1] + 0.3, 3.0),
-                          (hx, hy, -1.5)), QUAD_CONCRETE))
+    # L: OPEN-BOTTOM base with its edges at z = 0 (engine base); the K hut skirt is gone.
+    parts.append((cs2_kit.add_box("hutbase", (hut[0] + 0.3, hut[1] + 0.3, 0.15),
+                                  (hx, hy, 0.075), open_bottom=True), QUAD_CONCRETE))
     parts.append((add_box("hut", hut, (hx, hy, 0.15 + hut[2] / 2.0)), QUAD_PAINT))
-    parts.append((add_box("hutwin", (hut[0] + 0.05, hut[1] + 0.05, 0.7),
-                          (hx, hy, 0.15 + hut[2] * 0.62)), QUAD_GLASS))
-    parts.append((add_box("hutroof", (hut[0] + 0.2, hut[1] + 0.2, 0.08),
-                          (hx, hy, 0.15 + hut[2] + 0.04)), QUAD_GALV))
+    # Glass band leaves the main mesh as the `_Win` sub-mesh (room cell (2, 1)); the -Y
+    # (pad-facing) pane is dropped to make room for the door.
+    parts.append((cs2_kit.add_box("hutwin", (hut[0] + 0.05, hut[1] + 0.05, 0.7),
+                                  (hx, hy, 0.15 + hut[2] * 0.62), drop=("-Y",)), QUAD_GLASS))
+    parts.extend(cs2_kit.door("hut", w=0.85, h=1.95, reveal=0.04,
+                              loc=(hx + 0.3, hy - hut[1] / 2.0, 0.15), facing="-Y",
+                              quad=QUAD_PAINT, quad_frame=QUAD_GALV))
+    hutroof = add_box("hutroof", (hut[0] + 0.2, hut[1] + 0.2, 0.08),
+                      (hx, hy, 0.15 + hut[2] + 0.04))
+    parts.append((hutroof, QUAD_GALV))
+    parts.extend(cs2_kit.drip_edge(hutroof, drop=0.06, t=0.02))
     parts.append((add_box("cabinet", (0.9, 0.5, 1.4),
                           (-3.2, -pad[1] / 2.0 + 0.55, pad[2] + 0.7)), QUAD_GALV))
 
@@ -663,28 +911,7 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
         set_plate_uvs(plate, outboard=s, ascending=asc)
         parts.append((plate, None))
 
-    if finish:
-        apply_finish_bevels(parts)
-    for obj, quad in parts:
-        if quad is not None:
-            cs2_asset.unwrap_into_quadrant(obj, quad)
-
-    bpy.ops.object.select_all(action="DESELECT")
-    for obj, _ in parts:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = parts[0][0]
-    bpy.ops.object.join()
-    t = bpy.context.active_object
-
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.remove_doubles(threshold=0.0005)
-    bpy.ops.object.mode_set(mode="OBJECT")
-
-    bpy.context.scene.cursor.location = (0.0, 0.0, 0.0)
-    bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
-    cs2_asset.orient_for_net(t)
-    return t
+    return _assemble(parts, finish)
 
 
 def build_terminal(p: TerminalParams, kind: str):
@@ -884,18 +1111,99 @@ def parse_args():
              "density-protecting the tension-scale and pad strips (see lift_tower."
              "apply_finish_textures).",
     )
+    ap.add_argument(
+        "--lods", action="store_true",
+        help="L: also export an authored LOD1/LOD2 chain decimated from the finished mesh "
+             "(cs2_asset.make_lod_chain; LOD1 = 45%% of LOD0, LOD2 = 500 drive / 400 "
+             "return). The importer generates no LODs on its own (DECISIONS 77/104).",
+    )
+    ap.add_argument(
+        "--ab", default=None,
+        help="previous generation asset folder for the ab preview (default: the K "
+             "station under ../import/stations/fixedgrip/K when present).",
+    )
+    ap.add_argument(
+        "--no-validate", action="store_true",
+        help="skip the end-of-build cs2_validate.validate_asset_folder gate (debugging).",
+    )
     return ap.parse_args(argv)
+
+
+# Ground parts that must feed the engine base (cs2_validate.ground_ring_report ok_parts).
+ENGINE_BASE_PARTS = {"drive": ("pad", "hutbase"),
+                     "return": ("rampup", "crest", "rampdown", "liftiebay")}
+# `_Win` room cells per pane group (int(v*5)*5 + int(u*5) of the first vertex: hut 7, cabin 13)
+WIN_CELLS = {"hutwin": (2, 1), "cabwin": (3, 2)}
+
+
+def split_windows(t, name, table):
+    """
+    Move the hut (and, on the drive station, the cabin) glass bands off the main mesh
+    into ONE `<name>_Win` sub-object: cs2_submesh.split_submesh per pane group (each with
+    its own room cell), the second sub joined into the first. Returns the sub or None
+    when the mesh carries no pane parts. Must run after orient_for_net and BEFORE the
+    finish pass, so the bake never sees pane texels and the LOD chain never sees panes.
+    """
+    groups = [(pfx, cell) for pfx, cell in WIN_CELLS.items()
+              if any(n.startswith(pfx) for n in table)]
+    if not groups:
+        return None
+    subs = []
+    for pfx, cell in groups:
+        sub = cs2_submesh.split_submesh(t, table, (pfx,), "Win", win_cell=cell)
+        sub.name = f"{name}Win{len(subs)}"           # free the `_Win` name for the next split
+        sub.data.name = sub.name
+        subs.append(sub)
+    main_sub = subs[0]
+    if len(subs) > 1:
+        bpy.ops.object.select_all(action="DESELECT")
+        for s in subs:
+            s.select_set(True)
+        bpy.context.view_layer.objects.active = main_sub
+        bpy.ops.object.join()
+        main_sub = bpy.context.active_object
+    main_sub.name = cs2_submesh.submesh_name(name, "Win")
+    main_sub.data.name = main_sub.name
+    if len(main_sub.data.uv_layers) != 1:
+        raise RuntimeError(f"{main_sub.name}: {len(main_sub.data.uv_layers)} UV layers")
+    print(f"[terminal] _Win: {len(groups)} pane groups {[g[0] for g in groups]} -> "
+          f"{main_sub.name}: {len(main_sub.data.polygons)} panes / "
+          f"{cs2_asset.tri_count(main_sub)} tris")
+    return main_sub
+
+
+def check_engine_base(t, kind):
+    """
+    The skirt-removal acceptance gate: cs2_validate.validate_mesh(kind="building") must
+    report the engine base OK, and every ground part of this station must contribute
+    OK edges. Raises RuntimeError otherwise (nothing is exported).
+    """
+    findings = cs2_validate.validate_mesh(t, kind="building")
+    errors = [f for f in findings if f[0] == "ERROR"]
+    base_ok = any(f[0] == "INFO" and f[1] == "engine-base" for f in findings)
+    r = cs2_validate.ground_ring_report(t)
+    missing = [p for p in ENGINE_BASE_PARTS[kind] if p not in r["ok_parts"]]
+    print(f"[terminal] engine base: verdict {r['verdict']}, {r['ok_edges']} OK edges / "
+          f"{r['blocked_edges']} blocked / {r['below_verts']} verts below -1 cm; "
+          f"ok parts {list(r['ok_parts'].keys())}")
+    if errors or not base_ok or missing:
+        raise RuntimeError(f"engine-base gate failed: errors {errors}, base_ok {base_ok}, "
+                           f"missing ground parts {missing}, offending {r['offending_parts']}")
+    return r
 
 
 def main():
     args = parse_args()
     clear_scene()
     p = TerminalParams()
+    here = os.path.dirname(os.path.abspath(__file__))
 
     default = "SkiLiftBaseStation" if args.kind == "drive" else "SkiLiftTopStation"
     t = build_terminal_pali(p, args.kind, finish=args.finish)
     t.name = args.name or default
+    t.data.name = t.name
     name = cs2_asset.validate_asset_name(t.name)
+    table = json.loads(t.data[cs2_asset.PART_TABLE_PROP])
 
     asset_dir = os.path.join(os.path.abspath(args.out), name)
     os.makedirs(asset_dir, exist_ok=True)
@@ -904,10 +1212,19 @@ def main():
     print(f"[terminal] kind: {args.kind}   tris: {tri_count(t)}")
     print(f"[terminal] size (m): {d.x:.2f} x {d.y:.2f} x {d.z:.2f}   (v1 was 9.14 tall)")
 
+    # -- `_Win` sub-mesh out of the main mesh, then the engine-base gate (L) ----------
+    win = split_windows(t, name, table)
+    base_report = check_engine_base(t, args.kind)
+    n0 = tri_count(t)
+    cap = LOD0_CAP[args.kind]
+    if n0 > cap:
+        raise RuntimeError(f"LOD0 {n0} tris exceeds the {cap} cap")
+    print(f"[terminal] LOD0 after _Win split: {n0} tris (cap {cap})")
+
     # post hook stamps the white 1..16 tension scale into THIS asset's atlas copy - the
     # shared lift atlas recipe itself stays untouched for towers and chairs.
-    # quad_size=2048 (J): the stations get a 4096 atlas - they are the hero assets the
-    # camera parks next to. Towers and chairs stay at their smaller sizes.
+    # quad_size=1024 (L): 2048 atlas (was 4096 in J/K) - the density report at 4096
+    # showed ~55-65 px/m packed, which 2048 reaches with the unique repack.
     # paint_pad_strip is composed in (J follow-up) so every lift atlas carries the same
     # crash-pad strip - stations have no pads, but the palette stays identical across
     # the system and quad 2's reserved headroom is painted, not undefined.
@@ -915,39 +1232,115 @@ def main():
         cs2_asset.paint_pad_strip(base, nrm, msk, ctl, A)
         stamp_tension_scale(base, nrm, msk, ctl, A)
 
-    cs2_asset.make_texture_set_atlas(asset_dir, name, QUAD_SETS, quad_size=2048,
+    cs2_asset.make_texture_set_atlas(asset_dir, name, QUAD_SETS, quad_size=ATLAS_QUAD_PX,
                                      control_quads=CONTROL_QUADS, post=_post)
 
+    reserved = [(cs2_asset.PAD_U0, cs2_asset.PAD_V0, cs2_asset.PAD_U1, cs2_asset.PAD_V1),
+                (SCALE_U0, SCALE_V0, SCALE_U1, SCALE_V1)]
+    finished = False
+    compose = None
     if args.finish:
         # Texture half of the finishing pass (shared pipeline in lift_tower). BOTH
-        # stamped strips are density-protected through the repack; 32 AO samples keep
-        # the 4096 bake tractable headless.
-        lift_tower.apply_finish_textures(
-            t, asset_dir, name, atlas_size=4096,
-            reserved_strips=[
-                (cs2_asset.PAD_U0, cs2_asset.PAD_V0, cs2_asset.PAD_U1, cs2_asset.PAD_V1),
-                (SCALE_U0, SCALE_V0, SCALE_U1, SCALE_V1),
-            ],
-            ao_samples=32,
-        )
+        # stamped strips are density-protected through the repack. L: the unique
+        # repack is cs2_uv.finish_packer (density weights) and the relief / compositing
+        # layer runs through make_post_compose before the sRGB encode.
+        compose = make_post_compose(t, reserved)
+        finished = lift_tower.apply_finish_textures(
+            t, asset_dir, name, atlas_size=FINISH_ATLAS, reserved_strips=reserved,
+            ao_samples=AO_SAMPLES, packer=finish_packer, post_compose=compose)
+        if not finished:
+            raise RuntimeError("finish pass failed (see [tower] finish log above)")
 
+    cs2_asset.export_fbx(t, os.path.join(asset_dir, f"{name}.fbx"))
+    if win is not None:
+        # _Win at LOD1 AND LOD2 (review F12): vanilla ships _LOD2_Win so rooms stay lit
+        # beyond the LOD2 switch (~300 m); the pane mesh is 14 tris, the cost is nil.
+        cs2_submesh.export_submeshes(win, name, "Win", asset_dir, lods=(1, 2) if args.lods else ())
+
+    # Authored LOD chain AFTER the finish pass (it repacked the UVs) and after the LOD0
+    # export. The levels stay linked until the previews rendered the lod frames.
+    lods = []
+    if args.lods:
+        lods = cs2_asset.make_lod_chain(t, name, targets=(int(round(0.45 * n0)),
+                                                          LOD2_TARGET[args.kind]),
+                                        delete_prefixes=(LOD1_DELETE, LOD2_DELETE),
+                                        shade_angle=SHADE_ANGLE)
+        for i, lod in enumerate(lods, start=1):
+            cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{name}_LOD{i}.fbx"))
+    cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)))
+    tris = {0: tri_count(t)}
+    tris.update({i: tri_count(l) for i, l in enumerate(lods, start=1)})
+    print(f"[terminal] LOD0 tris (shipped): {tris[0]}   LOD chain: {len(lods)} levels "
+          f"{[tris[i] for i in range(1, len(lods) + 1)]}")
+
+    # -- previews (cs2_preview rig: pbr, dusk, normals, lod, ab vs K) ------------------
     if args.preview:
         prev = os.path.abspath(args.preview)
-        os.makedirs(prev, exist_ok=True)
-        preview_material(t, asset_dir, name)
-        # Drive station: aim a closeup at the liftie control box (K skirt acceptance).
-        # Pre-orient the hut centre is (hx, hy) = (-1.2, pad_y/2 + hut_y/2 + 0.55)
-        # = (-1.2, 5.15); orient_for_net maps (x, y) -> (y, -x), so it lands at
-        # (5.15, 1.2). Target z -0.2 centres the hut-plus-skirt column (z -3 .. 2.6).
-        hut_target = (5.15, 1.2, -0.2) if args.kind == "drive" else None
-        for f in render_previews(t, prev, name, hut_target=hut_target):
+        ab = args.ab
+        if ab is None:
+            k_name = "SkiLiftBaseStationK" if args.kind == "drive" else "SkiLiftTopStationK"
+            cand = os.path.join(here, "..", "import", "stations", "fixedgrip", "K", k_name)
+            ab = os.path.abspath(cand) if os.path.isdir(cand) else None
+        modes = ["pbr", "dusk", "normals"]
+        if lods:
+            modes.append("lod")
+        if ab:
+            modes.append("ab")
+        # the three legacy views plus "back" (-X post-orient): the hut door and the
+        # machinery hatch face that way and never showed in the K frames.
+        views = list(cs2_preview.DEFAULT_VIEWS) + [("back", (-1.0, -0.8, 0.35))]
+        for f in cs2_preview.preview(t, asset_dir, name, prev, modes=tuple(modes),
+                                     views=views, lods=lods or None, prev_generation=ab):
             print(f"[terminal] preview -> {f}")
         t.data.materials.clear()      # export stays material-free per the import contract
 
-    cs2_asset.export_fbx(t, os.path.join(asset_dir, f"{name}.fbx"))
-    cs2_asset.write_settings(asset_dir, name)
+    switch = None
+    if lods:
+        _c, size = lift_tower.world_bounds(t)
+        switch = cs2_preview.lod_switch_table(size, [tris[i] for i in sorted(tris)])
+    for lod in lods:
+        me = lod.data
+        bpy.data.objects.remove(lod, do_unlink=True)
+        bpy.data.meshes.remove(me)
+
+    # -- manifest + folder validation (L) -----------------------------------------------
+    density = compose.density if compose is not None else None
+    cs2_validate.write_manifest(asset_dir, name, {
+        "generator": "lift_terminal.py", "kind": args.kind, "spec": "roundL",
+        "tris": tris, "parts": len(table), "atlas_px": FINISH_ATLAS if finished else ATLAS_QUAD_PX * 2,
+        "finish": {"packer": f"cs2_uv.pack_unique(margin_px={PACK_MARGIN_PX})", "ao_samples": AO_SAMPLES,
+                   "detail": sorted(detail_specs().keys()),
+                   "height_range_m": compose.height_range if compose else None} if finished else None,
+        "density_worst": [{"part": table[p - 1] if 0 < p <= len(table) else p,
+                           "source_px_per_m": round(s, 1), "shipped_px_per_m": round(dd, 1)}
+                          for p, s, dd in (density or [])[:8]],
+        "submeshes": ["Win"] if win is not None else [],
+        "engine_base": {k: base_report[k] for k in ("verdict", "ok_edges", "blocked_edges")},
+        "lod_switch_m": switch,
+    })
+    if not args.no_validate:
+        # free the names so the validator's re-imports do not land as `<stem>.001`
+        t.name, t.data.name = name + "Src", name + "Src"
+        if win is not None:
+            win.name, win.data.name = name + "WinSrc", name + "WinSrc"
+        findings = cs2_validate.validate_asset_folder(asset_dir, name, {
+            "kind": "building", "lod0_cap": cap, "lod2_cap": LOD2_TARGET[args.kind],
+            "hero": True, "expected_lods": tuple(range(1, len(lods) + 1)),
+            "expected_submeshes": ("Win",) if win is not None else (),
+        })
+        n_err = sum(1 for f in findings if f[0] == "ERROR")
+        n_warn = sum(1 for f in findings if f[0] == "WARN")
+        print(f"[terminal] validate_asset_folder: {n_err} errors, {n_warn} warnings")
     print(f"[terminal] asset folder: {asset_dir}")
+    print(f"PASS lift_terminal: {name} LOD0 {tris[0]} tris, chain "
+          f"{[tris[i] for i in range(1, len(lods) + 1)]}, _Win {'yes' if win else 'no'}, "
+          f"engine base {base_report['verdict']}, finish {'on' if finished else 'off'}")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:  # noqa: BLE001 - unambiguous exit status for the harness
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
