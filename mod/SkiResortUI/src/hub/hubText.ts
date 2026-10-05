@@ -5,6 +5,18 @@
  * 2026-10-03 (Round U2, implementer I-3); rewritten for contract 3 on 2026-10-04 (Round E1, stream
  * S6: docs/research/econ-round/spec/ch6-hub-ui.md section 7, the checked reference
  * spec/ch6-hub-ui-ref/src/hub/hubText.ts; texts final unless Richard edits them, DECISIONS 132).
+ * Round F7 (2026-10-04, implementer 4; docs/research/field-test-7-fixes.md D1-D6, findings/hub-ux.md
+ * with its Verification): this round CUTS text. New: RUN_STATE[Open|Patchy|Closed] (the Runs view's
+ * state word; "Patchy", never "Partly", which the status line uses for the whole area), TILE[RunsOpen],
+ * EST_TO_TIP, MONEY_TIP[Rwh], PROBLEM[SignNoRoad|LodgeNoRoad] and their PROBLEM_TIP. Changed: the four
+ * Welcome Sign efficiency rows ("and {N} more", not "+N", which the band's slot-3 cell uses),
+ * PROBLEM_TIP[Efficiency], RECEIPT[LodgeBaseHalf], EST_TO_NOTE and MONEY_NOTE[Rwh] ("Detected: ..."),
+ * RUN_OPEN[Partly] and TILE_TIP_PARTLY ("Patchy"), and the five longest tooltips cut to 25 words or
+ * fewer (PISTE_MAP_TIP, PROBLEM_TIP[NoLift], PROBLEM_TIP[RunsUnserved], PROBLEM_TIP[LiftNoPower],
+ * TILE_TIP[Attraction]). Retired: START_NOTE (the footer says it), MONEY_NOTE[Unknown] (the tickets row
+ * says it). F7 fixer: the run counts that still said "partly open" say "patchy" too (STATUS_LINE_PARTLY,
+ * _ONE, _EST, _ONE_EST, STATUS_TIP_COUNTS, RECEIPT_TIP[Open]), so one run state has one name;
+ * STATUS_WORD[Partly] "Partly open" stays the area's word.
  * Contract:
  *   - Every entry is a literal `[key, english]` tuple. tools/check-bundle.js rule R4 FAILS the build
  *     unless each key exists in root mod/SkiResortMod/LocaleEN.cs with IDENTICAL text, and WARNS
@@ -52,7 +64,6 @@ export const HUB_LOC = {
   startStep3: ["SkiResort.Hub.START_STEP[3]", "Add a lodge to the sign"],
   startStep4: ["SkiResort.Hub.START_STEP[4]", "Build a lift: two stations, then the line"],
   startStep5: ["SkiResort.Hub.START_STEP[5]", "Draw runs from the top of the lift"],
-  startNote: ["SkiResort.Hub.START_NOTE", "A Welcome Sign is the ski area: runs and lifts within 5 km belong to it."],
   placeSign: ["SkiResort.Hub.PLACE_SIGN", "Place Welcome Sign"],
 
   // ---- status line (6.2) ----
@@ -70,11 +81,13 @@ export const HUB_LOC = {
   problemNoLodge: ["SkiResort.Hub.PROBLEM[NoLodge]", "No lodge: guests have nowhere to arrive"],
   problemLodgesAllOff: ["SkiResort.Hub.PROBLEM[LodgesAllOff]", "All lodges are switched off"],
   problemNoRuns: ["SkiResort.Hub.PROBLEM[NoRuns]", "No runs yet: draw one to open"],
+  problemSignNoRoad: ["SkiResort.Hub.PROBLEM[SignNoRoad]", "Welcome Sign is not at a road"],
+  problemLodgeNoRoad: ["SkiResort.Hub.PROBLEM[LodgeNoRoad]", "Lodge is not at a road: guests cannot reach it"],
   problemTipNoLodge: ["SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Guests arrive at a lodge, so a ski area without one has an attraction of 0. Place a lodge on the Welcome Sign with the lodge tile in the Build strip."],
   problemTipLodgesAllOff: ["SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "A lodge that is switched off does not count. With none left, guests have nowhere to arrive and the attraction is 0. Switch one on in the Welcome Sign's info panel (Upgrades)."],
   problemTipLodgesSomeOff: ["SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "A lodge that is switched off does not count in the lodge base."],
-  problemTipEfficiency: ["SkiResort.Hub.PROBLEM_TIP[Efficiency]", "The game runs the Welcome Sign at this efficiency, and the ski area's attraction is multiplied by it, as for any game building. Connect the Welcome Sign to a road with power, water and sewage; its staff come from your city's workers. The game's reasons:"],
-  problemTipLiftNoPower: ["SkiResort.Hub.PROBLEM_TIP[LiftNoPower]", "Its base station gets no electricity. Until it does, the lift adds nothing to the attraction and its runs count as having no lift. It still costs a quarter of its running cost. Connect a low-voltage power line to the base station. If several lifts lose power at once, the city is short of electricity."],
+  problemTipEfficiency: ["SkiResort.Hub.PROBLEM_TIP[Efficiency]", "The Welcome Sign needs staff, power, water and sewage. Its info panel shows which is short."],
+  problemTipLiftNoPower: ["SkiResort.Hub.PROBLEM_TIP[LiftNoPower]", "Its base station gets no electricity, so the lift adds nothing and its runs count as having no lift. Connect a low-voltage line to it."],
   problemTipLiftSectionMissing: ["SkiResort.Hub.PROBLEM_TIP[LiftSectionMissing]", "A section of the line is being redrawn or was removed. The lift counts again as soon as the line is closed; until then it costs a quarter of its running cost."],
   problemTipLiftUnfinished: ["SkiResort.Hub.PROBLEM_TIP[LiftUnfinished]", "The line does not join a base station and a top station yet."],
   problemTipNoRuns: ["SkiResort.Hub.PROBLEM_TIP[NoRuns]", "Pick a run type in the Build strip and draw its outline within 5 km of the Welcome Sign."],
@@ -84,6 +97,8 @@ export const HUB_LOC = {
   problemTipRunsRating: ["SkiResort.Hub.PROBLEM_TIP[RunsRating]", "Their difficulty is being worked out, one run at a time. A new run counts 0 until then; a reshaped run keeps its last rating."],
   problemTipRunsFlat: ["SkiResort.Hub.PROBLEM_TIP[RunsFlat]", "A run rated Flat adds nothing to the score. Draw it on steeper ground."],
   problemTipFreeLodges: ["SkiResort.Hub.PROBLEM_TIP[FreeLodges]", "These lodges are not on a Welcome Sign, so they count nowhere."],
+  problemTipSignNoRoad: ["SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "Move it so its front touches a road. Power, water and sewage come from that road."],
+  problemTipLodgeNoRoad: ["SkiResort.Hub.PROBLEM_TIP[LodgeNoRoad]", "Move it so its deck side touches a road. Guests walk in from that road."],
   problemMoreTip: ["SkiResort.Hub.PROBLEM_MORE_TIP", "Also needs attention:"],
   problemClickFly: ["SkiResort.Hub.PROBLEM_CLICK_FLY", "Click to fly there."],
   problemClickList: ["SkiResort.Hub.PROBLEM_CLICK_LIST", "Click to open the list."],
@@ -91,10 +106,12 @@ export const HUB_LOC = {
   // ---- tiles (6.4) ----
   tileAttraction: ["SkiResort.Hub.TILE[Attraction]", "Attraction"],
   tileRuns: ["SkiResort.Hub.TILE[Runs]", "Runs"],
+  /** Round F7 D1: a sign's Runs tile ("2 / 3" counts the open runs); the Not linked tile keeps TILE[Runs] (a total). */
+  tileRunsOpen: ["SkiResort.Hub.TILE[RunsOpen]", "Runs open"],
   tileLifts: ["SkiResort.Hub.TILE[Lifts]", "Lifts"],
   tileGuests: ["SkiResort.Hub.TILE[Guests]", "Guests"],
   tileMoney: ["SkiResort.Hub.TILE[Money]", "Money"],
-  tileTipAttraction: ["SkiResort.Hub.TILE_TIP[Attraction]", "The ski area's score, on the same scale as a game building's attractiveness. Game buildings score about: large park 10, large sports park 20, tourist attraction 50, landmark 120. The game's own panel of a lodge shows Attractiveness 0; the ski area's score is this one, carried by its lodges."],
+  tileTipAttraction: ["SkiResort.Hub.TILE_TIP[Attraction]", "The ski area's score on the game's attractiveness scale (large park about 10, landmark 120). Its lodges carry it, though their own panel shows 0."],
   tileTipHeld: ["SkiResort.Hub.TILE_TIP_HELD", "Checking runs and snow after loading. The game keeps the saved score meanwhile."],
   tileTipRuns: ["SkiResort.Hub.TILE_TIP[Runs]", "Runs fully open now, of all runs of this ski area."],
   tileTipLifts: ["SkiResort.Hub.TILE_TIP[Lifts]", "Lifts that count (complete, with power at the base station), of the complete lifts. Without power the chairs still move, but the lift adds nothing."],
@@ -110,7 +127,7 @@ export const HUB_LOC = {
   scoreTickAttraction: ["SkiResort.Hub.SCORE_TICK[Attraction]", "tourist attraction 50"],
   scoreTickLandmark: ["SkiResort.Hub.SCORE_TICK[Landmark]", "landmark 120"],
   receiptLodgeBase: ["SkiResort.Hub.RECEIPT[LodgeBase]", "Lodge base"],
-  receiptLodgeBaseHalf: ["SkiResort.Hub.RECEIPT[LodgeBaseHalf]", "Lodge base (half: no run counts)"],
+  receiptLodgeBaseHalf: ["SkiResort.Hub.RECEIPT[LodgeBaseHalf]", "Lodge base (half until a run counts)"],
   receiptLodgeBaseNone: ["SkiResort.Hub.RECEIPT[LodgeBaseNone]", "Lodge base (no lodge)"],
   receiptTipLodgeBase: ["SkiResort.Hub.RECEIPT_TIP[LodgeBase]", "20 for the first lodge, 4 more for each extra one, up to 12 more. A lodge that is switched off does not count. Half while no run counts (none open, or none worth anything yet): summer visitors only."],
   receiptTerrain: ["SkiResort.Hub.RECEIPT[Terrain]", "Runs and lifts"],
@@ -151,7 +168,7 @@ export const HUB_LOC = {
   gladeTargetInterior: ["SkiResort.GladeTooltip.TARGET[Interior]", "Run interior"],
   gladeTargetTreeLine: ["SkiResort.GladeTooltip.TARGET[TreeLine]", "Tree line"],
   pisteMap: ["SkiResort.Hub.PISTE_MAP", "Piste map"],
-  pisteMapTip: ["SkiResort.Hub.PISTE_MAP_TIP", "While this panel is open, the outlines of this ski area's runs are drawn on the ground, coloured by difficulty. Natural runs are dashed. Point at a run in the list to pick it out. Grey: too flat to score. Orange: cannot be rated. Faint white: being rated. It steps aside while the tree tool is on."],
+  pisteMapTip: ["SkiResort.Hub.PISTE_MAP_TIP", "Draws this ski area's runs on the ground, in difficulty colours, while the panel is open. Natural: dashed. Too flat: grey. Cannot be rated: orange."],
   colLift: ["SkiResort.Hub.COL_LIFT", "Lift"],
   colLiftTip: ["SkiResort.Hub.COL_LIFT_TIP", "↑: a running lift reaches the top of this run."],
   colLength: ["SkiResort.Hub.COL_LENGTH", "Length"],
@@ -216,7 +233,8 @@ export const HUB_LOC = {
   guestsLastNa: ["SkiResort.Hub.GUESTS_LAST_NA", "Not counted: guests are counted only from the moment the city loads."],
   estRowTourists: ["SkiResort.Hub.EST_ROW[Tourists]", "Target tourists from this ski area (estimated)"],
   estTouristsTip: ["SkiResort.Hub.EST_TOURISTS_TIP", "Worked out with the game's own tourist formula, not counted. Tourism mods can replace that formula, so real arrivals may differ."],
-  estToNote: ["SkiResort.Hub.EST_TO_NOTE", "Tourism Overhaul sets tourist numbers in this city, so no estimate is shown."],
+  estToNote: ["SkiResort.Hub.EST_TO_NOTE", "Detected: Tourism Overhaul. It sets tourist numbers."],
+  estToTip: ["SkiResort.Hub.EST_TO_TIP", "Tourism Overhaul sets tourist numbers in this city, so no estimate is shown."],
   guestsNoteWhere: ["SkiResort.Hub.GUESTS_NOTE[Where]", "Counted when tourists arrive at this ski area's lodge or Welcome Sign, and when residents come to a lodge for leisure."],
   guestsNoteSinceLoad: ["SkiResort.Hub.GUESTS_NOTE[SinceLoad]", "Counting started when you loaded the city, partway through this month."],
   ticketsNoteOff: ["SkiResort.Hub.TICKETS_NOTE[Off]", "Lift tickets are off (Options: Lift ticket price is 0)."],
@@ -236,9 +254,9 @@ export const HUB_LOC = {
   moneyTipNatural: ["SkiResort.Hub.MONEY_TIP[Natural]", "Natural runs have no running cost."],
   moneyTipNet: ["SkiResort.Hub.MONEY_TIP[Net]", "Ticket income minus the running costs at today's rates. What tourists spend in your city's shops and hotels is not included."],
   moneyNotePanel: ["SkiResort.Hub.MONEY_NOTE[Panel]", "Resort money is not in the game's Economy panel; it goes straight to your balance. Buildings and wages are billed by the game under Parks & Recreation."],
-  moneyNoteRwh: ["SkiResort.Hub.MONEY_NOTE[Rwh]", "Realistic Workplaces is installed: it bills buildings and wages less than the game formula."],
+  moneyNoteRwh: ["SkiResort.Hub.MONEY_NOTE[Rwh]", "Detected: Realistic Workplaces. The real bill can differ."],
+  moneyTipRwh: ["SkiResort.Hub.MONEY_TIP[Rwh]", "Realistic Workplaces And Households changes staff and service costs, so the bill can differ."],
   moneyNoteEst: ["SkiResort.Hub.MONEY_NOTE[Est]", "≈ Tickets are projected from this month so far until a full month has been counted."],
-  moneyNoteUnknown: ["SkiResort.Hub.MONEY_NOTE[Unknown]", "≈ Tickets are left out until a quarter of a month has been counted."],
   unlinkedMoney: ["SkiResort.Hub.UNLINKED_MONEY", "Runs that are not linked cost nothing and earn nothing; their lifts still cost money to run."],
 
   // ---- build strip (6.10) ----
@@ -276,18 +294,18 @@ export const HUB_FMT = {
   statusLineOne: ["SkiResort.Hub.STATUS_LINE_ONE", "{STATE} · {OPEN} of 1 run open"],
   statusLineEst: ["SkiResort.Hub.STATUS_LINE_EST", "{STATE} · ≈ {OPEN} of {TOTAL} runs open"],
   statusLineOneEst: ["SkiResort.Hub.STATUS_LINE_ONE_EST", "{STATE} · ≈ {OPEN} of 1 run open"],
-  statusLinePartly: ["SkiResort.Hub.STATUS_LINE_PARTLY", "{STATE} · {PARTLY} of {TOTAL} partly open"],
-  statusLinePartlyOne: ["SkiResort.Hub.STATUS_LINE_PARTLY_ONE", "{STATE} · {PARTLY} of 1 run partly open"],
-  statusLinePartlyEst: ["SkiResort.Hub.STATUS_LINE_PARTLY_EST", "{STATE} · ≈ {PARTLY} of {TOTAL} partly open"],
-  statusLinePartlyOneEst: ["SkiResort.Hub.STATUS_LINE_PARTLY_ONE_EST", "{STATE} · ≈ {PARTLY} of 1 run partly open"],
-  statusTipCounts: ["SkiResort.Hub.STATUS_TIP_COUNTS", "Open {OPEN} · partly open {PARTLY} · closed {CLOSED}"],
+  statusLinePartly: ["SkiResort.Hub.STATUS_LINE_PARTLY", "{STATE} · {PARTLY} of {TOTAL} runs patchy"],
+  statusLinePartlyOne: ["SkiResort.Hub.STATUS_LINE_PARTLY_ONE", "{STATE} · {PARTLY} of 1 run patchy"],
+  statusLinePartlyEst: ["SkiResort.Hub.STATUS_LINE_PARTLY_EST", "{STATE} · ≈ {PARTLY} of {TOTAL} runs patchy"],
+  statusLinePartlyOneEst: ["SkiResort.Hub.STATUS_LINE_PARTLY_ONE_EST", "{STATE} · ≈ {PARTLY} of 1 run patchy"],
+  statusTipCounts: ["SkiResort.Hub.STATUS_TIP_COUNTS", "Open {OPEN} · patchy {PARTLY} · closed {CLOSED}"],
   statusTipTemp: ["SkiResort.Hub.STATUS_TIP_TEMP", "Day average at the top of the highest run: {TEMP}"],
   // problems (6.3)
   problemLodgesSomeOff: ["SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges switched off: {N}"],
-  problemEfficiency: ["SkiResort.Hub.PROBLEM[Efficiency]", "Running at {PCT}: {REASON}"],
-  problemEfficiencyMore: ["SkiResort.Hub.PROBLEM[EfficiencyMore]", "Running at {PCT}: {REASON} +{N}"],
-  problemNotRunning: ["SkiResort.Hub.PROBLEM[NotRunning]", "Not running: {REASON}"],
-  problemNotRunningMore: ["SkiResort.Hub.PROBLEM[NotRunningMore]", "Not running: {REASON} +{N}"],
+  problemEfficiency: ["SkiResort.Hub.PROBLEM[Efficiency]", "Welcome Sign at {PCT}: {REASON}"],
+  problemEfficiencyMore: ["SkiResort.Hub.PROBLEM[EfficiencyMore]", "Welcome Sign at {PCT}: {REASON} and {N} more"],
+  problemNotRunning: ["SkiResort.Hub.PROBLEM[NotRunning]", "Welcome Sign not running: {REASON}"],
+  problemNotRunningMore: ["SkiResort.Hub.PROBLEM[NotRunningMore]", "Welcome Sign not running: {REASON} and {N} more"],
   problemLiftNoPower: ["SkiResort.Hub.PROBLEM[LiftNoPower]", "{NAME} has no power: it counts 0"],
   problemLiftSectionMissing: ["SkiResort.Hub.PROBLEM[LiftSectionMissing]", "{NAME} is missing a section: it counts 0"],
   problemLiftUnfinished: ["SkiResort.Hub.PROBLEM[LiftUnfinished]", "{NAME} is unfinished"],
@@ -302,15 +320,15 @@ export const HUB_FMT = {
   problemRunsFlat: ["SkiResort.Hub.PROBLEM[RunsFlat]", "Runs too flat to score: {N}"],
   problemFreeLodges: ["SkiResort.Hub.PROBLEM[FreeLodges]", "Lodges on no Welcome Sign: {N}"],
   problemMore: ["SkiResort.Hub.PROBLEM_MORE", "+{N}"],
-  problemTipNoLift: ["SkiResort.Hub.PROBLEM_TIP[NoLift]", "A run whose top no running lift reaches counts {PCT} of its value (Options: Backcountry run value). A lift reaches a run when the run's top is within 150 m of the lift line and no more than 15 m above its top station. Build a base station, a top station and the lift line between them."],
-  problemTipRunsUnserved: ["SkiResort.Hub.PROBLEM_TIP[RunsUnserved]", "No running lift reaches the top of these runs, so each counts {PCT} of its value (Options: Backcountry run value). A lift reaches a run when the run's top is within 150 m of the lift line and no more than 15 m above its top station. In the Runs view they are the rows without ↑."],
+  problemTipNoLift: ["SkiResort.Hub.PROBLEM_TIP[NoLift]", "A run counts {PCT} until a running lift reaches its top: within 150 m of the line, at most 15 m above the top station."],
+  problemTipRunsUnserved: ["SkiResort.Hub.PROBLEM_TIP[RunsUnserved]", "Each counts {PCT} until a running lift reaches its top: within 150 m of the line, at most 15 m above the top station."],
   problemGainEfficiency: ["SkiResort.Hub.PROBLEM_GAIN[Efficiency]", "At full efficiency the attraction would be {FULL}."],
   problemGainLodge: ["SkiResort.Hub.PROBLEM_GAIN[Lodge]", "With a lodge, the attraction would be {A}."],
   problemGainLodgesOn: ["SkiResort.Hub.PROBLEM_GAIN[LodgesOn]", "With them switched on, the attraction would be {A}."],
   staffLine: ["SkiResort.Hub.STAFF_LINE", "Staff: {FILLED} of {JOBS}"],
   // tiles (6.4)
   tileTipFull: ["SkiResort.Hub.TILE_TIP_FULL", "At full efficiency: {N}"],
-  tileTipPartly: ["SkiResort.Hub.TILE_TIP_PARTLY", "Partly open: {N}"],
+  tileTipPartly: ["SkiResort.Hub.TILE_TIP_PARTLY", "Patchy: {N}"],
   tileTipUnfinished: ["SkiResort.Hub.TILE_TIP_UNFINISHED", "Not complete (a section missing, unfinished, or stations only): {N}"],
   tileTipLast: ["SkiResort.Hub.TILE_TIP_LAST", "Last month: {N}"],
   // overview (6.5)
@@ -321,7 +339,7 @@ export const HUB_FMT = {
   receiptParts: ["SkiResort.Hub.RECEIPT_PARTS", "Runs {RUNS} · lifts {LIFTS} · variety ×{VARIETY} · vertical ×{VERTICAL}"],
   receiptTipVertical: ["SkiResort.Hub.RECEIPT_TIP[Vertical]", "Vertical: up to double at 600 m, from the lowest bottom to the highest top of the runs that count now ({M})."],
   receiptOpen: ["SkiResort.Hub.RECEIPT_OPEN", "Runs open now: {PCT} of their full value"],
-  receiptTipOpen: ["SkiResort.Hub.RECEIPT_TIP[Open]", "Closed runs add nothing and partly open runs add part, so snow moves the score. With every run fully open, runs would add {FULL}."],
+  receiptTipOpen: ["SkiResort.Hub.RECEIPT_TIP[Open]", "Closed runs add nothing and patchy runs add part, so snow moves the score. With every run fully open, runs would add {FULL}."],
   receiptTimes: ["SkiResort.Hub.RECEIPT_TIMES", "× {PCT}"],
   diffTipPending: ["SkiResort.Hub.DIFF_TIP_PENDING", "Being rated: {N}"],
   diffTipUnrateable: ["SkiResort.Hub.DIFF_TIP_UNRATEABLE", "Cannot be rated: {N}"],
@@ -329,7 +347,7 @@ export const HUB_FMT = {
   snowDepth: ["SkiResort.Hub.SNOW_DEPTH", "Average depth on the measured runs: {CM} cm"],
   // runs view (6.6)
   runOpenOpen: ["SkiResort.Hub.RUN_OPEN[Open]", "Open: snow on {PCT} of it"],
-  runOpenPartly: ["SkiResort.Hub.RUN_OPEN[Partly]", "Partly open: snow on {PCT} of it"],
+  runOpenPartly: ["SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: snow on {PCT} of it"],
   runOpenClosed: ["SkiResort.Hub.RUN_OPEN[Closed]", "Closed: snow on {PCT} of it"],
   runServed: ["SkiResort.Hub.RUN_SERVED", "Served by {NAME}"],
   runNotServed: ["SkiResort.Hub.RUN_NOT_SERVED", "No running lift reaches its top: it counts {PCT}"],
@@ -373,6 +391,14 @@ export const STATUS_WORD: Readonly<Record<StatusWord, LocEntry>> = {
   partly: ["SkiResort.Hub.STATUS_WORD[Partly]", "Partly open"],
   closed: ["SkiResort.Hub.STATUS_WORD[Closed]", "Closed"],
 };
+
+/** Round F7 D1: the Runs view's state word of one run, index = OPEN_STATE value (0 Closed, 1 Partly, 2 Open;
+ *  -1 None has no word). "Patchy" = partly covered: never "Partly", which STATUS_WORD uses for the area. */
+export const RUN_STATE_TEXT: readonly LocEntry[] = [
+  ["SkiResort.Hub.RUN_STATE[Closed]", "Closed"],
+  ["SkiResort.Hub.RUN_STATE[Patchy]", "Patchy"],
+  ["SkiResort.Hub.RUN_STATE[Open]", "Open"],
+];
 
 /** SEASON_HINT words, index = SEASON_HINT value (0 None = no text). */
 export const SEASON_HINT_TEXT: ReadonlyArray<LocEntry | null> = [

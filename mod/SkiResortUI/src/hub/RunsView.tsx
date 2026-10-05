@@ -18,6 +18,8 @@
  *     time (local state, entityId); commit -> rename(run, text).
  *   - Joins (ch6 4.3): runLive by entityId (hubRules.runLiveMap, memoised on the array), lift names by
  *     LiftRow.entity (memoised on lifts$), so a live push re-renders only the rows that moved.
+ *   - Round F7 D1: the three run state words (RUN_STATE_TEXT) are translated once per `t` (useMemo) and
+ *     handed to every RunLine, which shows its run's word in their common width.
  *   - Panel file (gate R11): subscribes selectedResort$, runs$, runLive$, lifts$, pisteMap$, city$
  *     (+ glade$ in TreeRows); local focused$.
  */
@@ -30,7 +32,7 @@ import type { RunRow } from "../bindings";
 import { useT } from "../l10n";
 import { runLiveMap } from "./hubRules";
 import { focused$, sendHoverRun } from "./hubState";
-import { HUB_LOC } from "./hubText";
+import { HUB_LOC, RUN_STATE_TEXT } from "./hubText";
 import { CheckBox, Divider, Tip, useNumberSamples } from "./parts";
 import { RunHeader, RunLine } from "./RunList";
 import { TreeRows } from "./TreeControls";
@@ -50,6 +52,7 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   const [renaming, setRenaming] = useState<string | null>(null);
 
   const liveMap = useMemo(() => runLiveMap(runLive), [runLive]);
+  const stateWords = useMemo(() => RUN_STATE_TEXT.map((e) => t(e)), [t]);
   const liftNames = useMemo(() => {
     const m = new Map<string, string>();
     for (const l of lifts ?? []) if (l) m.set(entityId(l.entity), l.name);
@@ -106,6 +109,7 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
                 liftName={row.served ? liftNames.get(entityId(row.servedBy)) : undefined}
                 t={t}
                 samples={samples}
+                stateWords={stateWords}
                 focused={id === focusedId}
                 renaming={id === renaming}
                 gating={gating}

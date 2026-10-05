@@ -8,6 +8,7 @@
 #                  checked against the known-GUID whitelist (unknown = WARN, not failure).
 #   4. CIDFILES  - every owned .cid is exactly 32 lowercase hex, no BOM, no newline.
 #   5. BOM       - no UTF-8 BOM on owned .Prefab files.
+#   6. DUPCID    - no cid value held by two .cid files anywhere under ImportedData (F7 fixer).
 #
 # Ownership = directories named Ski* under ImportedData, Ski* prefabs inside the
 # Editor library folder (c030ee3ff256df91), plus legacy FixedGripChairLift (reported).
@@ -70,15 +71,23 @@ $ownedPrefabs = @($ownedPrefabs | Sort-Object FullName -Unique)
 $ownedCids    = @($ownedCids    | Sort-Object FullName -Unique)
 
 # All resolvable CIDs anywhere in the install (vanilla refs never point here; ours must)
-$allCidValues = @{}
-Get-ChildItem $ImportedData -Recurse -Filter *.cid -File | ForEach-Object {
-    try { $v = ([IO.File]::ReadAllText($_.FullName)).Trim().ToLower() } catch { return }
-    if ($v.Length -eq 32) { $allCidValues[$v] = $_.FullName }
-}
-
 $failures = 0
 $warnings = 0
 $rows = New-Object System.Collections.Generic.List[string]
+
+# A cid value held by two files is two assets with one GUID: the asset database resolves the reference to
+# whichever it indexes (F7 fixer: a bulk copy of ski_icons.py output once could duplicate the launcher's cid).
+$allCidValues = @{}
+Get-ChildItem $ImportedData -Recurse -Filter *.cid -File | ForEach-Object {
+    try { $v = ([IO.File]::ReadAllText($_.FullName)).Trim().ToLower() } catch { return }
+    if ($v.Length -eq 32) {
+        if ($allCidValues.ContainsKey($v) -and $allCidValues[$v] -ne $_.FullName) {
+            $first = $allCidValues[$v].Substring($ImportedData.Length + 1)
+            $rows.Add("FAIL  DUPCID    $v : $first and $($_.FullName.Substring($ImportedData.Length + 1))"); $failures++
+        }
+        else { $allCidValues[$v] = $_.FullName }
+    }
+}
 
 # ---- 1. validator checks per prefab --------------------------------------------------
 function Test-PrefabFile([string]$path) {

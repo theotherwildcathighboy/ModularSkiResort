@@ -988,6 +988,10 @@ namespace SkiResortMod.Systems
                 m_FirstRecomputeMs = ms;
                 return;
             }
+            // Round F7 E3 (integrator; request in docs/research/field-test-7-notes-impl5.md, field test 7 measured an
+            // empty city here): only recomputes with at least one area count toward the [cost] line and its WARN.
+            if (m_Cur.SlotCount == 0)
+                return;
             m_CostCount++;
             m_CostSumMs += ms;
             if (ms > m_CostMaxMs)
@@ -1003,7 +1007,7 @@ namespace SkiResortMod.Systems
             if (m_CostCount == Tuning.CostReportRecomputes)
             {
                 double pollMean = m_PollCount > 0 ? m_PollSumMs / m_PollCount : 0.0;
-                Mod.Log.Info(Invariant($"Attractiveness [cost]: {Tuning.CostReportRecomputes} recomputes, mean {m_CostSumMs / m_CostCount:F3} ms, ") +
+                Mod.Log.Info(Invariant($"Attractiveness [cost]: {Tuning.CostReportRecomputes} recomputes with an area, mean {m_CostSumMs / m_CostCount:F3} ms, ") +
                              Invariant($"max {m_CostMaxMs:F3} ms (last: {m_Cur.SlotCount} area(s), {runs} run(s), {m_Cur.LiftCount} lift(s), ") +
                              Invariant($"{m_Cur.LiveLodges} lodge(s), {m_Cur.Chords} chord(s)); state poll mean {pollMean:F3} ms over {m_PollCount} poll(s); ") +
                              Invariant($"first recompute after the load {m_FirstRecomputeMs:F3} ms (one-off costs, not in mean or max)"));

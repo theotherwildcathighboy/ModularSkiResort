@@ -11,7 +11,9 @@
 // §5.1, §5.3) adds the run length (Length / LengthRect / AxisLength) and the wall-clock heartbeat
 // (HeartbeatSeconds, last verify age, verifies, changes found, verify ms) — field test step 18:
 // "hold a run still for 10 s: recomputes stay flat, verifies grow". The "Dump to log" button is
-// now one of two dump paths (the other: the dump hotkey, SkiGladeHotkeySystem).
+// now one of two dump paths (the other: the dump hotkey, SkiGladeHotkeySystem). F7
+// (docs/research/field-test-7-fixes.md C2) adds one row: the game's error / warning types on the
+// run being drawn at the last recompute (ValidationText, a field written on a change only).
 //
 // HOW IT REACHES THE SCREEN. DebugSystem.RegisterDebug sweeps every [DebugContainer] type and
 // invokes each [DebugTab] method (DebugSystem.cs:1026-1045). A tab method declared on a
@@ -56,6 +58,8 @@ namespace SkiResortMod.Systems
                     : $"{RunDebugEnt(EligibleTemp)}, {EligibleNodes} nodes, " +
                       $"{(EligibleIsNew ? "new" : "edit")}, {(EligibleComplete ? "complete" : "open")}"));
             list.Add(Val("Temp candidates (ours, >= 2 nodes)", () => TempCandidates));
+            // F7 C2: the game's error / warning types on that Temp at the last recompute (a field read).
+            list.Add(Val("Game validation (last recompute), changes", () => $"{ValidationText ?? "-"}, {ValidationChanges}"));
             list.Add(Val("Note", () => LastNote ?? "-"));
             list.Add(Val("Status", () => LastStatus.ToString()));
             list.Add(Val("Band (shown / raw)", () => $"{CurrentReadout.Band} / {RawBand}"));

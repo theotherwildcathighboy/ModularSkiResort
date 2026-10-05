@@ -18,8 +18,9 @@
  *     "A of 200" (the same number twice). E1 fixer (e1-spec 8.9 F12): the score bar too - an empty
  *     track and "…" as its tooltip's NOW, so no fill or digit claims the held Result.
  *   - Lodge-base label: "(no lodge)" when lodgesActive == 0 (S6: `== 0`, like hubRules.resultVariant,
- *     so -1 = no result does not claim "no lodge"; ch6 writes "<= 0"), "(half: no run counts)" in
- *     summer (R3: no counted run), else plain.
+ *     so -1 = no result does not claim "no lodge"; ch6 writes "<= 0"), "(half until a run counts)" in
+ *     summer (R3: no counted run; Round F7 D6 wording, hub-ux Verification correction 2: S 220.3 /
+ *     359.2 / 451.7 rem, fits the label room), else plain.
  *   - No lodge (second pass, e1-spec H3): the result row reads "Attraction (no lodge: 0)" and a
  *     SubLine "With a lodge, the attraction would be {A}." follows, A = the ifFixed of the area's
  *     NoLodge problem row (all lodges switched off: the LodgesAllOff row with PROBLEM_GAIN[LodgesOn]);
@@ -82,7 +83,8 @@ function DifficultyBar({ row, unrateable, tip }: { row: ResortRow; unrateable: n
   );
 }
 
-/** Marker + count per band, then being rated; a "cannot be rated" item only while one exists.
+/** Marker + count per band; a "being rated" item and a "cannot be rated" item only while one exists
+ *  (Round F7 D6: at count 0 the dimmed "being rated" ring looked exactly like Flat's, hub-ux §5 item 8).
  *  The legend has no label of its own (deviation U16: the MOUNTAIN header names the block). */
 function DifficultyLegend({ row, unrateable, t }: { row: ResortRow; unrateable: number; t: Translate }): JSX.Element {
   const counts = bandCounts(row);
@@ -100,7 +102,7 @@ function DifficultyLegend({ row, unrateable, t }: { row: ResortRow; unrateable: 
   return (
     <div className={styles.legend}>
       {counts.map((n, band) => item(`b${band}`, band, n, t(BAND_NAME[band])))}
-      {item("pending", BAND.Pending, pending, t(HUB_LOC.pending))}
+      {pending > 0 && item("pending", BAND.Pending, pending, t(HUB_LOC.pending))}
       {unrateable > 0 && item("unrateable", BAND.Unrateable, unrateable, t(HUB_LOC.unrateable))}
     </div>
   );

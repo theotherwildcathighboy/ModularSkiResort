@@ -351,11 +351,13 @@ namespace SkiResortMod.Systems
                 lifts[r] = lift;
             }
 
-            if (!m_ServeLogged)
+            // Round F7 E3 (integrator; request in docs/research/field-test-7-notes-impl5.md): written at the first
+            // serve that has a lift row, so the line no longer measures an empty city.
+            if (!m_ServeLogged && lifts.Count > 0)
             {
                 m_ServeLogged = true;
                 double ms = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
-                Mod.Log.Info($"LiftCensus [serve] first CopyServeLifts this load: {lifts.Count} row(s), {chords.Count} " +
+                Mod.Log.Info($"LiftCensus [serve] first CopyServeLifts with lifts this load: {lifts.Count} row(s), {chords.Count} " +
                              $"chord(s), {reads} power read(s), {ms:F2} ms");
             }
             return lifts.Count;

@@ -7,8 +7,9 @@
  * Written for this repo (MIT). Created 2026-10-04 (Round E1, stream S6; docs/research/econ-round/spec/
  * ch6-hub-ui.md section 5.3, the checked reference spec/ch6-hub-ui-ref/tools/test-hub-rules.js).
  * tools/check-bundle.js runs it as rule R18 (full gate and --contract-only, against --src= when given);
- * standalone: `node tools/test-hub-rules.js [srcDir]` -> `test-hub-rules: 80 check(s), failures=0` (76 in Round E1;
- * the E1 fixer added T8.7-T8.10 and changed T8.6's no-live oracle 3 -> 0, e1-spec 8.9 F9 / F11).
+ * standalone: `node tools/test-hub-rules.js [srcDir]` -> `test-hub-rules: 85 check(s), failures=0` (76 in Round E1;
+ * the E1 fixer added T8.7-T8.10 and changed T8.6's no-live oracle 3 -> 0, e1-spec 8.9 F9 / F11; Round F7 D5 added
+ * T2.13-T2.14 and T3.14-T3.16 for the two road rows, docs/research/field-test-7-fixes.md).
  * A new rule in hubRules.ts adds its literal rows here (oracles are literals, never recomputed).
  */
 "use strict";
@@ -95,6 +96,9 @@ function run(srcDir) {
   eq("T2.10 factor never in band", R.bandRowsOf([P(A, 16, 0)], A).length, 0);
   eq("T2.11 unknown code dropped", R.bandRowsOf([P(A, 99, 2)], A).length, 0);
   eq("T2.12 RunsFlat (17) kept in the band", R.bandRowsOf([P(A, 17, 1, { count: 2 })], A).map((p) => p.code), [17]);
+  // Round F7 D5 (docs/research/field-test-7-fixes.md; rows from field-test-7-notes-impl4.md): SignNoRoad 18, LodgeNoRoad 19.
+  eq("T2.13 road rows kept in the band, C# order", R.bandRowsOf([P(A, 18, 3), P(A, 4, 2, { pct: 12 }), P(A, 19, 1, { count: 1 })], A).map((p) => p.code), [18, 4, 19]);
+  eq("T2.14 road rows name no build item", R.dotItem([P(A, 18, 3), P(A, 19, 3, { count: 1 })], A, true), null);
 
   // T3 problem variants, icons, clicks
   eq("T3.1 efficiency", R.problemVariant(P(A, 4, 2, { pct: 50 })), "efficiency");
@@ -110,6 +114,10 @@ function run(srcDir) {
   eq("T3.11 icon none", R.problemIcon(null), { kind: "glyph", src: "Media/Glyphs/Checkmark.svg", tone: "ok" });
   eq("T3.13 runsFlat variant and click", [R.problemVariant(P(A, 17, 1)), R.problemClick(P(A, 17, 1))], ["runsFlat", "runsView"]);
   eq("T3.12 clicks", [1, 4, 5, 10, 8, 9, 12, 0, 15].map((c) => R.problemClick(P(A, c, 1))), ["sign", "sign", "lift", "lift", "liftsView", "runsView", "runsView", null, null]);
+  eq("T3.14 signNoRoad / lodgeNoRoad variants", [R.problemVariant(P(A, 18, 3)), R.problemVariant(P(A, 19, 2, { count: 1 }))], ["signNoRoad", "lodgeNoRoad"]);
+  eq("T3.15 road rows fly to their subject", [R.problemClick(P(A, 18, 3)), R.problemClick(P(A, 19, 1))], ["sign", "sign"]);
+  eq("T3.16 road row icons", [R.problemIcon(P(A, 18, 3)), R.problemIcon(P(A, 19, 1))],
+    [{ kind: "glyph", src: "Media/Glyphs/Warning.svg", tone: "warn" }, { kind: "glyph", src: "Media/Glyphs/Info.svg", tone: "info" }]);
 
   // T4 status line
   const row = (runs, kind = 0) => ({ kind, runs, liftRows: 3 });

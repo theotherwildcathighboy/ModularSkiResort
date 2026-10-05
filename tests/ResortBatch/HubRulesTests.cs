@@ -13,7 +13,8 @@
 //      (expected until stage 2, e1-spec §4.2) — every index is guarded so it never throws;
 //   C  HubProblems.Build, cases P1-P26, every field of every row (P20-P23 and five LiftNoPair rows in A: E1
 //      fixer, e1-spec §8.9 F9 — lone stations pair across census rows; P24-P26 and the pair row's index in
-//      P20-P22: E1 fixer pass 2, §8.10 G4 — the row whose name the finished lift keeps);
+//      P20-P22: E1 fixer pass 2, §8.10 G4 — the row whose name the finished lift keeps; P27-P31: Round F7 D5,
+//      docs/research/field-test-7-fixes.md — SignNoRoad / LodgeNoRoad from Building.m_RoadEdge);
 //   D  the Status property over all 286 (runs, open, partly) combinations;
 //   E  constants, literal enum values (gate R17's other half), HubSnowSums, TopTempC, Percent, FollowCheck;
 //   F  PisteMapRules (StyleOf, IsDashed, WidthScale, SolidRing, DashRing incl. dashes across corners,
@@ -602,6 +603,62 @@ namespace ResortBatch
                 P(HubProblemCode.LiftUnfinished, 2, liftIndex: 0, build: "lift"),
                 P(HubProblemCode.StationsOnly, 1, liftIndex: 1, detail: 0, build: "lift"));
 
+            // Round F7 D5 (field-test-7-fixes.md): road edges. P27-P31 add 2 + 9 + 3 + 2 + 2 + 3 = 21 checks.
+            // P27 the sign alone is off the road: one SignNoRoad row, severity 3, nothing else set.
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.SignNoRoad = true;
+            Expect("P27 sign not at a road", x, o, P(HubProblemCode.SignNoRoad, 3));
+
+            // P28 field test 7 with neither on a road: sign and both lodges off the road, the three utilities at
+            // 50 % (efficiency 12). Severity 3 first, code ascending (18 before 19), then Efficiency (2), NoLift,
+            // NoRuns; Factor rows last.
+            x = In(2, 2, 12, 0, 0);
+            x.SignNoRoad = true;
+            x.LodgesNoRoad = 2;
+            x.Factors = Fs(F("SewageHandling", -50), F("WaterSupply", -50), F(elec, -50));
+            x.BackcountryPct = 40;
+            x.AttractionFull = 69;
+            Expect("P28 sign and every lodge off the road", x, o,
+                P(HubProblemCode.SignNoRoad, 3),
+                P(HubProblemCode.LodgeNoRoad, 3, count: 2),
+                P(HubProblemCode.Efficiency, 2, pct: 12, more: 2, ifFixed: 69, factor: "SewageHandling"),
+                P(HubProblemCode.NoLift, 1, pct: 40, build: "baseStation"),
+                P(HubProblemCode.NoRuns, 1),
+                P(HubProblemCode.Factor, 0, pct: -50, factor: "SewageHandling"),
+                P(HubProblemCode.Factor, 0, pct: -50, factor: "WaterSupply"),
+                P(HubProblemCode.Factor, 0, pct: -50, factor: elec));
+
+            // P29 one of three lodges off the road: severity 1 (as LodgesSomeOff), count 1; sorts after the
+            // severity-1 LodgesSomeOff (code 3 < 19).
+            x = In(3, 2, 100, 1, 4);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.LodgesNoRoad = 1;
+            Expect("P29 some lodges off the road", x, o,
+                P(HubProblemCode.LodgesSomeOff, 1, count: 1),
+                P(HubProblemCode.LodgeNoRoad, 1, count: 1));
+
+            // P30 no lodge: NoLodge only (LodgesNoRoad is ignored without a lodge); a count above Lodges clamps.
+            x = In(0, 0, 100, 1, 3);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.LodgesNoRoad = 1;
+            x.IfOneLodge = 10;
+            Expect("P30 no lodge, stray count", x, o, P(HubProblemCode.NoLodge, 3, ifFixed: 10, build: "lodge"));
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.LodgesNoRoad = 5;
+            Expect("P30b count clamps to the lodges", x, o, P(HubProblemCode.LodgeNoRoad, 3, count: 1));
+
+            // P31 Not linked ignores both road inputs (no sign; free lodges are counted apart).
+            x = new HubProblemInput
+            {
+                Unlinked = true, Runs = 1, LiftRows = 0, FreeLodges = 2, EfficiencyPct = -1, AttractionFull = -1, IfOneLodge = -1,
+                IfLodgesOn = -1, SignNoRoad = true, LodgesNoRoad = 2,
+            };
+            Expect("P31 Not linked ignores road inputs", x, o,
+                P(HubProblemCode.Unlinked, 3, build: "sign"),
+                P(HubProblemCode.FreeLodges, 1, count: 2));
+
             // P15 no result
             x = In(1, 1, -1, 1, 1);
             x.Factors = Fs(F(elec, -50));
@@ -672,6 +729,9 @@ namespace ResortBatch
             Eq((int)HubProblemCode.StationsOnly, 10, w, "HubProblemCode.StationsOnly");
             Eq((int)HubProblemCode.Factor, 16, w, "HubProblemCode.Factor");
             Eq((int)HubProblemCode.RunsFlat, 17, w, "HubProblemCode.RunsFlat");
+            Eq((int)HubProblemCode.SignNoRoad, 18, w, "HubProblemCode.SignNoRoad");     // Round F7 D5
+            Eq((int)HubProblemCode.LodgeNoRoad, 19, w, "HubProblemCode.LodgeNoRoad");   // Round F7 D5
+            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 20, w, "HubProblemCode has 20 values (append only)");
             Eq((int)SeasonHint.GatingOff, 6, w, "SeasonHint.GatingOff");
             Eq((int)RunOpenState.None, -1, w, "RunOpenState.None");
             Eq((int)ResortStatus.Open, 3, w, "ResortStatus.Open");

@@ -18,11 +18,13 @@
 // The Default* constants are the one copy of each default: SetDefaults and every null-settings
 // fallback use them. Property names are persisted — never rename (labels may change, D15).
 //
-// RUN OUTLINE (Round E1 addendum A1, docs/research/econ-round/addendum-a1-run-outline.md):
-// RunOutlineSize (0-16, default 8) sets AreaGeometryData.m_SnapDistance of our four run prefabs
-// (outline and corner-dot size of the area tool, snapping radius, minimum corner distance = half of
-// it); 0 keeps the game's own 0.75. Applied by SkiRunOutlineSystem at load and on every settings
-// apply. Persisted under this property name — never rename.
+// RUN OUTLINE (Round E1 addendum A1; Round F7 item C1, docs/research/field-test-7-fixes.md):
+// RunOutlineSize (0-16, default 8) is ONLY the thickness of the outline and corner dots that
+// SkiRunOutlineSystem draws over a ski run while it is drawn, edited or bulldozed: 0.3 × size m
+// (8 → 2.4 m); 0 draws nothing (the game's thin outline only). Read every frame, so a change shows
+// at once. Since F7 it no longer touches AreaGeometryData.m_SnapDistance: snapping (0.75 m) and the
+// minimum corner distance (0.375 m) are the game's again (A1 wrote the setting there, which also
+// made snapping 8 m and corners 4 m apart). Persisted under this property name — never rename.
 //
 // Pattern follows the official ModSetting idiom (Game.Modding.ModSetting), the same shape
 // Tourism Overhaul uses, so the two mods' options pages behave identically.
@@ -141,8 +143,8 @@ namespace SkiResortMod.Settings
         public const int DefaultBackcountryValuePercent = 40;
         public const bool DefaultEnableSnowGating = true;
         public const int DefaultSnowmakingBonusCelsius = 2;   // = RunSnowRules.DefaultSnowmakingMarginC (D14; was 3)
-        // Round E1 addendum A1: the game's value for lot areas (AreaUtils.GetMinNodeDistance(Lot) = 8,
-        // Game.Areas/AreaUtils.cs:410-421): outline 2.4 m wide, corners at least 4 m apart.
+        // Round E1 addendum A1, kept in F7: 8 = the look of the game's lot outline (snap distance 8 × 0.3,
+        // AreaBorderRenderSystem.cs:517, :531): outline and corner dots 2.4 m. Since F7 it sets nothing else.
         public const int DefaultRunOutlineSize = 8;
 
         public SkiResortSettings(IMod mod) : base(mod)
@@ -235,11 +237,12 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool ContourLinesWhileDrawingRuns { get; set; }
 
-        /// <summary>Round E1 addendum A1: AreaGeometryData.m_SnapDistance written onto our four run
-        /// prefabs by SkiRunOutlineSystem (load and every settings apply): the area tool's outline width
-        /// (0.3 ×) and corner dots (AreaBorderRenderSystem.cs:517, :531), its snapping radius, and the
-        /// minimum corner distance (half of it, AreaUtils.cs:55-58). 0 = the game's own value (0.75 for a
-        /// Surface area). Persisted under this property name — never rename.</summary>
+        /// <summary>Round F7 C1 (was E1 addendum A1): the thickness of SkiRunOutlineSystem's overlay — line
+        /// width and corner-dot diameter 0.3 × this many metres — on the run areas the game outlines while
+        /// the area tool or the bulldozer works on them; 0 = none (the game's thin outline only). Read every
+        /// frame. It no longer writes AreaGeometryData.m_SnapDistance, so snapping and the corner rule are
+        /// the game's (0.75 m / 0.375 m for a Surface area, AreaUtils.cs:55-58, :410-421). Persisted under
+        /// this property name — never rename.</summary>
         [SettingsUISlider(min = 0f, max = 16f, step = 1f, unit = "integer")]
         [SettingsUISection(SectionMain, GroupRuns)]
         public int RunOutlineSize { get; set; }
@@ -297,7 +300,7 @@ namespace SkiResortMod.Settings
             EnableBindOnDraw = true;              // run-feedback-spec §2
             ShowRunGradeWhileDrawing = true;      // run-feedback-spec §2
             ContourLinesWhileDrawingRuns = true;  // run-feedback-spec §2
-            RunOutlineSize = DefaultRunOutlineSize;   // E1 addendum A1
+            RunOutlineSize = DefaultRunOutlineSize;   // E1 addendum A1 (thickness only since F7 C1)
             ShowHubButton = true;                 // resort-hub-understand.md §5.1 OD2 (default on)
             OpenHubOnSignSelect = true;           // §5.1 / §5.2 item 2 (default on)
             LiftBuildAids = true;                 // hub-u2-spec.md §2.4 (default on)

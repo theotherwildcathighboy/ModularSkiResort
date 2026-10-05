@@ -121,7 +121,8 @@
 //     64 frames: bit-identical at 1× and 2×, cap ×4).
 //   * LOGS: `Snow [open]`, `Snow [skip]`, `Snow [measure]` go through their own LogWindow (10 s); every
 //     window is flushed before an idle line, on a load and at quit; `Snow [source]`, `Snow [margin]`,
-//     `Snow [gating]` are one-off lines; `Snow [cost]` once per load after 64 evaluated passes (ch3 §10).
+//     `Snow [gating]` are one-off lines; `Snow [cost]` once per load after 64 evaluated passes (ch3 §10)
+//     — since Round F7 (item E3) only passes with a bound run count (NoteEvaluatedPass).
 //   * WHAT COULD CHANGE HOW RUNS LOOK (ch3 §13): nothing at 1× / 2× (step scale exactly 1, margin
 //     default = the old constant, routing verbatim, natural runs write nothing, D31 bit-identical inside
 //     GameSimulation); the dry skip may delay managed melt on snow that drifts onto a warm, bare
@@ -1133,10 +1134,31 @@ namespace SkiResortMod.Systems
             }
             // E1 ch3 §6.5: wait before disposing the array a measure-only request writes into (vanilla
             // BaseDataReader.Dispose, BaseDataReader.cs:148-153; WaterRenderSystem.ReleaseShader, :291-296).
+            //
+            // Round F7, item E5 (field test 7, Player.log "Game terminated due to timeout" at quit): checked,
+            // NOT ours. GameManager's quit (Game.SceneFlow/GameManager.cs:779-819) runs m_ModManager.Dispose
+            // (:792), then DestroyWorld (:793 → World.DisposeAllWorlds :2416, which runs this OnDestroy
+            // synchronously), and only THEN starts the two timed awaits, DisposePlatforms (:795, the platform
+            // SDKs, :1679) and TaskManager.CompleteAndClear (:802), 10 s each (AsyncHelpers.AwaitWithTimeout
+            // starts its Task.Delay when called, AsyncHelpers.cs:8-12); the line at :819 means one of those two
+            // did not finish. Nothing of ours runs in them (no TaskManager task, no async code in the mod), so
+            // a wait here can lengthen DestroyWorld but cannot cause that line. Same code in 1.6.2f1 (the quit
+            // block :789-829, DisposePlatforms :1694, DisposeAllWorlds :2431).
+            // The wait below happens only with a measure-only request in flight, and DisableCameraRendering +
+            // WaitXFrames(30) (:779, :782) come before it, so the request has normally landed by then. It
+            // stays (disposing an array a readback still writes is the real hazard); since F7 it writes one
+            // line when it actually waited, so a slow quit is attributable (the logger lives until :805).
             try
             {
                 if (m_MeasurePending && !m_MeasureRequest.done)
+                {
+                    long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
                     m_MeasureRequest.WaitForCompletion();
+                    double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 /
+                                System.Diagnostics.Stopwatch.Frequency;
+                    Mod.Log.Info($"Snow [measure] quit: waited {ms:F1} ms for the pending snow-map readback before " +
+                                 "freeing its array");
+                }
             }
             catch (Exception)
             {
@@ -2363,12 +2385,16 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Every pass that built the mask counts as evaluated (real, dry-skipped or idle). Also counts
-        /// the passes where the ×4 step cap binds (second pass, §7.5).</summary>
+        /// the passes where the ×4 step cap binds (second pass, §7.5). Round F7 (item E3, log-audit D5): the
+        /// cost record takes only passes with at least one BOUND run to measure (injected or natural) — field
+        /// test 7 wrote the line 35 minutes before the first run, over 64 passes of an empty city.</summary>
         private void NoteEvaluatedPass(float now, uint elapsedFrames, MaskStats stats)
         {
             if (elapsedFrames / (float)Tuning.TopupIntervalFrames > RunSnowRules.MaxStepScale)
                 m_StepClampedPasses++;
-            m_CostThisPass = !m_CostLogged && m_CostPasses < CostPasses;
+            int boundInjected = stats.SnowmakingTotal + stats.GroomedTotal + stats.NightTotal - stats.UnboundRuns;
+            bool work = boundInjected > 0 || stats.NaturalScheduled > 0;
+            m_CostThisPass = work && !m_CostLogged && m_CostPasses < CostPasses;
             if (!m_CostThisPass)
                 return;
             if (m_CostPasses == 0)
@@ -2412,7 +2438,7 @@ namespace SkiResortMod.Systems
             float span = m_CostLastAt - m_CostFirstAt;
             double rate = n > 1 && span > 0f ? (n - 1) / (double)span : 0.0;
             string latency = m_CostLatencyMax >= 0 ? $"{m_CostLatencyMin}-{m_CostLatencyMax}" : "n/a";
-            Mod.Log.Info($"Snow [cost] first {n} evaluated passes this load over {span:F0} s ({rate:F2} per wall-clock " +
+            Mod.Log.Info($"Snow [cost] first {n} evaluated passes with a bound run this load over {span:F0} s ({rate:F2} per wall-clock " +
                          $"second, cap {1f / RunSnowRules.MinPassIntervalS:F2}): {m_CostReal} real (mean ms: mask " +
                          $"{Mean(m_CostRealMask, m_CostReal):F2}, readback {Mean(m_CostRealReadback, m_CostReal):F2}, merge " +
                          $"{Mean(m_CostRealMerge, m_CostReal):F2}, upload {Mean(m_CostRealUpload, m_CostReal):F2}), " +

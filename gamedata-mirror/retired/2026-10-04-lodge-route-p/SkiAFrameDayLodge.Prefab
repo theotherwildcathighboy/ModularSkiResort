@@ -1,0 +1,185 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.BuildingPrefab, Game",
+    "name": "SkiAFrameDayLodge",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 8,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.ServiceConsumption, Game",
+                "name": "ServiceConsumption",
+                "active": true,
+                "m_Upkeep": 3000,
+                "m_ElectricityConsumption": 1500,
+                "m_WaterConsumption": 1000,
+                "m_GarbageAccumulation": 80,
+                "m_TelecomNeed": 0
+            },
+            {
+                "$id": 3,
+                "$type": "3|Game.Prefabs.ServiceUpgrade, Game",
+                "name": "ServiceUpgrade",
+                "active": true,
+                "m_Buildings": {
+                    "$id": 4,
+                    "$type": "4|Game.Prefabs.BuildingPrefab[], Game",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        $fstrref:"CID:4d1c1615eb1bd62b7caa7235bb671e5f"
+                    ]
+                },
+                "m_UpgradeCost": 40000,
+                "m_XPReward": 100,
+                "m_MaxPlacementOffset": 3,
+                "m_MaxPlacementDistance": 5000,
+                "m_ForbidMultiple": false
+            },
+            {
+                "$id": 5,
+                "$type": "5|Game.Prefabs.Park, Game",
+                "name": "Park",
+                "active": true,
+                "m_MaintenancePool": 1200,
+                "m_AllowHomeless": false
+            },
+            {
+                "$id": 6,
+                "$type": "6|Game.Prefabs.Attraction, Game",
+                "name": "Attraction",
+                "active": true,
+                "m_Attractiveness": 0
+            },
+            {
+                "$id": 7,
+                "$type": "7|Game.Prefabs.LeisureProvider, Game",
+                "name": "LeisureProvider",
+                "active": true,
+                "m_Efficiency": 4,
+                "m_Resources": 0,
+                "m_LeisureType": 3
+            },
+            {
+                "$id": 8,
+                "$type": "8|Game.Prefabs.Workplace, Game",
+                "name": "Workplace",
+                "active": true,
+                "m_Workplaces": 6,
+                "m_MinimumWorkersLimit": 0,
+                "m_Complexity": 1,
+                "m_EveningShiftProbability": 0.3,
+                "m_NightShiftProbability": 0,
+                "m_WorkConditions": 0
+            },
+            {
+                "$id": 9,
+                "$type": "9|Game.Prefabs.UIObject, Game",
+                "name": "UIObject",
+                "active": true,
+                "m_Group": null,
+                "m_Priority": 10,
+                "m_Icon": "assetdb://global/68de897b1138f9c779cff55258956cde",
+                "m_IsDebugObject": false
+            },
+            {
+                "$id": 10,
+                "$type": "10|Game.Prefabs.ObjectSubObjects, Game",
+                "name": "ObjectSubObjects",
+                "active": true,
+                "m_SubObjects": {
+                    "$id": 11,
+                    "$type": "11|Game.Prefabs.ObjectSubObjectInfo[], Game",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        {
+                            "$id": 12,
+                            "$type": "12|Game.Prefabs.ObjectSubObjectInfo, Game",
+                            "m_Object": $fstrref:"UnityGUID:c30226ded1fc8d64abee5d0bd2554bc4",
+                            "m_Position": {
+                                "$type": "13|Unity.Mathematics.float3, Unity.Mathematics",
+                                "x": 0,
+                                "y": 0,
+                                "z": 17
+                            },
+                            "m_Rotation": {
+                                "$type": "14|Unity.Mathematics.quaternion, Unity.Mathematics",
+                                "value": {
+                                    "$type": "15|Unity.Mathematics.float4, Unity.Mathematics",
+                                    "x": 0,
+                                    "y": 0,
+                                    "z": 0,
+                                    "w": 1
+                                }
+                            },
+                            "m_ParentMesh": -1,
+                            "m_GroupIndex": 0,
+                            "m_Probability": 100
+                        },
+                        {
+                            "$id": 13,
+                            "$type": 12,
+                            "m_Object": $fstrref:"UnityGUID:c30226ded1fc8d64abee5d0bd2554bc4",
+                            "m_Position": {
+                                "$type": 13,
+                                "x": 0,
+                                "y": 0,
+                                "z": -19
+                            },
+                            "m_Rotation": {
+                                "$type": 14,
+                                "value": {
+                                    "$type": 15,
+                                    "x": 0,
+                                    "y": 1,
+                                    "z": 0,
+                                    "w": 0
+                                }
+                            },
+                            "m_ParentMesh": -1,
+                            "m_GroupIndex": 0,
+                            "m_Probability": 100
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "m_Meshes": {
+        "$id": 14,
+        "$type": "16|Game.Prefabs.ObjectMeshInfo[], Game",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 15,
+                "$type": "17|Game.Prefabs.ObjectMeshInfo, Game",
+                "m_Mesh": $fstrref:"CID:67380233f1f5cf7ddb016e2951f2307d",
+                "m_Position": {
+                    "$type": 13,
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                },
+                "m_Rotation": {
+                    "$type": 14,
+                    "value": {
+                        "$type": 15,
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    }
+                },
+                "m_RequireState": 0
+            }
+        ]
+    },
+    "m_Circular": false,
+    "m_AccessType": 0,
+    "m_LotWidth": 6,
+    "m_LotDepth": 5
+}

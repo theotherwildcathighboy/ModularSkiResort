@@ -90,15 +90,25 @@
 // (a power read per Complete row) + Assign (runs × chords), the per-sign upkeep mirror and one
 // GetServiceBudget per service, at most every MinRebuildIntervalS while the signature moves, else every
 // HeartbeatS while open; never while closed. Measured: `Stats [cost]` once per load after 32 rebuilds
-// (mean / max, the serve + assign and problems parts) and one WARN per load above SlowRebuildWarnMs.
+// with an area, run or lift row (F7 E3: empty rebuilds are not counted) (mean / max, the serve + assign and
+// problems parts) and one WARN per load above SlowRebuildWarnMs. Run hectares are the billed ones (F7 E2:
+// SkiRunUpkeepSystem.BilledHa, capped at the plan area).
 // Strings are built only in a rebuild (names, log lines); no per-frame allocation or formatting.
 //
+// ROAD EDGES (Round F7 D5, docs/research/field-test-7-fixes.md; field-test-7 findings sign-utilities.md §5,
+// ped-access.md §4.4 / §5 item 4): the building walk reads Building.m_RoadEdge (Game.Buildings/Building.cs:8,
+// set by RoadConnectionSystem.cs:551 / :606 / :634) of every live sign and lodge; Entity.Null → the
+// HubProblemCode SignNoRoad / LodgeNoRoad rows (HubRules header). Read only, in the walk's own chunks (the
+// query already completes Building's writers), no new sync point.
+//
 // LOGS: `Stats [arm]` once per load (rules, constants, daysPerYear, providers); a WARN at arm if
-// HubRules.ChairSpeedMps drifted from ChairPinSystem's; `Stats [rebuild] (why): …` when a revision moved or
-// on a requested rebuild — at most one line per LogWindowS, the next line carrying the number not logged,
-// and a trailing line once the window has passed so the final state is never silent; `Stats [problems]`
-// once per load (the first problems build); `Stats [cost]` once per load; one-shot `!!!` that disables the
-// system until the next load (the hub keeps the last rows).
+// HubRules.ChairSpeedMps drifted from ChairPinSystem's; `Stats [rebuild] (why): …` (Round F7, log-audit D10)
+// only when a count or a band problem changed, or on a request / the hub opening — through a LogWindow
+// (LogWindowS: a burst folds into one line, trailing line within the window) — and every other rebuild
+// counted into ONE `Stats [rebuild] n rebuild(s) in … s with no count or problem change` line per
+// QuietSummaryS (flushed when the hub closes, at a load and at quit: the final state is never silent);
+// `Stats [problems]` once per load (the first problems build); `Stats [cost]` once per load; one-shot `!!!`
+// that disables the system until the next load (the hub keeps the last rows).
 
 using System;
 using System.Collections.Generic;
@@ -251,8 +261,13 @@ namespace SkiResortMod.Systems
             /// rebuilds are immediate.</summary>
             public const float MinRebuildIntervalS = 0.5f;
 
-            /// <summary>At most one "Stats [rebuild]" line per this many seconds (counted otherwise).</summary>
+            /// <summary>At most one "Stats [rebuild]" change line per this many seconds (a burst is folded,
+            /// LogWindow).</summary>
             public const float LogWindowS = 5f;
+
+            /// <summary>Round F7 (log-audit D10): rebuilds with no count or problem change are written as one
+            /// summary line per this many seconds of wall clock (flushed at hub close, load and quit).</summary>
+            public const float QuietSummaryS = 60f;
 
             /// <summary>Local position of a station's HV stub tip (SkiTopStationBuilding.Prefab /
             /// SkiBaseStationBuilding.Prefab ObjectSubNets: (0,0,−9) → (0,0,−12)).</summary>
@@ -273,6 +288,20 @@ namespace SkiResortMod.Systems
         private const string UnlinkedEnglish = "Not linked to a ski area";
         private const string OrdinalPlaceholder = "{N}";
         private const string WhyHeartbeat = "heartbeat";
+        private const string WhyHubOpened = "hub opened";
+        // The change signature's reasons (OnUpdate); Round F7: also the quiet summary's counters, in this order.
+        private const string WhyCatalog = "catalog";
+        private const string WhyCensus = "lift census";
+        private const string WhyLoops = "chair loops";
+        private const string WhyAttract = "attractiveness";
+        private const string WhyTexels = "snow texels";
+        private const string WhySnow = "snow state";
+        private const string WhyGuests = "guests";
+        private const string WhyCharge = "lift charge";
+        private static readonly string[] s_QuietReasons =
+        {
+            WhyHeartbeat, WhyCatalog, WhyCensus, WhyLoops, WhyAttract, WhyTexels, WhySnow, WhyGuests, WhyCharge, WhyHubOpened,
+        };
 
         /// <summary>The shared-base lift label's separator ("&lt;name&gt; → &lt;top label&gt;", §3.7). The hub's
         /// rename strips a trailing separator + top label before storing (fixer round, m1-hub-csharp-2).</summary>
@@ -339,6 +368,7 @@ namespace SkiResortMod.Systems
         private readonly List<Entity> m_LodgeEntities = new List<Entity>(4);      // every live lodge building
         private readonly Dictionary<Entity, int> m_LodgeResort = new Dictionary<Entity, int>();   // lodge → resort index
         private readonly HashSet<Entity> m_LodgeActive = new HashSet<Entity>();                    // listed and not Inactive
+        private readonly HashSet<Entity> m_NoRoad = new HashSet<Entity>();                         // F7 D5: signs / lodges, m_RoadEdge Null
         private readonly Dictionary<Entity, int> m_ProviderOf = new Dictionary<Entity, int>();    // our signs / lodges → a
         private readonly HashSet<Entity> m_Ours = new HashSet<Entity>();
         private readonly List<SkiResortAggregate.RunIn> m_RunIn = new List<SkiResortAggregate.RunIn>(32);
@@ -388,6 +418,9 @@ namespace SkiResortMod.Systems
             public float CostGroomed, CostSnowmaking, CostNight;   // ¢/month, float sums (C11)
             public float HaNatural, HaGroomed, HaSnowmaking, HaNight;
             public float Capacity; public bool AnyCapacity;
+            // Round F7 D5 (CollectLodges): Building.m_RoadEdge Null on the sign; the area's lodges with a Null edge
+            // and the one with the lowest (Index, Version) — LodgeNoRoad's subject, stable across chunk order.
+            public bool SignNoRoad; public int LodgesNoRoad; public Entity LodgeNoRoad;
             // The attraction chapter's view of the area (BuildResortRows; reused by BuildProblems).
             public bool HasResult;
             public SkiResortAttractivenessSystem.AreaScoreView View;
@@ -407,8 +440,17 @@ namespace SkiResortMod.Systems
             m_SigCharge = int.MinValue;
         private float m_NextHeartbeat, m_LastRebuildTime = float.NegativeInfinity;
         private ulong m_HashResorts, m_HashResortLive, m_HashRuns, m_HashRunLive, m_HashLifts, m_HashProblems;
-        private float m_LogWindowStart = float.NegativeInfinity;
-        private int m_LogSuppressed;
+        // Round F7 (log-audit D10): the rebuild log (LogRebuild). Change lines through m_ChangeLog; the rest counted
+        // into one quiet summary per QuietSummaryS.
+        private readonly LogWindow m_ChangeLog = new LogWindow(Tuning.LogWindowS);
+        private ulong m_LoggedKey;
+        private bool m_KeyLogged;
+        private int m_QuietRebuilds;
+        private float m_QuietStart;
+        private double m_QuietSumMs, m_QuietMaxMs;
+        private readonly int[] m_QuietWhy = new int[s_QuietReasons.Length + 1];   // last slot: any other reason
+        private readonly int[] m_QuietMoved = new int[6];                          // s_ArrayNames order
+        private static readonly string[] s_ArrayNames = { "resorts", "resortLive", "runs", "runLive", "lifts", "problems" };
         private bool m_DaysPerYearLogged;
         private uint m_LoadFrameIndex;
         private bool m_ProblemsLogged, m_CostLogged, m_SlowLogged, m_BudgetWarned;
@@ -534,11 +576,36 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"{nameof(SkiResortStatsSystem)} created");
         }
 
+        /// <summary>Round F7: quit to desktop raises no onGamePreload; the rebuild log is written here (LogWindow.cs
+        /// header). Teardown never throws.</summary>
         protected override void OnDestroy()
         {
+            try
+            {
+                FlushRebuildLog(UnityEngine.Time.realtimeSinceStartup);
+            }
+            catch (Exception)
+            {
+                // nothing left to report to
+            }
             if (m_UpkeepScratchList.IsCreated)
                 m_UpkeepScratchList.Dispose();
             base.OnDestroy();
+        }
+
+        /// <summary>Round F7: a load — write what the rebuild log holds before OnGameLoadingComplete resets it.</summary>
+        protected override void OnGamePreload(Purpose purpose, GameMode mode)
+        {
+            base.OnGamePreload(purpose, mode);
+            try
+            {
+                FlushRebuildLog(UnityEngine.Time.realtimeSinceStartup);
+            }
+            catch (Exception e)
+            {
+                Mod.Log.Warn($"Stats [rebuild]: folded lines could not be written before the load ({e.GetType().Name}: " +
+                             $"{e.Message}) — non-fatal");
+            }
         }
 
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
@@ -559,8 +626,10 @@ namespace SkiResortMod.Systems
             m_NextHeartbeat = 0f;
             m_LastRebuildTime = float.NegativeInfinity;
             m_HashResorts = m_HashResortLive = m_HashRuns = m_HashRunLive = m_HashLifts = m_HashProblems = 0;
-            m_LogWindowStart = float.NegativeInfinity;
-            m_LogSuppressed = 0;
+            m_ChangeLog.Reset();          // OnGamePreload wrote what it held
+            m_KeyLogged = false;
+            m_LoggedKey = 0;
+            m_QuietRebuilds = 0;
             m_DaysPerYearLogged = false;
             m_ProblemsLogged = m_CostLogged = m_SlowLogged = m_BudgetWarned = false;
             m_CostRebuilds = 0;
@@ -632,6 +701,8 @@ namespace SkiResortMod.Systems
                 bool demand = Demand;
                 if (!demand && m_RebuildRequest == null)
                 {
+                    if (m_WasDemanded)   // Round F7: the hub just closed — write what the rebuild log holds (once)
+                        FlushRebuildLog(UnityEngine.Time.realtimeSinceStartup);
                     m_WasDemanded = false;
                     return;   // the hub is closed: nothing per frame
                 }
@@ -644,7 +715,7 @@ namespace SkiResortMod.Systems
                 bool requested = why != null;
                 m_RebuildRequest = null;
                 if (why == null && demand && !m_WasDemanded)
-                    why = "hub opened";
+                    why = WhyHubOpened;
                 m_WasDemanded = demand;
 
                 if (why == null)
@@ -652,21 +723,21 @@ namespace SkiResortMod.Systems
                     // Change signature (ch5 §5.7): field reads only; no allocation. No building count.
                     string sig = null;
                     if (m_Catalog.Revision != m_SigCatalog)
-                        sig = "catalog";
+                        sig = WhyCatalog;
                     else if (m_Census.Revision != m_SigCensus)
-                        sig = "lift census";
+                        sig = WhyCensus;
                     else if (m_ChairPin.LoopGeneration != m_SigLoops)
-                        sig = "chair loops";
+                        sig = WhyLoops;
                     else if (m_Attractiveness.Generation != m_SigAttract)
-                        sig = "attractiveness";
+                        sig = WhyAttract;
                     else if (m_Injection.RunTexelGeneration != m_SigTexels)
-                        sig = "snow texels";
+                        sig = WhyTexels;
                     else if (m_Injection.RunSnowGeneration != m_SigSnow)
-                        sig = "snow state";
+                        sig = WhySnow;
                     else if (m_GuestCounter.Revision != m_SigGuests)
-                        sig = "guests";
+                        sig = WhyGuests;
                     else if (m_LiftCharge.Revision != m_SigCharge)
-                        sig = "lift charge";
+                        sig = WhyCharge;
                     if (sig != null && m_PendingWhy == null)
                         m_PendingWhy = sig;
                     if (m_PendingWhy != null && now - m_LastRebuildTime >= Tuning.MinRebuildIntervalS)
@@ -769,17 +840,14 @@ namespace SkiResortMod.Systems
                 MaxRebuildMs = ms;
             LastRebuildWhy = why;
 
-            bool moved = resortsMoved || liveMoved || runsMoved || runLiveMoved || liftsMoved || problemsMoved;
             if (!m_DaysPerYearLogged && m_TimeSystem.daysPerYear > 1)
             {
                 // The arm line can only print the pre-read 1; say once what the month uses.
                 m_DaysPerYearLogged = true;
                 Mod.Log.Info($"Stats: daysPerYear {m_TimeSystem.daysPerYear} (TimeSettingsData) — building upkeep per month = per day × {m_TimeSystem.daysPerYear} / 12");
             }
-            if (requested || moved)
-                LogRebuild(why, ms, ready, now, requested);
-            else if (m_LogSuppressed > 0 && now - m_LogWindowStart >= Tuning.LogWindowS)
-                LogRebuild(why, ms, ready, now, true);   // trailing line: the final state is never silent
+            LogRebuild(why, ms, ready, now, requested || why == WhyHubOpened,
+                       resortsMoved, liveMoved, runsMoved, runLiveMoved, liftsMoved, problemsMoved);
             LogCost(why, ms, resorts);
         }
 
@@ -793,30 +861,189 @@ namespace SkiResortMod.Systems
             return moved;
         }
 
-        private void LogRebuild(string why, float ms, bool ready, float now, bool force)
+        /// <summary>Round F7 (log-audit D10: `Stats [rebuild]` was 26 % of field test 7's log, 113 heartbeats with
+        /// nothing new). A rebuild is written only when a COUNT or a BAND PROBLEM changed (LogKey: areas, runs, lift
+        /// rows, lodges, and each band row's area, code, severity, count, detail and subject — not the Factor rows
+        /// nor the drifting numbers), or when forced (a request: dev tab, DUMP, rename; the hub opening). Those
+        /// lines go through m_ChangeLog (one per LogWindowS, a burst folded into one summary). Every other rebuild
+        /// is counted and written as ONE quiet summary per QuietSummaryS (by reason, arrays moved, ms), flushed when
+        /// the hub closes, at a load and at quit, so the final state is never silent. Per rebuild: field arithmetic
+        /// and one hash over the published rows; a string only for a change (written or folded) or a summary.</summary>
+        private void LogRebuild(string why, float ms, bool ready, float now, bool force,
+                                bool resortsMoved, bool liveMoved, bool runsMoved, bool runLiveMoved, bool liftsMoved, bool problemsMoved)
         {
-            if (!force && now - m_LogWindowStart < Tuning.LogWindowS)
+            ulong key = LogKey();
+            if (force || !m_KeyLogged || key != m_LoggedKey)
             {
-                m_LogSuppressed++;
-                return;
+                m_KeyLogged = true;
+                m_LoggedKey = key;
+                string body = RebuildBody(why, ms, ready);
+                switch (m_ChangeLog.Offer(now, force, body, ms))
+                {
+                    case LogWindow.Verdict.Plain:
+                        Mod.Log.Info("Stats [rebuild] " + body);
+                        break;
+                    case LogWindow.Verdict.Summary:
+                        WriteChangeSummary(now);
+                        break;
+                }
             }
-            m_LogWindowStart = now;
+            else
+            {
+                if (m_QuietRebuilds == 0)
+                {
+                    m_QuietStart = now;
+                    m_QuietSumMs = m_QuietMaxMs = 0.0;
+                    Array.Clear(m_QuietWhy, 0, m_QuietWhy.Length);
+                    Array.Clear(m_QuietMoved, 0, m_QuietMoved.Length);
+                }
+                m_QuietRebuilds++;
+                m_QuietSumMs += ms;
+                if (ms > m_QuietMaxMs)
+                    m_QuietMaxMs = ms;
+                int reason = Array.IndexOf(s_QuietReasons, why);
+                m_QuietWhy[reason >= 0 ? reason : s_QuietReasons.Length]++;   // last slot: any other reason
+                if (resortsMoved) m_QuietMoved[0]++;
+                if (liveMoved) m_QuietMoved[1]++;
+                if (runsMoved) m_QuietMoved[2]++;
+                if (runLiveMoved) m_QuietMoved[3]++;
+                if (liftsMoved) m_QuietMoved[4]++;
+                if (problemsMoved) m_QuietMoved[5]++;
+            }
+            if (m_ChangeLog.TrailingDue(now))
+                WriteChangeSummary(now);
+            if (m_QuietRebuilds > 0 && !(now - m_QuietStart < Tuning.QuietSummaryS))
+                WriteQuietSummary(now);
+        }
+
+        /// <summary>The change line's body (after "Stats [rebuild] "): counts, the band codes per area, ms, revisions.</summary>
+        private string RebuildBody(string why, float ms, bool ready)
+        {
             int signs = Math.Max(0, m_Resorts.Count - 1);
             ResortStats nl = m_Resorts.Count > 0 ? m_Resorts[m_Resorts.Count - 1] : default;
-            string suffix = m_LogSuppressed > 0 ? $"; {m_LogSuppressed} earlier rebuild(s) not logged (LogWindowS)" : "";
-            m_LogSuppressed = 0;
-            Mod.Log.Info($"Stats [rebuild] ({why}): {signs} resort(s) + not linked ({nl.Runs} run(s), {nl.LiftRows} lift row(s), " +
-                         $"{nl.Lodges} lodge(s)); runs {m_Runs.Count}, lifts {m_Lifts.Count}, problems {m_Problems.Count}; " +
-                         $"{ms:F2} ms; revisions {ResortsRevision}/{ResortLiveRevision}/{RunsRevision}/{RunLiveRevision}/" +
-                         $"{LiftsRevision}/{ProblemsRevision}" +
-                         (ready ? "" : " — ownership prefab sets not ready (pre-import?): no resorts") + suffix);
+            int band = 0, factors = 0;
+            var codes = new StringBuilder(64);
+            Entity area = default;
+            bool anyArea = false;
+            for (int i = 0; i < m_Problems.Count; i++)
+            {
+                ProblemStats p = m_Problems[i];
+                if (p.Code == (int)HubProblemCode.Factor)
+                {
+                    factors++;
+                    continue;
+                }
+                band++;
+                if (!anyArea || p.Sign != area)
+                {
+                    codes.Append(anyArea ? "; " : "").Append(p.Sign == Entity.Null ? "not linked" : "area " + Ent(p.Sign)).Append(": ");
+                    area = p.Sign;
+                    anyArea = true;
+                }
+                else
+                {
+                    codes.Append(", ");
+                }
+                codes.Append(((HubProblemCode)p.Code).ToString());
+                if (p.Count != -1)
+                    codes.Append(' ').Append(p.Count);
+            }
+            return $"({why}): {signs} resort(s) + not linked ({nl.Runs} run(s), {nl.LiftRows} lift row(s), {nl.Lodges} lodge(s)); " +
+                   $"runs {m_Runs.Count}, lifts {m_Lifts.Count}, problems {band} band row(s) ({(anyArea ? codes.ToString() : "none")}) + " +
+                   $"{factors} factor row(s); {ms:F2} ms; revisions {ResortsRevision}/{ResortLiveRevision}/{RunsRevision}/" +
+                   $"{RunLiveRevision}/{LiftsRevision}/{ProblemsRevision}" +
+                   (ready ? "" : " — ownership prefab sets not ready (pre-import?): no resorts");
+        }
+
+        /// <summary>Round F7: the counts and band problems a change line reports (LogRebuild's rule), as one FNV-1a
+        /// hash of the published rows. Factor rows and every drifting number (pct, more, ifFixed, factor) are left
+        /// out: efficiency drift is the attractiveness area line's business.</summary>
+        private ulong LogKey()
+        {
+            ulong h = 14695981039346656037UL;
+            h = Mix(h, (uint)m_Resorts.Count);
+            h = Mix(h, (uint)m_Runs.Count);
+            h = Mix(h, (uint)m_Lifts.Count);
+            for (int i = 0; i < m_Resorts.Count; i++)
+            {
+                ResortStats r = m_Resorts[i];
+                h = MixE(h, r.Sign);
+                h = Mix(h, (uint)r.Runs);
+                h = Mix(h, (uint)r.LiftRows);
+                h = Mix(h, (uint)r.Lodges);
+                h = Mix(h, (uint)r.FreeLodges);
+            }
+            for (int i = 0; i < m_Problems.Count; i++)
+            {
+                ProblemStats p = m_Problems[i];
+                if (p.Code == (int)HubProblemCode.Factor)
+                    continue;
+                h = MixE(h, p.Sign);
+                h = Mix(h, (uint)p.Code | (uint)p.Severity << 8);
+                h = Mix(h, (uint)p.Count);
+                h = Mix(h, (uint)p.Detail);
+                h = MixE(h, p.Subject);
+            }
+            return h;
+        }
+
+        private void WriteChangeSummary(float now)
+        {
+            LogWindow w = m_ChangeLog;
+            Mod.Log.Info($"Stats [rebuild] {w.Count} more count or problem change(s) in {w.SpanS(now):F0} s, folded (one line per " +
+                         $"LogWindowS={Tuning.LogWindowS:0} s; {w.Range(0, "F2")} ms) — last: {w.LastText}");
+            w.Wrote(now);
+        }
+
+        /// <summary>One line for the rebuilds that changed no count and no band problem since the last summary.</summary>
+        private void WriteQuietSummary(float now)
+        {
+            var sb = new StringBuilder(256);
+            sb.Append("Stats [rebuild] ").Append(m_QuietRebuilds).Append(" rebuild(s) in ")
+              .Append(Math.Max(0f, now - m_QuietStart).ToString("F0", CultureInfo.InvariantCulture))
+              .Append(" s with no count or problem change (");
+            bool any = false;
+            for (int i = 0; i < m_QuietWhy.Length; i++)
+            {
+                if (m_QuietWhy[i] == 0)
+                    continue;
+                sb.Append(any ? ", " : "").Append(i < s_QuietReasons.Length ? s_QuietReasons[i] : "other").Append(' ').Append(m_QuietWhy[i]);
+                any = true;
+            }
+            sb.Append("); arrays moved:");
+            any = false;
+            for (int i = 0; i < m_QuietMoved.Length; i++)
+            {
+                if (m_QuietMoved[i] == 0)
+                    continue;
+                sb.Append(any ? ", " : " ").Append(s_ArrayNames[i]).Append(' ').Append(m_QuietMoved[i]);
+                any = true;
+            }
+            if (!any)
+                sb.Append(" none");
+            sb.Append("; ").Append((m_QuietSumMs / m_QuietRebuilds).ToString("F2", CultureInfo.InvariantCulture)).Append(" ms mean, ")
+              .Append(m_QuietMaxMs.ToString("F2", CultureInfo.InvariantCulture)).Append(" ms max (one summary per QuietSummaryS=")
+              .Append(Tuning.QuietSummaryS.ToString("F0", CultureInfo.InvariantCulture)).Append(" s; problems = factor rows or numbers)");
+            Mod.Log.Info(sb.ToString());
+            m_QuietRebuilds = 0;
+        }
+
+        /// <summary>Round F7: writes what the rebuild log holds — the hub closed, a load, quit.</summary>
+        private void FlushRebuildLog(float now)
+        {
+            if (m_ChangeLog.Count > 0)
+                WriteChangeSummary(now);
+            if (m_QuietRebuilds > 0)
+                WriteQuietSummary(now);
         }
 
         /// <summary>ch5 §5.8: the `Stats [cost]` line after the 32nd rebuild of a load and one WARN per load
-        /// above SlowRebuildWarnMs. Field arithmetic per rebuild.</summary>
+        /// above SlowRebuildWarnMs. Field arithmetic per rebuild. Round F7 E3 (integrator, request in
+        /// field-test-7-notes-impl5.md): only rebuilds with at least one area, run or lift row count, so the
+        /// line no longer measures an empty city.</summary>
         private void LogCost(string why, float ms, int resorts)
         {
-            if (!m_CostLogged)
+            if (!m_CostLogged && (resorts > 0 || m_Runs.Count > 0 || m_Lifts.Count > 0))
             {
                 m_CostRebuilds++;
                 m_CostSumMs += ms;
@@ -828,7 +1055,7 @@ namespace SkiResortMod.Systems
                 {
                     m_CostLogged = true;
                     double n = m_CostRebuilds;
-                    Mod.Log.Info($"Stats [cost] first {m_CostRebuilds} rebuilds this load: mean {m_CostSumMs / n:F2} ms, max " +
+                    Mod.Log.Info($"Stats [cost] first {m_CostRebuilds} rebuilds with an area, run or lift this load: mean {m_CostSumMs / n:F2} ms, max " +
                                  $"{m_CostMaxMs:F2} ms (serve lifts + assign mean {m_ServeSumMs / n:F3} ms, problems mean " +
                                  $"{m_ProblemsSumMs / n:F3} ms); last: {resorts} area(s), {m_Runs.Count} run(s), " +
                                  $"{m_Lifts.Count} lift row(s), {m_Chords.Count} chord(s)");
@@ -866,6 +1093,7 @@ namespace SkiResortMod.Systems
         {
             m_Index.Clear();
             m_LodgeEntities.Clear();
+            m_NoRoad.Clear();
             m_IndexBuildingCount = m_BuildingQuery.CalculateEntityCount();
             m_IndexBuilt = true;
             if (m_BuildingQuery.IsEmptyIgnoreFilter)
@@ -877,6 +1105,7 @@ namespace SkiResortMod.Systems
             var entityHandle = GetEntityTypeHandle();
             var prefabRefHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
             var transformHandle = GetComponentTypeHandle<Game.Objects.Transform>(isReadOnly: true);
+            var buildingHandle = GetComponentTypeHandle<Building>(isReadOnly: true);   // Round F7 D5: m_RoadEdge
             using (var chunks = m_BuildingQuery.ToArchetypeChunkArray(Allocator.Temp))
             {
                 for (int c = 0; c < chunks.Length; c++)
@@ -884,13 +1113,22 @@ namespace SkiResortMod.Systems
                     var entities = chunks[c].GetNativeArray(entityHandle);
                     var prefabRefs = chunks[c].GetNativeArray(ref prefabRefHandle);
                     var transforms = chunks[c].GetNativeArray(ref transformHandle);
+                    var buildings = chunks[c].GetNativeArray(ref buildingHandle);
                     for (int i = 0; i < entities.Length; i++)
                     {
                         Entity prefab = prefabRefs[i].m_Prefab;
                         if (m_Ownership.IsGatePrefab(prefab))
+                        {
                             m_Index.Add(ToRef(entities[i]), transforms[i].m_Position.xz);
+                            if (buildings[i].m_RoadEdge == Entity.Null)
+                                m_NoRoad.Add(entities[i]);
+                        }
                         else if (m_Attractiveness.IsLodgePrefab(prefab))
+                        {
                             m_LodgeEntities.Add(entities[i]);
+                            if (buildings[i].m_RoadEdge == Entity.Null)
+                                m_NoRoad.Add(entities[i]);
+                        }
                     }
                 }
             }
@@ -954,6 +1192,8 @@ namespace SkiResortMod.Systems
             for (int s = 0; s < m_SignEntities.Count; s++)
             {
                 Entity sign = m_SignEntities[s];
+                if (s < resorts)
+                    m_Work[s].SignNoRoad = m_NoRoad.Contains(sign);   // Round F7 D5 (the building walk read it)
                 if (!EntityManager.HasBuffer<InstalledUpgrade>(sign))
                     continue;
                 DynamicBuffer<InstalledUpgrade> upgrades = EntityManager.GetBuffer<InstalledUpgrade>(sign, isReadOnly: true);
@@ -978,6 +1218,15 @@ namespace SkiResortMod.Systems
                 m_LodgeIn.Add(new SkiResortAggregate.LodgeIn { Resort = resort, Score = 0, Free = free });
                 if (!free && resort < resorts && m_LodgeActive.Contains(lodge))
                     m_Work[resort].LodgesActive++;
+                if (!free && resort < resorts && m_NoRoad.Contains(lodge))
+                {
+                    // Round F7 D5: the same lodge set as the aggregate's Lodges count, so LodgesNoRoad <= Lodges.
+                    Entity first = m_Work[resort].LodgeNoRoad;
+                    if (m_Work[resort].LodgesNoRoad == 0 || lodge.Index < first.Index ||
+                        (lodge.Index == first.Index && lodge.Version < first.Version))
+                        m_Work[resort].LodgeNoRoad = lodge;
+                    m_Work[resort].LodgesNoRoad++;
+                }
             }
         }
 
@@ -1011,7 +1260,9 @@ namespace SkiResortMod.Systems
                     }
                     else if (m_Injection.TryGetRunActiveTexels(row.Entity, out int texels) && texels > 0)
                     {
-                        ha = texels * texelHa;
+                        // Round F7 E2 (integrator, request in field-test-7-notes-impl5.md): the billed hectares,
+                        // capped at the run's plan area — the same number SkiRunUpkeepSystem charges.
+                        ha = SkiRunUpkeepSystem.BilledHa(texels, texelHa, row.AreaM2);
                         cost = ha * SkiRunUpkeepSystem.CostPerHaMonth((RunKind)row.Kind);
                         switch (row.Kind)
                         {
@@ -1884,6 +2135,9 @@ namespace SkiResortMod.Systems
                     AttractionFull = hasResult ? r.AttractionFullEfficiency : -1,
                     IfOneLodge = hasResult && row.Lodges == 0 ? HubRules.AttractionWithLodges(in r, 1) : -1,
                     IfLodgesOn = hasResult && row.Lodges > 0 ? HubRules.AttractionWithLodges(in r, row.Lodges) : -1,
+                    // Round F7 D5: road edges, read in the building walk (no result needed: a placement fact).
+                    SignNoRoad = !notLinked && work.SignNoRoad,
+                    LodgesNoRoad = notLinked ? 0 : work.LodgesNoRoad,
                 };
                 HubProblems.Build(in input, m_POut);
                 for (int i = 0; i < m_POut.Count; i++)
@@ -1892,12 +2146,19 @@ namespace SkiResortMod.Systems
                     bool liftRow = p.LiftIndex >= 0 && p.LiftIndex < m_PLiftRows.Count;
                     LiftStats lift = liftRow ? m_LiftsNext[m_PLiftRows[p.LiftIndex]] : default;
                     int code = (int)p.Code;
+                    // Subject: the sign for the lodge, efficiency and (F7) SignNoRoad rows; F7 LodgeNoRoad: the lodge
+                    // (lowest entity) with no road; a lift row: its census id; else Null.
+                    Entity subject = liftRow ? lift.Entity : Entity.Null;
+                    if ((code >= 1 && code <= 4) || p.Code == HubProblemCode.SignNoRoad)
+                        subject = sign;
+                    else if (p.Code == HubProblemCode.LodgeNoRoad)
+                        subject = work.LodgeNoRoad;
                     m_ProblemsNext.Add(new ProblemStats
                     {
                         Sign = sign,
                         Code = code,
                         Severity = p.Severity,
-                        Subject = code >= 1 && code <= 4 ? sign : (liftRow ? lift.Entity : Entity.Null),
+                        Subject = subject,
                         SubjectTop = liftRow ? lift.Top : Entity.Null,
                         Name = liftRow ? lift.Name ?? "" : "",
                         Count = p.Count,
@@ -2391,6 +2652,13 @@ namespace SkiResortMod.Systems
                 sb.Append(provider.m_Attractiveness).Append(" now");
             else
                 sb.Append("none");
+            // Round F7 D5: the road edge the SignNoRoad row reads (Building.m_RoadEdge), with its prefab name.
+            Entity road = exists && EntityManager.TryGetComponent(sign, out Building building) ? building.m_RoadEdge : Entity.Null;
+            sb.Append(", road edge ");
+            if (road == Entity.Null)
+                sb.Append("none");
+            else
+                sb.Append(Ent(road)).Append(" '").Append(PrefabNameOf(road)).Append('\'');
             if (!exists || !EntityManager.HasBuffer<Efficiency>(sign))
             {
                 sb.Append(", efficiency n/a (no Efficiency buffer)\n");
@@ -2406,22 +2674,33 @@ namespace SkiResortMod.Systems
                 m_EfficiencyScratch.Add(buffer[i]);
             }
             float efficiency = SkiResortScore.SignEfficiency(m_EfficiencyValues, buffer.Length);
-            sb.Append(", efficiency ").Append((int)math.round(100f * efficiency)).Append(" %");
+            // The attractiveness system's percent expression (ReadSign), so "now" and the area line compare.
+            sb.Append(", efficiency now ").Append((int)Math.Round(100.0 * efficiency)).Append(" %");
             m_EfficiencyScratch.Sort();   // Efficiency.CompareTo: highest value first (Efficiency.cs:36-43)
             bool any = false;
             for (int i = m_EfficiencyScratch.Count - 1; i >= 0; i--)   // so backwards = worst first
             {
                 Efficiency e = m_EfficiencyScratch[i];
-                int pct = (int)math.round(100f * math.max(0f, e.m_Efficiency));
-                if (pct >= 100)
-                    continue;   // shortfalls only (a factor above 1 still shows in the efficiency number)
-                sb.Append(any ? ", " : " — factors below 100 %, worst first: ").Append(FactorName(e.m_Factor))
-                  .Append(' ').Append(pct).Append(" %");
+                if (!(e.m_Efficiency < 1f))
+                    continue;   // shortfalls only, the hub's rule (CopyEfficiencyFactors keeps m_Efficiency < 1)
+                // Round F7 (log-audit D14: "NotEnoughEmployees 80 %" here vs "-18 %" on the problems line): ONE
+                // rounding for every factor of the DUMP — HubRules.FactorEffectPct, the game's panel number
+                // (EfficiencySection.cs:99-127), as the problems line's Factor rows carry it.
+                sb.Append(any ? ", " : " — factors now (game panel effect), worst first: ").Append(FactorName(e.m_Factor))
+                  .Append(' ').Append(HubRules.FactorEffectPct(e.m_Efficiency)).Append(" %");
                 any = true;
             }
             if (!any)
                 sb.Append(" — no factor below 100 %");
             sb.Append('\n');
+        }
+
+        /// <summary>DUMP only: the prefab name of <paramref name="e"/> (PrefabSystem.GetPrefabName), "?" when unknown.</summary>
+        private string PrefabNameOf(Entity e)
+        {
+            if (!EntityManager.Exists(e) || !EntityManager.TryGetComponent(e, out PrefabRef prefabRef))
+                return "?";
+            return m_PrefabSystem.GetPrefabName(prefabRef.m_Prefab);
         }
 
         /// <summary>ch5 §7.2 (DUMP only, U5): the sign's live notifications by prefab name
@@ -2467,6 +2746,8 @@ namespace SkiResortMod.Systems
                 bool first = true;
                 if (!string.IsNullOrEmpty(p.Name))
                     Key(sb, ref first, "lift='" + p.Name + "'");
+                if (p.Code == (int)HubProblemCode.LodgeNoRoad)
+                    Key(sb, ref first, "lodge=" + Ent(p.Subject));   // Round F7 D5: the row's subject
                 if (p.Count != -1)
                     Key(sb, ref first, "count=" + p.Count.ToString(CultureInfo.InvariantCulture));
                 if (p.Pct != -1)
@@ -2486,7 +2767,7 @@ namespace SkiResortMod.Systems
             }
             if (!any)
                 sb.Append("none");
-            sb.Append("; factors ");
+            sb.Append("; factors at the last score recompute (game panel effect) ");
             any = false;
             for (int i = 0; i < m_Problems.Count; i++)
             {

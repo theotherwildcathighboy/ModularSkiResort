@@ -31,6 +31,46 @@
 // Readout.Valid. Known limit: like the whole feedback system the row follows the "Show run grade while
 // drawing" setting (UpdateCore step 1); with it off the fee shows only in the hub.
 //
+// ROUND F7 (docs/research/field-test-7-fixes.md item C2; research docs/research/field/2026-10-04/
+// findings/run-collisions.md with its Verification; implementer 2, 2026-10-04):
+//  * C2 — SAY WHAT THE GAME REFUSED. Field test 7 could not tell "invalid shape" from "overlaps" (the log had
+//    no line about the area tool's errors). How the verdict is attached (1.6.0f1, every cited file identical
+//    in 1.6.2f1): ValidationSystem (ModificationEnd, Game.Common/SystemOrder.cs:264) validates every Temp with
+//    Updated (ValidationSystem.cs:1917-1919, :1926-2050); ProcessValidationResultsJob turns each ErrorData
+//    (Game.Tools/ErrorData.cs: m_ErrorType, m_ErrorSeverity, m_TempEntity = our Temp, m_PermanentEntity =
+//    the other area) into (a) a notification icon owned by the Temp — IconKey owner = m_TempEntity, prefab =
+//    the ToolErrorData prefab of that ErrorType, priority Warning or Error (:1747-1785) — which
+//    IconCommandSystem (ModificationEnd, :271) creates as an entity with PrefabRef, Icon and Owner and lists
+//    in the Temp's IconElement buffer (Game.Notifications/IconCommandSystem.cs:293-336), and (b) the Error
+//    TAG on the Temp for an Error (:1657-1660; a Warning tags only the OTHER area, :1661-1664). Both play back
+//    at ModificationEndBarrier, so by Rendering the Temp of this frame carries them. So the type IS reachable
+//    cheaply: the eligible Temp's IconElement → icon PrefabRef → ToolErrorData.m_Error (Game.Prefabs/
+//    ToolErrorData.cs), with Icon.m_Priority for the severity (>= Error: blocks the click, ToolBaseSystem.cs:
+//    533-540; >= Warning: does not). WatchValidation reads it on RECOMPUTE frames only (no new per-frame
+//    work: a node change, a Temp change or a deferred move recompute after the cursor stops — the state at a
+//    refused click is read within the throttle window), and logs `RunFeedback [validation] …` once per CHANGE
+//    of the (error types, warning types, tags) set — the type names, new/edit, node count, open/complete,
+//    and what it was before; a clean start says nothing, a return to clean says "clear". The lines go through
+//    a LogWindow (ValidationLogWindowS): a cursor sliding along a neighbour can flip it every recompute, so a
+//    burst is folded into one summary with the UNION of the types seen; the fold is written when the window
+//    passes, when the run leaves the cursor (Invalidate) and in OnDestroy — silence is impossible. The
+//    DUMP and the dev tab show the current state. Known limit: like the whole system it follows "Show run
+//    difficulty while drawing" (UpdateCore step 1). A throw in the watch logs one `!!!` and switches only the
+//    watch off until the next load; the heat-map keeps working.
+//  * C2, F7 fixer (review of the round): (1) ELSEWHERE. The click is refused when ANY entity carries Error
+//    (ToolBaseSystem.cs:313, :533-540), and moving a corner shared with a neighbour run gives that neighbour its
+//    own Modify Temp (one definition per area on the moved position, AreaToolSystem.cs:1542-1560), whose
+//    InvalidShape names only the neighbour (m_TempEntity = it, no m_PermanentEntity; ValidationHelpers.cs:887-943).
+//    The eligible Temp (the one with most nodes) then reads clear while the click is refused. So, on the same
+//    recompute frames, the watch also reads every other Error carrier (m_ErrorQuery = the tool's own query; one
+//    IsEmptyIgnoreFilter when none): the union of their error types, their count and the lowest-index one's prefab
+//    join the change key, and the line says "…; elsewhere: error (blocks the click) InvalidShape on 1 other entity
+//    (SkiRunNaturalA)". (2) TRAILING FOLD. The fold's TrailingDue is also tested on hold frames (eligible Temp, no
+//    recompute; one int test while nothing is folded), so a folded summary is written once its window passes even
+//    while the cursor rests — not only at the next recompute, Invalidate, load or quit.
+//  * C3 (a double-black colour change) was CANCELLED by the owner (2026-10-04, field-test-7-notes-OWNER.md):
+//    double black stays red; BandColors are unchanged from the pre-round build.
+//
 // WHAT CHANGED IN R3 AND WHY (run-binding-glade-spec.md; field test 2, DECISIONS 121):
 //  * GATE IN RANGE, edited run (§3.8, O1 re-key): runs no longer carry the vanilla Owner (it let
 //    the bulldozer delete the whole resort through one run); the run→sign link is our own
@@ -226,7 +266,8 @@
 //     GetBuffer :633), so the cost is count × footprint of GPU overdraw — hence row run-length
 //     strips and Tuning.MaxStrips, enforced by row decimation (stride 2..Tuning.MaxRowStride)
 //     before any truncation. We draw INSIDE the polygon only at low alpha; the border and node
-//     discs are vanilla's (AreaBorderRenderSystem.cs:363-427) and are not redrawn. Whether
+//     discs are vanilla's (AreaBorderRenderSystem.cs:363-427) and are not redrawn here (F7: the
+//     wider copy of them is SkiRunOutlineSystem's, from the same Temp areas). Whether
 //     roundness (0,0) gives perfectly square strip ends is unverified (shader not traced).
 //   * Crux ring: DrawCircle overload :138 (→ DrawCircleImpl :159-187; Projected → FitBox
 //     :300-310, which replaces the centre's y by the terrain range, so the ring's y does not
@@ -368,6 +409,9 @@ namespace SkiResortMod.Systems
             /// <summary>Crux ring outline width passed to DrawCircle (metres assumed, unverified —
             /// see header OVERLAY).</summary>
             public const float CruxRingOutlineM = 1f;
+            /// <summary>F7 C2 (header ROUND F7): at most one `RunFeedback [validation]` line per this many
+            /// wall-clock seconds; a burst of changes is folded into one summary (the LogWindow rule, 10 s).</summary>
+            public const float ValidationLogWindowS = 10f;
         }
 
         /// <summary>Band colours, index = (int)SlopeBand (spec §4 "Strips"), alpha = FillAlpha.</summary>
@@ -501,6 +545,11 @@ namespace SkiResortMod.Systems
         /// <summary>True between this load and its first rated recompute (DUMP: "rating: none
         /// since load").</summary>
         public bool NoRatingSinceLoad => m_GoodGrid == null;
+        /// <summary>F7 C2 (header ROUND F7): the game's verdict on the run being drawn, as of the last
+        /// recompute ("-" while no run is on the cursor or none was read; "clear" = nothing reported), and the
+        /// changes logged (offered to the LogWindow) since the load. Written on a change only (event-time text).</summary>
+        public string ValidationText = "-";
+        public long ValidationChanges;
         public bool IsArmed => m_Armed;
         public bool IsDisabled => m_Disabled;
         /// <summary>The current readout regardless of liveness (dev tab only).</summary>
@@ -660,6 +709,29 @@ namespace SkiResortMod.Systems
         private float m_CapRating, m_CapSteepest, m_CapMean, m_CapDrop;
         private SlopeBand m_CapBand;
 
+        // F7 C2 (header ROUND F7): the eligible Temp's validation state at the last recompute. Masks = bit
+        // (int)Game.Tools.ErrorType of each icon by priority; tags = ValTag*. m_ValSession = a state was read
+        // since the last Invalidate (a run is on the cursor); m_ValOff = the watch threw this load.
+        private const byte ValTagError = 1;     // the Temp carries Game.Tools.Error
+        private const byte ValTagWarning = 2;   // the Temp carries Game.Tools.Warning (another Temp's error names it)
+        private const byte ValTagOther = 4;     // an icon without a readable ToolErrorData type
+        private bool m_ValSession;
+        private bool m_ValOff;
+        private uint m_ValErrors, m_ValWarnings, m_ValInfos;
+        private byte m_ValTags;
+        private uint m_ValFoldErrors, m_ValFoldWarnings, m_ValFoldInfos;   // union over the folded changes
+        private readonly LogWindow m_ValLog = new LogWindow(Tuning.ValidationLogWindowS);
+        // F7 fixer (header ROUND F7, "elsewhere"): the click is refused when ANY entity carries Game.Tools.Error
+        // (ToolBaseSystem.cs:313, :533-540), and a moved shared corner gives the neighbour run its own Temp whose
+        // InvalidShape names only that neighbour (AreaToolSystem.cs:1542-1560; ValidationHelpers.cs:887-943). So the
+        // watch also reads the Error carriers other than the eligible Temp: their error types (union), their count
+        // and the prefab of the lowest-index one — part of the change key and of the line.
+        private EntityQuery m_ErrorQuery;
+        private uint m_ValElseErrors;
+        private int m_ValElseCount;
+        private Entity m_ValElsePrefab;
+        private uint m_ValFoldElse;
+
         // ─────────────────────────────────────────────────────────────────────────────────────
         // Lifecycle
         // ─────────────────────────────────────────────────────────────────────────────────────
@@ -701,6 +773,9 @@ namespace SkiResortMod.Systems
             // Entities behaviour (type handles add reader dependencies), unverified in Game.dll;
             // EntityManager.GetComponentData completes writers anyway.
             GetComponentTypeHandle<Game.Areas.Geometry>(isReadOnly: true);
+            // F7 fixer: the tool's own refusal set (ToolBaseSystem.cs:313, m_ErrorQuery). Read on recompute frames
+            // only (WatchValidation): one IsEmptyIgnoreFilter, an entity array only when something carries Error.
+            m_ErrorQuery = GetEntityQuery(ComponentType.ReadOnly<Game.Tools.Error>());
 
             Mod.Log.Info($"{nameof(SkiRunDrawFeedbackSystem)} created");
         }
@@ -745,7 +820,10 @@ namespace SkiResortMod.Systems
             PrewarmMs = 0f;
             CruxValid = false;
             m_CruxDraw = false;
-            Invalidate("-");
+            Invalidate("-");   // F7 C2: also writes a pending validation fold and ends the session
+            m_ValOff = false;
+            ValidationChanges = 0;
+            m_ValLog.Reset();
 
             // HARD GATE: Game only (house rule; the run prefabs are only bound in game mode).
             if (mode != GameMode.Game)
@@ -779,7 +857,9 @@ namespace SkiResortMod.Systems
                     $"SlowDrawWarnMs={Tuning.SlowDrawWarnMs} " +
                     $"CruxRingMinDiameterM={Tuning.CruxRingMinDiameterM} " +
                     $"CruxRingStepFactor={Tuning.CruxRingStepFactor} " +
-                    $"CruxRingOutlineM={Tuning.CruxRingOutlineM}; classifier " +
+                    $"CruxRingOutlineM={Tuning.CruxRingOutlineM} " +
+                    $"ValidationLogWindowS={Tuning.ValidationLogWindowS} (F7: the game's error / warning types on the " +
+                    "run being drawn, read on recompute frames, logged once per change); classifier " +
                     $"Green>={SkiSlopeClassifier.GradeGreen} Blue>={SkiSlopeClassifier.GradeBlue} " +
                     $"Black>={SkiSlopeClassifier.GradeBlack} DoubleBlack>={SkiSlopeClassifier.GradeDoubleBlack} " +
                     $"EndZoneShare={SkiSlopeClassifier.EndZoneShare} EndZoneDepthM={SkiSlopeClassifier.EndZoneDepthM} " +
@@ -904,6 +984,16 @@ namespace SkiResortMod.Systems
             {
                 Mod.Log.Error($"!!! {nameof(SkiRunDrawFeedbackSystem)} EXCEPTION completing the draw " +
                               $"job in OnDestroy:\n{e}");
+            }
+            try
+            {
+                // F7 C2: quit to desktop raises no load, but the logger still lives here (LogWindow.cs header).
+                if (m_ValLog.Count > 0)
+                    WriteValidationSummary(UnityEngine.Time.realtimeSinceStartup);
+            }
+            catch (Exception)
+            {
+                // teardown must never throw: a folded validation line is dropped
             }
             if (m_Strips.IsCreated)
                 m_Strips.Dispose();
@@ -1078,9 +1168,15 @@ namespace SkiResortMod.Systems
             //    the eligible-Temp path: m_GoodGrid survives Invalidate (capture), so an ungated
             //    verify would sample terrain in normal play.
             if (NeedsRecompute(temp, nodeCount, complete))
+            {
                 Recompute(temp, nodeCount, complete, tempData);
+                WatchValidation(temp, nodeCount, complete, EligibleIsNew);   // F7 C2: recompute frames only
+            }
             else
+            {
                 VerifyStep();
+                FlushValidationFold();   // F7 fixer: a fold waiting while the cursor rests (one int test when none)
+            }
 
             // Readout is live for this frame (Valid says whether the rating is usable).
             m_ReadoutLive = true;
@@ -1650,6 +1746,288 @@ namespace SkiResortMod.Systems
         }
 
         // ─────────────────────────────────────────────────────────────────────────────────────
+        // The game's validation verdict (F7 C2; header ROUND F7)
+        // ─────────────────────────────────────────────────────────────────────────────────────
+
+        /// <summary>Called on a recompute frame with the eligible Temp (after CompleteDependency). Reads the
+        /// verdict, and on a change of the (errors, warnings, infos, tags) set offers one line to the LogWindow.
+        /// A session that starts clean says nothing. Allocates only on a change (the line). Never throws: a
+        /// failure logs one `!!!` and switches only this watch off until the next load.</summary>
+        private void WatchValidation(Entity temp, int nodeCount, bool complete, bool isNew)
+        {
+            if (m_ValOff)
+                return;
+            try
+            {
+                ReadValidation(temp, out uint errors, out uint warnings, out uint infos, out byte tags);
+                ReadElsewhere(temp, out uint elseErrors, out int elseCount, out Entity elsePrefab);   // F7 fixer
+                float now = UnityEngine.Time.realtimeSinceStartup;
+                bool had = m_ValSession;
+                if (had && errors == m_ValErrors && warnings == m_ValWarnings && infos == m_ValInfos && tags == m_ValTags &&
+                    elseErrors == m_ValElseErrors && elseCount == m_ValElseCount && elsePrefab == m_ValElsePrefab)
+                {
+                    if (m_ValLog.TrailingDue(now))
+                        WriteValidationSummary(now);
+                    return;
+                }
+                bool wasClear = !had || (m_ValErrors == 0 && m_ValWarnings == 0 && m_ValInfos == 0 && m_ValTags == 0 &&
+                                         m_ValElseCount == 0);
+                bool isClear = errors == 0 && warnings == 0 && infos == 0 && tags == 0 && elseCount == 0;
+                string was = wasClear ? "clear"
+                    : FullValidationState(m_ValErrors, m_ValWarnings, m_ValInfos, m_ValTags, m_ValElseErrors, m_ValElseCount,
+                        m_ValElsePrefab);
+                m_ValSession = true;
+                m_ValErrors = errors;
+                m_ValWarnings = warnings;
+                m_ValInfos = infos;
+                m_ValTags = tags;
+                m_ValElseErrors = elseErrors;
+                m_ValElseCount = elseCount;
+                m_ValElsePrefab = elsePrefab;
+                if (isClear)
+                {
+                    ValidationText = "clear";
+                    if (wasClear)
+                        return;   // a session that starts clean says nothing
+                }
+                string state = isClear ? "clear"
+                    : FullValidationState(errors, warnings, infos, tags, elseErrors, elseCount, elsePrefab);
+                ValidationText = state;
+                ValidationChanges++;
+                string body = $"{(isNew ? "new" : "edit")} run, {nodeCount} nodes, {(complete ? "complete" : "open")}: " +
+                              $"the game reports {state} (was {was})";
+                LogWindow.Verdict verdict = m_ValLog.Offer(now, false, body, nodeCount);
+                if (verdict == LogWindow.Verdict.Plain)
+                {
+                    Mod.Log.Info("RunFeedback [validation] " + body);
+                    return;
+                }
+                m_ValFoldErrors |= errors;
+                m_ValFoldWarnings |= warnings;
+                m_ValFoldInfos |= infos;
+                m_ValFoldElse |= elseErrors;
+                if (verdict == LogWindow.Verdict.Summary)
+                    WriteValidationSummary(now);
+            }
+            catch (Exception e)
+            {
+                ValidationWatchFailed(e);
+            }
+        }
+
+        private void ValidationWatchFailed(Exception e)
+        {
+            m_ValOff = true;
+            Mod.Log.Error($"!!! {nameof(SkiRunDrawFeedbackSystem)} EXCEPTION in the validation watch — the game's " +
+                          $"error types are no longer logged until the next game load (the heat-map keeps working):\n{e}");
+        }
+
+        /// <summary>F7 fixer (LogWindow rule: TrailingDue on every pass that offered nothing). Called on hold frames
+        /// (eligible Temp, no recompute): with nothing folded it is one int test; else the window test, and the
+        /// summary once the window has passed, so a fold no longer waits for the cursor to move.</summary>
+        private void FlushValidationFold()
+        {
+            if (m_ValLog.Count == 0 || m_ValOff)
+                return;
+            try
+            {
+                float now = UnityEngine.Time.realtimeSinceStartup;
+                if (m_ValLog.TrailingDue(now))
+                    WriteValidationSummary(now);
+            }
+            catch (Exception e)
+            {
+                ValidationWatchFailed(e);
+            }
+        }
+
+        /// <summary>F7 fixer (header ROUND F7, "elsewhere"): the Game.Tools.Error carriers other than the eligible
+        /// Temp — the union of their error types (ReadValidation's errors), their count and the prefab of the
+        /// lowest-index one (stable across chunk order). Recompute frames only; nothing carries Error: one
+        /// IsEmptyIgnoreFilter, no allocation.</summary>
+        private void ReadElsewhere(Entity temp, out uint errors, out int count, out Entity firstPrefab)
+        {
+            errors = 0u;
+            count = 0;
+            firstPrefab = Entity.Null;
+            if (m_ErrorQuery.IsEmptyIgnoreFilter)
+                return;
+            NativeArray<Entity> carriers = m_ErrorQuery.ToEntityArray(Allocator.Temp);
+            try
+            {
+                int lowest = int.MaxValue;
+                for (int k = 0; k < carriers.Length; k++)
+                {
+                    Entity e = carriers[k];
+                    if (e == temp)
+                        continue;
+                    count++;
+                    ReadValidation(e, out uint other, out uint _, out uint _, out byte _);
+                    errors |= other;
+                    if (e.Index < lowest)
+                    {
+                        lowest = e.Index;
+                        firstPrefab = EntityManager.HasComponent<PrefabRef>(e)
+                            ? EntityManager.GetComponentData<PrefabRef>(e).m_Prefab
+                            : Entity.Null;
+                    }
+                }
+            }
+            finally
+            {
+                carriers.Dispose();
+            }
+        }
+
+        /// <summary>The eligible Temp's state (ValidationState), then the other carriers': "elsewhere: error (blocks the
+        /// click) InvalidShape on 1 other entity (SkiRunNaturalA)".</summary>
+        private string FullValidationState(uint errors, uint warnings, uint infos, byte tags, uint elseErrors, int elseCount,
+            Entity elsePrefab)
+        {
+            string own = ValidationState(errors, warnings, infos, tags);
+            if (elseCount == 0)
+                return own;
+            var types = new StringBuilder(64);
+            AppendTypes(types, "", elseErrors);   // an empty builder: no separator, just the names
+            var sb = new StringBuilder(160);
+            sb.Append(own == "clear" ? "this run clear" : own).Append("; elsewhere: error (blocks the click) ")
+              .Append(types.Length > 0 ? types.ToString() : "with no type attached")
+              .Append(" on ").Append(elseCount).Append(elseCount == 1 ? " other entity" : " other entities");
+            string name = elsePrefab != Entity.Null ? m_PrefabSystem.GetPrefabName(elsePrefab) : null;
+            if (!string.IsNullOrEmpty(name))
+                sb.Append(" (").Append(name).Append(elseCount > 1 ? " and others)" : ")");
+            return sb.ToString();
+        }
+
+        /// <summary>The eligible Temp's verdict (header ROUND F7): the Error / Warning tags, then each icon of its
+        /// IconElement buffer → PrefabRef → ToolErrorData.m_Error, sorted by Icon.m_Priority (>= Error, >=
+        /// Warning, below). Core EntityManager reads only; the icon reads may complete the icon jobs of this
+        /// frame (a recompute frame only).</summary>
+        private void ReadValidation(Entity temp, out uint errors, out uint warnings, out uint infos, out byte tags)
+        {
+            errors = warnings = infos = 0u;
+            tags = 0;
+            if (EntityManager.HasComponent<Game.Tools.Error>(temp))
+                tags |= ValTagError;
+            if (EntityManager.HasComponent<Game.Tools.Warning>(temp))
+                tags |= ValTagWarning;
+            if (!EntityManager.HasBuffer<Game.Notifications.IconElement>(temp))
+                return;
+            DynamicBuffer<Game.Notifications.IconElement> icons =
+                EntityManager.GetBuffer<Game.Notifications.IconElement>(temp, isReadOnly: true);
+            for (int i = 0; i < icons.Length; i++)
+            {
+                Entity icon = icons[i].m_Icon;
+                if (!EntityManager.Exists(icon) || !EntityManager.HasComponent<PrefabRef>(icon))
+                {
+                    tags |= ValTagOther;
+                    continue;
+                }
+                Entity prefab = EntityManager.GetComponentData<PrefabRef>(icon).m_Prefab;
+                if (prefab == Entity.Null || !EntityManager.HasComponent<ToolErrorData>(prefab))
+                {
+                    tags |= ValTagOther;
+                    continue;
+                }
+                int type = (int)EntityManager.GetComponentData<ToolErrorData>(prefab).m_Error;
+                if (type < 0 || type > 31)
+                {
+                    tags |= ValTagOther;
+                    continue;
+                }
+                var priority = EntityManager.HasComponent<Game.Notifications.Icon>(icon)
+                    ? EntityManager.GetComponentData<Game.Notifications.Icon>(icon).m_Priority
+                    : Game.Notifications.IconPriority.Error;
+                uint bit = 1u << type;
+                if (priority >= Game.Notifications.IconPriority.Error)
+                    errors |= bit;
+                else if (priority >= Game.Notifications.IconPriority.Warning)
+                    warnings |= bit;
+                else
+                    infos |= bit;
+            }
+        }
+
+        /// <summary>"error (blocks the click) InvalidShape; warning OverlapExisting" — the ErrorType names
+        /// (Game.Tools/ErrorType.cs) per severity, then the tags not explained by a type.</summary>
+        private static string ValidationState(uint errors, uint warnings, uint infos, byte tags)
+        {
+            var sb = new StringBuilder(96);
+            AppendTypes(sb, "error (blocks the click) ", errors);
+            AppendTypes(sb, "warning (does not block) ", warnings);
+            AppendTypes(sb, "info ", infos);
+            if ((tags & ValTagError) != 0 && errors == 0)
+                Separate(sb).Append("error (blocks the click), no type attached");
+            if ((tags & ValTagWarning) != 0)
+                Separate(sb).Append("warning tag (another area being drawn reports this run)");
+            if ((tags & ValTagOther) != 0)
+                Separate(sb).Append("an icon without a tool error type");
+            return sb.Length == 0 ? "clear" : sb.ToString();
+        }
+
+        private static void AppendTypes(StringBuilder sb, string label, uint mask)
+        {
+            if (mask == 0u)
+                return;
+            Separate(sb).Append(label);
+            bool first = true;
+            for (int b = 0; b < 32; b++)
+            {
+                if ((mask & (1u << b)) == 0u)
+                    continue;
+                if (!first)
+                    sb.Append(", ");
+                sb.Append(((ErrorType)b).ToString());
+                first = false;
+            }
+        }
+
+        private static StringBuilder Separate(StringBuilder sb)
+        {
+            return sb.Length == 0 ? sb : sb.Append("; ");
+        }
+
+        /// <summary>One summary line for the folded changes (LogWindow rule), with the union of the types seen.</summary>
+        private void WriteValidationSummary(float now)
+        {
+            string seen = ValidationState(m_ValFoldErrors, m_ValFoldWarnings, m_ValFoldInfos, 0);
+            if (m_ValFoldElse != 0u)
+            {
+                // F7 fixer: the other carriers' error types seen in the fold (FullValidationState's "elsewhere").
+                var sb = new StringBuilder(seen == "clear" ? "" : seen);
+                AppendTypes(sb, "elsewhere error ", m_ValFoldElse);
+                seen = sb.ToString();
+            }
+            Mod.Log.Info($"RunFeedback [validation] {m_ValLog.Count} more change(s) in {m_ValLog.SpanS(now):F0} s, folded " +
+                         $"(one line per ValidationLogWindowS={Tuning.ValidationLogWindowS:0} s): nodes {m_ValLog.Range(0, "F0")}, " +
+                         $"types seen {seen} — last: {m_ValLog.LastText}");
+            m_ValLog.Wrote(now);
+            m_ValFoldErrors = m_ValFoldWarnings = m_ValFoldInfos = m_ValFoldElse = 0u;
+        }
+
+        /// <summary>The run left the cursor (Invalidate): write a pending fold now and forget the state, so the next
+        /// run starts clean. Never throws (Invalidate runs on the exception path too).</summary>
+        private void EndValidationSession()
+        {
+            m_ValSession = false;
+            m_ValErrors = m_ValWarnings = m_ValInfos = 0u;
+            m_ValTags = 0;
+            m_ValElseErrors = 0u;
+            m_ValElseCount = 0;
+            m_ValElsePrefab = Entity.Null;
+            ValidationText = "-";
+            try
+            {
+                if (m_ValLog.Count > 0)
+                    WriteValidationSummary(UnityEngine.Time.realtimeSinceStartup);
+            }
+            catch (Exception)
+            {
+                // a lost summary line must not take the frame down; the next change logs again
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────────────
         // Strips (spec §4 "Strips")
         // ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -1949,6 +2327,11 @@ namespace SkiResortMod.Systems
                   .Append(EligibleComplete ? " complete" : " open")
                   .Append(", candidates ").Append(TempCandidates)
                   .Append(", live ").Append(m_ReadoutLive).Append('\n');
+                // F7 C2 (header ROUND F7): the game's verdict on that Temp at the last recompute.
+                sb.Append("  game validation (last recompute): ").Append(ValidationText ?? "-")
+                  .Append(", changes since load ").Append(ValidationChanges)
+                  .Append(m_ValOff ? ", watch OFF after an exception" : "")
+                  .Append(", folded and not yet written ").Append(m_ValLog.Count).Append('\n');
                 sb.Append("  note: ").Append(LastNote)
                   .Append("; status ").Append(LastStatus)
                   .Append(", raw band ").Append(RawBand)
@@ -2155,6 +2538,8 @@ namespace SkiResortMod.Systems
         /// tool is closed (spec §9.5).</summary>
         private void Invalidate(string note)
         {
+            if (m_ValSession)
+                EndValidationSession();   // F7 C2: once, when the run leaves the cursor (one bool test idle)
             m_ReadoutLive = false;
             m_Readout.Valid = false;
             m_Readout.Kind = -1;      // E1 (ch2 §6.4): no stale fee after the tool leaves a Temp

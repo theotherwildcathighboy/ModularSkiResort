@@ -29,6 +29,29 @@
  *   - Row tooltip: the row's text, its PROBLEM_TIP, for Efficiency the game's factor lines (signed %)
  *     and STAFF_LINE, the PROBLEM_GAIN line when C# sent ifFixed >= 0, and what a click does.
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, problems$, city$.
+ *   - Round F7 (2026-10-04, implementer 4; docs/research/field-test-7-fixes.md D4-D6, findings/hub-ux.md
+ *     §3.2 / §5 with its Verification):
+ *       - the band's dark background is drawn per FILLED slot (`.problemRowOn`), not on the whole band,
+ *         so one problem no longer sits on a box with two empty slots; the band keeps its three-slot
+ *         height (D33) and its side padding moved into each slot row, so the text room is unchanged;
+ *       - the efficiency rows name the sign ("Welcome Sign at {PCT}: {REASON}", "... and {N} more": "+N"
+ *         stays the slot-3 cell's "more problems"); their tooltip no longer tells the player to connect a
+ *         sign that is connected (PROBLEM_TIP[Efficiency]), the game's factor lines follow it. Width in S
+ *         (Overpass advances; 100 / 130 / 150 %) against the slot room — slots 1-2 387 / 551 / 661 rem,
+ *         slot 3 354 / 497 / 592 (beside the "+N" cell). F7 fixer, corrected: "Welcome Sign at 11 %:
+ *         Backed up sewer and 3 more" (field test 7's row) 319.6 / 520.4 / 655.1 fits slots 1-2, but in slot
+ *         3 only at 100 %; "Welcome Sign at 12 %: Lack of electricity and 3 more" 328.9 / 535.7 / 674.3 is cut
+ *         at 150 % in slots 1-2, at 130 and 150 % in slot 3; "Welcome Sign at 45 %: Not Enough Employees and
+ *         3 more" 366.6 / 597.0 / 751.5 is cut at 130 and 150 % in slots 1-2 and at EVERY size in slot 3;
+ *         "Welcome Sign not running: Not Enough Employees and 3 more" 390.5 / 635.9 / 800.5 is cut at every
+ *         size in every slot. The road rows below are severity 3, ranked above a 1-90 % efficiency row
+ *         (severity 2), so with a sign and a lodge off the road the efficiency row sits in slot 3. The row
+ *         text is the tooltip's first line, the ellipsis is the net (design §2.3); a fixed "and {N} more"
+ *         tail cell was not built (owner's call, field-test-7-fixes.md §4.4 item 9);
+ *       - D5: SignNoRoad (18) "Welcome Sign is not at a road" (S 184.1 / 300.1 / 377.4) and LodgeNoRoad
+ *         (19) "Lodge is not at a road: guests cannot reach it" (280.0 / 456.5 / 574.1) fit every slot;
+ *         both fly to their `subject` (the sign; the first lodge without a road). C# ranks them
+ *         (field-test-7-notes-impl3.md).
  */
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
@@ -134,6 +157,8 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "runsRating": return <LocText entry={HUB_FMT.problemRunsRating} args={{ N }} />;
     case "freeLodges": return <LocText entry={HUB_FMT.problemFreeLodges} args={{ N }} />;
     case "runsFlat": return <LocText entry={HUB_FMT.problemRunsFlat} args={{ N }} />;
+    case "signNoRoad": return <>{t(HUB_LOC.problemSignNoRoad)}</>;
+    case "lodgeNoRoad": return <>{t(HUB_LOC.problemLodgeNoRoad)}</>;
     default: return <>{"–"}</>;
   }
 }
@@ -161,6 +186,8 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "runsRating": body = t(HUB_LOC.problemTipRunsRating); break;
     case "freeLodges": body = t(HUB_LOC.problemTipFreeLodges); break;
     case "runsFlat": body = t(HUB_LOC.problemTipRunsFlat); break;
+    case "signNoRoad": body = t(HUB_LOC.problemTipSignNoRoad); break;
+    case "lodgeNoRoad": body = t(HUB_LOC.problemTipLodgeNoRoad); break;
     default: body = null;
   }
   const isEff = p.code === PROBLEM.Efficiency;
@@ -229,7 +256,7 @@ function ProblemSlot({ p, slot, more, hidden, factors, live, t, noneLine }: {
     else if (click === "runsView") view$.update("runs");
   };
   return (
-    <div className={styles.problemSlotRow}>
+    <div className={cx(styles.problemSlotRow, styles.problemRowOn)}>
       <Tip tip={problemTip(p, factors, live, t)}>
         {click ? (
           <Button theme={{ button: cx(styles.problemSlot, styles.problemClickable, p.severity <= 1 && styles.problemDim) }} onSelect={onSelect}>
@@ -273,7 +300,7 @@ export function StatusBlock({ statusRef, problemsRef }: {
           <div className={styles.statusHint}>{hint ? t(hint) : ""}</div>
         </div>
       </Tip>
-      <div ref={problemsRef} className={cx(styles.problems, band.length > 0 && styles.problemsOn)}>
+      <div ref={problemsRef} className={styles.problems}>
         {slots.map((p, i) => (
           <ProblemSlot key={i} p={p} slot={i} more={i === 2 ? more : 0} hidden={band.slice(3)} factors={factors} live={l} t={t}
             noneLine={i === 0 && band.length === 0} />

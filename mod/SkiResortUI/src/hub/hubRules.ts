@@ -14,6 +14,10 @@
  *     ../bindings. tools/test-hub-rules.js throws on any other import.
  *   - Total: every function answers any input without throwing.
  *   - A new rule adds its literal rows to tools/test-hub-rules.js (76 checks in Round E1; 80 after the E1 fixer: T8.7-T8.10).
+ *   - Round F7 (2026-10-04, implementer 4; docs/research/field-test-7-fixes.md D5): the appended codes
+ *     SignNoRoad (18) and LodgeNoRoad (19) are band rows ("signNoRoad" / "lodgeNoRoad") whose click flies to
+ *     `subject` (the sign; the first lodge without a road), like the other building rows. Their oracle rows
+ *     are requested from the owner of tools/test-hub-rules.js (docs/research/field-test-7-notes-impl4.md).
  */
 import type { Entity } from "cs2/utils";
 import {
@@ -78,7 +82,8 @@ export type ProblemVariant =
   | "efficiency" | "efficiencyMore" | "notRunning" | "notRunningMore"
   | "liftNoPower" | "liftSectionMissing" | "liftUnfinished" | "noLift" | "noRuns"
   | "stationsPair" | "stationsBaseOnly" | "stationsTopOnly" | "liftChairsStopped"
-  | "runsUnserved" | "runsUnrateable" | "runsRating" | "freeLodges" | "runsFlat";
+  | "runsUnserved" | "runsUnrateable" | "runsRating" | "freeLodges" | "runsFlat"
+  | "signNoRoad" | "lodgeNoRoad";
 
 /** Which one string a band row renders; null = not a band row. */
 export function problemVariant(p: ProblemRow): ProblemVariant | null {
@@ -102,6 +107,8 @@ export function problemVariant(p: ProblemRow): ProblemVariant | null {
     case PROBLEM.RunsRating: return "runsRating";
     case PROBLEM.FreeLodges: return "freeLodges";
     case PROBLEM.RunsFlat: return "runsFlat";
+    case PROBLEM.SignNoRoad: return "signNoRoad";
+    case PROBLEM.LodgeNoRoad: return "lodgeNoRoad";
     default: return null;
   }
 }
@@ -139,10 +146,12 @@ export function problemIcon(p: ProblemRow | null): ProblemIcon {
 
 export type ProblemClick = "sign" | "lift" | "liftsView" | "runsView" | null;
 
-/** What a click on a band row does (design 7.2). */
+/** What a click on a band row does (design 7.2). "sign" = fly to `subject` (a building: the sign, or for
+ *  LodgeNoRoad the lodge; Round F7 D5). */
 export function problemClick(p: ProblemRow): ProblemClick {
   switch (p.code) {
     case PROBLEM.NoLodge: case PROBLEM.LodgesAllOff: case PROBLEM.LodgesSomeOff: case PROBLEM.Efficiency:
+    case PROBLEM.SignNoRoad: case PROBLEM.LodgeNoRoad:
       return "sign";
     case PROBLEM.LiftNoPower: case PROBLEM.LiftSectionMissing: case PROBLEM.LiftUnfinished:
     case PROBLEM.StationsOnly: case PROBLEM.LiftChairsStopped:

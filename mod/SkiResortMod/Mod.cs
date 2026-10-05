@@ -410,16 +410,19 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<SkiRunContourSystem, Game.Rendering.UndergroundViewSystem>(
                 SystemUpdatePhase.PreCulling);
 
-            // Run outline size (Round E1 addendum A1, docs/research/econ-round/addendum-a1-run-outline.md):
-            // writes the "Run outline size" setting into AreaGeometryData.m_SnapDistance of our four run
-            // prefab entities (the area tool's outline width and corner dots, AreaBorderRenderSystem.cs:517,
-            // :527, :531; its snapping radius; the minimum corner distance, AreaUtils.cs:55-58) at
-            // OnGameLoadingComplete and on a settings apply. Disabled except for the one frame after a
-            // settings apply (the CursorAimSystem pattern: OnGameLoadingComplete fires anyway). Phase:
-            // UIUpdate runs every frame, paused included (UIUpdateSystem.cs:17-20, SystemOrder.cs:67), so a
-            // change made from the pause menu's Options applies on the next frame; the order within the phase
-            // is not load-bearing (prefab data, read by the area tool and the border renderer later).
-            updateSystem.UpdateAt<SkiRunOutlineSystem>(SystemUpdatePhase.UIUpdate);
+            // Run outline (Round F7 item C1, docs/research/field-test-7-fixes.md; replaces the E1 addendum A1
+            // m_SnapDistance write, so the game's 0.75 snapping returns): the setting changes thickness only. The
+            // system draws its own outline and corner dots for our four run prefabs, mirroring
+            // AreaBorderRenderSystem (Rendering, SystemOrder.cs:679, 1.6.2 :680) in a Burst job. Anchor is
+            // load-bearing for the reason of SkiPisteMapSystem below: OverlayRenderSystem (Rendering,
+            // SystemOrder.cs:687, 1.6.2 :688) completes every registered buffer writer and then uploads and clears
+            // the overlay lists each frame (OverlayRenderSystem.cs:738-741, 781, 790), so the job must be
+            // scheduled BEFORE it in the same phase. Rendering follows ToolSystem → ModificationSystem →
+            // UIUpdateSystem in MainLoop (SystemOrder.cs:58, 60, 67, 68), so the frame's Temp areas are final, and
+            // it runs every frame, paused included. ONE registration only (UpdateBefore; an UpdateAt as well would
+            // run it twice a frame, UpdateSystem.cs:158-176 → :271-292). Per frame, when nothing is drawn, the
+            // system must cost only an emptiness check (contract §0).
+            updateSystem.UpdateBefore<SkiRunOutlineSystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
 
             // --- Ski Resort hub (Round U1, docs/research/resort-hub-understand.md §5.2 item 4; Round U2,
             // docs/research/hub-u2-spec.md §3.6) ------------------------------------------------------
@@ -511,6 +514,33 @@ namespace SkiResortMod
             // UIUpdate (:67), so the system sees the view the tool just opened.
             updateSystem.UpdateBefore<SkiPlacementInfoviewSystem, Game.UI.InGame.InfoviewsUISystem>(
                 SystemUpdatePhase.UIUpdate);
+
+            // --- Round F7 (docs/research/field-test-7-fixes.md, implementer 1) ---------------------------
+            // Sign utilities (A1-A3; findings/sign-utilities.md + Verification): the sign has no consumption of its
+            // own, the lodge's lands on it through ServiceUpgradeSystem (Modification4, SystemOrder.cs:170; consumers
+            // added by ModificationBarrier4, UpdateAfter, :90), which queues no road edge, so the road never gets its
+            // link to the supply sink. This system queues the sign's Building.m_RoadEdge into both road graph
+            // systems' public queues when an upgrade of a Welcome Sign is Created or Deleted. Anchor is load-bearing:
+            // Modification5 sees the consumers already added or removed, RoadConnectionSystem's road edge
+            // (Modification4B, :180) and this frame's Created / Deleted tags (Cleanup, :54); it must run BEFORE
+            // ElectricityRoadConnectionGraphSystem (:246), whose job drains the queue in the same frame, and
+            // WaterPipeRoadConnectionGraphSystem (:247) is registered after it. ONE anchor only: each UpdateBefore
+            // call adds its own entry (UpdateSystem.cs:173-176, :278-292), so a second anchor on the water system
+            // would run it twice a frame. ModificationSystem runs in MainLoop, paused included (SystemOrder.cs:60;
+            // ModificationSystem.cs:19-26); no update interval applies there (UpdateSystem.cs:183-221). The system
+            // calls RequireForUpdate on its event query, so an idle frame runs none of its code. All lines identical
+            // in 1.6.2.
+            updateSystem.UpdateBefore<SkiSignUtilityHookSystem, Game.Simulation.ElectricityRoadConnectionGraphSystem>(
+                SystemUpdatePhase.Modification5);
+
+            // Lodge road connection (B2-B3; findings/ped-access.md Verification V3, locals/reach-verdict.md §7):
+            // clears NoRoadConnection (sets RequireRoad) and OwnerSide on the lodge PREFAB at every Game-mode load,
+            // the state the game gives an upgrade allowed a road (BuildingInitializeSystem.cs:177-188); an Editor
+            // load after a game in the same app run writes the game's values back (F7 fixer). Registered
+            // like CursorAimSystem: disabled, OnGameLoadingComplete only, no per-frame work; the phase is not
+            // load-bearing (BuildingInitializeSystem runs only on Created prefab entities, PrefabUpdate,
+            // SystemOrder.cs:1018, 1.6.2 :1019, long before a city load).
+            updateSystem.UpdateAt<LodgeRoadSystem>(SystemUpdatePhase.GameSimulation);
         }
 
         /// <summary>Round U1 (research §2.A.3 item 12): one line per load of the mod —

@@ -4,7 +4,9 @@
 // mod/SkiResortUI/tools/check-bundle.js compares each name and value with bindings.ts, so every value is
 // written out and HubProblemCode is APPEND ONLY), the small rules behind the ResortLive / RunLive / LiftRow
 // fields, the area-weighted snow sums, rule 7's guard (FollowCheck, D36) and the problems band
-// (HubProblems.Build). Written 2026-10-04 (Round E1, stream S5).
+// (HubProblems.Build). Written 2026-10-04 (Round E1, stream S5). Round F7 (2026-10-04, implementer 3;
+// docs/research/field-test-7-fixes.md D5): HubProblemCode SignNoRoad = 18 / LodgeNoRoad = 19 appended, with the
+// two HubProblemInput fields behind them.
 //
 // CALLERS: SkiResortStatsSystem (every rule of a rebuild; HubProblems.Build per area) and
 // SkiResortHubUISystem (LiftNoPair for build[lift].hint, FollowCheck for rule 7, LiftLinePerKm for the
@@ -44,7 +46,9 @@
 //   FollowCheck       (order matters) hub closed; a rule switched in this pass; within
 //                     FollowQuietAfterUserS of the player's own switch; within FollowMinIntervalS of the
 //                     last follow; else Follow. −∞ = never; a NaN comparison is false, so it allows
-//   HubProblems.Build (ch5 §6.2): Unlinked rows only for the Not linked entry; else lodges, efficiency,
+//   HubProblems.Build (ch5 §6.2): Unlinked rows only for the Not linked entry; else lodges, road edges (Round F7
+//                     D5: SignNoRoad severity 3; LodgeNoRoad 3 when every lodge, else 1, count = lodges with no
+//                     road), efficiency,
 //                     lifts (E1 fixer F9: lone stations of state 4 paired across rows — one "draw the lift
 //                     line" row per base + top pair), no lift, no runs, unserved, unrateable / rating / flat — then a STABLE
 //                     insertion sort by (severity descending, code ascending, insertion order), cut to
@@ -81,6 +85,7 @@ namespace SkiResortMod.Systems
         LiftSectionMissing = 6, LiftUnfinished = 7, NoLift = 8, NoRuns = 9, StationsOnly = 10,
         LiftChairsStopped = 11, RunsUnserved = 12, RunsUnrateable = 13, RunsRating = 14, FreeLodges = 15, Factor = 16,
         RunsFlat = 17,   // second pass (e1-spec §2.5 H1): appended after Factor
+        SignNoRoad = 18, LodgeNoRoad = 19,   // Round F7 D5 (field-test-7-fixes.md): appended (gate R17)
     }
 
     /// <summary>Rule 7's verdict (D36; C# only, not in the contract).</summary>
@@ -108,6 +113,9 @@ namespace SkiResortMod.Systems
         public int LiftRows, Runs, RunsUnserved, RunsUnrateable, RunsRating, RunsFlat, BackcountryPct;   // RunsFlat: second pass
         public int AttractionFull;                // −1 = unknown
         public int IfOneLodge, IfLodgesOn;        // AttractionWithLodges; −1 = unknown
+        // Round F7 D5: Building.m_RoadEdge is Entity.Null on the sign / on this many of the area's lodges.
+        public bool SignNoRoad;
+        public int LodgesNoRoad;
     }
 
     /// <summary>One problems row (band or Factor) before the stats system adds the area's entities.</summary>
@@ -462,6 +470,16 @@ namespace SkiResortMod.Systems
                 output.Add(Row(HubProblemCode.LodgesAllOff, 3, count: input.Lodges, ifFixed: input.IfLodgesOn));
             else if (input.LodgesActive < input.Lodges)
                 output.Add(Row(HubProblemCode.LodgesSomeOff, 1, count: input.Lodges - input.LodgesActive));
+
+            // 2b. Round F7 D5: road edges (the stats rebuild reads Building.m_RoadEdge). The game shows no warning
+            // for a sign off the road (field-test-7 sign-utilities.md §5); it then gets no power, water or sewage.
+            // A lodge with no road edge has no walking target for guests (ped-access.md §4.2). Lodge severity
+            // mirrors LodgesAllOff / LodgesSomeOff: every lodge 3, some 1. Count = lodges with no road (≤ Lodges).
+            if (input.SignNoRoad)
+                output.Add(Row(HubProblemCode.SignNoRoad, 3));
+            int lodgesNoRoad = Math.Min(input.LodgesNoRoad, input.Lodges);
+            if (lodgesNoRoad > 0)
+                output.Add(Row(HubProblemCode.LodgeNoRoad, (byte)(lodgesNoRoad >= input.Lodges ? 3 : 1), count: lodgesNoRoad));
 
             // 3. Efficiency (the worst factor named; the rest counted).
             int factors = input.Factors != null ? input.Factors.Count : 0;

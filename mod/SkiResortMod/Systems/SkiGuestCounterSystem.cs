@@ -67,7 +67,8 @@
 // meetings O(meeting entities) ~0.1 ms; leisure O(citizens out for leisure) 0.2-1 ms per 256 frames at
 // 100k population. Measured once per load: `Guests [cost]` after Tuning.CostTicks ticks, plus one
 // schedule-to-complete timing of both scans on the first leisure tick from tick CostTicks on (results
-// used as on any other tick — nothing counted twice).
+// used as on any other tick — nothing counted twice). Round F7 (item E3, log-audit D5): only ticks that
+// scheduled the scans count (the map had a target); idle ticks before the first Welcome Sign are left out.
 // LOGS (ch4 §4.7, exact): created; ARMED; `Guests [targets]` on change; `Guests [first]` per ski area per
 // load (first tourist party, first local); `Guests [month]` per ski area + total at a roll, the jump line,
 // the O1 note; the month in progress before a load (` (until the load)`) and before a jump
@@ -119,7 +120,7 @@ namespace SkiResortMod.Systems
             public const int LeisureEveryNthTick = 16;
             /// <summary>Map rebuild backstop (256 × 16 = 4,096 sim frames, ch4 §4.2).</summary>
             public const int MapBackstopTicks = 256;
-            /// <summary>Ticks timed for the `Guests [cost]` line (once per load, ch4 §4.7).</summary>
+            /// <summary>Ticks with scans timed for the `Guests [cost]` line (once per load, ch4 §4.7; F7 E3).</summary>
             public const int CostTicks = 256;
             /// <summary>O1 note threshold: the lodge break-even in paying locals a month (ch4 §4.7, e1-spec O1).</summary>
             public const int LocalTicketsNotePerMonth = 300;
@@ -520,7 +521,7 @@ namespace SkiResortMod.Systems
                 m_Ticks++;
 
                 double ms = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
-                RecordCost(ms, leisureTick && scheduled);
+                RecordCost(ms, scheduled, leisureTick && scheduled);
             }
             catch (Exception e)
             {
@@ -934,9 +935,12 @@ namespace SkiResortMod.Systems
 
         // ── cost (once per load) ──────────────────────────────────────────────────────────────────
 
-        private void RecordCost(double ms, bool leisureScheduled)
+        /// <summary>`Guests [cost]`, once per load. F7 E3 (header COST): only ticks that scheduled the scans
+        /// count — a tick with an empty target map does no work (field test 7: 256 ticks were timed before
+        /// the city had a Welcome Sign).</summary>
+        private void RecordCost(double ms, bool scheduled, bool leisureScheduled)
         {
-            if (m_CostLogged)
+            if (m_CostLogged || !scheduled)
                 return;
             if (m_CostTicks < Tuning.CostTicks)
             {
@@ -955,7 +959,7 @@ namespace SkiResortMod.Systems
             double w = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
             m_CostLogged = true;
             Mod.Log.Info($"Guests [cost] main thread per tick: mean {m_CostSumMs / Math.Max(1, m_CostTicks):F3} ms, max {m_CostMaxMs:F3} ms " +
-                         $"over {m_CostTicks} ticks; last scans: {m_Stats[0]} meetings, {m_Stats[2]} leisure citizens; targets " +
+                         $"over {m_CostTicks} ticks with scans; last scans: {m_Stats[0]} meetings, {m_Stats[2]} leisure citizens; targets " +
                          $"{m_TargetSigns} signs + {m_TargetLodges} lodges; one synchronous scan (schedule to complete): " +
                          $"meetings + leisure {w:F3} ms");
         }

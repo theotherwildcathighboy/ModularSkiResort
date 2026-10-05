@@ -10,6 +10,7 @@
 // E1 (docs/research/econ-round/e1-spec.md §2.4, 2026-10-04; stage 0 owns this file, R10): group
 // "Ski area balance", rewritten K / backcountry / gating / snowmaking texts, the new LiftTicketPrice,
 // and (addendum A1) RunOutlineSize in the Runs group. Plain characters only (°, &, %).
+// F7 (docs/research/field-test-7-fixes.md C1): the RunOutlineSize description, shorter (thickness only).
 // Additional languages: add further IDictionarySource implementations (or a translations
 // file) and AddSource them with the matching locale id — see SPEC §13 Phase 6.
 
@@ -194,16 +195,16 @@ namespace SkiResortMod.Settings
                     "in the area tool and turn off again afterwards. If you already had them " +
                     "on, they stay on."
                 },
-                // Round E1 addendum A1 (docs/research/econ-round/addendum-a1-run-outline.md), verbatim.
+                // Label: Round E1 addendum A1. Description: Round F7 C1 (docs/research/field-test-7-fixes.md),
+                // verbatim — the setting is thickness only since F7 (no corner rule, no snapping).
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.RunOutlineSize)),
                     "Run outline size"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.RunOutlineSize)),
-                    "How thick the outline and corner dots are while you draw or edit a ski run. Larger " +
-                    "is easier to see from far away. Corners of a run cannot be closer together than " +
-                    "half this many metres. 0 keeps the game's thin outline."
+                    "How thick the outline and corner dots are while you draw, edit or bulldoze a ski run. " +
+                    "0 keeps the game's thin outline."
                 },
 
                 // --- Lifts (Round L1, docs/research/hub-u2-spec.md §2.4; texts are the spec's) -------

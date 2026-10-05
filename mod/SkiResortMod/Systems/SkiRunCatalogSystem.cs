@@ -30,7 +30,7 @@
 //     | front ratings       | one per UIUpdate frame, at once          | the same                               |
 //     | background ratings  | duty factor DutyFactorOpen 8             | DutyFactorClosed 32, and at least      |
 //     |                     |                                          | ClosedMinGapS 0.25 s apart             |
-//     | backstop            | BackstopS 10 s                           | ClosedBackstopS 600 s (a safety net)   |
+//     | backstop            | BackstopS 60 s (F7; was 10 s)            | ClosedBackstopS 600 s (a safety net)   |
 //   Per-frame cost with the panel closed: the frame count, the epoch compare, one IsEmptyIgnoreFilter,
 //   one int compare and a few float compares; nothing is allocated. An explicit RequestRebuild (dev
 //   tab, load) is served in both states. While PAUSED the service keeps working (UIUpdate runs paused,
@@ -44,6 +44,18 @@
 //   the attraction model stops holding its first provider write (ch1 §9) and unrated runs count 0.
 //   Both panel-closed costs are measured and logged once per load ("Catalog [service]", after
 //   ServiceCostLogAfterRebuilds = 32 closed rebuilds).
+//
+// COST LINE AND BACKSTOP F7 (Round F7, item E3; docs/research/field-test-7-fixes.md, log-audit.md D5 / D11):
+//   * "Catalog [service]" counts only panel-closed rebuilds that had at least one run row to walk
+//     (m_CostRebuilds*; the line fired 34 minutes before the first run in field test 7 and measured an
+//     empty list). Rebuilds of an empty list are still counted in m_ClosedRebuilds for the DUMP, and the
+//     line says how many it left out. Ratings exist only with runs, so their counters are unchanged.
+//   * BackstopS 10 → 60 s with the hub open: one main-thread rating of 2-9.5 ms every 10 s while the hub
+//     was open (39 by the field test's DUMP). The "skip unchanged runs" alternative is not possible
+//     cheaply: the backstop exists for the one change that moves no key — terrain under the outline changed
+//     by roads and buildings (no readable terrain version, header INVALIDATION) — while node moves and
+//     re-snaps already re-rate through Key / YKey. So the backstop keeps re-rating the oldest-rated run,
+//     every 60 s instead of 10 s.
 //
 // READ API (Round E1, ch2 §2.4; e1-spec I-11/I-12, R12 — RatingServiceState and RunFacts are NESTED
 // here; main thread only): ServiceState; RatingRevision (++ whenever a RunFacts field of any run
@@ -248,8 +260,8 @@ namespace SkiResortMod.Systems
             public const int TerrainEpochDelayFrames = 30;
 
             /// <summary>Wall-clock seconds between backstop re-ratings of the oldest-rated run
-            /// while the hub is open (tunable, unmeasured).</summary>
-            public const float BackstopS = 10f;
+            /// while the hub is open. F7 E3 (header COST LINE AND BACKSTOP F7): 10 → 60 s.</summary>
+            public const float BackstopS = 60f;
 
             /// <summary>Lattice cells above which the rating grid / result pair is replaced by
             /// fresh small instances after the rating (tunable).</summary>
@@ -277,7 +289,8 @@ namespace SkiResortMod.Systems
             /// <summary>Panel-closed backstop: re-rate the oldest-rated run every this many wall-clock s
             /// (second pass: 600, a safety net only — events, binds and the terrain epoch catch the real changes).</summary>
             public const float ClosedBackstopS = 600f;
-            /// <summary>The one-time "Catalog [service]" cost line is written after this many panel-closed rebuilds.</summary>
+            /// <summary>The one-time "Catalog [service]" cost line is written after this many panel-closed rebuilds
+            /// that had at least one run to walk (F7 E3: a rebuild of an empty list measures nothing).</summary>
             public const int ServiceCostLogAfterRebuilds = 32;
         }
 
@@ -443,6 +456,10 @@ namespace SkiResortMod.Systems
         private float m_ClosedRatingMsSum, m_ClosedRatingMsMax;   // E1
         private float m_ClosedSince = -1f;        // E1: realtimeSinceStartup of the first closed rebuild this load
         private bool m_ServiceCostLogged;         // E1: "Catalog [service]" written this load
+        // F7 E3 (header COST LINE AND BACKSTOP F7): the cost line's own record — closed rebuilds with >= 1 row.
+        private int m_CostRebuilds;
+        private float m_CostRebuildMsSum, m_CostRebuildMsMax;
+        private float m_CostSince = -1f;          // realtimeSinceStartup of the first such rebuild this load
 
         /// <summary>Set by SkiResortHubUISystem every frame: the hub has an observer on any of the
         /// bindings that need the catalog (U2: resorts, runs, lifts, lodges, city, build). Plain field.</summary>
@@ -823,6 +840,10 @@ namespace SkiResortMod.Systems
             m_ClosedRatingMsMax = 0f;
             m_ClosedSince = -1f;
             m_ServiceCostLogged = false;
+            m_CostRebuilds = 0;                 // F7 E3
+            m_CostRebuildMsSum = 0f;
+            m_CostRebuildMsMax = 0f;
+            m_CostSince = -1f;
             ServiceState = RatingServiceState.Off;
 
             if (mode != GameMode.Game)
@@ -1067,6 +1088,16 @@ namespace SkiResortMod.Systems
                 m_ClosedRebuildMsSum += ms;
                 if (ms > m_ClosedRebuildMsMax)
                     m_ClosedRebuildMsMax = ms;
+                // F7 E3: the cost line's record counts only rebuilds that had a run to walk.
+                if (m_Rows.Count > 0)
+                {
+                    if (m_CostRebuilds == 0)
+                        m_CostSince = now;
+                    m_CostRebuilds++;
+                    m_CostRebuildMsSum += ms;
+                    if (ms > m_CostRebuildMsMax)
+                        m_CostRebuildMsMax = ms;
+                }
             }
 
             bool requested = !ReferenceEquals(why, WhyHeartbeat) && !IsSignatureWhy(why);
@@ -1768,14 +1799,16 @@ namespace SkiResortMod.Systems
                 ServiceState = (RatingServiceState)next;
                 RatingRevision++;
             }
-            if (!m_ServiceCostLogged && m_ClosedRebuilds >= Tuning.ServiceCostLogAfterRebuilds)
+            if (!m_ServiceCostLogged && m_CostRebuilds >= Tuning.ServiceCostLogAfterRebuilds)
             {
+                // F7 E3 (header COST LINE AND BACKSTOP F7): rebuilds with at least one run only.
                 m_ServiceCostLogged = true;
-                float spanS = m_ClosedSince >= 0f ? now - m_ClosedSince : 0f;
-                float rebuildMean = m_ClosedRebuilds > 0 ? m_ClosedRebuildMsSum / m_ClosedRebuilds : 0f;
+                float spanS = m_CostSince >= 0f ? now - m_CostSince : 0f;
+                float rebuildMean = m_CostRebuilds > 0 ? m_CostRebuildMsSum / m_CostRebuilds : 0f;
                 float ratingMean = m_ClosedRatings > 0 ? m_ClosedRatingMsSum / m_ClosedRatings : 0f;
-                Mod.Log.Info($"Catalog [service] panel closed: {m_ClosedRebuilds} rebuild(s) in {spanS:F0} s, mean " +
-                             $"{rebuildMean:F2} ms, max {m_ClosedRebuildMsMax:F2} ms; {m_ClosedRatings} rating(s) with the " +
+                Mod.Log.Info($"Catalog [service] panel closed: {m_CostRebuilds} rebuild(s) with runs in {spanS:F0} s, mean " +
+                             $"{rebuildMean:F2} ms, max {m_CostRebuildMsMax:F2} ms ({m_ClosedRebuilds - m_CostRebuilds} of an empty " +
+                             $"list not counted); {m_ClosedRatings} rating(s) with the " +
                              $"panel closed, mean {ratingMean:F1} ms, max {m_ClosedRatingMsMax:F1} ms " +
                              $"(ClosedHeartbeatS={Tuning.ClosedHeartbeatS:0.##}, ClosedBackstopS={Tuning.ClosedBackstopS:0.##}, " +
                              $"DutyFactorClosed={SkiRunRatingRules.DutyFactorClosed:0.##}, " +

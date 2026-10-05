@@ -7,7 +7,8 @@
 // WHAT IS CHARGED (the one-model rule): the billable base is the injection system's
 // per-type ACTIVE mask — texels whose thermal gate is ON at their own elevation this
 // top-up window (SkiSnowInjectionSystem.SnowmakingActiveTexels / GroomedActiveTexels ×
-// TexelAreaM2). Guns bill while guns can run, groomers bill while grooming holds, and in
+// TexelAreaM2), each run capped at its plan area since F7 (header PLAN-AREA CAP below).
+// Guns bill while guns can run, groomers bill while grooming holds, and in
 // summer everything is free because the gates are off. Visuals, attractiveness and money
 // all read the same climate model and cannot disagree. Overlapping runs never
 // double-bill (a texel is claimed once — see MaskStats). "Natural runs" are free by
@@ -54,6 +55,20 @@
 // still logs plain. A fold is flushed before an idle line, before a load (OnGamePreload) and at
 // quit (OnDestroy; F6 fixer). F6 fixer (review): the first billable pass after a load or an idle
 // spell is forced (written at once, with any fold), so a billing restart is never folded away.
+//
+// PLAN-AREA CAP (Round F7, item E2; docs/research/field-test-7-fixes.md, log-audit.md "Missed" 1): a run
+// is never billed for more hectares than it has. The mask counts every texel the outline touches as a
+// whole texel (~14 m cells, TexSize 1024 over the playable area), so edge texels over-read the run by
+// about 3-4 % (field test 7: 26.5 ha "with snow" on a 25.54 ha run, 3.2 ha on a 3.05 ha run). Each pass
+// therefore takes, per run of the catalog (SkiRunCatalogSystem rows: Entity, Kind, AreaM2 = the plan area
+// Geometry.m_SurfaceArea) with an entry in the per-run map (SkiSnowInjectionSystem.TryGetRunActiveTexels,
+// first-claim counts that sum exactly to the three totals), the part of its texel hectares above its plan
+// area off its kind's total: BilledHa(texels, texelHa, plan) = min(texels × texelHa, plan / 10⁴). A run the
+// catalog does not list yet (one UIUpdate rebuild behind) is billed uncapped for that pass, as before.
+// BilledHa is public and pure so the hub's run rows (SkiResortStatsSystem.CollectRuns, its own owner;
+// request in docs/research/field-test-7-notes-impl5.md) can read the same number as the bill. The charge
+// line names the hectares clipped when there are any. Cost: one dictionary lookup per run per charge pass
+// (1,024 frames).
 
 using System;
 using Colossal.Serialization.Entities;
@@ -125,6 +140,18 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>F7 E2 (header PLAN-AREA CAP): the hectares a run is billed for — its active mask texels
+        /// × the texel area in ha, never more than its plan area (m², Geometry.m_SurfaceArea). Texels on
+        /// the outline count whole, so the raw product reads a few per cent over the run. A plan area that
+        /// is not a finite positive number leaves the raw value (nothing to cap against). Pure.</summary>
+        public static float BilledHa(int activeTexels, float texelHa, float planAreaM2)
+        {
+            float ha = activeTexels > 0 && texelHa > 0f && !float.IsInfinity(texelHa) ? activeTexels * texelHa : 0f;
+            if (float.IsNaN(planAreaM2) || float.IsInfinity(planAreaM2) || planAreaM2 <= 0f)
+                return ha;
+            return Math.Min(ha, planAreaM2 / 10000f);
+        }
+
         /// <summary>U2: the monthly rate of the last charge pass (0 while idle or before the first
         /// pass of this load).</summary>
         public float LastMonthlyRate { get; private set; }
@@ -140,6 +167,7 @@ namespace SkiResortMod.Systems
 
         private SimulationSystem m_SimulationSystem;
         private SkiSnowInjectionSystem m_SnowInjectionSystem;
+        private SkiRunCatalogSystem m_Catalog;      // F7 E2: the runs' plan areas (header PLAN-AREA CAP)
         private CitySystem m_CitySystem;
         private TimeSystem m_TimeSystem;
 
@@ -163,6 +191,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_SimulationSystem = World.GetOrCreateSystemManaged<SimulationSystem>();
             m_SnowInjectionSystem = World.GetOrCreateSystemManaged<SkiSnowInjectionSystem>();
+            m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
             m_TimeSystem = World.GetOrCreateSystemManaged<TimeSystem>();
             Mod.Log.Info($"{nameof(SkiRunUpkeepSystem)} created");
@@ -237,7 +266,7 @@ namespace SkiResortMod.Systems
                          $"{Tuning.GroomedCostPerHaMonth}/ha/month, night " +
                          $"{Tuning.NightCostPerHaMonth}/ha/month, billed against the " +
                          "injection system's ACTIVE thermal mask (gates off = free, summer " +
-                         $"= free, natural terrain = free); charge pass every " +
+                         "= free, natural terrain = free), each run's hectares capped at its plan area; charge pass every " +
                          $"{Tuning.ChargeIntervalFrames} sim frames, elapsed-frame accrual " +
                          "with fractional carry; charge lines at most one per " +
                          $"LogWindowS={Tuning.LogWindowS:0} s wall clock (a burst is folded into one summary)");
@@ -293,6 +322,7 @@ namespace SkiResortMod.Systems
             float snowmakingHa = m_SnowInjectionSystem.SnowmakingActiveTexels * texelHa;
             float groomedHa = m_SnowInjectionSystem.GroomedActiveTexels * texelHa;
             float nightHa = m_SnowInjectionSystem.NightActiveTexels * texelHa;
+            float clippedHa = ClipToPlanAreas(texelHa, ref snowmakingHa, ref groomedHa, ref nightHa);   // F7 E2
             float monthlyRate = snowmakingHa * Tuning.SnowmakingCostPerHaMonth
                               + groomedHa * Tuning.GroomedCostPerHaMonth
                               + nightHa * Tuning.NightCostPerHaMonth;
@@ -349,7 +379,8 @@ namespace SkiResortMod.Systems
                               $"rate {rateBucket}/month = snowmaking {snowmakingHa:F1} ha × " +
                               $"{Tuning.SnowmakingCostPerHaMonth} + groomed {groomedHa:F1} ha × " +
                               $"{Tuning.GroomedCostPerHaMonth} + night {nightHa:F1} ha × " +
-                              $"{Tuning.NightCostPerHaMonth}, balance {balance}";
+                              $"{Tuning.NightCostPerHaMonth}, balance {balance}" +
+                              (clippedHa >= 0.05f ? $" (edge texels over the runs' plan areas not billed: {clippedHa:F1} ha)" : "");
                 // F6 D3 (header FLOOD WINDOW): the first line after a quiet window (or the forced
                 // restart) is written as before; the rest of a burst is folded into one summary.
                 switch (m_ChargeLog.Offer(now, force, body, debit, rateBucket))
@@ -366,6 +397,48 @@ namespace SkiResortMod.Systems
             {
                 WriteChargeSummary(now);   // the end of a burst: never silent
             }
+        }
+
+        /// <summary>F7 E2 (header PLAN-AREA CAP): takes each catalogued run's texel hectares above its plan
+        /// area off its kind's total; returns the hectares taken off. Runs the catalog does not list, natural
+        /// runs and runs without an entry in the per-run map are left as they are. Each total stays >= 0.
+        /// Main thread; no allocation.</summary>
+        private float ClipToPlanAreas(float texelHa, ref float snowmakingHa, ref float groomedHa, ref float nightHa)
+        {
+            if (!(texelHa > 0f))
+                return 0f;
+            float clipped = 0f;
+            int rows = m_Catalog.RowCount;
+            for (int i = 0; i < rows; i++)
+            {
+                SkiRunCatalogSystem.RunRow row = m_Catalog.GetRow(i);
+                if (row.Kind == (int)RunKind.Natural)
+                    continue;
+                if (!m_SnowInjectionSystem.TryGetRunActiveTexels(row.Entity, out int texels) || texels <= 0)
+                    continue;
+                float excess = texels * texelHa - BilledHa(texels, texelHa, row.AreaM2);
+                if (!(excess > 0f))
+                    continue;
+                switch (row.Kind)
+                {
+                    case (int)RunKind.Snowmaking:
+                        excess = math.min(excess, snowmakingHa);
+                        snowmakingHa -= excess;
+                        break;
+                    case (int)RunKind.Night:
+                        excess = math.min(excess, nightHa);
+                        nightHa -= excess;
+                        break;
+                    case (int)RunKind.Groomed:
+                        excess = math.min(excess, groomedHa);
+                        groomedHa -= excess;
+                        break;
+                    default:
+                        continue;
+                }
+                clipped += excess;
+            }
+            return clipped;
         }
 
         /// <summary>F6 D3 (header FLOOD WINDOW): one line for the folded charge lines — how many, over

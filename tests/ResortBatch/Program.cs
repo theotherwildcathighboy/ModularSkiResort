@@ -75,6 +75,7 @@ namespace ResortBatch
             SnowRulesTests.Run(Check);
             MoneyBatch.Run(Check);
             HubRulesTests.Run(Check);
+            RunOutlineTests.Run(Check);   // ROUND F7 C1 (docs/research/field-test-7-fixes.md): RunOutlineRules
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  ResortBatch checks={0} failures={1}", s_Checks, s_Failures));
             Environment.ExitCode = s_Failures;

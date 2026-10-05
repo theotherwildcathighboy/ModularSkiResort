@@ -13,7 +13,8 @@
  *     (cs2/ui Button, `.startButton` 1.6 em of S so it fits the row - E1 fixer F16, the U15 rule;
  *     launch("sign"); highlighted while the sign tool is active; a locked sign still
  *     launches - C# refuses and logs it, like the Build strip). While build[sign] is locked, its
- *     reason follows the steps (a state change). Then START_NOTE (a 2-line note slot).
+ *     reason follows the steps (a state change). Round F7 (D6, findings/hub-ux.md §5 item 5): no
+ *     START_NOTE any more - footer line 2 (NEXT2[Sign] = BUILD_HINT_SIGN) says the same sentence.
  *   - The header shows the plain title; the footer's dot sits on the sign tile (hubRules.dotItem
  *     with hasSign false).
  *   - Panel file (gate R11): subscribes build$ (CORE). Content focus (ch6 section 9).
@@ -55,9 +56,6 @@ export function StartCard(): JSX.Element {
         </div>
       ))}
       {sign?.locked && <div className={styles.reasonLine}>{t(sentKeyEntry(sign.reason, HUB_LOC.locked))}</div>}
-      <div className={styles.noteArea}>
-        <div className={styles.note2}>{t(HUB_LOC.startNote)}</div>
-      </div>
     </div>
   );
 }

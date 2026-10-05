@@ -6,7 +6,10 @@
  * LocText, Glyph, TipLines rows; docs/research/hub-u2-spec.md section 4.2 / 4.4); extended
  * 2026-10-04 (Round E1, stream S6; econ-round spec ch6 section 6.4: numArg, SignedNum, MarkSlot,
  * InfoLine, SubLine, Divider, OpenMark, KindStripe, FlexBar, CheckBox, NotifIcon; a TipLines line
- * may be ONE element; samples `money` and `count`; existing exports unchanged).
+ * may be ONE element; samples `money` and `count`; existing exports unchanged). Round F7 (2026-10-04,
+ * implementer 4; docs/research/field-test-7-fixes.md D1, D2): InfoLine gains `info` (a dim Info glyph
+ * right after the label text, findings/hub-ux.md §3.2 with Verification correction 3); OpenMark is
+ * retired (the Runs view says the state in a word, RunList.tsx).
  * Engine facts relied on (installed 1.6.2f1 Cities2_Data/Content/Game/UI/index.js / index.css):
  *   - cs2/ui PanelSectionRow is the selected-info panel's InfoRow (@731753): it renders its
  *     `left` / `right` slots only when the value is TRUTHY. A bare number 0 would vanish - always
@@ -43,6 +46,7 @@ import { Unit, useLocalization } from "cs2/l10n";
 import { LocalizedNumber, LocalizedString } from "../cs2shim";
 import { BAND } from "../bindings";
 import type { LocEntry } from "../l10n";
+import { GLYPH_INFO } from "./hubRules";
 import styles from "./hub.module.scss";
 
 /** A number with its unit; "–" for a value that is not finite (never "NaN m"). */
@@ -275,7 +279,7 @@ export function MarkSlot({ mark }: { mark: "≈" | "…" | null }): JSX.Element 
 }
 
 /** One label / value row with the vanilla InfoRow metrics (28.2 / 39.7 / 47.3 rem at 100 / 130 / 150 %). */
-export function InfoLine({ label, value, tip, mark, header, sub }: {
+export function InfoLine({ label, value, tip, mark, header, sub, info }: {
   label: string | JSX.Element;
   value?: ReactNode;
   tip?: ReactNode;
@@ -285,11 +289,23 @@ export function InfoLine({ label, value, tip, mark, header, sub }: {
   header?: boolean;
   /** Indented sub-row (Money rows under RUNNING COSTS). */
   sub?: boolean;
+  /** Round F7 (D2): a dim Info glyph right AFTER the label text (not at the row end, where it would
+   *  push the value column: hub-ux Verification correction 3); the row's `tip` carries the notes. The
+   *  label is then a flex row [text (shrinks, ellipsis) | glyph | rest], never inline-block (unproven in
+   *  Gameface, ViewTiles.tsx E1 fixer F13). */
+  info?: boolean;
 }): JSX.Element {
   return (
     <Tip tip={tip}>
       <div className={cx(styles.infoLine, header && styles.infoHeader, sub && styles.infoSub)}>
-        <div className={styles.infoLabel}>{label}</div>
+        {info ? (
+          <div className={styles.infoLabelBox}>
+            <div className={styles.infoLabelText}>{label}</div>
+            <Glyph src={GLYPH_INFO} className={cx(styles.infoMark, styles.glyphDimTone)} />
+          </div>
+        ) : (
+          <div className={styles.infoLabel}>{label}</div>
+        )}
         {mark !== undefined && <MarkSlot mark={mark} />}
         {value !== undefined && <div className={styles.infoValue}>{value}</div>}
       </div>
@@ -309,16 +325,6 @@ export function SubLine({ children, tip }: { children: string | JSX.Element; tip
 /** A thin divider (vanilla Divider look: --dividerColor). */
 export function Divider(): JSX.Element {
   return <div className={styles.divider} />;
-}
-
-/** Open mark of a run (design 5.3): 2 filled, 1 ring, 0 dash, -1 nothing; estimated -> 55 % opacity. */
-export function OpenMark({ state, estimated }: { state: number; estimated: boolean }): JSX.Element {
-  const shape = state === 2 ? styles.openFull : state === 1 ? styles.openPartly : state === 0 ? styles.openClosed : null;
-  return (
-    <div className={styles.openSlot}>
-      {shape && <div className={cx(styles.openMark, shape, estimated && styles.openEstimated)} />}
-    </div>
-  );
 }
 
 /** Run-type stripe (the U1 colours; natural = two stacked bars, the dashed outline's echo). */

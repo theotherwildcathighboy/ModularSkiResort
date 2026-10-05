@@ -36,6 +36,12 @@
 //   - dim text colours are LITERAL (deviation U1): rgba(240, 251, 255, 0.7) dim, rgba(240, 251, 255,
 //     0.5) dimmer - the game's --textColorDim / --textColorDimmer are white in :root (installed
 //     index.css @2587, @3184; Dimmer is white in the dark-grey-orange style too, @12464).
+// Round F7 (2026-10-04, implementer 4; docs/research/field-test-7-fixes.md D1, D2, D6): .runState and
+// .runRowClosed (the Runs view's state word, closed rows dimmed) replace .openSlot; .infoLabelBox /
+// .infoLabelText / .infoMark (the Info glyph after a header label); .problemRowOn (the band's background
+// per filled slot) replaces .problemsOn, and the band's side padding moved into .problemSlotRow;
+// .segButtonNext replaces `.segButton + .segButton` (each segment button now sits in its own Tooltip);
+// .note3 is gone with the Money view's note area.
 
 // ---- panel frame ---------------------------------------------------------------------------
 
@@ -686,7 +692,9 @@
   white-space: nowrap;
 }
 
-.segButton + .segButton {
+// Round F7 (D6): a class, not `.segButton + .segButton` - each button has its own Tooltip now (one
+// focusable child per Tooltip FocusBoundary, log-audit §5.2), so the two need not be DOM siblings.
+.segButtonNext {
   margin-left: 4rem;
 }
 
@@ -1029,19 +1037,7 @@
   text-overflow: ellipsis;
 }
 
-// -- open marks (design 5.3): 0.6 em shapes --------------------------------------------------------
-.openSlot {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  flex-grow: 0;
-  flex-shrink: 0;
-  width: 0.6em;
-  height: 1em;
-  margin-right: 0.4em;
-}
-
+// -- open marks (design 5.3): 0.6 em shapes (the status line's mark; Round F7: the run rows say a word) --
 .openMark {
   flex-grow: 0;
   flex-shrink: 0;
@@ -1092,6 +1088,7 @@
 
 // -- problems band (design 5.2): 3 fixed slots ------------------------------------------------------
 // border-radius 3rem (deviation U2): the token --panelRadiusInner inside a shorthand fails the gate.
+// Round F7 (D6): no background of its own; the side padding moved into .problemSlotRow (same text room).
 .problems {
   display: flex;
   flex-direction: column;
@@ -1100,15 +1097,10 @@
   margin-left: 6rem;
   padding-top: 3rem;
   padding-bottom: 3rem;
-  padding-left: 6rem;
-  padding-right: 6rem;
-  border-radius: 3rem;
+  padding-left: 0rem;
+  padding-right: 0rem;
   font-size: var(--fontSizeS);
   color: var(--normalTextColor);
-}
-
-.problemsOn {
-  background-color: var(--sectionBackgroundColor);
 }
 
 .problemSlotRow {
@@ -1118,6 +1110,15 @@
   flex-wrap: nowrap;
   flex-shrink: 0;
   height: 1.45em;
+  padding-left: 6rem;
+  padding-right: 6rem;
+}
+
+// Round F7 (D6, findings/hub-ux.md §5 item 3): the dark background on each slot that holds a problem;
+// empty slots read as spacing (the band keeps its three-slot height, D33).
+.problemRowOn {
+  background-color: var(--sectionBackgroundColor);
+  border-radius: 3rem;
 }
 
 .problemSlot {
@@ -1327,6 +1328,42 @@
 .infoHeader .infoLabel {
   color: var(--normalTextColor);
   text-transform: uppercase;
+}
+
+// Round F7 (D2): InfoLine `info` - [label text | Info glyph | rest] in the label's flex slot, so the glyph
+// sits right after the text and the value column does not move (hub-ux Verification correction 3).
+.infoLabelBox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
+.infoLabelText {
+  flex-grow: 0;
+  flex-shrink: 1;
+  min-width: 0rem;
+  color: rgba(240, 251, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.infoHeader .infoLabelText {
+  color: var(--normalTextColor);
+  text-transform: uppercase;
+}
+
+.infoMark {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 0.85em;
+  height: 0.85em;
+  margin-left: 6rem;
 }
 
 .infoValue {
@@ -1579,6 +1616,21 @@
 .runRowFocused,
 .runRowFocused:hover {
   background-color: rgba(75, 195, 241, 0.18);
+}
+
+// Round F7 (D1, findings/hub-ux.md §2.4): the state word ("Open" / "Patchy" / "Closed") in XS; its
+// StableWidth holds all three words. 0.4 em of XS after it (the open mark's margin was 0.4 em of S).
+.runState {
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  margin-right: 0.4em;
+  white-space: nowrap;
+  color: var(--normalTextColor);
+}
+
+// A closed run: its fly part (word, markers, name, numbers) at 55 %; the pen and the hover stay.
+.runRowClosed .runFly {
+  opacity: 0.55;
 }
 
 .liftMarkSlot {
@@ -1837,12 +1889,6 @@
 .note2 {
   flex-shrink: 0;
   height: 2.6em;
-  overflow: hidden;
-}
-
-.note3 {
-  flex-shrink: 0;
-  height: 3.9em;
   overflow: hidden;
 }
 

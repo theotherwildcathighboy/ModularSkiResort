@@ -21,6 +21,10 @@
  *     open, unfinished lifts, since load, last month only when a whole month was counted, the "≈"
  *     reasons), then TILE_TIP_OPEN. Not linked (E1 fixer F15): the Runs and Lifts tiles show totals,
  *     so their meaning line is UNLINKED_NOTE and no partly-open / unfinished line is added.
+ *   - Round F7 D1 (docs/research/field-test-7-fixes.md): a sign's Runs tile is captioned "Runs open"
+ *     (TILE[RunsOpen], XS 56.6 / 93.1 / 117.5 rem against the caption room 75 / 111 / 135 of design §2.3:
+ *     fits, no shrink), so "2 / 3" says what it counts; the Not linked tile shows a total and keeps
+ *     "Runs" (TILE[Runs]). The tooltip title follows the caption.
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$; local view$.
  */
 import type { RefObject } from "react";
@@ -50,6 +54,11 @@ const CAPTION: Readonly<Record<HubView, LocEntry>> = {
 
 const DASH = <span>{"–"}</span>;
 const HELD = <span>{"…"}</span>;
+
+/** The tile's caption: "Runs open" on a sign's Runs tile (Round F7 D1), else CAPTION. */
+function captionOf(v: HubView, unlinked: boolean): LocEntry {
+  return v === "runs" && !unlinked ? HUB_LOC.tileRunsOpen : CAPTION[v];
+}
 
 function numArgEl(n: number): JSX.Element {
   const a = numArg(n, Unit.Integer);
@@ -96,7 +105,7 @@ function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boo
     // E1 fixer (e1-spec 8.9 F15): the Not linked tiles show totals (row.runs, row.liftRows), so their
     // second line is UNLINKED_NOTE, not the "fully open" / "counted of complete" meaning of a sign's tile.
     case "runs":
-      return <TipLines lines={[t(HUB_LOC.tileRuns), unlinked ? t(HUB_LOC.unlinkedNote) : t(HUB_LOC.tileTipRuns),
+      return <TipLines lines={[t(captionOf(v, unlinked)), unlinked ? t(HUB_LOC.unlinkedNote) : t(HUB_LOC.tileTipRuns),
         !unlinked && l && l.runsPartly > 0 && <LocText key="p" entry={HUB_FMT.tileTipPartly} args={{ N: numArg(l.runsPartly, Unit.Integer) }} />, open]} />;
     case "lifts": {
       // E1 fixer (F11): hubRules.unfinishedLifts is 0 unless the live row knows the complete count.
@@ -144,12 +153,12 @@ export function ViewTiles({ tilesRef }: { tilesRef: RefObject<HTMLDivElement> })
                 // flex row (the technique our bundle has proven), not an inline-block span (unproven in
                 // Gameface: collapsed when empty, the caption would shift when "≈" toggles).
                 <div className={styles.tileCaptionRow}>
-                  <div className={styles.tileCaption}>{t(CAPTION[v])}</div>
+                  <div className={styles.tileCaption}>{t(captionOf(v, unlinked))}</div>
                   <div className={styles.tileCaptionMark}>{mark}</div>
                 </div>
               ) : (
                 <>
-                  <div className={styles.tileCaption}>{t(CAPTION[v])}</div>
+                  <div className={styles.tileCaption}>{t(captionOf(v, unlinked))}</div>
                   <div className={styles.tileMark}>{mark}</div>
                 </>
               )}

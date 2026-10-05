@@ -28,7 +28,14 @@
  *     content: the status row, the problems band, the tile row and the view slot; -1 for a missing
  *     element). Example at 100 %: `header=40 content=647 footer=90 list=-1 rows=0 scale=1
  *     rem=1.00px status=22 problems=67 tiles=42 view=overview viewH=406`.
- *   - Sent one animation frame after the panel's first layout, whenever the view or the visible
+ *   - WHEN IT MEASURES (Round F7, D6; field test 7 log-audit D12 and hub-ux §5 item 10 with its
+ *     Verification claim 17: from L529 to L648 every `viewH` equalled the PREVIOUS view's height, and
+ *     `list=0 rows=3` - one animation frame after the change, Gameface had not laid out the new view
+ *     yet [cause unverified: Gameface computes layout after the frame's script, likely]). A measure now
+ *     starts on the SECOND animation frame after the change and repeats once a frame until two
+ *     consecutive texts agree (the layout has settled), at most SETTLE_MAX_FRAMES frames, then sends
+ *     the last text. A handful of getBoundingClientRect calls per change, never per frame otherwise.
+ *   - Sent after the panel's first layout, whenever the view or the visible
  *     row-count BUCKET changes (0, 1-4, 5-9, 10-19, 20+), and (Round F6) whenever the text scale, the
  *     root font size or the viewport changes while the panel stays open: a 1 s timer reads two root
  *     style strings and the viewport size (no layout, no measurement) and measures only when that
@@ -52,6 +59,11 @@ export const REM_PROBE_REM = 100;
 
 /** How often the text-scale key is read while the panel is open (ms). */
 const SCALE_POLL_MS = 1000;
+
+/** Round F7: animation frames skipped before the first measure after a change (the new view's layout
+ *  is not ready on the first one, field test 7), and the most frames a measure may take to settle. */
+const SKIP_FRAMES = 1;
+const SETTLE_MAX_FRAMES = 8;
 
 /** Texts already sent this UI session (contract 3: a view switch changes the text, so a
  *  last-only check would re-send on every switch back and forth). Cleared at SENT_MAX. */
@@ -170,17 +182,29 @@ export function useLayoutReport(r: LayoutRefs, rows: number, view: string): void
   const schedule = (): void => {
     try {
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
-      frameRef.current = requestAnimationFrame(() => {
+      // Round F7: skip SKIP_FRAMES frames, then measure once a frame until two consecutive texts agree
+      // (or SETTLE_MAX_FRAMES frames have passed) and send that text (see the header).
+      let frame = 0;
+      let last: string | null = null;
+      const step = (): void => {
         frameRef.current = 0;
         try {
+          frame++;
+          if (frame <= SKIP_FRAMES) { frameRef.current = requestAnimationFrame(step); return; }
           const text = measureV3(r, rowsRef.current, viewRef.current);
+          if (text !== null && text !== last && frame < SETTLE_MAX_FRAMES) {
+            last = text;
+            frameRef.current = requestAnimationFrame(step);
+            return;
+          }
           if (text && !sent.has(text)) {
             if (sent.size >= SENT_MAX) sent.clear();
             sent.add(text);
             hubTriggers.uiLayout(text);
           }
         } catch { /* a dev aid never breaks the panel */ }
-      });
+      };
+      frameRef.current = requestAnimationFrame(step);
     } catch { /* no requestAnimationFrame: no report */ }
   };
   useEffect(() => {

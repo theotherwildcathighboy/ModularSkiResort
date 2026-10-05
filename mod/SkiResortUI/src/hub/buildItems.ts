@@ -23,8 +23,11 @@
  *     chapter 2 section 7.3 is the two-line revert); run tiles keep a kind stripe in the run list's
  *     marker colours (hub.module.scss .stripe*, the natural run's two short bars). If an icon fails
  *     to load the tile draws a CSS square instead (AssetIcon, src/hub/parts.tsx). Round M1 deletes
- *     the SkiResortCategory prefab but KEEPS SkiResortTab.png (aed39078...) for the lift and the
- *     launcher (spec 6.1 d).
+ *     the SkiResortCategory prefab but KEEPS SkiResortTab.png (aed39078...) for the launcher (spec
+ *     6.1 d; HubLauncher.tsx HUB_ICON).
+ *   - Icons, style E (2026-10-04; econ-round e1-spec.md section 8): all nine icons are redrawn by
+ *     assets/blender/ski_icons.py (same file names, so the same ids) and the lift tile gets its own
+ *     SkiChairliftLine.png (890dda43..., SkiChairliftHV.Prefab m_Icon) instead of SkiResortTab.png.
  */
 import { BUILD_ITEM_IDS, RUN_KIND } from "../bindings";
 import type { BuildItem, BuildItemId, RunKind } from "../bindings";
@@ -36,7 +39,7 @@ export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   runGroomed: "assetdb://global/092ca9d440ccbca7cf9783c4da1790f5", // SkiRunGroomedA.Prefab:65
   runSnowmaking: "assetdb://global/bc121f42eed0fd6829eacccc5b69b4f8", // SkiRunSnowmakingA.Prefab:65
   runNight: "assetdb://global/a239eef8d124c3ec467a5d8afaa7e447", // SkiRunNightA.Prefab:65 (D20: own icon; was snowmaking's)
-  lift: "assetdb://global/aed3907873aa4d74bb420190d3044e78", // SkiChairliftHV.Prefab:202 (= SkiResortTab.png)
+  lift: "assetdb://global/890dda430068b39807412dc4ce0e9af8", // SkiChairliftHV.Prefab:202 (SkiChairliftLine.png; style E, was SkiResortTab.png)
   baseStation: "assetdb://global/c019a1e22083fd0285b4b6cf21f98f3c", // SkiBaseStationBuilding.Prefab:50
   topStation: "assetdb://global/3eb0d7b98fc9ee162816d9bb77056956", // SkiTopStationBuilding.Prefab:44
 };

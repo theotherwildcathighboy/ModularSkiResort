@@ -12,7 +12,8 @@
 // served rule and the hub use too. Read only for Complete rows (a non-complete row bills 25 % whatever its
 // power, and an unfinished lift must not raise a `Lift [power] … no power` line); Powered = true (not
 // read) for the others. ReadLiftPower writes the `Lift [power]` transition itself (ch2 §3.6); this system's
-// `Lifts [state]` line reports the billing consequence.
+// `Lifts [state]` line reports the billing consequence, and since Round F7 (item E4, log-audit D13) says
+// "power not read" for a row that is not Complete instead of the unread "powered".
 //
 // SKI AREA (ch4 §2.2, the stats system's lift rule): SkiResortIndex.TryResolve(xz,
 // SkiRunOwnershipSystem.TetherMeters) at the live base station's Transform xz; with no live base, the live
@@ -54,7 +55,9 @@
 // Transform) complete the move systems' Transform writers (CarMoveSystem, HumanMoveSystem …) — once per
 // snapshot, i.e. per charge pass (1,024 frames) plus census / power changes, never per frame; the
 // positions are needed (a station or sign moved by Move It re-resolves), so the sync stays (E1 fixer F17,
-// e1-spec §8.9). Measured once per load: `Lifts [cost]` after Tuning.CostPasses charge passes.
+// e1-spec §8.9). Measured once per load: `Lifts [cost]` after Tuning.CostPasses charge passes — since Round
+// F7 (item E3, log-audit D5) only passes whose snapshot had at least one lift row, and the power poll's mean
+// over polls with a lift row (the DUMP's poll count still counts every poll).
 // LOGS (ch4 §3.7, exact): created; ARMED; `Lifts [charge]` when the rounded rate changes, else every
 // Tuning.LogEveryNthCharge-th pass, through a LogWindow exactly as SkiRunUpkeepSystem.Charge (first
 // billable pass after a load or an idle spell forced); `Lifts [state]` — the first snapshot of a load
@@ -103,7 +106,7 @@ namespace SkiResortMod.Systems
             public const int SnapshotMinFrames = 64;
             /// <summary>Lifts listed plain by the first snapshot of a load.</summary>
             public const int StateLinesPerPass = 6;
-            /// <summary>Charge passes timed for the `Lifts [cost]` line.</summary>
+            /// <summary>Charge passes with at least one lift row timed for the `Lifts [cost]` line (F7 E3).</summary>
             public const int CostPasses = 32;
         }
 
@@ -207,7 +210,8 @@ namespace SkiResortMod.Systems
         private int m_SnapshotCensusRevision, m_SnapshotPowerSignature;
         private bool m_ListedThisLoad;
         private int m_PollTicks, m_Snapshots, m_PowerSnapshots, m_Polls;
-        private double m_PollSumMs;
+        private int m_CostPolls;                 // F7 E3: polls timed for `Lifts [cost]` (the last snapshot had a lift row)
+        private double m_PollSumMs;              // F7 E3: summed over those polls only
         private int m_CostPasses;
         private double m_CostSumMs, m_CostMaxMs;
         private bool m_CostLogged;
@@ -297,6 +301,7 @@ namespace SkiResortMod.Systems
             m_SnapshotPowerSignature = 0;
             m_ListedThisLoad = false;
             m_PollTicks = m_Snapshots = m_PowerSnapshots = m_Polls = 0;
+            m_CostPolls = 0;
             m_PollSumMs = 0.0;
             m_CostPasses = 0;
             m_CostSumMs = m_CostMaxMs = 0.0;
@@ -366,7 +371,12 @@ namespace SkiResortMod.Systems
                         {
                             long t0 = Stopwatch.GetTimestamp();
                             int signature = m_Census.ComputePowerSignature();
-                            m_PollSumMs += (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
+                            if (m_Rows.Count > 0)
+                            {
+                                // F7 E3: the cost line times only polls with a lift to read.
+                                m_PollSumMs += (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
+                                m_CostPolls++;
+                            }
                             m_Polls++;
                             if (signature != m_SnapshotPowerSignature && m_SnapshotDue == null)
                                 m_SnapshotDue = WhyPower;
@@ -568,8 +578,11 @@ namespace SkiResortMod.Systems
                 case SkiMoneyRules.LiftBilling.NoPower: billed = "at 25 %: no power"; break;
                 default: billed = "at 25 %: unfinished"; break;
             }
+            // F7 E4 (header POWER): power is read only for Complete rows; the others carry Powered = true
+            // unread, so they say so (field test 7: a lone, unpowered base station logged "powered").
+            string power = c.State != LiftCensus.State.Complete ? "power not read" : c.Powered ? "powered" : "no power";
             return $"lift base {Fmt(baseStation)} top {Fmt(c.Top)} ({LiftName(baseStation, c.Top)}) → ski area " +
-                   $"{(c.Sign == Entity.Null ? "not linked" : Fmt(c.Sign))}: {state}, {(c.Powered ? "powered" : "no power")}, " +
+                   $"{(c.Sign == Entity.Null ? "not linked" : Fmt(c.Sign))}: {state}, {power}, " +
                    $"{c.LengthM:F0} m — billed {billed} {c.RatePerMonth:F2}/month";
         }
 
@@ -835,9 +848,11 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"Lifts [idle]: {reason} — nothing billed; re-evaluated every {Tuning.ChargeIntervalFrames} sim frames");
         }
 
+        /// <summary>`Lifts [cost]`, once per load. F7 E3 (header COST): only passes whose snapshot had at least
+        /// one lift row count (field test 7: 32 passes over an empty census measured nothing).</summary>
         private void RecordPassCost(double ms)
         {
-            if (m_CostLogged)
+            if (m_CostLogged || m_Rows.Count == 0)
                 return;
             m_CostPasses++;
             m_CostSumMs += ms;
@@ -847,9 +862,9 @@ namespace SkiResortMod.Systems
                 return;
             m_CostLogged = true;
             Mod.Log.Info($"Lifts [cost] main thread per pass: mean {m_CostSumMs / m_CostPasses:F3} ms, max {m_CostMaxMs:F3} ms " +
-                         $"over {m_CostPasses} passes ({m_Rows.Count} lift rows, {m_Index.Count} signs); power poll every " +
-                         $"{Tuning.PowerPollTicks * 4} frames mean {(m_Polls > 0 ? m_PollSumMs / m_Polls : 0.0):F3} ms over " +
-                         $"{m_Polls} poll(s), {m_PowerSnapshots} snapshot(s) taken on a power change");
+                         $"over {m_CostPasses} passes with lifts ({m_Rows.Count} lift rows, {m_Index.Count} signs); power poll every " +
+                         $"{Tuning.PowerPollTicks * 4} frames mean {(m_CostPolls > 0 ? m_PollSumMs / m_CostPolls : 0.0):F3} ms over " +
+                         $"{m_CostPolls} poll(s) with lifts, {m_PowerSnapshots} snapshot(s) taken on a power change");
         }
 
         // ── names and the DUMP ────────────────────────────────────────────────────────────────────

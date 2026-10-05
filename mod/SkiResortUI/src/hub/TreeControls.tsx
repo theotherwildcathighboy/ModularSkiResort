@@ -16,7 +16,10 @@
  *     spacer and the density stepper (− / value / +; J1: the value is a StableWidth whose blinds are
  *     the 8 labels "<level> · <name>" of the active dictionary, so the − / + never move; tooltip:
  *     GladeTooltip.LEVEL).
- *   - Row B `div.treeRow`: [Run interior | Tree line] (Tip TREES_APPLY_TO). Second pass (e1-spec H8):
+ *   - Row B `div.treeRow`: [Run interior | Tree line], EACH Button in its own Tip (TREES_APPLY_TO).
+ *     Round F7 (D6; field test 7 log-audit §5.2, UI.log 905 / 919): one Tip around both put two focusable
+ *     Buttons under one vanilla Tooltip, whose FocusBoundary (a PassThroughFocusController) hosts one
+ *     child: "PassThroughFocusControllers can only host a single child" on every toggle. Second pass (e1-spec H8):
  *     row B renders ONLY while the tree tool is active - a state change may change layout (D33) - so
  *     with the tool off the Runs view gains one run row (3 instead of 2 at 150 % text).
  *   - On/off: gladeToggle(); C# calls SkiGladeToolSystem.TryActivate("hub") or deactivates it.
@@ -103,8 +106,8 @@ export function TreeRows(): JSX.Element {
       </div>
       {active && (
         <div className={styles.treeRow}>
-          <Tip tip={t(HUB_LOC.treesApplyTo)}>
-            <div className={styles.segment}>
+          <div className={styles.segment}>
+            <Tip tip={t(HUB_LOC.treesApplyTo)}>
               <Button
                 variant="flat"
                 className={cx(styles.segButton, !treeLine && styles.buttonOn)}
@@ -114,17 +117,19 @@ export function TreeRows(): JSX.Element {
               >
                 {t(HUB_LOC.gladeTargetInterior)}
               </Button>
+            </Tip>
+            <Tip tip={t(HUB_LOC.treesApplyTo)}>
               <Button
                 variant="flat"
-                className={cx(styles.segButton, treeLine && styles.buttonOn)}
+                className={cx(styles.segButton, styles.segButtonNext, treeLine && styles.buttonOn)}
                 disabled={settingsDisabled}
                 selected={treeLine}
                 onSelect={() => hubTriggers.gladeSetTreeLine(true)}
               >
                 {t(HUB_LOC.gladeTargetTreeLine)}
               </Button>
-            </div>
-          </Tip>
+            </Tip>
+          </div>
         </div>
       )}
     </>

@@ -293,6 +293,12 @@
 // open/close, per launch, per selected-resort change, per follow; array pushes are COUNTED (dev tab,
 // DUMP) and logged only when an array's row count changed — a content refresh (snow, guests, scores) can
 // move a live revision twice a second while the panel is open, and a line per such push would be a flood.
+//
+// DUMP (dev tab / the hub's dumpHub trigger, event time only): this system's state, then the stats system's,
+// the piste map's, the census, the infoview, citizen presence, station power and — Round F7 D7
+// (docs/research/field-test-7-fixes.md A3 / B3) — SkiSignUtilityHookSystem.AppendDump and
+// LodgeRoadSystem.AppendDump (AppendRoadAndUtilities: resolved with GetExistingSystemManaged at DUMP time like
+// m_PisteMap, each call guarded so a throw lands in the DUMP text and never closes the hub), then the catalog.
 
 using System;
 using System.Collections.Generic;
@@ -648,6 +654,8 @@ namespace SkiResortMod.Systems
         private SkiPlacementInfoviewSystem m_Infoview;
         private SkiGladeToolSystem m_GladeTool;
         private SkiPisteMapSystem m_PisteMap;        // DUMP only (ch5 §4.9)
+        private SkiSignUtilityHookSystem m_SignUtilityHook;   // DUMP only (Round F7 D7; contract A3)
+        private LodgeRoadSystem m_LodgeRoad;                  // DUMP only (Round F7 D7; contract B3)
         private EntityQuery m_PrefabScanQuery;
         private EntityQuery m_CitizenQuery;          // DUMP only (§3.4: citizens at a lodge / sign)
         private EntityQuery m_ConsumerQuery;         // DUMP only (§7.1 step 14: station ElectricityConsumer)
@@ -3513,6 +3521,7 @@ namespace SkiResortMod.Systems
             sb.Append("  infoview: ").Append(m_Infoview.StateText()).Append('\n');
             AppendCitizenPresence(sb);
             AppendStationPower(sb);
+            AppendRoadAndUtilities(sb);
             m_Catalog.AppendDump(sb);
             Mod.Log.Info(sb.ToString().TrimEnd('\n'));
             LastTriggerText = $"dumpHub ({source})";
@@ -3587,6 +3596,43 @@ namespace SkiResortMod.Systems
             if (stations == 0)
                 sb.Append(" no station carries an ElectricityConsumer");
             sb.Append('\n');
+        }
+
+        /// <summary>Round F7 D7 (docs/research/field-test-7-fixes.md A3 / B3): the sign utility hook's lines (per
+        /// sign: road edge, ElectricityConsumer / WaterConsumer, the road's link to the supply sink) and the lodge
+        /// road system's lines (per lodge and sign: road edge; "Lodge roads: n lodge(s), c with a road"). Both
+        /// systems are resolved at DUMP time with GetExistingSystemManaged (the m_PisteMap rule: never create a
+        /// system from here). A throw in either is written into the DUMP and does not close the hub.</summary>
+        private void AppendRoadAndUtilities(StringBuilder sb)
+        {
+            m_SignUtilityHook ??= World.GetExistingSystemManaged<SkiSignUtilityHookSystem>();
+            if (m_SignUtilityHook == null)
+                sb.Append("  sign utility hook: system not registered\n");
+            else
+            {
+                try
+                {
+                    m_SignUtilityHook.AppendDump(sb);
+                }
+                catch (Exception e)
+                {
+                    sb.Append("\n  sign utility hook: DUMP failed (").Append(e.GetType().Name).Append(": ").Append(e.Message).Append(")\n");
+                }
+            }
+            m_LodgeRoad ??= World.GetExistingSystemManaged<LodgeRoadSystem>();
+            if (m_LodgeRoad == null)
+                sb.Append("  lodge roads: system not registered\n");
+            else
+            {
+                try
+                {
+                    m_LodgeRoad.AppendDump(sb);
+                }
+                catch (Exception e)
+                {
+                    sb.Append("\n  lodge roads: DUMP failed (").Append(e.GetType().Name).Append(": ").Append(e.Message).Append(")\n");
+                }
+            }
         }
 
         // ── dev tab entry points (main thread; the same queue as the triggers) ─────────────────────

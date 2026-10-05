@@ -49,6 +49,11 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\HubRules.cs" Link="HubRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\PisteMapRules.cs" Link="PisteMapRules.cs" />
   </ItemGroup>
+  <!-- ROUND F7 (2026-10-04, docs/research/field-test-7-fixes.md C1, implementer 2): the run outline overlay's rules. -->
+  <ItemGroup>
+    <Compile Include="RunOutlineTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunOutlineRules.cs" Link="RunOutlineRules.cs" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />
   </ItemGroup>

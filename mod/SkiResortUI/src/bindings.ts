@@ -160,6 +160,8 @@ export const PROBLEM = {
   LiftSectionMissing: 6, LiftUnfinished: 7, NoLift: 8, NoRuns: 9, StationsOnly: 10, LiftChairsStopped: 11,
   RunsUnserved: 12, RunsUnrateable: 13, RunsRating: 14, FreeLodges: 15, Factor: 16,
   RunsFlat: 17, // second pass: appended after Factor (append only; C# HubProblemCode.RunsFlat)
+  SignNoRoad: 18, // Round F7 D5: the Welcome Sign's Building.m_RoadEdge is null (C# HubProblemCode.SignNoRoad)
+  LodgeNoRoad: 19, // Round F7 D5: a lodge of the area has Building.m_RoadEdge null; subject = the first such lodge
 } as const;
 
 /** Build-strip ids. C# SkiResortHubUISystem.ItemIds holds the same set (gate rule R16). C# owns
