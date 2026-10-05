@@ -35,6 +35,16 @@
 // quantize at metre scale by frame ~1e7). Per-segment lengths use the same metric as
 // MathUtils.ClampLength (Curve.m_Length for lanes, exact pi*r for arcs), so sampling
 // never runs past a segment end.
+//
+// ROUND L1 (2026-10-03, implementer I-2; docs/research/hub-u2-spec.md §2.1, §5.4) — data only,
+// the chaining / pairing / closing algorithm is unchanged:
+//   * Loop.m_BaseStation / m_TopStation: the two station ENTITIES of a closed loop, from the
+//     pairing indices (stations[baseStation] / [topStation], Build below). "Base" here is still
+//     the loop cache's own height tie-break (lower terminal); the hub's base is by PREFAB (the
+//     LiftCensus), so ChairPinSystem.TryGetLoop matches the pair UNORDERED.
+//   * ProjectOnOwner(loop, owner, position): the loop arc parameter of a point projected onto the
+//     lane segments of one owner (edge) — OD-7 (a) restart seeding in ChairPinSystem: a chair
+//     parked on its own section starts riding from where it stands when the lift closes again.
 
 using System.Collections.Generic;
 using Colossal.Mathematics;
@@ -75,6 +85,9 @@ namespace SkiResortMod.Systems
         {
             public readonly List<Segment> m_Segments = new List<Segment>();
             public double m_Length;
+            /// <summary>Round L1: the station entities this loop runs between (the pairing's
+            /// lower terminal = "base" by height, the other = "top"); unordered for consumers.</summary>
+            public Entity m_BaseStation, m_TopStation;
             /// <summary>Owner entities (edges/nodes) of the member lanes — chairs belong to
             /// this loop when their Owner is in this set.</summary>
             public readonly HashSet<Entity> m_MemberOwners = new HashSet<Entity>();
@@ -277,6 +290,8 @@ namespace SkiResortMod.Systems
                     m_BuildNotes.Add($"stations ({stationA},{stationB}): closure failed — {why}");
                     continue;
                 }
+                loop.m_BaseStation = stations[baseStation];   // Round L1: pair identity (data only)
+                loop.m_TopStation = stations[topStation];
                 m_Loops.Add(loop);
                 m_BuildNotes.Add($"stations ({stationA},{stationB}): loop closed, {loop.m_Length:F1} m, " +
                                  $"{loop.m_Segments.Count} segments (base = station {baseStation})");
@@ -603,6 +618,50 @@ namespace SkiResortMod.Systems
                 travelTangent = MathUtils.Tangent(seg.m_Bezier, t.max);
             }
             travelTangent = math.normalizesafe(travelTangent, new float3(0f, 0f, 1f));
+        }
+
+        /// <summary>Round L1, OD-7 (a) restart seeding (hub-u2-spec.md §5.4): the loop arc parameter
+        /// s ∈ [0, m_Length) of <paramref name="position"/> projected onto the LANE segments whose
+        /// owner is <paramref name="owner"/> (a chair's own section; both of its cable lanes are in
+        /// the loop, one per side, so the nearest one is the chair's own side — the side guard of
+        /// ChairPinSystem's static pin, header note 3). The inverse of Sample on that segment:
+        /// forward travel measures MathUtils.Length(bezier, [0, t]), reversed travel [t, 1] (the
+        /// same metric ClampLength / ClampLengthInverse cut by in Sample). Arcs are never owned.
+        /// Returns −1 when the owner has no lane segment in the loop (the caller keeps the
+        /// entity-index grid as the fallback). The caller passes the chair's GRIP point (pivot +
+        /// grip-top offset), which lies on the cable, not the pivot 2.4 m below it.</summary>
+        internal static double ProjectOnOwner(Loop loop, Entity owner, float3 position)
+        {
+            return ProjectOnOwner(loop, owner, position, out _);
+        }
+
+        /// <summary>ProjectOnOwner with the distance from <paramref name="position"/> to the chosen
+        /// lane point (float.MaxValue when the owner has no segment). ADDITIVE overload: the caller
+        /// uses the distance to tell a chair standing on its own section (parked or just spawned)
+        /// from one that is riding elsewhere on the loop (a loaded save).</summary>
+        internal static double ProjectOnOwner(Loop loop, Entity owner, float3 position, out float distance)
+        {
+            double best = -1.0;
+            float bestDistance = float.MaxValue;
+            var segments = loop.m_Segments;
+            for (int i = 0; i < segments.Count; i++)
+            {
+                Segment seg = segments[i];
+                if (seg.m_IsArc || seg.m_Owner != owner)
+                    continue;
+                float d = MathUtils.Distance(seg.m_Bezier, position, out float t);
+                if (d >= bestDistance)
+                    continue;
+                bestDistance = d;
+                float along = seg.m_Reversed
+                    ? MathUtils.Length(seg.m_Bezier, new Bounds1(t, 1f))
+                    : MathUtils.Length(seg.m_Bezier, new Bounds1(0f, t));
+                best = seg.m_CumStart + math.clamp(along, 0f, seg.m_Length);
+            }
+            if (best >= loop.m_Length)
+                best -= loop.m_Length;
+            distance = bestDistance;
+            return best;
         }
     }
 }

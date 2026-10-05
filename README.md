@@ -20,6 +20,13 @@ Started 2026-08-03. Working chairlift beta in 5 days; see docs/TIMELINE.md.
 | `tools/` | preflight.ps1, validate_prefab.ps1, jxr2png.ps1, sync-gamedata.ps1. |
 | `release/` | Paradox Mods staging: listing copy, credits, changelog, screenshots. |
 
+## Licence
+
+Code (the C# mod, the Blender generators, the tools) is MIT — see `LICENSE`. Art assets and
+everything generated from them are CC-BY-4.0 — see `assets/LICENSE`. Design references are
+credited in `release/CREDITS.md`; no third-party code is included, and the GPL-licensed mods we
+studied (ParkManager, ParkingLotTool) were re-derived from the game's own systems, never copied.
+
 ## Reading order for a new session
 
 1. `CLAUDE.md` — the working contract.

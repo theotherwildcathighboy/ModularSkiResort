@@ -17,7 +17,7 @@
                 "active": true,
                 "m_Upkeep": 3000,
                 "m_ElectricityConsumption": 1500,
-                "m_WaterConsumption": 15000,
+                "m_WaterConsumption": 1000,
                 "m_GarbageAccumulation": 80,
                 "m_TelecomNeed": 0
             },
@@ -53,16 +53,16 @@
                 "$type": "6|Game.Prefabs.Attraction, Game",
                 "name": "Attraction",
                 "active": true,
-                "m_Attractiveness": 20
+                "m_Attractiveness": 0
             },
             {
                 "$id": 7,
                 "$type": "7|Game.Prefabs.LeisureProvider, Game",
                 "name": "LeisureProvider",
                 "active": true,
-                "m_Efficiency": 25,
+                "m_Efficiency": 4,
                 "m_Resources": 0,
-                "m_LeisureType": 8
+                "m_LeisureType": 3
             },
             {
                 "$id": 8,

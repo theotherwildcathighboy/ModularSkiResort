@@ -1,7 +1,7 @@
 """
 Deterministic UI icon generator for the Modular Ski Resort mod.
 
-Produces the six asset-menu icons (256x256 RGBA PNG + 32-hex .png.cid sidecar each) in the
+Produces the eight asset-menu icons (256x256 RGBA PNG + 32-hex .png.cid sidecar each) in the
 exact visual style of the existing SkiResortCategory tab icon (SkiResortTab.png), measured
 from its pixels:
 
@@ -189,6 +189,40 @@ def glyph_run_snowmaking(x, y):
     return shapes
 
 
+# Round E1 (2026-10-04, econ-round spec ch2 section 7.1, D20): natural and night run icons.
+# Art: needs Richard's verdict (ch2 section 7.3 has the two-line revert per icon).
+def glyph_run_natural(x, y):
+    """Natural (ungroomed) slope: the fall-line edge, a wavy ski track in place of the corduroy,
+    and a small pine in the clear upper-right corner."""
+    a, b = (44, 84), (212, 188)
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    ln = float(np.hypot(dx, dy))
+    ux, uy = dx / ln, dy / ln
+    nx, ny = -uy, ux
+    shapes = [sd_segment(x, y, a[0], a[1], b[0], b[1], 12)]
+    # ski track in ungroomed snow: a sine wave (2 periods, amplitude 9 px) 44 px into the hill
+    pts = []
+    for k in range(17):
+        t = 0.24 + 0.6 * k / 16.0
+        off = 44.0 + 9.0 * float(np.sin(2.0 * np.pi * 2.0 * k / 16.0))
+        pts.append((a[0] + ux * ln * t + nx * off, a[1] + uy * ln * t + ny * off))
+    for k in range(16):
+        shapes.append(sd_segment(x, y, pts[k][0], pts[k][1], pts[k + 1][0], pts[k + 1][1], 10))
+    # pine: two stacked triangles + trunk
+    shapes.append(sd_polygon(x, y, [(176, 36), (152, 74), (200, 74)]))
+    shapes.append(sd_polygon(x, y, [(176, 56), (146, 102), (206, 102)]))
+    shapes.append(sd_round_rect(x, y, 170, 100, 182, 120, 2))
+    return shapes
+
+
+def glyph_run_night(x, y):
+    """Groomed slope plus a crescent moon in the clear upper-right corner (night skiing)."""
+    shapes = _slope_and_corduroy(x, y)
+    shapes.append(sd_disk(x, y, 176, 74, 32))
+    cutouts = [sd_disk(x, y, 192, 62, 27)]
+    return shapes, cutouts
+
+
 ICONS = {
     "SkiResortGate": glyph_gate,
     "SkiAFrameDayLodge": glyph_lodge,
@@ -196,6 +230,8 @@ ICONS = {
     "SkiTopStationBuilding": glyph_top_station,
     "SkiRunGroomedA": glyph_run_groomed,
     "SkiRunSnowmakingA": glyph_run_snowmaking,
+    "SkiRunNaturalA": glyph_run_natural,
+    "SkiRunNightA": glyph_run_night,
 }
 
 
@@ -254,11 +290,15 @@ def main():
     ap.add_argument("--out", default=os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                   "icons_out"),
                     help="output directory for the PNG + .png.cid pairs")
+    ap.add_argument("--only", default="", help="comma-separated icon names to write (default: all)")
     args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv
                          else sys.argv[1:])
+    only = [s.strip() for s in args.only.split(",") if s.strip()]
 
     os.makedirs(args.out, exist_ok=True)
     for name, fn in ICONS.items():
+        if only and name not in only:
+            continue
         png_name = name + ".png"
         img = render(fn)
         with open(os.path.join(args.out, png_name), "wb") as f:

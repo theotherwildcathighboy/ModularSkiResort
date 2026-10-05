@@ -19,7 +19,7 @@
                     "max": 10
                 },
                 "m_AllowParallelMode": true,
-                "m_UndergroundPrefab": $fstrref:"UnityGUID:9cbf401c04ad63b44a36c0dc0db26e67",
+                "m_UndergroundPrefab": null,
                 "m_XPReward": 2
             },
             {
@@ -197,7 +197,7 @@
                 "$type": "13|Game.Prefabs.UIObject, Game",
                 "name": "UIObject",
                 "active": true,
-                "m_Group": $fstrref:"CID:a2547ca73ed441efb4867f9e1ba64ffa",
+                "m_Group": null,
                 "m_Priority": 51,
                 "m_Icon": "assetdb://global/aed3907873aa4d74bb420190d3044e78",
                 "m_IsDebugObject": false

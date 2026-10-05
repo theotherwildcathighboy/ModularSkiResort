@@ -33,7 +33,11 @@ $KnownVanilla = @{
     "a534d6be94fb0cb4eb683f62412d0b1a" = "Electricity service (vanilla HV Line ServiceObject)"
     "c92b9810143a9ba4ca5e004fc709d92f" = "vanilla HV Line unlock milestone 1"
     "9af2c85bf8f3400438a82523ed61b8a4" = "vanilla HV Line unlock milestone 2"
-    "9cbf401c04ad63b44a36c0dc0db26e67" = "vanilla underground line (m_UndergroundPrefab)"
+    # Relabelled 2026-10-03 (Round M1, hub-u2-spec.md 6.1 b/h): SkiChairliftHV no longer references it
+    # (its m_UndergroundPrefab is null since M1); the two station markers still do. Likely, not verified:
+    # the dump carries no GUIDs - it is the m_UndergroundPrefab of the vanilla Low-voltage Line and Marker.
+    # Relabel, never drop: an unlisted vanilla ref turns into a WARN (section 3 below).
+    "9cbf401c04ad63b44a36c0dc0db26e67" = "Low-voltage Ground Cable (m_UndergroundPrefab of the vanilla LV line; used by SkiLiftMarker/LV)"
     "3e47e765f44f210409edf4e6229fd0df" = "Grass Surface 01 unlock requirement (verified: vanilla Grass 01 ships same ref)"
     "ec48568022d46c1448c6620d95f993c1" = "ParkSign placeholder (vanilla CityPark01/02/04 host it; resolves ParkSign01-03)"
     "4010d5851d69dbb418c62e6bd4d19759" = "PowerLinePole01 placeholder (verified: Low-voltage Line NetSubObjects m_Object + PowerLinePole8m01 SpawnableObject back-ref; resolves PowerLinePole 8/13/18m)"

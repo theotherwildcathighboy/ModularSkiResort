@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Headless test host for the pure U2 resort-data files (docs/research/hub-u2-spec.md §3.8):
+    EntityRef.cs, SkiResortIndex.cs, SkiResortTourism.cs and SkiResortAggregate.cs (the "pure
+    aggregation helpers" §3.8 names). Run from the ModularSkiResort root:
+      see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
+    Clone of tests/SlopeBatch/SlopeBatch.csproj. Lives OUTSIDE mod/SkiResortMod on purpose: the
+    mod csproj globs **/*.cs, so a test host under it would be compiled into the net48 mod DLL.
+    LangVersion pinned to the mod's 9.0 (Mod.props) so newer syntax in the linked files fails here
+    too; net48 APIs are NOT gated here (the mod build is the net48 API gate).
+    UnityMathematics.NoDeps 1.3.2 matches the toolchain's com.unity.mathematics@1.3.2.
+    Created 2026-10-03 (Round U2, implementer I-1).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <RootNamespace>ResortBatch</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\EntityRef.cs" Link="EntityRef.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortIndex.cs" Link="SkiResortIndex.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortTourism.cs" Link="SkiResortTourism.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortAggregate.cs" Link="SkiResortAggregate.cs" />
+    <!-- U2 fixer round (2026-10-03): the rating cache's key / queue / band rules (findings u2-data-01,
+         behaviour-2, u2-data-05). -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunRatingRules.cs" Link="SkiRunRatingRules.cs" />
+    <!-- Round F6 (2026-10-03, implementer A): the hub's "camera already on the sign" rule (A1 / A2). -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\HubCameraRules.cs" Link="HubCameraRules.cs" />
+  </ItemGroup>
+  <!-- ROUND E1 (2026-10-04, econ-round e1-spec.md §4.1): the E1 pure files and their tests. -->
+  <ItemGroup>
+    <Compile Include="ScoreTests.cs" />
+    <Compile Include="RatingServiceTests.cs" />
+    <Compile Include="SnowRulesTests.cs" />
+    <Compile Include="MoneyBatch.cs" />
+    <Compile Include="HubRulesTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortScore.cs" Link="SkiResortScore.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunSnowRules.cs" Link="RunSnowRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiMoneyRules.cs" Link="SkiMoneyRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortLedger.cs" Link="SkiResortLedger.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftServedRule.cs" Link="LiftServedRule.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\HubRules.cs" Link="HubRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\PisteMapRules.cs" Link="PisteMapRules.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />
+  </ItemGroup>
+</Project>

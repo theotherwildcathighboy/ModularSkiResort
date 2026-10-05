@@ -8,6 +8,16 @@ assets/preview/
 mod/SkiResortMod/bin/
 mod/SkiResortMod/obj/
 mod/SkiResortMod/Library/
+# UI module (mod/SkiResortUI, Round U1): installed packages, webpack output, and the cs2/* typings
+# that tools/sync-types.js copies from the game install at build time (never committed: the
+# game's scaffold carries no licence). package-lock.json IS committed.
+mod/SkiResortUI/node_modules/
+mod/SkiResortUI/build/
+mod/SkiResortUI/types/
+# Headless test hosts (tests/GladeBatch — net8, links the planner source; spec §3)
+tests/**/bin/
+tests/**/obj/
+tests/**/out/
 
 # Editor/OS noise
 *.user

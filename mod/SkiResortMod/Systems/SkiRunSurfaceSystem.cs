@@ -44,6 +44,23 @@
 //
 // SCOPE: Game mode only. Only OUR run prefabs are touched; nothing else on the map is
 // modified. m_Wetness and m_Dirtyness are left entirely to their vanilla owners.
+//
+// FLOOD WINDOW (Round F6, item D3; log-audit A2: 183 `Surface:` lines in load 2 — the value moves
+// on every 256-frame pass while snow builds, ~1 s apart at 4×): the pass lines go through a
+// LogWindow (LogWindow.cs) — at most one per Tuning.LogWindowS (10 s wall clock); the first after
+// a quiet window is written as before, the rest are folded into one `Surface: N more pass line(s)
+// in T s, folded …` line (snow min-max /255, then the last pass's full line). A pass that adds the
+// Game.Objects.Surface component is forced (written at once, with any fold). A fold is flushed
+// before a load (OnGamePreload) and at quit (OnDestroy; F6 fixer). Nothing else in this system
+// changes. F6 fixer (review): the unchanged-value heartbeat is wall clock (Tuning.HeartbeatS
+// 120 s, Ownership's CensusHeartbeatS rule) instead of every 8th pass (~8.6 s at 4×, which only
+// fed the fold one unchanged "snow 255/255" summary per window).
+//
+// ROUND E1 (2026-10-04, stream S3; econ-round spec ch3 §8.3): the depth comes from
+// SkiSnowInjectionSystem.TryGetDressDepth — the managed mean (bound injected runs, as before) or,
+// in a city with no managed measurement this load (only natural runs, or only unbound injected runs),
+// the natural runs' measured mean depth; with neither, vanilla is left alone as before. The pass line
+// names the source. Phase, interval, the SET-not-clamp rule and FullWhiteDepthM are unchanged.
 
 using System;
 using System.Collections.Generic;
@@ -70,14 +87,20 @@ namespace SkiResortMod.Systems
             /// while still letting a thin early-season base read as "dusted".</summary>
             public const float FullWhiteDepthM = 0.05f;
 
-            /// <summary>Log every Nth pass even when the value is unchanged (256 frames per
-            /// pass, so 8 is roughly one line per two in-game hours at normal speed).</summary>
-            public const int LogEveryNth = 8;
+            /// <summary>An unchanged pass logs as a heartbeat only when no pass line was written for
+            /// this many wall-clock seconds (F6 fixer; was every 8th pass = 2048 sim frames).</summary>
+            public const float HeartbeatS = 120f;
+
+            /// <summary>F6 D3 (header FLOOD WINDOW): at most one pass line per this many wall-clock
+            /// seconds; the rest of a burst is folded into one summary (contract: 10 s).</summary>
+            public const float LogWindowS = 10f;
         }
 
         // Must match WetnessSystem's interval or the anchored offset is not inherited.
         private const int WetnessInterval = 256;
 
+        // E1 (D16): SkiRunNaturalA is left out on purpose — a natural run owns no props (no sub-objects,
+        // nothing to wet or snow).
         private static readonly string[] RunSurfaceNames =
             { "SkiRunSnowmakingA", "SkiRunGroomedA", "SkiRunNightA" };
 
@@ -92,9 +115,11 @@ namespace SkiResortMod.Systems
         private bool m_Armed;
         private bool m_Disabled;
         private bool m_ErrorLogged;
-        private long m_PassCounter;
         private int m_LastByte = -1;
         private int m_LastAreaCount = -1;
+
+        // F6 D3 (header FLOOD WINDOW): folds the pass lines; reset per load, flushed before a load.
+        private readonly LogWindow m_PassLog = new LogWindow(Tuning.LogWindowS);
 
         protected override void OnCreate()
         {
@@ -128,6 +153,41 @@ namespace SkiResortMod.Systems
             return WetnessInterval;
         }
 
+        /// <summary>F6 D3 (header FLOOD WINDOW): a load (or leaving to the menu) writes the folded
+        /// pass lines of the city being left. Never throws: GameSystemBase.GamePreload DISABLES a
+        /// system whose OnGamePreload throws (Game/GameSystemBase.cs:85-96; same in 1.6.2).</summary>
+        protected override void OnGamePreload(Purpose purpose, GameMode mode)
+        {
+            base.OnGamePreload(purpose, mode);
+            try
+            {
+                if (m_PassLog.Count > 0)
+                    WritePassSummary(UnityEngine.Time.realtimeSinceStartup);
+            }
+            catch (Exception e)
+            {
+                Mod.Log.Warn($"Surface: folded pass lines could not be written before the load " +
+                             $"({e.GetType().Name}: {e.Message}) — non-fatal");
+            }
+        }
+
+        /// <summary>F6 fixer (header FLOOD WINDOW): quit to desktop raises no onGamePreload, but the
+        /// world's systems are destroyed while the logger still lives (LogWindow.cs header), so the
+        /// folded pass lines are written here. Teardown must never throw: a failed write is dropped.</summary>
+        protected override void OnDestroy()
+        {
+            try
+            {
+                if (m_PassLog.Count > 0)
+                    WritePassSummary(UnityEngine.Time.realtimeSinceStartup);
+            }
+            catch (Exception)
+            {
+                // nothing left to report to
+            }
+            base.OnDestroy();
+        }
+
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
         {
             base.OnGameLoadingComplete(purpose, mode);
@@ -135,9 +195,9 @@ namespace SkiResortMod.Systems
             m_Armed = false;
             m_Disabled = false;
             m_ErrorLogged = false;
-            m_PassCounter = 0;
             m_LastByte = -1;
             m_LastAreaCount = -1;
+            m_PassLog.Reset();   // F6 D3: flushed in OnGamePreload; nothing carries over
 
             if (mode != GameMode.Game)
                 return;
@@ -157,7 +217,9 @@ namespace SkiResortMod.Systems
                              "Game.Areas.Surface tag, so props on runs render snow-free in " +
                              "every season) and tracking it to measured run depth; full white " +
                              $"at {Tuning.FullWhiteDepthM:F2} m, every {WetnessInterval} sim " +
-                             "frames anchored after WetnessSystem");
+                             "frames anchored after WetnessSystem; pass lines at most one per " +
+                             $"LogWindowS={Tuning.LogWindowS:0} s wall clock (a burst is folded into one summary; " +
+                             $"unchanged, a heartbeat every HeartbeatS={Tuning.HeartbeatS:0} s)");
             }
             catch (Exception e)
             {
@@ -178,10 +240,10 @@ namespace SkiResortMod.Systems
             {
                 if (m_Disabled || !m_Armed)
                     return;
-                if (!m_SnowInjectionSystem.HasRunSnowMeasurement)
+                // E1 ch3 §8.3: managed run snow, else the natural runs' measured snow.
+                if (!m_SnowInjectionSystem.TryGetDressDepth(out float depth, out RunDressSource source))
                     return;   // nothing measured yet — leave vanilla entirely alone
 
-                float depth = m_SnowInjectionSystem.MeanRunSnowDepthM;
                 float snow01 = math.saturate(depth / Tuning.FullWhiteDepthM);
                 byte value = (byte)math.round(snow01 * 255f);
 
@@ -226,14 +288,30 @@ namespace SkiResortMod.Systems
                     EntityManager.SetComponentData(area, surface);
                 }
 
-                m_PassCounter++;
+                float now = UnityEngine.Time.realtimeSinceStartup;
                 bool log = value != m_LastByte || toWrite.Length != m_LastAreaCount ||
-                           added > 0 || m_PassCounter % Tuning.LogEveryNth == 1;
+                           added > 0 || m_PassLog.QuietFor(now, Tuning.HeartbeatS);   // unchanged: wall-clock heartbeat
                 if (log)
                 {
-                    Mod.Log.Info($"Surface: {toWrite.Length} run area(s) -> snow {value}/255 " +
-                                 $"(mean run depth {depth:F3} m)" +
-                                 (added > 0 ? $", Game.Objects.Surface added to {added}" : ""));
+                    // ch3 §10 L-V2: the source of the depth.
+                    string body = $"{toWrite.Length} run area(s) -> snow {value}/255 " +
+                                  $"(mean run depth {depth:F3} m, " +
+                                  $"{(source == RunDressSource.NaturalMeasured ? "natural runs" : "managed")})" +
+                                  (added > 0 ? $", Game.Objects.Surface added to {added}" : "");
+                    // F6 D3 (header FLOOD WINDOW): a pass that added the component is forced.
+                    switch (m_PassLog.Offer(now, added > 0, body, value))
+                    {
+                        case LogWindow.Verdict.Plain:
+                            Mod.Log.Info("Surface: " + body);
+                            break;
+                        case LogWindow.Verdict.Summary:
+                            WritePassSummary(now);
+                            break;
+                    }
+                }
+                else if (m_PassLog.TrailingDue(now))
+                {
+                    WritePassSummary(now);   // the end of a burst: never silent
                 }
                 m_LastByte = value;
                 m_LastAreaCount = toWrite.Length;
@@ -250,6 +328,16 @@ namespace SkiResortMod.Systems
                                   $"stack:\n{e}");
                 }
             }
+        }
+
+        /// <summary>F6 D3 (header FLOOD WINDOW): one line for the folded passes — how many, over how
+        /// long, the snow value range, then the last pass's full line.</summary>
+        private void WritePassSummary(float now)
+        {
+            Mod.Log.Info($"Surface: {m_PassLog.Count} more pass line(s) in {m_PassLog.SpanS(now):F0} s, folded " +
+                         $"(one line per LogWindowS={Tuning.LogWindowS:0} s): snow {m_PassLog.Range(0, "F0")}/255 — last: " +
+                         m_PassLog.LastText);
+            m_PassLog.Wrote(now);
         }
 
         private void ResolveRunPrefabs()

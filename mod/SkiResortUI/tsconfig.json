@@ -1,0 +1,36 @@
+// TypeScript settings for the Ski Resort UI module (mod/SkiResortUI). Written for this repo (MIT).
+// Derived from: docs/research/resort-hub-understand.md section 2.A.2/2.A.3 item 3, which lists
+// the settings the official Colossal Order template (game install, .ModdingToolchain/
+// npx-create-csii-ui-mod/template/tsconfig.json) needs and why. Required ones:
+//   - skipLibCheck: the game's typings contain 146 duplicated `export export` modifiers and
+//     import 'chart.js', which is not installed; without it nothing type-checks.
+//   - typeRoots ./types + "include" types: the cs2/* ambient module declarations are copied there
+//     by tools/sync-types.js at build time (git-ignored, never committed).
+// Our choices:
+//   - jsx react-jsx: the bundle carries react/jsx-runtime; webpack maps `react` to window.React.
+//   - target ES2020: the shipped game bundle uses ES2020 syntax (optional chaining) but compiles
+//     class fields away, so we stay at ES2020 rather than ESNext (research said ESNext).
+//   - isolatedModules + preserveValueImports: a type imported from cs2/* MUST use `import type`
+//     (TS1444 otherwise), so tools/check-bundle.js can check every remaining (value) import
+//     against the names the game really exports at runtime.
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "lib": ["ES2020", "DOM"],
+    "strict": true,
+    "isolatedModules": true,
+    "preserveValueImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": "src",
+    "skipLibCheck": true,
+    "typeRoots": ["./types"],
+    "sourceMap": false
+  },
+  "include": ["src", "types"]
+}

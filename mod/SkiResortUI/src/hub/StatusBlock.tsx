@@ -1,0 +1,284 @@
+/*
+ * src/hub/StatusBlock.tsx - the status line and the problems band of the shown ski area (hub v3).
+ *
+ * Written for this repo (MIT). Created 2026-10-04 (Round E1, stream S6; docs/research/econ-round/
+ * spec/ch6-hub-ui.md section 6.5, design hub-v3-design.md 3.1, 5.2, 6.2, 6.3, 7.2; code from the
+ * checked reference spec/ch6-hub-ui-ref/src/hub/StatusBlock.tsx).
+ * Contract:
+ *   - Status line `div.statusRow` (ref statusRef, fixed 1.6 em of S): the open-mark shape of
+ *     ResortLive.status (3 full, 2 partly, 1/0 closed dash; estimated -> 55 % opacity; Not linked:
+ *     the Warning glyph; no live row: an empty box) . ONE text node by hubRules.statusVariant (one
+ *     <LocText> per branch, gate R13; second pass: "partly open only" counts the partly open runs, so
+ *     "Partly open · 0 of 7 runs open" cannot happen) . a spacer . the SEASON_HINT word (only for a
+ *     sign row with runs). Tooltip (sign with runs and a live row): STATUS_TIP_COUNTS, the open rule,
+ *     gating off / estimated / measured, SEASON_TIP of the hint, STATUS_TIP_TEMP when known,
+ *     STATUS_TIP_VISUALS when the game's snow visuals are off (ch3 E1-S3).
+ *   - Problems band `div.problems` (ref problemsRef): ALWAYS three `div.problemSlotRow` of 1.45 em,
+ *     so a value or problem change never changes its height (D33). Slot i shows bandSlots(rows)
+ *     .slots[i] (C# ranks and caps the rows; hubRules.bandRowsOf keeps every code the band knows,
+ *     Factor rows excluded); slot 3 also carries the fixed-width ".problemMore" cell ("+N" with the
+ *     hidden rows in its tooltip, else empty). With no band row, slot 1 is the inert None line.
+ *     (Deviation from the reference file, which rendered an empty slot as a bare .problemSlot outside
+ *     a .problemSlotRow: ch6 section 6.5 says "always three div.problemSlotRow", and a flex-basis-0
+ *     slot directly in the column could resolve shorter than 1.45 em.)
+ *   - A row is ONE text node (ProblemText) with its icon (hubRules.problemIcon: the worst factor's
+ *     notification icon for Efficiency, the plug for LiftNoPower, TurnedOff for lodges off, else the
+ *     Warning / Info glyph). Clickable rows (hubRules.problemClick) are a cs2/ui Button: fly to the
+ *     sign or the lift (focusBuilding / focusLift), or open the Lifts / Runs view; inert rows are a
+ *     plain div. Severity <= 1 is dim. Focus: content area, default focus (ch6 section 9, F17).
+ *   - Row tooltip: the row's text, its PROBLEM_TIP, for Efficiency the game's factor lines (signed %)
+ *     and STAFF_LINE, the PROBLEM_GAIN line when C# sent ifFixed >= 0, and what a click does.
+ *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, problems$, city$.
+ */
+import type { RefObject } from "react";
+import { useValue } from "cs2/api";
+import { Button } from "cs2/ui";
+import { Unit } from "cs2/l10n";
+import { PROBLEM, city$, hubTriggers, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
+import type { CityStats, ProblemRow, ResortLive, ResortRow } from "../bindings";
+import { useT } from "../l10n";
+import type { Translate } from "../l10n";
+import {
+  bandRowsOf, bandSlots, closedRuns, factorRowsOf, liveOf, problemClick, problemIcon, problemVariant,
+  statusVariant, statusWord,
+} from "./hubRules";
+import { view$ } from "./hubState";
+import { HUB_FMT, HUB_LOC, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
+import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, numArg } from "./parts";
+import { currentResort, resortEntries } from "./resortData";
+import styles from "./hub.module.scss";
+
+// ---- status line ----------------------------------------------------------------------------------
+
+function StatusSentence({ row, live, t }: { row: ResortRow | null; live: ResortLive | null; t: Translate }): JSX.Element {
+  const v = statusVariant(row, live);
+  if (v === "unlinked") return <>{t(HUB_LOC.statusUnlinked)}</>;
+  if (v === "noRuns") return <>{t(HUB_LOC.statusNoRuns)}</>;
+  if (v === "unknown" || !row || !live) return <>{"–"}</>;
+  const STATE = t(STATUS_WORD[statusWord(live.status)]);
+  const OPEN = numArg(live.runsOpen, Unit.Integer);
+  const TOTAL = numArg(row.runs, Unit.Integer);
+  const PARTLY = numArg(live.runsPartly, Unit.Integer);
+  switch (v) {
+    case "partly": return <LocText entry={HUB_FMT.statusLinePartly} args={{ STATE, PARTLY, TOTAL }} />;
+    case "partlyEst": return <LocText entry={HUB_FMT.statusLinePartlyEst} args={{ STATE, PARTLY, TOTAL }} />;
+    case "partlyOne": return <LocText entry={HUB_FMT.statusLinePartlyOne} args={{ STATE, PARTLY }} />;
+    case "partlyOneEst": return <LocText entry={HUB_FMT.statusLinePartlyOneEst} args={{ STATE, PARTLY }} />;
+    case "one": return <LocText entry={HUB_FMT.statusLineOne} args={{ STATE, OPEN }} />;
+    case "oneEst": return <LocText entry={HUB_FMT.statusLineOneEst} args={{ STATE, OPEN }} />;
+    case "lineEst": return <LocText entry={HUB_FMT.statusLineEst} args={{ STATE, OPEN, TOTAL }} />;
+    default: return <LocText entry={HUB_FMT.statusLine} args={{ STATE, OPEN, TOTAL }} />;
+  }
+}
+
+function StatusMark({ row, live }: { row: ResortRow | null; live: ResortLive | null }): JSX.Element {
+  if (row && row.kind === 1) return <Glyph src="Media/Glyphs/Warning.svg" className={cx(styles.statusMark, styles.glyphWarnTone)} />;
+  const s = live ? live.status : -1;
+  const shape = s === 3 ? styles.openFull : s === 2 ? styles.openPartly : s >= 0 ? styles.openClosed : null;
+  return (
+    <div className={styles.statusMark}>
+      {shape && <div className={cx(styles.openMark, shape, live && live.snowEstimated && styles.openEstimated)} />}
+    </div>
+  );
+}
+
+function statusTip(row: ResortRow | null, live: ResortLive | null, city: CityStats, t: Translate): JSX.Element | undefined {
+  if (!row || row.kind === 1 || !live || (row.runs | 0) <= 0) return undefined;
+  const seasonTip = SEASON_TIP_TEXT[live.seasonHint] ?? null;
+  return (
+    <TipLines
+      lines={[
+        <LocText key="c" entry={HUB_FMT.statusTipCounts} args={{
+          OPEN: numArg(live.runsOpen, Unit.Integer), PARTLY: numArg(live.runsPartly, Unit.Integer),
+          CLOSED: numArg(closedRuns(row, live), Unit.Integer),
+        }} />,
+        t(HUB_LOC.statusTipRule),
+        !city.snowGating ? t(HUB_LOC.statusTipGating) : live.snowEstimated ? t(HUB_LOC.statusTipEstimated) : t(HUB_LOC.statusTipMeasured),
+        seasonTip && t(seasonTip),
+        live.topTempKnown && <LocText key="t" entry={HUB_FMT.statusTipTemp} args={{ TEMP: numArg(live.topTempC, Unit.Temperature, false, false) }} />,
+        city.snowVisualsOff && t(HUB_LOC.statusTipVisuals),
+      ]}
+    />
+  );
+}
+
+// ---- problems band ----------------------------------------------------------------------------------
+
+/** One band row as ONE text node (one <LocText> per branch: gate R13). */
+function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
+  const NAME = p.name || "–";
+  const N = numArg(p.count, Unit.Integer);
+  const PCT = numArg(p.pct, Unit.Percentage);
+  const REASON = t(factorEntry(p.factor));
+  const MORE = numArg(p.more, Unit.Integer);
+  switch (problemVariant(p)) {
+    case "unlinked": return <>{t(HUB_LOC.problemUnlinked)}</>;
+    case "noLodge": return <>{t(HUB_LOC.problemNoLodge)}</>;
+    case "lodgesAllOff": return <>{t(HUB_LOC.problemLodgesAllOff)}</>;
+    case "lodgesSomeOff": return <LocText entry={HUB_FMT.problemLodgesSomeOff} args={{ N }} />;
+    case "efficiency": return <LocText entry={HUB_FMT.problemEfficiency} args={{ PCT, REASON }} />;
+    case "efficiencyMore": return <LocText entry={HUB_FMT.problemEfficiencyMore} args={{ PCT, REASON, N: MORE }} />;
+    case "notRunning": return <LocText entry={HUB_FMT.problemNotRunning} args={{ REASON }} />;
+    case "notRunningMore": return <LocText entry={HUB_FMT.problemNotRunningMore} args={{ REASON, N: MORE }} />;
+    case "liftNoPower": return <LocText entry={HUB_FMT.problemLiftNoPower} args={{ NAME }} />;
+    case "liftSectionMissing": return <LocText entry={HUB_FMT.problemLiftSectionMissing} args={{ NAME }} />;
+    case "liftUnfinished": return <LocText entry={HUB_FMT.problemLiftUnfinished} args={{ NAME }} />;
+    case "noLift": return <LocText entry={HUB_FMT.problemNoLift} args={{ PCT }} />;
+    case "noRuns": return <>{t(HUB_LOC.problemNoRuns)}</>;
+    case "stationsPair": return <LocText entry={HUB_FMT.problemStationsPair} args={{ NAME }} />;
+    case "stationsBaseOnly": return <LocText entry={HUB_FMT.problemStationsBaseOnly} args={{ NAME }} />;
+    case "stationsTopOnly": return <LocText entry={HUB_FMT.problemStationsTopOnly} args={{ NAME }} />;
+    case "liftChairsStopped": return <LocText entry={HUB_FMT.problemLiftChairsStopped} args={{ NAME }} />;
+    case "runsUnserved": return <LocText entry={HUB_FMT.problemRunsUnserved} args={{ N, PCT }} />;
+    case "runsUnrateable": return <LocText entry={HUB_FMT.problemRunsUnrateable} args={{ N }} />;
+    case "runsRating": return <LocText entry={HUB_FMT.problemRunsRating} args={{ N }} />;
+    case "freeLodges": return <LocText entry={HUB_FMT.problemFreeLodges} args={{ N }} />;
+    case "runsFlat": return <LocText entry={HUB_FMT.problemRunsFlat} args={{ N }} />;
+    default: return <>{"–"}</>;
+  }
+}
+
+/** The tooltip body of a band row (design 6.3). */
+function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element {
+  const PCT = numArg(p.pct, Unit.Percentage);
+  const v = problemVariant(p);
+  let body: string | JSX.Element | null = null;
+  switch (v) {
+    case "unlinked": body = t(HUB_LOC.unlinkedHint); break;
+    case "noLodge": body = t(HUB_LOC.problemTipNoLodge); break;
+    case "lodgesAllOff": body = t(HUB_LOC.problemTipLodgesAllOff); break;
+    case "lodgesSomeOff": body = t(HUB_LOC.problemTipLodgesSomeOff); break;
+    case "efficiency": case "efficiencyMore": case "notRunning": case "notRunningMore": body = t(HUB_LOC.problemTipEfficiency); break;
+    case "liftNoPower": body = t(HUB_LOC.problemTipLiftNoPower); break;
+    case "liftSectionMissing": body = t(HUB_LOC.problemTipLiftSectionMissing); break;
+    case "liftUnfinished": body = t(HUB_LOC.problemTipLiftUnfinished); break;
+    case "noLift": body = <LocText entry={HUB_FMT.problemTipNoLift} args={{ PCT }} />; break;
+    case "noRuns": body = t(HUB_LOC.problemTipNoRuns); break;
+    case "stationsPair": case "stationsBaseOnly": case "stationsTopOnly": body = t(HUB_LOC.problemTipStations); break;
+    case "liftChairsStopped": body = t(HUB_LOC.problemTipLiftChairsStopped); break;
+    case "runsUnserved": body = <LocText entry={HUB_FMT.problemTipRunsUnserved} args={{ PCT }} />; break;
+    case "runsUnrateable": body = t(HUB_LOC.problemTipRunsUnrateable); break;
+    case "runsRating": body = t(HUB_LOC.problemTipRunsRating); break;
+    case "freeLodges": body = t(HUB_LOC.problemTipFreeLodges); break;
+    case "runsFlat": body = t(HUB_LOC.problemTipRunsFlat); break;
+    default: body = null;
+  }
+  const isEff = p.code === PROBLEM.Efficiency;
+  const gain = p.ifFixed >= 0
+    ? (isEff ? <LocText key="g" entry={HUB_FMT.problemGainEfficiency} args={{ FULL: numArg(p.ifFixed, Unit.Integer) }} />
+      : p.code === PROBLEM.NoLodge ? <LocText key="g" entry={HUB_FMT.problemGainLodge} args={{ A: numArg(p.ifFixed, Unit.Integer) }} />
+        : p.code === PROBLEM.LodgesAllOff ? <LocText key="g" entry={HUB_FMT.problemGainLodgesOn} args={{ A: numArg(p.ifFixed, Unit.Integer) }} />
+          : null)
+    : null;
+  const click = problemClick(p);
+  return (
+    <TipLines
+      lines={[
+        <ProblemText key="h" p={p} t={t} />,
+        body,
+        ...(isEff ? factors.map((f) => ({ label: t(factorEntry(f.factor)), value: numArg(f.pct, Unit.Percentage, true, false) })) : []),
+        // second pass: the staff numbers next to the game's reasons (ResortLive jobs / jobsFilled; -1 = unknown)
+        isEff && live && live.jobs >= 0 && <LocText key="s" entry={HUB_FMT.staffLine} args={{ FILLED: numArg(live.jobsFilled, Unit.Integer), JOBS: numArg(live.jobs, Unit.Integer) }} />,
+        gain,
+        click === "sign" || click === "lift" ? t(HUB_LOC.problemClickFly) : click ? t(HUB_LOC.problemClickList) : null,
+      ]}
+    />
+  );
+}
+
+function ProblemIconEl({ p }: { p: ProblemRow | null }): JSX.Element {
+  const icon = problemIcon(p);
+  if (icon.kind === "img") return <NotifIcon src={icon.src} className={styles.problemIcon} />;
+  const tone = icon.tone === "warn" ? styles.glyphWarnTone : icon.tone === "info" ? styles.glyphDimTone : styles.glyphDimmerTone;
+  return <Glyph src={icon.src} className={cx(styles.problemIcon, tone)} />;
+}
+
+/** One of the three fixed slots: always a `.problemSlotRow` (1.45 em); slot 3 carries the "+N" cell. */
+function ProblemSlot({ p, slot, more, hidden, factors, live, t, noneLine }: {
+  p: ProblemRow | null; slot: number; more: number; hidden: readonly ProblemRow[]; factors: readonly ProblemRow[];
+  live: ResortLive | null; t: Translate; noneLine: boolean;
+}): JSX.Element {
+  const moreCell = slot !== 2 ? null : more > 0 ? (
+    <Tip tip={<TipLines lines={[t(HUB_LOC.problemMoreTip), ...hidden.map((h, i) => <ProblemText key={i} p={h} t={t} />)]} />}>
+      <div className={styles.problemMore}><LocText entry={HUB_FMT.problemMore} args={{ N: numArg(more, Unit.Integer) }} /></div>
+    </Tip>
+  ) : <div className={styles.problemMore} />;
+  if (!p) {
+    // An empty slot, or the None line in slot 1 (inert, dimmer check mark).
+    return (
+      <div className={styles.problemSlotRow}>
+        <div className={cx(styles.problemSlot, styles.problemDim)}>
+          {noneLine && <ProblemIconEl p={null} />}
+          <div className={styles.problemText}>{noneLine ? t(HUB_LOC.problemNone) : ""}</div>
+        </div>
+        {moreCell}
+      </div>
+    );
+  }
+  const click = problemClick(p);
+  const content = (
+    <>
+      <ProblemIconEl p={p} />
+      <div className={styles.problemText}><ProblemText p={p} t={t} /></div>
+    </>
+  );
+  const onSelect = (): void => {
+    if (click === "sign") hubTriggers.focusBuilding(p.subject);
+    else if (click === "lift") hubTriggers.focusLift(p.subject, p.subjectTop);
+    else if (click === "liftsView") view$.update("lifts");
+    else if (click === "runsView") view$.update("runs");
+  };
+  return (
+    <div className={styles.problemSlotRow}>
+      <Tip tip={problemTip(p, factors, live, t)}>
+        {click ? (
+          <Button theme={{ button: cx(styles.problemSlot, styles.problemClickable, p.severity <= 1 && styles.problemDim) }} onSelect={onSelect}>
+            {content}
+          </Button>
+        ) : (
+          <div className={cx(styles.problemSlot, p.severity <= 1 && styles.problemDim)}>{content}</div>
+        )}
+      </Tip>
+      {moreCell}
+    </div>
+  );
+}
+
+export function StatusBlock({ statusRef, problemsRef }: {
+  statusRef: RefObject<HTMLDivElement>; problemsRef: RefObject<HTMLDivElement>;
+}): JSX.Element {
+  const t = useT();
+  const resorts = useValue(resorts$);
+  const selected = useValue(selectedResort$);
+  const live = useValue(resortLive$);
+  const problems = useValue(problems$);
+  const city = useValue(city$);
+
+  const cur = currentResort(resortEntries(resorts), selected);
+  const row = cur.row;
+  const sign = row && row.kind === 1 ? null : row ? row.sign : null;
+  const l = row ? liveOf(live, sign) : null;
+  const band = bandRowsOf(problems, sign);
+  const factors = factorRowsOf(problems, sign);
+  const { slots, more } = bandSlots(band);
+  const hint = l && row && row.kind === 0 && (row.runs | 0) > 0 ? SEASON_HINT_TEXT[l.seasonHint] ?? null : null;
+
+  return (
+    <>
+      <Tip tip={statusTip(row, l, city, t)}>
+        <div ref={statusRef} className={styles.statusRow}>
+          <StatusMark row={row} live={l} />
+          <div className={styles.statusText}><StatusSentence row={row} live={l} t={t} /></div>
+          <div className={styles.statusSpacer} />
+          <div className={styles.statusHint}>{hint ? t(hint) : ""}</div>
+        </div>
+      </Tip>
+      <div ref={problemsRef} className={cx(styles.problems, band.length > 0 && styles.problemsOn)}>
+        {slots.map((p, i) => (
+          <ProblemSlot key={i} p={p} slot={i} more={i === 2 ? more : 0} hidden={band.slice(3)} factors={factors} live={l} t={t}
+            noneLine={i === 0 && band.length === 0} />
+        ))}
+      </div>
+    </>
+  );
+}

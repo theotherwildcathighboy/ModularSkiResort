@@ -1,0 +1,3664 @@
+// SkiResortHubUISystem — the C# side of the Ski Resort hub: every binding and trigger of group
+// "skiResort", contract 3 (Round E1: docs/research/econ-round/spec/ch5-hub-csharp.md §4, design
+// docs/research/econ-round/design/hub-v3-design.md §8; contract 2 was hub-u2-spec.md §2. The TS side is
+// mod/SkiResortUI/src/bindings.ts, the single source of truth for names and shapes, and
+// mod/SkiResortUI/tools/check-bundle.js matches this file's binding/trigger literals, every
+// writer.TypeBegin("SkiResortMod.<X>") block, the ItemIds / ItemPrefabNames arrays and the Item* constants
+// against it — rules R1, R2, R16), the selected resort (§3.2, rules 1-7), rename through the vanilla
+// NameSystem, the build launches, the camera fly-to for runs, lifts and buildings, the glade-tool
+// controls, auto-open on Welcome Sign selection, the uiHello handshake and what the piste-map overlay
+// (SkiPisteMapSystem, D19) reads. Created 2026-10-01 (Round U1, implementer U1-B); contract 2 written
+// 2026-10-03 (Rounds U2/M1, implementer I-4); contract 3 written 2026-10-04 (Round E1, stream S5). The
+// per-area numbers are NOT computed here: SkiResortStatsSystem owns them and this system only writes its
+// rows (resorts / resortLive / runs / runLive / lifts / problems / city) to the UI.
+//
+// BINDINGS, CONTRACT 3 (ch5 §4.1): 16 value bindings — hubOpen, contract, buildStamp, showHubButton,
+// build, glade, resorts, resortLive, selectedResort, runs, runLive, lifts, problems, city, pisteMap,
+// follow — and 17 triggers (contract 2's 15 + setPisteMap, hoverRun). Contract 2's `lodges` is removed
+// (the 1 km lodge model is retired, D1). The slow rows (resorts, runs, lifts) and the live rows
+// (resortLive, runLive) are separate arrays so a snow, guest or money change re-sends only the small live
+// arrays; `problems` is built in C# (HubProblems.Build). `pisteMap` (the D19 toggle, on at every load) and
+// `follow` (a counter, +1 per rule-7 switch) are ValueBindings that do NOT drive Demand. hoverRun is a
+// field write (no queue: mouse traffic must not fill QueueCapacity), validated against the catalog in the
+// next OnUpdate (C4) and counted; only its first valid and first refused call per load are logged.
+//
+// BINDINGS (all registered with AddBinding — never AddUpdateBinding, which would re-send a raw binding
+// every frame, research §2.B.1; UISystemBase.cs:48-58). Colossal.UI.Binding facts [scratch decompile
+// of the installed 1.6.2f1 DLL, research §0 citation policy; re-checked 2026-10-03 with Cecil: IJsonWriter
+// has Write(bool/int/uint/long/ulong/float/double/string), ValueBinding<T>(group, name, initial,
+// IWriter<T> writer = null, EqualityComparer<T> comparer = null)]:
+//   * ValueBinding<T>.Update pushes only when its comparer reports a change (ValueBinding.cs:37-44)
+//     and only while JS observes it (TriggerUpdate checks `active`, :46-53); a subscribe pushes the
+//     current value at once (OnSubscribe, :24-35). hubOpen/contract/buildStamp/showHubButton are
+//     bool/int/string (ValueWriters.cs:14-36); `glade` is a struct implementing IJsonWritable +
+//     IEquatable (scalar fields, no boxing); `selectedResort` is ValueBinding<Entity> (the vanilla
+//     precedent UpgradeMenuUISystem.cs:130, SelectedInfoUISystem.cs:146); `city` is
+//     ValueBinding<CityStats> with OUR writer and comparer (CityStatsWriter / CityStatsComparer below),
+//     so the dedup and the TypeBegin name do not depend on how SkiResortStatsSystem declares the struct.
+//   * RawValueBinding re-sends the whole payload on every Update() while observed, no dedup
+//     (RawValueBinding.cs:47-56) and on subscribe (:22-33). The six arrays resorts / resortLive / runs /
+//     runLive / lifts / problems are pushed ONLY when their own revision of SkiResortStatsSystem moved
+//     (content-hash gated by the stats system, ch5 §5.7), and re-sent once on (re)subscribe (the U1
+//     m_RunsWasActive pattern); `build` when a signature of every field it sends changed. A push whose
+//     row count changed writes `Hub [push] <name> rows=…` through that array's LogWindow(10 s) (E1 fixer
+//     F10: `problems` follows simulation state, e.g. a factor flipping around 100 % in a brownout);
+//     folds are flushed on the next PushArray, in OnGamePreload and in OnDestroy.
+//   * observerCount / active are public (EventBindingBase.cs:14-16): every binding except hubOpen /
+//     contract / showHubButton / buildStamp is subscribed only by panel-mounted components (bindings.ts
+//     header), so "observed" = "the panel is open". This system sets SkiRunCatalogSystem.Demand AND
+//     SkiResortStatsSystem.Demand every frame to "any of build, resorts, resortLive, runs, runLive, lifts,
+//     problems, city observed" (ch5 §4.3; pisteMap and follow do not demand) — nothing is computed for the
+//     panel while it is closed (the catalog's rating service runs anyway since E1, D12).
+//   * Rows are typed objects written token by token (TypeBegin / PropertyName / Write; JsonWriter.cs,
+//     one native call per token — no JSON string). Every TypeBegin name is "SkiResortMod.<TS interface>"
+//     (§2.2: U1's "SkiResortMod.HubGladeState" became "SkiResortMod.GladeState"; the UI ignores __Type).
+//     An Entity is written {index, version} (UnityWriters.cs:17-25) and TriggerBinding<Entity> reads that
+//     shape back (UnityReaders.cs:19-27). Numbers go through Fin(): a non-finite float or double is sent
+//     as 0 and counted (one WARN per load) — one NaN must not break the UI's JSON.
+//   * The stats structs' field TYPES are I-1's (§2.1: "fields are the §2.3 TS fields in PascalCase"):
+//     every number is written through the Fin overloads (int / float / double), enum-like fields (kind,
+//     state, band, season) are cast to int — so this file compiles whatever numeric type I-1 picks.
+//   * A trigger exception is caught by the binding and logged to the vanilla UI log, not ours
+//     (TriggerBinding.cs:21-31, :58-69, :87-99) — so every trigger body here has its own try/catch and
+//     "!!!" line.
+//
+// TRIGGERS (§2.2). Every body: try/catch; Enabled check (a UISystemBase is disabled outside its
+// gameMode at OnGamePreload, UISystemBase.cs:60-64, but its bindings stay attached until OnDestroy,
+// :29-37, so triggers still arrive — research §2.B.2); an existence check on any entity argument (a
+// Null argument is allowed only for selectResort and the `top` of focusLift); the request is QUEUED
+// and applied in OnUpdate (main thread, UIUpdate), which writes ONE log line per trigger. Exceptions,
+// by contract: uiError (once per distinct message, U1 §5.3) and uiLayout (only when the string changed,
+// §4.6). C# never gates a trigger on the UI's contract (§4.5): a bundle of another contract still
+// launches tools.
+//
+// SELECTED RESORT (§3.2; OD-14). m_SelectedResort, not saved: a live Ski Area Welcome Sign, or
+// Entity.Null = the "Not linked" view. Rules, each with one "Hub [select]" line:
+//   1. Load: Null; at the first stats rebuild of the load with >= 1 sign: the first sign in stable order.
+//   2. World selection change (one field compare per frame): the mapping runs BEFORE the auto-open early
+//      return — our sign → it; an entity whose Owner is our sign (the lodge: vanilla ServiceUpgrade
+//      buildings carry Owner = the sign) → the owner; our station → the resort of the first census row
+//      touching it (resolved from that row's base station, else its top station), a station on no row →
+//      the resort of its own position (SkiResortStatsSystem.TryResolveResort — ONE rule, §3.1); anything
+//      else → unchanged, no line. The line names what was selected (settles §7.2 item 2).
+//      KNOWN LIMIT (fixer round, finding m1-hub-csharp-3, accepted and documented — option 2): clicking
+//      the sign that is ALREADY selected in the world does not switch the hub back to it after the
+//      player used ‹ ›: DefaultToolSystem.SelectTempEntity writes ToolSystem.selected only when the hit
+//      entity or index differs (Game.Tools/DefaultToolSystem.cs:1176-1189, same in 1.6.2; toggleSelected
+//      comes from the cancel action, :903), so the per-frame compare sees no change. Detecting the
+//      re-click would need the tool's Apply action: ToolBaseSystem.applyAction is protected
+//      (ToolBaseSystem.cs:188) and InputManager.toolActionCollection internal (InputManager.cs:536) —
+//      not reachable without reflection; the "Tool"/"Apply" ProxyAction names are asset data,
+//      unverified. Workaround for the player: click elsewhere first, or use ‹ ›. docs/FIELD-TEST.md step 8
+//      (spec §7.1 step 10).
+//   3. selectResort(e): a live sign, or Null — Null refused while the Not linked row is empty. Round F6
+//      (A1): an accepted switch from the UI also moves the camera — header FOCUS, "SWITCHER".
+//   4. A sign that was not in the previous resort rows → selected ("new sign": covers placed from the hub).
+//   5. The selected sign is no longer live → the first remaining sign, else Null.
+//   6. Null selected and the Not linked row is empty → the first sign (stays Null with no sign).
+//   7. Round E1 (D36, ch5 §4.6; the hub follows what you build): a run that newly bound, a station newly
+//      placed or a lift that newly closed, in a LIVE ski area other than the shown one → that area, through
+//      HubRules.FollowCheck's guards (C5): only while the hub is open, never in a pass where rule 1/4/5/6
+//      already switched, not within FollowQuietAfterUserS (2 s) of the player's own switch (rules 2 and 3
+//      stamp it), at most one follow per FollowMinIntervalS (2 s). One candidate per pass, the most
+//      deliberate act first (a lift closed, then a station placed, then a run bound); the follow writes
+//      one "Hub [follow]" line instead of the "Hub [select]" line, bumps the `follow` binding (the UI's
+//      "Now showing …" notice), never moves the camera and never ends a lodge on the cursor. A suppressed
+//      follow writes nothing (the bind / lift notice of the pass names the event) and is counted per reason
+//      (DUMP `hub v3:`). Builds made while the hub was closed are seen at its next open (one follow).
+// Switching resort in the hub never selects anything in the world (OD-14, the OD6 precedent).
+// Rules 1, 4, 5, 6 run only when ResortsRevision moved, rule 7's candidates only when LiftsRevision or
+// RunsRevision moved (event-driven, never per frame; with no candidate rule 7 is two field writes).
+// BIND NOTICES (§3.2 last item; log only, the UI shows nothing): a run that newly bound to a sign other
+// than the selected one (NoticeBinds, on RunsRevision); Round F6 (A3) the same for a lift that CLOSED —
+// its stats row became Running or Static (complete) and was not complete under the same (entity, top)
+// key at the previous rows, the census's "Closed" event (LiftCensus.cs header, Events) seen through the
+// stats rows — in a resort other than the one shown, the Not linked view included both ways
+// (NoticeLiftCloses, on LiftsRevision). The field case (findings resort-assignment.md §2, log 1826-1834):
+// a gap redrawn from the hub while it showed another ski area closed the lift in its own area, silently.
+// Both fire when the stats rebuild, i.e. while the panel is open (or at its next open).
+//
+// RENAME (§3.2, §4.3). rename(e, text): e must be our live sign, run or station (a lift row whose id is
+// a line edge has no station: refused with a line). C# trims, cuts to 64 UTF-16 units (the vanilla
+// name field's own maxLength 64: installed 1.6.2f1 index.js@1009013, `maxLength:t=64`, checked
+// 2026-10-03), never splitting a surrogate pair, and calls NameSystem.SetCustomName — the call the
+// vanilla title field makes, so both places show one name; empty or whitespace removes the name
+// (Game.UI/NameSystem.cs:214-241, same in 1.6.2: m_Names is written at once, CustomName +
+// BatchesUpdated through the EndFrameBarrier; saved, :549-575 per the spec). A rename raises no tag
+// and NameSystem has no rename counter (:162), so the hub makes the next stats rebuild happen at once:
+// SkiResortStatsSystem.RequestRebuild("hub rename") (I-1's API; integrator 2026-10-03 replaced I-4's
+// one-frame Demand pulse, which worked but was logged as "hub opened"); and for a run it also asks the
+// catalog to rebuild (SkiRunCatalogSystem.RequestRebuild, its names come from NameSystem). Next frame
+// both run in UIUpdate add order (catalog → stats), so the stats rows read the renamed catalog row.
+// Fixer round, two refinements (each logged in the rename line):
+//   * a SIGN renamed to "" gets a fresh auto-name (SkiRunBindTriggerSystem.PickSignName: the smallest
+//     "Ski area N" no other live sign's custom name uses) WRITTEN as its custom name, instead of the
+//     name being removed — removing it left the vanilla panel on the vanilla default while the hub showed
+//     a fallback label that could equal another sign's name (finding u2-data-02; RENAME_TIP's "an empty
+//     name restores the default" still holds). Runs and stations: "" removes the name as before.
+//   * a STATION shared by two or more lift rows is labelled "<name> → <top label>" (§3.7) and the rename
+//     field starts from that label; a trailing " → <top label>" of one of its rows is dropped before
+//     storing (StripSharedBaseSuffix; findings m1-hub-csharp-2 / u2-panel-3 — an in-place edit stored
+//     the label and the suffix compounded). No contract change: the UI still sends the edited text.
+//
+// LAUNCHING (research §2.C, U1 contract §5.2 item 3 "Build"; unchanged except the lodge's sign pick).
+// Contract 3 (ch5 §4.5): NINE items — "runNatural" (SkiRunNaturalA, a SurfacePrefab: the area tool takes
+// it like the other runs) joins at index 2, so ItemRunFirst..ItemRunLast = 2..5 (IsRunItem; ItemRunKind
+// fixes each run item's RunKind, never read from a prefab). Six optional numbers per item, read once at
+// arm time (ReadItemValues; prefab data does not change in a session): pricePerHa (SkiRunFees.PerHaFee),
+// cost (PlaceableObjectData.m_ConstructionCost; the lodge ServiceUpgradeData.m_UpgradeCost), costPerKm
+// (HubRules.LiftLinePerKm), monthly / monthlyPerKm (SkiMoneyRules lift rates) and monthlyPerHa
+// (SkiRunUpkeepSystem.CostPerHaMonth); `price` is narrowed to the run's BASE fee (SkiRunFees.BaseFee, D21).
+// The lift hint follows the SHOWN area (D37): HubRules.LiftNoPair over its lift rows, recomputed only when
+// the stats LiftsRevision or the shown area changed; the paragraphs below keep their contract-2 history.
+//   * Locked first: ToolSystem.ActivatePrefabTool itself does not check it (ToolSystem.cs:263-277,
+//     same in 1.6.2) while both vanilla callers do (ToolbarUISystem.cs:922-932, 1.6.2 :983;
+//     UpgradeMenuUISystem.cs:379-390) — EntityManager.HasEnabledComponent<Locked>(prefab entity)
+//     (Colossal.Entities.EntitiesExtensions; Locked is IEnableableComponent, Game.Prefabs/Locked.cs).
+//     Round M1 took every prefab of ours off the toolbar (UIObject.m_Group = null, hub-u2-spec §6.1):
+//     ActivatePrefabTool ignores groups (:263-278), UIObject still writes UIObjectData with a Null group
+//     (UIObject.cs:67-84) and the icon is the prefab's own m_Icon — launching is unaffected.
+//   * Sign, stations, lift, runs: ActivatePrefabTool(prefab); the first tool whose TrySetPrefab takes
+//     it becomes active (ObjectToolSystem.cs:2987-3016, 1.6.2 :3046-3075: a non-upgrade ObjectPrefab → Create;
+//     AreaToolSystem.cs:3013-3021, 1.6.2 :3024; NetToolSystem.cs:5557-5569, 1.6.2 :5685). Another
+//     mod may insert a tool ahead of vanilla (ToolBaseSystem.cs:315), so the log names the tool that
+//     actually took it (toolID, ToolBaseSystem.cs:142) and its mode.
+//   * "Active" (the item's tool is the active tool): activeTool.GetPrefab() is the item's prefab —
+//     ObjectToolSystem.GetPrefab returns the prefab in Create/Brush/Stamp/Line/Curve and NULL in
+//     Upgrade/Move (ObjectToolSystem.cs:2836-2847, 1.6.2 :2848-2859), so the lodge is tested apart:
+//     activeTool is the object tool, its `prefab` is the lodge and actualMode == Upgrade. Clicking an
+//     active item sets activeTool = DefaultToolSystem (the vanilla way, UpgradeMenuUISystem.cs:264-271).
+//   * build[].price: contract 2 sent the whole one-time run fee (runs left the sign's upgrade strip in M1,
+//     OD-12, so the hub is where the price shows); contract 3 sends the BASE fee and pricePerHa (D21, the
+//     area-based fee, above); -1 for every other item. build[].hint: contract 2 read the city-wide census;
+//     contract 3 = HubRules.LiftNoPair over the shown area's lift rows (above, D37).
+//   * LODGE (§2.C steps and traps). Sign (§3.2 last item): the hub's selected resort when it is a live
+//     sign; else the selected entity if it is a live Welcome Sign; else the sign nearest the camera pivot
+//     at ANY distance (SkiRunOwnershipSystem.TryNearestGateEntity returns it beyond the tether too,
+//     SkiRunOwnershipSystem.cs:570-606); none → refused with a line (the tile is locked by REASON[NoSign]).
+//     (1b) Round F6 (A2): unless the camera is already on that sign (HubCameraRules.AlreadyOn), fly there
+//     FIRST with the focusBuilding path, then put the lodge on the cursor — the lodge may go only within
+//     about 5 km of its sign (m_MaxPlacementDistance 5000, ValidationHelpers.cs:2065-2107), so launched
+//     from far away it showed the game's red range error with no hint why, and launched near another
+//     sign it silently became the hub's sign's upgrade (findings resort-assignment.md §4 D1 / D3 and the
+//     Verification's corrections 1-2: fly, never refuse). The launch line names the camera's verdict.
+//     Then (2) activeTool = DefaultTool when it is not already: under mouse/keyboard that runs
+//     UpgradeMenuUISystem.OnToolChanged → ClearUpgradeSelection synchronously (the activeTool setter
+//     invokes EventToolChanged, ToolSystem.cs:84-98; subscription UpgradeMenuUISystem.cs:153-160;
+//     OnToolChanged :423-428, ClearUpgradeSelection :264-271), so the selection-change event of
+//     step 3, raised on the NEXT SelectedInfoUISystem update (SelectedInfoUISystem.cs:378-381),
+//     finds no upgrade selected and does not switch our lodge tool off (OnSelectionChanged :414-421).
+//     UpgradeMenuUISystem.cs is identical in 1.6.2 over :140-440; SelectedInfoUISystem's lines too. (3) SelectedInfoUISystem.SetSelection(sign)
+//     (= ToolSystem.selected = sign, SelectedInfoUISystem.cs:456-462; the public route, UpgradeMenu's
+//     SelectUpgrade is private, :379). (4) Locked check + ActivatePrefabTool(lodge): the object tool
+//     takes a ServiceUpgrade prefab with PlaceableObjectData in Upgrade mode (ObjectToolSystem.cs
+//     :2992-2999, 1.6.2 :3051-3058). (5) VERIFY two UIUpdates later (ToolSystem runs the tool's OnUpdate in the
+//     next MainLoop, before UIUpdate, SystemOrder.cs:58, 67): the object tool must be active with the
+//     lodge in Upgrade mode on that sign. Otherwise → DefaultTool and one "!!! Hub lodge launch" line
+//     naming the cause. The trap this guards: ObjectToolSystem silently drops Upgrade to Create when
+//     GetUpgradable(ToolSystem.selected) has no InstalledUpgrade buffer (ObjectToolSystem.cs:3246-3249,
+//     1.6.2 :3305-3308) — a free-standing lodge; and the upgrade target IS GetUpgradable(selected)
+//     (:3318, :4187-4198; 1.6.2 :3377, :4246-4257). After the verify a WATCH runs every frame while
+//     the hub-launched lodge is the active tool: Create mode, or a selection that is not one of our
+//     signs, cancels to the default tool with a "!!!" line (another of our signs: follows it, logged).
+//     The lodge stays a ServiceUpgrade of the sign (hub-u2-spec §6.1 g — a constraint for every round).
+//
+// FOCUS (research §2.B.6, OD6: fly, never select). The DebugSystemSearch.FocusEntity recipe
+// (Game.Debug/DebugSystemSearch.cs:625-645, 1.6.2 :646-666) minus its selection, on the orbit camera
+// (CameraUpdateSystem.orbitCameraController / activeCameraController; Game/OrbitCameraController.cs is
+// identical in 1.6.2):
+//   * focusRun / focusBuilding — FOLLOW the entity: followedEntity = e (:47-71); the orbit camera tracks
+//     SelectedInfoUISystem.TryGetPosition(e) (:245-267, :286-300) — an area at Geometry.m_CenterPosition
+//     (SelectedInfoUISystem.cs:623-628), a building at its Transform (:601-610). Zoom: runs
+//     length(Extents(Geometry.m_Bounds.xz)) × FocusZoomFactor (U1); buildings the same over the bounds
+//     TryGetPosition returns (SelectedInfoUISystem.cs:578-651, public static), at least FocusBuildingMinZoomM.
+//   * focusLift(entity, top) — a lift is a station PAIR, not one entity, so the camera flies to a POINT:
+//     followedEntity = Null, pivot = the point (:75-85); with no followed entity UpdateCamera re-clamps
+//     the pivot onto the terrain + 10 m every frame (:234-244, kPivotVerticalOffset :23). The point is
+//     the census row's GapAt when it has a gap (§0 item 3: "clicking a lift with a gap flies the camera to
+//     the gap"), else its FocusCenter with zoom FocusRadius × FocusZoomFactor (at least FocusLiftMinZoomM).
+//   * Zoom is clamped to the orbit's m_ZoomRange (:25); rotation x = FocusPitchDeg (DebugSystemSearch.cs
+//     :634); any camera input releases the camera back to the gameplay controller (EventCameraMove →
+//     SelectedInfoUISystem.StopFollowing, SelectedInfoUISystem.cs:311, :316-341).
+// YAW (amended 2026-10-01, U1 fixer round, finding csharp-1): the heading is KEPT from the camera the
+// player is using — read from the ACTIVE controller BEFORE TryMatchPosition — not from the orbit
+// camera. The vanilla recipe writes `rotation = (45, orbit.rotation.y, 0)` after TryMatchPosition
+// (DebugSystemSearch.cs:634, 1.6.2 :655), but OrbitCameraController.rotation's getter returns its
+// ANCHOR's eulerAngles (OrbitCameraController.cs:114-119) while TryMatchPosition writes only m_Rotation
+// and the pivot (:206-221); the anchor turns only inside UpdateCamera (:256/:260/:270), which runs only
+// on the active controller (CameraUpdateSystem.cs:496, 1.6.2 :500). So with the gameplay camera active
+// the orbit's getter returns a stale heading (the last orbit follow; identity on first use — inferred
+// from Awake :154 creating the anchor, not stated in the decompile) and the camera would swing to it.
+// Every IGameCameraController.rotation is (pitch, yaw, 0) in degrees: CameraController.cs:140-150,
+// OrbitCameraController.cs:114-124, CinematicCameraController.cs:84-94 (all identical in 1.6.2).
+// SWITCHER (Round F6, A1; findings ui-small.md §1 and its Verification): ‹ › flies the camera. The fly
+// belongs to the REQUEST, never to the state: only ApplySelectResort, after an accepted switch whose
+// source is "ui" (the arrows are selectResort's only sender, HubHeader.tsx go(); the dev tab has no
+// SelectResort kind), calls FocusAfterSwitch. Select() itself, world selection (rule 2), the event rules
+// 1/4/5/6 (ReconcileResorts) and the binding pushes (selectedResort re-sends its value on subscribe)
+// never move the camera. FocusAfterSwitch:
+//   * Not linked (Null): the camera stays — the view has no sign, its items can lie anywhere, and each
+//     of its rows flies on click.
+//   * a sign: first, a lodge on the cursor (the object tool holding our lodge in Upgrade mode —
+//     hub-launched or from the sign's own upgrade menu) whose target sign (ToolSystem.selected,
+//     ObjectToolSystem.cs:3318) is NOT the new sign is ended: activeTool = DefaultTool (the setter does
+//     not clear the selection, ToolSystem.cs:84-111), one "Hub [lodge]" line — a fly would leave the
+//     lodge's work area 5-10 km behind (Verification, "Missed"). DEVIATION (reported): also when the
+//     camera stays because it is already on the new sign — the player then looks at that sign while the
+//     lodge would attach to the old one (resort-assignment.md §4 D1's silent case); contract A1 said
+//     "before flying" only.
+//   * already on the sign (HubCameraRules.AlreadyOn: the active controller's pivot within KeepZoomFraction
+//     × zoom of the sign's TryGetPosition point, and zoom ≤ KeepMaxZoomM) → the camera stays.
+//   * else → the focusBuilding path (ApplyFocusBuilding, the header pin's path, unchanged: zoom
+//     max(radius × 2.5, FocusBuildingMinZoomM), heading kept, no selection).
+//   One "Hub [focus]" line per switch: the target, the pivot's distance, the zoom and the verdict (fly /
+//   already on / Not linked: camera not moved). A fly that fails writes ApplyFocusBuilding's WARN instead.
+//   Rapid clicking flies once per accepted click (each is a request; a glide takes ≤ 0.5 s,
+//   OrbitCameraController.cs:262-266). Any camera input hands control back (EventCameraMove →
+//   SelectedInfoUISystem.StopFollowing, as for every fly here). The lodge launch (header LODGE, 1b)
+//   applies the same AlreadyOn rule. No contract change: the trigger's name and argument are unchanged
+//   and the UI never reads the camera (ui-small §1.7; contract.lock untouched).
+//
+// AUTO-OPEN (U1 contract §5.2 item 2; OD-14: sign only): when ToolSystem.selected (ToolSystem.cs:101-111)
+// changes to a live Ski Area Welcome Sign and the setting OpenHubOnSignSelect is on, hubOpen = true
+// ONCE for that selection change; never forced closed. One field compare per frame.
+//
+// HANDSHAKE (U1 §5.3 uiHello; research §2.A.3 item 13): the always-mounted HubRoot fires
+// uiHello(contract, bundleStamp) ONCE per UI load. One line per call: "UI hub connected: contract N
+// (DLL contract M), stamp …" — "!!!" on a contract mismatch (§4.5: the panel then shows the mismatch
+// line, the Trees foldout and the Build strip — building still works — and hides the statistics), and
+// on a stamp mismatch unless the bundle stamp starts with "ui-" (a UI-only npm build: an info line).
+// The DLL's stamp is SkiResortMod.BuildStamp.Value, generated into obj\ by the csproj target
+// SkiBuildStamp ("no-ui" when built without the UI).
+//
+// PHASE (Mod.cs): UpdateAt UIUpdate, registered after SkiRunCatalogSystem and SkiResortStatsSystem
+// (add order, UpdateSystem.cs:158-161): each frame catalog → stats → hub, so the revisions this system
+// reads are this frame's; every frame, paused included (UIUpdateSystem.cs:17-20, SystemOrder.cs:67).
+// gameMode => Game. base.OnUpdate() is called (UISystemBase.cs:39-46) although no update binding is
+// registered.
+//
+// PISTE MAP (D19, ch5 §4.7, §8): this system only exposes what SkiPisteMapSystem reads every frame —
+// PisteMapVisible (armed, not disabled, the UI answered uiHello with contract 3, the hub open and the
+// toggle on: a few field reads), ShownSign (= the selected resort) and HoveredRun (validated). The toggle
+// is session-only (on at every load, setPisteMap / the dev tab's TogglePisteMap, one "Hub [piste]" line
+// each). m_UiContractOk is NOT reset by a load: the UI module outlives a city load (U9, field check).
+//
+// HOUSE CONTRACT (contract 3): "created" line; one "Hub: ARMED" line per load listing every constant and
+// the item costs; a one-shot "!!!" catch that closes the hub, pushes contract = ContractAbsent (0) so the
+// UI shows its "not connected" notice instead of launchers that silently do nothing (U1 fixer round,
+// csharp-3; OnGamePreload pushes HubContract back), and refuses every trigger (each refusal logged; a
+// hoverRun only once per load, then counted) until the next load. No per-frame managed allocation or
+// string formatting (per frame: a few field reads, ValueBinding updates on structs, bools and an Entity,
+// revision compares, rule 7's pass flag, and a launch-state watch while a hub-launched lodge is on the
+// cursor; strings only on events). Logs both ways: one line per trigger (hoverRun: counted), per hub
+// open/close, per launch, per selected-resort change, per follow; array pushes are COUNTED (dev tab,
+// DUMP) and logged only when an array's row count changed — a content refresh (snow, guests, scores) can
+// move a live revision twice a second while the panel is open, and a line per such push would be a flood.
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.Text;
+using Colossal.Entities;            // EntityManager.TryGetComponent / HasEnabledComponent extensions
+using Colossal.Mathematics;        // MathUtils.Extents, Bounds3.xz
+using Colossal.Serialization.Entities;
+using Colossal.UI.Binding;
+using Game;
+using Game.Common;
+using Game.Prefabs;
+using Game.Rendering;
+using Game.SceneFlow;
+using Game.Tools;
+using Game.UI;
+using Game.UI.InGame;
+using Unity.Collections;
+using Unity.Entities;
+using Unity.Mathematics;
+
+namespace SkiResortMod.Systems
+{
+    public sealed partial class SkiResortHubUISystem : UISystemBase
+    {
+        /// <summary>Binding group (bindings.ts GROUP).</summary>
+        public const string Group = "skiResort";
+
+        /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a
+        /// binding, trigger, field or meaning changes. 3 = Round E1 (econ-round spec ch5 §4,
+        /// design hub-v3-design.md §8); 2 was hub-u2-spec.md §2 (Rounds U2/M1).</summary>
+        public const int HubContract = 3;
+
+        /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed
+        /// after the one-shot "!!!" until the next load (amended 2026-10-01, U1 fixer round, finding
+        /// csharp-3): the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
+        public const int ContractAbsent = 0;
+
+        /// <summary>Prefix of a UI-only build's stamp (bindings.ts STANDALONE_STAMP_PREFIX).</summary>
+        public const string StandaloneStampPrefix = "ui-";
+
+        // Build[].reason locale keys (root LocaleEN.cs).
+        public const string ReasonKeyLocked = "SkiResort.Hub.REASON[Locked]";
+        public const string ReasonKeyNoSign = "SkiResort.Hub.REASON[NoSign]";
+        public const string ReasonKeyMissing = "SkiResort.Hub.REASON[Missing]";
+
+        // Build[].hint locale key (root LocaleEN.cs; text changed in E1, key kept).
+        public const string HintKeyLiftNoPair = "SkiResort.Hub.HINT[LiftNoPair]";
+
+        /// <summary>ResortRow.kind of the "Not linked" row (§2.3: always last, always sent).</summary>
+        public const int ResortKindNotLinked = 1;
+
+        private static class Tuning
+        {
+            /// <summary>Wall-clock period (s) of the Locked re-check while the build section is open
+            /// (an unlock raises no event we listen to).</summary>
+            public const float LockRefreshS = 2f;
+            /// <summary>UIUpdates between the lodge launch and its Upgrade-mode verify (§2.C step 5).</summary>
+            public const int LodgeVerifyUpdates = 2;
+            /// <summary>Requests queued between two OnUpdates before further ones are dropped (logged).</summary>
+            public const int QueueCapacity = 32;
+            /// <summary>Distinct uiError messages logged per load.</summary>
+            public const int UiErrorsMax = 32;
+            /// <summary>uiError / handshake / layout text cut to this length in the log.</summary>
+            public const int TextMax = 400;
+            /// <summary>Focus recipe (DebugSystemSearch.cs:634-635, 1.6.2 :655-656: pitch 45°, zoom × 2.5).</summary>
+            public const float FocusZoomFactor = 2.5f;
+            public const float FocusPitchDeg = 45f;
+            /// <summary>Minimum zoom (m) when flying to a sign, lodge or station *(tunable, unmeasured)*.</summary>
+            public const float FocusBuildingMinZoomM = 150f;
+            /// <summary>Minimum zoom (m) when flying to a whole lift *(tunable, unmeasured)*.</summary>
+            public const float FocusLiftMinZoomM = 200f;
+            /// <summary>Zoom (m) when flying to a lift's gap *(tunable, unmeasured)*.</summary>
+            public const float FocusGapZoomM = 250f;
+            /// <summary>Longest name rename accepts (UTF-16 units): the vanilla name field's maxLength
+            /// (installed index.js@1009013, header RENAME).</summary>
+            public const int RenameMaxChars = 64;
+            /// <summary>Hub [layout] lines per load (§4.6: one per distinct measurement; the UI sends on a
+            /// text-scale or row-bucket change) — a cap so a UI bug cannot flood. Round E1 (ch5 C13): 32 → 64,
+            /// the UI re-sends the layout on every view change (five views × text scales).</summary>
+            public const int LayoutLinesMax = 64;
+            /// <summary>Hub [bind-notice] lines per stats rows change (the rest are summed in one line).</summary>
+            public const int BindNoticesPerPass = 4;
+            /// <summary>An array push slower than this (ms) is logged once per load per array.</summary>
+            public const float SlowPushMs = 5f;
+            /// <summary>E1 fixer (e1-spec §8.9 F10): each array's `Hub [push] … rows=` line goes through its own
+            /// LogWindow of this many wall-clock seconds (the R15 rule): `problems` follows simulation state
+            /// (efficiency factors crossing 100 % in a brownout), so its row count can move every poll.</summary>
+            public const float PushRowsLogWindowS = 10f;
+        }
+
+        // ── build items (bindings.ts BUILD_ITEM_IDS / BUILD_ITEM_PREFAB; ids keep in step, the UI orders
+        //    the tiles itself, buildItems.ts orderBuildItems) ───────────────────────────────────────
+
+        // Contract 3 (ch5 §4.1, §4.5): nine items, gate rule R16 compares ItemIds / ItemPrefabNames and these
+        // constants with bindings.ts BUILD_ITEM_IDS / BUILD_ITEM_PREFAB (literal values: the gate parses them).
+        private const int ItemSign = 0, ItemLodge = 1, ItemRunFirst = 2, ItemRunLast = 5, ItemLift = 6,
+                          ItemBase = 7, ItemTop = 8, ItemCount = 9;
+        private static readonly string[] ItemIds =
+        {
+            "sign", "lodge", "runNatural", "runGroomed", "runSnowmaking", "runNight", "lift", "baseStation", "topStation",
+        };
+        private static readonly string[] ItemPrefabNames =
+        {
+            "SkiResortGate", "SkiAFrameDayLodge", "SkiRunNaturalA", "SkiRunGroomedA", "SkiRunSnowmakingA", "SkiRunNightA",
+            "SkiChairliftHV", "SkiBaseStationBuilding", "SkiTopStationBuilding",
+        };
+        // PrefabID type names: the gate, lodge and stations are BuildingPrefabs, the runs SurfacePrefabs,
+        // the lift a PowerLinePrefab (the same names the other systems resolve them by:
+        // SkiRunOwnershipSystem, SkiResortAttractivenessSystem, PowerBridgeSystem, ChairPinSystem).
+        private static readonly string[] ItemPrefabTypes =
+        {
+            nameof(BuildingPrefab), nameof(BuildingPrefab), nameof(SurfacePrefab), nameof(SurfacePrefab),
+            nameof(SurfacePrefab), nameof(SurfacePrefab), nameof(PowerLinePrefab), nameof(BuildingPrefab), nameof(BuildingPrefab),
+        };
+        /// <summary>RunKind of each run item (−1 = not a run item). Fixed by the item, never read from a prefab.</summary>
+        private static readonly int[] ItemRunKind = { -1, -1, 3, 0, 1, 2, -1, -1, -1 };
+        private static bool IsRunItem(int i) => i >= ItemRunFirst && i <= ItemRunLast;
+
+        private const byte ReasonNone = 0, ReasonLocked = 1, ReasonNoSign = 2, ReasonMissing = 3;
+
+        private readonly PrefabBase[] m_ItemPrefab = new PrefabBase[ItemCount];
+        private readonly Entity[] m_ItemPrefabEntity = new Entity[ItemCount];
+        private readonly bool[] m_ItemLocked = new bool[ItemCount];
+        private readonly byte[] m_ItemReason = new byte[ItemCount];
+        private readonly int[] m_ItemPrice = new int[ItemCount];
+        // Per-item values read once at arm time (ch5 §4.5, ReadItemValues). −1 = not applicable / unknown.
+        private readonly int[] m_ItemPricePerHa = new int[ItemCount];
+        private readonly int[] m_ItemCost = new int[ItemCount];
+        private readonly int[] m_ItemCostPerKm = new int[ItemCount];
+        private readonly int[] m_ItemMonthly = new int[ItemCount];
+        private readonly int[] m_ItemMonthlyPerHa = new int[ItemCount];
+        private readonly int[] m_ItemMonthlyPerKm = new int[ItemCount];
+        private int m_ActiveItem = -1;
+
+        // ── value shapes ──────────────────────────────────────────────────────────────────────────
+
+        /// <summary>bindings.ts GladeState. Reason is a locale key constant (reference-stable).</summary>
+        public struct HubGladeState : IJsonWritable, IEquatable<HubGladeState>
+        {
+            public bool Available;
+            public bool Active;
+            public int Level;
+            public bool TreeLine;
+            public string Reason;
+
+            public HubGladeState(bool available, bool active, int level, bool treeLine, string reason)
+            {
+                Available = available;
+                Active = active;
+                Level = level;
+                TreeLine = treeLine;
+                Reason = reason ?? "";
+            }
+
+            public void Write(IJsonWriter writer)
+            {
+                writer.TypeBegin("SkiResortMod.GladeState");
+                writer.PropertyName("available");
+                writer.Write(Available);
+                writer.PropertyName("active");
+                writer.Write(Active);
+                writer.PropertyName("level");
+                writer.Write(Level);
+                writer.PropertyName("treeLine");
+                writer.Write(TreeLine);
+                writer.PropertyName("reason");
+                writer.Write(Reason ?? "");
+                writer.TypeEnd();
+            }
+
+            public bool Equals(HubGladeState other)
+            {
+                return Available == other.Available && Active == other.Active && Level == other.Level &&
+                       TreeLine == other.TreeLine && string.Equals(Reason, other.Reason, StringComparison.Ordinal);
+            }
+
+            public override bool Equals(object obj) => obj is HubGladeState other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int h = Available ? 1 : 0;
+                    h = h * 31 + (Active ? 1 : 0);
+                    h = h * 31 + Level;
+                    h = h * 31 + (TreeLine ? 1 : 0);
+                    return h * 31 + (Reason == null ? 0 : Reason.GetHashCode());
+                }
+            }
+        }
+
+        /// <summary>`city` writer (bindings.ts CityStats). Ours, so the TypeBegin name and the shape the
+        /// gate checks live in this file (header BINDINGS).</summary>
+        private sealed class CityStatsWriter : IWriter<CityStats>
+        {
+            public void Write(IJsonWriter writer, CityStats value)
+            {
+                writer.TypeBegin("SkiResortMod.CityStats");
+                writer.PropertyName("known");
+                writer.Write(value.Known);
+                writer.PropertyName("daysPerYear");
+                writer.Write(Fin(value.DaysPerYear));
+                writer.PropertyName("scaleK");
+                writer.Write(Fin(value.ScaleK));
+                writer.PropertyName("backcountryPct");
+                writer.Write(Fin(value.BackcountryPct));
+                writer.PropertyName("ticketPrice");
+                writer.Write(Fin(value.TicketPrice));
+                writer.PropertyName("snowGating");
+                writer.Write(value.SnowGating);
+                writer.PropertyName("snowmakingMarginC");
+                writer.Write(Fin(value.SnowmakingMarginC));
+                writer.PropertyName("snowVisualsOff");
+                writer.Write(value.SnowVisualsOff);
+                writer.PropertyName("tourismOverhaul");
+                writer.Write(value.TourismOverhaul);
+                writer.PropertyName("realisticWorkplaces");
+                writer.Write(value.RealisticWorkplaces);
+                writer.TypeEnd();
+            }
+        }
+
+        /// <summary>`city` dedup: all ten fields (typed Equals per field — no boxing; floats with .Equals).</summary>
+        private sealed class CityStatsComparer : EqualityComparer<CityStats>
+        {
+            public override bool Equals(CityStats a, CityStats b)
+            {
+                return a.Known == b.Known && a.DaysPerYear == b.DaysPerYear && a.ScaleK == b.ScaleK &&
+                       a.BackcountryPct == b.BackcountryPct && a.TicketPrice == b.TicketPrice && a.SnowGating == b.SnowGating &&
+                       a.SnowmakingMarginC.Equals(b.SnowmakingMarginC) && a.SnowVisualsOff == b.SnowVisualsOff &&
+                       a.TourismOverhaul == b.TourismOverhaul && a.RealisticWorkplaces == b.RealisticWorkplaces;
+            }
+
+            public override int GetHashCode(CityStats c)
+            {
+                unchecked
+                {
+                    int h = c.Known ? 1 : 0;
+                    h = h * 31 + c.DaysPerYear;
+                    h = h * 31 + c.ScaleK;
+                    h = h * 31 + c.BackcountryPct;
+                    h = h * 31 + c.TicketPrice;
+                    h = h * 31 + (c.SnowGating ? 1 : 0);
+                    h = h * 31 + c.SnowmakingMarginC.GetHashCode();
+                    h = h * 31 + (c.SnowVisualsOff ? 1 : 0);
+                    h = h * 31 + (c.TourismOverhaul ? 1 : 0);
+                    return h * 31 + (c.RealisticWorkplaces ? 1 : 0);
+                }
+            }
+        }
+
+        // ── number guard (header BINDINGS) ───────────────────────────────────────────────────────
+
+        private static int s_NonFinite;
+
+        private static int Fin(int v) => v;
+
+        private static float Fin(float v)
+        {
+            if (!float.IsNaN(v) && !float.IsInfinity(v))
+                return v;
+            s_NonFinite++;
+            return 0f;
+        }
+
+        private static double Fin(double v)
+        {
+            if (!double.IsNaN(v) && !double.IsInfinity(v))
+                return v;
+            s_NonFinite++;
+            return 0d;
+        }
+
+        // ── array push bookkeeping (header BINDINGS / HOUSE CONTRACT) ─────────────────────────────
+
+        private sealed class ArrayPush
+        {
+            public readonly string Name;
+            public RawValueBinding Binding;
+            public bool WasActive;
+            public int PushedRevision = int.MinValue;
+            public int LoggedRows = -1;
+            public long Pushes;
+            public float LastMs, MaxMs;
+            public bool SlowLogged;
+            /// <summary>E1 fixer (F10): folds the row-count lines (slot 0 rows, slot 1 push ms).</summary>
+            public readonly LogWindow RowsLog = new LogWindow(Tuning.PushRowsLogWindowS);
+
+            public ArrayPush(string name)
+            {
+                Name = name;
+            }
+
+            /// <summary>A load: the caller flushed RowsLog first (FlushPushRows).</summary>
+            public void Reset()
+            {
+                WasActive = false;
+                PushedRevision = int.MinValue;
+                LoggedRows = -1;
+                SlowLogged = false;
+                RowsLog.Reset();
+            }
+        }
+
+        private readonly ArrayPush m_ResortsPush = new ArrayPush("resorts");
+        private readonly ArrayPush m_ResortLivePush = new ArrayPush("resortLive");
+        private readonly ArrayPush m_RunsPush = new ArrayPush("runs");
+        private readonly ArrayPush m_RunLivePush = new ArrayPush("runLive");
+        private readonly ArrayPush m_LiftsPush = new ArrayPush("lifts");
+        private readonly ArrayPush m_ProblemsPush = new ArrayPush("problems");
+
+        // ── requests (trigger → OnUpdate) ─────────────────────────────────────────────────────────
+
+        private enum RequestKind : byte
+        {
+            ToggleHub, SetHubOpen, Hello, UiError, Launch, Focus, GladeToggle, GladeLevel, GladeTreeLine, Dump,
+            SelectResort, Rename, FocusLift, FocusBuilding, Layout,
+            SetPisteMap, TogglePisteMap,   // Round E1 (ch5 §4.2): appended; TogglePisteMap is the dev tab's only
+        }
+
+        private struct Request
+        {
+            public RequestKind Kind;
+            public bool Bool;
+            public int Int;
+            public string Text;
+            public Entity Entity;
+            public Entity Entity2;   // focusLift: the row's top station (may be Null)
+            public string Source;    // "ui" or "dev tab"
+        }
+
+        private readonly Request[] m_Queue = new Request[Tuning.QueueCapacity];
+        private int m_QueueCount;
+
+        // ── systems and bindings ──────────────────────────────────────────────────────────────────
+
+        private ToolSystem m_ToolSystem;
+        private DefaultToolSystem m_DefaultTool;
+        private ObjectToolSystem m_ObjectTool;
+        private SelectedInfoUISystem m_SelectedInfo;
+        private CameraUpdateSystem m_CameraUpdateSystem;
+        private PrefabSystem m_PrefabSystem;
+        private NameSystem m_NameSystem;
+        private SkiRunOwnershipSystem m_Ownership;
+        private SkiRunBindTriggerSystem m_BindTrigger;   // fixer round: PickSignName (empty sign rename)
+        private SkiRunCatalogSystem m_Catalog;
+        private SkiResortStatsSystem m_Stats;
+        private LiftCensusSystem m_Census;
+        private SkiResortAttractivenessSystem m_Attractiveness;
+        private PowerBridgeSystem m_PowerBridge;
+        private SkiPlacementInfoviewSystem m_Infoview;
+        private SkiGladeToolSystem m_GladeTool;
+        private SkiPisteMapSystem m_PisteMap;        // DUMP only (ch5 §4.9)
+        private EntityQuery m_PrefabScanQuery;
+        private EntityQuery m_CitizenQuery;          // DUMP only (§3.4: citizens at a lodge / sign)
+        private EntityQuery m_ConsumerQuery;         // DUMP only (§7.1 step 14: station ElectricityConsumer)
+
+        private ValueBinding<bool> m_HubOpen;
+        private ValueBinding<int> m_Contract;
+        private ValueBinding<string> m_BuildStamp;
+        private ValueBinding<bool> m_ShowHubButton;
+        private RawValueBinding m_Build;
+        private ValueBinding<HubGladeState> m_Glade;
+        private RawValueBinding m_Resorts;
+        private RawValueBinding m_ResortLive;
+        private ValueBinding<Entity> m_SelectedBinding;
+        private RawValueBinding m_Runs;
+        private RawValueBinding m_RunLive;
+        private RawValueBinding m_Lifts;
+        private RawValueBinding m_Problems;
+        private ValueBinding<CityStats> m_City;
+        private ValueBinding<bool> m_PisteMapBinding;
+        private ValueBinding<int> m_FollowBinding;
+
+        /// <summary>The DLL's stamp as a runtime value (BuildStamp.Value is a const: comparing it with
+        /// another constant would be a compile-time expression).</summary>
+        private static readonly string s_DllStamp = BuildStamp.Value;
+
+        // ── per-load state ────────────────────────────────────────────────────────────────────────
+
+        private bool m_Armed;
+        private bool m_Disabled;
+        private bool m_ErrorLogged;
+        private Entity m_LastSelected;
+        private bool m_BuildWasActive;
+        private int m_BuildPushedSignature = int.MinValue;
+        private float m_NextLockRefresh;
+        private int m_LockResortsRevision = int.MinValue;
+        private bool m_LocksDirty = true;
+        private readonly HashSet<string> m_UiErrors = new HashSet<string>();
+        private bool m_UiErrorCapLogged;
+        private readonly Stopwatch m_PushTimer = new Stopwatch();
+        private bool m_NonFiniteLogged;
+        private HashSet<Entity> m_StationPrefabs;
+
+        // Selected resort (header SELECTED RESORT).
+        private Entity m_SelectedResort;
+        private int m_ReconciledResortsRevision;
+        private bool m_SignBaselineSet;
+        private HashSet<Entity> m_SignsKnown = new HashSet<Entity>();
+        private HashSet<Entity> m_SignsScratch = new HashSet<Entity>();
+
+        // Bind notices (§3.2 last item).
+        private int m_NoticedRunsRevision;
+        private bool m_RunBaselineSet;
+        private Dictionary<Entity, Entity> m_RunSigns = new Dictionary<Entity, Entity>();
+        private Dictionary<Entity, Entity> m_RunSignsScratch = new Dictionary<Entity, Entity>();
+
+        // Lift close notices (Round F6, A3; header BIND NOTICES): stats LiftStats.State per (entity, top).
+        private int m_NoticedLiftsRevision;
+        private bool m_LiftBaselineSet;
+        private Dictionary<(Entity, Entity), int> m_LiftStates = new Dictionary<(Entity, Entity), int>();
+        private Dictionary<(Entity, Entity), int> m_LiftStatesScratch = new Dictionary<(Entity, Entity), int>();
+
+        // Lift hint (build[lift].hint, D37: per shown area, ch5 §4.5).
+        private int m_HintLiftsRevision = int.MinValue;
+        private Entity m_HintSign = Entity.Null;
+        private bool m_LiftNoPair;
+        private readonly List<HubLiftHintRow> m_HintRows = new List<HubLiftHintRow>(8);
+
+        // Piste map (D19, ch5 §4.2, §4.7) and the run hover (C4).
+        private bool m_UiContractOk;            // set by ApplyHello; NOT reset by a load (the UI module outlives a load)
+        private bool m_PisteMapOn = true;       // the D19 toggle; OnGamePreload → true
+        private Entity m_HoveredRun;            // OnGamePreload → Null
+        private Entity m_HoverRequest;
+        private bool m_HoverPending;            // trigger → OnUpdate (C4)
+        private bool m_HoverLogged, m_HoverRefusedLogged, m_HoverDisabledLogged;   // per load
+        public long HoverCalls, HoverAccepted, HoverRefused;                       // per load
+
+        // Selection rule 7 (D36, ch5 §4.6).
+        private struct FollowCandidate { public Entity Sign; public string Reason; }   // Sign Null = none
+        private int m_FollowCount;              // OnGamePreload → 0 (the binding's value)
+        public int FollowsSuppressedClosed, FollowsSuppressedRule, FollowsSuppressedUser, FollowsSuppressedSoon;
+        private float m_LastFollowAt = float.NegativeInfinity, m_LastUserSelectAt = float.NegativeInfinity;
+        private bool m_RuleSwitchedThisPass;
+        private FollowCandidate m_FollowCandidate;
+        private bool m_StationBaselineSet;
+        private HashSet<Entity> m_StationsKnown = new HashSet<Entity>(), m_StationsScratch = new HashSet<Entity>();
+
+        // uiLayout (§4.6).
+        private string m_LastLayout;
+        private int m_LayoutLines;
+        private bool m_LayoutCapLogged;
+
+        // Lodge launch state (header LODGE).
+        private Entity m_LodgeSign;
+        private int m_LodgeVerifyCountdown;
+        private bool m_LodgeWatch;
+
+        // Dev tab / DUMP (plain fields written on events).
+        public string HandshakeText { get; private set; } = "no uiHello yet";
+        public string LastTriggerText { get; private set; } = "-";
+        public string LodgeStateText { get; private set; } = "-";
+        public string LastSelectText { get; private set; } = "-";
+        public long TriggerCount;
+        public int UiErrorRepeats;
+
+        /// <summary>`runs` pushes this session (dev tab, U1 name).</summary>
+        public long RunsPushes => m_RunsPush.Pushes;
+
+        /// <summary>The hub's selected resort (§2.1): a live sign, or Entity.Null = the "Not linked" view.</summary>
+        public Entity SelectedResort => m_SelectedResort;
+
+        public bool IsArmed => m_Armed;
+        public bool IsDisabled => m_Disabled;
+        public bool IsOpen => m_HubOpen != null && m_HubOpen.value;
+
+        // ── what the piste-map overlay reads (ch5 §4.7; header PISTE MAP) ─────────────────────────
+
+        /// <summary>D19: draw the piste map now. Armed, not disabled, the UI answered with contract 3, the hub
+        /// is open and the Piste map toggle is on. A few field reads; called every frame by SkiPisteMapSystem.</summary>
+        internal bool PisteMapVisible => m_Armed && !m_Disabled && m_UiContractOk && m_HubOpen != null && m_HubOpen.value && m_PisteMapOn;
+
+        /// <summary>The shown area (= SelectedResort): a live sign, or Entity.Null = the Not linked entry.</summary>
+        internal Entity ShownSign => m_SelectedResort;
+
+        /// <summary>The run the mouse is over in the hub's run list (Null = none). Validated (C4).</summary>
+        internal Entity HoveredRun => m_HoveredRun;
+
+        /// <summary>Log text only (event time): the area's name, or "Not linked" for Null.</summary>
+        internal string AreaLabel(Entity sign) => AreaName(sign);
+
+        /// <summary>Dev tab / DUMP.</summary>
+        public bool PisteMapOn => m_PisteMapOn;
+        public int FollowCount => m_FollowCount;
+
+        /// <summary>The UI answered uiHello with this DLL's contract (DUMP of SkiPisteMapSystem).</summary>
+        internal bool UiContractOk => m_UiContractOk;
+
+        public override GameMode gameMode => GameMode.Game;
+
+        // ── lifecycle ─────────────────────────────────────────────────────────────────────────────
+
+        protected override void OnCreate()
+        {
+            base.OnCreate();
+            m_ToolSystem = World.GetOrCreateSystemManaged<ToolSystem>();
+            m_DefaultTool = World.GetOrCreateSystemManaged<DefaultToolSystem>();
+            m_ObjectTool = World.GetOrCreateSystemManaged<ObjectToolSystem>();
+            m_SelectedInfo = World.GetOrCreateSystemManaged<SelectedInfoUISystem>();
+            m_CameraUpdateSystem = World.GetOrCreateSystemManaged<CameraUpdateSystem>();
+            m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
+            m_NameSystem = World.GetOrCreateSystemManaged<NameSystem>();
+            m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
+            m_BindTrigger = World.GetOrCreateSystemManaged<SkiRunBindTriggerSystem>();
+            m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
+            m_Stats = World.GetOrCreateSystemManaged<SkiResortStatsSystem>();
+            m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
+            m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
+            m_PowerBridge = World.GetOrCreateSystemManaged<PowerBridgeSystem>();
+            m_Infoview = World.GetOrCreateSystemManaged<SkiPlacementInfoviewSystem>();
+            m_GladeTool = World.GetOrCreateSystemManaged<SkiGladeToolSystem>();
+            // m_PisteMap (DUMP only) is resolved at DUMP time with GetExistingSystemManaged: SkiPisteMapSystem's
+            // OnCreate resolves THIS system, and a GetOrCreate both ways would create one inside the other's OnCreate.
+            m_PrefabScanQuery = GetEntityQuery(ComponentType.ReadOnly<PrefabData>());
+            m_CitizenQuery = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<Game.Citizens.Citizen>(), ComponentType.ReadOnly<Game.Citizens.CurrentBuilding>() },
+                None = new[] { ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Temp>() },
+            });
+            m_ConsumerQuery = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadOnly<Game.Buildings.Building>(), ComponentType.ReadOnly<PrefabRef>(),
+                    ComponentType.ReadOnly<Game.Buildings.ElectricityConsumer>(),
+                },
+                None = new[] { ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Temp>() },
+            });
+
+            bool showButton = Mod.Settings == null || Mod.Settings.ShowHubButton;
+            m_ResortsPush.Binding = m_Resorts = new RawValueBinding(Group, "resorts", WriteResorts);
+            m_ResortLivePush.Binding = m_ResortLive = new RawValueBinding(Group, "resortLive", WriteResortLive);
+            m_RunsPush.Binding = m_Runs = new RawValueBinding(Group, "runs", WriteRuns);
+            m_RunLivePush.Binding = m_RunLive = new RawValueBinding(Group, "runLive", WriteRunLive);
+            m_LiftsPush.Binding = m_Lifts = new RawValueBinding(Group, "lifts", WriteLifts);
+            m_ProblemsPush.Binding = m_Problems = new RawValueBinding(Group, "problems", WriteProblems);
+
+            // Values (C# → UI), in bindings.ts order (contract 3, ch5 §4.1; gate R1 needs the literals).
+            AddBinding(m_HubOpen = new ValueBinding<bool>(Group, "hubOpen", false));
+            AddBinding(m_Contract = new ValueBinding<int>(Group, "contract", HubContract));
+            AddBinding(m_BuildStamp = new ValueBinding<string>(Group, "buildStamp", s_DllStamp ?? ""));
+            AddBinding(m_ShowHubButton = new ValueBinding<bool>(Group, "showHubButton", showButton));
+            AddBinding(m_Build = new RawValueBinding(Group, "build", WriteBuild));
+            AddBinding(m_Glade = new ValueBinding<HubGladeState>(Group, "glade",
+                new HubGladeState(false, false, SkiGladeCompose.DefaultLevel, false, "")));
+            AddBinding(m_Resorts);
+            AddBinding(m_ResortLive);
+            AddBinding(m_SelectedBinding = new ValueBinding<Entity>(Group, "selectedResort", Entity.Null));
+            AddBinding(m_Runs);
+            AddBinding(m_RunLive);
+            AddBinding(m_Lifts);
+            AddBinding(m_Problems);
+            AddBinding(m_City = new ValueBinding<CityStats>(Group, "city", default(CityStats), new CityStatsWriter(),
+                new CityStatsComparer()));
+            AddBinding(m_PisteMapBinding = new ValueBinding<bool>(Group, "pisteMap", true));
+            AddBinding(m_FollowBinding = new ValueBinding<int>(Group, "follow", 0));
+
+            // Triggers (UI → C#): bindings.ts TRIGGER (§2.2).
+            AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
+            AddBinding(new TriggerBinding<bool>(Group, "setHubOpen", OnSetHubOpen));
+            AddBinding(new TriggerBinding<int, string>(Group, "uiHello", OnUiHello));
+            AddBinding(new TriggerBinding<string>(Group, "uiError", OnUiError));
+            AddBinding(new TriggerBinding<string>(Group, "launch", OnLaunch));
+            AddBinding(new TriggerBinding<Entity>(Group, "focusRun", OnFocusRun));
+            AddBinding(new TriggerBinding(Group, "gladeToggle", OnGladeToggle));
+            AddBinding(new TriggerBinding<int>(Group, "gladeSetLevel", OnGladeSetLevel));
+            AddBinding(new TriggerBinding<bool>(Group, "gladeSetTreeLine", OnGladeSetTreeLine));
+            AddBinding(new TriggerBinding(Group, "dumpHub", OnDumpHub));
+            AddBinding(new TriggerBinding<Entity>(Group, "selectResort", OnSelectResort));
+            AddBinding(new TriggerBinding<Entity, string>(Group, "rename", OnRename));
+            AddBinding(new TriggerBinding<Entity, Entity>(Group, "focusLift", OnFocusLift));
+            AddBinding(new TriggerBinding<Entity>(Group, "focusBuilding", OnFocusBuilding));
+            AddBinding(new TriggerBinding<string>(Group, "uiLayout", OnUiLayout));
+            // Round E1 (ch5 §4.1): the 15 of contract 2 above, then the two new ones.
+            AddBinding(new TriggerBinding<bool>(Group, "setPisteMap", OnSetPisteMap));
+            AddBinding(new TriggerBinding<Entity>(Group, "hoverRun", OnHoverRun));
+
+            Mod.Log.Info($"{nameof(SkiResortHubUISystem)} created — group '{Group}', contract {HubContract}, " +
+                         $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 16 value bindings, " +
+                         "17 triggers");
+        }
+
+        protected override void OnGamePreload(Purpose purpose, GameMode mode)
+        {
+            base.OnGamePreload(purpose, mode);   // Enabled = (gameMode & mode) != 0 (UISystemBase.cs:60-64)
+            try
+            {
+                if (m_QueueCount > 0)
+                {
+                    Mod.Log.Info($"Hub: {m_QueueCount} queued request(s) dropped by the load ({mode})");
+                    ClearQueue();
+                }
+                m_Armed = false;
+                m_Disabled = false;
+                m_ErrorLogged = false;
+                m_Contract.Update(HubContract);   // undo HandleException's ContractAbsent (pushes only on a change)
+                m_LastSelected = Entity.Null;
+                m_BuildWasActive = false;
+                m_BuildPushedSignature = int.MinValue;
+                FlushPushRows();   // E1 fixer F10: folded row-count lines of the last city first
+                m_ResortsPush.Reset();
+                m_ResortLivePush.Reset();
+                m_RunsPush.Reset();
+                m_RunLivePush.Reset();
+                m_LiftsPush.Reset();
+                m_ProblemsPush.Reset();
+                m_NextLockRefresh = 0f;
+                m_LockResortsRevision = int.MinValue;
+                m_LocksDirty = true;
+                m_UiErrors.Clear();
+                m_UiErrorCapLogged = false;
+                UiErrorRepeats = 0;
+                m_NonFiniteLogged = false;
+                s_NonFinite = 0;
+                m_LodgeSign = Entity.Null;
+                m_LodgeVerifyCountdown = 0;
+                m_LodgeWatch = false;
+                LodgeStateText = "-";
+                LastTriggerText = "-";
+                LastSelectText = "-";
+                HandshakeText = "no uiHello yet this load";
+                m_ActiveItem = -1;
+                m_SelectedResort = Entity.Null;   // rule 1: Null at load (§3.2)
+                m_SelectedBinding.Update(Entity.Null);
+                m_SignBaselineSet = false;
+                m_SignsKnown.Clear();
+                m_RunBaselineSet = false;
+                m_RunSigns.Clear();
+                m_LiftBaselineSet = false;
+                m_LiftStates.Clear();
+                m_HintLiftsRevision = int.MinValue;
+                m_HintSign = Entity.Null;
+                m_LiftNoPair = false;
+                // Round E1 (ch5 §4.2): piste map on at every load (D19), hover and follow state per load.
+                m_PisteMapOn = true;
+                m_PisteMapBinding.Update(true);
+                m_HoveredRun = Entity.Null;
+                m_HoverRequest = Entity.Null;
+                m_HoverPending = false;
+                m_HoverLogged = m_HoverRefusedLogged = m_HoverDisabledLogged = false;
+                HoverCalls = HoverAccepted = HoverRefused = 0;
+                m_FollowCount = 0;
+                m_FollowBinding.Update(0);
+                FollowsSuppressedClosed = FollowsSuppressedRule = FollowsSuppressedUser = FollowsSuppressedSoon = 0;
+                m_LastFollowAt = m_LastUserSelectAt = float.NegativeInfinity;
+                m_RuleSwitchedThisPass = false;
+                m_FollowCandidate = default;
+                m_StationBaselineSet = false;
+                m_StationsKnown.Clear();
+                m_LastLayout = null;
+                m_LayoutLines = 0;
+                m_LayoutCapLogged = false;
+                m_Catalog.Demand = false;
+                m_Stats.Demand = false;
+                m_HubOpen.Update(false);   // a new city starts with the hub closed
+            }
+            catch (Exception e)
+            {
+                HandleException(e, "OnGamePreload");
+            }
+        }
+
+        /// <summary>E1 fixer (F10): quit to desktop raises no OnGamePreload, so the folded `Hub [push]` row-count
+        /// lines are written here (the LogWindow header: OnDestroy runs while the logger is still alive).</summary>
+        protected override void OnDestroy()
+        {
+            try
+            {
+                FlushPushRows();
+            }
+            catch (Exception)
+            {
+                // nothing left to report to
+            }
+            base.OnDestroy();
+        }
+
+        protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
+        {
+            base.OnGameLoadingComplete(purpose, mode);
+            if (mode != GameMode.Game)
+                return;
+            try
+            {
+                int resolved = ResolveItems(out string itemText);
+                ReadItemValues();
+                m_StationPrefabs = m_PowerBridge.GetResolvedStationPrefabs();
+                // The stats rows may still hold the previous city's until its first rebuild: start from the
+                // current revisions so rules 1/4/5/6 and the bind notices run on fresh rows only.
+                m_ReconciledResortsRevision = m_Stats.ResortsRevision;
+                m_NoticedRunsRevision = m_Stats.RunsRevision;
+                m_NoticedLiftsRevision = m_Stats.LiftsRevision;
+                m_Armed = true;
+                Mod.Log.Info($"Hub: ARMED — group '{Group}', contract {HubContract}, DLL stamp {s_DllStamp} (UI " +
+                             $"bundled at build: {BuildStamp.UiBundled}); bindings hubOpen, contract, buildStamp, " +
+                             "showHubButton (always observed), build, glade, resorts, resortLive, selectedResort, runs, " +
+                             "runLive, lifts, problems, city (panel bindings: catalog and stats Demand follow them, nothing " +
+                             "is computed while closed), pisteMap and follow (panel values, no Demand); arrays pushed per " +
+                             "stats revision (slow rows and live rows apart), logged only when a row count changes; triggers " +
+                             "toggleHub, setHubOpen, uiHello, uiError, launch, focusRun, gladeToggle, gladeSetLevel, " +
+                             "gladeSetTreeLine, dumpHub, selectResort, rename, focusLift, focusBuilding, uiLayout, setPisteMap " +
+                             "(queued, applied in OnUpdate, one line each; uiLayout only when changed) and hoverRun (a field " +
+                             "write, validated next update, counted; first per load logged); settings " +
+                             $"ShowHubButton={Mod.Settings == null || Mod.Settings.ShowHubButton} OpenHubOnSignSelect=" +
+                             $"{Mod.Settings == null || Mod.Settings.OpenHubOnSignSelect}; build prefabs {resolved}/{ItemCount} " +
+                             $"[{itemText}]; item costs: {ItemCostText()}; station prefabs {m_StationPrefabs?.Count ?? 0}; " +
+                             $"Locked re-checked every {Tuning.LockRefreshS:0.#} s while the build section is open " +
+                             "(LockRefreshS); the lift hint follows the shown ski area; D36 follow (rule 7): a run bound, a " +
+                             "station placed or a lift closed in another live ski area switches the hub to it while it is " +
+                             "open — not in a pass where a new or removed sign already switched, not within " +
+                             $"FollowQuietAfterUserS={HubRules.FollowQuietAfterUserS:0.#} s of the player's own switch, at " +
+                             $"most one per FollowMinIntervalS={HubRules.FollowMinIntervalS:0.#} s, never moving the camera; " +
+                             "piste map on at load (D19, drawn by SkiPisteMapSystem); lodge launch on the " +
+                             $"selected resort, verified {Tuning.LodgeVerifyUpdates} UI updates later (LodgeVerifyUpdates) " +
+                             "then watched; ‹ › (UI requests only) and the lodge launch fly to the sign unless the camera " +
+                             $"is already on it (pivot within {HubCameraRules.KeepZoomFraction} × zoom of the sign and zoom " +
+                             $"<= {HubCameraRules.KeepMaxZoomM} m: HubCameraRules.KeepZoomFraction, KeepMaxZoomM), Not " +
+                             "linked never moves it, a switch to a sign ends a lodge on the cursor bound to another sign; " +
+                             "a lift that closes in another resort than the one shown is logged (Hub [bind-notice]); " +
+                             $"focus zoom = radius × {Tuning.FocusZoomFactor} at {Tuning.FocusPitchDeg}° " +
+                             $"(FocusZoomFactor, FocusPitchDeg; no selection, OD6), buildings >= {Tuning.FocusBuildingMinZoomM} m " +
+                             $"(FocusBuildingMinZoomM), lifts >= {Tuning.FocusLiftMinZoomM} m (FocusLiftMinZoomM), a lift's gap " +
+                             $"{Tuning.FocusGapZoomM} m (FocusGapZoomM); rename max {Tuning.RenameMaxChars} chars " +
+                             $"(RenameMaxChars); LayoutLinesMax={Tuning.LayoutLinesMax} BindNoticesPerPass=" +
+                             $"{Tuning.BindNoticesPerPass} SlowPushMs={Tuning.SlowPushMs} QueueCapacity={Tuning.QueueCapacity} " +
+                             $"UiErrorsMax={Tuning.UiErrorsMax}; selected resort Null until the first stats rebuild; hub " +
+                             "closed at load");
+            }
+            catch (Exception e)
+            {
+                HandleException(e, "OnGameLoadingComplete");
+            }
+        }
+
+        protected override void OnUpdate()
+        {
+            base.OnUpdate();   // UISystemBase.cs:39-46 (no update binding registered; kept for the contract)
+            if (m_Disabled)
+                return;
+            try
+            {
+                GameManager gm = GameManager.instance;
+                if (gm == null || gm.isGameLoading || !m_Armed)
+                {
+                    m_Catalog.Demand = false;
+                    m_Stats.Demand = false;
+                    return;
+                }
+
+                // Setting → binding (a bool read; the binding pushes only on a change).
+                m_ShowHubButton.Update(Mod.Settings == null || Mod.Settings.ShowHubButton);
+
+                // World selection: selected-resort mapping (rule 2), then auto-open (one compare per frame).
+                Entity selected = m_ToolSystem.selected;
+                if (selected != m_LastSelected)
+                {
+                    m_LastSelected = selected;
+                    OnSelectionChanged(selected);
+                }
+
+                if (m_QueueCount > 0)
+                    DrainQueue();
+
+                // hoverRun (C4): the trigger wrote a field; validate and apply it here (main thread).
+                if (m_HoverPending)
+                {
+                    m_HoverPending = false;
+                    ApplyHover(m_HoverRequest);
+                }
+
+                LodgeStep();
+                ReconcileSelection();
+                PushPanelData();
+            }
+            catch (Exception e)
+            {
+                HandleException(e, "OnUpdate");
+            }
+        }
+
+        // ── triggers (cohtml event dispatch, main thread): validate, queue, never throw ─────────────
+
+        private void OnToggleHub() => Trigger("toggleHub", new Request { Kind = RequestKind.ToggleHub });
+
+        private void OnSetHubOpen(bool open) =>
+            Trigger("setHubOpen", new Request { Kind = RequestKind.SetHubOpen, Bool = open });
+
+        private void OnUiHello(int contract, string bundleStamp) =>
+            Trigger("uiHello", new Request { Kind = RequestKind.Hello, Int = contract, Text = bundleStamp });
+
+        private void OnUiError(string message) =>
+            Trigger("uiError", new Request { Kind = RequestKind.UiError, Text = message });
+
+        private void OnLaunch(string id) => Trigger("launch", new Request { Kind = RequestKind.Launch, Text = id });
+
+        private void OnFocusRun(Entity run) =>
+            Trigger("focusRun", new Request { Kind = RequestKind.Focus, Entity = run });
+
+        private void OnGladeToggle() => Trigger("gladeToggle", new Request { Kind = RequestKind.GladeToggle });
+
+        private void OnGladeSetLevel(int level) =>
+            Trigger("gladeSetLevel", new Request { Kind = RequestKind.GladeLevel, Int = level });
+
+        private void OnGladeSetTreeLine(bool treeLine) =>
+            Trigger("gladeSetTreeLine", new Request { Kind = RequestKind.GladeTreeLine, Bool = treeLine });
+
+        private void OnDumpHub() => Trigger("dumpHub", new Request { Kind = RequestKind.Dump });
+
+        private void OnSelectResort(Entity sign) =>
+            Trigger("selectResort", new Request { Kind = RequestKind.SelectResort, Entity = sign });
+
+        private void OnRename(Entity entity, string name) =>
+            Trigger("rename", new Request { Kind = RequestKind.Rename, Entity = entity, Text = name });
+
+        private void OnFocusLift(Entity entity, Entity top) =>
+            Trigger("focusLift", new Request { Kind = RequestKind.FocusLift, Entity = entity, Entity2 = top });
+
+        private void OnFocusBuilding(Entity building) =>
+            Trigger("focusBuilding", new Request { Kind = RequestKind.FocusBuilding, Entity = building });
+
+        private void OnUiLayout(string layout) =>
+            Trigger("uiLayout", new Request { Kind = RequestKind.Layout, Text = layout });
+
+        private void OnSetPisteMap(bool on) =>
+            Trigger("setPisteMap", new Request { Kind = RequestKind.SetPisteMap, Bool = on });
+
+        /// <summary>D19 emphasis (C4): a field write only — no queue (mouse traffic must not fill
+        /// QueueCapacity), no EntityManager, no log. OnUpdate validates and applies it.</summary>
+        private void OnHoverRun(Entity run)
+        {
+            try
+            {
+                HoverCalls++;
+                if (m_Disabled)   // OnUpdate returns early after a "!!!": say it once here, count the rest
+                {
+                    if (!m_HoverDisabledLogged)
+                    {
+                        m_HoverDisabledLogged = true;
+                        Mod.Log.Info("Hub [hover] ignored — the hub is disabled after an exception until the next game load (later calls are counted, DUMP)");
+                    }
+                    return;
+                }
+                m_HoverRequest = run;
+                m_HoverPending = true;
+            }
+            catch (Exception e)
+            {
+                HandleException(e, "trigger hoverRun");
+            }
+        }
+
+        private void Trigger(string name, Request request)
+        {
+            try
+            {
+                TriggerCount++;
+                request.Source = "ui";
+                if (!Enabled)
+                {
+                    Mod.Log.Info($"Hub: trigger {name} ignored — the hub runs in a loaded city only " +
+                                 $"(game mode {GameManager.instance?.gameMode})");
+                    return;
+                }
+                if (m_Disabled)
+                {
+                    RefuseDisabled(name, request);
+                    return;
+                }
+                if (NeedsEntity(request.Kind, request.Entity) && !EntityManager.Exists(request.Entity))
+                {
+                    Mod.Log.Info($"Hub [{name}] refused — entity {Ent(request.Entity)} does not exist (stale row?)");
+                    LastTriggerText = $"{name} {Ent(request.Entity)}: refused, no such entity";
+                    return;
+                }
+                Enqueue(name, request);
+            }
+            catch (Exception e)
+            {
+                HandleException(e, "trigger " + name);
+            }
+        }
+
+        /// <summary>Kinds whose entity argument must exist at trigger time (selectResort accepts Null =
+        /// the Not linked view; focusLift's second argument may be Null and is checked in Apply).</summary>
+        private static bool NeedsEntity(RequestKind kind, Entity entity)
+        {
+            switch (kind)
+            {
+                case RequestKind.Focus:
+                case RequestKind.Rename:
+                case RequestKind.FocusLift:
+                case RequestKind.FocusBuilding:
+                    return true;
+                case RequestKind.SelectResort:
+                    return entity != Entity.Null;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>After a "!!!": hello and uiError are pure log lines and are still written; every
+        /// other trigger is refused with one line.</summary>
+        private void RefuseDisabled(string name, Request request)
+        {
+            if (request.Kind == RequestKind.Hello)
+                ApplyHello(request);
+            else if (request.Kind == RequestKind.UiError)
+                ApplyUiError(request);
+            else
+                Mod.Log.Info($"Hub: trigger {name} refused — the hub is disabled after an exception until the next " +
+                             "game load (see the !!! line)");
+        }
+
+        private void Enqueue(string name, Request request)
+        {
+            if (m_QueueCount >= m_Queue.Length)
+            {
+                Mod.Log.Warn($"Hub: trigger {name} DROPPED — {m_QueueCount} requests already queued since the last " +
+                             "update (QueueCapacity)");
+                return;
+            }
+            m_Queue[m_QueueCount++] = request;
+        }
+
+        private void ClearQueue()
+        {
+            for (int i = 0; i < m_QueueCount; i++)
+                m_Queue[i] = default;
+            m_QueueCount = 0;
+        }
+
+        private void DrainQueue()
+        {
+            int count = m_QueueCount;
+            for (int i = 0; i < count && i < m_Queue.Length; i++)
+            {
+                Request r = m_Queue[i];
+                m_Queue[i] = default;
+                Apply(r);
+            }
+            // Requests queued while applying (dev-tab buttons cannot, triggers do not run here) stay.
+            int rest = m_QueueCount - count;
+            for (int i = 0; i < rest; i++)
+            {
+                m_Queue[i] = m_Queue[count + i];
+                m_Queue[count + i] = default;
+            }
+            m_QueueCount = rest > 0 ? rest : 0;
+        }
+
+        private void Apply(Request r)
+        {
+            switch (r.Kind)
+            {
+                case RequestKind.ToggleHub:
+                    SetOpen(!m_HubOpen.value, $"toggle ({r.Source})");
+                    break;
+                case RequestKind.SetHubOpen:
+                    SetOpen(r.Bool, r.Bool ? $"setHubOpen(true) ({r.Source})" : $"setHubOpen(false): X / Escape ({r.Source})");
+                    break;
+                case RequestKind.Hello:
+                    ApplyHello(r);
+                    break;
+                case RequestKind.UiError:
+                    ApplyUiError(r);
+                    break;
+                case RequestKind.Launch:
+                    ApplyLaunch(r.Text, r.Source);
+                    break;
+                case RequestKind.Focus:
+                    ApplyFocusRun(r.Entity, r.Source);
+                    break;
+                case RequestKind.GladeToggle:
+                    ApplyGladeToggle(r.Source);
+                    break;
+                case RequestKind.GladeLevel:
+                    m_GladeTool.SetLevel(r.Int, "hub" + SourceSuffix(r.Source));   // the tool writes the line
+                    LastTriggerText = $"gladeSetLevel({r.Int}) → L{m_GladeTool.Level}";
+                    break;
+                case RequestKind.GladeTreeLine:
+                    m_GladeTool.SetTreeLine(r.Bool, "hub" + SourceSuffix(r.Source));   // the tool writes the line
+                    LastTriggerText = $"gladeSetTreeLine({r.Bool})";
+                    break;
+                case RequestKind.Dump:
+                    DumpToLog(r.Source);
+                    break;
+                case RequestKind.SelectResort:
+                    ApplySelectResort(r.Entity, r.Source);
+                    break;
+                case RequestKind.Rename:
+                    ApplyRename(r.Entity, r.Text, r.Source);
+                    break;
+                case RequestKind.FocusLift:
+                    ApplyFocusLift(r.Entity, r.Entity2, r.Source);
+                    break;
+                case RequestKind.FocusBuilding:
+                    ApplyFocusBuilding(r.Entity, r.Source);
+                    break;
+                case RequestKind.Layout:
+                    ApplyLayout(r.Text);
+                    break;
+                case RequestKind.SetPisteMap:
+                    ApplyPisteMap(r.Bool, r.Source);
+                    break;
+                case RequestKind.TogglePisteMap:
+                    ApplyPisteMap(!m_PisteMapOn, r.Source);
+                    break;
+            }
+        }
+
+        // ── piste map toggle and run hover (D19, ch5 §4.2) ─────────────────────────────────────────
+
+        private void ApplyPisteMap(bool on, string source)
+        {
+            bool changed = on != m_PisteMapOn;
+            m_PisteMapOn = on;
+            m_PisteMapBinding.Update(on);
+            string area = AreaName(m_SelectedResort);
+            Mod.Log.Info($"Hub [piste] map {(on ? "on" : "off")} ({source}; showing '{area}'{(changed ? "" : $"; already {(on ? "on" : "off")}")})");
+            LastTriggerText = $"setPisteMap({on})" + (changed ? "" : ": no change");
+        }
+
+        /// <summary>C4: validate the hovered run against the catalog (one of our runs) and apply it. Null clears.
+        /// The first valid and the first refused hover of a load are logged; the rest are counted (DUMP).</summary>
+        private void ApplyHover(Entity run)
+        {
+            if (run == Entity.Null)
+            {
+                m_HoveredRun = Entity.Null;
+                return;
+            }
+            if (!EntityManager.Exists(run) || !m_Catalog.TryGetRow(run, out SkiRunCatalogSystem.RunRow row))
+            {
+                HoverRefused++;
+                if (!m_HoverRefusedLogged)
+                {
+                    m_HoverRefusedLogged = true;
+                    Mod.Log.Warn($"Hub [hover] refused {Ent(run)} (not one of our runs); later refusals are counted (DUMP)");
+                }
+                return;
+            }
+            HoverAccepted++;
+            if (!m_HoverLogged)
+            {
+                m_HoverLogged = true;
+                Mod.Log.Info($"Hub [hover] first run hover this load: run {Ent(run)} '{row.Name}'; later hovers are counted (DUMP)");
+            }
+            m_HoveredRun = run;
+        }
+
+        /// <summary>"Copper Bowl" for a sign row, "Not linked" for Null (log text only): the resort row's Name,
+        /// else the sign's custom name, else "sign i:v". Event time only.</summary>
+        private string AreaName(Entity sign)
+        {
+            if (sign == Entity.Null)
+                return "Not linked";
+            int count = m_Stats.ResortCount;
+            for (int i = 0; i < count; i++)
+            {
+                ResortStats r = m_Stats.GetResort(i);
+                if (r.Sign == sign)
+                    return r.Name ?? "";
+            }
+            if (m_NameSystem.TryGetCustomName(sign, out string custom) && !string.IsNullOrEmpty(custom))
+                return custom;
+            return "sign " + Ent(sign);
+        }
+
+        private static string SourceSuffix(string source) => source == "ui" ? "" : " (" + source + ")";
+
+        // ── hub open / close, world selection ─────────────────────────────────────────────────────
+
+        private void SetOpen(bool open, string why)
+        {
+            if (m_HubOpen.value == open)
+            {
+                Mod.Log.Info($"Hub: {why} — already {(open ? "open" : "closed")}");
+                LastTriggerText = why + ": no change";
+                return;
+            }
+            m_HubOpen.Update(open);
+            Mod.Log.Info($"Hub [{(open ? "open" : "close")}] {why}");
+            LastTriggerText = why + (open ? ": opened" : ": closed");
+        }
+
+        private void OnSelectionChanged(Entity selected)
+        {
+            if (selected == Entity.Null)
+                return;
+            // Rule 2 BEFORE the auto-open early return (§3.2): the hub may be open already.
+            MapWorldSelection(selected);
+
+            if (m_HubOpen.value)
+                return;   // never forced closed; nothing to do when already open
+            if (Mod.Settings != null && !Mod.Settings.OpenHubOnSignSelect)
+                return;
+            if (!m_Ownership.IsLiveGate(selected))
+                return;   // auto-open stays sign-only (OD-14)
+            m_HubOpen.Update(true);
+            Mod.Log.Info($"Hub [open] Ski Area Welcome Sign {Ent(selected)} selected (setting OpenHubOnSignSelect)");
+        }
+
+        /// <summary>Rule 2 (header SELECTED RESORT). Event time only (a selection change). A user action: it
+        /// stamps m_LastUserSelectAt (rule 7's FollowQuietAfterUserS guard) whenever it selects.</summary>
+        private void MapWorldSelection(Entity selected)
+        {
+            if (m_Ownership.IsLiveGate(selected))
+            {
+                Select(selected, $"world selection of the Welcome Sign {Ent(selected)}", true);
+                m_LastUserSelectAt = UnityEngine.Time.realtimeSinceStartup;
+                return;
+            }
+            if (EntityManager.TryGetComponent(selected, out Owner owner) && m_Ownership.IsLiveGate(owner.m_Owner))
+            {
+                Select(owner.m_Owner, $"world selection of {PrefabNameOf(selected)} {Ent(selected)}, owned by the sign " +
+                                      $"{Ent(owner.m_Owner)}", true);
+                m_LastUserSelectAt = UnityEngine.Time.realtimeSinceStartup;
+                return;
+            }
+            if (IsStation(selected))
+            {
+                string how = ResolveStationResort(selected, out Entity sign);
+                Select(sign, $"world selection of station {PrefabNameOf(selected)} {Ent(selected)}: {how}", true);
+                m_LastUserSelectAt = UnityEngine.Time.realtimeSinceStartup;
+            }
+            // anything else: unchanged, no line (a click anywhere in the city must not log)
+        }
+
+        /// <summary>§3.1 station rule: the first census row touching the station decides, through its base
+        /// station, else its top station; a station on no row resolves from its own position. Returns the
+        /// "how" text for the log. Event time only.</summary>
+        private string ResolveStationResort(Entity station, out Entity sign)
+        {
+            sign = Entity.Null;
+            Entity anchor = station;
+            string how;
+            if (m_Census.TryGetRowOfStation(station, out LiftCensus.Row row))
+            {
+                Entity b = ToEntity(row.Base), t = ToEntity(row.Top);
+                // A row may keep a removed station since the fixer round (finding l1-lifts-1): skip a dead one.
+                if (b != Entity.Null && !EntityManager.Exists(b)) b = Entity.Null;
+                if (t != Entity.Null && !EntityManager.Exists(t)) t = Entity.Null;
+                anchor = b != Entity.Null ? b : (t != Entity.Null ? t : station);
+                how = $"its lift (base {Ent(b)}, top {Ent(t)}) belongs to the nearest sign within " +
+                      $"{SkiRunOwnershipSystem.TetherMeters:F0} m of its {(b != Entity.Null ? "base" : "top")} station";
+            }
+            else
+            {
+                how = $"on no lift: the nearest sign within {SkiRunOwnershipSystem.TetherMeters:F0} m of the station";
+            }
+            if (!EntityManager.TryGetComponent(anchor, out Game.Objects.Transform transform))
+                return how + " — no Transform, Not linked";
+            if (!m_Stats.TryResolveResort(transform.m_Position.xz, out sign))
+            {
+                sign = Entity.Null;
+                return how + " — none, Not linked";
+            }
+            return how;
+        }
+
+        // ── selected resort (header SELECTED RESORT) ──────────────────────────────────────────────
+
+        /// <summary>Sets the selected resort and writes the one "Hub [select]" line. <paramref name="always"/>
+        /// = log even when unchanged (world selection, selectResort); the event-driven rules log only a
+        /// change. <paramref name="writeLine"/> false: no "Hub [select]" line (rule 7 writes its own
+        /// "Hub [follow]" line). Returns whether the selection changed.</summary>
+        private bool Select(Entity sign, string why, bool always, bool writeLine = true)
+        {
+            bool changed = sign != m_SelectedResort;
+            if (!changed && !always)
+                return false;
+            m_SelectedResort = sign;
+            m_SelectedBinding.Update(sign);   // dedups; pushes only while observed
+            LastSelectText = $"{ResortLabel(sign)} ({why})";
+            if (writeLine)
+                Mod.Log.Info($"Hub [select] {ResortLabel(sign)}{(changed ? "" : " (unchanged)")} ({why})");
+            return changed;
+        }
+
+        private void ApplySelectResort(Entity sign, string source)
+        {
+            if (sign == Entity.Null)
+            {
+                if (!NotLinkedHasItems())
+                {
+                    Mod.Log.Info($"Hub [select] refused — Not linked was asked for, but nothing is unlinked ({source})");
+                    LastTriggerText = "selectResort(Not linked): refused, empty";
+                    return;
+                }
+                Select(Entity.Null, $"selectResort ({source})", true);
+                m_LastUserSelectAt = UnityEngine.Time.realtimeSinceStartup;   // rule 3 is a user action (rule 7 guard)
+                string stays = source == "ui" ? ": camera " + FocusAfterSwitch(Entity.Null) : "";   // header FOCUS, SWITCHER
+                LastTriggerText = "selectResort(Not linked)" + stays;
+                return;
+            }
+            if (!m_Ownership.IsLiveGate(sign))
+            {
+                Mod.Log.Info($"Hub [select] refused — {Ent(sign)} is not a live Ski Area Welcome Sign ({source})");
+                LastTriggerText = $"selectResort {Ent(sign)}: refused";
+                return;
+            }
+            Select(sign, $"selectResort ({source})", true);
+            m_LastUserSelectAt = UnityEngine.Time.realtimeSinceStartup;   // rule 3 is a user action (rule 7 guard)
+            // FocusAfterSwitch may write LastTriggerText (ApplyFocusBuilding): the switch's text is set after it.
+            string camera = source == "ui" ? ": camera " + FocusAfterSwitch(sign) : "";
+            LastTriggerText = $"selectResort {Ent(sign)}{camera}";
+        }
+
+        /// <summary>Header FOCUS, SWITCHER (Round F6, A1): after an accepted ‹ › switch only. Writes the one
+        /// "Hub [focus]" line of the switch (a fly that fails: ApplyFocusBuilding's WARN). Returns the verdict
+        /// for the dev tab ("fly", "already on", "not moved", "fly failed"). Event time only.</summary>
+        private string FocusAfterSwitch(Entity sign)
+        {
+            if (sign == Entity.Null)
+            {
+                Mod.Log.Info("Hub [focus] switcher: Not linked: camera not moved (the view has no sign; each of its rows " +
+                             "flies on click)");
+                return "not moved";
+            }
+            EndLodgeForSwitch(sign);
+            if (CameraAlreadyOn(sign, out string view))
+            {
+                Mod.Log.Info($"Hub [focus] switcher: already on {ResortLabel(sign)} — {view}; camera not moved");
+                return "already on";
+            }
+            return ApplyFocusBuilding(sign, "switcher: fly — " + view) ? "fly" : "fly failed";
+        }
+
+        /// <summary>HubCameraRules.AlreadyOn for <paramref name="sign"/> (header FOCUS, SWITCHER; LODGE 1b): the
+        /// active controller's pivot and zoom against the point the fly follows (SelectedInfoUISystem
+        /// .TryGetPosition, as ApplyFocusBuilding reads it). <paramref name="view"/> = the numbers for the
+        /// log. An unknown camera or sign position → false (the caller flies; ApplyFocusBuilding refuses a
+        /// sign with no position with its own line). Event time only.</summary>
+        private bool CameraAlreadyOn(Entity sign, out string view)
+        {
+            if (!TryCameraView(out float3 pivot, out float zoom))
+            {
+                view = "camera state unknown (no active camera controller)";
+                return false;
+            }
+            int element = -1;
+            if (!SelectedInfoUISystem.TryGetPosition(sign, EntityManager, ref element, out Entity _, out float3 at,
+                    out Bounds3 _, out quaternion _))
+            {
+                view = $"the sign has no position (camera pivot at {pivot.x:F0}, {pivot.z:F0}, zoom {zoom:F0})";
+                return false;
+            }
+            bool on = HubCameraRules.AlreadyOn(pivot.xz, zoom, at.xz, out float distance);
+            view = $"pivot {distance:F0} m away at zoom {zoom:F0}; keep <= {HubCameraRules.KeepRadiusM(zoom):F0} m " +
+                   $"at zoom <= {HubCameraRules.KeepMaxZoomM:F0}";
+            return on;
+        }
+
+        /// <summary>The active controller's pivot and zoom (IGameCameraController.pivot / .zoom,
+        /// Game.Rendering/IGameCameraController.cs:8-10; HubCameraRules header). False without a
+        /// controller. Event time only.</summary>
+        private bool TryCameraView(out float3 pivot, out float zoom)
+        {
+            pivot = default;
+            zoom = 0f;
+            try
+            {
+                IGameCameraController controller = m_CameraUpdateSystem.activeCameraController;
+                if (controller == null)
+                    return false;
+                UnityEngine.Vector3 p = controller.pivot;
+                pivot = new float3(p.x, p.y, p.z);
+                zoom = controller.zoom;
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;   // a controller being torn down (the CameraPoint precedent): treated as unknown
+            }
+        }
+
+        /// <summary>Header FOCUS, SWITCHER: a switch to a sign ends a lodge on the cursor whose target sign is
+        /// another one (the object tool's upgrade target is ToolSystem.selected, ObjectToolSystem.cs:3318) —
+        /// before the camera flies, and also when it stays because it is already on the new sign (deviation
+        /// from contract A1's "before flying", reported: the player then looks at the new sign while the lodge
+        /// would still attach to the old one — findings resort-assignment.md §4 D1's silent case). The verify
+        /// countdown counts as "on the cursor" (a launch and a switch in one queue drain: the tool's mode is
+        /// not Upgrade yet). One "Hub [lodge]" line. Event time only.</summary>
+        private void EndLodgeForSwitch(Entity target)
+        {
+            if (!LodgeOnCursor())
+                return;
+            bool verifying = m_LodgeVerifyCountdown > 0;
+            if (m_ObjectTool.actualMode != ObjectToolSystem.Mode.Upgrade && !verifying)
+                return;   // not an upgrade (Create): the watch / verify own that case
+            Entity bound = m_ToolSystem.selected;
+            if (bound == target)
+                return;   // the lodge already goes on the sign the camera flies to
+            string how = m_LodgeWatch || verifying ? "launched from the hub" : "from the sign's upgrade menu";
+            m_LodgeWatch = false;
+            m_LodgeVerifyCountdown = 0;
+            m_ToolSystem.activeTool = m_DefaultTool;   // ToolSystem.cs:84-98; the selection is kept (:101-111)
+            LodgeStateText = $"ended: the hub switched to {Ent(target)}";
+            Mod.Log.Info($"Hub [lodge] placement ended by the resort switch — the lodge on the cursor ({how}) goes on sign " +
+                         $"{Ent(bound)}, not on {ResortLabel(target)}: default tool (the lodge tile puts it on the shown " +
+                         "resort's sign)");
+        }
+
+        /// <summary>Rules 1, 4, 5, 6, the bind notices and rule 7 — only when the stats rows changed
+        /// (event-driven: three int compares and rule 7's two field writes per frame otherwise). Rule 7's
+        /// candidates are collected in the order of ch5 §4.6 (a lift closed, a station placed, a run bound;
+        /// the first found wins) and applied last, so a follow can never undo a rule-1/4/5/6 switch of the
+        /// same pass.</summary>
+        private void ReconcileSelection()
+        {
+            int resortsRevision = m_Stats.ResortsRevision;
+            if (resortsRevision != m_ReconciledResortsRevision)
+            {
+                m_ReconciledResortsRevision = resortsRevision;
+                ReconcileResorts();
+            }
+            int liftsRevision = m_Stats.LiftsRevision;
+            if (liftsRevision != m_NoticedLiftsRevision)
+            {
+                m_NoticedLiftsRevision = liftsRevision;
+                NoticeLiftCloses();
+                NoticeStations();
+            }
+            int runsRevision = m_Stats.RunsRevision;
+            if (runsRevision != m_NoticedRunsRevision)
+            {
+                m_NoticedRunsRevision = runsRevision;
+                NoticeBinds();
+            }
+            ApplyFollow();
+        }
+
+        /// <summary>Rule 7's candidate (ch5 §4.6): the first one of a pass wins.</summary>
+        private void OfferFollow(Entity sign, string reason)
+        {
+            if (m_FollowCandidate.Sign == Entity.Null && sign != Entity.Null && sign != m_SelectedResort)
+                m_FollowCandidate = new FollowCandidate { Sign = sign, Reason = reason };
+        }
+
+        /// <summary>Rule 7 (D36; header SELECTED RESORT): the last statement of ReconcileSelection, every frame;
+        /// with no candidate it only clears the pass flag. Guards: HubRules.FollowCheck (C5) and a live target
+        /// sign. A suppressed follow writes no line and is counted per reason (DUMP).</summary>
+        private void ApplyFollow()
+        {
+            FollowCandidate c = m_FollowCandidate;
+            m_FollowCandidate = default;
+            bool ruleSwitched = m_RuleSwitchedThisPass;
+            m_RuleSwitchedThisPass = false;
+            if (c.Sign == Entity.Null || c.Sign == m_SelectedResort || !m_Ownership.IsLiveGate(c.Sign))
+                return;
+            float now = UnityEngine.Time.realtimeSinceStartup;
+            switch (HubRules.FollowCheck(m_HubOpen.value, ruleSwitched, now, m_LastFollowAt, m_LastUserSelectAt))
+            {
+                case FollowVerdict.HubClosed: FollowsSuppressedClosed++; return;
+                case FollowVerdict.RuleSwitched: FollowsSuppressedRule++; return;
+                case FollowVerdict.UserJustSelected: FollowsSuppressedUser++; return;
+                case FollowVerdict.TooSoon: FollowsSuppressedSoon++; return;
+            }
+            Entity old = m_SelectedResort;
+            Select(c.Sign, "D36 follow: " + c.Reason, always: false, writeLine: false);
+            m_LastFollowAt = now;
+            m_FollowBinding.Update(++m_FollowCount);
+            Mod.Log.Info($"Hub [follow] now showing '{AreaName(c.Sign)}' ({Ent(c.Sign)}) — {c.Reason}; was '{AreaName(old)}'");
+        }
+
+        private void ReconcileResorts()
+        {
+            int count = m_Stats.ResortCount;
+            if (count <= 0)
+                return;   // no rebuild yet this load (the Not linked row is always sent once rebuilt)
+            m_SignsScratch.Clear();
+            Entity first = Entity.Null, firstNew = Entity.Null;
+            int newSigns = 0;
+            bool notLinkedEmpty = true;
+            for (int i = 0; i < count; i++)
+            {
+                ResortStats r = m_Stats.GetResort(i);
+                if ((int)r.Kind == ResortKindNotLinked)
+                {
+                    notLinkedEmpty = !(r.Runs > 0 || r.LiftRows > 0 || r.Lodges > 0);
+                    continue;
+                }
+                Entity s = r.Sign;
+                if (s == Entity.Null)
+                    continue;
+                m_SignsScratch.Add(s);
+                if (first == Entity.Null)
+                    first = s;
+                if (m_SignBaselineSet && !m_SignsKnown.Contains(s))
+                {
+                    newSigns++;
+                    if (firstNew == Entity.Null)
+                        firstNew = s;
+                }
+            }
+            bool baseline = !m_SignBaselineSet;
+            HashSet<Entity> swap = m_SignsKnown;
+            m_SignsKnown = m_SignsScratch;
+            m_SignsScratch = swap;
+            m_SignBaselineSet = true;
+
+            // Rules 1/4/5/6 mark the pass so rule 7 never undoes them (ch5 §4.6 precedence).
+            if (baseline)
+            {
+                if (m_SelectedResort == Entity.Null && first != Entity.Null)
+                    m_RuleSwitchedThisPass |= Select(first, "first stats rebuild of this load: the first sign in stable order", false);   // rule 1
+            }
+            else if (firstNew != Entity.Null)
+            {
+                m_RuleSwitchedThisPass |= Select(firstNew, newSigns == 1 ? "new sign" : $"new sign, the first of {newSigns} new", false);   // rule 4
+            }
+            if (m_SelectedResort != Entity.Null && !m_Ownership.IsLiveGate(m_SelectedResort))
+            {
+                m_RuleSwitchedThisPass |= Select(first, $"the selected sign {Ent(m_SelectedResort)} is gone", false);   // rule 5 (first may be Null)
+            }
+            if (m_SelectedResort == Entity.Null && notLinkedEmpty && first != Entity.Null)
+            {
+                m_RuleSwitchedThisPass |= Select(first, "the Not linked view is empty", false);   // rule 6
+            }
+        }
+
+        /// <summary>§3.2 last item: a run that newly bound to a sign other than the selected resort.</summary>
+        private void NoticeBinds()
+        {
+            int count = m_Stats.RunCount;
+            if (!m_RunBaselineSet)
+            {
+                if (m_Stats.ResortCount <= 0)
+                    return;   // no rebuild yet this load
+                m_RunBaselineSet = true;
+                m_RunSigns.Clear();
+                for (int i = 0; i < count; i++)
+                {
+                    RunStats r = m_Stats.GetRun(i);
+                    m_RunSigns[r.Entity] = r.Sign;
+                }
+                return;
+            }
+            Entity selected = m_SelectedResort;
+            bool selectedLive = selected != Entity.Null && m_Ownership.IsLiveGate(selected);
+            int noticed = 0;
+            m_RunSignsScratch.Clear();
+            for (int i = 0; i < count; i++)
+            {
+                RunStats r = m_Stats.GetRun(i);
+                m_RunSignsScratch[r.Entity] = r.Sign;
+                if (r.Sign == Entity.Null || r.Sign == selected)
+                    continue;
+                bool hadSign = m_RunSigns.TryGetValue(r.Entity, out Entity before) && before != Entity.Null;
+                if (hadSign)
+                    continue;
+                // Rule 7 (D36): a run newly bound in another ski area than the shown one — the Not linked view
+                // included (it is not a ski area; the log line below keeps its contract-2 condition).
+                OfferFollow(r.Sign, $"run '{r.Name}' bound to it");
+                if (!selectedLive)
+                    continue;
+                noticed++;
+                if (noticed <= Tuning.BindNoticesPerPass)
+                {
+                    Mod.Log.Info($"Hub [bind-notice] run '{r.Name}' {Ent(r.Entity)} bound to {ResortLabel(r.Sign)} while " +
+                                 $"{ResortLabel(selected)} was selected (nearest sign wins)");
+                }
+            }
+            if (noticed > Tuning.BindNoticesPerPass)
+            {
+                Mod.Log.Info($"Hub [bind-notice] … and {noticed - Tuning.BindNoticesPerPass} more run(s) bound to another " +
+                             $"sign than {ResortLabel(selected)} (BindNoticesPerPass)");
+            }
+            Dictionary<Entity, Entity> swap = m_RunSigns;
+            m_RunSigns = m_RunSignsScratch;
+            m_RunSignsScratch = swap;
+        }
+
+        /// <summary>Header BIND NOTICES (Round F6, A3): a lift row that became complete (LiftStats.State 0
+        /// Running or 1 Static) and was not complete under the same (entity, top) key at the previous rows —
+        /// "closed again" when the key was there (a gap redrawn), "closed" when it is new (a first line, or a
+        /// station re-placed: a new key, the census's own rule) — in a resort other than the one shown. Running
+        /// ↔ Static is not a close. Log only; the BindNoticesPerPass cap and summary line of the runs. Runs on
+        /// LiftsRevision (a few times a minute while the panel is open: chairs riding move it); O(lifts),
+        /// reused dictionaries.</summary>
+        private void NoticeLiftCloses()
+        {
+            int count = m_Stats.LiftCount;
+            if (!m_LiftBaselineSet)
+            {
+                if (m_Stats.ResortCount <= 0)
+                    return;   // no rebuild yet this load
+                m_LiftBaselineSet = true;
+                m_LiftStates.Clear();
+                for (int i = 0; i < count; i++)
+                {
+                    LiftStats r = m_Stats.GetLift(i);
+                    m_LiftStates[(r.Entity, r.Top)] = r.State;
+                }
+                return;
+            }
+            Entity selected = m_SelectedResort;
+            int noticed = 0;
+            m_LiftStatesScratch.Clear();
+            for (int i = 0; i < count; i++)
+            {
+                LiftStats r = m_Stats.GetLift(i);
+                m_LiftStatesScratch[(r.Entity, r.Top)] = r.State;
+                if (!LiftComplete(r.State) || r.Sign == selected)
+                    continue;
+                bool had = m_LiftStates.TryGetValue((r.Entity, r.Top), out int before);
+                if (had && LiftComplete(before))
+                    continue;
+                OfferFollow(r.Sign, $"lift '{r.Name}' closed in it");   // rule 7 (D36); Null sign: no candidate
+                noticed++;
+                if (noticed <= Tuning.BindNoticesPerPass)
+                {
+                    Mod.Log.Info($"Hub [bind-notice] lift '{r.Name}' (base {Ent(r.Entity)}, top {Ent(r.Top)}) " +
+                                 $"{(had ? "closed again" : "closed")} in {ResortLabel(r.Sign)} while " +
+                                 $"{ResortLabel(selected)} was selected (a lift belongs to the nearest sign within " +
+                                 $"{SkiRunOwnershipSystem.TetherMeters:F0} m of its base station)");
+                }
+            }
+            if (noticed > Tuning.BindNoticesPerPass)
+            {
+                Mod.Log.Info($"Hub [bind-notice] … and {noticed - Tuning.BindNoticesPerPass} more lift(s) closed in another " +
+                             $"resort than {ResortLabel(selected)} (BindNoticesPerPass)");
+            }
+            Dictionary<(Entity, Entity), int> swap = m_LiftStates;
+            m_LiftStates = m_LiftStatesScratch;
+            m_LiftStatesScratch = swap;
+        }
+
+        /// <summary>Rule 7 (D36, ch5 §4.6 item 2): the live stations of the lift rows ({row id | HasBase} ∪
+        /// {top | HasTop}); the first call of a load with stats rows sets the baseline (no candidate, the
+        /// NoticeBinds pattern); later a station not seen before, whose row belongs to a live sign other than
+        /// the shown one, offers that sign. The two sets are swapped (no allocation). Runs on LiftsRevision.</summary>
+        private void NoticeStations()
+        {
+            int count = m_Stats.LiftCount;
+            if (!m_StationBaselineSet && m_Stats.ResortCount <= 0)
+                return;   // no rebuild yet this load
+            bool baseline = !m_StationBaselineSet;
+            m_StationBaselineSet = true;
+            m_StationsScratch.Clear();
+            for (int i = 0; i < count; i++)
+            {
+                LiftStats r = m_Stats.GetLift(i);
+                if (r.HasBase)
+                    NoticeStation(r.Entity, r.Sign, baseline);
+                if (r.HasTop)
+                    NoticeStation(r.Top, r.Sign, baseline);
+            }
+            HashSet<Entity> swap = m_StationsKnown;
+            m_StationsKnown = m_StationsScratch;
+            m_StationsScratch = swap;
+        }
+
+        private void NoticeStation(Entity station, Entity sign, bool baseline)
+        {
+            if (station == Entity.Null || !m_StationsScratch.Add(station) || baseline || m_StationsKnown.Contains(station))
+                return;
+            if (sign != Entity.Null && sign != m_SelectedResort && m_Ownership.IsLiveGate(sign))
+                OfferFollow(sign, $"station {Ent(station)} placed in it");
+        }
+
+        /// <summary>LiftStats.State 0 Running or 1 Static: the census row is Complete (SkiResortStatsSystem
+        /// CollectLifts).</summary>
+        private static bool LiftComplete(int state) => state == 0 || state == 1;
+
+        private bool NotLinkedHasItems()
+        {
+            int count = m_Stats.ResortCount;
+            for (int i = 0; i < count; i++)
+            {
+                ResortStats r = m_Stats.GetResort(i);
+                if ((int)r.Kind == ResortKindNotLinked)
+                    return r.Runs > 0 || r.LiftRows > 0 || r.Lodges > 0;
+            }
+            return false;
+        }
+
+        /// <summary>"'Ski area 1' 124274:35", or "Not linked". Event time only (a linear scan of ≤ a
+        /// handful of resort rows).</summary>
+        private string ResortLabel(Entity sign)
+        {
+            if (sign == Entity.Null)
+                return "Not linked";
+            int count = m_Stats.ResortCount;
+            for (int i = 0; i < count; i++)
+            {
+                ResortStats r = m_Stats.GetResort(i);
+                if (r.Sign == sign)
+                    return $"'{r.Name}' {Ent(sign)}";
+            }
+            if (m_NameSystem.TryGetCustomName(sign, out string custom) && !string.IsNullOrEmpty(custom))
+                return $"'{custom}' {Ent(sign)}";
+            return $"sign {Ent(sign)}";
+        }
+
+        // ── rename (header RENAME) ─────────────────────────────────────────────────────────────────
+
+        private void ApplyRename(Entity entity, string text, string source)
+        {
+            string what = NameableKind(entity);
+            if (what == null)
+            {
+                Mod.Log.Info($"Hub [rename] refused — {Ent(entity)} ({PrefabNameOf(entity)}) is not a live sign, run or " +
+                             $"lift station of ours (a lift row without a station cannot be renamed) ({source})");
+                LastTriggerText = $"rename {Ent(entity)}: refused";
+                return;
+            }
+            string name = CleanName(text);
+            string before = CurrentName(entity, what);
+            string note = "";
+            if (what == "sign" && name.Length == 0)
+            {
+                // Header RENAME (fixer round, u2-data-02): a sign's "default" is a fresh auto-name, written.
+                string auto = m_BindTrigger.PickSignName(entity);
+                if (auto != null)
+                {
+                    name = auto;
+                    note = " (empty name: a fresh default name, written so the sign's panel shows it too)";
+                }
+            }
+            else if (what == "station" && name.Length > 0)
+            {
+                string stripped = StripSharedBaseSuffix(entity, name);
+                if (!ReferenceEquals(stripped, name))
+                {
+                    note = $" (the shared-station label's '{name.Substring(stripped.Length)}' was not stored)";
+                    name = stripped;
+                }
+            }
+            m_NameSystem.SetCustomName(entity, name);   // "" / whitespace removes it (NameSystem.cs:224-233)
+            if (what == "run")
+                m_Catalog.RequestRebuild("hub rename");
+            m_Stats.RequestRebuild("hub rename");   // header RENAME: rebuilt next frame, logged with this reason
+            string after = name.Length == 0 ? "(default name)" : "'" + name + "'";
+            Mod.Log.Info($"Hub [rename] {what} {Ent(entity)} '{before}' → {after}{note} ({source})");
+            LastTriggerText = $"rename {what} {Ent(entity)} → {after}";
+        }
+
+        /// <summary>Header RENAME (fixer round, findings m1-hub-csharp-2 / u2-panel-3): a base station
+        /// shared by two or more lift rows is LABELLED "&lt;name&gt; → &lt;top label&gt;" (§3.7,
+        /// SkiResortStatsSystem.LiftNameSeparator), and the rename field starts from that label. When
+        /// <paramref name="name"/> ends with the separator + top label of one of that station's rows,
+        /// the suffix is dropped, so an in-place edit stores the name, not the label (it compounded on
+        /// every edit). Returns <paramref name="name"/> itself (same reference) when nothing matched.
+        /// Event time only.</summary>
+        private string StripSharedBaseSuffix(Entity station, string name)
+        {
+            int rows = 0;
+            for (int i = 0; i < m_Stats.LiftCount; i++)
+            {
+                if (m_Stats.GetLift(i).Entity == station)
+                    rows++;
+            }
+            if (rows < 2 || !m_NameSystem.TryGetCustomName(station, out string current) || string.IsNullOrEmpty(current))
+                return name;
+            string prefix = current + SkiResortStatsSystem.LiftNameSeparator;
+            for (int i = 0; i < m_Stats.LiftCount; i++)
+            {
+                LiftStats r = m_Stats.GetLift(i);
+                if (r.Entity != station || r.Name == null || r.Name.Length <= prefix.Length ||
+                    !r.Name.StartsWith(prefix, StringComparison.Ordinal))
+                    continue;
+                string suffix = r.Name.Substring(current.Length);   // " → <top label>"
+                if (name.Length > suffix.Length && name.EndsWith(suffix, StringComparison.Ordinal))
+                    return name.Substring(0, name.Length - suffix.Length).TrimEnd();
+            }
+            return name;
+        }
+
+        /// <summary>"sign" / "run" / "station", or null when the entity is none of ours (or dying).</summary>
+        private string NameableKind(Entity entity)
+        {
+            if (m_Ownership.IsLiveGate(entity))
+                return "sign";
+            if (entity == Entity.Null || !EntityManager.Exists(entity) || EntityManager.HasComponent<Deleted>(entity) ||
+                !EntityManager.TryGetComponent(entity, out PrefabRef prefabRef))
+                return null;
+            if (m_Ownership.IsRunPrefab(prefabRef.m_Prefab))
+                return "run";
+            if (m_StationPrefabs != null && m_StationPrefabs.Contains(prefabRef.m_Prefab))
+                return "station";
+            return null;
+        }
+
+        /// <summary>Trim, cut to RenameMaxChars UTF-16 units without splitting a surrogate pair.</summary>
+        private static string CleanName(string text)
+        {
+            string name = (text ?? "").Trim();
+            if (name.Length > Tuning.RenameMaxChars)
+            {
+                int cut = Tuning.RenameMaxChars;
+                if (char.IsHighSurrogate(name[cut - 1]))
+                    cut--;
+                name = name.Substring(0, cut).TrimEnd();
+            }
+            return name;
+        }
+
+        /// <summary>The name the hub shows now (stats rows), else the custom name, else "(default)".
+        /// Event time only.</summary>
+        private string CurrentName(Entity entity, string what)
+        {
+            if (what == "sign")
+            {
+                for (int i = 0; i < m_Stats.ResortCount; i++)
+                {
+                    ResortStats r = m_Stats.GetResort(i);
+                    if (r.Sign == entity)
+                        return r.Name ?? "";
+                }
+            }
+            else if (what == "run")
+            {
+                for (int i = 0; i < m_Stats.RunCount; i++)
+                {
+                    RunStats r = m_Stats.GetRun(i);
+                    if (r.Entity == entity)
+                        return r.Name ?? "";
+                }
+            }
+            else
+            {
+                for (int i = 0; i < m_Stats.LiftCount; i++)
+                {
+                    LiftStats r = m_Stats.GetLift(i);
+                    if (r.Entity == entity || r.Top == entity)
+                        return r.Name ?? "";
+                }
+            }
+            return m_NameSystem.TryGetCustomName(entity, out string custom) ? custom : "(default)";
+        }
+
+        // ── handshake, UI errors, layout ──────────────────────────────────────────────────────────
+
+        private void ApplyHello(Request r)
+        {
+            int contract = r.Int;
+            string bundle = Cut(r.Text ?? "(null)");
+            string dll = s_DllStamp ?? "(null)";
+            bool contractOk = contract == HubContract;
+            bool stampOk = string.Equals(bundle, dll, StringComparison.Ordinal);
+            bool uiOnly = bundle.StartsWith(StandaloneStampPrefix, StringComparison.Ordinal);
+            m_UiContractOk = contractOk;   // ch5 §4.2: the piste map draws only for a contract-3 UI (kept across loads)
+            if (!contractOk)
+            {
+                HandshakeText = $"CONTRACT MISMATCH: bundle {contract}, DLL {HubContract}; stamps bundle {bundle} / DLL {dll}";
+                Mod.Log.Error($"!!! UI hub contract MISMATCH: bundle contract {contract}, DLL contract {HubContract} — the " +
+                              "panel shows its mismatch line: building and the tree controls still work, the resort " +
+                              $"statistics are hidden (hub-u2-spec §4.5). The UI bundle (stamp {bundle}) and the DLL " +
+                              $"(stamp {dll}) come from different versions: rebuild with dotnet build, or reinstall");
+            }
+            else if (stampOk)
+            {
+                HandshakeText = $"connected: contract {contract}, stamp {bundle} (same build as the DLL)";
+                Mod.Log.Info($"UI hub connected: contract {contract} (DLL contract {HubContract}), stamp {bundle} " +
+                             "(same build as the DLL)");
+            }
+            else if (uiOnly)
+            {
+                HandshakeText = $"connected: contract {contract}, UI-only stamp {bundle} (DLL {dll})";
+                Mod.Log.Info($"UI hub connected: contract {contract} (DLL contract {HubContract}), stamp {bundle} — a " +
+                             $"UI-only build (npm run build / dev) beside DLL stamp {dll}; expected while iterating on the UI");
+            }
+            else
+            {
+                HandshakeText = $"connected, STAMP DIFFERS: bundle {bundle}, DLL {dll} (contract {contract} matches)";
+                Mod.Log.Error($"!!! UI hub connected with a bundle from a DIFFERENT build: contract {contract} matches, " +
+                              $"but bundle stamp {bundle} != DLL stamp {dll} — SkiResortMod.mjs beside the DLL is " +
+                              "not the one this DLL was built with (a stale deploy?)");
+            }
+            LastTriggerText = "uiHello: " + HandshakeText;
+        }
+
+        private void ApplyUiError(Request r)
+        {
+            string message = Cut(r.Text ?? "(null)");
+            if (m_UiErrors.Contains(message))
+            {
+                UiErrorRepeats++;   // U1 contract §5.3: logged once per distinct message
+                return;
+            }
+            if (m_UiErrors.Count >= Tuning.UiErrorsMax)
+            {
+                UiErrorRepeats++;
+                if (!m_UiErrorCapLogged)
+                {
+                    m_UiErrorCapLogged = true;
+                    Mod.Log.Error($"!!! UI error: more than {Tuning.UiErrorsMax} distinct messages this load — further " +
+                                  "ones are only counted (browser console / UI.log have them)");
+                }
+                return;
+            }
+            m_UiErrors.Add(message);
+            Mod.Log.Error($"!!! UI error reported by the Ski Resort UI module: {message}");
+            LastTriggerText = "uiError: " + message;
+        }
+
+        /// <summary>§4.6: logged only when the measurement string changed; capped per load.</summary>
+        private void ApplyLayout(string text)
+        {
+            string layout = Cut(text ?? "(null)");
+            if (string.Equals(layout, m_LastLayout, StringComparison.Ordinal))
+                return;
+            m_LastLayout = layout;
+            LastTriggerText = "uiLayout: " + layout;
+            if (m_LayoutLines < Tuning.LayoutLinesMax)
+            {
+                m_LayoutLines++;
+                Mod.Log.Info($"Hub [layout] {layout}");
+            }
+            else if (!m_LayoutCapLogged)
+            {
+                m_LayoutCapLogged = true;
+                Mod.Log.Info($"Hub [layout] {Tuning.LayoutLinesMax} layout lines this load (LayoutLinesMax) — further " +
+                             "changes are kept for the DUMP only");
+            }
+        }
+
+        private static string Cut(string text)
+        {
+            return text.Length <= Tuning.TextMax ? text : text.Substring(0, Tuning.TextMax) + "…";
+        }
+
+        // ── launching (header LAUNCHING / LODGE) ───────────────────────────────────────────────────
+
+        private static int IndexOfItem(string id)
+        {
+            if (id == null)
+                return -1;
+            for (int i = 0; i < ItemIds.Length; i++)
+            {
+                if (string.Equals(ItemIds[i], id, StringComparison.Ordinal))
+                    return i;
+            }
+            return -1;
+        }
+
+        private void ApplyLaunch(string id, string source)
+        {
+            m_LocksDirty = true;
+            int item = IndexOfItem(id);
+            if (item < 0)
+            {
+                Mod.Log.Warn($"Hub [launch] '{id ?? "(null)"}' — not a build id of this DLL (contract {HubContract}); " +
+                             $"nothing started ({source})");
+                LastTriggerText = $"launch '{id}': unknown id";
+                return;
+            }
+            PrefabBase prefab = m_ItemPrefab[item];
+            if (prefab == null)
+            {
+                Mod.Log.Warn($"Hub [launch] {id} refused — prefab '{ItemPrefabNames[item]}' was not found this load " +
+                             $"(asset pack missing?) ({source})");
+                LastTriggerText = $"launch {id}: prefab missing";
+                return;
+            }
+            if (item == ActiveItemIndex())
+            {
+                m_ToolSystem.activeTool = m_DefaultTool;   // ToolSystem.cs:84-98
+                Mod.Log.Info($"Hub [launch] {id} was the active tool -> default tool ({source})");
+                LastTriggerText = $"launch {id}: was active, stopped";
+                return;
+            }
+            if (EntityManager.HasEnabledComponent<Locked>(m_ItemPrefabEntity[item]))
+            {
+                Mod.Log.Info($"Hub [launch] {id} refused — locked (progression; the vanilla toolbar refuses it too) " +
+                             $"({source})");
+                LastTriggerText = $"launch {id}: locked";
+                return;
+            }
+            if (item == ItemLodge)
+            {
+                LaunchLodge(prefab, source);
+                return;
+            }
+
+            bool ok = m_ToolSystem.ActivatePrefabTool(prefab);   // ToolSystem.cs:263-277
+            ToolBaseSystem tool = m_ToolSystem.activeTool;
+            string line = $"Hub [launch] {id} -> {ToolId(tool)} mode {ModeText(tool)} locked=False ok={ok} ({source})";
+            if (ok)
+                Mod.Log.Info(line);
+            else
+                Mod.Log.Warn(line + " — no tool accepted the prefab; ActivatePrefabTool switched to the default tool");
+            LastTriggerText = $"launch {id}: {(ok ? "ok" : "no tool took it")} -> {ToolId(tool)}";
+        }
+
+        private void LaunchLodge(PrefabBase lodge, string source)
+        {
+            // (1) Pick the sign (§3.2 last item): the hub's selected resort, else the selected sign, else the
+            //     sign nearest the camera.
+            Entity sign;
+            string pick;
+            Entity selected = m_ToolSystem.selected;
+            if (m_SelectedResort != Entity.Null && m_Ownership.IsLiveGate(m_SelectedResort))
+            {
+                sign = m_SelectedResort;
+                pick = "the hub's selected resort";
+            }
+            else if (m_Ownership.IsLiveGate(selected))
+            {
+                sign = selected;
+                pick = "the selected sign";
+            }
+            else
+            {
+                // At any distance (header LODGE): beyond the tether the fly below takes the player there.
+                float3 at = CameraPoint();
+                m_Ownership.TryNearestGateEntity(at.xz, out sign, out float distance);
+                pick = $"the sign nearest the camera ({distance:F0} m)";
+            }
+            if (sign == Entity.Null)
+            {
+                Mod.Log.Info($"Hub [launch] lodge refused — no Ski Area Welcome Sign in this city (place one first) ({source})");
+                LastTriggerText = "launch lodge: no sign";
+                return;
+            }
+
+            // (1b) Round F6 (A2, header LODGE): the camera goes to the sign first unless it is already on it.
+            //      A fly writes its own "Hub [focus]" line (or ApplyFocusBuilding's WARN); the launch goes on
+            //      either way — a failed fly leaves the camera where it is, as before this round.
+            string camera;
+            if (CameraAlreadyOn(sign, out string view))
+                camera = "camera already on it (" + view + ")";
+            else
+                camera = ApplyFocusBuilding(sign, "lodge launch: fly — " + view)
+                    ? "camera flew there"
+                    : "camera not moved (the fly was refused, see the Hub [focus] line)";
+
+            // (2) Default tool first (clears a selected upgrade synchronously, header LODGE).
+            if (m_ToolSystem.activeTool != m_DefaultTool)
+                m_ToolSystem.activeTool = m_DefaultTool;
+            // (3) Select the sign (the object tool's upgrade target is GetUpgradable(selected)).
+            m_SelectedInfo.SetSelection(sign);
+            // (4) Locked was checked by the caller; launch.
+            bool ok = m_ToolSystem.ActivatePrefabTool(lodge);
+            ToolBaseSystem tool = m_ToolSystem.activeTool;
+            m_LodgeSign = sign;
+            m_LodgeWatch = false;
+            m_LodgeVerifyCountdown = ok ? Tuning.LodgeVerifyUpdates : 0;
+            if (ok)
+            {
+                Mod.Log.Info($"Hub [launch] lodge -> {ToolId(tool)} mode {ModeText(tool)} locked=False ok=True on {pick} " +
+                             $"{Ent(sign)}; {camera} — verifying Upgrade mode in {Tuning.LodgeVerifyUpdates} UI updates " +
+                             $"({source})");
+                LodgeStateText = $"verifying on sign {Ent(sign)}";
+            }
+            else
+            {
+                Mod.Log.Error($"!!! Hub lodge launch: no tool accepted the lodge prefab (ActivatePrefabTool returned false " +
+                              $"and switched to the default tool) — sign {Ent(sign)} selected ({camera}), nothing placed " +
+                              $"({source})");
+                LodgeStateText = "failed: no tool took the prefab";
+            }
+            LastTriggerText = $"launch lodge on {Ent(sign)}: {(ok ? "verifying" : "FAILED")}";
+        }
+
+        /// <summary>Header LODGE (5) and the watch. Per frame: an int compare; while a hub-launched
+        /// lodge is on the cursor, a few field reads.</summary>
+        private void LodgeStep()
+        {
+            if (m_LodgeVerifyCountdown > 0)
+            {
+                if (--m_LodgeVerifyCountdown == 0)
+                    VerifyLodge();
+                return;
+            }
+            if (m_LodgeWatch)
+                WatchLodge();
+        }
+
+        private bool LodgeOnCursor()
+        {
+            return m_ToolSystem.activeTool == m_ObjectTool && ReferenceEquals(m_ObjectTool.prefab, m_ItemPrefab[ItemLodge]);
+        }
+
+        private void VerifyLodge()
+        {
+            ToolBaseSystem tool = m_ToolSystem.activeTool;
+            bool onCursor = LodgeOnCursor();
+            ObjectToolSystem.Mode mode = m_ObjectTool.actualMode;
+            Entity selected = m_ToolSystem.selected;
+            if (onCursor && mode == ObjectToolSystem.Mode.Upgrade && selected == m_LodgeSign)
+            {
+                m_LodgeWatch = true;
+                LodgeStateText = $"on the cursor, Upgrade mode on sign {Ent(m_LodgeSign)}";
+                Mod.Log.Info($"Hub [launch] lodge verified — object tool in Upgrade mode on sign {Ent(m_LodgeSign)}");
+                return;
+            }
+            string cause;
+            if (tool == m_DefaultTool)
+                cause = "the default tool is active (the launch was cancelled, or a selection change switched the tool off)";
+            else if (tool != m_ObjectTool)
+                cause = $"tool '{ToolId(tool)}' is active instead of the object tool (another mod's tool, or a later click)";
+            else if (!onCursor)
+                cause = "the object tool holds another prefab";
+            else if (mode != ObjectToolSystem.Mode.Upgrade)
+                cause = $"the object tool fell back to {mode} mode: the selected entity {Ent(selected)} has no " +
+                        "InstalledUpgrade buffer (ObjectToolSystem.cs:3246-3249, 1.6.2 :3305-3308) — it would place a " +
+                        "free-standing lodge";
+            else
+                cause = $"the selection moved to {Ent(selected)} (expected sign {Ent(m_LodgeSign)})";
+            bool cancelled = false;
+            if (onCursor)
+            {
+                m_ToolSystem.activeTool = m_DefaultTool;
+                cancelled = true;
+            }
+            LodgeStateText = "verify FAILED: " + cause;
+            Mod.Log.Error($"!!! Hub lodge launch failed — {cause}; " +
+                          (cancelled
+                              ? "switched to the default tool so no lodge can be placed off its sign"
+                              : "the lodge is not on the cursor, nothing to cancel"));
+        }
+
+        private void WatchLodge()
+        {
+            if (!LodgeOnCursor())
+            {
+                m_LodgeWatch = false;
+                LodgeStateText = $"ended (tool now '{ToolId(m_ToolSystem.activeTool)}')";
+                Mod.Log.Info($"Hub [lodge] placement ended — tool now '{ToolId(m_ToolSystem.activeTool)}'");
+                return;
+            }
+            ObjectToolSystem.Mode mode = m_ObjectTool.actualMode;
+            Entity selected = m_ToolSystem.selected;
+            if (mode != ObjectToolSystem.Mode.Upgrade)
+            {
+                m_LodgeWatch = false;
+                m_ToolSystem.activeTool = m_DefaultTool;
+                LodgeStateText = $"cancelled: left Upgrade mode ({mode})";
+                Mod.Log.Error($"!!! Hub lodge: the object tool left Upgrade mode (now {mode}; selected {Ent(selected)} has no " +
+                              "InstalledUpgrade buffer, ObjectToolSystem.cs:3246-3249) — switched to the default tool so no " +
+                              "free-standing lodge can be placed");
+                return;
+            }
+            if (selected != m_LodgeSign)
+            {
+                if (m_Ownership.IsLiveGate(selected))
+                {
+                    Mod.Log.Info($"Hub [lodge] now goes on sign {Ent(selected)} (selection changed from {Ent(m_LodgeSign)})");
+                    m_LodgeSign = selected;
+                    LodgeStateText = $"on the cursor, Upgrade mode on sign {Ent(m_LodgeSign)}";
+                }
+                else
+                {
+                    m_LodgeWatch = false;
+                    m_ToolSystem.activeTool = m_DefaultTool;
+                    LodgeStateText = $"cancelled: selection moved to {Ent(selected)}";
+                    Mod.Log.Error($"!!! Hub lodge: the selection moved to {Ent(selected)}, which is not a Welcome Sign, " +
+                                  "while the lodge was on the cursor — switched to the default tool so the lodge cannot " +
+                                  "attach to another building (the upgrade target is the selected entity, " +
+                                  "ObjectToolSystem.cs:3318)");
+                }
+            }
+        }
+
+        /// <summary>Where the camera looks (the active controller's pivot), else the camera position.
+        /// Event time only (lodge launch).</summary>
+        private float3 CameraPoint()
+        {
+            try
+            {
+                IGameCameraController controller = m_CameraUpdateSystem.activeCameraController;
+                if (controller != null)
+                {
+                    UnityEngine.Vector3 p = controller.pivot;
+                    return new float3(p.x, p.y, p.z);
+                }
+            }
+            catch (Exception)
+            {
+                // a controller being torn down: fall back to the camera position
+            }
+            return m_CameraUpdateSystem.position;
+        }
+
+        /// <summary>The build item whose tool is active, or -1 (header LAUNCHING "Active"). Per frame
+        /// while the build section is open: two field reads and up to eight reference compares.</summary>
+        private int ActiveItemIndex()
+        {
+            ToolBaseSystem tool = m_ToolSystem.activeTool;
+            if (tool == null || tool == m_DefaultTool)
+                return -1;
+            if (tool == m_ObjectTool && m_ItemPrefab[ItemLodge] != null &&
+                ReferenceEquals(m_ObjectTool.prefab, m_ItemPrefab[ItemLodge]))
+                return m_ObjectTool.actualMode == ObjectToolSystem.Mode.Upgrade ? ItemLodge : -1;
+            PrefabBase active = tool.GetPrefab();
+            if (ReferenceEquals(active, null))
+                return -1;
+            for (int i = 0; i < ItemCount; i++)
+            {
+                if (i != ItemLodge && ReferenceEquals(active, m_ItemPrefab[i]))
+                    return i;
+            }
+            return -1;
+        }
+
+        private static string ToolId(ToolBaseSystem tool)
+        {
+            return tool == null ? "none" : tool.toolID;   // ToolBaseSystem.cs:142
+        }
+
+        private static string ModeText(ToolBaseSystem tool)
+        {
+            switch (tool)
+            {
+                case ObjectToolSystem o:
+                    return o.actualMode.ToString();
+                case AreaToolSystem a:
+                    return a.actualMode.ToString();
+                case NetToolSystem n:
+                    return n.actualMode.ToString();
+                case null:
+                    return "-";
+                default:
+                    return tool.uiModeIndex.ToString(CultureInfo.InvariantCulture);   // ToolBaseSystem.cs:144
+            }
+        }
+
+        // ── focus (header FOCUS) ──────────────────────────────────────────────────────────────────
+
+        private void ApplyFocusRun(Entity run, string source)
+        {
+            if (!EntityManager.Exists(run) || EntityManager.HasComponent<Deleted>(run) ||
+                !EntityManager.TryGetComponent(run, out PrefabRef prefabRef) || m_Ownership.KindOf(prefabRef.m_Prefab) < 0 ||
+                !EntityManager.TryGetComponent(run, out Game.Areas.Geometry geometry))
+            {
+                Mod.Log.Info($"Hub [focus] refused — {Ent(run)} is not a live ski run of ours ({source})");
+                LastTriggerText = $"focusRun {Ent(run)}: refused";
+                return;
+            }
+            float2 half = MathUtils.Extents(geometry.m_Bounds.xz);
+            if (!Fly(run, default, math.length(half) * Tuning.FocusZoomFactor, out float zoom, out string failure))
+            {
+                Mod.Log.Warn($"Hub [focus] run {Ent(run)} refused — {failure} ({source})");
+                LastTriggerText = $"focusRun {Ent(run)}: {failure}";
+                return;
+            }
+            string name = RunName(run);
+            Mod.Log.Info($"Hub [focus] run {Ent(run)} \"{name}\" zoom={zoom:F0} (outline {half.x * 2f:F0} × " +
+                         $"{half.y * 2f:F0} m, centre {geometry.m_CenterPosition.x:F0}, {geometry.m_CenterPosition.z:F0}) ({source})");
+            LastTriggerText = $"focusRun {Ent(run)} \"{name}\": zoom {zoom:F0}";
+        }
+
+        /// <summary>focusBuilding (the header pin and the list rows), and since Round F6 the switcher's and the
+        /// lodge launch's fly (header FOCUS, SWITCHER; LODGE 1b) with the reason in <paramref name="source"/>.
+        /// True when the camera flew. One line either way.</summary>
+        private bool ApplyFocusBuilding(Entity building, string source)
+        {
+            string what = null;
+            if (m_Ownership.IsLiveGate(building))
+                what = "sign";
+            else if (EntityManager.Exists(building) && !EntityManager.HasComponent<Deleted>(building) &&
+                     EntityManager.TryGetComponent(building, out PrefabRef prefabRef))
+            {
+                if (m_Attractiveness.IsLodgePrefab(prefabRef.m_Prefab))
+                    what = "lodge";
+                else if (m_StationPrefabs != null && m_StationPrefabs.Contains(prefabRef.m_Prefab))
+                    what = "station";
+            }
+            if (what == null)
+            {
+                Mod.Log.Info($"Hub [focus] refused — {Ent(building)} ({PrefabNameOf(building)}) is not a live sign, lodge or " +
+                             $"lift station of ours ({source})");
+                LastTriggerText = $"focusBuilding {Ent(building)}: refused";
+                return false;
+            }
+            int element = -1;
+            if (!SelectedInfoUISystem.TryGetPosition(building, EntityManager, ref element, out Entity _, out float3 position,
+                    out Bounds3 bounds, out quaternion _))
+            {
+                Mod.Log.Warn($"Hub [focus] {what} {Ent(building)} refused — no position (SelectedInfoUISystem.TryGetPosition) " +
+                             $"({source})");
+                LastTriggerText = $"focusBuilding {Ent(building)}: no position";
+                return false;
+            }
+            float radius = math.length(MathUtils.Extents(bounds.xz));
+            float wanted = math.max(radius * Tuning.FocusZoomFactor, Tuning.FocusBuildingMinZoomM);
+            if (!Fly(building, default, wanted, out float zoom, out string failure))
+            {
+                Mod.Log.Warn($"Hub [focus] {what} {Ent(building)} refused — {failure} ({source})");
+                LastTriggerText = $"focusBuilding {Ent(building)}: {failure}";
+                return false;
+            }
+            Mod.Log.Info($"Hub [focus] {what} {Ent(building)} {PrefabNameOf(building)} zoom={zoom:F0} (at {position.x:F0}, " +
+                         $"{position.z:F0}) ({source})");
+            LastTriggerText = $"focusBuilding {what} {Ent(building)}: zoom {zoom:F0}";
+            return true;
+        }
+
+        private void ApplyFocusLift(Entity id, Entity top, string source)
+        {
+            // The exact (id, top) pair first: since the fixer round (finding l1-lifts-1) a row keeps a removed
+            // top station in its key, so the UI's dead top still names it; then a stale top → the id alone.
+            bool found = m_Census.TryGetRow(id, top, out LiftCensus.Row row);
+            if (!found && top != Entity.Null && !EntityManager.Exists(top))
+            {
+                top = Entity.Null;
+                found = m_Census.TryGetRow(id, top, out row);
+            }
+            if (!found)
+            {
+                Mod.Log.Info($"Hub [focus] lift refused — no lift row ({Ent(id)}, top {Ent(top)}) in the census (stale row?) " +
+                             $"({source})");
+                LastTriggerText = $"focusLift {Ent(id)}: refused";
+                return;
+            }
+            float3 point;
+            float wanted;
+            string where;
+            if (row.HasGap)
+            {
+                point = row.GapAt;
+                wanted = Tuning.FocusGapZoomM;
+                where = $"the gap at ({point.x:F0}, {point.z:F0})";
+            }
+            else
+            {
+                point = row.FocusCenter;
+                wanted = math.max(row.FocusRadius * Tuning.FocusZoomFactor, Tuning.FocusLiftMinZoomM);
+                where = $"the lift's centre ({point.x:F0}, {point.z:F0}), radius {row.FocusRadius:F0} m";
+            }
+            if (!Fly(Entity.Null, point, wanted, out float zoom, out string failure))
+            {
+                Mod.Log.Warn($"Hub [focus] lift {Ent(id)} refused — {failure} ({source})");
+                LastTriggerText = $"focusLift {Ent(id)}: {failure}";
+                return;
+            }
+            Mod.Log.Info($"Hub [focus] lift '{LiftName(id, top)}' (base {Ent(ToEntity(row.Base))}, top {Ent(ToEntity(row.Top))}, " +
+                         $"{row.State}) → {where} zoom={zoom:F0} ({source})");
+            LastTriggerText = $"focusLift {Ent(id)}: {where}";
+        }
+
+        /// <summary>The shared camera move (header FOCUS). follow != Null: the orbit camera follows it;
+        /// else it flies to <paramref name="point"/> and follows nothing.</summary>
+        private bool Fly(Entity follow, float3 point, float wantedZoom, out float zoom, out string failure)
+        {
+            zoom = 0f;
+            failure = null;
+            OrbitCameraController orbit = m_CameraUpdateSystem.orbitCameraController;
+            if (orbit == null)
+            {
+                failure = "no orbit camera controller";
+                return false;
+            }
+            float2 range = orbit.m_ZoomRange;
+            zoom = math.clamp(wantedZoom, range.x, range.y);
+            orbit.followedEntity = follow;   // Null for a point: no follow (OrbitCameraController.cs:47-71)
+            IGameCameraController active = m_CameraUpdateSystem.activeCameraController;
+            // Header FOCUS / YAW: keep the player's heading (the orbit's own getter is stale here).
+            float yaw = active != null ? active.rotation.y : orbit.rotation.y;
+            if (active != null)
+                orbit.TryMatchPosition(active);
+            if (follow == Entity.Null)
+                orbit.pivot = new UnityEngine.Vector3(point.x, point.y, point.z);   // re-clamped to terrain + 10 m (:234-244)
+            orbit.rotation = new UnityEngine.Vector3(Tuning.FocusPitchDeg, yaw, 0f);
+            orbit.zoom = zoom;
+            m_CameraUpdateSystem.activeCameraController = orbit;
+            return true;
+        }
+
+        private string RunName(Entity run)
+        {
+            int count = m_Stats.RunCount;
+            for (int i = 0; i < count; i++)
+            {
+                RunStats r = m_Stats.GetRun(i);
+                if (r.Entity == run)
+                    return r.Name ?? "";
+            }
+            return m_NameSystem.TryGetCustomName(run, out string custom) ? custom : "?";
+        }
+
+        private string LiftName(Entity id, Entity top)
+        {
+            int count = m_Stats.LiftCount;
+            for (int i = 0; i < count; i++)
+            {
+                LiftStats r = m_Stats.GetLift(i);
+                if (r.Entity == id && r.Top == top)
+                    return r.Name ?? "";
+            }
+            return "?";
+        }
+
+        // ── glade tool ────────────────────────────────────────────────────────────────────────────
+
+        private void ApplyGladeToggle(string source)
+        {
+            if (m_GladeTool.IsActive)
+            {
+                Mod.Log.Info($"Hub [glade] toggle — deactivating the glade tool ({source})");
+                m_GladeTool.Deactivate();
+                LastTriggerText = "gladeToggle: off";
+                return;
+            }
+            // TryActivate owns the gating (armed, not disabled, Game mode) and logs its own refusal reason.
+            bool ok = m_GladeTool.TryActivate("hub" + SourceSuffix(source));
+            Mod.Log.Info($"Hub [glade] toggle — activate {(ok ? "ok" : "refused")} ({source})");
+            LastTriggerText = $"gladeToggle: {(ok ? "on" : "refused: " + m_GladeTool.UnavailableReasonKey)}";
+        }
+
+        private HubGladeState GladeNow()
+        {
+            SkiGladeToolSystem t = m_GladeTool;
+            return new HubGladeState(t.IsArmed && !t.IsDisabled, t.IsActive, t.Level, t.TreeLineTarget,
+                t.UnavailableReasonKey);
+        }
+
+        // ── pushing ───────────────────────────────────────────────────────────────────────────────
+
+        /// <summary>Only for bindings JS observes (the panel is open); nothing while closed. Per frame:
+        /// nine `active` reads, the Demand writes, revision compares, struct ValueBinding updates (ch5 §4.3).</summary>
+        private void PushPanelData()
+        {
+            bool buildActive = m_Build.active;
+            bool resortsActive = m_Resorts.active, resortLiveActive = m_ResortLive.active;
+            bool runsActive = m_Runs.active, runLiveActive = m_RunLive.active;
+            bool liftsActive = m_Lifts.active, problemsActive = m_Problems.active;
+            bool cityActive = m_City.active;
+            bool demand = buildActive || resortsActive || resortLiveActive || runsActive || runLiveActive ||
+                          liftsActive || problemsActive || cityActive;       // pisteMap and follow do NOT demand
+            m_Catalog.Demand = demand;   // §3.6 Demand: catalog and stats follow every panel binding
+            m_Stats.Demand = demand;
+
+            PushArray(m_ResortsPush, resortsActive, m_Stats.ResortsRevision, m_Stats.ResortCount);
+            PushArray(m_ResortLivePush, resortLiveActive, m_Stats.ResortLiveRevision, m_Stats.ResortLiveCount);
+            PushArray(m_RunsPush, runsActive, m_Stats.RunsRevision, m_Stats.RunCount);
+            PushArray(m_RunLivePush, runLiveActive, m_Stats.RunLiveRevision, m_Stats.RunLiveCount);
+            PushArray(m_LiftsPush, liftsActive, m_Stats.LiftsRevision, m_Stats.LiftCount);
+            PushArray(m_ProblemsPush, problemsActive, m_Stats.ProblemsRevision, m_Stats.ProblemCount);
+
+            if (cityActive)
+                m_City.Update(m_Stats.City);   // our comparer dedups (struct, field by field)
+
+            if (buildActive)
+                PushBuild(!m_BuildWasActive);
+            m_BuildWasActive = buildActive;
+
+            if (m_Glade.active)
+                m_Glade.Update(GladeNow());   // ValueBinding dedups (struct, IEquatable)
+            // pisteMap / follow: ValueBinding.Update at the event (ApplyPisteMap, ApplyFollow); a subscribe
+            // pushes the current value (ValueBinding.cs:24-35). Nothing per frame.
+
+            if (s_NonFinite > 0 && !m_NonFiniteLogged)
+            {
+                m_NonFiniteLogged = true;
+                Mod.Log.Warn($"Hub: {s_NonFinite} non-finite number(s) in the stats rows were sent as 0 (NaN/Infinity would " +
+                             "break the UI's JSON) — a SkiResortStatsSystem value is not clamped; logged once per load");
+            }
+        }
+
+        /// <summary>Header BINDINGS: push when the revision moved or the binding was (re)subscribed; log only
+        /// a row-count change (through the array's RowsLog window, E1 fixer F10) and, once per load, a slow
+        /// push. Per frame beyond the push: one int compare for a waiting fold (also while closed, so the
+        /// trailing summary is never lost).</summary>
+        private void PushArray(ArrayPush push, bool active, int revision, int rows)
+        {
+            if (push.RowsLog.Count > 0)
+            {
+                float now = UnityEngine.Time.realtimeSinceStartup;
+                if (push.RowsLog.TrailingDue(now))
+                    WritePushRowsSummary(push, now);
+            }
+            if (!active)
+            {
+                push.WasActive = false;
+                return;
+            }
+            if (!push.WasActive)
+                push.PushedRevision = int.MinValue;   // re-send once on (re)subscribe
+            push.WasActive = true;
+            if (revision == push.PushedRevision)
+                return;
+            bool first = push.PushedRevision == int.MinValue;
+            push.PushedRevision = revision;
+            m_PushTimer.Restart();
+            push.Binding.Update();
+            m_PushTimer.Stop();
+            push.Pushes++;
+            float ms = (float)m_PushTimer.Elapsed.TotalMilliseconds;
+            push.LastMs = ms;
+            if (ms > push.MaxMs)
+                push.MaxMs = ms;
+            if (!first && rows != push.LoggedRows)
+            {
+                string text = $"Hub [push] {push.Name} rows={rows} (was {push.LoggedRows}) revision {revision} ms={ms:F2}";
+                float now = UnityEngine.Time.realtimeSinceStartup;
+                switch (push.RowsLog.Offer(now, false, text, rows, ms))
+                {
+                    case LogWindow.Verdict.Plain:
+                        Mod.Log.Info(text);
+                        break;
+                    case LogWindow.Verdict.Summary:
+                        WritePushRowsSummary(push, now);
+                        break;
+                }
+            }
+            push.LoggedRows = rows;
+            if (ms > Tuning.SlowPushMs && !push.SlowLogged)
+            {
+                push.SlowLogged = true;
+                Mod.Log.Warn($"Hub [push] {push.Name}: {ms:F2} ms for {rows} row(s) (> SlowPushMs {Tuning.SlowPushMs}) — " +
+                             "logged once per load");
+            }
+        }
+
+        /// <summary>E1 fixer (F10): one line for the row-count changes folded in <paramref name="push"/>'s window.</summary>
+        private static void WritePushRowsSummary(ArrayPush push, float now)
+        {
+            LogWindow w = push.RowsLog;
+            Mod.Log.Info($"Hub [push] {push.Name}: {w.Count} row-count change(s) folded over {w.SpanS(now):F0} s " +
+                         $"(rows {w.Range(0, "F0")}, push {w.Range(1, "F2")} ms) — last: {w.LastText}");
+            w.Wrote(now);
+        }
+
+        /// <summary>E1 fixer (F10): writes every array's waiting fold (a load, quit).</summary>
+        private void FlushPushRows()
+        {
+            float now = UnityEngine.Time.realtimeSinceStartup;
+            ArrayPush[] all = { m_ResortsPush, m_ResortLivePush, m_RunsPush, m_RunLivePush, m_LiftsPush, m_ProblemsPush };
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i].RowsLog.Count > 0)
+                    WritePushRowsSummary(all[i], now);
+            }
+        }
+
+        private void PushBuild(bool rising)
+        {
+            float now = UnityEngine.Time.realtimeSinceStartup;
+            int resortsRevision = m_Stats.ResortsRevision;
+            if (rising || m_LocksDirty || now >= m_NextLockRefresh || resortsRevision != m_LockResortsRevision)
+            {
+                RefreshLocks();
+                m_LocksDirty = false;
+                m_NextLockRefresh = now + Tuning.LockRefreshS;
+                m_LockResortsRevision = resortsRevision;
+            }
+            RefreshLiftHint();
+            int active = ActiveItemIndex();
+            int signature = active + 1;   // 0..8
+            unchecked
+            {
+                for (int i = 0; i < ItemCount; i++)
+                    signature = (signature * 4 + m_ItemReason[i]) * 31 + m_ItemPrice[i];   // reason implies locked
+                signature = signature * 2 + (m_LiftNoPair ? 1 : 0);
+            }
+            if (rising || signature != m_BuildPushedSignature || active != m_ActiveItem)
+            {
+                m_ActiveItem = active;
+                m_BuildPushedSignature = signature;
+                m_Build.Update();
+            }
+        }
+
+        private void RefreshLocks()
+        {
+            int signs = SignCount();
+            for (int i = 0; i < ItemCount; i++)
+            {
+                byte reason = ReasonNone;
+                if (m_ItemPrefab[i] == null || m_ItemPrefabEntity[i] == Entity.Null ||
+                    !EntityManager.Exists(m_ItemPrefabEntity[i]))
+                    reason = ReasonMissing;
+                else if (EntityManager.HasEnabledComponent<Locked>(m_ItemPrefabEntity[i]))
+                    reason = ReasonLocked;
+                else if (i == ItemLodge && signs <= 0)
+                    reason = ReasonNoSign;
+                m_ItemReason[i] = reason;
+                m_ItemLocked[i] = reason != ReasonNone;
+                // Contract 3 (ch5 §4.5, D21): `price` = the run's BASE fee by its item's kind (no prefab read).
+                m_ItemPrice[i] = IsRunItem(i) && reason != ReasonMissing ? SkiRunFees.BaseFee(ItemRunKind[i]) : -1;
+            }
+        }
+
+        /// <summary>ch5 §4.5: the six optional item numbers, read once at arm time (prefab data does not change
+        /// in a session). Run fees and rates need no prefab; a missing building prefab sends cost −1. A uint
+        /// above int.MaxValue is sent as int.MaxValue.</summary>
+        private void ReadItemValues()
+        {
+            for (int i = 0; i < ItemCount; i++)
+            {
+                m_ItemPricePerHa[i] = m_ItemCost[i] = m_ItemCostPerKm[i] = -1;
+                m_ItemMonthly[i] = m_ItemMonthlyPerHa[i] = m_ItemMonthlyPerKm[i] = -1;
+                Entity prefab = m_ItemPrefabEntity[i];
+                bool live = prefab != Entity.Null && EntityManager.Exists(prefab);
+                if (IsRunItem(i))
+                {
+                    int kind = ItemRunKind[i];
+                    m_ItemPricePerHa[i] = SkiRunFees.PerHaFee(kind);
+                    m_ItemMonthlyPerHa[i] = SkiRunUpkeepSystem.CostPerHaMonth((RunKind)kind);
+                }
+                else if (i == ItemLift)
+                {
+                    m_ItemCostPerKm[i] = HubRules.LiftLinePerKm;
+                    m_ItemMonthly[i] = (int)SkiMoneyRules.LiftFixedPerMonth;
+                    m_ItemMonthlyPerKm[i] = (int)SkiMoneyRules.LiftPerKmPerMonth;
+                }
+                else if (i == ItemLodge)
+                {
+                    if (live && EntityManager.TryGetComponent(prefab, out ServiceUpgradeData upgrade))
+                        m_ItemCost[i] = ClampCost(upgrade.m_UpgradeCost);
+                    else if (live && EntityManager.TryGetComponent(prefab, out PlaceableObjectData placeable))
+                        m_ItemCost[i] = ClampCost(placeable.m_ConstructionCost);
+                }
+                else if (live && EntityManager.TryGetComponent(prefab, out PlaceableObjectData placeable))
+                {
+                    m_ItemCost[i] = ClampCost(placeable.m_ConstructionCost);   // sign, base and top stations
+                }
+            }
+        }
+
+        private static int ClampCost(uint cost) => cost > int.MaxValue ? int.MaxValue : (int)cost;
+
+        /// <summary>The ARMED line's item costs (ch5 §4.8).</summary>
+        private string ItemCostText()
+        {
+            string Fee(int item) => SkiRunFees.BaseFee(ItemRunKind[item]).ToString(CultureInfo.InvariantCulture) + "+" +
+                                    SkiRunFees.PerHaFee(ItemRunKind[item]).ToString(CultureInfo.InvariantCulture) + "/ha";
+            return $"sign {m_ItemCost[ItemSign]}, lodge {m_ItemCost[ItemLodge]}, base {m_ItemCost[ItemBase]}, top " +
+                   $"{m_ItemCost[ItemTop]}, lift {m_ItemCostPerKm[ItemLift]}/km + {m_ItemMonthly[ItemLift]}/month + " +
+                   $"{m_ItemMonthlyPerKm[ItemLift]}/km/month, runs natural {Fee(2)} groomed {Fee(3)} snowmaking {Fee(4)} " +
+                   $"night {Fee(5)}";
+        }
+
+        /// <summary>Live signs in the stats rows (the rows are fresh while the build section is observed:
+        /// it is part of the stats Demand). With no rows at all (no stats rebuild yet this load, or the
+        /// stats system disabled by its "!!!"), the ownership system's sign scan decides — at the
+        /// RefreshLocks cadence only (LockRefreshS), never per frame.</summary>
+        private int SignCount()
+        {
+            int count = m_Stats.ResortCount;
+            if (count <= 0)
+            {
+                m_Ownership.TryNearestGateEntity(float2.zero, out Entity any, out float _);   // any distance
+                return any != Entity.Null ? 1 : 0;
+            }
+            int signs = 0;
+            for (int i = 0; i < count; i++)
+            {
+                ResortStats r = m_Stats.GetResort(i);
+                if ((int)r.Kind != ResortKindNotLinked && r.Sign != Entity.Null)
+                    signs++;
+            }
+            return signs;
+        }
+
+        /// <summary>build[lift].hint (D37, ch5 §4.5): HINT[LiftNoPair] when HubRules.LiftNoPair holds for the
+        /// SHOWN area's lift rows (stats rows whose Sign == m_SelectedResort; Null = the Not linked rows).
+        /// Recomputed only when the stats LiftsRevision moved or the shown area changed. Text only: the
+        /// Build-strip dot comes from ProblemRow.buildItem (UI).</summary>
+        private void RefreshLiftHint()
+        {
+            int revision = m_Stats.LiftsRevision;
+            if (revision == m_HintLiftsRevision && m_SelectedResort == m_HintSign)
+                return;
+            m_HintLiftsRevision = revision;
+            m_HintSign = m_SelectedResort;
+            m_HintRows.Clear();
+            for (int i = 0; i < m_Stats.LiftCount; i++)
+            {
+                LiftStats l = m_Stats.GetLift(i);
+                if (l.Sign == m_SelectedResort)
+                    m_HintRows.Add(new HubLiftHintRow { State = l.State, HasBase = l.HasBase, HasTop = l.HasTop });
+            }
+            m_LiftNoPair = HubRules.LiftNoPair(m_HintRows);
+        }
+
+        private static string ReasonKey(byte reason)
+        {
+            switch (reason)
+            {
+                case ReasonLocked: return ReasonKeyLocked;
+                case ReasonNoSign: return ReasonKeyNoSign;
+                case ReasonMissing: return ReasonKeyMissing;
+                default: return "";
+            }
+        }
+
+        /// <summary>`build` (RawValueBinding writer): one typed object per item, ItemIds order (the UI orders
+        /// the tiles by id). Runs on Update() and on subscribe (main thread). Fixed-size arrays only.</summary>
+        private void WriteBuild(IJsonWriter writer)
+        {
+            writer.ArrayBegin(ItemCount);
+            for (int i = 0; i < ItemCount; i++)
+            {
+                writer.TypeBegin("SkiResortMod.BuildItem");
+                writer.PropertyName("id");
+                writer.Write(ItemIds[i]);
+                writer.PropertyName("locked");
+                writer.Write(m_ItemLocked[i]);
+                writer.PropertyName("active");
+                writer.Write(i == m_ActiveItem);
+                writer.PropertyName("reason");
+                writer.Write(ReasonKey(m_ItemReason[i]));
+                writer.PropertyName("price");
+                writer.Write(m_ItemPrice[i]);
+                writer.PropertyName("hint");
+                writer.Write(i == ItemLift && m_LiftNoPair ? HintKeyLiftNoPair : "");
+                // Contract 3 (ch5 §4.5): six optional numbers, −1 = not applicable.
+                writer.PropertyName("pricePerHa");
+                writer.Write(m_ItemPricePerHa[i]);
+                writer.PropertyName("cost");
+                writer.Write(m_ItemCost[i]);
+                writer.PropertyName("costPerKm");
+                writer.Write(m_ItemCostPerKm[i]);
+                writer.PropertyName("monthly");
+                writer.Write(m_ItemMonthly[i]);
+                writer.PropertyName("monthlyPerHa");
+                writer.Write(m_ItemMonthlyPerHa[i]);
+                writer.PropertyName("monthlyPerKm");
+                writer.Write(m_ItemMonthlyPerKm[i]);
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
+        }
+
+        /// <summary>`resorts` (bindings.ts ResortRow, contract 3: identity and slow facts): SkiResortStatsSystem
+        /// rows — signs in stable order, then the Not linked row. Main thread.</summary>
+        private void WriteResorts(IJsonWriter writer)
+        {
+            int count = m_Stats.ResortCount;
+            writer.ArrayBegin((uint)count);
+            for (int i = 0; i < count; i++)
+            {
+                ResortStats r = m_Stats.GetResort(i);
+                writer.TypeBegin("SkiResortMod.ResortRow");
+                writer.PropertyName("sign");
+                UnityWriters.Write(writer, r.Sign);   // {index, version} (UnityWriters.cs:17-25)
+                writer.PropertyName("kind");
+                writer.Write((int)r.Kind);
+                writer.PropertyName("name");
+                writer.Write(r.Name ?? "");
+                writer.PropertyName("customName");
+                writer.Write(r.CustomName);
+                writer.PropertyName("runs");
+                writer.Write(Fin(r.Runs));
+                writer.PropertyName("rated");
+                writer.Write(Fin(r.Rated));
+                writer.PropertyName("flat");
+                writer.Write(Fin(r.Flat));
+                writer.PropertyName("green");
+                writer.Write(Fin(r.Green));
+                writer.PropertyName("blue");
+                writer.Write(Fin(r.Blue));
+                writer.PropertyName("black");
+                writer.Write(Fin(r.Black));
+                writer.PropertyName("doubleBlack");
+                writer.Write(Fin(r.DoubleBlack));
+                writer.PropertyName("areaM2");
+                writer.Write(Fin(r.AreaM2));
+                writer.PropertyName("verticalM");
+                writer.Write(Fin(r.VerticalM));
+                writer.PropertyName("verticalApprox");
+                writer.Write(r.VerticalApprox);
+                writer.PropertyName("lodges");
+                writer.Write(Fin(r.Lodges));
+                writer.PropertyName("freeLodges");
+                writer.Write(Fin(r.FreeLodges));
+                writer.PropertyName("liftRows");
+                writer.Write(Fin(r.LiftRows));
+                writer.PropertyName("liftLengthM");
+                writer.Write(Fin(r.LiftLengthM));
+                writer.PropertyName("capacityPerHour");
+                writer.Write(Fin(r.CapacityPerHour));
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
+        }
+
+        /// <summary>`resortLive` (bindings.ts ResortLive, 67 fields): the values that move, same order and
+        /// count as `resorts`, joined by sign (ch5 §4.4). Main thread.</summary>
+        private void WriteResortLive(IJsonWriter writer)
+        {
+            int count = m_Stats.ResortLiveCount;
+            writer.ArrayBegin((uint)count);
+            for (int i = 0; i < count; i++)
+            {
+                ResortLiveStats r = m_Stats.GetResortLive(i);
+                writer.TypeBegin("SkiResortMod.ResortLive");
+                writer.PropertyName("sign");
+                UnityWriters.Write(writer, r.Sign);
+                writer.PropertyName("status");
+                writer.Write((int)r.Status);
+                writer.PropertyName("runsOpen");
+                writer.Write(Fin(r.RunsOpen));
+                writer.PropertyName("runsPartly");
+                writer.Write(Fin(r.RunsPartly));
+                writer.PropertyName("snowEstimated");
+                writer.Write(r.SnowEstimated);
+                writer.PropertyName("snowPct");
+                writer.Write(Fin(r.SnowPct));
+                writer.PropertyName("snowDepthCm");
+                writer.Write(Fin(r.SnowDepthCm));
+                writer.PropertyName("seasonHint");
+                writer.Write((int)r.SeasonHint);
+                writer.PropertyName("topTempKnown");
+                writer.Write(r.TopTempKnown);
+                writer.PropertyName("topTempC");
+                writer.Write(Fin(r.TopTempC));
+                writer.PropertyName("attraction");
+                writer.Write(Fin(r.Attraction));
+                writer.PropertyName("attractionFull");
+                writer.Write(Fin(r.AttractionFull));
+                writer.PropertyName("attractionHeld");
+                writer.Write(r.AttractionHeld);
+                writer.PropertyName("lodgesActive");
+                writer.Write(Fin(r.LodgesActive));
+                writer.PropertyName("summer");
+                writer.Write(r.Summer);
+                writer.PropertyName("lodgePart");
+                writer.Write(Fin(r.LodgePart));
+                writer.PropertyName("terrain");
+                writer.Write(Fin(r.Terrain));
+                writer.PropertyName("runsValue");
+                writer.Write(Fin(r.RunsValue));
+                writer.PropertyName("runsValueFull");
+                writer.Write(Fin(r.RunsValueFull));
+                writer.PropertyName("openSharePct");
+                writer.Write(Fin(r.OpenSharePct));
+                writer.PropertyName("liftsValue");
+                writer.Write(Fin(r.LiftsValue));
+                writer.PropertyName("liftsComplete");
+                writer.Write(Fin(r.LiftsComplete));
+                writer.PropertyName("liftsCounted");
+                writer.Write(Fin(r.LiftsCounted));
+                writer.PropertyName("varietyMultiplier");
+                writer.Write(Fin(r.VarietyMultiplier));
+                writer.PropertyName("verticalMultiplier");
+                writer.Write(Fin(r.VerticalMultiplier));
+                writer.PropertyName("scoreVerticalM");
+                writer.Write(Fin(r.ScoreVerticalM));
+                writer.PropertyName("efficiencyPct");
+                writer.Write(Fin(r.EfficiencyPct));
+                writer.PropertyName("sharePct");
+                writer.Write(Fin(r.SharePct));
+                writer.PropertyName("estKnown");
+                writer.Write(r.EstKnown);
+                writer.PropertyName("estTourists");
+                writer.Write(Fin(r.EstTourists));
+                writer.PropertyName("nextStep");
+                writer.Write((int)r.NextStep);
+                writer.PropertyName("thisMonthSinceLoad");
+                writer.Write(r.ThisMonthSinceLoad);
+                writer.PropertyName("lastMonthFull");
+                writer.Write(r.LastMonthFull);
+                writer.PropertyName("guestsThisMonth");
+                writer.Write(Fin(r.GuestsThisMonth));
+                writer.PropertyName("touristsThisMonth");
+                writer.Write(Fin(r.TouristsThisMonth));
+                writer.PropertyName("touristGroupsThisMonth");
+                writer.Write(Fin(r.TouristGroupsThisMonth));
+                writer.PropertyName("residentsThisMonth");
+                writer.Write(Fin(r.ResidentsThisMonth));
+                writer.PropertyName("paidThisMonth");
+                writer.Write(Fin(r.PaidThisMonth));
+                writer.PropertyName("unpaidThisMonth");
+                writer.Write(Fin(r.UnpaidThisMonth));
+                writer.PropertyName("freeThisMonth");
+                writer.Write(Fin(r.FreeThisMonth));
+                writer.PropertyName("ticketsThisMonth");
+                writer.Write(Fin(r.TicketsThisMonth));
+                writer.PropertyName("guestsLastMonth");
+                writer.Write(Fin(r.GuestsLastMonth));
+                writer.PropertyName("touristsLastMonth");
+                writer.Write(Fin(r.TouristsLastMonth));
+                writer.PropertyName("touristGroupsLastMonth");
+                writer.Write(Fin(r.TouristGroupsLastMonth));
+                writer.PropertyName("residentsLastMonth");
+                writer.Write(Fin(r.ResidentsLastMonth));
+                writer.PropertyName("paidLastMonth");
+                writer.Write(Fin(r.PaidLastMonth));
+                writer.PropertyName("ticketsLastMonth");
+                writer.Write(Fin(r.TicketsLastMonth));
+                writer.PropertyName("ticketGate");
+                writer.Write((int)r.TicketGate);
+                writer.PropertyName("ticketIncomeMonth");
+                writer.Write(Fin(r.TicketIncomeMonth));
+                writer.PropertyName("ticketPaidMonth");
+                writer.Write(Fin(r.TicketPaidMonth));
+                writer.PropertyName("ticketIncomeEstimated");
+                writer.Write(r.TicketIncomeEstimated);
+                writer.PropertyName("costGroomedMonth");
+                writer.Write(Fin(r.CostGroomedMonth));
+                writer.PropertyName("costSnowmakingMonth");
+                writer.Write(Fin(r.CostSnowmakingMonth));
+                writer.PropertyName("costNightMonth");
+                writer.Write(Fin(r.CostNightMonth));
+                writer.PropertyName("haNatural");
+                writer.Write(Fin(r.HaNatural));
+                writer.PropertyName("haGroomed");
+                writer.Write(Fin(r.HaGroomed));
+                writer.PropertyName("haSnowmaking");
+                writer.Write(Fin(r.HaSnowmaking));
+                writer.PropertyName("haNight");
+                writer.Write(Fin(r.HaNight));
+                writer.PropertyName("liftCostMonth");
+                writer.Write(Fin(r.LiftCostMonth));
+                writer.PropertyName("liftsBilled");
+                writer.Write(Fin(r.LiftsBilled));
+                writer.PropertyName("liftsBilledReduced");
+                writer.Write(Fin(r.LiftsBilledReduced));
+                writer.PropertyName("buildingsMonth");
+                writer.Write(Fin(r.BuildingsMonth));
+                writer.PropertyName("wagesMonth");
+                writer.Write(Fin(r.WagesMonth));
+                writer.PropertyName("jobs");
+                writer.Write(Fin(r.Jobs));
+                writer.PropertyName("jobsFilled");
+                writer.Write(Fin(r.JobsFilled));
+                writer.PropertyName("netMonth");
+                writer.Write(Fin(r.NetMonth));
+                writer.PropertyName("netEstimated");
+                writer.Write(r.NetEstimated);
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
+        }
+
+        /// <summary>`runs` (bindings.ts RunRow, contract 3: identity, rating, service, value parts).</summary>
+        private void WriteRuns(IJsonWriter writer)
+        {
+            int count = m_Stats.RunCount;
+            writer.ArrayBegin((uint)count);
+            for (int i = 0; i < count; i++)
+            {
+                RunStats r = m_Stats.GetRun(i);
+                writer.TypeBegin("SkiResortMod.RunRow");
+                writer.PropertyName("entity");
+                UnityWriters.Write(writer, r.Entity);
+                writer.PropertyName("name");
+                writer.Write(r.Name ?? "");
+                writer.PropertyName("kind");
+                writer.Write((int)r.Kind);
+                writer.PropertyName("bound");
+                writer.Write(r.Bound);
+                writer.PropertyName("lengthM");
+                writer.Write(Fin(r.LengthM));
+                writer.PropertyName("dropM");
+                writer.Write(Fin(r.DropM));
+                writer.PropertyName("areaM2");
+                writer.Write(Fin(r.AreaM2));
+                writer.PropertyName("sign");
+                UnityWriters.Write(writer, r.Sign);
+                writer.PropertyName("ordinal");
+                writer.Write(Fin(r.Ordinal));
+                writer.PropertyName("customName");
+                writer.Write(r.CustomName);
+                writer.PropertyName("band");
+                writer.Write((int)r.Band);
+                writer.PropertyName("gradePct");
+                writer.Write(Fin(r.GradePct));
+                writer.PropertyName("steepestPct");
+                writer.Write(Fin(r.SteepestPct));
+                writer.PropertyName("approx");
+                writer.Write(r.Approx);
+                writer.PropertyName("member");
+                writer.Write(r.Member);
+                writer.PropertyName("served");
+                writer.Write(r.Served);
+                writer.PropertyName("servedBy");
+                UnityWriters.Write(writer, r.ServedBy);
+                writer.PropertyName("valueFull");
+                writer.Write(Fin(r.ValueFull));
+                writer.PropertyName("bandValue");
+                writer.Write(Fin(r.BandValue));
+                writer.PropertyName("sizeFactor");
+                writer.Write(Fin(r.SizeFactor));
+                writer.PropertyName("typeFactor");
+                writer.Write(Fin(r.TypeFactor));
+                writer.PropertyName("servedFactor");
+                writer.Write(Fin(r.ServedFactor));
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
+        }
+
+        /// <summary>`runLive` (bindings.ts RunLive): same order and count as `runs`, joined by entity.</summary>
+        private void WriteRunLive(IJsonWriter writer)
+        {
+            int count = m_Stats.RunLiveCount;
+            writer.ArrayBegin((uint)count);
+            for (int i = 0; i < count; i++)
+            {
+                RunLiveStats r = m_Stats.GetRunLive(i);
+                writer.TypeBegin("SkiResortMod.RunLive");
+                writer.PropertyName("entity");
+                UnityWriters.Write(writer, r.Entity);
+                writer.PropertyName("openState");
+                writer.Write((int)r.OpenState);
+                writer.PropertyName("openFactor");
+                writer.Write(Fin(r.OpenFactor));
+                writer.PropertyName("snowPct");
+                writer.Write(Fin(r.SnowPct));
+                writer.PropertyName("snowEstimated");
+                writer.Write(r.SnowEstimated);
+                writer.PropertyName("valueNow");
+                writer.Write(Fin(r.ValueNow));
+                writer.PropertyName("costMonth");
+                writer.Write(Fin(r.CostMonth));
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
+        }
+
+        /// <summary>`lifts` (bindings.ts LiftRow, contract 3: the contract-2 fields, then nine new ones).</summary>
+        private void WriteLifts(IJsonWriter writer)
+        {
+            int count = m_Stats.LiftCount;
+            writer.ArrayBegin((uint)count);
+            for (int i = 0; i < count; i++)
+            {
+                LiftStats r = m_Stats.GetLift(i);
+                writer.TypeBegin("SkiResortMod.LiftRow");
+                writer.PropertyName("entity");
+                UnityWriters.Write(writer, r.Entity);
+                writer.PropertyName("top");
+                UnityWriters.Write(writer, r.Top);
+                writer.PropertyName("sign");
+                UnityWriters.Write(writer, r.Sign);
+                writer.PropertyName("name");
+                writer.Write(r.Name ?? "");
+                writer.PropertyName("customName");
+                writer.Write(r.CustomName);
+                writer.PropertyName("state");
+                writer.Write((int)r.State);
+                writer.PropertyName("sections");
+                writer.Write(Fin(r.Sections));
+                writer.PropertyName("towers");
+                writer.Write(Fin(r.Towers));
+                writer.PropertyName("chairs");
+                writer.Write(Fin(r.Chairs));
+                writer.PropertyName("chairsRiding");
+                writer.Write(Fin(r.ChairsRiding));
+                writer.PropertyName("gaps");
+                writer.Write(Fin(r.Gaps));
+                writer.PropertyName("towersRemoved");
+                writer.Write(Fin(r.TowersRemoved));
+                writer.PropertyName("lengthM");
+                writer.Write(Fin(r.LengthM));
+                writer.PropertyName("riseM");
+                writer.Write(Fin(r.RiseM));
+                writer.PropertyName("horizontalM");
+                writer.Write(Fin(r.HorizontalM));
+                writer.PropertyName("alignKnown");
+                writer.Write(r.AlignKnown);
+                writer.PropertyName("alignOffsetM");
+                writer.Write(Fin(r.AlignOffsetM));
+                writer.PropertyName("alignYawDeg");
+                writer.Write(Fin(r.AlignYawDeg));
+                writer.PropertyName("capacityPerHour");
+                writer.Write(Fin(r.CapacityPerHour));
+                writer.PropertyName("hasBase");
+                writer.Write(r.HasBase);
+                writer.PropertyName("hasTop");
+                writer.Write(r.HasTop);
+                writer.PropertyName("powered");
+                writer.Write(r.Powered);
+                writer.PropertyName("counted");
+                writer.Write(r.Counted);
+                writer.PropertyName("status");
+                writer.Write((int)r.Status);
+                writer.PropertyName("rideTimeS");
+                writer.Write(Fin(r.RideTimeS));
+                writer.PropertyName("runsServed");
+                writer.Write(Fin(r.RunsServed));
+                writer.PropertyName("costMonth");
+                writer.Write(Fin(r.CostMonth));
+                writer.PropertyName("billedReduced");
+                writer.Write(r.BilledReduced);
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
+        }
+
+        /// <summary>`problems` (bindings.ts ProblemRow): grouped by area in `resorts` order (ch5 §5.6).</summary>
+        private void WriteProblems(IJsonWriter writer)
+        {
+            int count = m_Stats.ProblemCount;
+            writer.ArrayBegin((uint)count);
+            for (int i = 0; i < count; i++)
+            {
+                ProblemStats r = m_Stats.GetProblem(i);
+                writer.TypeBegin("SkiResortMod.ProblemRow");
+                writer.PropertyName("sign");
+                UnityWriters.Write(writer, r.Sign);
+                writer.PropertyName("code");
+                writer.Write((int)r.Code);
+                writer.PropertyName("severity");
+                writer.Write((int)r.Severity);
+                writer.PropertyName("subject");
+                UnityWriters.Write(writer, r.Subject);
+                writer.PropertyName("subjectTop");
+                UnityWriters.Write(writer, r.SubjectTop);
+                writer.PropertyName("name");
+                writer.Write(r.Name ?? "");
+                writer.PropertyName("count");
+                writer.Write(Fin(r.Count));
+                writer.PropertyName("pct");
+                writer.Write(Fin(r.Pct));
+                writer.PropertyName("factor");
+                writer.Write(r.Factor ?? "");
+                writer.PropertyName("more");
+                writer.Write(Fin(r.More));
+                writer.PropertyName("detail");
+                writer.Write(Fin(r.Detail));
+                writer.PropertyName("ifFixed");
+                writer.Write(Fin(r.IfFixed));
+                writer.PropertyName("buildItem");
+                writer.Write(r.BuildItem ?? "");
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
+        }
+
+        // ── prefab resolution (house pattern: PrefabID fast path, name-scan fallback) ───────────────
+
+        private int ResolveItems(out string text)
+        {
+            var sb = new StringBuilder(256);
+            int resolved = 0;
+            for (int i = 0; i < ItemCount; i++)
+            {
+                m_ItemPrefab[i] = null;
+                m_ItemPrefabEntity[i] = Entity.Null;
+                m_ItemPrice[i] = -1;
+                Entity entity = Entity.Null;
+                PrefabBase prefab = null;
+                if (m_PrefabSystem.TryGetPrefab(new PrefabID(ItemPrefabTypes[i], ItemPrefabNames[i]), out PrefabBase found) &&
+                    found != null)
+                {
+                    prefab = found;
+                    m_PrefabSystem.TryGetEntity(prefab, out entity);
+                }
+                if (entity == Entity.Null)
+                {
+                    var candidates = m_PrefabScanQuery.ToEntityArray(Allocator.Temp);
+                    try
+                    {
+                        for (int c = 0; c < candidates.Length; c++)
+                        {
+                            if (m_PrefabSystem.GetPrefabName(candidates[c]) == ItemPrefabNames[i])
+                            {
+                                entity = candidates[c];
+                                break;
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        candidates.Dispose();
+                    }
+                    if (entity != Entity.Null && m_PrefabSystem.TryGetPrefab(entity, out PrefabBase scanned))
+                        prefab = scanned;
+                }
+                if (i > 0)
+                    sb.Append(", ");
+                sb.Append(ItemIds[i]).Append('=').Append(ItemPrefabNames[i]);
+                if (prefab != null && entity != Entity.Null)
+                {
+                    m_ItemPrefab[i] = prefab;
+                    m_ItemPrefabEntity[i] = entity;
+                    resolved++;
+                }
+                else
+                {
+                    sb.Append(" MISSING");
+                }
+            }
+            text = sb.ToString();
+            return resolved;
+        }
+
+        // ── small helpers ─────────────────────────────────────────────────────────────────────────
+
+        private bool IsStation(Entity entity)
+        {
+            return m_StationPrefabs != null && entity != Entity.Null && EntityManager.Exists(entity) &&
+                   !EntityManager.HasComponent<Deleted>(entity) &&
+                   EntityManager.TryGetComponent(entity, out PrefabRef prefabRef) &&
+                   m_StationPrefabs.Contains(prefabRef.m_Prefab);
+        }
+
+        private string PrefabNameOf(Entity entity)
+        {
+            if (entity == Entity.Null || !EntityManager.Exists(entity) || !EntityManager.TryGetComponent(entity, out PrefabRef prefabRef))
+                return "(no prefab)";
+            return m_PrefabSystem.GetPrefabName(prefabRef.m_Prefab);
+        }
+
+        private static Entity ToEntity(EntityRef r)
+        {
+            return new Entity { Index = r.Index, Version = r.Version };
+        }
+
+        private static string Ent(Entity e)
+        {
+            return e == Entity.Null ? "null" : $"{e.Index}:{e.Version}";
+        }
+
+        // ── diagnostics ───────────────────────────────────────────────────────────────────────────
+
+        /// <summary>Observer counts of every value binding (dev tab, DUMP).</summary>
+        public string ObserverText()
+        {
+            if (m_HubOpen == null)
+                return "-";
+            return $"hubOpen {m_HubOpen.observerCount}, contract {m_Contract.observerCount}, buildStamp " +
+                   $"{m_BuildStamp.observerCount}, showHubButton {m_ShowHubButton.observerCount}, build " +
+                   $"{m_Build.observerCount}, glade {m_Glade.observerCount}, resorts {m_Resorts.observerCount}, " +
+                   $"resortLive {m_ResortLive.observerCount}, selectedResort {m_SelectedBinding.observerCount}, runs " +
+                   $"{m_Runs.observerCount}, runLive {m_RunLive.observerCount}, lifts {m_Lifts.observerCount}, problems " +
+                   $"{m_Problems.observerCount}, city {m_City.observerCount}, pisteMap {m_PisteMapBinding.observerCount}, " +
+                   $"follow {m_FollowBinding.observerCount}";
+        }
+
+        /// <summary>Pushes per array (dev tab, DUMP; ch5 §4.9).</summary>
+        public string PushText()
+        {
+            return $"{PushPart(m_ResortsPush, true)}, {PushPart(m_ResortLivePush, false)}, {PushPart(m_RunsPush, false)}, " +
+                   $"{PushPart(m_RunLivePush, false)}, {PushPart(m_LiftsPush, false)}, {PushPart(m_ProblemsPush, false)}; " +
+                   $"non-finite numbers sent as 0: {s_NonFinite}";
+        }
+
+        private static string PushPart(ArrayPush p, bool first)
+        {
+            return first
+                ? $"{p.Name} {p.Pushes} (last {p.LastMs:F2} / max {p.MaxMs:F2} ms)"
+                : $"{p.Name} {p.Pushes} ({p.LastMs:F2} / {p.MaxMs:F2})";
+        }
+
+        /// <summary>ch5 §4.9: the DUMP's `hub v3:` line (hover, piste map, rule 7, pushes).</summary>
+        private string HubV3Text()
+        {
+            int suppressed = FollowsSuppressedClosed + FollowsSuppressedRule + FollowsSuppressedUser + FollowsSuppressedSoon;
+            float pushMax = Math.Max(Math.Max(Math.Max(m_ResortsPush.MaxMs, m_ResortLivePush.MaxMs), Math.Max(m_RunsPush.MaxMs, m_RunLivePush.MaxMs)),
+                Math.Max(m_LiftsPush.MaxMs, m_ProblemsPush.MaxMs));
+            return $"hovers {HoverAccepted} (refused {HoverRefused}, calls {HoverCalls}), piste map {(m_PisteMapOn ? "on" : "off")} " +
+                   $"(visible {PisteMapVisible}, UI contract ok {m_UiContractOk}), follows {m_FollowCount} (suppressed {suppressed}: " +
+                   $"hub closed {FollowsSuppressedClosed}, same-pass rule {FollowsSuppressedRule}, user switch " +
+                   $"{FollowsSuppressedUser}, too soon {FollowsSuppressedSoon}), pushes resorts {m_ResortsPush.Pushes} resortLive " +
+                   $"{m_ResortLivePush.Pushes} runs {m_RunsPush.Pushes} runLive {m_RunLivePush.Pushes} lifts {m_LiftsPush.Pushes} " +
+                   $"problems {m_ProblemsPush.Pushes}, push max {pushMax:F2} ms";
+        }
+
+        /// <summary>Active tool, its mode and the selection (dev tab, DUMP).</summary>
+        public string ToolText()
+        {
+            if (m_ToolSystem == null)
+                return "-";
+            ToolBaseSystem tool = m_ToolSystem.activeTool;
+            int item = m_Armed ? ActiveItemIndex() : -1;
+            return $"tool '{ToolId(tool)}' mode {ModeText(tool)}, hub item {(item >= 0 ? ItemIds[item] : "-")}, selected " +
+                   $"{Ent(m_ToolSystem.selected)}";
+        }
+
+        private void DumpToLog(string source)
+        {
+            var sb = new StringBuilder(4096);
+            sb.Append("Hub: DUMP (").Append(source).Append(") — armed ").Append(m_Armed)
+              .Append(", disabled ").Append(m_Disabled)
+              .Append(", open ").Append(IsOpen)
+              .Append(", contract ").Append(HubContract)
+              .Append(", DLL stamp ").Append(s_DllStamp).Append(" (UI bundled at build ").Append(BuildStamp.UiBundled).Append(')')
+              .Append("; handshake: ").Append(HandshakeText)
+              .Append("; triggers ").Append(TriggerCount)
+              .Append(", UI errors ").Append(m_UiErrors.Count).Append(" distinct / ").Append(UiErrorRepeats).Append(" repeats")
+              .Append("; last trigger: ").Append(LastTriggerText).Append('\n');
+            sb.Append("  observers: ").Append(ObserverText()).Append('\n');
+            sb.Append("  pushes: ").Append(PushText()).Append('\n');
+            sb.Append("  settings: ShowHubButton ").Append(Mod.Settings == null || Mod.Settings.ShowHubButton)
+              .Append(", OpenHubOnSignSelect ").Append(Mod.Settings == null || Mod.Settings.OpenHubOnSignSelect)
+              .Append(", LiftBuildAids ").Append(Mod.Settings == null || Mod.Settings.LiftBuildAids).Append('\n');
+            sb.Append("  ").Append(ToolText()).Append("; lodge: ").Append(LodgeStateText).Append('\n');
+            sb.Append("  selected resort: ").Append(ResortLabel(m_SelectedResort)).Append("; last select: ").Append(LastSelectText)
+              .Append("; last layout: ").Append(m_LastLayout ?? "-").Append('\n');
+            sb.Append("  hub v3: ").Append(HubV3Text()).Append('\n');
+            sb.Append("  build:");
+            for (int i = 0; i < ItemCount; i++)
+            {
+                sb.Append(' ').Append(ItemIds[i]).Append('[')
+                  .Append(m_ItemPrefab[i] != null ? "ok" : "MISSING")
+                  .Append(m_ItemLocked[i] ? ", locked " + ReasonKey(m_ItemReason[i]) : "");
+                AppendItemValue(sb, "price", m_ItemPrice[i]);
+                AppendItemValue(sb, "perHa", m_ItemPricePerHa[i]);
+                AppendItemValue(sb, "cost", m_ItemCost[i]);
+                AppendItemValue(sb, "perKm", m_ItemCostPerKm[i]);
+                AppendItemValue(sb, "month", m_ItemMonthly[i]);
+                AppendItemValue(sb, "monthPerHa", m_ItemMonthlyPerHa[i]);
+                AppendItemValue(sb, "monthPerKm", m_ItemMonthlyPerKm[i]);
+                sb.Append(i == ItemLift && m_LiftNoPair ? ", hint LiftNoPair" : "")
+                  .Append(i == m_ActiveItem ? ", ACTIVE" : "").Append(']');
+            }
+            sb.Append('\n');
+            HubGladeState g = GladeNow();
+            sb.Append("  glade: available ").Append(g.Available).Append(", active ").Append(g.Active)
+              .Append(", level ").Append(g.Level).Append(", tree line ").Append(g.TreeLine)
+              .Append(", reason '").Append(g.Reason).Append("'\n");
+            // The stats system's own dump: every area row with its live numbers and problems, every lift row,
+            // city; then the piste map's one line (ch5 §4.9, e1-spec I-29: written once, here).
+            sb.Append("  stats rows: ").Append(m_Stats.ResortCount).Append(" resort(s), ").Append(m_Stats.ResortLiveCount)
+              .Append(" live, ").Append(m_Stats.RunCount).Append(" run(s), ").Append(m_Stats.RunLiveCount).Append(" live, ")
+              .Append(m_Stats.LiftCount).Append(" lift(s), ").Append(m_Stats.ProblemCount).Append(" problem row(s)\n");
+            m_Stats.AppendDump(sb);
+            m_PisteMap ??= World.GetExistingSystemManaged<SkiPisteMapSystem>();
+            if (m_PisteMap != null)
+                m_PisteMap.AppendDump(sb);
+            else
+                sb.Append("  piste map: system not registered\n");
+            sb.Append("  census: revision ").Append(m_Census.Revision).Append(", builds ").Append(m_Census.Builds)
+              .Append(", last event '").Append(m_Census.LastEvent).Append("', last build ")
+              .Append(m_Census.LastBuildMs.ToString("F2", CultureInfo.InvariantCulture)).Append(" ms (max ")
+              .Append(m_Census.MaxBuildMs.ToString("F2", CultureInfo.InvariantCulture)).Append(")\n");
+            sb.Append("  infoview: ").Append(m_Infoview.StateText()).Append('\n');
+            AppendCitizenPresence(sb);
+            AppendStationPower(sb);
+            m_Catalog.AppendDump(sb);
+            Mod.Log.Info(sb.ToString().TrimEnd('\n'));
+            LastTriggerText = $"dumpHub ({source})";
+        }
+
+        /// <summary>§3.4 / §7.1 step 14 (dev only, O(citizens), DUMP only): citizens whose CurrentBuilding
+        /// (Game.Citizens/CurrentBuilding.cs) is one of our signs or a lodge — settles whether a visitor's
+        /// CurrentBuilding is the lodge or the sign (§7.2 item 1).</summary>
+        private void AppendCitizenPresence(StringBuilder sb)
+        {
+            var atSign = new Dictionary<Entity, int>();
+            var atLodge = new Dictionary<Entity, int>();
+            var kindOf = new Dictionary<Entity, byte>();   // 0 other, 1 sign, 2 lodge
+            int citizens = 0;
+            using (NativeArray<Game.Citizens.CurrentBuilding> current =
+                       m_CitizenQuery.ToComponentDataArray<Game.Citizens.CurrentBuilding>(Allocator.Temp))
+            {
+                citizens = current.Length;
+                for (int i = 0; i < current.Length; i++)
+                {
+                    Entity b = current[i].m_CurrentBuilding;
+                    if (b == Entity.Null)
+                        continue;
+                    if (!kindOf.TryGetValue(b, out byte kind))
+                    {
+                        kind = 0;
+                        if (m_Ownership.IsLiveGate(b))
+                            kind = 1;
+                        else if (EntityManager.TryGetComponent(b, out PrefabRef prefabRef) &&
+                                 m_Attractiveness.IsLodgePrefab(prefabRef.m_Prefab))
+                            kind = 2;
+                        kindOf[b] = kind;
+                    }
+                    if (kind == 1)
+                        atSign[b] = atSign.TryGetValue(b, out int n) ? n + 1 : 1;
+                    else if (kind == 2)
+                        atLodge[b] = atLodge.TryGetValue(b, out int m) ? m + 1 : 1;
+                }
+            }
+            sb.Append("  presence (").Append(citizens).Append(" citizens with a CurrentBuilding): at signs");
+            if (atSign.Count == 0)
+                sb.Append(" none");
+            foreach (KeyValuePair<Entity, int> kv in atSign)
+                sb.Append(' ').Append(Ent(kv.Key)).Append('=').Append(kv.Value);
+            sb.Append("; at lodges");
+            if (atLodge.Count == 0)
+                sb.Append(" none");
+            foreach (KeyValuePair<Entity, int> kv in atLodge)
+                sb.Append(' ').Append(Ent(kv.Key)).Append('=').Append(kv.Value);
+            sb.Append('\n');
+        }
+
+        /// <summary>§7.1 step 14 / §7.2 item 4 (DUMP only): every station's ElectricityConsumer
+        /// (Game.Buildings/ElectricityConsumer.cs: wanted, fulfilled, cooldown, flags).</summary>
+        private void AppendStationPower(StringBuilder sb)
+        {
+            sb.Append("  station power:");
+            int stations = 0;
+            using (NativeArray<Entity> entities = m_ConsumerQuery.ToEntityArray(Allocator.Temp))
+            {
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    Entity e = entities[i];
+                    if (!IsStation(e) || !EntityManager.TryGetComponent(e, out Game.Buildings.ElectricityConsumer c))
+                        continue;
+                    stations++;
+                    sb.Append(' ').Append(PrefabNameOf(e)).Append(' ').Append(Ent(e)).Append(" wanted ")
+                      .Append(c.m_WantedConsumption).Append(" fulfilled ").Append(c.m_FulfilledConsumption)
+                      .Append(" cooldown ").Append(c.m_CooldownCounter).Append(" flags ").Append(c.m_Flags).Append(';');
+                }
+            }
+            if (stations == 0)
+                sb.Append(" no station carries an ElectricityConsumer");
+            sb.Append('\n');
+        }
+
+        // ── dev tab entry points (main thread; the same queue as the triggers) ─────────────────────
+
+        internal void DevRequest(string name, int kind, string text, Entity entity)
+        {
+            try
+            {
+                TriggerCount++;
+                var request = new Request { Kind = (RequestKind)kind, Text = text, Entity = entity, Source = "dev tab" };
+                if (!Enabled || !m_Armed)
+                {
+                    Mod.Log.Info($"Hub: [dev tab] {name} ignored — not in a loaded city");
+                    return;
+                }
+                if (m_Disabled)
+                {
+                    RefuseDisabled(name, request);
+                    return;
+                }
+                Enqueue(name, request);
+            }
+            catch (Exception e)
+            {
+                HandleException(e, "dev tab " + name);
+            }
+        }
+
+        internal const int DevKindToggleHub = (int)RequestKind.ToggleHub;
+        internal const int DevKindLaunch = (int)RequestKind.Launch;
+        internal const int DevKindFocus = (int)RequestKind.Focus;
+        internal const int DevKindGladeToggle = (int)RequestKind.GladeToggle;
+        internal const int DevKindDump = (int)RequestKind.Dump;
+        internal const int DevKindTogglePisteMap = (int)RequestKind.TogglePisteMap;   // Round E1 (ch5 §4.2)
+
+        /// <summary>The nine build ids (contract 3; the dev tab's launch buttons follow them).</summary>
+        internal static IReadOnlyList<string> BuildItemIds => ItemIds;
+
+        /// <summary>DUMP build line: ", name value", omitted for −1 (ch5 §4.9).</summary>
+        private static void AppendItemValue(StringBuilder sb, string name, int value)
+        {
+            if (value != -1)
+                sb.Append(", ").Append(name).Append(' ').Append(value.ToString(CultureInfo.InvariantCulture));
+        }
+
+        private void HandleException(Exception e, string where)
+        {
+            m_Disabled = true;
+            if (!m_ErrorLogged)
+            {
+                m_ErrorLogged = true;
+                Mod.Log.Error($"!!! {nameof(SkiResortHubUISystem)} EXCEPTION in {where} — the Ski Resort hub is closed " +
+                              "and refuses every request until the next game load (each refusal is logged); the UI " +
+                              $"is told contract {ContractAbsent} and shows its \"not connected\" notice:\n" + e);
+            }
+            try
+            {
+                if (m_Catalog != null)
+                    m_Catalog.Demand = false;
+                if (m_Stats != null)
+                    m_Stats.Demand = false;
+                if (m_HubOpen != null)
+                    m_HubOpen.Update(false);
+                // ContractAbsent: the UI's existing absent path (bindings.ts CONTRACT_ABSENT, hubState.ts):
+                // launchers toggle a local flag and the panel shows LOC.notConnected; OnGamePreload restores it.
+                if (m_Contract != null)
+                    m_Contract.Update(ContractAbsent);
+            }
+            catch (Exception)
+            {
+                // already in the failure path; the "!!!" line carries the cause
+            }
+        }
+    }
+}

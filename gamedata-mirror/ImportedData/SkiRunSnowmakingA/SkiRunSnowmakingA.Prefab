@@ -8,7 +8,7 @@
     "components": {
         "$id": 1,
         "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
-        "$rlength": 6,
+        "$rlength": 5,
         "$rcontent": [
             {
                 "$id": 2,
@@ -70,7 +70,7 @@
                 "$type": "6|Game.Prefabs.ServiceObject, Game",
                 "name": "ServiceObject",
                 "active": true,
-                "m_Service": $fstrref:"UnityGUID:5930db6811522d34495a9e16c4fd4c18"
+                "m_Service": $fstrref:"UnityGUID:5c1f656a5ea20284197a71e4997b4187"
             },
             {
                 "$id": 5,
@@ -112,25 +112,6 @@
                         }
                     ]
                 }
-            },
-            {
-                "$id": 11,
-                "$type": "12|Game.Prefabs.ServiceUpgrade, Game",
-                "name": "ServiceUpgrade",
-                "active": true,
-                "m_Buildings": {
-                    "$id": 12,
-                    "$type": "13|Game.Prefabs.BuildingPrefab[], Game",
-                    "$rlength": 1,
-                    "$rcontent": [
-                        $fstrref:"CID:4d1c1615eb1bd62b7caa7235bb671e5f"
-                    ]
-                },
-                "m_UpgradeCost": 12000,
-                "m_XPReward": 0,
-                "m_MaxPlacementOffset": 0,
-                "m_MaxPlacementDistance": 5000,
-                "m_ForbidMultiple": false
             }
         ]
     },

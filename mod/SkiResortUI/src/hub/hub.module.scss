@@ -1,0 +1,1990 @@
+// src/hub/hub.module.scss - styles of the hub panel and its parts.
+//
+// Written for this repo (MIT). Created 2026-10-01 (Round U1, implementer U1-C); reworked
+// 2026-10-03 (Round U2, implementer I-3) for docs/research/hub-u2-spec.md section 4 (header
+// switcher, dashboard, lists, footer Build strip, layout-jump fixes J1-J9); reworked 2026-10-04 for
+// hub v3 / contract 3 (Round E1, stream S6; docs/research/econ-round/spec/ch6-hub-ui.md section 8:
+// the hub-v3 block at the end is the checked reference spec/ch6-hub-ui-ref/src/hub/hub-v3-additions
+// .scss; section 8.3's changes - .listHeader, .diffBar - and deletions - the contract-2 dashboard,
+// tabs, focus strip, list rows, lift markers, trees block and status-line classes - are applied).
+// Rules (research 2.F.1, 2.F.7; tools/check-bundle.js enforces most on the compiled CSS):
+//   - flex only (no grid), no :not(), no space-evenly, no auto margins (Gameface 2.2.1.3);
+//   - LONGHAND properties whenever a value uses var() (shorthands with var() are unsupported:
+//     UI.log "Custom CSS expressions are not supported in shorthand declaration"); outlines are
+//     border longhands (outline is unprobed in Gameface, spec 4.4);
+//   - no flex `gap` / row-gap / column-gap (the gate FAILS them, spec 4.7 rule 8): margins;
+//   - a class whose name contains "blind" declares height: 0 and visibility: hidden (rule 9);
+//   - our own classes only (css-loader prefixes them "sr-<name>_<hash>"); vanilla components get
+//     our classes through className / contentClassName / theme props; no vanilla class map is
+//     extended or overridden. Colours and sizes are the game's global CSS variables (installed
+//     index.css :root: --warningColor #ffa42d @9388, --positiveColor @9364, --lockedColor @8331,
+//     --sectionBackgroundColor @8044, --selectedColor @7300, --fontSizeXS/S/M/L @5298-5554 ...);
+//   - our stylesheet is linked after the game's index.css, so on equal specificity our rule wins
+//     [L: the module loader appends the <link> at runtime, index.js@2306554];
+//   - display / flex-direction are always written out (Gameface defaults differ from a browser's);
+//   - sizes that follow the player's text scale are in em or calc(Nrem * var(--fontScale));
+//   - single-line text that must not grow a box: white-space: nowrap + coh-font-fit-mode: shrink
+//     in a bounded box (J3 / J9), the pairing vanilla uses itself (index.css@186335 and @205436
+//     `white-space:nowrap;coh-font-fit-mode:shrink`); that it shrinks rather than clips in game is
+//     [likely, spec 7.2 item 10];
+//   - hub v3 (ch6 8.1): A VALUE CHANGE NEVER CHANGES LAYOUT - every block above the view and every
+//     row has a fixed height in em of its own font (or rem), every number sits in a fixed slot,
+//     every sentence is ONE text node with nowrap + ellipsis and its full text in a tooltip; every
+//     fixed-height text box sets its own line-height; no flex-wrap: wrap, position: sticky, dashed
+//     borders, gradients, transforms other than the diamond rotate(45deg), fractional flex-grow or
+//     non-ASCII characters here;
+//   - dim text colours are LITERAL (deviation U1): rgba(240, 251, 255, 0.7) dim, rgba(240, 251, 255,
+//     0.5) dimmer - the game's --textColorDim / --textColorDimmer are white in :root (installed
+//     index.css @2587, @3184; Dimmer is white in the dark-grey-orange style too, @12464).
+
+// ---- panel frame ---------------------------------------------------------------------------
+
+// Width: vanilla selected-info formula with 440 instead of 400, + 300rem * --fontScaleChange
+// (U1 fixer round, tsx-ux-1; unchanged in U2, spec 4.1).
+.panel {
+  width: calc(440rem * (0.33333 + var(--fontScale) / 1.5) + 300rem * var(--fontScaleChange));
+  max-width: 800rem;
+  max-height: 72vh;
+}
+
+// J6 (spec 4.1): a FIXED height while there is something to list, so DraggablePanel's
+// top = y * (viewport - height) (index.js@720659) does not move the header, X and footer whenever
+// the content changes. Declared after .panel: its max-height wins.
+.panelFixed {
+  height: 72vh;
+  max-height: 780rem;
+}
+
+// The Panel's content box (cs2/ui Panel contentClassName): shrinks under the panel's height so the
+// Panel's own Scrollable scrolls [U1: worked in field test 5].
+.panelContent {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 1;
+  min-height: 0rem;
+}
+
+// J8: no 16rem scrollbar gutter that appears with overflow (index.css@29300); the Scrollable is the
+// content div's child [likely]. The body keeps its own constant right padding instead.
+.panelContent > * {
+  --scrollbarPadding: 0rem;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding-bottom: 6rem;
+  padding-right: 8rem;
+}
+
+// One line instead of the body: C# absent, or the contract-mismatch line.
+.notice {
+  padding: 12rem 14rem;
+  color: var(--warningColor);
+  font-size: var(--fontSizeS);
+  line-height: 130%;
+}
+
+// Fallback of a section's error boundary.
+.sectionFailed {
+  padding: 8rem 12rem;
+  color: var(--negativeColor);
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+}
+
+// DLL and bundle from different builds (diagnostic, bottom of the body).
+.stampNote {
+  padding: 4rem 12rem 2rem 12rem;
+  color: var(--textColorDimmer);
+  font-size: var(--fontSizeXS);
+  opacity: 0.7;
+}
+
+// ---- header (inside the title bar's .title flex div; spec 4.3) -----------------------------
+
+.headerSlot {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  text-transform: none;
+}
+
+// uiLayout's rem probe (src/hub/layoutReport.ts, Round F6 C2): REM_PROBE_REM (100) rem wide, out of
+// flow, never drawn; its measured width / 100 is the px of 1rem. In the header slot, which is not a
+// scroll container, so it cannot add scroll overflow (100rem is also narrower than the panel).
+.remProbe {
+  position: absolute;
+  top: 0rem;
+  left: 0rem;
+  width: 100rem;
+  height: 0rem;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.plainTitle {
+  flex-grow: 1;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+// Fixed row height, below the title's max-height 2.4em (index.css .title_zQN), so the title's
+// fit-shrink never applies to us.
+.switcher {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  height: calc(28rem * var(--fontScale));
+  text-transform: none;
+}
+
+// cs2/ui Button variant="icon" (vanilla IconButton: .button_M6C 24rem square, icon sized by
+// --iconWidth / --iconHeight, tinted by --iconColor; index.css@28216).
+.headerButton {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: calc(24rem * var(--fontScale));
+  height: calc(24rem * var(--fontScale));
+  border-radius: 50%;
+  --iconWidth: calc(16rem * var(--fontScale));
+  --iconHeight: calc(16rem * var(--fontScale));
+  --iconColor: var(--accentColorNormal);
+}
+
+.headerButton:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.headerButton:active {
+  background-color: var(--activeColorNormal);
+}
+
+.headerButtonInactive,
+.headerButtonInactive:hover,
+.headerButtonInactive:active {
+  opacity: 0.3;
+  background-color: rgba(0, 0, 0, 0);
+}
+
+// Keeps its space so nothing moves (the Not linked entry has no pen and no fly-to).
+.hiddenKeepSpace {
+  visibility: hidden;
+}
+
+.switcherName {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  margin-left: 6rem;
+  margin-right: 4rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+  color: var(--normalTextColor);
+}
+
+.switcherPosition {
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-right: 6rem;
+  font-size: var(--fontSizeS);
+  white-space: nowrap;
+  color: var(--normalTextColor);
+  opacity: 0.55;
+}
+
+// ---- RenameField ---------------------------------------------------------------------------
+
+.renameInput,
+.renameInputHeader {
+  width: 100%;
+  min-width: 0rem;
+  height: 1.6em;
+  padding-top: 0rem;
+  padding-bottom: 0rem;
+  padding-left: 6rem;
+  padding-right: 6rem;
+  font-size: 1em;
+  color: var(--normalTextColor);
+  background-color: rgba(0, 0, 0, 0.35);
+  border-style: solid;
+  border-top-width: 1rem;
+  border-right-width: 1rem;
+  border-bottom-width: 1rem;
+  border-left-width: 1rem;
+  border-top-color: var(--accentColorNormal);
+  border-right-color: var(--accentColorNormal);
+  border-bottom-color: var(--accentColorNormal);
+  border-left-color: var(--accentColorNormal);
+  border-radius: 3rem;
+  pointer-events: auto;
+}
+
+.renameInputHeader {
+  text-align: center;
+}
+
+// ---- shared lines and buttons --------------------------------------------------------------
+
+.dimLine {
+  padding: 4rem 10rem 6rem 10rem;
+  color: var(--textColorDimmer);
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  opacity: 0.8;
+}
+
+.warnText {
+  color: var(--warningColor);
+}
+
+// A locked item's reason, shown as text (the start card's sign button; contract 3: own side
+// padding, the start card has none).
+.reasonLine {
+  margin-top: 4rem;
+  padding-left: 10rem;
+  padding-right: 10rem;
+  color: var(--lockedColor);
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+}
+
+// Added to cs2/ui Button variant="flat" (vanilla theme: dark blue, white text, hover lighter).
+.actionButton {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 6rem 16rem;
+  height: calc(30rem * var(--fontScale));
+  font-size: var(--fontSizeS);
+}
+
+// J3 / J9: one line that shrinks instead of wrapping.
+.fitText {
+  white-space: nowrap;
+  overflow: hidden;
+  coh-font-fit-mode: shrink;
+}
+
+// "On" state of a flat button (tool active, chosen segment). Listed with :hover so the vanilla flat
+// hover colour does not hide it (same specificity, our sheet comes later).
+.buttonOn,
+.buttonOn:hover {
+  background-color: var(--selectedColor);
+  border-top-color: var(--accentColorNormal);
+  border-right-color: var(--accentColorNormal);
+  border-bottom-color: var(--accentColorNormal);
+  border-left-color: var(--accentColorNormal);
+}
+
+.actionButton[disabled],
+.stepButton[disabled],
+.segButton[disabled] {
+  opacity: 0.45;
+}
+
+// A game glyph as a mask (Glyph, src/hub/parts.tsx); the colour class sets background-color.
+.glyph {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+  mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  background-color: var(--normalTextColor);
+}
+
+// Tooltip body (TipLines): first line = title; label / value pairs.
+.tipLines {
+  display: flex;
+  flex-direction: column;
+  max-width: 360rem;
+}
+
+.tipTitle {
+  font-size: var(--fontSizeS);
+}
+
+.tipLine {
+  margin-top: 3rem;
+  font-size: var(--fontSizeXS);
+  opacity: 0.85;
+}
+
+.tipPair {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.tipLabel {
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0rem;
+  padding-right: 10rem;
+}
+
+.tipValue {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+// ---- StableWidth / NumCell (J1, J7; vanilla FullWidthDigits, index.js@1007800) --------------
+
+.stable {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+.stableStart {
+  align-items: flex-start;
+}
+
+.stableCenter {
+  align-items: center;
+}
+
+.stableEnd {
+  align-items: flex-end;
+}
+
+.stableValue {
+  display: flex;
+  flex-direction: row;
+  white-space: nowrap;
+}
+
+// The width samples: as wide as their text, no height (min-height and flex-basis too: a flex
+// item's min-height auto would otherwise resolve to its content), invisible, inert.
+// Vanilla: index.css@127211 .blind_u0R{height:0;visibility:hidden}.
+.blind {
+  height: 0;
+  min-height: 0rem;
+  max-height: 0rem;
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: 0rem;
+  visibility: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+// Number cells: right-aligned with flex-end (research 2.F.1: text-align is not reliable in flex).
+.num {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  padding-left: 0.6em;
+  white-space: nowrap;
+}
+
+// U1 em min-widths (U1 fixer round, tsx-ux-1): ONLY when the J7 samples cannot be rendered.
+.numLength {
+  min-width: 3.8em;
+}
+
+.numDrop {
+  min-width: 3.6em;
+}
+
+// Values still estimated from the outline (RunRow.approx).
+.numApprox {
+  opacity: 0.6;
+}
+
+// ---- difficulty bar and legend (the Overview's MOUNTAIN block; ch6 8.3) ---------------------
+
+// Difficulty bar: one segment per non-zero band, flex-grow = count (inline style). Contract 3
+// (ch6 8.3, design 5.2): height 0.55 em of S and margin longhands (was 8 rem and a shorthand).
+.diffBar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  font-size: var(--fontSizeS);
+  height: 0.55em;
+  margin-top: 4rem;
+  margin-left: 10rem;
+  margin-right: 10rem;
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 4rem;
+  overflow: hidden;
+}
+
+.diffSeg {
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
+.diffSeg + .diffSeg {
+  margin-left: 2rem;
+}
+
+.segFlat {
+  background-color: rgba(170, 180, 190, 1);
+}
+
+.segGreen {
+  background-color: rgba(76, 175, 80, 1);
+}
+
+.segBlue {
+  background-color: rgba(52, 120, 220, 1);
+}
+
+// Black on a dark panel needs a light edge (research 2.F.2).
+.segBlack {
+  background-color: rgba(14, 14, 18, 1);
+  border-style: solid;
+  border-top-width: 1rem;
+  border-right-width: 1rem;
+  border-bottom-width: 1rem;
+  border-left-width: 1rem;
+  border-top-color: rgba(255, 255, 255, 0.55);
+  border-right-color: rgba(255, 255, 255, 0.55);
+  border-bottom-color: rgba(255, 255, 255, 0.55);
+  border-left-color: rgba(255, 255, 255, 0.55);
+}
+
+.segDoubleBlack {
+  background-color: rgba(0, 0, 0, 1);
+  border-style: solid;
+  border-top-width: 2rem;
+  border-right-width: 2rem;
+  border-bottom-width: 2rem;
+  border-left-width: 2rem;
+  border-top-color: rgba(255, 255, 255, 0.9);
+  border-right-color: rgba(255, 255, 255, 0.9);
+  border-bottom-color: rgba(255, 255, 255, 0.9);
+  border-left-color: rgba(255, 255, 255, 0.9);
+}
+
+.segPending {
+  background-color: rgba(150, 160, 170, 0.35);
+}
+
+// The difficulty bar's "cannot be rated" segment (fixer round).
+.segUnrateable {
+  background-color: rgba(220, 150, 60, 0.45);
+}
+
+// (Contract 3, deviation U16: the legend's own "DIFFICULTY" label is gone - the MOUNTAIN header
+// names the block - so .legendLabel is deleted.)
+.legend {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  height: 1.8em;
+  padding: 2rem 0rem 2rem 10rem;
+  font-size: var(--fontSizeXS);
+  color: var(--normalTextColor);
+}
+
+.legendItem {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-left: 6rem;
+}
+
+.legendZero {
+  opacity: 0.4;
+}
+
+.legendCount {
+  margin-left: 1rem;
+}
+
+// The mismatch panel's Trees foldout (cs2/ui PanelFoldout).
+.foldout {
+  margin-top: 2rem;
+}
+
+.foldoutTitle {
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+// ---- difficulty markers (CSS shapes in em; spec 4.4 last paragraph) -------------------------
+
+.bandMarker {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 1.4em;
+  height: 1em;
+  margin-right: 0.35em;
+}
+
+.bandShape {
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 0.7em;
+  height: 0.7em;
+}
+
+.bandFlat {
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0);
+  border-style: solid;
+  border-top-width: 0.12em;
+  border-right-width: 0.12em;
+  border-bottom-width: 0.12em;
+  border-left-width: 0.12em;
+  border-top-color: rgba(170, 180, 190, 1);
+  border-right-color: rgba(170, 180, 190, 1);
+  border-bottom-color: rgba(170, 180, 190, 1);
+  border-left-color: rgba(170, 180, 190, 1);
+}
+
+.bandGreen {
+  border-radius: 50%;
+  background-color: rgba(76, 175, 80, 1);
+}
+
+.bandBlue {
+  background-color: rgba(52, 120, 220, 1);
+}
+
+.bandBlack {
+  width: 0.58em;
+  height: 0.58em;
+  transform: rotate(45deg);
+  background-color: rgba(14, 14, 18, 1);
+  border-style: solid;
+  border-top-width: 0.08em;
+  border-right-width: 0.08em;
+  border-bottom-width: 0.08em;
+  border-left-width: 0.08em;
+  border-top-color: rgba(255, 255, 255, 0.85);
+  border-right-color: rgba(255, 255, 255, 0.85);
+  border-bottom-color: rgba(255, 255, 255, 0.85);
+  border-left-color: rgba(255, 255, 255, 0.85);
+}
+
+.bandSmall {
+  width: 0.46em;
+  height: 0.46em;
+}
+
+.bandSecond {
+  margin-left: 0.2em;
+}
+
+.bandPending {
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0);
+  border-style: solid;
+  border-top-width: 0.12em;
+  border-right-width: 0.12em;
+  border-bottom-width: 0.12em;
+  border-left-width: 0.12em;
+  border-top-color: rgba(255, 255, 255, 1);
+  border-right-color: rgba(255, 255, 255, 1);
+  border-bottom-color: rgba(255, 255, 255, 1);
+  border-left-color: rgba(255, 255, 255, 1);
+  opacity: 0.4;
+}
+
+// Fixer round (findings u2-data-05 / u2-panel-5): band -2, "cannot be rated" - a hollow circle in
+// the warning colour (final, unlike the dim "being rated" circle). Border longhands only.
+.bandUnrateable {
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0);
+  border-style: solid;
+  border-top-width: 0.12em;
+  border-right-width: 0.12em;
+  border-bottom-width: 0.12em;
+  border-left-width: 0.12em;
+  border-top-color: var(--warningColor);
+  border-right-color: var(--warningColor);
+  border-bottom-color: var(--warningColor);
+  border-left-color: var(--warningColor);
+}
+
+// ---- tree tool stepper and segment (TreeRows; J1) -------------------------------------------
+
+.stepper {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.stepButton {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: calc(26rem * var(--fontScale));
+  height: calc(26rem * var(--fontScale));
+  padding: 0rem;
+  font-size: var(--fontSizeM);
+}
+
+// J1: the box around the stepper's StableWidth (its blinds are the 8 level labels). Contract 3: a
+// div of its own, so its tooltip (GladeTooltip.LEVEL) attaches to a host element (parts.tsx Tip).
+.stepValue {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-left: 8rem;
+  margin-right: 8rem;
+  color: var(--normalTextColor);
+}
+
+.segment {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.segButton {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 10rem;
+  height: calc(26rem * var(--fontScale));
+  font-size: var(--fontSizeXS);
+  white-space: nowrap;
+}
+
+.segButton + .segButton {
+  margin-left: 4rem;
+}
+
+// ---- lists (Runs and Lifts views) -----------------------------------------------------------
+
+.list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  font-size: var(--fontSizeS);
+}
+
+// Contract 3 (ch6 8.3): the Runs view's header row - piste-map toggle, then the Lift / Length / Drop
+// labels - in XS, 1.6 em high, with the run row's paddings so its cells line up with RunLine's. The
+// labels are dim by the literal colour (U1; the old opacity 0.75 would also dim the toggle).
+.listHeader {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  font-size: var(--fontSizeXS);
+  height: 1.6em;
+  line-height: 130%;
+  padding-left: 8rem;
+  padding-right: 4rem;
+  color: rgba(240, 251, 255, 0.7);
+}
+
+// E1 fixer (e1-spec 8.9 F14): the header's number cells are MEASURED in the row font (S) - .num's
+// 0.6 em padding and the NumCell sample blinds are em / text sized - so they line up with RunLine's
+// cells; the label itself stays small (.colLabel sets XS).
+.headerCell {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-size: var(--fontSizeS);
+}
+
+.colLabel {
+  font-size: var(--fontSizeXS);
+  white-space: nowrap;
+}
+
+// A run that is linked to no ski area (on .runRow).
+.listRowUnbound {
+  color: rgba(240, 251, 255, 0.65);
+}
+
+// Run type marker: a vertical bar. Groomed = solid snow white, Snowmaking = cyan outline,
+// Night = solid floodlight amber (the Build strip's run stripes use the same colours); natural =
+// two short bars (.kindNatural, hub-v3 block below).
+.runMarker {
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 0.42em;
+  height: 1.05em;
+  margin-right: 0.45em;
+  border-radius: 0.21em;
+}
+
+.kindGroomed {
+  background-color: rgba(236, 244, 252, 1);
+}
+
+.kindSnowmaking {
+  background-color: rgba(0, 0, 0, 0);
+  border-style: solid;
+  border-top-width: 0.12em;
+  border-right-width: 0.12em;
+  border-bottom-width: 0.12em;
+  border-left-width: 0.12em;
+  border-top-color: rgba(110, 205, 255, 1);
+  border-right-color: rgba(110, 205, 255, 1);
+  border-bottom-color: rgba(110, 205, 255, 1);
+  border-left-color: rgba(110, 205, 255, 1);
+}
+
+.kindNight {
+  background-color: rgba(255, 196, 70, 1);
+}
+
+.kindUnknown {
+  background-color: rgba(150, 160, 170, 1);
+}
+
+// Text ellipsis needs overflow:hidden + nowrap, and the font's ellipsis glyph (research 2.F.1).
+.rowName {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+// ---- Build strip (the panel footer; spec 4.2, J2, J4) ---------------------------------------
+
+.footerSlot {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.buildFooter {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 6rem 8rem 4rem 8rem;
+  color: var(--normalTextColor);
+}
+
+// ONE nowrap row; each group's flex-grow = its tile count (inline style), so tiles are equal.
+.buildRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.buildGroup {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
+.buildGroupNext {
+  margin-left: 8rem;
+}
+
+// Equal padding on every cell (not margins between cells), so a 2-tile and a 4-tile group still
+// give every tile the same width.
+.buildCell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+
+// The tile is a cs2/ui Button with theme={{ button: buildTile }} (our class replaces the theme).
+.buildTile {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: calc(44rem * var(--fontScale));
+  padding: 0rem;
+  overflow: hidden;
+  background-color: var(--sectionBackgroundColor);
+  border-style: solid;
+  border-top-width: 2rem;
+  border-right-width: 2rem;
+  border-bottom-width: 2rem;
+  border-left-width: 2rem;
+  border-top-color: rgba(0, 0, 0, 0);
+  border-right-color: rgba(0, 0, 0, 0);
+  border-bottom-color: rgba(0, 0, 0, 0);
+  border-left-color: rgba(0, 0, 0, 0);
+  border-radius: 4rem;
+}
+
+.buildTile:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.buildTile:active {
+  background-color: var(--activeColorNormal);
+}
+
+// (Round F6, C1: the tiles take no keyboard / gamepad focus - focusKey FOCUS_DISABLED, BuildStrip
+// header - so the Button never adds its global "focused" class and the old .focused rule is gone.)
+
+// This item's tool is active: click again to stop.
+.buildTileActive,
+.buildTileActive:hover {
+  background-color: var(--selectedColor);
+  border-top-color: var(--accentColorNormal);
+  border-right-color: var(--accentColorNormal);
+  border-bottom-color: var(--accentColorNormal);
+  border-left-color: var(--accentColorNormal);
+}
+
+// Locked: dimmed + lock glyph; NOT disabled (spec 4.2).
+.buildTileLocked .buildIcon {
+  opacity: 0.35;
+}
+
+.buildIcon {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: calc(30rem * var(--fontScale));
+  height: calc(30rem * var(--fontScale));
+}
+
+// Drawn instead of a prefab icon that failed to load.
+.iconFallback {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 4rem;
+}
+
+// Run kind stripe along the tile's bottom edge (the run list's marker colours).
+.buildStripe {
+  position: absolute;
+  left: 6rem;
+  right: 6rem;
+  bottom: 2rem;
+  height: 4rem;
+  box-sizing: border-box;
+  border-radius: 2rem;
+}
+
+.stripeGroomed {
+  background-color: rgba(236, 244, 252, 1);
+}
+
+.stripeSnowmaking {
+  background-color: rgba(0, 0, 0, 0);
+  border-style: solid;
+  border-top-width: 1rem;
+  border-right-width: 1rem;
+  border-bottom-width: 1rem;
+  border-left-width: 1rem;
+  border-top-color: rgba(110, 205, 255, 1);
+  border-right-color: rgba(110, 205, 255, 1);
+  border-bottom-color: rgba(110, 205, 255, 1);
+  border-left-color: rgba(110, 205, 255, 1);
+}
+
+.stripeNight {
+  background-color: rgba(255, 196, 70, 1);
+}
+
+// Step number of the lift tiles (stations first).
+.buildStep {
+  position: absolute;
+  top: 1rem;
+  left: 4rem;
+  font-size: var(--fontSizeXS);
+  color: var(--normalTextColor);
+  opacity: 0.85;
+}
+
+// The ONE dot (D37, design 7.4): on the tile hubRules.dotItem names.
+.buildHintDot {
+  position: absolute;
+  top: 4rem;
+  right: 4rem;
+  width: 6rem;
+  height: 6rem;
+  border-radius: 50%;
+  background-color: var(--warningColor);
+}
+
+.buildLock {
+  position: absolute;
+  top: 3rem;
+  right: 3rem;
+  width: calc(12rem * var(--fontScale));
+  height: calc(12rem * var(--fontScale));
+  background-color: var(--lockedColor);
+}
+
+// ---- hub v3 (Round E1, ch6-hub-ui.md section 8): the checked reference hub-v3-additions.scss --------
+// Dim text: literal colours, NOT --textColorDim / --textColorDimmer (both resolve to white in the
+// game's :root, and Dimmer is white in the dark-grey-orange style: installed index.css @2587, @3184,
+// @11454, @12464). Precedent for a literal text colour: .listRowUnbound.
+
+.viewSlot {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+// -- status line (design 5.2) -------------------------------------------------------------------
+.statusRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  height: 1.6em;
+  margin-top: 2rem;
+  padding-left: 10rem;
+  padding-right: 8rem;
+  font-size: var(--fontSizeS);
+  color: var(--normalTextColor);
+}
+
+.statusMark {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 0.6em;
+  height: 0.6em;
+  margin-right: 0.45em;
+}
+
+.statusText {
+  flex-grow: 0;
+  flex-shrink: 1;
+  flex-basis: auto;
+  min-width: 0rem;
+  line-height: 130%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusSpacer {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 8rem;
+}
+
+.statusHint {
+  flex-grow: 0;
+  flex-shrink: 1;
+  flex-basis: auto;
+  min-width: 0rem;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: rgba(240, 251, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// -- open marks (design 5.3): 0.6 em shapes --------------------------------------------------------
+.openSlot {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 0.6em;
+  height: 1em;
+  margin-right: 0.4em;
+}
+
+.openMark {
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 0.6em;
+  height: 0.6em;
+}
+
+.openFull {
+  border-radius: 50%;
+  background-color: var(--normalTextColor);
+}
+
+.openPartly {
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0);
+  border-style: solid;
+  border-top-width: 2rem;
+  border-right-width: 2rem;
+  border-bottom-width: 2rem;
+  border-left-width: 2rem;
+  border-top-color: var(--normalTextColor);
+  border-right-color: var(--normalTextColor);
+  border-bottom-color: var(--normalTextColor);
+  border-left-color: var(--normalTextColor);
+}
+
+.openClosed {
+  height: 2rem;
+  background-color: rgba(240, 251, 255, 0.5);
+}
+
+.openEstimated {
+  opacity: 0.55;
+}
+
+.glyphWarnTone {
+  background-color: var(--warningColor);
+}
+
+.glyphDimTone {
+  background-color: rgba(240, 251, 255, 0.7);
+}
+
+.glyphDimmerTone {
+  background-color: rgba(240, 251, 255, 0.5);
+}
+
+// -- problems band (design 5.2): 3 fixed slots ------------------------------------------------------
+// border-radius 3rem (deviation U2): the token --panelRadiusInner inside a shorthand fails the gate.
+.problems {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: 2rem;
+  margin-left: 6rem;
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+  padding-left: 6rem;
+  padding-right: 6rem;
+  border-radius: 3rem;
+  font-size: var(--fontSizeS);
+  color: var(--normalTextColor);
+}
+
+.problemsOn {
+  background-color: var(--sectionBackgroundColor);
+}
+
+.problemSlotRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  height: 1.45em;
+}
+
+.problemSlot {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  height: 1.45em;
+  padding-left: 0rem;
+  padding-right: 0rem;
+  line-height: 130%;
+  color: var(--normalTextColor);
+  background-color: rgba(0, 0, 0, 0);
+  border-radius: 3rem;
+  text-align: left;
+}
+
+.problemClickable:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.problemIcon {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 0.45em;
+}
+
+.problemText {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.problemDim {
+  color: rgba(240, 251, 255, 0.7);
+}
+
+.problemMore {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 2.4em;
+  color: rgba(240, 251, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+// -- tiles = navigation (design 5.2) ------------------------------------------------------------------
+.tileRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  margin-top: 6rem;
+  margin-bottom: 6rem;
+  padding-left: 10rem;
+}
+
+// height = 1.25 em of M + 1.3 em of XS + 6 rem, border-box (U13): 41.6 / 62.4 / 76.3 rem.
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  box-sizing: border-box;
+  height: calc(33.1rem * var(--fontScale) + 36.315rem * var(--fontScaleChange) + 8.5rem);
+  padding-top: 0rem;
+  padding-bottom: 0rem;
+  padding-left: 3rem;
+  padding-right: 3rem;
+  color: var(--normalTextColor);
+  background-color: var(--sectionBackgroundColor);
+  border-style: solid;
+  border-top-width: 0rem;
+  border-right-width: 0rem;
+  border-left-width: 0rem;
+  border-bottom-width: 3rem;
+  border-bottom-color: rgba(0, 0, 0, 0);
+  border-radius: 4rem;
+}
+
+.tile + .tile {
+  margin-left: 4rem;
+}
+
+.tile:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.tileOn,
+.tileOn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: var(--accentColorNormal);
+}
+
+.tileValue {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  height: 1.25em;
+  max-width: 100%;
+  line-height: 125%;
+  font-size: var(--fontSizeM);
+  white-space: nowrap;
+  overflow: hidden;
+  coh-font-fit-mode: shrink;
+}
+
+.tileCaption {
+  height: 1.3em;
+  max-width: 100%;
+  line-height: 130%;
+  font-size: var(--fontSizeXS);
+  color: rgba(240, 251, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  coh-font-fit-mode: shrink;
+}
+
+.tileMark {
+  position: absolute;
+  top: 2rem;
+  right: 4rem;
+  font-size: var(--fontSizeXS);
+  line-height: 100%;
+  color: rgba(240, 251, 255, 0.7);
+}
+
+/* Second pass: the Money tile's mark lives in a fixed trailing slot of its caption (always reserved,
+   so nothing moves when it appears); the absolute .tileMark overlapped the last digit at 130-150 %.
+   E1 fixer (e1-spec 8.9 F13): a flex row of [caption | fixed-width mark] instead of an inline-block
+   span - inline-block is unproven in Gameface (our bundle and the game's index.css use none), and a
+   collapsed empty span would let the centred caption shift when the mark toggles. */
+.tileCaptionRow {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  max-width: 100%;
+}
+
+.tileCaptionRow .tileCaption {
+  min-width: 0rem;
+}
+
+.tileCaptionMark {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 0.75em;
+  height: 1.3em;
+  margin-left: 0.25em;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: rgba(240, 251, 255, 0.7);
+}
+
+// -- receipt and list rows (design 5.2): the vanilla InfoRow metrics ---------------------------------
+.infoLine {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  height: calc(1.3em + 10rem);
+  padding-left: 10rem;
+  padding-right: 10rem;
+  font-size: var(--fontSizeS);
+  line-height: 130%;
+}
+
+.infoSub {
+  padding-left: 22rem;
+}
+
+.infoLabel {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  color: rgba(240, 251, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.infoHeader .infoLabel {
+  color: var(--normalTextColor);
+  text-transform: uppercase;
+}
+
+.infoValue {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-left: 8rem;
+  color: var(--normalTextColor);
+  white-space: nowrap;
+}
+
+.markSlot {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 1em;
+  margin-left: 4rem;
+  color: rgba(240, 251, 255, 0.7);
+  white-space: nowrap;
+}
+
+.subLine {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
+  height: calc(1.3em + 2rem);
+  padding-left: 22rem;
+  padding-right: 10rem;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: rgba(240, 251, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.divider {
+  flex-shrink: 0;
+  height: 1rem;
+  margin-top: 4rem;
+  margin-bottom: 4rem;
+  margin-left: 10rem;
+  margin-right: 10rem;
+  background-color: var(--dividerColor);
+}
+
+// -- score bar, ticks, labels (design 5.2) ------------------------------------------------------------
+.scoreBar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  height: 0.5em;
+  margin-top: 2rem;
+  margin-left: 10rem;
+  margin-right: 10rem;
+  font-size: var(--fontSizeS);
+  background-color: var(--sectionBackgroundColor);
+  border-radius: 2rem;
+  overflow: hidden;
+}
+
+.barPart {
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
+.scoreFill {
+  background-color: var(--accentColorNormal);
+}
+
+.scoreGhost {
+  background-color: var(--accentColorNormal);
+  opacity: 0.35;
+}
+
+.barRest {
+  background-color: rgba(0, 0, 0, 0);
+}
+
+.scoreTicks {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  height: 5rem;
+  margin-left: 10rem;
+  margin-right: 10rem;
+}
+
+.tickSpace {
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
+.tick {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 2rem;
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.scoreLabels {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  height: 1.3em;
+  margin-bottom: 4rem;
+  margin-left: 10rem;
+  margin-right: 10rem;
+  line-height: 130%;
+  font-size: var(--fontSizeXS);
+  color: rgba(240, 251, 255, 0.7);
+}
+
+.scoreLabel {
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+// -- runs view (design 5.2) ---------------------------------------------------------------------------
+.treeRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  height: 1.9em;
+  padding-left: 10rem;
+  padding-right: 8rem;
+  font-size: var(--fontSizeS);
+}
+
+.treeRowSpacer {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 8rem;
+}
+
+.pisteToggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  height: 1.6em;
+  padding-left: 0rem;
+  padding-right: 0rem;
+  font-size: var(--fontSizeXS);
+  color: var(--normalTextColor);
+  background-color: rgba(0, 0, 0, 0);
+  border-radius: 3rem;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.pisteToggle:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.checkBox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 1.1em;
+  height: 1.1em;
+  margin-right: 0.45em;
+  border-style: solid;
+  border-top-width: 2rem;
+  border-right-width: 2rem;
+  border-bottom-width: 2rem;
+  border-left-width: 2rem;
+  border-top-color: rgba(240, 251, 255, 0.7);
+  border-right-color: rgba(240, 251, 255, 0.7);
+  border-bottom-color: rgba(240, 251, 255, 0.7);
+  border-left-color: rgba(240, 251, 255, 0.7);
+  border-radius: 2rem;
+}
+
+.checkBoxOn {
+  background-color: var(--selectedColor);
+  border-top-color: var(--accentColorNormal);
+  border-right-color: var(--accentColorNormal);
+  border-bottom-color: var(--accentColorNormal);
+  border-left-color: var(--accentColorNormal);
+}
+
+.checkGlyph {
+  width: 0.8em;
+  height: 0.8em;
+  background-color: var(--normalTextColor);
+}
+
+// The run row is a div now: [fly Button | pen Button] (no input inside a button).
+.runRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  height: 1.9em;
+  padding-left: 8rem;
+  padding-right: 4rem;
+  font-size: var(--fontSizeS);
+  color: var(--normalTextColor);
+  border-radius: 3rem;
+}
+
+.runRow:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.runFly {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  height: 1.9em;
+  padding-left: 0rem;
+  padding-right: 0rem;
+  font-size: var(--fontSizeS);
+  color: var(--normalTextColor);
+  background-color: rgba(0, 0, 0, 0);
+  text-align: left;
+}
+
+.runRowFocused,
+.runRowFocused:hover {
+  background-color: rgba(75, 195, 241, 0.18);
+}
+
+.liftMarkSlot {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 1.2em;
+  font-size: var(--fontSizeXS);
+  color: rgba(240, 251, 255, 0.7);
+}
+
+.rowPen {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: calc(22rem * var(--fontScale));
+  height: calc(22rem * var(--fontScale));
+  margin-left: 4rem;
+  border-radius: 50%;
+  opacity: 0.35;
+  --iconWidth: calc(14rem * var(--fontScale));
+  --iconHeight: calc(14rem * var(--fontScale));
+  --iconColor: var(--accentColorNormal);
+}
+
+.runRow:hover .rowPen,
+.liftLine1:hover .rowPen {
+  opacity: 1;
+}
+
+.rowPen:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.kindNatural {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background-color: rgba(0, 0, 0, 0);
+}
+
+.kindNaturalBar {
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 0.4em;
+  border-radius: 0.1em;
+  background-color: rgba(236, 244, 252, 0.7);
+}
+
+.kindNaturalBarNext {
+  margin-top: 0.25em;
+}
+
+// -- lifts view (design 5.2) --------------------------------------------------------------------------
+.liftRow2 {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-shrink: 0;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+  padding-left: 8rem;
+  padding-right: 4rem;
+  border-radius: 3rem;
+}
+
+.liftLine1 {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  height: 1.4em;
+  font-size: var(--fontSizeS);
+  line-height: 130%;
+}
+
+.liftFly {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  height: 1.4em;
+  padding-left: 0rem;
+  padding-right: 0rem;
+  font-size: var(--fontSizeS);
+  color: var(--normalTextColor);
+  background-color: rgba(0, 0, 0, 0);
+  border-radius: 3rem;
+  text-align: left;
+}
+
+.liftFly:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.liftLine2 {
+  height: 1.35em;
+  padding-left: 1.15em;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: rgba(240, 251, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.liftDot {
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 0.6em;
+  height: 0.6em;
+  margin-right: 0.55em;
+  border-radius: 50%;
+}
+
+.liftDotNormal {
+  background-color: var(--normalTextColor);
+}
+
+.liftDotWarn {
+  background-color: var(--warningColor);
+}
+
+.liftDotDim {
+  background-color: rgba(240, 251, 255, 0.5);
+}
+
+.liftDotRing {
+  background-color: rgba(0, 0, 0, 0);
+  border-style: solid;
+  border-top-width: 2rem;
+  border-right-width: 2rem;
+  border-bottom-width: 2rem;
+  border-left-width: 2rem;
+}
+
+.liftRingWarn {
+  border-top-color: var(--warningColor);
+  border-right-color: var(--warningColor);
+  border-bottom-color: var(--warningColor);
+  border-left-color: var(--warningColor);
+}
+
+.liftRingDim {
+  border-top-color: rgba(240, 251, 255, 0.5);
+  border-right-color: rgba(240, 251, 255, 0.5);
+  border-bottom-color: rgba(240, 251, 255, 0.5);
+  border-left-color: rgba(240, 251, 255, 0.5);
+}
+
+.liftWord {
+  margin-left: 8rem;
+}
+
+.liftWordWarn {
+  color: var(--warningColor);
+}
+
+.liftWordDim {
+  color: rgba(240, 251, 255, 0.7);
+}
+
+// -- guests view (design 5.2) -------------------------------------------------------------------------
+.guestBar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  height: calc(1.3em + 10rem);
+  padding-left: 10rem;
+  padding-right: 10rem;
+  font-size: var(--fontSizeS);
+  line-height: 130%;
+}
+
+.guestTrack {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  height: 0.45em;
+  margin-left: 8rem;
+  margin-right: 8rem;
+  background-color: var(--sectionBackgroundColor);
+  border-radius: 2rem;
+  overflow: hidden;
+}
+
+.guestFill {
+  background-color: rgba(240, 251, 255, 0.85);
+}
+
+.colHeads {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  height: 1.6em;
+  padding-left: 10rem;
+  padding-right: 10rem;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: rgba(240, 251, 255, 0.7);
+}
+
+.colHeadSpacer {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
+.valueCell {
+  margin-left: 12rem;
+}
+
+// E1 fixer (e1-spec 8.9 F14): a Guests column head is measured in the row font (S), like GuestRow's
+// cells (.infoLine is S), so the StableWidth money blinds give both the same width; its text sits in
+// a .colLabel span (XS).
+.colHeadCell {
+  font-size: var(--fontSizeS);
+}
+
+// -- notes: fixed slots, wrap inside (design 5.2) ----------------------------------------------------
+.noteArea {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding-left: 10rem;
+  padding-right: 10rem;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: rgba(240, 251, 255, 0.7);
+}
+
+.note1 {
+  flex-shrink: 0;
+  height: 1.3em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note2 {
+  flex-shrink: 0;
+  height: 2.6em;
+  overflow: hidden;
+}
+
+.note3 {
+  flex-shrink: 0;
+  height: 3.9em;
+  overflow: hidden;
+}
+
+// -- start card (design 3.7) --------------------------------------------------------------------------
+.startCard {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding-top: 6rem;
+  padding-bottom: 6rem;
+}
+
+.startStep {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  height: calc(1.3em + 10rem);
+  padding-left: 10rem;
+  padding-right: 10rem;
+  font-size: var(--fontSizeS);
+  line-height: 130%;
+  color: var(--normalTextColor);
+}
+
+.startNum {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 1.4em;
+  margin-right: 0.5em;
+  color: var(--accentColorNormal);
+}
+
+.startText {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// E1 fixer (e1-spec 8.9 F16): the step-1 button fits its .startStep row (1.3 em of S + 10 rem): 1.6 em of
+// S like .treeToolButton (U15), not .actionButton's 30 rem x fontScale (0.9 rem over the row at 100 %).
+// Declared after .actionButton, so it wins at equal specificity.
+.startButton {
+  height: 1.6em;
+  padding-top: 0rem;
+  padding-bottom: 0rem;
+}
+
+// -- build strip footer (design 5.2): two one-string lines -------------------------------------------
+.buildStatusLine {
+  flex-shrink: 0;
+  height: 1.3em;
+  line-height: 130%;
+  font-size: var(--fontSizeXS);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.buildLineName {
+  margin-top: 5rem;
+  color: var(--accentColorNormal);
+}
+
+.buildLineNormal {
+  margin-top: 5rem;
+  color: var(--normalTextColor);
+}
+
+.buildLineDim {
+  color: rgba(240, 251, 255, 0.7);
+}
+
+.buildLineLocked {
+  color: var(--lockedColor);
+}
+
+.stripeNatural {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  background-color: rgba(0, 0, 0, 0);
+}
+
+.stripeNaturalPart {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  border-radius: 2rem;
+  background-color: rgba(236, 244, 252, 0.7);
+}
+
+.stripeNaturalPartNext {
+  margin-left: 6rem;
+}
+
+// -- small additions used by the views (ch6 section 6) ----------------------------------------------
+// The pen column of the run list header (same width as a row's pen + its margin).
+.penSpacer {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: calc(22rem * var(--fontScale));
+  margin-left: 4rem;
+}
+
+// Guest bar label (a StableWidth of both month labels).
+.guestLabel {
+  color: rgba(240, 251, 255, 0.7);
+}
+
+// The tree tool's on/off button inside a 1.9em row: its own em height (the .actionButton's
+// 30rem x fontScale is taller than 1.9em of S at 100 %: 30 > 26.6).
+.treeToolButton {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 1.6em;
+  padding-top: 0rem;
+  padding-bottom: 0rem;
+  padding-left: 12rem;
+  padding-right: 12rem;
+  font-size: var(--fontSizeS);
+  white-space: nowrap;
+}
+
+// S6 addition (ch6 6.11 row 4: the natural runs' zero money value in dim): a dim value inside an
+// .infoValue.
+.dimValue {
+  display: flex;
+  flex-direction: row;
+  color: rgba(240, 251, 255, 0.7);
+}

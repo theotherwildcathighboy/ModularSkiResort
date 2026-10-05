@@ -1,0 +1,237 @@
+# tools/contract.lock - the Ski Resort hub's binding contract as the build gate last accepted it.
+# Written by `npm run contract:lock` (tools/check-bundle.js --write-lock); checked on every build
+# (rule R3, docs/research/hub-u2-spec.md section 4.7). Do not edit by hand: change src/bindings.ts,
+# bump HUB_CONTRACT (and C#'s HubContract), run `npm run contract:lock`, review this file's diff.
+contract 3
+core build
+core buildStamp
+core contract
+core dumpHub
+core focusRun
+core glade
+core gladeSetLevel
+core gladeSetTreeLine
+core gladeToggle
+core hubOpen
+core launch
+core setHubOpen
+core showHubButton
+core toggleHub
+core uiError
+core uiHello
+binding build : readonly BuildItem[]
+binding buildStamp : string
+binding city : CityStats
+binding contract : number
+binding follow : number
+binding glade : GladeState
+binding hubOpen : boolean
+binding lifts : readonly LiftRow[]
+binding pisteMap : boolean
+binding problems : readonly ProblemRow[]
+binding resortLive : readonly ResortLive[]
+binding resorts : readonly ResortRow[]
+binding runLive : readonly RunLive[]
+binding runs : readonly RunRow[]
+binding selectedResort : Entity
+binding showHubButton : boolean
+trigger dumpHub ()
+trigger focusBuilding (Entity)
+trigger focusLift (Entity, Entity)
+trigger focusRun (Entity)
+trigger gladeSetLevel (number)
+trigger gladeSetTreeLine (boolean)
+trigger gladeToggle ()
+trigger hoverRun (Entity)
+trigger launch (BuildItemId)
+trigger rename (Entity, string)
+trigger selectResort (Entity)
+trigger setHubOpen (boolean)
+trigger setPisteMap (boolean)
+trigger toggleHub ()
+trigger uiError (string)
+trigger uiHello (number, string)
+trigger uiLayout (string)
+shape BuildItem.active : boolean
+shape BuildItem.cost? : number
+shape BuildItem.costPerKm? : number
+shape BuildItem.hint? : string
+shape BuildItem.id : string
+shape BuildItem.locked : boolean
+shape BuildItem.monthly? : number
+shape BuildItem.monthlyPerHa? : number
+shape BuildItem.monthlyPerKm? : number
+shape BuildItem.price? : number
+shape BuildItem.pricePerHa? : number
+shape BuildItem.reason : string
+shape CityStats.backcountryPct : number
+shape CityStats.daysPerYear : number
+shape CityStats.known : boolean
+shape CityStats.realisticWorkplaces : boolean
+shape CityStats.scaleK : number
+shape CityStats.snowGating : boolean
+shape CityStats.snowVisualsOff : boolean
+shape CityStats.snowmakingMarginC : number
+shape CityStats.ticketPrice : number
+shape CityStats.tourismOverhaul : boolean
+shape GladeState.active : boolean
+shape GladeState.available : boolean
+shape GladeState.level : number
+shape GladeState.reason : string
+shape GladeState.treeLine : boolean
+shape LiftRow.alignKnown : boolean
+shape LiftRow.alignOffsetM : number
+shape LiftRow.alignYawDeg : number
+shape LiftRow.billedReduced : boolean
+shape LiftRow.capacityPerHour : number
+shape LiftRow.chairs : number
+shape LiftRow.chairsRiding : number
+shape LiftRow.costMonth : number
+shape LiftRow.counted : boolean
+shape LiftRow.customName : boolean
+shape LiftRow.entity : Entity
+shape LiftRow.gaps : number
+shape LiftRow.hasBase : boolean
+shape LiftRow.hasTop : boolean
+shape LiftRow.horizontalM : number
+shape LiftRow.lengthM : number
+shape LiftRow.name : string
+shape LiftRow.powered : boolean
+shape LiftRow.rideTimeS : number
+shape LiftRow.riseM : number
+shape LiftRow.runsServed : number
+shape LiftRow.sections : number
+shape LiftRow.sign : Entity
+shape LiftRow.state : number
+shape LiftRow.status : number
+shape LiftRow.top : Entity
+shape LiftRow.towers : number
+shape LiftRow.towersRemoved : number
+shape ProblemRow.buildItem : string
+shape ProblemRow.code : number
+shape ProblemRow.count : number
+shape ProblemRow.detail : number
+shape ProblemRow.factor : string
+shape ProblemRow.ifFixed : number
+shape ProblemRow.more : number
+shape ProblemRow.name : string
+shape ProblemRow.pct : number
+shape ProblemRow.severity : number
+shape ProblemRow.sign : Entity
+shape ProblemRow.subject : Entity
+shape ProblemRow.subjectTop : Entity
+shape ResortLive.attraction : number
+shape ResortLive.attractionFull : number
+shape ResortLive.attractionHeld : boolean
+shape ResortLive.buildingsMonth : number
+shape ResortLive.costGroomedMonth : number
+shape ResortLive.costNightMonth : number
+shape ResortLive.costSnowmakingMonth : number
+shape ResortLive.efficiencyPct : number
+shape ResortLive.estKnown : boolean
+shape ResortLive.estTourists : number
+shape ResortLive.freeThisMonth : number
+shape ResortLive.guestsLastMonth : number
+shape ResortLive.guestsThisMonth : number
+shape ResortLive.haGroomed : number
+shape ResortLive.haNatural : number
+shape ResortLive.haNight : number
+shape ResortLive.haSnowmaking : number
+shape ResortLive.jobs : number
+shape ResortLive.jobsFilled : number
+shape ResortLive.lastMonthFull : boolean
+shape ResortLive.liftCostMonth : number
+shape ResortLive.liftsBilled : number
+shape ResortLive.liftsBilledReduced : number
+shape ResortLive.liftsComplete : number
+shape ResortLive.liftsCounted : number
+shape ResortLive.liftsValue : number
+shape ResortLive.lodgePart : number
+shape ResortLive.lodgesActive : number
+shape ResortLive.netEstimated : boolean
+shape ResortLive.netMonth : number
+shape ResortLive.nextStep : number
+shape ResortLive.openSharePct : number
+shape ResortLive.paidLastMonth : number
+shape ResortLive.paidThisMonth : number
+shape ResortLive.residentsLastMonth : number
+shape ResortLive.residentsThisMonth : number
+shape ResortLive.runsOpen : number
+shape ResortLive.runsPartly : number
+shape ResortLive.runsValue : number
+shape ResortLive.runsValueFull : number
+shape ResortLive.scoreVerticalM : number
+shape ResortLive.seasonHint : number
+shape ResortLive.sharePct : number
+shape ResortLive.sign : Entity
+shape ResortLive.snowDepthCm : number
+shape ResortLive.snowEstimated : boolean
+shape ResortLive.snowPct : number
+shape ResortLive.status : number
+shape ResortLive.summer : boolean
+shape ResortLive.terrain : number
+shape ResortLive.thisMonthSinceLoad : boolean
+shape ResortLive.ticketGate : number
+shape ResortLive.ticketIncomeEstimated : boolean
+shape ResortLive.ticketIncomeMonth : number
+shape ResortLive.ticketPaidMonth : number
+shape ResortLive.ticketsLastMonth : number
+shape ResortLive.ticketsThisMonth : number
+shape ResortLive.topTempC : number
+shape ResortLive.topTempKnown : boolean
+shape ResortLive.touristGroupsLastMonth : number
+shape ResortLive.touristGroupsThisMonth : number
+shape ResortLive.touristsLastMonth : number
+shape ResortLive.touristsThisMonth : number
+shape ResortLive.unpaidThisMonth : number
+shape ResortLive.varietyMultiplier : number
+shape ResortLive.verticalMultiplier : number
+shape ResortLive.wagesMonth : number
+shape ResortRow.areaM2 : number
+shape ResortRow.black : number
+shape ResortRow.blue : number
+shape ResortRow.capacityPerHour : number
+shape ResortRow.customName : boolean
+shape ResortRow.doubleBlack : number
+shape ResortRow.flat : number
+shape ResortRow.freeLodges : number
+shape ResortRow.green : number
+shape ResortRow.kind : 0 | 1
+shape ResortRow.liftLengthM : number
+shape ResortRow.liftRows : number
+shape ResortRow.lodges : number
+shape ResortRow.name : string
+shape ResortRow.rated : number
+shape ResortRow.runs : number
+shape ResortRow.sign : Entity
+shape ResortRow.verticalApprox : boolean
+shape ResortRow.verticalM : number
+shape RunLive.costMonth : number
+shape RunLive.entity : Entity
+shape RunLive.openFactor : number
+shape RunLive.openState : number
+shape RunLive.snowEstimated : boolean
+shape RunLive.snowPct : number
+shape RunLive.valueNow : number
+shape RunRow.approx : boolean
+shape RunRow.areaM2 : number
+shape RunRow.band : number
+shape RunRow.bandValue : number
+shape RunRow.bound : boolean
+shape RunRow.customName : boolean
+shape RunRow.dropM : number
+shape RunRow.entity : Entity
+shape RunRow.gradePct : number
+shape RunRow.kind : RunKind
+shape RunRow.lengthM : number
+shape RunRow.member : boolean
+shape RunRow.name : string
+shape RunRow.ordinal : number
+shape RunRow.served : boolean
+shape RunRow.servedBy : Entity
+shape RunRow.servedFactor : number
+shape RunRow.sign : Entity
+shape RunRow.sizeFactor : number
+shape RunRow.steepestPct : number
+shape RunRow.typeFactor : number
+shape RunRow.valueFull : number

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Headless test host for the PURE lift files of Round L1 (docs/research/hub-u2-spec.md section 5.9):
+    LiftCensus.cs (section 5.2), StationAlign.cs (section 5.5), LiftReconnectEpisodes.cs (section 5.6),
+    plus the shared EntityRef.cs (section 2.1, implementer I-1's file, linked, never copied).
+    Run from the ModularSkiResort root:
+      see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
+    Clone of tests/SlopeBatch/SlopeBatch.csproj. Lives OUTSIDE mod/SkiResortMod on purpose: the
+    mod csproj globs **/*.cs, so a test host under it would be compiled into the net48 mod DLL.
+    LangVersion pinned to the mod's 9.0 (Mod.props) so newer syntax in the linked files fails here
+    too; net48 APIs are NOT gated here (net8 has Math.Clamp etc.); the mod build is the net48 API
+    gate. UnityMathematics.NoDeps 1.3.2 matches the toolchain's com.unity.mathematics@1.3.2.
+    The loop cache is not tested here (it needs Game types: Colossal.Mathematics, PathNode, Entity).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <RootNamespace>LiftBatch</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\EntityRef.cs" Link="EntityRef.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftCensus.cs" Link="LiftCensus.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\StationAlign.cs" Link="StationAlign.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftReconnectEpisodes.cs" Link="LiftReconnectEpisodes.cs" />
+    <!-- Round E1 (2026-10-04, econ-round spec ch2 §3.7): the served rule and the power predicate. -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftServedRule.cs" Link="LiftServedRule.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />
+  </ItemGroup>
+</Project>

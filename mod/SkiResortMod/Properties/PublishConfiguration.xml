@@ -10,6 +10,10 @@
 	<LongDescription>
 Code-mod half of the Modular Ski Resort hybrid mod (asset pack + DLL).
 
+**Where to find it.** Everything is built from the Ski Resort panel: the Ski Resort button at the top left of the screen (Settings ▸ Hub can hide it), or the mod's button in the game's mod panel. Start with a Ski Area Welcome Sign; selecting a sign opens the panel.
+
+Nothing of this mod is in the game's own build menus: the welcome sign, lodges, chairlift stations, lift lines and ski runs are placed only from the Ski Resort panel.
+
 Credits: joergeske (Modular Golf Course Pack — the modular ServiceUpgrade pattern),
 Meapy (CS2 Tourism Overhaul — tourism internals research), Colossal Order / Paradox
 (modding toolchain). NOT ready for publishing — work in progress.

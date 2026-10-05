@@ -13,3 +13,6 @@
   reference.
 - Built with Claude (Anthropic) doing the heavy lifting on decompilation, prefab surgery,
   and procedural asset generation.
+- **tomkpunkt — ParkManager** (Paradox Mods 161179, GPL-3.0) — studied 2026-09-30 as a research
+  reference for programmatic net/object creation, ordered cleanup and Gameface UI patterns; no code
+  copied, no runtime dependency (docs/research/parkmanager-dissection.md).

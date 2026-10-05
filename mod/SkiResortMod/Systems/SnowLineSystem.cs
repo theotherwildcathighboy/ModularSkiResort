@@ -14,12 +14,35 @@
 //
 // The system stays Enabled = false — it does no per-tick work. Consumers PULL:
 // SkiResortAttractivenessSystem calls the three accessors during its (event/periodic)
-// recomputes; ClimateSystem's public floats are cheap main-thread reads. The one-shot
-// climate log stays as the permanent calibration instrument in Player-adjacent logs.
+// recomputes; ClimateSystem's public floats are cheap main-thread reads. The climate log
+// stays as the permanent calibration instrument in Player-adjacent logs.
+//
+// ROUND E1 (2026-10-04, stream S3; docs/research/econ-round/spec/ch3-snow.md §3, D13 / D14 / D31):
+//   * D31 — GetAmbientTemperature samples the climate curve at the current date
+//     (ClimateSystem.SampleClimate(float), ClimateSystem.cs:625-654, overrides applied) instead of
+//     reading ClimateSystem.temperature, which is written only in its OnUpdate (:465-472): 0.0 before
+//     the first simulation tick of a session and the previous city's value on later loads — the
+//     "winter dress in June on the first load" bug. Inside GameSimulation the two are equal bit for
+//     bit (ClimateSystem runs earlier in the same sim frame with the same date and overrides,
+//     SystemOrder.cs:358-360), so the injection's thermal routing is unchanged; every read outside
+//     GameSimulation before the first tick now sees the real temperature.
+//   * D13 fallback — GetDayMeanTemperature: the mean of 24 hourly SampleClimate samples ending at the
+//     start of the current game hour (RunSnowRules.DayMeanC), cached per (game hour, daysPerYear,
+//     climate, temperature override); at most one recompute per game hour (~17 s of wall clock at 1×).
+//   * D14 — GetSnowmakingMarginC is THE snowmaking margin of the mod (Options ▸ Snow "Snowmaking
+//     margin (°C)", clamped 0..6, 2 when settings are not loaded); IsSnowGatingEnabled is the one read
+//     of "Snow & season gating". GetLapsePerM / GetBaseHeight expose the lapse for the estimates.
+//   * The climate line is written on EVERY load in Game or Editor mode (was once per session), with
+//     the D31 numbers and the cost of 100 SampleClimate reads; the first day-mean of a load writes one
+//     `Climate [day-mean]` line with its cost (ch3 §10 L-C1, L-C2; §12).
 
+using System;
+using System.Diagnostics;
 using Colossal.Serialization.Entities;
 using Game;
 using Game.Simulation;
+using SkiResortMod.Settings;
+using Unity.Entities;
 
 namespace SkiResortMod.Systems
 {
@@ -30,12 +53,24 @@ namespace SkiResortMod.Systems
         private const float FallbackAmbientC = 10f;
 
         private ClimateSystem m_ClimateSystem;
-        private bool m_LoggedClimate;
+        private TimeSystem m_TimeSystem;
+        private Func<float, float> m_TemperatureAt;   // SampleClimate(t).temperature, allocated once
+
+        // E1 D13 fallback (ch3 §3.2): the day-mean cache. Second pass, e1-spec R7/R14: no generation
+        // counter (no reader).
+        private bool m_DayMeanValid;
+        private int m_DayMeanHourKey, m_DayMeanDays;
+        private Entity m_DayMeanClimate;
+        private bool m_DayMeanOverride;
+        private float m_DayMeanOverrideValue, m_DayMean;
+        private bool m_DayMeanLoggedThisLoad;
 
         protected override void OnCreate()
         {
             base.OnCreate();
             m_ClimateSystem = World.GetOrCreateSystemManaged<ClimateSystem>();
+            m_TimeSystem = World.GetOrCreateSystemManaged<TimeSystem>();
+            m_TemperatureAt = t => m_ClimateSystem.SampleClimate(t).temperature;
             Enabled = false; // pull-based API; no per-tick work
             Mod.Log.Info($"{nameof(SnowLineSystem)} created (climate oracle, pull-based)");
         }
@@ -44,10 +79,17 @@ namespace SkiResortMod.Systems
         // Shared climate API (validated formula — see header)
         // ─────────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>Current ambient temperature (°C) at the reference elevation.</summary>
+        /// <summary>Ambient temperature (°C) at the reference elevation NOW: the climate curve sampled at the
+        /// current date, overrides applied (ClimateSystem.SampleClimate(float), ClimateSystem.cs:625-654).
+        /// E1 D31: replaces the read of ClimateSystem.temperature, which is 0.0 before the first simulation
+        /// tick of a session and the previous city's value on later loads (ClimateSystem.cs:465-472).
+        /// Inside GameSimulation it equals the stored value bit for bit: ClimateSystem runs earlier in the
+        /// same sim frame with the same date and overrides (SystemOrder.cs:358-360).</summary>
         public float GetAmbientTemperature()
         {
-            return m_ClimateSystem != null ? (float)m_ClimateSystem.temperature : FallbackAmbientC;
+            if (m_ClimateSystem == null || m_ClimateSystem.currentClimate == Entity.Null)
+                return FallbackAmbientC;   // SampleClimate would return 0 here (ClimateSystem.cs:653)
+            return m_ClimateSystem.SampleClimate((float)m_ClimateSystem.currentDate).temperature;
         }
 
         /// <summary>The game's freezing threshold (0 °C on all observed maps).</summary>
@@ -102,30 +144,112 @@ namespace SkiResortMod.Systems
                    (GetAmbientTemperature() - m_ClimateSystem.freezingTemperature) / scale;
         }
 
+        // ── Round E1 accessors (econ-round spec ch3 §3; e1-spec I-17, R10; stream S3). D31 rewrote
+        // GetAmbientTemperature above. Main thread, pull-based like the rest of this API.
+
+        /// <summary>E1 D13 fallback: mean temperature (°C) at the reference elevation over the 24 game hours
+        /// up to the start of the current game hour (hourly SampleClimate samples, overrides applied — under a
+        /// temperature override it equals the override). Cached per (game hour, daysPerYear, climate, override);
+        /// recomputed at most once per game hour (~17 s of wall clock at 1×). FallbackAmbientC without a climate.</summary>
+        public float GetDayMeanTemperature()
+        {
+            if (m_ClimateSystem == null || m_ClimateSystem.currentClimate == Entity.Null)
+                return FallbackAmbientC;
+            int days = m_TimeSystem != null ? m_TimeSystem.daysPerYear : 12;
+            float aligned = RunSnowRules.HourAlignedDate((float)m_ClimateSystem.currentDate, days, out int hourKey);
+            bool ov = m_ClimateSystem.temperature.overrideState;
+            float ovValue = ov ? m_ClimateSystem.temperature.overrideValue : 0f;
+            Entity climate = m_ClimateSystem.currentClimate;
+            if (m_DayMeanValid && hourKey == m_DayMeanHourKey && days == m_DayMeanDays &&
+                climate == m_DayMeanClimate && ov == m_DayMeanOverride && ovValue == m_DayMeanOverrideValue)
+                return m_DayMean;
+            long t0 = Stopwatch.GetTimestamp();
+            m_DayMean = RunSnowRules.DayMeanC(m_TemperatureAt, aligned, days);
+            double us = (Stopwatch.GetTimestamp() - t0) * 1e6 / Stopwatch.Frequency;
+            m_DayMeanValid = true;
+            m_DayMeanHourKey = hourKey;
+            m_DayMeanDays = days;
+            m_DayMeanClimate = climate;
+            m_DayMeanOverride = ov;
+            m_DayMeanOverrideValue = ovValue;
+            if (!m_DayMeanLoggedThisLoad)
+            {
+                m_DayMeanLoggedThisLoad = true;
+                // ch3 §10 L-C2 (once per load; the cost record of §12).
+                Mod.Log.Info($"Climate [day-mean] {m_DayMean:F1} C over the 24 game hours before hour {hourKey} " +
+                             $"of {24 * (days < 1 ? 1 : days)} (first this load, {us:F0} us)");
+            }
+            return m_DayMean;
+        }
+
+        /// <summary>E1 D14: THE snowmaking margin (°C above freezing at which snow guns still work), read by the
+        /// injection (snowmaking and night gates), the estimate (RunSnowRules.ThresholdC) and therefore the bill
+        /// (the upkeep bills the injection's mask). Options ▸ Snow "Snowmaking margin (°C)", clamped 0..6;
+        /// 2 when settings are not loaded.</summary>
+        public float GetSnowmakingMarginC()
+        {
+            SkiResortSettings s = Mod.Settings;
+            return RunSnowRules.ClampMargin(s != null ? s.SnowmakingBonusCelsius : RunSnowRules.DefaultSnowmakingMarginC);
+        }
+
+        /// <summary>E1 D13: "Snow & season gating" (true when settings are not loaded) — the only read of
+        /// the setting.</summary>
+        public bool IsSnowGatingEnabled()
+        {
+            SkiResortSettings s = Mod.Settings;
+            return s == null || s.EnableSnowGating;
+        }
+
+        /// <summary>E1: ClimateSystem.snowTemperatureHeightScale (°C per m), 0 without a climate.</summary>
+        public float GetLapsePerM()
+        {
+            return m_ClimateSystem != null ? m_ClimateSystem.snowTemperatureHeightScale : 0f;
+        }
+
+        /// <summary>E1: ClimateSystem.temperatureBaseHeight (m), 0 without a climate.</summary>
+        public float GetBaseHeight()
+        {
+            return m_ClimateSystem != null ? m_ClimateSystem.temperatureBaseHeight : 0f;
+        }
+
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
         {
             base.OnGameLoadingComplete(purpose, mode);
 
-            // Calibration log, once per session (Editor counts: its climate panel can force
-            // seasons on demand, which is how the formula was validated).
-            if (m_LoggedClimate || (mode != GameMode.Game && mode != GameMode.Editor) ||
-                m_ClimateSystem == null)
+            // E1 (ch3 §3.2): the day-mean cache and its first-of-load line belong to the city just loaded.
+            m_DayMeanValid = false;
+            m_DayMeanLoggedThisLoad = false;
+
+            // Calibration log, once per LOAD since Round E1 (ch3 §3.4; was once per session) — Editor counts:
+            // its climate panel can force seasons on demand, which is how the formula was validated.
+            if ((mode != GameMode.Game && mode != GameMode.Editor) || m_ClimateSystem == null)
                 return;
-            m_LoggedClimate = true;
 
             try
             {
+                // §12 cost record: 100 D31 reads, timed. The day-mean is computed first so its own L-C2
+                // line (first of the load) precedes this one.
+                long t0 = Stopwatch.GetTimestamp();
+                float ambient = 0f;
+                for (int i = 0; i < 100; i++)
+                    ambient = GetAmbientTemperature();
+                double us = (Stopwatch.GetTimestamp() - t0) * 1e6 / Stopwatch.Frequency;
+                float dayMean = GetDayMeanTemperature();
                 Mod.Log.Info(
                     "Climate constants: " +
                     $"temperatureBaseHeight={m_ClimateSystem.temperatureBaseHeight}, " +
                     $"snowTemperatureHeightScale={m_ClimateSystem.snowTemperatureHeightScale}, " +
                     $"freezingTemperature={m_ClimateSystem.freezingTemperature}, " +
-                    $"ambient={GetAmbientTemperature():F1}, " +
+                    $"ambient={ambient:F1} (SampleClimate at date {(float)m_ClimateSystem.currentDate:F4}; " +
+                    $"ClimateSystem.temperature reads {(float)m_ClimateSystem.temperature:F1} until its first tick), " +
+                    $"dayMean={dayMean:F1} (24 game hours), " +
+                    $"snowmakingMargin={GetSnowmakingMarginC():F0} C, " +
                     $"snowLine={GetSnowLineElevation():F0} m, " +
                     $"currentSeason={m_ClimateSystem.currentSeasonName}, " +
-                    $"isSnowing={m_ClimateSystem.isSnowing}");
+                    $"isSnowing={m_ClimateSystem.isSnowing}; " +
+                    $"SampleClimate x100 {us:F0} us");
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 Mod.Log.Warn($"Climate logging failed (non-fatal): {e.Message}");
             }

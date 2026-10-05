@@ -14,7 +14,7 @@
                 "name": "UIObject",
                 "active": true,
                 "m_Group": null,
-                "m_Priority": 40,
+                "m_Priority": 45,
                 "m_Icon": "assetdb://global/aed3907873aa4d74bb420190d3044e78",
                 "m_IsDebugObject": false
             }

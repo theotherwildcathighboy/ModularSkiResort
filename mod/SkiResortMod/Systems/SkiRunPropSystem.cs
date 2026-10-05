@@ -53,6 +53,7 @@ namespace SkiResortMod.Systems
         // Same tolerant name resolution as the sibling run-aware systems. Groomed is
         // watched too: it has no AreaSubObjects today, and the prefab-side gate below
         // makes that a no-op until the day it does.
+        // E1 (D16): SkiRunNaturalA is deliberately absent — it has no AreaSubObjects, so no border props (marker poles would need an Editor import).
         private static readonly string[] RunSurfaceNames =
             { "SkiRunSnowmakingA", "SkiRunGroomedA", "SkiRunNightA" };
 
@@ -210,13 +211,17 @@ namespace SkiResortMod.Systems
                         seed = HashSeed(nodes[0].m_Position);
                     EntityManager.AddComponentData(area, new PseudoRandomSeed(seed));
 
-                    // Seed the weather struct at zero in the SAME pass (DECISIONS 90):
-                    // runs may now carry Owner -> gate, and the prop shader's snow
-                    // lookup walks Owner chains until it finds Game.Objects.Surface
-                    // (BatchDataSystem:801-816) — without this, a freshly bridged run's
-                    // props would inherit the GATE's surface state for up to 256 frames
-                    // until SkiRunSurfaceSystem's first write. That system SETS both
-                    // fields every pass, so a zero seed is never fought over.
+                    // Seed the weather struct at zero in the SAME pass. The seed STAYS
+                    // after Round O1 (run-binding-glade-spec.md §3.8), for the run's OWN
+                    // props: the prop shader's snow lookup walks a prop's Owner chain
+                    // until it finds Game.Objects.Surface (Game.Rendering/
+                    // BatchDataSystem.cs:795-817, identical in 1.6.2), and a border prop's
+                    // Owner IS this run — without the seed, a freshly bridged run's props
+                    // would read no surface state (the walk stops at the un-owned run) for
+                    // up to 256 frames until SkiRunSurfaceSystem's first write. (The old
+                    // reason, "runs may carry Owner -> gate", is obsolete: since O1 runs
+                    // carry no Owner; the run→sign link is SkiRunBinding.) That system
+                    // SETS both fields every pass, so a zero seed is never fought over.
                     EntityManager.AddComponent<Game.Objects.Surface>(area);
 
                     // Pre-existing areas (older saves) carry no Updated this frame —

@@ -49,6 +49,13 @@
 // Layer 1's injected snow; groomed keeps a visible corduroy lane), summer the shared
 // faded worn-lane green. Prefab texture references are re-pointed per season too, so the
 // game's own batch re-derivations stay in season (the tug-of-war fix, v2).
+// ROUND E1 (2026-10-04, stream S3; econ-round spec ch3 §8.2): the depth comes from
+// SkiSnowInjectionSystem.TryGetDressDepth — the managed mean (bound injected runs, as before) or,
+// in a city with no managed measurement this load, the natural runs' measured mean depth; the
+// fallback is the 24-hour mean temperature (SnowLineSystem.GetDayMeanTemperature), not the
+// instantaneous ambient, which flipped the dress daily and read 0 °C before the first tick of a
+// session (the WINTER-in-June first load). Thresholds and hysteresis are unchanged. The two
+// `Decal [season]` lines name the source.
 //
 // THE m_Version GOTCHA (area-material-override.md §2): AreaBatchSystem mutates
 // RenderedArea.m_Version to OverrideMaterial in place the first time a batch builds with
@@ -167,6 +174,9 @@ namespace SkiResortMod.Systems
         }
 
         // Run surfaces — same tolerant name resolution as the sibling systems.
+        // E1 (D16): SkiRunNaturalA is left out on purpose — a natural run draws nothing (its
+        // RenderedArea is invisible, e1-spec DV20), so there is no decal to dress; its measured
+        // snow may still drive the dress (SkiSnowInjectionSystem.TryGetDressDepth, ch3 §8).
         private const string GroomedPrefabName = "SkiRunGroomedA";
         private const string SnowmakingPrefabName = "SkiRunSnowmakingA";
         private const string NightPrefabName = "SkiRunNightA";
@@ -286,6 +296,10 @@ namespace SkiResortMod.Systems
         // Seasonal look state (per-load evaluated, hysteresis in EvaluateWinterLook).
         private bool m_WinterLook;
         private int m_FramesUntilSeasonCheck;
+        // E1 ch3 §8.2: what the last EvaluateWinterLook read — for the two `Decal [season]` lines only
+        // (no string is built in the check itself).
+        private RunDressSource m_DressSource;
+        private float m_DressValue;
 
         // Per-load state.
         private bool m_GameMode;                // prefab-ref patching is Game-mode-only
@@ -393,7 +407,8 @@ namespace SkiResortMod.Systems
                 m_FramesUntilReassert = Tuning.ReassertCheckFrames;
                 m_FramesUntilSeasonCheck = Tuning.SeasonCheckFrames;
                 m_WinterLook = EvaluateWinterLook();
-                Mod.Log.Info($"Decal [season]: initial dress {(m_WinterLook ? "WINTER (wear/corduroy)" : "SUMMER (green mowed-grass)")}");
+                Mod.Log.Info($"Decal [season]: initial dress {(m_WinterLook ? "WINTER (wear/corduroy)" : "SUMMER (green mowed-grass)")}" +
+                             DressSourceText());
                 Mod.Log.Info($"Decal: armed — watching for {resolved} live batch material(s) " +
                              $"(retry every {Tuning.FindRetryIntervalFrames} frames, deadline " +
                              $"~{Tuning.BatchFindDeadlineFrames} frames; probe dump on first find)");
@@ -443,7 +458,8 @@ namespace SkiResortMod.Systems
                     if (winter != m_WinterLook)
                     {
                         m_WinterLook = winter;
-                        Mod.Log.Info($"Decal [season]: {(winter ? "-> WINTER dress (wear/corduroy set)" : "-> SUMMER dress (green mowed-grass set)")} — re-dressing {m_AppliedCount} material(s)");
+                        Mod.Log.Info($"Decal [season]: {(winter ? "-> WINTER dress (wear/corduroy set)" : "-> SUMMER dress (green mowed-grass set)")} — re-dressing {m_AppliedCount} material(s)" +
+                                     DressSourceText());
                         foreach (Target target in m_Targets)
                         {
                             if (target.Applied && target.Material != null)
@@ -964,21 +980,44 @@ namespace SkiResortMod.Systems
         /// <summary>Winter-look decision (round 4): primary driver is MEASURED snow on the
         /// runs (injection system's per-pass mean over run footprints, hysteresis 0.5-2 cm)
         /// so green can never show while trails are white. Temperature hysteresis is the
-        /// fallback for loads where no measurement has happened yet.</summary>
+        /// fallback for loads where no measurement has happened yet.
+        /// E1 ch3 §8.2: the measured depth is TryGetDressDepth's (managed, else the natural runs'
+        /// measured mean); the fallback is the 24-hour mean (was the instantaneous ambient, which flips
+        /// daily). Records what it read for the log lines only.</summary>
         private bool EvaluateWinterLook()
         {
-            if (m_SnowInjectionSystem != null && m_SnowInjectionSystem.HasRunSnowMeasurement)
+            if (m_SnowInjectionSystem != null &&
+                m_SnowInjectionSystem.TryGetDressDepth(out float runDepth, out RunDressSource source))
             {
-                float runDepth = m_SnowInjectionSystem.MeanRunSnowDepthM;
+                m_DressSource = source;
+                m_DressValue = runDepth;
                 return m_WinterLook
                     ? runDepth > Tuning.DressBareDepthM
                     : runDepth > Tuning.DressSnowyDepthM;
             }
-            float ambient = m_SnowLineSystem.GetAmbientTemperature();
+            // E1 ch3 §8: the fallback is the 24-hour mean (was the instantaneous ambient, which flips daily).
+            float dayMean = m_SnowLineSystem.GetDayMeanTemperature();
             float freezing = m_SnowLineSystem.GetFreezingTemperature();
+            m_DressSource = RunDressSource.None;
+            m_DressValue = dayMean;
             return m_WinterLook
-                ? ambient <= freezing + Tuning.WinterLookOffC
-                : ambient <= freezing + Tuning.WinterLookOnC;
+                ? dayMean <= freezing + Tuning.WinterLookOffC
+                : dayMean <= freezing + Tuning.WinterLookOnC;
+        }
+
+        /// <summary>ch3 §10 L-V1: the suffix of the two `Decal [season]` lines — what the last
+        /// EvaluateWinterLook read.</summary>
+        private string DressSourceText()
+        {
+            switch (m_DressSource)
+            {
+                case RunDressSource.Managed:
+                    return $" (source: managed run snow {m_DressValue:F3} m)";
+                case RunDressSource.NaturalMeasured:
+                    return $" (source: natural runs' measured snow {m_DressValue:F3} m)";
+                default:
+                    return $" (source: day-mean temperature {m_DressValue:F1} C, no snow measured yet)";
+            }
         }
 
         /// <summary>In-place RGB/alpha scale (round 4, summer set only). LoadImage textures

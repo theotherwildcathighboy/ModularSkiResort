@@ -20,8 +20,9 @@
 // as its own budget-panel line item without Harmony (banned, SPEC §4.1). The cost shows
 // in the balance; the log carries the itemization.
 //
-// TIME MODEL: 262144 sim frames per in-game day (TimeSystem.kTicksPerDay, mirrored as a
-// private const — unreadable at runtime) and daysPerYear from TimeSystem (settings-
+// TIME MODEL: 262144 sim frames per in-game day (TimeSystem.kTicksPerDay — a PUBLIC const,
+// Game.Simulation/TimeSystem.cs:18, same line in 1.6.2; corrected in U2: an earlier comment
+// called it private and mirrored the literal) and daysPerYear from TimeSystem (settings-
 // dependent); one calendar month = kTicksPerDay × daysPerYear / 12 frames. Charges
 // accrue per elapsed frame between passes (wrap-safe uint math) with a fractional
 // carry, so no cadence drift and no rounding loss on small resorts.
@@ -31,11 +32,28 @@
 // SkiSnowInjectionSystem so a same-frame top-up publishes its mask before we read it.
 // Self-gated cadence like the injection system's.
 //
+// U2 ACCESSORS (docs/research/hub-u2-spec.md §2.1, §3.3 runCostMonth; 2026-10-03, implementer
+// I-1): CostPerHaMonth(RunKind) — the three rates below by the shared RunKind (0 groomed / 1
+// snowmaking / 2 night = SkiRunOwnershipSystem.KindOf), so the hub prices a run's texels with the
+// SAME numbers this system bills; LastMonthlyRate — the rate of the last charge pass (0 while
+// idle); IdleReason — "" while billing, else the current idle reason (the text of the last
+// "Upkeep [idle]" line, or the pre-first-pass / disabled state). Plain field reads; the values
+// freeze while the game is paused (GameSimulation phase, below).
+//
 // OBSERVABILITY + DEFENSIVE CONTRACT (house pattern): ARMED line with every rate at
 // load, a charge line whenever the monthly rate bucket changes plus a periodic
 // heartbeat, idle states logged once per reason transition, and the ChairPinSystem
 // error pattern — never throw into the game loop, one-shot "!!!" with stack, disabled
 // for the current load only, re-armed at OnGameLoadingComplete.
+// FLOOD WINDOW (Round F6, item D3; log-audit A2: 126 charge lines in load 2 — the rate moves on
+// almost every pass while snow builds, and a pass is ~4.3 s apart at 4×): the charge lines go
+// through a LogWindow (LogWindow.cs) — at most one per Tuning.LogWindowS (10 s wall clock); the
+// first after a quiet window is written as before, the rest are folded into one
+// `Upkeep [charge] N more charge line(s) in T s, folded …` line (debit per pass and rate
+// min-max, then the last pass's full line). At 1× a pass is ~17 s apart, so every changed pass
+// still logs plain. A fold is flushed before an idle line, before a load (OnGamePreload) and at
+// quit (OnDestroy; F6 fixer). F6 fixer (review): the first billable pass after a load or an idle
+// spell is forced (written at once, with any fold), so a billing restart is never folded away.
 
 using System;
 using Colossal.Serialization.Entities;
@@ -76,12 +94,49 @@ namespace SkiResortMod.Systems
             // Heartbeat: unconditionally log every Nth charging pass even when the rate
             // bucket is stable (~32 × 1024 frames ≈ 4 charge lines per in-game day).
             public const int LogEveryNthCharge = 32;
+
+            // F6 D3 (header FLOOD WINDOW): at most one charge line per this many wall-clock
+            // seconds; the rest of a burst is folded into one summary (contract: 10 s).
+            public const float LogWindowS = 10f;
         }
 
-        // TimeSystem.kTicksPerDay mirror (private const in the decompile, TimeSystem.cs:18
-        // — unreadable at runtime). A patch changing it mis-scales the rate, never
-        // corrupts: the field-calibration session catches it.
-        private const float TicksPerDay = 262144f;
+        // TimeSystem.kTicksPerDay is `public const int kTicksPerDay = 262144`
+        // (Game.Simulation/TimeSystem.cs:18 in 1.6.0f1 and 1.6.2f1) — readable, so it is used
+        // directly (U2 correction of the old "private const, unreadable at runtime" comment; the
+        // value is unchanged). Being a const, the compiler copies the number into this DLL: a patch
+        // that changed it would still need a rebuild of the mod to take effect.
+        private const float TicksPerDay = TimeSystem.kTicksPerDay;
+
+        /// <summary>U2 (hub-u2-spec.md §2.1): the monthly operating cost per hectare of ACTIVE run
+        /// surface for a run kind — the numbers Charge bills (Tuning: groomed 150, snowmaking 500,
+        /// night 800). Unknown values read 0.</summary>
+        public static int CostPerHaMonth(RunKind kind)
+        {
+            switch (kind)
+            {
+                case RunKind.Groomed:
+                    return Tuning.GroomedCostPerHaMonth;
+                case RunKind.Snowmaking:
+                    return Tuning.SnowmakingCostPerHaMonth;
+                case RunKind.Night:
+                    return Tuning.NightCostPerHaMonth;
+                default:
+                    return 0;
+            }
+        }
+
+        /// <summary>U2: the monthly rate of the last charge pass (0 while idle or before the first
+        /// pass of this load).</summary>
+        public float LastMonthlyRate { get; private set; }
+
+        /// <summary>U2: "" while billing; otherwise why nothing is billed (the idle reason of the
+        /// last pass, "first charge pass pending" until the first pass of this load, or the
+        /// disabled / not-armed state).</summary>
+        public string IdleReason { get; private set; } = IdleNotArmed;
+
+        private const string IdleNotArmed = "not armed (not in a city)";
+        private const string IdleFirstPass = "first charge pass pending";
+        private const string IdleDisabled = "disabled after an exception (see the !!! line)";
 
         private SimulationSystem m_SimulationSystem;
         private SkiSnowInjectionSystem m_SnowInjectionSystem;
@@ -100,6 +155,9 @@ namespace SkiResortMod.Systems
         private int m_LastLoggedMonthlyRate;
         private string m_LastIdleReason;
 
+        // F6 D3 (header FLOOD WINDOW): folds the charge lines; reset per load, flushed before a load.
+        private readonly LogWindow m_ChargeLog = new LogWindow(Tuning.LogWindowS);
+
         protected override void OnCreate()
         {
             base.OnCreate();
@@ -117,6 +175,41 @@ namespace SkiResortMod.Systems
             return 4;
         }
 
+        /// <summary>F6 D3 (header FLOOD WINDOW): a load (or leaving to the menu) writes the folded
+        /// charge lines of the city being left. Never throws: GameSystemBase.GamePreload DISABLES a
+        /// system whose OnGamePreload throws (Game/GameSystemBase.cs:85-96; same in 1.6.2).</summary>
+        protected override void OnGamePreload(Purpose purpose, GameMode mode)
+        {
+            base.OnGamePreload(purpose, mode);
+            try
+            {
+                if (m_ChargeLog.Count > 0)
+                    WriteChargeSummary(UnityEngine.Time.realtimeSinceStartup);
+            }
+            catch (Exception e)
+            {
+                Mod.Log.Warn($"Upkeep [charge]: folded charge lines could not be written before the load " +
+                             $"({e.GetType().Name}: {e.Message}) — non-fatal");
+            }
+        }
+
+        /// <summary>F6 fixer (header FLOOD WINDOW): quit to desktop raises no onGamePreload, but the
+        /// world's systems are destroyed while the logger still lives (LogWindow.cs header), so the
+        /// folded charge lines are written here. Teardown must never throw: a failed write is dropped.</summary>
+        protected override void OnDestroy()
+        {
+            try
+            {
+                if (m_ChargeLog.Count > 0)
+                    WriteChargeSummary(UnityEngine.Time.realtimeSinceStartup);
+            }
+            catch (Exception)
+            {
+                // nothing left to report to
+            }
+            base.OnDestroy();
+        }
+
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
         {
             base.OnGameLoadingComplete(purpose, mode);
@@ -130,11 +223,15 @@ namespace SkiResortMod.Systems
             m_ChargeCounter = 0;
             m_LastLoggedMonthlyRate = -1;
             m_LastIdleReason = null;
+            m_ChargeLog.Reset();   // F6 D3: flushed in OnGamePreload; nothing carries over
+            LastMonthlyRate = 0f;
+            IdleReason = IdleNotArmed;
 
             if (mode != GameMode.Game)
                 return;
 
             m_Armed = true;
+            IdleReason = IdleFirstPass;
             Mod.Log.Info("Upkeep: ARMED — snowmaking " +
                          $"{Tuning.SnowmakingCostPerHaMonth}/ha/month, groomed " +
                          $"{Tuning.GroomedCostPerHaMonth}/ha/month, night " +
@@ -142,7 +239,8 @@ namespace SkiResortMod.Systems
                          "injection system's ACTIVE thermal mask (gates off = free, summer " +
                          $"= free, natural terrain = free); charge pass every " +
                          $"{Tuning.ChargeIntervalFrames} sim frames, elapsed-frame accrual " +
-                         "with fractional carry");
+                         "with fractional carry; charge lines at most one per " +
+                         $"LogWindowS={Tuning.LogWindowS:0} s wall clock (a burst is folded into one summary)");
         }
 
         protected override void OnUpdate()
@@ -171,6 +269,8 @@ namespace SkiResortMod.Systems
             catch (Exception e)
             {
                 m_Disabled = true;
+                LastMonthlyRate = 0f;
+                IdleReason = IdleDisabled;
                 if (!m_ErrorLogged)
                 {
                     m_ErrorLogged = true;
@@ -202,6 +302,7 @@ namespace SkiResortMod.Systems
                 return;
             }
 
+            LastMonthlyRate = monthlyRate;   // U2 accessor (the rate this pass accrues at)
             float monthFrames = TicksPerDay * math.max(1, m_TimeSystem.daysPerYear) / 12f;
             m_CarryFraction += monthlyRate * (elapsedFrames / monthFrames);
             int debit = (int)m_CarryFraction;
@@ -210,6 +311,7 @@ namespace SkiResortMod.Systems
                 Entity city = m_CitySystem.City;
                 if (city == Entity.Null || !EntityManager.HasComponent<PlayerMoney>(city))
                 {
+                    IdleReason = "the City entity has no PlayerMoney (charges accrue but are not billed)";
                     if (!m_CityWarned)
                     {
                         m_CityWarned = true;
@@ -226,34 +328,70 @@ namespace SkiResortMod.Systems
 
             m_ChargeCounter++;
             m_LastIdleReason = null;
+            IdleReason = "";   // U2: billing
 
             int rateBucket = (int)math.round(monthlyRate);
             bool log = rateBucket != m_LastLoggedMonthlyRate ||
                        m_ChargeCounter % Tuning.LogEveryNthCharge == 1;
+            float now = UnityEngine.Time.realtimeSinceStartup;
             if (log)
             {
+                // F6 fixer (header FLOOD WINDOW): -1 = after a load or an idle spell, so this is the
+                // billing (re)start — forced, like the snow system's m_ForceNextTopupLog.
+                bool force = m_LastLoggedMonthlyRate < 0;
                 m_LastLoggedMonthlyRate = rateBucket;
                 Entity cityForLog = m_CitySystem.City;
                 string balance = cityForLog != Entity.Null &&
                                  EntityManager.HasComponent<PlayerMoney>(cityForLog)
                     ? EntityManager.GetComponentData<PlayerMoney>(cityForLog).money.ToString()
                     : "n/a";
-                Mod.Log.Info($"Upkeep [charge] -{debit} this pass (carry {m_CarryFraction:F2}) — " +
-                             $"rate {rateBucket}/month = snowmaking {snowmakingHa:F1} ha × " +
-                             $"{Tuning.SnowmakingCostPerHaMonth} + groomed {groomedHa:F1} ha × " +
-                             $"{Tuning.GroomedCostPerHaMonth} + night {nightHa:F1} ha × " +
-                             $"{Tuning.NightCostPerHaMonth}, balance {balance}");
+                string body = $"-{debit} this pass (carry {m_CarryFraction:F2}) — " +
+                              $"rate {rateBucket}/month = snowmaking {snowmakingHa:F1} ha × " +
+                              $"{Tuning.SnowmakingCostPerHaMonth} + groomed {groomedHa:F1} ha × " +
+                              $"{Tuning.GroomedCostPerHaMonth} + night {nightHa:F1} ha × " +
+                              $"{Tuning.NightCostPerHaMonth}, balance {balance}";
+                // F6 D3 (header FLOOD WINDOW): the first line after a quiet window (or the forced
+                // restart) is written as before; the rest of a burst is folded into one summary.
+                switch (m_ChargeLog.Offer(now, force, body, debit, rateBucket))
+                {
+                    case LogWindow.Verdict.Plain:
+                        Mod.Log.Info("Upkeep [charge] " + body);
+                        break;
+                    case LogWindow.Verdict.Summary:
+                        WriteChargeSummary(now);
+                        break;
+                }
             }
+            else if (m_ChargeLog.TrailingDue(now))
+            {
+                WriteChargeSummary(now);   // the end of a burst: never silent
+            }
+        }
+
+        /// <summary>F6 D3 (header FLOOD WINDOW): one line for the folded charge lines — how many, over
+        /// how long, the debit-per-pass and rate ranges, then the last one's full text. Only passes
+        /// that would have logged are folded (a pass at an unchanged rate never was), so no sum.</summary>
+        private void WriteChargeSummary(float now)
+        {
+            Mod.Log.Info($"Upkeep [charge] {m_ChargeLog.Count} more charge line(s) in {m_ChargeLog.SpanS(now):F0} s, folded " +
+                         $"(one line per LogWindowS={Tuning.LogWindowS:0} s): debit {m_ChargeLog.Range(0, "F0")} per pass, " +
+                         $"rate {m_ChargeLog.Range(1, "F0")}/month — last: " + m_ChargeLog.LastText);
+            m_ChargeLog.Wrote(now);
         }
 
         /// <summary>Idle states log once per reason transition (silence impossible, spam
         /// impossible). Accrual meter naturally reads zero while idle: the rate is zero.</summary>
         private void SetIdle(string reason)
         {
+            LastMonthlyRate = 0f;   // U2 accessors: idle every pass this is called
+            IdleReason = reason;
             if (m_LastIdleReason == reason)
                 return;
             m_LastIdleReason = reason;
             m_LastLoggedMonthlyRate = -1; // next billable pass logs unconditionally
+            // F6 D3: the folded charge passes before the idle spell come first, so the log reads in order.
+            if (m_ChargeLog.Count > 0)
+                WriteChargeSummary(UnityEngine.Time.realtimeSinceStartup);
             Mod.Log.Info($"Upkeep [idle]: {reason} — nothing billed; re-evaluated every " +
                          $"{Tuning.ChargeIntervalFrames} sim frames");
         }

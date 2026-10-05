@@ -86,6 +86,7 @@ namespace SkiResortMod.Systems
 
         // SkiRunNightA is watched ahead of its existence (tolerated-missing, the house
         // pattern) so the night-skiing surface lights up the moment it ships.
+        // E1 (D16): SkiRunNaturalA is deliberately absent — a natural run has no floodlights.
         private static readonly string[] RunSurfaceNames =
             { "SkiRunSnowmakingA", "SkiRunGroomedA", "SkiRunNightA" };
 

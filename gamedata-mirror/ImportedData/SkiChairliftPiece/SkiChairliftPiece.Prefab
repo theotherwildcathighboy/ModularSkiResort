@@ -62,7 +62,7 @@
                 "$type": "6|Game.Prefabs.PlaceableNetPiece, Game",
                 "name": "PlaceableNetPiece",
                 "active": true,
-                "m_ConstructionCost": 20,
+                "m_ConstructionCost": 60,
                 "m_ElevationCost": 5,
                 "m_UpkeepCost": 3
             },

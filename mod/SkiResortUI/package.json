@@ -1,0 +1,36 @@
+{
+  "name": "skiresortmod-ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ski Resort hub: the Cities: Skylines II UI module of the Modular Ski Resort mod (see README.md).",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "sync-types": "node tools/sync-types.js",
+    "prebuild": "npm run sync-types",
+    "build": "webpack",
+    "postbuild": "node tools/check-bundle.js",
+    "typecheck": "npm run sync-types && tsc --noEmit -p tsconfig.json",
+    "check": "node tools/check-bundle.js",
+    "contract:lock": "node tools/check-bundle.js --write-lock",
+    "dev": "npm run sync-types && webpack --watch --env deploy"
+  },
+  "dependencies": {
+    "react": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "18.0.26",
+    "@types/react-dom": "18.0.9",
+    "css-loader": "6.7.2",
+    "mini-css-extract-plugin": "2.7.0",
+    "sass": "1.69.5",
+    "sass-loader": "13.2.0",
+    "terser-webpack-plugin": "5.3.10",
+    "ts-loader": "9.5.1",
+    "typescript": "4.8.4",
+    "webpack": "5.97.1",
+    "webpack-cli": "4.10.0"
+  }
+}

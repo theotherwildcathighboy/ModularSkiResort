@@ -40,7 +40,21 @@
 		<Reference Include="Colossal.Localization">
 			<Private>false</Private>
 		</Reference>
+		<!-- The tooltip widgets (Game.UI.Tooltip StringTooltip / IntTooltip, via
+		     Game.UI.Widgets.Widget) implement interfaces declared in Colossal.UI.Binding; the
+		     compiler needs it resolvable for SkiRunTooltipSystem (run-feedback-spec §5/§6).
+		     Present in %CSII_MANAGEDPATH% as Colossal.UI.Binding.dll. -->
+		<Reference Include="Colossal.UI.Binding">
+			<Private>false</Private>
+		</Reference>
 		<Reference Include="Colossal.Mathematics">
+			<Private>false</Private>
+		</Reference>
+		<!-- NativeQuadTree / INativeQuadTreeIterator / NativeValue are not defined in Game.dll:
+		     SearchSystem.GetStaticSearchTree returns NativeQuadTree (SearchSystem.cs:421) and
+		     OverlayRenderSystem.Buffer holds a NativeValue (OverlayRenderSystem.cs:116). Used
+		     by the glade tool (SkiGladeToolSystem: thinning candidates, overlay). -->
+		<Reference Include="Colossal.Collections">
 			<Private>false</Private>
 		</Reference>
 		<Reference Include="UnityEngine.CoreModule">
@@ -67,6 +81,13 @@
 			<Private>false</Private>
 		</Reference>
 		<Reference Include="Unity.Mathematics">
+			<Private>false</Private>
+		</Reference>
+		<!-- IProxyAction declares event Action<ProxyAction, InputActionPhase> onInteraction
+		     (IProxyAction.cs:12) and ToolBaseSystem uses UnityEngine.InputSystem; the glade
+		     tool + hotkey system touch ProxyAction, so the compiler may need the type
+		     (CS0012 risk, unverified without it). -->
+		<Reference Include="Unity.InputSystem">
 			<Private>false</Private>
 		</Reference>
 	</ItemGroup>
@@ -111,6 +132,184 @@
 		<Error Condition="!Exists('$(ModPostProcessorFullPath)')" Text="Post processor not found, please check the path: $(ModPostProcessorFullPath)" />
 		<Message Text="Run post processor (with DOTNET_ROLL_FORWARD=LatestMajor): $(ModPostProcessorArgs)" Importance="high" />
 		<Exec Command="$(ModPostProcessorArgs)" LogStandardErrorAsError="true" EnvironmentVariables="DOTNET_ROLL_FORWARD=LatestMajor" />
+	</Target>
+
+	<!--
+	===============================================================================================
+	Ski Resort UI module (mod/SkiResortUI): build, build stamp, deploy.
+	Created 2026-10-01, Round U1 (implementer U1-A). Authority: docs/research/resort-hub-understand.md
+	section 5.2 item 1 and section 2.A.3 item 11.
+
+	  SkiUiBuild    (before BeforeBuild) when mod/SkiResortUI/node_modules exists: generates ONE new
+	                build stamp and runs `npm run build` there (sync-types -> webpack -> the
+	                tools/check-bundle.js gate) with it in SKI_BUILD_STAMP; webpack compiles it into
+	                the bundle (__BUILD_STAMP__) and writes it to build\.ui-stamp. Incremental: skipped
+	                while no UI input (sources, configs, root LocaleEN.cs, Systems\SkiResortHubUISystem.cs
+	                and tools\contract.lock since contract 2, the game's typings and UI index.js) is newer
+	                than the bundle AND build\.gate-pass exists. A failing UI build
+	                FAILS this build before anything compiles; nothing is deployed and the Mods folder
+	                keeps the previous build (a broken bundle can blank every mod's UI).
+	  GATE MARKER   (amended 2026-10-01, U1 fixer round, finding pipeline-safety-1). Before it, the
+	                gate blocked only the build it failed in: webpack had already written the rejected
+	                bundle and .ui-stamp, newer than every input, so the NEXT build (or a publish,
+	                which rebuilds with NeedBuild=true, Mod.targets:45-46) skipped SkiUiBuild and
+	                shipped the rejected bundle - and the stamp handshake could not see it (same stamp
+	                in DLL and bundle). Now build\.gate-pass records the gate result: webpack deletes it
+	                on every emit, check-bundle deletes it when it starts and writes it (= the stamp)
+	                only on PASS, and SkiUiBuildFailedHint deletes it and .ui-stamp on any failure.
+	                It is an Output of SkiUiBuild (missing = the gate reruns), and SkiBuildStamp and
+	                SkiUiDeploy raise an error unless it exists and equals .ui-stamp. So a rejected
+	                bundle never reaches the DLL or the Mods folder, on the failing build or any later
+	                one, however build\ got there (dotnet build, npm run build/dev, npm run check).
+	  SkiBuildStamp (before CoreCompile; every build, design-time builds included): compiles the stamp
+	                of the GATED bundle in build\ into SkiResortMod.BuildStamp.Value (obj\...\
+	                SkiBuildStamp.g.cs, rewritten only when the value changes, so an unchanged UI
+	                forces no recompile). So the DLL and the bundle deployed beside it always carry
+	                the same stamp; the C# hub compares it with the bundle's uiHello. No UI: "no-ui"
+	                (also in a design-time build that finds an ungated bundle: no error there).
+	  SkiUiDeploy   (after DeployWIP, which deletes the deploy folder first, Mod.targets:106-113):
+	                copies build\ (minus .ui-stamp and .gate-pass) beside the DLL, after re-checking
+	                the marker and that build\ still holds the stamp compiled into the DLL. An error
+	                here leaves the new DLL deployed WITHOUT a bundle (logged in game as "UI module
+	                present: False"), never a mismatched or ungated one. Publishing uploads the deploy
+	                folder (Mod.targets:122, :148), so the bundle ships with no further change.
+	  No node_modules (a fresh clone before `npm ci`) or -p:SkipUi=true: the DLL builds and deploys
+	  exactly as before and ONE line says the UI is absent (a warning when node_modules is missing).
+	Ordering: declared after the RunModPostProcessor override above and hooked only on BeforeBuild,
+	CoreCompile and DeployWIP, so build -> post-process -> DeployWIP -> SkiUiDeploy stays intact.
+	BuildGetFullPaths (Mod.targets, also BeforeTargets="BeforeBuild", declared earlier) sets
+	NeedBuild/DeployDir before SkiUiBuild's condition is evaluated.
+	===============================================================================================
+	-->
+	<PropertyGroup>
+		<SkiUiDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\SkiResortUI'))</SkiUiDir>
+		<SkiUiBuildDir>$(SkiUiDir)\build</SkiUiBuildDir>
+		<SkiUiStampFile>$(SkiUiBuildDir)\.ui-stamp</SkiUiStampFile>
+		<!-- Written by tools/check-bundle.js only on PASS (content = the stamp); header "GATE MARKER". -->
+		<SkiUiGateFile>$(SkiUiBuildDir)\.gate-pass</SkiUiGateFile>
+		<SkiCsiiInstall>$([System.Environment]::GetEnvironmentVariable('CSII_INSTALLATIONPATH', 'EnvironmentVariableTarget.User'))</SkiCsiiInstall>
+		<SkiUiEnabled>false</SkiUiEnabled>
+		<SkiUiEnabled Condition="'$(SkipUi)' != 'true' And Exists('$(SkiUiDir)\node_modules')">true</SkiUiEnabled>
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(SkiUiEnabled)' == 'true'">
+		<SkiUiInput Include="$(SkiUiDir)\src\**\*" />
+		<SkiUiInput Include="$(SkiUiDir)\tools\*.js" />
+		<SkiUiInput Include="$(SkiUiDir)\package.json;$(SkiUiDir)\package-lock.json;$(SkiUiDir)\webpack.config.js;$(SkiUiDir)\tsconfig.json;$(SkiUiDir)\mod.json" />
+		<!-- check-bundle lints the SkiResort.Hub.* strings here and parses the game's runtime exports. -->
+		<SkiUiInput Include="$(MSBuildProjectDirectory)\LocaleEN.cs" />
+		<!-- Contract 2 (docs/research/hub-u2-spec.md 4.7 rules 1-3, added 2026-10-03 by I-4): the gate also
+		     matches the hub system's binding / trigger literals and TypeBegin blocks against bindings.ts
+		     and reads tools/contract.lock, so a C#-only change of a name or a field must re-run it. The
+		     *.lock wildcard matches nothing (and adds no input) until the lock file exists. -->
+		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\SkiResortHubUISystem.cs" />
+		<!-- Round E1 (econ-round spec ch6 §10.3, gate rule R17): the gate compares these files' enums with
+		     bindings.ts, so a C#-only change of a compared enum must re-run it. -->
+		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\HubRules.cs;$(MSBuildProjectDirectory)\Systems\EntityRef.cs;$(MSBuildProjectDirectory)\Systems\SkiMoneyRules.cs" />
+		<SkiUiInput Include="$(SkiUiDir)\tools\*.lock" />
+		<SkiUiInput Include="$(SkiCsiiInstall)\Cities2_Data\Content\Game\.ModdingToolchain\npx-create-csii-ui-mod\template\types\*.d.ts" Condition="'$(SkiCsiiInstall)' != ''" />
+		<SkiUiInput Include="$(SkiCsiiInstall)\Cities2_Data\Content\Game\UI\index.js" Condition="'$(SkiCsiiInstall)' != ''" />
+	</ItemGroup>
+
+	<Target Name="SkiUiBuild" BeforeTargets="BeforeBuild"
+	        Condition="'$(NeedBuild)' == 'true' And '$(SkiUiEnabled)' == 'true' And '$(DesignTimeBuild)' != 'true'"
+	        Inputs="@(SkiUiInput)"
+	        Outputs="$(SkiUiStampFile);$(SkiUiGateFile);$(SkiUiBuildDir)\SkiResortMod.mjs;$(SkiUiBuildDir)\SkiResortMod.css">
+		<PropertyGroup>
+			<SkiNewStamp>$([System.DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))-$([System.Guid]::NewGuid().ToString('N').Substring(0, 6))</SkiNewStamp>
+		</PropertyGroup>
+		<Message Importance="high" Text="SkiResortMod UI: building mod\SkiResortUI (npm run build: sync-types, webpack, check-bundle) with build stamp $(SkiNewStamp)" />
+		<Exec Command="npm run build" WorkingDirectory="$(SkiUiDir)"
+		      EnvironmentVariables="SKI_BUILD_STAMP=$(SkiNewStamp);CSII_INSTALLATIONPATH=$(SkiCsiiInstall)"
+		      StandardOutputImportance="high" StandardErrorImportance="high"
+		      CustomErrorRegularExpression="check-bundle: (ERROR|CRASHED)|\[tsl\] ERROR|^ERROR in |sync-types: FAILED" />
+		<OnError ExecuteTargets="SkiUiBuildFailedHint" />
+	</Target>
+
+	<!-- Belt and braces for failures before the gate ran (sync-types, webpack): no stamp, no marker,
+	     so the next build reruns the UI build and nothing from build\ can be reused. -->
+	<Target Name="SkiUiBuildFailedHint">
+		<Delete Files="$(SkiUiGateFile);$(SkiUiStampFile)" ContinueOnError="true" />
+		<Message Importance="high" Text="SkiResortMod UI: the UI build FAILED (see above). Nothing was compiled or deployed by THIS build; build\.gate-pass and build\.ui-stamp are deleted, so later builds rerun the UI build and can never ship the rejected bundle. Fix it, or build the DLL alone with: dotnet build -p:SkipUi=true (the hub UI is then absent)." />
+	</Target>
+
+	<Target Name="SkiBuildStamp" BeforeTargets="CoreCompile" DependsOnTargets="PrepareForBuild">
+		<PropertyGroup>
+			<SkiBuildStampFile>$(IntermediateOutputPath)SkiBuildStamp.g.cs</SkiBuildStampFile>
+			<SkiStampValue>no-ui</SkiStampValue>
+			<SkiStampUi>false</SkiStampUi>
+			<SkiStampRead></SkiStampRead>
+		</PropertyGroup>
+		<ReadLinesFromFile File="$(SkiUiStampFile)" Condition="'$(SkiUiEnabled)' == 'true' And Exists('$(SkiUiStampFile)') And Exists('$(SkiUiBuildDir)\SkiResortMod.mjs')">
+			<Output TaskParameter="Lines" PropertyName="SkiStampRead" />
+		</ReadLinesFromFile>
+		<ReadLinesFromFile File="$(SkiUiGateFile)" Condition="'$(SkiStampRead)' != '' And Exists('$(SkiUiGateFile)')">
+			<Output TaskParameter="Lines" PropertyName="SkiGateRead" />
+		</ReadLinesFromFile>
+		<PropertyGroup>
+			<SkiGateOk>false</SkiGateOk>
+			<SkiGateOk Condition="'$(SkiStampRead)' != '' And '$(SkiGateRead.Trim())' == '$(SkiStampRead.Trim())'">true</SkiGateOk>
+		</PropertyGroup>
+		<!-- Header "GATE MARKER": a bundle that did not pass tools/check-bundle.js never gets compiled in. -->
+		<Error Condition="'$(SkiStampRead)' != '' And '$(SkiGateOk)' != 'true' And '$(DesignTimeBuild)' != 'true'"
+		       Text="SkiResortMod UI: the bundle in mod\SkiResortUI\build (stamp $(SkiStampRead.Trim())) has NOT passed tools/check-bundle.js (build\.gate-pass is missing or names '$(SkiGateRead.Trim())'). Nothing compiled or deployed. Rebuild the UI: delete mod\SkiResortUI\build and run dotnet build again (or npm run build there), or build the DLL alone with -p:SkipUi=true." />
+		<PropertyGroup Condition="'$(SkiGateOk)' == 'true'">
+			<SkiStampValue>$(SkiStampRead.Trim())</SkiStampValue>
+			<SkiStampUi>true</SkiStampUi>
+		</PropertyGroup>
+		<Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(SkiStampValue)', '^[A-Za-z0-9._-]{1,64}$'))"
+		       Text="SkiResortMod: build stamp '$(SkiStampValue)' read from $(SkiUiStampFile) is malformed; delete mod\SkiResortUI\build and rebuild." />
+		<!-- One item per generated line: ';' is written %3B, and no line may contain '*', '?', '$(' or '@(' (MSBuild item syntax). -->
+		<ItemGroup>
+			<SkiStampLine Include="// &lt;auto-generated&gt; by SkiResortMod.csproj, target SkiBuildStamp. Do not edit%3B lives in obj\, never committed." />
+			<SkiStampLine Include="namespace SkiResortMod" />
+			<SkiStampLine Include="{" />
+			<SkiStampLine Include="/// &lt;summary&gt;The build stamp shared by this DLL and the UI bundle deployed beside it" />
+			<SkiStampLine Include="/// (mod/SkiResortUI, webpack DefinePlugin __BUILD_STAMP__, read by the hub's uiHello).&lt;/summary&gt;" />
+			<SkiStampLine Include="public static class BuildStamp" />
+			<SkiStampLine Include="{" />
+			<SkiStampLine Include="/// &lt;summary&gt;Equals the bundle's BUNDLE_STAMP when both came out of the same build%3B" />
+			<SkiStampLine Include="/// &quot;no-ui&quot; when this DLL was built without the UI module.&lt;/summary&gt;" />
+			<SkiStampLine Include="public const string Value = &quot;$(SkiStampValue)&quot;%3B" />
+			<SkiStampLine Include="/// &lt;summary&gt;True when this build deployed a UI bundle beside the DLL.&lt;/summary&gt;" />
+			<SkiStampLine Include="public static readonly bool UiBundled = $(SkiStampUi)%3B" />
+			<SkiStampLine Include="}" />
+			<SkiStampLine Include="}" />
+		</ItemGroup>
+		<WriteLinesToFile File="$(SkiBuildStampFile)" Lines="@(SkiStampLine)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+		<ItemGroup>
+			<Compile Include="$(SkiBuildStampFile)" />
+			<FileWrites Include="$(SkiBuildStampFile)" />
+		</ItemGroup>
+		<Message Importance="high" Text="SkiResortMod: build stamp $(SkiStampValue) compiled into the DLL as SkiResortMod.BuildStamp.Value (UI bundle: $(SkiStampUi))" />
+	</Target>
+
+	<Target Name="SkiUiDeploy" AfterTargets="DeployWIP" Condition="'$(NeedBuild)' == 'true'">
+		<ItemGroup Condition="'$(SkiUiEnabled)' == 'true'">
+			<SkiUiDeployFile Include="$(SkiUiBuildDir)\**\*" Exclude="$(SkiUiStampFile);$(SkiUiGateFile)" />
+		</ItemGroup>
+		<Error Condition="'$(SkiUiEnabled)' == 'true' And (!Exists('$(SkiUiBuildDir)\SkiResortMod.mjs') Or !Exists('$(SkiUiBuildDir)\SkiResortMod.css'))"
+		       Text="SkiResortMod UI: mod\SkiResortUI\build\SkiResortMod.mjs or .css is missing although node_modules exists. Run npm run build there, or build with -p:SkipUi=true." />
+		<!-- Header "GATE MARKER": re-read both files here, after the compile - build\ must still hold the
+		     gated bundle whose stamp is in the DLL (e.g. not one an `npm run dev` wrote meanwhile). -->
+		<ReadLinesFromFile File="$(SkiUiStampFile)" Condition="'$(SkiUiEnabled)' == 'true' And Exists('$(SkiUiStampFile)')">
+			<Output TaskParameter="Lines" PropertyName="SkiDeployStamp" />
+		</ReadLinesFromFile>
+		<ReadLinesFromFile File="$(SkiUiGateFile)" Condition="'$(SkiUiEnabled)' == 'true' And Exists('$(SkiUiGateFile)')">
+			<Output TaskParameter="Lines" PropertyName="SkiDeployGate" />
+		</ReadLinesFromFile>
+		<Error Condition="'$(SkiUiEnabled)' == 'true' And ('$(SkiDeployStamp.Trim())' == '' Or '$(SkiDeployGate.Trim())' != '$(SkiDeployStamp.Trim())')"
+		       Text="SkiResortMod UI: NOT deployed - the bundle in mod\SkiResortUI\build (stamp '$(SkiDeployStamp.Trim())') has not passed tools/check-bundle.js (build\.gate-pass: '$(SkiDeployGate.Trim())'). The new DLL is deployed without the hub UI. Delete mod\SkiResortUI\build and rebuild." />
+		<Error Condition="'$(SkiUiEnabled)' == 'true' And '$(SkiDeployStamp.Trim())' != '$(SkiStampValue)'"
+		       Text="SkiResortMod UI: NOT deployed - mod\SkiResortUI\build changed after the DLL was compiled (bundle stamp '$(SkiDeployStamp.Trim())', DLL stamp '$(SkiStampValue)'). The new DLL is deployed without the hub UI. Stop npm run dev and rebuild." />
+		<Copy Condition="'$(SkiUiEnabled)' == 'true'" SourceFiles="@(SkiUiDeployFile)"
+		      DestinationFiles="@(SkiUiDeployFile->'$(DeployDir)\%(RecursiveDir)%(Filename)%(Extension)')" />
+		<Message Condition="'$(SkiUiEnabled)' == 'true'" Importance="high"
+		         Text="SkiResortMod UI: deployed @(SkiUiDeployFile->Count()) file(s), build stamp $(SkiStampValue) -> $(DeployDir)" />
+		<Message Condition="'$(SkiUiEnabled)' != 'true' And '$(SkipUi)' == 'true'" Importance="high"
+		         Text="SkiResortMod UI: ABSENT (-p:SkipUi=true) - the DLL is deployed without the hub UI (build stamp $(SkiStampValue))." />
+		<Warning Condition="'$(SkiUiEnabled)' != 'true' And '$(SkipUi)' != 'true'"
+		         Text="SkiResortMod UI: ABSENT - mod\SkiResortUI\node_modules is missing (run npm ci there once). The DLL is deployed without the hub UI (build stamp $(SkiStampValue))." />
 	</Target>
 
 </Project>

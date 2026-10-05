@@ -22,6 +22,13 @@
 // below read plain counters that OnUpdate/BuildLoopCache already maintain. The per-chair
 // rows read a handful of components for a fixed small sample. Anything heavier runs on a
 // Button press and goes to the mod log, where it is also readable after the fact.
+//
+// ROUND L1 (2026-10-03, implementer I-2): rows for LoopGeneration, the immediate-rebuild
+// requests and the OD-7 seeding counters, plus a "Lift census (L1)" foldout reading
+// LiftCensusSystem / LiftParkSystem / LiftReconnectSystem / SkiStationAlignSystem public
+// counters (systems fetched with GetExistingSystemManaged, so a system the integrator did not
+// register shows "not registered" instead of being created unregistered), and a button that
+// dumps the census rows to the mod log.
 
 using System;
 using System.Collections.Generic;
@@ -89,7 +96,55 @@ namespace SkiResortMod.Systems
             moving.children.Add(Val("Rebuilds / last rebuild frame / enrolled", () =>
                 $"{m_DiagRebuilds} / {(m_DiagLastRebuildFrame < 0 ? "-" : m_DiagLastRebuildFrame.ToString())} / {m_DiagEnrolled}"));
             moving.children.Add(Val("Last rebuild signature", () => m_LastBuildSignature ?? "-"));
+            moving.children.Add(Val("Loop generation (L1)", () => LoopGeneration));
+            moving.children.Add(Val("Immediate rebuilds: requested / bypassed cooldown / last reason", () =>
+                $"{m_DiagImmediateRequests} / {m_DiagImmediateRebuilds} / {m_ImmediateWhy}"));
+            moving.children.Add(Val("OD-7 seeding: loops seeded / chairs / grid loops", () =>
+                $"{m_DiagSeededLoops} / {m_DiagSeededChairs} / {m_DiagGridLoops}"));
             list.Add(moving);
+
+            // ── Round L1: lift census, park, reconnect episodes, alignment aid ─────────────
+            var census = new DebugUI.Foldout { displayName = "Lift census (L1)", opened = false };
+            census.children.Add(Val("Census armed / revision / builds", () =>
+            {
+                var c = World.GetExistingSystemManaged<LiftCensusSystem>();
+                return c == null ? "not registered" : $"{c.IsArmed} / {c.Revision} / {c.Builds}";
+            }));
+            census.children.Add(Val("Last build ms / max ms", () =>
+            {
+                var c = World.GetExistingSystemManaged<LiftCensusSystem>();
+                return c == null ? "-" : $"{c.LastBuildMs:F2} / {c.MaxBuildMs:F2}";
+            }));
+            census.children.Add(Val("Last event", () => World.GetExistingSystemManaged<LiftCensusSystem>()?.LastEvent ?? "-"));
+            census.children.Add(Val("Park queue / events created", () =>
+            {
+                var c = World.GetExistingSystemManaged<LiftCensusSystem>();
+                var p = World.GetExistingSystemManaged<LiftParkSystem>();
+                return $"{(c == null ? "-" : c.ParkQueueCount.ToString())} / {(p == null ? "emitter not registered" : p.EventsCreated.ToString())}";
+            }));
+            census.children.Add(Val("Last moved station / frame", () =>
+            {
+                var c = World.GetExistingSystemManaged<LiftCensusSystem>();
+                return c == null ? "-" : $"{Ent(c.LastMovedStation)} / {c.LastMovedFrame}";
+            }));
+            census.children.Add(Val("Reconnect episodes open / lines", () =>
+            {
+                var r = World.GetExistingSystemManaged<LiftReconnectSystem>();
+                return r == null ? "not registered" : $"{r.OpenEpisodes} / {r.EpisodeLines}";
+            }));
+            census.children.Add(Val("Align: active / partner / aligned / offset m / yaw °", () =>
+            {
+                var a = World.GetExistingSystemManaged<SkiStationAlignSystem>();
+                if (a == null) return "not registered";
+                var m = a.Last;
+                return $"{a.Active} / {(a.HasPartner ? Ent(a.Partner) : "-")} / {m.Aligned} / {m.LateralM:F2} / {m.YawDeg:F2}";
+            }));
+            census.children.Add(Val("Align: frames drawn / placements / moves logged", () =>
+            {
+                var a = World.GetExistingSystemManaged<SkiStationAlignSystem>();
+                return a == null ? "-" : $"{a.FramesDrawn} / {a.PlacementsLogged} / {a.MovesLogged}";
+            }));
+            list.Add(census);
 
             // ── Static mode (milestone 1 flow; also the fallback when the net prefab is missing)
             var stat = new DebugUI.Foldout { displayName = "Static mode", opened = false };
@@ -127,6 +182,18 @@ namespace SkiResortMod.Systems
             {
                 displayName = "Dump diagnostics to mod log",
                 action = () => DumpDiagnostics("debug tab")
+            });
+            list.Add(new DebugUI.Button
+            {
+                displayName = "Dump lift census to mod log (L1)",
+                action = () =>
+                {
+                    var c = World.GetExistingSystemManaged<LiftCensusSystem>();
+                    if (c != null)
+                        c.DumpCensus("debug tab");
+                    else
+                        Mod.Log.Info($"{nameof(ChairPinSystem)} [debug tab]: LiftCensusSystem is not registered");
+                }
             });
             list.Add(new DebugUI.Button
             {
@@ -265,6 +332,14 @@ namespace SkiResortMod.Systems
                               $"signature=\"{m_LastBuildSignature ?? "-"}\"");
                 sb.AppendLine($"  static: fullPassPending={m_FullPassPending} label={m_PendingPassLabel} retries={m_FullPassRetries} " +
                               $"updateAlive={m_UpdateAliveLogged} zeroMatch={m_ZeroMatchLogged} watchdog={m_WatchdogCountdown}");
+                sb.AppendLine($"  L1: loopGeneration={LoopGeneration} immediateRequests={m_DiagImmediateRequests} " +
+                              $"immediateBypassed={m_DiagImmediateRebuilds} lastImmediate=\"{m_ImmediateWhy}\" " +
+                              $"seededLoops={m_DiagSeededLoops} seededChairs={m_DiagSeededChairs} gridLoops={m_DiagGridLoops}");
+                for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
+                {
+                    LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
+                    sb.AppendLine($"  loop {l} stations: {Ent(loop.m_BaseStation)} ↔ {Ent(loop.m_TopStation)}");
+                }
                 if (m_LastError != null)
                     sb.AppendLine("  lastError=" + m_LastError);
 

@@ -50,6 +50,37 @@
 //     missing station) fall back to milestone-1 static pinning per chair; MovingChairs=false
 //     restores the static flow wholesale.
 //
+// ROUND L1 (2026-10-03, implementer I-2; docs/research/hub-u2-spec.md §2.1, §5.4) — DATA AND
+// TIMING ONLY, the mover's algorithm is unchanged:
+//   * Accessors for the hub and the lift census: MovingChairsOn, ChairSpeedMps, SeatsPerChair
+//     (the "SkiLiftChair4" prefab name — no data field carries the seat count), LoopGeneration
+//     (++ on EVERY BuildLoopCache, independent of the drift-gated rebuild log), TryGetLoop
+//     (unordered station pair → chairs riding + circuit length), IsChairPrefab, ChairliftPrefab.
+//   * RequestImmediateRebuild(why): dirty + bypass RebuildCooldownFrames ONCE. LiftCensusSystem
+//     (Modification4B, anchored before this system) calls it when lift topology changed, so the
+//     loop over a deleted span is dropped the same frame instead of chairs riding cached beziers
+//     across the gap for up to 30 frames (spec §5.1), and once more the frame after a park
+//     (the re-seated chairs are static-pinned onto their own lanes at once).
+//   * Restart seeding, OD-7 (a), BuildLoopCache step 4: when a loop's identity carry-forward
+//     fails AND none of its chairs rode a loop in the previous cache (the lift has just closed —
+//     first time, or again after a section was redrawn), each chair starts from where it STANDS:
+//     offset = ProjectOnOwner(loop, its owner, its grip point) − phase. Spacing may be uneven at
+//     the turns. Any chair whose owner has no segment (cannot happen for a rostered chair, guarded
+//     anyway) or whose grip point is farther than ApproachPinDistanceCeiling from its own lane (a
+//     rider: after a game load the saved chairs stand anywhere on the loop) sends the whole loop
+//     back to the entity-index grid, as do all other non-identity rebuilds (chairs that were
+//     already riding keep today's behaviour, OD-7 (b)).
+//
+// ROUND F6 (2026-10-03, item B4; docs/research/field/2026-10-03b/findings/log-audit.md A3 and its
+// Verification) — LOGGING ONLY, no behaviour change: the west lift of field test 6 fell back to the
+// grid on 2 of its closures (log 562, 1671) and nothing said why. A refused seeding now writes ONE
+// line per rebuild, `ChairPinSystem [moving] OD-7: N loop(s) could not restart from where their
+// chairs stood …`, naming per loop (at most SeedRefusalLoopsLogged) its stations, the first failing
+// chair, its section and the cause: farther than ApproachPinDistanceCeiling (4.0 m) from its own lane
+// (with how many chairs were over and the farthest), no lane segment for its section, or no
+// Transform / Owner. The first rebuild after a load is marked as expected (saved riders
+// stand anywhere). Per-chair seeding (grid only the failures) needs gap filling: a later round.
+//
 // ─────────────────────────────────────────────────────────────────────────────────────────
 // HOW A CHAIR IS PINNED (all game types verified against the decompiled Game.dll, fullsrc)
 //
@@ -132,6 +163,65 @@ namespace SkiResortMod.Systems
         // tab flips it at runtime for A/B checks (a flip requests a full pass).
         private static bool MovingChairs = true;
         private const float ChairSpeedMetersPerSecond = 2.5f;
+
+        // ── Round L1 accessors (hub-u2-spec.md §2.1) ─────────────────────────────────────
+        /// <summary>The moving-chairs kill switch (MovingChairs above; the developer tab flips it).</summary>
+        internal static bool MovingChairsOn => MovingChairs;
+        /// <summary>Chair speed along the loop, metres per second of the render clock.</summary>
+        internal const float ChairSpeedMps = ChairSpeedMetersPerSecond;
+        /// <summary>Seats per chair: the "SkiLiftChair4" prefab name (ChairPrefabNames below); no
+        /// prefab data field carries it.</summary>
+        internal const int SeatsPerChair = 4;
+        /// <summary>++ on EVERY BuildLoopCache (not tied to the count signature, which contains no
+        /// station identities).</summary>
+        internal int LoopGeneration { get; private set; }
+
+        /// <summary>The chair prefab set resolved by name (ChairPrefabNames).</summary>
+        internal bool IsChairPrefab(Entity prefab) => m_ChairPrefabs.ContainsKey(prefab);
+
+        /// <summary>ADDITIVE: the SkiChairliftHV net prefab entity (Entity.Null until resolved).</summary>
+        internal Entity ChairliftPrefab => m_ChairliftPrefab;
+
+        /// <summary>The closed loop between two stations, in either order: chairs riding and the
+        /// CIRCUIT length (chain A + top turn + chain B + base turn). False in static mode, for an
+        /// open lift, or before the first rebuild.</summary>
+        internal bool TryGetLoop(Entity stationA, Entity stationB, out int chairsRiding, out double loopM)
+        {
+            for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
+            {
+                LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
+                if ((loop.m_BaseStation == stationA && loop.m_TopStation == stationB) ||
+                    (loop.m_BaseStation == stationB && loop.m_TopStation == stationA))
+                {
+                    chairsRiding = loop.m_Chairs.Count;
+                    loopM = loop.m_Length;
+                    return true;
+                }
+            }
+            chairsRiding = 0;
+            loopM = 0.0;
+            return false;
+        }
+
+        /// <summary>Dirty the loop cache and bypass RebuildCooldownFrames once (LiftCensusSystem:
+        /// lift topology changed / a park was just re-seated). Same frame when called before
+        /// Modification4B's ChairPinSystem update (the census is anchored before it). Static mode
+        /// keeps no loop cache: the flag is harmless there.</summary>
+        internal void RequestImmediateRebuild(string why)
+        {
+            m_LoopCacheDirty = true;
+            m_ImmediateRebuild = true;
+            m_ImmediateWhy = why;
+            m_DiagImmediateRequests++;
+        }
+
+        private bool m_ImmediateRebuild;           // bypass the cooldown once (RequestImmediateRebuild)
+        private string m_ImmediateWhy = "-";       // reason of the last request (dev tab)
+        private int m_DiagImmediateRequests;       // requests this load
+        private int m_DiagImmediateRebuilds;       // rebuilds that bypassed the cooldown this load
+        private int m_DiagSeededLoops;             // loops seeded from where the chairs stood (OD-7 a)
+        private int m_DiagSeededChairs;
+        private int m_DiagGridLoops;               // non-identity loops given the entity-index grid
 
         // Moving-mode tuning. Bounds refresh: chairs' CullingInfo/search-tree entries are
         // refreshed (one Updated tag per riding chair) every this-many metres of loop travel;
@@ -425,6 +515,13 @@ namespace SkiResortMod.Systems
             m_DiagRebuilds = 0;
             m_DiagLastRebuildFrame = -1;
             m_DiagLaneTotal = m_DiagLanesMatched = m_DiagStations = m_DiagChairsMatched = m_DiagEnrolled = 0;
+
+            // Round L1: the immediate-rebuild latch and its counters are per load.
+            m_ImmediateRebuild = false;
+            m_ImmediateWhy = "-";
+            m_DiagImmediateRequests = m_DiagImmediateRebuilds = 0;
+            m_DiagSeededLoops = m_DiagSeededChairs = m_DiagGridLoops = 0;
+            m_SeedLoadPass = true;   // F6 B4: the refusal line of the first rebuild says "expected"
         }
 
         protected override void OnUpdate()
@@ -822,10 +919,15 @@ namespace SkiResortMod.Systems
             if (m_RebuildCooldown > 0)
                 m_RebuildCooldown--;
             bool rebuilt = false;
-            if (m_LoopCacheDirty && m_RebuildCooldown <= 0)
+            if (m_LoopCacheDirty && (m_RebuildCooldown <= 0 || m_ImmediateRebuild))
             {
                 // Debounce guards the reconnect poke storms (DECISIONS 40): at most one
-                // rebuild per window, dirty flag re-set by the triggers if needed.
+                // rebuild per window, dirty flag re-set by the triggers if needed. Round L1:
+                // RequestImmediateRebuild bypasses the window ONCE (lift topology changed /
+                // parked chairs re-seated) and then the window restarts as usual.
+                if (m_ImmediateRebuild && m_RebuildCooldown > 0)
+                    m_DiagImmediateRebuilds++;
+                m_ImmediateRebuild = false;
                 m_RebuildCooldown = RebuildCooldownFrames;
                 BuildLoopCache();
                 rebuilt = true;
@@ -840,8 +942,7 @@ namespace SkiResortMod.Systems
             // when selectedSpeed ~ 0), smooth at any sim speed, save-continuous. Double is
             // mandatory — frameIndex reaches 1e7+ in mature saves and float32 would quantize
             // speed * time at metre scale.
-            double phase = ChairSpeedMetersPerSecond *
-                (((double)m_RenderingSystem.frameIndex + m_RenderingSystem.frameTime) / 60.0);
+            double phase = CurrentPhase();
             if (phase == m_LastMovePhase && !rebuilt)
             {
                 // paused — the derived positions are identical, write nothing
@@ -911,6 +1012,14 @@ namespace SkiResortMod.Systems
                     }
                 }
             }
+        }
+
+        /// <summary>The derived loop clock in metres (see the milestone-2 header): one formula for
+        /// the mover and the OD-7 seeding, so a seeded chair lands exactly where it stood.</summary>
+        private double CurrentPhase()
+        {
+            return ChairSpeedMetersPerSecond *
+                (((double)m_RenderingSystem.frameIndex + m_RenderingSystem.frameTime) / 60.0);
         }
 
         private enum MoveResult
@@ -997,6 +1106,7 @@ namespace SkiResortMod.Systems
         private void BuildLoopCache()
         {
             m_LoopCacheDirty = false;
+            LoopGeneration++;   // Round L1: every rebuild, whatever it finds (hub-u2-spec.md §5.4)
 
             // Carry-forward snapshot (review fix, entry 98): identity rebuilds (watchdog
             // self-heal, reconnect no-ops) keep every surviving chair's offset when its
@@ -1214,6 +1324,16 @@ namespace SkiResortMod.Systems
             //    grid: a one-time visual redistribution, accepted for v1 (the previous
             //    rank-by-projection scheme keyed off spawn-edge geometry that stops meaning
             //    anything once a chair has traveled — it was identity only by accident).
+            //    Round L1, OD-7 (a): a loop where NO chair rode before (the lift has just closed,
+            //    first time or again after a redrawn section) starts every chair from where it
+            //    stands — parked chairs keep their place (header ROUND L1). Mixed and length-
+            //    changed loops keep the grid (OD-7 (b)).
+            double seedPhase = CurrentPhase();
+            int seededChairs = 0;
+            int seedRefusals = 0;                       // F6 B4: loops refused this rebuild (log only)
+            bool seedLoadPass = m_SeedLoadPass;         // the first rebuild of this load (a new city's has no loop)
+            m_SeedLoadPass = false;
+            m_SeedRefusalText?.Clear();
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
             {
                 LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
@@ -1222,14 +1342,17 @@ namespace SkiResortMod.Systems
                     continue;
 
                 bool carried = true;
+                bool anyPrevious = false;
                 for (int i = 0; i < n; i++)
                 {
-                    if (!previousSlots.TryGetValue(loop.m_Chairs[i], out PrevSlot prev) ||
-                        math.abs(prev.m_LoopLength - loop.m_Length) > 1e-3)
+                    if (!previousSlots.TryGetValue(loop.m_Chairs[i], out PrevSlot prev))
                     {
                         carried = false;
-                        break;
+                        continue;
                     }
+                    anyPrevious = true;
+                    if (math.abs(prev.m_LoopLength - loop.m_Length) > 1e-3)
+                        carried = false;
                 }
                 if (carried)
                 {
@@ -1237,6 +1360,19 @@ namespace SkiResortMod.Systems
                         loop.m_Offsets.Add(previousSlots[loop.m_Chairs[i]].m_Offset);
                     continue;
                 }
+
+                if (!anyPrevious)
+                {
+                    if (TrySeedFromPositions(loop, seedPhase, out SeedRefusal refusal))
+                    {
+                        m_DiagSeededLoops++;
+                        m_DiagSeededChairs += n;
+                        seededChairs += n;
+                        continue;
+                    }
+                    NoteSeedRefusal(loop, refusal, seedRefusals++);   // F6 B4: log only
+                }
+                m_DiagGridLoops++;
 
                 double spacing = loop.m_Length / n;
                 var order = new List<int>(n);
@@ -1279,16 +1415,216 @@ namespace SkiResortMod.Systems
             {
                 m_LastBuildSignature = signature;
                 Mod.Log.Info($"{nameof(ChairPinSystem)} [moving] cache rebuilt: {signature}" +
-                             (enrolled > 0 ? $" ({enrolled} newly enrolled)" : string.Empty));
+                             (enrolled > 0 ? $" ({enrolled} newly enrolled)" : string.Empty) +
+                             (seededChairs > 0 ? $"; {seededChairs} chair(s) start from where they stood (OD-7)" : string.Empty));
+            }
+
+            // F6 B4 (findings/log-audit.md A3: the west lift fell back to the grid twice, silently):
+            // ONE line per rebuild that refused a loop's restart seeding — a refusal happens only for
+            // a loop none of whose chairs rode before (a fresh closure or a load), so this is once per
+            // event, never per frame. Log only: the grid fallback above is unchanged.
+            if (seedRefusals > 0)
+            {
+                Mod.Log.Info($"{nameof(ChairPinSystem)} [moving] OD-7: {seedRefusals} loop(s) could not restart from " +
+                             "where their chairs stood and use the even spacing instead (each chair jumps once): " +
+                             m_SeedRefusalText +
+                             (seedRefusals > SeedRefusalLoopsLogged ? $"; … and {seedRefusals - SeedRefusalLoopsLogged} more loop(s)" : string.Empty) +
+                             (seedLoadPass ? " (first rebuild after loading: saved chairs stand wherever they rode, so " +
+                                             "'from its own lane' failures are expected here)" : string.Empty));
             }
 
             if (m_LoopCache.m_UnclosedChainCount > 0 && !m_LoopWarnLogged)
             {
-                m_LoopWarnLogged = true;
-                Mod.Log.Warn($"{nameof(ChairPinSystem)} [moving]: {m_LoopCache.m_UnclosedChainCount} cable " +
-                             "chain(s) did not close into a station-to-station loop — chairs on those " +
-                             "lifts are static-pinned (unfinished line, missing station, or unexpected " +
-                             "anchor topology; logged once per load)");
+                // Round L1 (spec §5.3): an OPEN or UNFINISHED lift is explained by the census's own
+                // lines (`Lift [line opened]` / `Lift [new line]`), so this warning is kept only for
+                // loops that fail GEOMETRICALLY — a census-Complete lift with no closed loop. The
+                // census builds before this system at Modification4B, so its rows are this frame's.
+                // Without a running census the warning stays as it was.
+                var census = World.GetExistingSystemManaged<LiftCensusSystem>();
+                if (census == null || !census.IsArmed)
+                {
+                    m_LoopWarnLogged = true;
+                    Mod.Log.Warn($"{nameof(ChairPinSystem)} [moving]: {m_LoopCache.m_UnclosedChainCount} cable " +
+                                 "chain(s) did not close into a station-to-station loop — chairs on those " +
+                                 "lifts are static-pinned (unfinished line, missing station, or unexpected " +
+                                 "anchor topology; logged once per load)");
+                }
+                else
+                {
+                    string failed = CompleteLiftsWithoutLoop(census, out int count);
+                    if (count > 0)
+                    {
+                        m_LoopWarnLogged = true;
+                        Mod.Log.Warn($"{nameof(ChairPinSystem)} [moving]: {count} complete lift(s) did not close into a " +
+                                     $"station-to-station loop ({failed}) — their chairs are static-pinned (unexpected anchor " +
+                                     "topology; see the developer tab dump; logged once per load)");
+                    }
+                }
+            }
+        }
+
+        private readonly List<LiftCensus.Row> m_CensusScratch = new List<LiftCensus.Row>();
+
+        /// <summary>Census-Complete lifts with no closed loop in the cache just built ("base:v → top:v"
+        /// list, log only — called at most until the once-per-load warning fires).</summary>
+        private string CompleteLiftsWithoutLoop(LiftCensusSystem census, out int count)
+        {
+            count = 0;
+            census.CopyRows(m_CensusScratch);
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < m_CensusScratch.Count; i++)
+            {
+                LiftCensus.Row row = m_CensusScratch[i];
+                if (row.State != LiftCensus.State.Complete)
+                    continue;
+                Entity b = LiftCensusSystem.Ent(row.Base), t = LiftCensusSystem.Ent(row.Top);
+                if (TryGetLoop(b, t, out _, out _))
+                    continue;
+                count++;
+                if (sb.Length > 0)
+                    sb.Append(", ");
+                sb.Append(b.Index).Append(':').Append(b.Version).Append(" → ").Append(t.Index).Append(':').Append(t.Version);
+            }
+            m_CensusScratch.Clear();
+            return sb.ToString();
+        }
+
+        /// <summary>Round L1, OD-7 (a): offsets so that every chair of a freshly closed loop rides on
+        /// from where it stands — s = ProjectOnOwner(its owner's lane segments, its grip point),
+        /// offset = (s − phase) mod L, so (offset + phase) mod L = s at this very frame. False (the
+        /// caller falls back to the grid, nothing written) if any chair is gone, its owner has no
+        /// lane segment in the loop, or its grip point is farther than ApproachPinDistanceCeiling
+        /// from its own lane. That last gate is load-bearing: after a game LOAD the previous cache
+        /// holds no rider, yet saved chairs stand wherever the mover left them on the loop (the
+        /// serialized Transform), mostly far from their own section — projecting those onto their
+        /// owner would pile them onto its lane ends. Parked chairs (static-pinned onto their own
+        /// lane) and freshly spawned ones (vanilla placement on their own edge) pass it, by the
+        /// same plausibility ceiling the static pin uses on station approaches.
+        /// Round F6, item B4 (LOG ONLY, same return value, same writes): <paramref name="why"/> names the
+        /// first failing chair and its cause; after a chair is too far the scan goes on for the COUNT of
+        /// chairs over the limit and the farthest one (nothing is written on a refusal: the offsets are
+        /// added only on success), and stops at once on the other causes, as before.</summary>
+        private bool TrySeedFromPositions(LiftLoopCache.Loop loop, double phase, out SeedRefusal why)
+        {
+            why = default;
+            int n = loop.m_Chairs.Count;
+            double length = loop.m_Length;
+            why.Scanned = n;
+            if (!(length > 1.0))
+            {
+                why.Cause = SeedRefusalCause.LoopTooShort;
+                return false;
+            }
+            m_SeedScratch.Clear();
+            for (int i = 0; i < n; i++)
+            {
+                Entity chair = loop.m_Chairs[i];
+                if (!EntityManager.TryGetComponent<Transform>(chair, out var transform) ||
+                    !EntityManager.TryGetComponent<Owner>(chair, out var owner))
+                {
+                    if (why.Cause == SeedRefusalCause.None)
+                    {
+                        why.Cause = SeedRefusalCause.NoTransformOrOwner;
+                        why.Chair = chair;
+                    }
+                    why.Scanned = i + 1;
+                    return false;
+                }
+                float3 grip = transform.m_Position;
+                grip.y += loop.m_GripTops[i];   // the grip rides ON the cable (milestone-1 contract)
+                double s = LiftLoopCache.ProjectOnOwner(loop, owner.m_Owner, grip, out float distance);
+                if (s < 0.0)
+                {
+                    if (why.Cause == SeedRefusalCause.None)
+                    {
+                        why.Cause = SeedRefusalCause.NoLaneSegment;
+                        why.Chair = chair;
+                        why.Owner = owner.m_Owner;
+                    }
+                    why.Scanned = i + 1;
+                    return false;
+                }
+                if (distance > ApproachPinDistanceCeiling)
+                {
+                    // Not standing on its own section: a rider (e.g. a loaded save). Refused; scan on
+                    // for the count only.
+                    if (why.Cause == SeedRefusalCause.None)
+                    {
+                        why.Cause = SeedRefusalCause.TooFar;
+                        why.Chair = chair;
+                        why.Owner = owner.m_Owner;
+                        why.DistanceM = distance;
+                    }
+                    why.OverLimit++;
+                    why.FarthestM = math.max(why.FarthestM, distance);
+                    continue;
+                }
+                if (why.Cause != SeedRefusalCause.None)
+                    continue;   // already refused: no offset to compute
+                double offset = (s - phase) % length;
+                if (offset < 0.0)
+                    offset += length;
+                m_SeedScratch.Add(offset);
+            }
+            if (why.Cause != SeedRefusalCause.None)
+                return false;
+            loop.m_Offsets.AddRange(m_SeedScratch);
+            return true;
+        }
+
+        private readonly List<double> m_SeedScratch = new List<double>();
+
+        // ── Round F6, item B4: why a loop could not restart from where its chairs stood (log only) ──
+        private enum SeedRefusalCause : byte { None, LoopTooShort, NoTransformOrOwner, NoLaneSegment, TooFar }
+
+        private struct SeedRefusal
+        {
+            public SeedRefusalCause Cause;
+            public Entity Chair, Owner;   // the first failing chair and its owner (section)
+            public float DistanceM;       // TooFar: that chair's distance from its own lane
+            public int OverLimit;         // TooFar: chairs over ApproachPinDistanceCeiling (whole loop)
+            public float FarthestM;
+            public int Scanned;           // chairs looked at (all of them unless a non-distance cause stopped the scan)
+        }
+
+        /// <summary>At most this many loops are described in one refusal line; the rest are counted.</summary>
+        private const int SeedRefusalLoopsLogged = 4;
+        private System.Text.StringBuilder m_SeedRefusalText;   // reused; built only when a loop is refused
+        private bool m_SeedLoadPass;                            // the next rebuild is the first of this load
+
+        /// <summary>Appends one refused loop to this rebuild's refusal line (log only; allocates
+        /// strings, called only on a refusal).</summary>
+        private void NoteSeedRefusal(LiftLoopCache.Loop loop, in SeedRefusal why, int index)
+        {
+            if (index >= SeedRefusalLoopsLogged)
+                return;
+            var sb = m_SeedRefusalText ??= new System.Text.StringBuilder(256);
+            if (index > 0)
+                sb.Append(" | ");
+            sb.Append("base ").Append(loop.m_BaseStation.Index).Append(':').Append(loop.m_BaseStation.Version)
+              .Append(" → top ").Append(loop.m_TopStation.Index).Append(':').Append(loop.m_TopStation.Version)
+              .Append(", ").Append(loop.m_Chairs.Count).Append(" chair(s), ").Append(loop.m_Length.ToString("F0")).Append(" m: ");
+            string chair = $"chair {why.Chair.Index}:{why.Chair.Version}";
+            string section = $"section {why.Owner.Index}:{why.Owner.Version}";
+            switch (why.Cause)
+            {
+                case SeedRefusalCause.TooFar:
+                    sb.Append($"{chair} on {section} is {why.DistanceM:F1} m from its own lane (limit " +
+                              $"{ApproachPinDistanceCeiling:F1} m); {why.OverLimit} of {why.Scanned} chair(s) over the limit, " +
+                              $"farthest {why.FarthestM:F1} m");
+                    break;
+                case SeedRefusalCause.NoLaneSegment:
+                    sb.Append($"{chair}'s {section} has no lane segment in the loop");
+                    break;
+                case SeedRefusalCause.NoTransformOrOwner:
+                    sb.Append($"{chair} has no Transform or Owner");
+                    break;
+                case SeedRefusalCause.LoopTooShort:
+                    sb.Append("the loop is too short to seed (≤ 1 m)");
+                    break;
+                default:
+                    sb.Append("refused for an unknown reason");
+                    break;
             }
         }
 
@@ -1334,9 +1670,13 @@ namespace SkiResortMod.Systems
 
         /// <summary>Cross-system request (used by LiftReconnectSystem after it rebuilds
         /// lanes): re-pin every chair — and in moving mode rebuild the loop cache — on the
-        /// next update. Chairs appear in no SubObject buffer (SubObjectReferencesSystem
-        /// keys on buffers chairs are not in), so event systems cannot tag them directly —
-        /// a full idempotent pass is the reliable path. Same-frame when requested before
+        /// next update. Corrected in Round L1 (entry 98 superseded the old wording): chairs
+        /// never carry Secondary (SubObjectSystem.cs:2824-2827 adds only Owner + PrefabRef +
+        /// Transform) and they ARE in their owner edge's SubObject buffer
+        /// (SubObjectReferencesSystem.cs:122-138 queries Object + Owner, None Secondary). The
+        /// full idempotent pass is used because the poked lanes are rebuilt by LaneSystem later
+        /// in Modification4 and a pass over every chair is the simplest way to re-pin onto the
+        /// NEW curves, not because chairs are unreachable. Same-frame when requested before
         /// Modification4B (our phase).</summary>
         internal void RequestFullPass(string label)
         {

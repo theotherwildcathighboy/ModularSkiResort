@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Headless test host for mod/SkiResortMod/Systems/SkiGladePlanner.cs (glade-tool-spec.md §3).
+    Run from the ModularSkiResort root:
+      see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
+    Lives OUTSIDE mod/SkiResortMod on purpose: the mod csproj globs **/*.cs, so a test host
+    under it would be compiled into the net48 mod DLL. LangVersion pinned to the mod's 9.0
+    (Mod.props:8) so newer syntax in the linked planner fails here too; net48 APIs are NOT
+    gated here (net8 has Math.Clamp etc.) — the mod build is the net48 API gate.
+    UnityMathematics.NoDeps 1.3.2 matches the toolchain's com.unity.mathematics@1.3.2.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <RootNamespace>GladeBatch</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <!--
+    Round G2 (run-binding-glade-spec.md section 4.11): the pure composition and hover-log files
+    are linked as source too; ApplySim.cs drives Compose through a test-local world.
+    Round G3 (section 8.5): ApplySim runs density-level sequences (levels, walks, caps, the two
+    field-sized fixtures) judged by an independent recount; same linked files.
+  -->
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="ComposeTests.cs" />
+    <Compile Include="ApplySim.cs" />
+    <Compile Include="HoverLogTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiGladePlanner.cs" Link="SkiGladePlanner.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiGladeCompose.cs" Link="SkiGladeCompose.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiGladeHover.cs" Link="SkiGladeHover.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />
+  </ItemGroup>
+</Project>

@@ -30,7 +30,7 @@
                 "$type": "4|Game.Prefabs.ServiceObject, Game",
                 "name": "ServiceObject",
                 "active": true,
-                "m_Service": $fstrref:"UnityGUID:a534d6be94fb0cb4eb683f62412d0b1a"
+                "m_Service": $fstrref:"UnityGUID:5c1f656a5ea20284197a71e4997b4187"
             },
             {
                 "$id": 5,
@@ -45,7 +45,7 @@
                 "$type": "6|Game.Prefabs.UIObject, Game",
                 "name": "UIObject",
                 "active": true,
-                "m_Group": $fstrref:"CID:a2547ca73ed441efb4867f9e1ba64ffa",
+                "m_Group": null,
                 "m_Priority": 52,
                 "m_Icon": "assetdb://global/c019a1e22083fd0285b4b6cf21f98f3c",
                 "m_IsDebugObject": false

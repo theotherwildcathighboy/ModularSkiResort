@@ -8,7 +8,7 @@
     "components": {
         "$id": 1,
         "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
-        "$rlength": 11,
+        "$rlength": 10,
         "$rcontent": [
             {
                 "$id": 2,
@@ -43,7 +43,7 @@
                 "$type": "6|Game.Prefabs.UIObject, Game",
                 "name": "UIObject",
                 "active": true,
-                "m_Group": $fstrref:"CID:a2547ca73ed441efb4867f9e1ba64ffa",
+                "m_Group": null,
                 "m_Priority": 1,
                 "m_Icon": "assetdb://global/b0f0f5932ab14cacca5ab8afef91f6dc",
                 "m_IsDebugObject": false
@@ -172,19 +172,12 @@
                 "m_Efficiency": 0,
                 "m_Resources": 0,
                 "m_LeisureType": 8
-            },
-            {
-                "$id": 15,
-                "$type": "19|Game.Prefabs.Attraction, Game",
-                "name": "Attraction",
-                "active": true,
-                "m_Attractiveness": 0
             }
         ]
     },
     "m_Meshes": {
-        "$id": 16,
-        "$type": "20|Game.Prefabs.ObjectMeshInfo[], Game",
+        "$id": 15,
+        "$type": "19|Game.Prefabs.ObjectMeshInfo[], Game",
         "$rlength": 0,
         "$rcontent": [
         ]

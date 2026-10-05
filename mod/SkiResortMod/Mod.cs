@@ -48,8 +48,36 @@ namespace SkiResortMod
                 ModRootPath = Path.GetDirectoryName(asset.path);
             }
 
+            // --- UI module presence (Round U1; docs/research/resort-hub-understand.md §2.A.3 item 12,
+            // §5.2 item 1) ------------------------------------------------------------------------
+            // The game registers every *.mjs in the mod folder as a UI module with no validity check
+            // (DefaultAssetFactory.cs:257 [scratch]; ModManager.cs:461-483, 1.6.2 :464-486), so the
+            // only C#-side evidence of the hub's UI is the file beside this DLL. ModRootPath is null
+            // when TryGetExecutableAsset failed: guarded, never passed to Path.Combine.
+            LogUiModulePresence();
+
             // --- Settings + options UI + localization -------------------------------------
             Settings = new SkiResortSettings(this);
+            // Key bindings (glade tool, spec §5): the ProxyBinding properties only become
+            // live input actions here — RegisterKeyBindings builds our input map (named
+            // Settings.id) and calls InputManager.AddActions (ModSetting.cs:141-231, :210);
+            // until it runs, GetAction returns null (:289-292) and SkiGladeHotkeySystem stays
+            // inert. Called on the LIVE instance only (the defaults instance passed to
+            // LoadSettings below must not register). Before LoadSettings on purpose: the
+            // [AfterDecode] ApplyKeyBindings hook (:269-277) then pushes the player's saved
+            // rebinds into the registered actions; the reverse order also works because
+            // RegisterKeyBindings reads the current property values. Guarded so a
+            // keybinding failure costs only the hotkeys, never the rest of OnLoad (the dev
+            // tab still activates the tool).
+            try
+            {
+                Settings.RegisterKeyBindings();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"!!! RegisterKeyBindings failed — glade hotkeys inert this session " +
+                          $"(the 'Ski Glades' developer tab still works):\n{e}");
+            }
             Settings.RegisterInOptionsUI();
             // Two en-US sources: options-UI strings (Settings\LocaleEN.cs, qualified because
             // the asset-name LocaleEN below shadows it inside this namespace) and the asset
@@ -59,6 +87,10 @@ namespace SkiResortMod
             GameManager.instance.localizationManager.AddSource("en-US", new LocaleEN());
             // Loads persisted values over the defaults; the third argument supplies defaults
             // for first run. File lands under ModsSettings\SkiResortMod\ (see [FileLocation]).
+            // The defaults instance's constructor overwrites ModSetting.instances[id]
+            // (ModSetting.cs:42). Only the input-conflict notification reads that map, and
+            // only for the mod's display name/thumbnail (InputManager.cs:1523-1530), so it
+            // is benign.
             AssetDatabase.global.LoadSettings(nameof(SkiResortMod), Settings, new SkiResortSettings(this));
 
             // --- Tourism Overhaul detection (SPEC §9 rule 3) ------------------------------
@@ -79,8 +111,11 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<SkiResortAttractivenessSystem, Game.Simulation.AttractionSystem>(
                 SystemUpdatePhase.GameSimulation);
 
-            // Snow-line / climate gating. Stub for now: it logs the climate constants we need
-            // to validate the SPEC §6.6 snow formula (Phase 2 gate) and does no per-tick work.
+            // Snow-line / climate oracle (pull-based, Enabled = false, no per-tick work): since Round E1
+            // the one read of "Snow & season gating" and of the snowmaking margin (e1-spec R10, D14),
+            // the D31 ambient (ClimateSystem.SampleClimate at the current date) and the cached 24-hour
+            // day mean — pulled by the attraction score, the snow injection, the run decals and splats
+            // and the hub. Logs the climate constants once per load. Not a stub (E1 fixer F20).
             updateSystem.UpdateAt<SnowLineSystem>(SystemUpdatePhase.GameSimulation);
 
             // Chair pinning (milestone 1: static). Phase choice is load-bearing:
@@ -188,12 +223,32 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<SkiRunUpkeepSystem, SkiSnowInjectionSystem>(
                 SystemUpdatePhase.GameSimulation);
 
-            // Run-to-gate binding (DECISIONS 90): supplies the Owner, one-time bind
-            // charge, tether and bulldoze-cascade wiring that vanilla only implements
-            // for OBJECT ServiceUpgrades — area upgrades are a menu entry with no
-            // install path (all four writers are Object-gated, see the system header).
-            // Anchored before the injection system in the same phase so a bind and the
-            // first snow of a freshly bound run can land in one 64-frame window.
+            // --- Round E1 money and guests (docs/research/econ-round/spec/ch4-money.md §12.1) ----------
+            // Guest counter (Round E1, ch4 §4). Anchor is load-bearing for freshness, not for exactly-once: MeetingSystem
+            // (UpdateAt GameSimulation, SystemOrder.cs:404; interval 16, MeetingSystem.cs:277-280) moves a meeting only on
+            // its own updates; with the same interval we inherit its offset (UpdateSystem.cs:400-431) and read the state its
+            // update just wrote. The scans are IJobs; nothing waits on MeetingSystem's job on the main thread.
+            updateSystem.UpdateAfter<SkiGuestCounterSystem, Game.Simulation.MeetingSystem>(SystemUpdatePhase.GameSimulation);
+            // Lift tickets (ch4 §5): drains the counter's arrivals; mod-to-mod anchor in the same phase (the
+            // SkiRunUpkeepSystem → SkiSnowInjectionSystem precedent). Not load-bearing (drain semantics).
+            updateSystem.UpdateAfter<SkiLiftTicketSystem, SkiGuestCounterSystem>(SystemUpdatePhase.GameSimulation);
+            // Lift running charge (ch4 §3, D23): the run-upkeep pattern, next to it in the frame and the log. GameSimulation:
+            // pause stops the meter, the Editor never bills.
+            updateSystem.UpdateAfter<SkiLiftChargeSystem, SkiRunUpkeepSystem>(SystemUpdatePhase.GameSimulation);
+
+            // Run-to-sign binding (DECISIONS 90 as corrected by entry 121 and
+            // docs/research/run-binding-glade-spec.md §3, Round O1): supplies the one-time bind
+            // charge and the 5 km tether that vanilla only implements for OBJECT
+            // ServiceUpgrades — area upgrades are a menu entry with no install path (all four
+            // writers are Object-gated, see the system header). Since O1 a run carries NO
+            // vanilla Owner and the sign NO Game.Areas.SubArea buffer: the link is our own
+            // serialized SkiRunBinding (Owner on a run let the game-mode bulldozer's raycast walk
+            // from one run to the sign, Game.Areas/RaycastJobs.cs:80-93, and delete the whole
+            // resort, BulldozeToolSystem.cs:664 — both unchanged in 1.6.2), and the
+            // sign→runs delete cascade is ours (SkiRunGateCascadeSystem below), not vanilla's.
+            // Existing saves are migrated by the system's load pass in OnGameLoadingComplete —
+            // not a phase. Anchored before the injection system in the same phase so a bind and
+            // the first snow of a freshly bound run can land in one 64-frame window.
             updateSystem.UpdateBefore<SkiRunOwnershipSystem, SkiSnowInjectionSystem>(
                 SystemUpdatePhase.GameSimulation);
 
@@ -206,6 +261,303 @@ namespace SkiResortMod
             // Editor, paused included, so the retry countdown and re-assert sentinel tick.
             updateSystem.UpdateAfter<SkiRunDecalSystem, Game.Rendering.AreaBatchSystem>(
                 SystemUpdatePhase.PreCulling);
+
+            // --- Glade tool (docs/research/glade-tool-spec.md, DECISIONS 109/110) ----------
+            // Registration order between these four is NOT load-bearing: UpdateAt creates
+            // each system immediately (UpdateSystem.cs:158-161) and the other three reach the
+            // tool through GetOrCreateSystemManaged, which creates it on first use anyway. The
+            // tool goes first only so its "created" log line precedes its dependents'.
+
+            // The tool itself. ToolUpdate is where every vanilla tool lives
+            // (SystemOrder.cs:699-709; 1.6.2 :700-710). ToolBaseSystem.OnCreate adds it to
+            // ToolSystem.tools and sets Enabled=false (ToolBaseSystem.cs:310, 315), and
+            // ToolSystem.ToolUpdate enables ONLY the active tool (ToolSystem.cs:312-327) —
+            // so the tool ticks only while active and cannot poll its own toggle key.
+            updateSystem.UpdateAt<SkiGladeToolSystem>(SystemUpdatePhase.ToolUpdate);
+
+            // Hotkey poller (defaults: Ctrl+Shift+G toggle — was Ctrl+G until R3, which showed a
+            // conflict marker in field test 2 —, Shift+G next tree density 1-8 and Alt+G run
+            // interior / tree line (Round G3, spec §8.3: persisted action names GladeNextVariant /
+            // GladeNextMode unchanged), and R3's Ctrl+Alt+G dump diagnostics;
+            // docs/research/run-binding-glade-spec.md §5.2). Phase
+            // choice is load-bearing: UIUpdate is driven by UIUpdateSystem in MainLoop
+            // (SystemOrder.cs:67, UIUpdateSystem.cs:19), i.e. every frame, paused or not —
+            // GameSimulation would stop while paused, and the tool's own phase only ticks while
+            // it is active. UIUpdate also precedes Rendering (SystemOrder.cs:67-68), so a dump
+            // pressed with a run on the cursor reads the previous frame's live readout.
+            updateSystem.UpdateAt<SkiGladeHotkeySystem>(SystemUpdatePhase.UIUpdate);
+
+            // Member tagging of planted trees. Anchor is load-bearing: the tag must land on
+            // the Temp trees BEFORE ApplyObjectsSystem turns them permanent in the same
+            // ApplyTool phase (SystemOrder.cs:714; 1.6.2 :715) — Create keeps the entity and
+            // only swaps Temp for Applied/Created/Updated (ApplyObjectsSystem.cs:670-689), so
+            // the tag carries into the permanent tree.
+            updateSystem.UpdateBefore<SkiGladeTagSystem, Game.Tools.ApplyObjectsSystem>(
+                SystemUpdatePhase.ApplyTool);
+
+            // Member cleanup when a run is deleted — directly (bulldozer, area tool, info panel)
+            // or, since O1, by SkiRunGateCascadeSystem when its sign is deleted (registered right
+            // below, anchored BEFORE this system). There is no vanilla SubArea cascade any more:
+            // runs carry no Owner and the sign no SubArea buffer, so SubElementDeleteSystem
+            // (PostTool, SystemOrder.cs:724) and BulldozeToolSystem's sub-area walk never reach a
+            // run (run-binding-glade-spec.md §3.1). Phase is load-bearing: Modification2 runs
+            // paused or not and sees the SAME frame's Deleted tags (they live one frame, wiped at
+            // Cleanup), after PostTool (ToolSystem runs PostTool at ToolSystem.cs:257 and
+            // precedes ModificationSystem in MainLoop, SystemOrder.cs:58, 60;
+            // ModificationSystem.cs:20).
+            updateSystem.UpdateAt<SkiGladeCleanupSystem>(SystemUpdatePhase.Modification2);
+
+            // Sign → runs cascade (Round O1, run-binding-glade-spec.md §3.6; DECISIONS 90 kept,
+            // entry 121): when a Ski Area Welcome Sign gets Deleted, every run bound to it
+            // (SkiRunBinding.m_Gate) gets Deleted the same frame — our own code now that the
+            // vanilla Owner/SubArea relation is gone. Phase and anchor are load-bearing:
+            //  * a bulldozed sign is tagged Deleted at ApplyTool inside ToolUpdate
+            //    (ApplyObjectsSystem.cs:484-488), a collapsed one by the EndFrameBarrier's playback,
+            //    which runs at the start of MainLoop, ahead of ToolSystem
+            //    (CollapsedBuildingSystem.cs:150-175 via :261/:318; an anchorless UpdateBefore
+            //    sorts ahead of every UpdateAt, SystemOrder.cs:49, UpdateSystem.cs:39-47, :163-166);
+            //    MainLoop then runs ToolSystem and ModificationSystem
+            //    (SystemOrder.cs:58, 60) and Modification2 inside it (ModificationSystem.cs:19-26),
+            //    so both are visible here;
+            //  * Modification1/2 hold no vanilla area-delete consumer (SystemOrder.cs:94-121);
+            //  * UpdateBefore SkiGladeCleanupSystem makes the sign → runs → member trees chain
+            //    complete in ONE frame (the cleanup collects Deleted runs in the same phase);
+            //    the runs' border props are Secondary sub-objects deleted later in the frame by
+            //    SecondaryObjectSystem at Modification4B (SecondaryObjectSystem.cs:728-740,
+            //    SystemOrder.cs:183); everything is destroyed in the same Cleanup
+            //    (SystemOrder.cs:50, 54). All lines identical in 1.6.2.
+            // Anchoring a mod system to a mod system: UpdateBefore<T, Anchor> files T under the
+            // anchor in UpdateSystem's reference map and Refresh emits it right before the anchor
+            // when both are in the SAME phase (UpdateSystem.cs:173-176, :278-292, :388-413) — so
+            // registration order does not matter, but the anchor MUST stay at Modification2 or
+            // the cascade silently never runs (precedent: SkiRunUpkeepSystem after
+            // SkiSnowInjectionSystem above). Cost: one IsEmptyIgnoreFilter per frame.
+            updateSystem.UpdateBefore<SkiRunGateCascadeSystem, SkiGladeCleanupSystem>(
+                SystemUpdatePhase.Modification2);
+
+            // --- Run binding on draw + drawing feedback (docs/research/run-feedback-spec.md,
+            // DECISIONS 113) -------------------------------------------------------------------
+            // Each is gated per frame on its own setting (Settings → Runs) and on the ownership
+            // system: the trigger and the contour lines on SkiRunOwnershipSystem.IsArmed, the
+            // drawing feedback on PrefabSetsReady since the fixer round (r3-plumbing-02: a
+            // binding exception must not switch the slope feedback off); all four reach the
+            // ownership system through GetOrCreateSystemManaged, so registration order between
+            // them is not load-bearing.
+
+            // Bind trigger. Phase is load-bearing: ModificationEnd runs in MainLoop, paused or
+            // not (SystemOrder.cs:58, 60; ModificationSystem.cs:19-26), unlike the GameSimulation
+            // sweep (zero iterations while paused, SimulationSystem.cs:221-223). The finished
+            // run already lost Temp and gained Applied/Created/Updated at the ToolOutputBarrier
+            // inside ToolUpdate (ApplyAreasSystem.cs:204-208, 272, 297-299; SystemOrder.cs:694-695,
+            // 1.6.2 :695-696); GeometrySystem re-triangulated it at Modification2B
+            // (SystemOrder.cs:124; GeometrySystem.cs:752, 780); Created lives until Cleanup
+            // (CleanUpSystem.cs:53). A plain UpdateAt sorts after every vanilla UpdateAt of the
+            // phase (mods register after SystemOrder.Initialize; add-index order,
+            // UpdateSystem.cs:39-47), so every vanilla Modification system has already run, the
+            // run's Geometry centre is final (2B), and — since O1 — the bind adds only our own
+            // SkiRunBinding, a structural change that raises no tag, so vanilla systems still see
+            // nothing (no Owner, no SubArea; run-binding-glade-spec.md §3.5, §3.9). Since O1 the
+            // sign arm reacts to a Created sign only (no Updated arm: the sign has no SubArea
+            // buffer to repair). No update interval: ModificationSystem's non-indexed
+            // UpdateSystem.Update(phase) ignores it (UpdateSystem.cs:183-221).
+            updateSystem.UpdateAt<SkiRunBindTriggerSystem>(SystemUpdatePhase.ModificationEnd);
+
+            // Lodge-score watcher (Round F6, item D1; attraction-honesty.md D4 + Verification). Phase is
+            // load-bearing, for the bind trigger's reason above: CleanUpSystem strips Created/Updated and
+            // destroys Deleted entities at Cleanup (GameManager.cs:711 → :2399; SystemOrder.cs:54;
+            // CleanUpSystem.cs:52-53) BEFORE GameSimulation runs from LateUpdate (GameManager.cs:721 →
+            // :2407; SystemOrder.cs:74; SimulationSystem.cs:286; 1.6.2 :721/:2414, :731/:2422), so
+            // SkiResortAttractivenessSystem (GameSimulation, anchored above) never sees a placement. At
+            // ModificationEnd (MainLoop, paused included; ModificationSystem.cs:19-26) a plain UpdateAt runs
+            // after every vanilla UpdateAt of the phase (UpdateSystem.cs:39-47, 158-161) and sees this frame's
+            // tool output and Deleted entities; it only sets the attractiveness system's pending flag, consumed
+            // on its next 16-frame tick. Order against the bind trigger is not load-bearing (independent).
+            updateSystem.UpdateAt<SkiResortAttractivenessWatchSystem>(SystemUpdatePhase.ModificationEnd);
+
+            // Slope heat-map overlay. Anchor is load-bearing: RenderingSystem follows
+            // ToolSystem → ModificationSystem → UIUpdateSystem in MainLoop (SystemOrder.cs:58,
+            // 60, 67, 68), so the Temp area built in Modification1 and triangulated in 2B is the
+            // frame's final polygon; OverlayRenderSystem (Rendering, SystemOrder.cs:687, 1.6.2
+            // :688) consumes and clears the overlay lists each frame (OverlayRenderSystem.cs:781,
+            // 790), so our strips must be added BEFORE it in the same phase.
+            updateSystem.UpdateBefore<SkiRunDrawFeedbackSystem, Game.Rendering.OverlayRenderSystem>(
+                SystemUpdatePhase.Rendering);
+
+            // Grade tooltip. Anchor is load-bearing: UITooltip runs only from TooltipUISystem,
+            // which clears the mouse group first (TooltipUISystem.cs:48-55), so the tooltip is
+            // re-added every frame; anchoring after the vanilla area-tool tooltip
+            // (SystemOrder.cs:916, 1.6.2 :917) keeps our lines with it — a plain UpdateAt would
+            // sort after every vanilla UITooltip system (add-index order, UpdateSystem.cs:39-47).
+            updateSystem.UpdateAfter<SkiRunTooltipSystem, Game.UI.Tooltip.AreaToolTooltipSystem>(
+                SystemUpdatePhase.UITooltip);
+
+            // Glade-tool tooltip (Round G2, run-binding-glade-spec.md §4.9): hint / unbound /
+            // complete / counts while the glade tool is active ("the glade tool is never
+            // silent"). Anchor is load-bearing: TempCostTooltipSystem (UITooltip,
+            // SystemOrder.cs:911, 1.6.2 :912) writes the vanilla cost line our planted/felled
+            // Temps produce (it needs Temps, TempCostTooltipSystem.cs:57), so anchoring after it
+            // keeps our lines directly below that line; a plain UpdateAt would sort after every
+            // vanilla UITooltip system (UpdateSystem.cs:39-47). The UITooltip phase is already
+            // suppressed over UI (TooltipUISystem.cs:48-55).
+            updateSystem.UpdateAfter<SkiGladeTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(
+                SystemUpdatePhase.UITooltip);
+
+            // Contour lines while drawing. Anchor is load-bearing: UndergroundViewSystem
+            // (PreCulling, SystemOrder.cs:632, 1.6.2 :633) derives contourLinesOn from the public
+            // globalContourLinesOn each frame (UndergroundViewSystem.cs:67, 120), so our write
+            // must land BEFORE it to take effect the same frame. PreCulling runs every frame,
+            // paused included, which the restore path needs.
+            updateSystem.UpdateBefore<SkiRunContourSystem, Game.Rendering.UndergroundViewSystem>(
+                SystemUpdatePhase.PreCulling);
+
+            // Run outline size (Round E1 addendum A1, docs/research/econ-round/addendum-a1-run-outline.md):
+            // writes the "Run outline size" setting into AreaGeometryData.m_SnapDistance of our four run
+            // prefab entities (the area tool's outline width and corner dots, AreaBorderRenderSystem.cs:517,
+            // :527, :531; its snapping radius; the minimum corner distance, AreaUtils.cs:55-58) at
+            // OnGameLoadingComplete and on a settings apply. Disabled except for the one frame after a
+            // settings apply (the CursorAimSystem pattern: OnGameLoadingComplete fires anyway). Phase:
+            // UIUpdate runs every frame, paused included (UIUpdateSystem.cs:17-20, SystemOrder.cs:67), so a
+            // change made from the pause menu's Options applies on the next frame; the order within the phase
+            // is not load-bearing (prefab data, read by the area tool and the border renderer later).
+            updateSystem.UpdateAt<SkiRunOutlineSystem>(SystemUpdatePhase.UIUpdate);
+
+            // --- Ski Resort hub (Round U1, docs/research/resort-hub-understand.md §5.2 item 4; Round U2,
+            // docs/research/hub-u2-spec.md §3.6) ------------------------------------------------------
+            // All three at UIUpdate, and the ORDER of these three lines is load-bearing: UIUpdate is
+            // driven by UIUpdateSystem in MainLoop every frame, paused included (UIUpdateSystem.cs:17-20,
+            // SystemOrder.cs:67), after ToolSystem and ModificationSystem (SystemOrder.cs:58, 60), so
+            // this frame's Created/Updated/Deleted tags are still visible (CleanUpSystem runs at
+            // Cleanup, SystemOrder.cs:54); update intervals are ignored in this phase
+            // (UpdateSystem.cs:183-221) and a plain UpdateAt runs in add order (UpdateSystem.cs:158-161),
+            // so each frame: the catalog (run rows + rating cache; reads the hub's Demand of the
+            // previous frame, always on since Round E1 (D12): slower cadence while the panel is closed;
+            // the simulation reads its ratings) → SkiResortStatsSystem (Round U2, I-1:
+            // resort membership and every per-resort number, aggregated from this frame's catalog
+            // Revision, the lift census, the attractiveness and snow systems; same Demand rule) → the
+            // hub (pushes the stats revisions, applies the queued triggers, sets both Demands for the
+            // next frame). All lines identical in 1.6.2. The hub is a UISystemBase with gameMode Game:
+            // disabled in the menu and the editor (UISystemBase.cs:60-64); its bindings are registered
+            // in OnCreate, which UpdateAt runs right here — GameManager.InitializeUI precedes
+            // InitializeModManager (GameManager.cs:593, :618; 1.6.2 :599, :624), so
+            // userInterface.bindings exists. Its "Ski Resort Hub" developer tab lives in
+            // SkiRunCatalogSystem.Debug.cs.
+            // SkiSignNameSystem (Round U2, integrator) FIRST: it writes the sign auto-names that
+            // SkiRunBindTriggerSystem (ModificationEnd) queues, because NameSystem.SetCustomName needs
+            // EndFrameBarrier, which is refused until AllowBarrier<EndFrameBarrier> (SystemOrder.cs:62,
+            // after ModificationSystem :60; Game/SafeCommandBufferSystem.cs:16-23) — UIUpdate (:67) is
+            // after it. Added before the catalog and stats so this frame's stats rebuild reads the name.
+            updateSystem.UpdateAt<SkiSignNameSystem>(SystemUpdatePhase.UIUpdate);
+            updateSystem.UpdateAt<SkiRunCatalogSystem>(SystemUpdatePhase.UIUpdate);
+            updateSystem.UpdateAt<SkiResortStatsSystem>(SystemUpdatePhase.UIUpdate);
+            updateSystem.UpdateAt<SkiResortHubUISystem>(SystemUpdatePhase.UIUpdate);
+
+            // --- Round L1 lifts (docs/research/hub-u2-spec.md §5, implementer I-2) ---------------------
+            // Lift census (§5.3): the one lift model (topology of the SkiChairliftHV edges, stations,
+            // events, the "line opened" chair parking). Anchor is load-bearing: at Modification4B this
+            // frame's Created/Updated/Deleted tags are visible and Deleted entities still exist until
+            // Cleanup (SystemOrder.cs:50, 54), and the census must run BEFORE ChairPinSystem (UpdateAt
+            // Modification4B, above) so its RequestImmediateRebuild("lift topology") is served in the
+            // same frame — the loop over a deleted span is dropped this frame, not 30 frames later
+            // (ChairPinSystem cooldown). A mod-to-mod anchor in the same phase works regardless of
+            // registration order (UpdateBefore<T, Anchor> files T under the anchor, UpdateSystem.cs:173-176,
+            // :278-292; the SkiRunGateCascadeSystem precedent above), but the anchor must stay at
+            // Modification4B or the census silently never runs.
+            updateSystem.UpdateBefore<LiftCensusSystem, ChairPinSystem>(SystemUpdatePhase.Modification4B);
+
+            // Lift park emitter (§5.3 OD-6 (a); I-2's fix of a spec error, registration added by the
+            // integrator 2026-10-03). The census (4B) only QUEUES the surviving sections of an opened lift:
+            // EndFrameBarrier.CreateCommandBuffer throws at Modification4B (Game/SafeCommandBufferSystem.cs
+            // :16-23; the barrier is the first MainLoop system, SystemOrder.cs:49, and is re-allowed only
+            // by AllowBarrier<EndFrameBarrier> :62, after ModificationSystem :60; same in 1.6.2).
+            // UIUpdate (:67) is after :62, so this system creates the {Event, SubObjectsUpdated} entities
+            // there; they play back at the next frame's EndFrameBarrier and SubObjectSystem consumes them
+            // at that frame's Modification2B. Order within UIUpdate is not load-bearing. Without this line
+            // the census logs one "Lift [park] … not running" WARN per load and nothing is parked.
+            updateSystem.UpdateAt<LiftParkSystem>(SystemUpdatePhase.UIUpdate);
+
+            // Station alignment aid, drawing (§5.5): guide lines for the station being placed or nudged.
+            // Anchor is load-bearing for the same reason as SkiRunDrawFeedbackSystem above:
+            // OverlayRenderSystem (Rendering, SystemOrder.cs:687, 1.6.2 :688) consumes and clears the
+            // overlay buffers each frame (OverlayRenderSystem.cs:781, 790), so our lines must be added
+            // BEFORE it in the same phase. Order between the two mod systems anchored there is not
+            // load-bearing (separate lines). Gated by the LiftBuildAids setting inside the system.
+            updateSystem.UpdateBefore<SkiStationAlignSystem, Game.Rendering.OverlayRenderSystem>(
+                SystemUpdatePhase.Rendering);
+
+            // Piste-map overlay (Round E1, D19; econ-round spec ch5 §8). Anchor is load-bearing for the reason of
+            // SkiRunDrawFeedbackSystem above: OverlayRenderSystem (Rendering, SystemOrder.cs:687, 1.6.2 :688) completes
+            // every registered writer and then uploads and clears the overlay lists each frame (OverlayRenderSystem.cs:
+            // 738-741, 781, 790), so our job must be scheduled BEFORE it in the same phase. It reads the hub's state,
+            // written at UIUpdate earlier in the same MainLoop frame (SystemOrder.cs:67-68). Rendering runs paused included.
+            updateSystem.UpdateBefore<SkiPisteMapSystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
+
+            // Alignment readout + bulldozer warning (§5.5, §5.7). Anchor is load-bearing: UITooltip runs
+            // only from TooltipUISystem, which clears the mouse group first (TooltipUISystem.cs:48-55);
+            // anchoring after the vanilla TempCostTooltipSystem (SystemOrder.cs:911, 1.6.2 :912) keeps
+            // our lines with the vanilla cost line, as SkiGladeTooltipSystem does above — a plain
+            // UpdateAt would sort after every vanilla UITooltip system (UpdateSystem.cs:39-47). Gated by
+            // the LiftBuildAids setting inside the system.
+            updateSystem.UpdateAfter<SkiLiftTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(
+                SystemUpdatePhase.UITooltip);
+
+            // --- Round M1 (docs/research/hub-u2-spec.md §6.2, implementer I-4) ------------------------
+            // Closes the Electricity infoview the lift LINE tool opens (once per activation; kept when
+            // the player had it open; the base station keeps it — OD-11 (a)). Registration is
+            // load-bearing twice: UpdateBefore ONLY — an UpdateAt as well would register the system a
+            // second time and run it twice per frame (UpdateSystem.cs:158-176 → Register :271-292
+            // appends one entry per call); and BEFORE InfoviewsUISystem (UIUpdate, SystemOrder.cs:939,
+            // 1.6.2 :940) so the vanilla infoview binding reflects our close in the same frame. ToolSystem
+            // (MainLoop, SystemOrder.cs:58) has already applied this frame's tool infoview before
+            // UIUpdate (:67), so the system sees the view the tool just opened.
+            updateSystem.UpdateBefore<SkiPlacementInfoviewSystem, Game.UI.InGame.InfoviewsUISystem>(
+                SystemUpdatePhase.UIUpdate);
+        }
+
+        /// <summary>Round U1 (research §2.A.3 item 12): one line per load of the mod —
+        /// "UI module present: True/False", with "!!!" when False, cross-checked against the build:
+        /// BuildStamp.UiBundled (generated into obj\ by the csproj target SkiBuildStamp) says whether
+        /// this DLL's build deployed a bundle. Never throws.</summary>
+        private static void LogUiModulePresence()
+        {
+            const string moduleFile = "SkiResortMod.mjs";
+            try
+            {
+                bool bundled = BuildStamp.UiBundled;
+                string stamp = BuildStamp.Value;
+                if (ModRootPath == null)
+                {
+                    Log.Error($"!!! UI module present: unknown — ModRootPath is null (TryGetExecutableAsset failed), " +
+                              $"so {moduleFile} cannot be checked; DLL stamp {stamp}, UI bundled at build: {bundled}");
+                    return;
+                }
+                bool present = File.Exists(Path.Combine(ModRootPath, moduleFile));
+                if (present && bundled)
+                {
+                    Log.Info($"UI module present: True ({moduleFile} beside the DLL; DLL stamp {stamp} — the hub's " +
+                             "uiHello must report the same stamp)");
+                }
+                else if (present)
+                {
+                    Log.Warn($"UI module present: True — but this DLL was built WITHOUT the UI (stamp {stamp}): the " +
+                             $"{moduleFile} beside it comes from another build; the hub handshake names both stamps");
+                }
+                else if (bundled)
+                {
+                    Log.Error($"!!! UI module present: False — this DLL was built with the UI (stamp {stamp}) but " +
+                              $"{moduleFile} is missing from {ModRootPath}: no Ski Resort hub this session " +
+                              "(redeploy with dotnet build, game closed)");
+                }
+                else
+                {
+                    Log.Error($"!!! UI module present: False — this DLL was built without the UI (stamp {stamp}: " +
+                              "node_modules missing or -p:SkipUi=true): no Ski Resort hub this session. Run npm ci in " +
+                              "mod/SkiResortUI and rebuild");
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Error($"!!! UI module presence check failed (non-fatal, the mod continues): {e.GetType().Name}: {e.Message}");
+            }
         }
 
         public void OnDispose()

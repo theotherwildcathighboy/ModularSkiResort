@@ -138,6 +138,7 @@ namespace SkiResortMod.Systems
         }
 
         // Run surfaces — same tolerant name resolution as SkiResortAttractivenessSystem.
+        // E1 (D16): SkiRunNaturalA is deliberately absent — a natural run paints no terrain.
         private static readonly string[] RunSurfaceNames = { "SkiRunGroomedA", "SkiRunSnowmakingA" };
 
         // Tool prefab name prefix; the claimed slot is appended ("SkiResortSplatToolExtra3").
