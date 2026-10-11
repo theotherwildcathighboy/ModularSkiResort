@@ -6,6 +6,9 @@
 // Stage 0 (Round E1, S0, 2026-10-04; e1-spec I-06) laid down the shared types block verbatim (the four
 // enums, RunSnow and DryPass); stream S3 (2026-10-04) added `internal static class RunSnowRules` (ch3 §2,
 // verbatim) and owns the file. Linked into tests/ResortBatch (SnowRulesTests.cs, ch3 §11: 108 checks).
+// Round M2 (topup-skip, 2026-10-10; docs/research/round-m2/understand/topup-skip.md §2.1 C1-C5 and its check,
+// decisions.md R11): the packed skip (TopupSkip, CanSkipPacked, SkipKind, IsForcedCheck), THE pack guard (moved
+// here from SkiSnowInjectionSystem.Tuning, value unchanged) and the share guard; S17-S23 in SnowRulesTests.
 using System;
 
 namespace SkiResortMod.Systems
@@ -22,6 +25,10 @@ namespace SkiResortMod.Systems
     /// <summary>What the decal dress and the props' snow follow (§8).</summary>
     public enum RunDressSource : byte { None = 0, Managed = 1, NaturalMeasured = 2 }
 
+    /// <summary>Round M2 (topup-skip, R11): which skip a pass takes. Dry = D30 (bare footprint); Packed = the pack
+    /// guard holds managed melt and no texel is cold.</summary>
+    public enum TopupSkip : byte { None = 0, Dry = 1, Packed = 2 }
+
     /// <summary>One run's snow, as published (§5). Runtime only; never serialized.</summary>
     public struct RunSnow
     {
@@ -37,7 +44,8 @@ namespace SkiResortMod.Systems
         public float BottomY, TopY;       // Geometry.m_Bounds y (lowest / highest node), for estimates
     }
 
-    /// <summary>What the dry-skip predicate needs from a pass (§7.2).</summary>
+    /// <summary>What the skip predicates need from a real pass (§7.2; Round M2 packed skip). Runtime only; never
+    /// serialized (SkiSnowInjectionSystem implements no serialization interface; nothing else holds one).</summary>
     public struct DryPass
     {
         public bool Valid;
@@ -46,6 +54,10 @@ namespace SkiResortMod.Systems
         public double RunDepthSum;        // merge's RunDepthSum (real passes only), normalized units
         public int ContainedTexels;       // texels with Scratch > 0, summed over bound injected runs
         public ulong FootprintHash;       // wrapping sum of Mix64(texel index) over the same texels
+        // Round M2 (topup-skip): the packed skip's inputs, real passes only.
+        public int Lowered;               // texels lowered by managed melt in this pass's merge
+        public bool PackGuardNext;        // PackGuard(map mean this pass read): the pack guard the NEXT merge applies
+        public float RunMeanDepthM;       // MeanRunSnowDepthM after this pass (the dress depth, m)
     }
 
     internal static class RunSnowRules
@@ -75,6 +87,17 @@ namespace SkiResortMod.Systems
         public const uint MeasureIntervalFrames = 1024;
         public const uint MaxSnapshotAgeFrames = 4096; // older snapshots are stale → estimate
         public const int MeasureFailLimit = 10;        // vanilla's retry cap (TerrainSystem.cs:3595)
+        // Round M2 (topup-skip, R11). The pack guard moved here from SkiSnowInjectionSystem.Tuning (value unchanged;
+        // Tuning points here).
+        public const float PackGuardMeanDepthM = 0.02f;
+        // The dress guard. 2 x SkiRunSurfaceSystem.Tuning.FullWhiteDepthM (0.05 m, SkiRunSurfaceSystem.cs, the
+        // saturate(depth / 0.05) prop snow): the dress is saturated above 0.05 m (the decal's season thresholds,
+        // 0.02 / 0.005 m, sit below it too) and the extra 0.05 m covers one forced interval of melt (topup-skip
+        // §4.2: 0.046 m per 1,264 frames at most in field test 10). DEPENDS ON FullWhiteDepthM — that file is not
+        // linked into ResortBatch, so no test ties the two: change both together.
+        public const float PackedSkipMinRunDepthM = 0.10f;
+        public const float CalmOpenShare = 0.70f;           // OpenAtShare + 0.10
+        public const float CalmClosedShare = 0.30f;         // CloseBelowShare − 0.10
 
         /// <summary>D13 multiplier, deviation E1-S2 (§5.2): 0 below 40 %, 1 at or above 60 %, linear
         /// in between. NaN → 0.</summary>
@@ -222,6 +245,55 @@ namespace SkiResortMod.Systems
         {
             return framesSinceLastReal >= ForcedRealPassFrames
                 && CanSkipDry(lastReal, coldNow, containedNow, footprintHashNow, 0u);
+        }
+
+        /// <summary>Round M2: THE pack guard (the merge's PackGuard input and the packed skip both read it): managed
+        /// melt stands down while the map-wide mean depth is over 2 cm. NaN → off.</summary>
+        public static bool PackGuard(float mapMeanDepthM) => mapMeanDepthM > PackGuardMeanDepthM;
+
+        /// <summary>Round M2: a measured share far enough from the 40-60 % band that one forced interval cannot carry it
+        /// in at the thaw rate field test 10 showed (topup-skip §4.2). NaN → false.</summary>
+        public static bool IsCalmShare(float share) => share >= CalmOpenShare || share < CalmClosedShare;
+
+        /// <summary>Round M2 packed skip: no texel cold now (nothing can be raised); the last real pass was no gate change,
+        /// raised and lowered nothing, and left the pack guard on for the next merge (nothing can be lowered: a skipped
+        /// pass does not write the map mean); the runs held at least PackedSkipMinRunDepthM (the dress cannot move);
+        /// every measured share is calm (no label or multiplier can move); the same footprint; the forced pass not due.</summary>
+        public static bool CanSkipPacked(in DryPass lastReal, int coldNow, int containedNow,
+            ulong footprintHashNow, uint framesSinceLastReal, bool sharesCalmNow)
+        {
+            return lastReal.Valid
+                && framesSinceLastReal < ForcedRealPassFrames
+                && coldNow == 0
+                && lastReal.ColdTexels == 0
+                && lastReal.Injected == 0
+                && lastReal.Lowered == 0
+                && lastReal.PackGuardNext
+                && lastReal.RunMeanDepthM >= PackedSkipMinRunDepthM
+                && sharesCalmNow
+                && containedNow > 0
+                && containedNow == lastReal.ContainedTexels
+                && footprintHashNow == lastReal.FootprintHash;
+        }
+
+        /// <summary>Round M2: Dry first (D30 unchanged, and it ignores the share guard), then Packed.</summary>
+        public static TopupSkip SkipKind(in DryPass lastReal, int coldNow, int containedNow,
+            ulong footprintHashNow, uint framesSinceLastReal, bool sharesCalmNow)
+        {
+            if (CanSkipDry(lastReal, coldNow, containedNow, footprintHashNow, framesSinceLastReal))
+                return TopupSkip.Dry;
+            if (CanSkipPacked(lastReal, coldNow, containedNow, footprintHashNow, framesSinceLastReal, sharesCalmNow))
+                return TopupSkip.Packed;
+            return TopupSkip.None;
+        }
+
+        /// <summary>Round M2: the forced check of either kind — the 1,024-frame term is the only failing term (the E1 F6
+        /// rule of IsForcedDryCheck, extended).</summary>
+        public static bool IsForcedCheck(in DryPass lastReal, int coldNow, int containedNow,
+            ulong footprintHashNow, uint framesSinceLastReal, bool sharesCalmNow)
+        {
+            return framesSinceLastReal >= ForcedRealPassFrames
+                && SkipKind(lastReal, coldNow, containedNow, footprintHashNow, 0u, sharesCalmNow) != TopupSkip.None;
         }
 
         /// <summary>splitmix64 finalizer. Footprint hash = wrapping sum over texel indices (order-free).

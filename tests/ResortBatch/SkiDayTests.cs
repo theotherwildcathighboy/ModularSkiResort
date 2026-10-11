@@ -33,6 +33,20 @@
 //      literals; FitVerdict rows and its property against ClaimFits (5,000 rows, seed 20261005); HourDate (=
 //      RunSnowRules.HourAlignedDate) and MonthOfHour; Advance(ref f, key, closedShort) rows and (fixer R7) its parity
 //      with SkiResortLedger.Advance(key, closedMonthShort) over 2,000 random sequences with a random short flag.
+// ROUND M2 (docs/research/round-m2/build-contract.md §7, builder B2 2026-10-10; +162 checks):
+//   A  (edit) "ArmVerdict 0-5" with SystemOff; (+1) the R9 trip-system bits.
+//   M  (+21) the 5-argument ArmCheck: the 10 rows of enabled-flags.md §3 and its parity with the 4-argument rule on the
+//      11 rows above (mask 63).
+//   U  (12) on-arrival (arrived-at-lodge.md §3, R6): the L 1051 / L 585 replays (confidence as an arrival and as a
+//      failure, the speed sample) and the hub row's turn with the last failures booked on arrival.
+//   V  (41) measure-core: the [area] log keys and AreaLogKey, HillClosedForCount (R4 a), ClosingEdgeOf (Decided here 1-2),
+//      MiddayRearmDue, DoneDayOf, CostDayEnded.
+//   W  (49) R10 learning (u9-learning.md U1-U11 as W1-W11, tri-state BoundLearn): TripKnobs and FloorOf, the stay
+//      overloads and their parity (5,000 rows, seed 20261005), both speeds of NewTrack, LearnSpeed with knobs,
+//      LearnSpeedAll, SpeedBound, LearnSpeedBound, the "sends unchanged with the defaults" property (2,000 sequences,
+//      seed 20261010), the bound property (5,000 rows, seed 20261010), FitSpeed.
+//   X  (38) SkiTripSystems (enabled-flags.md §3): BitOfAssembly, Names, Long, Short, LoadLine, ChangeLine, Label,
+//      UnknownLabel, BlocksSkiDays.
 // Property sections count their violations and report once per property (the first offender in the message), so
 // the check count stays small and fixed.
 
@@ -80,6 +94,10 @@ namespace ResortBatch
             ScoreAdditions();     // Q
             Scenarios();          // S (ch1 §8)
             MeasureRules();       // T (Round M1)
+            OnArrival();          // U (Round M2, D3 / R6)
+            MeasureCore();        // V (Round M2 measure-core)
+            Learning();           // W (Round M2 R10)
+            TripSystems();        // X (Round M2 R9)
         }
 
         private static bool Check(bool cond, string where, string msg)
@@ -148,7 +166,12 @@ namespace ResortBatch
                   (byte)MonthStep.Rolled == (byte)SkiResortLedger.AdvanceResult.Rolled && (byte)MonthStep.Jumped == (byte)SkiResortLedger.AdvanceResult.Jumped &&
                   (byte)MonthStep.Jumped == 3, w, "MonthStep 0-3 = SkiResortLedger.AdvanceResult");
             Check((byte)ArmVerdict.Ok == 0 && (byte)ArmVerdict.BadInterval == 1 && (byte)ArmVerdict.BadOffset == 2 &&
-                  (byte)ArmVerdict.LeisureTooFast == 3 && (byte)ArmVerdict.BehaviorTooFast == 4, w, "ArmVerdict 0-4");
+                  (byte)ArmVerdict.LeisureTooFast == 3 && (byte)ArmVerdict.BehaviorTooFast == 4 && (byte)ArmVerdict.SystemOff == 5, w,
+                  "ArmVerdict 0-5 (Round M2: SystemOff 5)");
+            // Round M2 (R9): the trip-system bits (SkiTripSystems names them in this order; TripNeededToArm = the first two).
+            Check(Rules.TripLeisure == 1 && Rules.TripBehavior == 2 && Rules.TripNeeded == 4 && Rules.TripResidentAI == 8 &&
+                  Rules.TripResidentActions == 16 && Rules.TripResourceBuyer == 32 && Rules.TripAll == 63 && Rules.TripNeededToArm == 3, w,
+                  "trip bits 1/2/4/8/16/32, all 63, needed to arm 3");
 
             // Unit01 (the helper every rule uses).
             Check(Rules.Unit01(double.NaN) == 0.0 && Rules.Unit01(-1.0) == 0.0 && Rules.Unit01(0.3) == 0.3 && Rules.Unit01(1.0) == 1.0 &&
@@ -911,6 +934,41 @@ namespace ResortBatch
                   "4 × trip in long (no overflow at 2^29)");
             Check(!Rules.IsPowerOfTwo(0) && Rules.IsPowerOfTwo(1) && Rules.IsPowerOfTwo(64) && !Rules.IsPowerOfTwo(48) && !Rules.IsPowerOfTwo(-64) &&
                   !Rules.IsPowerOfTwo(int.MinValue) && Rules.IsPowerOfTwo(1 << 30), w, "IsPowerOfTwo");
+
+            // Round M2 (R9, enabled-flags.md §3): the 5-argument ArmCheck — SystemOff first when LeisureSystem (1) or
+            // CitizenBehaviorSystem (2) is off, else the 4-argument rule; extra bits ignored.
+            const string wa = "skiday M arm5";
+            var arm5 = new (int l, int t, int b, int o, int on, ArmVerdict want, string why)[]
+            {
+                (64, 16, 16, 11, 63, ArmVerdict.Ok, "all on"),
+                (64, 16, 16, 11, 3, ArmVerdict.Ok, "RPF: four systems off"),
+                (64, 16, 16, 11, 60, ArmVerdict.SystemOff, "Realistic Trips: LeisureSystem and CBS off"),
+                (64, 16, 16, 11, 62, ArmVerdict.SystemOff, "LeisureSystem off"),
+                (64, 16, 16, 11, 61, ArmVerdict.SystemOff, "CitizenBehaviorSystem off"),
+                (64, 16, 16, 11, 0, ArmVerdict.SystemOff, "all off"),
+                (48, 16, 16, 11, 61, ArmVerdict.SystemOff, "checked before the intervals"),
+                (48, 16, 16, 11, 63, ArmVerdict.BadInterval, "all on, bad interval"),
+                (64, 16, 8, 3, 3, ArmVerdict.BehaviorTooFast, "RPF mask, CBS too fast"),
+                (64, 16, 16, 11, 127, ArmVerdict.Ok, "extra bits ignored"),
+            };
+            for (int i = 0; i < arm5.Length; i++)
+            {
+                var r = arm5[i];
+                ArmVerdict got = Rules.ArmCheck(r.l, r.t, r.b, r.o, r.on);
+                Check(got == r.want, wa, $"({r.l}, {r.t}, {r.b}, {r.o}, {r.on}) = {got}, expected {r.want} ({r.why})");
+            }
+            // Parity: with every trip system on, the 5-argument rule is the 4-argument one (the eleven rows above).
+            var arm4 = new (int l, int t, int b, int o)[]
+            {
+                (64, 16, 16, 11), (128, 16, 16, 0), (32, 16, 16, 11), (64, 32, 16, 11), (64, 16, 16, 16), (64, 16, 16, -1),
+                (0, 16, 16, 11), (48, 16, 16, 11), (64, 16, 8, 3), (1 << 30, 1 << 28, 16, 11), (1 << 30, 1 << 29, 16, 11),
+            };
+            for (int i = 0; i < arm4.Length; i++)
+            {
+                var r = arm4[i];
+                Check(Rules.ArmCheck(r.l, r.t, r.b, r.o, Rules.TripAll) == Rules.ArmCheck(r.l, r.t, r.b, r.o), wa,
+                      $"parity ({r.l}, {r.t}, {r.b}, {r.o}): 5-argument with 63 = 4-argument ({Rules.ArmCheck(r.l, r.t, r.b, r.o)})");
+            }
         }
 
         // ================================================================== N. day key and month step (ch1 §3.12)
@@ -1526,6 +1584,434 @@ namespace ResortBatch
         private static Rules.Fit Fv(uint vanilla, uint closing, double hours)
         {
             return Rules.FitVerdict(Now, vanilla, closing, hours);
+        }
+
+        // ================================================================== U. on-arrival (Round M2, D3 / R6)
+
+        /// <summary>arrived-at-lodge.md §3 section U (oracles re-computed with node in its check): a guest found in the
+        /// lodge with Leisure gone is booked as an arrival (RecordOutcome(true) and LearnSpeed), not a failure.</summary>
+        private static void OnArrival()
+        {
+            const string w = "skiday U on-arrival";
+            // U1, L 1051: no car, 2.9 km, +4.0 h.
+            Rules.ClassTrack t = Rules.NewTrack(TC.NoCarFar);
+            Rules.RecordOutcome(ref t, true);
+            Check(Near(Rules.Confidence(TC.NoCarFar, t), 0.28, 1e-12), w + " U1", $"no car, one arrival: confidence {R(Rules.Confidence(TC.NoCarFar, t))}, expected 0.28");
+            t = Rules.NewTrack(TC.NoCarFar);
+            Rules.RecordOutcome(ref t, false);
+            Check(Rules.Confidence(TC.NoCarFar, t) == Rules.ConfidenceMin, w + " U1",
+                  $"no car, the same as a failure: {R(Rules.Confidence(TC.NoCarFar, t))}, expected the floor 0.1 (0.08 floored)");
+            t = Rules.NewTrack(TC.NoCarFar);
+            Rules.LearnSpeed(ref t, TC.NoCarFar, 2900, Now, Now + 43690u);
+            Check(Near(t.SpeedKmPerHour, 1.135628595, 1e-9), w + " U1", $"no car 2,900 m in 43,690 frames: speed {R(t.SpeedKmPerHour)}, expected 1.135628595 (sample 0.942514382)");
+            // U2, L 585: walk, 0.3 km, +2.0 h.
+            t = Rules.NewTrack(TC.Walk);
+            Rules.RecordOutcome(ref t, true);
+            Check(Rules.Confidence(TC.Walk, t) == 1.0, w + " U2", $"walk, one arrival: confidence {R(Rules.Confidence(TC.Walk, t))}, expected 1.0");
+            t = Rules.NewTrack(TC.Walk);
+            Rules.RecordOutcome(ref t, false);
+            Check(Near(Rules.Confidence(TC.Walk, t), 0.8, 1e-12), w + " U2", $"walk, the same as a failure: {R(Rules.Confidence(TC.Walk, t))}, expected 0.8");
+            t = Rules.NewTrack(TC.Walk);
+            Rules.LearnSpeed(ref t, TC.Walk, 300, Now, Now + 21845u);
+            Check(Near(t.SpeedKmPerHour, 0.273750744, 1e-9), w + " U2", $"walk 300 m in 21,845 frames: speed {R(t.SpeedKmPerHour)}, expected 0.273750744 (sample 0.195002976)");
+            t = Rules.NewTrack(TC.Walk);
+            Rules.LearnSpeed(ref t, TC.Walk, 299, Now, Now + 21845u);
+            Check(t.SpeedKmPerHour == 0.3, w + " U2", $"walk 299 m: speed {R(t.SpeedKmPerHour)}, expected 0.3 unchanged (under 300 m)");
+            // U3, the hub row "cannot reach": 8 arrivals then 13 failures → on; the last 4 failures booked on arrival → off.
+            Rules.ClassTrack car = Rules.NewTrack(TC.Car);
+            for (int i = 0; i < 8; i++)
+                Rules.RecordOutcome(ref car, true);
+            for (int i = 0; i < 13; i++)
+                Rules.RecordOutcome(ref car, false);
+            Check(car.Resolved == 21, w + " U3", $"8 + 13 outcomes: Resolved {car.Resolved}, expected 21");
+            Check(Near(Rules.Confidence(TC.Car, car), 0.452648659, 1e-9), w + " U3", $"8 then 13: confidence {R(Rules.Confidence(TC.Car, car))}, expected 0.452648659");
+            Check(Rules.UpdateCannotReach(ref car), w + " U3", "8 then 13: the row is on (below 0.5 after 20)");
+            car = Rules.NewTrack(TC.Car);
+            for (int i = 0; i < 8; i++)
+                Rules.RecordOutcome(ref car, true);
+            for (int i = 0; i < 9; i++)
+                Rules.RecordOutcome(ref car, false);
+            for (int i = 0; i < 4; i++)
+                Rules.RecordOutcome(ref car, true);
+            Check(Near(Rules.Confidence(TC.Car, car), 0.640618918, 1e-9), w + " U3",
+                  $"8, 9 failures, 4 on arrival: confidence {R(Rules.Confidence(TC.Car, car))}, expected 0.640618918");
+            Check(!Rules.UpdateCannotReach(ref car), w + " U3", "8, 9, 4: the row is off (from 0.6)");
+        }
+
+        // ================================================================== V. measure-core (Round M2)
+
+        /// <summary>measure-core.md §3 with the contract's 3-argument HillClosedForCount (R4 a) and ClosingEdgeOf rows
+        /// (build-contract.md §7, Decided here 1-2).</summary>
+        private static void MeasureCore()
+        {
+            const string w = "skiday V measure-core";
+            Check(Rules.LogKeyNone == 0 && Rules.LogKeyWaiting == 1 && Rules.LogKeyNoEfficiency == 2 && Rules.LogKeyNoOpenRun == 3 &&
+                  Rules.LogKeyNoLodge == 4 && Rules.LogKeyOpen == 5 && Rules.LogKeyFull == 6, w, "log keys None 0 … Full 6");
+
+            var keys = new (AreaState s, byte prev, byte want)[]
+            {
+                (AreaState.NoScore, 0, 1), (AreaState.Held, 5, 1), (AreaState.NoEfficiency, 5, 2), (AreaState.NoOpenRun, 6, 3),
+                (AreaState.NoLodge, 5, 4), (AreaState.Open, 6, 5), (AreaState.Full, 5, 6), (AreaState.Full, 6, 6),
+                (AreaState.OutOfHours, 6, 6), (AreaState.OutOfHours, 5, 5), (AreaState.OutOfHours, 0, 5), (AreaState.OutOfHours, 3, 5),
+                ((AreaState)200, 6, 5),
+            };
+            for (int i = 0; i < keys.Length; i++)
+            {
+                var r = keys[i];
+                byte got = Rules.AreaLogKey(r.s, r.prev);
+                Check(got == r.want, w + " key", $"AreaLogKey({r.s}, {r.prev}) = {got}, expected {r.want}");
+            }
+
+            var closed = new (bool known, bool held, int runs, bool want)[]
+            {
+                (false, false, 0, false), (true, false, 0, true), (true, false, 1, false), (true, false, -1, true), (false, false, 5, false),
+                (true, true, 0, false),
+            };
+            for (int i = 0; i < closed.Length; i++)
+            {
+                var r = closed[i];
+                Check(Rules.HillClosedForCount(r.known, r.held, r.runs) == r.want, w + " closed",
+                      $"HillClosedForCount({r.known}, {r.held}, {r.runs}) expected {r.want}");
+            }
+
+            var edges = new (bool hill, bool night, bool known, bool held, int runs, bool nightOpen, byte want)[]
+            {
+                (true, false, true, false, 0, false, 1), (false, false, true, false, 0, false, 0), (true, false, false, false, 0, false, 0),
+                (true, false, true, true, 0, false, 0), (true, true, true, false, 3, false, 2), (true, true, true, false, 3, true, 0),
+                (true, false, true, false, 3, false, 0), (true, true, true, false, 0, false, 1),
+            };
+            for (int i = 0; i < edges.Length; i++)
+            {
+                var r = edges[i];
+                byte got = Rules.ClosingEdgeOf(r.hill, r.night, r.known, r.held, r.runs, r.nightOpen);
+                Check(got == r.want, w + " edge", $"ClosingEdgeOf({r.hill}, {r.night}, {r.known}, {r.held}, {r.runs}, {r.nightOpen}) = {got}, expected {r.want}");
+            }
+
+            var midday = new (bool done, float t, int day, int doneDay, bool want)[]
+            {
+                (true, 0.5f, 24319, 24318, true), (true, 0.4999f, 24319, 24318, false), (true, 0.5f, 24318, 24318, false),
+                (false, 0.9f, 24319, 24318, false), (true, float.NaN, 24319, 24318, false), (true, 0.5f, 24318, int.MinValue, true),
+            };
+            for (int i = 0; i < midday.Length; i++)
+            {
+                var r = midday[i];
+                Check(Rules.MiddayRearmDue(r.done, r.t, r.day, r.doneDay) == r.want, w + " midday",
+                      $"MiddayRearmDue({r.done}, {r.t:R}, {r.day}, {r.doneDay}) expected {r.want}");
+            }
+            Check(Rules.DoneDayOf(0.5f, 24318) == 24318, w + " done", "DoneDayOf(0.5, 24318) = 24318");
+            Check(Rules.DoneDayOf(0.4999f, 24318) == int.MinValue, w + " done", "DoneDayOf(0.4999, 24318) = int.MinValue (re-arm today)");
+            Check(Rules.DoneDayOf(float.NaN, 24318) == int.MinValue, w + " done", "DoneDayOf(NaN, 24318) = int.MinValue");
+
+            var ended = new (bool logged, bool rearmed, int armDay, int day, bool want)[]
+            {
+                (false, true, 24318, 24319, true), (true, true, 24318, 24319, false), (false, false, 24318, 24319, false),
+                (false, true, 24318, 24318, false),
+            };
+            for (int i = 0; i < ended.Length; i++)
+            {
+                var r = ended[i];
+                Check(Rules.CostDayEnded(r.logged, r.rearmed, r.armDay, r.day) == r.want, w + " cost",
+                      $"CostDayEnded({r.logged}, {r.rearmed}, {r.armDay}, {r.day}) expected {r.want}");
+            }
+        }
+
+        // ================================================================== W. R10 learning (Round M2, u9-learning.md U1-U11)
+
+        /// <summary>u9-learning.md §3 U1-U11 as W1-W11 (now = 1,000,000; doubles ±1e-9 unless exact; BoundLearn tri-state
+        /// in place of true / false, Decided here 9).</summary>
+        private static void Learning()
+        {
+            const string w = "skiday W learning";
+            Rules.TripKnobs dk = Rules.DefaultTripKnobs();
+
+            // W1 knobs.
+            Check(dk.StayHours == 2.0 && dk.FloorWalk == 0.1 && dk.FloorCar == 0.5 && dk.FloorNoCar == 0.2 && !dk.FitUsesAllOutcomes, w + " W1",
+                  "DefaultTripKnobs: stay 2, floors 0.1 / 0.5 / 0.2, fit on arrivals only (exact)");
+            Check(Rules.FloorOf(TC.Car, dk) == 0.5, w + " W1", "FloorOf(Car, default) = 0.5");
+            Check(Rules.FloorOf(TC.None, dk) == 0.1, w + " W1", "FloorOf(None, default) = 0.1 (Walk's)");
+            Rules.TripKnobs kn = dk;
+            kn.FloorCar = double.NaN;
+            Check(Rules.FloorOf(TC.Car, kn) == 0.5, w + " W1", "FloorCar NaN reads MinSpeedCar 0.5");
+            kn.FloorCar = -1.0;
+            Check(Rules.FloorOf(TC.Car, kn) == 0.5, w + " W1", "FloorCar −1 reads MinSpeedCar 0.5");
+
+            // W2 the stay reserve (vanilla deadline now + 100,000, closing now + 40,000, 1 h of travel).
+            uint van = Now + 100000u, clo = Now + 40000u;
+            Check(Rules.ClaimFits(Now, van, clo, 1.0, 2.0), w + " W2", "stay 2: fits (need 32,768 ≤ 40,000)");
+            Check(!Rules.ClaimFits(Now, van, clo, 1.0, 3.0), w + " W2", "stay 3: does not fit (43,690.67 > 40,000)");
+            Check(Rules.ClaimFits(Now, van, clo, 1.0, 0.5), w + " W2", "stay 0.5: fits (16,384)");
+            Check(Rules.ClaimFits(Now, van, clo, 1.0, double.NaN), w + " W2", "stay NaN reads 2: fits");
+            Check(Rules.ClaimFits(Now, van, clo, 1.0, -1.0), w + " W2", "stay −1 reads 2: fits");
+            Check(Rules.FitVerdict(Now, van, clo, 1.0, 3.0) == Rules.Fit.NoTimeBeforeClosing, w + " W2", "FitVerdict(…, 1, 3) = NoTimeBeforeClosing");
+            Check(Rules.FitVerdict(Now, Now + 40000u, Now + 100000u, 1.0, 3.0) == Rules.Fit.NoTimeBeforeOwnDeadline, w + " W2",
+                  "vanilla + 40,000, closing + 100,000, stay 3 = NoTimeBeforeOwnDeadline");
+
+            // W3 parity over section T's 5,000 seeded rows: the 4-argument overloads are the stay-2 ones, double for double.
+            var rng = new System.Random(20261005);
+            int badFits = 0, badVerdicts = 0;
+            for (int n = 0; n < 5000; n++)
+            {
+                uint now = (uint)rng.Next(0, 2000000000);
+                uint vanilla = now + (uint)rng.Next(-20000, 200000);
+                uint closing = now + (uint)rng.Next(-20000, 200000);
+                double hours = rng.Next(10) == 0 ? (rng.Next(2) == 0 ? double.NaN : -rng.NextDouble()) : rng.NextDouble() * 8.0;
+                if (Rules.ClaimFits(now, vanilla, closing, hours, 2.0) != Rules.ClaimFits(now, vanilla, closing, hours))
+                    badFits++;
+                if (Rules.FitVerdict(now, vanilla, closing, hours, 2.0) != Rules.FitVerdict(now, vanilla, closing, hours))
+                    badVerdicts++;
+            }
+            Check(badFits == 0, w + " W3", $"ClaimFits(…, 2.0) = ClaimFits(…) over 5,000 rows: {badFits} bad");
+            Check(badVerdicts == 0, w + " W3", $"FitVerdict(…, 2.0) = FitVerdict(…) over 5,000 rows: {badVerdicts} bad");
+
+            // W4 NewTrack: both speeds at the start speed.
+            var starts = new (TC c, double v)[] { (TC.Car, 2.2), (TC.Walk, 0.3), (TC.NoCarFar, 1.2), (TC.None, 0.3) };
+            for (int i = 0; i < starts.Length; i++)
+            {
+                Rules.ClassTrack t0 = Rules.NewTrack(starts[i].c);
+                Check(t0.SpeedAllKmPerHour == t0.SpeedKmPerHour && t0.SpeedKmPerHour == starts[i].v, w + " W4",
+                      $"NewTrack({starts[i].c}): speeds {R(t0.SpeedKmPerHour)} / {R(t0.SpeedAllKmPerHour)}, expected {starts[i].v} both (exact)");
+            }
+
+            // W5 floors (Car, 3,360 m, + 100,000 frames = 9.1552734375 h, sample 0.47710208 → the floor).
+            Rules.ClassTrack t = Rules.NewTrack(TC.Car);
+            bool applied = Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now + 100000u, dk);
+            Check(applied && Near(t.SpeedKmPerHour, 1.775, 1e-12), w + " W5", $"default floor 0.5: speed {R(t.SpeedKmPerHour)}, expected 1.775, applied");
+            t = Rules.NewTrack(TC.Car);
+            kn = dk;
+            kn.FloorCar = 0.8;
+            Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now + 100000u, kn);
+            Check(Near(t.SpeedKmPerHour, 1.85, 1e-12), w + " W5", $"FloorCar 0.8: speed {R(t.SpeedKmPerHour)}, expected 1.85");
+            t = Rules.NewTrack(TC.Car);
+            Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now + 21845u, dk);
+            Check(Near(t.SpeedKmPerHour, 2.196008331, 1e-9), w + " W5", $"section J row +21,845 through the knobs overload: {R(t.SpeedKmPerHour)}, expected 2.196008331");
+            t = Rules.NewTrack(TC.Car);
+            Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now + 43690u, dk);
+            Check(Near(t.SpeedKmPerHour, 1.923004166, 1e-9), w + " W5", $"section J row +43,690: {R(t.SpeedKmPerHour)}, expected 1.923004166");
+            t = Rules.NewTrack(TC.Car);
+            Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now + 1000u, dk);
+            Check(Near(t.SpeedKmPerHour, 3.65, 1e-12), w + " W5", $"section J row +1,000 (sample capped at 8): {R(t.SpeedKmPerHour)}, expected 3.65");
+            t = Rules.NewTrack(TC.Car);
+            bool g1 = Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now, dk);
+            bool g2 = Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now - 100u, dk);
+            bool g3 = Rules.LearnSpeed(ref t, TC.Car, double.NaN, Now, Now + 21845u, dk);
+            bool g4 = Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now + 546u, dk);
+            Check(!g1 && !g2 && !g3 && !g4 && t.SpeedKmPerHour == 2.2, w + " W5", "section J's guard rows return false and leave 2.2");
+
+            // W6 exact all-outcomes samples.
+            t = Rules.NewTrack(TC.Car);
+            bool all = Rules.LearnSpeedAll(ref t, TC.Car, 3360, Now, Now + 21845u, dk);
+            Check(all && Near(t.SpeedAllKmPerHour, 2.196008331, 1e-9), w + " W6", $"arrival +21,845: all-outcomes speed {R(t.SpeedAllKmPerHour)}, expected 2.196008331");
+            Check(t.SpeedKmPerHour == 2.2, w + " W6", "LearnSpeedAll leaves the arrival-only speed at 2.2");
+            t = Rules.NewTrack(TC.Car);
+            t.SpeedAllKmPerHour = 0.88;
+            Rules.LearnSpeedAll(ref t, TC.Car, 3000, Now, Now + 65536u, dk);
+            Check(Near(t.SpeedAllKmPerHour, 0.8225, 1e-12), w + " W6", $"late arrival 3,000 m in 6 h (sample 0.65) from 0.88: {R(t.SpeedAllKmPerHour)}, expected 0.8225");
+
+            // W7 SpeedBound (km × 1.3 / hours; +∞ under LearnSpeed's guards).
+            Check(Near(Rules.SpeedBound(3360, Now, Now + 32768u), 1.456, 1e-12), w + " W7", $"3 h: {R(Rules.SpeedBound(3360, Now, Now + 32768u))}, expected 1.456");
+            Check(Near(Rules.SpeedBound(3360, Now, Now + 131072u), 0.364, 1e-12), w + " W7", "12 h: expected 0.364");
+            double b547 = Rules.SpeedBound(3360, Now, Now + 547u);
+            Check(!double.IsInfinity(b547) && Near(b547, 87.2215868, 1e-6), w + " W7", $"+547 frames (0.050079 h): {R(b547)}, expected 87.2215868 (finite)");
+            Check(double.IsPositiveInfinity(Rules.SpeedBound(3360, Now, Now + 546u)), w + " W7", "+546 frames (0.049988 h) → +∞");
+            Check(double.IsPositiveInfinity(Rules.SpeedBound(250, Now, Now + 32768u)), w + " W7", "250 m → +∞");
+            Check(double.IsPositiveInfinity(Rules.SpeedBound(double.NaN, Now, Now + 32768u)), w + " W7", "NaN distance → +∞");
+            Check(double.IsPositiveInfinity(Rules.SpeedBound(3360, Now, Now)), w + " W7", "last = claim → +∞");
+            Check(double.IsPositiveInfinity(Rules.SpeedBound(3360, Now, Now - 5u)), w + " W7", "last < claim → +∞");
+
+            // W8 LearnSpeedBound on NewTrack(Car).
+            t = Rules.NewTrack(TC.Car);
+            Rules.BoundLearn bl = Rules.LearnSpeedBound(ref t, TC.Car, 3360, Now, Now + 32768u, dk);
+            Check(bl == Rules.BoundLearn.Lowered && Near(t.SpeedAllKmPerHour, 2.014, 1e-12) && t.SpeedKmPerHour == 2.2, w + " W8",
+                  $"bound 1.456: {bl}, all-outcomes {R(t.SpeedAllKmPerHour)} (expected Lowered, 2.014), arrival-only 2.2");
+            t = Rules.NewTrack(TC.Car);
+            t.SpeedAllKmPerHour = 1.0;
+            bl = Rules.LearnSpeedBound(ref t, TC.Car, 3360, Now, Now + 32768u, dk);
+            Check(bl == Rules.BoundLearn.AlreadyMet && t.SpeedAllKmPerHour == 1.0, w + " W8", $"preset 1.0 under the bound 1.456: {bl}, expected AlreadyMet, 1.0 kept");
+            t = Rules.NewTrack(TC.Car);
+            bl = Rules.LearnSpeedBound(ref t, TC.Car, 3360, Now, Now + 65536u, dk);
+            Check(bl == Rules.BoundLearn.Lowered && Near(t.SpeedAllKmPerHour, 1.832, 1e-12), w + " W8", $"bound 0.728: {R(t.SpeedAllKmPerHour)}, expected 1.832");
+            t = Rules.NewTrack(TC.Car);
+            bl = Rules.LearnSpeedBound(ref t, TC.Car, 3360, Now, Now + 131072u, dk);
+            Check(bl == Rules.BoundLearn.Lowered && Near(t.SpeedAllKmPerHour, 1.775, 1e-12), w + " W8", $"bound 0.364 at the floor 0.5: {R(t.SpeedAllKmPerHour)}, expected 1.775");
+            t = Rules.NewTrack(TC.Car);
+            kn = dk;
+            kn.FloorCar = 0.3;
+            bl = Rules.LearnSpeedBound(ref t, TC.Car, 3360, Now, Now + 131072u, kn);
+            Check(bl == Rules.BoundLearn.Lowered && Near(t.SpeedAllKmPerHour, 1.741, 1e-12), w + " W8", $"bound 0.364, FloorCar 0.3: {R(t.SpeedAllKmPerHour)}, expected 1.741");
+            t = Rules.NewTrack(TC.Car);
+            bl = Rules.LearnSpeedBound(ref t, TC.Car, 3360, Now, Now + 547u, dk);
+            Check(bl == Rules.BoundLearn.AlreadyMet && t.SpeedAllKmPerHour == 2.2, w + " W8", $"bound 87.2 capped at 8, above 2.2: {bl}, expected AlreadyMet, 2.2");
+            t = Rules.NewTrack(TC.Car);
+            bl = Rules.LearnSpeedBound(ref t, TC.Car, 250, Now, Now + 32768u, dk);
+            Check(bl == Rules.BoundLearn.NoInformation && t.SpeedAllKmPerHour == 2.2, w + " W8", $"250 m: {bl}, expected NoInformation, 2.2");
+            t = Rules.NewTrack(TC.Car);
+            bl = Rules.LearnSpeedBound(ref t, TC.Car, double.NaN, Now, Now + 32768u, dk);
+            Check(bl == Rules.BoundLearn.NoInformation && t.SpeedAllKmPerHour == 2.2, w + " W8", $"NaN distance: {bl}, expected NoInformation, 2.2");
+
+            // W9 property: with the defaults every send is bit-identical — track A gets the Round M2 calls, track B only the
+            // Round M1 LearnSpeed on its arrivals; the arrival-only speed and FitSpeed(A) equal B's speed at every step.
+            TC[] classes = { TC.Walk, TC.Car, TC.NoCarFar };
+            rng = new System.Random(20261010);
+            int badSends = 0;
+            string firstSend = null;
+            for (int s = 0; s < 2000; s++)
+            {
+                TC c = classes[rng.Next(3)];
+                Rules.ClassTrack a = Rules.NewTrack(c), b = Rules.NewTrack(c);
+                for (int e = 0; e < 50; e++)
+                {
+                    int kind = rng.Next(4);
+                    double d = rng.NextDouble() * 8000.0;
+                    uint claim = (uint)rng.Next(0, 2000000000);
+                    uint end = claim + (uint)rng.Next(0, 150001);
+                    switch (kind)
+                    {
+                        case 0:   // an arrival (BookArrival: both speeds, the outcome)
+                            Rules.LearnSpeed(ref a, c, d, claim, end, dk);
+                            Rules.LearnSpeedAll(ref a, c, d, claim, end, dk);
+                            Rules.RecordOutcome(ref a, true);
+                            Rules.LearnSpeed(ref b, c, d, claim, end);
+                            Rules.RecordOutcome(ref b, true);
+                            break;
+                        case 1:   // a late arrival after expiry (the all-outcomes speed only)
+                            Rules.LearnSpeedAll(ref a, c, d, claim, end, dk);
+                            break;
+                        case 2:   // an upper bound (a failure on the road, or a late watch's end)
+                            Rules.LearnSpeedBound(ref a, c, d, claim, end, dk);
+                            Rules.RecordOutcome(ref a, false);
+                            Rules.RecordOutcome(ref b, false);
+                            break;
+                        default:  // a failure with no information
+                            Rules.RecordOutcome(ref a, false);
+                            Rules.RecordOutcome(ref b, false);
+                            break;
+                    }
+                    long bits = BitConverter.DoubleToInt64Bits(b.SpeedKmPerHour);
+                    bool same = BitConverter.DoubleToInt64Bits(a.SpeedKmPerHour) == bits &&
+                                BitConverter.DoubleToInt64Bits(Rules.FitSpeed(a, dk)) == bits;
+                    if (!same && badSends++ == 0)
+                        firstSend = $"sequence {s} event {e} ({c}, kind {kind}): A {R(a.SpeedKmPerHour)} fit {R(Rules.FitSpeed(a, dk))} vs B {R(b.SpeedKmPerHour)}";
+                }
+            }
+            Check(badSends == 0, w + " W9", $"sends unchanged with the defaults over 2,000 × 50 events: {badSends} step(s) differ" +
+                                            (firstSend != null ? "; first " + firstSend : ""));
+
+            // W10 the bound property: LearnSpeedBound never raises the all-outcomes speed; when it lowers it, the new speed
+            // is at least clamp(bound, floor, cap) and at least the floor.
+            rng = new System.Random(20261010);
+            int raised = 0, under = 0;
+            string firstRaise = null, firstUnder = null;
+            for (int n = 0; n < 5000; n++)
+            {
+                TC c = classes[rng.Next(3)];
+                Rules.ClassTrack tb = Rules.NewTrack(c);
+                tb.SpeedAllKmPerHour = rng.Next(10) == 0 ? 0.0 : rng.NextDouble() * 10.0;
+                double d = rng.NextDouble() * 8000.0;
+                uint claim = (uint)rng.Next(0, 2000000000);
+                uint last = claim + (uint)rng.Next(0, 150001);
+                double before = tb.SpeedAllKmPerHour > 0.0 ? tb.SpeedAllKmPerHour : Rules.StartSpeedOf(c);
+                Rules.BoundLearn r = Rules.LearnSpeedBound(ref tb, c, d, claim, last, dk);
+                double after = tb.SpeedAllKmPerHour > 0.0 ? tb.SpeedAllKmPerHour : Rules.StartSpeedOf(c);
+                if (after > before && raised++ == 0)
+                    firstRaise = $"row {n}: {R(before)} → {R(after)}";
+                if (r == Rules.BoundLearn.Lowered)
+                {
+                    double floor = Rules.FloorOf(c, dk);
+                    double sample = Math.Max(floor, Math.Min(Rules.SpeedBound(d, claim, last), Rules.MaxSpeedOf(c)));
+                    if (!(after >= sample && after >= floor) && under++ == 0)
+                        firstUnder = $"row {n}: {R(after)} below the clamped bound {R(sample)}";
+                }
+            }
+            Check(raised == 0, w + " W10", $"never raises the all-outcomes speed over 5,000 rows: {raised} bad{(firstRaise != null ? "; first " + firstRaise : "")}");
+            Check(under == 0, w + " W10", $"a lowered speed stays at or above clamp(bound, floor, cap): {under} bad{(firstUnder != null ? "; first " + firstUnder : "")}");
+
+            // W11 FitSpeed: the switch picks the speed (all-outcomes only when it is set).
+            Rules.ClassTrack tf = Rules.NewTrack(TC.Car);
+            tf.SpeedKmPerHour = 0.58;
+            tf.SpeedAllKmPerHour = 0.51;
+            Rules.TripKnobs onAll = dk;
+            onAll.FitUsesAllOutcomes = true;
+            Check(Rules.FitSpeed(tf, dk) == 0.58, w + " W11", "switch off → the arrival-only speed 0.58");
+            Check(Rules.FitSpeed(tf, onAll) == 0.51, w + " W11", "switch on → the all-outcomes speed 0.51");
+            tf.SpeedAllKmPerHour = 0.0;
+            Check(Rules.FitSpeed(tf, onAll) == 0.58, w + " W11", "switch on, all-outcomes speed 0 (unset) → 0.58");
+        }
+
+        // ================================================================== X. trip systems (Round M2 R9, SkiTripSystems)
+
+        /// <summary>enabled-flags.md §3, the SkiTripSystems section (literal oracles).</summary>
+        private static void TripSystems()
+        {
+            const string w = "skiday X trip systems";
+            // BitOfAssembly (exact, case-sensitive).
+            Check(SkiTripSystems.BitOfAssembly("RealisticPathFinding") == 1, w + " bit", "RealisticPathFinding → 1");
+            Check(SkiTripSystems.BitOfAssembly("Time2Work") == 2, w + " bit", "Time2Work → 2");
+            Check(SkiTripSystems.BitOfAssembly("RWH") == 0, w + " bit", "RWH → 0");
+            Check(SkiTripSystems.BitOfAssembly("realisticpathfinding") == 0, w + " bit", "realisticpathfinding → 0 (case-sensitive)");
+            Check(SkiTripSystems.BitOfAssembly(null) == 0, w + " bit", "null → 0");
+            // Names.
+            Eq(SkiTripSystems.Names(0, true), "", w + " names", "Names(0, true)");
+            Eq(SkiTripSystems.Names(1, true), "Realistic PathFinding (assembly RealisticPathFinding)", w + " names", "Names(1, true)");
+            Eq(SkiTripSystems.Names(2, true), "Realistic Trips (assembly Time2Work)", w + " names", "Names(2, true)");
+            Eq(SkiTripSystems.Names(3, false), "Realistic PathFinding, Realistic Trips", w + " names", "Names(3, false)");
+            Eq(SkiTripSystems.Names(4, false), "", w + " names", "Names(4, false) (unknown bits ignored)");
+            // Long.
+            Eq(SkiTripSystems.Long(63, 63), "LeisureSystem on, CitizenBehaviorSystem on, TripNeededSystem on, ResidentAISystem on, " +
+               "ResidentAISystem.Actions on, ResourceBuyerSystem on", w + " long", "Long(63, 63)");
+            Eq(SkiTripSystems.Long(63, 3), "LeisureSystem on, CitizenBehaviorSystem on, TripNeededSystem OFF, ResidentAISystem OFF, " +
+               "ResidentAISystem.Actions OFF, ResourceBuyerSystem OFF", w + " long", "Long(63, 3)");
+            Eq(SkiTripSystems.Long(63, 60), "LeisureSystem OFF, CitizenBehaviorSystem OFF, TripNeededSystem on, ResidentAISystem on, " +
+               "ResidentAISystem.Actions on, ResourceBuyerSystem on", w + " long", "Long(63, 60)");
+            Eq(SkiTripSystems.Long(61, 61), "LeisureSystem on, CitizenBehaviorSystem missing, TripNeededSystem on, ResidentAISystem on, " +
+               "ResidentAISystem.Actions on, ResourceBuyerSystem on", w + " long", "Long(61, 61)");
+            // Short.
+            Eq(SkiTripSystems.Short(63, 63, 0), "all on", w + " short", "Short(63, 63, 0)");
+            Eq(SkiTripSystems.Short(63, 63, 1), "all on", w + " short", "Short(63, 63, 1) (loaded but nothing off: no claim)");
+            Eq(SkiTripSystems.Short(63, 3, 1), "OFF: TripNeededSystem, ResidentAISystem, ResidentAISystem.Actions, ResourceBuyerSystem, " +
+               "replaced by Realistic PathFinding", w + " short", "Short(63, 3, 1)");
+            Eq(SkiTripSystems.Short(63, 60, 2), "OFF: LeisureSystem, CitizenBehaviorSystem, replaced by Realistic Trips", w + " short", "Short(63, 60, 2)");
+            Eq(SkiTripSystems.Short(63, 59, 0), "OFF: TripNeededSystem, no known replacement", w + " short", "Short(63, 59, 0)");
+            Eq(SkiTripSystems.Short(61, 61, 0), "OFF: CitizenBehaviorSystem (missing), no known replacement", w + " short", "Short(61, 61, 0)");
+            Eq(SkiTripSystems.Short(63, 0, 3), "OFF: LeisureSystem, CitizenBehaviorSystem, TripNeededSystem, ResidentAISystem, " +
+               "ResidentAISystem.Actions, ResourceBuyerSystem, replaced by Realistic PathFinding, Realistic Trips", w + " short", "Short(63, 0, 3)");
+            // LoadLine.
+            Eq(SkiTripSystems.LoadLine(63, 63, 0), "SkiDays: trip systems: LeisureSystem on, CitizenBehaviorSystem on, TripNeededSystem on, " +
+               "ResidentAISystem on, ResidentAISystem.Actions on, ResourceBuyerSystem on — the game's own trip planner runs (read at city load, " +
+               "after every mod loaded)", w + " load", "LoadLine(63, 63, 0)");
+            Eq(SkiTripSystems.LoadLine(63, 3, 1), "SkiDays: trip systems: LeisureSystem on, CitizenBehaviorSystem on, TripNeededSystem OFF, " +
+               "ResidentAISystem OFF, ResidentAISystem.Actions OFF, ResourceBuyerSystem OFF — a mod has replaced the game's trip planner: Realistic " +
+               "PathFinding (assembly RealisticPathFinding); the intervals SkiDays prints are read from the game's own systems, not from the " +
+               "replacement (read at city load, after every mod loaded)", w + " load", "LoadLine(63, 3, 1)");
+            Eq(SkiTripSystems.LoadLine(63, 59, 0), "SkiDays: trip systems: LeisureSystem on, CitizenBehaviorSystem on, TripNeededSystem OFF, " +
+               "ResidentAISystem on, ResidentAISystem.Actions on, ResourceBuyerSystem on — a system is switched off and no known replacement is " +
+               "loaded (looked for assemblies RealisticPathFinding, Time2Work): another mod, or the game after an error in that system (see the " +
+               "game's logs); the intervals SkiDays prints are read from the game's own systems (read at city load, after every mod loaded)",
+               w + " load", "LoadLine(63, 59, 0)");
+            // ChangeLine.
+            Eq(SkiTripSystems.ChangeLine(63, 63, 63, 60, 2, true, false), "SkiDays: trip systems changed during play: LeisureSystem OFF, " +
+               "CitizenBehaviorSystem OFF, TripNeededSystem on, ResidentAISystem on, ResidentAISystem.Actions on, ResourceBuyerSystem on (was: " +
+               "all on); ski days need the game's own LeisureSystem and CitizenBehaviorSystem: NOT ARMED from now on this load (claims in flight " +
+               "finish as vanilla leisure trips, as at a load)", w + " change", "ChangeLine(63, 63, 63, 60, 2, true, false)");
+            string change = SkiTripSystems.ChangeLine(63, 63, 63, 59, 0, false, true);
+            Check(change.EndsWith("(was: all on); the arm verdict stands until the next city load (further changes this load are only counted in " +
+                                  "the Dump)", StringComparison.Ordinal), w + " change", $"ChangeLine(63, 63, 63, 59, 0, false, true) ends as expected: \"{change}\"");
+            // Label and UnknownLabel.
+            Eq(SkiTripSystems.Label(63, 63, 1), "", w + " label", "Label(63, 63, 1)");
+            Eq(SkiTripSystems.Label(63, 3, 1), "Realistic PathFinding", w + " label", "Label(63, 3, 1)");
+            Eq(SkiTripSystems.Label(63, 59, 0), "?", w + " label", "Label(63, 59, 0)");
+            Eq(SkiTripSystems.Label(63, 60, 2), "Realistic Trips", w + " label", "Label(63, 60, 2)");
+            Eq(SkiTripSystems.Label(63, 0, 3), "Realistic PathFinding, Realistic Trips", w + " label", "Label(63, 0, 3)");
+            Eq(SkiTripSystems.UnknownLabel, "?", w + " label", "UnknownLabel (= bindings.ts TRIP_PLANNER_UNKNOWN)");
+            // BlocksSkiDays (= ArmCheck's SystemOff test).
+            var blocks = new (int on, bool want)[] { (63, false), (3, false), (60, true), (62, true), (61, true), (0, true) };
+            for (int i = 0; i < blocks.Length; i++)
+                Check(SkiTripSystems.BlocksSkiDays(blocks[i].on) == blocks[i].want, w + " blocks", $"BlocksSkiDays({blocks[i].on}) expected {blocks[i].want}");
+        }
+
+        /// <summary>One string check with both strings in the message on a mismatch.</summary>
+        private static void Eq(string got, string want, string where, string what)
+        {
+            Check(string.Equals(got, want, StringComparison.Ordinal), where, got == want ? what : $"{what}: got \"{got}\", expected \"{want}\"");
         }
     }
 }

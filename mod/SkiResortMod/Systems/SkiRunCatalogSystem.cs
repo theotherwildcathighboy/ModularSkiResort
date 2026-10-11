@@ -4,9 +4,10 @@
 // 2026-10-01 (Round U1, implementer U1-B); Round U2 (docs/research/hub-u2-spec.md §2.1, §3.1,
 // §3.5; 2026-10-03, implementer I-1) added the resort link (Gate), per-resort numbering and the
 // built-run RATING CACHE below. Round E1 (docs/research/econ-round/spec/ch2-runs.md §2, decision D12;
-// stream S2, 2026-10-04) made it ALWAYS ON and gave the simulation a read API (below). Read by
-// SkiResortHubUISystem, SkiResortStatsSystem and (E1) SkiResortAttractivenessSystem; this system owns
-// no binding and writes nothing to the world.
+// stream S2, 2026-10-04) made it ALWAYS ON and gave the simulation a read API (below). Round M2 (D9,
+// 2026-10-10, builder B3): with the hub open it rebuilds only for our runs (coalesced), and the DUMP counts the
+// rebuilds by reason (header CONTRACT). Read by SkiResortHubUISystem, SkiResortStatsSystem and (E1)
+// SkiResortAttractivenessSystem; this system owns no binding and writes nothing to the world.
 //
 // ALWAYS ON (Round E1, D12: the simulation scores runs by these ratings, so they exist with the hub
 // closed). One service, two cadences: the same Rebuild, RateStep, RateOne, queue rules
@@ -15,7 +16,7 @@
 // frame (U2: "any of resorts, runs, lifts, lodges, city, build observed", hub-u2-spec.md §3.6;
 // Colossal.UI.Binding EventBindingBase.observerCount/active, EventBindingBase.cs:14-16 [scratch
 // decompile of the installed 1.6.2f1 DLL]):
-//     |                     | panel open (Demand true) — U2, unchanged | panel closed (Demand false) — E1      |
+//     |                     | panel open (Demand true) — Round M2 D9   | panel closed (Demand false) — E1      |
 //     | rebuild triggers    | the CHANGE SIGNATURE below, 2 s heartbeat | one of OUR BOUND runs (SkiRunBinding)  |
 //     |                     |                                          | Created/Updated/Deleted this frame     |
 //     |                     |                                          | (one IsEmptyIgnoreFilter; E1 fixer:    |
@@ -67,26 +68,26 @@
 // true only for a CURRENT rating — the run's outline key matched at the last rebuild, RateState 1-4).
 //
 // CONTRACT
-//   * While Demand is true, a rebuild runs when the CHANGE SIGNATURE moves:
-//       - the count of surface areas (our runs are SurfacePrefab areas; the count covers drawn and
-//         deleted runs — EntityQuery.CalculateEntityCount on an unfiltered query; that it sums chunk
-//         counts without allocating is Unity.Entities behaviour, not decompiled here: unverified);
-//       - the count of buildings (a Welcome Sign placed or bulldozed) — COALESCED (fixer round,
-//         finding u2-data-04): in a growing city zoned buildings spawn and despawn every few seconds,
-//         and each change cost a full building walk (CountSigns) plus the run walk; a building-count
-//         change now rebuilds at most once per BuildingCountMinIntervalS (a sign still shows within
-//         that time; the other reasons stay immediate);
+//   * While Demand is true, a rebuild runs when the CHANGE SIGNATURE moves (Round M2 D9, docs/research/round-m2/
+//     understand/measure-core.md 2.8 and build-contract.md "Decided here" 11: the panel-open path listens only to OUR
+//     runs — field test 10 run 2b rebuilt about once per wall second with the hub open, at least half of it from the
+//     building, surface-area and area-edit triggers that fire for vanilla buildings and areas; those three are gone):
+//       - one of OUR BOUND runs Created / Updated / Deleted this frame (m_RunChangeQuery, the panel-closed
+//         query: an edited run is tagged Updated on its ORIGINAL entity by ApplyAreasSystem,
+//         ApplyAreasSystem.cs:167-202; the tag lives until CleanUpSystem at Cleanup, CleanUpSystem.cs:53, and
+//         UIUpdate runs before it: SystemOrder.cs:67 UIUpdateSystem inside MainLoop, Cleanup after it — same
+//         lines in 1.6.2) — COALESCED like the closed path to one rebuild per ClosedMinRebuildIntervalS
+//         (a drawing stroke must not rebuild every frame);
 //       - SkiRunOwnershipSystem.BindGeneration (bind / re-link / orphan / migration write our own
-//         SkiRunBinding and raise no tag, so a counter stands in for the tag);
-//       - any area carrying Updated this frame (an edited run: ApplyAreasSystem copies the new
-//         nodes onto the ORIGINAL entity and tags it Updated, ApplyAreasSystem.cs:167-202; the tag
-//         lives until CleanUpSystem at Cleanup, CleanUpSystem.cs:53, and UIUpdate runs before it:
-//         SystemOrder.cs:67 UIUpdateSystem inside MainLoop, Cleanup after it — same lines in 1.6.2);
+//         SkiRunBinding and raise no tag, so a counter stands in for the tag; a newly drawn run is caught here);
 //       - the active localization dictionary changed (default names are localized);
 //       - or a 2 s wall-clock heartbeat (UnityEngine.Time.realtimeSinceStartup — NOT UIUpdateState,
 //         which counts simulation frames and freezes while paused, research §4.1-3), which catches
-//         what the signature cannot see (a sign moved, a run re-snapped by a terrain edit).
-//     The rising edge of Demand (the panel opened) rebuilds at once.
+//         what the signature cannot see (a sign moved, a run re-snapped by a terrain edit) and, since Round
+//         M2, a Welcome Sign placed or bulldozed (shown within 2 s instead of 0.5 s; the heartbeat recounts the
+//         signs) and a newly drawn run that is not bound to a sign (no SkiRunBinding).
+//     The rising edge of Demand (the panel opened) rebuilds at once. Each rebuild is counted by reason
+//     (m_RebuildsByReason, literal reasons; the DUMP prints them).
 //   * A rebuild whose result equals the previous one (a content hash over every row field and the
 //     totals) does NOT bump Revision, so the hub re-sends nothing; it is counted, not logged. A
 //     signature-driven rebuild that DID change something is logged at most RebuildLinesPerWindow times
@@ -271,18 +272,16 @@ namespace SkiResortMod.Systems
             public const int RateLinesPerWindow = 8;
             public const float RateLineWindowS = 10f;
 
-            // ── fixer round ──
-            /// <summary>A building-count change rebuilds at most once per this many wall-clock seconds
-            /// (finding u2-data-04; tunable, unmeasured).</summary>
-            public const float BuildingCountMinIntervalS = 0.5f;
-
+            // ── fixer round ── (BuildingCountMinIntervalS retired in Round M2 D9: the building count is no
+            // longer a panel-open trigger; our runs' changes coalesce to ClosedMinRebuildIntervalS instead)
             /// <summary>Changed signature-driven "[rebuild]" lines per window before the rest are only
             /// counted (finding u2-data-01: a terrain stroke must not write a line per frame).</summary>
             public const int RebuildLinesPerWindow = 6;
             public const float RebuildLineWindowS = 10f;
 
             // ── Round E1 (ch2 §2): the panel-closed cadence of the rating service ──
-            /// <summary>A panel-closed change-driven rebuild runs at most once per this many wall-clock s.</summary>
+            /// <summary>A change-driven rebuild on one of our runs runs at most once per this many wall-clock s:
+            /// panel closed (E1) and, since Round M2 D9, panel open too.</summary>
             public const float ClosedMinRebuildIntervalS = 0.5f;
             /// <summary>Panel-closed wall-clock heartbeat (s).</summary>
             public const float ClosedHeartbeatS = 10f;
@@ -309,6 +308,10 @@ namespace SkiResortMod.Systems
         /// <summary>E1: why-text of a coalesced panel-closed rebuild (a signature reason: unchanged results
         /// are counted, changed ones obey the RebuildLinesPerWindow window).</summary>
         private const string WhyRunChangedClosed = "run changed (panel closed)";
+
+        /// <summary>Round M2 D9: why-text of a coalesced panel-open rebuild on one of our bound runs (a signature
+        /// reason, like the closed one).</summary>
+        private const string WhyRunChanged = "run changed";
 
         /// <summary>One run of ours, as the hub sends it (mod/SkiResortUI/src/bindings.ts RunRow) plus
         /// the ordering keys. U1 fields keep their meaning, except that LengthM / DropM are the RATED
@@ -390,9 +393,10 @@ namespace SkiResortMod.Systems
         private ToolSystem m_ToolSystem;
 
         private EntityQuery m_RunQuery;        // every live surface area (our runs are among them)
-        private EntityQuery m_BuildingQuery;   // every live building (the signs are among them)
-        private EntityQuery m_AreaEditQuery;   // areas tagged Updated this frame
-        private EntityQuery m_RunChangeQuery;  // E1: our bound runs Created/Updated/Deleted this frame (panel closed)
+        private EntityQuery m_BuildingQuery;   // every live building (the signs are among them; CountSigns)
+        // (m_AreaEditQuery, "areas tagged Updated this frame", retired in Round M2 D9: no reader once the panel-open
+        // path listens to m_RunChangeQuery)
+        private EntityQuery m_RunChangeQuery;  // E1: our bound runs Created/Updated/Deleted this frame (both panel states since Round M2 D9)
 
         // Rows: m_Rows is what the hub reads; a rebuild fills m_Scratch and swaps (no allocation once
         // both lists reached the city's run count). m_RowIndex: entity → index in m_Rows.
@@ -439,10 +443,13 @@ namespace SkiResortMod.Systems
         private bool m_ErrorLogged;
         private bool m_WasDemanded;
         private string m_RebuildRequest;          // non-null: rebuild on the next OnUpdate, with this why
-        private int m_SigSurfaces = -1, m_SigBuildings = -1, m_SigBindGeneration = int.MinValue, m_SigNames = -1;
+        private int m_SigBindGeneration = int.MinValue, m_SigNames = -1;   // Round M2 D9: surface / building counts retired
         private float m_NextHeartbeat;
         private ulong m_LastHash;
-        // Fixer round: building-count coalescing (u2-data-04) and the changed-rebuild line window (u2-data-01).
+        private bool m_OpenChangePending;         // Round M2 D9: a panel-open run change seen, rebuild owed (coalesced)
+        // Round M2 D9: rebuilds this load by reason (literal reasons only: no allocation per rebuild after first sight).
+        private readonly Dictionary<string, int> m_RebuildsByReason = new Dictionary<string, int>();
+        // Fixer round: the last rebuild's time (change coalescing) and the changed-rebuild line window (u2-data-01).
         private float m_LastRebuildTime = float.NegativeInfinity;
         private float m_RebuildLineWindowStart = float.NegativeInfinity;
         private int m_RebuildLinesInWindow, m_RebuildLinesSuppressed;
@@ -669,19 +676,8 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Deleted>(),
                 },
             });
-            m_AreaEditQuery = GetEntityQuery(new EntityQueryDesc
-            {
-                All = new[]
-                {
-                    ComponentType.ReadOnly<Game.Areas.Area>(),
-                    ComponentType.ReadOnly<Updated>(),
-                },
-                None = new[]
-                {
-                    ComponentType.ReadOnly<Temp>(),
-                },
-            });
-            // E1 (ch2 §2.3): the panel-closed trigger. The tags live until CleanUpSystem (Cleanup, after
+            // E1 (ch2 §2.3): the panel-closed trigger (and, since Round M2 D9, the panel-open one too, coalesced
+            // the same way). The tags live until CleanUpSystem (Cleanup, after
             // UIUpdate), so UIUpdate sees this frame's tags (CleanUpSystem.cs:53, SystemOrder.cs:67).
             // E1 fixer (e1-spec §8.9 F3): scoped to OUR BOUND runs by SkiRunBinding. Without it the query
             // matched every SurfacePrefab area, and vanilla buildings carry Surface sub-areas (grass,
@@ -770,12 +766,12 @@ namespace SkiResortMod.Systems
             m_ErrorLogged = false;
             m_WasDemanded = false;
             m_RebuildRequest = null;
-            m_SigSurfaces = -1;
-            m_SigBuildings = -1;
             m_SigBindGeneration = int.MinValue;
             m_SigNames = -1;
             m_NextHeartbeat = 0f;
             m_LastHash = 0;
+            m_OpenChangePending = false;      // Round M2 D9
+            m_RebuildsByReason.Clear();
             m_LastRebuildTime = float.NegativeInfinity;
             m_RebuildLineWindowStart = float.NegativeInfinity;
             m_RebuildLinesInWindow = 0;
@@ -858,11 +854,11 @@ namespace SkiResortMod.Systems
             m_RebuildRequest = "load";   // the first rebuild writes one "Catalog [rebuild] (load)" line, hub or no hub
             RatingRevision++;            // a load happened
             Mod.Log.Info("Catalog [arm] — run list, resort links and built-run ratings, ALWAYS ON (Round E1, D12: the " +
-                         "simulation scores runs by these ratings). Panel open: rebuild at once when it opens, then when " +
-                         "the change signature moves (surface-area count, SkiRunOwnershipSystem.BindGeneration, an area " +
-                         "tagged Updated, a language change; building count at most every " +
-                         $"BuildingCountMinIntervalS={Tuning.BuildingCountMinIntervalS:0.##} s) or every " +
-                         $"HeartbeatS={Tuning.HeartbeatS:0.##} s wall clock. Panel closed: rebuild when one of our bound runs is " +
+                         "simulation scores runs by these ratings). Panel open: rebuild at once when it opens, then on " +
+                         "one of our bound runs Created/Updated/Deleted (coalesced to " +
+                         $"{Tuning.ClosedMinRebuildIntervalS:0.##} s), BindGeneration, a language change, a " +
+                         $"{Tuning.HeartbeatS:0.##} s heartbeat (wall clock; Round M2: no building, surface-area or area-edit " +
+                         "trigger). Panel closed: rebuild when one of our bound runs is " +
                          "Created/Updated/Deleted or BindGeneration moves (at most every " +
                          $"ClosedMinRebuildIntervalS={Tuning.ClosedMinRebuildIntervalS:0.##} s) or every " +
                          $"ClosedHeartbeatS={Tuning.ClosedHeartbeatS:0.##} s; no sign count, no language trigger. Changed " +
@@ -936,21 +932,18 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>U2's change signature (panel open), unchanged: two chunk counts, two field reads,
-        /// one empty-test, no allocation. Null when nothing moved.</summary>
+        /// <summary>The panel-open change signature, Round M2 D9 (header CONTRACT; measure-core.md 2.8, build-contract
+        /// "Decided here" 11): in order "run changed" (one of our bound runs Created / Updated / Deleted, coalesced to
+        /// ClosedMinRebuildIntervalS like the closed path), "bind generation", "language", the heartbeat. Per frame:
+        /// one IsEmptyIgnoreFilter, two int compares, float compares; no allocation. Null when nothing moved.</summary>
         private string OpenSignatureWhy(float now)
         {
-            int surfaces = m_RunQuery.CalculateEntityCount();
-            int buildings = m_BuildingQuery.CalculateEntityCount();
-            int bindGeneration = m_Ownership.BindGeneration;
-            if (surfaces != m_SigSurfaces)
-                return "surface-area count";
-            if (bindGeneration != m_SigBindGeneration)
+            if (!m_RunChangeQuery.IsEmptyIgnoreFilter)
+                m_OpenChangePending = true;
+            if (m_OpenChangePending && now - m_LastRebuildTime >= Tuning.ClosedMinRebuildIntervalS)
+                return WhyRunChanged;   // Rebuild clears the pending flag
+            if (m_Ownership.BindGeneration != m_SigBindGeneration)
                 return "bind generation";
-            if (buildings != m_SigBuildings && now - m_LastRebuildTime >= Tuning.BuildingCountMinIntervalS)
-                return "building count";   // coalesced (header; finding u2-data-04)
-            if (!m_AreaEditQuery.IsEmptyIgnoreFilter)
-                return "area edited";
             if (m_NamesGeneration != m_SigNames)
                 return "language";
             return now >= m_NextHeartbeat ? WhyHeartbeat : null;
@@ -979,11 +972,12 @@ namespace SkiResortMod.Systems
             m_Timer.Reset();
             m_Timer.Start();
 
-            // The signature this rebuild answers (read before the walk, so a change during it re-runs).
-            m_SigSurfaces = m_RunQuery.CalculateEntityCount();
-            m_SigBuildings = m_BuildingQuery.CalculateEntityCount();
+            // The signature this rebuild answers (read before the walk, so a change during it re-runs). Round M2 D9:
+            // the surface-area and building counts are no longer read (not triggers); any rebuild answers a pending
+            // panel-open run change (it walks every run).
             m_SigBindGeneration = m_Ownership.BindGeneration;
             m_SigNames = m_NamesGeneration;
+            m_OpenChangePending = false;
 
             m_Scratch.Clear();
             int signs = 0;
@@ -1067,6 +1061,9 @@ namespace SkiResortMod.Systems
                 RebuildsChanged++;
             }
             Rebuilds++;
+            // Round M2 D9: per reason (literal why-texts; a key is added once, then only its count moves).
+            m_RebuildsByReason.TryGetValue(why, out int byWhy);
+            m_RebuildsByReason[why] = byWhy + 1;
 
             // U2: queue what needs a rating, drop cache entries of runs that left.
             UpdateQueue();
@@ -1145,12 +1142,11 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Signature-driven rebuilds with an unchanged result are counted, not logged (the
-        /// surface / building counts also move for areas and buildings that are not ours).</summary>
+        /// <summary>Signature-driven rebuilds with an unchanged result are counted, not logged (Round M2 D9: the
+        /// surface-area, building-count and area-edited reasons are gone; "run changed" joins).</summary>
         private static bool IsSignatureWhy(string why)
         {
-            return why == "surface-area count" || why == "building count" || why == "bind generation" ||
-                   why == "area edited" || why == "language" || why == WhyRunChangedClosed;
+            return why == WhyRunChanged || why == "bind generation" || why == "language" || why == WhyRunChangedClosed;
         }
 
         /// <summary>E1 (ch2 §2.3): RatingRevision++ when the hash of every RunFacts field moved.</summary>
@@ -1911,7 +1907,17 @@ namespace SkiResortMod.Systems
               .Append(", disabled ").Append(m_Disabled)
               .Append(", demand ").Append(Demand)
               .Append(", revision ").Append(Revision)
-              .Append(", rebuilds ").Append(Rebuilds).Append(" (").Append(RebuildsChanged).Append(" changed)")
+              .Append(", rebuilds ").Append(Rebuilds).Append(" (").Append(RebuildsChanged).Append(" changed; by reason:");
+            // Round M2 D9 (build-contract.md §6.8): ", rebuilds {n} ({c} changed; by reason: {why} {k}, …)".
+            bool anyReason = false;
+            foreach (var pair in m_RebuildsByReason)
+            {
+                sb.Append(anyReason ? ", " : " ").Append(pair.Key).Append(' ').Append(pair.Value);
+                anyReason = true;
+            }
+            if (!anyReason)
+                sb.Append(" none");
+            sb.Append(')')
               .Append(", last '").Append(LastRebuildWhy).Append("' ").Append(LastRebuildMs.ToString("F2", CultureInfo.InvariantCulture))
               .Append(" ms (max ").Append(MaxRebuildMs.ToString("F2", CultureInfo.InvariantCulture)).Append(')')
               .Append("; signs ").Append(Signs)

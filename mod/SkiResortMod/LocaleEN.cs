@@ -45,6 +45,15 @@
 // never left home, not an unreachable lodge; field test 9, DECISIONS 152; texts per review L3) and
 // GUESTS_LAST_PARTIAL (D5: a month can now be partial because time was skipped ahead). No key is new and none is
 // retired. The [reach] log line reads the row text from the active dictionary, so it follows these texts.
+// Round M2 (2026-10-10, builder B3; docs/research/round-m2/build-contract.md §8.3-§8.4, gate R4 with
+// src/hub/hubText.ts): 11 new SkiResort.Hub.* keys, each with a "Round M2" comment in its block: MONEY_PRICE_LINE and
+// MONEY_PRICE_TIP[Title|Where|Curve|Who] (R7, the Money view's price line; the Options path read from
+// Settings\LocaleEN.cs: tab Main, group Ski area balance), TRIP_PLANNER_NOTE[Known|KnownOff|Unknown|UnknownOff] and
+// TRIP_PLANNER_TIP (R9, the Guests view's trip-planner note; HUB_CONTRACT 5), LIFT_COST_REDUCED[NoOpenRun] (R3, T2).
+// 10 texts changed in place: TICKETS_NOTE[NothingOpen] (R2: a running lift alone no longer opens the gate) and
+// TICKETS_NOTE[NotKnownYet] (also a new sign), MONEY_TIP[Lifts] (R3), the five SEASON_TIP texts (R5: they say what
+// they read; "never has a winter" goes), PROBLEM_TIP[Efficiency] and RECEIPT_TIP[Efficiency] (R5: garbage named).
+// Nothing retired; MONEY_TICKETS_PRICE stays.
 // Additional languages: further IDictionarySource implementations — see SPEC §13 Phase 6.
 
 using System.Collections.Generic;
@@ -378,7 +387,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "A lodge that is switched off does not count. With none left, guests have nowhere to arrive and the attraction is 0. Switch one on in the Welcome Sign's info panel (Upgrades)." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "A lodge that is switched off does not count in the lodge base." },
                 // Round F7 (D4): no longer tells the player to connect a sign that is connected.
-                { "SkiResort.Hub.PROBLEM_TIP[Efficiency]", "The Welcome Sign needs staff, power, water and sewage. Its info panel shows which is short." },
+                // Round M2 (R5): changed in place; names garbage and points at the factor rows below it.
+                { "SkiResort.Hub.PROBLEM_TIP[Efficiency]", "Efficiency as on the Welcome Sign's info panel: staff, power, water, sewage, garbage, budget and more. Any cause costing 5 % or more is listed below." },
                 { "SkiResort.Hub.PROBLEM_TIP[LiftNoPower]", "Its base station gets no electricity, so the lift adds nothing and its runs count as having no lift. Connect a low-voltage line to it." },
                 { "SkiResort.Hub.PROBLEM_TIP[LiftSectionMissing]", "A section of the line is being redrawn or was removed. The lift counts again as soon as the line is closed; until then it costs a quarter of its running cost." },
                 { "SkiResort.Hub.PROBLEM_TIP[LiftUnfinished]", "The line does not join a base station and a top station yet." },
@@ -431,7 +441,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RECEIPT_TIP[Variety]", "Variety: 15 % more while a green, a blue and a black (or harder) run all count." },
                 { "SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –" },
                 { "SkiResort.Hub.RECEIPT[Efficiency]", "Welcome Sign efficiency" },
-                { "SkiResort.Hub.RECEIPT_TIP[Efficiency]", "The game's efficiency of the Welcome Sign: staff, power, water, sewage, budget and more, as on its info panel. The score is multiplied by it." },
+                // Round M2 (R5): changed in place, "garbage" added (one wording across the hub).
+                { "SkiResort.Hub.RECEIPT_TIP[Efficiency]", "The game's efficiency of the Welcome Sign: staff, power, water, sewage, garbage, budget and more, as on its info panel. The score is multiplied by it." },
                 { "SkiResort.Hub.RECEIPT[Result]", "Attraction" },
                 { "SkiResort.Hub.RECEIPT[ResultNoLodge]", "Attraction (no lodge: 0)" },
                 { "SkiResort.Hub.RECEIPT_TIP[Result]", "(Lodge base + runs and lifts) × efficiency, at most 200. Each active lodge carries an equal part, so the game counts the ski area once. The game's own panel of a lodge shows Attractiveness 0; the ski area's score is this one, carried by its lodges." },
@@ -473,6 +484,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_COST_REDUCED[NoPower]", "Billed at 25 %: no power" },
                 { "SkiResort.Hub.LIFT_COST_REDUCED[Unfinished]", "Billed at 25 % while unfinished" },
                 { "SkiResort.Hub.LIFT_COST_REDUCED[SectionMissing]", "Billed at 25 % while a section is missing" },
+                // Round M2 (R3, T2): a complete, powered lift whose ski area has no counted run (hubText.ts liftCostReducedNoOpenRun).
+                { "SkiResort.Hub.LIFT_COST_REDUCED[NoOpenRun]", "Billed at 25 %: no open run in its ski area" },
                 { "SkiResort.Hub.LIFT_ACTIONS", "Click to fly there (to the gap if a section is missing). The pen renames it." },
                 { "SkiResort.Hub.LIFTS_TOTAL_LENGTH", "Total lift length" },
                 { "SkiResort.Hub.LIFTS_TOTAL_CAPACITY", "Design capacity, all lifts" },
@@ -510,12 +523,20 @@ namespace SkiResortMod
                 { "SkiResort.Hub.EST_ROW[Tourists]", "Target tourists from this ski area (estimated)" },
                 { "SkiResort.Hub.EST_TO_NOTE", "Detected: Tourism Overhaul. It sets tourist numbers." },
                 { "SkiResort.Hub.EST_TO_TIP", "Tourism Overhaul sets tourist numbers in this city, so no estimate is shown." },
+                // Round M2 (R9): the Guests view's trip-planner note (no placeholder; Known / KnownOff are in the
+                // placeholder block below) and its tooltip.
+                { "SkiResort.Hub.TRIP_PLANNER_NOTE[Unknown]", "Part of the game's trip planner is switched off (another mod, or a game error), so trip times can differ." },
+                { "SkiResort.Hub.TRIP_PLANNER_NOTE[UnknownOff]", "Ski days off: the game's leisure systems are switched off (another mod, or a game error)." },
+                { "SkiResort.Hub.TRIP_PLANNER_TIP", "Read at each city load: which of the game's own trip systems are switched on, and which known mods are loaded. The mod's log lists the systems." },
                 { "SkiResort.Hub.GUESTS_NOTE[Where]", "Counted when tourists arrive at this ski area's lodge or Welcome Sign, and when residents come to a lodge for leisure." },
                 { "SkiResort.Hub.GUESTS_NOTE[SinceLoad]", "Counting started when you loaded the city, partway through this month." },
                 { "SkiResort.Hub.TICKETS_NOTE[Off]", "Lift tickets are off (Options: Lift ticket price is 0)." },
                 { "SkiResort.Hub.TICKETS_NOTE[NoEfficiency]", "No tickets now: the Welcome Sign is not running." },
-                { "SkiResort.Hub.TICKETS_NOTE[NothingOpen]", "No tickets now: no run counts and no lift is running." },
-                { "SkiResort.Hub.TICKETS_NOTE[NotKnownYet]", "No tickets yet: the runs are still being checked after loading." },
+                // Round M2 (R2, T1): changed in place; a running lift alone no longer opens the gate, and NotKnownYet also
+                // covers a new sign without a score (fixer, review-ui-hub-money F2: shortened to 58 characters so the
+                // one-line ticket slot shows it whole; hubText.ts holds the same text).
+                { "SkiResort.Hub.TICKETS_NOTE[NothingOpen]", "No tickets now: no run is open." },
+                { "SkiResort.Hub.TICKETS_NOTE[NotKnownYet]", "No tickets yet: runs are being checked (new sign or load)." },
                 { "SkiResort.Hub.SECTION[Money]", "Money" },
                 { "SkiResort.Hub.MONEY_COL", "A month" },
                 { "SkiResort.Hub.MONEY_TICKETS[Unknown]", "Lift tickets: counted after a quarter month" },
@@ -530,6 +551,10 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_NOTE[Rwh]", "Detected: Realistic Workplaces. The real bill can differ." },
                 { "SkiResort.Hub.MONEY_TIP[Rwh]", "Realistic Workplaces And Households changes staff and service costs, so the bill can differ." },
                 { "SkiResort.Hub.MONEY_NOTE[Est]", "≈ Tickets are projected from this month so far until a full month has been counted." },
+                // Round M2 (R7, hub-price.md): the Money view's price line, tooltip lines without a placeholder.
+                { "SkiResort.Hub.MONEY_PRICE_TIP[Title]", "Lift ticket price" },
+                { "SkiResort.Hub.MONEY_PRICE_TIP[Where]", "Change it in Options > Modular Ski Resort > Main > Ski area balance > Lift ticket price. One price for every ski area." },
+                { "SkiResort.Hub.MONEY_PRICE_TIP[Who]", "Only ski days react to it. Visitors the game sends on its own come at any price, and the attraction score ignores it." },
                 // MONEY_NOTE[Unknown] retired in Round F7 (D2): the tickets row says "counted after a quarter month".
                 { "SkiResort.Hub.UNLINKED_MONEY", "Runs that are not linked cost nothing and earn nothing; their lifts still cost money to run." },
                 { "SkiResort.Hub.BUILD_SHORT[Lodge]", "Goes on this ski area's Welcome Sign; the camera flies there." },
@@ -613,6 +638,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.CAPACITY_VALUE", "{CAP} riders/h" },
                 { "SkiResort.Hub.GUESTS_TIP[Paid]", "{GUESTS} guests this month: {PAID} paid, {UNPAID} could not pay, {FREE} came in free (tickets off or the ski area closed)." },
                 { "SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest pays {PRICE} on arrival (Options: Lift ticket price)." },
+                // Round M2 (R9): the Guests view's trip-planner note when a known mod is loaded; NAME = CityStats.tripPlanner.
+                { "SkiResort.Hub.TRIP_PLANNER_NOTE[Known]", "Detected: {NAME}. It replaces the game's trip planner, so trip times can differ." },
+                { "SkiResort.Hub.TRIP_PLANNER_NOTE[KnownOff]", "Ski days off: {NAME} replaced the game's leisure systems." },
                 // Round S1: the guest bars' fixed scale, and D27's capacity lines ("Holds {N} skiers at once":
                 // ruling R-Q3, N = the capacity at once, D21) and the Ski days row's count lines.
                 { "SkiResort.Hub.GUESTS_BAR_SCALE", "Full bar: {MAX} guests" },
@@ -624,13 +652,17 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets last month: {N} paid" },
                 { "SkiResort.Hub.MONEY_TICKETS[Est]", "Lift tickets (estimated): {N} paid" },
                 { "SkiResort.Hub.MONEY_TICKETS_PRICE", "Ticket price now: {PRICE}" },
+                // Round M2 (R7): the price line (PCT = hubRules.priceFactorPct as a percent) and its curve tooltip line.
+                { "SkiResort.Hub.MONEY_PRICE_LINE", "Lift ticket {PRICE} · ski days {PCT}" },
+                { "SkiResort.Hub.MONEY_PRICE_TIP[Curve]", "Ski days: as many at any price up to {FULL}, then fewer: {F1} as many at {P1}, {F2} at {P2}, {F3} at {P3}." },
                 { "SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA} ha" },
                 { "SkiResort.Hub.MONEY_ROW[Groomed]", "Groomed runs · {HA} ha with snow" },
                 { "SkiResort.Hub.MONEY_ROW[Snowmaking]", "Snowmaking runs · {HA} ha with snow" },
                 { "SkiResort.Hub.MONEY_ROW[Night]", "Night runs · {HA} ha with snow" },
                 { "SkiResort.Hub.MONEY_ROW[Lifts]", "Lifts · {N} · {LEN} of line" },
                 { "SkiResort.Hub.MONEY_TIP[Runs]", "{RATE} per hectare a month where the run holds managed snow now. It moves with the temperature through the day." },
-                { "SkiResort.Hub.MONEY_TIP[Lifts]", "{BASE} a month for each complete lift, plus {PERKM} per km of line; a quarter while unfinished or without power. Now {FULL} at the full rate and {REDUCED} at a quarter." },
+                // Round M2 (R3, T2): changed in place, the third reduced case.
+                { "SkiResort.Hub.MONEY_TIP[Lifts]", "{BASE} a month for each complete lift, plus {PERKM} per km of line; a quarter while unfinished, without power or with no open run in its ski area. Now {FULL} at the full rate and {REDUCED} at a quarter." },
                 { "SkiResort.Hub.MONEY_TIP[Buildings]", "The game's own formula for the lodges and the Welcome Sign at the current Parks & Recreation budget: upkeep {UPKEEP}, wages {WAGES} for {FILLED} of {JOBS} staff." },
                 { "SkiResort.Hub.BUILD_LINE_RUN", "{NAME} · {FEE} + {PERHA} per ha" },
                 { "SkiResort.Hub.BUILD_LINE_COST", "{NAME} · {COST}" },
@@ -653,11 +685,13 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SEASON_HINT[WaitingForSnow]", "Waiting for snow" },
                 { "SkiResort.Hub.SEASON_HINT[TooWarm]", "Too warm for snow" },
                 { "SkiResort.Hub.SEASON_HINT[GatingOff]", "Snow rules off" },
-                { "SkiResort.Hub.SEASON_TIP[SnowSeason]", "Cold enough for natural snow at the top." },
-                { "SkiResort.Hub.SEASON_TIP[SnowGunsOnly]", "Too warm for natural snow at the top, but cold enough for snow guns." },
-                { "SkiResort.Hub.SEASON_TIP[Thawing]", "Too warm for new snow at the top. The runs are open on the snow that is left." },
-                { "SkiResort.Hub.SEASON_TIP[WaitingForSnow]", "Cold enough, but the runs have no snow yet." },
-                { "SkiResort.Hub.SEASON_TIP[TooWarm]", "Too warm for snow at the top, even for snow guns. If this map never has a winter, turn off Options > Modular Ski Resort > Snow & season gating so runs count all year." },
+                // Round M2 (R5): changed in place; each tip says what it reads (the day average at the top decides
+                // natural snow, the live gun gates decide "snow guns"); "never has a winter" goes.
+                { "SkiResort.Hub.SEASON_TIP[SnowSeason]", "Day average at the top at or below freezing: natural snow can fall." },
+                { "SkiResort.Hub.SEASON_TIP[SnowGunsOnly]", "Day average at the top above freezing, but snow guns are running now." },
+                { "SkiResort.Hub.SEASON_TIP[Thawing]", "Day average at the top above freezing and no snow gun running now. The runs are open on the snow that is left." },
+                { "SkiResort.Hub.SEASON_TIP[WaitingForSnow]", "Cold enough (day average at the top at or below freezing, or snow guns running), but no run has enough snow yet." },
+                { "SkiResort.Hub.SEASON_TIP[TooWarm]", "Day average at the top above freezing and no snow gun can run now. Runs open again when it turns cold; if it never does on this map, turn off Options > Modular Ski Resort > Main > Snow > Snow & season gating." },
                 { "SkiResort.Hub.LIFT_STATUS[Running]", "Running" },
                 { "SkiResort.Hub.LIFT_STATUS[NoPower]", "No power" },
                 { "SkiResort.Hub.LIFT_STATUS[ChairsStopped]", "Chairs stopped" },

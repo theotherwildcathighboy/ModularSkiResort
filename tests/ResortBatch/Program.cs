@@ -35,7 +35,7 @@
 //     - ROUND E1 ch2: the rating service's pure rules — duty factors, the background start, the
 //       service state machine and its warm-up deadline (RatingServiceTests.cs)
 //     - ROUND E1 ch3: snow rules — skiable texel, open state and multiplier, the day-mean estimate,
-//       the dry-skip predicate and step scale, the footprint hash (SnowRulesTests.cs)
+//       the dry- and packed-skip predicates (Round M2 S17-S23) and step scale, the footprint hash (SnowRulesTests.cs)
 //     - ROUND E1 ch4: money rules and ledger (MoneyBatch.cs)
 //     - ROUND E1 ch5 (2026-10-04): hub rules, problems, piste-map rules, the aggregate's run vertical
 //       (HubRulesTests.cs)
@@ -47,6 +47,8 @@
 //       index, frames and hours, claim outcome, hour step, bit compares (SkiDayTimingTests.cs; ch2 §14 ST1-ST9)
 //     - ROUND S1 C: parking census rules — constants, root, restriction, lane and garage verdicts, hub row 21
 //       (ParkingTests.cs; ch3 §7.2 P1, P3-P6)
+//   * ROUND M2 (docs/research/round-m2/build-contract.md): ST27-ST46 (SkiDayTimingTests), SkiDayTests U-X and
+//     A/M rows, MoneyBatch T13, HubRulesTests H17-H18, SnowRulesTests S17-S23, DensityTests D1-D8
 
 using System;
 using System.Collections.Generic;
@@ -87,6 +89,7 @@ namespace ResortBatch
             SkiDayTests.Run(Check);   // ROUND S1 A
             SkiDayTimingTests.Run(Check);   // ROUND S1 B
             ParkingTests.Run(Check);   // ROUND S1 C
+            DensityTests.Run(Check);   // ROUND M2 density
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  ResortBatch checks={0} failures={1}", s_Checks, s_Failures));
             Environment.ExitCode = s_Failures;

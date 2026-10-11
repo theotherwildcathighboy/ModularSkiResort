@@ -86,6 +86,7 @@ namespace SkiResortMod.Systems
             /// m_AccumulatedSnow >= 15/255, so 5 cm gives a comfortable margin over both
             /// while still letting a thin early-season base read as "dusted".</summary>
             public const float FullWhiteDepthM = 0.05f;
+            // RunSnowRules.PackedSkipMinRunDepthM (0.10 = 2 x this) depends on this value (Round M2 packed skip): change both.
 
             /// <summary>An unchanged pass logs as a heartbeat only when no pass line was written for
             /// this many wall-clock seconds (F6 fixer; was every 8th pass = 2048 sim frames).</summary>

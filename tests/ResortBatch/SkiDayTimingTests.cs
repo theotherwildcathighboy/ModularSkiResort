@@ -19,6 +19,13 @@
 // ST25 TryLate and HasMarker. Not testable headless: the ResolveJob sampling, the ring, the measure rows, the ledger
 // check — covered by the logs and the DUMP in field test 10. Fixer pass: ST26 DepartedNow (review M1-ECS-2: a guest
 // on the road with GoingHome has departed).
+// ROUND M2 (docs/research/round-m2/build-contract.md §7; builder B1, 2026-10-10), +210 checks, literal oracles: ST17
+// edited (EndCause literals 0..8, EndCauseCount 9; no new row); ST27 ArrivedThenRemoved (D3) and ST28 the on-arrival
+// visit end (stay 0, scan verdict never Seen); ST29 MovedOffNow and ST30 ShowNear500 (D1, D6); ST31-ST33 remover-reason
+// (constants, ShiftNeed / NeedTaken / IsFastStay, RemoveWhyOf rows and sweeps, NoPurposeAtOf; D4, U16); ST34-ST42 the
+// follow and walkers near a lodge (D5: PlacedNow per U16's one rule, TryFollow without a previous penalty); ST43-ST44
+// FailureEvidence / LateEvidence (R10, one predicate); ST45-ST46 the deadline pull (R4 b, with the 21:00 flap guard).
+// Not testable headless: ResolveJob (the D3 branch, the need register, the follow, the pull write), NearJob, the texts.
 
 using System;
 using SkiResortMod.Systems;
@@ -30,6 +37,12 @@ using GoneWhy = SkiResortMod.Systems.SkiDayTiming.GoneWhy;
 using LateResult = SkiResortMod.Systems.SkiDayTiming.LateResult;
 using CarReserve = SkiResortMod.Systems.SkiDayTiming.CarReserve;
 using ScanVerdict = SkiResortMod.Systems.SkiDayTiming.ScanVerdict;
+using RemoveWhy = SkiResortMod.Systems.SkiDayTiming.RemoveWhy;
+using NoPurposeAt = SkiResortMod.Systems.SkiDayTiming.NoPurposeAt;
+using FollowResult = SkiResortMod.Systems.SkiDayTiming.FollowResult;
+using StillOut = SkiResortMod.Systems.SkiDayTiming.StillOut;
+using WalkerKind = SkiResortMod.Systems.SkiDayTiming.WalkerKind;
+using SpeedEvidence = SkiResortMod.Systems.SkiDayTiming.SpeedEvidence;
 
 namespace ResortBatch
 {
@@ -60,6 +73,27 @@ namespace ResortBatch
             WhyRows(check);        // ST24
             LateRows(check);       // ST25
             DepartRows(check);     // ST26 (fixer M1-ECS-2)
+            // Round M2 (build-contract §7), +210
+            OnArrivalRows(check);      // ST27 (D3)
+            OnArrivalEndRows(check);   // ST28 (D3)
+            MovedOffRows(check);       // ST29 (D1)
+            Near500Rows(check);        // ST30 (D6)
+            RemoveConstRows(check);    // ST31 (D4)
+            RemoveWhyRows(check);      // ST32 (D4)
+            NoPurposeRows(check);      // ST33 (U16)
+            FollowConstRows(check);    // ST34 (D5)
+            FollowKindRows(check);     // ST35
+            PlacedRows(check);         // ST36 (U16, one rule)
+            TryFollowRows(check);      // ST37
+            StillOutRows(check);       // ST38
+            WaitHourRows(check);       // ST39
+            WalkerKindRows(check);     // ST40
+            WithinRows(check);         // ST41
+            SlotRows(check);           // ST42
+            FailureEvidenceRows(check);   // ST43 (R10)
+            LateEvidenceRows(check);   // ST44 (R10)
+            PullConstRows(check);      // ST45 (R4 b)
+            PullRows(check);           // ST46 (R4 b)
         }
 
         private static bool Near(double a, double b, double eps)
@@ -396,7 +430,8 @@ namespace ResortBatch
             const string w = "skiday-timing ST17";
             check((byte)EndCause.DeadlineOwn == 0 && (byte)EndCause.DeadlineClosing == 1 && (byte)EndCause.NeedFilled == 2 &&
                   (byte)EndCause.NewOuting == 3 && (byte)EndCause.Removed == 4 && (byte)EndCause.WalkedOut == 5 &&
-                  (byte)EndCause.PastGrace == 6 && (byte)EndCause.Deleted == 7 && SkiDayTiming.EndCauseCount == 8, w, "EndCause literals 0..7");
+                  (byte)EndCause.PastGrace == 6 && (byte)EndCause.Deleted == 7 && (byte)EndCause.RemovedOnArrival == 8 &&
+                  SkiDayTiming.EndCauseCount == 9, w, "EndCause literals 0..8");   // Round M2 D3 (edit; no new row)
             check(SkiDayTiming.NeedFilledCounter == 250, w, "NeedFilledCounter 250");
             const uint now = 1000000u, dl = 1000100u;
             // (gone, hasLeisure, leisureAtLodge, atLodge, deadline, closing, counter)
@@ -699,6 +734,558 @@ namespace ResortBatch
         {
             check(SkiDayTiming.HasMarker(flags, flags2, marker), w, $"HasMarker({flags}, {flags2}, {marker}) is set");
             check(!SkiDayTiming.HasMarker(0, 0, marker), w, $"HasMarker(0, 0, {marker}) is not set");
+        }
+
+        // ══ Round M2 (docs/research/round-m2/build-contract.md §7; literal oracles) ══════════════════
+
+        // ── ST27 ArrivedThenRemoved(outcome, gone, atLodge) (D3, R6): 9 rows + 2 chained with Resolve (11) ──
+        private static void OnArrivalRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST27";
+            Atr(check, w, Outcome.Gone, false, true, true);
+            Atr(check, w, Outcome.Gone, true, true, false);         // deleted citizen: a failure, place "deleted"
+            Atr(check, w, Outcome.Gone, false, false, false);
+            Atr(check, w, Outcome.Retargeted, false, true, false);
+            Atr(check, w, Outcome.Expired, false, true, false);     // the late watch books it
+            Atr(check, w, Outcome.Arrived, false, true, false);
+            Atr(check, w, Outcome.OnTheWay, false, true, false);
+            Atr(check, w, Outcome.OnSite, false, true, false);
+            Atr(check, w, Outcome.Left, false, true, false);
+            // chained with ST5's deadline 1,075,366: on the way, no Leisure, in the lodge
+            Outcome g = SkiDayTiming.Resolve(false, false, false, true, 1050000u, 1075366u);
+            check(g == Outcome.Gone && SkiDayTiming.ArrivedThenRemoved(g, false, true), w,
+                  $"Resolve(false, false, false, true, 1050000, 1075366) = {g} (expected Gone) and ArrivedThenRemoved true");
+            Outcome e = SkiDayTiming.Resolve(false, false, false, true, 1080000u, 1075366u);
+            check(e == Outcome.Expired && !SkiDayTiming.ArrivedThenRemoved(e, false, true), w,
+                  $"Resolve(false, false, false, true, 1080000, 1075366) = {e} (expected Expired: the deadline first) and ArrivedThenRemoved false");
+        }
+
+        private static void Atr(Func<bool, string, string, bool> check, string w, Outcome o, bool gone, bool atLodge, bool expected)
+        {
+            bool got = SkiDayTiming.ArrivedThenRemoved(o, gone, atLodge);
+            check(got == expected, w, $"ArrivedThenRemoved({o}, {gone}, {atLodge}) = {got}, expected {expected}");
+        }
+
+        // ── ST28 the on-arrival visit end: stay 0 and the scan verdict (pass 64, scans every 256) (6) ──
+        private static void OnArrivalEndRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST28";
+            check(SkiDayTiming.HoursFor(0u) == 0.0 && SkiDayTiming.StayBin(0.0) == 0, w,
+                  $"stay HoursFor(0) = {SkiDayTiming.HoursFor(0u)} in StayBin {SkiDayTiming.StayBin(0.0)}, expected 0.0 in bin 0 (0-0.5 h)");
+            // arrival = this pass 1088, last there = the pass before 1024 (first > last: never Seen), end 1088
+            Sc(check, w, 1088u, 1024u, 1088u, true, 1000u, 256u, ScanVerdict.Missed);   // no scan in (1024, 1088)
+            Sc(check, w, 1088u, 1024u, 1088u, true, 1050u, 256u, ScanVerdict.Unsure);   // a scan inside the pass window
+            Sc(check, w, 1088u, 1024u, 1088u, true, 1087u, 256u, ScanVerdict.Unsure);
+            Sc(check, w, 1088u, 1024u, 1088u, true, 1024u, 256u, ScanVerdict.Missed);   // a scan at the previous pass is not inside
+            Sc(check, w, 1088u, 1024u, 1088u, true, 1088u, 256u, ScanVerdict.Missed);   // nor one at this pass
+        }
+
+        // ── ST29 MovedOffNow(departed, inBuilding, walkerLive, mark) (D1) (6) ───────────────────────
+        private static void MovedOffRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST29";
+            Mv(check, w, false, false, true, false, false);   // not departed
+            Mv(check, w, true, true, true, false, false);     // in a building: no walker read (E7)
+            Mv(check, w, true, false, false, false, false);   // walker lost
+            Mv(check, w, true, false, true, true, false);     // waiting at the door (Divert PathFailed)
+            Mv(check, w, true, false, true, false, true);
+            Mv(check, w, false, true, false, true, false);
+        }
+
+        private static void Mv(Func<bool, string, string, bool> check, string w, bool dep, bool inB, bool live, bool mark, bool expected)
+        {
+            bool got = SkiDayTiming.MovedOffNow(dep, inB, live, mark);
+            check(got == expected, w, $"MovedOffNow({dep}, {inB}, {live}, {mark}) = {got}, expected {expected}");
+        }
+
+        // ── ST30 ShowNear500(distanceM, near500Frame) (D6) (6) ────────────────────────────────────
+        private static void Near500Rows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST30";
+            N5(check, w, 100f, 5u, false);
+            N5(check, w, 500f, 5u, false);
+            N5(check, w, 500.5f, 5u, true);
+            N5(check, w, 3400f, 0u, false);    // never within 500 m
+            N5(check, w, 3400f, 1u, true);
+            N5(check, w, float.NaN, 5u, false);
+        }
+
+        private static void N5(Func<bool, string, string, bool> check, string w, float d, uint frame, bool expected)
+        {
+            bool got = SkiDayTiming.ShowNear500(d, frame);
+            check(got == expected, w, $"ShowNear500({d:R}, {frame}) = {got}, expected {expected}");
+        }
+
+        // ── ST31 remover constants, ShiftNeed, NeedTaken, IsFastStay (D4) (24) ───────────────────────
+        private static void RemoveConstRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST31";
+            check(SkiDayTiming.RemoveWhyCount == 10 && (byte)RemoveWhy.Unknown == 0 && (byte)RemoveWhy.MoneyCheck == 1 &&
+                  (byte)RemoveWhy.MovingAway == 2 && (byte)RemoveWhy.Ill == 3 && (byte)RemoveWhy.WorkTime == 4 && (byte)RemoveWhy.Bedtime == 5 &&
+                  (byte)RemoveWhy.Shopping == 6 && (byte)RemoveWhy.VenueOff == 7 && (byte)RemoveWhy.NeedMet == 8 && (byte)RemoveWhy.NoPurpose == 9,
+                  w, "RemoveWhy literals 0..9, RemoveWhyCount 10");
+            check(SkiDayTiming.NoPurposeAtCount == 6 && (byte)NoPurposeAt.PlacedHome == 0 && (byte)NoPurposeAt.Home == 1 &&
+                  (byte)NoPurposeAt.MapEdge == 2 && (byte)NoPurposeAt.PlacedElsewhere == 3 && (byte)NoPurposeAt.Elsewhere == 4 &&
+                  (byte)NoPurposeAt.NoBuilding == 5, w, "NoPurposeAt literals 0..5, NoPurposeAtCount 6");
+            check(SkiDayTiming.PlacedMarkMin == 250 && SkiDayTiming.FastStayHours == 0.2 && SkiDayTiming.Flag2NeedOpen == 16 &&
+                  SkiDayTiming.Flag2NeedOpenBefore == 32, w,
+                  $"PlacedMarkMin {SkiDayTiming.PlacedMarkMin} = 250, FastStayHours {SkiDayTiming.FastStayHours:R} = 0.2, need bits {SkiDayTiming.Flag2NeedOpen} / {SkiDayTiming.Flag2NeedOpenBefore} = 16 / 32");
+            Sn(check, w, 0, true, 16);
+            Sn(check, w, 16, true, 48);
+            Sn(check, w, 16, false, 32);
+            Sn(check, w, 32, false, 0);
+            Sn(check, w, 48, false, 32);
+            Sn(check, w, 15, false, 15);    // the marker bits are kept
+            Sn(check, w, 63, false, 47);
+            Sn(check, w, 80, false, 96);    // the pull flag 64 is kept (build-contract §3)
+            Nt(check, w, 16, false, true);
+            Nt(check, w, 32, false, true);
+            Nt(check, w, 48, false, true);
+            Nt(check, w, 48, true, false);  // still open: not taken
+            Nt(check, w, 15, false, false);
+            Nt(check, w, 0, false, false);
+            Nt(check, w, 64, false, false); // the pull flag is not the register
+            Fs(check, w, 0.0, true);
+            Fs(check, w, 0.1999, true);
+            Fs(check, w, 0.2, false);
+            Fs(check, w, 5.0, false);
+            Fs(check, w, -0.1, false);
+            Fs(check, w, double.NaN, false);
+        }
+
+        private static void Sn(Func<bool, string, string, bool> check, string w, byte flags2, bool open, byte expected)
+        {
+            byte got = SkiDayTiming.ShiftNeed(flags2, open);
+            check(got == expected, w, $"ShiftNeed({flags2}, {open}) = {got}, expected {expected}");
+        }
+
+        private static void Nt(Func<bool, string, string, bool> check, string w, byte flags2, bool open, bool expected)
+        {
+            bool got = SkiDayTiming.NeedTaken(flags2, open);
+            check(got == expected, w, $"NeedTaken({flags2}, {open}) = {got}, expected {expected}");
+        }
+
+        private static void Fs(Func<bool, string, string, bool> check, string w, double hours, bool expected)
+        {
+            bool got = SkiDayTiming.IsFastStay(hours);
+            check(got == expected, w, $"IsFastStay({hours:R}) = {got}, expected {expected}");
+        }
+
+        // ── ST32 RemoveWhyOf: 25 rows + 3 sweeps (one check each, violations counted) (28) ──────────
+        private static void RemoveWhyRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST32";
+            const bool T = true, F = false;
+            // (moving, money, ill, work, bed | hasP, p | hasT, t | buyer, need, venue | counter | at) → expected
+            Rw(check, w, T, T, T, T, T, T, 1, T, 1, T, T, T, 255, F, RemoveWhy.MoneyCheck);
+            Rw(check, w, T, F, T, T, T, T, 1, F, 0, T, T, T, 255, T, RemoveWhy.MovingAway);
+            Rw(check, w, F, T, F, F, F, F, 0, F, 0, F, F, F, 0, T, RemoveWhy.Unknown);       // the money flag alone means nothing
+            Rw(check, w, F, F, F, F, F, T, 8, F, 0, F, F, F, 0, F, RemoveWhy.MovingAway);    // purpose, household gone
+            Rw(check, w, F, F, F, F, F, F, 0, T, 8, F, F, F, 0, T, RemoveWhy.MovingAway);    // trip
+            Rw(check, w, F, F, T, T, T, F, 0, F, 0, T, T, T, 255, T, RemoveWhy.Ill);
+            Rw(check, w, F, F, F, T, T, F, 0, F, 0, T, T, T, 255, T, RemoveWhy.WorkTime);
+            Rw(check, w, F, F, F, F, F, T, 4, F, 0, F, F, F, 0, F, RemoveWhy.WorkTime);
+            Rw(check, w, F, F, F, F, F, T, 5, F, 0, F, F, F, 0, T, RemoveWhy.WorkTime);
+            Rw(check, w, F, F, F, F, F, T, 9, F, 0, F, F, F, 0, T, RemoveWhy.WorkTime);
+            Rw(check, w, F, F, F, F, F, F, 0, T, 10, F, F, F, 0, T, RemoveWhy.WorkTime);
+            Rw(check, w, F, F, F, F, T, F, 0, F, 0, T, T, T, 255, T, RemoveWhy.Bedtime);
+            Rw(check, w, F, F, F, F, F, F, 0, F, 0, T, F, F, 0, T, RemoveWhy.Shopping);      // ResourceBuyer
+            Rw(check, w, F, F, F, F, F, F, 0, F, 0, F, T, F, 255, T, RemoveWhy.Shopping);    // need taken beats need met
+            Rw(check, w, F, F, F, F, F, T, 1, F, 0, F, F, F, 0, F, RemoveWhy.Shopping);      // purpose
+            Rw(check, w, F, F, F, F, F, F, 0, T, 1, F, F, F, 0, T, RemoveWhy.Shopping);      // trip
+            Rw(check, w, F, F, F, F, F, F, 0, F, 0, F, F, T, 255, T, RemoveWhy.VenueOff);
+            Rw(check, w, F, F, F, F, F, F, 0, F, 0, F, F, F, 250, T, RemoveWhy.NeedMet);
+            Rw(check, w, F, F, F, F, F, F, 0, F, 0, F, F, F, 253, F, RemoveWhy.NeedMet);     // beats no purpose
+            Rw(check, w, F, F, F, F, F, F, 0, F, 0, F, F, F, 249, T, RemoveWhy.Unknown);
+            Rw(check, w, F, F, F, F, F, F, 0, F, 0, F, F, F, 0, F, RemoveWhy.NoPurpose);
+            Rw(check, w, F, F, F, F, F, T, 3, F, 0, F, F, F, 0, F, RemoveWhy.Unknown);       // going home, cause unseen
+            Rw(check, w, F, F, F, F, F, T, 6, F, 0, F, F, F, 0, F, RemoveWhy.Unknown);       // Sleeping is not a lodge trace
+            Rw(check, w, F, F, F, F, F, F, 0, T, 3, F, F, F, 0, T, RemoveWhy.Unknown);
+            Rw(check, w, F, F, F, F, F, T, 2, F, 0, F, F, F, 0, F, RemoveWhy.Unknown);       // Leisure purpose, no Leisure
+
+            // Sweep a: moving away beats every other trace — ill, work, bed, buyer, need, venue, at (2^7), purpose none /
+            // Shopping / GoingToWork, counter 0 / 255 (768 cases); money false → MovingAway, money true → MoneyCheck.
+            byte[] purposes = { 0, 1, 4 };
+            for (int m = 0; m < 2; m++)
+            {
+                bool money = m == 1;
+                RemoveWhy expected = money ? RemoveWhy.MoneyCheck : RemoveWhy.MovingAway;
+                int bad = 0, cases = 0;
+                string first = null;
+                for (int mask = 0; mask < 128; mask++)
+                {
+                    for (int pi = 0; pi < purposes.Length; pi++)
+                    {
+                        for (int ci = 0; ci < 2; ci++)
+                        {
+                            int counter = ci == 0 ? 0 : 255;
+                            RemoveWhy got = SkiDayTiming.RemoveWhyOf(true, money, (mask & 1) != 0, (mask & 2) != 0, (mask & 4) != 0,
+                                                                     pi > 0, purposes[pi], false, 0, (mask & 8) != 0, (mask & 16) != 0,
+                                                                     (mask & 32) != 0, counter, (mask & 64) != 0);
+                            cases++;
+                            if (got != expected)
+                            {
+                                bad++;
+                                first = first ?? $"mask {mask}, purpose {purposes[pi]}, counter {counter} → {got}";
+                            }
+                        }
+                    }
+                }
+                check(bad == 0 && cases == 768, w, $"sweep a (money {money}): moving away first → {expected}: {bad} of {cases} bad (first: {first})");
+            }
+
+            // Sweep b: no trace, in the lodge: counter 0-249 → Unknown, 250-255 → NeedMet (256 cases).
+            int badB = 0;
+            string firstB = null;
+            for (int counter = 0; counter < 256; counter++)
+            {
+                RemoveWhy got = SkiDayTiming.RemoveWhyOf(false, false, false, false, false, false, 0, false, 0, false, false, false, counter, true);
+                RemoveWhy expected = counter >= 250 ? RemoveWhy.NeedMet : RemoveWhy.Unknown;
+                if (got != expected)
+                {
+                    badB++;
+                    firstB = firstB ?? $"counter {counter} → {got}";
+                }
+            }
+            check(badB == 0, w, $"sweep b: counter 0-249 → Unknown, 250-255 → NeedMet: {badB} of 256 bad (first: {firstB})");
+        }
+
+        private static void Rw(Func<bool, string, string, bool> check, string w, bool moving, bool money, bool ill, bool work, bool bed,
+                               bool hasP, byte p, bool hasT, byte t, bool buyer, bool need, bool venue, int counter, bool at, RemoveWhy expected)
+        {
+            RemoveWhy got = SkiDayTiming.RemoveWhyOf(moving, money, ill, work, bed, hasP, p, hasT, t, buyer, need, venue, counter, at);
+            check(got == expected, w, $"RemoveWhyOf(moving {moving}, money {money}, ill {ill}, work {work}, bed {bed}, purpose {hasP}/{p}, " +
+                                      $"trip {hasT}/{t}, buyer {buyer}, need {need}, venue {venue}, counter {counter}, at {at}) = {got}, expected {expected}");
+        }
+
+        // ── ST33 NoPurposeAtOf(inBuilding, atOrigin, atOutsideConnection, penalty) (U16) (10) ─────────
+        private static void NoPurposeRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST33";
+            Np(check, w, true, true, false, 255, NoPurposeAt.PlacedHome);
+            Np(check, w, true, true, false, 250, NoPurposeAt.PlacedHome);
+            Np(check, w, true, true, false, 249, NoPurposeAt.Home);
+            Np(check, w, true, false, true, 0, NoPurposeAt.MapEdge);
+            Np(check, w, true, false, true, 255, NoPurposeAt.MapEdge);
+            Np(check, w, true, true, true, 255, NoPurposeAt.MapEdge);     // the edge beats home
+            Np(check, w, true, false, false, 254, NoPurposeAt.PlacedElsewhere);
+            Np(check, w, true, false, false, 0, NoPurposeAt.Elsewhere);
+            Np(check, w, false, false, false, 255, NoPurposeAt.NoBuilding);
+            Np(check, w, false, true, true, 0, NoPurposeAt.NoBuilding);
+        }
+
+        private static void Np(Func<bool, string, string, bool> check, string w, bool inB, bool atO, bool edge, int penalty, NoPurposeAt expected)
+        {
+            NoPurposeAt got = SkiDayTiming.NoPurposeAtOf(inB, atO, edge, penalty);
+            check(got == expected, w, $"NoPurposeAtOf({inB}, {atO}, {edge}, {penalty}) = {got}, expected {expected}");
+        }
+
+        // ── ST34 follow constants (D5) (8) ────────────────────────────────────────────────────────
+        private static void FollowConstRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST34";
+            check(SkiDayTiming.FollowWatchFrames == 10922u && SkiDayTiming.FollowWatchFrames == SkiDayTiming.FramesFor(1.0), w,
+                  $"FollowWatchFrames {SkiDayTiming.FollowWatchFrames} = 10,922 = FramesFor(1) {SkiDayTiming.FramesFor(1.0)}");
+            check(SkiDayTiming.NearLodgeM == 100f, w, $"NearLodgeM {SkiDayTiming.NearLodgeM:R} = 100");
+            check(SkiDayTiming.ResidentWaitingTransport == 4u && SkiDayTiming.ResidentHangaround == 16u && SkiDayTiming.ResidentInVehicle == 32u &&
+                  SkiDayTiming.ResidentDummyTraffic == 8192u, w, "ResidentFlags literals 4 / 16 / 32 / 8192 (ResidentFlags.cs)");
+            check(SkiDayTiming.FollowResultCount == 6 && SkiDayTiming.StillOutCount == 5 && SkiDayTiming.WalkerKindCount == 5 &&
+                  SkiDayTiming.FollowExitKinds == 3, w, "counts 6 / 5 / 5 / 3");
+            check((byte)FollowResult.Home == 0 && (byte)FollowResult.MapExit == 1 && (byte)FollowResult.OtherBuilding == 2 &&
+                  (byte)FollowResult.BackInLodge == 3 && (byte)FollowResult.Deleted == 4 && (byte)FollowResult.StillOut == 5, w, "FollowResult literals 0..5");
+            check((byte)StillOut.NoWalker == 0 && (byte)StillOut.Riding == 1 && (byte)StillOut.Waiting == 2 && (byte)StillOut.FailedPath == 3 &&
+                  (byte)StillOut.OnFoot == 4, w, "StillOut literals 0..4");
+            check((byte)WalkerKind.Walking == 0 && (byte)WalkerKind.Waiting == 1 && (byte)WalkerKind.FailedPath == 2 &&
+                  (byte)WalkerKind.Hangaround == 3 && (byte)WalkerKind.Skip == 4, w, "WalkerKind literals 0..4");
+            check(SkiDayTiming.FollowFlagFollowed == 1 && SkiDayTiming.FollowFlagWalkerSeen == 2 && SkiDayTiming.FollowFlagWalkerLost == 4 &&
+                  SkiDayTiming.FollowFlagPlaced == 8 && SkiDayTiming.FollowFlagAtOnce == 16 && SkiDayTiming.FollowFlagNotFollowedCap == 32, w,
+                  "FollowFlag bits 1, 2, 4, 8, 16, 32");
+        }
+
+        // ── ST35 FollowExitKind(exitWay) (13) ─────────────────────────────────────────────────────
+        private static void FollowKindRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST35";
+            Fk(check, w, 0, 0);     // Home
+            Fk(check, w, 8, 1);     // NoPurpose
+            Fk(check, w, 4, 2);     // MovingAway
+            byte[] others = { 1, 2, 3, 5, 6, 7, 9, 10, 11, 255 };
+            for (int i = 0; i < others.Length; i++)
+                Fk(check, w, others[i], -1);
+        }
+
+        private static void Fk(Func<bool, string, string, bool> check, string w, byte exitWay, int expected)
+        {
+            int got = SkiDayTiming.FollowExitKind(exitWay);
+            check(got == expected, w, $"FollowExitKind({exitWay}) = {got}, expected {expected}");
+        }
+
+        // ── ST36 PlacedNow(firstSample, penaltyNow) (U16, one rule) (5) ───────────────────────────
+        private static void PlacedRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST36";
+            Pn(check, w, true, 0, true);
+            Pn(check, w, false, 255, true);
+            Pn(check, w, false, 250, true);
+            Pn(check, w, false, 249, false);
+            Pn(check, w, false, 0, false);
+        }
+
+        private static void Pn(Func<bool, string, string, bool> check, string w, bool first, byte penalty, bool expected)
+        {
+            bool got = SkiDayTiming.PlacedNow(first, penalty);
+            check(got == expected, w, $"PlacedNow({first}, {penalty}) = {got}, expected {expected}");
+        }
+
+        // ── ST37 TryFollow (exit 1,000,000 unless named) (15) ────────────────────────────────────
+        private static void TryFollowRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST37";
+            const uint x = 1000000u;
+            // (gone, inB, home, edge, lodge, first, penalty, now, exit) → (done, result, placed)
+            Tf(check, w, true, true, true, false, false, true, 0, 1000000u, x, true, FollowResult.Deleted, false);
+            Tf(check, w, false, true, true, false, false, true, 0, 1000000u, x, true, FollowResult.Home, true);
+            Tf(check, w, false, true, true, false, false, false, 254, 1000640u, x, true, FollowResult.Home, true);
+            Tf(check, w, false, true, true, false, false, false, 9, 1000640u, x, true, FollowResult.Home, false);
+            Tf(check, w, false, true, false, true, false, true, 0, 1000000u, x, true, FollowResult.MapExit, true);
+            Tf(check, w, false, true, false, true, false, false, 120, 1005000u, x, true, FollowResult.MapExit, false);
+            Tf(check, w, false, true, false, false, true, false, 255, 1000640u, x, true, FollowResult.BackInLodge, false);
+            Tf(check, w, false, true, false, false, false, true, 0, 1000000u, x, true, FollowResult.OtherBuilding, true);
+            Tf(check, w, false, true, false, false, false, false, 30, 1000640u, x, true, FollowResult.OtherBuilding, false);
+            Tf(check, w, false, true, true, true, false, false, 5, 1000640u, x, true, FollowResult.Home, false);    // home beats the edge
+            Tf(check, w, false, false, false, false, false, true, 0, 1000000u, x, false, FollowResult.StillOut, false);
+            Tf(check, w, false, false, false, false, false, true, 0, 1010921u, x, false, FollowResult.StillOut, false);
+            Tf(check, w, false, false, false, false, false, true, 0, 1010922u, x, true, FollowResult.StillOut, false);
+            // the frame counter wraps: exit 4,294,967,000 + 10,922 = 10,626 (mod 2^32)
+            Tf(check, w, false, false, false, false, false, false, 0, 10626u, 4294967000u, true, FollowResult.StillOut, false);
+            Tf(check, w, false, false, false, false, false, false, 0, 10625u, 4294967000u, false, FollowResult.StillOut, false);
+        }
+
+        private static void Tf(Func<bool, string, string, bool> check, string w, bool gone, bool inB, bool home, bool edge, bool lodge, bool first,
+                               byte penalty, uint now, uint exit, bool expectDone, FollowResult expectResult, bool expectPlaced)
+        {
+            bool done = SkiDayTiming.TryFollow(gone, inB, home, edge, lodge, first, penalty, now, exit, out FollowResult got, out bool placed);
+            check(done == expectDone && (!done || (got == expectResult && placed == expectPlaced)), w,
+                  $"TryFollow({gone}, {inB}, {home}, {edge}, {lodge}, {first}, {penalty}, {now}, {exit}) = ({done}, {got}, {placed}), " +
+                  $"expected ({expectDone}, {expectResult}, {expectPlaced})");
+        }
+
+        // ── ST38 StillOutOf(walkerLive, riding, waiting, failed) (5) ──────────────────────────────
+        private static void StillOutRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST38";
+            So(check, w, false, true, true, true, StillOut.NoWalker);
+            So(check, w, true, true, true, true, StillOut.Riding);
+            So(check, w, true, false, true, true, StillOut.Waiting);
+            So(check, w, true, false, false, true, StillOut.FailedPath);
+            So(check, w, true, false, false, false, StillOut.OnFoot);
+        }
+
+        private static void So(Func<bool, string, string, bool> check, string w, bool live, bool riding, bool waiting, bool failed, StillOut expected)
+        {
+            StillOut got = SkiDayTiming.StillOutOf(live, riding, waiting, failed);
+            check(got == expected, w, $"StillOutOf({live}, {riding}, {waiting}, {failed}) = {got}, expected {expected}");
+        }
+
+        // ── ST39 WaitHoursOfTimer(timer) (all exact in double) (6) ────────────────────────────────
+        private static void WaitHourRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST39";
+            Wh(check, w, 0, 0.0);
+            Wh(check, w, -5, 0.0);
+            Wh(check, w, 1024, 1.0);
+            Wh(check, w, 250, 0.244140625);
+            Wh(check, w, 5000, 4.8828125);        // the game's transit give-up, MAX_TRANSPORT_WAIT_TICKS
+            Wh(check, w, 2147483647, 2097151.9990234375);
+        }
+
+        private static void Wh(Func<bool, string, string, bool> check, string w, int timer, double expected)
+        {
+            double got = SkiDayTiming.WaitHoursOfTimer(timer);
+            check(got == expected, w, $"WaitHoursOfTimer({timer}) = {got:R}, expected {expected:R}");
+        }
+
+        // ── ST40 WalkerKindOf(aboard, residentFlags, divertPathFailed, pathBad) (12) ─────────────────
+        private static void WalkerKindRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST40";
+            Wk(check, w, true, 4u, false, false, WalkerKind.Skip);         // aboard
+            Wk(check, w, false, 32u, false, false, WalkerKind.Skip);       // InVehicle
+            Wk(check, w, false, 8192u, false, false, WalkerKind.Skip);     // DummyTraffic
+            Wk(check, w, false, 4u, false, false, WalkerKind.Waiting);
+            Wk(check, w, false, 4u, true, true, WalkerKind.Waiting);       // waiting beats a failed path
+            Wk(check, w, false, 0u, true, false, WalkerKind.FailedPath);
+            Wk(check, w, false, 0u, false, true, WalkerKind.FailedPath);
+            Wk(check, w, false, 16u, false, false, WalkerKind.Hangaround);
+            Wk(check, w, false, 16u, true, false, WalkerKind.FailedPath);  // a failed path beats hanging around
+            Wk(check, w, false, 0u, false, false, WalkerKind.Walking);
+            Wk(check, w, false, 8u, false, false, WalkerKind.Walking);     // Arrived
+            Wk(check, w, false, 1u, false, false, WalkerKind.Walking);     // Disembarking
+        }
+
+        private static void Wk(Func<bool, string, string, bool> check, string w, bool aboard, uint flags, bool divert, bool pathBad, WalkerKind expected)
+        {
+            WalkerKind got = SkiDayTiming.WalkerKindOf(aboard, flags, divert, pathBad);
+            check(got == expected, w, $"WalkerKindOf({aboard}, {flags}, {divert}, {pathBad}) = {got}, expected {expected}");
+        }
+
+        // ── ST41 WithinXZ(p, centre, radius) (7) ──────────────────────────────────────────────────
+        private static void WithinRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST41";
+            var o = new Unity.Mathematics.float2(0f, 0f);
+            Wx(check, w, new Unity.Mathematics.float2(100f, 0f), o, 100f, true);
+            Wx(check, w, new Unity.Mathematics.float2(60f, 80f), o, 100f, true);           // exactly 10,000
+            Wx(check, w, new Unity.Mathematics.float2(0f, 100.01f), o, 100f, false);
+            Wx(check, w, new Unity.Mathematics.float2(70.72f, 70.72f), o, 100f, false);    // 10,002.6
+            Wx(check, w, new Unity.Mathematics.float2(float.NaN, 0f), o, 100f, false);
+            Wx(check, w, o, new Unity.Mathematics.float2(float.NaN, 0f), 100f, false);
+            Wx(check, w, o, o, 0f, true);                                                    // radius 0 at the centre
+        }
+
+        private static void Wx(Func<bool, string, string, bool> check, string w, Unity.Mathematics.float2 p, Unity.Mathematics.float2 c, float r,
+                               bool expected)
+        {
+            bool got = SkiDayTiming.WithinXZ(p, c, r);
+            check(got == expected, w, $"WithinXZ(({p.x:R}, {p.y:R}), ({c.x:R}, {c.y:R}), {r:R}) = {got}, expected {expected}");
+        }
+
+        // ── ST42 FollowSlot / AtOnceSlot (incl. the one-to-one property as one check) (12) ───────────
+        private static void SlotRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST42";
+            Fsl(check, w, 0, 0, false, 0);
+            Fsl(check, w, 0, 0, true, 1);
+            Fsl(check, w, 1, 2, true, 17);
+            Fsl(check, w, 2, 5, true, 35);
+            Fsl(check, w, 3, 0, false, -1);
+            Fsl(check, w, -1, 0, false, -1);
+            Fsl(check, w, 0, 6, false, -1);
+            var seen = new bool[36];
+            int bad = 0;
+            for (int k = 0; k < 3; k++)
+            {
+                for (int r = 0; r < 6; r++)
+                {
+                    for (int p = 0; p < 2; p++)
+                    {
+                        int s = SkiDayTiming.FollowSlot(k, r, p == 1);
+                        if (s < 0 || s >= 36 || seen[s])
+                            bad++;
+                        else
+                            seen[s] = true;
+                    }
+                }
+            }
+            check(bad == 0, w, $"FollowSlot maps the 36 valid (kind, result, placed) one-to-one onto 0..35: {bad} bad");
+            Aos(check, w, 0, 0, 0);
+            Aos(check, w, 2, 2, 8);
+            Aos(check, w, 0, 3, -1);
+            Aos(check, w, 3, 0, -1);
+        }
+
+        private static void Fsl(Func<bool, string, string, bool> check, string w, int kind, int result, bool placed, int expected)
+        {
+            int got = SkiDayTiming.FollowSlot(kind, result, placed);
+            check(got == expected, w, $"FollowSlot({kind}, {result}, {placed}) = {got}, expected {expected}");
+        }
+
+        private static void Aos(Func<bool, string, string, bool> check, string w, int kind, int result, int expected)
+        {
+            int got = SkiDayTiming.AtOnceSlot(kind, result);
+            check(got == expected, w, $"AtOnceSlot({kind}, {result}) = {got}, expected {expected}");
+        }
+
+        // ── ST43 FailureEvidence(o, departed, place, turnedBack) (R10) (12) ────────────────────────
+        private static void FailureEvidenceRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST43";
+            Fe(check, w, 0, true, Place.Road, false, SpeedEvidence.Bound);
+            Fe(check, w, 1, true, Place.Road, false, SpeedEvidence.Bound);
+            Fe(check, w, 2, true, Place.Road, false, SpeedEvidence.None);           // an expiry: booked at its late watch end
+            Fe(check, w, 0, false, Place.Road, false, SpeedEvidence.None);          // never left
+            Fe(check, w, 0, true, Place.Road, true, SpeedEvidence.None);            // turned back
+            Fe(check, w, 0, true, Place.HomeCameBack, false, SpeedEvidence.None);
+            Fe(check, w, 0, true, Place.HomeNeverLeft, false, SpeedEvidence.None);
+            Fe(check, w, 0, true, Place.OtherBuilding, false, SpeedEvidence.None);
+            Fe(check, w, 0, true, Place.Lodge, false, SpeedEvidence.None);
+            Fe(check, w, 0, true, Place.Deleted, false, SpeedEvidence.None);
+            Fe(check, w, 3, true, Place.Road, false, SpeedEvidence.None);
+            Fe(check, w, -1, true, Place.Road, false, SpeedEvidence.None);
+        }
+
+        private static void Fe(Func<bool, string, string, bool> check, string w, int o, bool dep, Place place, bool turned, SpeedEvidence expected)
+        {
+            SpeedEvidence got = SkiDayTiming.FailureEvidence(o, dep, place, turned);
+            check(got == expected, w, $"FailureEvidence({o}, {dep}, {place}, {turned}) = {got}, expected {expected}");
+        }
+
+        // ── ST44 LateEvidence(r, departed, place, turnedBack) (R10: FailureEvidence's predicate, place at the late end;
+        //    fixer S1: the two rows the late end actually produces for a deleted / gave-up guest) (12) ──
+        private static void LateEvidenceRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST44";
+            Le(check, w, LateResult.ArrivedLate, true, Place.Road, false, SpeedEvidence.Exact);
+            Le(check, w, LateResult.ArrivedLate, false, Place.HomeNeverLeft, false, SpeedEvidence.Exact);   // an arrival is exact anyway
+            Le(check, w, LateResult.GaveUp, true, Place.Road, false, SpeedEvidence.Bound);
+            Le(check, w, LateResult.Deleted, true, Place.Road, false, SpeedEvidence.Bound);
+            Le(check, w, LateResult.Deleted, true, Place.Deleted, false, SpeedEvidence.None); // S1: what PlaceOf reads at the late end
+            Le(check, w, LateResult.GaveUp, true, Place.OtherBuilding, false, SpeedEvidence.None);   // S1: GaveUp is in a building
+            Le(check, w, LateResult.NotWithin6h, true, Place.Road, false, SpeedEvidence.Bound);
+            Le(check, w, LateResult.GaveUp, false, Place.HomeNeverLeft, false, SpeedEvidence.None);
+            Le(check, w, LateResult.NotWithin6h, true, Place.HomeCameBack, false, SpeedEvidence.None);
+            Le(check, w, LateResult.Deleted, true, Place.OtherBuilding, false, SpeedEvidence.None);
+            Le(check, w, LateResult.NotWithin6h, true, Place.Road, true, SpeedEvidence.None);
+            Le(check, w, (LateResult)4, true, Place.Road, false, SpeedEvidence.None);
+        }
+
+        private static void Le(Func<bool, string, string, bool> check, string w, LateResult r, bool dep, Place place, bool turned, SpeedEvidence expected)
+        {
+            SpeedEvidence got = SkiDayTiming.LateEvidence(r, dep, place, turned);
+            check(got == expected, w, $"LateEvidence({r}, {dep}, {place}, {turned}) = {got}, expected {expected}");
+        }
+
+        // ── ST45 pull constants (R4 b) (2) ─────────────────────────────────────────────────────────
+        private static void PullConstRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST45";
+            check(SkiDayTiming.OnSiteGraceFrames == 21845u && SkiDayTiming.PullMinFrames == 64u && SkiDayTiming.PullNone == 0 &&
+                  SkiDayTiming.PullNoRun == 1 && SkiDayTiming.PullNightClosed == 2, w,
+                  $"OnSiteGraceFrames {SkiDayTiming.OnSiteGraceFrames} = 21,845, PullMinFrames {SkiDayTiming.PullMinFrames} = 64, reasons " +
+                  $"{SkiDayTiming.PullNone} / {SkiDayTiming.PullNoRun} / {SkiDayTiming.PullNightClosed} = 0 / 1 / 2");
+            int others = SkiDayTiming.Flag2TurnedBack | SkiDayTiming.Flag2WalkerLost | SkiDayTiming.Flag2WalkerPathFailed |
+                         SkiDayTiming.Flag2VehiclePathFailed | SkiDayTiming.Flag2NeedOpen | SkiDayTiming.Flag2NeedOpenBefore;
+            check(SkiDayTiming.Flag2DeadlinePulled == 64 && (SkiDayTiming.Flag2DeadlinePulled & others) == 0 && others == 63, w,
+                  $"Flag2DeadlinePulled {SkiDayTiming.Flag2DeadlinePulled} = 64, distinct from the Flags2 bits 1, 2, 4, 8, 16, 32 (their union {others})");
+        }
+
+        // ── ST46 PullDeadline (now 1,000,000; deadlineIsClosing true unless named) (12) ─────────────
+        private static void PullRows(Func<bool, string, string, bool> check)
+        {
+            const string w = "skiday-timing ST46";
+            const byte None = SkiDayTiming.PullNone, NoRun = SkiDayTiming.PullNoRun, Night = SkiDayTiming.PullNightClosed;
+            // (known, held, runs, nightRunOpen, deadlineIsClosing, time of day, deadline) → (pulled?, frame, reason)
+            Pd(check, w, true, false, 3, false, true, 0.5f, 1098304u, true, 1049152u, Night);     // 12:00: close 16:30 = +49,152; deadline 21:00
+            Pd(check, w, true, false, 2, false, true, 0.625f, 1065536u, true, 1021845u, Night);   // 15:00: close 16:30 = +16,384, the 2 h floor wins
+            Pd(check, w, true, false, 0, false, true, 0.625f, 1065536u, true, 1021845u, NoRun);   // no counted run: close now, the floor
+            Pd(check, w, true, false, 0, false, true, 0.625f, 1021900u, false, 1021900u, None);   // 1,021,845 + 64 > 1,021,900
+            Pd(check, w, true, false, 3, false, true, 0.75f, 1032768u, true, 1021845u, Night);    // 18:00, past 16:30: close now
+            Pd(check, w, true, false, 3, true, true, 0.75f, 1032768u, false, 1032768u, None);     // the night run is open: close 21:00 = deadline
+            Pd(check, w, true, false, 3, false, true, 0.1f, 1100000u, false, 1100000u, None);     // 02:24, before 05:00
+            Pd(check, w, true, true, 0, false, true, 0.625f, 1065536u, false, 1065536u, None);    // held
+            Pd(check, w, false, false, 0, false, true, 0.625f, 1065536u, false, 1065536u, None);  // no score
+            Pd(check, w, true, false, 3, false, false, 0.5f, 1098304u, false, 1098304u, None);    // row 1, deadline not the closing (flap guard)
+            Pd(check, w, true, false, 3, false, true, 0.5f, 1098000u, false, 1098000u, None);     // row 1, deadline not today's 21:00 frame
+            Pd(check, w, true, false, 0, false, false, 0.625f, 1065536u, true, 1021845u, NoRun);  // row 3, own deadline: no run pulls it too
+        }
+
+        private static void Pd(Func<bool, string, string, bool> check, string w, bool known, bool held, int runs, bool night, bool closing, float t,
+                               uint deadline, bool expectDone, uint expectFrame, byte expectReason)
+        {
+            bool done = SkiDayTiming.PullDeadline(known, held, runs, night, closing, 1000000u, t, deadline, out uint pulled, out byte reason);
+            check(done == expectDone && pulled == expectFrame && reason == expectReason, w,
+                  $"PullDeadline({known}, {held}, {runs}, {night}, {closing}, 1000000, {t:R}, {deadline}) = ({done}, {pulled}, {reason}), " +
+                  $"expected ({expectDone}, {expectFrame}, {expectReason})");
         }
     }
 }

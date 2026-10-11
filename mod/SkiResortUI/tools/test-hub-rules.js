@@ -7,10 +7,13 @@
  * Written for this repo (MIT). Created 2026-10-04 (Round E1, stream S6; docs/research/econ-round/spec/
  * ch6-hub-ui.md section 5.3, the checked reference spec/ch6-hub-ui-ref/tools/test-hub-rules.js).
  * tools/check-bundle.js runs it as rule R18 (full gate and --contract-only, against --src= when given);
- * standalone: `node tools/test-hub-rules.js [srcDir]` -> `test-hub-rules: 98 check(s), failures=0` (76 in Round E1;
+ * standalone: `node tools/test-hub-rules.js [srcDir]` -> `test-hub-rules: 113 check(s), failures=0` (76 in Round E1;
  * the E1 fixer added T8.7-T8.10 and changed T8.6's no-live oracle 3 -> 0, e1-spec 8.9 F9 / F11; Round F7 D5 added
  * T2.13-T2.14 and T3.14-T3.16 for the two road rows, docs/research/field-test-7-fixes.md; Round S1 added
- * T2.15-T2.16, T3.17-T3.19, T4.14, T6.9, T7.7-T7.8 and section T9, docs/research/ski-days/spec/ch4-hub.md G.2).
+ * T2.15-T2.16, T3.17-T3.19, T4.14, T6.9, T7.7-T7.8 and section T9, docs/research/ski-days/spec/ch4-hub.md G.2;
+ * 98 + 1 + 6 + 8 = 113: Round M2 added T8.11, T10 (hub-price) and T11 (enabled-flags), docs/research/round-m2/
+ * build-contract.md section 7; T11 reads bindings.ts too (FALLBACK.city, TRIP_PLANNER_UNKNOWN), the same
+ * compiled module hubRules.ts imports).
  * A new rule in hubRules.ts adds its literal rows here (oracles are literals, never recomputed).
  */
 "use strict";
@@ -49,12 +52,14 @@ function load(srcDir, ts) {
     vm.runInNewContext(out, { require: req, module: mod, exports: mod.exports, __BUILD_STAMP__: "test", console, Map, Set, Math, Number }, { filename: abs });
     return mod.exports;
   };
-  return compile(path.join(srcDir, "hub", "hubRules.ts"));
+  const rules = compile(path.join(srcDir, "hub", "hubRules.ts"));
+  // Round M2 (T11): the bindings module hubRules.ts loaded (same cache entry, so the same values).
+  return { rules, bindings: compile(path.join(srcDir, "bindings.ts")) };
 }
 
 function run(srcDir) {
   const ts = require("typescript");
-  const R = load(srcDir, ts);
+  const { rules: R, bindings: BIND } = load(srcDir, ts);
   const failures = [];
   let checks = 0;
   const eq = (name, got, want) => {
@@ -218,6 +223,10 @@ function run(srcDir) {
   eq("T8.10 partnerPlaced", [R.partnerPlaced(lift(4, 4, { hasTop: false }), { base: true, top: true }), R.partnerPlaced(lift(4, 4, { hasTop: false }), { base: true, top: false }),
     R.partnerPlaced(lift(4, 4, { hasBase: false }), { base: true, top: false }), R.partnerPlaced(lift(0, 0), { base: true, top: true })],
     [true, false, true, false]);
+  // Round M2 T2 (thaw-rules.md section 3, R3): a complete, powered lift billed at 25 % reads "no open run" (Running 0, ChairsStopped 2).
+  eq("T8.11 liftCostReason", [lift(0, 0, { billedReduced: false }), lift(1, 0, { billedReduced: true }), lift(3, 2, { billedReduced: true }),
+    lift(4, 3, { billedReduced: true }), lift(0, 0, { billedReduced: true }), lift(2, 1, { billedReduced: true })].map(R.liftCostReason),
+    [null, "noPower", "sectionMissing", "unfinished", "noOpenRun", "noOpenRun"]);
 
   // T9 ski days (Round S1 D27, ch4 B.2 / B.6): the state line, its tooltip and the walk count.
   const sd = (state, limit = 0, extra = {}) => Object.assign({ skiDaysState: state, skiDaysLimit: limit, skiDaysCap: 154 }, extra);
@@ -227,6 +236,30 @@ function run(srcDir) {
     R.skiDayWalk({ skiDaysSent: -1, skiDaysSentCar: -1, skiDaysSentNoCar: -1 }), R.skiDayWalk(null)], [8, 0, -1, -1]);
   eq("T9.4 skiDayTip", [R.skiDayTip(sd(1)), R.skiDayTip(sd(4)), R.skiDayTip(sd(6, 1)), R.skiDayTip(sd(7, 2)), R.skiDayTip(sd(5)), R.skiDayTip(sd(6, 0))],
     ["off", "noLodge", "runs", "lodges", null, null]);
+
+  // T10 ticket price line (Round M2 R7, hub-price.md section 3; build-contract.md section 7 and Decided here 13): D16's
+  // factor; T10.1's table is also ResortBatch HubRulesTests H17 (the C# half, on factors).
+  const prices = [0, 5, 40, 45, 80, 100, 120, 150, 200, 260];
+  eq("T10.1 priceFactor table", prices.map(R.priceFactor), [1, 1, 1, 0.975, 0.8, 0.7, 0.6, 0.45, 0.2, 0.2]);
+  eq("T10.2 unknown price (priceFactor, priceFactorPct)", [[-1, -5, NaN, Infinity].map(R.priceFactor), [-1, -5, NaN, Infinity].map(R.priceFactorPct)],
+    [[-1, -1, -1, -1], [-1, -1, -1, -1]]);
+  eq("T10.3 price constants", [R.PRICE_FULL_AT, R.PRICE_SPAN, R.PRICE_MAX, R.PRICE_NO_EFFECT_MAX, R.PRICE_EXAMPLES], [240, 200, 200, 40, [80, 120, 200]]);
+  eq("T10.4 priceFactorPct table (45 rounds half up)", prices.map(R.priceFactorPct), [100, 100, 100, 98, 80, 70, 60, 45, 20, 20]);
+  eq("T10.5 tooltip examples", R.PRICE_EXAMPLES.map(R.priceFactorPct), [80, 60, 20]);
+  eq("T10.6 hubPrice", [R.hubPrice({ known: true, ticketPrice: 40 }), R.hubPrice({ known: true, ticketPrice: 0 }),
+    R.hubPrice({ known: false, ticketPrice: 0 }), R.hubPrice({ known: true, ticketPrice: -3 }), R.hubPrice(null)],
+    [40, 0, -1, -1, -1]);
+
+  // T11 trip-planner note (Round M2 R9, enabled-flags.md section 3 T10.1-T10.8 renumbered; build-contract.md section 7).
+  const tp = (tripPlanner, tripPlannerBlocksSkiDays) => Object.assign({}, BIND.FALLBACK.city, { known: true, tripPlanner, tripPlannerBlocksSkiDays });
+  eq("T11.1 tripPlannerNote fallback city", R.tripPlannerNote(BIND.FALLBACK.city), "none");
+  eq("T11.2 known mod", R.tripPlannerNote(tp("Realistic PathFinding", false)), "known");
+  eq("T11.3 known mod blocks ski days", R.tripPlannerNote(tp("Realistic Trips", true)), "knownOff");
+  eq("T11.4 unknown", R.tripPlannerNote(tp("?", false)), "unknown");
+  eq("T11.5 unknown blocks ski days", R.tripPlannerNote(tp("?", true)), "unknownOff");
+  eq("T11.6 empty label", R.tripPlannerNote(tp("", true)), "none");
+  eq("T11.7 no city, no field", [null, { tripPlanner: undefined }].map(R.tripPlannerNote), ["none", "none"]);
+  eq("T11.8 TRIP_PLANNER_UNKNOWN", BIND.TRIP_PLANNER_UNKNOWN, "?");
   return { checks, failures };
 }
 

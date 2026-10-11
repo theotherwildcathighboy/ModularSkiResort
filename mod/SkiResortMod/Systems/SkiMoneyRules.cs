@@ -1,20 +1,26 @@
 // SkiMoneyRules — the PURE money rules of Round E1 (docs/research/econ-round/spec/ch4-money.md §6.1;
 // decisions D23 lift running charge, D26 lift tickets). Consumers: SkiLiftChargeSystem (LiftBillingOf,
-// LiftRate, Accrue, AccruedShare), SkiLiftTicketSystem (ClampTicketPrice, TicketGateOf, TicketsPaid —
-// from its Burst job), SkiGuestCounterSystem (MonthKey), SkiResortStatsSystem / HubRules (gate, price,
-// item rates), the settings (TicketPriceDefault); SkiGuestCounterSystem (TouristLeisureCounts, OutingPeople —
-// from its Burst jobs, Round S1); SkiGuestCounterSystem and SkiDaySystem (IsShortMonth, SimulatedPct, Round M1);
-// tests/ResortBatch MoneyBatch (T1-T7; T9-T11 Round S1; T12 Round M1).
+// LiftAreaRunOpen, LiftRate, LiftOperating, Accrue, AccruedShare), SkiLiftTicketSystem (ClampTicketPrice,
+// TicketGateOf, TicketsPaid — from its Burst job), SkiGuestCounterSystem (MonthKey), SkiResortStatsSystem /
+// HubRules (gate, price, item rates), SkiResortAttractivenessSystem (MonthKey / YearOfKey / MonthOfKey for its
+// [cost] clock, Round M2 D8), the settings (TicketPriceDefault); SkiGuestCounterSystem (TouristLeisureCounts,
+// OutingPeople — from its Burst jobs, Round S1); SkiGuestCounterSystem and SkiDaySystem (IsShortMonth,
+// SimulatedPct, Round M1); tests/ResortBatch MoneyBatch (T1-T7; T9-T11 Round S1; T12 Round M1; T13 Round M2).
 //
 //   * Lift charge (D23): Full = LiftFixedPerMonth + LiftPerKmPerMonth × km; a lift that is not
-//     complete, or complete without power (LiftServedRule.IsPowered, e1-spec R1), bills
-//     LiftReducedShare of that. LiftOperating(complete, powered) feeds the ticket gate (R6).
+//     complete, or complete without power (LiftServedRule.IsPowered, e1-spec R1), or (Round M2 T2,
+//     docs/research/round-m2/decisions.md R3) a complete, powered lift whose ski area has no counted run
+//     (LiftAreaRunOpen false: the area's released score counts 0 runs), bills LiftReducedShare of that.
+//     LiftOperating(complete, powered) is the charge's operating count (logs and the hub only; the ticket
+//     gate no longer reads lifts since Round M2 T1).
 //   * Accrual: the run-upkeep pattern (SkiRunUpkeepSystem's month = TicksPerDay × daysPerYear / 12
 //     sim frames; TimeSystem.kTicksPerDay, Game.Simulation/TimeSystem.cs:18): carry += rate × elapsed
 //     / month, the whole credits are debited, the fraction carried.
-//   * Ticket gate (D26, R6): Off (price 0) → NoEfficiency (sign efficiency not > 0) → Open on an
-//     operating lift → NotKnownYet (no score result yet, DV10) → Open on a counted run, else NothingOpen.
-//     TicketGate's literal values are compared with bindings.ts TICKET_GATE by gate rule R17.
+//   * Ticket gate (D26, R6; Round M2 T1, decisions.md R2): Off (price 0) → NoEfficiency (sign efficiency
+//     not > 0) → NotKnownYet (no score yet, or the area's first score after a load still held) → Open on a
+//     counted run, else NothingOpen (a running lift alone no longer opens it; the operating-lift branch and
+//     its parameter are gone). TicketGate's literal values are compared with bindings.ts TICKET_GATE by gate
+//     rule R17 (unchanged).
 //   * Months: MonthKey = year × 12 + calendar month 0..11; MonthOfKey is 1..12. Round M1 (D5): a month with
 //     fewer than FullMonthShare (95 %) of its frames simulated is short (IsShortMonth) and is booked as partial.
 //   * Guest days (Round S1 D23, ski-days spec ch3 §1.2): per ski area and game day, a tourist on leisure at a
@@ -26,6 +32,8 @@
 // allocation-free and Burst-callable (the ticket job calls TicketGateOf / TicketsPaid).
 //
 // Created 2026-10-04 (Round E1 stage 0, S0: ch4 §6.1 verbatim); owned by stream S4.
+// Round M2 (2026-10-10, builder B3, docs/research/round-m2/build-contract.md): T1 TicketGateOf loses the
+// operating-lift branch and parameter; T2 LiftBilling.NoOpenRun, the three-argument LiftBillingOf, LiftAreaRunOpen.
 
 using System;
 using Unity.Mathematics;
@@ -46,13 +54,22 @@ namespace SkiResortMod.Systems
         public const int TicksPerDay = 262144;
         public const int MonthsPerYear = 12;
 
-        public enum LiftBilling : byte { Full = 0, NoPower = 1, Unfinished = 2 }
+        // Round M2 T2 appends NoOpenRun = 3 (not bound to the UI: no R17 entry).
+        public enum LiftBilling : byte { Full = 0, NoPower = 1, Unfinished = 2, NoOpenRun = 3 }
         public enum TicketGate : byte { Open = 0, Off = 1, NoEfficiency = 2, NothingOpen = 3, NotKnownYet = 4 }
 
         public static bool LiftOperating(bool complete, bool powered) => complete && powered;
 
-        public static LiftBilling LiftBillingOf(bool complete, bool powered)
-            => !complete ? LiftBilling.Unfinished : powered ? LiftBilling.Full : LiftBilling.NoPower;
+        /// <summary>Round M2 T2 (decisions.md R3): precedence unfinished, then no power, then no counted run in
+        /// the lift's ski area (areaRunOpen from LiftAreaRunOpen). Any billing but Full bills LiftReducedShare.</summary>
+        public static LiftBilling LiftBillingOf(bool complete, bool powered, bool areaRunOpen)
+            => !complete ? LiftBilling.Unfinished : !powered ? LiftBilling.NoPower
+               : areaRunOpen ? LiftBilling.Full : LiftBilling.NoOpenRun;
+
+        /// <summary>Round M2 T2: the lift's ski area has a counted run, for billing. Unknown reads true (full, the
+        /// old rate): not linked, no score yet, or the area's first score after a load still held.</summary>
+        public static bool LiftAreaRunOpen(bool linked, bool scoreKnown, bool writeHeld, int runsCounted)
+            => !linked || !scoreKnown || writeHeld || runsCounted > 0;
 
         /// <summary>2500 + 1000 × km; a negative or non-finite length counts as 0 m.</summary>
         public static float LiftFullRate(float lengthM)
@@ -99,11 +116,13 @@ namespace SkiResortMod.Systems
 
         public static int ClampTicketPrice(int price) => math.clamp(price, 0, TicketPriceMax);
 
-        public static TicketGate TicketGateOf(int price, float efficiency, bool runStateKnown, int openRuns, int operatingLifts)
+        /// <summary>Round M2 T1 (decisions.md R2): tickets need a counted open run. runStateKnown = a score is
+        /// present AND not in the first-write hold (callers: the ticket job, the gate watch, the hub). Free entry
+        /// during a load hold is accepted (at most RatingHoldMaxTicks = 1,024 ticks = 16,384 frames).</summary>
+        public static TicketGate TicketGateOf(int price, float efficiency, bool runStateKnown, int openRuns)
         {
             if (price <= 0) return TicketGate.Off;
             if (!(efficiency > 0f)) return TicketGate.NoEfficiency;
-            if (operatingLifts > 0) return TicketGate.Open;
             if (!runStateKnown) return TicketGate.NotKnownYet;
             return openRuns > 0 ? TicketGate.Open : TicketGate.NothingOpen;
         }

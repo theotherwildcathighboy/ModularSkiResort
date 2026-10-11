@@ -7,7 +7,10 @@
  * docs/research/econ-round/design/hub-v3-design.md section 8; e1-spec.md I-25); contract 4 on
  * 2026-10-05 (Round S1 "Ski days", stream E: docs/research/ski-days/s1-spec.md section 2.10,
  * spec/ch4-hub.md section A: ten ResortLive fields appended, SKI_DAY_STATE, SKI_DAY_LIMIT, PROBLEM
- * 20-22; the six last-month guest fields are now also sent for a partial month, F7).
+ * 20-22; the six last-month guest fields are now also sent for a partial month, F7); contract 5 on
+ * 2026-10-10 (Round M2, ruling R9 "Enabled flags": docs/research/round-m2/build-contract.md section
+ * 8.1, understand/enabled-flags.md C5: CityStats gains tripPlanner and tripPlannerBlocksSkiDays, and
+ * TRIP_PLANNER_UNKNOWN names the C# "?" label; the only contract change of Round M2).
  * Authority before contract 3: docs/research/hub-u2-spec.md section 2.2 (binding table) and 2.3
  * (shapes); contract 1 was resort-hub-understand.md section 5.3. The C# side (SkiResortHubUISystem,
  * group "skiResort") must register EXACTLY these names with these shapes (ch5 section 4.4 writes the
@@ -79,14 +82,15 @@ import type { Entity } from "cs2/utils";
 export const GROUP = "skiResort";
 
 /**
- * Contract 4 (Round S1, ski days: docs/research/ski-days/spec/ch4-hub.md section A; contract 3 was
- * Round E1, D32). C#: SkiResortHubUISystem.HubContract.
+ * Contract 5 (Round M2 R9: CityStats.tripPlanner / tripPlannerBlocksSkiDays, docs/research/round-m2/
+ * build-contract.md section 8.1; contract 4 was Round S1, ski days: docs/research/ski-days/spec/
+ * ch4-hub.md section A; contract 3 was Round E1, D32). C#: SkiResortHubUISystem.HubContract.
  * Bump both whenever a binding, trigger, field or meaning below changes (tools/check-bundle.js
  * fails a change without a bump, against tools/contract.lock). The panel renders the resort views
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree
  * controls (CORE only) and says why (spec 4.5).
  */
-export const HUB_CONTRACT = 4;
+export const HUB_CONTRACT = 5;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -506,7 +510,21 @@ export interface CityStats {
   snowVisualsOff: boolean;
   tourismOverhaul: boolean;
   realisticWorkplaces: boolean;
+  /** Round M2 R9 (contract 5): which known mod replaced the game's trip systems, read at each city load
+   *  (C# SkiDaySystem.TripPlannerLabel = SkiTripSystems.Label): "" = the game's six trip systems all on;
+   *  "Realistic PathFinding", "Realistic Trips", both joined ", ", or TRIP_PLANNER_UNKNOWN when a system
+   *  is off and no known replacement is loaded. A label only (DECISIONS 150): the UI decides nothing on it
+   *  but the Guests view's note (hubRules.tripPlannerNote). */
+  tripPlanner: string;
+  /** Round M2 R9: the game's LeisureSystem or CitizenBehaviorSystem is switched off, so ski days do not arm
+   *  this load (C# ArmVerdict.SystemOff; SkiDaySystem.TripPlannerBlocksSkiDays = SkiTripSystems.BlocksSkiDays). */
+  tripPlannerBlocksSkiDays: boolean;
 }
+
+/** CityStats.tripPlanner when a trip system is off and no known replacement is loaded. Manual parity with
+ *  C# SkiTripSystems.UnknownLabel (no gate rule compares string constants; both sides test the literal "?":
+ *  tools/test-hub-rules.js T11.8 and ResortBatch SkiDayTests section X). */
+export const TRIP_PLANNER_UNKNOWN = "?";
 
 /** Locale key of a level's name (root LocaleEN.cs: "Clear" ... "Thick forest"). */
 export function gladeLevelNameKey(level: number): string {
@@ -605,6 +623,7 @@ export const FALLBACK = {
   city: {
     known: false, daysPerYear: 0, scaleK: 4, backcountryPct: 40, ticketPrice: 0, snowGating: true,
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
+    tripPlanner: "", tripPlannerBlocksSkiDays: false,
   } as CityStats,
   /** D19: the piste map is on by default (C# owns the value). */
   pisteMap: true,

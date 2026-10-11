@@ -9,13 +9,20 @@
  * Verification): the note area is gone - its sentences moved into the header's Info tooltip - the
  * Realistic Workplaces line reads as a detection under the row it qualifies, and run-type rows show only
  * for the kinds the area has. Field test 7 state (RWH detected, tickets not known yet, no night run):
- * 15 text lines in 17 slot lines -> 10 text lines in 10.
+ * 15 text lines in 17 slot lines -> 10 text lines in 10. Round M2 (2026-10-10, builder B4; ruling R7,
+ * docs/research/round-m2/understand/hub-price.md section 2 item 2, build-contract.md section 8.2): the
+ * price line under the tickets row -> 11 text lines in 11.
  * Contract:
  *   - A sign, in this order: MONEY header with the Info glyph right after the label and "A month" in
  *     the value column (tooltip: MONEY_NOTE[Panel]; MONEY_NOTE[Est] while tickets are projected); the
  *     tickets row (label by hubRules.ticketsRow: off / last month's / estimated / counted after a quarter
  *     month - that label is why MONEY_NOTE[Unknown] is retired; "≈" while projected or not known; the
- *     label carries no "× price", the price now is a tooltip line); RUNNING COSTS with one row per run
+ *     label carries no "× price", the price now is a tooltip line); Round M2 R7: under it ONE dim SubLine
+ *     MONEY_PRICE_LINE "Lift ticket {PRICE} · ski days {PCT}" (PRICE = hubRules.hubPrice(city), Money;
+ *     PCT = hubRules.priceFactorPct, Percentage: D16's factor as a whole percent, "Lift ticket ¢40 · ski
+ *     days 100 %"; "–" while the city is not known), read-only, always present for a sign (D33), its
+ *     tooltip MONEY_PRICE_TIP[Title|Where|Curve|Who] (where to change it in Options, the curve at
+ *     PRICE_EXAMPLES, who reacts); Not linked has none (it sells no tickets); RUNNING COSTS with one row per run
  *     kind the area has at least one run of (natural ¢0 dim, groomed, snowmaking, night; runs$ by kind:
  *     a row appears or vanishes only when a run is drawn or deleted, a state change, D33), the lifts row
  *     and the buildings-and-wages row ("–" and "≈" while the game's bill is not known); while Realistic
@@ -31,6 +38,9 @@
  *     monthlyPerKm), "–" when a contract-2 DLL sends none.
  *   - Width (Overpass advances, design §2.3 method): "Detected: Realistic Workplaces. The real bill can
  *     differ." is XS 290.2 / 477.4 / 602.1 rem against the SubLine room W - 32 = 390 / 568 / 687: fits.
+ *     The price line's widest form "Lift ticket ¢200 · ski days 20 %" (32 characters) is about 16 em XS
+ *     by the 0.5 em estimate (GuestsView.tsx header): about 192 / 316 / 398 rem, fits (an estimate; the
+ *     SubLine's ellipsis is the net).
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$
  *     (Round F7: the run kinds of the area).
  */
@@ -41,7 +51,7 @@ import type { BuildItem, BuildItemId, CityStats, ResortLive, ResortRow, RunRow }
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import { findBuildItem } from "./buildItems";
-import { buildingsAndWages, incomeNote, liveOf, ticketsRow } from "./hubRules";
+import { PRICE_EXAMPLES, PRICE_NO_EFFECT_MAX, buildingsAndWages, hubPrice, incomeNote, liveOf, priceFactorPct, ticketsRow } from "./hubRules";
 import type { IncomeNote } from "./hubRules";
 import { HUB_FMT, HUB_LOC } from "./hubText";
 import { Divider, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, TipLines, numArg, useNumberSamples } from "./parts";
@@ -144,6 +154,29 @@ function TicketsRow({ l, price, samples, t }: { l: ResortLive | null; price: num
   );
 }
 
+/** Round M2 R7 (hub-price.md section 2 item 2): under the tickets row, the Options price and what it does to ski
+ *  days (D16's factor as a whole percent, hubRules.priceFactorPct). Read-only; the tooltip says where to change it.
+ *  `price` = hubRules.hubPrice(city): -1 ("–") until C# has sent the city. One text node (gate R13). */
+function PriceLine({ price, t }: { price: number; t: Translate }): JSX.Element {
+  const pct = priceFactorPct(price);
+  const ex = (i: number): { P: JSX.Element | string; F: JSX.Element | string } => ({
+    P: numArg(PRICE_EXAMPLES[i], Unit.Money), F: numArg(priceFactorPct(PRICE_EXAMPLES[i]), Unit.Percentage),
+  });
+  const [a, b, c] = [ex(0), ex(1), ex(2)];
+  return (
+    <SubLine tip={<TipLines lines={[
+      t(HUB_LOC.moneyPriceTitle),
+      t(HUB_LOC.moneyPriceTipWhere),
+      <LocText key="c" entry={HUB_FMT.moneyPriceTipCurve} args={{
+        FULL: numArg(PRICE_NO_EFFECT_MAX, Unit.Money), P1: a.P, F1: a.F, P2: b.P, F2: b.F, P3: c.P, F3: c.F,
+      }} />,
+      t(HUB_LOC.moneyPriceTipWho),
+    ]} />}>
+      {pct < 0 ? DASH : <LocText entry={HUB_FMT.moneyPriceLine} args={{ PRICE: numArg(price, Unit.Money), PCT: numArg(pct, Unit.Percentage) }} />}
+    </SubLine>
+  );
+}
+
 function SignMoney({ row, l, city, build, kinds, samples, t }: {
   row: ResortRow; l: ResortLive | null; city: CityStats; build: readonly BuildItem[]; kinds: ReadonlySet<number>;
   samples: NumberSamples; t: Translate;
@@ -155,6 +188,7 @@ function SignMoney({ row, l, city, build, kinds, samples, t }: {
     <>
       <MoneyHeader note={note} samples={samples} t={t} />
       <TicketsRow l={l} price={city.ticketPrice} samples={samples} t={t} />
+      <PriceLine price={hubPrice(city)} t={t} />
       <InfoLine header label={t(HUB_LOC.sectionCosts)} />
       {kinds.has(RUN_KIND.Natural) && (
         <InfoLine

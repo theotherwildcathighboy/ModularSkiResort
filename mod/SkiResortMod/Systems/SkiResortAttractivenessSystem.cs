@@ -118,10 +118,17 @@
 // trailing summaries flushed on the tick, in OnGamePreload and in OnDestroy); [first-write] once per area per
 // load (a WARN when the 1,024-tick cap released it); provider added (once per lodge per load) / removed (per
 // removal); a sign carrying a provider (once per sign per load); [settings] per change; the first trigger of
-// each reason per load ([watch]; the rest counted for the DUMP); [cost] after 32 recomputes and one WARN for a
-// recompute over 2 ms (the load's first recompute is kept apart: printed on its own, E1 fixer); Tourism Overhaul at load and per damped lodge (once per lodge per load); the one-shot
-// "!!!". Not in the chapter's table (S1 deviation, docs/research/econ-round/build/notes-S1.md): the one fail-open
-// line per load when the lift census is not armed.
+// each reason per load ([watch]; the rest counted for the DUMP); [cost] after 32 recomputes and one WARN per game
+// day (re-armed at midday, Round M2 D8) for a recompute over 2 ms, with the game clock (the load's first recompute
+// is kept apart: printed on its own, E1 fixer); Tourism Overhaul at load and per damped lodge (once per lodge per
+// load); the one-shot "!!!". Not in the chapter's table (S1 deviation, docs/research/econ-round/build/notes-S1.md):
+// the one fail-open line per load when the lift census is not armed.
+// Round M2 (D8, 2026-10-10, builder B3; docs/research/round-m2/understand/measure-core.md 2.5): the [cost] WARN
+// re-arms at the first recompute at or after 12:00 of a day other than the one it fired on
+// (SkiDayRules.MiddayRearmDue / DoneDayOf, the M1 [cost] rule); the WARN and the DUMP's cost max print "YYYY-MM
+// HH:MM" from TimeSystem (field test 10 run 2b: the WARN fired at 2.83 ms, the max later reached 3.159 ms with no
+// WARN and no clock). Month and clock come from SkiMoneyRules.MonthKey / YearOfKey / MonthOfKey and
+// SkiDayTiming.MinuteOfDay through the private MonthClockText.
 //
 // TOURISM OVERHAUL (ch1 §7.6): presence re-checked at game load (Mod.RefreshTourismOverhaulDetection). D27
 // brings visitors on site, so TO's crowding / park gate can damp our lodges: when TO is present, a lodge whose
@@ -214,6 +221,7 @@ namespace SkiResortMod.Systems
         private LiftCensusSystem m_Census;               // rows, serve lifts, power
         private SkiSnowInjectionSystem m_Injection;      // run open state, SnowSettled
         private SnowLineSystem m_SnowLine;               // the one snow gating read
+        private Game.Simulation.TimeSystem m_Time;       // Round M2 (D8): the [cost] WARN's midday re-arm and clocks
 
         private readonly HashSet<Entity> m_LodgePrefabs = new HashSet<Entity>();
 
@@ -438,6 +446,10 @@ namespace SkiResortMod.Systems
         private double m_CostSumMs, m_CostMaxMs, m_PollSumMs;
         private double m_FirstRecomputeMs = -1.0;   // the load's first recompute, kept out of mean / max / WARN (−1 = none yet)
         private bool m_CostWarned;
+        // Round M2 (D8): the WARN's day (SkiDayRules.DoneDayOf: today when it fired at or after 12:00, else none, so it
+        // re-arms today at noon) and the clock of the cost max (month key SkiDayRules.NoMonth / minute −1 before any).
+        private int m_CostWarnDay = int.MinValue;
+        private int m_CostMaxMonth = SkiDayRules.NoMonth, m_CostMaxMinute = -1;
 
         // ── public / internal surface ──────────────────────────────────────────────────────────────
 
@@ -668,6 +680,7 @@ namespace SkiResortMod.Systems
             m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             m_Injection = World.GetOrCreateSystemManaged<SkiSnowInjectionSystem>();
             m_SnowLine = World.GetOrCreateSystemManaged<SnowLineSystem>();
+            m_Time = World.GetOrCreateSystemManaged<Game.Simulation.TimeSystem>();   // Round M2 (D8)
 
             // §6: the park-building query (signs and lodges carry Game.Buildings.Park, Park.cs:26-41). No
             // Transform (E1 fixer pass 2, header COST): the walk reads Entity and PrefabRef only; sign and
@@ -779,6 +792,9 @@ namespace SkiResortMod.Systems
             m_CostSumMs = m_CostMaxMs = m_PollSumMs = 0.0;
             m_FirstRecomputeMs = -1.0;
             m_CostWarned = false;
+            m_CostWarnDay = int.MinValue;                                     // Round M2 (D8)
+            m_CostMaxMonth = SkiDayRules.NoMonth;
+            m_CostMaxMinute = -1;
             m_SignIndex.Clear();
             m_BaseXz.Clear();
             m_PositionsDue = true;   // the load's recompute is structural anyway
@@ -1087,15 +1103,29 @@ namespace SkiResortMod.Systems
                 return;
             m_CostCount++;
             m_CostSumMs += ms;
+            // Round M2 (D8): the game clock of this recompute (TimeSystem: normalizedTime, year, normalizedDate,
+            // daysPerYear, as SkiLiftTicketSystem's midday re-arm reads them).
+            float t = m_Time.normalizedTime;
+            int day = SkiDayRules.DayKey(m_Time.year, m_Time.normalizedDate, m_Time.daysPerYear);
+            int monthKey = SkiMoneyRules.MonthKey(m_Time.year, m_Time.normalizedDate);
+            int minute = SkiDayTiming.MinuteOfDay(t);
             if (ms > m_CostMaxMs)
+            {
                 m_CostMaxMs = ms;
+                m_CostMaxMonth = monthKey;
+                m_CostMaxMinute = minute;
+            }
             int runs = m_Cur.Runs.Count;
+            if (SkiDayRules.MiddayRearmDue(m_CostWarned, t, day, m_CostWarnDay))
+                m_CostWarned = false;   // Round M2 (D8): once per game day, re-armed at midday
             if (ms > Tuning.CostWarnMs && !m_CostWarned)
             {
                 m_CostWarned = true;
+                m_CostWarnDay = SkiDayRules.DoneDayOf(t, day);
                 Mod.Log.Warn(Invariant($"Attractiveness [cost]: one recompute took {ms:F2} ms (> 2 ms) — ") +
-                             $"{m_Cur.SlotCount} area(s), {runs} run(s), {m_Cur.LiftCount} lift(s); reason '{reason}' (once per load; " +
-                             "the load's first recompute is not tested)");
+                             $"{m_Cur.SlotCount} area(s), {runs} run(s), {m_Cur.LiftCount} lift(s); reason '{reason}' at " +
+                             $"{MonthClockText(monthKey, minute)} (once per game day, re-armed at midday; the load's first " +
+                             "recompute is not tested)");
             }
             if (m_CostCount == Tuning.CostReportRecomputes)
             {
@@ -1918,7 +1948,8 @@ namespace SkiResortMod.Systems
                   .Append(", lodge set revision ").Append(m_LodgeSetRevision)   // Round S1 (ch3 §2.1)
                   .Append(", cost mean ").Append(mean.ToString("F3", CultureInfo.InvariantCulture))
                   .Append(" ms max ").Append(m_CostMaxMs.ToString("F3", CultureInfo.InvariantCulture))
-                  .Append(" ms (first after load ").Append(m_FirstRecomputeMs < 0.0 ? "-" : m_FirstRecomputeMs.ToString("F3", CultureInfo.InvariantCulture))
+                  .Append(" ms at ").Append(MonthClockText(m_CostMaxMonth, m_CostMaxMinute))   // Round M2 (D8); "-" before any
+                  .Append(" (first after load ").Append(m_FirstRecomputeMs < 0.0 ? "-" : m_FirstRecomputeMs.ToString("F3", CultureInfo.InvariantCulture))
                   .Append(" ms, apart), poll mean ").Append(pollMean.ToString("F3", CultureInfo.InvariantCulture))
                   .Append(" ms, positions read ").Append(m_PositionReads).Append(" time(s) (structural or backstop; ")
                   .Append(m_PositionFallbacks).Append(" fallback read(s) on a soft recompute)")
@@ -1977,6 +2008,18 @@ namespace SkiResortMod.Systems
                       Invariant($"type {part.TypeFactor:0.##} × served {part.ServedFactor:0.##} × open {part.OpenFactor:F2}") +
                       (input.OpenEstimated ? " (estimated)" : "") +
                       Invariant($" = {part.Value:F3}") + (part.Counted ? "" : " (not counted)") + "\n");
+        }
+
+        /// <summary>Round M2 (D8): "YYYY-MM HH:MM" from a SkiMoneyRules month key and a SkiDayTiming.MinuteOfDay
+        /// minute (invariant culture); "-" before any (NoMonth or a negative minute).</summary>
+        private static string MonthClockText(int monthKey, int minute)
+        {
+            if (monthKey == SkiDayRules.NoMonth || minute < 0)
+                return "-";
+            return SkiMoneyRules.YearOfKey(monthKey).ToString(CultureInfo.InvariantCulture) + "-" +
+                   SkiMoneyRules.MonthOfKey(monthKey).ToString("D2", CultureInfo.InvariantCulture) + " " +
+                   (minute / 60).ToString("D2", CultureInfo.InvariantCulture) + ":" +
+                   (minute % 60).ToString("D2", CultureInfo.InvariantCulture);
         }
 
         private static void AppendCounts(StringBuilder sb, Dictionary<string, int> counts)

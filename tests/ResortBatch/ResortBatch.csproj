@@ -63,6 +63,12 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiDayTiming.cs" Link="SkiDayTiming.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiParkingRules.cs" Link="SkiParkingRules.cs" />
   </ItemGroup>
+  <!-- ROUND M2 (docs/research/round-m2/build-contract.md) -->
+  <ItemGroup>
+    <Compile Include="DensityTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunPropDensityRules.cs" Link="RunPropDensityRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiTripSystems.cs" Link="SkiTripSystems.cs" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />
   </ItemGroup>

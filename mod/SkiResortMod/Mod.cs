@@ -38,8 +38,14 @@ namespace SkiResortMod
         /// null when TryGetExecutableAsset failed. Consumed by SkiRunSplatSystem.</summary>
         public static string ModRootPath { get; private set; }
 
+        /// <summary>True once OnDispose has started. Round M2 D9: the quit disposes mods
+        /// before the world (GameManager.cs:792-793; 1.6.2 :802-803), so a system's OnDestroy
+        /// can run after OnDispose; SkiResortStatsSystem reads this to skip its quiet summary.</summary>
+        internal static bool Disposed { get; private set; }
+
         public void OnLoad(UpdateSystem updateSystem)
         {
+            Disposed = false;
             Log.Info(nameof(OnLoad));
 
             if (GameManager.instance.modManager.TryGetExecutableAsset(this, out var asset))
@@ -188,6 +194,8 @@ namespace SkiResortMod
             // bridge must land earlier in the SAME frame's Modification4B, so it anchors
             // directly before the vanilla spawner (the PowerBridgeSystem precedent).
             // Game mode only: spawned props must never be baked into maps.
+            // Round M2: it also writes the Options prop density into the run prefabs and, after a settled slider
+            // change, tags ChangedDistrict on our propped runs; both must land before the vanilla spawner too.
             updateSystem.UpdateBefore<SkiRunPropSystem, Game.Objects.SecondaryObjectSystem>(
                 SystemUpdatePhase.Modification4B);
 
@@ -610,6 +618,7 @@ namespace SkiResortMod
 
         public void OnDispose()
         {
+            Disposed = true;   // Round M2 D9: the quit disposes mods before the world (GameManager.cs:792-793; 1.6.2 :802-803)
             Log.Info(nameof(OnDispose));
             if (Settings != null)
             {

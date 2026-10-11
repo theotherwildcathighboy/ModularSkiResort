@@ -10,7 +10,9 @@
 // (SkiPisteMapSystem, D19) reads. Created 2026-10-01 (Round U1, implementer U1-B); contract 2 written
 // 2026-10-03 (Rounds U2/M1, implementer I-4); contract 3 written 2026-10-04 (Round E1, stream S5); contract 4
 // 2026-10-05 (Round S1 "Ski days", stream D; docs/research/ski-days/spec/ch4-hub.md §A.5: ten ResortLive fields
-// appended, the bindings and triggers unchanged). The
+// appended, the bindings and triggers unchanged); contract 5 2026-10-10 (Round M2 R9, builder B3;
+// docs/research/round-m2/build-contract.md §8.1: CityStats.tripPlanner and tripPlannerBlocksSkiDays appended to the
+// `city` writer and comparer, the bindings and triggers unchanged). The
 // per-area numbers are NOT computed here: SkiResortStatsSystem owns them and this system only writes its
 // rows (resorts / resortLive / runs / runLive / lifts / problems / city) to the UI.
 //
@@ -331,10 +333,12 @@ namespace SkiResortMod.Systems
         public const string Group = "skiResort";
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a
-        /// binding, trigger, field or meaning changes. 4 = Round S1, ski days, docs/research/ski-days/spec
-        /// (ch4 §A: ten ResortLive fields appended; the six last-month guest fields also for a partial month);
-        /// 3 was Round E1 (econ-round spec ch5 §4, design hub-v3-design.md §8); 2 was hub-u2-spec.md §2 (Rounds U2/M1).</summary>
-        public const int HubContract = 4;
+        /// binding, trigger, field or meaning changes. 5 = Round M2 (docs/research/round-m2/decisions.md R9,
+        /// build-contract.md §8.1: CityStats.tripPlanner and tripPlannerBlocksSkiDays appended); 4 was Round S1, ski
+        /// days, docs/research/ski-days/spec (ch4 §A: ten ResortLive fields appended; the six last-month guest fields
+        /// also for a partial month); 3 was Round E1 (econ-round spec ch5 §4, design hub-v3-design.md §8); 2 was
+        /// hub-u2-spec.md §2 (Rounds U2/M1).</summary>
+        public const int HubContract = 5;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed
         /// after the one-shot "!!!" until the next load (amended 2026-10-01, U1 fixer round, finding
@@ -522,11 +526,18 @@ namespace SkiResortMod.Systems
                 writer.Write(value.TourismOverhaul);
                 writer.PropertyName("realisticWorkplaces");
                 writer.Write(value.RealisticWorkplaces);
+                // Round M2 R9 (contract 5): "" = the game's own trip systems; "?" = SkiTripSystems.UnknownLabel
+                // (bindings.ts TRIP_PLANNER_UNKNOWN).
+                writer.PropertyName("tripPlanner");
+                writer.Write(value.TripPlanner ?? "");
+                writer.PropertyName("tripPlannerBlocksSkiDays");
+                writer.Write(value.TripPlannerBlocksSkiDays);
                 writer.TypeEnd();
             }
         }
 
-        /// <summary>`city` dedup: all ten fields (typed Equals per field — no boxing; floats with .Equals).</summary>
+        /// <summary>`city` dedup: all twelve fields (typed Equals per field — no boxing; floats with .Equals; the
+        /// string with ==).</summary>
         private sealed class CityStatsComparer : EqualityComparer<CityStats>
         {
             public override bool Equals(CityStats a, CityStats b)
@@ -534,7 +545,8 @@ namespace SkiResortMod.Systems
                 return a.Known == b.Known && a.DaysPerYear == b.DaysPerYear && a.ScaleK == b.ScaleK &&
                        a.BackcountryPct == b.BackcountryPct && a.TicketPrice == b.TicketPrice && a.SnowGating == b.SnowGating &&
                        a.SnowmakingMarginC.Equals(b.SnowmakingMarginC) && a.SnowVisualsOff == b.SnowVisualsOff &&
-                       a.TourismOverhaul == b.TourismOverhaul && a.RealisticWorkplaces == b.RealisticWorkplaces;
+                       a.TourismOverhaul == b.TourismOverhaul && a.RealisticWorkplaces == b.RealisticWorkplaces &&
+                       a.TripPlanner == b.TripPlanner && a.TripPlannerBlocksSkiDays == b.TripPlannerBlocksSkiDays;   // Round M2 R9
             }
 
             public override int GetHashCode(CityStats c)
@@ -550,7 +562,9 @@ namespace SkiResortMod.Systems
                     h = h * 31 + c.SnowmakingMarginC.GetHashCode();
                     h = h * 31 + (c.SnowVisualsOff ? 1 : 0);
                     h = h * 31 + (c.TourismOverhaul ? 1 : 0);
-                    return h * 31 + (c.RealisticWorkplaces ? 1 : 0);
+                    h = h * 31 + (c.RealisticWorkplaces ? 1 : 0);
+                    h = h * 31 + (c.TripPlanner ?? "").GetHashCode();   // Round M2 R9
+                    return h * 31 + (c.TripPlannerBlocksSkiDays ? 1 : 0);
                 }
             }
         }

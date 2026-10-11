@@ -25,6 +25,17 @@
  * (ruling R-Q3: "Holds {N} skiers at once", N = the capacity at once, D21), SKI_DAYS_TIP[Sent|Now],
  * STATUS_TIP_POWDER. The numbers in them (800 m, 300 m, 360) are D10, D26 and D21's: a change there changes
  * the text.
+ * Round M2 (2026-10-10, builder B4; docs/research/round-m2/build-contract.md sections 8.3 and 8.4, identical in
+ * root LocaleEN.cs, gate R4): 11 new keys. HUB_LOC: MONEY_PRICE_TIP[Title|Where|Who] (R7, the Money view's price
+ * line), TRIP_PLANNER_NOTE[Unknown|UnknownOff] and TRIP_PLANNER_TIP (R9, the Guests view's trip-planner note),
+ * LIFT_COST_REDUCED[NoOpenRun] (thaw-rules T2). HUB_FMT: MONEY_PRICE_LINE, MONEY_PRICE_TIP[Curve] (the factor as a
+ * percent: Gameface strips trailing zeros), TRIP_PLANNER_NOTE[Known|KnownOff]. 10 changed texts, same keys:
+ * TICKETS_NOTE[NothingOpen] (T1: a running lift alone no longer opens the gate), TICKETS_NOTE[NotKnownYet] (a new
+ * sign too), MONEY_TIP[Lifts] (T2: a quarter with no open run), SEASON_TIP[SnowSeason|SnowGunsOnly|Thawing|
+ * WaitingForSnow|TooWarm] (R5: say what they read - the day average at the top and the guns running now; "never
+ * has a winter" is gone), PROBLEM_TIP[Efficiency] and RECEIPT_TIP[Efficiency] (garbage named). Options paths name
+ * the tab and the group ("Main > Ski area balance > Lift ticket price", "Main > Snow > Snow & season gating").
+ * Nothing retired: MONEY_TICKETS_PRICE stays (the tickets row's tooltip line).
  * Contract:
  *   - Every entry is a literal `[key, english]` tuple. tools/check-bundle.js rule R4 FAILS the build
  *     unless each key exists in root mod/SkiResortMod/LocaleEN.cs with IDENTICAL text, and WARNS
@@ -100,7 +111,7 @@ export const HUB_LOC = {
   problemTipNoLodge: ["SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Guests arrive at a lodge, so a ski area without one has an attraction of 0. Place a lodge on the Welcome Sign with the lodge tile in the Build strip."],
   problemTipLodgesAllOff: ["SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "A lodge that is switched off does not count. With none left, guests have nowhere to arrive and the attraction is 0. Switch one on in the Welcome Sign's info panel (Upgrades)."],
   problemTipLodgesSomeOff: ["SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "A lodge that is switched off does not count in the lodge base."],
-  problemTipEfficiency: ["SkiResort.Hub.PROBLEM_TIP[Efficiency]", "The Welcome Sign needs staff, power, water and sewage. Its info panel shows which is short."],
+  problemTipEfficiency: ["SkiResort.Hub.PROBLEM_TIP[Efficiency]", "Efficiency as on the Welcome Sign's info panel: staff, power, water, sewage, garbage, budget and more. Any cause costing 5 % or more is listed below."],
   problemTipLiftNoPower: ["SkiResort.Hub.PROBLEM_TIP[LiftNoPower]", "Its base station gets no electricity, so the lift adds nothing and its runs count as having no lift. Connect a low-voltage line to it."],
   problemTipLiftSectionMissing: ["SkiResort.Hub.PROBLEM_TIP[LiftSectionMissing]", "A section of the line is being redrawn or was removed. The lift counts again as soon as the line is closed; until then it costs a quarter of its running cost."],
   problemTipLiftUnfinished: ["SkiResort.Hub.PROBLEM_TIP[LiftUnfinished]", "The line does not join a base station and a top station yet."],
@@ -153,7 +164,7 @@ export const HUB_LOC = {
   receiptTipVariety: ["SkiResort.Hub.RECEIPT_TIP[Variety]", "Variety: 15 % more while a green, a blue and a black (or harder) run all count."],
   receiptOpenNone: ["SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –"],
   receiptEfficiency: ["SkiResort.Hub.RECEIPT[Efficiency]", "Welcome Sign efficiency"],
-  receiptTipEfficiency: ["SkiResort.Hub.RECEIPT_TIP[Efficiency]", "The game's efficiency of the Welcome Sign: staff, power, water, sewage, budget and more, as on its info panel. The score is multiplied by it."],
+  receiptTipEfficiency: ["SkiResort.Hub.RECEIPT_TIP[Efficiency]", "The game's efficiency of the Welcome Sign: staff, power, water, sewage, garbage, budget and more, as on its info panel. The score is multiplied by it."],
   receiptResult: ["SkiResort.Hub.RECEIPT[Result]", "Attraction"],
   receiptResultNoLodge: ["SkiResort.Hub.RECEIPT[ResultNoLodge]", "Attraction (no lodge: 0)"],
   receiptTipResult: ["SkiResort.Hub.RECEIPT_TIP[Result]", "(Lodge base + runs and lifts) × efficiency, at most 200. Each active lodge carries an equal part, so the game counts the ski area once. The game's own panel of a lodge shows Attractiveness 0; the ski area's score is this one, carried by its lodges."],
@@ -221,6 +232,8 @@ export const HUB_LOC = {
   liftCostReducedNoPower: ["SkiResort.Hub.LIFT_COST_REDUCED[NoPower]", "Billed at 25 %: no power"],
   liftCostReducedUnfinished: ["SkiResort.Hub.LIFT_COST_REDUCED[Unfinished]", "Billed at 25 % while unfinished"],
   liftCostReducedSectionMissing: ["SkiResort.Hub.LIFT_COST_REDUCED[SectionMissing]", "Billed at 25 % while a section is missing"],
+  // Round M2 T2 (thaw-rules.md section 2 item 8): a complete, powered lift in a ski area with no counted run.
+  liftCostReducedNoOpenRun: ["SkiResort.Hub.LIFT_COST_REDUCED[NoOpenRun]", "Billed at 25 %: no open run in its ski area"],
   liftActions: ["SkiResort.Hub.LIFT_ACTIONS", "Click to fly there (to the gap if a section is missing). The pen renames it."],
   liftsTotalLength: ["SkiResort.Hub.LIFTS_TOTAL_LENGTH", "Total lift length"],
   liftsTotalCapacity: ["SkiResort.Hub.LIFTS_TOTAL_CAPACITY", "Design capacity, all lifts"],
@@ -269,12 +282,16 @@ export const HUB_LOC = {
   estTouristsTip: ["SkiResort.Hub.EST_TOURISTS_TIP", "Worked out with the game's own tourist formula, not counted. Tourism mods can replace that formula, so real arrivals may differ."],
   estToNote: ["SkiResort.Hub.EST_TO_NOTE", "Detected: Tourism Overhaul. It sets tourist numbers."],
   estToTip: ["SkiResort.Hub.EST_TO_TIP", "Tourism Overhaul sets tourist numbers in this city, so no estimate is shown."],
+  // Round M2 R9 (enabled-flags.md C5): the trip-planner note (Known / KnownOff carry {NAME}: HUB_FMT).
+  tripPlannerNoteUnknown: ["SkiResort.Hub.TRIP_PLANNER_NOTE[Unknown]", "Part of the game's trip planner is switched off (another mod, or a game error), so trip times can differ."],
+  tripPlannerNoteUnknownOff: ["SkiResort.Hub.TRIP_PLANNER_NOTE[UnknownOff]", "Ski days off: the game's leisure systems are switched off (another mod, or a game error)."],
+  tripPlannerTip: ["SkiResort.Hub.TRIP_PLANNER_TIP", "Read at each city load: which of the game's own trip systems are switched on, and which known mods are loaded. The mod's log lists the systems."],
   guestsNoteWhere: ["SkiResort.Hub.GUESTS_NOTE[Where]", "Counted when tourists arrive at this ski area's lodge or Welcome Sign, and when residents come to a lodge for leisure."],
   guestsNoteSinceLoad: ["SkiResort.Hub.GUESTS_NOTE[SinceLoad]", "Counting started when you loaded the city, partway through this month."],
   ticketsNoteOff: ["SkiResort.Hub.TICKETS_NOTE[Off]", "Lift tickets are off (Options: Lift ticket price is 0)."],
   ticketsNoteNoEfficiency: ["SkiResort.Hub.TICKETS_NOTE[NoEfficiency]", "No tickets now: the Welcome Sign is not running."],
-  ticketsNoteNothingOpen: ["SkiResort.Hub.TICKETS_NOTE[NothingOpen]", "No tickets now: no run counts and no lift is running."],
-  ticketsNoteNotKnownYet: ["SkiResort.Hub.TICKETS_NOTE[NotKnownYet]", "No tickets yet: the runs are still being checked after loading."],
+  ticketsNoteNothingOpen: ["SkiResort.Hub.TICKETS_NOTE[NothingOpen]", "No tickets now: no run is open."],
+  ticketsNoteNotKnownYet: ["SkiResort.Hub.TICKETS_NOTE[NotKnownYet]", "No tickets yet: runs are being checked (new sign or load)."],
 
   // ---- money view (6.9) ----
   sectionMoney: ["SkiResort.Hub.SECTION[Money]", "Money"],
@@ -291,6 +308,10 @@ export const HUB_LOC = {
   moneyNoteRwh: ["SkiResort.Hub.MONEY_NOTE[Rwh]", "Detected: Realistic Workplaces. The real bill can differ."],
   moneyTipRwh: ["SkiResort.Hub.MONEY_TIP[Rwh]", "Realistic Workplaces And Households changes staff and service costs, so the bill can differ."],
   moneyNoteEst: ["SkiResort.Hub.MONEY_NOTE[Est]", "≈ Tickets are projected from this month so far until a full month has been counted."],
+  // Round M2 R7 (hub-price.md section 2 item 3): the Money view's price line, tooltip lines without a placeholder.
+  moneyPriceTitle: ["SkiResort.Hub.MONEY_PRICE_TIP[Title]", "Lift ticket price"],
+  moneyPriceTipWhere: ["SkiResort.Hub.MONEY_PRICE_TIP[Where]", "Change it in Options > Modular Ski Resort > Main > Ski area balance > Lift ticket price. One price for every ski area."],
+  moneyPriceTipWho: ["SkiResort.Hub.MONEY_PRICE_TIP[Who]", "Only ski days react to it. Visitors the game sends on its own come at any price, and the attraction score ignores it."],
   unlinkedMoney: ["SkiResort.Hub.UNLINKED_MONEY", "Runs that are not linked cost nothing and earn nothing; their lifts still cost money to run."],
 
   // ---- build strip (6.10) ----
@@ -407,17 +428,24 @@ export const HUB_FMT = {
   /** The Ski days row's tooltip: the three classes partition {SENT} ("close by" = the walk class, ch4 RF-7). */
   skiDaysTipSent: ["SkiResort.Hub.SKI_DAYS_TIP[Sent]", "Sent this month: {SENT} · close by {WALK} · with a car {CAR} · far, no car {FAR}"],
   skiDaysTipNow: ["SkiResort.Hub.SKI_DAYS_TIP[Now]", "On the hill or on the way now: {NOW} of {CAP}"],
+  /** Round M2 R9: {NAME} = CityStats.tripPlanner, the known mod's name (hubRules.tripPlannerNote "known" / "knownOff"). */
+  tripPlannerNote: ["SkiResort.Hub.TRIP_PLANNER_NOTE[Known]", "Detected: {NAME}. It replaces the game's trip planner, so trip times can differ."],
+  tripPlannerNoteOff: ["SkiResort.Hub.TRIP_PLANNER_NOTE[KnownOff]", "Ski days off: {NAME} replaced the game's leisure systems."],
   // money view (6.9)
   moneyTicketsLast: ["SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets last month: {N} paid"],
   moneyTicketsEst: ["SkiResort.Hub.MONEY_TICKETS[Est]", "Lift tickets (estimated): {N} paid"],
   moneyTicketsPrice: ["SkiResort.Hub.MONEY_TICKETS_PRICE", "Ticket price now: {PRICE}"],
+  /** Round M2 R7: {PRICE} = hubRules.hubPrice (Money), {PCT} = hubRules.priceFactorPct (Percentage). */
+  moneyPriceLine: ["SkiResort.Hub.MONEY_PRICE_LINE", "Lift ticket {PRICE} · ski days {PCT}"],
+  /** {FULL} = PRICE_NO_EFFECT_MAX, {P1..P3} = PRICE_EXAMPLES (Money), {F1..F3} = their priceFactorPct (Percentage). */
+  moneyPriceTipCurve: ["SkiResort.Hub.MONEY_PRICE_TIP[Curve]", "Ski days: as many at any price up to {FULL}, then fewer: {F1} as many at {P1}, {F2} at {P2}, {F3} at {P3}."],
   moneyRowNatural: ["SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA} ha"],
   moneyRowGroomed: ["SkiResort.Hub.MONEY_ROW[Groomed]", "Groomed runs · {HA} ha with snow"],
   moneyRowSnowmaking: ["SkiResort.Hub.MONEY_ROW[Snowmaking]", "Snowmaking runs · {HA} ha with snow"],
   moneyRowNight: ["SkiResort.Hub.MONEY_ROW[Night]", "Night runs · {HA} ha with snow"],
   moneyRowLifts: ["SkiResort.Hub.MONEY_ROW[Lifts]", "Lifts · {N} · {LEN} of line"],
   moneyTipRuns: ["SkiResort.Hub.MONEY_TIP[Runs]", "{RATE} per hectare a month where the run holds managed snow now. It moves with the temperature through the day."],
-  moneyTipLifts: ["SkiResort.Hub.MONEY_TIP[Lifts]", "{BASE} a month for each complete lift, plus {PERKM} per km of line; a quarter while unfinished or without power. Now {FULL} at the full rate and {REDUCED} at a quarter."],
+  moneyTipLifts: ["SkiResort.Hub.MONEY_TIP[Lifts]", "{BASE} a month for each complete lift, plus {PERKM} per km of line; a quarter while unfinished, without power or with no open run in its ski area. Now {FULL} at the full rate and {REDUCED} at a quarter."],
   moneyTipBuildings: ["SkiResort.Hub.MONEY_TIP[Buildings]", "The game's own formula for the lodges and the Welcome Sign at the current Parks & Recreation budget: upkeep {UPKEEP}, wages {WAGES} for {FILLED} of {JOBS} staff."],
   // build strip (6.10)
   buildLineRun: ["SkiResort.Hub.BUILD_LINE_RUN", "{NAME} · {FEE} + {PERHA} per ha"],
@@ -456,14 +484,16 @@ export const SEASON_HINT_TEXT: ReadonlyArray<LocEntry | null> = [
   ["SkiResort.Hub.SEASON_HINT[GatingOff]", "Snow rules off"],
 ];
 
-/** SEASON_TIP, index = SEASON_HINT value (None and GatingOff: none; STATUS_TIP_GATING says it). */
+/** SEASON_TIP, index = SEASON_HINT value (None and GatingOff: none; STATUS_TIP_GATING says it). Round M2 R5
+ *  (thaw-rules.md section 2 item 16): each tip says what C# HubRules.Season read - the 24-hour mean at the top
+ *  for natural snow, and the live gun gates ("snow guns running now"). */
 export const SEASON_TIP_TEXT: ReadonlyArray<LocEntry | null> = [
   null,
-  ["SkiResort.Hub.SEASON_TIP[SnowSeason]", "Cold enough for natural snow at the top."],
-  ["SkiResort.Hub.SEASON_TIP[SnowGunsOnly]", "Too warm for natural snow at the top, but cold enough for snow guns."],
-  ["SkiResort.Hub.SEASON_TIP[Thawing]", "Too warm for new snow at the top. The runs are open on the snow that is left."],
-  ["SkiResort.Hub.SEASON_TIP[WaitingForSnow]", "Cold enough, but the runs have no snow yet."],
-  ["SkiResort.Hub.SEASON_TIP[TooWarm]", "Too warm for snow at the top, even for snow guns. If this map never has a winter, turn off Options > Modular Ski Resort > Snow & season gating so runs count all year."],
+  ["SkiResort.Hub.SEASON_TIP[SnowSeason]", "Day average at the top at or below freezing: natural snow can fall."],
+  ["SkiResort.Hub.SEASON_TIP[SnowGunsOnly]", "Day average at the top above freezing, but snow guns are running now."],
+  ["SkiResort.Hub.SEASON_TIP[Thawing]", "Day average at the top above freezing and no snow gun running now. The runs are open on the snow that is left."],
+  ["SkiResort.Hub.SEASON_TIP[WaitingForSnow]", "Cold enough (day average at the top at or below freezing, or snow guns running), but no run has enough snow yet."],
+  ["SkiResort.Hub.SEASON_TIP[TooWarm]", "Day average at the top above freezing and no snow gun can run now. Runs open again when it turns cold; if it never does on this map, turn off Options > Modular Ski Resort > Main > Snow > Snow & season gating."],
   null,
 ];
 

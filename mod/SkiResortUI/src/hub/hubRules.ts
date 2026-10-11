@@ -14,7 +14,7 @@
  *     ../bindings. tools/test-hub-rules.js throws on any other import.
  *   - Total: every function answers any input without throwing.
  *   - A new rule adds its literal rows to tools/test-hub-rules.js (76 checks in Round E1; 80 after the E1 fixer: T8.7-T8.10;
- *     98 in Round S1).
+ *     98 in Round S1; 113 in Round M2).
  *   - Round F7 (2026-10-04, implementer 4; docs/research/field-test-7-fixes.md D5): the appended codes
  *     SignNoRoad (18) and LodgeNoRoad (19) are band rows ("signNoRoad" / "lodgeNoRoad") whose click flies to
  *     `subject` (the sign; the first lodge without a road), like the other building rows. Their oracle rows
@@ -26,13 +26,23 @@
  *     draws its bars on a fixed ladder (guestBarScale), marks a since-load last month (lastMonthMark, F7)
  *     and picks the ski-day state line and its tooltip (skiDayLine, skiDayTip; skiDayWalk for the counts).
  *     Oracles T2.15-T2.16, T3.17-T3.19, T4.14, T6.9, T7.7-T7.8, T9.1-T9.4.
+ *   - Round M2 (2026-10-10, builder B4; docs/research/round-m2/build-contract.md sections 1 B4, 7, 8):
+ *     liftCostReason names why a lift is billed at 25 % (thaw-rules T2: "noOpenRun" for a complete, powered
+ *     lift in an area with no counted run; LiftTable.tsx maps it to LIFT_COST_REDUCED[*]); the price line
+ *     of the Money view (R7, hub-price.md section 2 item 1): PRICE_FULL_AT / PRICE_SPAN / PRICE_MAX /
+ *     PRICE_NO_EFFECT_MAX / PRICE_EXAMPLES, hubPrice, priceFactor (D16's factor, its C# half pinned by
+ *     ResortBatch HubRulesTests H17) and priceFactorPct (the factor as a whole percent, contract Decided
+ *     here 13); tripPlannerNote picks the Guests view's trip-planner note (R9, enabled-flags.md C5).
+ *     Oracles T8.11, T10.1-T10.6, T11.1-T11.8.
  */
 import type { Entity } from "cs2/utils";
 import {
   BUILD_ITEM_IDS, LIFT_STATE, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SKI_DAY_LIMIT, SKI_DAY_STATE,
-  TICKET_GATE, entityId, sameEntity,
+  TICKET_GATE, TRIP_PLANNER_UNKNOWN, entityId, sameEntity,
 } from "../bindings";
-import type { BuildItem, BuildItemId, LiftRow, ProblemRow, ResortLive, ResortRow, RunKind, RunLive } from "../bindings";
+import type {
+  BuildItem, BuildItemId, CityStats, LiftRow, ProblemRow, ResortLive, ResortRow, RunKind, RunLive,
+} from "../bindings";
 
 // ---- joins --------------------------------------------------------------------------------------
 
@@ -322,6 +332,43 @@ export function incomeNote(live: ResortLive, price: number): IncomeNote {
   return r === "est" ? "est" : r === "unknown" ? "unknown" : null;
 }
 
+// ---- ticket price (Round M2 R7, hub-price.md section 2 item 1) -----------------------------------
+
+/** D16's price factor (docs/research/ski-days/decisions.md D16, the P bullet) = C# SkiDayRules.PriceFullAt /
+ *  PriceSpan / PriceMax. Parity: tools/test-hub-rules.js T10.1 and ResortBatch HubRulesTests H17 hold the same
+ *  literal table; a change of D16's constants fails both and points at the hub texts. */
+export const PRICE_FULL_AT = 240;
+export const PRICE_SPAN = 200;
+export const PRICE_MAX = 200;
+/** The highest price with no effect on ski days (240 − 200 = 40, also the default price, C#
+ *  SkiMoneyRules.TicketPriceDefault). */
+export const PRICE_NO_EFFECT_MAX = PRICE_FULL_AT - PRICE_SPAN;
+/** The prices whose factor the price line's tooltip shows (MONEY_PRICE_TIP[Curve] P1..P3). */
+export const PRICE_EXAMPLES: readonly number[] = [80, 120, PRICE_MAX];
+
+/** The price the hub shows: city.ticketPrice once C# has sent the city (known), else -1 (unknown, "–").
+ *  C# sends SkiMoneyRules.ClampTicketPrice of the Options value (0-200). */
+export function hubPrice(city: CityStats | null | undefined): number {
+  if (!city || !city.known) return -1;
+  const p = city.ticketPrice;
+  return typeof p === "number" && Number.isFinite(p) && p >= 0 ? p : -1;
+}
+
+/** D16 P = min(1, (240 − min(price, 200)) / 200): the factor on every ski-day chance (C# SkiDayRules.PriceFactor).
+ *  -1 for an unknown price (negative or not finite). C# never sends one (ClampTicketPrice); C# would clamp a
+ *  negative to 0 and answer 1 - deliberate, the hub shows "–" instead. */
+export function priceFactor(price: number): number {
+  if (typeof price !== "number" || !Number.isFinite(price) || price < 0) return -1;
+  return Math.min(1, Math.max(0, (PRICE_FULL_AT - Math.min(PRICE_MAX, price)) / PRICE_SPAN));
+}
+
+/** The factor as a whole percent for the hub (R7: Gameface strips trailing zeros, so a percent reads cleanly). Integer
+ *  math: (240 − min(price, 200)) × 100 / 200, rounded half up (45 → 98); −1 for an unknown price. */
+export function priceFactorPct(price: number): number {
+  if (typeof price !== "number" || !Number.isFinite(price) || price < 0) return -1;
+  return Math.round(Math.min(100, Math.max(0, (PRICE_FULL_AT - Math.min(PRICE_MAX, price)) * 100 / PRICE_SPAN)));
+}
+
 /** Buildings + wages a month, or -1 when either is unknown. */
 export function buildingsAndWages(live: ResortLive): number {
   return live.buildingsMonth < 0 || live.wagesMonth < 0 ? -1 : live.buildingsMonth + live.wagesMonth;
@@ -380,6 +427,21 @@ export function skiDayTip(l: ResortLive | null): SkiDayTip {
 export function skiDayWalk(l: ResortLive | null): number {
   if (!l || !(l.skiDaysSent >= 0)) return -1;
   return Math.max(0, l.skiDaysSent - Math.max(0, l.skiDaysSentCar | 0) - Math.max(0, l.skiDaysSentNoCar | 0));
+}
+
+export type TripPlannerNote = "none" | "known" | "knownOff" | "unknown" | "unknownOff";
+
+/** Round M2 R9 (enabled-flags.md C5): the Guests view's trip-planner note. "" (the game's trip systems all on),
+ *  null, a missing field (an older DLL) or a non-string -> "none" (no line); TRIP_PLANNER_UNKNOWN ("?": a system
+ *  is off, no known mod loaded) -> "unknown"; any other label (a known mod's name) -> "known"; "Off" when
+ *  tripPlannerBlocksSkiDays is exactly true (the game's LeisureSystem or CitizenBehaviorSystem is off: ski days
+ *  do not arm, ArmVerdict.SystemOff). A label only: nothing else in the hub reads it (DECISIONS 150). */
+export function tripPlannerNote(city: CityStats | null | undefined): TripPlannerNote {
+  const label = city ? city.tripPlanner : undefined;
+  if (!city || typeof label !== "string" || label === "") return "none";
+  const off = city.tripPlannerBlocksSkiDays === true;
+  if (label === TRIP_PLANNER_UNKNOWN) return off ? "unknownOff" : "unknown";
+  return off ? "knownOff" : "known";
 }
 
 // ---- bars ---------------------------------------------------------------------------------------
@@ -452,6 +514,20 @@ export function partnerPlaced(row: LiftRow, lone: { base: boolean; top: boolean 
   if (row.hasBase && !row.hasTop) return lone.top;
   if (row.hasTop && !row.hasBase) return lone.base;
   return false;
+}
+
+export type LiftCostReason = "noPower" | "sectionMissing" | "unfinished" | "noOpenRun" | null;
+
+/** Why a lift is billed at 25 % (the lift tooltip's line; LiftTable.tsx maps it to LIFT_COST_REDUCED[*]); null
+ *  while billed in full. The status names the three old reasons (C# SkiMoneyRules.LiftBillingOf: no power,
+ *  unfinished; a missing section is unfinished); a complete, powered lift (Running or ChairsStopped) is billed
+ *  reduced only for Round M2 T2's reason, no counted run in its ski area (R3, LiftBilling.NoOpenRun). */
+export function liftCostReason(row: LiftRow): LiftCostReason {
+  if (!row || !row.billedReduced) return null;
+  if (row.status === LIFT_STATUS.NoPower) return "noPower";
+  if (row.status === LIFT_STATUS.SectionMissing) return "sectionMissing";
+  if (row.status === LIFT_STATUS.Unfinished) return "unfinished";
+  return "noOpenRun";
 }
 
 export type LiftTone = "normal" | "warn" | "dim";

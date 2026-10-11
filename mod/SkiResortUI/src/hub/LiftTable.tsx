@@ -20,7 +20,9 @@
  *     predicate LiftServedRule.IsPowered (e1-spec R1) - both arrive from C#, the UI decides nothing.
  *   - Tooltip (design 6.7): name; status word; the line-2 sentence; ride time + its basis; capacity +
  *     its basis; runs it serves; running cost (+ "billed at 25 %" while reduced: no power, a section
- *     missing, or unfinished); sections, towers, chairs (riding / total when complete),
+ *     missing, unfinished, or - Round M2 T2 - no open run in its ski area; the reason is
+ *     hubRules.liftCostReason, mapped to LIFT_COST_REDUCED[*] by liftCostReducedEntry below, oracle
+ *     T8.11); sections, towers, chairs (riding / total when complete),
  *     straightness or offset / angle (OD-9 tolerance 0.5 m / 0.5°), tower removed (today's rules);
  *     LIFT_SIGN_TIP; LIFT_ACTIONS (C# flies to the gap while a section is missing).
  *   - Rise is shown signed by the game's number format (a negative rise is printed, not hidden as
@@ -34,8 +36,9 @@ import { Unit } from "cs2/l10n";
 import { LocalizedFraction } from "../cs2shim";
 import { LIFT_STATE, LIFT_STATUS, entityId } from "../bindings";
 import type { LiftRow } from "../bindings";
-import type { Translate } from "../l10n";
-import { liftLine2, liftMark } from "./hubRules";
+import type { LocEntry, Translate } from "../l10n";
+import { liftCostReason, liftLine2, liftMark } from "./hubRules";
+import type { LiftCostReason } from "./hubRules";
 import { HUB_FMT, HUB_LOC, liftStatusEntry } from "./hubText";
 import { LocText, Num, StableWidth, Tip, TipLines, cx, numArg } from "./parts";
 import { RenameField } from "./RenameField";
@@ -72,14 +75,22 @@ function Line2Text({ row, partner, t }: { row: LiftRow; partner: boolean; t: Tra
   }
 }
 
+/** The tooltip line of a reduced bill (Round M2 T2: hubRules.liftCostReason picks the reason); null = billed in full. */
+function liftCostReducedEntry(reason: LiftCostReason): LocEntry | null {
+  switch (reason) {
+    case "noPower": return HUB_LOC.liftCostReducedNoPower;
+    case "sectionMissing": return HUB_LOC.liftCostReducedSectionMissing;
+    case "unfinished": return HUB_LOC.liftCostReducedUnfinished;
+    case "noOpenRun": return HUB_LOC.liftCostReducedNoOpenRun;
+    default: return null;
+  }
+}
+
 function liftTip(row: LiftRow, partner: boolean, t: Translate): JSX.Element {
   const straight = row.alignKnown &&
     Math.abs(row.alignOffsetM) <= ALIGN_TOLERANCE_M && Math.abs(row.alignYawDeg) <= ALIGN_TOLERANCE_DEG;
   const complete = row.state === LIFT_STATE.Running || row.state === LIFT_STATE.Static;
-  const reduced = !row.billedReduced ? null
-    : row.status === LIFT_STATUS.NoPower ? HUB_LOC.liftCostReducedNoPower
-      : row.status === LIFT_STATUS.SectionMissing ? HUB_LOC.liftCostReducedSectionMissing
-        : HUB_LOC.liftCostReducedUnfinished;
+  const reduced = liftCostReducedEntry(liftCostReason(row));
   return (
     <TipLines
       lines={[

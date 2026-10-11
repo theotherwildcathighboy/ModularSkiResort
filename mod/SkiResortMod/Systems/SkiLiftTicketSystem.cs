@@ -16,11 +16,15 @@
 // (counted, admitted, no money): low money makes residents move away (HouseholdBehaviorSystem.cs:172) and
 // hotel tourists leave (TouristLeaveSystem.cs:60-73).
 //
-// THE GATE (ch4 §5.3, e1-spec R6), first match wins: Off (price 0) → NoEfficiency (the sign's efficiency
-// not > 0) → Open on an operating lift → NotKnownYet (no score result yet, DV10) → Open on a counted run
-// (RunsCounted, runs worth more than 0), else NothingOpen. Inputs per ski area with arrivals ("slot"):
-// SkiResortAttractivenessSystem.TryGetAreaScore → (true, Result.RunsCounted) else (false, 0);
-// SkiLiftChargeSystem.TryGetResort(sign).Operating else 0 — the same two sources the hub uses (ch5 §5.4).
+// THE GATE (ch4 §5.3, e1-spec R6; Round M2 T1, docs/research/round-m2/decisions.md R2), first match wins: Off
+// (price 0) → NoEfficiency (the sign's efficiency not > 0) → NotKnownYet (no score yet, or the area's first score
+// after a load still held: the first-write hold, AreaScoreView.WriteHeld) → Open on a counted run (RunsCounted,
+// runs worth more than 0), else NothingOpen. Since Round M2 a running lift alone no longer opens it (the
+// operating-lift branch of SkiMoneyRules.TicketGateOf is gone; free entry during a load hold is accepted, at most
+// RatingHoldMaxTicks = 1,024 ticks = 16,384 frames). Inputs per ski area with arrivals ("slot"): the run state
+// is known when SkiResortAttractivenessSystem.TryGetAreaScore returns true and the view is not WriteHeld, then
+// Result.RunsCounted, else (false, 0) — the hub's source and rule (ch5 §5.4; SkiResortStatsSystem's ticket gate).
+// SkiLiftChargeSystem is no longer a gate input (its Operating count is printed in the gate line only).
 // Efficiency is computed IN THE JOB from a BufferLookup<Efficiency> (the BuildingUtils.cs:121-133 formula:
 // product of max(0, f); 0 when not > 0; else max(0.01, round(100p)/100); no buffer → 1), so the main
 // thread never waits on the many jobs that write Efficiency; BuildingUtils.GetEfficiency(DynamicBuffer) is
@@ -46,25 +50,36 @@
 // `Tickets [cost]` after Tuning.CostTicks ticks with arrivals. Round M1 (M8, m1-spec F10, E5): re-armed once per
 // game day at the first tick at or after 12:00 (SkiDayRules.DayKey; only once the last line was written); a busy
 // arming tick is not measured; the line ends "; measurement n this load, YYYY-MM at HH:MM"
-// (SkiGuestCounterSystem.CostSuffix). No synchronous part: the job is never waited on here.
+// (SkiGuestCounterSystem.CostSuffix). No synchronous part: the job is never waited on here. Round M2 (D10): a
+// midday measurement not finished when the game day ends is written partial at the day change (CostDayEnd:
+// "(the game day ended before 64)" with the ticks it has, or "skipped: no tick with arrivals since noon").
+// Known silent case, out of scope (measure-core-check G11): the LOAD-time measurement never writes when no guest
+// arrives after a load (it waits for CostTicks ticks with arrivals; the midday re-arm needs a written line first).
 // LOGS (ch4 §5.7, exact): created; ARMED; `Tickets [price]` on a change; `Tickets [gate]` per ski area when its
 // gate changes, evaluated each tick its inputs move (attraction Generation, lift-charge Revision, price) with the
 // hub's inputs (Round S1 F6, ski-days spec ch3 §5: before, the line came only with arriving guests — field test
 // 8's "open" was 4 min 26 s late), the first evaluation of a sign too, through m_GateLog (LogWindow 10 s; R15:
-// the operating-lift count can flip with a brownout), folds flushed on every tick (the idle tick included), in
+// a counted run can flip with the snow), folds flushed on every tick (the idle tick included), in
 // OnGamePreload and in OnDestroy; `Tickets [first]` per ski area per load; `Tickets [cost]` after the load and daily
-// at midday (Round M1); the one-shot
+// at midday (Round M1; a partial line at the day change, Round M2 D10); the one-shot
 // `!!!` (disabled for the load). Month totals are in the counter's `Guests [month]` line.
 // GATE WATCH (Round S1 F6): step 2b of every tick — when Generation, Revision or the price moved, one gate per live
 // sign (SkiResortAttractivenessSystem.CopySigns) from SkiMoneyRules.TicketGateOf(price, Result.Efficiency else 1,
-// known, RunsCounted, Operating), exactly the hub's rule (SkiResortStatsSystem.cs:1877-1878); a changed gate (or a
-// new sign) writes one line; a sign that left is dropped silently. The job's charged gate is no longer logged: it
-// is recorded per sign (DUMP "gates (charged)") and each disagreement with the watch is counted (DUMP).
+// known = score present and not WriteHeld, RunsCounted when known else 0), exactly the hub's rule
+// (SkiResortStatsSystem, the `live.TicketGate` line of the area rows); a changed gate (or a new sign) writes one line;
+// a sign that left is dropped silently. The lift-charge Revision trigger stays (log body only since Round M2 T1;
+// harmless). Releasing the first-write hold moves the attraction Generation, so the watch leaves NotKnownYet on the
+// pass the hold is released (thaw-rules-check C18). The job's charged gate is no longer logged: it is recorded per
+// sign (DUMP "gates (charged)") and each disagreement with the watch is counted (DUMP). Round M2 (D16a): a sign the
+// watch no longer sees is pruned from the charged gates too, and a job result for such a sign does not re-add it.
 // CONTRACT (house pattern): "created" line; per-load reset in OnGameLoadingComplete; OnGamePreload completes
 // the job and books its results first (money already moved must reach the ledger before it resets), then
 // flushes the gate fold (try/caught: GameSystemBase.cs:85-96); since the E1 fixer pass 2 the guest counter's
 // OnGamePreload, which runs first, books that job through BookInFlightForPreload before it writes the
 // `(until the load)` month lines; OnDestroy completes and disposes.
+// Round M2 (2026-10-10, builder B3; docs/research/round-m2/build-contract.md §1 B3, §6.8): T1 (R2) the gate needs a
+// counted run, known = score present and not held (TicketSlot loses OperatingLifts; the gate line's NothingOpen /
+// NotKnownYet texts and the ARMED gate clause); D10 CostDayEnd and m_CostByRearm; D16a m_LastGate pruned.
 
 using System;
 using System.Collections.Generic;
@@ -97,7 +112,8 @@ namespace SkiResortMod.Systems
         }
 
         private struct TicketRequest { public int Slot; public Entity Household; public int People; public byte Tourist; }
-        private struct TicketSlot { public Entity Sign; public byte RunStateKnown; public int OpenRuns, OperatingLifts; }
+        // Round M2 T1: OperatingLifts removed (the gate no longer reads lifts); RunStateKnown = score present and not held.
+        private struct TicketSlot { public Entity Sign; public byte RunStateKnown; public int OpenRuns; }
         private struct TicketResult { public int Paid, Unpaid, Free, Income; public byte NoCity; }
 
         /// <summary>The clamped setting read on the last tick (SkiMoneyRules.ClampTicketPrice).</summary>
@@ -155,6 +171,7 @@ namespace SkiResortMod.Systems
         private bool m_CostSkipNext;               // Round M1 (M8): true on the arming tick only; RecordCost leaves that tick out
         private int m_CostArmDay = int.MinValue;   // Round M1: SkiDayRules.DayKey of the last midday re-arm or afternoon line
         private int m_CostMeasurements;            // Round M1: `Tickets [cost]` lines this load
+        private bool m_CostByRearm;                // Round M2 (D10): the measurement in progress was armed at midday (not the load's)
 
         protected override void OnCreate()
         {
@@ -275,6 +292,7 @@ namespace SkiResortMod.Systems
             m_CostSkipNext = false;        // Round M1 (M8)
             m_CostArmDay = int.MinValue;
             m_CostMeasurements = 0;
+            m_CostByRearm = false;         // Round M2 (D10): the load's measurement keeps the M1 rule
             Price = ReadPrice();
 
             if (mode != GameMode.Game)
@@ -284,8 +302,9 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"Tickets: ARMED — price {Price} (setting LiftTicketPrice, 0 = off; read live); each counted guest " +
                          "pays once on arrival, taken from the guest's household and added to the city's balance like the " +
                          "vanilla transit fare (ResidentAISystem BoardingJob) without a FeeEvent; a household pays for as many " +
-                         "members as its money covers, never below 0; gate = Welcome Sign efficiency above 0 and an open run " +
-                         "or an operating lift; one job per 16-frame tick with arrivals");
+                         "members as its money covers, never below 0; gate = Welcome Sign efficiency above 0 and a counted run " +
+                         "(open or patchy; a running lift alone does not open it), not known while the ski area's first score " +
+                         "after a load is held; one job per 16-frame tick with arrivals");
         }
 
         protected override void OnUpdate()
@@ -294,6 +313,9 @@ namespace SkiResortMod.Systems
             {
                 if (m_Disabled || !m_Armed)
                     return;
+                // 0a. Round M2 (D10): a midday measurement not finished when the game day ended is written partial
+                // (inside the try, after the disarmed / disabled return: measure-core-check G11).
+                CostDayEnd();
                 // 0. Round M1 (M8): the cost measurement re-arms once per game day at midday; the arming tick is not
                 // measured (the flag lives for this tick only).
                 m_CostSkipNext = RearmCostAtMidday();
@@ -379,14 +401,14 @@ namespace SkiResortMod.Systems
                 {
                     slot = m_Slots.Length;
                     m_SlotOf[a.Sign] = slot;
-                    bool known = m_Attractiveness.TryGetAreaScore(a.Sign, out SkiResortAttractivenessSystem.AreaScoreView view);
-                    int operating = m_LiftCharge.TryGetResort(a.Sign, out SkiLiftChargeSystem.ResortLiftCharge rc) ? rc.Operating : 0;
+                    // Round M2 T1 (R2): known = a score present AND not in the first-write hold (thaw-rules.md item 2a).
+                    bool has = m_Attractiveness.TryGetAreaScore(a.Sign, out SkiResortAttractivenessSystem.AreaScoreView view);
+                    bool known = has && !view.WriteHeld;
                     m_Slots.Add(new TicketSlot
                     {
                         Sign = a.Sign,
                         RunStateKnown = (byte)(known ? 1 : 0),
                         OpenRuns = known ? view.Result.RunsCounted : 0,
-                        OperatingLifts = operating,
                     });
                 }
                 m_Requests.Add(new TicketRequest
@@ -493,9 +515,12 @@ namespace SkiResortMod.Systems
         /// <summary>Round S1 F6: the gate the job charged under (silent; was GateTransition, which logged it). A
         /// charged gate that differs from the watch's gate for that sign is counted (DUMP): the job reads the
         /// sign's Efficiency buffer live, the watch the last recompute's efficiency, so a short disagreement around
-        /// an efficiency change is expected.</summary>
+        /// an efficiency change is expected. Round M2 (D16a): a result for a sign the primed watch no longer sees (it
+        /// left between the schedule and the booking) is neither recorded nor counted, so it does not re-add the sign.</summary>
         private void RecordChargedGate(TicketSlot slot, SkiMoneyRules.TicketGate gate)
         {
+            if (m_WatchPrimed && !m_WatchSeen.Contains(slot.Sign))
+                return;
             m_LastGate[slot.Sign] = gate;
             if (m_WatchGate.TryGetValue(slot.Sign, out SkiMoneyRules.TicketGate watched) && watched != gate)
                 m_GateMismatches++;
@@ -522,16 +547,37 @@ namespace SkiResortMod.Systems
             {
                 Entity sign = m_WatchSigns[i];
                 m_WatchSeen.Add(sign);
-                bool known = m_Attractiveness.TryGetAreaScore(sign, out SkiResortAttractivenessSystem.AreaScoreView view);
-                float efficiency = known ? (float)view.Result.Efficiency : 1f;
+                // Round M2 T1 (R2, thaw-rules.md item 2b): known = a score present AND not in the first-write hold;
+                // the efficiency is the result's while a score is present (held or not), 1 without one (as before).
+                bool has = m_Attractiveness.TryGetAreaScore(sign, out SkiResortAttractivenessSystem.AreaScoreView view);
+                bool known = has && !view.WriteHeld;
+                float efficiency = has ? (float)view.Result.Efficiency : 1f;
                 int runs = known ? view.Result.RunsCounted : 0;
+                // The lift-charge operating count is printed in the line's body only (no longer a gate input).
                 int operating = m_LiftCharge.TryGetResort(sign, out SkiLiftChargeSystem.ResortLiftCharge rc) ? rc.Operating : 0;
-                // = the hub's rule (SkiResortStatsSystem.cs:1877-1878, C9)
-                SkiMoneyRules.TicketGate gate = SkiMoneyRules.TicketGateOf(price, efficiency, known, runs, operating);
+                // = the hub's rule (SkiResortStatsSystem, the `live.TicketGate` line; C9)
+                SkiMoneyRules.TicketGate gate = SkiMoneyRules.TicketGateOf(price, efficiency, known, runs);
                 if (m_WatchGate.TryGetValue(sign, out SkiMoneyRules.TicketGate old) && old == gate)
                     continue;   // a new sign falls through: its first line
                 m_WatchGate[sign] = gate;
                 GateLine(sign, gate, efficiency, known, runs, operating);
+            }
+            // Round M2 (D16a, measure-core.md 2.13): the charged gates of signs that left go too (no allocation:
+            // m_WatchDrop is reused; the DUMP lists live signs only). No Count precondition (unlike the m_WatchGate
+            // prune below): a sign that left in the same evaluation a new, not yet charged sign appeared would keep
+            // m_LastGate.Count <= m_WatchSeen.Count and stay listed. The walk is over a handful of signs, only on the
+            // ticks the watch re-evaluates.
+            if (m_LastGate.Count > 0)
+            {
+                m_WatchDrop.Clear();
+                foreach (var pair in m_LastGate)
+                {
+                    if (!m_WatchSeen.Contains(pair.Key))
+                        m_WatchDrop.Add(pair.Key);
+                }
+                for (int i = 0; i < m_WatchDrop.Count; i++)
+                    m_LastGate.Remove(m_WatchDrop[i]);
+                m_WatchDrop.Clear();
             }
             if (m_WatchGate.Count > m_WatchSeen.Count)
             {
@@ -557,8 +603,9 @@ namespace SkiResortMod.Systems
                 case SkiMoneyRules.TicketGate.Open: state = "open"; break;
                 case SkiMoneyRules.TicketGate.Off: state = "closed — tickets off"; break;
                 case SkiMoneyRules.TicketGate.NoEfficiency: state = "closed — Welcome Sign efficiency 0 %"; break;
-                case SkiMoneyRules.TicketGate.NothingOpen: state = "closed — no open run and no operating lift"; break;
-                default: state = "closed — run state not known yet, no operating lift"; break;
+                // Round M2 T1 (build-contract.md §6.8): the gate no longer opens on a running lift.
+                case SkiMoneyRules.TicketGate.NothingOpen: state = "closed — no counted run (a running lift alone does not open it)"; break;
+                default: state = "closed — run state not known yet (no score yet, or the first score after the load is held)"; break;
             }
             string eff = float.IsNaN(efficiency) ? "n/a" : efficiency.ToString("P0", CultureInfo.InvariantCulture);
             string runs = runStateKnown ? openRuns.ToString() : "?";
@@ -606,7 +653,31 @@ namespace SkiResortMod.Systems
             m_CostTicks = m_CostLargestBatch = 0;
             m_CostSumMs = m_CostMaxMs = 0.0;
             m_CostLogged = false;
+            m_CostByRearm = true;   // Round M2 (D10): this measurement may end partial at the day change (CostDayEnd)
             return true;
+        }
+
+        /// <summary>Round M2 (D10, measure-core.md 2.10): a midday measurement still open when the game day changes
+        /// is written partial, so the noon line is never silent — with the ticks it has ("the game day ended before
+        /// 64"), or "skipped: no tick with arrivals since noon". m_CostArmDay stays the re-arm day, so the next noon
+        /// re-arms. The load's measurement (m_CostByRearm false) keeps the M1 rule.</summary>
+        private void CostDayEnd()
+        {
+            if (m_CostLogged || !m_CostByRearm)
+                return;   // cost: the DayKey below only while a midday measurement is armed and unlogged
+            int day = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear);
+            if (!SkiDayRules.CostDayEnded(m_CostLogged, m_CostByRearm, m_CostArmDay, day))
+                return;
+            m_CostLogged = true;
+            m_CostMeasurements++;
+            if (m_CostTicks > 0)
+                Mod.Log.Info($"Tickets [cost] main thread per tick with arrivals: mean {m_CostSumMs / m_CostTicks:F3} ms, max " +
+                             $"{m_CostMaxMs:F3} ms over {m_CostTicks} ticks (the game day ended before {Tuning.CostTicks}); " +
+                             $"largest batch {m_CostLargestBatch} request(s)" +
+                             SkiGuestCounterSystem.CostSuffix(m_CostMeasurements, m_TimeSystem));
+            else
+                Mod.Log.Info("Tickets [cost] skipped: no tick with arrivals since noon" +
+                             SkiGuestCounterSystem.CostSuffix(m_CostMeasurements, m_TimeSystem));
         }
 
         private void RecordCost(double ms, int batch)
@@ -693,8 +764,8 @@ namespace SkiResortMod.Systems
                 {
                     TicketSlot slot = Slots[s];
                     float efficiency = EfficiencyOf(slot.Sign);
-                    SlotGate[s] = (byte)SkiMoneyRules.TicketGateOf(Price, efficiency, slot.RunStateKnown != 0,
-                                                                   slot.OpenRuns, slot.OperatingLifts);
+                    // Round M2 T1: four arguments (no operating lifts); RunStateKnown already excludes the load hold.
+                    SlotGate[s] = (byte)SkiMoneyRules.TicketGateOf(Price, efficiency, slot.RunStateKnown != 0, slot.OpenRuns);
                 }
                 bool cityOk = City != Entity.Null && PlayerMoneys.HasComponent(City);
                 long credited = 0;

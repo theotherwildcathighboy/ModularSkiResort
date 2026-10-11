@@ -128,6 +128,41 @@
 //     GameSimulation); the dry skip may delay managed melt on snow that drifts onto a warm, bare
 //     footprint by up to 1,024 sim frames; at 4× / 8× ramp and decay arrive in fewer, larger steps at
 //     the same game-time rate; moving the margin slider moves where guns run (by design).
+//
+// ROUND M2 (2026-10-10, builder B6; docs/research/round-m2/build-contract.md §1 B6 and §6.7, decisions.md R11;
+// understand/topup-skip.md C6-C19 with its check G1-G8, measure-core.md §2.15 D16c with its check G3):
+//   * PACKED SKIP beside the dry skip (RunSnowRules.SkipKind: dry first, D30 unchanged, then packed). A pass skips
+//     readback, merge and upload when no run texel is cold now, the last real pass had no cold texel, raised nothing,
+//     lowered nothing and left the pack guard on for the next merge, the footprint is the same, the runs held at least
+//     RunSnowRules.PackedSkipMinRunDepthM (0.10 m, the DRESS GUARD), every measured run's snow share is >= 70 % or
+//     < 30 % (the SHARE GUARD; moot with gating off), and the forced real pass (1,024 sim frames) is not due.
+//   * WHY SUCH A PASS CHANGES NO TEXEL: with no cold texel the mask is empty (FoldRowsJob writes it only for a cold
+//     texel), so MergeRowsJob's raise branch never fires (target 0); the pack guard closes its decay branch; and the
+//     pack guard's input m_LastGlobalMeanDepthM is written only by a real pass, so a skipped pass cannot change it.
+//     ONE definition, RunSnowRules.PackGuard, is read by the merge and by the predicate. The upload already ran only
+//     when raised + lowered > 0, so no vanilla write is added or removed: the skip skips a READ (the readback).
+//   * WHAT A SKIPPED PASS STILL DOES: builds the mask (cold test, footprint, per-run measurement), publishes the active
+//     texels, refreshes the run table, counts and logs, so a gun restart or a run edit ends the skip on that same pass.
+//     STALE, each less than 1,024 sim frames (5.6 game minutes: kTicksPerDay 262,144, TimeSystem.cs:18, identical in
+//     1.6.2f1) older than a real pass would leave them: the snapshot (run shares, depths), the map mean and the run
+//     mean. The game melts and accumulates snow on its own every 4 sim frames (SnowSystem.GetUpdateInterval 4,
+//     SnowSystem.cs:226-229; AddSnow with _MeltMultiplier :455-481; identical in 1.6.2f1): that thaw is what a packed
+//     spell waits on. The share guard keeps every published label / multiplier change on a real pass (they move only
+//     between 40 % and 60 %); the dress guard keeps every visible dress change on one (prop snow saturates at
+//     SkiRunSurfaceSystem FullWhiteDepthM 0.05 m, the decal season flips at 0.02 / 0.005 m). The snapshot is frozen
+//     during a spell, so the share guard can only trip on the pass after a real (forced) pass, when the refresh reads
+//     the new snapshot (topup check G4). A label change the frozen snapshot held back is published on that same pass:
+//     its `Snow [open]` line is offered in step 6, just BEFORE the step-11 "share is near the open line" end line; a
+//     label change that comes later comes on a real pass. A failed readback returns before the record, so a spell may
+//     continue on the older record until the 1,024-frame forced pass — safe: that record still proves no write is owed.
+//   * LOGS: `Snow [skip] packed:` once per spell (L-D1p); `Snow [skip] dry|packed ended … : reason` (L-D2), also at a
+//     load and at quit, which F6 never closed (check C11); the top-up line names the forced check of either kind and
+//     the spell count; `Snow [day]` once per game day — real (forced), dry, packed and idle-or-failed passes with mean
+//     ms; part days at a load and at quit, and the first day of a load says "(part day, from the load)" (check G3);
+//     `Snow [cost]` splits dry and packed; every number in a new text is interpolated from its constant (check G1).
+//     D16c: the top-up line counts night runs below the line and names the pack guard with the map mean the merge
+//     READ (captured where the guard is read: by log time the field holds this pass's mean, check G3).
+//   * No save field, no hub contract change, no vanilla write added or removed, no Harmony, no reflection.
 
 using System;
 using System.Collections.Generic;
@@ -272,7 +307,9 @@ namespace SkiResortMod.Systems
             // cleared FIRST out of a full winter snowpack (timelapse evidence). When the
             // map-wide mean depth says a pack covers the world, our decay stands down and
             // the runs melt WITH the landscape; decay only shapes the shoulder seasons.
-            public const float PackGuardMeanDepthM = 0.02f;
+            // Round M2 (topup-skip C7): the value lives in RunSnowRules, whose PackGuard is THE pack guard (the merge
+            // and the packed skip both read it, so they cannot disagree); unchanged, 0.02 m.
+            public const float PackGuardMeanDepthM = RunSnowRules.PackGuardMeanDepthM;
 
             // Cadence: melt between top-ups is millimetres against a 250-350 mm target
             // (doc §4 — even 256 frames would stay invisible), so 64 sim frames carries
@@ -840,7 +877,7 @@ namespace SkiResortMod.Systems
         private bool m_InMeasureOnly;            // a measure-only episode is open (L-M1 .. L-M5)
         private int m_MeasureEpisodeReadbacks;
         private int m_MeasureEpisodeLatMin, m_MeasureEpisodeLatMax;
-        // Dry skip (§7, D30).
+        // Dry skip (§7, D30); since Round M2 also the packed skip (the record and the episode are shared).
         private DryPass m_LastReal;
         private uint m_LastRealPassFrame;
         private float m_LastPassRealTime = float.NegativeInfinity;   // the 0.5 s wall-clock floor
@@ -848,6 +885,17 @@ namespace SkiResortMod.Systems
         private int m_SkipEpisodeCount;
         private float m_SkipEpisodeStartAt;
         private int m_SkipsSinceLastReal;        // for the L-T1 suffix
+        // Round M2 (topup-skip C8, R11): the packed skip beside the dry one, and the Snow [day] count. All reset in
+        // OnGameLoadingComplete; m_UncalmRuns also in ClearRunSnow.
+        private TopupSkip m_SkipKind;            // the open episode's kind (None when no episode)
+        private TopupSkip m_LastSkipKind;        // the kind of the skips since the last real pass (L-T1 suffix)
+        private int m_UncalmRuns;                // measured runs whose share is in [30 %, 70 %) at the last refresh
+        private TimeSystem m_TimeSystem;         // Snow [day] (set in OnCreate, the SkiGuestCounterSystem idiom)
+        private int m_DayKey = int.MinValue;     // SkiDayRules.DayKey of the day being counted
+        private bool m_DayFromLoad;              // the day being counted began at this load (topup check G3)
+        private string m_DayText;                // "YYYY-MM" (+ " (day key N)" when a year is not 12 days)
+        private int m_DayPasses, m_DayReal, m_DayForced, m_DayDry, m_DayPacked;
+        private double m_DayRealMs, m_DaySkipMs;
         // Natural measurement due (§4.5): the inputs of the last natural chain.
         private uint m_LastNaturalSnapshotFrame;
         private bool m_LastNaturalFromMeasure;
@@ -890,6 +938,7 @@ namespace SkiResortMod.Systems
         private int m_CostReal;
         private double m_CostRealMask, m_CostRealReadback, m_CostRealMerge, m_CostRealUpload;
         private int m_CostSkipped;
+        private int m_CostSkippedPacked;         // Round M2: the packed part of m_CostSkipped (L-K1 split)
         private double m_CostSkippedMask;
         private int m_CostNaturalPasses, m_CostNaturalRunsMax;
         private double m_CostNaturalMs;
@@ -959,7 +1008,8 @@ namespace SkiResortMod.Systems
             public int Open, Closed;                // by State
             public int Opening, Closing;            // by Phase
             public bool InjectionActive;            // armed and not disabled this load
-            public bool DrySkip, MeasureOnly;       // episodes in progress (ch3 §7, §6)
+            public bool DrySkip, MeasureOnly;       // episodes in progress (ch3 §7, §6); Round M2: DrySkip = a DRY one
+            public bool PackedSkip;                 // Round M2: a packed skip episode (no reader outside this system)
             public bool SnowVisualsOff;             // read live: SharedSettings.instance?.gameplay?.snowVisual == false
             public float SnowmakingMarginC;         // read live: SnowLineSystem.GetSnowmakingMarginC()
             public float DayMeanC;                  // read live: SnowLineSystem.GetDayMeanTemperature()
@@ -1014,7 +1064,8 @@ namespace SkiResortMod.Systems
         {
             SnowSummary s = m_Summary;
             s.InjectionActive = m_Armed && !m_Disabled;
-            s.DrySkip = m_InSkip;
+            s.DrySkip = m_InSkip && m_SkipKind == TopupSkip.Dry;
+            s.PackedSkip = m_InSkip && m_SkipKind == TopupSkip.Packed;
             s.MeasureOnly = m_InMeasureOnly;
             // E1-S3 (ch3 §5.6): the game's Gameplay ▸ "Snow visuals" only scales the drawn snow to 0
             // (SnowSystem.cs:199-206, the same read); the simulation keeps running, so the measurement
@@ -1075,8 +1126,9 @@ namespace SkiResortMod.Systems
 
         // F6 D3 (header FLOOD WINDOW): folds the top-up lines; reset per load, flushed before a load.
         private readonly LogWindow m_TopupLog = new LogWindow(Tuning.LogWindowS);
-        // E1 ch3 §10: the run state changes (L-O1, slots: city open count, closed count, 1), the dry-skip
-        // episodes (L-D1 / L-D2) and the measure-only episodes (L-M1 / L-M5) each fold through their own
+        // E1 ch3 §10: the run state changes (L-O1, slots: city open count, closed count, 1), the skip
+        // episodes (L-D1 / L-D2; Round M2: dry or packed, L-D1p) and the measure-only episodes (L-M1 / L-M5)
+        // each fold through their own
         // window; FlushWindows covers all four (before an idle line, on a load, at quit; TrailingDue after
         // every evaluated pass).
         private readonly LogWindow m_OpenLog = new LogWindow(Tuning.LogWindowS);
@@ -1089,6 +1141,7 @@ namespace SkiResortMod.Systems
             m_SnowSystem = World.GetOrCreateSystemManaged<SnowSystem>();
             m_TerrainSystem = World.GetOrCreateSystemManaged<TerrainSystem>();
             m_SimulationSystem = World.GetOrCreateSystemManaged<SimulationSystem>();
+            m_TimeSystem = World.GetOrCreateSystemManaged<TimeSystem>();   // Round M2: the Snow [day] key
             m_SnowLineSystem = World.GetOrCreateSystemManaged<SnowLineSystem>();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
@@ -1126,7 +1179,14 @@ namespace SkiResortMod.Systems
             // itself may be what failed).
             try
             {
-                FlushWindows(UnityEngine.Time.realtimeSinceStartup, all: true);
+                // Round M2 (topup-skip C17, check C11): an open skip spell ends with the reason "quit" and the counted
+                // part day is written — F6 flushed the windows here but never ended an episode (field test 10's dry
+                // spell from L 951 was never closed in the log).
+                float now = UnityEngine.Time.realtimeSinceStartup;
+                if (m_InSkip)
+                    EndSkip("quit", now, force: true);
+                WriteDayLine("quit");
+                FlushWindows(now, all: true);
             }
             catch (Exception)
             {
@@ -1204,9 +1264,11 @@ namespace SkiResortMod.Systems
             {
                 // E1 ch3 §10: open episodes end with the reason "a load" (written at once, with any fold);
                 // the cost line is written now if 8-63 evaluated passes ran; then every window is flushed.
+                // Round M2 (topup-skip C10): the counted part day is written right after the skip's end line.
                 float now = UnityEngine.Time.realtimeSinceStartup;
                 if (m_InSkip)
                     EndSkip("a load", now, force: true);
+                WriteDayLine("the load");
                 if (m_InMeasureOnly)
                     EndMeasureOnly("a load", now, force: true);
                 if (!m_CostLogged && m_CostPasses >= CostMinPassesAtPreload)
@@ -1305,6 +1367,13 @@ namespace SkiResortMod.Systems
             m_InSkip = false;
             m_SkipEpisodeCount = 0;
             m_SkipsSinceLastReal = 0;
+            m_SkipKind = TopupSkip.None;     // Round M2 (topup-skip C8)
+            m_LastSkipKind = TopupSkip.None;
+            m_UncalmRuns = 0;
+            m_DayKey = int.MinValue;         // the first pass of this load starts a day "from the load"
+            m_DayFromLoad = false;
+            m_DayText = null;
+            ZeroDayCounts();
             m_RunSnow.Clear();
             m_RunSnowNext.Clear();
             m_RunSnowInputs.Clear();
@@ -1373,8 +1442,13 @@ namespace SkiResortMod.Systems
                              $"{Tuning.TopupIntervalFrames} sim frames + once on first sim tick, at most one per " +
                              $"{RunSnowRules.MinPassIntervalS:F2} s wall clock (ramp and decay scaled by elapsed " +
                              $"frames / {Tuning.TopupIntervalFrames}, cap x{RunSnowRules.MaxStepScale:F0}); dry skip " +
-                             "when no run texel is cold and the footprint was bare at the last real pass, with a " +
-                             $"real pass every {RunSnowRules.ForcedRealPassFrames} sim frames; per-run snow measured " +
+                             "when no run texel is cold and the footprint was bare at the last real pass; packed skip " +
+                             "when no run texel is cold, the snowpack holds managed melt (map mean > " +
+                             $"{RunSnowRules.PackGuardMeanDepthM:F2} m), the runs held >= " +
+                             $"{RunSnowRules.PackedSkipMinRunDepthM:F2} m and every measured run's snow share was >= " +
+                             $"{RunSnowRules.CalmOpenShare * 100:F0} % or < {RunSnowRules.CalmClosedShare * 100:F0} % at the " +
+                             "last real pass; either way a real pass every " +
+                             $"{RunSnowRules.ForcedRealPassFrames} sim frames; per-run snow measured " +
                              "from the last snow-map snapshot (skiable >= " +
                              $"{RunSnowRules.SkiableDepthM:F2} m or the texel's own fringe target; open >= " +
                              $"{RunSnowRules.OpenAtShare * 100f:F0} %, closed < {RunSnowRules.CloseBelowShare * 100f:F0} %, " +
@@ -1481,6 +1555,9 @@ namespace SkiResortMod.Systems
         // readback); 10 the DRY SKIP; 11 end a skip / measure-only episode that no longer holds; 12 the
         // blocking readback; 13 the merge with the step scale; 14 the dry-skip record; 15 a forced pass
         // that found snow ends the episode; 16 upload and the top-up line.
+        // ROUND M2 (topup-skip): 0 every evaluated pass counts toward the Snow [day] line; 10 the dry OR PACKED
+        // skip (RunSnowRules.SkipKind); 14 the record also keeps Lowered, the next merge's pack guard and the run
+        // mean; 15 a forced check ends its episode when its new record would not skip the same way.
         // ─────────────────────────────────────────────────────────────────────────────────
         private void Topup(uint frame, uint elapsedFrames, float now)
         {
@@ -1495,6 +1572,9 @@ namespace SkiResortMod.Systems
                 m_FirstPassFrame = frame;
             }
             m_LastEvalFrame = frame;
+            // Round M2 (topup-skip C10): every evaluated pass counts toward the Snow [day] line, idle exits included.
+            AdvanceSnowDay();
+            m_DayPasses++;
 
             float2 playOffset = m_TerrainSystem.playableOffset;
             float2 playSize = m_TerrainSystem.playableArea;
@@ -1579,24 +1659,32 @@ namespace SkiResortMod.Systems
             // so a real pass would provably raise nothing and lower nothing it is owed (§7.3). No readback,
             // no merge, no upload; a measure-only request is normally a no-op here (the forced real pass
             // IS the 1,024-frame snapshot, §6.1).
+            // Round M2 (topup-skip C11, R11): or the PACKED SKIP (header ROUND M2): no texel cold now, the last real
+            // pass raised and lowered nothing and left the pack guard on, the runs held >= PackedSkipMinRunDepthM,
+            // every measured share is calm, the same footprint, the forced pass not due. Dry is tested first and
+            // ignores the share guard. The share guard is moot with gating off (GetRunSnow then answers Open and
+            // multiplier 1 to every reader); m_LastGating was refreshed in step 3 (NoteSettingChanges).
             uint sinceReal = frame - m_LastRealPassFrame;
-            if (RunSnowRules.CanSkipDry(m_LastReal, stats.ColdTexels, stats.ContainedTexels,
-                    stats.FootprintHash, sinceReal))
+            bool calm = !m_LastGating || m_UncalmRuns == 0;
+            TopupSkip skip = RunSnowRules.SkipKind(m_LastReal, stats.ColdTexels, stats.ContainedTexels,
+                stats.FootprintHash, sinceReal, calm);
+            if (skip != TopupSkip.None)
             {
-                NoteSkip(stats, ambient, now, tMask);
-                MaybeRequestMeasure(frame, "dry skip", stats.NaturalScheduled, now);
+                NoteSkip(skip, stats, ambient, now, tMask);
+                MaybeRequestMeasure(frame, skip == TopupSkip.Dry ? "dry skip" : "packed skip", stats.NaturalScheduled, now);
                 m_LastIdleReason = null;   // not idle: the next idle spell logs again
                 return;
             }
-            // Step 11: a forced real pass (the 1,024-frame check) keeps the episode open unless it finds
-            // snow (step 15); any other reason to do a real pass ends it now, with the first failing term.
-            // E1 fixer (e1-spec §8.9 F6): "forced" only when the frame term is the ONLY failing term, so a
-            // pass where the frame term is due AND a texel turned cold (or the footprint changed) ends the
-            // episode here with that reason, not at step 15 as "found snow".
-            bool forced = m_InSkip && RunSnowRules.IsForcedDryCheck(m_LastReal, stats.ColdTexels,
-                stats.ContainedTexels, stats.FootprintHash, sinceReal);
+            // Step 11: a forced real pass (the 1,024-frame check) keeps the episode open unless the record it makes
+            // would not skip the same way (step 15); any other reason to do a real pass ends it now, with the first
+            // failing term. E1 fixer (e1-spec §8.9 F6): "forced" only when the frame term is the ONLY failing term,
+            // so a pass where the frame term is due AND a texel turned cold (or the footprint changed, or since
+            // Round M2 a measured share left the calm band) ends the episode here with that reason, not at step 15.
+            bool forced = m_InSkip && RunSnowRules.IsForcedCheck(m_LastReal, stats.ColdTexels,
+                stats.ContainedTexels, stats.FootprintHash, sinceReal, calm);
+            TopupSkip forcedKind = forced ? m_SkipKind : TopupSkip.None;
             if (m_InSkip && !forced)
-                EndSkip(SkipEndReason(stats), now, force: false);
+                EndSkip(SkipEndReason(stats, calm), now, force: false);
             if (m_InMeasureOnly)
                 EndMeasureOnly("a write pass is due", now, force: false);
 
@@ -1630,7 +1718,12 @@ namespace SkiResortMod.Systems
             // deterministic per texel — see the job body. Pack guard uses LAST pass's map
             // mean (one-window lag, harmless): while a winter pack covers the world,
             // decay stands down — runs melt with the landscape, never ahead of it.
-            bool packGuard = m_LastGlobalMeanDepthM > Tuning.PackGuardMeanDepthM;
+            // Round M2 (topup-skip C7; measure-core check G3): THE pack guard, RunSnowRules.PackGuard — the same float
+            // compare as before (the merge is bit-identical) and the one the packed skip reads. The map mean it read is
+            // kept in packMean for the top-up line: m_LastGlobalMeanDepthM gets THIS pass's mean below, before the
+            // line is built.
+            float packMean = m_LastGlobalMeanDepthM;
+            bool packGuard = RunSnowRules.PackGuard(packMean);
             int injected = 0, lowered = 0;
             double globalDepthSum = 0.0, runDepthSum = 0.0;
             int runTexels = 0;
@@ -1675,7 +1768,9 @@ namespace SkiResortMod.Systems
                 ? (float)(runDepthSum / runTexels) * SnowHeightScaleM : 0f;
             HasRunSnowMeasurement = true;
 
-            // E1 ch3 §7.1 step 14: what the next pass's dry-skip predicate compares against.
+            // E1 ch3 §7.1 step 14: what the next pass's skip predicates compare against. Round M2 (topup-skip C13):
+            // also Lowered, the pack guard the NEXT merge applies (from this pass's map mean, written just above) and
+            // the run mean (the dress depth).
             m_LastReal = new DryPass
             {
                 Valid = true,
@@ -1684,12 +1779,23 @@ namespace SkiResortMod.Systems
                 RunDepthSum = runDepthSum,
                 ContainedTexels = stats.ContainedTexels,
                 FootprintHash = stats.FootprintHash,
+                Lowered = lowered,
+                PackGuardNext = RunSnowRules.PackGuard(m_LastGlobalMeanDepthM),
+                RunMeanDepthM = MeanRunSnowDepthM,
             };
             m_LastRealPassFrame = frame;
-            // Step 15: the forced check of an open skip episode ends it only when it found snow on the
-            // footprint (lowered > 0 implies runDepthSum > 0); otherwise the episode continues.
-            if (forced && (runDepthSum > 0.0 || injected > 0))
-                EndSkip("the forced real pass found snow on the footprint", now, force: false);
+            // Step 15 (Round M2, topup-skip C14): a forced check ends its episode when the record it just made would not
+            // let the next pass skip the same way (frame term ignored; the share guard as of this pass, which measured
+            // the old snapshot — a share this readback moves out of the calm band ends the spell at the next pass's
+            // step 11, topup check G4). For a dry episode this is exactly the D30 rule "ends when runDepthSum > 0 ||
+            // injected > 0" (forced implies no cold texel, so injected is 0 and the record is dry iff runDepthSum == 0).
+            if (forced)
+            {
+                TopupSkip next = RunSnowRules.SkipKind(m_LastReal, stats.ColdTexels, stats.ContainedTexels,
+                    stats.FootprintHash, 0u, calm);
+                if (next != forcedKind)
+                    EndSkip(ForcedEndReason(forcedKind, next), now, force: false);
+            }
 
             if (injected + lowered > 0)
             {
@@ -1707,6 +1813,10 @@ namespace SkiResortMod.Systems
             m_LastIdleReason = null;
             double passTotalMs = timer.Elapsed.TotalMilliseconds;
             NoteRealPass(tMask, tReadback - tMask, tMerge - tReadback, passTotalMs - tMerge);
+            m_DayReal++;                     // Round M2 (topup-skip C15): the Snow [day] line
+            m_DayRealMs += passTotalMs;
+            if (forced)
+                m_DayForced++;
             int skipsBefore = m_SkipsSinceLastReal;
             m_SkipsSinceLastReal = 0;
 
@@ -1736,8 +1846,13 @@ namespace SkiResortMod.Systems
                 double passMs = passTotalMs;
                 string body = $"{injected} texel(s) raised of {stats.MaskTexels} " +
                               $"masked, {lowered} lowered by managed melt " +
-                              $"(-{Tuning.DecayPerTopupM:F3} m/top-up on gate-off runs) " +
-                              $"({stats.SnowmakingActive}/{stats.SnowmakingTotal} snowmaking " +
+                              $"(-{Tuning.DecayPerTopupM:F3} m/top-up on gate-off runs)" +
+                              // Round M2 D16c (contract §6.7): the pack guard, with the map mean the merge read.
+                              (packGuard
+                                  ? $", pack guard on (map mean {packMean:F3} m above " +
+                                    $"{RunSnowRules.PackGuardMeanDepthM:F2} m: no managed melt)"
+                                  : "") +
+                              $" ({stats.SnowmakingActive}/{stats.SnowmakingTotal} snowmaking " +
                               $"@ {Tuning.SnowmakingTargetDepthM:F2} m, " +
                               $"{stats.GroomedActive}/{stats.GroomedTotal} groomed " +
                               $"@ {Tuning.GroomedTargetDepthM:F2} m, " +
@@ -1745,7 +1860,8 @@ namespace SkiResortMod.Systems
                               $"{stats.Triangles} triangle(s)), " +
                               $"ambient {ambient:F1} C, skipped: " +
                               $"{stats.SnowmakingTotal - stats.SnowmakingActive} snowmaking + " +
-                              $"{stats.GroomedTotal - stats.GroomedActive} groomed run(s) fully " +
+                              $"{stats.GroomedTotal - stats.GroomedActive} groomed + " +
+                              $"{stats.NightTotal - stats.NightActive} night run(s) fully " +   // Round M2 D16c
                               "below the line" +
                               (stats.UnboundRuns > 0
                                   ? $" (incl. {stats.UnboundRuns} unbound — no gate in range)"
@@ -1757,12 +1873,16 @@ namespace SkiResortMod.Systems
                               $"{passMs - tMerge:F1})" +
                               (injected == 0 && lowered == 0
                                   ? " (no-op: nothing to raise or melt)" : "") +
-                              // E1 ch3 §10 L-T1: the step scale, the dry skip, and the runs' snow state —
+                              // E1 ch3 §10 L-T1: the step scale, the skip (dry or packed), and the runs' snow state —
                               // by label / phase, and by multiplier (the numbers the hub's Runs view shows).
                               (stepScale != 1f
                                   ? $", step x{stepScale:F2} ({elapsedFrames} sim frames since the last pass)" : "") +
-                              (forced ? ", forced check of the dry skip" : "") +
-                              (skipsBefore > 0 ? $", after {skipsBefore} dry-skipped pass(es)" : "") +
+                              // Round M2 (topup-skip C16): the skip's kind, and the spell count while the spell goes on.
+                              (forced ? $", forced check of the {KindWord(forcedKind)} skip" : "") +
+                              (skipsBefore > 0
+                                  ? $", after {skipsBefore} {KindWord(m_LastSkipKind)}-skipped pass(es)" +
+                                    (m_InSkip ? $" ({m_SkipEpisodeCount} this spell)" : "")
+                                  : "") +
                               $"; runs: {m_Summary.Open - m_Summary.Closing} open, {m_Summary.Closing} closing, " +
                               $"{m_Summary.Opening} opening, {m_Summary.Closed - m_Summary.Opening} closed " +
                               $"({m_Summary.Estimated} estimated); by multiplier (the hub's marks): " +
@@ -1813,7 +1933,7 @@ namespace SkiResortMod.Systems
             if (m_OpenLog.Count > 0 && (all || m_OpenLog.TrailingDue(now)))
                 WriteOpenSummary(now);
             if (m_SkipLog.Count > 0 && (all || m_SkipLog.TrailingDue(now)))
-                WriteEpisodeSummary(m_SkipLog, "Snow [skip]", "dry-skip", now);
+                WriteEpisodeSummary(m_SkipLog, "Snow [skip]", "skip", now);   // Round M2: either kind
             if (m_MeasureLog.Count > 0 && (all || m_MeasureLog.TrailingDue(now)))
                 WriteEpisodeSummary(m_MeasureLog, "Snow [measure]", "measure-only", now);
         }
@@ -1828,7 +1948,7 @@ namespace SkiResortMod.Systems
             m_OpenLog.Wrote(now);
         }
 
-        /// <summary>The fold summary of the dry-skip and measure-only episode lines (L-D1 / L-D2, L-M1 / L-M5).
+        /// <summary>The fold summary of the skip and measure-only episode lines (L-D1 / L-D1p / L-D2, L-M1 / L-M5).
         /// ch3 §10 gives no text for it; it follows L-O2's pattern: count, span, then the last folded line.</summary>
         private static void WriteEpisodeSummary(LogWindow window, string prefix, string what, float now)
         {
@@ -1866,7 +1986,8 @@ namespace SkiResortMod.Systems
 
         // ─────────────────────────────────────────────────────────────────────────────────
         // Round E1 (ch3 §4-§7, §10, §12): snapshots, the measure-only readback, the per-run table,
-        // the dry-skip and measure-only episodes, settings changes, the disable path, the cost record.
+        // the skip (dry / packed) and measure-only episodes, settings changes, the disable path, the cost record,
+        // and (Round M2) the Snow [day] count.
         // Main thread only.
         // ─────────────────────────────────────────────────────────────────────────────────
 
@@ -1886,8 +2007,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>ch3 §6.1 (D29): a NON-blocking measure-only readback into m_MeasureReadback, only on an
         /// evaluated pass without a real pass, only with natural runs to measure, only when no snapshot is
-        /// younger than MeasureIntervalFrames, one request in flight. In a dry-skip episode the forced real
-        /// pass refreshes m_Readback every 1,024 frames, so `fresh` holds and no request is made. Called only
+        /// younger than MeasureIntervalFrames, one request in flight. In a dry (since Round M2 also a packed) skip
+        /// episode the forced real pass refreshes m_Readback every 1,024 frames, so `fresh` holds and no request is
+        /// made: a packed spell adds no GPU work. Called only
         /// after BuildMask's chains completed (no job reads the array). With no natural run an open
         /// measure-only episode ends.</summary>
         private void MaybeRequestMeasure(uint frame, string reason, int runs, float now)
@@ -2021,6 +2143,7 @@ namespace SkiResortMod.Systems
             float lapse = m_SnowLineSystem.GetLapsePerM();
             int measured = 0, estimated = 0, open = 0, closed = 0, opening = 0, closing = 0;
             int full = 0, partly = 0, zero = 0;
+            int uncalm = 0;   // Round M2 share guard: measured runs with a share in [30 %, 70 %)
             double naturalDepthW = 0.0, naturalFootprintW = 0.0;
             for (int i = 0; i < m_RunSnowInputs.Count; i++)
             {
@@ -2067,6 +2190,10 @@ namespace SkiResortMod.Systems
                     share = RunSnowRules.EstimatedShare(input.BottomY, input.TopY, dayMean,
                         RunSnowRules.ThresholdC(input.Kind, freezing, margin), baseHeight, lapse);
                 }
+                // Round M2 (topup-skip C9): the share guard's input. Measured runs only: an estimated share comes from
+                // the day-mean temperature, not from the snapshot, so a skip does not stale it.
+                if (next.Source == RunSnowSource.Measured && !RunSnowRules.IsCalmShare(share))
+                    uncalm++;
                 next.Share = share;
                 next.State = RunSnowRules.NextState(hasPrev ? prev.State : RunSnowState.Unknown, share);
                 float m = RunSnowRules.OpenMultiplier(share);
@@ -2157,6 +2284,7 @@ namespace SkiResortMod.Systems
             m_NaturalDressDepthM = m_NaturalDressValid ? (float)(naturalDepthW / naturalFootprintW) : 0f;
             TryGetDressDepth(out m_Summary.DressDepthM, out m_Summary.DressSource);
             m_TableAllMeasured = measured == runs;   // an empty table: vacuously true (§5.3)
+            m_UncalmRuns = uncalm;                   // Round M2: read by the next pass's skip test
 
             if (firstMeasured)
             {
@@ -2265,48 +2393,71 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>ch3 §7.1 step 10: one dry-skipped pass; the first of an episode writes L-D1.</summary>
-        private void NoteSkip(MaskStats stats, float ambient, float now, double maskMs)
+        /// <summary>ch3 §7.1 step 10: one skipped pass (Round M2: dry or packed); the first of an episode writes L-D1
+        /// (dry) or L-D1p (packed). Also the Snow [day] and cost counts of skipped passes.</summary>
+        private void NoteSkip(TopupSkip kind, MaskStats stats, float ambient, float now, double maskMs)
         {
             m_SkipsSinceLastReal++;
+            m_LastSkipKind = kind;
+            if (m_InSkip && kind != m_SkipKind)   // defensive: the kind can only change after a real pass (step 15)
+                EndSkip($"the skip changed from {KindWord(m_SkipKind)} to {KindWord(kind)}", now, force: false);
             if (!m_InSkip)
             {
                 m_InSkip = true;
+                m_SkipKind = kind;
                 m_SkipEpisodeCount = 0;
                 m_SkipEpisodeStartAt = now;
-                OfferEpisodeLine(m_SkipLog, "Snow [skip]", "dry-skip",
-                    $"dry: no run texel is cold enough (ambient {ambient:F1} C) and the {stats.ContainedTexels} footprint " +
-                    "texel(s) were bare at the last real pass — readback, merge and upload skipped; a real pass still " +
-                    $"runs every {RunSnowRules.ForcedRealPassFrames} sim frames", force: false, now);
+                OfferEpisodeLine(m_SkipLog, "Snow [skip]", "skip", kind == TopupSkip.Dry
+                    ? $"dry: no run texel is cold enough (ambient {ambient:F1} C) and the {stats.ContainedTexels} footprint " +
+                      "texel(s) were bare at the last real pass — readback, merge and upload skipped; a real pass still " +
+                      $"runs every {RunSnowRules.ForcedRealPassFrames} sim frames"
+                    // Round M2 L-D1p (contract §6.7): the map mean is the last real pass's, which the next merge reads.
+                    : $"packed: no run texel is cold enough (ambient {ambient:F1} C) and the snowpack holds managed melt " +
+                      $"(map mean {m_LastGlobalMeanDepthM:F3} m > {RunSnowRules.PackGuardMeanDepthM:F2} m; runs " +
+                      $"{m_LastReal.RunMeanDepthM:F3} m), so a real pass would raise and lower nothing — readback, merge " +
+                      $"and upload skipped; a real pass still runs every {RunSnowRules.ForcedRealPassFrames} sim frames, " +
+                      "so run snow, open states and the dress follow the snow map up to " +
+                      $"{RunSnowRules.ForcedRealPassFrames} sim frames late", force: false, now);
             }
             m_SkipEpisodeCount++;
+            if (kind == TopupSkip.Dry)
+                m_DayDry++;
+            else
+                m_DayPacked++;
+            m_DaySkipMs += maskMs;
             if (m_CostThisPass)
             {
                 m_CostSkipped++;
+                if (kind == TopupSkip.Packed)
+                    m_CostSkippedPacked++;
                 m_CostSkippedMask += maskMs;
             }
         }
 
-        /// <summary>ch3 §10 L-D2: ends an open dry-skip episode.</summary>
+        /// <summary>ch3 §10 L-D2: ends an open skip episode (Round M2: of either kind). The kind word is taken before
+        /// m_SkipKind is cleared (topup check G2).</summary>
         private void EndSkip(string reason, float now, bool force)
         {
             if (!m_InSkip)
                 return;
             m_InSkip = false;
-            OfferEpisodeLine(m_SkipLog, "Snow [skip]", "dry-skip",
-                $"dry ended after {m_SkipEpisodeCount} skipped pass(es) over {now - m_SkipEpisodeStartAt:F0} s: {reason}",
+            string kind = KindWord(m_SkipKind);
+            m_SkipKind = TopupSkip.None;
+            OfferEpisodeLine(m_SkipLog, "Snow [skip]", "skip",
+                $"{kind} ended after {m_SkipEpisodeCount} skipped pass(es) over {now - m_SkipEpisodeStartAt:F0} s: {reason}",
                 force, now);
         }
 
         private void EndSkipIfOpen(MaskStats stats, float now)
         {
             if (m_InSkip)
-                EndSkip(SkipEndReason(stats), now, force: false);
+                EndSkip(SkipEndReason(stats, !m_LastGating || m_UncalmRuns == 0), now, force: false);
         }
 
         /// <summary>ch3 §7.1 step 11: the first failing term of the skip predicate, in its order (the frames
-        /// term is the forced pass, which does not end an episode by itself).</summary>
-        private string SkipEndReason(MaskStats stats)
+        /// term is the forced pass, which does not end an episode by itself). Round M2: a packed episode also ends
+        /// when a measured share left the calm band (the share guard; numbers interpolated, topup check G1).</summary>
+        private string SkipEndReason(MaskStats stats, bool calm)
         {
             if (stats.ColdTexels > 0)
                 return $"a run texel is cold enough ({stats.ColdTexels} texel(s))";
@@ -2315,7 +2466,90 @@ namespace SkiResortMod.Systems
             if (stats.ContainedTexels == 0 || stats.ContainedTexels != m_LastReal.ContainedTexels ||
                 stats.FootprintHash != m_LastReal.FootprintHash)
                 return $"the footprint changed ({m_LastReal.ContainedTexels} -> {stats.ContainedTexels} texel(s))";
+            if (m_SkipKind == TopupSkip.Packed && !calm)
+                return $"a run's snow share is near the open line ({m_UncalmRuns} run(s) between " +
+                       $"{RunSnowRules.CalmClosedShare * 100:F0} % and {RunSnowRules.CalmOpenShare * 100:F0} %)";
             return "the forced real pass found snow on the footprint";
+        }
+
+        /// <summary>Round M2 (topup-skip C14, §2.3 L-D2): why a forced check ended its episode — the record it just
+        /// made would skip the other way (dry and packed) or not at all. Packed to none cannot come from Lowered or
+        /// Injected (the forced merge ran with the pack guard on and no cold texel) nor from the share guard (the same
+        /// `calm` let the check be forced), so it is the pack gone or the runs under the dress guard. Every number is
+        /// interpolated (topup check G1).</summary>
+        private string ForcedEndReason(TopupSkip was, TopupSkip next)
+        {
+            if (was == TopupSkip.Dry)
+                return next == TopupSkip.Packed
+                    ? "the forced real pass found snow on the footprint; the snowpack holds managed melt (map mean " +
+                      $"{m_LastGlobalMeanDepthM:F3} m) — a packed skip follows"
+                    : "the forced real pass found snow on the footprint";
+            if (next == TopupSkip.Dry)
+                return "the forced real pass found the footprint bare — a dry skip follows";
+            if (!m_LastReal.PackGuardNext)
+                return $"the forced real pass found the snowpack gone (map mean {m_LastGlobalMeanDepthM:F3} m <= " +
+                       $"{RunSnowRules.PackGuardMeanDepthM:F2} m) — managed melt resumes";
+            return $"the forced real pass found the runs under {RunSnowRules.PackedSkipMinRunDepthM:F2} m (mean " +
+                   $"{m_LastReal.RunMeanDepthM:F3} m) — real passes while props and decals follow the melt";
+        }
+
+        /// <summary>Round M2: the skip's word in L-D2 and the L-T1 suffix.</summary>
+        private static string KindWord(TopupSkip kind)
+        {
+            switch (kind)
+            {
+                case TopupSkip.Dry: return "dry";
+                case TopupSkip.Packed: return "packed";
+                default: return "kind " + (byte)kind;
+            }
+        }
+
+        /// <summary>Round M2 (topup-skip C10): one Snow [day] line per game day, keyed by SkiDayRules.DayKey (the mod's
+        /// one day key, the SkiGuestCounterSystem.AdvanceDay pattern). The key moves every kTicksPerDay = 262,144 ticks:
+        /// normalizedDate is the tick count mod 262,144 × daysPerYear over that (TimeSystem.cs:18, :38, :120-124;
+        /// identical in 1.6.2f1). The first pass of a load starts its day without a line and marks it "from the load"
+        /// (topup check G3). Main thread (Topup).</summary>
+        private void AdvanceSnowDay()
+        {
+            int day = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear);
+            if (day == m_DayKey)
+                return;
+            bool first = m_DayKey == int.MinValue;
+            if (!first)
+                WriteDayLine(null);
+            m_DayKey = day;
+            m_DayFromLoad = first;
+            int month = SkiMoneyRules.MonthKey(m_TimeSystem.year, m_TimeSystem.normalizedDate);
+            m_DayText = SkiMoneyRules.YearOfKey(month).ToString(System.Globalization.CultureInfo.InvariantCulture) + "-" +
+                        SkiMoneyRules.MonthOfKey(month).ToString("D2", System.Globalization.CultureInfo.InvariantCulture) +
+                        (m_TimeSystem.daysPerYear != 12 ? $" (day key {day})" : "");
+            ZeroDayCounts();
+        }
+
+        /// <summary>Round M2 (topup-skip §2.3 L-D3, contract §6.7): the counted day's line, then the counters are zeroed.
+        /// <paramref name="end"/> null = a day roll; "the load" / "quit" = a part day. "idle or failed" is every counted
+        /// pass that was neither real nor skipped: the idle exits and the failed readbacks (topup check G5). Nothing is
+        /// written when no pass was counted. Never reads the TimeSystem (also called from OnDestroy).</summary>
+        private void WriteDayLine(string end)
+        {
+            if (m_DayPasses > 0)
+            {
+                string suffix = m_DayFromLoad
+                    ? (end == null ? " (part day, from the load)" : $" (part day, from the load, to {end})")
+                    : (end == null ? "" : $" (part day, to {end})");
+                int skipped = m_DayDry + m_DayPacked;
+                Mod.Log.Info($"Snow [day] {m_DayText}{suffix}: {m_DayPasses} top-up pass(es) — {m_DayReal} real " +
+                             $"({m_DayForced} forced check(s) of a skip; mean {Mean(m_DayRealMs, m_DayReal):F2} ms), " +
+                             $"{m_DayDry} dry-skipped + {m_DayPacked} packed-skipped (mean {Mean(m_DaySkipMs, skipped):F2} ms, " +
+                             $"mask only), {m_DayPasses - m_DayReal - skipped} idle or failed (idle exits and failed readbacks)");
+            }
+            ZeroDayCounts();
+        }
+
+        private void ZeroDayCounts()
+        {
+            m_DayPasses = m_DayReal = m_DayForced = m_DayDry = m_DayPacked = 0;
+            m_DayRealMs = m_DaySkipMs = 0.0;
         }
 
         /// <summary>ch3 §10 L-M5: ends an open measure-only episode.</summary>
@@ -2345,6 +2579,7 @@ namespace SkiResortMod.Systems
                 m_RunSnowGeneration++;
                 m_NaturalDressValid = false;
                 m_TableAllMeasured = false;
+                m_UncalmRuns = 0;            // Round M2: no measured run, no share guard
                 m_Summary = default;
                 m_Summary.Source = RunSnowSource.Estimated;   // every run is now an on-the-spot estimate
                 m_MultFull = m_MultPartly = m_MultZero = 0;
@@ -2373,6 +2608,7 @@ namespace SkiResortMod.Systems
             m_CostReal = 0;
             m_CostRealMask = m_CostRealReadback = m_CostRealMerge = m_CostRealUpload = 0.0;
             m_CostSkipped = 0;
+            m_CostSkippedPacked = 0;
             m_CostSkippedMask = 0.0;
             m_CostNaturalPasses = 0;
             m_CostNaturalRunsMax = 0;
@@ -2384,7 +2620,7 @@ namespace SkiResortMod.Systems
             m_CostMeasuredTexels = 0;
         }
 
-        /// <summary>Every pass that built the mask counts as evaluated (real, dry-skipped or idle). Also counts
+        /// <summary>Every pass that built the mask counts as evaluated (real, skipped or idle). Also counts
         /// the passes where the ×4 step cap binds (second pass, §7.5). Round F7 (item E3, log-audit D5): the
         /// cost record takes only passes with at least one BOUND run to measure (injected or natural) — field
         /// test 7 wrote the line 35 minutes before the first run, over 64 passes of an empty city.</summary>
@@ -2442,7 +2678,8 @@ namespace SkiResortMod.Systems
                          $"second, cap {1f / RunSnowRules.MinPassIntervalS:F2}): {m_CostReal} real (mean ms: mask " +
                          $"{Mean(m_CostRealMask, m_CostReal):F2}, readback {Mean(m_CostRealReadback, m_CostReal):F2}, merge " +
                          $"{Mean(m_CostRealMerge, m_CostReal):F2}, upload {Mean(m_CostRealUpload, m_CostReal):F2}), " +
-                         $"{m_CostSkipped} dry-skipped (mean mask {Mean(m_CostSkippedMask, m_CostSkipped):F2} ms), natural " +
+                         $"{m_CostSkipped} skipped ({m_CostSkipped - m_CostSkippedPacked} dry, {m_CostSkippedPacked} packed; " +
+                         $"mean mask {Mean(m_CostSkippedMask, m_CostSkipped):F2} ms), natural " +
                          $"measurement {Mean(m_CostNaturalMs, m_CostNaturalPasses):F3} ms mean over {m_CostNaturalPasses} " +
                          $"pass(es) with {m_CostNaturalRunsMax} run(s), measure-only readbacks {m_CostMeasureRequests} " +
                          $"(request mean {Mean(m_CostMeasureRequestMs, m_CostMeasureRequests):F3} ms, latency {latency} " +

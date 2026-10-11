@@ -19,6 +19,22 @@
 // (GuestScanSaw), clock and stay bins, and the year's powder hours per month. Nothing here changes a guest:
 // tests/ResortBatch SkiDayTimingTests ST16-ST25. Fixer pass: the departure rule DepartedNow (M1-ECS-2, ST26).
 //
+// ROUND M2 (docs/research/round-m2/build-contract.md §5, §7; builder B1, 2026-10-10). Measure helpers plus the one
+// rule of R4 (b), all pure:
+//   D3 (R6)  ArrivedThenRemoved, EndCause.RemovedOnArrival = 8 (EndCauseCount 9) — ST17 edit, ST27, ST28;
+//   D1, D6   MovedOffNow (the door wait ends when the game removes the walker's Divert{PathFailed}), ShowNear500 —
+//            ST29, ST30;
+//   D4, U16  RemoveWhy / RemoveWhyOf (why the Leisure went before the deadline, CitizenBehaviorSystem's order), the
+//            household-need register ShiftNeed / NeedTaken (Flag2NeedOpen 16, Flag2NeedOpenBefore 32), IsFastStay,
+//            NoPurposeAt / NoPurposeAtOf ("placed" = m_PenaltyCounter >= PlacedMarkMin) — ST31-ST33;
+//   D5       the follow after leaving the lodge (FollowWatchFrames, FollowExitKind, PlacedNow, TryFollow, StillOutOf)
+//            and walkers near a lodge (WalkerKindOf, WaitHoursOfTimer, WithinXZ, FollowSlot, AtOnceSlot) — ST34-ST42;
+//   R10      what an ended claim tells the all-outcomes speed (SpeedEvidence, FailureEvidence, LateEvidence: one
+//            predicate, departed + on the road + not turned back) — ST43, ST44;
+//   R4 (b)   PullDeadline (Flag2DeadlinePulled 64, PullMinFrames, PullNone / PullNoRun / PullNightClosed): the only
+//            helper here that feeds a vanilla write (ResolveJob lowers Leisure.m_LastPossibleFrame) — ST45, ST46.
+// Comment fixes from remover-reason §2.1 item 5 (NeedFilledCounter, EndCauseOf, WhyOf).
+//
 // Created 2026-10-05 (Round S1 stage 0: s1-spec §4.2 step 5, the empty class); bodies by stream B (2026-10-05).
 
 using System;
@@ -190,19 +206,36 @@ namespace SkiResortMod.Systems
         /// (M1, F7). The game checks the deadline only at the venue (funnel.md Verification, Missed 5).</summary>
         public const uint LateWatchFrames = 65536;
 
-        /// <summary>LeisureSystem ends a visit when m_LeisureCounter &gt; 255 − efficiency / 5 (1.6.2 LeisureSystem.cs:308);
-        /// our lodge has efficiency 10, so above 253. CitizenHappinessSystem lowers the counter by
-        /// m_AmountLeisureCounterDecrease with a 2 % (resident) or 20 % (tourist) chance per update (1.6.2
-        /// CitizenHappinessSystem.cs:525-529); the prefab CLASS default is 1 (1.6.2 LeisureParametersPrefab.cs:27),
-        /// the value in the shipped prefab asset is UNVERIFIED (m1-spec E14, open point 5). So "need filled" is
-        /// inferred from a counter at or above 250 when the visit ends, and every log text says "inferred".</summary>
+        /// <summary>LeisureSystem ends a visit when m_LeisureCounter &gt; 255 − efficiency / 5 (LeisureSystem.cs:314,
+        /// 1.6.2 :308); our lodge has efficiency 10, so above 253. CitizenHappinessSystem lowers the counter by
+        /// m_AmountLeisureCounterDecrease with a 2 % (resident) or 20 % (tourist) chance per update
+        /// (CitizenHappinessSystem.cs:498-500, 1.6.2 :526-528), each citizen once per 256 frames; the shipped
+        /// LeisureParameters asset sets the decrease to 1 (vanilla dump, remover-reason C10; m1-spec open point 5
+        /// closed), so the counter falls at most 1 per 256 frames and a counter at or above 250 when the visit ends is
+        /// a sound "need filled" sign. Still inferred (we never see the removal itself), and every log text says
+        /// "inferred".</summary>
         public const int NeedFilledCounter = 250;
 
         // The claim's flag bits (SkiDaySystem.Jobs.cs ClaimFlag / ClaimFlag2 use these values), repeated here so
-        // the tests can reach them.
+        // the tests can reach them. Round M2: FlagHeldAtHome is kept but never set since D2 (it never filled: every
+        // queued car claim had left home at our first look, L 881 / L 1117).
         public const byte FlagDeparted = 1, FlagHeldAtHome = 2, FlagHeldEver = 4, FlagRode = 8, FlagPathFailedAtStart = 16,
                           FlagDeadlineIsClosing = 32, FlagLateArrived = 64;
         public const byte Flag2TurnedBack = 1, Flag2WalkerLost = 2, Flag2WalkerPathFailed = 4, Flag2VehiclePathFailed = 8;
+        /// <summary>Round M2 (D4): the household-need register in Flags2 — need open at the last pass / at the pass
+        /// before (ShiftNeed). Not markers: HasMarker reads only bits 1, 2, 4, 8 of Flags2.</summary>
+        public const byte Flag2NeedOpen = 16, Flag2NeedOpenBefore = 32;
+        /// <summary>Round M2 (R4 b): the claim's deadline was pulled in (PullDeadline). ShiftNeed keeps it.</summary>
+        public const byte Flag2DeadlinePulled = 64;
+
+        /// <summary>Round M2 (U16): "placed by the game" = Citizen.m_PenaltyCounter at or above this. The placement writes
+        /// 255 (TripNeededSystem.cs:1597 (=); CitizenTravelPurposeSystem.cs:481, 1.6.2 :490) and nothing else raises it;
+        /// CitizenHappinessSystem lowers it by 1 per citizen update (CitizenHappinessSystem.cs:502, 1.6.2 :530), once per
+        /// 256 frames, so 250 marks a placement less than about 1,500 frames old.</summary>
+        public const int PlacedMarkMin = 250;
+
+        /// <summary>Round M2 (D4): a visit shorter than this many game hours counts as "fast" (the U10 share).</summary>
+        public const double FastStayHours = 0.2;
 
         // Game.Citizens.Purpose literals (1.6.2 Game.Citizens/Purpose.cs, (=) 1.6.0). Bytes, so this file needs no
         // Game type; m1-spec open point 8: only a rebuild against a changed Game.dll could move them.
@@ -246,6 +279,25 @@ namespace SkiResortMod.Systems
             return !inBuilding || atLodge || (hasPurpose && purpose == PurposeLeisure);
         }
 
+        /// <summary>Round M2 (D1): the walker has moved off — departed, in no building, a live walker that no longer
+        /// carries Divert{PathFailed}. TripNeededSystem marks a walker whose first route came back empty with that divert
+        /// (TripNeededSystem.cs:681-686 (=)); ResidentAISystem keeps it waiting while the divert counter is at or below
+        /// 250 and then clears the divert (ResidentAISystem.cs:2580-2590, RemoveComponent at :2790 (=)), so the mark's
+        /// absence is the game's own end of the door wait. A walker with no mark at our first look moved off at once.
+        /// The wait is at least 126 counter steps of 1-2 per 16-frame tick (2,016 frames, 31 passes), so a 64-frame pass
+        /// cannot miss all of it (measure-core-check C25).</summary>
+        public static bool MovedOffNow(bool departed, bool inBuilding, bool walkerLive, bool pathFailedMark)
+        {
+            return departed && !inBuilding && walkerLive && !pathFailedMark;
+        }
+
+        /// <summary>Round M2 (D6): print "(under 0.5 km at …)" only for a claim that started beyond 500 m — an origin
+        /// inside 500 m is "near" at its first look (+0.0 h) and says nothing. NaN distance → false.</summary>
+        public static bool ShowNear500(float distanceM, uint near500Frame)
+        {
+            return near500Frame != 0u && distanceM > 500f;
+        }
+
         // The five markers of a claim (M1, F1): read at our passes, so "not set" means "not seen", never "did not
         // happen" (path flags last only until the AI acts on them; m1-spec open point 4).
         public const int MarkerPathFailedAtStart = 0, MarkerWalkerPathFailed = 1, MarkerVehiclePathFailed = 2, MarkerWalkerLost = 3,
@@ -274,7 +326,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>F3, first match: gone → Deleted; ill (HealthProblem) → Ill; household MovingAway → MovingAway;
         /// TravelPurpose Sleeping → Bedtime (CitizenBehaviorSystem's CheckSleep adds it in the pass that removes
-        /// Leisure, 1.6.2 :329-341, :784); a work or school purpose or first trip → WorkOrSchool; ResourceBuyer or a
+        /// Leisure, 1.6.2 :329-341, :784 — Sleeping only at home, 1.6.2 :333-341; away from home bedtime adds a
+        /// GoingHome trip instead, :343-346, which reads HeadingHome here); a work or school purpose or first trip → WorkOrSchool; ResourceBuyer or a
         /// shopping purpose or trip → Shopping (GoShopping, :417-432, :798); GoingHome → HeadingHome; any purpose or
         /// trip other than Leisure → OtherTrip; else Unknown (work time removes Leisure before the trip exists, :771-777,
         /// so it often reads Unknown: UNVERIFIED how often).</summary>
@@ -305,19 +358,26 @@ namespace SkiResortMod.Systems
             return p == PurposeGoingToWork || p == PurposeGoingToSchool || p == PurposeWorking || p == PurposeStudying;
         }
 
-        /// <summary>Why an arrived guest's visit ended (M2; F2 splits the deadline by what bound it).</summary>
+        /// <summary>Why an arrived guest's visit ended (M2; F2 splits the deadline by what bound it). RemovedOnArrival
+        /// (Round M2, D3, R6): found in the lodge with Leisure gone within one pass of arriving; booked by ResolveJob's
+        /// Gone branch (ArrivedThenRemoved), never returned by EndCauseOf, and forced whatever the leisure counter reads
+        /// (an on-arrival counter-full removal by LeisureSystem is not told apart from CitizenBehaviorSystem's, R6; the
+        /// "why" is RemoveWhyOf's, arrived-at-lodge-check gap 11).</summary>
         public enum EndCause : byte
         {
             DeadlineOwn = 0, DeadlineClosing = 1, NeedFilled = 2, NewOuting = 3, Removed = 4, WalkedOut = 5, PastGrace = 6, Deleted = 7,
+            RemovedOnArrival = 8,
         }
-        public const int EndCauseCount = 8;
+        public const int EndCauseCount = 9;
 
         /// <summary>M2 at the Left verdict, in this order: gone → Deleted; still "there" (Leisure aimed at the lodge and
         /// in it: Left fires there only past the grace) → PastGrace; now ≥ deadline (Resolve's compare) → DeadlineClosing
         /// when the claim's deadline was the lifts' closing, else DeadlineOwn (sleep or work); Leisure aimed elsewhere →
-        /// NewOuting; no Leisure and a counter ≥ NeedFilledCounter → NeedFilled (inferred); no Leisure → Removed (by
-        /// CitizenBehaviorSystem: illness, moving, work time, bedtime, shopping); else (Leisure at the lodge, not in it)
-        /// WalkedOut. Not told apart (fixer R6): LeisureSystem.SpendLeisure also removes Leisure at a venue that is
+        /// NewOuting; no Leisure and a counter ≥ NeedFilledCounter → NeedFilled (inferred); no Leisure → Removed
+        /// (CitizenBehaviorSystem: moving away, illness, shopping errand; bedtime and work time end at the claim's deadline
+        /// — DoLeisure sets it to the next sleep or work start, 1.6.2 :472-494, and the claim deadline is min(that,
+        /// closing) — so they read DeadlineOwn / DeadlineClosing; why: RemoveWhyOf, Round M2 D4); else (Leisure at the
+        /// lodge, not in it) WalkedOut. Not told apart (fixer R6): LeisureSystem.SpendLeisure also removes Leisure at a venue that is
         /// switched off (BuildingOption.Inactive), has ServiceAvailable ≤ 0 or no output resource (1.6.2
         /// LeisureSystem.cs:285-310); for our lodge that is the player deactivating it, which lands in Removed (or
         /// NeedFilled with a high counter). Rare, and visible in the `[lodges]` line.</summary>
@@ -335,6 +395,85 @@ namespace SkiResortMod.Systems
             if (!hasLeisure)
                 return leisureCounter >= NeedFilledCounter ? EndCause.NeedFilled : EndCause.Removed;
             return EndCause.WalkedOut;
+        }
+
+        // ── Round M2 D3 (R6): arrived, then removed within one pass ─────────────────────────────
+
+        /// <summary>Round M2 (D3, ruling R6): a claim that Resolve calls Gone (on the way, before the deadline, no
+        /// Leisure) whose citizen still exists and stands in the claim's lodge arrived and lost Leisure within one pass.
+        /// Booked as an arrival whose visit ended RemovedOnArrival. CurrentBuilding is the game's own venue test
+        /// (LeisureSystem.cs:342-345, 1.6.2 :336-339) and PlaceOf's "lodge". Expired is tested first by Resolve, so a
+        /// guest found there past the deadline stays an expiry (late watch). A deleted citizen stays a failure (place
+        /// "deleted").</summary>
+        public static bool ArrivedThenRemoved(ClaimOutcome outcome, bool gone, bool atLodge)
+        {
+            return outcome == ClaimOutcome.Gone && !gone && atLodge;
+        }
+
+        // ── Round M2 D4 (remover-reason §2.1): why the Leisure went before the deadline ─────────
+
+        /// <summary>Why the Leisure went before the deadline (Round M2, D4): the first trace in CitizenBehaviorSystem's
+        /// order (1.6.0 :673-773, 1.6.2 :698-802), then LeisureSystem's (1.6.0 :289-318, 1.6.2 :283-312), then the game's
+        /// placement (TripNeededSystem.cs:1562-1599 (=)). Literal values: the measure rows and s_RemoveWhyWords index by
+        /// them.</summary>
+        public enum RemoveWhy : byte
+        {
+            Unknown = 0, MoneyCheck = 1, MovingAway = 2, Ill = 3, WorkTime = 4, Bedtime = 5, Shopping = 6, VenueOff = 7,
+            NeedMet = 8, NoPurpose = 9,
+        }
+        public const int RemoveWhyCount = 10;
+
+        /// <summary>D4, first match: moving away (household marker, or a MovingAway purpose or trip) → MoneyCheck when the
+        /// household's reason is the tourist hotel money check (TouristLeaveSystem.cs:68 (=)), else MovingAway; ill; work
+        /// time now or a work or school purpose or trip; bedtime now; ResourceBuyer, the household need just taken, or a
+        /// Shopping purpose or trip; the lodge switched off (LeisureSystem.cs:291, 1.6.2 :285); counter ≥
+        /// NeedFilledCounter (inferred); out of the lodge with no TravelPurpose (placed by the game,
+        /// TripNeededSystem.cs:1562-1599 (=)); else Unknown. Moving away comes before illness as in CitizenBehaviorSystem
+        /// (1.6.2 :698 before :756). The money flag alone means nothing (it is read only with moving away).</summary>
+        public static RemoveWhy RemoveWhyOf(bool movingAway, bool moneyCheck, bool ill, bool workTimeNow, bool bedtimeNow,
+                                            bool hasPurpose, byte purpose, bool hasTrip, byte tripPurpose, bool resourceBuyer,
+                                            bool needTaken, bool venueOff, int leisureCounter, bool atLodge)
+        {
+            if (movingAway || (hasPurpose && purpose == PurposeMovingAway) || (hasTrip && tripPurpose == PurposeMovingAway))
+                return movingAway && moneyCheck ? RemoveWhy.MoneyCheck : RemoveWhy.MovingAway;
+            if (ill)
+                return RemoveWhy.Ill;
+            if (workTimeNow || (hasPurpose && IsWorkOrSchool(purpose)) || (hasTrip && IsWorkOrSchool(tripPurpose)))
+                return RemoveWhy.WorkTime;
+            if (bedtimeNow)
+                return RemoveWhy.Bedtime;
+            if (resourceBuyer || needTaken || (hasPurpose && purpose == PurposeShopping) || (hasTrip && tripPurpose == PurposeShopping))
+                return RemoveWhy.Shopping;
+            if (venueOff)
+                return RemoveWhy.VenueOff;
+            if (leisureCounter >= NeedFilledCounter)
+                return RemoveWhy.NeedMet;
+            if (!atLodge && !hasPurpose)
+                return RemoveWhy.NoPurpose;
+            return RemoveWhy.Unknown;
+        }
+
+        /// <summary>D4: shift "household need open" into Flag2NeedOpen and the old value into Flag2NeedOpenBefore; every
+        /// other bit of Flags2 (the markers 1-8, Flag2DeadlinePulled 64, 128) is kept.</summary>
+        public static byte ShiftNeed(byte flags2, bool openNow)
+        {
+            int keep = flags2 & ~(Flag2NeedOpen | Flag2NeedOpenBefore);
+            return (byte)(keep | ((flags2 & Flag2NeedOpen) != 0 ? Flag2NeedOpenBefore : 0) | (openNow ? Flag2NeedOpen : 0));
+        }
+
+        /// <summary>D4: the need was open at one of the last two passes and is empty now. CitizenBehaviorSystem clears it
+        /// by a direct write when it sends a member shopping (1.6.0 :765-766, 1.6.2 :794-795) while the Leisure removal
+        /// goes through a command buffer (1.6.2 :798), so a pass can fall between the two: hence two bits. The caller
+        /// adds "adult or elderly" (CitizenBehaviorSystem 1.6.0 :759, 1.6.2 :788).</summary>
+        public static bool NeedTaken(byte flags2, bool openNow)
+        {
+            return (flags2 & (Flag2NeedOpen | Flag2NeedOpenBefore)) != 0 && !openNow;
+        }
+
+        /// <summary>D4: a stay shorter than FastStayHours; NaN or negative → false.</summary>
+        public static bool IsFastStay(double hours)
+        {
+            return hours >= 0.0 && hours < FastStayHours;
         }
 
         /// <summary>How a guest whose visit ended left the lodge (M2): the TravelPurpose of the trip out, or the
@@ -397,8 +536,34 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>Round M2 (U16): where a guest who left the lodge with no TravelPurpose stands at the exit check.
+        /// "Placed" = m_PenaltyCounter ≥ PlacedMarkMin (the game's teleport mark). "Home" is home or hotel (the origin).
+        /// Literal values: the measure rows and s_NoPurposeAtWords index by them.</summary>
+        public enum NoPurposeAt : byte { PlacedHome = 0, Home = 1, MapEdge = 2, PlacedElsewhere = 3, Elsewhere = 4, NoBuilding = 5 }
+        public const int NoPurposeAtCount = 6;
+
+        /// <summary>U16, first match: in no building → NoBuilding; at an outside connection → MapEdge (a walk- or
+        /// taxi-only route there is placed without the mark, TripNeededSystem.cs:1325-1339, :1535-1552 (=)); at the
+        /// origin → PlacedHome / Home; else PlacedElsewhere / Elsewhere. The empty-route placement (GoingHome at home,
+        /// MovingAway at its target, TripNeededSystem.cs:1562-1599 (=)) sets the mark; CitizenTravelPurposeSystem then
+        /// removes the TravelPurpose within 16 frames (:150-172, same lines in 1.6.2), hence "no trip purpose".</summary>
+        public static NoPurposeAt NoPurposeAtOf(bool inBuilding, bool atOrigin, bool atOutsideConnection, int penaltyCounter)
+        {
+            if (!inBuilding)
+                return NoPurposeAt.NoBuilding;
+            if (atOutsideConnection)
+                return NoPurposeAt.MapEdge;
+            bool placed = penaltyCounter >= PlacedMarkMin;
+            if (atOrigin)
+                return placed ? NoPurposeAt.PlacedHome : NoPurposeAt.Home;
+            return placed ? NoPurposeAt.PlacedElsewhere : NoPurposeAt.Elsewhere;
+        }
+
         /// <summary>The phases of a ski-day trip (M2; hours summed per class, counts beside them). Arrivals-only
-        /// phases (1-7) are counted over the same group, so claim-to-leaving + leaving-to-arrival = the trip (F6).</summary>
+        /// phases (1-7) are counted over the same group, so claim-to-leaving + leaving-to-arrival = the trip (F6).
+        /// Round M2 (D1): LeaveToRide runs from moving off (the claim's MoveFrame) to the first ride, printed "door to
+        /// the vehicle"; the door wait (DepartFrame → MoveFrame) has its own measure block, so LeaveToArrive still runs
+        /// from the departure.</summary>
         public static class Phase
         {
             public const int ClaimToLeaveAll = 0, ClaimToLeaveArrived = 1, LeaveToArrive = 2, LeaveToRide = 3, RideSpan = 4,
@@ -497,6 +662,155 @@ namespace SkiResortMod.Systems
             return false;
         }
 
+        // ── Round M2 D5 (walkers-after W1, contract §5.6): the follow after leaving, walkers near a lodge ──
+
+        /// <summary>A guest who left the lodge for home, the map exit or with no trip purpose is followed this long:
+        /// one game hour = FramesFor(1) (Round M2, D5).</summary>
+        public const uint FollowWatchFrames = 10922;
+
+        /// <summary>Walkers within this many metres (xz) of a lodge's centre are counted (D5).</summary>
+        public const float NearLodgeM = 100f;
+
+        // Game.Creatures.ResidentFlags literals (ResidentFlags.cs:11, :13, :14, :22 (=)), so this file needs no Game type:
+        // WaitingTransport is set while the walker queues at a line stop or a boarding vehicle (ResidentAISystem.cs
+        // :1517-1535 (=)); Hangaround on a hang-around lane; InVehicle aboard; DummyTraffic pass-through traffic.
+        public const uint ResidentWaitingTransport = 4u, ResidentHangaround = 16u, ResidentInVehicle = 32u, ResidentDummyTraffic = 8192u;
+
+        /// <summary>How a follow ended. Literal values: the measure rows index by them.</summary>
+        public enum FollowResult : byte { Home = 0, MapExit = 1, OtherBuilding = 2, BackInLodge = 3, Deleted = 4, StillOut = 5 }
+        /// <summary>What a guest still out at the watch's end was doing at the last look.</summary>
+        public enum StillOut : byte { NoWalker = 0, Riding = 1, Waiting = 2, FailedPath = 3, OnFoot = 4 }
+        /// <summary>A walker near a lodge (NearJob). Skip = aboard or pass-through, not counted.</summary>
+        public enum WalkerKind : byte { Walking = 0, Waiting = 1, FailedPath = 2, Hangaround = 3, Skip = 4 }
+        public const int FollowResultCount = 6, StillOutCount = 5, WalkerKindCount = 5;
+        /// <summary>Followed exit kinds: 0 going home, 1 no trip purpose, 2 moving away (FollowExitKind).</summary>
+        public const int FollowExitKinds = 3;
+
+        // SkiDayClaim.FollowFlags / ClaimRecord.FollowFlags bits (Round M2, D5).
+        public const byte FollowFlagFollowed = 1, FollowFlagWalkerSeen = 2, FollowFlagWalkerLost = 4, FollowFlagPlaced = 8,
+                          FollowFlagAtOnce = 16, FollowFlagNotFollowedCap = 32;
+
+        /// <summary>The follow kind of an exit way: Home (0) → 0, NoPurpose (8) → 1, MovingAway (4) → 2, anything else → −1
+        /// (not followed).</summary>
+        public static int FollowExitKind(byte exitWay)
+        {
+            switch (exitWay)
+            {
+                case (byte)ExitWay.Home: return 0;
+                case (byte)ExitWay.NoPurpose: return 1;
+                case (byte)ExitWay.MovingAway: return 2;
+                default: return -1;
+            }
+        }
+
+        /// <summary>U16, one rule (contract Decided here 4): the game placed the guest — at the first follow sample any
+        /// building is a placement (one pass is about 1 s of movement, HumanNavigationHelpers.cs:95-96 (=), so no walk
+        /// or drive reaches a building between the exit and our first sample), later a penalty counter at or above
+        /// PlacedMarkMin (the same predicate as NoPurposeAtOf). A walk- or taxi-only route to an outside connection is
+        /// placed without the mark (TripNeededSystem.cs:1325-1339 (=)): after the first sample it reads "not placed".</summary>
+        public static bool PlacedNow(bool firstSample, byte penaltyNow)
+        {
+            return firstSample || penaltyNow >= PlacedMarkMin;
+        }
+
+        /// <summary>D5 follow check, first match: gone → Deleted; in a building: at home (the origin) → Home, at an outside
+        /// connection → MapExit, at the lodge → BackInLodge, else OtherBuilding — placed = PlacedNow for Home, MapExit
+        /// and OtherBuilding, false otherwise; in no building and now − exitFrame ≥ FollowWatchFrames (uint, wraps like
+        /// the frame counter) → StillOut; else false (keep following).</summary>
+        public static bool TryFollow(bool gone, bool inBuilding, bool atHome, bool atEdge, bool atLodge, bool firstSample,
+                                     byte penaltyNow, uint now, uint exitFrame, out FollowResult r, out bool placed)
+        {
+            placed = false;
+            if (gone)
+            {
+                r = FollowResult.Deleted;
+                return true;
+            }
+            if (inBuilding)
+            {
+                if (atHome)
+                    r = FollowResult.Home;
+                else if (atEdge)
+                    r = FollowResult.MapExit;
+                else if (atLodge)
+                {
+                    r = FollowResult.BackInLodge;
+                    return true;
+                }
+                else
+                    r = FollowResult.OtherBuilding;
+                placed = PlacedNow(firstSample, penaltyNow);
+                return true;
+            }
+            if (now - exitFrame >= FollowWatchFrames)
+            {
+                r = FollowResult.StillOut;
+                return true;
+            }
+            r = FollowResult.StillOut;
+            return false;
+        }
+
+        /// <summary>D5: no live walker → NoWalker; riding → Riding; waiting at a stop → Waiting; a failed path →
+        /// FailedPath; else OnFoot.</summary>
+        public static StillOut StillOutOf(bool walkerLive, bool riding, bool waiting, bool failed)
+        {
+            if (!walkerLive)
+                return StillOut.NoWalker;
+            if (riding)
+                return StillOut.Riding;
+            if (waiting)
+                return StillOut.Waiting;
+            return failed ? StillOut.FailedPath : StillOut.OnFoot;
+        }
+
+        /// <summary>D5: game hours a queued walker has waited, from Resident.m_Timer: +1 or +2 per 16-frame tick
+        /// (ResidentAISystem.cs:1519, reset to 0 when WaitingTransport is set :1525 (=)), so 1.5 × 10,922.67 / 16 =
+        /// 1,024 a game hour on average (a mean: the step is random). timer ≤ 0 → 0.</summary>
+        public static double WaitHoursOfTimer(int timer)
+        {
+            return timer > 0 ? timer / 1024.0 : 0.0;
+        }
+
+        /// <summary>D5 walker kind, first match: aboard, or InVehicle / DummyTraffic → Skip; WaitingTransport → Waiting;
+        /// Divert{PathFailed} or a Failed / Stuck path → FailedPath; Hangaround → Hangaround; else Walking.
+        /// HumanFlags.Waiting is a mood flag, not a transport mark (ResidentAISystem.cs:1428-1440 (=)): not read.</summary>
+        public static WalkerKind WalkerKindOf(bool aboard, uint residentFlags, bool divertPathFailed, bool pathBad)
+        {
+            if (aboard || (residentFlags & (ResidentInVehicle | ResidentDummyTraffic)) != 0u)
+                return WalkerKind.Skip;
+            if ((residentFlags & ResidentWaitingTransport) != 0u)
+                return WalkerKind.Waiting;
+            if (divertPathFailed || pathBad)
+                return WalkerKind.FailedPath;
+            return (residentFlags & ResidentHangaround) != 0u ? WalkerKind.Hangaround : WalkerKind.Walking;
+        }
+
+        /// <summary>D5: |p − centre|² ≤ radius² in xz (float2.y = world z); false when either point is NaN (the compare
+        /// is false).</summary>
+        public static bool WithinXZ(float2 p, float2 centre, float radius)
+        {
+            return math.lengthsq(p - centre) <= radius * radius;
+        }
+
+        /// <summary>D5 measure slot of a follow: ((kind × 6 + result) × 2 + placed) for kind 0..2 and result 0..5, else −1
+        /// (the caller skips −1).</summary>
+        public static int FollowSlot(int kind, int result, bool placed)
+        {
+            if (kind < 0 || kind >= FollowExitKinds || result < 0 || result >= FollowResultCount)
+                return -1;
+            return (kind * FollowResultCount + result) * 2 + (placed ? 1 : 0);
+        }
+
+        /// <summary>D5 measure slot of a placement at the first sample: kind × 3 + result for kind 0..2 and result 0..2
+        /// (Home, MapExit, OtherBuilding), else −1.</summary>
+        public static int AtOnceSlot(int kind, int result)
+        {
+            if (kind < 0 || kind >= FollowExitKinds || result < 0 || result > (int)FollowResult.OtherBuilding)
+                return -1;
+            return kind * 3 + result;
+        }
+
         /// <summary>What a 64-frame sample saw of the car-reserve handshake (M4; E3, F8).</summary>
         public enum CarReserve : byte { HeldAtHome = 0, HeldAfterLeaving = 1, NeverHeldLeft = 2, HeldNeverLeft = 3, NeverHeldNeverLeft = 4 }
         public const int CarReserveCount = 5;
@@ -510,6 +824,101 @@ namespace SkiResortMod.Systems
             if (heldAtHome)
                 return CarReserve.HeldAtHome;
             return heldEver ? CarReserve.HeldAfterLeaving : CarReserve.NeverHeldLeft;
+        }
+
+        // ── Round M2 R10 (u9-learning C5, contract §5.8): what an ended claim tells the all-outcomes speed ──
+
+        /// <summary>Round M2 R10: what an ended claim tells the all-outcomes speed (SkiDayRules.LearnSpeedAll /
+        /// LearnSpeedBound). Literal values.</summary>
+        public enum SpeedEvidence : byte { None = 0, Exact = 1, Bound = 2 }
+
+        /// <summary>The one "upper bound" predicate (R10): the guest had left (departed), stood on the road
+        /// (Place.Road) and was not seen turning back, so it travelled the whole time and the elapsed hours bound its
+        /// speed from above. A guest who never left, came back home or sits in a building gives no information.</summary>
+        private static bool TravelledThroughout(bool departed, Place place, bool turnedBack)
+        {
+            return departed && place == Place.Road && !turnedBack;
+        }
+
+        /// <summary>A Gone (0) or Retargeted (1) failure gives an upper bound only under TravelledThroughout; anything else
+        /// gives none. An expiry (2) gives none here: it is booked when its late watch ends (LateEvidence).</summary>
+        public static SpeedEvidence FailureEvidence(int o, bool departed, Place place, bool turnedBack)
+        {
+            return (o == 0 || o == 1) && TravelledThroughout(departed, place, turnedBack) ? SpeedEvidence.Bound : SpeedEvidence.None;
+        }
+
+        /// <summary>The end of a late watch: ArrivedLate → Exact (arrival − claim); GaveUp, Deleted, NotWithin6h → Bound
+        /// only under the SAME predicate as FailureEvidence (R10, u9-learning-check gap 1), else None; any other value →
+        /// None. The caller passes <paramref name="place"/> = PlaceOf at the late-end pass (fixer S1), not the claim's
+        /// Place kept from the expiry (up to LateWatchFrames older): a Deleted guest then reads Place.Deleted, and a
+        /// GaveUp guest is in a building by construction (CitizenBehaviorSystem removes or replaces Leisure only for a
+        /// citizen in a building with a Transform, CitizenBehaviorSystem.cs:651-659, 1.6.2 :675-684), so both give
+        /// None; only a NotWithin6h guest still on the road gives a bound.</summary>
+        public static SpeedEvidence LateEvidence(LateResult r, bool departed, Place place, bool turnedBack)
+        {
+            switch (r)
+            {
+                case LateResult.ArrivedLate:
+                    return SpeedEvidence.Exact;
+                case LateResult.GaveUp:
+                case LateResult.Deleted:
+                case LateResult.NotWithin6h:
+                    return TravelledThroughout(departed, place, turnedBack) ? SpeedEvidence.Bound : SpeedEvidence.None;
+                default:
+                    return SpeedEvidence.None;
+            }
+        }
+
+        // ── Round M2 R4 (b) (thaw-rules item 10, contract §5.9): the deadline pull ───────────────
+
+        /// <summary>No pull for less than one ski-day pass (jitter guard).</summary>
+        public const uint PullMinFrames = 64;
+
+        /// <summary>Why a deadline was pulled in (ResolveOut.PullReason). The literals equal SkiDayRules.ClosingEdgeOf's
+        /// edges 0 / 1 / 2.</summary>
+        public const byte PullNone = 0, PullNoRun = 1, PullNightClosed = 2;
+
+        /// <summary>Round M2 R4 (b): the new deadline of an on-site ski day whose ski area's hill closed early.
+        /// pulled = deadline, reason PullNone, false when the score is unknown or held. No counted run → close = now,
+        /// PullNoRun (every on-site claim, its own deadline included). Else the night-run close, only for a claim flagged
+        /// DeadlineIsClosing whose deadline is today's 21:00 frame (the flap guard: one snapshot with the night run at 0
+        /// cannot pull a 16:30 or own deadline), from ClaimStartHour: close = today's closing by the current night state,
+        /// or now when that has passed, PullNightClosed. target = max(close, now + OnSiteGraceFrames) (64-bit); false when
+        /// target + PullMinFrames &gt; deadline (lowered only); else pulled = target. TryClosingFrame is exact while the clock
+        /// offset is constant (normalizedTime = (ticks mod 262,144) / 262,144, TimeSystem.cs:109-112); a developer time
+        /// jump moves every closing frame, and a pull it fires is accepted (thaw-rules-check C11; the [closing] line says
+        /// so).</summary>
+        public static bool PullDeadline(bool scoreKnown, bool writeHeld, int runsCounted, bool nightRunOpen, bool deadlineIsClosing,
+                                        uint now, float timeOfDay, uint deadline, out uint pulled, out byte reason)
+        {
+            pulled = deadline;
+            reason = PullNone;
+            if (!scoreKnown || writeHeld)
+                return false;
+            uint close;
+            byte why;
+            if (runsCounted <= 0)
+            {
+                close = now;
+                why = PullNoRun;
+            }
+            else
+            {
+                if (!deadlineIsClosing || !SkiDayRules.TryClosingFrame(now, timeOfDay, true, out uint night21) || deadline != night21)
+                    return false;
+                if (!(SkiDayRules.HourOf(timeOfDay) >= SkiDayRules.ClaimStartHour))
+                    return false;
+                if (!SkiDayRules.TryClosingFrame(now, timeOfDay, nightRunOpen, out close))
+                    close = now;   // past today's closing
+                why = PullNightClosed;
+            }
+            ulong floor = (ulong)now + OnSiteGraceFrames;
+            ulong target = close > floor ? close : floor;
+            if (target + PullMinFrames > deadline)
+                return false;
+            pulled = (uint)target;
+            reason = why;
+            return true;
         }
 
         /// <summary>Did the guest counter's leisure scan see this visit (M7a timing model)?</summary>

@@ -46,6 +46,10 @@
 //     runs' RunPart.OpenFactor (the multiplier the score used, R3).
 //   * season hint and top temperature: HubRules.Season / TopTempC from SnowLineSystem's day mean, base
 //     height and lapse rate at the area's highest run top, the freezing point and GetSnowmakingMarginC.
+//     Round M2 (R5): the gun word reads the live gun gates — AreaWork.AnyGunOn = a bound snowmaking or night run
+//     with active texels in the injection's per-run map (TryGetRunActiveTexels, read for the run costs too) —
+//     once the injection has measured a mask this load and is active (gunsLive); before that the old mean test; an
+//     inactive injection (not armed, or disabled) reads "no gun running" (fixer F6).
 //   * served lift and runs served: LiftCensusSystem.CopyServeLifts + LiftServedRule.Assign over EVERY
 //     catalog row's NodeTopPos (ch2 §3.4-3.5). servedBy is Null when the run view says not served.
 //   * run costs per kind: TryGetRunActiveTexels × TexelAreaM2 / 10⁴ ha × SkiRunUpkeepSystem
@@ -56,7 +60,8 @@
 //     hub marks it "(partial)"; −1 only before the first month roll); ticket income per month = HubRules
 //     .TicketIncomeMonth (last month, or this month projected from at least a quarter); tickets off (price
 //     0) → 0, not estimated (H7); the ticket gate = SkiMoneyRules.TicketGateOf with the counted runs of
-//     the Result and the lift charge's Operating lifts (e1-spec R6) — the ticket system's two sources.
+//     the Result, known = a result present and not in the first-write hold (Round M2 T1, decisions.md R2: the
+//     lift charge's Operating lifts are no longer a gate input) — the ticket system's source and rule.
 //   * lift charges: SkiLiftChargeSystem.TryGetLift / TryGetResort (Not linked: Entity.Null).
 //   * buildings and wages: CityServiceBudgetSystem.cs:392-421 for the sign (its lodges merged by
 //     GetUpkeepWithUsageScale) split into the wage part and the rest, × the CURRENT service budget
@@ -116,12 +121,20 @@
 // (GetExistingSystemManaged: the creation order stays Mod.cs's; null-safe); the stats DUMP is the one caller of
 // their AppendDump (s1-spec N12).
 //
+// TRIP PLANNER (Round M2 R9, 2026-10-10, builder B3; docs/research/round-m2/build-contract.md §8.1): contract 5
+// appends two CityStats fields, TripPlanner (SkiDaySystem.TripPlannerLabel: "" when the game's own trip systems all
+// run, else the known replacement's name(s) or "?" = SkiTripSystems.UnknownLabel, bindings.ts TRIP_PLANNER_UNKNOWN)
+// and TripPlannerBlocksSkiDays (SkiDaySystem.TripPlannerBlocksSkiDays: LeisureSystem or CitizenBehaviorSystem off,
+// ski days NOT ARMED), read in ReadCity; the stats DUMP's city line names them. Labels only (DECISIONS 150).
+//
 // LOGS: `Stats [arm]` once per load (rules, constants, daysPerYear, providers); a WARN at arm if
 // HubRules.ChairSpeedMps drifted from ChairPinSystem's; `Stats [rebuild] (why): …` (Round F7, log-audit D10)
 // only when a count or a band problem changed, or on a request / the hub opening — through a LogWindow
 // (LogWindowS: a burst folds into one line, trailing line within the window) — and every other rebuild
-// counted into ONE `Stats [rebuild] n rebuild(s) in … s with no count or problem change` line per
-// QuietSummaryS (flushed when the hub closes, at a load and at quit: the final state is never silent);
+// counted into ONE `Stats [rebuild] n rebuild(s) in … s that changed no count and no problem row` line per
+// QuietSummaryS (flushed when the hub closes and at a load; at quit only when it holds a count or problem change
+// (Round M2, D9: the quit runs after Mod.OnDispose, GameManager.cs:792-793, 1.6.2 :802-803, so the quiet summary
+// is dropped there; a pending change fold is a real change and still written);
 // `Stats [problems]` once per load (the first problems build); `Stats [cost]` once per load; one-shot `!!!`
 // that disables the system until the next load (the hub keeps the last rows).
 
@@ -228,20 +241,26 @@ namespace SkiResortMod.Systems
         public int Count, Pct; public string Factor; public int More, Detail, IfFixed; public string BuildItem;
     }
 
-    /// <summary>bindings.ts CityStats (contract 3). The hub's CityStatsWriter / CityStatsComparer write and compare it.</summary>
+    /// <summary>bindings.ts CityStats (contract 3; contract 5 appends TripPlanner and TripPlannerBlocksSkiDays, Round M2
+    /// R9). The hub's CityStatsWriter / CityStatsComparer write and compare it.</summary>
     public struct CityStats : IEquatable<CityStats>
     {
         public bool Known; public int DaysPerYear;
         public int ScaleK, BackcountryPct, TicketPrice;
         public bool SnowGating; public float SnowmakingMarginC; public bool SnowVisualsOff;
         public bool TourismOverhaul, RealisticWorkplaces;
+        // Round M2 R9 (contract 5): "" = the game's own trip systems all run; else the known replacement(s), joined
+        // ", ", or "?" (SkiTripSystems.UnknownLabel = bindings.ts TRIP_PLANNER_UNKNOWN: a system off, no known mod).
+        public string TripPlanner;
+        public bool TripPlannerBlocksSkiDays;   // LeisureSystem or CitizenBehaviorSystem off: ski days not armed
 
         public bool Equals(CityStats o)
         {
             return Known == o.Known && DaysPerYear == o.DaysPerYear && ScaleK == o.ScaleK && BackcountryPct == o.BackcountryPct &&
                    TicketPrice == o.TicketPrice && SnowGating == o.SnowGating && SnowmakingMarginC.Equals(o.SnowmakingMarginC) &&
                    SnowVisualsOff == o.SnowVisualsOff && TourismOverhaul == o.TourismOverhaul &&
-                   RealisticWorkplaces == o.RealisticWorkplaces;
+                   RealisticWorkplaces == o.RealisticWorkplaces && TripPlanner == o.TripPlanner &&
+                   TripPlannerBlocksSkiDays == o.TripPlannerBlocksSkiDays;
         }
 
         public override bool Equals(object obj)
@@ -262,7 +281,9 @@ namespace SkiResortMod.Systems
                 h = h * 31 + SnowmakingMarginC.GetHashCode();
                 h = h * 31 + (SnowVisualsOff ? 1 : 0);
                 h = h * 31 + (TourismOverhaul ? 1 : 0);
-                return h * 31 + (RealisticWorkplaces ? 1 : 0);
+                h = h * 31 + (RealisticWorkplaces ? 1 : 0);
+                h = h * 31 + (TripPlanner ?? "").GetHashCode();
+                return h * 31 + (TripPlannerBlocksSkiDays ? 1 : 0);
             }
         }
     }
@@ -284,7 +305,8 @@ namespace SkiResortMod.Systems
             public const float LogWindowS = 5f;
 
             /// <summary>Round F7 (log-audit D10): rebuilds with no count or problem change are written as one
-            /// summary line per this many seconds of wall clock (flushed at hub close, load and quit).</summary>
+            /// summary line per this many seconds of wall clock (flushed at hub close and load; at quit only a pending
+            /// change fold, Round M2 D9).</summary>
             public const float QuietSummaryS = 60f;
 
             /// <summary>Local position of a station's HV stub tip (SkiTopStationBuilding.Prefab /
@@ -439,6 +461,7 @@ namespace SkiResortMod.Systems
             public double RunsValueFull;
             public float TopM;                 // −∞ = none
             public bool AnyGunRun;             // a bound snowmaking or night run
+            public bool AnyGunOn;              // Round M2 R5: a bound snowmaking or night run with gun-gated texels at the last mask pass
             public float CostGroomed, CostSnowmaking, CostNight;   // ¢/month, float sums (C11)
             public float HaNatural, HaGroomed, HaSnowmaking, HaNight;
             public float Capacity; public bool AnyCapacity;
@@ -610,12 +633,19 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Round F7: quit to desktop raises no onGamePreload; the rebuild log is written here (LogWindow.cs
-        /// header). Teardown never throws.</summary>
+        /// header). Round M2 (D9): at quit only when it holds a count or problem change — the quit disposes the mods
+        /// before the world (m_ModManager?.Dispose() then DestroyWorld(), GameManager.cs:792-793; 1.6.2 :802-803), so
+        /// after Mod.OnDispose the quiet summary of no-change rebuilds is dropped, while a pending change fold (a real
+        /// change) is still written. Teardown never throws.</summary>
         protected override void OnDestroy()
         {
             try
             {
-                FlushRebuildLog(UnityEngine.Time.realtimeSinceStartup);
+                float now = UnityEngine.Time.realtimeSinceStartup;
+                if (!Mod.Disposed)
+                    FlushRebuildLog(now);
+                else if (m_ChangeLog.Count > 0)
+                    WriteChangeSummary(now);
             }
             catch (Exception)
             {
@@ -703,7 +733,8 @@ namespace SkiResortMod.Systems
 
             m_Armed = true;
             int providers = m_ProviderQuery.CalculateEntityCount();
-            Mod.Log.Info("Stats [arm] — the Ski Resort hub's rows (contract 4; econ-round spec ch5, ski-days spec ch4): ski areas = live Welcome " +
+            // Round M2: contract 5 (R9 appends CityStats.tripPlanner / tripPlannerBlocksSkiDays).
+            Mod.Log.Info("Stats [arm] — the Ski Resort hub's rows (contract 5; econ-round spec ch5, ski-days spec ch4): ski areas = live Welcome " +
                          "Signs in (Index, Version) order + a Not linked row; runs by their bound sign (catalog Gate), lodges " +
                          "by their sign's InstalledUpgrade buffer (else free-standing → Not linked), lifts and stations by the " +
                          $"nearest live sign within TetherMeters={SkiRunOwnershipSystem.TetherMeters:F0} m of the base station " +
@@ -1043,7 +1074,7 @@ namespace SkiResortMod.Systems
             var sb = new StringBuilder(256);
             sb.Append("Stats [rebuild] ").Append(m_QuietRebuilds).Append(" rebuild(s) in ")
               .Append(Math.Max(0f, now - m_QuietStart).ToString("F0", CultureInfo.InvariantCulture))
-              .Append(" s with no count or problem change (");
+              .Append(" s that changed no count and no problem row (");   // Round M2 (D9): wording
             bool any = false;
             for (int i = 0; i < m_QuietWhy.Length; i++)
             {
@@ -1307,6 +1338,12 @@ namespace SkiResortMod.Systems
                         // capped at the run's plan area — the same number SkiRunUpkeepSystem charges.
                         ha = SkiRunUpkeepSystem.BilledHa(texels, texelHa, row.AreaM2);
                         cost = ha * SkiRunUpkeepSystem.CostPerHaMonth((RunKind)row.Kind);
+                        // Round M2 R5 (thaw-rules.md item 15): > 0 active texels on a gun run = its guns are gated on
+                        // now (the injection's per-run map, refilled every mask pass). Corrected claim C14
+                        // (thaw-rules-check): attribution is first-claim in chunk order, so a gun run fully under an
+                        // earlier-scheduled run, or narrower than the texel grid, can read 0 while making snow.
+                        if (row.Kind == (int)RunKind.Snowmaking || row.Kind == (int)RunKind.Night)
+                            work.AnyGunOn = true;
                         switch (row.Kind)
                         {
                             case (int)RunKind.Snowmaking:
@@ -1706,6 +1743,13 @@ namespace SkiResortMod.Systems
             float dayMean = m_SnowLine.GetDayMeanTemperature();
             float baseHeight = m_SnowLine.GetBaseHeight();
             float lapse = m_SnowLine.GetLapsePerM();
+            // Round M2 R5: the live gun gates are known once the injection has measured a mask this load and is active
+            // (HasMaskMeasurement is false from the load to the first mask pass); in that window Season falls back to
+            // the mean. Fixer (review-ui-hub-money F6): an injection that is not active (not armed, or disabled for the
+            // rest of the load after a "!!!") injects nothing, so it is known too and reads "no gun running" instead of
+            // the mean's guess.
+            bool injectionOn = m_Injection.GetSnowSummary().InjectionActive;
+            bool gunsLive = !injectionOn || m_Injection.HasMaskMeasurement;
 
             // Guests (ch4 §10) and the counted month fraction (ch5 §5.5).
             SkiResortLedger ledger = m_GuestCounter.Ledger;
@@ -1832,7 +1876,7 @@ namespace SkiResortMod.Systems
                 live.TopTempKnown = !float.IsNaN(topTemp);
                 live.TopTempC = live.TopTempKnown ? topTemp : 0f;
                 live.SeasonHint = (int)HubRules.Season(gating, row.Runs, live.RunsOpen + live.RunsPartly, work.AnyGunRun,
-                    live.TopTempKnown, topTemp, freezing, margin);
+                    gunsLive, injectionOn && work.AnyGunOn, live.TopTempKnown, topTemp, freezing, margin);   // Round M2 R5, fixer F6
 
                 // Share, estimate, jobs (as contract 2: the provider walk, the sign's workplace).
                 double sRes = 0.0;
@@ -1943,19 +1987,20 @@ namespace SkiResortMod.Systems
                     hasResult && r.Efficiency > 0.0, hasResult ? r.RunsCounted : 0, has ? d.TargetLodges : 0, has && d.ClaimHours,
                     live.SkiDaysNow, live.SkiDaysCap);
 
-                // Lift charge and the ticket gate (e1-spec R6: the ticket system's two sources).
+                // Lift charge (Reduced counts NoOpenRun too since Round M2 T2) and the ticket gate (Round M2 T1, R2: the
+                // ticket system's source and rule — known = a result present and not in the first-write hold; the
+                // lift charge's Operating count is no longer an input, so its local is gone).
                 float liftRate = 0f;
-                int operating = 0;
                 if (m_LiftCharge.TryGetResort(sign, out SkiLiftChargeSystem.ResortLiftCharge charge))
                 {
                     liftRate = Finite0(charge.RatePerMonth);
-                    operating = charge.Operating;
                     live.LiftCostMonth = RoundToInt(liftRate);
                     live.LiftsBilled = charge.Lifts;
                     live.LiftsBilledReduced = charge.Reduced;
                 }
-                live.TicketGate = (int)SkiMoneyRules.TicketGateOf(price, hasResult ? (float)r.Efficiency : 1f, hasResult,
-                    hasResult ? r.RunsCounted : 0, operating);   // C9
+                bool gateKnown = hasResult && !v.WriteHeld;
+                live.TicketGate = (int)SkiMoneyRules.TicketGateOf(price, hasResult ? (float)r.Efficiency : 1f, gateKnown,
+                    gateKnown ? r.RunsCounted : 0);   // C9
 
                 // Run costs and hectares (C11: float sums, rounded once).
                 live.CostGroomedMonth = RoundToInt(work.CostGroomed);
@@ -2137,7 +2182,9 @@ namespace SkiResortMod.Systems
             return budget;
         }
 
-        /// <summary>ch5 §5.2 CityStats: the settings (one read each), the snow flags and the other-mod labels.</summary>
+        /// <summary>ch5 §5.2 CityStats: the settings (one read each), the snow flags and the other-mod labels; Round M2
+        /// R9 (contract 5) the trip planner label and whether it blocks ski days (SkiDaySystem's accessors, set at each
+        /// Game load and on a change during play, each followed by its Revision++).</summary>
         private CityStats ReadCity()
         {
             SkiResortSettings settings = Mod.Settings;
@@ -2156,6 +2203,8 @@ namespace SkiResortMod.Systems
                 SnowVisualsOff = m_Injection.GetSnowSummary().SnowVisualsOff,
                 TourismOverhaul = Mod.TourismOverhaulDetected,
                 RealisticWorkplaces = SkiOtherMods.RealisticWorkplacesDetected,
+                TripPlanner = m_SkiDays != null ? m_SkiDays.TripPlannerLabel ?? "" : "",
+                TripPlannerBlocksSkiDays = m_SkiDays != null && m_SkiDays.TripPlannerBlocksSkiDays,
             };
         }
 
@@ -2666,7 +2715,10 @@ namespace SkiResortMod.Systems
                   .Append(", backcountry ").Append(c.BackcountryPct).Append(" %, ticket ").Append(c.TicketPrice)
                   .Append(", gating ").Append(c.SnowGating ? "on" : "off").Append(", margin ").Append(F(c.SnowmakingMarginC, "F0"))
                   .Append(" C, snow visuals ").Append(c.SnowVisualsOff ? "off" : "on").Append(", Tourism Overhaul ").Append(c.TourismOverhaul)
-                  .Append(", Realistic Workplaces ").Append(c.RealisticWorkplaces).Append('\n');
+                  .Append(", Realistic Workplaces ").Append(c.RealisticWorkplaces)
+                  // Round M2 R9 (build-contract.md §6.11): the trip planner label and whether it blocks ski days.
+                  .Append(", trip planner ").Append(string.IsNullOrEmpty(c.TripPlanner) ? "game's own" : c.TripPlanner)
+                  .Append(c.TripPlannerBlocksSkiDays ? " (ski days off)" : "").Append('\n');
                 for (int i = 0; i < m_Resorts.Count; i++)
                 {
                     ResortStats r = m_Resorts[i];

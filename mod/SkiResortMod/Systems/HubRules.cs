@@ -13,6 +13,9 @@
 // HubProblemInput fields; F1 (the Efficiency row's hysteresis, EfficiencyClearPct) and F1b (a Factor row only from
 // FactorRowMinLossPct points, orchestrator ruling R-Q2). Round M1 "measure first" (2026-10-05, Builder B;
 // docs/research/ski-days/measure/m1-spec.md M10 D9): LodgeNotSlopeside is not built for an area with no runs.
+// Round M2 (2026-10-10, builder B3; docs/research/round-m2/decisions.md R5, understand/thaw-rules.md item 14):
+// Season takes its gun word from the live gun gates (gunsLiveKnown, anyGunOn); the 24-hour mean still decides
+// natural snow. Enum values unchanged (no contract bump).
 //
 // CALLERS: SkiResortStatsSystem (every rule of a rebuild; HubProblems.Build per area) and
 // SkiResortHubUISystem (LiftNoPair for build[lift].hint, FollowCheck for rule 7, LiftLinePerKm for the
@@ -24,10 +27,12 @@
 //   Status            runs <= 0 NoRuns; runsOpen >= runs Open; open + partly <= 0 Closed; else Partly
 //                     (the status line prints runsOpen of runs: word and count use the same sets)
 //   OpenStateOf       not a member None; !(f > 0) Closed (NaN too); f >= 1 Open; else Partly
-//   Season            gating off GatingOff; no run / unknown top temperature None; natural = T <= freezing,
-//                     gun = a gun run && T <= freezing + margin (both inclusive); with an open run: natural
-//                     SnowSeason, else gun SnowGunsOnly, else Thawing; none open: natural or gun
-//                     WaitingForSnow, else TooWarm
+//   Season            gating off GatingOff; no run / unknown top temperature None; natural = T <= freezing
+//                     (T = the 24-hour day mean at the top); gun = a gun run && (Round M2 R5) the live gun
+//                     gates when known (anyGunOn: a bound snowmaking or night run with gun-gated texels at the
+//                     last mask pass), else (before the first mask pass, or the injection off) T <= freezing +
+//                     margin (both inclusive); with an open run: natural SnowSeason, else gun SnowGunsOnly, else
+//                     Thawing; none open: natural or gun WaitingForSnow, else TooWarm
 //   NextStep          lodge, then a complete lift, then a run, else Done
 //   LiftStatusOf      stats state 0 powered Running / NoPower; 1 powered ChairsStopped / NoPower;
 //                     2 SectionMissing; anything else Unfinished
@@ -231,15 +236,21 @@ namespace SkiResortMod.Systems
             return openFactor >= 1.0 ? RunOpenState.Open : RunOpenState.Partly;
         }
 
-        public static SeasonHint Season(bool gating, int runs, int runsOpenAny, bool anyGunRun,
-                                        bool topTempKnown, float topTempC, float freezingC, float marginC)
+        /// <summary>Round M2 R5: the gun word reads the live gun gates (gunsLiveKnown = the injection has measured a
+        /// mask this load and is active, or it is not active at all and injects nothing (fixer F6; the caller passes
+        /// anyGunOn false then); anyGunOn = a bound snowmaking or night run had gun-gated texels at the last mask pass);
+        /// without them (the load to the first mask pass) it falls back to the old mean-based test. The 24-hour mean
+        /// decides natural snow.</summary>
+        public static SeasonHint Season(bool gating, int runs, int runsOpenAny, bool anyGunRun, bool gunsLiveKnown,
+                                        bool anyGunOn, bool topTempKnown, float topTempC, float freezingC, float marginC)
         {
             if (!gating)
                 return SeasonHint.GatingOff;
             if (runs <= 0 || !topTempKnown || float.IsNaN(topTempC))
                 return SeasonHint.None;
-            bool natural = topTempC <= freezingC;
-            bool gun = anyGunRun && topTempC <= freezingC + marginC;
+            bool natural = topTempC <= freezingC;                                   // the 24-hour mean at the top (unchanged)
+            bool gun = anyGunRun && (gunsLiveKnown ? anyGunOn                       // R5: the live gun gates
+                                                   : topTempC <= freezingC + marginC);   // before the first mask pass
             if (runsOpenAny > 0)
                 return natural ? SeasonHint.SnowSeason : gun ? SeasonHint.SnowGunsOnly : SeasonHint.Thawing;
             return natural || gun ? SeasonHint.WaitingForSnow : SeasonHint.TooWarm;

@@ -23,6 +23,15 @@
 // helpers at the end of the class (distance bands, the mode seen, why a decision did not fit, the hour date and
 // month of the powder year table) and Advance's closedShort overload (D5: a jump that lands a month later closes a
 // partial month); SkiDayTests section T.
+// Round M2 (docs/research/round-m2/build-contract.md §5.2, §5.8, §5.10, §5.11; builder B2, 2026-10-10):
+// R9 trip-system bits (TripLeisure … TripNeededToArm), ArmVerdict.SystemOff and the 5-argument ArmCheck; R10
+// structural learning, shadow-only — TripKnobs (stay reserve and speed floors as code constants), a second,
+// all-outcomes speed (ClassTrack.SpeedAllKmPerHour, LearnSpeedAll, SpeedBound, LearnSpeedBound with its tri-state
+// BoundLearn) beside the arrival-only one, FitSpeed (which one the fit check reads; arrivals only while
+// FitUsesAllOutcomes is false, so every send is bit-identical), the stay overloads of ClaimFits / FitVerdict, and
+// LearnSpeed returning whether it applied; measure-core helpers (the [area] log keys, HillClosedForCount,
+// ClosingEdgeOf, MiddayRearmDue, DoneDayOf, CostDayEnded). Measure and text only except SystemOff (R9).
+// SkiDayTests sections U-X and the A / M rows.
 
 using System;
 using Unity.Mathematics;
@@ -99,7 +108,9 @@ namespace SkiResortMod.Systems
             OutOfHours = 6, Full = 7,
         }
         public enum MonthStep : byte { None = 0, Started = 1, Rolled = 2, Jumped = 3 }   // = SkiResortLedger.AdvanceResult values
-        public enum ArmVerdict : byte { Ok = 0, BadInterval = 1, BadOffset = 2, LeisureTooFast = 3, BehaviorTooFast = 4 }
+        /// <summary>SystemOff (Round M2, R9): the game's own LeisureSystem or CitizenBehaviorSystem is switched off
+        /// (ArmCheck's 5-argument overload; a vanilla fact, never a mod detection).</summary>
+        public enum ArmVerdict : byte { Ok = 0, BadInterval = 1, BadOffset = 2, LeisureTooFast = 3, BehaviorTooFast = 4, SystemOff = 5 }
 
         // ── value structs (ch1 §2.4) ────────────────────────────────────────────────────────
         public struct Knobs { public int LocalsPct, TouristsPct, ReachKm, PowderPct; }
@@ -131,7 +142,20 @@ namespace SkiResortMod.Systems
         {
             public double Arrived, Failed; public int Resolved; public double SpeedKmPerHour;
             public bool CannotReachShown;
+            /// <summary>Round M2 R10: the all-outcomes speed (arrivals, late arrivals, upper bounds from failures and
+            /// expired claims); the fit check reads it only when TripKnobs.FitUsesAllOutcomes (FitSpeed).</summary>
+            public double SpeedAllKmPerHour;
         }
+
+        /// <summary>Round M2 R10: the trip-model numbers that were constants, one struct for both jobs. Defaults =
+        /// today's constants (DefaultTripKnobs): stay 2 h, floors walk 0.1 / car 0.5 / no car 0.2 km per game hour.
+        /// FitUsesAllOutcomes picks the speed the fit check reads (FitSpeed); false this round (shadow-only).</summary>
+        public struct TripKnobs { public double StayHours, FloorWalk, FloorCar, FloorNoCar; public bool FitUsesAllOutcomes; }
+
+        /// <summary>Round M2 R10: LearnSpeedBound's result. NoInformation: the bound is +∞ (SpeedBound's guards);
+        /// Lowered: the all-outcomes speed moved a quarter of the way down to it; AlreadyMet: the speed was at or below
+        /// the clamped bound (unchanged).</summary>
+        public enum BoundLearn : byte { NoInformation = 0, Lowered = 1, AlreadyMet = 2 }
 
         public struct MonthFlags { public int Key; public bool ThisSinceLoad, LastKnown, LastSinceLoad; }
 
@@ -249,6 +273,58 @@ namespace SkiResortMod.Systems
             return HasRoom(claimedActive, capacityPeople) ? AreaState.Open : AreaState.Full;
         }
 
+        // ── Round M2 measure-core: the [area] line key and the closed-hill count (measure and text only) ──────────
+
+        /// <summary>Round M2 (D10): keys of the SkiDays `[area]` line (AreaMemory.StateKey); None = nothing written
+        /// yet this load (AreaLogKey never returns it, so the first pass always writes).</summary>
+        public const byte LogKeyNone = 0, LogKeyWaiting = 1, LogKeyNoEfficiency = 2, LogKeyNoOpenRun = 3, LogKeyNoLodge = 4,
+                          LogKeyOpen = 5, LogKeyFull = 6;
+
+        /// <summary>Round M2 (D10): the `[area]` line's key of an area state. NoScore and Held read Waiting; Full has its
+        /// own key (its own line); OutOfHours keeps Full when the area was Full (the claim window closing is not "room
+        /// again"), else reads Open, as before; any other value reads Open.</summary>
+        public static byte AreaLogKey(AreaState state, byte previousKey)
+        {
+            switch (state)
+            {
+                case AreaState.NoScore:
+                case AreaState.Held:
+                    return LogKeyWaiting;
+                case AreaState.NoEfficiency:
+                    return LogKeyNoEfficiency;
+                case AreaState.NoOpenRun:
+                    return LogKeyNoOpenRun;
+                case AreaState.NoLodge:
+                    return LogKeyNoLodge;
+                case AreaState.Full:
+                    return LogKeyFull;
+                case AreaState.OutOfHours:
+                    return previousKey == LogKeyFull ? LogKeyFull : LogKeyOpen;
+                default:
+                    return LogKeyOpen;
+            }
+        }
+
+        /// <summary>Round M2 (D12a, ruling R4 a): the hill counts as closed for "arrived after the hill closed" when the
+        /// score is known, not in the first-write hold, and no run is counted — AreaStateOf's NoOpenRun test with its
+        /// earlier gates, no time-of-day test (closing hours are the deadline's business). An unknown score never counts
+        /// as closed (its RunsCounted is 0 until the first score, SkiDaySystem.RebuildSnapshot).</summary>
+        public static bool HillClosedForCount(bool scoreKnown, bool held, int runsCounted) => scoreKnown && !held && runsCounted <= 0;
+
+        /// <summary>Round M2 (D12, Decided here 1-2): a closure edge of a ski area this pass. Unknown or held score → 0
+        /// (never an edge: a load hold with 0 runs is not a closing); no counted run → 1 when the hill was seen open
+        /// (counted runs) since the load, else 0; the night run closed (it was seen open and now is not, runs still
+        /// counted) → 2; else 0. The literals equal SkiDayTiming.PullNone / PullNoRun / PullNightClosed (this file does
+        /// not name SkiDayTiming).</summary>
+        public static byte ClosingEdgeOf(bool hillOpenSeen, bool nightOpenSeen, bool scoreKnown, bool held, int runsCounted, bool nightRunOpen)
+        {
+            if (!scoreKnown || held)
+                return 0;
+            if (runsCounted <= 0)
+                return (byte)(hillOpenSeen ? 1 : 0);
+            return (byte)(!nightRunOpen && nightOpenSeen ? 2 : 0);
+        }
+
         // ── travel class, reach, travel time (ch1 §3.4) ─────────────────────────────────────
 
         /// <summary>D11-D13: no valid distance → None; ≤ 900 m → Walk (anyone, children too); a child beyond →
@@ -360,14 +436,21 @@ namespace SkiResortMod.Systems
 
         /// <summary>D14, D20: a finite, non-negative travel time plus MinStayHours fits before both vanilla's
         /// deadline and closing; false when either is ≤ now. Frames as vanilla compares them (LeisureSystem.cs:314,
-        /// 1.6.2 :308: frame ≥ m_LastPossibleFrame ends the visit; CitizenBehaviorSystem.cs:491-495, 1.6.2 :493).</summary>
+        /// 1.6.2 :308: frame ≥ m_LastPossibleFrame ends the visit; CitizenBehaviorSystem.cs:491-495, 1.6.2 :493).
+        /// = ClaimFits(…, MinStayHours): the same expression, so every double is identical (SkiDayTests W3).</summary>
         public static bool ClaimFits(uint now, uint vanillaDeadline, uint closingFrame, double travelHours)
+            => ClaimFits(now, vanillaDeadline, closingFrame, travelHours, MinStayHours);
+
+        /// <summary>Round M2 R10: ClaimFits with the stay reserve as an input (TripKnobs.StayHours); a stay that is not
+        /// finite or below 0 reads MinStayHours.</summary>
+        public static bool ClaimFits(uint now, uint vanillaDeadline, uint closingFrame, double travelHours, double stayHours)
         {
             if (!(travelHours >= 0.0) || !math.isfinite(travelHours))
                 return false;
             if (vanillaDeadline <= now || closingFrame <= now)
                 return false;
-            double need = (travelHours + MinStayHours) * FramesPerHour;
+            double stay = math.isfinite(stayHours) && stayHours >= 0.0 ? stayHours : MinStayHours;
+            double need = (travelHours + stay) * FramesPerHour;
             return need <= vanillaDeadline - now && need <= closingFrame - now;
         }
 
@@ -384,6 +467,32 @@ namespace SkiResortMod.Systems
                 LocalsPct = LocalsPctDefault, TouristsPct = TouristsPctDefault,
                 ReachKm = ReachKmDefault, PowderPct = PowderPctDefault,
             };
+        }
+
+        /// <summary>Round M2 R10: the trip knobs at today's constants (stay MinStayHours, floors MinSpeedWalk /
+        /// MinSpeedCar / MinSpeedNoCar), the fit check on arrivals only. Code constants, printed in the ARMED line; no
+        /// Options exposure this round.</summary>
+        public static TripKnobs DefaultTripKnobs()
+        {
+            return new TripKnobs
+            {
+                StayHours = MinStayHours, FloorWalk = MinSpeedWalk, FloorCar = MinSpeedCar, FloorNoCar = MinSpeedNoCar,
+                FitUsesAllOutcomes = false,
+            };
+        }
+
+        /// <summary>Round M2 R10: the class's learning floor from the knobs (None reads Walk's); a floor that is NaN,
+        /// infinite or not &gt; 0 reads MinSpeedOf(c). At the defaults FloorOf(c, k) == MinSpeedOf(c) exactly.</summary>
+        public static double FloorOf(TravelClass c, in TripKnobs k)
+        {
+            double f;
+            switch (c)
+            {
+                case TravelClass.Car: f = k.FloorCar; break;
+                case TravelClass.NoCarFar: f = k.FloorNoCar; break;
+                default: f = k.FloorWalk; break;
+            }
+            return f > 0.0 && math.isfinite(f) ? f : MinSpeedOf(c);
         }
 
         /// <summary>Each knob to its Min..Max. Defensive only: the settings readers already clamp with the same
@@ -501,8 +610,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A fresh track (load, new area): no outcome yet, the class's start speed.</summary>
-        public static ClassTrack NewTrack(TravelClass c) => new ClassTrack { SpeedKmPerHour = StartSpeedOf(c) };
+        /// <summary>A fresh track (load, new area): no outcome yet, the class's start speed (both speeds, Round M2 R10).</summary>
+        public static ClassTrack NewTrack(TravelClass c) => new ClassTrack { SpeedKmPerHour = StartSpeedOf(c), SpeedAllKmPerHour = StartSpeedOf(c) };
 
         /// <summary>D15: clamp((A + 4 × prior) / (A + F + 4), 0.1, 1), A and F floored at 0 (NaN → 0); a NaN ratio
         /// reads the floor. Start: Walk / Car 1, NoCarFar 0.1.</summary>
@@ -527,18 +636,85 @@ namespace SkiResortMod.Systems
 
         /// <summary>D14 speed learning from claim → arrival: skipped for arrival ≤ claim, under 300 m (or NaN) or
         /// under 0.05 game hours; sample = clamp(km × 1.3 / hours, Min, Max); Speed moves a quarter of the way to
-        /// it (an unset speed starts from the class's start speed).</summary>
-        public static void LearnSpeed(ref ClassTrack t, TravelClass c, double distanceM, uint claimFrame, uint arrivalFrame)
+        /// it (an unset speed starts from the class's start speed). Round M2 R10: returns whether it applied; =
+        /// LearnSpeed(…, DefaultTripKnobs()), whose floors are MinSpeedOf(c) exactly (bit-identical, SkiDayTests W9).</summary>
+        public static bool LearnSpeed(ref ClassTrack t, TravelClass c, double distanceM, uint claimFrame, uint arrivalFrame)
+            => LearnSpeed(ref t, c, distanceM, claimFrame, arrivalFrame, DefaultTripKnobs());
+
+        /// <summary>Round M2 R10: LearnSpeed with the floor from the knobs (FloorOf). Touches SpeedKmPerHour only (the
+        /// arrival-only speed); returns whether it applied.</summary>
+        public static bool LearnSpeed(ref ClassTrack t, TravelClass c, double distanceM, uint claimFrame, uint arrivalFrame, in TripKnobs k)
         {
-            if (arrivalFrame <= claimFrame || !(distanceM >= MinLearnDistanceM))
-                return;
-            double hours = (arrivalFrame - claimFrame) / FramesPerHour;
-            if (hours < MinLearnHours)
-                return;
-            double sample = math.clamp(distanceM / 1000.0 * DetourFactor / hours, MinSpeedOf(c), MaxSpeedOf(c));
+            if (!TrySpeedSample(c, distanceM, claimFrame, arrivalFrame, k, out double sample))
+                return false;
             double v = t.SpeedKmPerHour > 0.0 ? t.SpeedKmPerHour : StartSpeedOf(c);
             t.SpeedKmPerHour = v + SpeedLearnRate * (sample - v);
+            return true;
         }
+
+        /// <summary>Round M2 R10: the same rule and guards on the all-outcomes speed (SpeedAllKmPerHour; 0 reads the
+        /// start speed) for an exact sample: an arrival, or a late arrival after expiry (claim → arrival).</summary>
+        public static bool LearnSpeedAll(ref ClassTrack t, TravelClass c, double distanceM, uint claimFrame, uint arrivalFrame, in TripKnobs k)
+        {
+            if (!TrySpeedSample(c, distanceM, claimFrame, arrivalFrame, k, out double sample))
+                return false;
+            double v = t.SpeedAllKmPerHour > 0.0 ? t.SpeedAllKmPerHour : StartSpeedOf(c);
+            t.SpeedAllKmPerHour = v + SpeedLearnRate * (sample - v);
+            return true;
+        }
+
+        /// <summary>LearnSpeed's guards and sample, shared so the two speeds read the same expression: false for
+        /// arrival ≤ claim (frames compared as uint, as before), a distance under 300 m or NaN, under 0.05 game hours;
+        /// sample = clamp(km × 1.3 / hours, FloorOf(c, k), MaxSpeedOf(c)).</summary>
+        private static bool TrySpeedSample(TravelClass c, double distanceM, uint claimFrame, uint arrivalFrame, in TripKnobs k, out double sample)
+        {
+            sample = 0.0;
+            if (arrivalFrame <= claimFrame || !(distanceM >= MinLearnDistanceM))
+                return false;
+            double hours = (arrivalFrame - claimFrame) / FramesPerHour;
+            if (hours < MinLearnHours)
+                return false;
+            sample = math.clamp(distanceM / 1000.0 * DetourFactor / hours, FloorOf(c, k), MaxSpeedOf(c));
+            return true;
+        }
+
+        /// <summary>Round M2 R10: an upper bound on the speed from a claim that did not arrive — km × 1.3 / hours from
+        /// the claim to the last pass the guest was not there; +∞ (no information) under LearnSpeed's guards: last ≤
+        /// claim, a distance under 300 m or NaN, under 0.05 game hours. The true speed is at or below it.</summary>
+        public static double SpeedBound(double distanceM, uint claimFrame, uint lastNotThereFrame)
+        {
+            if (lastNotThereFrame <= claimFrame || !(distanceM >= MinLearnDistanceM))
+                return double.PositiveInfinity;
+            double hours = (lastNotThereFrame - claimFrame) / FramesPerHour;
+            if (hours < MinLearnHours)
+                return double.PositiveInfinity;
+            return distanceM / 1000.0 * DetourFactor / hours;
+        }
+
+        /// <summary>Round M2 R10: the all-outcomes speed learns from an upper bound only when it is above it: b =
+        /// SpeedBound (not finite → NoInformation); sample = clamp(b, FloorOf(c, k), MaxSpeedOf(c)); v = SpeedAll (0
+        /// reads the start speed); v &gt; sample → v + 0.25 × (sample − v), Lowered; else AlreadyMet, unchanged. Never
+        /// raises the speed and never moves past the sample; the same rate SpeedLearnRate (the true speed is at or below
+        /// the bound, so a quarter step toward it can only under-correct). Confidence is not touched.</summary>
+        public static BoundLearn LearnSpeedBound(ref ClassTrack t, TravelClass c, double distanceM, uint claimFrame, uint lastNotThereFrame,
+                                                 in TripKnobs k)
+        {
+            double b = SpeedBound(distanceM, claimFrame, lastNotThereFrame);
+            if (!math.isfinite(b))
+                return BoundLearn.NoInformation;
+            double sample = math.clamp(b, FloorOf(c, k), MaxSpeedOf(c));
+            double v = t.SpeedAllKmPerHour > 0.0 ? t.SpeedAllKmPerHour : StartSpeedOf(c);
+            if (!(v > sample))
+                return BoundLearn.AlreadyMet;
+            t.SpeedAllKmPerHour = v + SpeedLearnRate * (sample - v);
+            return BoundLearn.Lowered;
+        }
+
+        /// <summary>Round M2 R10: the speed the fit check reads (ClaimJob's TravelHours): the all-outcomes speed when
+        /// FitUsesAllOutcomes and it is set (&gt; 0), else the arrival-only speed. With the defaults always the
+        /// arrival-only speed, so sends are bit-identical to Round M1 (SkiDayTests W9).</summary>
+        public static double FitSpeed(in ClassTrack t, in TripKnobs k)
+            => k.FitUsesAllOutcomes && t.SpeedAllKmPerHour > 0.0 ? t.SpeedAllKmPerHour : t.SpeedKmPerHour;
 
         /// <summary>Hub row 20 (D15, ch1 §11 N-4): fewer than 20 resolved car claims → off; else on under 0.5
         /// confidence, off from 0.6, unchanged between (F1's lesson: no threshold without hysteresis). Stores and
@@ -658,6 +834,26 @@ namespace SkiResortMod.Systems
             return ArmVerdict.Ok;
         }
 
+        /// <summary>Round M2 (R9): bits of the six game trip systems whose ComponentSystemBase.Enabled SkiDaySystem reads
+        /// at each Game load and every armed pass (SkiTripSystems names them; a found system that is switched off reads
+        /// "OFF", a missing one "missing"). TripNeededToArm = LeisureSystem + CitizenBehaviorSystem: the claim piggybacks
+        /// on LeisureSystem's decision and slice, and the car-reserve queue is drained only by
+        /// CitizenBehaviorSystem.OnUpdate (CitizenBehaviorSystem.cs:1196-1210, drain :65; 1.6.2 :1235-1249, :66).</summary>
+        public const int TripLeisure = 1, TripBehavior = 2, TripNeeded = 4, TripResidentAI = 8, TripResidentActions = 16,
+                         TripResourceBuyer = 32, TripAll = 63, TripNeededToArm = 3;
+
+        /// <summary>Round M2 (R9): the game's own LeisureSystem and CitizenBehaviorSystem must be switched on (the claim
+        /// piggybacks on LeisureSystem's decision and slice; the car-reserve queue is drained only by
+        /// CitizenBehaviorSystem.OnUpdate, CitizenBehaviorSystem.cs:1196-1210, 1.6.2 :1235-1249): SystemOff when
+        /// <paramref name="tripSystemsOn"/> lacks either bit, tested first (an off system's interval says nothing about
+        /// what runs); otherwise the 4-argument rule, unchanged. Bits beyond TripAll are ignored.</summary>
+        public static ArmVerdict ArmCheck(int leisureInterval, int tripInterval, int behaviorInterval, int behaviorOffset, int tripSystemsOn)
+        {
+            if ((tripSystemsOn & TripNeededToArm) != TripNeededToArm)
+                return ArmVerdict.SystemOff;
+            return ArmCheck(leisureInterval, tripInterval, behaviorInterval, behaviorOffset);
+        }
+
         // ── day key and month step (ch1 §3.12) ──────────────────────────────────────────────
 
         /// <summary>year × days + clamp(floor(date × days), 0, days − 1), days = max(1, daysPerYear); a non-finite
@@ -669,6 +865,19 @@ namespace SkiResortMod.Systems
             int d = math.isfinite(normalizedDate) ? (int)math.floor(normalizedDate * days) : 0;
             return year * days + math.clamp(d, 0, days - 1);
         }
+
+        /// <summary>Round M2 (D8, D10): a once-a-day measurement or WARN re-arms at the first tick at or after 12:00 of a
+        /// day other than the one it was done on (the M1 [cost] rule, SkiDaySystem.MaybeRearmCost); NaN time → false.
+        /// Also used by SkiResortAttractivenessSystem and SkiLiftTicketSystem.</summary>
+        public static bool MiddayRearmDue(bool done, float timeOfDay, int day, int doneDay) => done && timeOfDay >= 0.5f && day != doneDay;
+
+        /// <summary>Round M2 (D8): the day a done measurement counts for — today when done at or after 12:00, else
+        /// int.MinValue (none: it re-arms today at midday); NaN → int.MinValue.</summary>
+        public static int DoneDayOf(float timeOfDay, int day) => timeOfDay >= 0.5f ? day : int.MinValue;
+
+        /// <summary>Round M2 (D10): a midday-re-armed measurement that has not written its line when the game day changes
+        /// is written partial: not logged, armed at a midday (not the load's measurement), and the day moved on.</summary>
+        public static bool CostDayEnded(bool logged, bool armedAtMidday, int armDay, int dayNow) => !logged && armedAtMidday && dayNow != armDay;
 
         /// <summary>Before the first month: Key = NoMonth, every flag false.</summary>
         public static MonthFlags NewMonthFlags() => new MonthFlags { Key = NoMonth };
@@ -789,10 +998,15 @@ namespace SkiResortMod.Systems
         /// deadlines is named: vanilla's strictly earlier → NoTimeBeforeOwnDeadline, else NoTimeBeforeClosing (frames
         /// compared as ClaimDeadline compares them). FitVerdict == Fits ⇔ ClaimFits (SkiDayTests T).</summary>
         public static Fit FitVerdict(uint now, uint vanillaDeadline, uint closingFrame, double travelHours)
+            => FitVerdict(now, vanillaDeadline, closingFrame, travelHours, MinStayHours);
+
+        /// <summary>Round M2 R10: FitVerdict with the stay reserve as an input (TripKnobs.StayHours; not finite or
+        /// below 0 reads MinStayHours, as ClaimFits). FitVerdict(…, s) == Fits ⇔ ClaimFits(…, s).</summary>
+        public static Fit FitVerdict(uint now, uint vanillaDeadline, uint closingFrame, double travelHours, double stayHours)
         {
             if (!(travelHours >= 0.0) || !math.isfinite(travelHours))
                 return Fit.Invalid;
-            if (ClaimFits(now, vanillaDeadline, closingFrame, travelHours))
+            if (ClaimFits(now, vanillaDeadline, closingFrame, travelHours, stayHours))
                 return Fit.Fits;
             return vanillaDeadline < closingFrame ? Fit.NoTimeBeforeOwnDeadline : Fit.NoTimeBeforeClosing;
         }

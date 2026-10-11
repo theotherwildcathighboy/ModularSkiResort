@@ -23,7 +23,7 @@
 // POWER (R1). PowerOf maps ElectricityConsumer.m_Flags (Game.Buildings/ElectricityConsumerFlags.cs:5-12)
 // to NoPower exactly when the game draws its electricity icon (NoElectricityWarning or
 // BottleneckWarning, DispatchElectricitySystem.cs:126-158). IsPowered is the ONLY "powered" predicate
-// in the mod (service, lift value, billing, ticket gate); PowerGatesService = false turns power into
+// in the mod (service, lift value, billing; the ticket gate no longer reads it since Round M2 T1); PowerGatesService = false turns power into
 // status only everywhere (one switch). Round S1 F2 (ski-days spec ch1 §5; s1-spec N7): the census reads
 // the 4-argument PowerOf — NoPower only while the warning shows AND under half of the wanted power
 // arrives, back at three quarters or when the warning clears (hysteresis); the game warns at any
@@ -114,7 +114,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>E1 master contract R1: THE "powered" predicate for service (D6), lift value (D6),
-        /// lift billing (D23) and the ticket gate's operating lifts (D26). Unknown counts as powered.
+        /// lift billing (D23) and the lift charge's operating count (the ticket gate no longer reads lifts since Round M2 T1). Unknown counts as powered.
         /// With PowerGatesService false, power is status only everywhere (one switch).</summary>
         public static bool IsPowered(LiftPower power)
         {

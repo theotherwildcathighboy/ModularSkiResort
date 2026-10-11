@@ -6,6 +6,10 @@
 // 5 + 11 + 8 + 4 + 8 + 10 + 5 + 4 + 5 = 108). The Burst jobs, the snapshot state machine, the async request and
 // the merge with stepScale need the Unity runtime; the field test and the ch3 §10 log lines cover them (§11.3).
 // E1 fixer (2026-10-04, e1-spec §8.9 F6): S13b IsForcedDryCheck, 6 checks (108 → 114).
+// Round M2 (2026-10-10, builder B6; docs/research/round-m2/build-contract.md §7, topup-skip.md §3.1 and its check G7):
+// the packed skip, S17-S23, 2 + 6 + 8 + 17 + 8 + 8 + 2 = 51 checks (114 → 165). S13 / S13b stay byte for byte (the new
+// DryPass fields default to 0 / false and CanSkipDry is untouched). The episode bookkeeping, the Snow [day] roll and
+// the merge need the Unity runtime: the field sheet (topup-skip §3.2 F1-F7) covers them.
 
 using System;
 using SkiResortMod.Systems;
@@ -30,6 +34,13 @@ namespace ResortBatch
             StepScaleCases(check);
             CanSkipDryCases(check);
             ForcedDryCheckCases(check);   // E1 fixer F6 (+6)
+            PackedConstants(check);       // Round M2 S17 (+2)
+            PackGuardCases(check);        // S18 (+6)
+            CalmShareCases(check);        // S19 (+8)
+            CanSkipPackedCases(check);    // S20 (+17)
+            SkipKindCases(check);         // S21 (+8)
+            ForcedCheckCases(check);      // S22 (+8)
+            PackedProperties(check);      // S23 (+2)
             Mix64Cases(check);
             HourAlignedDateCases(check);
             DayMeanCases(check);
@@ -293,6 +304,242 @@ namespace ResortBatch
             check(!RunSnowRules.IsForcedDryCheck(last, 0, 120, unchecked(Hash + 1UL), 1024u), W, "1024 frames and the footprint hash changed: not forced");
             last = baseLast; last.Valid = false;
             check(!RunSnowRules.IsForcedDryCheck(last, 0, 120, Hash, 5000u), W, "no real pass this load: not forced");
+        }
+
+        // ── Round M2 packed skip (topup-skip §3.1): records and arguments ────────────────────────────────────────
+        // H = the file's footprint hash (S13's constant). P = a packed record: 478 texels and 0.212 m are field test 10
+        // run 2b's last footprint (L 951) and run mean (Surface L 946). D = a dry record. Arguments (cold, contained,
+        // hash, sinceReal, calm); the base is (0, 478, H, 188u, true): 188 sim frames = one 8× pass (L 452).
+        private const ulong PackedHash = 0x732AD62604202A70UL;
+
+        private static DryPass PackedRecord()
+        {
+            return new DryPass
+            {
+                Valid = true, ColdTexels = 0, Injected = 0, Lowered = 0, PackGuardNext = true, RunMeanDepthM = 0.212f,
+                RunDepthSum = 12.5, ContainedTexels = 478, FootprintHash = PackedHash,
+            };
+        }
+
+        private static DryPass DryRecord()
+        {
+            return new DryPass
+            {
+                Valid = true, ColdTexels = 0, Injected = 0, Lowered = 0, PackGuardNext = false, RunMeanDepthM = 0f,
+                RunDepthSum = 0.0, ContainedTexels = 478, FootprintHash = PackedHash,
+            };
+        }
+
+        // S17 Round M2 constants (2)
+        private static void PackedConstants(Func<bool, string, string, bool> check)
+        {
+            const string W = "snow S17 packed constants";
+            check(RunSnowRules.PackGuardMeanDepthM == 0.02f && RunSnowRules.PackedSkipMinRunDepthM == 0.10f &&
+                  RunSnowRules.CalmOpenShare == 0.70f && RunSnowRules.CalmClosedShare == 0.30f,
+                W, "a Round M2 constant moved: the literal oracles below assume pack guard 0.02 m, dress guard 0.10 m, " +
+                   "calm shares 70 % / 30 %");
+            check((byte)TopupSkip.None == 0 && (byte)TopupSkip.Dry == 1 && (byte)TopupSkip.Packed == 2,
+                W, "TopupSkip literals changed: expected None 0, Dry 1, Packed 2");
+        }
+
+        // S18 PackGuard (6)
+        private static void PackGuardCases(Func<bool, string, string, bool> check)
+        {
+            const string W = "snow S18 PackGuard";
+            check(!RunSnowRules.PackGuard(0.02f), W, "0.02 m: expected off (strictly above the constant)");
+            check(RunSnowRules.PackGuard(0.020001f), W, "0.020001 m: expected on");
+            check(RunSnowRules.PackGuard(0.212f), W, "0.212 m: expected on");
+            check(!RunSnowRules.PackGuard(0f), W, "0 m: expected off");
+            check(!RunSnowRules.PackGuard(float.NaN), W, "NaN: expected off");
+            check(!RunSnowRules.PackGuard(-0.5f), W, "-0.5 m: expected off");
+        }
+
+        // S19 IsCalmShare (8)
+        private static void CalmShareCases(Func<bool, string, string, bool> check)
+        {
+            const string W = "snow S19 IsCalmShare";
+            float[] shares = { 0.70f, 0.6999f, 0.5f, 0.30f, 0.2999f, 1f, 0f, float.NaN };
+            bool[] expected = { true, false, false, false, true, true, true, false };
+            for (int i = 0; i < shares.Length; i++)
+            {
+                bool got = RunSnowRules.IsCalmShare(shares[i]);
+                check(got == expected[i], W, shares[i] + " -> " + got + ", expected " + expected[i]);
+            }
+        }
+
+        // S20 CanSkipPacked (17)
+        private static void CanSkipPackedCases(Func<bool, string, string, bool> check)
+        {
+            const string W = "snow S20 CanSkipPacked";
+            const ulong H = PackedHash;
+            DryPass p = PackedRecord();
+            Packed(check, W, p, 0, 478, H, 188u, true, true, "base case should skip");
+            Packed(check, W, p, 0, 478, H, 1023u, true, true, "1023 frames since the last real pass should skip");
+            Packed(check, W, p, 0, 478, H, 1024u, true, false, "1024 frames: the forced real pass is due");
+            Packed(check, W, p, 1, 478, H, 188u, true, false, "one cold texel now: no skip");
+            p = PackedRecord(); p.ColdTexels = 2;
+            Packed(check, W, p, 0, 478, H, 188u, true, false, "the last real pass had cold texels (the gate-change pass is real): no skip");
+            p = PackedRecord(); p.Injected = 1;
+            Packed(check, W, p, 0, 478, H, 188u, true, false, "the last real pass raised a texel: no skip");
+            p = PackedRecord(); p.Lowered = 1;
+            Packed(check, W, p, 0, 478, H, 188u, true, false, "the last real pass lowered a texel: no skip");
+            p = PackedRecord(); p.PackGuardNext = false;
+            Packed(check, W, p, 0, 478, H, 188u, true, false, "the next merge has the pack guard off: no skip");
+            p = PackedRecord(); p.RunMeanDepthM = 0.10f;
+            Packed(check, W, p, 0, 478, H, 188u, true, true, "runs at exactly 0.10 m should skip (inclusive)");
+            p = PackedRecord(); p.RunMeanDepthM = 0.0999f;
+            Packed(check, W, p, 0, 478, H, 188u, true, false, "runs at 0.0999 m (under the dress guard): no skip");
+            p = PackedRecord(); p.RunMeanDepthM = float.NaN;
+            Packed(check, W, p, 0, 478, H, 188u, true, false, "runs at NaN m: no skip");
+            p = PackedRecord();
+            Packed(check, W, p, 0, 478, H, 188u, false, false, "a measured share near the open line: no skip");
+            Packed(check, W, p, 0, 479, H, 188u, true, false, "footprint count changed: no skip");
+            Packed(check, W, p, 0, 478, unchecked(H + 1UL), 188u, true, false, "footprint hash changed: no skip");
+            p = PackedRecord(); p.ContainedTexels = 0;
+            Packed(check, W, p, 0, 0, H, 188u, true, false, "an empty footprint (0 = 0): no skip");
+            p = PackedRecord(); p.Valid = false;
+            Packed(check, W, p, 0, 478, H, 188u, true, false, "no real pass this load: no skip");
+            p = PackedRecord();
+            check(!RunSnowRules.CanSkipDry(p, 0, 478, H, 188u), W, "CanSkipDry on the packed record should be false (snow lies: not dry)");
+        }
+
+        private static void Packed(Func<bool, string, string, bool> check, string w, DryPass last, int cold, int contained,
+            ulong hash, uint since, bool calm, bool expected, string what)
+        {
+            bool got = RunSnowRules.CanSkipPacked(last, cold, contained, hash, since, calm);
+            check(got == expected, w, what + " (got " + got + ")");
+        }
+
+        // S21 SkipKind (8). Row 3 (topup-skip: "D.PackGuardNext = true → Dry (dry first)") also sets RunMeanDepthM 0.212 so
+        // that BOTH predicates hold on that synthetic record and the order is really tested (with 0 m only Dry holds).
+        private static void SkipKindCases(Func<bool, string, string, bool> check)
+        {
+            const string W = "snow S21 SkipKind";
+            const ulong H = PackedHash;
+            DryPass d = DryRecord();
+            Kind(check, W, d, 0, 478, H, 188u, true, TopupSkip.Dry, "dry record, base");
+            Kind(check, W, d, 0, 478, H, 188u, false, TopupSkip.Dry, "dry record, a share near the open line (D30 ignores the share guard)");
+            d = DryRecord(); d.PackGuardNext = true; d.RunMeanDepthM = 0.212f;
+            Kind(check, W, d, 0, 478, H, 188u, true, TopupSkip.Dry, "dry record with the pack guard on and 0.212 m (both hold: dry first)");
+            DryPass p = PackedRecord();
+            Kind(check, W, p, 0, 478, H, 188u, true, TopupSkip.Packed, "packed record, base");
+            Kind(check, W, p, 1, 478, H, 188u, true, TopupSkip.None, "packed record, one cold texel now");
+            Kind(check, W, p, 0, 478, H, 1024u, true, TopupSkip.None, "packed record, 1024 frames (forced pass due)");
+            p = PackedRecord(); p.PackGuardNext = false;
+            Kind(check, W, p, 0, 478, H, 188u, true, TopupSkip.None, "snow lies and the pack guard is off (managed melt has work)");
+            Kind(check, W, default(DryPass), 0, 478, H, 188u, true, TopupSkip.None, "no real pass this load (default record)");
+        }
+
+        private static void Kind(Func<bool, string, string, bool> check, string w, DryPass last, int cold, int contained,
+            ulong hash, uint since, bool calm, TopupSkip expected, string what)
+        {
+            TopupSkip got = RunSnowRules.SkipKind(last, cold, contained, hash, since, calm);
+            check(got == expected, w, what + ": " + got + ", expected " + expected);
+        }
+
+        // S22 IsForcedCheck (8): the 1,024-frame term is the ONLY failing term (E1 F6, extended to the packed kind).
+        private static void ForcedCheckCases(Func<bool, string, string, bool> check)
+        {
+            const string W = "snow S22 IsForcedCheck";
+            const ulong H = PackedHash;
+            DryPass p = PackedRecord();
+            check(RunSnowRules.IsForcedCheck(p, 0, 478, H, 1024u, true), W, "packed record at 1024 frames, all else equal: the forced check");
+            check(!RunSnowRules.IsForcedCheck(p, 0, 478, H, 1023u, true), W, "1023 frames: not forced (the pass skips)");
+            check(!RunSnowRules.IsForcedCheck(p, 2, 478, H, 1024u, true), W, "1024 frames and 2 cold texels now: a reason of its own, not forced");
+            check(!RunSnowRules.IsForcedCheck(p, 0, 478, unchecked(H + 1UL), 1024u, true), W, "1024 frames and the footprint hash changed: not forced");
+            check(!RunSnowRules.IsForcedCheck(p, 0, 478, H, 1024u, false), W, "1024 frames and a share near the open line: a reason of its own, not forced");
+            DryPass d = DryRecord();
+            bool forcedDry = RunSnowRules.IsForcedCheck(d, 0, 478, H, 1024u, false);
+            check(forcedDry && forcedDry == RunSnowRules.IsForcedDryCheck(d, 0, 478, H, 1024u), W,
+                "dry record at 1024 frames, calm false: expected true and equal to IsForcedDryCheck (got " + forcedDry + ")");
+            p = PackedRecord(); p.PackGuardNext = false;
+            check(!RunSnowRules.IsForcedCheck(p, 0, 478, H, 1024u, true), W, "1024 frames, the pack guard off: not forced");
+            p = PackedRecord(); p.Valid = false;
+            check(!RunSnowRules.IsForcedCheck(p, 0, 478, H, 5000u, true), W, "no real pass this load: not forced");
+        }
+
+        // S23 properties (2), seed 20261010, 20,000 records: one check per property, violations counted (the oracle is
+        // 0). Draw order per record (fixed, topup-skip check G7), each value tables[rng.Next(length)]: Valid, ColdTexels,
+        // Injected, Lowered, PackGuardNext, RunDepthSum, RunMeanDepthM (drawn only when RunDepthSum != 0; else 0f), then
+        // the arguments cold, contained, hash, sinceReal, calm; the record's footprint is 478 texels / H. B6 deviation: the
+        // spec's 2,000 records give this seed ONE packed record (a node port of the seeded System.Random says so); 20,000
+        // give 18 packed and 103 dry, and each check also requires that both kinds were drawn (no vacuous pass).
+        private static void PackedProperties(Func<bool, string, string, bool> check)
+        {
+            const string W = "snow S23 packed properties";
+            const int Records = 20000;
+            var rng = new Random(20261010);
+            bool[] validT = { true, false };
+            int[] coldT = { 0, 0, 0, 3 };
+            int[] injectedT = { 0, 0, 2 };
+            int[] loweredT = { 0, 0, 1 };
+            bool[] guardT = { true, false };
+            double[] depthSumT = { 0.0, 1e-9, 12.5 };
+            float[] meanT = { 0.05f, 0.0999f, 0.10f, 0.212f, float.NaN };
+            int[] coldNowT = { 0, 0, 1 };
+            int[] containedT = { 0, 478, 479 };
+            ulong[] hashT = { PackedHash, unchecked(PackedHash + 1UL) };
+            uint[] sinceT = { 0u, 188u, 1023u, 1024u, 5000u };
+            bool[] calmT = { true, false };
+            int bad1 = 0, bad2 = 0, packed = 0, dry = 0;
+            string first1 = null, first2 = null;
+            for (int n = 0; n < Records; n++)
+            {
+                DryPass last = default;
+                last.Valid = validT[rng.Next(validT.Length)];
+                last.ColdTexels = coldT[rng.Next(coldT.Length)];
+                last.Injected = injectedT[rng.Next(injectedT.Length)];
+                last.Lowered = loweredT[rng.Next(loweredT.Length)];
+                last.PackGuardNext = guardT[rng.Next(guardT.Length)];
+                last.RunDepthSum = depthSumT[rng.Next(depthSumT.Length)];
+                last.RunMeanDepthM = last.RunDepthSum == 0.0 ? 0f : meanT[rng.Next(meanT.Length)];
+                last.ContainedTexels = 478;
+                last.FootprintHash = PackedHash;
+                int cold = coldNowT[rng.Next(coldNowT.Length)];
+                int contained = containedT[rng.Next(containedT.Length)];
+                ulong hash = hashT[rng.Next(hashT.Length)];
+                uint since = sinceT[rng.Next(sinceT.Length)];
+                bool calm = calmT[rng.Next(calmT.Length)];
+
+                bool canPacked = RunSnowRules.CanSkipPacked(last, cold, contained, hash, since, calm);
+                bool canDry = RunSnowRules.CanSkipDry(last, cold, contained, hash, since);
+                TopupSkip kind = RunSnowRules.SkipKind(last, cold, contained, hash, since, calm);
+                if (canPacked)
+                    packed++;
+                if (canDry)
+                    dry++;
+                // P1: a packed skip implies the terms that make the merge a no-op (no cold texel now or at the last real
+                // pass, nothing raised or lowered, the pack guard on for the next merge) and the pass not due.
+                if (canPacked && !(cold == 0 && last.ColdTexels == 0 && last.Injected == 0 && last.Lowered == 0 &&
+                                   last.PackGuardNext && since < RunSnowRules.ForcedRealPassFrames))
+                {
+                    if (bad1++ == 0)
+                        first1 = Describe(last, cold, contained, hash, since, calm);
+                }
+                // P2: never both skips on these records; SkipKind is Dry exactly when CanSkipDry, Packed exactly when
+                // CanSkipPacked.
+                if ((canDry && canPacked) || (kind == TopupSkip.Dry) != canDry || (kind == TopupSkip.Packed) != canPacked)
+                {
+                    if (bad2++ == 0)
+                        first2 = Describe(last, cold, contained, hash, since, calm) + " -> " + kind;
+                }
+            }
+            check(bad1 == 0 && packed > 0, W, "P1 CanSkipPacked implies no cold texel now or at the last real pass, nothing " +
+                  "raised or lowered, the pack guard on, not due: " + bad1 + " violation(s) in " + Records + " records (" +
+                  packed + " packed, expected > 0)" + (first1 != null ? "; first: " + first1 : ""));
+            check(bad2 == 0 && packed > 0 && dry > 0, W, "P2 never both kinds, SkipKind = Dry iff CanSkipDry, = Packed iff " +
+                  "CanSkipPacked: " + bad2 + " violation(s) in " + Records + " records (" + packed + " packed, " + dry +
+                  " dry, both expected > 0)" + (first2 != null ? "; first: " + first2 : ""));
+        }
+
+        private static string Describe(DryPass last, int cold, int contained, ulong hash, uint since, bool calm)
+        {
+            return "record (valid " + last.Valid + ", cold " + last.ColdTexels + ", injected " + last.Injected +
+                   ", lowered " + last.Lowered + ", guard " + last.PackGuardNext + ", sum " +
+                   last.RunDepthSum.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + ", mean " +
+                   last.RunMeanDepthM.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "), now (cold " +
+                   cold + ", contained " + contained + ", hash " + (hash == PackedHash ? "H" : "H+1") + ", since " + since +
+                   ", calm " + calm + ")";
         }
 
         // S14 Mix64 and the footprint hash (5)

@@ -75,6 +75,13 @@
 // is absent (that IS a probe result), an activation summary line, and the ChairPinSystem
 // error pattern: never throw into the game loop — top-level try/catch, one-shot "!!!" with
 // the stack, disabled for the current load only, re-armed at OnGameLoadingComplete.
+// ROUND M2 (2026-10-10, builder B6; measure-core D16d, docs/research/round-m2/build-contract.md §6.7): a property
+// write is LOGGED only when it changes the slot (texture: not the object already bound, by UnityEngine.Object's
+// != — see TrySetTextureAny; float: a different value). Every write still happens and is still recorded for the
+// re-assert sentinel. The writes are counted (m_ChangedWrites / m_SameWrites): the activation summary ends with
+// "; {changed} change(s), {same} already in place" for the load application, and a season re-dress writes
+// `Decal [season]: re-dress wrote {changed} change(s), {same} already in place` after its loop (field test 10's
+// re-dress logged 17 property lines, 11 of them "1 -> 1" or the same texture, L 954-970).
 //
 // COORDINATION NOTE: SkiRunSplatSystem.ApplyDecalVisibility finds the same live clones by
 // the same name to toggle colossal_DecalLayerMask. This system SUPERSEDES that material-
@@ -314,6 +321,11 @@ namespace SkiResortMod.Systems
         private int m_FramesUntilReassert;
         private readonly HashSet<int> m_ProbedInstances = new HashSet<int>();
         private readonly List<string> m_LastScanBatchNames = new List<string>();
+        // Round M2 D16d: property writes since the last count line (reset at load, before and after a season
+        // re-dress, and after the activation summary). A re-assert's writes are not reported by count (its own
+        // [reassert] line and the changed writes say what happened); the next season re-dress starts from zero.
+        private int m_ChangedWrites;
+        private int m_SameWrites;
 
         protected override void OnCreate()
         {
@@ -372,6 +384,8 @@ namespace SkiResortMod.Systems
             m_PropertyWarnLogged = false;
             m_PendingCount = 0;
             m_AppliedCount = 0;
+            m_ChangedWrites = 0;              // Round M2 D16d: the load application's count starts here
+            m_SameWrites = 0;
             m_ProbedInstances.Clear();
             m_LastScanBatchNames.Clear();
             foreach (Target target in m_Targets)
@@ -460,11 +474,16 @@ namespace SkiResortMod.Systems
                         m_WinterLook = winter;
                         Mod.Log.Info($"Decal [season]: {(winter ? "-> WINTER dress (wear/corduroy set)" : "-> SUMMER dress (green mowed-grass set)")} — re-dressing {m_AppliedCount} material(s)" +
                                      DressSourceText());
+                        m_ChangedWrites = 0;      // Round M2 D16d: count this re-dress only
+                        m_SameWrites = 0;
                         foreach (Target target in m_Targets)
                         {
                             if (target.Applied && target.Material != null)
                                 ApplyToMaterial(target);
                         }
+                        Mod.Log.Info($"Decal [season]: re-dress wrote {m_ChangedWrites} change(s), {m_SameWrites} already in place");
+                        m_ChangedWrites = 0;
+                        m_SameWrites = 0;
                     }
                 }
             }
@@ -602,7 +621,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Applies the full safe set to one live clone. Idempotent — the re-assert
-        /// path calls it again verbatim; every Set is logged with old -> new.</summary>
+        /// path calls it again verbatim; every Set that changes the slot is logged with old -> new
+        /// (Round M2 D16d: one already in place is only counted).</summary>
         private void ApplyToMaterial(Target target)
         {
             Material material = target.Material;
@@ -715,7 +735,11 @@ namespace SkiResortMod.Systems
                          $"{SmoothnessProperty}={Tuning.Smoothness}, normal-only mode " +
                          $"{(Tuning.ApplyNormalOnlyMode ? "ON" : "OFF (probe-gated)")}; winter look " +
                          "rides the game's snow sim from here — no seasonal decal code, by design; " +
-                         $"re-assert sentinel every {Tuning.ReassertCheckFrames} frames");
+                         $"re-assert sentinel every {Tuning.ReassertCheckFrames} frames" +
+                         // Round M2 D16d (contract §6.7): the load application's writes, changed and already in place.
+                         $"; {m_ChangedWrites} change(s), {m_SameWrites} already in place");
+            m_ChangedWrites = 0;
+            m_SameWrites = 0;
         }
 
         // ─────────────────────────────────────────────────────────────────────────────────
@@ -836,8 +860,21 @@ namespace SkiResortMod.Systems
             Texture old = material.GetTexture(id);
             material.SetTexture(id, texture);
             target.AppliedTextures.Add((id, propertyName, texture));
-            Mod.Log.Info($"Decal: '{material.name}': {propertyName} <- '{texture.name}' " +
-                         $"({texture.width}x{texture.height}), was '{(old != null ? old.name : "null")}'");
+            // Round M2 D16d: log only a change, by UnityEngine.Object's != (measure-core D16d's test): the same live
+            // texture reads as equal, a destroyed old one as null, so it counts as a change — Unity's documented
+            // equality, UNVERIFIED here (no UnityEngine decompile in tools/; DetectDrift's ReferenceEquals is the
+            // stricter twin, and a stricter miss would only log one extra line). The write and the sentinel record
+            // above happen either way.
+            if (old != texture)
+            {
+                m_ChangedWrites++;
+                Mod.Log.Info($"Decal: '{material.name}': {propertyName} <- '{texture.name}' " +
+                             $"({texture.width}x{texture.height}), was '{(old != null ? old.name : "null")}'");
+            }
+            else
+            {
+                m_SameWrites++;
+            }
             return true;
         }
 
@@ -856,8 +893,18 @@ namespace SkiResortMod.Systems
             float old = material.GetFloat(id);
             material.SetFloat(id, value);
             target.AppliedFloats.Add((id, propertyName, value));
-            Mod.Log.Info($"Decal: '{material.name}': {propertyName} {old:R} -> {value:R}" +
-                         (mirrored ? " (+ prefab RenderedArea mirror)" : ""));
+            // Round M2 D16d: log only a change (float.Equals: the exact value, NaN equal to NaN). The write, the
+            // sentinel record and the caller's RenderedArea mirror happen either way.
+            if (!old.Equals(value))
+            {
+                m_ChangedWrites++;
+                Mod.Log.Info($"Decal: '{material.name}': {propertyName} {old:R} -> {value:R}" +
+                             (mirrored ? " (+ prefab RenderedArea mirror)" : ""));
+            }
+            else
+            {
+                m_SameWrites++;
+            }
             return true;
         }
 

@@ -13,6 +13,11 @@
 // F7 (docs/research/field-test-7-fixes.md C1): the RunOutlineSize description, shorter (thickness only).
 // S1 (docs/research/ski-days/s1-spec.md §2.12, 2026-10-05; stage 0 owns this file): the "Ski days" group
 // with its four sliders (locals, tourists, longest trip, powder pull). Plain characters only.
+// M2 (docs/research/round-m2/understand/density.md, ruling R8; texts docs/research/round-m2/build-contract.md §6.9):
+// the two prop density sliders in the Runs group, look only.
+// M2 (docs/research/round-m2/understand/hub-price.md, option 4b; ruling R7, texts build-contract.md §6.9): the Locals who
+// ski and Lift ticket price descriptions say what the price does (ski days only, no effect up to 40) and follow R2's
+// gate (an open run; the operating-lift branch of the ticket gate is gone).
 // Additional languages: add further IDictionarySource implementations (or a translations
 // file) and AddSource them with the matching locale id — see SPEC §13 Phase 6.
 
@@ -72,10 +77,12 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SkiDayLocalsPct)),
                     "Locals who ski"
                 },
+                // Description: Round M2 hub-price fix 1 (build-contract.md §6.9), replacing the S1 text, which said a
+                // lower price brings more (false at or below 40: the price factor is 1 there, SkiDayRules).
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiDayLocalsPct)),
-                    "How often residents spend a day out skiing. More attraction, fresh snow, a lower ticket " +
-                    "price and a shorter trip bring more. 0 turns ski days off for residents. Default 25 %."
+                    "How often residents spend a day out skiing. More attraction, fresh snow and a shorter trip " +
+                    "bring more; a lift ticket price above 40 brings fewer. 0 turns ski days off for residents. Default 25 %."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SkiDayTouristsPct)),
@@ -132,14 +139,21 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
                     "Lift ticket price"
                 },
+                // Description: Round M2 hub-price fix 2 (build-contract.md §6.9: hub-price.md §2 item 5 with "then
+                // fewer: about 80 % as many at 80"), replacing the E1 text. The gate clause follows R2 (T1): tickets
+                // need an open run, a running lift alone no longer opens the gate. 40 and 200 are SkiDayRules' price
+                // edge and SkiMoneyRules.TicketPriceMax (HubRulesTests H17 holds them).
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
                     "What each guest pays when they arrive at a ski area: tourist groups per person, and " +
                     "residents who come to a lodge. The money comes from the guest's household and goes " +
                     "to your city's balance; it is not listed in the Economy panel. A household that has " +
                     "run out of money is let in without paying. Tickets are sold only while the Welcome " +
-                    "Sign works (efficiency above 0) and the ski area has an open run or a lift running. " +
-                    "0 turns tickets off. Default 40."
+                    "Sign works (efficiency above 0) and the ski area has an open run. The price changes " +
+                    "only ski days (the residents and hotel guests this mod sends skiing): no effect up to 40, " +
+                    "then fewer: about 80 % as many at 80 and 20 % at 200. Visitors the game sends on its own come " +
+                    "at any price (and still pay it), and the attraction score ignores it. One price for " +
+                    "every ski area, shown in the hub's Money view. 0 turns tickets off. Default 40."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.EnableSnowGating)),
@@ -248,6 +262,30 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.RunOutlineSize)),
                     "How thick the outline and corner dots are while you draw, edit or bulldoze a ski run. " +
                     "0 keeps the game's thin outline."
+                },
+                // Round M2 prop density (ruling R8, texts build-contract.md §6.9): look only, labels exactly R8's names.
+                // Fixer (review-ui-hub-money F3, B5 item 6): "in a city; saved runs keep their look until edited", since
+                // R8 re-stamps only on a settled slider change, never at a load.
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SnowGunDensityPct)),
+                    "Snow guns and hydrants"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowGunDensityPct)),
+                    "How many corners of snowmaking and night runs get a snow gun or hydrant, in percent of the " +
+                    "full look. Look only: snow and upkeep follow the run type. Runs already built change when " +
+                    "you move the slider in a city; saved runs keep their look until edited. Default 100 %."
+                },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.FloodlightDensityPct)),
+                    "Floodlight masts on night runs"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.FloodlightDensityPct)),
+                    "How many corners of night runs get a floodlight mast, in percent of the full look. Look " +
+                    "only: snow and upkeep follow the run type, and night skiing does not need the masts. Runs " +
+                    "already built change when you move the slider in a city; saved runs keep their look until " +
+                    "edited. Default 100 %."
                 },
 
                 // --- Lifts (Round L1, docs/research/hub-u2-spec.md §2.4; texts are the spec's) -------

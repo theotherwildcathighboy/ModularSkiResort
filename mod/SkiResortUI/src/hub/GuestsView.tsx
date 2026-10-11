@@ -10,7 +10,10 @@
  * 7 state (TO detected, tickets open): 13 text lines in 16 slot lines -> 10 text lines in 11. Round S1
  * "Ski days" (2026-10-05, stream E; docs/research/ski-days/spec/ch4-hub.md section B, D27, F7): the Ski
  * days row and its state line open the table (two lines: 12 text lines in 13), the bars use a fixed
- * ladder, and a since-load last month shows its numbers marked "(partial)".
+ * ladder, and a since-load last month shows its numbers marked "(partial)". Round M2 (2026-10-10, builder
+ * B4; ruling R9, docs/research/round-m2/understand/enabled-flags.md C5, build-contract.md section 8.3): one
+ * trip-planner note line under the estimate slot while a known mod replaced, or something switched off, the
+ * game's trip systems (a session state read at each city load; absent in a base-game city).
  * Contract:
  *   - A sign: GUESTS header with the Info glyph right after the label (tooltip: GUESTS_NOTE[Where];
  *     GUESTS_NOTE[SinceLoad] while this month started before the load; TICKETS_NOTE[Open] while tickets
@@ -27,7 +30,16 @@
  *     the fold at 130 / 150 % (ch4 B.5); then tourists, tourist groups, residents, paid a lift ticket,
  *     lift tickets in money); the estimate slot (the game-formula target tourists, or - with
  *     Tourism Overhaul detected, a session state - ONE line EST_TO_NOTE "Detected: ..." with EST_TO_TIP
- *     as its tooltip; XS 280.3 / 461.1 / 581.6 rem against W - 20 = 402 / 580 / 699: fits); the ticket
+ *     as its tooltip; XS 280.3 / 461.1 / 581.6 rem against W - 20 = 402 / 580 / 699: fits); Round M2 R9:
+ *     while hubRules.tripPlannerNote(city) is not "none", ONE note line (note1, one text node per branch,
+ *     gate R13): TRIP_PLANNER_NOTE[Known] "Detected: {NAME}. ..." / [KnownOff] "Ski days off: {NAME}
+ *     replaced the game's leisure systems." (NAME = city.tripPlanner, the C# label) / [Unknown] /
+ *     [UnknownOff]; its tooltip repeats the note (the line ellipsizes: Known with "Realistic PathFinding"
+ *     is about 95 characters, ≈ 480 rem XS at 100 %) and adds TRIP_PLANNER_TIP (what is read, and when);
+ *     the line appears or goes at a city load, or when the game's trip systems change during play (rare:
+ *     SkiDaySystem.TripSystemsTick updates the label; the line then pushes the ticket slot down one line); the
+ *     ski-day state line also shows the "Off" note while ski days are blocked and the state is unknown (fixer,
+ *     review-ui-hub-money F1: R9's "the ski-day rows show it"); the ticket
  *     slot: one ellipsized line (U8) with the ticket note of hubRules.ticketNote while tickets are NOT
  *     sold (off, sign not running, nothing open, not known yet; full text in its tooltip), empty at the
  *     same height while they are (that sentence is in the header tooltip), so a gate flip moves nothing.
@@ -40,7 +52,10 @@
  *   - Fixed slots only: StableWidth cells with the shared money / count samples, note slots of fixed
  *     height (note2 = 2 XS lines, note1 = 1) whose empty state keeps its height (D33).
  *     Ticket-slot texts in XS, the longest "No tickets yet: the runs are still being checked after
- *     loading." 320.9 / 527.9 / 665.9 rem: fits 402 / 580 / 699. The longest ski-day state line, "Holds
+ *     loading." 320.9 / 527.9 / 665.9 rem: fits 402 / 580 / 699. Round M2 (build-contract.md section
+ *     8.4, Decided here 16; shortened by the fixer, review-ui-hub-money F2): NotKnownYet is now "No tickets
+ *     yet: runs are being checked (new sign or load)." (58 characters, under the 63 measured above: fits);
+ *     the slot's tooltip carries the full sentence (as for every ticket note). The longest ski-day state line, "Holds
  *     1,440 skiers at once (lodges limit)" (41 characters, ≈ 21 em XS by ch4 B.5's 0.5 em estimate:
  *     252 / 415 / 523 rem), fits the SubLine room W - 32 = 390 / 568 / 687 (an estimate, not Overpass
  *     advances: the ellipsis is the net).
@@ -52,8 +67,10 @@ import { city$, resortLive$, resorts$, selectedResort$ } from "../bindings";
 import type { CityStats, ResortLive } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
-import { guestBarParts, guestBarScale, lastMonthMark, liveOf, skiDayLine, skiDayTip, skiDayWalk, ticketNote } from "./hubRules";
-import type { LastMonthMark, TicketNote } from "./hubRules";
+import {
+  guestBarParts, guestBarScale, lastMonthMark, liveOf, skiDayLine, skiDayTip, skiDayWalk, ticketNote, tripPlannerNote,
+} from "./hubRules";
+import type { LastMonthMark, TicketNote, TripPlannerNote } from "./hubRules";
 import { HUB_FMT, HUB_LOC } from "./hubText";
 import {
   Divider, FlexBar, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, Tip, TipLines, cx, numArg, useNumberSamples,
@@ -103,9 +120,18 @@ function GuestRow({ label, thisMonth, lastMonth, tip, samples }: {
   );
 }
 
+/** Fixer (review-ui-hub-money F1, ruling R9): ski days are blocked (LeisureSystem or CitizenBehaviorSystem off:
+ *  SystemOff, so C# sends no ski-day state) and the state line would read "–": it shows the trip-planner "Off"
+ *  note instead, so the block is not mistaken for "before the first pass". */
+function skiDaysBlocked(l: ResortLive | null, trip: TripPlannerNote): trip is "knownOff" | "unknownOff" {
+  return (trip === "knownOff" || trip === "unknownOff") && skiDayLine(l) === "unknown";
+}
+
 /** Round S1 D27 (ch4 B.2): the ski-day state line as ONE text node per branch (gate R13). N = the capacity
- *  at once (skiDaysCap, D21; ruling R-Q3 "Holds {N} skiers at once"). */
-function SkiDayLineText({ l, t }: { l: ResortLive | null; t: Translate }): JSX.Element {
+ *  at once (skiDaysCap, D21; ruling R-Q3 "Holds {N} skiers at once"). Round M2 R9 (fixer F1): the blocked
+ *  case renders TripPlannerNoteText. */
+function SkiDayLineText({ l, t, trip, tripName }: { l: ResortLive | null; t: Translate; trip: TripPlannerNote; tripName: string }): JSX.Element {
+  if (skiDaysBlocked(l, trip)) return <TripPlannerNoteText note={trip} name={tripName} t={t} />;
   const N = numArg(l ? l.skiDaysCap : -1, Unit.Integer);
   switch (skiDayLine(l)) {
     case "off": return <>{t(HUB_LOC.skiDaysOff)}</>;
@@ -121,8 +147,9 @@ function SkiDayLineText({ l, t }: { l: ResortLive | null; t: Translate }): JSX.E
   }
 }
 
-/** The state line's tooltip (ch4 B.2 last column); undefined = none. */
-function skiDayLineTip(l: ResortLive | null, t: Translate): string | undefined {
+/** The state line's tooltip (ch4 B.2 last column); undefined = none. Blocked (fixer F1): TRIP_PLANNER_TIP. */
+function skiDayLineTip(l: ResortLive | null, t: Translate, trip: TripPlannerNote): string | undefined {
+  if (skiDaysBlocked(l, trip)) return t(HUB_LOC.tripPlannerTip);
   switch (skiDayTip(l)) {
     case "off": return t(HUB_LOC.skiDaysTipOff);
     case "noLodge": return t(HUB_LOC.skiDaysTipNoLodge);
@@ -144,6 +171,18 @@ function TicketNoteText({ note, t }: { note: TicketNote; t: Translate }): JSX.El
     case "nothingOpen": return <>{t(HUB_LOC.ticketsNoteNothingOpen)}</>;
     case "notKnownYet": return <>{t(HUB_LOC.ticketsNoteNotKnownYet)}</>;
     default: return <>{t(HUB_LOC.ticketsNoteOff)}</>;
+  }
+}
+
+/** Round M2 R9 (enabled-flags.md C5): the trip-planner note as ONE text node per branch (gate R13); NAME = the C#
+ *  label (CityStats.tripPlanner: a known mod's name, or names joined ", "). "none" renders nothing (never shown). */
+function TripPlannerNoteText({ note, name, t }: { note: TripPlannerNote; name: string; t: Translate }): JSX.Element {
+  switch (note) {
+    case "known": return <LocText entry={HUB_FMT.tripPlannerNote} args={{ NAME: name }} />;
+    case "knownOff": return <LocText entry={HUB_FMT.tripPlannerNoteOff} args={{ NAME: name }} />;
+    case "unknown": return <>{t(HUB_LOC.tripPlannerNoteUnknown)}</>;
+    case "unknownOff": return <>{t(HUB_LOC.tripPlannerNoteUnknownOff)}</>;
+    default: return <></>;
   }
 }
 
@@ -183,6 +222,9 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
   const rowTip = (title: string, body: string | JSX.Element): JSX.Element =>
     <TipLines lines={[title, body, lastNote]} />;
   const note = l ? ticketNote(l.ticketGate, city.ticketPrice) : null;
+  // Round M2 R9: the trip-planner note ("none" in a base-game city: no line).
+  const tripNote = tripPlannerNote(city);
+  const tripName = typeof city.tripPlanner === "string" ? city.tripPlanner : "";
   // Round S1 D27 (ch4 B.6): the Ski days row's tooltip; skipped lines are false.
   const skiDaysTip = (
     <TipLines lines={[
@@ -223,7 +265,7 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
         thisMonth={countCell(l ? l.skiDaysThisMonth : -1)} lastMonth={last(l?.skiDaysLastMonth)}
         tip={skiDaysTip}
       />
-      <SubLine tip={skiDayLineTip(l, t)}><SkiDayLineText l={l} t={t} /></SubLine>
+      <SubLine tip={skiDayLineTip(l, t, tripNote)}><SkiDayLineText l={l} t={t} trip={tripNote} tripName={tripName} /></SubLine>
       <GuestRow
         label={t(HUB_LOC.guestsRowTourists)} samples={samples}
         thisMonth={countCell(l ? l.touristsThisMonth : -1)} lastMonth={last(l?.touristsLastMonth)}
@@ -266,6 +308,13 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
           value={l && l.estKnown ? <SignedNum value={l.estTourists} unit={Unit.Integer} /> : DASH}
           tip={t(HUB_LOC.estTouristsTip)}
         />
+      )}
+      {tripNote !== "none" && (
+        <Tip tip={<TipLines lines={[<TripPlannerNoteText key="n" note={tripNote} name={tripName} t={t} />, t(HUB_LOC.tripPlannerTip)]} />}>
+          <div className={styles.noteArea}>
+            <div className={styles.note1}><TripPlannerNoteText note={tripNote} name={tripName} t={t} /></div>
+          </div>
+        </Tip>
       )}
       <Divider />
       <div className={styles.noteArea}>

@@ -26,6 +26,20 @@
 // minimum corner distance (0.375 m) are the game's again (A1 wrote the setting there, which also
 // made snapping 8 m and corners 4 m apart). Persisted under this property name — never rename.
 //
+// PROP DENSITY (Round M2 option 5, ruling R8; docs/research/round-m2/understand/density.md, build-contract.md §6.9):
+// SnowGunDensityPct and FloodlightDensityPct (Runs group, 0-100 step 5, default RunPropDensityRules.PctDefault = 100)
+// are LOOK ONLY: how many corners of our propped runs get a snow gun or hydrant (snowmaking and night runs) and a
+// floodlight mast (night runs). One reader, SkiRunPropSystem, through RunPropDensityRules.ClampPct(Mod.Settings?.X ??
+// PctDefault), polled every frame in a loaded city: it writes the run prefabs' per-corner chance and the night group's
+// member weights at every game load and once the pair has been still for RunPropDensityRules.SettleFrames frames, and
+// re-stamps the runs already built only after such a settled change (never at a load, so a save made at another
+// density keeps its layout until a run is edited). Snow and upkeep never read them. Persisted under these property
+// names — never rename.
+//
+// LIFT TICKET PRICE readers (doc drift fixed in Round M2, hub-price.md §4 Open): besides SkiLiftTicketSystem (whose
+// clamped Price SkiDaySystem reads for the ski-day price factor), SkiResortStatsSystem.ReadCity reads the setting for
+// the hub's Money view. The Options description (Settings/LocaleEN.cs) says what the price does since Round M2.
+//
 // Pattern follows the official ModSetting idiom (Game.Modding.ModSetting), the same shape
 // Tourism Overhaul uses, so the two mods' options pages behave identically.
 //
@@ -207,7 +221,8 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupBalance)]
         public int BackcountryValuePercent { get; set; }
 
-        /// <summary>LiftTicketPrice (Round E1 ch4, D26): read live by SkiLiftTicketSystem. Persisted under
+        /// <summary>LiftTicketPrice (Round E1 ch4, D26): read live by SkiLiftTicketSystem (and by SkiResortStatsSystem
+        /// for the hub; header LIFT TICKET PRICE readers). Persisted under
         /// this property name — never rename. 0 = tickets off; 0-200 step 5 (SkiMoneyRules.TicketPriceMax /
         /// TicketPriceStep); default SkiMoneyRules.TicketPriceDefault (40). unit "money" = Game.UI.Unit.kMoney
         /// (Game.UI/Unit.cs:49, 1.6.0f1 and 1.6.2f1; fallback "integer" if the Options row renders it badly,
@@ -317,6 +332,20 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public int RunOutlineSize { get; set; }
 
+        /// <summary>Round M2 density (look only, header PROP DENSITY): share of snowmaking and night run corners with
+        /// a snow gun or hydrant, in percent of the full look. Read only by SkiRunPropSystem. Persisted under this
+        /// property name — never rename.</summary>
+        [SettingsUISlider(min = RunPropDensityRules.PctMin, max = RunPropDensityRules.PctMax, step = RunPropDensityRules.PctStep, unit = "percentage")]
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public int SnowGunDensityPct { get; set; }
+
+        /// <summary>Round M2 density (look only, header PROP DENSITY): share of night run corners with a floodlight
+        /// mast, in percent of the full look. Read only by SkiRunPropSystem. Persisted under this property name —
+        /// never rename.</summary>
+        [SettingsUISlider(min = RunPropDensityRules.PctMin, max = RunPropDensityRules.PctMax, step = RunPropDensityRules.PctStep, unit = "percentage")]
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public int FloodlightDensityPct { get; set; }
+
         // --- Lifts (Round L1, hub-u2-spec.md §2.1 / §2.4) ------------------------------------
         // Persisted under this property name — never rename.
 
@@ -375,6 +404,8 @@ namespace SkiResortMod.Settings
             ShowRunGradeWhileDrawing = true;      // run-feedback-spec §2
             ContourLinesWhileDrawingRuns = true;  // run-feedback-spec §2
             RunOutlineSize = DefaultRunOutlineSize;   // E1 addendum A1 (thickness only since F7 C1)
+            SnowGunDensityPct = RunPropDensityRules.PctDefault;      // M2 density (look only)
+            FloodlightDensityPct = RunPropDensityRules.PctDefault;   // M2 density (look only)
             ShowHubButton = true;                 // resort-hub-understand.md §5.1 OD2 (default on)
             OpenHubOnSignSelect = true;           // §5.1 / §5.2 item 2 (default on)
             LiftBuildAids = true;                 // hub-u2-spec.md §2.4 (default on)

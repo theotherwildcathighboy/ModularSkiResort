@@ -28,6 +28,10 @@
 // Fixer pass (2026-10-05, review HU-1): P45, the band row's "more" counts only the listed factors.
 // Round M1 "measure first" (Builder B, 2026-10-05; m1-spec §4 and M10 D9): P46, no LodgeNotSlopeside row on an area
 // without runs (the spec's "P42"; that number was taken by F1b). P33-P35 keep runs 3 and pass unchanged.
+// Round M2 (builder B3, 2026-10-10; docs/research/round-m2/build-contract.md §7): section A's twelve Season rows gain
+// `false, false` (gunsLiveKnown, anyGunOn: the fallback is the old rule, expected values unchanged); H17 the price
+// factor's shared literal table with test-hub-rules.js T10.1 and the 40 / 200 edge (2 checks); H18 eight Season rows
+// with the live gun gates (R5). HubRulesTests +10.
 // Tolerances: ±1e-9 for the parity identity, ±1e-6 for ch1's 9-decimal values, ±1e-4 for float rules.
 
 using System;
@@ -87,18 +91,18 @@ namespace ResortBatch
             Eq(HubRules.OpenStateOf(1.0, false), RunOpenState.None, w, "OpenStateOf(1.0,false)");
 
             // Season
-            Eq(HubRules.Season(false, 7, 7, true, true, 5f, 0f, 2f), SeasonHint.GatingOff, w, "Season(false,7,7,true,true,5,0,2)");
-            Eq(HubRules.Season(true, 0, 0, false, true, -5f, 0f, 2f), SeasonHint.None, w, "Season(true,0,0,false,true,-5,0,2)");
-            Eq(HubRules.Season(true, 7, 0, false, false, -5f, 0f, 2f), SeasonHint.None, w, "Season(true,7,0,false,false,-5,0,2)");
-            Eq(HubRules.Season(true, 7, 0, false, true, float.NaN, 0f, 2f), SeasonHint.None, w, "Season(true,7,0,false,true,NaN,0,2)");
-            Eq(HubRules.Season(true, 7, 5, false, true, -3f, 0f, 2f), SeasonHint.SnowSeason, w, "Season(true,7,5,false,true,-3,0,2)");
-            Eq(HubRules.Season(true, 7, 5, true, true, 1.5f, 0f, 2f), SeasonHint.SnowGunsOnly, w, "Season(true,7,5,true,true,1.5,0,2)");
-            Eq(HubRules.Season(true, 7, 5, false, true, 1.5f, 0f, 2f), SeasonHint.Thawing, w, "Season(true,7,5,false,true,1.5,0,2)");
-            Eq(HubRules.Season(true, 7, 5, true, true, 2.5f, 0f, 2f), SeasonHint.Thawing, w, "Season(true,7,5,true,true,2.5,0,2)");
-            Eq(HubRules.Season(true, 7, 0, false, true, -1f, 0f, 2f), SeasonHint.WaitingForSnow, w, "Season(true,7,0,false,true,-1,0,2)");
-            Eq(HubRules.Season(true, 7, 0, true, true, 2.0f, 0f, 2f), SeasonHint.WaitingForSnow, w, "Season(true,7,0,true,true,2.0,0,2)");
-            Eq(HubRules.Season(true, 7, 0, true, true, 2.1f, 0f, 2f), SeasonHint.TooWarm, w, "Season(true,7,0,true,true,2.1,0,2)");
-            Eq(HubRules.Season(true, 7, 0, false, true, 0.5f, 0f, 2f), SeasonHint.TooWarm, w, "Season(true,7,0,false,true,0.5,0,2)");
+            Eq(HubRules.Season(false, 7, 7, true, false, false, true, 5f, 0f, 2f), SeasonHint.GatingOff, w, "Season(false,7,7,true,false,false,true,5,0,2)");
+            Eq(HubRules.Season(true, 0, 0, false, false, false, true, -5f, 0f, 2f), SeasonHint.None, w, "Season(true,0,0,false,false,false,true,-5,0,2)");
+            Eq(HubRules.Season(true, 7, 0, false, false, false, false, -5f, 0f, 2f), SeasonHint.None, w, "Season(true,7,0,false,false,false,false,-5,0,2)");
+            Eq(HubRules.Season(true, 7, 0, false, false, false, true, float.NaN, 0f, 2f), SeasonHint.None, w, "Season(true,7,0,false,false,false,true,NaN,0,2)");
+            Eq(HubRules.Season(true, 7, 5, false, false, false, true, -3f, 0f, 2f), SeasonHint.SnowSeason, w, "Season(true,7,5,false,false,false,true,-3,0,2)");
+            Eq(HubRules.Season(true, 7, 5, true, false, false, true, 1.5f, 0f, 2f), SeasonHint.SnowGunsOnly, w, "Season(true,7,5,true,false,false,true,1.5,0,2)");
+            Eq(HubRules.Season(true, 7, 5, false, false, false, true, 1.5f, 0f, 2f), SeasonHint.Thawing, w, "Season(true,7,5,false,false,false,true,1.5,0,2)");
+            Eq(HubRules.Season(true, 7, 5, true, false, false, true, 2.5f, 0f, 2f), SeasonHint.Thawing, w, "Season(true,7,5,true,false,false,true,2.5,0,2)");
+            Eq(HubRules.Season(true, 7, 0, false, false, false, true, -1f, 0f, 2f), SeasonHint.WaitingForSnow, w, "Season(true,7,0,false,false,false,true,-1,0,2)");
+            Eq(HubRules.Season(true, 7, 0, true, false, false, true, 2.0f, 0f, 2f), SeasonHint.WaitingForSnow, w, "Season(true,7,0,true,false,false,true,2.0,0,2)");
+            Eq(HubRules.Season(true, 7, 0, true, false, false, true, 2.1f, 0f, 2f), SeasonHint.TooWarm, w, "Season(true,7,0,true,false,false,true,2.1,0,2)");
+            Eq(HubRules.Season(true, 7, 0, false, false, false, true, 0.5f, 0f, 2f), SeasonHint.TooWarm, w, "Season(true,7,0,false,false,false,true,0.5,0,2)");
 
             // NextStep
             Eq(HubRules.NextStep(0, 1, 3), NextStepKind.Lodge, w, "NextStep(0,1,3)");
@@ -1172,6 +1176,48 @@ namespace ResortBatch
                 }
             }
             Check(parity, w, "H16 powder mark parity C# / TS: " + first);
+
+            // H17 (Round M2 R7, hub-price.md §3; build-contract.md §7, Decided here 13-14): the hub's price line computes
+            // D16's factor in TS (hubRules.priceFactor); this is the C# half of the shared literal table
+            // (mod/SkiResortUI/tools/test-hub-rules.js T10.1 holds the same rows). Two checks: the table, then the edge.
+            int[] priceIn = { 0, 5, 40, 45, 80, 100, 120, 150, 200, 260 };
+            double[] priceOut = { 1, 1, 1, 0.975, 0.8, 0.7, 0.6, 0.45, 0.2, 0.2 };
+            bool priceOk = true;
+            string priceFirst = "";
+            for (int i = 0; i < priceIn.Length; i++)
+            {
+                double got = SkiDayRules.PriceFactor(priceIn[i]);
+                if (!Near(got, priceOut[i], 1e-12) && priceOk)
+                {
+                    priceOk = false;
+                    priceFirst = $"price {priceIn[i]}: C# {got}, table {priceOut[i]}";
+                }
+            }
+            Check(priceOk, w, "H17 price factor C# = the TS table: " + priceFirst);
+            // The Options texts and the hub tooltip bake "40" and "200" (Settings/LocaleEN.cs Locals who ski and Lift ticket
+            // price; MONEY_PRICE_TIP[Curve] through PRICE_NO_EFFECT_MAX): the no-effect edge 240 - 200, the default, the cap.
+            Check(SkiDayRules.PriceFullAt - SkiDayRules.PriceSpan == 40 && SkiMoneyRules.TicketPriceDefault == 40 &&
+                  SkiDayRules.PriceMax == 200 && SkiMoneyRules.TicketPriceMax == 200,
+                  w, "H17 price edge 40 = default 40, cap 200 (the Options texts say so)");
+
+            // H18 (Round M2 R5, thaw-rules.md §3): Season reads the live gun gates when known. Arguments (gating, runs,
+            // open, anyGunRun, gunsLiveKnown, anyGunOn, topKnown, T, freezing 0, margin 2). Eight checks.
+            Eq(HubRules.Season(true, 7, 5, true, true, false, true, 1.5f, 0f, 2f), SeasonHint.Thawing, w,
+               "H18 Season(true,7,5,true,true,false,true,1.5,0,2) (old rule SnowGunsOnly; run 2b Dump 3 shape)");
+            Eq(HubRules.Season(true, 7, 5, true, true, true, true, 2.5f, 0f, 2f), SeasonHint.SnowGunsOnly, w,
+               "H18 Season(true,7,5,true,true,true,true,2.5,0,2) (night guns on a warm-mean day; old rule Thawing)");
+            Eq(HubRules.Season(true, 7, 5, true, true, false, true, -0.8f, 0f, 2f), SeasonHint.SnowSeason, w,
+               "H18 Season(true,7,5,true,true,false,true,-0.8,0,2) (Dump 2: the mean decides natural snow)");
+            Eq(HubRules.Season(true, 7, 0, true, true, true, true, 3.0f, 0f, 2f), SeasonHint.WaitingForSnow, w,
+               "H18 Season(true,7,0,true,true,true,true,3.0,0,2)");
+            Eq(HubRules.Season(true, 7, 0, true, true, false, true, 1.0f, 0f, 2f), SeasonHint.TooWarm, w,
+               "H18 Season(true,7,0,true,true,false,true,1.0,0,2) (old rule WaitingForSnow)");
+            Eq(HubRules.Season(true, 7, 5, false, true, true, true, 1.5f, 0f, 2f), SeasonHint.Thawing, w,
+               "H18 Season(true,7,5,false,true,true,true,1.5,0,2) (no gun run: anyGunOn ignored)");
+            Eq(HubRules.Season(false, 7, 5, true, true, true, true, 1.5f, 0f, 2f), SeasonHint.GatingOff, w,
+               "H18 Season(false,7,5,true,true,true,true,1.5,0,2)");
+            Eq(HubRules.Season(true, 7, 5, true, true, true, false, float.NaN, 0f, 2f), SeasonHint.None, w,
+               "H18 Season(true,7,5,true,true,true,false,NaN,0,2)");
         }
 
         private static void State(string name, bool off, bool hasView, bool scoreKnown, bool signRunning, int runsCounted,

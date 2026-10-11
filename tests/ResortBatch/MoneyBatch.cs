@@ -7,6 +7,10 @@
 // (a money-rules day key) is dropped: the one day key is SkiDayRules.DayKey (s1-spec N3, SkiDayTests N).
 // Round M1 "measure first" (Builder B, 2026-10-05; docs/research/ski-days/measure/m1-spec.md §4): T12 partial
 // months (SkiMoneyRules.IsShortMonth / SimulatedPct, SkiResortLedger.Advance(key, closedMonthShort)); T7 unchanged.
+// Round M2 (builder B3, 2026-10-10; docs/research/round-m2/build-contract.md §7): T1 +1 (LiftBilling literals incl.
+// NoOpenRun = 3), T2 +5 (six three-argument LiftBillingOf rows replace four; three LiftRate(NoOpenRun) rows), T4 +1
+// (ten four-argument GateCase rows replace nine: a running lift alone no longer opens the gate, R2), new T13
+// LiftAreaRunOpen +5 (R3). MoneyBatch +12.
 //
 // Covers: SkiMoneyRules (T1 constants, T2 lift rates and billing, T3 accrual and attribution, T4 ticket price
 // and gate, T5 affordability, T6 month keys, T9 the D23 day rules) and SkiResortLedger (T7: start / roll /
@@ -38,6 +42,7 @@ namespace ResortBatch
             LedgerGuestDays(check);    // Round S1 T10
             GuestDayScenario(check);   // Round S1 T11
             PartialMonths(check);      // Round M1 T12
+            LiftAreaRuns(check);       // Round M2 T13
         }
 
         private static bool Near(double a, double b, double eps)
@@ -56,6 +61,9 @@ namespace ResortBatch
             check(SkiMoneyRules.TicketPriceMax == 200, w, "TicketPriceMax " + SkiMoneyRules.TicketPriceMax);
             check(SkiMoneyRules.TicketPriceStep == 5, w, "TicketPriceStep " + SkiMoneyRules.TicketPriceStep);
             check(SkiMoneyRules.TicksPerDay == 262144, w, "TicksPerDay " + SkiMoneyRules.TicksPerDay);
+            // Round M2 T2 (decisions.md R3): NoOpenRun appended as 3.
+            check((int)Billing.Full == 0 && (int)Billing.NoPower == 1 && (int)Billing.Unfinished == 2 &&
+                  (int)Billing.NoOpenRun == 3, w, "LiftBilling literal values 0-3");
             // Round S1 D23 (ch3 §7.1)
             check(SkiMoneyRules.GuestDayOuting == 1, w, "GuestDayOuting " + SkiMoneyRules.GuestDayOuting);
             check(SkiMoneyRules.GuestDayLeisure == 2, w, "GuestDayLeisure " + SkiMoneyRules.GuestDayLeisure);
@@ -74,10 +82,13 @@ namespace ResortBatch
             check(SkiMoneyRules.LiftFullRate(float.PositiveInfinity) == 2500f, w,
                   "LiftFullRate(+inf) " + SkiMoneyRules.LiftFullRate(float.PositiveInfinity));
 
-            check(SkiMoneyRules.LiftBillingOf(true, true) == Billing.Full, w, "LiftBillingOf(complete, powered)");
-            check(SkiMoneyRules.LiftBillingOf(true, false) == Billing.NoPower, w, "LiftBillingOf(complete, no power)");
-            check(SkiMoneyRules.LiftBillingOf(false, true) == Billing.Unfinished, w, "LiftBillingOf(open, powered)");
-            check(SkiMoneyRules.LiftBillingOf(false, false) == Billing.Unfinished, w, "LiftBillingOf(open, no power)");
+            // Round M2 T2: the third argument is LiftAreaRunOpen; precedence unfinished, no power, no counted run.
+            check(SkiMoneyRules.LiftBillingOf(true, true, true) == Billing.Full, w, "LiftBillingOf(complete, powered, run open)");
+            check(SkiMoneyRules.LiftBillingOf(true, true, false) == Billing.NoOpenRun, w, "LiftBillingOf(complete, powered, no run)");
+            check(SkiMoneyRules.LiftBillingOf(true, false, false) == Billing.NoPower, w, "LiftBillingOf(complete, no power, no run)");
+            check(SkiMoneyRules.LiftBillingOf(true, false, true) == Billing.NoPower, w, "LiftBillingOf(complete, no power, run open)");
+            check(SkiMoneyRules.LiftBillingOf(false, true, false) == Billing.Unfinished, w, "LiftBillingOf(open, powered, no run)");
+            check(SkiMoneyRules.LiftBillingOf(false, false, true) == Billing.Unfinished, w, "LiftBillingOf(open, no power, run open)");
 
             check(SkiMoneyRules.LiftRate(Billing.Full, 1000f) == 3500f, w, "LiftRate(Full, 1000) " + SkiMoneyRules.LiftRate(Billing.Full, 1000f));
             check(SkiMoneyRules.LiftRate(Billing.NoPower, 1000f) == 875f, w, "LiftRate(NoPower, 1000) " + SkiMoneyRules.LiftRate(Billing.NoPower, 1000f));
@@ -86,6 +97,13 @@ namespace ResortBatch
                   "LiftRate(Unfinished, 991) " + SkiMoneyRules.LiftRate(Billing.Unfinished, 991f));
             check(SkiMoneyRules.LiftRate(Billing.NoPower, 2281f) == 1195.25f, w,
                   "LiftRate(NoPower, 2281) " + SkiMoneyRules.LiftRate(Billing.NoPower, 2281f));
+            // Round M2 T2: NoOpenRun bills the reduced share like the other non-Full billings.
+            check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 1000f) == 875f, w,
+                  "LiftRate(NoOpenRun, 1000) " + SkiMoneyRules.LiftRate(Billing.NoOpenRun, 1000f));
+            check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2281f) == 1195.25f, w,
+                  "LiftRate(NoOpenRun, 2281) " + SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2281f));
+            check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 0f) == 625f, w,
+                  "LiftRate(NoOpenRun, 0) " + SkiMoneyRules.LiftRate(Billing.NoOpenRun, 0f));
 
             check(SkiMoneyRules.LiftOperating(true, true), w, "LiftOperating(complete, powered)");
             check(!SkiMoneyRules.LiftOperating(true, false), w, "!LiftOperating(complete, no power)");
@@ -139,15 +157,17 @@ namespace ResortBatch
             check(SkiMoneyRules.ClampTicketPrice(200) == 200, w, "ClampTicketPrice(200)");
             check(SkiMoneyRules.ClampTicketPrice(999) == 200, w, "ClampTicketPrice(999)");
 
-            GateCase(check, w, 0, 1f, true, 3, 1, Gate.Off);
-            GateCase(check, w, 0, 0f, false, 0, 0, Gate.Off);                  // price first
-            GateCase(check, w, 40, 0f, true, 3, 1, Gate.NoEfficiency);
-            GateCase(check, w, 40, float.NaN, true, 3, 1, Gate.NoEfficiency);
-            GateCase(check, w, 40, 0.01f, true, 0, 0, Gate.NothingOpen);
-            GateCase(check, w, 40, 1f, false, 0, 0, Gate.NotKnownYet);
-            GateCase(check, w, 40, 1f, false, 0, 1, Gate.Open);
-            GateCase(check, w, 40, 0.04f, true, 1, 0, Gate.Open);
-            GateCase(check, w, 40, 1.25f, true, 0, 2, Gate.Open);
+            // Round M2 T1 (R2): four arguments, the operating-lift branch is gone; known = score present and not held.
+            GateCase(check, w, 0, 1f, true, 3, Gate.Off);
+            GateCase(check, w, 0, 0f, false, 0, Gate.Off);                  // price first
+            GateCase(check, w, 40, 0f, true, 3, Gate.NoEfficiency);
+            GateCase(check, w, 40, float.NaN, true, 3, Gate.NoEfficiency);
+            GateCase(check, w, 40, 0.01f, true, 0, Gate.NothingOpen);
+            GateCase(check, w, 40, 1f, false, 0, Gate.NotKnownYet);
+            GateCase(check, w, 40, 1f, false, 3, Gate.NotKnownYet);         // unknown wins over runs
+            GateCase(check, w, 40, 0.04f, true, 1, Gate.Open);
+            GateCase(check, w, 40, 1.25f, true, 0, Gate.NothingOpen);       // was Open with 2 operating lifts (run 2b after 15:19)
+            GateCase(check, w, 40, 0.99f, true, 5, Gate.Open);
 
             // Literal values (gate rule R17 compares them with bindings.ts TICKET_GATE).
             check((int)Gate.Open == 0 && (int)Gate.Off == 1 && (int)Gate.NoEfficiency == 2 &&
@@ -155,10 +175,10 @@ namespace ResortBatch
         }
 
         private static void GateCase(Func<bool, string, string, bool> check, string w, int price, float efficiency,
-                                     bool known, int openRuns, int operating, Gate expected)
+                                     bool known, int openRuns, Gate expected)
         {
-            Gate g = SkiMoneyRules.TicketGateOf(price, efficiency, known, openRuns, operating);
-            check(g == expected, w, $"TicketGateOf({price}, {efficiency}, {known}, {openRuns}, {operating}) = {g}, expected {expected}");
+            Gate g = SkiMoneyRules.TicketGateOf(price, efficiency, known, openRuns);
+            check(g == expected, w, $"TicketGateOf({price}, {efficiency}, {known}, {openRuns}) = {g}, expected {expected}");
         }
 
         // ── T5 affordability ────────────────────────────────────────────────────────────────────
@@ -554,6 +574,18 @@ namespace ResortBatch
                         one.LastMonthKnown == two.LastMonthKnown && one.LastMonthSinceLoad == two.LastMonthSinceLoad;
             }
             check(same, w, "Advance(key) differs from Advance(key, false) somewhere in the sequence");
+        }
+
+        // ── T13 a lift's ski area has a counted run (Round M2 T2, decisions.md R3; thaw-rules.md §3) ─────────────
+        // LiftAreaRunOpen(linked, scoreKnown, writeHeld, runsCounted): unknown reads true (the full, old rate).
+        private static void LiftAreaRuns(Func<bool, string, string, bool> check)
+        {
+            const string w = "money T13";
+            check(SkiMoneyRules.LiftAreaRunOpen(false, false, false, 0), w, "LiftAreaRunOpen(not linked) should be true");
+            check(SkiMoneyRules.LiftAreaRunOpen(true, false, false, 0), w, "LiftAreaRunOpen(linked, no score) should be true");
+            check(SkiMoneyRules.LiftAreaRunOpen(true, true, true, 0), w, "LiftAreaRunOpen(linked, score held, 0 runs) should be true");
+            check(!SkiMoneyRules.LiftAreaRunOpen(true, true, false, 0), w, "LiftAreaRunOpen(linked, released, 0 runs) should be false");
+            check(SkiMoneyRules.LiftAreaRunOpen(true, true, false, 1), w, "LiftAreaRunOpen(linked, released, 1 run) should be true");
         }
     }
 }
