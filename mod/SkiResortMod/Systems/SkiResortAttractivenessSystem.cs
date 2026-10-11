@@ -145,6 +145,11 @@
 // them and pay no Transform sync. A walk whose signs no longer match the cached index reads anyway (a missed
 // tag; counted, DUMP `fallback read(s)`). Before E1 the walk read Transform chunks with no sync (a race); the
 // stage-2 build synced on every recompute.
+// ROUND S1 "Ski days" (stream C, 2026-10-05; ski-days spec ch3 §2.1, §5 F4; s1-spec §2.6). Additive accessors on
+// the snapshot: CopySigns, CopyActiveLodges, CopySiteMembers and LodgeSetRevision (++ at a load, when a
+// recompute publishes other (sign, active lodges) lists — LodgeSetChanged, per sign — and when WriteProviders
+// drops a deleted lodge); consumers SkiDaySystem, SkiLodgeParkingSystem, SkiLiftTicketSystem's gate watch.
+// F4: an efficiency-only area line is written only when A moves by 2 or the area was quiet for 60 s (LogArea).
 // ─────────────────────────────────────────────────────────────────────────────────────────
 
 using System;
@@ -180,6 +185,10 @@ namespace SkiResortMod.Systems
             public const int CostReportRecomputes = 32;    // the [cost] line, once per load
             public const double CostWarnMs = 2.0;          // one WARN per load above this
             public const int DampedTicksToLog = 16;        // TO damping: consecutive ticks before the line
+            // Round S1 F4 (ski-days spec ch3 §5): an efficiency-only change writes its area line only when A moves
+            // by this much, or when the area wrote no line for EfficiencyLineQuietS of wall clock.
+            public const int EfficiencyLineMinDeltaA = 2;
+            public const float EfficiencyLineQuietS = 60f;
         }
 
         // Recompute reasons (§10.1 table, exact texts). The watcher's three live in the watch system.
@@ -357,12 +366,19 @@ namespace SkiResortMod.Systems
             public int Slot, Index;
         }
 
-        /// <summary>Per area: the last logged key (A, counts, flags, held) and the fold window (§13).</summary>
+        /// <summary>Per area: the last logged key (A, counts, flags, held) and the fold window (§13). Round S1 F4:
+        /// the logged key without A and PerLodge (StructKey), the logged A / runs value / efficiency percent, and
+        /// the last skipped key (a skip is counted once per change, not per recompute: refutation R12).</summary>
         private sealed class AreaLog
         {
             public readonly LogWindow Window = new LogWindow(Tuning.AreaLogWindowS);
             public bool HasKey;
             public ulong Key;
+            public ulong StructKey;
+            public ulong SkippedKey;
+            public int LoggedA;
+            public double LoggedRunsValue;
+            public int LoggedEffPct;
         }
 
         private readonly Dictionary<Entity, AreaState> m_AreaStates = new Dictionary<Entity, AreaState>();
@@ -377,6 +393,7 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_DampedLogged = new HashSet<Entity>();
         private bool m_CensusOpenLogged;
         private int m_HeldCount;   // areas held at the last recompute
+        private long m_EfficiencyLinesSkipped;   // Round S1 F4: efficiency-only area lines not written this load (DUMP)
 
         // ── recompute scratch (reused; no allocation once grown) ───────────────────────────────────
         // m_SignIndex and m_BaseXz are CACHES since the E1 fixer pass 2 (header COST): filled when positions
@@ -560,6 +577,78 @@ namespace SkiResortMod.Systems
             return into.Count;
         }
 
+        // ── Round S1 ski days (ski-days spec ch3 §2.1; s1-spec §2.6). The lodge list and the D10 inputs of the
+        // last recompute, for SkiDaySystem (B), SkiLodgeParkingSystem and SkiLiftTicketSystem's gate watch (C).
+        // Main thread only; plain copies (no AddRange), allocation-free once the caller's lists have grown. Same
+        // recompute as TryGetAreaScore, so the lodge list and the gate inputs agree (code-map V.1 #11, V.2 #1);
+        // the guest counter's target map uses the same lodge rule, so a lodge from this list is a counted target.
+
+        private int m_LodgeSetRevision;
+
+        /// <summary>++ when the published (sign, active lodges) lists change; at every load; when WriteProviders
+        /// drops a deleted lodge (consumers re-copy).</summary>
+        internal int LodgeSetRevision => m_LodgeSetRevision;
+
+        /// <summary>False only between a load and the first recompute of an active model: the snapshot is empty
+        /// then, not "no ski area". While inactive (no lodge prefab, prefab sets not ready, error-disabled) it is
+        /// true, and CopySigns' 0 is the truth (fixer, review CP-4: the parking census and SkiDaySystem wait on it).</summary>
+        internal bool HasSnapshot => !IsActive || m_Recomputes > 0;
+
+        /// <summary>Live Welcome Signs of the last recompute, slot order; clears <paramref name="into"/>; returns
+        /// the count (0 while inactive).</summary>
+        internal int CopySigns(List<Entity> into)
+        {
+            into.Clear();
+            if (!IsActive)
+                return 0;
+            for (int s = 0; s < m_Cur.SlotCount; s++)
+                into.Add(m_Cur.Slots[s].Sign);
+            return into.Count;
+        }
+
+        /// <summary>AreaSlot.Active of <paramref name="sign"/> (lodge prefab, in its InstalledUpgrade, in the park
+        /// walk, not Inactive; first sign wins); clears <paramref name="into"/>; returns the count. NOT filtered
+        /// for Destroyed (code-map V.3 #6, e1-spec §8.6 item 2: the consumers' lookups judge it).</summary>
+        internal int CopyActiveLodges(Entity sign, List<Entity> into)
+        {
+            into.Clear();
+            if (m_Cur.TryGetSlot(sign, out AreaSlot slot))
+            {
+                for (int i = 0; i < slot.Active.Count; i++)
+                    into.Add(slot.Active[i]);
+            }
+            return into.Count;
+        }
+
+        /// <summary>D10 inputs for SkiDaySystem's SiteJob (ch3 refutation R5): clears both; runs = slot.RunEntities
+        /// of <paramref name="sign"/>; stations = the non-Null Base / Top of every m_Cur.Lifts value with Sign ==
+        /// sign, deduplicated; returns runs.Count + liftStations.Count; 0 for an unknown sign.</summary>
+        internal int CopySiteMembers(Entity sign, List<Entity> runs, List<Entity> liftStations)
+        {
+            runs.Clear();
+            liftStations.Clear();
+            if (!m_Cur.TryGetSlot(sign, out AreaSlot slot))
+                return 0;
+            for (int i = 0; i < slot.RunEntities.Count; i++)
+                runs.Add(slot.RunEntities[i]);
+            foreach (var pair in m_Cur.Lifts)
+            {
+                LiftScoreView lift = pair.Value;
+                if (lift.Sign != sign)
+                    continue;
+                AddStation(liftStations, lift.Base);
+                AddStation(liftStations, lift.Top);
+            }
+            return runs.Count + liftStations.Count;
+        }
+
+        /// <summary>Appends a non-Null station once (a handful per area: a linear Contains is cheaper than a set).</summary>
+        private static void AddStation(List<Entity> into, Entity station)
+        {
+            if (station != Entity.Null && !into.Contains(station))
+                into.Add(station);
+        }
+
         // ── lifecycle ──────────────────────────────────────────────────────────────────────────────
 
         /// <summary>Mirror vanilla AttractionSystem's cadence so the anchored write lands
@@ -660,6 +749,8 @@ namespace SkiResortMod.Systems
             m_Cur.Clear();
             m_Next.Clear();
             m_Generation++;
+            m_LodgeSetRevision++;          // Round S1: the lists were emptied (consumers re-copy)
+            m_EfficiencyLinesSkipped = 0;  // Round S1 F4
             m_AreaStates.Clear();
             m_HeldValues.Clear();
             m_LastRatings.Clear();
@@ -971,6 +1062,8 @@ namespace SkiResortMod.Systems
 
             // 7. Publish: compare, swap, prune.
             bool changed = SnapshotChanged(m_Cur, next);
+            if (LodgeSetChanged(m_Cur, next))
+                m_LodgeSetRevision++;   // Round S1 (ch3 §2.1)
             m_Next = m_Cur;
             m_Cur = next;
             if (changed)
@@ -1444,42 +1537,64 @@ namespace SkiResortMod.Systems
         /// <summary>§13 area line: written when A, a count, a flag or WriteHeld changed since the area's last
         /// line, through the area's LogWindow (the first after a quiet window plain, the rest folded). A held
         /// area names its blocker (E1 fixer, e1-spec §8.9 F2): "ratings pending" while a member run is unrated
-        /// and the rating service has not failed, else "snow settling" (R4's SnowSettled clock).</summary>
+        /// and the rating service has not failed, else "snow settling" (R4's SnowSettled clock).
+        /// Round S1 F4 (ski-days spec ch3 §5; field test 8: 89 of 104 score lines were efficiency-triggered): a
+        /// change that is efficiency-only — same counts, flags and held state (StructKey), same runs value, another
+        /// efficiency percent, A within EfficiencyLineMinDeltaA of the logged A — is skipped (counted once per
+        /// change, DUMP) unless the area wrote no line for EfficiencyLineQuietS. Log only: score, Generation and
+        /// the hub are unaffected.</summary>
         private void LogArea(AreaSlot slot, string reason, bool ratingFailed)
         {
             SkiResortScore.Result r = slot.Result;
-            ulong key = SkiRunRatingRules.FnvOffset;
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.Attraction));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.PerLodge));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.ActiveLodges));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.InactiveLodges));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.Runs));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.RunsOpen));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.RunsCounted));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.RunsPending));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.RunsUnrateable));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.RunsFlat));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.RunsUnserved));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.RunsEstimated));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)slot.OpenUnknown));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.Lifts));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.LiftsComplete));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.LiftsOpenSection));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.LiftsUnpowered));
-            key = SkiRunRatingRules.Mix(key, unchecked((uint)r.LiftsCounted));
-            key = SkiRunRatingRules.Mix(key, (uint)r.Flags);
+            ulong structKey = SkiRunRatingRules.FnvOffset;
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.ActiveLodges));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.InactiveLodges));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.Runs));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.RunsOpen));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.RunsCounted));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.RunsPending));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.RunsUnrateable));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.RunsFlat));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.RunsUnserved));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.RunsEstimated));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)slot.OpenUnknown));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.Lifts));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.LiftsComplete));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.LiftsOpenSection));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.LiftsUnpowered));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.LiftsCounted));
+            structKey = SkiRunRatingRules.Mix(structKey, (uint)r.Flags);
             bool heldForRatings = slot.Held && r.RunsPending > 0 && !ratingFailed;
-            key = SkiRunRatingRules.Mix(key, !slot.Held ? 0u : heldForRatings ? 1u : 2u);
+            structKey = SkiRunRatingRules.Mix(structKey, !slot.Held ? 0u : heldForRatings ? 1u : 2u);
+            ulong key = SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(structKey, unchecked((uint)r.Attraction)),
+                                              unchecked((uint)r.PerLodge));
 
             if (!m_AreaLogs.TryGetValue(slot.Sign, out AreaLog log))
             {
                 log = new AreaLog();
                 m_AreaLogs[slot.Sign] = log;
             }
+            float now = UnityEngine.Time.realtimeSinceStartup;
             if (log.HasKey && log.Key == key)
                 return;
+            // Round S1 F4: an efficiency-only change (summary above).
+            if (log.HasKey && structKey == log.StructKey && r.RunsValue == log.LoggedRunsValue &&
+                slot.EfficiencyPct != log.LoggedEffPct && Math.Abs(r.Attraction - log.LoggedA) < Tuning.EfficiencyLineMinDeltaA &&
+                !log.Window.QuietFor(now, Tuning.EfficiencyLineQuietS))
+            {
+                if (key != log.SkippedKey)
+                {
+                    m_EfficiencyLinesSkipped++;
+                    log.SkippedKey = key;
+                }
+                return;
+            }
             log.HasKey = true;
             log.Key = key;
+            log.StructKey = structKey;
+            log.LoggedA = r.Attraction;
+            log.LoggedRunsValue = r.RunsValue;
+            log.LoggedEffPct = slot.EfficiencyPct;
 
             // Each Invariant(...) holds ONE interpolated string (C# 9: a `+` of two of them is a plain string).
             string text =
@@ -1494,7 +1609,6 @@ namespace SkiResortMod.Systems
                 ((r.Flags & SkiResortScore.ScoreFlags.NoLodge) != 0 ? "; NO LODGE" : "") +
                 (!slot.Held ? "" : heldForRatings ? "; HELD (ratings pending)" : "; HELD (snow settling)") +
                 ((r.Flags & SkiResortScore.ScoreFlags.Clamped) != 0 ? "; CLAMPED" : "") + " — " + reason;
-            float now = UnityEngine.Time.realtimeSinceStartup;
             switch (log.Window.Offer(now, false, text, r.Attraction, r.RunsValue, slot.EfficiencyPct))
             {
                 case LogWindow.Verdict.Plain:
@@ -1581,6 +1695,28 @@ namespace SkiResortMod.Systems
             {
                 if (!cur.WriteValues.TryGetValue(pair.Key, out int old) || old != pair.Value)
                     return true;
+            }
+            return false;
+        }
+
+        /// <summary>Round S1 (ch3 §2.1, refutation R15): the published (sign, active lodges) lists differ — the slot
+        /// count, a sign of <paramref name="next"/> with no slot in <paramref name="cur"/>, or a sign's Active list
+        /// in count or element order. Compared per sign through SlotOfSign, so a slot reorder (chunk order) is not
+        /// a change.</summary>
+        private static bool LodgeSetChanged(Snapshot cur, Snapshot next)
+        {
+            if (cur.SlotCount != next.SlotCount)
+                return true;
+            for (int s = 0; s < next.SlotCount; s++)
+            {
+                AreaSlot a = next.Slots[s];
+                if (!cur.TryGetSlot(a.Sign, out AreaSlot b) || a.Active.Count != b.Active.Count)
+                    return true;
+                for (int i = 0; i < a.Active.Count; i++)
+                {
+                    if (a.Active[i] != b.Active[i])
+                        return true;
+                }
             }
             return false;
         }
@@ -1712,6 +1848,9 @@ namespace SkiResortMod.Systems
                     }
                     m_ScratchEntities.Clear();
                     m_Generation++;   // never hand a deleted lodge to the hub
+                    // Round S1 (ch3 §2.1, R15): consumers re-copy; the deleted lodge stays listed until the next
+                    // recompute (slot.Active keeps it; their lookups reject it).
+                    m_LodgeSetRevision++;
                 }
             }
 
@@ -1776,12 +1915,14 @@ namespace SkiResortMod.Systems
                 if (m_StructuralPending || m_SoftPending)
                     sb.Append(" ('").Append(m_PendingReason).Append("')");
                 sb.Append(", next backstop in ").Append(m_TicksUntilRefresh).Append(" tick(s), generation ").Append(m_Generation)
+                  .Append(", lodge set revision ").Append(m_LodgeSetRevision)   // Round S1 (ch3 §2.1)
                   .Append(", cost mean ").Append(mean.ToString("F3", CultureInfo.InvariantCulture))
                   .Append(" ms max ").Append(m_CostMaxMs.ToString("F3", CultureInfo.InvariantCulture))
                   .Append(" ms (first after load ").Append(m_FirstRecomputeMs < 0.0 ? "-" : m_FirstRecomputeMs.ToString("F3", CultureInfo.InvariantCulture))
                   .Append(" ms, apart), poll mean ").Append(pollMean.ToString("F3", CultureInfo.InvariantCulture))
                   .Append(" ms, positions read ").Append(m_PositionReads).Append(" time(s) (structural or backstop; ")
-                  .Append(m_PositionFallbacks).Append(" fallback read(s) on a soft recompute)\n");
+                  .Append(m_PositionFallbacks).Append(" fallback read(s) on a soft recompute)")
+                  .Append(", efficiency-only area lines skipped ").Append(m_EfficiencyLinesSkipped).Append('\n');   // Round S1 F4
 
                 for (int s = 0; s < m_Cur.SlotCount; s++)
                 {

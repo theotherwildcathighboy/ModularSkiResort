@@ -23,8 +23,9 @@
  *     chapter 2 section 7.3 is the two-line revert); run tiles keep a kind stripe in the run list's
  *     marker colours (hub.module.scss .stripe*, the natural run's two short bars). If an icon fails
  *     to load the tile draws a CSS square instead (AssetIcon, src/hub/parts.tsx). Round M1 deletes
- *     the SkiResortCategory prefab but KEEPS SkiResortTab.png (aed39078...) for the launcher (spec
- *     6.1 d; HubLauncher.tsx HUB_ICON).
+ *     the SkiResortCategory prefab but keeps SkiResortTab.png (aed39078...), which is no longer
+ *     drawn: the launchers use SkiLauncherGlyph.svg since S1 F9 (HubLauncher.tsx HUB_GLYPH; HUB_ICON is
+ *     the rollback).
  *   - Icons, style E (2026-10-04; econ-round e1-spec.md section 8): all nine icons are redrawn by
  *     assets/blender/ski_icons.py (same file names, so the same ids) and the lift tile gets its own
  *     SkiChairliftLine.png (890dda43..., SkiChairliftHV.Prefab m_Icon) instead of SkiResortTab.png.

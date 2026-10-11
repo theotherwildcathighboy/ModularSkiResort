@@ -112,12 +112,16 @@
 //     the census is not armed (the callers fail open). The first call per load writes one
 //     `LiftCensus [serve]` cost line.
 //   * ReadLiftPower(base station): THE ONLY reader of a lift station's Game.Buildings.ElectricityConsumer
-//     in the mod (R1). LiftServedRule.PowerOf(m_Flags): NoPower exactly when the game draws its
-//     electricity icon on the station — NoElectricityWarning or BottleneckWarning (DispatchElectricity-
-//     System.cs:126-158; flags ElectricityConsumerFlags.cs:5-12) —, else Powered; Unknown for a Null /
-//     gone station or one without a consumer (one `LiftCensus [power]` line per station per load). The
-//     base station is a transformer fed from its stub valves, so a fed base station means an energised
-//     line (ch2 §3.3). Every caller turns the value into "powered" with LiftServedRule.IsPowered.
+//     in the mod (R1). LiftServedRule.PowerOf: power from the base station's ElectricityConsumer:
+//     NoPower while it shows the game's warning (NoElectricityWarning or BottleneckWarning,
+//     DispatchElectricitySystem.cs:126-158; flags ElectricityConsumerFlags.cs:5-12) and under half of
+//     its wanted power arrives; back at three quarters or when the warning clears (Round S1 F2: the
+//     4-argument overload, fed the last value read for the station; field test 8's 9 % shortfall
+//     switched both lifts off); else Powered;
+//     Unknown for a Null / gone station or one without a consumer (one `LiftCensus [power]` line per
+//     station per load). The base station is a transformer fed from its stub valves, so a fed base
+//     station means an energised line (ch2 §3.3). Every caller turns the value into "powered" with
+//     LiftServedRule.IsPowered.
 //     Transition lines: the first read of a station this load logs only NoPower; later reads log a
 //     change. They go through m_PowerLog (LogWindow 10 s, R15: a brownout can flip the warning every
 //     384 frames per station and four callers read power): the first change after a quiet window is
@@ -384,8 +388,11 @@ namespace SkiResortMod.Systems
                                  "is treated as powered");
                 return LiftPower.Unknown;
             }
-            LiftPower power = LiftServedRule.PowerOf((byte)consumer.m_Flags);
+            // Round S1 F2 (ski-days spec ch3 §5, s1-spec N6/N7): the last value read for this station feeds the
+            // rule's hysteresis (NoPower under half, back at three quarters); a first read passes Unknown.
             bool known = m_LastPower.TryGetValue(baseStation, out LiftPower last);
+            LiftPower power = LiftServedRule.PowerOf((byte)consumer.m_Flags, consumer.m_WantedConsumption,
+                                                     consumer.m_FulfilledConsumption, known ? last : LiftPower.Unknown);
             m_LastPower[baseStation] = power;
             if (known ? last != power : power == LiftPower.NoPower)
                 OfferPowerLine(baseStation, power, consumer);
@@ -431,12 +438,15 @@ namespace SkiResortMod.Systems
         private void OfferPowerLine(Entity baseStation, LiftPower power, Game.Buildings.ElectricityConsumer consumer)
         {
             bool toNoPower = power == LiftPower.NoPower;
+            // Round S1 F2 (ch3 §5, exact): the warning bracket only while a warning bit is still set.
+            bool warning = ((byte)consumer.m_Flags &
+                            (LiftServedRule.FlagNoElectricityWarning | LiftServedRule.FlagBottleneckWarning)) != 0;
             string body = toNoPower
-                ? $"{DescribeBase(baseStation)} — no power: the base station shows the game's electricity warning (wanted " +
-                  $"{consumer.m_WantedConsumption}, fulfilled {consumer.m_FulfilledConsumption}, flags {consumer.m_Flags}); " +
-                  "the lift counts 0 and serves no run until power returns"
+                ? $"{DescribeBase(baseStation)} — no power: under half its power arrives (wanted {consumer.m_WantedConsumption}, " +
+                  $"fulfilled {consumer.m_FulfilledConsumption}, flags {consumer.m_Flags}); the lift counts 0 and serves no run " +
+                  "until three quarters arrive or the warning clears"
                 : $"{DescribeBase(baseStation)} — power back (wanted {consumer.m_WantedConsumption}, fulfilled " +
-                  $"{consumer.m_FulfilledConsumption}); it serves runs again";
+                  $"{consumer.m_FulfilledConsumption}{(warning ? "; the game still shows its warning" : "")}); it serves runs again";
             float now = UnityEngine.Time.realtimeSinceStartup;
             switch (m_PowerLog.Offer(now, false, body, toNoPower ? 1 : 0, toNoPower ? 0 : 1))
             {
@@ -1641,8 +1651,9 @@ namespace SkiResortMod.Systems
                          $"{(towersRemoved > 0 ? $", {towersRemoved} tower(s) missing" : string.Empty)}; {LastBuildMs:F2} ms" +
                          $"; served rule (E1): run top within ServeRadiusM={LiftServedRule.ServeRadiusM:0} m (xz) of a Complete " +
                          $"lift's line chords and at most TopMarginM={LiftServedRule.TopMarginM:0} m above its top station; power " +
-                         "from the base station's ElectricityConsumer warning flags (PowerGatesService=" +
-                         $"{(LiftServedRule.PowerGatesService ? "true" : "false")})");
+                         "from the base station's ElectricityConsumer: NoPower while it shows the game's warning and under half " +
+                         "of its wanted power arrives; back at three quarters or when the warning clears (Round S1 F2; " +
+                         $"PowerGatesService={(LiftServedRule.PowerGatesService ? "true" : "false")})");
             m_LastNotes = null;
             LogNotesIfChanged();
         }

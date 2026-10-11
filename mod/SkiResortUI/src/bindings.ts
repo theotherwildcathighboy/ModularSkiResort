@@ -4,7 +4,10 @@
  * Written for this repo (MIT). Created 2026-10-01 (Round U1, implementer U1-A); rewritten for
  * contract 2 on 2026-10-03 (Round U2, implementer I-3); contract 3 on 2026-10-04 (Round E1, stream
  * S6: docs/research/econ-round/spec/ch6-hub-ui.md section 4, design
- * docs/research/econ-round/design/hub-v3-design.md section 8; e1-spec.md I-25).
+ * docs/research/econ-round/design/hub-v3-design.md section 8; e1-spec.md I-25); contract 4 on
+ * 2026-10-05 (Round S1 "Ski days", stream E: docs/research/ski-days/s1-spec.md section 2.10,
+ * spec/ch4-hub.md section A: ten ResortLive fields appended, SKI_DAY_STATE, SKI_DAY_LIMIT, PROBLEM
+ * 20-22; the six last-month guest fields are now also sent for a partial month, F7).
  * Authority before contract 3: docs/research/hub-u2-spec.md section 2.2 (binding table) and 2.3
  * (shapes); contract 1 was resort-hub-understand.md section 5.3. The C# side (SkiResortHubUISystem,
  * group "skiResort") must register EXACTLY these names with these shapes (ch5 section 4.4 writes the
@@ -27,7 +30,8 @@
  *   - (Round E1) rule R17: the const objects RUN_KIND, RESORT_STATUS, OPEN_STATE, SEASON_HINT,
  *     NEXT_STEP, LIFT_STATUS, PROBLEM, TICKET_GATE (literal numbers) against their C# enums
  *     (EntityRef.cs RunKind, HubRules.cs, SkiMoneyRules.TicketGate). BAND and LIFT_STATE have no
- *     C# enum (literal ints in C#) and are not compared.
+ *     C# enum (literal ints in C#) and are not compared. Round S1 (contract 4) adds SKI_DAY_STATE
+ *     (HubRules.cs HubSkiDayState) and SKI_DAY_LIMIT (SkiDayRules.cs SkiDayLimit, a top-level enum).
  *
  * Rules every consumer relies on (verified in the installed 1.6.2f1 Cities2_Data/Content/Game/UI/
  * index.js unless marked):
@@ -75,13 +79,14 @@ import type { Entity } from "cs2/utils";
 export const GROUP = "skiResort";
 
 /**
- * Contract 3 (Round E1, D32: one bump for everything). C#: SkiResortHubUISystem.HubContract.
+ * Contract 4 (Round S1, ski days: docs/research/ski-days/spec/ch4-hub.md section A; contract 3 was
+ * Round E1, D32). C#: SkiResortHubUISystem.HubContract.
  * Bump both whenever a binding, trigger, field or meaning below changes (tools/check-bundle.js
  * fails a change without a bump, against tools/contract.lock). The panel renders the resort views
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree
  * controls (CORE only) and says why (spec 4.5).
  */
-export const HUB_CONTRACT = 3;
+export const HUB_CONTRACT = 4;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -162,7 +167,16 @@ export const PROBLEM = {
   RunsFlat: 17, // second pass: appended after Factor (append only; C# HubProblemCode.RunsFlat)
   SignNoRoad: 18, // Round F7 D5: the Welcome Sign's Building.m_RoadEdge is null (C# HubProblemCode.SignNoRoad)
   LodgeNoRoad: 19, // Round F7 D5: a lodge of the area has Building.m_RoadEdge null; subject = the first such lodge
+  SkiDaysCannotReach: 20, // Round S1 D28: most car ski-day guests never arrived (sev 2); subject = that lodge, else the sign
+  NoParkingNearLodge: 21, // Round S1 D28 (D26 census): ski-day lodges with 0 car spaces within 300 m (sev 1); count
+  LodgeNotSlopeside: 22, // Round S1 D28 (D10): active lodges more than 800 m from the runs and stations (sev 1); count
 } as const;
+
+/** ResortLive.skiDaysState. C# HubRules HubSkiDayState (Round S1, contract 4). */
+export const SKI_DAY_STATE = { Unknown: 0, Off: 1, SignOff: 2, NoRun: 3, NoLodge: 4, Night: 5, Room: 6, Full: 7 } as const;
+
+/** ResortLive.skiDaysLimit. C# SkiDayRules SkiDayLimit (ch1): which D21 term sets the capacity. */
+export const SKI_DAY_LIMIT = { None: 0, Runs: 1, Lodges: 2 } as const;
 
 /** Build-strip ids. C# SkiResortHubUISystem.ItemIds holds the same set (gate rule R16). C# owns
  *  what each id launches; this order is only a fallback (the strip draws BUILD_GROUPS of
@@ -307,7 +321,8 @@ export interface ResortLive {
   /** NEXT_STEP. */
   nextStep: number;
   thisMonthSinceLoad: boolean;
-  /** A whole month was counted; every last-month field is -1 otherwise. */
+  /** A whole month was counted. Last-month fields are -1 only when no month has rolled since counting
+   *  started; with lastMonthFull false they hold a partial month (shown with "(partial)"; Round S1 F7). */
   lastMonthFull: boolean;
   guestsThisMonth: number;
   touristsThisMonth: number;
@@ -345,6 +360,27 @@ export interface ResortLive {
   /** The one net (ch5 HubRules.NetMonth); Not linked: -liftCostMonth. Used as sent. */
   netMonth: number;
   netEstimated: boolean;
+  // Contract 4 (Round S1, ski days; ch4 section A.1): appended in this order, as in C# ResortLiveStats.
+  /** SKI_DAY_STATE (0 Unknown; also on the Not linked row). */
+  skiDaysState: number;
+  /** Ski-day guests who reached a lodge this month; -1 unknown. */
+  skiDaysThisMonth: number;
+  /** The same, last month; -1 until a month rolled since counting started (partial when !lastMonthFull). */
+  skiDaysLastMonth: number;
+  /** Ski-day claims this month, all classes; -1 unknown. */
+  skiDaysSent: number;
+  /** Of those, class Car (farther than walking, had a car, D12); -1 unknown. */
+  skiDaysSentCar: number;
+  /** Of those, class "far, no car" (D13); -1 unknown. Walk = sent - car - no car (hubRules.skiDayWalk). */
+  skiDaysSentNoCar: number;
+  /** Claimed guests on the way plus on site now (D21); -1 unknown. */
+  skiDaysNow: number;
+  /** Capacity at once (D21 Cap incl. powder, whole skiers; 0 is real and reads Full); -1 unknown. */
+  skiDaysCap: number;
+  /** SKI_DAY_LIMIT: which D21 term binds (0 None). */
+  skiDaysLimit: number;
+  /** Powder 0-100 (HubRules.Percent of the area's powder, D19); -1 unknown. */
+  skiDaysPowderPct: number;
 }
 
 /** One run of ours: identity, rating, service, value parts. */

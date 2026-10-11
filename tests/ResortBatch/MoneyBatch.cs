@@ -3,11 +3,16 @@
 // e1-spec R9 — `public static class MoneyBatch` with `public static void Run(Func<bool, string, string, bool> check)`
 // and its own Near; Program.Main calls MoneyBatch.Run(Check). Oracles are literal hand values (ch4 §7).
 // Stream S4 (2026-10-04) wrote T1-T7; T8 (SkiResortMoney.Compose) is dropped with Compose (e1-spec R7).
+// Round S1 (stream C, 2026-10-05; ski-days spec ch3 §7.1): T1 and IsZero extended; T9-T11 added. The S1 T8
+// (a money-rules day key) is dropped: the one day key is SkiDayRules.DayKey (s1-spec N3, SkiDayTests N).
+// Round M1 "measure first" (Builder B, 2026-10-05; docs/research/ski-days/measure/m1-spec.md §4): T12 partial
+// months (SkiMoneyRules.IsShortMonth / SimulatedPct, SkiResortLedger.Advance(key, closedMonthShort)); T7 unchanged.
 //
 // Covers: SkiMoneyRules (T1 constants, T2 lift rates and billing, T3 accrual and attribution, T4 ticket price
-// and gate, T5 affordability, T6 month keys) and SkiResortLedger (T7: start / roll / jump, the per-entry
-// counters, Revision, Prune, Reset). Not testable headless (ECS): the scans, the ticket job, the lift
-// snapshot — covered by the logs, the DUMP and the field rows of ch4 §15.
+// and gate, T5 affordability, T6 month keys, T9 the D23 day rules) and SkiResortLedger (T7: start / roll /
+// jump, the per-entry counters, Revision, Prune, Reset; T10 the D23 arrival flags); T11 a D23 day scenario
+// (the counter's two day sets stood in for by a HashSet and a Dictionary). Not testable headless (ECS): the
+// scans, the ticket job, the lift snapshot — covered by the logs, the DUMP and the field rows of ch4 §15.
 
 using System;
 using System.Collections.Generic;
@@ -29,6 +34,10 @@ namespace ResortBatch
             Affordability(check);
             MonthKeys(check);
             Ledger(check);
+            GuestDayRules(check);      // Round S1 T9
+            LedgerGuestDays(check);    // Round S1 T10
+            GuestDayScenario(check);   // Round S1 T11
+            PartialMonths(check);      // Round M1 T12
         }
 
         private static bool Near(double a, double b, double eps)
@@ -47,6 +56,9 @@ namespace ResortBatch
             check(SkiMoneyRules.TicketPriceMax == 200, w, "TicketPriceMax " + SkiMoneyRules.TicketPriceMax);
             check(SkiMoneyRules.TicketPriceStep == 5, w, "TicketPriceStep " + SkiMoneyRules.TicketPriceStep);
             check(SkiMoneyRules.TicksPerDay == 262144, w, "TicksPerDay " + SkiMoneyRules.TicksPerDay);
+            // Round S1 D23 (ch3 §7.1)
+            check(SkiMoneyRules.GuestDayOuting == 1, w, "GuestDayOuting " + SkiMoneyRules.GuestDayOuting);
+            check(SkiMoneyRules.GuestDayLeisure == 2, w, "GuestDayLeisure " + SkiMoneyRules.GuestDayLeisure);
         }
 
         // ── T2 lift rates ───────────────────────────────────────────────────────────────────────
@@ -343,7 +355,205 @@ namespace ResortBatch
         private static bool IsZero(SkiResortLedger.Month m)
         {
             return m.TouristGuests == 0 && m.TouristParties == 0 && m.LocalGuests == 0 && m.TicketsPaid == 0 &&
-                   m.TicketsUnpaid == 0 && m.TicketsFree == 0 && m.TicketIncome == 0 && m.LiftCharged == 0.0;
+                   m.TicketsUnpaid == 0 && m.TicketsFree == 0 && m.TicketIncome == 0 && m.LiftCharged == 0.0 &&
+                   m.TouristOnLeisure == 0;   // Round S1 D23
+        }
+
+        // ── T9 the D23 day rules (Round S1, ch3 §7.1) ───────────────────────────────────────────
+        private static void GuestDayRules(Func<bool, string, string, bool> check)
+        {
+            const string w = "money T9";
+            // TouristLeisureCounts(counted today, household day) → (counts, newGroup)
+            LeisureCase(check, w, false, 0, true, true);
+            LeisureCase(check, w, false, 2, true, false);
+            LeisureCase(check, w, false, 1, false, false);
+            LeisureCase(check, w, false, 3, false, false);
+            LeisureCase(check, w, true, 0, false, false);
+            LeisureCase(check, w, true, 2, false, false);
+            // OutingPeople(party, already, household day) → (people, newGroup)
+            OutingCase(check, w, 3, 0, 0, 3, true);      // 3 − 0
+            OutingCase(check, w, 3, 1, 2, 2, false);     // 3 − 1
+            OutingCase(check, w, 3, 3, 2, 0, false);
+            OutingCase(check, w, 2, 0, 1, 2, false);
+            OutingCase(check, w, 2, 2, 1, 0, false);
+            OutingCase(check, w, 0, 0, 0, 0, false);
+            OutingCase(check, w, 3, 5, 0, 0, false);     // 3 − clamp(5, 0, 3)
+            OutingCase(check, w, 3, -1, 0, 3, true);     // 3 − 0
+            OutingCase(check, w, -2, 0, 0, 0, false);    // max(0, −2)
+        }
+
+        private static void LeisureCase(Func<bool, string, string, bool> check, string w, bool today, byte hday, bool counts,
+                                        bool newGroup)
+        {
+            bool c = SkiMoneyRules.TouristLeisureCounts(today, hday, out bool g);
+            check(c == counts && g == newGroup, w,
+                  $"TouristLeisureCounts({today}, {hday}) = ({c}, {g}), expected ({counts}, {newGroup})");
+        }
+
+        private static void OutingCase(Func<bool, string, string, bool> check, string w, int party, int already, byte hday,
+                                       int people, bool newGroup)
+        {
+            int p = SkiMoneyRules.OutingPeople(party, already, hday, out bool g);
+            check(p == people && g == newGroup, w,
+                  $"OutingPeople({party}, {already}, {hday}) = ({p}, {g}), expected ({people}, {newGroup})");
+        }
+
+        // ── T10 the ledger's D23 flags (Round S1, ch3 §7.1) ─────────────────────────────────────
+        private static void LedgerGuestDays(Func<bool, string, string, bool> check)
+        {
+            const string w = "money T10";
+            var a = new EntityRef(412, 1);
+            var l = new SkiResortLedger();
+            check(l.Advance(200) == Advance.Started, w, "Advance(200) == Started");
+            int rev0 = l.Revision;
+            l.AddArrival(a, true, 1, true, true);
+            l.AddArrival(a, true, 1, false, true);
+            l.AddArrival(a, true, 1, false, false);
+            l.AddArrival(a, true, 1, true, false);
+            l.AddArrival(a, false, 1);
+            l.AddArrival(a, false, 1, false, true);   // a resident: the flags are ignored
+            check(l.TryGet(a, out SkiResortLedger.Entry e), w, "TryGet(A)");
+            SkiResortLedger.Month m = e.This;
+            check(m.TouristGuests == 4, w, "This.TouristGuests " + m.TouristGuests + ", expected 1+1+1+1 = 4");
+            check(m.TouristParties == 2, w, "This.TouristParties " + m.TouristParties + ", expected 1+1 = 2 (newGroup only)");
+            check(m.TouristOnLeisure == 2, w, "This.TouristOnLeisure " + m.TouristOnLeisure + ", expected 1+1 = 2 (onLeisure only)");
+            check(m.LocalGuests == 2, w, "This.LocalGuests " + m.LocalGuests + ", expected 2");
+            check(m.Guests == 6, w, "This.Guests " + m.Guests + ", expected 6");
+            check(l.Revision == rev0 + 6, w, $"Revision {l.Revision}, expected {rev0} + 6");
+            int rev1 = l.Revision;
+            l.AddArrival(a, true, 0, true, true);
+            check(l.Revision == rev1, w, "AddArrival(A, true, 0, true, true) leaves Revision unchanged");
+            check(l.Advance(201) == Advance.Rolled, w, "Advance(201) == Rolled");
+            l.TryGet(a, out e);
+            check(e.Last.TouristOnLeisure == 2, w, "Last.TouristOnLeisure " + e.Last.TouristOnLeisure + ", expected 2");
+            check(e.This.TouristOnLeisure == 0, w, "This.TouristOnLeisure " + e.This.TouristOnLeisure + ", expected 0");
+            check(l.Total(true).TouristOnLeisure == 2, w, "Total(last).TouristOnLeisure " + l.Total(true).TouristOnLeisure);
+        }
+
+        // ── T11 a D23 day (Round S1, ch3 §7.1): the counter's job logic on two stand-in sets ──────
+        // Area S; household H {c1, c2, c3}, household K {k1}. The two helpers below repeat the scan jobs' D23
+        // branches (SkiGuestCounterSystem LeisureScanJob / MeetingScanJob) with a HashSet and a Dictionary in
+        // place of m_CitizensToday / m_HouseholdsToday; the ledger is the real one.
+        private sealed class DaySets
+        {
+            public readonly HashSet<(int, int)> Citizens = new HashSet<(int, int)>();        // (citizen, sign)
+            public readonly Dictionary<(int, int), byte> Households = new Dictionary<(int, int), byte>();  // (household, sign)
+        }
+
+        private static void LeisureArrival(DaySets d, SkiResortLedger l, EntityRef sign, int citizen, int household)
+        {
+            var ck = (citizen, sign.Index);
+            var hk = (household, sign.Index);
+            d.Households.TryGetValue(hk, out byte hday);
+            if (!SkiMoneyRules.TouristLeisureCounts(d.Citizens.Contains(ck), hday, out bool newGroup))
+                return;
+            d.Citizens.Add(ck);
+            d.Households[hk] = (byte)(hday | SkiMoneyRules.GuestDayLeisure);
+            l.AddArrival(sign, true, 1, newGroup, true);
+        }
+
+        private static void OutingArrival(DaySets d, SkiResortLedger l, EntityRef sign, int household, int[] party)
+        {
+            var hk = (household, sign.Index);
+            d.Households.TryGetValue(hk, out byte hday);
+            int already = 0;
+            for (int k = 0; k < party.Length; k++)
+            {
+                if (d.Citizens.Contains((party[k], sign.Index)))
+                    already++;
+            }
+            int people = SkiMoneyRules.OutingPeople(party.Length, already, hday, out bool newGroup);
+            for (int k = 0; k < party.Length; k++)
+                d.Citizens.Add((party[k], sign.Index));
+            d.Households[hk] = (byte)(hday | SkiMoneyRules.GuestDayOuting);
+            if (people > 0)
+                l.AddArrival(sign, true, people, newGroup, false);
+        }
+
+        private static void GuestDayScenario(Func<bool, string, string, bool> check)
+        {
+            const string w = "money T11";
+            var s = new EntityRef(412, 1);
+            const int h = 900, k = 901, c1 = 11, c2 = 12, c3 = 13, k1 = 21;
+            var d = new DaySets();
+            var l = new SkiResortLedger();
+            l.Advance(200);
+
+            LeisureArrival(d, l, s, c1, h);
+            Step(check, w, l, s, 1, "c1 on leisure: counts, new group", 1, 1, 1);
+            LeisureArrival(d, l, s, c1, h);
+            Step(check, w, l, s, 2, "c1 leaves and returns: counted today, no", 1, 1, 1);
+            LeisureArrival(d, l, s, c2, h);
+            Step(check, w, l, s, 3, "c2 on leisure: counts, H already Leisure, not new", 2, 1, 2);
+            OutingArrival(d, l, s, h, new[] { c1, c2, c3 });
+            Step(check, w, l, s, 4, "outing H (c1, c2, c3): 2 already, people 1, not new", 3, 1, 2);
+            OutingArrival(d, l, s, k, new[] { k1 });
+            Step(check, w, l, s, 5, "outing K (k1): people 1, new group", 4, 2, 2);
+            LeisureArrival(d, l, s, k1, k);
+            Step(check, w, l, s, 6, "k1 on leisure: K came by outing, no", 4, 2, 2);
+            d.Citizens.Clear();          // the day roll (AdvanceDay)
+            d.Households.Clear();
+            LeisureArrival(d, l, s, c1, h);
+            Step(check, w, l, s, 7, "day roll, c1 on leisure: counts, new group", 5, 3, 3);
+        }
+
+        private static void Step(Func<bool, string, string, bool> check, string w, SkiResortLedger l, EntityRef sign, int step,
+                                 string label, int tg, int tp, int tl)
+        {
+            l.TryGet(sign, out SkiResortLedger.Entry e);
+            SkiResortLedger.Month m = e.This;
+            check(m.TouristGuests == tg && m.TouristParties == tp && m.TouristOnLeisure == tl, w,
+                  $"step {step} ({label}): TG/TP/TL {m.TouristGuests}/{m.TouristParties}/{m.TouristOnLeisure}, expected {tg}/{tp}/{tl}");
+        }
+
+        // ── T12 partial months (Round M1, D5; m1-spec §4 MoneyBatch, M7c) ───────────────────────────
+        // A month of 262,144 frames (12 days a year): 95 % = 249,036.8 frames, so 249,037 is full and 249,036 short.
+        private static void PartialMonths(Func<bool, string, string, bool> check)
+        {
+            const string w = "money T12";
+            check(SkiMoneyRules.FullMonthShare == 0.95f, w, "FullMonthShare " + SkiMoneyRules.FullMonthShare);
+            check(!SkiMoneyRules.IsShortMonth(249037u, 12), w, "IsShortMonth(249037, 12) should be false");
+            check(SkiMoneyRules.IsShortMonth(249036u, 12), w, "IsShortMonth(249036, 12) should be true");
+            check(!SkiMoneyRules.IsShortMonth(262144u, 12), w, "IsShortMonth(262144, 12) should be false");
+            check(SkiMoneyRules.IsShortMonth(0u, 12), w, "IsShortMonth(0, 12) should be true");
+            check(SkiMoneyRules.IsShortMonth(262144u, 24), w, "IsShortMonth(262144, 24) should be true (a month is 524,288 frames)");
+            check(SkiMoneyRules.SimulatedPct(91750u, 12) == 34, w, "SimulatedPct(91750, 12) " + SkiMoneyRules.SimulatedPct(91750u, 12) + ", expected 34");
+            check(SkiMoneyRules.SimulatedPct(262144u, 12) == 100, w, "SimulatedPct(262144, 12) " + SkiMoneyRules.SimulatedPct(262144u, 12));
+            check(SkiMoneyRules.SimulatedPct(300000u, 12) == 100, w, "SimulatedPct(300000, 12) " + SkiMoneyRules.SimulatedPct(300000u, 12) + ", expected the 100 cap");
+            check(SkiMoneyRules.SimulatedPct(0u, 12) == 0, w, "SimulatedPct(0, 12) " + SkiMoneyRules.SimulatedPct(0u, 12));
+
+            // The ledger: a roll of a short month marks it partial (LastMonthSinceLoad); a start and a jump ignore it.
+            var a = new EntityRef(412, 1);
+            var l = new SkiResortLedger();
+            check(l.Advance(100, true) == Advance.Started && l.ThisMonthSinceLoad && !l.LastMonthKnown, w,
+                  "Advance(100, true) on a new ledger: Started, this month since load, no last month");
+            check(l.Advance(100, true) == Advance.None && l.ThisMonthSinceLoad && !l.LastMonthKnown, w,
+                  "Advance(100, true) again: None, flags unchanged");
+            check(l.Advance(101, false) == Advance.Rolled && l.LastMonthKnown && l.LastMonthSinceLoad && !l.ThisMonthSinceLoad, w,
+                  "Advance(101, false): Rolled, last month known and partial (since load)");
+            l.AddArrival(a, false, 2);
+            check(l.Advance(102, true) == Advance.Rolled && l.LastMonthKnown && l.LastMonthSinceLoad && !l.ThisMonthSinceLoad, w,
+                  "Advance(102, true): Rolled, last month known and partial (short)");
+            check(l.TryGet(a, out SkiResortLedger.Entry ea) && ea.Last.LocalGuests == 2 && ea.This.LocalGuests == 0, w,
+                  $"a short roll still moves This to Last: Last {ea.Last.LocalGuests}, This {ea.This.LocalGuests}");
+            check(l.Advance(103, false) == Advance.Rolled && l.LastMonthKnown && !l.LastMonthSinceLoad, w,
+                  "Advance(103, false): Rolled, last month full");
+            check(l.Advance(105, true) == Advance.Jumped && !l.LastMonthKnown && !l.LastMonthSinceLoad && l.ThisMonthSinceLoad, w,
+                  "Advance(105, true): Jumped as before (a short flag does not change a jump)");
+
+            // Advance(key) == Advance(key, false), result and flags, over one sequence with each kind of step.
+            int[] keys = { 300, 300, 301, 302, 302, 305, 306, 306, 307, 309, 310 };
+            var one = new SkiResortLedger();
+            var two = new SkiResortLedger();
+            bool same = true;
+            for (int i = 0; i < keys.Length; i++)
+            {
+                Advance r1 = one.Advance(keys[i]);
+                Advance r2 = two.Advance(keys[i], false);
+                same &= r1 == r2 && one.MonthKey == two.MonthKey && one.ThisMonthSinceLoad == two.ThisMonthSinceLoad &&
+                        one.LastMonthKnown == two.LastMonthKnown && one.LastMonthSinceLoad == two.LastMonthSinceLoad;
+            }
+            check(same, w, "Advance(key) differs from Advance(key, false) somewhere in the sequence");
         }
     }
 }

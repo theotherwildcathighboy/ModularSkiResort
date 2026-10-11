@@ -39,6 +39,14 @@
 //     - ROUND E1 ch4: money rules and ledger (MoneyBatch.cs)
 //     - ROUND E1 ch5 (2026-10-04): hub rules, problems, piste-map rules, the aggregate's run vertical
 //       (HubRulesTests.cs)
+//   * ROUND S1 "Ski days" (2026-10-05, docs/research/ski-days/s1-spec.md §4.2; the same R9 convention):
+//     - ROUND S1 A: ski-day rules — constants, candidate / lodge / area gates, class, reach, travel time and
+//       deadline, chances, rolls, back-off and speed learning, powder, capacity, slices and ARM, day key and
+//       month step, slope-side geometry, the F2 power hysteresis, the score additions (SkiDayTests.cs; ch1 §7)
+//     - ROUND S1 B: ski-day timing — the recent-CBS-slice window, last pass, next LeisureSystem visit, track
+//       index, frames and hours, claim outcome, hour step, bit compares (SkiDayTimingTests.cs; ch2 §14 ST1-ST9)
+//     - ROUND S1 C: parking census rules — constants, root, restriction, lane and garage verdicts, hub row 21
+//       (ParkingTests.cs; ch3 §7.2 P1, P3-P6)
 
 using System;
 using System.Collections.Generic;
@@ -76,6 +84,9 @@ namespace ResortBatch
             MoneyBatch.Run(Check);
             HubRulesTests.Run(Check);
             RunOutlineTests.Run(Check);   // ROUND F7 C1 (docs/research/field-test-7-fixes.md): RunOutlineRules
+            SkiDayTests.Run(Check);   // ROUND S1 A
+            SkiDayTimingTests.Run(Check);   // ROUND S1 B
+            ParkingTests.Run(Check);   // ROUND S1 C
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  ResortBatch checks={0} failures={1}", s_Checks, s_Failures));
             Environment.ExitCode = s_Failures;

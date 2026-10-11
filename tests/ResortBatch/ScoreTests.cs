@@ -404,7 +404,10 @@ namespace ResortBatch
                                   500, 1.833333, 320.284085025, 95.585929905, 96, 68, 96);
             Score.Result t2Plus = t2;
             t2Plus.Runs = 11;
-            Check(n2.Equals(t2Plus) && n2.Runs == 11 && n2.RunsOpen == 10, w + " N2", "equals T2 in every field but Runs (11); RunsOpen 10");
+            Check(Near(n2.RunsValueFull, 156.346190661, 1e-6) && Near(t2.RunsValueFull, 133.913400012, 1e-6), w + " N2",
+                  $"RunsValueFull {n2.RunsValueFull:R} (T2 {t2.RunsValueFull:R}), expected 156.346190661 (133.913400012 + 22.432790649)");
+            t2Plus.RunsValueFull = n2.RunsValueFull;   // ski-days ch1 §4.4: the closed run's full value is the one other difference
+            Check(n2.Equals(t2Plus) && n2.Runs == 11 && n2.RunsOpen == 10, w + " N2", "equals T2 in every field but Runs (11) and RunsValueFull; RunsOpen 10");
             Check(parts[10].OpenFactor == 0 && parts[10].Value == 0 && !parts[10].Counted, w + " N2", "the closed run's part: open 0, value 0, not counted");
 
             // N3: Medium + one open Natural Green 2.0 ha 1200/1000.

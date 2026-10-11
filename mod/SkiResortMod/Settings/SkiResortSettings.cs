@@ -86,6 +86,18 @@
 // readout while a station is placed or nudged, SkiStationAlignSystem / SkiLiftTooltipSystem) and the
 // bulldozer warning on a lift (SkiLiftTooltipSystem). Read live by those systems (I-2), so a change
 // takes effect at once. Persisted under this property name — never rename.
+//
+// SKI DAYS (Round S1, docs/research/ski-days/s1-spec.md §2.11-§2.12, ski-days spec ch4 §E; stage 0 owns this
+// file and its texts). Group "Ski days" after Balance, four int sliders, persisted under these property names —
+// never rename: SkiDayLocalsPct (0-50 step 5, default 25), SkiDayTouristsPct (0-100 step 5, default 50),
+// SkiDayReachKm (2-12 step 1, default 7; unit "integer" with "(km)" in the label, Game.UI/Unit.cs:5, because
+// "length" would read the value as metres) and SkiDayPowderPct (0-200 step 10, default 100). The Default / Min /
+// Max constants are ALIASES of SkiDayRules' (s1-spec N8: one source of the numbers; tests/ResortBatch links
+// SkiDayRules.cs, not this file). Read only through the clamped readers SkiDayLocalsPctOf, SkiDayTouristsPctOf,
+// SkiDayReachKmOf and SkiDayPowderPctOf(Mod.Settings) — null settings give the default; main thread only (the
+// jobs get values): SkiDaySystem reads all four live every pass, so a change applies at its next pass;
+// SkiResortStatsSystem reads Locals and Tourists (both 0 = ski days off, the hub's "Off" line).
+// SkiDayRules.ClampKnobs is a second, defensive clamp.
 
 using Colossal.IO.AssetDatabase;
 using Game.Input;
@@ -110,8 +122,8 @@ namespace SkiResortMod.Settings
     }
 
     [FileLocation("ModsSettings/SkiResortMod/SkiResortMod")]
-    [SettingsUIGroupOrder(GroupHub, GroupBalance, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings)]
-    [SettingsUIShowGroupName(GroupHub, GroupBalance, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings)]
+    [SettingsUIGroupOrder(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings)]
+    [SettingsUIShowGroupName(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings)]
     // One keyboard action declaration per binding (conflict warnings; see header).
     [SettingsUIKeyboardAction(ActToggleGlade)]
     [SettingsUIKeyboardAction(ActGladeNextVariant)]
@@ -122,6 +134,7 @@ namespace SkiResortMod.Settings
         public const string SectionMain = "Main";
         public const string GroupHub = "Hub";            // Round U1
         public const string GroupBalance = "Balance";
+        public const string GroupSkiDays = "SkiDays";    // Round S1 (s1-spec §2.11)
         public const string GroupSnow = "Snow";
         public const string GroupTerrain = "Terrain";
         public const string GroupRuns = "Runs";
@@ -146,6 +159,16 @@ namespace SkiResortMod.Settings
         // Round E1 addendum A1, kept in F7: 8 = the look of the game's lot outline (snap distance 8 × 0.3,
         // AreaBorderRenderSystem.cs:517, :531): outline and corner dots 2.4 m. Since F7 it sets nothing else.
         public const int DefaultRunOutlineSize = 8;
+        // Round S1 (s1-spec §2.11, N8): aliases of the SkiDayRules constants — the one source of the numbers.
+        public const int DefaultSkiDayLocalsPct = SkiDayRules.LocalsPctDefault;       // 25
+        public const int SkiDayLocalsPctMax = SkiDayRules.LocalsPctMax;               // 50
+        public const int DefaultSkiDayTouristsPct = SkiDayRules.TouristsPctDefault;   // 50
+        public const int SkiDayTouristsPctMax = SkiDayRules.TouristsPctMax;           // 100
+        public const int DefaultSkiDayReachKm = SkiDayRules.ReachKmDefault;           // 7
+        public const int SkiDayReachKmMin = SkiDayRules.ReachKmMin;                   // 2
+        public const int SkiDayReachKmMax = SkiDayRules.ReachKmMax;                   // 12
+        public const int DefaultSkiDayPowderPct = SkiDayRules.PowderPctDefault;       // 100
+        public const int SkiDayPowderPctMax = SkiDayRules.PowderPctMax;               // 200
 
         public SkiResortSettings(IMod mod) : base(mod)
         {
@@ -192,6 +215,53 @@ namespace SkiResortMod.Settings
         [SettingsUISlider(min = 0f, max = 200f, step = 5f, unit = "money")]
         [SettingsUISection(SectionMain, GroupBalance)]
         public int LiftTicketPrice { get; set; }
+
+        // --- Ski days (Round S1, s1-spec §2.11; ski-days spec ch4 §E; header SKI DAYS) ----------
+        // Persisted under these property names — never rename. Read only through the *Of readers below.
+
+        /// <summary>D16: residents' share in percent (0 = no ski days for residents). Read by SkiDaySystem
+        /// (and the hub's "off" test) through SkiDayLocalsPctOf.</summary>
+        [SettingsUISlider(min = 0f, max = SkiDayLocalsPctMax, step = 5f, unit = "percentage")]
+        [SettingsUISection(SectionMain, GroupSkiDays)]
+        public int SkiDayLocalsPct { get; set; }
+
+        /// <summary>D17: hotel tourists' share in percent (0 = no ski days for tourists). Read by SkiDaySystem
+        /// (and the hub's "off" test) through SkiDayTouristsPctOf.</summary>
+        [SettingsUISlider(min = 0f, max = SkiDayTouristsPctMax, step = 5f, unit = "percentage")]
+        [SettingsUISection(SectionMain, GroupSkiDays)]
+        public int SkiDayTouristsPct { get; set; }
+
+        /// <summary>D14: the longest ski-day trip in km, straight line to the lodge. Unit "integer" with "(km)"
+        /// in the label (Game.UI/Unit.cs:5; "length" would read metres). Read by SkiDaySystem through
+        /// SkiDayReachKmOf.</summary>
+        [SettingsUISlider(min = SkiDayReachKmMin, max = SkiDayReachKmMax, step = 1f, unit = "integer")]
+        [SettingsUISection(SectionMain, GroupSkiDays)]
+        public int SkiDayReachKm { get; set; }
+
+        /// <summary>D16 / D19: what a full powder day adds, in percent (100 doubles the residents who go). Read
+        /// by SkiDaySystem through SkiDayPowderPctOf.</summary>
+        [SettingsUISlider(min = 0f, max = SkiDayPowderPctMax, step = 10f, unit = "percentage")]
+        [SettingsUISection(SectionMain, GroupSkiDays)]
+        public int SkiDayPowderPct { get; set; }
+
+        /// <summary>Clamped read (s1-spec §2.11); null settings → the default. Main thread only.</summary>
+        public static int SkiDayLocalsPctOf(SkiResortSettings s)
+            => s == null ? DefaultSkiDayLocalsPct : Clamp(s.SkiDayLocalsPct, SkiDayRules.LocalsPctMin, SkiDayRules.LocalsPctMax);
+
+        /// <summary>Clamped read (s1-spec §2.11); null settings → the default. Main thread only.</summary>
+        public static int SkiDayTouristsPctOf(SkiResortSettings s)
+            => s == null ? DefaultSkiDayTouristsPct : Clamp(s.SkiDayTouristsPct, SkiDayRules.TouristsPctMin, SkiDayRules.TouristsPctMax);
+
+        /// <summary>Clamped read (s1-spec §2.11); null settings → the default. Main thread only.</summary>
+        public static int SkiDayReachKmOf(SkiResortSettings s)
+            => s == null ? DefaultSkiDayReachKm : Clamp(s.SkiDayReachKm, SkiDayRules.ReachKmMin, SkiDayRules.ReachKmMax);
+
+        /// <summary>Clamped read (s1-spec §2.11); null settings → the default. Main thread only.</summary>
+        public static int SkiDayPowderPctOf(SkiResortSettings s)
+            => s == null ? DefaultSkiDayPowderPct : Clamp(s.SkiDayPowderPct, SkiDayRules.PowderPctMin, SkiDayRules.PowderPctMax);
+
+        /// <summary>net48 has no Math.Clamp.</summary>
+        private static int Clamp(int v, int lo, int hi) => v < lo ? lo : v > hi ? hi : v;
 
         // --- Snow (Round E1, D13 / D14; econ-round spec ch3 §9) -----------------------------
 
@@ -294,6 +364,10 @@ namespace SkiResortMod.Settings
             AttractivenessScaleK = DefaultAttractivenessScaleK;         // E1 (e1-spec §2.3)
             BackcountryValuePercent = DefaultBackcountryValuePercent;   // E1
             LiftTicketPrice = SkiMoneyRules.TicketPriceDefault;         // E1 D26 (ch4 §5.4)
+            SkiDayLocalsPct = DefaultSkiDayLocalsPct;                   // S1 (s1-spec §2.11)
+            SkiDayTouristsPct = DefaultSkiDayTouristsPct;               // S1
+            SkiDayReachKm = DefaultSkiDayReachKm;                       // S1
+            SkiDayPowderPct = DefaultSkiDayPowderPct;                   // S1
             EnableSnowGating = DefaultEnableSnowGating;                 // E1 D13
             SnowmakingBonusCelsius = DefaultSnowmakingBonusCelsius;     // E1 D14: the field-tuned margin (was the code's fixed 2 °C)
             TerrainSnowSlot = TerrainSlotPolicy.Auto;

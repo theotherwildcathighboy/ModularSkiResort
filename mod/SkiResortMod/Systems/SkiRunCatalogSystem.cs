@@ -1134,8 +1134,11 @@ namespace SkiResortMod.Systems
                       $"{Tuning.RebuildLinesPerWindow} per {Tuning.RebuildLineWindowS:0} s)"
                     : "";
                 m_RebuildLinesSuppressed = 0;
+                // Round M1 (D8): with the hub closed the signs are not counted (Signs keeps its last value, 0 after a
+                // load), so the line says so instead of printing a count that reads as "no sign".
+                string signText = countSigns ? $"{signs} Welcome Sign(s)" : "Welcome Signs not counted (hub closed)";
                 Mod.Log.Info($"Catalog [rebuild] ({why}): {m_Rows.Count} run(s) — {bound} linked to a sign, " +
-                             $"{unbound} not linked; {signs} Welcome Sign(s); area {area:F0} m²; rated {rated}, " +
+                             $"{unbound} not linked; {signText}; area {area:F0} m²; rated {rated}, " +
                              $"{RatingsPending} rating(s) queued; {ms:F2} ms; " +
                              $"revision {Revision} ({(changed ? "changed" : "unchanged")})" +
                              (ready ? "" : " — ownership prefab sets not ready (pre-import?): empty list") + suffix);

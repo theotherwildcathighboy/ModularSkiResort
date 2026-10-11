@@ -39,7 +39,8 @@
 // SAME numbers this system bills; LastMonthlyRate — the rate of the last charge pass (0 while
 // idle); IdleReason — "" while billing, else the current idle reason (the text of the last
 // "Upkeep [idle]" line, or the pre-first-pass / disabled state). Plain field reads; the values
-// freeze while the game is paused (GameSimulation phase, below).
+// freeze while the game is paused (GameSimulation phase, below). Round M1 (m1-spec M7b): DebitedThisLoad —
+// the credits debited since the load, read by SkiGuestCounterSystem for the month's `run upkeep -N (whole city)`.
 //
 // OBSERVABILITY + DEFENSIVE CONTRACT (house pattern): ARMED line with every rate at
 // load, a charge line whenever the monthly rate bucket changes plus a periodic
@@ -156,6 +157,11 @@ namespace SkiResortMod.Systems
         /// pass of this load).</summary>
         public float LastMonthlyRate { get; private set; }
 
+        /// <summary>Round M1 (m1-spec M7b): the credits debited from the city since this load (0 at load). The guest
+        /// counter takes month differences of it for the `Guests [month]` total line (whole city: no ski-area
+        /// attribution exists). Memory only.</summary>
+        internal long DebitedThisLoad { get; private set; }
+
         /// <summary>U2: "" while billing; otherwise why nothing is billed (the idle reason of the
         /// last pass, "first charge pass pending" until the first pass of this load, or the
         /// disabled / not-armed state).</summary>
@@ -254,6 +260,7 @@ namespace SkiResortMod.Systems
             m_LastIdleReason = null;
             m_ChargeLog.Reset();   // F6 D3: flushed in OnGamePreload; nothing carries over
             LastMonthlyRate = 0f;
+            DebitedThisLoad = 0;   // Round M1 (M7b)
             IdleReason = IdleNotArmed;
 
             if (mode != GameMode.Game)
@@ -354,6 +361,7 @@ namespace SkiResortMod.Systems
                 PlayerMoney money = EntityManager.GetComponentData<PlayerMoney>(city);
                 money.Subtract(debit);
                 EntityManager.SetComponentData(city, money);
+                DebitedThisLoad += debit;   // Round M1 (M7b): the month's run upkeep in the `Guests [month]` line
             }
 
             m_ChargeCounter++;

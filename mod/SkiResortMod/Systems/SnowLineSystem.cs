@@ -28,7 +28,8 @@
 //     GameSimulation before the first tick now sees the real temperature.
 //   * D13 fallback — GetDayMeanTemperature: the mean of 24 hourly SampleClimate samples ending at the
 //     start of the current game hour (RunSnowRules.DayMeanC), cached per (game hour, daysPerYear,
-//     climate, temperature override); at most one recompute per game hour (~17 s of wall clock at 1×).
+//     climate, temperature override); at most one recompute per game hour (~182 s of simulation at 1×
+//     and ≥ 30 fps: 262,144 / 24 = 10,923 frames, SimulationSystem.cs:238, :255).
 //   * D14 — GetSnowmakingMarginC is THE snowmaking margin of the mod (Options ▸ Snow "Snowmaking
 //     margin (°C)", clamped 0..6, 2 when settings are not loaded); IsSnowGatingEnabled is the one read
 //     of "Snow & season gating". GetLapsePerM / GetBaseHeight expose the lapse for the estimates.
@@ -150,7 +151,8 @@ namespace SkiResortMod.Systems
         /// <summary>E1 D13 fallback: mean temperature (°C) at the reference elevation over the 24 game hours
         /// up to the start of the current game hour (hourly SampleClimate samples, overrides applied — under a
         /// temperature override it equals the override). Cached per (game hour, daysPerYear, climate, override);
-        /// recomputed at most once per game hour (~17 s of wall clock at 1×). FallbackAmbientC without a climate.</summary>
+        /// recomputed at most once per game hour (~182 s of simulation at 1× and ≥ 30 fps: 262,144 / 24 = 10,923
+        /// frames, SimulationSystem.cs:238, :255). FallbackAmbientC without a climate.</summary>
         public float GetDayMeanTemperature()
         {
             if (m_ClimateSystem == null || m_ClimateSystem.currentClimate == Entity.Null)

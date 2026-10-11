@@ -11,6 +11,8 @@
 // "Ski area balance", rewritten K / backcountry / gating / snowmaking texts, the new LiftTicketPrice,
 // and (addendum A1) RunOutlineSize in the Runs group. Plain characters only (°, &, %).
 // F7 (docs/research/field-test-7-fixes.md C1): the RunOutlineSize description, shorter (thickness only).
+// S1 (docs/research/ski-days/s1-spec.md §2.12, 2026-10-05; stage 0 owns this file): the "Ski days" group
+// with its four sliders (locals, tourists, longest trip, powder pull). Plain characters only.
 // Additional languages: add further IDictionarySource implementations (or a translations
 // file) and AddSource them with the matching locale id — see SPEC §13 Phase 6.
 
@@ -63,6 +65,47 @@ namespace SkiResortMod.Settings
                 // --- Balance and Snow (Round E1, docs/research/econ-round/e1-spec.md §2.4, verbatim) --
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupBalance), "Ski area balance" },
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupSnow), "Snow" },
+
+                // --- Ski days (Round S1, docs/research/ski-days/s1-spec.md §2.12, verbatim; ch4 §E) ------
+                { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupSkiDays), "Ski days" },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SkiDayLocalsPct)),
+                    "Locals who ski"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiDayLocalsPct)),
+                    "How often residents spend a day out skiing. More attraction, fresh snow, a lower ticket " +
+                    "price and a shorter trip bring more. 0 turns ski days off for residents. Default 25 %."
+                },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SkiDayTouristsPct)),
+                    "Tourists who ski"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiDayTouristsPct)),
+                    "How often hotel guests spend a day out skiing, moved by the same things. 0 turns ski days " +
+                    "off for tourists. Default 50 %."
+                },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SkiDayReachKm)),
+                    "Longest ski-day trip (km)"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiDayReachKm)),
+                    "Nobody farther than this from a lodge, in a straight line, is sent skiing there. Fewer " +
+                    "come the farther they live. Default 7."
+                },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SkiDayPowderPct)),
+                    "Powder pull"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiDayPowderPct)),
+                    "How much a fresh-snow day adds. At 100 % a full powder day doubles the residents who go; " +
+                    "at 0 powder brings no extra skiers. Default 100 %."
+                },
+
+                // --- Balance and Snow, continued (Round E1, e1-spec §2.4, verbatim) ----------------------
 
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.AttractivenessScaleK)),

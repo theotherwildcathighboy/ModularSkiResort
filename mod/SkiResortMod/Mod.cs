@@ -95,7 +95,9 @@ namespace SkiResortMod
 
             // --- Tourism Overhaul detection (SPEC §9 rule 3) ------------------------------
             TourismOverhaulDetected = DetectTourismOverhaul();
-            Log.Info($"Tourism Overhaul detected: {TourismOverhaulDetected}");
+            // Round M1 (D8): field test 9 read "detected: False" here as a verdict; it is only the early look.
+            Log.Info($"Tourism Overhaul detected: {TourismOverhaulDetected} (early check at mod load: mods that load after " +
+                     "ours are not visible yet; checked again at each city load)");
 
             // --- System registration ------------------------------------------------------
             // SkiResortAttractivenessSystem MUST be anchored after the vanilla AttractionSystem:
@@ -235,6 +237,22 @@ namespace SkiResortMod
             // Lift running charge (ch4 §3, D23): the run-upkeep pattern, next to it in the frame and the log. GameSimulation:
             // pause stops the meter, the Editor never bills.
             updateSystem.UpdateAfter<SkiLiftChargeSystem, SkiRunUpkeepSystem>(SystemUpdatePhase.GameSimulation);
+            // Ski days (Round S1, docs/research/ski-days/spec/ch2-system.md; decisions D1-D4). Claim at decision: for a
+            // share of residents at home and hotel tourists who just decided to go out (Leisure with no venue yet), name
+            // a ski-day lodge with LeisureSystem's own two writes (Leisure.m_TargetAgent + TripNeeded { lodge, Leisure,
+            // 128 }, LeisureSystem.cs:398-405, 1.6.2 :392-399) and, for a far trip with a free household car, the public
+            // car-reserve queue (CitizenBehaviorSystem.cs:1094-1103, 1.6.2 :1126-1135; WorkerSystem.cs:450-454). Anchor
+            // AND interval are load-bearing: LeisureSystem is UpdateAt GameSimulation (SystemOrder.cs:377, 1.6.2 :378);
+            // GetUpdateInterval returns LeisureSystem's own (262144 / kUpdatePerDay = 64, LeisureSystem.cs:914-917, 1.6.2
+            // :911-913), so the follower inherits its offset (UpdateSystem.cs:431-436, :355-356, :457-516) and every pass runs on
+            // LeisureSystem's frames, before TripNeededSystem (SystemOrder.cs:393, 1.6.2 :394). NEVER override
+            // GetUpdateOffset. Leisure and TripNeeded are read-write in the job: ECS orders it after LeisureSystem's job
+            // and TripNeededSystem's after it, no main-thread wait. Here, before SkiResortStatsSystem, so this line
+            // creates it (UpdateSystem.cs:178-181). Pause stops it; the Editor never arms it. ONE registration only.
+            updateSystem.UpdateAfter<SkiDaySystem, Game.Simulation.LeisureSystem>(SystemUpdatePhase.GameSimulation);
+            // Round S1 D26 (ski-days spec ch3 §3.3): lodge parking census; reads the attraction snapshot's lodge list and
+            // the lane search tree (reader handle); not anchored.
+            updateSystem.UpdateAt<SkiLodgeParkingSystem>(SystemUpdatePhase.GameSimulation);
 
             // Run-to-sign binding (DECISIONS 90 as corrected by entry 121 and
             // docs/research/run-binding-glade-spec.md §3, Round O1): supplies the one-time bind
@@ -607,16 +625,23 @@ namespace SkiResortMod
         /// loaded after ours are not yet in the AppDomain when our OnLoad runs. Called from
         /// SkiResortAttractivenessSystem.OnGameLoadingComplete, by which point every mod
         /// assembly is loaded.
+        /// Round M1 (D8, m1-spec M10): the first city-load check of the session is always
+        /// logged, so the log never ends on the early check's answer; later checks log only
+        /// a change, as before.
         /// </summary>
         public static void RefreshTourismOverhaulDetection()
         {
             bool detected = DetectTourismOverhaul();
-            if (detected != TourismOverhaulDetected)
-            {
-                TourismOverhaulDetected = detected;
-                Log.Info($"Tourism Overhaul detected (post-load rescan): {detected}");
-            }
+            bool changed = detected != TourismOverhaulDetected;
+            TourismOverhaulDetected = detected;
+            if (s_RescanLogged && !changed)
+                return;
+            s_RescanLogged = true;
+            Log.Info($"Tourism Overhaul detected (city-load check): {detected}{(changed ? " (changed)" : "")}");
         }
+
+        /// <summary>Round M1 (D8): the first city-load check of the session was logged.</summary>
+        private static bool s_RescanLogged;
 
         /// <summary>
         /// Scans loaded assemblies for Tourism Overhaul by name only. Deliberately does not

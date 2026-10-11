@@ -2,7 +2,9 @@
 // decisions D23 lift running charge, D26 lift tickets). Consumers: SkiLiftChargeSystem (LiftBillingOf,
 // LiftRate, Accrue, AccruedShare), SkiLiftTicketSystem (ClampTicketPrice, TicketGateOf, TicketsPaid —
 // from its Burst job), SkiGuestCounterSystem (MonthKey), SkiResortStatsSystem / HubRules (gate, price,
-// item rates), the settings (TicketPriceDefault); tests/ResortBatch MoneyBatch (T1-T7).
+// item rates), the settings (TicketPriceDefault); SkiGuestCounterSystem (TouristLeisureCounts, OutingPeople —
+// from its Burst jobs, Round S1); SkiGuestCounterSystem and SkiDaySystem (IsShortMonth, SimulatedPct, Round M1);
+// tests/ResortBatch MoneyBatch (T1-T7; T9-T11 Round S1; T12 Round M1).
 //
 //   * Lift charge (D23): Full = LiftFixedPerMonth + LiftPerKmPerMonth × km; a lift that is not
 //     complete, or complete without power (LiftServedRule.IsPowered, e1-spec R1), bills
@@ -13,7 +15,12 @@
 //   * Ticket gate (D26, R6): Off (price 0) → NoEfficiency (sign efficiency not > 0) → Open on an
 //     operating lift → NotKnownYet (no score result yet, DV10) → Open on a counted run, else NothingOpen.
 //     TicketGate's literal values are compared with bindings.ts TICKET_GATE by gate rule R17.
-//   * Months: MonthKey = year × 12 + calendar month 0..11; MonthOfKey is 1..12.
+//   * Months: MonthKey = year × 12 + calendar month 0..11; MonthOfKey is 1..12. Round M1 (D5): a month with
+//     fewer than FullMonthShare (95 %) of its frames simulated is short (IsShortMonth) and is booked as partial.
+//   * Guest days (Round S1 D23, ski-days spec ch3 §1.2): per ski area and game day, a tourist on leisure at a
+//     lodge counts once and not when its household came by outing that day; an outing counts only the
+//     members not yet counted there that day. The household's day flags are GuestDayOuting | GuestDayLeisure;
+//     the day key is SkiDayRules.DayKey (s1-spec N3), the day sets live in the counter.
 //
 // PURE FILE: `using System;` and `using Unity.Mathematics;` only. Every method is static,
 // allocation-free and Burst-callable (the ticket job calls TicketGateOf / TicketsPaid).
@@ -60,6 +67,21 @@ namespace SkiResortMod.Systems
         /// <summary>Sim frames in one month: TicksPerDay × max(1, daysPerYear) / 12 (SkiRunUpkeepSystem's month).</summary>
         public static float MonthFrames(int daysPerYear) => (float)TicksPerDay * math.max(1, daysPerYear) / MonthsPerYear;
 
+        // Round M1 (D5, m1-spec M7c): a developer time jump moves the clock, not the frame counter, so a jump that
+        // lands exactly one month later rolls a month that was barely simulated. Such a month is partial.
+        /// <summary>A month counts as full from this share of its frames simulated on (one "+1 h" press keeps a
+        /// month full at 95.8 %, two make it partial; m1-spec Open point 2).</summary>
+        public const float FullMonthShare = 0.95f;
+
+        /// <summary>Fewer than FullMonthShare × MonthFrames(daysPerYear) frames simulated (double compare, so a
+        /// large frame count loses no precision).</summary>
+        public static bool IsShortMonth(uint framesSimulated, int daysPerYear)
+            => (double)framesSimulated < (double)FullMonthShare * MonthFrames(daysPerYear);
+
+        /// <summary>The share of a month simulated in whole per cent: min(100, floor(100 × frames / MonthFrames)).</summary>
+        public static int SimulatedPct(uint framesSimulated, int daysPerYear)
+            => (int)math.min(100.0, math.floor(100.0 * framesSimulated / MonthFrames(daysPerYear)));
+
         /// <summary>The upkeep's accrual: carry += rate × elapsed / month; returns the whole credits to debit
         /// and keeps the fraction. A rate that is not > 0 accrues nothing.</summary>
         public static int Accrue(ref float carry, float monthlyRate, uint elapsedFrames, int daysPerYear)
@@ -102,5 +124,32 @@ namespace SkiResortMod.Systems
 
         public static int YearOfKey(int key) => (int)math.floor(key / (double)MonthsPerYear);
         public static int MonthOfKey(int key) => key - YearOfKey(key) * MonthsPerYear + 1;   // 1..12
+
+        // Round S1 D23 (spec ski-days ch3 §1): per ski area, per game day.
+        public const byte GuestDayOuting = 1;    // household counted there today through an attraction outing
+        public const byte GuestDayLeisure = 2;   // household counted there today through a member's leisure visit
+        // (no DayKey here: the counter calls SkiDayRules.DayKey, s1-spec N3)
+
+        /// <summary>A tourist's leisure arrival at a lodge counts unless the citizen was counted at this ski area
+        /// today or its household came by outing today. newGroup: the household's first count there today.</summary>
+        public static bool TouristLeisureCounts(bool citizenCountedToday, byte householdDay, out bool newGroup)
+        {
+            newGroup = false;
+            if (citizenCountedToday || (householdDay & GuestDayOuting) != 0)
+                return false;
+            newGroup = householdDay == 0;
+            return true;
+        }
+
+        /// <summary>An outing that reached Attending: the attendees not yet counted at this ski area today
+        /// (alreadyCountedToday clamped to 0..party). newGroup when someone is counted and the household had no
+        /// count there today.</summary>
+        public static int OutingPeople(int partySize, int alreadyCountedToday, byte householdDay, out bool newGroup)
+        {
+            int party = math.max(0, partySize);
+            int people = party - math.clamp(alreadyCountedToday, 0, party);
+            newGroup = people > 0 && householdDay == 0;
+            return people;
+        }
     }
 }

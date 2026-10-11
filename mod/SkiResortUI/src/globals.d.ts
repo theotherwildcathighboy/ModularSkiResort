@@ -19,3 +19,14 @@ declare module "*.module.scss" {
   const classes: { readonly [className: string]: string };
   export default classes;
 }
+
+/**
+ * Images imported from src/ (webpack asset/resource -> "coui://ui-mods/SkiResortMod-img/<name>"):
+ * the URL string. Declared here because the synced types/assets.d.ts is not required by the build
+ * (tools/sync-types.js REQUIRED). Both declarations together compile (tsc 4.8.4, scratch test).
+ * Round S1 F9 (docs/research/ski-days/spec/ch5-launcher.md D.2): src/hub/SkiLauncherGlyph.svg.
+ */
+declare module "*.svg" {
+  const url: string;
+  export default url;
+}

@@ -52,6 +52,16 @@
  *         (19) "Lodge is not at a road: guests cannot reach it" (280.0 / 456.5 / 574.1) fit every slot;
  *         both fly to their `subject` (the sign; the first lodge without a road). C# ranks them
  *         (field-test-7-notes-impl3.md).
+ *   - Round S1 "Ski days" (2026-10-05, stream E; docs/research/ski-days/spec/ch4-hub.md sections C.5, D):
+ *       - D28: three band rows, plain text, flying to their `subject`: SkiDaysCannotReach (20, sev 2,
+ *         Warning glyph) "Guests cannot reach the lodge", NoParkingNearLodge (21, dim) "No parking near the
+ *         lodge", LodgeNotSlopeside (22, dim) "Lodge is far from the runs" (29, 25, 26 characters: shorter
+ *         than LodgeNoRoad's 46, which fits every slot at every size); each tooltip is its PROBLEM_TIP and
+ *         PROBLEM_CLICK_FLY;
+ *       - D29: the hint slot shows POWDER_DAY "Powder day" (normal text colour, `.statusHintOn`) when
+ *         hubRules.statusHint says "powder" (skiDaysPowderPct >= 50), else the SEASON_HINT word as before;
+ *         same slot, same height, and "Powder day" (10 characters) is shorter than "Too warm for snow"
+ *         (17). The status tooltip adds STATUS_TIP_POWDER after the season tip while powder > 0.
  */
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
@@ -63,7 +73,7 @@ import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
   bandRowsOf, bandSlots, closedRuns, factorRowsOf, liveOf, problemClick, problemIcon, problemVariant,
-  statusVariant, statusWord,
+  statusHint, statusVariant, statusWord,
 } from "./hubRules";
 import { view$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
@@ -118,6 +128,8 @@ function statusTip(row: ResortRow | null, live: ResortLive | null, city: CitySta
         t(HUB_LOC.statusTipRule),
         !city.snowGating ? t(HUB_LOC.statusTipGating) : live.snowEstimated ? t(HUB_LOC.statusTipEstimated) : t(HUB_LOC.statusTipMeasured),
         seasonTip && t(seasonTip),
+        // Round S1 D29: the powder now (0-100; -1 unknown, 0 none: no line).
+        live.skiDaysPowderPct > 0 && <LocText key="p" entry={HUB_FMT.statusTipPowder} args={{ PCT: numArg(live.skiDaysPowderPct, Unit.Percentage) }} />,
         live.topTempKnown && <LocText key="t" entry={HUB_FMT.statusTipTemp} args={{ TEMP: numArg(live.topTempC, Unit.Temperature, false, false) }} />,
         city.snowVisualsOff && t(HUB_LOC.statusTipVisuals),
       ]}
@@ -159,6 +171,9 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "runsFlat": return <LocText entry={HUB_FMT.problemRunsFlat} args={{ N }} />;
     case "signNoRoad": return <>{t(HUB_LOC.problemSignNoRoad)}</>;
     case "lodgeNoRoad": return <>{t(HUB_LOC.problemLodgeNoRoad)}</>;
+    case "skiDaysCannotReach": return <>{t(HUB_LOC.problemSkiDaysCannotReach)}</>;
+    case "noParkingNearLodge": return <>{t(HUB_LOC.problemNoParkingNearLodge)}</>;
+    case "lodgeNotSlopeside": return <>{t(HUB_LOC.problemLodgeNotSlopeside)}</>;
     default: return <>{"–"}</>;
   }
 }
@@ -188,6 +203,9 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "runsFlat": body = t(HUB_LOC.problemTipRunsFlat); break;
     case "signNoRoad": body = t(HUB_LOC.problemTipSignNoRoad); break;
     case "lodgeNoRoad": body = t(HUB_LOC.problemTipLodgeNoRoad); break;
+    case "skiDaysCannotReach": body = t(HUB_LOC.problemTipSkiDaysCannotReach); break;
+    case "noParkingNearLodge": body = t(HUB_LOC.problemTipNoParkingNearLodge); break;
+    case "lodgeNotSlopeside": body = t(HUB_LOC.problemTipLodgeNotSlopeside); break;
     default: body = null;
   }
   const isEff = p.code === PROBLEM.Efficiency;
@@ -288,7 +306,10 @@ export function StatusBlock({ statusRef, problemsRef }: {
   const band = bandRowsOf(problems, sign);
   const factors = factorRowsOf(problems, sign);
   const { slots, more } = bandSlots(band);
-  const hint = l && row && row.kind === 0 && (row.runs | 0) > 0 ? SEASON_HINT_TEXT[l.seasonHint] ?? null : null;
+  // Round S1 D29: "Powder day" in the hint slot (normal colour), else the SEASON_HINT word; same slot, same height.
+  const hintKind = statusHint(row, l);
+  const powder = hintKind === "powder";
+  const seasonHint = hintKind === "season" && l ? SEASON_HINT_TEXT[l.seasonHint] ?? null : null;
 
   return (
     <>
@@ -297,7 +318,9 @@ export function StatusBlock({ statusRef, problemsRef }: {
           <StatusMark row={row} live={l} />
           <div className={styles.statusText}><StatusSentence row={row} live={l} t={t} /></div>
           <div className={styles.statusSpacer} />
-          <div className={styles.statusHint}>{hint ? t(hint) : ""}</div>
+          <div className={cx(styles.statusHint, powder && styles.statusHintOn)}>
+            {powder ? t(HUB_LOC.powderDay) : seasonHint ? t(seasonHint) : ""}
+          </div>
         </div>
       </Tip>
       <div ref={problemsRef} className={styles.problems}>

@@ -188,6 +188,8 @@ const BUILD_ITEMS_TS = path.join("hub", "buildItems.ts");
  * Rule R17 (Round E1, econ-round spec ch6 section 10.3): the TS const objects of bindings.ts and the C#
  * enums (file under CS_DIR) that must hold the same names with the same values, both directions.
  * BAND and LIFT_STATE have no C# enum (literal ints in C#) and are not compared.
+ * Round S1 (contract 4; docs/research/ski-days/spec/ch4-hub.md A.2): SKI_DAY_STATE and SKI_DAY_LIMIT, ten
+ * pairs. Systems/SkiDayRules.cs is in the csproj's SkiUiInput list, so an edit there re-runs this gate.
  */
 const ENUM_PAIRS = [
   ["RUN_KIND", "Systems/EntityRef.cs", "RunKind"],
@@ -198,6 +200,8 @@ const ENUM_PAIRS = [
   ["LIFT_STATUS", "Systems/HubRules.cs", "HubLiftStatus"],
   ["PROBLEM", "Systems/HubRules.cs", "HubProblemCode"],
   ["TICKET_GATE", "Systems/SkiMoneyRules.cs", "TicketGate"],
+  ["SKI_DAY_STATE", "Systems/HubRules.cs", "HubSkiDayState"],
+  ["SKI_DAY_LIMIT", "Systems/SkiDayRules.cs", "SkiDayLimit"],
 ];
 /** Rule R14 (fixer round, u2-panel-6 (d)): JSX props whose string-literal value the player reads. */
 const VISIBLE_PROPS = new Set(["label", "tip", "tooltip", "tooltipLabel", "placeholder", "aria-label", "alt", "title", "text", "header"]);

@@ -31,6 +31,20 @@
 // words or fewer. Retired: START_NOTE, MONEY_NOTE[Unknown]. F7 fixer: STATUS_LINE_PARTLY (+ _ONE, _EST,
 // _ONE_EST), STATUS_TIP_COUNTS and RECEIPT_TIP[Open] count "patchy" runs, not "partly open" ones (one name per
 // run state; STATUS_WORD[Partly] "Partly open" stays the area's word).
+// Round S1 "Ski days" (2026-10-05, stream E; docs/research/ski-days/s1-spec.md §2.12 with the §5.3 rulings,
+// spec/ch4-hub.md §G.1): hub contract 4, 28 new SkiResort.Hub.* keys, each placed in its block below with a
+// "Round S1" comment: POWDER_DAY (D29), PROBLEM[SkiDaysCannotReach|NoParkingNearLodge|LodgeNotSlopeside] and
+// their PROBLEM_TIP (D28, C# HubProblemCode 20-22), the Guests view's ski-day row, state line and tooltips (D27),
+// GUESTS_MONTH[LastPartial] and GUESTS_LAST_PARTIAL (F7), and the placeholder keys STATUS_TIP_POWDER,
+// GUESTS_BAR_SCALE, SKI_DAYS[RoomRuns|RoomLodges|Room] ("Holds {N} skiers at once", ruling R-Q3) and
+// SKI_DAYS_TIP[Sent|Now]. Nothing changed in place, nothing retired. The options texts of the four ski-day
+// settings live in Settings\LocaleEN.cs.
+// Round M1 "measure first" (2026-10-05; docs/research/ski-days/measure/m1-spec.md M10 D1, M7c; not the hub-u2 "M1"
+// above): changed in place, with the same texts in src/hub/hubText.ts (gate R4): PROBLEM[SkiDaysCannotReach] and
+// PROBLEM_TIP[SkiDaysCannotReach] (D1: the row is about ski-day guests with a car who never arrived, most of whom
+// never left home, not an unreachable lodge; field test 9, DECISIONS 152; texts per review L3) and
+// GUESTS_LAST_PARTIAL (D5: a month can now be partial because time was skipped ahead). No key is new and none is
+// retired. The [reach] log line reads the row text from the active dictionary, so it follows these texts.
 // Additional languages: further IDictionarySource implementations — see SPEC §13 Phase 6.
 
 using System.Collections.Generic;
@@ -345,6 +359,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.STATUS_TIP_ESTIMATED", "Some runs are estimated from the day's temperature until their snow can be measured." },
                 { "SkiResort.Hub.STATUS_TIP_GATING", "Snow & season gating is off in Options, so every run counts as open." },
                 { "SkiResort.Hub.STATUS_TIP_VISUALS", "Snow is hidden in your Gameplay settings. Runs still open on the simulated snow." },
+                // Round S1 (D29): the status line's hint slot at powder >= 0.5.
+                { "SkiResort.Hub.POWDER_DAY", "Powder day" },
                 { "SkiResort.Hub.PROBLEM[None]", "Nothing needs your attention." },
                 { "SkiResort.Hub.PROBLEM[Unlinked]", "More than 5 km from every Welcome Sign" },
                 { "SkiResort.Hub.PROBLEM[NoLodge]", "No lodge: guests have nowhere to arrive" },
@@ -353,6 +369,11 @@ namespace SkiResortMod
                 // Round F7 (D5): the two road rows (C# HubProblemCode SignNoRoad 18, LodgeNoRoad 19).
                 { "SkiResort.Hub.PROBLEM[SignNoRoad]", "Welcome Sign is not at a road" },
                 { "SkiResort.Hub.PROBLEM[LodgeNoRoad]", "Lodge is not at a road: guests cannot reach it" },
+                // Round S1 (D28): the ski-day rows (C# HubProblemCode SkiDaysCannotReach 20, NoParkingNearLodge 21,
+                // LodgeNotSlopeside 22). Round M1 (D1): SkiDaysCannotReach's row and tip reworded (header).
+                { "SkiResort.Hub.PROBLEM[SkiDaysCannotReach]", "Many ski-day guests with a car never arrive" },
+                { "SkiResort.Hub.PROBLEM[NoParkingNearLodge]", "No parking near the lodge" },
+                { "SkiResort.Hub.PROBLEM[LodgeNotSlopeside]", "Lodge is far from the runs" },
                 { "SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Guests arrive at a lodge, so a ski area without one has an attraction of 0. Place a lodge on the Welcome Sign with the lodge tile in the Build strip." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "A lodge that is switched off does not count. With none left, guests have nowhere to arrive and the attraction is 0. Switch one on in the Welcome Sign's info panel (Upgrades)." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "A lodge that is switched off does not count in the lodge base." },
@@ -374,6 +395,10 @@ namespace SkiResortMod
                 // the game links a road within 8.4 m of the front point).
                 { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "Move it so its front touches a road. Power, water and sewage come from that road." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgeNoRoad]", "Move it so its deck side touches a road. Guests walk in from that road." },
+                // Round S1 (D28): 300 m is D26's census radius, 800 m D10's slopeside distance.
+                { "SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReach]", "Many recent ski-day guests with a car did not reach the lodge in time. Fewer are sent until more arrive." },
+                { "SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m of the lodge. Guests who drive need a parking lot or a street with parking." },
+                { "SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations." },
                 { "SkiResort.Hub.PROBLEM_MORE_TIP", "Also needs attention:" },
                 { "SkiResort.Hub.PROBLEM_CLICK_FLY", "Click to fly there." },
                 { "SkiResort.Hub.PROBLEM_CLICK_LIST", "Click to open the list." },
@@ -454,6 +479,10 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SECTION[Guests]", "Guests" },
                 { "SkiResort.Hub.GUESTS_MONTH[This]", "This month" },
                 { "SkiResort.Hub.GUESTS_MONTH[Last]", "Last month" },
+                // Round S1: F7's partial last month (bar label) and D27's ski-day row with its tooltip body.
+                { "SkiResort.Hub.GUESTS_MONTH[LastPartial]", "Last month (partial)" },
+                { "SkiResort.Hub.GUESTS_ROW[SkiDays]", "Ski days" },
+                { "SkiResort.Hub.GUESTS_TIP[SkiDays]", "Residents and hotel guests sent here to ski, counted when they reach a lodge. Most also count as residents or tourists." },
                 { "SkiResort.Hub.GUESTS_ROW[Tourists]", "Tourists" },
                 { "SkiResort.Hub.GUESTS_ROW[Groups]", "Tourist groups" },
                 { "SkiResort.Hub.GUESTS_ROW[Residents]", "Residents" },
@@ -464,6 +493,20 @@ namespace SkiResortMod
                 { "SkiResort.Hub.GUESTS_TIP[Residents]", "Residents of your city who came to a lodge for leisure." },
                 { "SkiResort.Hub.GUESTS_TIP[Tickets]", "Paid by each guest's household into your city's balance." },
                 { "SkiResort.Hub.GUESTS_LAST_NA", "Not counted: guests are counted only from the moment the city loads." },
+                // Round M1 (D5): a month can now also be partial because time was skipped ahead; the new text waits (header).
+                { "SkiResort.Hub.GUESTS_LAST_PARTIAL", "Last month was not counted in full: the city was loaded, or time was skipped ahead, during it." },
+                // Round S1 (D27): the ski-day state line and its tooltips; the Room lines are placeholder keys below.
+                // 800 m is D10's slopeside distance, 360 D21's skiers per lodge.
+                { "SkiResort.Hub.SKI_DAYS[Off]", "Ski days are off (Options)" },
+                { "SkiResort.Hub.SKI_DAYS[SignOff]", "Closed: the Welcome Sign is not running" },
+                { "SkiResort.Hub.SKI_DAYS[NoRun]", "Closed: no open run" },
+                { "SkiResort.Hub.SKI_DAYS[NoLodge]", "No lodge for ski days" },
+                { "SkiResort.Hub.SKI_DAYS[Night]", "Lifts closed for the night" },
+                { "SkiResort.Hub.SKI_DAYS[Full]", "Full right now" },
+                { "SkiResort.Hub.SKI_DAYS_TIP[Off]", "Locals who ski and Tourists who ski are both 0 in Options." },
+                { "SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Ski days need a lodge that is switched on, at a road, and within 800 m of the runs." },
+                { "SkiResort.Hub.SKI_DAYS_TIP[Runs]", "The runs set the limit: bigger and easier runs hold more skiers at once." },
+                { "SkiResort.Hub.SKI_DAYS_TIP[Lodges]", "The lodges set the limit: each lodge takes 360 skiers at once, more on a powder day." },
                 { "SkiResort.Hub.EST_ROW[Tourists]", "Target tourists from this ski area (estimated)" },
                 { "SkiResort.Hub.EST_TO_NOTE", "Detected: Tourism Overhaul. It sets tourist numbers." },
                 { "SkiResort.Hub.EST_TO_TIP", "Tourism Overhaul sets tourist numbers in this city, so no estimate is shown." },
@@ -512,6 +555,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.STATUS_LINE_PARTLY_ONE_EST", "{STATE} · ≈ {PARTLY} of 1 run patchy" },
                 { "SkiResort.Hub.STATUS_TIP_COUNTS", "Open {OPEN} · patchy {PARTLY} · closed {CLOSED}" },
                 { "SkiResort.Hub.STATUS_TIP_TEMP", "Day average at the top of the highest run: {TEMP}" },
+                // Round S1 (D29): status tooltip line while powder > 0.
+                { "SkiResort.Hub.STATUS_TIP_POWDER", "Fresh snow at the top: powder {PCT}. Powder brings more skiers." },
                 { "SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges switched off: {N}" },
                 { "SkiResort.Hub.PROBLEM[Efficiency]", "Welcome Sign at {PCT}: {REASON}" },
                 { "SkiResort.Hub.PROBLEM[EfficiencyMore]", "Welcome Sign at {PCT}: {REASON} and {N} more" },
@@ -568,6 +613,14 @@ namespace SkiResortMod
                 { "SkiResort.Hub.CAPACITY_VALUE", "{CAP} riders/h" },
                 { "SkiResort.Hub.GUESTS_TIP[Paid]", "{GUESTS} guests this month: {PAID} paid, {UNPAID} could not pay, {FREE} came in free (tickets off or the ski area closed)." },
                 { "SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest pays {PRICE} on arrival (Options: Lift ticket price)." },
+                // Round S1: the guest bars' fixed scale, and D27's capacity lines ("Holds {N} skiers at once":
+                // ruling R-Q3, N = the capacity at once, D21) and the Ski days row's count lines.
+                { "SkiResort.Hub.GUESTS_BAR_SCALE", "Full bar: {MAX} guests" },
+                { "SkiResort.Hub.SKI_DAYS[RoomRuns]", "Holds {N} skiers at once (runs limit)" },
+                { "SkiResort.Hub.SKI_DAYS[RoomLodges]", "Holds {N} skiers at once (lodges limit)" },
+                { "SkiResort.Hub.SKI_DAYS[Room]", "Holds {N} skiers at once" },
+                { "SkiResort.Hub.SKI_DAYS_TIP[Sent]", "Sent this month: {SENT} · close by {WALK} · with a car {CAR} · far, no car {FAR}" },
+                { "SkiResort.Hub.SKI_DAYS_TIP[Now]", "On the hill or on the way now: {NOW} of {CAP}" },
                 { "SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets last month: {N} paid" },
                 { "SkiResort.Hub.MONEY_TICKETS[Est]", "Lift tickets (estimated): {N} paid" },
                 { "SkiResort.Hub.MONEY_TICKETS_PRICE", "Ticket price now: {PRICE}" },

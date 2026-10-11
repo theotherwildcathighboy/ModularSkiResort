@@ -28,6 +28,12 @@
  *     content: the status row, the problems band, the tile row and the view slot; -1 for a missing
  *     element). Example at 100 %: `header=40 content=647 footer=90 list=-1 rows=0 scale=1
  *     rem=1.00px status=22 problems=67 tiles=42 view=overview viewH=406`.
+ *   - Round S1 F (2026-10-05, stream E; docs/research/ski-days/spec/ch4-hub.md F.3): ` over=<n>` follows
+ *     viewH: how far the Scrollable's content box overflows, in rem = max(0, round((scrollHeight -
+ *     offsetHeight) / rem)) of the content element's parent (the Scrollable's content div; the Providers
+ *     around our body render no DOM), -1 when there is no such parent. The vanilla Scrollable shows its bar
+ *     when scrollHeight - 1 > offsetHeight (installed index.js@638418), so a short view that logs over=0
+ *     shows no bar (field test 9: every view at 100 %). Same reads as the other fields, no extra pass.
  *   - WHEN IT MEASURES (Round F7, D6; field test 7 log-audit D12 and hub-ux §5 item 10 with its
  *     Verification claim 17: from L529 to L648 every `viewH` equalled the PREVIOUS view's height, and
  *     `list=0 rows=3` - one animation frame after the change, Gameface had not laid out the new view
@@ -162,14 +168,24 @@ function measure(
  * Sends the layout once after the first layout, on every change of the row bucket, and on a change
  * of the text scale / root font size / viewport while the panel is open (see the header).
  */
-/** Contract 3: today's text + ` status=<h> problems=<h> tiles=<h> view=<name> viewH=<h>` (design 8.15). */
+/** Round S1 F: the overflow of the Scrollable's content div (the content element's parent) in `unit`s;
+ *  -1 without that element. A negative difference (content shorter than the box) reads 0. */
+function overflowOf(content: Element | null | undefined, unit: number): number {
+  const sc = content ? content.parentElement : null;
+  if (!sc) return -1;
+  return Math.max(0, Math.round((sc.scrollHeight - sc.offsetHeight) / unit));
+}
+
+/** Contract 3: today's text + ` status=<h> problems=<h> tiles=<h> view=<name> viewH=<h>` (design 8.15);
+ *  Round S1 F: + ` over=<n>`. */
 function measureV3(r: LayoutRefs, rows: number, view: string): string | null {
   const base = measure(r.header.current, r.content.current, r.footer.current, r.list.current, r.probe.current, rows);
   if (base === null) return null;
   let unit = 1;
   try { const rem = remPx(r.probe.current); if (rem > 0) unit = rem; } catch { /* px */ }
   return `${base} status=${heightOf(r.status.current, unit)} problems=${heightOf(r.problems.current, unit)} ` +
-    `tiles=${heightOf(r.tiles.current, unit)} view=${view} viewH=${heightOf(r.view.current, unit)}`;
+    `tiles=${heightOf(r.tiles.current, unit)} view=${view} viewH=${heightOf(r.view.current, unit)} ` +
+    `over=${overflowOf(r.content.current, unit)}`;
 }
 
 export function useLayoutReport(r: LayoutRefs, rows: number, view: string): void {

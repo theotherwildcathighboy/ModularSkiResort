@@ -1,12 +1,18 @@
 // HubRules — the hub's PURE rules of Round E1 (docs/research/econ-round/spec/ch5-hub-csharp.md §6.1-6.2;
 // design docs/research/econ-round/design/hub-v3-design.md §9): the literal-valued enums of contract 3
-// (ResortStatus, RunOpenState, SeasonHint, NextStepKind, HubLiftStatus, HubProblemCode — gate rule R17 of
+// (ResortStatus, RunOpenState, SeasonHint, NextStepKind, HubLiftStatus, HubProblemCode; contract 4 adds
+// HubSkiDayState — gate rule R17 of
 // mod/SkiResortUI/tools/check-bundle.js compares each name and value with bindings.ts, so every value is
 // written out and HubProblemCode is APPEND ONLY), the small rules behind the ResortLive / RunLive / LiftRow
 // fields, the area-weighted snow sums, rule 7's guard (FollowCheck, D36) and the problems band
 // (HubProblems.Build). Written 2026-10-04 (Round E1, stream S5). Round F7 (2026-10-04, implementer 3;
 // docs/research/field-test-7-fixes.md D5): HubProblemCode SignNoRoad = 18 / LodgeNoRoad = 19 appended, with the
-// two HubProblemInput fields behind them.
+// two HubProblemInput fields behind them. Round S1 "Ski days" (2026-10-05, stream D; docs/research/ski-days/
+// s1-spec.md §2.9, §5.3, spec/ch4-hub.md §A.2-§A.3, §C): contract 4's HubSkiDayState and SkiDayStateOf; HubProblemCode
+// SkiDaysCannotReach = 20 / NoParkingNearLodge = 21 / LodgeNotSlopeside = 22 appended (D28), with their three
+// HubProblemInput fields; F1 (the Efficiency row's hysteresis, EfficiencyClearPct) and F1b (a Factor row only from
+// FactorRowMinLossPct points, orchestrator ruling R-Q2). Round M1 "measure first" (2026-10-05, Builder B;
+// docs/research/ski-days/measure/m1-spec.md M10 D9): LodgeNotSlopeside is not built for an area with no runs.
 //
 // CALLERS: SkiResortStatsSystem (every rule of a rebuild; HubProblems.Build per area) and
 // SkiResortHubUISystem (LiftNoPair for build[lift].hint, FollowCheck for rule 7, LiftLinePerKm for the
@@ -14,7 +20,7 @@
 // SkiResortScore's Result, it never recomputes the score — AttractionWithLodges is the one "what if"
 // and uses the model's own LodgeBaseOf / RoundToEven / MaxAttraction).
 //
-// RULES (ch5 §6.2; tests/ResortBatch HubRulesTests sections A-F are the literal oracles):
+// RULES (ch5 §6.2, ski-days ch4 §A.3 / §C; tests/ResortBatch HubRulesTests sections A-H are the literal oracles):
 //   Status            runs <= 0 NoRuns; runsOpen >= runs Open; open + partly <= 0 Closed; else Partly
 //                     (the status line prints runsOpen of runs: word and count use the same sets)
 //   OpenStateOf       not a member None; !(f > 0) Closed (NaN too); f >= 1 Open; else Partly
@@ -46,13 +52,24 @@
 //   FollowCheck       (order matters) hub closed; a rule switched in this pass; within
 //                     FollowQuietAfterUserS of the player's own switch; within FollowMinIntervalS of the
 //                     last follow; else Follow. −∞ = never; a NaN comparison is false, so it allows
+//   SkiDayStateOf     (Round S1, ch4 §A.3; first match wins) off Off; no view Unknown; no score or the
+//                     first-write hold Unknown; sign not running SignOff; runs counted <= 0 NoRun; target
+//                     lodges <= 0 NoLodge; outside the claim hours Night; cap < 0 or now < 0 Unknown (before the
+//                     first pass); now >= cap Full (a capacity of 0 is real: the simulation sends nobody,
+//                     SkiDayRules.HasRoom(x, 0) is false); else Room
 //   HubProblems.Build (ch5 §6.2): Unlinked rows only for the Not linked entry; else lodges, road edges (Round F7
 //                     D5: SignNoRoad severity 3; LodgeNoRoad 3 when every lodge, else 1, count = lodges with no
-//                     road), efficiency,
+//                     road), efficiency (Round S1 F1: at <= EfficiencyProblemPct, and kept while the band showed it
+//                     on the area's previous build and the percent is still below EfficiencyClearPct; "more" =
+//                     the factors listed as Factor rows − 1, or every factor − 1 when none is listed: fixer, HU-1),
 //                     lifts (E1 fixer F9: lone stations of state 4 paired across rows — one "draw the lift
-//                     line" row per base + top pair), no lift, no runs, unserved, unrateable / rating / flat — then a STABLE
+//                     line" row per base + top pair), no lift, no runs, unserved, unrateable / rating / flat, the
+//                     ski-day rows (Round S1 D28: SkiDaysCannotReach severity 2; NoParkingNearLodge and
+//                     LodgeNotSlopeside severity 1, count = min(n, Lodges), none when 0; Round M1 D9:
+//                     LodgeNotSlopeside only when the area has runs, Runs > 0) — then a STABLE
 //                     insertion sort by (severity descending, code ascending, insertion order), cut to
-//                     MaxBandRows, then one Factor row per efficiency factor (severity 0, never in the band)
+//                     MaxBandRows, then one Factor row per efficiency factor that costs at least
+//                     FactorRowMinLossPct points (Round S1 F1b; severity 0, never in the band)
 //
 // PURE FILE: `using System;` and `using System.Collections.Generic;` only, plus SkiResortScore (pure,
 // ch1). No Entities, no Game, no Unity.Mathematics. net48 traps: no Math.Clamp, MathF, double.IsFinite,
@@ -86,7 +103,12 @@ namespace SkiResortMod.Systems
         LiftChairsStopped = 11, RunsUnserved = 12, RunsUnrateable = 13, RunsRating = 14, FreeLodges = 15, Factor = 16,
         RunsFlat = 17,   // second pass (e1-spec §2.5 H1): appended after Factor
         SignNoRoad = 18, LodgeNoRoad = 19,   // Round F7 D5 (field-test-7-fixes.md): appended (gate R17)
+        SkiDaysCannotReach = 20, NoParkingNearLodge = 21, LodgeNotSlopeside = 22,   // Round S1 D28 (ski-days ch4 §C.1): appended
     }
+
+    /// <summary>bindings.ts SKI_DAY_STATE (gate R17): ResortLive.skiDaysState, the Guests view's state line (Round
+    /// S1, contract 4, ski-days spec ch4 §A.2). The hub's display state; SkiDaySystem keeps its own.</summary>
+    public enum HubSkiDayState : byte { Unknown = 0, Off = 1, SignOff = 2, NoRun = 3, NoLodge = 4, Night = 5, Room = 6, Full = 7 }
 
     /// <summary>Rule 7's verdict (D36; C# only, not in the contract).</summary>
     public enum FollowVerdict : byte { Follow = 0, HubClosed = 1, RuleSwitched = 2, UserJustSelected = 3, TooSoon = 4 }
@@ -116,6 +138,12 @@ namespace SkiResortMod.Systems
         // Round F7 D5: Building.m_RoadEdge is Entity.Null on the sign / on this many of the area's lodges.
         public bool SignNoRoad;
         public int LodgesNoRoad;
+        // Round S1 D28 (ch4 §C): set by the stats system only while ski days are on (not Off) and the area has a view.
+        public bool SkiDaysCannotReach;          // D15 (ch2: car confidence < 0.5 after ≥ 20 car claims)
+        public int LodgesNoParking;              // D26 (ch3 census): ski-day lodges with 0 car spaces within 300 m
+        public int LodgesNotSlopeside;           // D10: active lodges more than 800 m from the area's runs and stations
+        // Round S1 F1: the band showed the Efficiency row on this area's previous build (hysteresis state, ch4 §C.4).
+        public bool EfficiencyRowWasOn;
     }
 
     /// <summary>One problems row (band or Factor) before the stats system adds the area's entities.</summary>
@@ -175,6 +203,8 @@ namespace SkiResortMod.Systems
         public const float ChairSpeedMps = 2.5f;        // = ChairPinSystem.ChairSpeedMps (checked at the stats arm, ch5 §5.8)
         public const float MinCountedFraction = 0.25f;  // never project tickets from less than a quarter month
         public const int EfficiencyProblemPct = 90;     // the band shows efficiency at or below this
+        public const int EfficiencyClearPct = 95;       // Round S1 F1: a shown Efficiency row stays until this (FT8: 98 flaps)
+        public const int FactorRowMinLossPct = 5;       // Round S1 F1b (ruling R-Q2): a Factor row only from a 5-point loss
         public const int MaxBandRows = 8;
         public const int LiftLinePerKm = 7500;          // D24: 60 per 8 m piece × 125 pieces per km (ground level)
         public const int TicksPerDay = 262144;          // TimeSystem.kTicksPerDay (TimeSystem.cs:18)
@@ -418,6 +448,32 @@ namespace SkiResortMod.Systems
             return FollowVerdict.Follow;
         }
 
+        /// <summary>Round S1 (ch4 §A.3, s1-spec §2.9 / N9): the Guests view's ski-day state, first match wins.
+        /// <paramref name="off"/> = both ski-day settings 0; <paramref name="hasView"/> = SkiDaySystem armed with a
+        /// view of the area; <paramref name="scoreKnown"/>, <paramref name="signRunning"/>, <paramref
+        /// name="runsCounted"/> from the attraction view (a result and no first-write hold, efficiency &gt; 0, the
+        /// Result's RunsCounted); the rest from SkiDayAreaView. A capacity of 0 reads Full, as in the simulation;
+        /// a negative capacity or count means "before the first pass" (Unknown).</summary>
+        public static HubSkiDayState SkiDayStateOf(bool off, bool hasView, bool scoreKnown, bool signRunning,
+                                                   int runsCounted, int targetLodges, bool claimHours, int now, int cap)
+        {
+            if (off)
+                return HubSkiDayState.Off;
+            if (!hasView || !scoreKnown)
+                return HubSkiDayState.Unknown;
+            if (!signRunning)
+                return HubSkiDayState.SignOff;
+            if (runsCounted <= 0)
+                return HubSkiDayState.NoRun;
+            if (targetLodges <= 0)
+                return HubSkiDayState.NoLodge;
+            if (!claimHours)
+                return HubSkiDayState.Night;
+            if (cap < 0 || now < 0)
+                return HubSkiDayState.Unknown;
+            return now >= cap ? HubSkiDayState.Full : HubSkiDayState.Room;
+        }
+
         // ── net48-safe helpers (internal: HubSnowSums and HubProblems use them) ─────────────────────
 
         internal static bool IsFiniteD(double x) => !double.IsNaN(x) && !double.IsInfinity(x);
@@ -481,13 +537,29 @@ namespace SkiResortMod.Systems
             if (lodgesNoRoad > 0)
                 output.Add(Row(HubProblemCode.LodgeNoRoad, (byte)(lodgesNoRoad >= input.Lodges ? 3 : 1), count: lodgesNoRoad));
 
-            // 3. Efficiency (the worst factor named; the rest counted).
+            // 3. Efficiency (the worst factor named; the rest counted). Round S1 F1 (ch4 §C.3): shown at or below
+            // EfficiencyProblemPct, and held while the band showed it on the area's previous build until the percent
+            // reaches EfficiencyClearPct (field test 8: the row flapped 98 times around 90 %). The state is the stats
+            // system's (EfficiencyRowWasOn); the rule stays pure.
+            // "and {N} more" counts the factors the tooltip lists, i.e. step 9's Factor rows (R-Q2 extended to the band
+            // row, fixer pass, review HU-1): the worst factor is first, so it is a listed one whenever any is listed.
+            // With none listed (all under 5 points) the row keeps counting every factor, so it never presents one
+            // small factor as the whole loss.
             int factors = input.Factors != null ? input.Factors.Count : 0;
-            if (input.EfficiencyPct >= 0 && input.EfficiencyPct <= HubRules.EfficiencyProblemPct)
+            int listed = 0;
+            for (int i = 0; i < factors; i++)
+            {
+                if (input.Factors[i].EffectPct <= -HubRules.FactorRowMinLossPct)
+                    listed++;
+            }
+            bool showEfficiency = input.EfficiencyPct >= 0 &&
+                                  (input.EfficiencyPct <= HubRules.EfficiencyProblemPct ||
+                                   (input.EfficiencyRowWasOn && input.EfficiencyPct < HubRules.EfficiencyClearPct));
+            if (showEfficiency)
             {
                 output.Add(Row(HubProblemCode.Efficiency, (byte)(input.EfficiencyPct == 0 ? 3 : 2), pct: input.EfficiencyPct,
-                    factor: factors > 0 ? input.Factors[0].Name ?? "" : "", more: Math.Max(0, factors - 1),
-                    ifFixed: input.AttractionFull));
+                    factor: factors > 0 ? input.Factors[0].Name ?? "" : "",
+                    more: Math.Max(0, (listed > 0 ? listed : factors) - 1), ifFixed: input.AttractionFull));
             }
 
             // 4. Lifts, in `lifts` order.
@@ -592,15 +664,33 @@ namespace SkiResortMod.Systems
             if (input.RunsFlat > 0)
                 output.Add(Row(HubProblemCode.RunsFlat, 1, count: input.RunsFlat));
 
+            // 8b. Round S1 D28 (ch4 §C.3): the ski-day rows. The stats system sets the inputs only while ski days are
+            // on and the area has a SkiDaySystem view. CannotReach is severity 2 (warning glyph); the two lodge rows
+            // are dim (1), counted up to the area's lodges, so a stray count never outnumbers them.
+            if (input.SkiDaysCannotReach)
+                output.Add(Row(HubProblemCode.SkiDaysCannotReach, 2));
+            int lodgesNoParking = Math.Min(input.LodgesNoParking, input.Lodges);
+            if (lodgesNoParking > 0)
+                output.Add(Row(HubProblemCode.NoParkingNearLodge, 1, count: lodgesNoParking));
+            int lodgesFar = Math.Min(input.LodgesNotSlopeside, input.Lodges);
+            // Round M1 (D9): "far from the runs" needs runs; an area without any already shows NoRuns and sends no
+            // ski days (SkiDayRules.AreaStateOf).
+            if (lodgesFar > 0 && input.Runs > 0)
+                output.Add(Row(HubProblemCode.LodgeNotSlopeside, 1, count: lodgesFar));
+
             SortAndCut(output);
 
-            // 9. Factor rows (only with a result), input order.
+            // 9. Factor rows (only with a result), input order. Round S1 F1b (orchestrator ruling R-Q2): only a factor
+            // that costs at least FactorRowMinLossPct points (EffectPct <= −5); field test 8's churn was mostly small
+            // factors near 0 % coming and going (ft8-log-audit V.2 #1). A pure threshold, no dwell. The Overview's
+            // factor list and the Efficiency row's tooltip read these rows (hubRules.ts factorRowsOf), so they follow.
             if (input.EfficiencyPct >= 0)
             {
                 for (int i = 0; i < factors; i++)
                 {
                     HubProblemFactor f = input.Factors[i];
-                    output.Add(Row(HubProblemCode.Factor, 0, pct: f.EffectPct, factor: f.Name ?? ""));
+                    if (f.EffectPct <= -HubRules.FactorRowMinLossPct)
+                        output.Add(Row(HubProblemCode.Factor, 0, pct: f.EffectPct, factor: f.Name ?? ""));
                 }
             }
         }

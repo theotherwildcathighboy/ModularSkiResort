@@ -1,5 +1,5 @@
 // HubRulesTests — Round E1 test file for tests/ResortBatch (econ-round spec ch5 §10.1: hub rules, problems,
-// piste-map rules, the aggregate's run vertical, sections A-G). Owner: stream S5 (docs/research/econ-round/
+// piste-map rules, the aggregate's run vertical, sections A-G; Round S1 adds H). Owner: stream S5 (docs/research/econ-round/
 // e1-spec.md §3.2). Created empty by stage 0 (S0, 2026-10-04); written 2026-10-04 by S5.
 // e1-spec R9 — `public static class HubRulesTests` with `public static void Run(Func<bool, string, string, bool> check)`
 // and its own Near; Program.Main calls HubRulesTests.Run(Check).
@@ -20,7 +20,14 @@
 //   F  PisteMapRules (StyleOf, IsDashed, WidthScale, SolidRing, DashRing incl. dashes across corners,
 //      truncation, solid fallback, slope, non-finite node, tiny ring, appending);
 //   G  SkiResortAggregate.RunVerticalM on Program.AggregateTests' fixture (copied literally) next to the
-//      unchanged VerticalM (C14).
+//      unchanged VerticalM (C14);
+//   H  Round S1 (2026-10-05, stream D; docs/research/ski-days/spec/ch4-hub.md §G.3): HubRules.SkiDayStateOf rows
+//      H1-H15 and H16, the powder-mark parity of C# and TS (SkiDayRules.PowderMark vs Percent ≥ 50, s1-spec N10).
+// Round S1 also adds, in C, P32-P41 (ski-day rows 20-22, F1's Efficiency hysteresis) and P42-P44 (F1b: a Factor row
+// only from a 5-point loss, orchestrator ruling R-Q2), and in E the three codes, HubSkiDayState and the two constants.
+// Fixer pass (2026-10-05, review HU-1): P45, the band row's "more" counts only the listed factors.
+// Round M1 "measure first" (Builder B, 2026-10-05; m1-spec §4 and M10 D9): P46, no LodgeNotSlopeside row on an area
+// without runs (the spec's "P42"; that number was taken by F1b). P33-P35 keep runs 3 and pass unchanged.
 // Tolerances: ±1e-9 for the parity identity, ±1e-6 for ch1's 9-decimal values, ±1e-4 for float rules.
 
 using System;
@@ -44,6 +51,7 @@ namespace ResortBatch
             SectionE();
             SectionF();
             SectionG();
+            SectionH();   // Round S1 (ch4 §G.3, refutation RF-12)
             s_Check = null;
         }
 
@@ -659,6 +667,152 @@ namespace ResortBatch
                 P(HubProblemCode.Unlinked, 3, build: "sign"),
                 P(HubProblemCode.FreeLodges, 1, count: 2));
 
+            // Round S1 (docs/research/ski-days/spec/ch4-hub.md §G.3): ski-day rows 20-22 (D28) and F1's Efficiency
+            // hysteresis. P32-P41 add 2 + 8 + 3 + 2 + 2 + 3 + 3 + 2 + 3 + 1 = 29 checks. Every case keeps one powered,
+            // complete lift unless given.
+            // P32 guests cannot reach: one severity-2 row, no count.
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.SkiDaysCannotReach = true;
+            Expect("P32 cannot reach", x, o, P(HubProblemCode.SkiDaysCannotReach, 2));
+
+            // P33 the sort: severity 2 by code (Efficiency 4, LiftNoPower 5, SkiDaysCannotReach 20), then severity 1
+            // by code (RunsFlat 17, NoParkingNearLodge 21, LodgeNotSlopeside 22), then the Factor row.
+            x = In(1, 1, 50, 2, 3);
+            x.Factors = Fs(F(elec, -50));
+            x.Lifts = Ls(L(0, true, true, true), L(0, false, true, true));
+            x.RunsFlat = 1;
+            x.AttractionFull = 69;
+            x.SkiDaysCannotReach = true;
+            x.LodgesNoParking = 1;
+            x.LodgesNotSlopeside = 1;
+            Expect("P33 ski-day order", x, o,
+                P(HubProblemCode.Efficiency, 2, pct: 50, ifFixed: 69, factor: elec),
+                P(HubProblemCode.LiftNoPower, 2, liftIndex: 1),
+                P(HubProblemCode.SkiDaysCannotReach, 2),
+                P(HubProblemCode.RunsFlat, 1, count: 1),
+                P(HubProblemCode.NoParkingNearLodge, 1, count: 1),
+                P(HubProblemCode.LodgeNotSlopeside, 1, count: 1),
+                P(HubProblemCode.Factor, 0, pct: -50, factor: elec));
+
+            // P34 the lodge counts clamp to the area's lodges (3 → 1, 2 → 1).
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.LodgesNoParking = 3;
+            x.LodgesNotSlopeside = 2;
+            Expect("P34 counts clamp", x, o,
+                P(HubProblemCode.NoParkingNearLodge, 1, count: 1),
+                P(HubProblemCode.LodgeNotSlopeside, 1, count: 1));
+
+            // P35 no lodge: min(n, 0) = 0, so only NoLodge.
+            x = In(0, 0, 100, 1, 3);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.IfOneLodge = 10;
+            x.LodgesNoParking = 1;
+            x.LodgesNotSlopeside = 1;
+            Expect("P35 no lodge", x, o, P(HubProblemCode.NoLodge, 3, ifFixed: 10, build: "lodge"));
+
+            // P36 Not linked ignores every ski-day input and the F1 state.
+            x = new HubProblemInput
+            {
+                Unlinked = true, Runs = 1, LiftRows = 0, FreeLodges = 0, EfficiencyPct = -1, AttractionFull = -1, IfOneLodge = -1,
+                IfLodgesOn = -1, SkiDaysCannotReach = true, LodgesNoParking = 1, LodgesNotSlopeside = 1, EfficiencyRowWasOn = true,
+            };
+            Expect("P36 Not linked", x, o, P(HubProblemCode.Unlinked, 3, build: "sign"));
+
+            // P37-P41 F1 (decisions F1: show at <= 90 %, hide at >= 95 %). P5 (91, not held → no row) and P6 (90 → row)
+            // above are the "not held" half. P37 held at 91.
+            x = In(1, 1, 91, 1, 3);
+            x.Factors = Fs(F(elec, -9));
+            x.Lifts = Ls(L(0, true, true, true));
+            x.AttractionFull = 60;
+            x.EfficiencyRowWasOn = true;
+            Expect("P37 F1 held at 91", x, o,
+                P(HubProblemCode.Efficiency, 2, pct: 91, ifFixed: 60, factor: elec),
+                P(HubProblemCode.Factor, 0, pct: -9, factor: elec));
+
+            // P38 held at 94 (the last percent below EfficiencyClearPct).
+            x = In(1, 1, 94, 1, 3);
+            x.Factors = Fs(F(elec, -6));
+            x.Lifts = Ls(L(0, true, true, true));
+            x.AttractionFull = 60;
+            x.EfficiencyRowWasOn = true;
+            Expect("P38 F1 held at 94", x, o,
+                P(HubProblemCode.Efficiency, 2, pct: 94, ifFixed: 60, factor: elec),
+                P(HubProblemCode.Factor, 0, pct: -6, factor: elec));
+
+            // P39 released at 95; the −5 factor still lists (F1b: a 5-point loss is listed).
+            x = In(1, 1, 95, 1, 3);
+            x.Factors = Fs(F(elec, -5));
+            x.Lifts = Ls(L(0, true, true, true));
+            x.AttractionFull = 60;
+            x.EfficiencyRowWasOn = true;
+            Expect("P39 F1 released at 95", x, o, P(HubProblemCode.Factor, 0, pct: -5, factor: elec));
+
+            // P40 held at 0: the not-running severity 3 is unchanged.
+            x = In(1, 1, 0, 1, 3);
+            x.Factors = Fs(F(elec, -100));
+            x.Lifts = Ls(L(0, true, true, true));
+            x.AttractionFull = 49;
+            x.EfficiencyRowWasOn = true;
+            Expect("P40 F1 held at 0", x, o,
+                P(HubProblemCode.Efficiency, 3, pct: 0, ifFixed: 49, factor: elec),
+                P(HubProblemCode.Factor, 0, pct: -100, factor: elec));
+
+            // P41 no result: nothing, held or not.
+            x = In(1, 1, -1, 1, 1);
+            x.Factors = Fs(F(elec, -50));
+            x.Lifts = Ls(L(0, true, true, true));
+            x.EfficiencyRowWasOn = true;
+            Expect("P41 F1 no result", x, o);
+
+            // Round S1 F1b (s1-spec §5.3 ruling R-Q2): a Factor row only when the factor costs 5 points or more
+            // (FactorRowMinLossPct; EffectPct <= −5). P42-P44 add 2 + 1 + 2 = 5 checks.
+            // P42 91 % = 0.95 × 0.96 (0.912): no Efficiency row (91, not held); the −5 factor listed, the −4 not.
+            x = In(1, 1, 91, 1, 3);
+            x.Factors = Fs(F("NotEnoughEmployees", -5), F(elec, -4));
+            x.Lifts = Ls(L(0, true, true, true));
+            x.AttractionFull = 60;
+            Expect("P42 F1b -5 listed, -4 not", x, o, P(HubProblemCode.Factor, 0, pct: -5, factor: "NotEnoughEmployees"));
+
+            // P43 a lone −4 factor at 96 %: no row at all.
+            x = In(1, 1, 96, 1, 3);
+            x.Factors = Fs(F(elec, -4));
+            x.Lifts = Ls(L(0, true, true, true));
+            x.AttractionFull = 60;
+            Expect("P43 F1b lone -4", x, o);
+
+            // P44 three −4 factors, 0.96³ = 0.884736 → 88 %: no Factor row is listed, so the band row still names the
+            // worst factor and counts the other two (fixer, HU-1: with none listed, "more" counts every factor).
+            x = In(1, 1, 88, 1, 3);
+            x.Factors = Fs(F("WaterSupply", -4), F("SewageHandling", -4), F(elec, -4));
+            x.Lifts = Ls(L(0, true, true, true));
+            x.AttractionFull = 60;
+            Expect("P44 F1b band row keeps small factors", x, o,
+                P(HubProblemCode.Efficiency, 2, pct: 88, more: 2, ifFixed: 60, factor: "WaterSupply"));
+
+            // P45 (fixer pass, review HU-1) mixed: −12, −3, −1 (0.88 × 0.97 × 0.99 = 0.845) → 85 %: one factor is
+            // listed, so "and {N} more" counts only listed factors (the tooltip names them): more 0. 3 checks.
+            x = In(1, 1, 85, 1, 3);
+            x.Factors = Fs(F("WaterSupply", -12), F("SewageHandling", -3), F(elec, -1));
+            x.Lifts = Ls(L(0, true, true, true));
+            x.AttractionFull = 60;
+            Expect("P45 HU-1 more counts listed factors", x, o,
+                P(HubProblemCode.Efficiency, 2, pct: 85, more: 0, ifFixed: 60, factor: "WaterSupply"),
+                P(HubProblemCode.Factor, 0, pct: -12, factor: "WaterSupply"));
+
+            // P46 Round M1 D9 (docs/research/ski-days/measure/m1-spec.md §4 "P42"; renumbered: P42 is F1b's): an area
+            // with no runs shows NoRuns and never "Lodge is far from the runs"; the same lodge with 3 runs shows it as
+            // in P34. 2 + 2 checks.
+            x = In(1, 1, 100, 1, 0);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.LodgesNotSlopeside = 1;
+            Expect("P46 D9 no runs: only NoRuns", x, o, P(HubProblemCode.NoRuns, 1));
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.LodgesNotSlopeside = 1;
+            Expect("P46 D9 with runs: LodgeNotSlopeside", x, o, P(HubProblemCode.LodgeNotSlopeside, 1, count: 1));
+
             // P15 no result
             x = In(1, 1, -1, 1, 1);
             x.Factors = Fs(F(elec, -50));
@@ -722,7 +876,9 @@ namespace ResortBatch
             const string w = "hub E";
             Check(HubRules.ChairSpeedMps == 2.5f && HubRules.MinCountedFraction == 0.25f && HubRules.EfficiencyProblemPct == 90 &&
                   HubRules.MaxBandRows == 8 && HubRules.LiftLinePerKm == 7500 && HubRules.TicksPerDay == 262144 &&
-                  HubRules.FollowMinIntervalS == 2f && HubRules.FollowQuietAfterUserS == 2f, w, "a HubRules constant moved: the oracles are literal for it");
+                  HubRules.FollowMinIntervalS == 2f && HubRules.FollowQuietAfterUserS == 2f &&
+                  HubRules.EfficiencyClearPct == 95 && HubRules.FactorRowMinLossPct == 5,   // Round S1 F1, F1b
+                  w, "a HubRules constant moved: the oracles are literal for it");
 
             Eq((int)HubProblemCode.Unlinked, 0, w, "HubProblemCode.Unlinked");
             Eq((int)HubProblemCode.Efficiency, 4, w, "HubProblemCode.Efficiency");
@@ -731,7 +887,12 @@ namespace ResortBatch
             Eq((int)HubProblemCode.RunsFlat, 17, w, "HubProblemCode.RunsFlat");
             Eq((int)HubProblemCode.SignNoRoad, 18, w, "HubProblemCode.SignNoRoad");     // Round F7 D5
             Eq((int)HubProblemCode.LodgeNoRoad, 19, w, "HubProblemCode.LodgeNoRoad");   // Round F7 D5
-            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 20, w, "HubProblemCode has 20 values (append only)");
+            Eq((int)HubProblemCode.SkiDaysCannotReach, 20, w, "HubProblemCode.SkiDaysCannotReach");   // Round S1 D28
+            Eq((int)HubProblemCode.NoParkingNearLodge, 21, w, "HubProblemCode.NoParkingNearLodge");   // Round S1 D28
+            Eq((int)HubProblemCode.LodgeNotSlopeside, 22, w, "HubProblemCode.LodgeNotSlopeside");     // Round S1 D28
+            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 23, w, "HubProblemCode has 23 values (append only)");
+            Eq((int)HubSkiDayState.Full, 7, w, "HubSkiDayState.Full");                                // Round S1 (contract 4)
+            Eq(Enum.GetValues(typeof(HubSkiDayState)).Length, 8, w, "HubSkiDayState has 8 values");
             Eq((int)SeasonHint.GatingOff, 6, w, "SeasonHint.GatingOff");
             Eq((int)RunOpenState.None, -1, w, "RunOpenState.None");
             Eq((int)ResortStatus.Open, 3, w, "ResortStatus.Open");
@@ -968,6 +1129,57 @@ namespace ResortBatch
         {
             Check(a.RunVerticalM == run, w, $"{name}: RunVerticalM {a.RunVerticalM}, want {run}");
             Check(a.VerticalM == all, w, $"{name}: VerticalM {a.VerticalM}, want {all} (unchanged, C14)");
+        }
+
+        // ================================================================== H. ski-day state (Round S1)
+
+        private static void SectionH()
+        {
+            const string w = "hub H";
+            const HubSkiDayState Unknown = HubSkiDayState.Unknown, Off = HubSkiDayState.Off, SignOff = HubSkiDayState.SignOff,
+                NoRun = HubSkiDayState.NoRun, NoLodge = HubSkiDayState.NoLodge, Night = HubSkiDayState.Night,
+                Room = HubSkiDayState.Room, Full = HubSkiDayState.Full;
+            // ch4 §G.3: SkiDayStateOf(off, hasView, scoreKnown, signRunning, runsCounted, targetLodges, claimHours, now, cap).
+            State("H1", true, true, true, true, 5, 1, true, 0, 154, Off);
+            State("H2", true, false, false, false, 0, 0, false, -1, -1, Off);       // off wins over everything
+            State("H3", false, false, true, true, 5, 1, true, 0, 154, Unknown);     // no view
+            State("H4", false, true, false, true, 5, 1, true, 0, 154, Unknown);     // no score / first-write hold
+            State("H5", false, true, true, false, 0, 0, false, 0, 154, SignOff);
+            State("H6", false, true, true, true, 0, 0, false, 0, 154, NoRun);
+            State("H7", false, true, true, true, 5, 0, false, 0, 154, NoLodge);
+            State("H8", false, true, true, true, 5, 1, false, 30, 154, Night);
+            State("H9", false, true, true, true, 5, 1, true, 0, 154, Room);
+            State("H10", false, true, true, true, 5, 1, true, 153, 154, Room);
+            State("H11", false, true, true, true, 5, 1, true, 154, 154, Full);
+            State("H12", false, true, true, true, 5, 1, true, 200, 154, Full);
+            State("H13", false, true, true, true, 5, 1, true, 0, 0, Full);          // cap 0 is real (s1-spec N9)
+            State("H14", false, true, true, true, 5, 1, true, 0, -1, Unknown);      // before the first pass
+            State("H15", false, true, true, true, 5, 1, true, -1, 154, Unknown);    // now unknown
+
+            // H16 (s1-spec N10, refutation RF-12): the C# powder mark and the TS threshold (POWDER_MARK_PCT = 50 on
+            // skiDaysPowderPct = HubRules.Percent(powder)) agree at every reachable powder: snow-hours 0..24 (powder
+            // takes sixths, 7 h = exactly 0.5). One check.
+            bool parity = true;
+            string first = "";
+            for (int h = 0; h <= 24; h++)
+            {
+                double powder = SkiDayRules.PowderOf(h);
+                bool cs = SkiDayRules.PowderMark(powder), ts = HubRules.Percent(powder) >= 50;
+                if (cs != ts && parity)
+                {
+                    parity = false;
+                    first = $"h {h}: powder {powder}, PowderMark {cs}, Percent {HubRules.Percent(powder)} >= 50 {ts}";
+                }
+            }
+            Check(parity, w, "H16 powder mark parity C# / TS: " + first);
+        }
+
+        private static void State(string name, bool off, bool hasView, bool scoreKnown, bool signRunning, int runsCounted,
+                                  int targetLodges, bool claimHours, int now, int cap, HubSkiDayState want)
+        {
+            HubSkiDayState got = HubRules.SkiDayStateOf(off, hasView, scoreKnown, signRunning, runsCounted, targetLodges, claimHours, now, cap);
+            Check(got == want, "hub H", $"{name} SkiDayStateOf({off},{hasView},{scoreKnown},{signRunning},{runsCounted},{targetLodges}," +
+                                        $"{claimHours},{now},{cap}) = {got}, want {want}");
         }
 
         // ================================================================== helpers

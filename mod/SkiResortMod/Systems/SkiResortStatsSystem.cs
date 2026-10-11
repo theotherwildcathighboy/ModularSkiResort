@@ -51,8 +51,9 @@
 //   * run costs per kind: TryGetRunActiveTexels × TexelAreaM2 / 10⁴ ha × SkiRunUpkeepSystem
 //     .CostPerHaMonth(kind) for bound runs — the numbers the upkeep bills (natural: 0, its plan area is
 //     reported apart); area sums are float sums rounded once (C11).
-//   * guests and tickets: SkiGuestCounterSystem's ledger (TryGetMonth, the month flags); last month only
-//     when it was counted in full (−1 otherwise, H10); ticket income per month = HubRules
+//   * guests and tickets: SkiGuestCounterSystem's ledger (TryGetMonth, the month flags); last month
+//     whenever the ledger knows one (Round S1 F7: a since-load month too, then LastMonthFull is false and the
+//     hub marks it "(partial)"; −1 only before the first month roll); ticket income per month = HubRules
 //     .TicketIncomeMonth (last month, or this month projected from at least a quarter); tickets off (price
 //     0) → 0, not estimated (H7); the ticket gate = SkiMoneyRules.TicketGateOf with the counted runs of
 //     the Result and the lift charge's Operating lifts (e1-spec R6) — the ticket system's two sources.
@@ -79,7 +80,8 @@
 // any panel binding observed) or a requested rebuild; nothing while closed. A rebuild runs when the CHANGE
 // SIGNATURE moves — catalog Revision, census Revision, ChairPinSystem.LoopGeneration, attractiveness
 // Generation, injection RunTexelGeneration, injection RunSnowGeneration, guest counter Revision, lift
-// charge Revision (ch5 §5.7) — at most once per MinRebuildIntervalS, on the rising edge of Demand at once,
+// charge Revision (ch5 §5.7), SkiDaySystem Revision (Round S1) — at most once per MinRebuildIntervalS, on the
+// rising edge of Demand at once,
 // or on a 2 s wall-clock heartbeat (realtimeSinceStartup) that covers renames, jobs, the provider walk, the
 // top temperature, the counted month fraction, a moved service budget and the settings. The building count
 // is NOT in the signature (U2 fixer round, finding u2-data-04). Per-array content hashes gate each array's
@@ -91,7 +93,8 @@
 // GetServiceBudget per service, at most every MinRebuildIntervalS while the signature moves, else every
 // HeartbeatS while open; never while closed. Measured: `Stats [cost]` once per load after 32 rebuilds
 // with an area, run or lift row (F7 E3: empty rebuilds are not counted) (mean / max, the serve + assign and
-// problems parts) and one WARN per load above SlowRebuildWarnMs. Run hectares are the billed ones (F7 E2:
+// problems parts) and one WARN per load above SlowRebuildWarnMs (Round S1 F5: only for a rebuild with at least
+// one area). Run hectares are the billed ones (F7 E2:
 // SkiRunUpkeepSystem.BilledHa, capped at the plan area).
 // Strings are built only in a rebuild (names, log lines); no per-frame allocation or formatting.
 //
@@ -100,6 +103,18 @@
 // set by RoadConnectionSystem.cs:551 / :606 / :634) of every live sign and lodge; Entity.Null → the
 // HubProblemCode SignNoRoad / LodgeNoRoad rows (HubRules header). Read only, in the walk's own chunks (the
 // query already completes Building's writers), no new sync point.
+//
+// SKI DAYS (Round S1, 2026-10-05, stream D; docs/research/ski-days/s1-spec.md §2.9, spec/ch4-hub.md §A.4, §C.4):
+// contract 4 appends ten ResortLive fields — the area's ski-day state (HubRules.SkiDayStateOf over the attraction
+// view and SkiDaySystem.TryGetArea), arrivals this / last month, sent this month (all, car, far without a car), on
+// the way or on site now, the capacity, its limit and the powder percent — copied from SkiDaySystem's last published
+// view (main thread, no job sync; −1, State and Limit 0, when the system is absent or not armed or has no view of the
+// sign). "Off" = both ski-day settings 0, read once per rebuild (m_SkiDaysOff). SkiDaySystem.Revision is part of the
+// change signature. Problem rows 20-22 (D28) come from the same view, only while ski days are on. F1: the Efficiency
+// row's hysteresis state (the signs whose band showed it on the last build, m_EffRowOn) lives here, the rule in
+// HubRules; it moves only while the hub rebuilds. SkiDaySystem and SkiLodgeParkingSystem are resolved at each load
+// (GetExistingSystemManaged: the creation order stays Mod.cs's; null-safe); the stats DUMP is the one caller of
+// their AppendDump (s1-spec N12).
 //
 // LOGS: `Stats [arm]` once per load (rules, constants, daysPerYear, providers); a WARN at arm if
 // HubRules.ChairSpeedMps drifted from ChairPinSystem's; `Stats [rebuild] (why): …` (Round F7, log-audit D10)
@@ -171,6 +186,9 @@ namespace SkiResortMod.Systems
         public int LiftCostMonth, LiftsBilled, LiftsBilledReduced;
         public int BuildingsMonth, WagesMonth, Jobs, JobsFilled;
         public int NetMonth; public bool NetEstimated;
+        // Round S1 (contract 4, ski-days ch4 §A.1): appended in this order; −1 unknown, State and Limit 0.
+        public int SkiDaysState, SkiDaysThisMonth, SkiDaysLastMonth, SkiDaysSent, SkiDaysSentCar, SkiDaysSentNoCar,
+                   SkiDaysNow, SkiDaysCap, SkiDaysLimit, SkiDaysPowderPct;
     }
 
     /// <summary>bindings.ts RunRow (contract 3). Catalog row order.</summary>
@@ -298,9 +316,11 @@ namespace SkiResortMod.Systems
         private const string WhySnow = "snow state";
         private const string WhyGuests = "guests";
         private const string WhyCharge = "lift charge";
+        private const string WhySkiDays = "ski days";   // Round S1: appended after WhyHubOpened (counter indices kept)
         private static readonly string[] s_QuietReasons =
         {
             WhyHeartbeat, WhyCatalog, WhyCensus, WhyLoops, WhyAttract, WhyTexels, WhySnow, WhyGuests, WhyCharge, WhyHubOpened,
+            WhySkiDays,
         };
 
         /// <summary>The shared-base lift label's separator ("&lt;name&gt; → &lt;top label&gt;", §3.7). The hub's
@@ -334,6 +354,10 @@ namespace SkiResortMod.Systems
         private SkiLiftTicketSystem m_LiftTicket;            // DUMP only
         private CityServiceBudgetSystem m_CityServiceBudget;
         private SimulationSystem m_Simulation;
+        // Round S1 (ch4 §A.4): resolved at each load with GetExistingSystemManaged, so the creation order stays
+        // Mod.cs's (code-map V.2 #3; a GetOrCreate in OnCreate could create them first); null-safe everywhere.
+        private SkiDaySystem m_SkiDays;
+        private SkiLodgeParkingSystem m_LodgeParking;        // DUMP only (s1-spec N12)
 
         // Queries.
         private EntityQuery m_BuildingQuery;     // {Building, PrefabRef, Transform} None {Temp, Deleted}
@@ -424,6 +448,9 @@ namespace SkiResortMod.Systems
             // The attraction chapter's view of the area (BuildResortRows; reused by BuildProblems).
             public bool HasResult;
             public SkiResortAttractivenessSystem.AreaScoreView View;
+            // Round S1 (ch4 §A.4): SkiDaySystem's view of the area (BuildResortRows; reused by BuildProblems).
+            public bool HasSkiDays;
+            public SkiDayAreaView SkiDays;
         }
 
         // Per-load state.
@@ -437,7 +464,13 @@ namespace SkiResortMod.Systems
         private int m_IndexBuildingCount = -1;
         private int m_SigCatalog = int.MinValue, m_SigCensus = int.MinValue, m_SigLoops = int.MinValue,
             m_SigAttract = int.MinValue, m_SigTexels = int.MinValue, m_SigSnow = int.MinValue, m_SigGuests = int.MinValue,
-            m_SigCharge = int.MinValue;
+            m_SigCharge = int.MinValue, m_SigSkiDays = int.MinValue;
+        // Round S1 (ch4 §A.4, §C.4): both ski-day settings 0 (set once per rebuild in BuildResortRows, read by
+        // BuildProblems); F1's hysteresis state — the signs whose band showed the Efficiency row on the last build
+        // (m_EffRowOn) and the ones of this build (m_EffRowOnNext, copied over after the loop: readonly, no swap).
+        private bool m_SkiDaysOff;
+        private readonly HashSet<Entity> m_EffRowOn = new HashSet<Entity>();
+        private readonly HashSet<Entity> m_EffRowOnNext = new HashSet<Entity>();
         private float m_NextHeartbeat, m_LastRebuildTime = float.NegativeInfinity;
         private ulong m_HashResorts, m_HashResortLive, m_HashRuns, m_HashRunLive, m_HashLifts, m_HashProblems;
         // Round F7 (log-audit D10): the rebuild log (LogRebuild). Change lines through m_ChangeLog; the rest counted
@@ -622,7 +655,13 @@ namespace SkiResortMod.Systems
             m_IndexBuildingCount = -1;
             m_Index.Clear();
             m_SigCatalog = m_SigCensus = m_SigLoops = m_SigAttract = m_SigTexels = int.MinValue;
-            m_SigSnow = m_SigGuests = m_SigCharge = int.MinValue;
+            m_SigSnow = m_SigGuests = m_SigCharge = m_SigSkiDays = int.MinValue;
+            // Round S1 (ch4 §A.4, §C.4): the ski-day systems of this world (null-safe) and a fresh F1 state.
+            m_SkiDays = World.GetExistingSystemManaged<SkiDaySystem>();
+            m_LodgeParking = World.GetExistingSystemManaged<SkiLodgeParkingSystem>();
+            m_SkiDaysOff = false;
+            m_EffRowOn.Clear();
+            m_EffRowOnNext.Clear();
             m_NextHeartbeat = 0f;
             m_LastRebuildTime = float.NegativeInfinity;
             m_HashResorts = m_HashResortLive = m_HashRuns = m_HashRunLive = m_HashLifts = m_HashProblems = 0;
@@ -664,7 +703,7 @@ namespace SkiResortMod.Systems
 
             m_Armed = true;
             int providers = m_ProviderQuery.CalculateEntityCount();
-            Mod.Log.Info("Stats [arm] — the Ski Resort hub's rows (contract 3; econ-round spec ch5): ski areas = live Welcome " +
+            Mod.Log.Info("Stats [arm] — the Ski Resort hub's rows (contract 4; econ-round spec ch5, ski-days spec ch4): ski areas = live Welcome " +
                          "Signs in (Index, Version) order + a Not linked row; runs by their bound sign (catalog Gate), lodges " +
                          "by their sign's InstalledUpgrade buffer (else free-standing → Not linked), lifts and stations by the " +
                          $"nearest live sign within TetherMeters={SkiRunOwnershipSystem.TetherMeters:F0} m of the base station " +
@@ -681,7 +720,7 @@ namespace SkiResortMod.Systems
                          $"StubTipLocalZ={Tuning.StubTipLocalZ}; daysPerYear {m_TimeSystem.daysPerYear} (TimeSettingsData, " +
                          "copied by TimeSystem's first sim update — 1 before it; a later line reports the value once it is > " +
                          $"1); {providers} attractiveness provider(s) at load; contract 3: resorts/resortLive and runs/runLive " +
-                         "split, problems built in C#");
+                         "split, problems built in C#; ski days from SkiDaySystem " + (m_SkiDays != null ? "(present)" : "(absent)"));
             // ch5 §5.8: the hub's ride time uses its own copy of the chair speed (HubRules is pure). Locals, not
             // the constants themselves, so the compiler does not fold the compare into unreachable code.
             float hubSpeed = HubRules.ChairSpeedMps, pinSpeed = ChairPinSystem.ChairSpeedMps;
@@ -738,6 +777,8 @@ namespace SkiResortMod.Systems
                         sig = WhyGuests;
                     else if (m_LiftCharge.Revision != m_SigCharge)
                         sig = WhyCharge;
+                    else if (m_SkiDays != null && m_SkiDays.Revision != m_SigSkiDays)
+                        sig = WhySkiDays;   // Round S1 (ch4 §A.4): moves at most once per SkiDaySystem pass
                     if (sig != null && m_PendingWhy == null)
                         m_PendingWhy = sig;
                     if (m_PendingWhy != null && now - m_LastRebuildTime >= Tuning.MinRebuildIntervalS)
@@ -775,6 +816,7 @@ namespace SkiResortMod.Systems
             m_SigSnow = m_Injection.RunSnowGeneration;
             m_SigGuests = m_GuestCounter.Revision;
             m_SigCharge = m_LiftCharge.Revision;
+            m_SigSkiDays = m_SkiDays != null ? m_SkiDays.Revision : 0;   // Round S1
 
             RefreshTemplates();
             m_ResortsNext.Clear();
@@ -1040,7 +1082,8 @@ namespace SkiResortMod.Systems
         /// <summary>ch5 §5.8: the `Stats [cost]` line after the 32nd rebuild of a load and one WARN per load
         /// above SlowRebuildWarnMs. Field arithmetic per rebuild. Round F7 E3 (integrator, request in
         /// field-test-7-notes-impl5.md): only rebuilds with at least one area, run or lift row count, so the
-        /// line no longer measures an empty city.</summary>
+        /// line no longer measures an empty city. Round S1 F5 (ski-days ch4 §A.4; field test 8 L299 warned for a
+        /// rebuild with 0 areas): the WARN only for a rebuild with at least one area.</summary>
         private void LogCost(string why, float ms, int resorts)
         {
             if (!m_CostLogged && (resorts > 0 || m_Runs.Count > 0 || m_Lifts.Count > 0))
@@ -1061,7 +1104,7 @@ namespace SkiResortMod.Systems
                                  $"{m_Lifts.Count} lift row(s), {m_Chords.Count} chord(s)");
                 }
             }
-            if (ms > Tuning.SlowRebuildWarnMs && !m_SlowLogged)
+            if (ms > Tuning.SlowRebuildWarnMs && !m_SlowLogged && resorts > 0)
             {
                 m_SlowLogged = true;
                 Mod.Log.Warn($"Stats [cost]: one rebuild took {ms:F2} ms (> {Tuning.SlowRebuildWarnMs:0} ms) — {resorts} area(s), " +
@@ -1669,12 +1712,21 @@ namespace SkiResortMod.Systems
             bool counterArmed = m_GuestCounter.IsArmed && ledger != null;
             bool sinceLoad = ledger != null && ledger.ThisMonthSinceLoad;
             bool lastMonthFull = ledger != null && ledger.LastMonthKnown && !ledger.LastMonthSinceLoad;
+            // Round S1 F7 (ch4 §A.1): the six last-month guest values are sent whenever a month rolled since counting
+            // started (full OR since load); LastMonthFull marks the partial one. Ticket income still needs a full month.
+            bool lastKnown = ledger != null && ledger.LastMonthKnown;
             // E1 fixer (e1-spec §8.9 F8): a since-load month is counted from the counter's start frame — the
             // first tick after the load, or a calendar jump — not always from the load.
             uint countStart = m_GuestCounter.HasCountingSinceFrame ? m_GuestCounter.CountingSinceFrame : m_LoadFrameIndex;
             float countedFraction = HubRules.CountedFraction(sinceLoad, m_TimeSystem.normalizedDate,
                 unchecked(m_Simulation.frameIndex - countStart), m_TimeSystem.daysPerYear);
             int price = city.TicketPrice;
+
+            // Round S1 (ch4 §A.4): ski days are "off" when both settings are 0 (the clamped readers), once per rebuild;
+            // BuildProblems reads the field. SkiDaySystem's views are read per sign below (main thread, no job sync).
+            SkiResortSettings settings = Mod.Settings;
+            m_SkiDaysOff = SkiResortSettings.SkiDayLocalsPctOf(settings) == 0 && SkiResortSettings.SkiDayTouristsPctOf(settings) == 0;
+            bool skiDaysArmed = m_SkiDays != null && m_SkiDays.IsArmed;
 
             // Names (§3.2, amended in the fixer round, finding u2-data-02): custom names first; an unnamed
             // sign's display-only label is the smallest "Ski area N" no custom name and no earlier
@@ -1835,12 +1887,12 @@ namespace SkiResortMod.Systems
                     live.UnpaidThisMonth = e.This.TicketsUnpaid;
                     live.FreeThisMonth = e.This.TicketsFree;
                     live.TicketsThisMonth = ClampToInt(Math.Max(0L, e.This.TicketIncome));
-                    live.GuestsLastMonth = lastMonthFull ? e.Last.Guests : -1;
-                    live.TouristsLastMonth = lastMonthFull ? e.Last.TouristGuests : -1;
-                    live.TouristGroupsLastMonth = lastMonthFull ? e.Last.TouristParties : -1;
-                    live.ResidentsLastMonth = lastMonthFull ? e.Last.LocalGuests : -1;
-                    live.PaidLastMonth = lastMonthFull ? e.Last.TicketsPaid : -1;
-                    live.TicketsLastMonth = lastMonthFull ? ClampToInt(Math.Max(0L, e.Last.TicketIncome)) : -1;
+                    live.GuestsLastMonth = lastKnown ? e.Last.Guests : -1;   // Round S1 F7: lastKnown, not lastMonthFull
+                    live.TouristsLastMonth = lastKnown ? e.Last.TouristGuests : -1;
+                    live.TouristGroupsLastMonth = lastKnown ? e.Last.TouristParties : -1;
+                    live.ResidentsLastMonth = lastKnown ? e.Last.LocalGuests : -1;
+                    live.PaidLastMonth = lastKnown ? e.Last.TicketsPaid : -1;
+                    live.TicketsLastMonth = lastKnown ? ClampToInt(Math.Max(0L, e.Last.TicketIncome)) : -1;
                     ticketIncome = HubRules.TicketIncomeMonth(lastMonthFull, e.Last.TicketIncome, e.Last.TicketsPaid,
                         e.This.TicketIncome, e.This.TicketsPaid, countedFraction, out ticketPaid, out ticketEstimated);
                 }
@@ -1862,6 +1914,34 @@ namespace SkiResortMod.Systems
                 live.TicketIncomeMonth = ticketIncome;
                 live.TicketPaidMonth = ticketPaid;
                 live.TicketIncomeEstimated = ticketEstimated;
+
+                // Ski days (Round S1, ch4 §A.4): SkiDaySystem's last published view of the sign, else −1 (State and
+                // Limit 0). `d = default` first: definite assignment does not flow through `has` (CS0165).
+                SkiDayAreaView d = default;
+                bool has = skiDaysArmed && m_SkiDays.TryGetArea(sign, out d);
+                m_Work[s].HasSkiDays = has;
+                m_Work[s].SkiDays = d;
+                if (has)
+                {
+                    live.SkiDaysThisMonth = d.ArrivedThisMonth;
+                    live.SkiDaysLastMonth = d.ArrivedLastMonth;   // −1 until a month roll (partial: LastMonthFull false)
+                    live.SkiDaysSent = d.SentThisMonth;
+                    live.SkiDaysSentCar = d.SentCarThisMonth;
+                    live.SkiDaysSentNoCar = d.SentNoCarThisMonth;
+                    live.SkiDaysNow = d.OnTheWayOrOnSite;
+                    live.SkiDaysCap = d.Capacity;
+                    live.SkiDaysLimit = (int)d.Limit;
+                    live.SkiDaysPowderPct = HubRules.Percent(d.Powder);   // NaN (unknown) → −1
+                }
+                else
+                {
+                    live.SkiDaysThisMonth = live.SkiDaysLastMonth = live.SkiDaysSent = live.SkiDaysSentCar = -1;
+                    live.SkiDaysSentNoCar = live.SkiDaysNow = live.SkiDaysCap = live.SkiDaysPowderPct = -1;
+                    live.SkiDaysLimit = 0;
+                }
+                live.SkiDaysState = (int)HubRules.SkiDayStateOf(m_SkiDaysOff, has, hasResult && !v.WriteHeld,
+                    hasResult && r.Efficiency > 0.0, hasResult ? r.RunsCounted : 0, has ? d.TargetLodges : 0, has && d.ClaimHours,
+                    live.SkiDaysNow, live.SkiDaysCap);
 
                 // Lift charge and the ticket gate (e1-spec R6: the ticket system's two sources).
                 float liftRate = 0f;
@@ -1921,6 +2001,10 @@ namespace SkiResortMod.Systems
                 TicketGate = -1, TicketIncomeMonth = -1, TicketPaidMonth = -1,
                 BuildingsMonth = -1, WagesMonth = -1,
                 VarietyMultiplier = 1f, VerticalMultiplier = 1f,
+                // Round S1 (ch4 §A.4): no ski area, no ski days — State and Limit 0, the other eight −1.
+                SkiDaysState = 0, SkiDaysLimit = 0,
+                SkiDaysThisMonth = -1, SkiDaysLastMonth = -1, SkiDaysSent = -1, SkiDaysSentCar = -1, SkiDaysSentNoCar = -1,
+                SkiDaysNow = -1, SkiDaysCap = -1, SkiDaysPowderPct = -1,
             };
             if (m_LiftCharge.TryGetResort(Entity.Null, out SkiLiftChargeSystem.ResortLiftCharge charge))
             {
@@ -2119,6 +2203,9 @@ namespace SkiResortMod.Systems
                     m_PLiftRows.Add(k);
                 }
                 SkiResortAggregate.Agg a = m_Agg[s];
+                // Round S1 D28 (ch4 §C.4): the ski-day rows only for a sign with a SkiDaySystem view while ski days are on.
+                bool skiDayRows = !notLinked && work.HasSkiDays && !m_SkiDaysOff;
+                SkiDayAreaView d = work.SkiDays;
                 var input = new HubProblemInput
                 {
                     Unlinked = notLinked,
@@ -2138,6 +2225,12 @@ namespace SkiResortMod.Systems
                     // Round F7 D5: road edges, read in the building walk (no result needed: a placement fact).
                     SignNoRoad = !notLinked && work.SignNoRoad,
                     LodgesNoRoad = notLinked ? 0 : work.LodgesNoRoad,
+                    // Round S1 D28: from SkiDaySystem's view (else false / 0 / 0).
+                    SkiDaysCannotReach = skiDayRows && d.CannotReach,
+                    LodgesNoParking = skiDayRows ? d.LodgesNoParking : 0,
+                    LodgesNotSlopeside = skiDayRows ? d.LodgesNotSlopeside : 0,
+                    // Round S1 F1: did the band show the Efficiency row on this area's previous build?
+                    EfficiencyRowWasOn = !notLinked && m_EffRowOn.Contains(sign),
                 };
                 HubProblems.Build(in input, m_POut);
                 for (int i = 0; i < m_POut.Count; i++)
@@ -2147,12 +2240,22 @@ namespace SkiResortMod.Systems
                     LiftStats lift = liftRow ? m_LiftsNext[m_PLiftRows[p.LiftIndex]] : default;
                     int code = (int)p.Code;
                     // Subject: the sign for the lodge, efficiency and (F7) SignNoRoad rows; F7 LodgeNoRoad: the lodge
-                    // (lowest entity) with no road; a lift row: its census id; else Null.
+                    // (lowest entity) with no road; a lift row: its census id; Round S1 D28: the lodge with the most car
+                    // failures (else the sign), the first lodge with no parking, the first lodge far from the runs
+                    // (lowest entity, SkiDaySystem's view); else Null.
                     Entity subject = liftRow ? lift.Entity : Entity.Null;
                     if ((code >= 1 && code <= 4) || p.Code == HubProblemCode.SignNoRoad)
                         subject = sign;
                     else if (p.Code == HubProblemCode.LodgeNoRoad)
                         subject = work.LodgeNoRoad;
+                    else if (p.Code == HubProblemCode.SkiDaysCannotReach)
+                        subject = d.ReachLodge != Entity.Null ? d.ReachLodge : sign;
+                    else if (p.Code == HubProblemCode.NoParkingNearLodge)
+                        subject = d.FirstLodgeNoParking;
+                    else if (p.Code == HubProblemCode.LodgeNotSlopeside)
+                        subject = d.FirstLodgeNotSlopeside;
+                    if (p.Code == HubProblemCode.Efficiency)
+                        m_EffRowOnNext.Add(sign);   // F1: the band shows it on this build (Not linked never has one)
                     m_ProblemsNext.Add(new ProblemStats
                     {
                         Sign = sign,
@@ -2175,6 +2278,14 @@ namespace SkiResortMod.Systems
                         bandRows++;
                 }
             }
+            // Round S1 F1 (ch4 §C.4, refutation RF-3): this build's Efficiency rows become the next build's state. COPY,
+            // not swap (both sets are readonly, CS0191); a sign that is gone drops out; no allocation once grown. A
+            // foreach + Add, not UnionWith: UnionWith(IEnumerable<T>) enumerates through the interface and boxes the
+            // enumerator (System.Core HashSet`1, the game's own copy); the struct enumerator does not (fixer, JP-4).
+            m_EffRowOn.Clear();
+            foreach (Entity e in m_EffRowOnNext)
+                m_EffRowOn.Add(e);
+            m_EffRowOnNext.Clear();
             m_LastProblemsMs = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
             if (!m_ProblemsLogged)
             {
@@ -2377,6 +2488,17 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.JobsFilled);
                 h = Mix(h, (uint)r.NetMonth);
                 h = MixB(h, r.NetEstimated);
+                // Round S1 (contract 4, mandatory: a field not hashed would never re-send, code-map V.1 #25).
+                h = Mix(h, (uint)r.SkiDaysState);
+                h = Mix(h, (uint)r.SkiDaysThisMonth);
+                h = Mix(h, (uint)r.SkiDaysLastMonth);
+                h = Mix(h, (uint)r.SkiDaysSent);
+                h = Mix(h, (uint)r.SkiDaysSentCar);
+                h = Mix(h, (uint)r.SkiDaysSentNoCar);
+                h = Mix(h, (uint)r.SkiDaysNow);
+                h = Mix(h, (uint)r.SkiDaysCap);
+                h = Mix(h, (uint)r.SkiDaysLimit);
+                h = Mix(h, (uint)r.SkiDaysPowderPct);
             }
             return Mix(h, (uint)rows.Count);
         }
@@ -2574,6 +2696,24 @@ namespace SkiResortMod.Systems
             m_GuestCounter.AppendDump(sb);
             m_LiftTicket.AppendDump(sb);
             m_LiftCharge.AppendDump(sb);
+            // Round S1 (ch4 §A.4, s1-spec N12; D26 "in DUMP always"): the ski-day system's lines, then the lodge parking
+            // census right after. This DUMP is the ONE caller of both; each in its own try, so one never hides the other.
+            try
+            {
+                m_SkiDays?.AppendDump(sb);
+            }
+            catch (Exception e)
+            {
+                sb.Append("  ski days: DUMP failed (").Append(e.GetType().Name).Append(": ").Append(e.Message).Append(")\n");
+            }
+            try
+            {
+                m_LodgeParking?.AppendDump(sb);
+            }
+            catch (Exception e)
+            {
+                sb.Append("  parking: DUMP failed (").Append(e.GetType().Name).Append(": ").Append(e.Message).Append(")\n");
+            }
         }
 
         private void AppendResort(StringBuilder sb, int i, ResortStats r, ResortLiveStats l, bool hasLive)
@@ -2617,7 +2757,10 @@ namespace SkiResortMod.Systems
               .Append(" (").Append(l.TouristsThisMonth).Append(" tourists in ").Append(l.TouristGroupsThisMonth).Append(" groups, ")
               .Append(l.ResidentsThisMonth).Append(" residents; paid ").Append(l.PaidThisMonth).Append(", unpaid ").Append(l.UnpaidThisMonth)
               .Append(", free ").Append(l.FreeThisMonth).Append("; tickets ").Append(l.TicketsThisMonth).Append("), last month ")
-              .Append(l.LastMonthFull ? l.GuestsLastMonth.ToString(CultureInfo.InvariantCulture) : "not counted")
+              // Round S1 F7 (ch4 refutation RF-9): a partial month prints with " (partial)", as the hub shows it.
+              .Append(l.GuestsLastMonth >= 0
+                  ? l.GuestsLastMonth.ToString(CultureInfo.InvariantCulture) + (l.LastMonthFull ? "" : " (partial)")
+                  : "not counted")
               .Append(", tickets/month ").Append(l.TicketIncomeMonth).Append(l.TicketIncomeEstimated ? " ≈" : "")
               .Append(" (paid ").Append(l.TicketPaidMonth).Append("), gate ").Append(GateName(l.TicketGate))
               .Append("; runs ").Append(l.CostGroomedMonth).Append('/').Append(l.CostSnowmakingMonth).Append('/').Append(l.CostNightMonth)
@@ -2628,6 +2771,13 @@ namespace SkiResortMod.Systems
               .Append(l.Jobs).Append(", net ").Append(l.NetMonth).Append(l.NetEstimated ? " ≈" : "").Append('\n');
             if (!notLinked)
             {
+                // Round S1 (ch4 §A.4): the ski-day fields the hub sent (signs only).
+                sb.Append("      ski days: ").Append(((HubSkiDayState)l.SkiDaysState).ToString()).Append(" (")
+                  .Append(((SkiDayLimit)l.SkiDaysLimit).ToString()).Append(" limit, now ").Append(l.SkiDaysNow).Append(" of cap ")
+                  .Append(l.SkiDaysCap).Append("), arrived ").Append(l.SkiDaysThisMonth).Append(" this month / ")
+                  .Append(l.SkiDaysLastMonth).Append(" last").Append(l.SkiDaysLastMonth >= 0 && !l.LastMonthFull ? " (partial)" : "")
+                  .Append(", sent ").Append(l.SkiDaysSent).Append(" (car ").Append(l.SkiDaysSentCar).Append(", no car ")
+                  .Append(l.SkiDaysSentNoCar).Append("), powder ").Append(l.SkiDaysPowderPct).Append(" %\n");
                 AppendSignDetail(sb, r.Sign);
                 AppendSignNotifications(sb, r.Sign);
             }

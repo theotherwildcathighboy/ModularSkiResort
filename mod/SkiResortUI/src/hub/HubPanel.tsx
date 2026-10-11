@@ -15,13 +15,14 @@
  *     to the Close/Back input action (research 2.F.4). HubRoot routes it to C# setHubOpen(false).
  *   - LINK STATES (spec 4.5), from useHubConnection (src/hub/hubState.ts):
  *       absent (contract 0)  -> the U1 "not connected" notice, nothing else (no subscription);
- *       mismatch (!= 3)      -> plain title; content = the CONTRACT_MISMATCH_CORE line + the Trees
+ *       mismatch (!= HUB_CONTRACT, 4 since Round S1)
+ *                            -> plain title; content = the CONTRACT_MISMATCH_CORE line + the Trees
  *                               foldout; footer = the Build strip with MISMATCH_FOOTER. ONLY CORE
  *                               bindings are read (build, glade): building still works, because C#
  *                               never gates triggers on the contract. LocalizedString fills {UI}/{DLL}
  *                               in the English fallback even when an old DLL lacks the key
  *                               (index.js@435324);
- *       ok (contract 3)      -> header = the ski-area switcher; content = the start card while the
+ *       ok (= HUB_CONTRACT)  -> header = the ski-area switcher; content = the start card while the
  *                               city has no live sign (deviation U9: even when unlinked runs or lifts
  *                               exist), else the status line + problems band (StatusBlock), the five
  *                               tiles (ViewTiles) and the selected view (Overview, Runs, Lifts, Guests,
@@ -91,7 +92,7 @@ export interface HubPanelProps {
 /** Right side, near the top (research 2.F.8). */
 export const HUB_PANEL_INITIAL_POSITION = { x: 0.98, y: 0.15 };
 
-/** contract 3: everything. */
+/** contract = HUB_CONTRACT (3 in Round E1, 4 since Round S1): everything. */
 function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | null }): JSX.Element {
   const t = useT();
   const resorts = useValue(resorts$);

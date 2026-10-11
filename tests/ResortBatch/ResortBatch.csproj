@@ -54,6 +54,15 @@
     <Compile Include="RunOutlineTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunOutlineRules.cs" Link="RunOutlineRules.cs" />
   </ItemGroup>
+  <!-- ROUND S1 ski days (docs/research/ski-days/s1-spec.md §4.2) -->
+  <ItemGroup>
+    <Compile Include="SkiDayTests.cs" />
+    <Compile Include="SkiDayTimingTests.cs" />
+    <Compile Include="ParkingTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiDayRules.cs" Link="SkiDayRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiDayTiming.cs" Link="SkiDayTiming.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiParkingRules.cs" Link="SkiParkingRules.cs" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />
   </ItemGroup>

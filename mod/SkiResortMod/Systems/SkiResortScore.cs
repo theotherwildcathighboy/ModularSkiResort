@@ -18,11 +18,20 @@
 // the chunk walk returns (Result.Equals stays exact; the attractiveness Generation does not move on a
 // chunk reorder). A is clamped BEFORE rounding (step 7): a non-finite double never reaches an int cast.
 //
+// ROUND S1 "Ski days" (2026-10-05, stream A; docs/research/ski-days/spec/ch1-rules.md §4): the same one
+// recompute also yields the ski-day inputs, so score, capacity and the D9 gate come from one snapshot
+// (SkiResortAttractivenessSystem publishes Result with the hub closed). Five Result fields, appended after
+// Flags and in Equals: RunsValueFull (Σ band × size × type × served over ALL member runs, open ignored: the
+// denominator of SkiDayRules.OpenShare), RunsCapacity (Σ RunSkiersPerDay over counted runs: D21 skiers per
+// hectare by band, natural × 0.5, × served × open), NightRunsCounted (D20 night hours), TopKnown / TopM (the
+// counted-run top, D19 powder). Both sums are ascending like RunsValue, so Equals stays exact in any run
+// order. Nothing existing changes value; no new Generation trigger (SameRun already compares every input).
+//
 // PURE FILE: `using System;` and `using System.Collections.Generic;` only (no Unity.Entities, no Game
 // types, no Unity.Mathematics). net48 traps (the mod build is the API gate): no Math.Clamp, MathF,
 // double.IsFinite, Span<T> — the private Clamp / IsFinite helpers below stand in. Arithmetic is double
-// (SignEfficiency float, as vanilla's). Compute uses one static scratch list: main thread and the test
-// host only (not re-entrant, not thread-safe).
+// (SignEfficiency float, as vanilla's). Compute uses static scratch lists (one in E1, three since S1): main
+// thread and the test host only (not re-entrant, not thread-safe).
 
 using System;
 using System.Collections.Generic;
@@ -52,6 +61,12 @@ namespace SkiResortMod.Systems
         public const int MaxAttraction = 200;
         public const int MinK = 1, MaxK = 10;
         // (e1-spec R1: no power constant here — the one power rule is LiftServedRule.IsPowered.)
+
+        // Round S1 ski-day capacity (ski-days ch1 §4.1; D21). Unrateable: ch1 §11 N-2 (black's, conservative).
+        public const double SkiersPerHaGreen = 45.0, SkiersPerHaBlue = 25.0, SkiersPerHaBlack = 15.0,
+                            SkiersPerHaDoubleBlack = 7.5, SkiersPerHaUnrateable = 15.0;
+        public const double NaturalSkiersFactor = 0.5;                  // D21
+        public const double MaxCapacityAreaM2 = 20000000.0;             // 2,000 ha = SkiRunFees.MaxAreaHa
 
         // RunKind values (EntityRef.cs RunKind; Natural = 3 is appended by the natural-run chapter).
         public const byte KindGroomed = 0, KindSnowmaking = 1, KindNight = 2, KindNatural = 3;
@@ -143,9 +158,16 @@ namespace SkiResortMod.Systems
                                                      // RunsEstimated: open runs whose factor is estimated
             public int Lifts, LiftsComplete, LiftsOpenSection, LiftsUnpowered;
             public ScoreFlags Flags;
+            // Round S1 (ski-days spec ch1 §4.2): the ski-day inputs of the same recompute; in Equals.
+            public double RunsValueFull;  // Σ BandValue × SizeFactor × TypeFactor × ServedFactor over ALL member runs (open ignored), terms > 0, ascending
+            public double RunsCapacity;   // Σ RunSkiersPerDay over counted runs, terms > 0, ascending
+            public int NightRunsCounted;  // counted runs of KindNight (D20 night hours)
+            public bool TopKnown;         // ≥ 1 counted run with finite heights (= the existing `heights`)
+            public double TopM;           // highest counted-run top (the existing `top`); 0 when !TopKnown
 
             /// <summary>Exact field compare (Generation, §12): bit-exact in any run order because
-            /// RunsValue is summed in ascending order. Every field, doubles bit for bit (Same).</summary>
+            /// RunsValue (and, since S1, RunsValueFull and RunsCapacity) is summed in ascending order.
+            /// Every field, doubles bit for bit (Same).</summary>
             public bool Equals(Result o)
             {
                 return Attraction == o.Attraction && AttractionFullEfficiency == o.AttractionFullEfficiency &&
@@ -160,7 +182,9 @@ namespace SkiResortMod.Systems
                        RunsPending == o.RunsPending && RunsUnrateable == o.RunsUnrateable && RunsFlat == o.RunsFlat &&
                        RunsUnserved == o.RunsUnserved && RunsEstimated == o.RunsEstimated &&
                        Lifts == o.Lifts && LiftsComplete == o.LiftsComplete && LiftsOpenSection == o.LiftsOpenSection &&
-                       LiftsUnpowered == o.LiftsUnpowered && Flags == o.Flags;
+                       LiftsUnpowered == o.LiftsUnpowered && Flags == o.Flags &&
+                       Same(RunsValueFull, o.RunsValueFull) && Same(RunsCapacity, o.RunsCapacity) &&
+                       NightRunsCounted == o.NightRunsCounted && TopKnown == o.TopKnown && Same(TopM, o.TopM);
             }
         }
 
@@ -182,13 +206,29 @@ namespace SkiResortMod.Systems
             return !double.IsNaN(x) && !double.IsInfinity(x);
         }
 
+        /// <summary>Sorts <paramref name="values"/> and sums them ascending: the same sorted sequence, so the
+        /// same sum bit for bit, for any order the values were added in (step 2b).</summary>
+        private static double AscendingSum(List<double> values)
+        {
+            values.Sort();
+            double sum = 0.0;
+            for (int i = 0; i < values.Count; i++)
+                sum += values[i];
+            return sum;
+        }
+
         /// <summary>Compute's scratch for the ascending sum of counted values (second pass). Main
         /// thread and the test host only: Compute is not re-entrant and not thread-safe.</summary>
         private static readonly List<double> s_CountedValues = new List<double>(64);
 
+        /// <summary>Round S1 (ch1 §4.3): the same scratch rule for the full values (every member run) and the
+        /// counted runs' skiers, summed ascending into RunsValueFull / RunsCapacity.</summary>
+        private static readonly List<double> s_FullValues = new List<double>(64);
+        private static readonly List<double> s_CapacityValues = new List<double>(64);
+
         /// <summary>The model (§2.1). <paramref name="parts"/> is cleared, then gets one RunPart per
         /// run, in the order of <paramref name="runs"/>. Never throws for any finite or non-finite
-        /// input; never allocates beyond growing <paramref name="parts"/> and the static scratch list.
+        /// input; never allocates beyond growing <paramref name="parts"/> and the static scratch lists.
         /// The Result is bit-identical for any permutation of <paramref name="runs"/> (and
         /// <paramref name="lifts"/>).</summary>
         public static Result Compute(in AreaInput area, List<RunInput> runs, List<LiftInput> lifts,
@@ -197,6 +237,8 @@ namespace SkiResortMod.Systems
             // Step 1: scratch, clamped settings.
             parts?.Clear();
             s_CountedValues.Clear();
+            s_FullValues.Clear();
+            s_CapacityValues.Clear();
             var r = new Result();
             int k = area.Settings.K;
             r.K = k < MinK ? MinK : (k > MaxK ? MaxK : k);
@@ -255,11 +297,21 @@ namespace SkiResortMod.Systems
                 part.Value = part.BandValue * part.SizeFactor * part.TypeFactor * part.ServedFactor * part.OpenFactor;
                 part.Counted = part.Value > 0.0;
                 parts?.Add(part);
+                // Round S1: the run's value with the open factor ignored (OpenShare's denominator), the same
+                // left-to-right product without its last factor.
+                double full = part.BandValue * part.SizeFactor * part.TypeFactor * part.ServedFactor;
+                if (full > 0.0)
+                    s_FullValues.Add(full);
 
                 if (!part.Counted)
                     continue;
                 r.RunsCounted++;
                 s_CountedValues.Add(part.Value);
+                double skiers = RunSkiersPerDay(run, part);   // Round S1 (D21)
+                if (skiers > 0.0)
+                    s_CapacityValues.Add(skiers);
+                if (run.Kind == KindNight)
+                    r.NightRunsCounted++;
                 if (IsFinite(run.TopM) && IsFinite(run.BottomM))
                 {
                     if (run.TopM > top)
@@ -279,12 +331,10 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // Step 2b: the order-independent sum (ascending; every value is finite and > 0).
-            s_CountedValues.Sort();
-            double sum = 0.0;
-            for (int i = 0; i < s_CountedValues.Count; i++)
-                sum += s_CountedValues[i];
-            r.RunsValue = sum;
+            // Step 2b: the order-independent sums (ascending; every value is finite and > 0).
+            r.RunsValue = AscendingSum(s_CountedValues);
+            r.RunsValueFull = AscendingSum(s_FullValues);       // Round S1
+            r.RunsCapacity = AscendingSum(s_CapacityValues);    // Round S1
 
             // Step 3: summer = no counted run (I2, second pass).
             bool summer = r.RunsCounted == 0;
@@ -317,6 +367,8 @@ namespace SkiResortMod.Systems
             r.VarietyMultiplier = r.Variety ? VarietyFactor : 1.0;
             r.VerticalM = heights ? Math.Max(0.0, top - bottom) : 0.0;
             r.VerticalMultiplier = 1.0 + Clamp(r.VerticalM / VerticalRefM, 0.0, 1.0);
+            r.TopKnown = heights;                  // Round S1: the area top for powder (D19)
+            r.TopM = heights ? top : 0.0;
 
             // Step 6: S, lodge base, A_open, efficiency (NaN and ≤ 0 → 0).
             r.S = (r.RunsValue + r.LiftShare * r.LiftsValue) * r.VarietyMultiplier * r.VerticalMultiplier;
@@ -434,6 +486,42 @@ namespace SkiResortMod.Systems
                 default:
                     return 1.0;
             }
+        }
+
+        /// <summary>Round S1 (ski-days ch1 §4.1, D21): skiers per hectare at once — Rated green / blue / black /
+        /// double black 45 / 25 / 15 / 7.5; Unrateable 15 (ch1 §11 N-2); Flat, out of range and Pending 0 (worth 0
+        /// in the score, so never a counted run).</summary>
+        public static double SkiersPerHa(BandState state, byte band)
+        {
+            switch (state)
+            {
+                case BandState.Rated:
+                    switch (band)
+                    {
+                        case BandGreen: return SkiersPerHaGreen;
+                        case BandBlue: return SkiersPerHaBlue;
+                        case BandBlack: return SkiersPerHaBlack;
+                        case BandDoubleBlack: return SkiersPerHaDoubleBlack;
+                        default: return 0.0;   // BandFlat, out of range
+                    }
+                case BandState.Unrateable:
+                    return SkiersPerHaUnrateable;
+                default:
+                    return 0.0;                // Pending
+            }
+        }
+
+        /// <summary>Round S1 (ski-days ch1 §4.1, D21): one run's share of RunsCapacity — 0 unless the part is
+        /// counted and the area &gt; 0; area capped at MaxCapacityAreaM2 (+∞ too); then, left to right, ha ×
+        /// SkiersPerHa × (natural 0.5, else 1) × the part's served and open factors (an open run weighted by its
+        /// open factor, as the score is: ch1 §11 N-5). Night runs hold no extra skiers (no type factor).</summary>
+        public static double RunSkiersPerDay(in RunInput run, in RunPart part)
+        {
+            if (!part.Counted || !(run.AreaM2 > 0.0))
+                return 0.0;
+            double area = run.AreaM2 < MaxCapacityAreaM2 ? run.AreaM2 : MaxCapacityAreaM2;
+            return area / 10000.0 * SkiersPerHa(run.State, run.Band) * (run.Kind == KindNatural ? NaturalSkiersFactor : 1.0) *
+                   part.ServedFactor * part.OpenFactor;
         }
 
         /// <summary>0, 20, 24, 28, 32, 32 … by active lodge count (D4); negative → 0. Double

@@ -13,16 +13,24 @@
  *   - Pure: values only from ../bindings (constants, sameEntity, entityId), types from cs2/utils and
  *     ../bindings. tools/test-hub-rules.js throws on any other import.
  *   - Total: every function answers any input without throwing.
- *   - A new rule adds its literal rows to tools/test-hub-rules.js (76 checks in Round E1; 80 after the E1 fixer: T8.7-T8.10).
+ *   - A new rule adds its literal rows to tools/test-hub-rules.js (76 checks in Round E1; 80 after the E1 fixer: T8.7-T8.10;
+ *     98 in Round S1).
  *   - Round F7 (2026-10-04, implementer 4; docs/research/field-test-7-fixes.md D5): the appended codes
  *     SignNoRoad (18) and LodgeNoRoad (19) are band rows ("signNoRoad" / "lodgeNoRoad") whose click flies to
  *     `subject` (the sign; the first lodge without a road), like the other building rows. Their oracle rows
  *     are requested from the owner of tools/test-hub-rules.js (docs/research/field-test-7-notes-impl4.md).
+ *   - Round S1 "Ski days" (2026-10-05, stream E; docs/research/ski-days/spec/ch4-hub.md sections B-D, s1-spec
+ *     section 2.10): the codes SkiDaysCannotReach (20), NoParkingNearLodge (21) and LodgeNotSlopeside (22)
+ *     are band rows that fly to `subject` (the lodge C# names; the sign for 20 when no lodge is known);
+ *     statusHint puts "Powder day" in the status line's hint slot at POWDER_MARK_PCT (D29); the Guests view
+ *     draws its bars on a fixed ladder (guestBarScale), marks a since-load last month (lastMonthMark, F7)
+ *     and picks the ski-day state line and its tooltip (skiDayLine, skiDayTip; skiDayWalk for the counts).
+ *     Oracles T2.15-T2.16, T3.17-T3.19, T4.14, T6.9, T7.7-T7.8, T9.1-T9.4.
  */
 import type { Entity } from "cs2/utils";
 import {
-  BUILD_ITEM_IDS, LIFT_STATE, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, TICKET_GATE,
-  entityId, sameEntity,
+  BUILD_ITEM_IDS, LIFT_STATE, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SKI_DAY_LIMIT, SKI_DAY_STATE,
+  TICKET_GATE, entityId, sameEntity,
 } from "../bindings";
 import type { BuildItem, BuildItemId, LiftRow, ProblemRow, ResortLive, ResortRow, RunKind, RunLive } from "../bindings";
 
@@ -83,7 +91,8 @@ export type ProblemVariant =
   | "liftNoPower" | "liftSectionMissing" | "liftUnfinished" | "noLift" | "noRuns"
   | "stationsPair" | "stationsBaseOnly" | "stationsTopOnly" | "liftChairsStopped"
   | "runsUnserved" | "runsUnrateable" | "runsRating" | "freeLodges" | "runsFlat"
-  | "signNoRoad" | "lodgeNoRoad";
+  | "signNoRoad" | "lodgeNoRoad"
+  | "skiDaysCannotReach" | "noParkingNearLodge" | "lodgeNotSlopeside";
 
 /** Which one string a band row renders; null = not a band row. */
 export function problemVariant(p: ProblemRow): ProblemVariant | null {
@@ -109,6 +118,9 @@ export function problemVariant(p: ProblemRow): ProblemVariant | null {
     case PROBLEM.RunsFlat: return "runsFlat";
     case PROBLEM.SignNoRoad: return "signNoRoad";
     case PROBLEM.LodgeNoRoad: return "lodgeNoRoad";
+    case PROBLEM.SkiDaysCannotReach: return "skiDaysCannotReach";
+    case PROBLEM.NoParkingNearLodge: return "noParkingNearLodge";
+    case PROBLEM.LodgeNotSlopeside: return "lodgeNotSlopeside";
     default: return null;
   }
 }
@@ -147,11 +159,12 @@ export function problemIcon(p: ProblemRow | null): ProblemIcon {
 export type ProblemClick = "sign" | "lift" | "liftsView" | "runsView" | null;
 
 /** What a click on a band row does (design 7.2). "sign" = fly to `subject` (a building: the sign, or for
- *  LodgeNoRoad the lodge; Round F7 D5). */
+ *  LodgeNoRoad the lodge; Round F7 D5; Round S1: the lodge C# names for 20-22, the sign for 20 without one). */
 export function problemClick(p: ProblemRow): ProblemClick {
   switch (p.code) {
     case PROBLEM.NoLodge: case PROBLEM.LodgesAllOff: case PROBLEM.LodgesSomeOff: case PROBLEM.Efficiency:
     case PROBLEM.SignNoRoad: case PROBLEM.LodgeNoRoad:
+    case PROBLEM.SkiDaysCannotReach: case PROBLEM.NoParkingNearLodge: case PROBLEM.LodgeNotSlopeside:
       return "sign";
     case PROBLEM.LiftNoPower: case PROBLEM.LiftSectionMissing: case PROBLEM.LiftUnfinished:
     case PROBLEM.StationsOnly: case PROBLEM.LiftChairsStopped:
@@ -207,6 +220,20 @@ export function statusWord(status: number): StatusWord {
 /** Closed runs = runs - runsOpen - runsPartly, never below 0. */
 export function closedRuns(row: ResortRow, live: ResortLive): number {
   return Math.max(0, (row.runs | 0) - Math.max(0, live.runsOpen | 0) - Math.max(0, live.runsPartly | 0));
+}
+
+/** D29: powder >= 0.5 = SkiDayRules.PowderMarkAt × 100; parity tested in HubRulesTests H (H16). Powder takes
+ *  sixths, so the rounded percent never straddles the mark. */
+export const POWDER_MARK_PCT = 50;
+
+export type StatusHint = "powder" | "season" | "none";
+
+/** The status line's hint slot (Round S1 D29): "Powder day" at the mark, else the SEASON_HINT word; nothing
+ *  for the Not linked row, a sign without runs or a missing live row (the slot then stays empty, as before).
+ *  Total also for a live row without the field (undefined >= 50 is false: "season"). */
+export function statusHint(row: ResortRow | null, live: ResortLive | null): StatusHint {
+  if (!row || row.kind !== 0 || (row.runs | 0) <= 0 || !live) return "none";
+  return live.skiDaysPowderPct >= POWDER_MARK_PCT ? "powder" : "season";
 }
 
 // ---- footer -------------------------------------------------------------------------------------
@@ -305,6 +332,56 @@ export function hectares(m2: number): number {
   return Number.isFinite(m2) && m2 > 0 ? m2 / 10000 : 0;
 }
 
+export type LastMonthMark = "full" | "partial" | "none";
+
+/** Round S1 F7: a whole month counted -> "full"; a since-load month C# sent (>= 0 while !lastMonthFull)
+ *  -> "partial" (the Guests view says "(partial)"); else "none" ("–", GUESTS_LAST_NA). */
+export function lastMonthMark(l: ResortLive | null): LastMonthMark {
+  if (l && l.lastMonthFull) return "full";
+  return l && l.guestsLastMonth >= 0 ? "partial" : "none";
+}
+
+export type SkiDayLine = "unknown" | "off" | "signOff" | "noRun" | "noLodge" | "night" | "roomRuns" | "roomLodges" | "room" | "full";
+
+/** Round S1 D27 (ch4 B.2): the Guests view's one ski-day state line. Room splits by the limit that binds;
+ *  an unknown state or a missing row is "unknown" ("–"). */
+export function skiDayLine(l: ResortLive | null): SkiDayLine {
+  if (!l) return "unknown";
+  switch (l.skiDaysState) {
+    case SKI_DAY_STATE.Off: return "off";
+    case SKI_DAY_STATE.SignOff: return "signOff";
+    case SKI_DAY_STATE.NoRun: return "noRun";
+    case SKI_DAY_STATE.NoLodge: return "noLodge";
+    case SKI_DAY_STATE.Night: return "night";
+    case SKI_DAY_STATE.Full: return "full";
+    case SKI_DAY_STATE.Room:
+      return l.skiDaysLimit === SKI_DAY_LIMIT.Runs ? "roomRuns" : l.skiDaysLimit === SKI_DAY_LIMIT.Lodges ? "roomLodges" : "room";
+    default: return "unknown";
+  }
+}
+
+export type SkiDayTip = "off" | "noLodge" | "runs" | "lodges" | null;
+
+/** The state line's tooltip (ch4 B.2): why it is off, what a ski-day lodge needs, or which limit binds
+ *  (Room and Full); null = no tooltip (SignOff, NoRun, Night: the band or the line says why). */
+export function skiDayTip(l: ResortLive | null): SkiDayTip {
+  if (!l) return null;
+  switch (l.skiDaysState) {
+    case SKI_DAY_STATE.Off: return "off";
+    case SKI_DAY_STATE.NoLodge: return "noLodge";
+    case SKI_DAY_STATE.Room: case SKI_DAY_STATE.Full:
+      return l.skiDaysLimit === SKI_DAY_LIMIT.Runs ? "runs" : l.skiDaysLimit === SKI_DAY_LIMIT.Lodges ? "lodges" : null;
+    default: return null;
+  }
+}
+
+/** Walk class = sent - car - far without a car (never below 0); -1 when sent is unknown. The three classes
+ *  partition Sent, so this equals the simulation's walk count (ch4 RF-7). */
+export function skiDayWalk(l: ResortLive | null): number {
+  if (!l || !(l.skiDaysSent >= 0)) return -1;
+  return Math.max(0, l.skiDaysSent - Math.max(0, l.skiDaysSentCar | 0) - Math.max(0, l.skiDaysSentNoCar | 0));
+}
+
 // ---- bars ---------------------------------------------------------------------------------------
 
 /** Score bar (0-200): integer flex-grow of [fill, ghost, rest]; unknown attraction -> [0, 0, 200]. */
@@ -322,6 +399,20 @@ export function guestBarParts(value: number, max: number): [number, number] {
   if (!(value >= 0)) return [0, 1];
   const v = Math.min(m, Math.round(value));
   return [v, m - v];
+}
+
+/** Round S1 (ch4 B.3): the smallest full-bar scale, so 2 guests no longer fill the bar. */
+export const GUEST_BAR_MIN_SCALE = 50;
+
+/** Ladder 50, 100, 200, 500, 1000, … (× 2, × 2, × 2.5 repeating): the smallest step >= both months (an
+ *  unknown, negative or non-finite month counts 0; capped near 1e9). */
+export function guestBarScale(thisMonth: number, lastMonth: number): number {
+  const a = Number.isFinite(thisMonth) && thisMonth > 0 ? thisMonth : 0;
+  const b = Number.isFinite(lastMonth) && lastMonth > 0 ? lastMonth : 0;
+  const m = Math.max(a, b);
+  let s = GUEST_BAR_MIN_SCALE, k = 0;
+  while (s < m && s < 1e9) { s = k === 2 ? s * 2.5 : s * 2; k = (k + 1) % 3; }
+  return s;
 }
 
 // ---- lifts --------------------------------------------------------------------------------------

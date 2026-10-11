@@ -60,7 +60,7 @@
                 "$type": "7|Game.Prefabs.LeisureProvider, Game",
                 "name": "LeisureProvider",
                 "active": true,
-                "m_Efficiency": 4,
+                "m_Efficiency": 10,
                 "m_Resources": 0,
                 "m_LeisureType": 3
             },

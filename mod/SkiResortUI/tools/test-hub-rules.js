@@ -7,9 +7,10 @@
  * Written for this repo (MIT). Created 2026-10-04 (Round E1, stream S6; docs/research/econ-round/spec/
  * ch6-hub-ui.md section 5.3, the checked reference spec/ch6-hub-ui-ref/tools/test-hub-rules.js).
  * tools/check-bundle.js runs it as rule R18 (full gate and --contract-only, against --src= when given);
- * standalone: `node tools/test-hub-rules.js [srcDir]` -> `test-hub-rules: 85 check(s), failures=0` (76 in Round E1;
+ * standalone: `node tools/test-hub-rules.js [srcDir]` -> `test-hub-rules: 98 check(s), failures=0` (76 in Round E1;
  * the E1 fixer added T8.7-T8.10 and changed T8.6's no-live oracle 3 -> 0, e1-spec 8.9 F9 / F11; Round F7 D5 added
- * T2.13-T2.14 and T3.14-T3.16 for the two road rows, docs/research/field-test-7-fixes.md).
+ * T2.13-T2.14 and T3.14-T3.16 for the two road rows, docs/research/field-test-7-fixes.md; Round S1 added
+ * T2.15-T2.16, T3.17-T3.19, T4.14, T6.9, T7.7-T7.8 and section T9, docs/research/ski-days/spec/ch4-hub.md G.2).
  * A new rule in hubRules.ts adds its literal rows here (oracles are literals, never recomputed).
  */
 "use strict";
@@ -99,6 +100,9 @@ function run(srcDir) {
   // Round F7 D5 (docs/research/field-test-7-fixes.md; rows from field-test-7-notes-impl4.md): SignNoRoad 18, LodgeNoRoad 19.
   eq("T2.13 road rows kept in the band, C# order", R.bandRowsOf([P(A, 18, 3), P(A, 4, 2, { pct: 12 }), P(A, 19, 1, { count: 1 })], A).map((p) => p.code), [18, 4, 19]);
   eq("T2.14 road rows name no build item", R.dotItem([P(A, 18, 3), P(A, 19, 3, { count: 1 })], A, true), null);
+  // Round S1 D28 (ch4 G.2): SkiDaysCannotReach 20, NoParkingNearLodge 21, LodgeNotSlopeside 22.
+  eq("T2.15 ski-day rows kept in the band, C# order", R.bandRowsOf([P(A, 4, 2, { pct: 50 }), P(A, 20, 2), P(A, 21, 1, { count: 1 }), P(A, 22, 1, { count: 1 })], A).map((p) => p.code), [4, 20, 21, 22]);
+  eq("T2.16 ski-day rows name no build item", R.dotItem([P(A, 20, 2), P(A, 21, 1, { count: 1 }), P(A, 22, 1, { count: 1 })], A, true), null);
 
   // T3 problem variants, icons, clicks
   eq("T3.1 efficiency", R.problemVariant(P(A, 4, 2, { pct: 50 })), "efficiency");
@@ -118,6 +122,10 @@ function run(srcDir) {
   eq("T3.15 road rows fly to their subject", [R.problemClick(P(A, 18, 3)), R.problemClick(P(A, 19, 1))], ["sign", "sign"]);
   eq("T3.16 road row icons", [R.problemIcon(P(A, 18, 3)), R.problemIcon(P(A, 19, 1))],
     [{ kind: "glyph", src: "Media/Glyphs/Warning.svg", tone: "warn" }, { kind: "glyph", src: "Media/Glyphs/Info.svg", tone: "info" }]);
+  eq("T3.17 ski-day variants", [R.problemVariant(P(A, 20, 2)), R.problemVariant(P(A, 21, 1)), R.problemVariant(P(A, 22, 1))], ["skiDaysCannotReach", "noParkingNearLodge", "lodgeNotSlopeside"]);
+  eq("T3.18 ski-day rows fly to their subject", [20, 21, 22].map((c) => R.problemClick(P(A, c, 1))), ["sign", "sign", "sign"]);
+  eq("T3.19 ski-day row icons", [R.problemIcon(P(A, 20, 2)), R.problemIcon(P(A, 21, 1)), R.problemIcon(P(A, 22, 1))],
+    [{ kind: "glyph", src: "Media/Glyphs/Warning.svg", tone: "warn" }, { kind: "glyph", src: "Media/Glyphs/Info.svg", tone: "info" }, { kind: "glyph", src: "Media/Glyphs/Info.svg", tone: "info" }]);
 
   // T4 status line
   const row = (runs, kind = 0) => ({ kind, runs, liftRows: 3 });
@@ -135,6 +143,11 @@ function run(srcDir) {
   eq("T4.11 partly only (0 open, 2 partly)", R.statusVariant(row(7), lv(2, false, { runsOpen: 0, runsPartly: 2 })), "partly");
   eq("T4.12 partly only, one run, estimated", R.statusVariant(row(1), lv(2, true, { runsOpen: 0, runsPartly: 1 })), "partlyOneEst");
   eq("T4.13 result label", [R.resultVariant(lv(2, false, { lodgesActive: 0 })), R.resultVariant(lv(2, false, { lodgesActive: 2 })), R.resultVariant(lv(2, false, { lodgesActive: -1 })), R.resultVariant(null)], ["noLodge", "result", "result", "result"]);
+  // Round S1 D29: "Powder day" at 50 (lv(3) has no skiDaysPowderPct: a row without the field reads "season").
+  eq("T4.14 status hint", [R.statusHint(row(5), lv(3, false, { skiDaysPowderPct: 50 })), R.statusHint(row(5), lv(3, false, { skiDaysPowderPct: 49 })),
+    R.statusHint(row(5), lv(3, false, { skiDaysPowderPct: -1 })), R.statusHint(row(5), lv(3)), R.statusHint(row(0), lv(0, false, { skiDaysPowderPct: 100 })),
+    R.statusHint(row(2, 1), lv(3, false, { skiDaysPowderPct: 100 })), R.statusHint(row(5), null)],
+    ["powder", "season", "season", "season", "none", "none", "none"]);
 
   // T5 footer
   eq("T5.1 next no sign", R.nextVariant(false, false, null), "sign");
@@ -165,6 +178,10 @@ function run(srcDir) {
   eq("T6.6 incomeNote", [R.incomeNote(lv(2), 40), R.incomeNote(lv(2, false, { ticketIncomeEstimated: true }), 40), R.incomeNote(lv(2, false, { ticketIncomeMonth: -1 }), 40)], [null, "est", "unknown"]);
   eq("T6.7 buildingsAndWages", [R.buildingsAndWages(lv(2)), R.buildingsAndWages(lv(2, false, { wagesMonth: -1 }))], [21000, -1]);
   eq("T6.8 hectares", [R.hectares(160000), R.hectares(-5), R.hectares(NaN)], [16, 0, 0]);
+  // Round S1 F7: a since-load last month is "partial", never "–".
+  eq("T6.9 lastMonthMark", [R.lastMonthMark({ lastMonthFull: true, guestsLastMonth: 46 }), R.lastMonthMark({ lastMonthFull: false, guestsLastMonth: 46 }),
+    R.lastMonthMark({ lastMonthFull: false, guestsLastMonth: 0 }), R.lastMonthMark({ lastMonthFull: false, guestsLastMonth: -1 }), R.lastMonthMark(null)],
+    ["full", "partial", "partial", "none", "none"]);
 
   // T7 bars
   eq("T7.1 score Copper Bowl", R.scoreBarParts(34, 69), [34, 35, 131]);
@@ -173,6 +190,11 @@ function run(srcDir) {
   eq("T7.4 score clamp", R.scoreBarParts(250, 300), [200, 0, 0]);
   eq("T7.5 score zero", R.scoreBarParts(0, 0), [0, 0, 200]);
   eq("T7.6 guests", [R.guestBarParts(84, 210), R.guestBarParts(210, 210), R.guestBarParts(-1, 210), R.guestBarParts(0, 0)], [[84, 126], [210, 0], [0, 1], [0, 1]]);
+  // Round S1 (ch4 B.3): the fixed ladder 50, 100, 200, 500, 1000, 2000; field test 8's two cases.
+  eq("T7.7 guestBarScale", [R.guestBarScale(2, -1), R.guestBarScale(0, 0), R.guestBarScale(50, 46), R.guestBarScale(51, 0), R.guestBarScale(90, 46),
+    R.guestBarScale(162, 205), R.guestBarScale(1000, 999), R.guestBarScale(1001, 0), R.guestBarScale(NaN, -5)], [50, 50, 50, 100, 100, 500, 1000, 2000, 50]);
+  eq("T7.8 FT8 bars on a fixed scale", [R.guestBarParts(2, R.guestBarScale(2, -1)), R.guestBarParts(90, R.guestBarScale(90, 46)), R.guestBarParts(46, R.guestBarScale(90, 46))],
+    [[2, 48], [90, 10], [46, 54]]);
 
   // T8 lifts
   const lift = (status, state, extra = {}) => Object.assign({ status, state, hasBase: true, hasTop: true, runsServed: 5 }, extra);
@@ -196,6 +218,15 @@ function run(srcDir) {
   eq("T8.10 partnerPlaced", [R.partnerPlaced(lift(4, 4, { hasTop: false }), { base: true, top: true }), R.partnerPlaced(lift(4, 4, { hasTop: false }), { base: true, top: false }),
     R.partnerPlaced(lift(4, 4, { hasBase: false }), { base: true, top: false }), R.partnerPlaced(lift(0, 0), { base: true, top: true })],
     [true, false, true, false]);
+
+  // T9 ski days (Round S1 D27, ch4 B.2 / B.6): the state line, its tooltip and the walk count.
+  const sd = (state, limit = 0, extra = {}) => Object.assign({ skiDaysState: state, skiDaysLimit: limit, skiDaysCap: 154 }, extra);
+  eq("T9.1 skiDayLine states", [0, 1, 2, 3, 4, 5, 7, 99].map((s) => R.skiDayLine(sd(s))), ["unknown", "off", "signOff", "noRun", "noLodge", "night", "full", "unknown"]);
+  eq("T9.2 skiDayLine room by limit", [R.skiDayLine(sd(6, 1)), R.skiDayLine(sd(6, 2)), R.skiDayLine(sd(6, 0)), R.skiDayLine(null)], ["roomRuns", "roomLodges", "room", "unknown"]);
+  eq("T9.3 skiDayWalk", [R.skiDayWalk({ skiDaysSent: 52, skiDaysSentCar: 41, skiDaysSentNoCar: 3 }), R.skiDayWalk({ skiDaysSent: 5, skiDaysSentCar: 4, skiDaysSentNoCar: 3 }),
+    R.skiDayWalk({ skiDaysSent: -1, skiDaysSentCar: -1, skiDaysSentNoCar: -1 }), R.skiDayWalk(null)], [8, 0, -1, -1]);
+  eq("T9.4 skiDayTip", [R.skiDayTip(sd(1)), R.skiDayTip(sd(4)), R.skiDayTip(sd(6, 1)), R.skiDayTip(sd(7, 2)), R.skiDayTip(sd(5)), R.skiDayTip(sd(6, 0))],
+    ["off", "noLodge", "runs", "lodges", null, null]);
   return { checks, failures };
 }
 

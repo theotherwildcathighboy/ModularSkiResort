@@ -1,0 +1,589 @@
+// SkiDayTiming — the PURE timing helpers of SkiDaySystem (Round S1 "Ski days"; docs/research/ski-days/s1-spec.md
+// §2.4; ski-days spec ch2-system.md §1, §7, §14): the render-frame slice window (D3's skip rule beyond
+// SkiDayRules.SkipSlice: a CitizenBehaviorSystem run up to 7 frames earlier in the same render frame, s1-spec V2),
+// the last pass of a decision and its last unskipped sighting (fixer, review SIM-1), the next LeisureSystem visit
+// (the resident roll key, s1-spec N2), frames ↔ game
+// hours, a claim's outcome, the hour step of the powder ring, and bit-exact float / double compares. Every demand,
+// capacity, powder, confidence and gate rule is SkiDayRules' (ch1); this file only does time. Consumer:
+// SkiDaySystem and its Burst jobs (stream B); tests/ResortBatch SkiDayTimingTests (ST1-ST9).
+//
+// PURE FILE: `using System;` and `using Unity.Mathematics;` only. Every method static, allocation-free and
+// Burst-callable: no managed type, no string, no exception — with ONE exception, MarkHoursPerMonth (Round M1, M9):
+// it takes managed arrays and runs on the main thread only (SkiDaySystem.PowderYearTick), never from a job.
+// net48 traps: no Math.Clamp, MathF, double.IsFinite, Span<T> — math.* stands in.
+//
+// ROUND M1 "measure first" (docs/research/ski-days/measure/m1-spec.md §1.5; builder A, 2026-10-05): the
+// measure-only verdicts of ResolveJob — where a failed guest stood (Place), the claim's markers, why Leisure went
+// (GoneWhy, from the traces vanilla leaves), why a visit ended (EndCause) and how the guest left the lodge
+// (ExitWay), late arrivals after expiry (TryLate), the car-reserve buckets, the guest-scan timing model
+// (GuestScanSaw), clock and stay bins, and the year's powder hours per month. Nothing here changes a guest:
+// tests/ResortBatch SkiDayTimingTests ST16-ST25. Fixer pass: the departure rule DepartedNow (M1-ECS-2, ST26).
+//
+// Created 2026-10-05 (Round S1 stage 0: s1-spec §4.2 step 5, the empty class); bodies by stream B (2026-10-05).
+
+using System;
+using Unity.Mathematics;
+
+namespace SkiResortMod.Systems
+{
+    /// <summary>Round S1 ski-day timing (ch2 §14). Pure, static, Burst-callable.</summary>
+    public static class SkiDayTiming
+    {
+        /// <summary>At most this many simulation frames per render frame (SimulationSystem.cs:255 (=)); command
+        /// buffers play back once per render frame (SystemOrder.cs:49), so a CitizenBehaviorSystem run fewer frames
+        /// back than this may still have its command buffer pending (ch2 §7 row 4).</summary>
+        public const int MaxFramesPerRenderFrame = SkiDayRules.MaxFramesPerRenderFrame;   // 8
+
+        /// <summary>An arrived ski day stays "on site" this long past its deadline (= FramesFor(2), two game
+        /// hours) before it reads as Left (ch2 §14 Resolve).</summary>
+        public const uint OnSiteGraceFrames = 21845;
+
+        /// <summary>One claim's verdict at a pass (ch2 §5.4). Literal values: the DUMP counters index by them.</summary>
+        public enum ClaimOutcome : byte { OnTheWay = 0, Arrived = 1, OnSite = 2, Left = 3, Gone = 4, Retargeted = 5, Expired = 6 }
+
+        /// <summary>Did CitizenBehaviorSystem run fewer than MaxFramesPerRenderFrame frames before (or at)
+        /// <paramref name="frame"/>? Its last run is <c>frame − (frame − offset) mod interval</c> (it runs on
+        /// <c>(frame &amp; (interval − 1)) == offset</c>, UpdateSystem.cs:241 (=)); <paramref name="slice"/> is that
+        /// run's UpdateFrame slice (CitizenBehaviorSystem.cs:1138, 1.6.2 :1170). False when the interval is ≤ 0 (no
+        /// division by zero in Burst, s1-spec M-3), the offset is negative, or the frame precedes the offset.</summary>
+        public static bool RecentBehaviorSlice(uint frame, int behaviorInterval, int behaviorOffset, out uint slice)
+        {
+            slice = 0u;
+            if (behaviorInterval <= 0 || behaviorOffset < 0 || frame < (uint)behaviorOffset)
+                return false;
+            uint last = frame - (frame - (uint)behaviorOffset) % (uint)behaviorInterval;
+            if (frame - last >= (uint)MaxFramesPerRenderFrame)
+                return false;
+            slice = SkiDayRules.SliceOf(last, behaviorInterval);
+            return true;
+        }
+
+        /// <summary>D3's skip rule for one chunk (ch2 §7): LeisureSystem's slice this frame or CitizenBehaviorSystem's
+        /// on its frames (SkiDayRules.SkipSlice, the exact-frame part), plus the slice of a CitizenBehaviorSystem
+        /// run fewer than 8 frames back, whose command buffer may not have played back yet (Deviation V2).</summary>
+        public static bool SkipChunk(uint chunkSlice, uint frame, int leisureInterval, int behaviorInterval, int behaviorOffset)
+        {
+            if (SkiDayRules.SkipSlice(chunkSlice, frame, leisureInterval, behaviorInterval, behaviorOffset))
+                return true;
+            return RecentBehaviorSlice(frame, behaviorInterval, behaviorOffset, out uint slice) && slice == chunkSlice;
+        }
+
+        /// <summary>True when LeisureSystem takes this chunk at its next run (frame + interval): the last pass at
+        /// which a decision of this chunk can be seen (a decision enters a pool exactly once, ch2 §5.5).</summary>
+        public static bool IsLastPass(uint chunkSlice, uint frame, int leisureInterval)
+        {
+            return chunkSlice == ((SkiDayRules.SliceOf(frame, leisureInterval) + 1u) & 15u);
+        }
+
+        /// <summary>True when no later pass before LeisureSystem takes this chunk sees it unskipped: every pass at
+        /// <c>frame + k × interval</c>, k = 1 … d − 1 (d = intervals to LeisureSystem's visit), skips it
+        /// (SkipChunk). Equals IsLastPass except where the recent-CBS window (V2) skips the slice on its last pass:
+        /// then the pass before is the last sighting (fixer, review SIM-1: ch2 §5.5's "a decision enters a pool
+        /// exactly once" with V2 — 32 of the 64 LeisureSystem offsets lost one slice's unclaimed decisions). False
+        /// for LeisureSystem's own slice this frame (d = 0) and for an interval ≤ 0. At most 14 SkipChunk calls.</summary>
+        public static bool IsLastSighting(uint chunkSlice, uint frame, int leisureInterval, int behaviorInterval, int behaviorOffset)
+        {
+            if (leisureInterval <= 0)
+                return false;
+            uint d = (chunkSlice - SkiDayRules.SliceOf(frame, leisureInterval)) & 15u;
+            if (d == 0u)
+                return false;
+            for (uint k = 1u; k < d; k++)
+            {
+                if (!SkipChunk(chunkSlice, frame + k * (uint)leisureInterval, leisureInterval, behaviorInterval, behaviorOffset))
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>The frame at which LeisureSystem takes this chunk's decisions (LeisureSystem.cs:322, :959;
+        /// 1.6.2 :316, :956): <c>frame + interval × ((chunkSlice − SliceOf(frame)) &amp; 15)</c>. Constant over the
+        /// up to 15 passes that see one decision, new for every later one: the resident roll key (s1-spec N2, V7).
+        /// <paramref name="frame"/> itself for an interval ≤ 0 (never armed then).</summary>
+        public static uint NextLeisureVisit(uint chunkSlice, uint frame, int leisureInterval)
+        {
+            if (leisureInterval <= 0)
+                return frame;
+            return frame + (uint)leisureInterval * ((chunkSlice - SkiDayRules.SliceOf(frame, leisureInterval)) & 15u);
+        }
+
+        /// <summary>The track row of (area, travel class): area × 3 + class; −1 for an orphan (area &lt; 0) or a class
+        /// that is not claimable (&gt; NoCarFar), so no job ever indexes before or past the list (s1-spec ch2-RF2-1).</summary>
+        public static int TrackIndex(int area, byte travelClass)
+        {
+            return area < 0 || travelClass > 2 ? -1 : area * 3 + travelClass;
+        }
+
+        /// <summary>floor(hours × FramesPerHour); 0 for ≤ 0 or NaN; uint.MaxValue at or above uint.MaxValue /
+        /// FramesPerHour (393,215.9999 h) and for +∞ — an out-of-range double → uint cast is unspecified in C#, and
+        /// Burst and Mono may differ (s1-spec ch2-RF2-12).</summary>
+        public static uint FramesFor(double hours)
+        {
+            if (!(hours > 0.0))
+                return 0u;
+            if (hours >= uint.MaxValue / SkiDayRules.FramesPerHour)
+                return uint.MaxValue;
+            return (uint)math.floor(hours * SkiDayRules.FramesPerHour);
+        }
+
+        /// <summary>frames / FramesPerHour (game hours).</summary>
+        public static double HoursFor(uint frames)
+        {
+            return frames / SkiDayRules.FramesPerHour;
+        }
+
+        /// <summary>A claim's outcome at a pass (ch2 §14). On the way (<paramref name="onSite"/> false): Arrived when
+        /// it has Leisure aimed at the lodge and stands in it; else Expired at <c>now &gt;= deadline</c> (vanilla's own
+        /// compare, LeisureSystem.cs:314, 1.6.2 :308); else Gone without Leisure; else Retargeted (Leisure aims
+        /// elsewhere); else OnTheWay. On site: OnSite while all three hold and now &lt; deadline + OnSiteGraceFrames
+        /// (64-bit, no wrap), else Left (a finished day, not an outcome).</summary>
+        public static ClaimOutcome Resolve(bool onSite, bool hasLeisure, bool leisureAtLodge, bool atLodge, uint now, uint deadline)
+        {
+            bool there = hasLeisure && leisureAtLodge && atLodge;
+            if (!onSite)
+            {
+                if (there)
+                    return ClaimOutcome.Arrived;
+                if (now >= deadline)
+                    return ClaimOutcome.Expired;
+                if (!hasLeisure)
+                    return ClaimOutcome.Gone;
+                if (!leisureAtLodge)
+                    return ClaimOutcome.Retargeted;
+                return ClaimOutcome.OnTheWay;
+            }
+            return there && (ulong)now < (ulong)deadline + OnSiteGraceFrames ? ClaimOutcome.OnSite : ClaimOutcome.Left;
+        }
+
+        /// <summary>The powder ring's step (ch2 §4.4): 24 (refill) when there is no previous hour or the hour
+        /// jumped; 0 for the same hour; 1 when <paramref name="hourKey"/> is the next hour of the year
+        /// (24 × max(1, days) hours, wrapping at the year end).</summary>
+        public static int HourStep(int prevHourKey, int hourKey, int daysPerYear)
+        {
+            if (prevHourKey < 0)
+                return 24;
+            if (hourKey == prevHourKey)
+                return 0;
+            long hours = 24L * math.max(1, daysPerYear);
+            return (prevHourKey + 1L) % hours == hourKey ? 1 : 24;
+        }
+
+        /// <summary>Bit-exact float compare (NaN equals NaN; 0 and −0 differ): SkiDayAreaView.Same.</summary>
+        public static bool SameBits(float a, float b)
+        {
+            return math.asint(a) == math.asint(b);
+        }
+
+        /// <summary>Bit-exact double compare (NaN equals NaN; 0 and −0 differ).</summary>
+        public static bool SameBits(double a, double b)
+        {
+            return math.aslong(a) == math.aslong(b);
+        }
+
+        // ── Round M1 "measure first" (m1-spec §1.5). Measure only: no rule reads these. ──────────
+
+        /// <summary>A visit that ended (Left) is watched this long for the guest to leave the lodge (state 2):
+        /// 2 game hours = FramesFor(2) (M2).</summary>
+        public const uint ExitWatchFrames = 21845;
+
+        /// <summary>An expired claim is watched this long for a late arrival (state 3): 6 game hours = FramesFor(6)
+        /// (M1, F7). The game checks the deadline only at the venue (funnel.md Verification, Missed 5).</summary>
+        public const uint LateWatchFrames = 65536;
+
+        /// <summary>LeisureSystem ends a visit when m_LeisureCounter &gt; 255 − efficiency / 5 (1.6.2 LeisureSystem.cs:308);
+        /// our lodge has efficiency 10, so above 253. CitizenHappinessSystem lowers the counter by
+        /// m_AmountLeisureCounterDecrease with a 2 % (resident) or 20 % (tourist) chance per update (1.6.2
+        /// CitizenHappinessSystem.cs:525-529); the prefab CLASS default is 1 (1.6.2 LeisureParametersPrefab.cs:27),
+        /// the value in the shipped prefab asset is UNVERIFIED (m1-spec E14, open point 5). So "need filled" is
+        /// inferred from a counter at or above 250 when the visit ends, and every log text says "inferred".</summary>
+        public const int NeedFilledCounter = 250;
+
+        // The claim's flag bits (SkiDaySystem.Jobs.cs ClaimFlag / ClaimFlag2 use these values), repeated here so
+        // the tests can reach them.
+        public const byte FlagDeparted = 1, FlagHeldAtHome = 2, FlagHeldEver = 4, FlagRode = 8, FlagPathFailedAtStart = 16,
+                          FlagDeadlineIsClosing = 32, FlagLateArrived = 64;
+        public const byte Flag2TurnedBack = 1, Flag2WalkerLost = 2, Flag2WalkerPathFailed = 4, Flag2VehiclePathFailed = 8;
+
+        // Game.Citizens.Purpose literals (1.6.2 Game.Citizens/Purpose.cs, (=) 1.6.0). Bytes, so this file needs no
+        // Game type; m1-spec open point 8: only a rebuild against a changed Game.dll could move them.
+        public const byte PurposeShopping = 1, PurposeLeisure = 2, PurposeGoingHome = 3, PurposeGoingToWork = 4, PurposeWorking = 5,
+                          PurposeSleeping = 6, PurposeMovingAway = 8, PurposeStudying = 9, PurposeGoingToSchool = 10,
+                          PurposeHospital = 12, PurposeInHospital = 24, PurposeDeathcare = 25, PurposeInDeathcare = 26,
+                          PurposeTraveling = 30, PurposeRelaxing = 31, PurposeSightseeing = 32, PurposeVisitAttractions = 33,
+                          PurposePathFailed = 38;
+
+        /// <summary>Where the citizen stood when a claim failed (M1). "Home" is home or hotel (the origin).</summary>
+        public enum Place : byte { HomeNeverLeft = 0, HomeCameBack = 1, Road = 2, OtherBuilding = 3, Lodge = 4, Deleted = 5 }
+        public const int PlaceCount = 6;
+
+        /// <summary>M1 place: gone → Deleted; in no building → Road; at the lodge → Lodge; at the origin → HomeCameBack
+        /// when it had departed, else HomeNeverLeft; else OtherBuilding. A guest who left and came back between two
+        /// passes reads HomeNeverLeft (with the TurnedBack marker when its trip home was seen).</summary>
+        public static Place PlaceOf(bool gone, bool inBuilding, bool atOrigin, bool atLodge, bool departed)
+        {
+            if (gone)
+                return Place.Deleted;
+            if (!inBuilding)
+                return Place.Road;
+            if (atLodge)
+                return Place.Lodge;
+            if (atOrigin)
+                return departed ? Place.HomeCameBack : Place.HomeNeverLeft;
+            return Place.OtherBuilding;
+        }
+
+        /// <summary>M2 departure (F4, fixer M1-ECS-2), for a claim not yet marked departed: true when the citizen is out
+        /// of the origin AND (in no building, or TravelPurpose Leisure, or in the lodge). A claim is made only for a
+        /// citizen in a building, and TripNeededSystem removes CurrentBuilding in the command buffer that spawns the
+        /// walker (1.6.2 TripNeededSystem.cs:1615-1627), so "in no building" alone proves the guest left: a car guest
+        /// whose path failed and who was turned home before our next pass is on the road with GoingHome, and must read
+        /// as departed (else a later failure at home books "never left"). In another building only TravelPurpose Leisure
+        /// or the lodge counts (an errand building without our purpose is not our trip).</summary>
+        public static bool DepartedNow(bool inBuilding, bool atOrigin, bool atLodge, bool hasPurpose, byte purpose)
+        {
+            if (atOrigin)
+                return false;
+            return !inBuilding || atLodge || (hasPurpose && purpose == PurposeLeisure);
+        }
+
+        // The five markers of a claim (M1, F1): read at our passes, so "not set" means "not seen", never "did not
+        // happen" (path flags last only until the AI acts on them; m1-spec open point 4).
+        public const int MarkerPathFailedAtStart = 0, MarkerWalkerPathFailed = 1, MarkerVehiclePathFailed = 2, MarkerWalkerLost = 3,
+                         MarkerTurnedBack = 4, MarkerCount = 5;
+
+        /// <summary>Is <paramref name="marker"/> (Marker…) set in the claim's flag bytes? False for any other value.</summary>
+        public static bool HasMarker(byte flags, byte flags2, int marker)
+        {
+            switch (marker)
+            {
+                case MarkerPathFailedAtStart: return (flags & FlagPathFailedAtStart) != 0;
+                case MarkerWalkerPathFailed: return (flags2 & Flag2WalkerPathFailed) != 0;
+                case MarkerVehiclePathFailed: return (flags2 & Flag2VehiclePathFailed) != 0;
+                case MarkerWalkerLost: return (flags2 & Flag2WalkerLost) != 0;
+                case MarkerTurnedBack: return (flags2 & Flag2TurnedBack) != 0;
+                default: return false;
+            }
+        }
+
+        /// <summary>Why a claim's Leisure went (Gone) or moved (Retargeted), from the traces vanilla leaves (F3).</summary>
+        public enum GoneWhy : byte
+        {
+            Unknown = 0, Ill = 1, MovingAway = 2, Bedtime = 3, WorkOrSchool = 4, Shopping = 5, HeadingHome = 6, OtherTrip = 7, Deleted = 8,
+        }
+        public const int GoneWhyCount = 9;
+
+        /// <summary>F3, first match: gone → Deleted; ill (HealthProblem) → Ill; household MovingAway → MovingAway;
+        /// TravelPurpose Sleeping → Bedtime (CitizenBehaviorSystem's CheckSleep adds it in the pass that removes
+        /// Leisure, 1.6.2 :329-341, :784); a work or school purpose or first trip → WorkOrSchool; ResourceBuyer or a
+        /// shopping purpose or trip → Shopping (GoShopping, :417-432, :798); GoingHome → HeadingHome; any purpose or
+        /// trip other than Leisure → OtherTrip; else Unknown (work time removes Leisure before the trip exists, :771-777,
+        /// so it often reads Unknown: UNVERIFIED how often).</summary>
+        public static GoneWhy WhyOf(bool gone, bool ill, bool movingAway, bool hasPurpose, byte purpose, bool hasTrip, byte tripPurpose,
+                                    bool resourceBuyer)
+        {
+            if (gone)
+                return GoneWhy.Deleted;
+            if (ill)
+                return GoneWhy.Ill;
+            if (movingAway)
+                return GoneWhy.MovingAway;
+            if (hasPurpose && purpose == PurposeSleeping)
+                return GoneWhy.Bedtime;
+            if ((hasPurpose && IsWorkOrSchool(purpose)) || (hasTrip && IsWorkOrSchool(tripPurpose)))
+                return GoneWhy.WorkOrSchool;
+            if (resourceBuyer || (hasPurpose && purpose == PurposeShopping) || (hasTrip && tripPurpose == PurposeShopping))
+                return GoneWhy.Shopping;
+            if ((hasPurpose && purpose == PurposeGoingHome) || (hasTrip && tripPurpose == PurposeGoingHome))
+                return GoneWhy.HeadingHome;
+            if ((hasPurpose && purpose != PurposeLeisure) || (hasTrip && tripPurpose != PurposeLeisure))
+                return GoneWhy.OtherTrip;
+            return GoneWhy.Unknown;
+        }
+
+        private static bool IsWorkOrSchool(byte p)
+        {
+            return p == PurposeGoingToWork || p == PurposeGoingToSchool || p == PurposeWorking || p == PurposeStudying;
+        }
+
+        /// <summary>Why an arrived guest's visit ended (M2; F2 splits the deadline by what bound it).</summary>
+        public enum EndCause : byte
+        {
+            DeadlineOwn = 0, DeadlineClosing = 1, NeedFilled = 2, NewOuting = 3, Removed = 4, WalkedOut = 5, PastGrace = 6, Deleted = 7,
+        }
+        public const int EndCauseCount = 8;
+
+        /// <summary>M2 at the Left verdict, in this order: gone → Deleted; still "there" (Leisure aimed at the lodge and
+        /// in it: Left fires there only past the grace) → PastGrace; now ≥ deadline (Resolve's compare) → DeadlineClosing
+        /// when the claim's deadline was the lifts' closing, else DeadlineOwn (sleep or work); Leisure aimed elsewhere →
+        /// NewOuting; no Leisure and a counter ≥ NeedFilledCounter → NeedFilled (inferred); no Leisure → Removed (by
+        /// CitizenBehaviorSystem: illness, moving, work time, bedtime, shopping); else (Leisure at the lodge, not in it)
+        /// WalkedOut. Not told apart (fixer R6): LeisureSystem.SpendLeisure also removes Leisure at a venue that is
+        /// switched off (BuildingOption.Inactive), has ServiceAvailable ≤ 0 or no output resource (1.6.2
+        /// LeisureSystem.cs:285-310); for our lodge that is the player deactivating it, which lands in Removed (or
+        /// NeedFilled with a high counter). Rare, and visible in the `[lodges]` line.</summary>
+        public static EndCause EndCauseOf(bool gone, bool hasLeisure, bool leisureAtLodge, bool atLodge, uint now, uint deadline,
+                                          bool deadlineIsClosing, int leisureCounter)
+        {
+            if (gone)
+                return EndCause.Deleted;
+            if (hasLeisure && leisureAtLodge && atLodge)
+                return EndCause.PastGrace;
+            if (now >= deadline)
+                return deadlineIsClosing ? EndCause.DeadlineClosing : EndCause.DeadlineOwn;
+            if (hasLeisure && !leisureAtLodge)
+                return EndCause.NewOuting;
+            if (!hasLeisure)
+                return leisureCounter >= NeedFilledCounter ? EndCause.NeedFilled : EndCause.Removed;
+            return EndCause.WalkedOut;
+        }
+
+        /// <summary>How a guest whose visit ended left the lodge (M2): the TravelPurpose of the trip out, or the
+        /// watch's end.</summary>
+        public enum ExitWay : byte
+        {
+            Home = 0, WorkOrSchool = 1, Shopping = 2, AnotherOuting = 3, MovingAway = 4, Health = 5, PathFailed = 6, Other = 7,
+            NoPurpose = 8, StillInside = 9, Deleted = 10,
+        }
+        public const int ExitWayCount = 11;
+
+        /// <summary>M2 exit check (state 2, and once at the visit end): gone → Deleted; out of the lodge →
+        /// ExitOfPurpose; inside for ExitWatchFrames since the visit end → StillInside; else false (keep watching).</summary>
+        public static bool TryExit(bool gone, bool atLodge, bool hasPurpose, byte purpose, uint now, uint endFrame, out ExitWay way)
+        {
+            if (gone)
+            {
+                way = ExitWay.Deleted;
+                return true;
+            }
+            if (!atLodge)
+            {
+                way = ExitOfPurpose(hasPurpose, purpose);
+                return true;
+            }
+            if (now - endFrame >= ExitWatchFrames)
+            {
+                way = ExitWay.StillInside;
+                return true;
+            }
+            way = ExitWay.Other;
+            return false;
+        }
+
+        /// <summary>The exit way of a TravelPurpose: none → NoPurpose; GoingHome → Home; GoingToWork, GoingToSchool →
+        /// WorkOrSchool; Shopping; Leisure, Traveling, Relaxing, Sightseeing, VisitAttractions → AnotherOuting;
+        /// MovingAway; Hospital, InHospital, Deathcare, InDeathcare → Health; PathFailed; anything else → Other.</summary>
+        public static ExitWay ExitOfPurpose(bool hasPurpose, byte purpose)
+        {
+            if (!hasPurpose)
+                return ExitWay.NoPurpose;
+            switch (purpose)
+            {
+                case PurposeGoingHome: return ExitWay.Home;
+                case PurposeGoingToWork:
+                case PurposeGoingToSchool: return ExitWay.WorkOrSchool;
+                case PurposeShopping: return ExitWay.Shopping;
+                case PurposeLeisure:
+                case PurposeTraveling:
+                case PurposeRelaxing:
+                case PurposeSightseeing:
+                case PurposeVisitAttractions: return ExitWay.AnotherOuting;
+                case PurposeMovingAway: return ExitWay.MovingAway;
+                case PurposeHospital:
+                case PurposeInHospital:
+                case PurposeDeathcare:
+                case PurposeInDeathcare: return ExitWay.Health;
+                case PurposePathFailed: return ExitWay.PathFailed;
+                default: return ExitWay.Other;
+            }
+        }
+
+        /// <summary>The phases of a ski-day trip (M2; hours summed per class, counts beside them). Arrivals-only
+        /// phases (1-7) are counted over the same group, so claim-to-leaving + leaving-to-arrival = the trip (F6).</summary>
+        public static class Phase
+        {
+            public const int ClaimToLeaveAll = 0, ClaimToLeaveArrived = 1, LeaveToArrive = 2, LeaveToRide = 3, RideSpan = 4,
+                             RideToArrive = 5, RideSeen = 6, HoursLeftAtArrival = 7, Stay = 8, EndToExit = 9, RoadGone = 10,
+                             RoadRetargeted = 11, RoadExpired = 12;
+            public const int Count = 13;
+        }
+
+        /// <summary>Minute of the day: floor(timeOfDay × 1440) clamped to 0..1439; NaN → 0.</summary>
+        public static int MinuteOfDay(float timeOfDay)
+        {
+            if (math.isnan(timeOfDay))
+                return 0;
+            double m = math.floor((double)timeOfDay * 1440.0);
+            return m <= 0.0 ? 0 : (m >= 1439.0 ? 1439 : (int)m);
+        }
+
+        /// <summary>The clock minute at <paramref name="frame"/> when <paramref name="startFrame"/> read
+        /// <paramref name="startMinute"/>: start + (frame − startFrame) × 45 / 8192 (1440 / 262,144 minutes per frame),
+        /// mod 1440, 64-bit; the frame difference wraps like the frame counter. Wrong across a developer time jump (the
+        /// clock jumps, frames do not): accepted (M5 history only).</summary>
+        public static int ClockMinuteAfter(int startMinute, uint startFrame, uint frame)
+        {
+            long minutes = startMinute + (long)(frame - startFrame) * 45L / 8192L;
+            long m = minutes % 1440L;
+            return (int)(m < 0 ? m + 1440L : m);
+        }
+
+        /// <summary>2-hour bin of the day: clamp((int)(timeOfDay × 12), 0, 11); NaN → 0.</summary>
+        public static int ClockBin(float timeOfDay)
+        {
+            if (math.isnan(timeOfDay))
+                return 0;
+            double b = (double)timeOfDay * 12.0;
+            return b <= 0.0 ? 0 : (b >= 11.0 ? 11 : (int)b);
+        }
+
+        /// <summary>Stay bins (F5): &lt; 0.5 h → 0; &lt; 1 → 1; &lt; 2 → 2; &lt; 4 → 3; &lt; 6 → 4; else 5; NaN or negative → 0.</summary>
+        public static int StayBin(double hours)
+        {
+            if (!(hours >= 0.0))
+                return 0;
+            if (hours < 0.5)
+                return 0;
+            if (hours < 1.0)
+                return 1;
+            if (hours < 2.0)
+                return 2;
+            if (hours < 4.0)
+                return 3;
+            return hours < 6.0 ? 4 : 5;
+        }
+
+        /// <summary>Closest approach to the lodge (F7): NaN or +∞ (never seen on the road) → 3; &lt; 500 m → 0;
+        /// &lt; 2,000 m → 1; else 2.</summary>
+        public static int ClosestBand(float metres)
+        {
+            if (!(metres < float.PositiveInfinity))
+                return 3;   // NaN or +∞
+            if (metres < 500f)
+                return 0;
+            return metres < 2000f ? 1 : 2;
+        }
+
+        /// <summary>What became of an expired claim during its 6-hour watch (F7).</summary>
+        public enum LateResult : byte { ArrivedLate = 0, GaveUp = 1, Deleted = 2, NotWithin6h = 3 }
+        public const int LateResultCount = 4;
+
+        /// <summary>F7 late watch (state 3): gone → Deleted; at the lodge with no Leisure or with the claim's own
+        /// deadline → ArrivedLate; Leisure with another deadline (a new outing, or a second claim of the same citizen:
+        /// never booked as our late arrival) or no Leisure → GaveUp; watched LateWatchFrames since the deadline →
+        /// NotWithin6h; else false (keep watching).</summary>
+        public static bool TryLate(bool gone, bool atLodge, bool hasLeisure, uint leisureDeadline, uint claimDeadline, uint now, out LateResult r)
+        {
+            if (gone)
+            {
+                r = LateResult.Deleted;
+                return true;
+            }
+            if (atLodge && (!hasLeisure || leisureDeadline == claimDeadline))
+            {
+                r = LateResult.ArrivedLate;
+                return true;
+            }
+            if (!hasLeisure || leisureDeadline != claimDeadline)
+            {
+                r = LateResult.GaveUp;
+                return true;
+            }
+            if (now - claimDeadline >= LateWatchFrames)
+            {
+                r = LateResult.NotWithin6h;
+                return true;
+            }
+            r = LateResult.NotWithin6h;
+            return false;
+        }
+
+        /// <summary>What a 64-frame sample saw of the car-reserve handshake (M4; E3, F8).</summary>
+        public enum CarReserve : byte { HeldAtHome = 0, HeldAfterLeaving = 1, NeverHeldLeft = 2, HeldNeverLeft = 3, NeverHeldNeverLeft = 4 }
+        public const int CarReserveCount = 5;
+
+        /// <summary>!departed → held ? HeldNeverLeft : NeverHeldNeverLeft; departed → heldAtHome ? HeldAtHome :
+        /// heldEver ? HeldAfterLeaving : NeverHeldLeft. heldAtHome implies held (it is set with heldEver).</summary>
+        public static CarReserve CarReserveOf(bool departed, bool heldEver, bool heldAtHome)
+        {
+            if (!departed)
+                return heldEver || heldAtHome ? CarReserve.HeldNeverLeft : CarReserve.NeverHeldNeverLeft;
+            if (heldAtHome)
+                return CarReserve.HeldAtHome;
+            return heldEver ? CarReserve.HeldAfterLeaving : CarReserve.NeverHeldLeft;
+        }
+
+        /// <summary>Did the guest counter's leisure scan see this visit (M7a timing model)?</summary>
+        public enum ScanVerdict : byte { Seen = 0, Missed = 1, Unsure = 2 }
+        public const int ScanVerdictCount = 3;
+
+        /// <summary>M7(a): scans run at scanFrame + k × scanInterval. Seen iff a scan lies strictly between
+        /// <paramref name="firstOnSite"/> and <paramref name="lastOnSite"/> (both passes saw the guest there); Missed iff
+        /// no scan lies strictly between firstOnSite − passInterval (the guest arrived after the pass before) and
+        /// <paramref name="endPass"/>; else Unsure. Not known, or an interval of 0 → Unsure. Frame differences wrap
+        /// like the frame counter (spans under 2^31 frames).</summary>
+        public static ScanVerdict GuestScanSaw(uint firstOnSite, uint lastOnSite, uint endPass, uint passInterval, bool scanKnown,
+                                               uint scanFrame, uint scanInterval)
+        {
+            if (!scanKnown || scanInterval == 0u)
+                return ScanVerdict.Unsure;
+            if (ScanBetween(firstOnSite, lastOnSite, scanFrame, scanInterval))
+                return ScanVerdict.Seen;
+            if (!ScanBetween(firstOnSite - passInterval, endPass, scanFrame, scanInterval))
+                return ScanVerdict.Missed;
+            return ScanVerdict.Unsure;
+        }
+
+        /// <summary>Is there a scan s with a &lt; s &lt; b? The next scan at or after a + 1 is (a + 1) + (scanFrame −
+        /// (a + 1)) mod interval; it is inside when that offset &lt; b − (a + 1). Spans of 1 or less (or "negative")
+        /// hold none.</summary>
+        private static bool ScanBetween(uint a, uint b, uint scanFrame, uint scanInterval)
+        {
+            uint span = b - a;
+            if ((int)span <= 1)
+                return false;
+            uint start = a + 1u;
+            uint offset = (scanFrame - start) % scanInterval;
+            return offset < span - 1u;
+        }
+
+        /// <summary>M9, MAIN THREAD ONLY (managed arrays; the one exception in this file). <paramref name="snowHour"/>
+        /// holds one entry per hour of the year (24 × days, wrapping). For each hour h, the window is hours h − 23 … h
+        /// (wrapping): PowderMark(PowderOf(snow-hours in it)) → <paramref name="markHours"/>[MonthOfHour(h)]++, and a
+        /// snow hour h → <paramref name="snowHours"/>[MonthOfHour(h)]++. Both outputs are cleared first. A sliding sum:
+        /// O(hours).</summary>
+        public static void MarkHoursPerMonth(bool[] snowHour, int daysPerYear, int[] markHours, int[] snowHours)
+        {
+            if (markHours != null)
+                Array.Clear(markHours, 0, markHours.Length);
+            if (snowHours != null)
+                Array.Clear(snowHours, 0, snowHours.Length);
+            if (snowHour == null || markHours == null || snowHours == null)
+                return;
+            int days = math.max(1, daysPerYear);
+            int n = math.min(snowHour.Length, 24 * days);
+            if (n <= 0)
+                return;
+            int window = 0;
+            for (int k = 0; k < 24; k++)
+            {
+                if (snowHour[((-23 + k) % n + n) % n])
+                    window++;   // hours −23 … 0 (wrapping): the window of h = 0
+            }
+            for (int h = 0; h < n; h++)
+            {
+                if (h > 0)
+                {
+                    if (snowHour[h])
+                        window++;
+                    if (snowHour[((h - 24) % n + n) % n])
+                        window--;
+                }
+                int m = SkiDayRules.MonthOfHour(h, days);
+                if (SkiDayRules.PowderMark(SkiDayRules.PowderOf(window)) && (uint)m < (uint)markHours.Length)
+                    markHours[m]++;
+                if (snowHour[h] && (uint)m < (uint)snowHours.Length)
+                    snowHours[m]++;
+            }
+        }
+    }
+}

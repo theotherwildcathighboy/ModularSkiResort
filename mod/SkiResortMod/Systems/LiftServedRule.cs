@@ -9,7 +9,8 @@
 // THE RULE. A run is served by lift L when all of these hold:
 //   1. L's census row is Complete (Open / Unfinished / StationsOnly serve nothing: a section being
 //      redrawn drops service until the line closes — D6 accepts this);
-//   2. IsPowered(L.Power): the base station does not show the game's electricity warning;
+//   2. IsPowered(L.Power): not NoPower — NoPower while the game's electricity warning shows and under
+//      half of the wanted power arrives (back at three quarters; Round S1 F2, POWER below);
 //   3. the run's top T (RunFacts.TopNode, the highest outline node) satisfies
 //      T.y <= TopY(L) + TopMarginM, TopY = the top station's stub-tip y;
 //   4. the xz distance from T to the nearest chord of L (each SkiChairliftHV line edge,
@@ -23,7 +24,10 @@
 // to NoPower exactly when the game draws its electricity icon (NoElectricityWarning or
 // BottleneckWarning, DispatchElectricitySystem.cs:126-158). IsPowered is the ONLY "powered" predicate
 // in the mod (service, lift value, billing, ticket gate); PowerGatesService = false turns power into
-// status only everywhere (one switch).
+// status only everywhere (one switch). Round S1 F2 (ski-days spec ch1 §5; s1-spec N7): the census reads
+// the 4-argument PowerOf — NoPower only while the warning shows AND under half of the wanted power
+// arrives, back at three quarters or when the warning clears (hysteresis); the game warns at any
+// shortfall after two short dispatches (:126-142), and a 9 % city shortfall switched FT8's lifts off.
 //
 // PURE FILE: `using System;`, `using System.Collections.Generic;`, `using Unity.Mathematics;` and
 // EntityRef only (the test-host rule). No state; Assign is allocation-free once its lists have grown.
@@ -36,12 +40,13 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>A lift's power as the game shows it on the base station (§3.3).</summary>
+    /// <summary>A lift's power from its base station's ElectricityConsumer (§3.3; Round S1 F2: the 4-argument
+    /// PowerOf).</summary>
     public enum LiftPower : byte
     {
         Unknown = 0,   // no base station in the build, not complete, or no ElectricityConsumer: treated as powered
-        Powered = 1,   // the base station shows no electricity warning
-        NoPower = 2,   // the base station shows the game's NoElectricity or Bottleneck warning
+        Powered = 1,   // no electricity warning, or at least half of the wanted power arrives (3/4 when coming back)
+        NoPower = 2,   // the game's NoElectricity or Bottleneck warning and under half of the wanted power
     }
 
     public static class LiftServedRule
@@ -81,6 +86,31 @@ namespace SkiResortMod.Systems
             return (consumerFlags & (FlagNoElectricityWarning | FlagBottleneckWarning)) != 0
                 ? LiftPower.NoPower
                 : LiftPower.Powered;
+        }
+
+        /// <summary>F2 (ski-days spec ch1 §5): 2 × fulfilled &lt; wanted → under half (NoPower); a NoPower lift
+        /// is back at 4 × fulfilled ≥ 3 × wanted (hysteresis, refutation R-4).</summary>
+        public const int HalfPowerDivisor = 2, BackPowerNumerator = 3, BackPowerDenominator = 4;
+
+        /// <summary>F2 (ski-days spec ch1 §5; s1-spec §2.3, N7): NoPower only when the game shows its electricity
+        /// warning AND under half of the wanted power arrives (2 × fulfilled &lt; wanted); a NoPower lift comes back
+        /// when the warning clears or at least three quarters arrive (4 × fulfilled ≥ 3 × wanted). Exact in long;
+        /// wanted ≤ 0 → Powered. Before electricity unlocks the game sets no warning (DispatchElectricitySystem.cs:61,
+        /// :106-109) and fulfilled may be 0, so the warning test comes first (ch1 §11 DV-2). Fields
+        /// ElectricityConsumer.m_WantedConsumption / m_FulfilledConsumption (ElectricityConsumer.cs:8-10 (=));
+        /// fulfilled = min(flow share × wanted, wanted) (DispatchElectricitySystem.cs:105 (=)). The caller passes
+        /// the station's last value (Unknown on the first read). The 1-argument overload stays (tests/LiftBatch
+        /// rows 23-24).</summary>
+        public static LiftPower PowerOf(byte consumerFlags, int wantedConsumption, int fulfilledConsumption, LiftPower last)
+        {
+            if ((consumerFlags & (FlagNoElectricityWarning | FlagBottleneckWarning)) == 0)
+                return LiftPower.Powered;
+            if (wantedConsumption <= 0)
+                return LiftPower.Powered;
+            if (last == LiftPower.NoPower)
+                return (long)fulfilledConsumption * BackPowerDenominator >= (long)wantedConsumption * BackPowerNumerator
+                    ? LiftPower.Powered : LiftPower.NoPower;
+            return (long)fulfilledConsumption * HalfPowerDivisor >= wantedConsumption ? LiftPower.Powered : LiftPower.NoPower;
         }
 
         /// <summary>E1 master contract R1: THE "powered" predicate for service (D6), lift value (D6),

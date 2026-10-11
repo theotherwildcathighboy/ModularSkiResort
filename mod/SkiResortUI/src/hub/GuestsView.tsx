@@ -7,26 +7,43 @@
  * honest labels). Round F7 (2026-10-04, implementer 4; docs/research/field-test-7-fixes.md D2, D3;
  * findings/hub-ux.md §3.2 with its Verification): the always-visible notes moved into the header's Info
  * tooltip, Tourism Overhaul reads as a detection on one line, and one ticket-state line stays. Field test
- * 7 state (TO detected, tickets open): 13 text lines in 16 slot lines -> 10 text lines in 11.
+ * 7 state (TO detected, tickets open): 13 text lines in 16 slot lines -> 10 text lines in 11. Round S1
+ * "Ski days" (2026-10-05, stream E; docs/research/ski-days/spec/ch4-hub.md section B, D27, F7): the Ski
+ * days row and its state line open the table (two lines: 12 text lines in 13), the bars use a fixed
+ * ladder, and a since-load last month shows its numbers marked "(partial)".
  * Contract:
  *   - A sign: GUESTS header with the Info glyph right after the label (tooltip: GUESTS_NOTE[Where];
  *     GUESTS_NOTE[SinceLoad] while this month started before the load; TICKETS_NOTE[Open] while tickets
- *     are sold); two bars (this month, last month) on ONE scale (the larger month;
- *     hubRules.guestBarParts, integer flex-grow; an unknown value = an empty track and "–"); the
- *     table (this month / last month columns: tourists, tourist groups, residents, paid a lift
- *     ticket, lift tickets in money); the estimate slot (the game-formula target tourists, or - with
+ *     are sold); two bars (this month, last month) on ONE scale (Round S1: hubRules.guestBarScale, the
+ *     smallest step of 50, 100, 200, 500, 1000, ... that holds both months, so 2 guests fill 4 % of the
+ *     bar, not all of it; GUESTS_BAR_SCALE "Full bar: {MAX} guests" in both bars' tooltips;
+ *     hubRules.guestBarParts, integer flex-grow; an unknown value = an empty track and "–"); bar 2's
+ *     label reads "Last month (partial)" for a since-load month (its StableWidth samples are all three
+ *     labels, so the track never moves, D33); the table (this month / last month columns: Round S1 D27
+ *     FIRST the Ski days row (arrivals at a lodge; tooltip: GUESTS_TIP[SkiDays], the sent counts by
+ *     class, the guests on the way or on the hill now of the capacity) and under it ONE state line
+ *     (hubRules.skiDayLine: "Holds {N} skiers at once (runs limit)", "Full right now", "Closed: no open
+ *     run", ...; one text node, XS, ellipsis, its tooltip by hubRules.skiDayTip), first so it stays above
+ *     the fold at 130 / 150 % (ch4 B.5); then tourists, tourist groups, residents, paid a lift ticket,
+ *     lift tickets in money); the estimate slot (the game-formula target tourists, or - with
  *     Tourism Overhaul detected, a session state - ONE line EST_TO_NOTE "Detected: ..." with EST_TO_TIP
  *     as its tooltip; XS 280.3 / 461.1 / 581.6 rem against W - 20 = 402 / 580 / 699: fits); the ticket
  *     slot: one ellipsized line (U8) with the ticket note of hubRules.ticketNote while tickets are NOT
  *     sold (off, sign not running, nothing open, not known yet; full text in its tooltip), empty at the
  *     same height while they are (that sentence is in the header tooltip), so a gate flip moves nothing.
- *   - Last month is never a fake 0 (second pass, e1-spec H10): C# sends -1 for every last-month field
- *     unless `lastMonthFull`; the UI then shows "–", the empty track and GUESTS_LAST_NA.
+ *   - Last month is never a fake 0 (second pass, e1-spec H10). Round S1 F7 (hubRules.lastMonthMark): C#
+ *     sends the last-month fields whenever a month rolled since counting started; "full" = a whole month,
+ *     "partial" = counted since the load (numbers shown; bar 2's label and every tooltip say so with
+ *     GUESTS_LAST_PARTIAL); "none" = -1 (the UI shows "–", the empty track and GUESTS_LAST_NA). The
+ *     column head stays "Last month" (its cell is the money sample's width; ch4 B.4 rule 4, J5).
  *   - Not linked: the header and UNLINKED_NOTE.
  *   - Fixed slots only: StableWidth cells with the shared money / count samples, note slots of fixed
  *     height (note2 = 2 XS lines, note1 = 1) whose empty state keeps its height (D33).
  *     Ticket-slot texts in XS, the longest "No tickets yet: the runs are still being checked after
- *     loading." 320.9 / 527.9 / 665.9 rem: fits 402 / 580 / 699.
+ *     loading." 320.9 / 527.9 / 665.9 rem: fits 402 / 580 / 699. The longest ski-day state line, "Holds
+ *     1,440 skiers at once (lodges limit)" (41 characters, ≈ 21 em XS by ch4 B.5's 0.5 em estimate:
+ *     252 / 415 / 523 rem), fits the SubLine room W - 32 = 390 / 568 / 687 (an estimate, not Overpass
+ *     advances: the ellipsis is the net).
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, city$.
  */
 import { useValue } from "cs2/api";
@@ -35,11 +52,11 @@ import { city$, resortLive$, resorts$, selectedResort$ } from "../bindings";
 import type { CityStats, ResortLive } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
-import { guestBarParts, liveOf, ticketNote } from "./hubRules";
-import type { TicketNote } from "./hubRules";
+import { guestBarParts, guestBarScale, lastMonthMark, liveOf, skiDayLine, skiDayTip, skiDayWalk, ticketNote } from "./hubRules";
+import type { LastMonthMark, TicketNote } from "./hubRules";
 import { HUB_FMT, HUB_LOC } from "./hubText";
 import {
-  Divider, FlexBar, InfoLine, LocText, Num, SignedNum, StableWidth, Tip, TipLines, cx, numArg, useNumberSamples,
+  Divider, FlexBar, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, Tip, TipLines, cx, numArg, useNumberSamples,
 } from "./parts";
 import type { NumberSamples } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
@@ -52,7 +69,7 @@ function countCell(v: number): JSX.Element | string {
   return numArg(v, Unit.Integer);
 }
 
-/** One guest bar row: label (StableWidth of both month labels), track, value. */
+/** One guest bar row: label (StableWidth of every month label), track, value. */
 function GuestBar({ label, labels, value, max, samples, tip }: {
   label: string; labels: readonly string[]; value: number; max: number; samples: NumberSamples; tip?: JSX.Element | string;
 }): JSX.Element {
@@ -86,6 +103,40 @@ function GuestRow({ label, thisMonth, lastMonth, tip, samples }: {
   );
 }
 
+/** Round S1 D27 (ch4 B.2): the ski-day state line as ONE text node per branch (gate R13). N = the capacity
+ *  at once (skiDaysCap, D21; ruling R-Q3 "Holds {N} skiers at once"). */
+function SkiDayLineText({ l, t }: { l: ResortLive | null; t: Translate }): JSX.Element {
+  const N = numArg(l ? l.skiDaysCap : -1, Unit.Integer);
+  switch (skiDayLine(l)) {
+    case "off": return <>{t(HUB_LOC.skiDaysOff)}</>;
+    case "signOff": return <>{t(HUB_LOC.skiDaysSignOff)}</>;
+    case "noRun": return <>{t(HUB_LOC.skiDaysNoRun)}</>;
+    case "noLodge": return <>{t(HUB_LOC.skiDaysNoLodge)}</>;
+    case "night": return <>{t(HUB_LOC.skiDaysNight)}</>;
+    case "full": return <>{t(HUB_LOC.skiDaysFull)}</>;
+    case "roomRuns": return <LocText entry={HUB_FMT.skiDaysRoomRuns} args={{ N }} />;
+    case "roomLodges": return <LocText entry={HUB_FMT.skiDaysRoomLodges} args={{ N }} />;
+    case "room": return <LocText entry={HUB_FMT.skiDaysRoom} args={{ N }} />;
+    default: return <>{DASH}</>;
+  }
+}
+
+/** The state line's tooltip (ch4 B.2 last column); undefined = none. */
+function skiDayLineTip(l: ResortLive | null, t: Translate): string | undefined {
+  switch (skiDayTip(l)) {
+    case "off": return t(HUB_LOC.skiDaysTipOff);
+    case "noLodge": return t(HUB_LOC.skiDaysTipNoLodge);
+    case "runs": return t(HUB_LOC.skiDaysTipRuns);
+    case "lodges": return t(HUB_LOC.skiDaysTipLodges);
+    default: return undefined;
+  }
+}
+
+/** The last-month note of a tooltip (F7): partial -> GUESTS_LAST_PARTIAL, none -> GUESTS_LAST_NA, full -> nothing. */
+function lastMonthNote(mark: LastMonthMark, t: Translate): string | false {
+  return mark === "partial" ? t(HUB_LOC.guestsLastPartial) : mark === "none" ? t(HUB_LOC.guestsLastNa) : false;
+}
+
 /** The ticket note while tickets are NOT sold (Round F7: the "open" sentence lives in the header tooltip). */
 function TicketNoteText({ note, t }: { note: TicketNote; t: Translate }): JSX.Element {
   switch (note) {
@@ -114,24 +165,47 @@ function GuestsHeader({ l, city, note, t }: { l: ResortLive | null; city: CitySt
 }
 
 function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element {
-  const full = !!l && l.lastMonthFull;
+  // Round S1 F7: the last-month numbers show whenever C# sent them (>= 0), a since-load month marked "partial".
+  const mark = lastMonthMark(l);
   const thisMonth = l ? l.guestsThisMonth : -1;
-  const lastMonth = full && l ? l.guestsLastMonth : -1;
-  const max = Math.max(thisMonth, full ? lastMonth : 0);
+  const lastMonth = l && l.guestsLastMonth >= 0 ? l.guestsLastMonth : -1;
+  // Round S1 (ch4 B.3): a fixed ladder (50, 100, 200, 500, ...) instead of the larger month.
+  const scale = guestBarScale(thisMonth, lastMonth);
   const labels = [t(HUB_LOC.guestsMonthThis), t(HUB_LOC.guestsMonthLast)];
-  const lastNa = t(HUB_LOC.guestsLastNa);
-  /** A last-month value: "–" until a whole month was counted (H10). */
+  const lastLabel = mark === "partial" ? t(HUB_LOC.guestsMonthLastPartial) : labels[1];
+  /** Bar label samples: all three labels, so the track keeps its width whatever the mark (D33). */
+  const barLabels = [labels[0], labels[1], t(HUB_LOC.guestsMonthLastPartial)];
+  const lastNote = lastMonthNote(mark, t);
+  const scaleLine = <LocText key="s" entry={HUB_FMT.guestsBarScale} args={{ MAX: numArg(scale, Unit.Integer) }} />;
+  /** A last-month value: the number when C# sent one (a whole or a partial month), else "–" (H10). */
   const last = (v: number | undefined, money?: boolean): JSX.Element | string =>
-    !full || v === undefined || v < 0 ? DASH : money ? <Num value={v} unit={Unit.Money} /> : countCell(v);
+    v === undefined || v < 0 ? DASH : money ? <Num value={v} unit={Unit.Money} /> : countCell(v);
   const rowTip = (title: string, body: string | JSX.Element): JSX.Element =>
-    <TipLines lines={[title, body, !full && lastNa]} />;
+    <TipLines lines={[title, body, lastNote]} />;
   const note = l ? ticketNote(l.ticketGate, city.ticketPrice) : null;
+  // Round S1 D27 (ch4 B.6): the Ski days row's tooltip; skipped lines are false.
+  const skiDaysTip = (
+    <TipLines lines={[
+      t(HUB_LOC.guestsRowSkiDays),
+      t(HUB_LOC.guestsTipSkiDays),
+      !!l && l.skiDaysSent >= 0 && <LocText key="sent" entry={HUB_FMT.skiDaysTipSent} args={{
+        SENT: numArg(l.skiDaysSent, Unit.Integer), WALK: numArg(skiDayWalk(l), Unit.Integer),
+        CAR: numArg(l.skiDaysSentCar, Unit.Integer), FAR: numArg(l.skiDaysSentNoCar, Unit.Integer),
+      }} />,
+      !!l && l.skiDaysCap >= 0 && l.skiDaysNow >= 0 && <LocText key="now" entry={HUB_FMT.skiDaysTipNow} args={{
+        NOW: numArg(l.skiDaysNow, Unit.Integer), CAP: numArg(l.skiDaysCap, Unit.Integer),
+      }} />,
+      lastNote,
+    ]} />
+  );
 
   return (
     <>
       <GuestsHeader l={l} city={city} note={note} t={t} />
-      <GuestBar label={labels[0]} labels={labels} value={thisMonth} max={max} samples={samples} />
-      <GuestBar label={labels[1]} labels={labels} value={lastMonth} max={max} samples={samples} tip={full ? undefined : lastNa} />
+      <GuestBar label={labels[0]} labels={barLabels} value={thisMonth} max={scale} samples={samples}
+        tip={<TipLines lines={[labels[0], scaleLine]} />} />
+      <GuestBar label={lastLabel} labels={barLabels} value={lastMonth} max={scale} samples={samples}
+        tip={<TipLines lines={[lastLabel, lastNote, scaleLine]} />} />
       <Divider />
       <div className={styles.colHeads}>
         <div className={styles.colHeadSpacer} />
@@ -143,6 +217,13 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
           <span className={styles.colLabel}>{labels[1]}</span>
         </StableWidth>
       </div>
+      {/* Round S1 D27: the Ski days row and its one state line, first in the table (above the fold at 130 / 150 %). */}
+      <GuestRow
+        label={t(HUB_LOC.guestsRowSkiDays)} samples={samples}
+        thisMonth={countCell(l ? l.skiDaysThisMonth : -1)} lastMonth={last(l?.skiDaysLastMonth)}
+        tip={skiDaysTip}
+      />
+      <SubLine tip={skiDayLineTip(l, t)}><SkiDayLineText l={l} t={t} /></SubLine>
       <GuestRow
         label={t(HUB_LOC.guestsRowTourists)} samples={samples}
         thisMonth={countCell(l ? l.touristsThisMonth : -1)} lastMonth={last(l?.touristsLastMonth)}

@@ -17,6 +17,14 @@
  * says it). F7 fixer: the run counts that still said "partly open" say "patchy" too (STATUS_LINE_PARTLY,
  * _ONE, _EST, _ONE_EST, STATUS_TIP_COUNTS, RECEIPT_TIP[Open]), so one run state has one name;
  * STATUS_WORD[Partly] "Partly open" stays the area's word.
+ * Round S1 "Ski days" (2026-10-05, stream E; docs/research/ski-days/s1-spec.md section 2.12 with the section
+ * 5.3 rulings, spec/ch4-hub.md G.1): 28 new keys, little text. HUB_LOC: GUESTS_ROW[SkiDays], GUESTS_TIP[SkiDays],
+ * GUESTS_MONTH[LastPartial], GUESTS_LAST_PARTIAL (F7), SKI_DAYS[Off|SignOff|NoRun|NoLodge|Night|Full],
+ * SKI_DAYS_TIP[Off|NoLodge|Runs|Lodges], POWDER_DAY (D29), PROBLEM[SkiDaysCannotReach|NoParkingNearLodge|
+ * LodgeNotSlopeside] and their PROBLEM_TIP (D28). HUB_FMT: GUESTS_BAR_SCALE, SKI_DAYS[RoomRuns|RoomLodges|Room]
+ * (ruling R-Q3: "Holds {N} skiers at once", N = the capacity at once, D21), SKI_DAYS_TIP[Sent|Now],
+ * STATUS_TIP_POWDER. The numbers in them (800 m, 300 m, 360) are D10, D26 and D21's: a change there changes
+ * the text.
  * Contract:
  *   - Every entry is a literal `[key, english]` tuple. tools/check-bundle.js rule R4 FAILS the build
  *     unless each key exists in root mod/SkiResortMod/LocaleEN.cs with IDENTICAL text, and WARNS
@@ -74,6 +82,8 @@ export const HUB_LOC = {
   statusTipEstimated: ["SkiResort.Hub.STATUS_TIP_ESTIMATED", "Some runs are estimated from the day's temperature until their snow can be measured."],
   statusTipGating: ["SkiResort.Hub.STATUS_TIP_GATING", "Snow & season gating is off in Options, so every run counts as open."],
   statusTipVisuals: ["SkiResort.Hub.STATUS_TIP_VISUALS", "Snow is hidden in your Gameplay settings. Runs still open on the simulated snow."],
+  /** Round S1 D29: the hint slot at powder >= 0.5 (hubRules.statusHint). */
+  powderDay: ["SkiResort.Hub.POWDER_DAY", "Powder day"],
 
   // ---- problems band (6.3) ----
   problemNone: ["SkiResort.Hub.PROBLEM[None]", "Nothing needs your attention."],
@@ -83,6 +93,10 @@ export const HUB_LOC = {
   problemNoRuns: ["SkiResort.Hub.PROBLEM[NoRuns]", "No runs yet: draw one to open"],
   problemSignNoRoad: ["SkiResort.Hub.PROBLEM[SignNoRoad]", "Welcome Sign is not at a road"],
   problemLodgeNoRoad: ["SkiResort.Hub.PROBLEM[LodgeNoRoad]", "Lodge is not at a road: guests cannot reach it"],
+  // Round S1 D28: codes 20-22.
+  problemSkiDaysCannotReach: ["SkiResort.Hub.PROBLEM[SkiDaysCannotReach]", "Many ski-day guests with a car never arrive"],
+  problemNoParkingNearLodge: ["SkiResort.Hub.PROBLEM[NoParkingNearLodge]", "No parking near the lodge"],
+  problemLodgeNotSlopeside: ["SkiResort.Hub.PROBLEM[LodgeNotSlopeside]", "Lodge is far from the runs"],
   problemTipNoLodge: ["SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Guests arrive at a lodge, so a ski area without one has an attraction of 0. Place a lodge on the Welcome Sign with the lodge tile in the Build strip."],
   problemTipLodgesAllOff: ["SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "A lodge that is switched off does not count. With none left, guests have nowhere to arrive and the attraction is 0. Switch one on in the Welcome Sign's info panel (Upgrades)."],
   problemTipLodgesSomeOff: ["SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "A lodge that is switched off does not count in the lodge base."],
@@ -99,6 +113,9 @@ export const HUB_LOC = {
   problemTipFreeLodges: ["SkiResort.Hub.PROBLEM_TIP[FreeLodges]", "These lodges are not on a Welcome Sign, so they count nowhere."],
   problemTipSignNoRoad: ["SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "Move it so its front touches a road. Power, water and sewage come from that road."],
   problemTipLodgeNoRoad: ["SkiResort.Hub.PROBLEM_TIP[LodgeNoRoad]", "Move it so its deck side touches a road. Guests walk in from that road."],
+  problemTipSkiDaysCannotReach: ["SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReach]", "Many recent ski-day guests with a car did not reach the lodge in time. Fewer are sent until more arrive."],
+  problemTipNoParkingNearLodge: ["SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m of the lodge. Guests who drive need a parking lot or a street with parking."],
+  problemTipLodgeNotSlopeside: ["SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations."],
   problemMoreTip: ["SkiResort.Hub.PROBLEM_MORE_TIP", "Also needs attention:"],
   problemClickFly: ["SkiResort.Hub.PROBLEM_CLICK_FLY", "Click to fly there."],
   problemClickList: ["SkiResort.Hub.PROBLEM_CLICK_LIST", "Click to open the list."],
@@ -221,6 +238,11 @@ export const HUB_LOC = {
   sectionGuests: ["SkiResort.Hub.SECTION[Guests]", "Guests"],
   guestsMonthThis: ["SkiResort.Hub.GUESTS_MONTH[This]", "This month"],
   guestsMonthLast: ["SkiResort.Hub.GUESTS_MONTH[Last]", "Last month"],
+  /** Round S1 F7: bar 2's label while last month was counted only since the load (hubRules.lastMonthMark). */
+  guestsMonthLastPartial: ["SkiResort.Hub.GUESTS_MONTH[LastPartial]", "Last month (partial)"],
+  /** Round S1 D27: the ski-day row (first in the table) and its tooltip body. */
+  guestsRowSkiDays: ["SkiResort.Hub.GUESTS_ROW[SkiDays]", "Ski days"],
+  guestsTipSkiDays: ["SkiResort.Hub.GUESTS_TIP[SkiDays]", "Residents and hotel guests sent here to ski, counted when they reach a lodge. Most also count as residents or tourists."],
   guestsRowTourists: ["SkiResort.Hub.GUESTS_ROW[Tourists]", "Tourists"],
   guestsRowGroups: ["SkiResort.Hub.GUESTS_ROW[Groups]", "Tourist groups"],
   guestsRowResidents: ["SkiResort.Hub.GUESTS_ROW[Residents]", "Residents"],
@@ -231,6 +253,18 @@ export const HUB_LOC = {
   guestsTipResidents: ["SkiResort.Hub.GUESTS_TIP[Residents]", "Residents of your city who came to a lodge for leisure."],
   guestsTipTickets: ["SkiResort.Hub.GUESTS_TIP[Tickets]", "Paid by each guest's household into your city's balance."],
   guestsLastNa: ["SkiResort.Hub.GUESTS_LAST_NA", "Not counted: guests are counted only from the moment the city loads."],
+  guestsLastPartial: ["SkiResort.Hub.GUESTS_LAST_PARTIAL", "Last month was not counted in full: the city was loaded, or time was skipped ahead, during it."],
+  // Round S1 D27: the ski-day state line (hubRules.skiDayLine; Room variants are HUB_FMT) and its tooltips (skiDayTip).
+  skiDaysOff: ["SkiResort.Hub.SKI_DAYS[Off]", "Ski days are off (Options)"],
+  skiDaysSignOff: ["SkiResort.Hub.SKI_DAYS[SignOff]", "Closed: the Welcome Sign is not running"],
+  skiDaysNoRun: ["SkiResort.Hub.SKI_DAYS[NoRun]", "Closed: no open run"],
+  skiDaysNoLodge: ["SkiResort.Hub.SKI_DAYS[NoLodge]", "No lodge for ski days"],
+  skiDaysNight: ["SkiResort.Hub.SKI_DAYS[Night]", "Lifts closed for the night"],
+  skiDaysFull: ["SkiResort.Hub.SKI_DAYS[Full]", "Full right now"],
+  skiDaysTipOff: ["SkiResort.Hub.SKI_DAYS_TIP[Off]", "Locals who ski and Tourists who ski are both 0 in Options."],
+  skiDaysTipNoLodge: ["SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Ski days need a lodge that is switched on, at a road, and within 800 m of the runs."],
+  skiDaysTipRuns: ["SkiResort.Hub.SKI_DAYS_TIP[Runs]", "The runs set the limit: bigger and easier runs hold more skiers at once."],
+  skiDaysTipLodges: ["SkiResort.Hub.SKI_DAYS_TIP[Lodges]", "The lodges set the limit: each lodge takes 360 skiers at once, more on a powder day."],
   estRowTourists: ["SkiResort.Hub.EST_ROW[Tourists]", "Target tourists from this ski area (estimated)"],
   estTouristsTip: ["SkiResort.Hub.EST_TOURISTS_TIP", "Worked out with the game's own tourist formula, not counted. Tourism mods can replace that formula, so real arrivals may differ."],
   estToNote: ["SkiResort.Hub.EST_TO_NOTE", "Detected: Tourism Overhaul. It sets tourist numbers."],
@@ -300,6 +334,8 @@ export const HUB_FMT = {
   statusLinePartlyOneEst: ["SkiResort.Hub.STATUS_LINE_PARTLY_ONE_EST", "{STATE} · ≈ {PARTLY} of 1 run patchy"],
   statusTipCounts: ["SkiResort.Hub.STATUS_TIP_COUNTS", "Open {OPEN} · patchy {PARTLY} · closed {CLOSED}"],
   statusTipTemp: ["SkiResort.Hub.STATUS_TIP_TEMP", "Day average at the top of the highest run: {TEMP}"],
+  /** Round S1 D29: the status tooltip line while powder > 0 ({PCT} = skiDaysPowderPct). */
+  statusTipPowder: ["SkiResort.Hub.STATUS_TIP_POWDER", "Fresh snow at the top: powder {PCT}. Powder brings more skiers."],
   // problems (6.3)
   problemLodgesSomeOff: ["SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges switched off: {N}"],
   problemEfficiency: ["SkiResort.Hub.PROBLEM[Efficiency]", "Welcome Sign at {PCT}: {REASON}"],
@@ -362,6 +398,15 @@ export const HUB_FMT = {
   // guests view (6.8)
   guestsTipPaid: ["SkiResort.Hub.GUESTS_TIP[Paid]", "{GUESTS} guests this month: {PAID} paid, {UNPAID} could not pay, {FREE} came in free (tickets off or the ski area closed)."],
   ticketsNoteOpen: ["SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest pays {PRICE} on arrival (Options: Lift ticket price)."],
+  /** Round S1: both guest bars' tooltip, {MAX} = hubRules.guestBarScale. */
+  guestsBarScale: ["SkiResort.Hub.GUESTS_BAR_SCALE", "Full bar: {MAX} guests"],
+  /** Round S1 D27 with ruling R-Q3 (s1-spec 5.3): {N} = skiDaysCap, the capacity at once (D21). */
+  skiDaysRoomRuns: ["SkiResort.Hub.SKI_DAYS[RoomRuns]", "Holds {N} skiers at once (runs limit)"],
+  skiDaysRoomLodges: ["SkiResort.Hub.SKI_DAYS[RoomLodges]", "Holds {N} skiers at once (lodges limit)"],
+  skiDaysRoom: ["SkiResort.Hub.SKI_DAYS[Room]", "Holds {N} skiers at once"],
+  /** The Ski days row's tooltip: the three classes partition {SENT} ("close by" = the walk class, ch4 RF-7). */
+  skiDaysTipSent: ["SkiResort.Hub.SKI_DAYS_TIP[Sent]", "Sent this month: {SENT} · close by {WALK} · with a car {CAR} · far, no car {FAR}"],
+  skiDaysTipNow: ["SkiResort.Hub.SKI_DAYS_TIP[Now]", "On the hill or on the way now: {NOW} of {CAP}"],
   // money view (6.9)
   moneyTicketsLast: ["SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets last month: {N} paid"],
   moneyTicketsEst: ["SkiResort.Hub.MONEY_TICKETS[Est]", "Lift tickets (estimated): {N} paid"],

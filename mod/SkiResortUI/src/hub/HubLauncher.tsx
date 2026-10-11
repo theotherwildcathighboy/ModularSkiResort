@@ -20,18 +20,28 @@
  * (index.js@529099, @528630) and, by code reading, adds no DOM element of its own (the balloon is
  * portalled, index.js@540726), so the Universal Mod Panel grid still sees the button itself as
  * its child [L: field test 3].
- * Icon: the Ski Resort toolbar tab's own icon (SkiResortTab.png, assetdb://global/aed39078...,
- * gamedata-mirror/ImportedData/SkiResortCategory/SkiResortCategory.Prefab:18), so the launcher
- * and the vanilla tab look alike. That an assetdb:// URL loads in a mod's <img> is [L]: the
- * vanilla toolbar renders the same string through the same Gameface. tinted={false} keeps its
- * colours (cs2/ui FloatingButton defaults to a tinted mask, index.js@713480).
+ * Icon (Round S1 F9, docs/research/ski-days/spec/ch5-launcher.md): SkiLauncherGlyph.svg, a white
+ * one-colour glyph bundled by webpack into SkiResortMod-img/ and drawn by the game as a tinted
+ * mask on the accent plate, like every other button in the top-left row (TintedIcon:
+ * style.maskImage = url(src), installed index.js@633525; .tinted-icon_iKo fills it with
+ * --iconColor rgb(250,250,250), index.css@28104 / @75970). FloatingButton tints by default
+ * (index.js@713480); Button does not (@713162), so both pass `tinted`. A mask that fails to load
+ * leaves an empty plate (no onError, unlike <img>). SkiResortTab.png (HUB_ICON) is no longer
+ * drawn and stays only as the rollback: src={HUB_ICON} tinted={false} on both.
+ * Glyph (c) "peak and snowflake" ships (the owner's pick, DECISIONS 148): a byte copy of
+ * docs/research/art/icons-2026-10-05/launcher-glyph/launcher-c.svg (md5 605f036f...0f78), made by
+ * assets/blender/ski_launcher_glyph.py; swapping the pick is a one-file change.
  */
 import { useValue } from "cs2/api";
 import { Button, FloatingButton, Tooltip } from "cs2/ui";
 import { showHubButton$ } from "../bindings";
 import { LOC, useT } from "../l10n";
 import { toggleHub, useHubConnected, useHubOpen } from "./hubState";
+import launcherGlyph from "./SkiLauncherGlyph.svg";
 
+/** coui://ui-mods/SkiResortMod-img/SkiLauncherGlyph.svg (webpack asset/resource; S1 F9). */
+export const HUB_GLYPH: string = launcherGlyph;
+/** Rollback only (S1 F9): the style-E picture, drawn untinted before S1. */
 export const HUB_ICON = "assetdb://global/aed3907873aa4d74bb420190d3044e78";
 
 export function HubLauncherSquare(): JSX.Element {
@@ -42,8 +52,8 @@ export function HubLauncherSquare(): JSX.Element {
     <Tooltip tooltip={t(LOC.launcherTooltip)}>
       <Button
         variant="floating"
-        src={HUB_ICON}
-        tinted={false}
+        src={HUB_GLYPH}
+        tinted
         selected={open}
         onSelect={() => toggleHub(connected)}
       />
@@ -60,8 +70,8 @@ export function HubFloatingButton(): JSX.Element | null {
   return (
     <Tooltip tooltip={t(LOC.launcherTooltip)}>
       <FloatingButton
-        src={HUB_ICON}
-        tinted={false}
+        src={HUB_GLYPH}
+        tinted
         selected={open}
         onSelect={() => toggleHub(connected)}
       />

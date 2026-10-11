@@ -42,6 +42,10 @@
 // per filled slot) replaces .problemsOn, and the band's side padding moved into .problemSlotRow;
 // .segButtonNext replaces `.segButton + .segButton` (each segment button now sits in its own Tooltip);
 // .note3 is gone with the Money view's note area.
+// Round S1 (2026-10-05, stream E; docs/research/ski-days/spec/ch4-hub.md sections D, F): .viewSlot clips the
+// width samples' hidden text below the last row and .tileRow keeps 10 rem clear on the right (the scrollbar over
+// the fifth tile); .statusHintOn (the "Powder day" hint in the normal colour). The Guests view's ski-day lines
+// reuse .infoLine and .subLine.
 
 // ---- panel frame ---------------------------------------------------------------------------
 
@@ -974,10 +978,22 @@
 // game's :root, and Dimmer is white in the dark-grey-orange style: installed index.css @2587, @3184,
 // @11454, @12464). Precedent for a literal text colour: .listRowUnbound.
 
+// Round S1 F (docs/research/ski-days/spec/ch4-hub.md section F; field test 8's scrollbar over the fifth tile).
+// Cause [likely]: the .blind width samples are height 0 but overflow visible, so their text hangs one line
+// below its cell; under the LAST row of the Runs view (NumCell blinds) and the Money view (money blinds) the
+// hang ends ~13 rem below the row, 7 rem past the body's 6 rem bottom padding. The vanilla Scrollable shows
+// its track when scrollHeight - 1 > offsetHeight (installed index.js@638418, re-run on any DOM mutation), so a
+// content-sized Scrollable drew a near-full-height bar, and its track (6-10 rem from the right edge, no gutter:
+// J8) ran over the Money tile, the one row without right-side room. Fix: the view slot clips what hangs below
+// it (overflow hidden; flex-shrink 0 so overflow hidden cannot let it shrink below its content). The .blind
+// rule itself is NOT changed: a clip there could change the measured widths in Gameface (unproven).
+// Measure: layoutReport.ts ` over=<n>` (0 = no overflow). Tooltips are portalled (index.js@540726): no clip.
 .viewSlot {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
 // -- status line (design 5.2) -------------------------------------------------------------------
@@ -1035,6 +1051,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+// Round S1 D29: "Powder day" in the hint slot reads in the normal text colour, not dim (same slot and size).
+// Declared after .statusHint: on equal specificity this rule wins.
+.statusHintOn {
+  color: var(--normalTextColor);
 }
 
 // -- open marks (design 5.3): 0.6 em shapes (the status line's mark; Round F7: the run rows say a word) --
@@ -1180,6 +1202,9 @@
 }
 
 // -- tiles = navigation (design 5.2) ------------------------------------------------------------------
+// Round S1 F: padding-right keeps the fifth tile clear of a real scrollbar (a long Runs list), like every
+// other row's >= 12 rem right room; each tile is 2 rem narrower ("Runs open" 56.6 / 93.1 / 117.5 rem still fits
+// 73 / 109 / 133 at 100 / 130 / 150 %).
 .tileRow {
   display: flex;
   flex-direction: row;
@@ -1188,6 +1213,7 @@
   margin-top: 6rem;
   margin-bottom: 6rem;
   padding-left: 10rem;
+  padding-right: 10rem;
 }
 
 // height = 1.25 em of M + 1.3 em of XS + 6 rem, border-box (U13): 41.6 / 62.4 / 76.3 rem.

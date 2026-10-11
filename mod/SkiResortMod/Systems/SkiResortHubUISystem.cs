@@ -8,7 +8,9 @@
 // NameSystem, the build launches, the camera fly-to for runs, lifts and buildings, the glade-tool
 // controls, auto-open on Welcome Sign selection, the uiHello handshake and what the piste-map overlay
 // (SkiPisteMapSystem, D19) reads. Created 2026-10-01 (Round U1, implementer U1-B); contract 2 written
-// 2026-10-03 (Rounds U2/M1, implementer I-4); contract 3 written 2026-10-04 (Round E1, stream S5). The
+// 2026-10-03 (Rounds U2/M1, implementer I-4); contract 3 written 2026-10-04 (Round E1, stream S5); contract 4
+// 2026-10-05 (Round S1 "Ski days", stream D; docs/research/ski-days/spec/ch4-hub.md §A.5: ten ResortLive fields
+// appended, the bindings and triggers unchanged). The
 // per-area numbers are NOT computed here: SkiResortStatsSystem owns them and this system only writes its
 // rows (resorts / resortLive / runs / runLive / lifts / problems / city) to the UI.
 //
@@ -277,8 +279,8 @@
 // registered.
 //
 // PISTE MAP (D19, ch5 §4.7, §8): this system only exposes what SkiPisteMapSystem reads every frame —
-// PisteMapVisible (armed, not disabled, the UI answered uiHello with contract 3, the hub open and the
-// toggle on: a few field reads), ShownSign (= the selected resort) and HoveredRun (validated). The toggle
+// PisteMapVisible (armed, not disabled, the UI answered uiHello with this DLL's contract (HubContract), the
+// hub open and the toggle on: a few field reads), ShownSign (= the selected resort) and HoveredRun (validated). The toggle
 // is session-only (on at every load, setPisteMap / the dev tab's TogglePisteMap, one "Hub [piste]" line
 // each). m_UiContractOk is NOT reset by a load: the UI module outlives a city load (U9, field check).
 //
@@ -329,9 +331,10 @@ namespace SkiResortMod.Systems
         public const string Group = "skiResort";
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a
-        /// binding, trigger, field or meaning changes. 3 = Round E1 (econ-round spec ch5 §4,
-        /// design hub-v3-design.md §8); 2 was hub-u2-spec.md §2 (Rounds U2/M1).</summary>
-        public const int HubContract = 3;
+        /// binding, trigger, field or meaning changes. 4 = Round S1, ski days, docs/research/ski-days/spec
+        /// (ch4 §A: ten ResortLive fields appended; the six last-month guest fields also for a partial month);
+        /// 3 was Round E1 (econ-round spec ch5 §4, design hub-v3-design.md §8); 2 was hub-u2-spec.md §2 (Rounds U2/M1).</summary>
+        public const int HubContract = 4;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed
         /// after the one-shot "!!!" until the next load (amended 2026-10-01, U1 fixer round, finding
@@ -772,8 +775,9 @@ namespace SkiResortMod.Systems
 
         // ── what the piste-map overlay reads (ch5 §4.7; header PISTE MAP) ─────────────────────────
 
-        /// <summary>D19: draw the piste map now. Armed, not disabled, the UI answered with contract 3, the hub
-        /// is open and the Piste map toggle is on. A few field reads; called every frame by SkiPisteMapSystem.</summary>
+        /// <summary>D19: draw the piste map now. Armed, not disabled, the UI answered with this DLL's contract
+        /// (HubContract), the hub is open and the Piste map toggle is on. A few field reads; called every frame by
+        /// SkiPisteMapSystem.</summary>
         internal bool PisteMapVisible => m_Armed && !m_Disabled && m_UiContractOk && m_HubOpen != null && m_HubOpen.value && m_PisteMapOn;
 
         /// <summary>The shown area (= SelectedResort): a live sign, or Entity.Null = the Not linked entry.</summary>
@@ -2046,7 +2050,7 @@ namespace SkiResortMod.Systems
             bool contractOk = contract == HubContract;
             bool stampOk = string.Equals(bundle, dll, StringComparison.Ordinal);
             bool uiOnly = bundle.StartsWith(StandaloneStampPrefix, StringComparison.Ordinal);
-            m_UiContractOk = contractOk;   // ch5 §4.2: the piste map draws only for a contract-3 UI (kept across loads)
+            m_UiContractOk = contractOk;   // ch5 §4.2: the piste map draws only for a UI of this contract (kept across loads)
             if (!contractOk)
             {
                 HandshakeText = $"CONTRACT MISMATCH: bundle {contract}, DLL {HubContract}; stamps bundle {bundle} / DLL {dll}";
@@ -2975,8 +2979,9 @@ namespace SkiResortMod.Systems
             writer.ArrayEnd();
         }
 
-        /// <summary>`resortLive` (bindings.ts ResortLive, 67 fields): the values that move, same order and
-        /// count as `resorts`, joined by sign (ch5 §4.4). Main thread.</summary>
+        /// <summary>`resortLive` (bindings.ts ResortLive, 77 fields): the values that move, same order and
+        /// count as `resorts`, joined by sign (ch5 §4.4). Main thread. Contract 4 (Round S1, ski-days ch4 §A.1)
+        /// appends the ten skiDays… fields after netEstimated.</summary>
         private void WriteResortLive(IJsonWriter writer)
         {
             int count = m_Stats.ResortLiveCount;
@@ -3119,6 +3124,27 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.NetMonth));
                 writer.PropertyName("netEstimated");
                 writer.Write(r.NetEstimated);
+                // Round S1 (contract 4, ski-days ch4 §A.1): appended in bindings.ts order; −1 unknown, State / Limit 0.
+                writer.PropertyName("skiDaysState");
+                writer.Write(Fin(r.SkiDaysState));
+                writer.PropertyName("skiDaysThisMonth");
+                writer.Write(Fin(r.SkiDaysThisMonth));
+                writer.PropertyName("skiDaysLastMonth");
+                writer.Write(Fin(r.SkiDaysLastMonth));
+                writer.PropertyName("skiDaysSent");
+                writer.Write(Fin(r.SkiDaysSent));
+                writer.PropertyName("skiDaysSentCar");
+                writer.Write(Fin(r.SkiDaysSentCar));
+                writer.PropertyName("skiDaysSentNoCar");
+                writer.Write(Fin(r.SkiDaysSentNoCar));
+                writer.PropertyName("skiDaysNow");
+                writer.Write(Fin(r.SkiDaysNow));
+                writer.PropertyName("skiDaysCap");
+                writer.Write(Fin(r.SkiDaysCap));
+                writer.PropertyName("skiDaysLimit");
+                writer.Write(Fin(r.SkiDaysLimit));
+                writer.PropertyName("skiDaysPowderPct");
+                writer.Write(Fin(r.SkiDaysPowderPct));
                 writer.TypeEnd();
             }
             writer.ArrayEnd();

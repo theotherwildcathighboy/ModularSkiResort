@@ -65,7 +65,11 @@
 //    recompute frames, the watch also reads every other Error carrier (m_ErrorQuery = the tool's own query; one
 //    IsEmptyIgnoreFilter when none): the union of their error types, their count and the lowest-index one's prefab
 //    join the change key, and the line says "…; elsewhere: error (blocks the click) InvalidShape on 1 other entity
-//    (SkiRunNaturalA)". (2) TRAILING FOLD. The fold's TrailingDue is also tested on hold frames (eligible Temp, no
+//    (SkiRunNaturalA)". Round S1 F3 (ski-days spec ch3 §5): a carrier with no error type of its own carries the
+//    game's Error tag for the eligible Temp's error (ValidationSystem.cs:1657-1664; the icon stays on the Temp,
+//    :1749-1752), so the line names it: "error (blocks the click) OverlapExisting; elsewhere: the run it overlaps,
+//    SkiRunSnowmakingA (the game tags it too, no icon of its own)" — "it overlaps" only when the Temp's own errors
+//    include OverlapExisting, else "the run the game marks with this error". (2) TRAILING FOLD. The fold's TrailingDue is also tested on hold frames (eligible Temp, no
 //    recompute; one int test while nothing is folded), so a folded summary is written once its window passes even
 //    while the cursor rests — not only at the next recompute, Invalidate, load or quit.
 //  * C3 (a double-black colour change) was CANCELLED by the owner (2026-10-04, field-test-7-notes-OWNER.md):
@@ -1880,20 +1884,42 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The eligible Temp's state (ValidationState), then the other carriers': "elsewhere: error (blocks the
-        /// click) InvalidShape on 1 other entity (SkiRunNaturalA)".</summary>
+        /// click) InvalidShape on 1 other entity (SkiRunNaturalA)". Round S1 F3 (ski-days spec ch3 §5, refutation R11):
+        /// when the other carriers have no error type of their own (elseErrors == 0), they carry the game's Error tag
+        /// for the eligible Temp's error — ValidationSystem.cs:1657-1664 tags the permanent entity an error names, for
+        /// ANY error at Override or above, and :1749-1752 gives the icon to the Temp only (ft8 V.1 #21) — so the line
+        /// names that: "the run it overlaps" when the Temp's own errors include OverlapExisting, else "the run the game
+        /// marks with this error" ("object" when the carrier is not one of our run prefabs).</summary>
         private string FullValidationState(uint errors, uint warnings, uint infos, byte tags, uint elseErrors, int elseCount,
             Entity elsePrefab)
         {
             string own = ValidationState(errors, warnings, infos, tags);
             if (elseCount == 0)
                 return own;
+            string name = elsePrefab != Entity.Null ? m_PrefabSystem.GetPrefabName(elsePrefab) : null;
+            if (elseErrors == 0u)
+            {
+                var tagged = new StringBuilder(160);
+                tagged.Append(own == "clear" ? "this run clear" : own).Append("; elsewhere: ");
+                string what = m_Ownership.IsRunPrefab(elsePrefab) ? "run" : "object";
+                bool overlap = (errors & (1u << (int)ErrorType.OverlapExisting)) != 0u;   // the eligible Temp's own errors
+                if (overlap)
+                    tagged.Append(elseCount == 1 ? "the " + what + " it overlaps" : elseCount + " objects it overlaps");
+                else   // ValidationSystem.cs:1661-1664 tags the partner for ANY error at Override or above
+                    tagged.Append(elseCount == 1 ? "the " + what + " the game marks with this error"
+                                                 : elseCount + " objects the game marks with this error");
+                if (!string.IsNullOrEmpty(name))
+                    tagged.Append(", ").Append(name).Append(elseCount > 1 ? " and others" : "");
+                tagged.Append(elseCount == 1 ? " (the game tags it too, no icon of its own)"
+                                             : " (the game tags them too, no icons of their own)");
+                return tagged.ToString();
+            }
             var types = new StringBuilder(64);
             AppendTypes(types, "", elseErrors);   // an empty builder: no separator, just the names
             var sb = new StringBuilder(160);
             sb.Append(own == "clear" ? "this run clear" : own).Append("; elsewhere: error (blocks the click) ")
-              .Append(types.Length > 0 ? types.ToString() : "with no type attached")
+              .Append(types.ToString())   // elseErrors != 0 here (Round S1 F3 took the untyped case above)
               .Append(" on ").Append(elseCount).Append(elseCount == 1 ? " other entity" : " other entities");
-            string name = elsePrefab != Entity.Null ? m_PrefabSystem.GetPrefabName(elsePrefab) : null;
             if (!string.IsNullOrEmpty(name))
                 sb.Append(" (").Append(name).Append(elseCount > 1 ? " and others)" : ")");
             return sb.ToString();

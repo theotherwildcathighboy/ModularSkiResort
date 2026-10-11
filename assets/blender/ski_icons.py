@@ -26,9 +26,12 @@ Tiles (file name = the prefab icon the hub shows; keeping a name keeps its .cid)
     SkiRunNightA             dark sky, low moon, steel floodlight mast with amber lamps, corduroy
 Launcher (not a Build-strip tile; added 2026-10-04 night, Round F7 item E1,
 docs/research/field-test-7-fixes.md):
-    SkiResortTab             the hub launcher's icon (HubLauncher.tsx HUB_ICON, the floating
+    SkiResortTab             was the hub launcher's icon (HubLauncher.tsx HUB_ICON, the floating
                              button and the Universal Mod Panel square, ~33 px at 1080p): a snowy
-                             peak, one red chair on a diagonal cable. Installed in
+                             peak, one red chair on a diagonal cable. No longer drawn since S1 F9
+                             (the launchers use SkiLauncherGlyph.svg, a white tinted mask made by
+                             ski_launcher_glyph.py; docs/research/ski-days/spec/ch5-launcher.md);
+                             kept as the rollback only. Installed in
                              ImportedData\\SkiResortCategory\\ (not SkiResortIcons) and keeps its
                              hand-minted cid aed39078... (KEEP_CID), so HUB_ICON stays as is. The
                              old dark-plate PNG: gamedata-mirror/retired/2026-10-04-launcher-pre-edit/.

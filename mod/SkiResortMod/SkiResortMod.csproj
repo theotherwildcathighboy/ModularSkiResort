@@ -204,8 +204,9 @@
 		     *.lock wildcard matches nothing (and adds no input) until the lock file exists. -->
 		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\SkiResortHubUISystem.cs" />
 		<!-- Round E1 (econ-round spec ch6 §10.3, gate rule R17): the gate compares these files' enums with
-		     bindings.ts, so a C#-only change of a compared enum must re-run it. -->
-		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\HubRules.cs;$(MSBuildProjectDirectory)\Systems\EntityRef.cs;$(MSBuildProjectDirectory)\Systems\SkiMoneyRules.cs" />
+		     bindings.ts, so a C#-only change of a compared enum must re-run it. Round S1 (ski-days s1-spec §4.2
+		     step 8) appends SkiDayRules.cs: its top-level SkiDayLimit is the SKI_DAY_LIMIT pair. -->
+		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\HubRules.cs;$(MSBuildProjectDirectory)\Systems\EntityRef.cs;$(MSBuildProjectDirectory)\Systems\SkiMoneyRules.cs;$(MSBuildProjectDirectory)\Systems\SkiDayRules.cs" />
 		<SkiUiInput Include="$(SkiUiDir)\tools\*.lock" />
 		<SkiUiInput Include="$(SkiCsiiInstall)\Cities2_Data\Content\Game\.ModdingToolchain\npx-create-csii-ui-mod\template\types\*.d.ts" Condition="'$(SkiCsiiInstall)' != ''" />
 		<SkiUiInput Include="$(SkiCsiiInstall)\Cities2_Data\Content\Game\UI\index.js" Condition="'$(SkiCsiiInstall)' != ''" />
