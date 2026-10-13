@@ -55,6 +55,10 @@ $KnownVanilla = @{
     # dump-verified by cs2_liftdress.SUBOBJ and / or assets/blender/subobj_bounds.json (lodge.verified_guids).
     "b99325ff4ff4dfd459734d8f765c2597" = "ACVentWallRandom01 placeholder (inferred: variants ACVentWall01/ACVentWall02/ACVentWall03/ACVentWall04 back-ref it; dump-verified subobj_bounds.json)"
     "fb4247f7a6f75b1478d9dd01ac88ce86" = "BarrelRandom01 placeholder (inferred: variants Barrel01/Barrel02/Barrel03 back-ref it; dump-verified cs2_liftdress.SUBOBJ + subobj_bounds.json)"
+    # Orange safety-net fence (S1, build/safety-fence.md 4.3): the vanilla UI group and category its staged
+    # NetFencePrefab references (read from the installed 1.6.2 resources.assets PrefabsMap, design/safety-fence.md).
+    "05564431524791c48846dbd183fd232d" = "UIObject group Landscaping > Pathways (vanilla; the fence's toolbar home)"
+    "71df37e0fc45ade46a64fba0eedd7c54" = "UIObjectOverrideGroup Fences category (vanilla; no menu, Find It-side only)"
     "024ff26a34d89b241b55fd5ea12c5dcc" = "ChairCommercialRandom01 placeholder (inferred: variants ChairCommercial01/ChairCommercial02/ChairCommercial03/ChairCommercial04 back-ref it; dump-verified subobj_bounds.json)"
     "63c46490ab59afd4dae01ee442f1e462" = "DeckChairRandom01 placeholder (inferred: variants DeckChair01/DeckChair02/DeckChair03 back-ref it; dump-verified subobj_bounds.json)"
     "68c87b3894d5ed74d8180dd43c12da30" = "FenceResidentialPieceLowRandom01 placeholder (inferred: variants FenceResidentialPieceLow01/FenceResidentialPieceLow02 back-ref it; dump-verified subobj_bounds.json)"
