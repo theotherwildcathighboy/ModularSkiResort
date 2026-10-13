@@ -68,6 +68,19 @@
 //              now + 2 game h) through SkiDayTiming.PullDeadline, only while our value is still in place; vanilla's
 //              LeisureSystem then ends the visit (LeisureSystem.cs:314-317, 1.6.2 :308-311). c.Deadline moves with it.
 // The claim grows to 128 bytes (4.0 MiB at the cap), the ring record to 108; RM.Count 704, RH.Count 67.
+//
+// CATALOG PHASE B (2026-10-11, economy group; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §7.4,
+// risk R-a). The lodge ladder, the mountain lodges and the school reach the jobs as plain struct fields filled on the main
+// thread (SkiDaySystem.RebuildSnapshot, from SkiResortAttractivenessSystem.CopyActiveLodgeInfo and SkiCatalog.Lodges): no
+// managed catalog row is read in a job. LodgeJob gains Capacity, PriceTolerance and NoRoadNeeded (RoadRule != Base)
+// (it had a Counted flag for a luxury lodge the ladder's cap ignored; removed 2026-10-11 with the one-luxury-lodge cap:
+// every passing lodge holds skiers); AreaJob gains SchoolFactor (SchoolRule.DemandFactorOf);
+// ClaimOut gains PriceTolerance and LodgeCapacity. Step A: LodgeFacts.NoRoadNeeded from the entry; capacity = Σ Capacity
+// over passing lodges (SkiDayRules.Capacity's per-tier overload); TARGETS = passing lodges with a Base road rule
+// (claims, TargetLodges, AreaFacts.SkiDayLodges, NearestTarget) — a mountain lodge holds skiers but is never a claim
+// target; the area's PriceTolerance = max over passing lodges. Step B (and TooLate's measure): Chance(…, Price,
+// the area's PriceTolerance, aj.SchoolFactor, …). For an A-frame-only area every number equals today's (CheckLodge
+// verdicts, 360 × n, tolerance 0, factor 1).
 
 using Colossal.Entities;   // ComponentLookup.TryGetEnabledComponent (the reserve job's own call, CitizenBehaviorSystem.cs:67)
 using Game.Agents;
@@ -292,13 +305,19 @@ namespace SkiResortMod.Systems
             public int LodgeStart, LodgeCount, RunStart, RunCount, StationStart, StationCount, Attraction, RunsCounted;
             public byte ScoreKnown, WriteHeld, NightRunOpen;
             public double Efficiency, RunsCapacity, OpenShare, Powder;   // Powder NaN = unknown (0 in the formulas)
+            public double SchoolFactor;   // Catalog Phase B (R13): SchoolRule.DemandFactorOf(Result.SchoolActive, GreenCounted); 1 = none
         }
 
-        /// <summary>One active lodge of the snapshot (the sign itself excluded); lodges of one area are contiguous.</summary>
+        /// <summary>One active lodge of the snapshot (the sign itself excluded); lodges of one area are contiguous.
+        /// Catalog Phase B: its tier's numbers, copied on the main thread (header CATALOG PHASE B).</summary>
         private struct LodgeJob
         {
             public Entity Lodge;
             public int Area;
+            public int Capacity;          // SkiCatalog.Lodges[i].Capacity (skiers a day; A-frame 360)
+            public int PriceTolerance;    // SkiCatalog.Lodges[i].PriceTolerance
+            public byte NoRoadNeeded;     // 1 = RoadRule != Base (a mountain lodge: passes without a road, never a claim target)
+            public short LodgeIndex;      // SkiCatalog.Lodges index (logs and DUMP only)
         }
 
         /// <summary>SiteJob's per-lodge result, aligned with the lodge list.</summary>
@@ -322,6 +341,9 @@ namespace SkiResortMod.Systems
             // Round M1 (M4, F11): the sum of the chances of the decisions that entered the pool (mean = / Pool), and of
             // the chances the decisions refused as too late to fit would have had here ("expected ski days lost").
             public double PoolChanceSum, TooLateChanceSum;
+            // Catalog Phase B (header CATALOG PHASE B): step A's max PriceTolerance over passing lodges (the
+            // chance's price factor) and Σ Capacity over them (the lodge side of the capacity; DUMP).
+            public int PriceTolerance, LodgeCapacity;
         }
 
         /// <summary>ResolveJob's per-area outcome counters (one extra row for orphans, ch2 §5.4).</summary>
@@ -1625,6 +1647,7 @@ namespace SkiResortMod.Systems
                         LeisureTagged = LeisureProviders.HasComponent(l),   // the searchable tag a TO gate removes
                         HasRoad = hasB && b.m_RoadEdge != Entity.Null,
                         NearestRunOrStationM = hasSite ? Sites[li].NearestRunOrStationM : float.PositiveInfinity,
+                        NoRoadNeeded = Lodges[li].NoRoadNeeded != 0,   // Catalog Phase B (R9): a mountain lodge needs no road
                     };
                     LodgeReject[li] = (byte)SkiDayRules.CheckLodge(facts);
                 }
@@ -1633,15 +1656,23 @@ namespace SkiResortMod.Systems
                 for (int a = 0; a < areaCount; a++)
                 {
                     AreaJob aj = Areas[a];
-                    int target = 0;
+                    // Catalog Phase B (header CATALOG PHASE B; was `target++` per passing lodge and Capacity(runs, target, …)):
+                    // targets = passing Base-road lodges; capacity and tolerance = passing lodges (every one holds skiers).
+                    int target = 0, tolerance = 0;
+                    long lodgeCapacity = 0;
                     int end = math.min(aj.LodgeStart + aj.LodgeCount, lodges);
                     for (int li = math.max(0, aj.LodgeStart); li < end; li++)
                     {
-                        if (LodgeReject[li] == (byte)SkiDayRules.LodgeReject.None)
+                        if (LodgeReject[li] != (byte)SkiDayRules.LodgeReject.None)
+                            continue;
+                        LodgeJob lj = Lodges[li];
+                        if (lj.NoRoadNeeded == 0)
                             target++;
+                        lodgeCapacity += math.max(0, lj.Capacity);
+                        tolerance = math.max(tolerance, lj.PriceTolerance);
                     }
                     bool night = aj.NightRunOpen != 0;
-                    double capacity = SkiDayRules.Capacity(aj.RunsCapacity, target, aj.Powder, out SkiDayLimit limit);
+                    double capacity = SkiDayRules.Capacity(aj.RunsCapacity, (double)lodgeCapacity, target, aj.Powder, out SkiDayLimit limit);
                     int capacityPeople = SkiDayRules.CapacityPeople(capacity);
                     bool hours = SkiDayRules.InClaimWindow(TimeOfDay, night);
                     bool hasClosing = SkiDayRules.TryClosingFrame(Now, TimeOfDay, night, out uint closing);
@@ -1663,6 +1694,8 @@ namespace SkiResortMod.Systems
                         Limit = (byte)limit,
                         ClaimHours = (byte)(hours ? 1 : 0),
                         ClosingFrame = hasClosing ? closing : 0u,
+                        PriceTolerance = tolerance,                                       // Catalog Phase B
+                        LodgeCapacity = (int)math.min(lodgeCapacity, (long)int.MaxValue),
                     };
                     if (state == SkiDayRules.AreaState.Open)
                         anyOpen = true;
@@ -1836,8 +1869,9 @@ namespace SkiResortMod.Systems
                             TooLate(a, cls, who, aj, d, hours, leisure.m_LastPossibleFrame, co.ClosingFrame, t);   // Round M1 M4, measure only
                         continue;
                     }
+                    // Catalog Phase B (round-2-contract §7.3-§7.4): the area's price tolerance and school factor.
                     double p = SkiDayRules.Chance(who, aj.Attraction, d / 1000.0, aj.OpenShare, aj.Powder, Price,
-                                                  SkiDayRules.Confidence(cls, t), Knobs);
+                                                  co.PriceTolerance, aj.SchoolFactor, SkiDayRules.Confidence(cls, t), Knobs);
                     if (!SkiDayRules.IsBetter(p, d, aj.SignRef, bestP, bestD, bestSign))
                         continue;
                     bestA = a;
@@ -1973,7 +2007,7 @@ namespace SkiResortMod.Systems
                 MeasureWrite.Bump(Measure, a * CM.Count + (fit == SkiDayRules.Fit.NoTimeBeforeOwnDeadline ? CM.TooLateOwn : CM.TooLateClosing) + (int)cls);
                 ClaimOut co = Out[a];
                 co.TooLateChanceSum += SkiDayRules.Chance(who, aj.Attraction, d / 1000.0, aj.OpenShare, aj.Powder, Price,
-                                                          SkiDayRules.Confidence(cls, t), Knobs);
+                                                          co.PriceTolerance, aj.SchoolFactor, SkiDayRules.Confidence(cls, t), Knobs);   // Catalog Phase B
                 Out[a] = co;
             }
 
@@ -1992,17 +2026,19 @@ namespace SkiResortMod.Systems
                 return free;
             }
 
-            /// <summary>The nearest target lodge (LodgeReject.None, with a position) of the area from the origin
-            /// (straight line, xz); −1 if none.</summary>
+            /// <summary>The nearest target lodge (LodgeReject.None, a Base road rule — Catalog Phase B: a mountain lodge is
+            /// never a claim target — with a position) of the area from the origin (straight line, xz); −1 if none.</summary>
             private int NearestTarget(AreaJob aj, float2 origin, out float distance)
             {
                 distance = float.PositiveInfinity;
                 int best = -1;
-                int end = math.min(aj.LodgeStart + aj.LodgeCount, math.min(LodgeReject.Length, Sites.Length));
+                int end = math.min(aj.LodgeStart + aj.LodgeCount, math.min(LodgeReject.Length, math.min(Sites.Length, Lodges.Length)));
                 for (int li = math.max(0, aj.LodgeStart); li < end; li++)
                 {
                     if (LodgeReject[li] != (byte)SkiDayRules.LodgeReject.None)
                         continue;
+                    if (Lodges[li].NoRoadNeeded != 0)
+                        continue;   // Catalog Phase B (round-2-contract §7.4): targets = Base road lodges
                     SiteOut so = Sites[li];
                     if (so.HasPosition == 0)
                         continue;

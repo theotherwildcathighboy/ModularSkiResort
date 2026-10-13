@@ -47,6 +47,12 @@
 //      seed 20261010), the bound property (5,000 rows, seed 20261010), FitSpeed.
 //   X  (38) SkiTripSystems (enabled-flags.md §3): BitOfAssembly, Names, Long, Short, LoadLine, ChangeLine, Label,
 //      UnknownLabel, BlocksSkiDays.
+// CATALOG PHASE B (docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.2, economy group 2026-10-11):
+//   Y  PriceFactor(price, tolerance) rows and PriceFactor(p) ≡ PriceFactor(p, 0) for p −10..260; the per-tier Capacity
+//      overload rows and old ≡ new (r, 360 n, n, p) bit for bit (n 0..10, r {0, 100, 1e6, NaN}, p {0, 0.5, 1});
+//      CheckLodge with NoRoadNeeded; Chance with the school (resident × 1.2 below the clamp, tourist unchanged) and the
+//      tolerance, old ≡ new (…, 0, 1.0, …) over the G rows and 20,000 random sets; SchoolRule / PatrolRule unit rows
+//      (inclusive 1,000 m; black / double black only; served ignores patrol; max(0.4, 0.7) = 0.7, max(1.0, 0.7) = 1.0).
 // Property sections count their violations and report once per property (the first offender in the message), so
 // the check count stays small and fixed.
 
@@ -98,6 +104,7 @@ namespace ResortBatch
             MeasureCore();        // V (Round M2 measure-core)
             Learning();           // W (Round M2 R10)
             TripSystems();        // X (Round M2 R9)
+            CatalogPhaseB();      // Y (Catalog Phase B: tolerance, per-tier capacity, mountain lodges, school, patrol)
         }
 
         private static bool Check(bool cond, string where, string msg)
@@ -2006,6 +2013,142 @@ namespace ResortBatch
             var blocks = new (int on, bool want)[] { (63, false), (3, false), (60, true), (62, true), (61, true), (0, true) };
             for (int i = 0; i < blocks.Length; i++)
                 Check(SkiTripSystems.BlocksSkiDays(blocks[i].on) == blocks[i].want, w + " blocks", $"BlocksSkiDays({blocks[i].on}) expected {blocks[i].want}");
+        }
+
+        // ================================================================== Y. Catalog Phase B (round-2-contract §7.2-§7.3)
+
+        private static void CatalogPhaseB()
+        {
+            const string w = "skiday Y";
+            // PriceFactor with a lodge price tolerance (exact in int before the one division).
+            var price = new (int p, int t, double f)[] { (80, 0, 0.8), (80, 20, 0.9), (80, 40, 1.0), (200, 40, 0.4), (200, 0, 0.2), (250, 40, 0.4), (0, 40, 1.0) };
+            for (int i = 0; i < price.Length; i++)
+            {
+                double got = Rules.PriceFactor(price[i].p, price[i].t);
+                Check(Near(got, price[i].f, 1e-12), w + " price", $"PriceFactor({price[i].p}, {price[i].t}) = {R(got)}, expected {price[i].f}");
+            }
+            Check(Rules.PriceFactor(80, 40) == 1.0 && Rules.PriceFactor(100, -5) == Rules.PriceFactor(100), w + " price",
+                  "PriceFactor(80, 40) is exactly 1; a negative tolerance reads 0");
+            int priceFails = 0;
+            for (int p = -10; p <= 260; p++)
+            {
+                if (BitConverter.DoubleToInt64Bits(Rules.PriceFactor(p)) != BitConverter.DoubleToInt64Bits(Rules.PriceFactor(p, 0)))
+                    priceFails++;
+            }
+            Check(priceFails == 0, w + " price", $"PriceFactor(p) ≡ PriceFactor(p, 0) bit for bit for p −10..260 ({priceFails} differ)");
+            Check(Rules.PriceFactor(150, int.MaxValue) == 1.0 && Rules.PriceFactor(150, int.MinValue) == Rules.PriceFactor(150), w + " price",
+                  "extreme tolerances: clamped, no overflow");
+
+            // Capacity by tier.
+            double c1 = Rules.Capacity(2000, 1080.0, 2, 0, out SkiDayLimit l1);
+            double c2 = Rules.Capacity(500, 1080.0, 2, 0, out SkiDayLimit l2);
+            double c3 = Rules.Capacity(2000, 200.0, 0, 0, out SkiDayLimit l3);
+            Check(c1 == 1080 && l1 == SkiDayLimit.Lodges, w + " capacity", $"(2000, 1080, 2, 0) → {R(c1)} {l1}, expected 1080 Lodges");
+            Check(c2 == 500 && l2 == SkiDayLimit.Runs, w + " capacity", $"(500, 1080, 2, 0) → {R(c2)} {l2}, expected 500 Runs");
+            Check(c3 == 200 && l3 == SkiDayLimit.Lodges, w + " capacity", $"(2000, 200, 0, 0) → {R(c3)} {l3}, expected 200, limit Lodges (no target lodge)");
+            Check(Rules.Capacity(100, double.NaN, 1, 0, out SkiDayLimit l4) == 0 && l4 == SkiDayLimit.Lodges, w + " capacity", "NaN lodge capacity reads 0");
+            double[] runsIn = { 0, 100, 1e6, double.NaN };
+            double[] powderIn = { 0, 0.5, 1 };
+            int capFails = 0;
+            for (int n = 0; n <= 10; n++)
+            {
+                for (int r = 0; r < runsIn.Length; r++)
+                {
+                    for (int p = 0; p < powderIn.Length; p++)
+                    {
+                        double old = Rules.Capacity(runsIn[r], n, powderIn[p], out SkiDayLimit lo);
+                        double neu = Rules.Capacity(runsIn[r], n * Rules.LodgeSkiersPerDay, n, powderIn[p], out SkiDayLimit ln);
+                        // Step A's form: the int sum of 360 per lodge, then double.
+                        long sum = 0;
+                        for (int k = 0; k < n; k++)
+                            sum += (long)SkiCatalog.Lodges[0].Capacity;
+                        double step = Rules.Capacity(runsIn[r], (double)sum, n, powderIn[p], out SkiDayLimit ls);
+                        if (BitConverter.DoubleToInt64Bits(old) != BitConverter.DoubleToInt64Bits(neu) || lo != ln ||
+                            BitConverter.DoubleToInt64Bits(old) != BitConverter.DoubleToInt64Bits(step) || lo != ls)
+                            capFails++;
+                    }
+                }
+            }
+            Check(capFails == 0, w + " capacity", $"old (r, n, p) ≡ new (r, 360 n, n, p) ≡ step A's Σ 360 bit for bit ({capFails} differ)");
+
+            // CheckLodge: a mountain lodge needs no road.
+            Rules.LodgeFacts mountain = GoodLodge(500f);
+            mountain.HasRoad = false;
+            mountain.NoRoadNeeded = true;
+            Check(Rules.CheckLodge(mountain) == LodgeReject.None, w + " lodge", "no road + NoRoadNeeded → None");
+            mountain.NoRoadNeeded = false;
+            Check(Rules.CheckLodge(mountain) == LodgeReject.NoRoad, w + " lodge", "no road without NoRoadNeeded → NoRoad (unchanged)");
+            mountain = GoodLodge(900f);
+            mountain.HasRoad = false;
+            mountain.NoRoadNeeded = true;
+            Check(Rules.CheckLodge(mountain) == LodgeReject.NotSlopeside, w + " lodge", "a mountain lodge is still judged slope-side");
+            Check(!default(Rules.LodgeFacts).NoRoadNeeded, w + " lodge", "NoRoadNeeded defaults to false (road required)");
+
+            // Chance with the school and the tolerance.
+            Rules.Knobs def = K();
+            double res = Rules.Chance(GK.Resident, 75, 3.36, 1, 0, 40, 1, def);
+            double resSchool = Rules.Chance(GK.Resident, 75, 3.36, 1, 0, 40, 0, SchoolRule.DemandFactor, 1, def);
+            Check(resSchool == res * 1.2 && Near(resSchool, 0.1365, 1e-9), w + " chance", $"resident with school {R(resSchool)} = 1.2 × {R(res)}");
+            double tour = Rules.Chance(GK.Tourist, 75, 3.36, 1, 0, 40, 1, def);
+            Check(Rules.Chance(GK.Tourist, 75, 3.36, 1, 0, 40, 0, SchoolRule.DemandFactor, 1, def) == tour, w + " chance", "tourists ignore the school");
+            double high = Rules.Chance(GK.Resident, 75, 3.36, 1, 0, 200, 1, def);
+            double highTol = Rules.Chance(GK.Resident, 75, 3.36, 1, 0, 200, 40, 1.0, 1, def);
+            Check(Near(highTol, high * 2.0, 1e-12), w + " chance", $"price 200, tolerance 40: P 0.4 instead of 0.2 ({R(highTol)} = 2 × {R(high)})");
+            Check(Near(Rules.Chance(GK.Resident, 200, 0.5, 1, 1, 0, 0, 1.2, 1, K(50, 100, 12, 200)), 0.72, 1e-9), w + " chance",
+                  "the clamp: R10's 0.6 × 1.2 = 0.72 (≤ 1)");
+            Check(Rules.Chance(GK.Resident, 75, 3.36, 1, 0, 40, 0, double.NaN, 1, def) == res &&
+                  Rules.Chance(GK.Resident, 75, 3.36, 1, 0, 40, 0, -2, 1, def) == res &&
+                  Rules.Chance(GK.Resident, 75, 3.36, 1, 0, 40, 0, double.PositiveInfinity, 1, def) == res, w + " chance",
+                  "a NaN / negative / infinite school factor reads 1");
+            // Old ≡ new (…, 0, 1.0, …) bit for bit over random sets.
+            var rng = new System.Random(20261011);
+            int chanceFails = 0;
+            for (int i = 0; i < 20000; i++)
+            {
+                GK who = rng.Next(2) == 0 ? GK.Resident : GK.Tourist;
+                int a = rng.Next(-20, 230);
+                double d = rng.NextDouble() * 15.0, o = rng.NextDouble() * 1.2, pw = rng.NextDouble() * 1.2, cf = rng.NextDouble() * 1.1;
+                int pr = rng.Next(-10, 260);
+                Rules.Knobs k = K(rng.Next(-5, 60), rng.Next(-5, 110), rng.Next(0, 14), rng.Next(-5, 220));
+                double oldP = Rules.Chance(who, a, d, o, pw, pr, cf, k);
+                double newP = Rules.Chance(who, a, d, o, pw, pr, 0, 1.0, cf, k);
+                if (BitConverter.DoubleToInt64Bits(oldP) != BitConverter.DoubleToInt64Bits(newP))
+                    chanceFails++;
+                double school = Rules.Chance(who, a, d, o, pw, pr, 0, 1.2, cf, k);
+                if (who == GK.Tourist ? school != oldP : !(school >= oldP && school <= 1.0))
+                    chanceFails++;
+                double tol = Rules.Chance(who, a, d, o, pw, pr, 40, 1.0, cf, k);
+                if (!(tol >= oldP))
+                    chanceFails++;
+            }
+            Check(chanceFails == 0, w + " chance", $"20,000 random sets: old ≡ new (…, 0, 1.0, …), school only raises residents, tolerance only raises ({chanceFails} failure(s))");
+
+            // SchoolRule.
+            Check(SchoolRule.ScoreValueOf(true, true) == 12 && SchoolRule.ScoreValueOf(true, false) == 0 && SchoolRule.ScoreValueOf(false, true) == 0 &&
+                  SchoolRule.ScoreValueOf(false, false) == 0, w + " school", "ScoreValueOf: 12 only while active with a counted green run");
+            Check(SchoolRule.DemandFactorOf(true, true) == 1.2 && SchoolRule.DemandFactorOf(true, false) == 1.0 && SchoolRule.DemandFactorOf(false, true) == 1.0,
+                  w + " school", "DemandFactorOf: 1.2 only while active with a counted green run");
+
+            // PatrolRule.
+            var huts = new List<float2> { new float2(0f, 0f) };
+            Check(PatrolRule.Patrolled(new float2(1000f, 0f), huts) && PatrolRule.Patrolled(new float2(600f, 800f), huts) &&
+                  PatrolRule.Patrolled(new float2(0f, -1000f), huts), w + " patrol", "1,000 m is inclusive (axis and 600 / 800)");
+            Check(!PatrolRule.Patrolled(new float2(1000.1f, 0f), huts) && !PatrolRule.Patrolled(new float2(0f, 0f), new List<float2>()) &&
+                  !PatrolRule.Patrolled(new float2(0f, 0f), null) && !PatrolRule.Patrolled(new float2(float.NaN, 0f), huts), w + " patrol",
+                  "beyond 1,000 m, no hut, null list or a NaN run top → not patrolled");
+            var two = new List<float2> { new float2(float.NaN, 0f), new float2(5000f, 5000f) };
+            Check(!PatrolRule.Patrolled(new float2(0f, 0f), two) && PatrolRule.Patrolled(new float2(5500f, 5500f), two), w + " patrol",
+                  "a NaN hut is skipped, the next one still counts");
+            Score.BandState rated = Score.BandState.Rated;
+            Check(PatrolRule.TypeFactorOf(1.0, true, rated, Score.BandBlack) == 1.15 && PatrolRule.TypeFactorOf(1.0, true, rated, Score.BandDoubleBlack) == 1.15 &&
+                  PatrolRule.TypeFactorOf(0.75, true, rated, Score.BandBlue) == 0.75 && PatrolRule.TypeFactorOf(1.0, true, rated, Score.BandGreen) == 1.0 &&
+                  PatrolRule.TypeFactorOf(1.0, false, rated, Score.BandBlack) == 1.0 &&
+                  PatrolRule.TypeFactorOf(0.5, true, Score.BandState.Unrateable, Score.BandBlack) == 0.5, w + " patrol",
+                  "× 1.15 for patrolled Rated black / double black only");
+            Check(PatrolRule.ServedFactorOf(true, true, 0.4) == 1.0 && PatrolRule.ServedFactorOf(true, false, 0.4) == 1.0 &&
+                  PatrolRule.ServedFactorOf(false, true, 0.4) == 0.7 && PatrolRule.ServedFactorOf(false, true, 1.0) == 1.0 &&
+                  PatrolRule.ServedFactorOf(false, false, 0.4) == 0.4 && PatrolRule.ServedFactorOf(false, true, double.NaN) == 0.7, w + " patrol",
+                  "served ignores patrol; max(0.4, 0.7) = 0.7, max(1.0, 0.7) = 1.0; unpatrolled = backcountry");
         }
 
         /// <summary>One string check with both strings in the message on a mismatch.</summary>

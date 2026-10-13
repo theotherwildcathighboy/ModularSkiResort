@@ -18,6 +18,8 @@
 // M2 (docs/research/round-m2/understand/hub-price.md, option 4b; ruling R7, texts build-contract.md §6.9): the Locals who
 // ski and Lift ticket price descriptions say what the price does (ski days only, no effect up to 40) and follow R2's
 // gate (an open run; the operating-lift branch of the ticket gate is gone).
+// Catalog Phase B (docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §8.6, §9, D15): the Lodge spend
+// per guest slider (Balance group, after Lift ticket price). Plain characters only.
 // Additional languages: add further IDictionarySource implementations (or a translations
 // file) and AddSource them with the matching locale id — see SPEC §13 Phase 6.
 
@@ -154,6 +156,18 @@ namespace SkiResortMod.Settings
                     "then fewer: about 80 % as many at 80 and 20 % at 200. Visitors the game sends on its own come " +
                     "at any price (and still pay it), and the attraction score ignores it. One price for " +
                     "every ski area, shown in the hub's Money view. 0 turns tickets off. Default 40."
+                },
+                // Catalog Phase B (round-2-contract §8.6 / §9, D15): the contract's text plus D15's "price 0 = nothing
+                // charged" (documented in the slider tip) and the default. Multipliers: SkiCatalog.LodgeDef.SpendMultiplier.
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LodgeSpendPerGuest)),
+                    "Lodge spend per guest"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LodgeSpendPerGuest)),
+                    "Each paying ski guest also spends this at the lodge they arrive at (more at bigger lodges). " +
+                    "Charged with the lift ticket, so nothing is spent while the ticket price is 0; a household " +
+                    "spends only what it has left after its tickets. 0 turns it off. Default 0."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.EnableSnowGating)),

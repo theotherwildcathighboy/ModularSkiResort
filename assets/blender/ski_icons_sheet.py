@@ -23,6 +23,14 @@ Ported 2026-10-04 from the session generator of the style-E round (ski_icons_e2.
 nine tiles, the floating button at 1080p (button 40 px, icon 33 px) and 4K (80 / 68 px) as
 measured in docs/research/field/2026-10-04/20.23.05.92.png, area average and bilinear, greyscale,
 zoomed, before / after. --before = the old launcher PNG (default: the retired copy).
+
+    ... ski_icons_sheet.py --contact --out <dir> [--name build-strip.png]
+
+--contact (round 2, 2026-10-11; docs/research/art/assets-2026-10/build/icons-round-2.md) writes the
+contact sheet of all 25 Build-strip tiles instead: every tile at 64 px on an 88 px hub tile in
+BUILD_GROUPS order with step digits and run stripes, the round-2 tiles labelled in amber; the
+strip at the real 1080p size (30 px) as the pickers draw it for five lodge-tier / lift-type pairs,
+actual size and zoomed x3; and the 16 round-2 tiles at 160 px.
 """
 
 import argparse
@@ -44,7 +52,7 @@ TILE_ACCENT = (75, 195, 241)        # --accentColorNormal #4bc3f1
 LOCKED = (211, 143, 7)              # --lockedColor #d38f07
 TEXT = (240, 251, 255)              # --normalTextColor #F0FBFF
 
-STRIP_ORDER = si.STRIP_ORDER
+STRIP_ORDER = si.E1_NINE          # the default sheet reviews the nine of the 2026-10-04 round
 STEP = si.STEP
 GROUPS = [2, 3, 4]
 KIND = {"SkiRunNaturalA": "natural", "SkiRunGroomedA": "groomed",
@@ -597,6 +605,151 @@ def make_launcher_sheet(icons, launcher, before, path):
     si.write_png(path, cv.png()[:y])
 
 
+# ---------------------------------------------------------------------------------------------
+# Contact sheet of all 25 tiles (--contact; round 2, 2026-10-11)
+# ---------------------------------------------------------------------------------------------
+CONTACT_LABEL = {
+    "SkiResortGate": "WELCOME SIGN", "SkiAFrameDayLodge": "A-FRAME LODGE",
+    "SkiLodgeHut": "MOUNTAIN HUT", "SkiLodgeMid": "CHALET LODGE", "SkiLodgeSummit": "SUMMIT LODGE",
+    "SkiLodgeGrand": "GRAND LODGE", "SkiSchool": "SKI SCHOOL", "SkiPatrolHut": "PATROL HUT",
+    "SkiPatrolHQ": "PATROL HQ",
+    "SkiBaseStationBuilding": "FG BASE", "SkiTopStationBuilding": "FG TOP",
+    "SkiChairliftLine": "FG LINE",
+    "SkiDQBaseStationBuilding": "DQ BASE", "SkiDQTopStationBuilding": "DQ TOP",
+    "SkiDetachableLine": "DQ LINE",
+    "SkiGondolaBaseStationBuilding": "GONDOLA BASE", "SkiGondolaTopStationBuilding": "GONDOLA TOP",
+    "SkiGondolaLine": "GONDOLA LINE",
+    "SkiTramBaseStationBuilding": "TRAM BASE", "SkiTramTopStationBuilding": "TRAM TOP",
+    "SkiTramLine": "TRAM LINE",
+    "SkiRunNaturalA": "NATURAL", "SkiRunGroomedA": "GROOMED", "SkiRunSnowmakingA": "SNOWMAKING",
+    "SkiRunNightA": "NIGHT",
+}
+LODGES = ["SkiAFrameDayLodge", "SkiLodgeHut", "SkiLodgeMid", "SkiLodgeSummit", "SkiLodgeGrand"]
+CIVIC = ["SkiSchool", "SkiPatrolHut", "SkiPatrolHQ"]
+LIFT_TYPES = [["SkiBaseStationBuilding", "SkiTopStationBuilding", "SkiChairliftLine"],
+              ["SkiDQBaseStationBuilding", "SkiDQTopStationBuilding", "SkiDetachableLine"],
+              ["SkiGondolaBaseStationBuilding", "SkiGondolaTopStationBuilding", "SkiGondolaLine"],
+              ["SkiTramBaseStationBuilding", "SkiTramTopStationBuilding", "SkiTramLine"]]
+RUNS = ["SkiRunNaturalA", "SkiRunGroomedA", "SkiRunSnowmakingA", "SkiRunNightA"]
+NEW_COL = (255, 196, 70)            # round-2 labels (the hub's amber)
+
+
+def draw_tile(cv, icon, name, x, y, s, u, kind_rs="area"):
+    """One Build-strip tile as hub.module.scss draws it (tile 44 rem x s, icon 30 rem x s, the run
+    stripe, the step digit) with its top-left at (x, y). Returns the tile width."""
+    tw = 44.0 * s * u
+    px0, py0, px1, py1 = x, y, x + tw, y + tw
+    cv.rect(px0, py0, px1, py1, 2 * u, TILE_BG)
+    isz = int(round(30 * s * u))
+    ix = int(round((px0 + px1) / 2 - isz / 2))
+    iy = int(round((py0 + py1) / 2 - isz / 2))
+    cv.paste_premul(resize_premul(icon, isz, kind_rs), ix, iy)
+    kind = KIND.get(name)
+    if kind:
+        sx0, sx1, sy1 = px0 + 6 * u * s, px1 - 6 * u * s, py1 - 2 * u * s
+        sy0 = sy1 - 4 * u * s
+        if kind == "groomed":
+            cv.rect(sx0, sy0, sx1, sy1, 2 * u, si.HUB_WHITE)
+        elif kind == "night":
+            cv.rect(sx0, sy0, sx1, sy1, 2 * u, si.HUB_AMBER)
+        elif kind == "snowmaking":
+            cv.ring_rect(sx0, sy0, sx1, sy1, 2 * u, 1 * u, si.HUB_CYAN)
+        else:
+            mid = (sx0 + sx1) / 2
+            cv.rect(sx0, sy0, mid - 3 * u, sy1, 2 * u, si.HUB_WHITE, 0.7)
+            cv.rect(mid + 3 * u, sy0, sx1, sy1, 2 * u, si.HUB_WHITE, 0.7)
+    if name in STEP:
+        fs = 12.0 * s * u
+        draw_digit(cv, STEP[name], px0 + 4 * u + 0.06 * fs, py0 + 1 * u + 0.30 * fs, 0.70 * fs, TEXT,
+                   0.85)
+    return tw
+
+
+def draw_groups(cv, icons, groups, x0, y0, s, u, gap_cell=4.0, gap_group=12.0, labels=False,
+                kind_rs="area"):
+    """Tiles in groups on the hub footer colour, optional labels under each tile (round-2 tiles in
+    amber). Returns (w, h)."""
+    tw = 44.0 * s * u
+    lab_h = 22 if labels else 0
+    n_tiles = sum(len(g) for g in groups)
+    w = (2 * 8 * u + n_tiles * tw + (n_tiles - len(groups)) * gap_cell * u
+         + (len(groups) - 1) * gap_group * u)
+    h = tw + 12 * u + lab_h
+    cv.rect(x0, y0, x0 + w, y0 + h, 0, FOOTER_BG)
+    x = x0 + 8 * u
+    for gi, g in enumerate(groups):
+        if gi:
+            x += gap_group * u - gap_cell * u
+        for name in g:
+            draw_tile(cv, icons[name], name, x, y0 + 6 * u, s, u, kind_rs)
+            if labels:
+                lab = CONTACT_LABEL[name]
+                col = NEW_COL if name in si.ROUND2 else (214, 222, 230)
+                lx = int(round(x + tw / 2 - 3 * len(lab)))
+                cv.text(lab, lx, int(round(y0 + 6 * u + tw + 8)), 1, col)
+            x += tw + gap_cell * u
+    return int(np.ceil(w)), int(np.ceil(h))
+
+
+def make_contact_sheet(icons, path):
+    W = 1880
+    cv = Canvas(W, 2600, (34, 38, 46))
+    hd, sub, note = (236, 240, 244), (190, 200, 212), (170, 182, 196)
+    y = 16
+    cv.text("BUILD-STRIP ICONS, STYLE E - ALL 25 TILES (ROUND 2, 2026-10-11). PREVIEW ONLY.", 20, y,
+            3, hd)
+    y += 34
+    cv.text("16 NEW TILES (AMBER LABELS) DRAWN BY ASSETS/BLENDER/SKI_ICONS.PY NEXT TO THE NINE OF "
+            "2026-10-04. SAME PLATE, 22 PX MARK MARGIN, ONE RED ACCENT.", 20, y, 2, sub)
+    y += 30
+    # 1) all 25 at 64 px on hub tiles
+    y += 8
+    cv.text("ALL 25 AT 64 PX (HUB TILE 94 PX), BUILD ORDER: SIGN + LODGE TIERS / SCHOOL, PATROL / "
+            "LIFT TYPES (BASE 1, TOP 2, LINE 3) / RUNS", 20, y, 2, hd)
+    y += 24
+    s64 = 64.0 / 30.0
+    for groups in ([["SkiResortGate"] + LODGES, CIVIC], LIFT_TYPES, [RUNS]):
+        _, h = draw_groups(cv, icons, groups, 20, y, s64, 1, labels=True)
+        y += h + 12
+    y += 14
+    # 2) the strip at real 1080p size as the pickers draw it
+    cv.text("THE STRIP AT REAL 1080P SIZE (ICON 30 PX, TILE 44 PX) AS THE PICKERS DRAW IT: ONE LODGE "
+            "TIER, ONE LIFT TYPE", 20, y, 2, hd)
+    y += 24
+    pairs = list(zip(LODGES[:4], LIFT_TYPES)) + [(LODGES[4], LIFT_TYPES[3])]
+    strips = []
+    for lodge, lift in pairs:
+        groups = [["SkiResortGate", lodge], CIVIC, lift, RUNS]
+        cv.text(f"{CONTACT_LABEL[lodge]} + {CONTACT_LABEL[lift[0]].split()[0]}", 20, y + 18, 2, sub)
+        w, h = draw_groups(cv, icons, groups, 300, y, 1.0, 1)
+        strips.append((y, w, h))
+        y += h + 8
+    y += 12
+    cv.text("THE SAME STRIPS ZOOMED X3 (NEAREST NEIGHBOUR)", 20, y, 2, hd)
+    y += 24
+    for sy, sw, sh in strips:
+        cv.paste_rgb(zoom(cv.rgb[sy:sy + sh, 300:300 + sw].copy(), 3), 20, y)
+        y += sh * 3 + 8
+    y += 12
+    # 3) the 16 round-2 tiles at 160 px
+    cv.text("THE 16 ROUND-2 TILES AT 160 PX ON THE TILE COLOUR", 20, y, 2, hd)
+    y += 24
+    big = 160
+    for row in (si.ROUND2[:8], si.ROUND2[8:]):
+        x = 20
+        for name in row:
+            t = Canvas(big + 16, big + 16, TILE_BG)
+            t.paste_premul(resize_premul(icons[name], big), 8, 8)
+            cv.paste_rgb(t.rgb, x, y)
+            cv.text(CONTACT_LABEL[name], x + 2, y + big + 22, 2, (214, 222, 230))
+            x += big + 16 + 4
+        y += big + 16 + 36
+    cv.text("AREA-AVERAGE DOWNSCALE (THE GAME DOWNSCALE FILTER IS UNVERIFIED). STEP DIGITS AT THE XS FONT "
+            "SIZE, 85 % OPACITY; RUN STRIPES AS HUB.MODULE.SCSS.", 20, y, 2, note)
+    y += 28
+    si.write_png(path, cv.png()[:y])
+
+
 def grey_contrast(icons):
     """Mean absolute luminance difference between the run icons at 30 px on the tile colour."""
     runs = [n for n in STRIP_ORDER if n in KIND]
@@ -623,8 +776,17 @@ def main():
                     help="write the hub launcher's review sheet (SkiResortTab.png) instead")
     ap.add_argument("--before", default=LAUNCHER_BEFORE,
                     help="--launcher: the old launcher PNG for before / after ('' = none)")
+    ap.add_argument("--contact", action="store_true",
+                    help="write the contact sheet of all 25 tiles instead (round 2)")
+    ap.add_argument("--name", default="build-strip.png", help="--contact: the file name in --out")
     args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
     os.makedirs(args.out, exist_ok=True)
+    if args.contact:
+        icons = {name: si.render(name)[0] for name in si.STRIP_ORDER}
+        path = os.path.join(args.out, args.name)
+        make_contact_sheet(icons, path)
+        print(f"wrote {path}")
+        return
     icons = {name: si.render(name)[0] for name in STRIP_ORDER}
     if args.launcher:
         before = decode_png(args.before) if args.before else None

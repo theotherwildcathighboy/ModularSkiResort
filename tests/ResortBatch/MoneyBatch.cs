@@ -11,6 +11,10 @@
 // NoOpenRun = 3), T2 +5 (six three-argument LiftBillingOf rows replace four; three LiftRate(NoOpenRun) rows), T4 +1
 // (ten four-argument GateCase rows replace nine: a running lift alone no longer opens the gate, R2), new T13
 // LiftAreaRunOpen +5 (R3). MoneyBatch +12.
+// Catalog Phase B (lift group, 2026-10-11; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.2): T14
+// per-type lift rates (SkiMoneyRules.LiftFullRate / LiftRate with the type's two numbers; the fixed-grip overloads ≡ the
+// 2500 + 1000 form, so T1-T7 are unchanged; each catalog row's 1 km rate) and the lodge spend of seam S3
+// (LodgeSpendDefault / Max / Step, ClampLodgeSpend, LodgeSpendOf, SpendPaid).
 //
 // Covers: SkiMoneyRules (T1 constants, T2 lift rates and billing, T3 accrual and attribution, T4 ticket price
 // and gate, T5 affordability, T6 month keys, T9 the D23 day rules) and SkiResortLedger (T7: start / roll /
@@ -43,6 +47,93 @@ namespace ResortBatch
             GuestDayScenario(check);   // Round S1 T11
             PartialMonths(check);      // Round M1 T12
             LiftAreaRuns(check);       // Round M2 T13
+            TypeRatesAndSpend(check);  // Catalog Phase B T14 (lift group)
+        }
+
+        // ── T14 Catalog Phase B (round-2-contract §6.2, §11.2; lift group): per-type lift rates, lodge spend (seam S3) ──
+        private static void TypeRatesAndSpend(Func<bool, string, string, bool> check)
+        {
+            const string w = "money T14";
+            // The type's rate: fixed + perKm × km (ROUND-SPEC §5 rows; contract §11.2 literal oracles).
+            check(SkiMoneyRules.LiftFullRate(1500f, 5000f, 2000f) == 8000f, w,
+                  "LiftFullRate(1500, 5000, 2000) " + SkiMoneyRules.LiftFullRate(1500f, 5000f, 2000f));
+            check(SkiMoneyRules.LiftRate(Billing.Unfinished, 1500f, 5000f, 2000f) == 2000f, w,
+                  "LiftRate(Unfinished, 1500, 5000, 2000) " + SkiMoneyRules.LiftRate(Billing.Unfinished, 1500f, 5000f, 2000f));
+            check(SkiMoneyRules.LiftFullRate(2000f, 8000f, 3000f) == 14000f, w,
+                  "LiftFullRate(2000, 8000, 3000) " + SkiMoneyRules.LiftFullRate(2000f, 8000f, 3000f));
+            check(SkiMoneyRules.LiftFullRate(3000f, 11000f, 4500f) == 24500f, w,
+                  "LiftFullRate(3000, 11000, 4500) " + SkiMoneyRules.LiftFullRate(3000f, 11000f, 4500f));
+            check(SkiMoneyRules.LiftRate(Billing.Full, 3000f, 11000f, 4500f) == 24500f, w, "LiftRate(Full, 3000, 11000, 4500)");
+            check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2000f, 8000f, 3000f) == 3500f, w, "LiftRate(NoOpenRun, 2000, 8000, 3000)");
+            check(SkiMoneyRules.LiftFullRate(float.NaN, 5000f, 2000f) == 5000f && SkiMoneyRules.LiftFullRate(-5f, 5000f, 2000f) == 5000f,
+                  w, "a non-finite or negative length counts as 0 m");
+            check(SkiMoneyRules.LiftFullRate(1000f, float.NaN, -2000f) == 0f, w, "non-finite / negative rate parts read 0");
+
+            // The one-length overloads are the fixed-grip row's (T1-T7 unchanged): ≡ the 3-argument form with 2500 + 1000.
+            float[] lengths = { 0f, 991f, 1000f, 2281f, -5f, float.NaN, float.PositiveInfinity };
+            Billing[] billings = { Billing.Full, Billing.NoPower, Billing.Unfinished, Billing.NoOpenRun };
+            bool same = true;
+            string first = "";
+            for (int i = 0; i < lengths.Length; i++)
+            {
+                if (SkiMoneyRules.LiftFullRate(lengths[i]) != SkiMoneyRules.LiftFullRate(lengths[i], 2500f, 1000f) && same)
+                {
+                    same = false;
+                    first = "LiftFullRate(" + lengths[i] + ")";
+                }
+                for (int b = 0; b < billings.Length; b++)
+                {
+                    if (SkiMoneyRules.LiftRate(billings[b], lengths[i]) !=
+                        SkiMoneyRules.LiftRate(billings[b], lengths[i], 2500f, 1000f) && same)
+                    {
+                        same = false;
+                        first = "LiftRate(" + billings[b] + ", " + lengths[i] + ")";
+                    }
+                }
+            }
+            check(same, w, "the fixed-grip overloads ≡ (…, 2500, 1000): " + first);
+
+            // Every catalog row's rate at 1 km (ROUND-SPEC §5): 3,500 / 7,000 / 11,000 / 15,500.
+            float[] perKm1 = { 3500f, 7000f, 11000f, 15500f };
+            IReadOnlyList<LiftTypeDef> lifts = SkiCatalog.Lifts;
+            check(lifts.Count == perKm1.Length, w, "SkiCatalog.Lifts has " + lifts.Count + " rows, the oracle 4");
+            for (int t = 0; t < lifts.Count && t < perKm1.Length; t++)
+            {
+                float got = SkiMoneyRules.LiftFullRate(1000f, lifts[t].FixedPerMonth, lifts[t].PerKmPerMonth);
+                check(got == perKm1[t], w, lifts[t].Id + " LiftFullRate(1 km) " + got + ", want " + perKm1[t]);
+            }
+
+            // Lodge spend (seam S3, D15).
+            check(SkiMoneyRules.LodgeSpendDefault == 0 && SkiMoneyRules.LodgeSpendMax == 50 && SkiMoneyRules.LodgeSpendStep == 5, w,
+                  "LodgeSpendDefault / Max / Step = 0 / 50 / 5");
+            check(SkiMoneyRules.ClampLodgeSpend(-5) == 0 && SkiMoneyRules.ClampLodgeSpend(25) == 25 && SkiMoneyRules.ClampLodgeSpend(55) == 50,
+                  w, "ClampLodgeSpend(-5, 25, 55) = 0, 25, 50");
+            SpendOf(check, w, 10, 1.5f, 15);
+            SpendOf(check, w, 5, 1.5f, 8);    // floor(7.5 + 0.5)
+            SpendOf(check, w, 0, 3f, 0);
+            SpendOf(check, w, 10, 0f, 0);
+            SpendOf(check, w, -5, 1f, 0);
+            SpendOf(check, w, 10, float.NaN, 0);
+            SpendOf(check, w, 50, 3f, 150);
+            SpendOf(check, w, 5, 1f, 5);
+            Paid(check, w, 4, 30, 100, 3);
+            Paid(check, w, 4, 30, 0, 0);
+            Paid(check, w, 0, 30, 1000, 0);
+            Paid(check, w, 4, 0, 1000, 0);
+            Paid(check, w, 4, 30, 1000, 4);
+            Paid(check, w, 4, 30, -10, 0);
+        }
+
+        private static void SpendOf(Func<bool, string, string, bool> check, string w, int setting, float multiplier, int expected)
+        {
+            int got = SkiMoneyRules.LodgeSpendOf(setting, multiplier);
+            check(got == expected, w, $"LodgeSpendOf({setting}, {multiplier}) {got}, want {expected}");
+        }
+
+        private static void Paid(Func<bool, string, string, bool> check, string w, int paid, int spend, int money, int expected)
+        {
+            int got = SkiMoneyRules.SpendPaid(paid, spend, money);
+            check(got == expected, w, $"SpendPaid({paid}, {spend}, {money}) {got}, want {expected}");
         }
 
         private static bool Near(double a, double b, double eps)

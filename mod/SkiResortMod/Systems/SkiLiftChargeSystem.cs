@@ -1,12 +1,22 @@
 // SkiLiftChargeSystem — the lift running charge (Round E1, decision D23; docs/research/econ-round/spec/
 // ch4-money.md §3, §10): every lift census row bills SkiMoneyRules.LiftRate per month — full
-// (2,500 + 1,000 per km of line) when complete and powered, 25 % of that while unfinished (any census
-// state but Complete, lone stations included: DV11), without power, or (Round M2 T2, docs/research/round-m2/
-// decisions.md R3) complete and powered while its ski area has no counted run — accrued like the run upkeep and
+// (2,500 + 1,000 per km of line) when complete (powered or not since Phase D, below), 25 % of that while unfinished (any
+// census state but Complete, lone stations included: DV11), or (Round M2 T2, docs/research/round-m2/
+// decisions.md R3) complete while its ski area has no counted run — accrued like the run upkeep and
 // debited from PlayerMoney; each lift's share goes into the ledger under its ski area. Its
 // ResortLiftCharge.Operating count (complete && powered: the lift still runs) is printed by the ticket gate line
 // and the DUMP; since Round M2 T1 it no longer feeds the ticket gate. Stage 0 (S0) laid down the shell
 // (e1-spec I-20); stream S4 wrote the system (2026-10-04). Round M2 (2026-10-10, builder B3): T2 NoOpenRun.
+//
+// PHASE D (2026-10-11, docs/research/art/assets-2026-10/code-round-4/round-4-contract-skeptic.md MUST-1 (a); Richard's
+// sub-ruling ~15:25 under DECISIONS 171: "an unpowered lift still costs its maintenance ('it does not magically
+// disappear')"; rules group): the billing is SkiMoneyRules.LiftUpkeepBillingOf(complete, areaOpen), which has no power
+// input — a complete lift without power bills like a powered one (was the 25 % LiftBilling.NoPower): in full while its ski
+// area counts a run. Kept as they were: the 25 % Unfinished and NoOpenRun reductions (NoOpenRun now also reaches an
+// unpowered complete lift, whose area's run state is read like any other complete lift's: off-season at any backcountry
+// share, or at backcountry 0 when it is the area's only serving lift; round-4-integration.md §6 L1), the real power in LiftCharge.Powered, the Operating count, the `Lifts [state]`
+// "no power" word and the power poll (a power change still re-snapshots: Operating and the state line follow it).
+// LiftBilling.NoPower stays in the enum and in the state line's switch, unreachable from here.
 //
 // POWER (e1-spec R1): "powered" = LiftServedRule.IsPowered(LiftCensusSystem.ReadLiftPower(base station)),
 // the base station's electricity WARNING flags (the icon the player sees, with the game's 2-dispatch
@@ -45,7 +55,8 @@
 // Attribution: each ski area's exact AccruedShare of the pass into the ledger (they sum to what accrued,
 // not to the floored debit; the difference is the carry, < 1 credit). Nothing owed for the time before a
 // load. A separate carry from the run upkeep's. Not in the Economy panel (closed enums, BudgetUISystem.cs
-// :61-66): the hub says so. Reduced cases (SkiMoneyRules.LiftBillingOf, precedence): Unfinished, NoPower, then
+// :61-66): the hub says so. Reduced cases (SkiMoneyRules.LiftUpkeepBillingOf since Phase D; was LiftBillingOf with
+// NoPower between the two), precedence: Unfinished, then
 // NoOpenRun (Round M2 T2: SkiMoneyRules.LiftAreaRunOpen false = linked, the area's score released and 0 runs
 // counted; not linked, no score yet or the first score after a load still held bill full, as before).
 //
@@ -74,6 +85,12 @@
 // frames); `Lifts [idle]` per reason transition; the no-PlayerMoney WARN once per load; `Lifts [cost]`
 // once; the one-shot `!!!` (disabled for the load). Folds are flushed on the system's own tick
 // (TrailingDue), before an idle line, in OnGamePreload and in OnDestroy (LogWindow.cs header).
+// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.4, lift group): the
+// rate is the lift TYPE's — SkiMoneyRules.LiftRate(billing, length, def.FixedPerMonth, def.PerKmPerMonth) with def =
+// SkiCatalog.LiftByIndex(census row Type) (else the fixed-grip row, Lifts[0]): fixed-grip 2,500 + 1,000/km, detachable
+// 5,000 + 2,000, gondola 8,000 + 3,000, tram 11,000 + 4,500 (ROUND-SPEC §5); the reduced share stays global (25 %). A
+// fixed-grip city bills exactly as before (the same two consts). The ARMED line lists every type's rate; `Lifts [state]`
+// and the DUMP name each lift's type; `Lifts [charge]` adds the full / reduced lift count per type.
 // CONTRACT (house pattern): "created" line; per-load reset in OnGameLoadingComplete (Game mode only);
 // OnGamePreload flushes folded logs (try/caught: GameSystemBase.cs:85-96); one-shot "!!!" and disabled for
 // the load (the tables are cleared: nothing is billed, nothing operates); OnDestroy flushes.
@@ -126,6 +143,7 @@ namespace SkiResortMod.Systems
             public bool Powered;                                         // IsPowered(ReadLiftPower(base)) for Complete rows, else true (not read)
             public SkiMoneyRules.LiftBilling Billing;
             public float LengthM, RatePerMonth;
+            public byte Type;                                            // Catalog Phase B: SkiCatalog.Lifts index billed (logs, DUMP)
         }
 
         /// <summary>One ski area's lift totals (Entity.Null = Not linked).</summary>
@@ -134,7 +152,7 @@ namespace SkiResortMod.Systems
             public float RatePerMonth;
             public int Lifts, Complete, Operating, Full, Reduced;
             public float FullKm, ReducedKm;
-            public int NoOpenRun;   // Round M2 T2: of Reduced, the complete, powered lifts billed 25 % for no counted run
+            public int NoOpenRun;   // Round M2 T2: of Reduced, the complete lifts billed 25 % for no counted run (Phase D: powered or not; was "complete, powered", :144)
         }
 
         private struct LiftKey : IEquatable<LiftKey>
@@ -336,9 +354,15 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn($"Lifts [charge]: TimeSystem.kTicksPerDay is {s_GameTicksPerDay}, SkiMoneyRules.TicksPerDay " +
                              $"{SkiMoneyRules.TicksPerDay} — the month length of the lift charge and the ledger is off (rebuild the mod)");
             Mod.Log.Info($"Lifts [charge]: ARMED — per lift per month {SkiMoneyRules.LiftFixedPerMonth:F0} + " +
-                         $"{SkiMoneyRules.LiftPerKmPerMonth:F0}/km of line (complete and powered), " +
-                         $"{SkiMoneyRules.LiftReducedShare * 100f:F0} % while unfinished, without power, or while its ski area " +
-                         "has no counted run (kept maintained; full until the area's first score after a load is released); " +
+                         // Phase D (skeptic MUST-1; was "(complete and powered; …" and "while unfinished, without power, or
+                         // while its ski area …", :356 / :358): power no longer reduces the bill. Round-4 fixer: the last
+                         // clause says "power does not change the bill" (was "a lift without power bills in full", which
+                         // read as an exception to the no-counted-run quarter; it is not one).
+                         $"{SkiMoneyRules.LiftPerKmPerMonth:F0}/km of line (complete, with or without power; by lift type since Catalog Phase B: " +
+                         $"{TypeRatesText()}), " +
+                         $"{SkiMoneyRules.LiftReducedShare * 100f:F0} % while unfinished or while its ski area " +
+                         "has no counted run (kept maintained; full until the area's first score after a load is released; " +
+                         "power does not change the bill, Phase D); " +
                          "lift = a lift census row (lone stations included); ski area = nearest Welcome Sign within " +
                          $"{SkiRunOwnershipSystem.TetherMeters:F0} m of the base station (else top station, else first node); " +
                          $"charge pass every {Tuning.ChargeIntervalFrames} sim frames, elapsed-frame accrual with fractional " +
@@ -460,11 +484,18 @@ namespace SkiResortMod.Systems
                 Entity sign = Resolve(r);
                 bool complete = r.State == LiftCensus.State.Complete;
                 bool powered = !complete || IsPowered(baseStation);   // read only for Complete rows (header POWER)
-                // Round M2 T2 (R3): the area's run state, read only where it can matter (complete and powered; the
-                // rule ignores it otherwise, so the short cut changes no result).
-                bool areaOpen = !complete || !powered || AreaRunOpen(sign);
-                SkiMoneyRules.LiftBilling billing = SkiMoneyRules.LiftBillingOf(complete, powered, areaOpen);
-                float rate = SkiMoneyRules.LiftRate(billing, r.LengthM);
+                // Round M2 T2 (R3): the area's run state, read only where it can matter (complete; the rule ignores it
+                // otherwise, so the short cut changes no result). Phase D (skeptic MUST-1; was `!complete || !powered ||
+                // AreaRunOpen(sign)`, :483): an unpowered complete lift is billed like a powered one, so its area is read too.
+                bool areaOpen = !complete || AreaRunOpen(sign);
+                // Phase D (skeptic MUST-1, DECISIONS 171 sub-ruling: upkeep regardless of power; was
+                // SkiMoneyRules.LiftBillingOf(complete, powered, areaOpen), :484): no power input. `powered` still feeds
+                // LiftCharge.Powered, the Operating count and the state line.
+                SkiMoneyRules.LiftBilling billing = SkiMoneyRules.LiftUpkeepBillingOf(complete, areaOpen);
+                // Catalog Phase B (round-2-contract §6.4; was SkiMoneyRules.LiftRate(billing, r.LengthM), the fixed-grip
+                // consts, :467): the row type's two rate numbers; an untyped row bills as fixed-grip (Lifts[0]).
+                LiftTypeDef def = SkiCatalog.LiftByIndex(r.Type) ?? SkiCatalog.Lifts[0];
+                float rate = SkiMoneyRules.LiftRate(billing, r.LengthM, def.FixedPerMonth, def.PerKmPerMonth);
                 float km = math.isfinite(r.LengthM) && r.LengthM > 0f ? r.LengthM / 1000f : 0f;
                 var lc = new LiftCharge
                 {
@@ -476,6 +507,7 @@ namespace SkiResortMod.Systems
                     Billing = billing,
                     LengthM = r.LengthM,
                     RatePerMonth = rate,
+                    Type = (byte)def.Index,
                 };
                 m_LiftsNext[new LiftKey(id, top)] = lc;
                 m_LiftListNext.Add(lc);
@@ -598,7 +630,7 @@ namespace SkiResortMod.Systems
             switch (c.Billing)
             {
                 case SkiMoneyRules.LiftBilling.Full: billed = "full"; break;
-                case SkiMoneyRules.LiftBilling.NoPower: billed = "at 25 %: no power"; break;
+                case SkiMoneyRules.LiftBilling.NoPower: billed = "at 25 %: no power"; break;   // Phase D: unreachable (LiftUpkeepBillingOf), kept for the enum
                 // Round M2 T2: without this case the default would print "unfinished".
                 case SkiMoneyRules.LiftBilling.NoOpenRun: billed = "at 25 %: no open run in its ski area"; break;
                 default: billed = "at 25 %: unfinished"; break;
@@ -606,8 +638,10 @@ namespace SkiResortMod.Systems
             // F7 E4 (header POWER): power is read only for Complete rows; the others carry Powered = true
             // unread, so they say so (field test 7: a lone, unpowered base station logged "powered").
             string power = c.State != LiftCensus.State.Complete ? "power not read" : c.Powered ? "powered" : "no power";
-            return $"lift base {Fmt(baseStation)} top {Fmt(c.Top)} ({LiftName(baseStation, c.Top)}) → ski area " +
-                   $"{(c.Sign == Entity.Null ? "not linked" : Fmt(c.Sign))}: {state}, {power}, " +
+            // Catalog Phase B: the lift's type names the rate it bills.
+            LiftTypeDef def = SkiCatalog.LiftByIndex(c.Type);
+            return $"lift base {Fmt(baseStation)} top {Fmt(c.Top)} ({LiftName(baseStation, c.Top)}, {(def != null ? def.Id : "fixedGrip")}) " +
+                   $"→ ski area {(c.Sign == Entity.Null ? "not linked" : Fmt(c.Sign))}: {state}, {power}, " +
                    $"{c.LengthM:F0} m — billed {billed} {c.RatePerMonth:F2}/month";
         }
 
@@ -621,7 +655,8 @@ namespace SkiResortMod.Systems
         private static bool Same(LiftCharge a, LiftCharge b)
         {
             return a.Id == b.Id && a.Top == b.Top && a.Sign == b.Sign && a.State == b.State && a.Powered == b.Powered &&
-                   a.Billing == b.Billing && a.LengthM.Equals(b.LengthM) && a.RatePerMonth.Equals(b.RatePerMonth);
+                   a.Billing == b.Billing && a.LengthM.Equals(b.LengthM) && a.RatePerMonth.Equals(b.RatePerMonth) &&
+                   a.Type == b.Type;   // Catalog Phase B
         }
 
         private static void Swap<T>(ref T a, ref T b)
@@ -822,7 +857,7 @@ namespace SkiResortMod.Systems
             // Round M2 T2 (build-contract.md §6.8): the reduced part names how many are reduced for no open run.
             string body = $"-{debit} this pass (carry {m_CarryFraction:F2}) — rate {rateBucket}/month = {m_TotalFull} lift(s) " +
                           $"full ({m_TotalFullKm:F1} km) + {m_TotalReduced} at 25 % ({m_TotalReducedKm:F1} km; {m_TotalNoOpenRun} " +
-                          $"for no open run); by ski area: {ByArea()}; balance {balance}";
+                          $"for no open run); by type: {ByType()}; by ski area: {ByArea()}; balance {balance}";
             switch (m_ChargeLog.Offer(now, force, body, debit, rateBucket))
             {
                 case LogWindow.Verdict.Plain:
@@ -832,6 +867,50 @@ namespace SkiResortMod.Systems
                     WriteChargeSummary(now);
                     break;
             }
+        }
+
+        /// <summary>Catalog Phase B: "fixedGrip 2 full + 1 at 25 % = 6000" per lift type present in the last snapshot (log
+        /// only; allocates when a charge line is written).</summary>
+        private string ByType()
+        {
+            var sb = new StringBuilder();
+            IReadOnlyList<LiftTypeDef> lifts = SkiCatalog.Lifts;
+            for (int t = 0; t < lifts.Count; t++)
+            {
+                int full = 0, reduced = 0;
+                float rate = 0f;
+                for (int i = 0; i < m_LiftList.Count; i++)
+                {
+                    LiftCharge c = m_LiftList[i];
+                    if (c.Type != t)
+                        continue;
+                    if (c.Billing == SkiMoneyRules.LiftBilling.Full) full++;
+                    else reduced++;
+                    rate += c.RatePerMonth;
+                }
+                if (full + reduced == 0)
+                    continue;
+                if (sb.Length > 0)
+                    sb.Append(", ");
+                sb.Append(lifts[t].Id).Append(' ').Append(full).Append(" full + ").Append(reduced).Append(" at 25 % = ")
+                  .Append(math.round(rate).ToString("F0"));
+            }
+            return sb.Length > 0 ? sb.ToString() : "none";
+        }
+
+        /// <summary>Catalog Phase B: "fixedGrip 2500 + 1000/km, detachable 5000 + 2000/km, …" (the ARMED line).</summary>
+        private static string TypeRatesText()
+        {
+            var sb = new StringBuilder();
+            IReadOnlyList<LiftTypeDef> lifts = SkiCatalog.Lifts;
+            for (int t = 0; t < lifts.Count; t++)
+            {
+                if (sb.Length > 0)
+                    sb.Append(", ");
+                sb.Append(lifts[t].Id).Append(' ').Append(lifts[t].FixedPerMonth.ToString("F0")).Append(" + ")
+                  .Append(lifts[t].PerKmPerMonth.ToString("F0")).Append("/km");
+            }
+            return sb.ToString();
         }
 
         /// <summary>"{sign i:v} {rate}, …, not linked {rate}" (signs by Index / Version).</summary>

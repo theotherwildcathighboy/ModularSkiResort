@@ -1,0 +1,535 @@
+{
+  "name": "SkiDressSkiRackB",
+  "written_utc": "2026-10-12T09:58:07Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiDressSkiRackB.fbx": {
+      "bytes": 65916,
+      "sha1": "04059210086ba97f13ba53ff317beb7ebcd428b0"
+    },
+    "SkiDressSkiRackB_BaseColor.png": {
+      "bytes": 668103,
+      "sha1": "aa428f1bc1d7fd0b5e613f9da336c9bcfb410ab1"
+    },
+    "SkiDressSkiRackB_ControlMask.png": {
+      "bytes": 24542,
+      "sha1": "f6b1741b342f058fa43d7c573c43816c016e72dd"
+    },
+    "SkiDressSkiRackB_MaskMap.png": {
+      "bytes": 106346,
+      "sha1": "5f0be20c38c76b25b0ef28c5289e333280caa52f"
+    },
+    "SkiDressSkiRackB_Normal.png": {
+      "bytes": 295173,
+      "sha1": "4095ba14393559738d4045575e1c71b3269c5dba"
+    },
+    "settings.json": {
+      "bytes": 2,
+      "sha1": "bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f"
+    }
+  },
+  "generator": "assets/blender/dress_kit.py",
+  "args": [
+    "--out",
+    "../import/props/B",
+    "--export",
+    "--preview",
+    "../preview/props/B",
+    "--review",
+    "--json",
+    "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/38d24a4a-44c3-4d12-8079-26649af2ccd6/scratchpad/real_kit.json"
+  ],
+  "letter": "B",
+  "kind": "prop (hosted sub-object, ground; no engine base rule)",
+  "object_prefab": "SkiDressSkiRack",
+  "mesh_prefab": "SkiDressSkiRackB Mesh",
+  "kit_part": "SkiDressSkiRack",
+  "variant": 1,
+  "builder": "cs2_bldg.ski_rack_frame(slots=8, along='X') + cs2_bldg.ski_gear (bindings off)",
+  "design_rows": "approved L1 6, L2 2, school 2; pending tram base 1, L5 4 (all rack variants)",
+  "tris": {
+    "LOD0": 692
+  },
+  "lod0_cap": 900,
+  "tris_hi": 28990,
+  "lods": "LOD0 only (41 / 50 vanilla props ship none); no LodProperties",
+  "texture": {
+    "owner": true,
+    "px": 1024,
+    "maps": [
+      "BaseColor",
+      "ControlMask",
+      "MaskMap",
+      "Normal"
+    ]
+  },
+  "px_per_m": {
+    "median": 255.0,
+    "p10": 127.5,
+    "min": 123.7,
+    "area_m2": 9.888,
+    "median_w1": 255.0,
+    "downweighted_area_share": 0.283
+  },
+  "normal_detail": {
+    "texels": 238064,
+    "core_texels": 170533,
+    "hf_rms_deg": 11.11,
+    "hf_p95_deg": 19.78,
+    "tilt_rms_deg": 12.84
+  },
+  "normal_detail_benchmark": {
+    "GardenBench01_hf_rms_deg": 10.7,
+    "DK3_min_deg": 5.0
+  },
+  "bounds_m": {
+    "min": [
+      -0.85,
+      0.0,
+      -0.6792
+    ],
+    "max": [
+      0.85,
+      1.6519,
+      0.6792
+    ]
+  },
+  "cull": {
+    "max_dim_m": 1.7,
+    "surface_m2": 9.888,
+    "thin_bias": 0.287,
+    "small_mesh_bias": 0.047,
+    "cull_m_1_6_0": 839.0,
+    "cull_m": 812.0,
+    "status": "[U] formula until SkiProbeLodA"
+  },
+  "colour": {
+    "ColorProperties": "per colour-set VARIANT (kit colour variants 2026-10-12): the variant's own mesh prefab (a RenderPrefab clone of this mesh's imported prefab) carries ONE fixed VariationSet (white / set colour / white), no external channel, ranges 0; the imported mesh prefab itself gets NO ColorProperties; the FS7 Parent block and the base object prefab are retired",
+    "slot": 2,
+    "variants": "assets/staging/prefabs/props/B/kit-variants.json",
+    "colour_sets": [
+      "blue",
+      "green",
+      "orange",
+      "red",
+      "yellow"
+    ]
+  },
+  "row_spec": {
+    "m_Object": "per colour set: $fstrref:\"CID:<the variant object-prefab CID>\" (fine_detail.kit_row(..., colour_set=<COLOUR_SETS key>) = fine_detail.kit_cid(prop, set); assets/staging/prefabs/props/B/kit-variants.json); the base object prefab is retired",
+    "object_prefab": "SkiDressSkiRack_<Set> (colour-set variant, e.g. SkiDressSkiRack_Red)",
+    "m_GroupIndex": 0,
+    "m_Probability": 100,
+    "m_ParentMesh": "0 on a deck / wall / roof of the host mesh; -1 on the lot (snaps to terrain)",
+    "rotation": "yaw quaternion turning the prop's +Z (front / out of the wall) to the host facing in the hosts' row frame (fine_detail.yaw_quat((dx, dz)) / kit_row(facing=)); identity = +Z to game +Z = authoring +X; leaning props may add a pitch about the prop's x axis (the foot line) to change the lean",
+    "frame": "hosts' row frame (fine_detail.X_CONVENTION, every shipped building manifest): game (gx, gy, gz) = authoring (y, z, x), gx NOT negated (probe X2 decides; branch N mirrors every row in S1b). In it the IDENTITY rotation puts the prop's +Z (front / out of the wall) on game +Z = authoring +X and its long axis (prefab x) on game x = authoring y (fine-detail step 2 D11: the kit frame = the removed rack vertex for vertex at identity)",
+    "pivot": "foot centre on the ground",
+    "from_builder": "A-frame: position = the old ski_rack_frame centre (x, y) on its surface (z0); long axis = prefab x = game x = authoring y: IDENTITY for a rack that ran along='Y' (the school), yaw +-90 (fine_detail.yaw_quat((+-1, 0))) for one that ran along='X'; front (+Z) = the builder's side +1; alternate SkiDressSkiRack / V2 / V3 along a row. (Corrected 2026-10-12, fine-detail step 3a: the earlier 'yaw 90 deg for along=Y hosts' assumed game x = authoring x, which no host uses.)"
+  },
+  "validation": {
+    "errors": 0,
+    "warnings": 2,
+    "warn_list": [
+      "normal-b: SkiDressSkiRackB_Normal.png has 204 covered texel(s) with B <= 0.5 (0.10 %): not a tangent-space normal (DirectX-flipped, black-filled, or bake bleed)",
+      "normal-length: SkiDressSkiRackB_Normal.png has 24 covered texel(s) (0.01 %) with |n| outside 1 +- 0.05"
+    ],
+    "error_list": []
+  },
+  "stock_validator_on_sharer": null,
+  "dk": {
+    "DK1_tris_le_cap": true,
+    "DK3_hf_ge_5deg": true,
+    "DK4_pivot": true,
+    "DK5_no_mirrored": true,
+    "DK6_w1_median_ge_250": true
+  },
+  "kit": {
+    "A": 1024,
+    "owner": "SkiDressSkiRackB",
+    "margin_px": 8,
+    "kit_px_per_m_area_median": 255.0,
+    "DK6_kit_median_ge_250": true,
+    "bake": {
+      "layout": {
+        "base_px_per_m": 255.03,
+        "islands": 176,
+        "dup_parts": 358,
+        "margin_px": 8,
+        "rect_fill": 0.8971,
+        "unique_px_per_m": {
+          "median": 255.0,
+          "p10": 76.4,
+          "min": 76.2,
+          "median_w1": 255.0,
+          "area_m2": 13.9,
+          "downweighted_area_share": 0.358
+        }
+      },
+      "compose": {
+        "files": [
+          "SkiDressSkiRackB_BaseColor.png",
+          "SkiDressSkiRackB_Normal.png",
+          "SkiDressSkiRackB_MaskMap.png",
+          "SkiDressSkiRackB_ControlMask.png"
+        ],
+        "covered_texels": 644285,
+        "coverage": 0.6144,
+        "painted_texels": {
+          "HR_plate": 348,
+          "EX_body": 2905,
+          "ES_box": 618,
+          "SB_side": 988,
+          "SB_front": 6390,
+          "SB_back": 740
+        },
+        "texels_by_material": {
+          "galv": 183411,
+          "ski_blue": 27976,
+          "ski_black": 61733,
+          "trim_white": 13302,
+          "accent": 146288,
+          "ski_red": 8874,
+          "fire_red": 61011,
+          "hose_canvas": 18613,
+          "brass": 1224,
+          "safety_black": 4416,
+          "darksteel": 27063,
+          "safety_yellow": 80282,
+          "rubber": 10092
+        }
+      },
+      "hi_tris": 198714,
+      "low_tris": 3496,
+      "seconds_high_to_low": 2.39,
+      "share": {
+        "dup_parts": 358
+      },
+      "route": "cs2_bake.bake_high_to_low into an own UVUnique (layout_unique) + compose_kit"
+    },
+    "DK2_sharers": []
+  },
+  "kit_report": {
+    "generator": "assets/blender/dress_kit.py",
+    "args": [
+      "--out",
+      "../import/props/B",
+      "--export",
+      "--preview",
+      "../preview/props/B",
+      "--review",
+      "--json",
+      "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/38d24a4a-44c3-4d12-8079-26649af2ccd6/scratchpad/real_kit.json"
+    ],
+    "letter": "B",
+    "A": 1024,
+    "owner": "SkiDressSkiRackB",
+    "margin_px": 8,
+    "cage_extrusion_m": 0.003,
+    "max_ray_m": 0.04,
+    "ao_samples": 48,
+    "ao_distance_m": 0.5,
+    "bake": {
+      "layout": {
+        "base_px_per_m": 255.03,
+        "islands": 176,
+        "dup_parts": 358,
+        "margin_px": 8,
+        "rect_fill": 0.8971,
+        "unique_px_per_m": {
+          "median": 255.0,
+          "p10": 76.4,
+          "min": 76.2,
+          "median_w1": 255.0,
+          "area_m2": 13.9,
+          "downweighted_area_share": 0.358
+        }
+      },
+      "compose": {
+        "files": [
+          "SkiDressSkiRackB_BaseColor.png",
+          "SkiDressSkiRackB_Normal.png",
+          "SkiDressSkiRackB_MaskMap.png",
+          "SkiDressSkiRackB_ControlMask.png"
+        ],
+        "covered_texels": 644285,
+        "coverage": 0.6144,
+        "painted_texels": {
+          "HR_plate": 348,
+          "EX_body": 2905,
+          "ES_box": 618,
+          "SB_side": 988,
+          "SB_front": 6390,
+          "SB_back": 740
+        },
+        "texels_by_material": {
+          "galv": 183411,
+          "ski_blue": 27976,
+          "ski_black": 61733,
+          "trim_white": 13302,
+          "accent": 146288,
+          "ski_red": 8874,
+          "fire_red": 61011,
+          "hose_canvas": 18613,
+          "brass": 1224,
+          "safety_black": 4416,
+          "darksteel": 27063,
+          "safety_yellow": 80282,
+          "rubber": 10092
+        }
+      },
+      "hi_tris": 198714,
+      "low_tris": 3496,
+      "seconds_high_to_low": 2.39,
+      "share": {
+        "dup_parts": 358
+      },
+      "route": "cs2_bake.bake_high_to_low into an own UVUnique (layout_unique) + compose_kit"
+    },
+    "kit_px_per_m_area_median": 255.0,
+    "all_instances_px_per_m_area_median": 255.0,
+    "DK2_sharers": [],
+    "DK6_kit_median_ge_250": true,
+    "parity": {
+      "aframe": {
+        "R1": {
+          "items": 15,
+          "max_dev_m": 0.0
+        },
+        "R2": {
+          "items": 14,
+          "max_dev_m": 0.0
+        },
+        "R3": {
+          "items": 12,
+          "max_dev_m": 0.0
+        }
+      },
+      "wall": {
+        "items": 9,
+        "max_dev_m": 5.960464477539063e-08
+      },
+      "bounds": {
+        "HR": {
+          "builder_blender_min": [
+            -0.35,
+            -0.2,
+            0.0
+          ],
+          "builder_blender_max": [
+            0.35,
+            0.0,
+            0.7
+          ]
+        },
+        "EX": {
+          "builder_blender_min": [
+            -0.08,
+            -0.18,
+            0.0
+          ],
+          "builder_blender_max": [
+            0.08,
+            0.0,
+            0.51
+          ]
+        },
+        "ES": {
+          "builder_blender_min": [
+            -0.08,
+            -0.06,
+            0.0
+          ],
+          "builder_blender_max": [
+            0.08,
+            0.06,
+            1.19
+          ]
+        },
+        "AK": {
+          "builder_blender_min": [
+            -0.3,
+            -0.174,
+            -0.0
+          ],
+          "builder_blender_max": [
+            0.3,
+            0.518,
+            1.978
+          ]
+        },
+        "SB": {
+          "builder_blender_min": [
+            -0.225,
+            -0.05,
+            -0.0
+          ],
+          "builder_blender_max": [
+            0.225,
+            0.161,
+            1.847
+          ]
+        }
+      }
+    },
+    "library_max_dev_m": 2.384185791015625e-07,
+    "gear_items_placed": 58,
+    "gear_item_tris": {
+      "S1": 32,
+      "S2": 32,
+      "B1": 28,
+      "S3": 32,
+      "P1": 44,
+      "S4": 32,
+      "B2": 28
+    },
+    "seconds_to_bake": 4.4,
+    "vram_mb": {
+      "raw_bc7_with_mips": 5.33
+    },
+    "staging": {
+      "SkiDressSkiRack": {
+        "object_prefab": null,
+        "retired_base_object_prefab": "SkiDressSkiRack",
+        "retired_base_cid": "56fd40887e144eb3b01f270044f47271",
+        "retired_to": "assets/staging/archive/superseded-parent-2026-10-12/prefabs/props/B/SkiDressSkiRack",
+        "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
+      },
+      "SkiDressSkiRackV2": {
+        "object_prefab": null,
+        "retired_base_object_prefab": "SkiDressSkiRackV2",
+        "retired_base_cid": "b1a58b870920400ea06c1a2590d2e081",
+        "retired_to": "assets/staging/archive/superseded-parent-2026-10-12/prefabs/props/B/SkiDressSkiRackV2",
+        "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
+      },
+      "SkiDressSkiRackV3": {
+        "object_prefab": null,
+        "retired_base_object_prefab": "SkiDressSkiRackV3",
+        "retired_base_cid": "1bef6d6e9b884b06828092a9ad5c9bc1",
+        "retired_to": "assets/staging/archive/superseded-parent-2026-10-12/prefabs/props/B/SkiDressSkiRackV3",
+        "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
+      },
+      "SkiDressSkiRackWall": {
+        "object_prefab": null,
+        "retired_base_object_prefab": "SkiDressSkiRackWall",
+        "retired_base_cid": "7d045169cdbf4756b260975e6cd68982",
+        "retired_to": "assets/staging/archive/superseded-parent-2026-10-12/prefabs/props/B/SkiDressSkiRackWall",
+        "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
+      },
+      "SkiDressSkiRackWallV2": {
+        "object_prefab": null,
+        "retired_base_object_prefab": "SkiDressSkiRackWallV2",
+        "retired_base_cid": "df644f5447f34ecf87722c623fe18bcb",
+        "retired_to": "assets/staging/archive/superseded-parent-2026-10-12/prefabs/props/B/SkiDressSkiRackWallV2",
+        "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
+      },
+      "SkiDressHoseReel": {
+        "object_prefab": "SkiDressHoseReel",
+        "prefab": "assets/staging/prefabs/props/B/SkiDressHoseReel/SkiDressHoseReel.Prefab",
+        "cid": "e8c76b0b9f9340a08f728e6d992d4692",
+        "cid_minted_this_run": true,
+        "mesh_cid_placeholder": "CID:REPLACE_SkiDressHoseReelB_MESH_CID"
+      },
+      "SkiDressExtinguisher": {
+        "object_prefab": "SkiDressExtinguisher",
+        "prefab": "assets/staging/prefabs/props/B/SkiDressExtinguisher/SkiDressExtinguisher.Prefab",
+        "cid": "04211f82829f421b9899ffaff582e530",
+        "cid_minted_this_run": true,
+        "mesh_cid_placeholder": "CID:REPLACE_SkiDressExtinguisherB_MESH_CID"
+      },
+      "SkiDressTools": {
+        "object_prefab": "SkiDressTools",
+        "prefab": "assets/staging/prefabs/props/B/SkiDressTools/SkiDressTools.Prefab",
+        "cid": "5f92c70cec824289aa2673d59018e8a5",
+        "cid_minted_this_run": true,
+        "mesh_cid_placeholder": "CID:REPLACE_SkiDressToolsB_MESH_CID"
+      },
+      "SkiDressEStop": {
+        "object_prefab": "SkiDressEStop",
+        "prefab": "assets/staging/prefabs/props/B/SkiDressEStop/SkiDressEStop.Prefab",
+        "cid": "9ad8824185f7473ea1799df015acc940",
+        "cid_minted_this_run": true,
+        "mesh_cid_placeholder": "CID:REPLACE_SkiDressEStopB_MESH_CID"
+      },
+      "SkiDressAkja": {
+        "object_prefab": null,
+        "retired_base_object_prefab": "SkiDressAkja",
+        "retired_base_cid": "c447edf1e8ff4063929996fdf990a042",
+        "retired_to": "assets/staging/archive/superseded-parent-2026-10-12/prefabs/props/B/SkiDressAkja",
+        "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
+      },
+      "SkiDressSpineBoard": {
+        "object_prefab": "SkiDressSpineBoard",
+        "prefab": "assets/staging/prefabs/props/B/SkiDressSpineBoard/SkiDressSpineBoard.Prefab",
+        "cid": "bfd4df9f277f4148b2615650e3470444",
+        "cid_minted_this_run": true,
+        "mesh_cid_placeholder": "CID:REPLACE_SkiDressSpineBoardB_MESH_CID"
+      }
+    },
+    "subobj_bounds": {
+      "added_or_updated": [
+        "SkiDressAkja",
+        "SkiDressEStop",
+        "SkiDressExtinguisher",
+        "SkiDressHoseReel",
+        "SkiDressSkiRack",
+        "SkiDressSkiRackV2",
+        "SkiDressSkiRackV3",
+        "SkiDressSkiRackWall",
+        "SkiDressSkiRackWallV2",
+        "SkiDressSpineBoard",
+        "SkiDressTools"
+      ],
+      "existing_unchanged": 22
+    },
+    "previews": [
+      "assets/preview/props/B/SkiDressSkiRackB_pbr_2m.png",
+      "assets/preview/props/B/SkiDressSkiRackB_pbr_10m.png",
+      "assets/preview/props/B/SkiDressSkiRackB_normal2tone_2m.png",
+      "assets/preview/props/B/SkiDressSkiRackV2B_pbr_2m.png",
+      "assets/preview/props/B/SkiDressSkiRackV2B_pbr_10m.png",
+      "assets/preview/props/B/SkiDressSkiRackV2B_normal2tone_2m.png",
+      "assets/preview/props/B/SkiDressSkiRackV3B_pbr_2m.png",
+      "assets/preview/props/B/SkiDressSkiRackV3B_pbr_10m.png",
+      "assets/preview/props/B/SkiDressSkiRackV3B_normal2tone_2m.png",
+      "assets/preview/props/B/SkiDressSkiRackWallB_pbr_2m.png",
+      "assets/preview/props/B/SkiDressSkiRackWallB_pbr_10m.png",
+      "assets/preview/props/B/SkiDressSkiRackWallB_normal2tone_2m.png",
+      "assets/preview/props/B/SkiDressSkiRackWallV2B_pbr_2m.png",
+      "assets/preview/props/B/SkiDressSkiRackWallV2B_pbr_10m.png",
+      "assets/preview/props/B/SkiDressSkiRackWallV2B_normal2tone_2m.png",
+      "assets/preview/props/B/SkiDressHoseReelB_pbr_2m.png",
+      "assets/preview/props/B/SkiDressHoseReelB_pbr_10m.png",
+      "assets/preview/props/B/SkiDressHoseReelB_normal2tone_2m.png",
+      "assets/preview/props/B/SkiDressExtinguisherB_pbr_2m.png",
+      "assets/preview/props/B/SkiDressExtinguisherB_pbr_10m.png",
+      "assets/preview/props/B/SkiDressExtinguisherB_normal2tone_2m.png",
+      "assets/preview/props/B/SkiDressToolsB_pbr_2m.png",
+      "assets/preview/props/B/SkiDressToolsB_pbr_10m.png",
+      "assets/preview/props/B/SkiDressToolsB_normal2tone_2m.png",
+      "assets/preview/props/B/SkiDressEStopB_pbr_2m.png",
+      "assets/preview/props/B/SkiDressEStopB_pbr_10m.png",
+      "assets/preview/props/B/SkiDressEStopB_normal2tone_2m.png",
+      "assets/preview/props/B/SkiDressAkjaB_pbr_2m.png",
+      "assets/preview/props/B/SkiDressAkjaB_pbr_10m.png",
+      "assets/preview/props/B/SkiDressAkjaB_normal2tone_2m.png",
+      "assets/preview/props/B/SkiDressSpineBoardB_pbr_2m.png",
+      "assets/preview/props/B/SkiDressSpineBoardB_pbr_10m.png",
+      "assets/preview/props/B/SkiDressSpineBoardB_normal2tone_2m.png",
+      "assets/preview/props/B/SkiDressKitB_lineup_pbr.png"
+    ],
+    "review_packs": {
+      "SkiDressSkiRackB": "assets/preview/review/SkiDressSkiRackB.blend",
+      "SkiDressSkiRackV2B": "assets/preview/review/SkiDressSkiRackV2B.blend",
+      "SkiDressSkiRackV3B": "assets/preview/review/SkiDressSkiRackV3B.blend",
+      "SkiDressSkiRackWallB": "assets/preview/review/SkiDressSkiRackWallB.blend",
+      "SkiDressSkiRackWallV2B": "assets/preview/review/SkiDressSkiRackWallV2B.blend",
+      "SkiDressHoseReelB": "assets/preview/review/SkiDressHoseReelB.blend",
+      "SkiDressExtinguisherB": "assets/preview/review/SkiDressExtinguisherB.blend",
+      "SkiDressToolsB": "assets/preview/review/SkiDressToolsB.blend",
+      "SkiDressEStopB": "assets/preview/review/SkiDressEStopB.blend",
+      "SkiDressAkjaB": "assets/preview/review/SkiDressAkjaB.blend",
+      "SkiDressSpineBoardB": "assets/preview/review/SkiDressSpineBoardB.blend"
+    }
+  },
+  "review_pack": "assets/preview/review/SkiDressSkiRackB.blend"
+}

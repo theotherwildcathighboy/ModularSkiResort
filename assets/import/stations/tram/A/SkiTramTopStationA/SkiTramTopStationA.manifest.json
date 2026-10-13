@@ -1,0 +1,4271 @@
+{
+  "name": "SkiTramTopStationA",
+  "written_utc": "2026-10-13T11:15:33Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiTramTopStationA.fbx": {
+      "bytes": 971564,
+      "sha1": "ffc6ba0c109ca9c5088f0b27535ba964056298bd"
+    },
+    "SkiTramTopStationA_BaseColor.png": {
+      "bytes": 3229243,
+      "sha1": "e824886899073398ca8e8bcec135b4db7bd6750a"
+    },
+    "SkiTramTopStationA_ControlMask.png": {
+      "bytes": 136490,
+      "sha1": "ac210a1900bf830d2291bb69c35eb3d005ebebe5"
+    },
+    "SkiTramTopStationA_Emissive.png": {
+      "bytes": 81493,
+      "sha1": "3d94fb76bb4b40446db4965793cc017bbaee7536"
+    },
+    "SkiTramTopStationA_LOD1.fbx": {
+      "bytes": 455228,
+      "sha1": "f397b740902de9840df6fe5def96821ac5681680"
+    },
+    "SkiTramTopStationA_LOD1_Win.fbx": {
+      "bytes": 13164,
+      "sha1": "b6df95580fc68e8b1618c09b5777b497fe415a00"
+    },
+    "SkiTramTopStationA_LOD2.fbx": {
+      "bytes": 60524,
+      "sha1": "3bbfdf2871a14e53aee69b07201343944d86366b"
+    },
+    "SkiTramTopStationA_LOD2_Win.fbx": {
+      "bytes": 13164,
+      "sha1": "b775e562bf97e3ff9e0660dc2b914385ef71e04b"
+    },
+    "SkiTramTopStationA_MaskMap.png": {
+      "bytes": 2099927,
+      "sha1": "b60aac4e9b1b5d715c6ac8748342f752752515fb"
+    },
+    "SkiTramTopStationA_Normal.png": {
+      "bytes": 1867460,
+      "sha1": "9d11749e86956a9161509872688f63fc7c5e944a"
+    },
+    "SkiTramTopStationA_Win.fbx": {
+      "bytes": 13164,
+      "sha1": "acfcd3fb52a9648c62e0e01276b03032abc6576f"
+    },
+    "settings.json": {
+      "bytes": 751,
+      "sha1": "652b04b04b351d0e604780e5cb83f2b7df6bc000"
+    }
+  },
+  "generator": "tram_station.py",
+  "role": "top",
+  "kind": "building",
+  "letter": "A",
+  "spec": "tram-stations.md + skeptic MC1-11 + ROUND-SPEC R27-R31; revision 2: tram-stations-rev2.md + skeptic MC1-MC9 + rulings Q1-Q8",
+  "args": {
+    "role": "top",
+    "name": null,
+    "finish": true,
+    "lods": true,
+    "export": true,
+    "preview": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\preview\\stations",
+    "review": "",
+    "atlas": "2048",
+    "min_ppm": 25.0,
+    "ao_samples": 48,
+    "clock_tower": true,
+    "wheels": true,
+    "skirt": 0.0,
+    "skirt_ack_probe": false,
+    "area_only": false,
+    "cabin": null,
+    "carriers": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\catalog\\carriers.json",
+    "no_validate": false,
+    "weather": "on",
+    "closeups": null,
+    "no_fine": false
+  },
+  "tris": {
+    "0": 12440,
+    "1": 5000,
+    "2": 455
+  },
+  "parts": 451,
+  "atlas_px": 2048,
+  "finish": true,
+  "bake": {
+    "margin_px": 6,
+    "ao": "self",
+    "uncovered_texels": 2782902,
+    "height_range_m": [
+      -0.0352696068584919,
+      0.021295279264450073
+    ],
+    "stamps_px": {}
+  },
+  "density_worst": [
+    {
+      "part": "label_stn",
+      "source_px_per_m": 25.9,
+      "shipped_px_per_m": 415.5
+    },
+    {
+      "part": "label_tension",
+      "source_px_per_m": 25.9,
+      "shipped_px_per_m": 415.5
+    },
+    {
+      "part": "label_trail_1",
+      "source_px_per_m": 25.9,
+      "shipped_px_per_m": 207.8
+    },
+    {
+      "part": "label_trail_2",
+      "source_px_per_m": 25.9,
+      "shipped_px_per_m": 207.8
+    },
+    {
+      "part": "label_trail_0",
+      "source_px_per_m": 25.9,
+      "shipped_px_per_m": 207.8
+    },
+    {
+      "part": "rope_haul",
+      "source_px_per_m": 24.4,
+      "shipped_px_per_m": 7.3
+    },
+    {
+      "part": "rope_track_R",
+      "source_px_per_m": 24.0,
+      "shipped_px_per_m": 7.3
+    },
+    {
+      "part": "rope_track_L",
+      "source_px_per_m": 24.0,
+      "shipped_px_per_m": 7.3
+    }
+  ],
+  "submeshes": [
+    "Win"
+  ],
+  "win_cells": [
+    7
+  ],
+  "batches": 9,
+  "contracts": {
+    "C1": "non-rope z min -10.350 >= -10.4",
+    "C3": "track ropes level at y 16.0 through dock z -5.5",
+    "C4": "6 carrier zones clear (R30 + cabin body)",
+    "C5": "all 4 bay edges have deck tops at y 6.3 (cabin interior floor) {-7.8: 1, -3.2: 1, 3.2: 1, 7.8: 1}",
+    "C7": "x [-11.800, 11.800] z [-12.000, 11.600] inside the 3x3 lot (x +-12, z +-12; strict)",
+    "C8": "bounds y [0.000, 20.700] (want top 20.70)",
+    "C13": {
+      "label_stn": 0.0,
+      "label_tension": 1e-05,
+      "label_trail_0": 0.0,
+      "label_trail_1": 1e-05,
+      "label_trail_2": 0.0
+    },
+    "C13_unique": {
+      "label_stn": 0.0,
+      "label_tension": 0.0,
+      "label_trail_0": 0.0,
+      "label_trail_1": 1e-05,
+      "label_trail_2": 1e-05
+    }
+  },
+  "detail1": {
+    "labels": {
+      "label_stn": {
+        "px_per_m": 415.5,
+        "u_px_per_m": 415.5,
+        "v_px_per_m": 415.5,
+        "target_px_per_m": 400.0,
+        "weight": 20.0,
+        "rect": [
+          5,
+          214,
+          673,
+          1172
+        ],
+        "cap_m": 0.1,
+        "glyph_m": 0.434,
+        "stroke_px": 8.32,
+        "t2_ok": true,
+        "t1_ok": true
+      },
+      "label_tension": {
+        "px_per_m": 415.5,
+        "u_px_per_m": 415.5,
+        "v_px_per_m": 415.5,
+        "target_px_per_m": 400.0,
+        "weight": 20.0,
+        "rect": [
+          676,
+          802,
+          507,
+          632
+        ],
+        "cap_m": 0.035,
+        "glyph_m": 0.3,
+        "stroke_px": 2.1,
+        "t2_ok": null,
+        "t1_ok": false
+      },
+      "label_trail_0": {
+        "px_per_m": 207.8,
+        "u_px_per_m": 207.8,
+        "v_px_per_m": 207.8,
+        "target_px_per_m": 200.0,
+        "weight": 10.0,
+        "rect": [
+          1205,
+          1256,
+          813,
+          992
+        ]
+      },
+      "label_trail_1": {
+        "px_per_m": 207.8,
+        "u_px_per_m": 207.8,
+        "v_px_per_m": 207.8,
+        "target_px_per_m": 200.0,
+        "weight": 10.0,
+        "rect": [
+          1143,
+          1194,
+          813,
+          992
+        ]
+      },
+      "label_trail_2": {
+        "px_per_m": 207.8,
+        "u_px_per_m": 207.8,
+        "v_px_per_m": 207.8,
+        "target_px_per_m": 200.0,
+        "weight": 10.0,
+        "rect": [
+          1160,
+          1210,
+          140,
+          320
+        ]
+      }
+    },
+    "label_weights": {
+      "w1_px_per_m": 21.01,
+      "w1_after_px_per_m": 20.777,
+      "weights": {
+        "label_stn": 20.0,
+        "label_tension": 20.0,
+        "label_trail_0": 10.0,
+        "label_trail_1": 10.0,
+        "label_trail_2": 10.0
+      }
+    },
+    "weather": {
+      "intensity": 0.55,
+      "ladder": [
+        {
+          "intensity": 0.4,
+          "ok": true,
+          "VL1": 0.0336,
+          "VL2": 0.0571,
+          "VL3": -0.0082,
+          "VL4": 0.225,
+          "dLstar_mean": 0.837,
+          "dLstar_gt2": 0.1024
+        },
+        {
+          "intensity": 0.45,
+          "ok": true,
+          "VL1": 0.0378,
+          "VL2": 0.0641,
+          "VL3": -0.0092,
+          "VL4": 0.253,
+          "dLstar_mean": 0.94,
+          "dLstar_gt2": 0.1154
+        },
+        {
+          "intensity": 0.5,
+          "ok": true,
+          "VL1": 0.042,
+          "VL2": 0.0704,
+          "VL3": -0.0102,
+          "VL4": 0.281,
+          "dLstar_mean": 1.042,
+          "dLstar_gt2": 0.1275
+        },
+        {
+          "intensity": 0.55,
+          "ok": true,
+          "VL1": 0.0462,
+          "VL2": 0.0764,
+          "VL3": -0.0112,
+          "VL4": 0.309,
+          "dLstar_mean": 1.143,
+          "dLstar_gt2": 0.1409
+        },
+        {
+          "intensity": 0.6,
+          "ok": false,
+          "VL1": 0.0503,
+          "VL2": 0.0829,
+          "VL3": -0.0123,
+          "VL4": 0.337,
+          "dLstar_mean": 1.244,
+          "dLstar_gt2": 0.1556
+        }
+      ],
+      "slot_wear": "free",
+      "snow": 0.0,
+      "preset": "station",
+      "vanilla": {
+        "VL1_mean_rel_dL": 0.04617,
+        "VL2_share_rel_dL_gt_0.15": 0.07643,
+        "VL3_mean_dsmooth": -0.01124,
+        "VL4_max": 0.3087,
+        "visible_texels": 949081,
+        "ok": true,
+        "failed": []
+      },
+      "perceptual": {
+        "mean_Lstar_before": 58.161,
+        "mean_abs_dLstar": 1.143,
+        "p95_abs_dLstar": 5.891,
+        "share_dLstar_gt_2": 0.1409,
+        "texels": 949081,
+        "tinted": false
+      },
+      "seconds": {
+        "apply": 1.454,
+        "fields": 3.211,
+        "inner": 0.03,
+        "masks": 0.567,
+        "total": 5.613
+      }
+    },
+    "share": {
+      "groups": 55,
+      "dup_parts": 240,
+      "dup_faces": 2063,
+      "excluded": {
+        "never": 10,
+        "hero": 8,
+        "relief": 45,
+        "size": 34,
+        "pinned": 0
+      },
+      "excluded_relief": [
+        "door_hut_handle",
+        "door_hut_head",
+        "door_hut_jamb",
+        "door_hut_kick",
+        "door_hut_leaf",
+        "dplate_",
+        "gate_0_",
+        "gate_1_",
+        "gate_2_",
+        "gate_3_",
+        "goalbeam",
+        "goalpost_L",
+        "goalpost_R",
+        "grate_bayL",
+        "grate_bayR",
+        "grate_bayc",
+        "grate_gangL",
+        "grate_headR",
+        "grate_svcplat",
+        "headgirder_L",
+        "headgirder_R",
+        "hut",
+        "hutroof",
+        "ramp_L",
+        "ramp_R",
+        "rope_haul",
+        "rope_track_L",
+        "rope_track_R",
+        "sgirder_L",
+        "sgirder_R"
+      ]
+    },
+    "share_groups": [
+      [
+        "footing_L",
+        3
+      ],
+      [
+        "footing_lL0",
+        3
+      ],
+      [
+        "grate_bayL_lip",
+        1
+      ],
+      [
+        "deckbeam_0",
+        5
+      ],
+      [
+        "deckbeam_6",
+        1
+      ],
+      [
+        "deckbeam_7",
+        3
+      ],
+      [
+        "leg_L0",
+        3
+      ],
+      [
+        "gatepost_0_0",
+        23
+      ],
+      [
+        "post_facec_0",
+        94
+      ],
+      [
+        "rail_facec_top",
+        1
+      ],
+      [
+        "rail_outerL_top",
+        1
+      ],
+      [
+        "kick_outerL_1",
+        1
+      ],
+      [
+        "rail_outerR_top",
+        1
+      ],
+      [
+        "rail_capf_top",
+        1
+      ],
+      [
+        "medal_0",
+        3
+      ],
+      [
+        "medal_3",
+        2
+      ],
+      [
+        "medal_4",
+        7
+      ],
+      [
+        "scope_post_L",
+        1
+      ],
+      [
+        "scope_head_L",
+        1
+      ],
+      [
+        "sgpost_L0",
+        1
+      ],
+      [
+        "sgpost_L1",
+        1
+      ],
+      [
+        "sghanger_La",
+        3
+      ],
+      [
+        "drumspoke_L0",
+        1
+      ],
+      [
+        "drumspoke_L1",
+        1
+      ],
+      [
+        "dwspoke_L0",
+        1
+      ],
+      [
+        "dwspoke_L1",
+        1
+      ],
+      [
+        "dwspoke_L2",
+        1
+      ],
+      [
+        "dwspoke_L3",
+        1
+      ],
+      [
+        "dwspoke_L4",
+        1
+      ],
+      [
+        "dwspoke_L5",
+        1
+      ],
+      [
+        "fshub_L",
+        1
+      ],
+      [
+        "lug_L",
+        1
+      ],
+      [
+        "svcpost_0",
+        2
+      ],
+      [
+        "rail_svcA_top",
+        1
+      ],
+      [
+        "cwguard_postL",
+        1
+      ],
+      [
+        "cwguard_top",
+        1
+      ],
+      [
+        "rail_svcB_top",
+        1
+      ],
+      [
+        "tread_m_1",
+        28
+      ],
+      [
+        "stairstr_ma",
+        1
+      ],
+      [
+        "rail_stairmo_top",
+        3
+      ],
+      [
+        "kick_stairmo_0",
+        1
+      ],
+      [
+        "stairpost_0",
+        1
+      ],
+      [
+        "deckbeam_12",
+        1
+      ],
+      [
+        "rail_gangb_top",
+        1
+      ],
+      [
+        "rail_headRf_top",
+        1
+      ],
+      [
+        "rail_headRo_top",
+        3
+      ],
+      [
+        "kick_headRo_0",
+        1
+      ],
+      [
+        "rail_rampRo_top",
+        5
+      ],
+      [
+        "kick_rampRo_0",
+        2
+      ],
+      [
+        "rail_padRo_top",
+        7
+      ],
+      [
+        "kick_padRo_0",
+        3
+      ],
+      [
+        "rail_headRi_top",
+        1
+      ],
+      [
+        "rail_headLf_top",
+        1
+      ],
+      [
+        "rail_rampLi_top",
+        1
+      ],
+      [
+        "stripe_bcL",
+        3
+      ]
+    ],
+    "shared_faces": 2063,
+    "density": {
+      "w1_px_per_m": 20.78,
+      "median_px_per_m": 20.78,
+      "classes": {
+        "antdish": {
+          "px_per_m": 20.8,
+          "m2": 0.42,
+          "w": 1.0
+        },
+        "antpanel": {
+          "px_per_m": 20.8,
+          "m2": 0.27,
+          "w": 1.0
+        },
+        "board": {
+          "px_per_m": 14.5,
+          "m2": 2.39,
+          "w": 0.7
+        },
+        "brace": {
+          "px_per_m": 14.5,
+          "m2": 61.52,
+          "w": 0.7
+        },
+        "bullaxle": {
+          "px_per_m": 20.8,
+          "m2": 0.22,
+          "w": 1.0
+        },
+        "bullframe": {
+          "px_per_m": 20.8,
+          "m2": 24.47,
+          "w": 1.0
+        },
+        "bullhub": {
+          "px_per_m": 20.8,
+          "m2": 4.75,
+          "w": 1.0
+        },
+        "bullrim": {
+          "px_per_m": 20.8,
+          "m2": 18.01,
+          "w": 1.0
+        },
+        "bullspoke": {
+          "px_per_m": 20.8,
+          "m2": 4.2,
+          "w": 1.0
+        },
+        "cwguard": {
+          "px_per_m": 14.5,
+          "m2": 2.47,
+          "w": 0.7
+        },
+        "deckbeam": {
+          "px_per_m": 14.6,
+          "m2": 89.37,
+          "w": 0.7
+        },
+        "deckstrut": {
+          "px_per_m": 20.8,
+          "m2": 25.32,
+          "w": 1.0
+        },
+        "door": {
+          "px_per_m": 20.8,
+          "m2": 2.98,
+          "w": 1.0
+        },
+        "dplate": {
+          "px_per_m": 41.6,
+          "m2": 14.6,
+          "w": 2.0
+        },
+        "drip": {
+          "px_per_m": 20.8,
+          "m2": 1.13,
+          "w": 1.0
+        },
+        "drumhub": {
+          "px_per_m": 20.8,
+          "m2": 4.7,
+          "w": 1.0
+        },
+        "drumrim": {
+          "px_per_m": 16.6,
+          "m2": 48.62,
+          "w": 0.8
+        },
+        "drumspoke": {
+          "px_per_m": 16.6,
+          "m2": 12.72,
+          "w": 0.8
+        },
+        "dwaxle": {
+          "px_per_m": 20.8,
+          "m2": 0.14,
+          "w": 1.0
+        },
+        "dwbeam": {
+          "px_per_m": 20.8,
+          "m2": 18.81,
+          "w": 1.0
+        },
+        "dwhub": {
+          "px_per_m": 20.8,
+          "m2": 0.85,
+          "w": 1.0
+        },
+        "dwpost": {
+          "px_per_m": 20.8,
+          "m2": 18.78,
+          "w": 1.0
+        },
+        "dwrim": {
+          "px_per_m": 20.8,
+          "m2": 18.56,
+          "w": 1.0
+        },
+        "dwspoke": {
+          "px_per_m": 20.8,
+          "m2": 5.03,
+          "w": 1.0
+        },
+        "footing": {
+          "px_per_m": 20.8,
+          "m2": 42.21,
+          "w": 1.0
+        },
+        "fsbeam": {
+          "px_per_m": 20.8,
+          "m2": 11.79,
+          "w": 1.0
+        },
+        "fshub": {
+          "px_per_m": 20.8,
+          "m2": 3.71,
+          "w": 1.0
+        },
+        "fsrim": {
+          "px_per_m": 20.8,
+          "m2": 6.8,
+          "w": 1.0
+        },
+        "gate": {
+          "px_per_m": 20.8,
+          "m2": 99.83,
+          "w": 1.0
+        },
+        "gatepost": {
+          "px_per_m": 20.8,
+          "m2": 17.82,
+          "w": 1.0
+        },
+        "gauge": {
+          "px_per_m": 20.8,
+          "m2": 0.16,
+          "w": 1.0
+        },
+        "goalbeam": {
+          "px_per_m": 20.8,
+          "m2": 32.44,
+          "w": 1.0
+        },
+        "goalknee": {
+          "px_per_m": 20.8,
+          "m2": 5.13,
+          "w": 1.0
+        },
+        "goalpost": {
+          "px_per_m": 20.8,
+          "m2": 55.73,
+          "w": 1.0
+        },
+        "grate": {
+          "px_per_m": 20.7,
+          "m2": 268.61,
+          "w": 1.0
+        },
+        "headbeam": {
+          "px_per_m": 27.0,
+          "m2": 143.89,
+          "w": 1.3
+        },
+        "headgirder": {
+          "px_per_m": 20.8,
+          "m2": 53.55,
+          "w": 1.0
+        },
+        "hook": {
+          "px_per_m": 14.5,
+          "m2": 0.21,
+          "w": 0.7
+        },
+        "hut": {
+          "px_per_m": 31.2,
+          "m2": 48.31,
+          "w": 1.5
+        },
+        "hutroof": {
+          "px_per_m": 31.2,
+          "m2": 27.58,
+          "w": 1.5
+        },
+        "kick": {
+          "px_per_m": 20.8,
+          "m2": 37.4,
+          "w": 1.0
+        },
+        "label": {
+          "px_per_m": 333.8,
+          "m2": 1.31,
+          "w": 10.0
+        },
+        "lamp": {
+          "px_per_m": 20.8,
+          "m2": 0.18,
+          "w": 1.0
+        },
+        "landing": {
+          "px_per_m": 20.8,
+          "m2": 16.74,
+          "w": 1.0
+        },
+        "leg": {
+          "px_per_m": 20.8,
+          "m2": 25.39,
+          "w": 1.0
+        },
+        "legbrace": {
+          "px_per_m": 20.8,
+          "m2": 11.22,
+          "w": 1.0
+        },
+        "lug": {
+          "px_per_m": 20.8,
+          "m2": 0.9,
+          "w": 1.0
+        },
+        "mast": {
+          "px_per_m": 20.8,
+          "m2": 0.66,
+          "w": 1.0
+        },
+        "mastarm": {
+          "px_per_m": 20.8,
+          "m2": 0.2,
+          "w": 1.0
+        },
+        "medal": {
+          "px_per_m": 20.8,
+          "m2": 1.46,
+          "w": 1.0
+        },
+        "pad": {
+          "px_per_m": 15.6,
+          "m2": 124.2,
+          "w": 0.75
+        },
+        "plinth": {
+          "px_per_m": 27.0,
+          "m2": 268.77,
+          "w": 1.3
+        },
+        "plinthcap": {
+          "px_per_m": 27.0,
+          "m2": 320.62,
+          "w": 1.3
+        },
+        "post": {
+          "px_per_m": 14.5,
+          "m2": 17.56,
+          "w": 0.7
+        },
+        "rail": {
+          "px_per_m": 9.3,
+          "m2": 52.92,
+          "w": 0.45
+        },
+        "ramp": {
+          "px_per_m": 15.6,
+          "m2": 167.13,
+          "w": 0.75
+        },
+        "rampcol": {
+          "px_per_m": 15.6,
+          "m2": 36.7,
+          "w": 0.75
+        },
+        "rope": {
+          "px_per_m": 7.3,
+          "m2": 23.47,
+          "w": 0.35
+        },
+        "scope": {
+          "px_per_m": 20.8,
+          "m2": 1.18,
+          "w": 1.0
+        },
+        "sghanger": {
+          "px_per_m": 20.8,
+          "m2": 2.52,
+          "w": 1.0
+        },
+        "sgirder": {
+          "px_per_m": 20.8,
+          "m2": 32.21,
+          "w": 1.0
+        },
+        "sgpost": {
+          "px_per_m": 20.8,
+          "m2": 36.69,
+          "w": 1.0
+        },
+        "sgtie": {
+          "px_per_m": 20.8,
+          "m2": 19.97,
+          "w": 1.0
+        },
+        "stairpost": {
+          "px_per_m": 20.8,
+          "m2": 5.88,
+          "w": 1.0
+        },
+        "stairslab": {
+          "px_per_m": 20.8,
+          "m2": 14.61,
+          "w": 1.0
+        },
+        "stairstr": {
+          "px_per_m": 14.5,
+          "m2": 10.96,
+          "w": 0.7
+        },
+        "stripe": {
+          "px_per_m": 14.5,
+          "m2": 4.06,
+          "w": 0.7
+        },
+        "strut": {
+          "px_per_m": 27.0,
+          "m2": 203.31,
+          "w": 1.3
+        },
+        "svcpost": {
+          "px_per_m": 20.8,
+          "m2": 10.33,
+          "w": 1.0
+        },
+        "tread": {
+          "px_per_m": 20.8,
+          "m2": 8.9,
+          "w": 1.0
+        }
+      },
+      "starving_lt14": [
+        "rail"
+      ]
+    },
+    "emissive_lit_texels": 1020,
+    "detail_stats": {
+      "drawn": {
+        "seams": 566,
+        "grate": 98,
+        "corrugation": 26
+      },
+      "skipped": {
+        "bolts": 464,
+        "corrugation": 17,
+        "helix": 1278,
+        "grate": 14
+      }
+    },
+    "sub_objects": {
+      "rows": [
+        {
+          "prefab": "WarningLightRandom01",
+          "pos": [
+            -6.0,
+            18.7,
+            5.3
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0,
+          "mount": "beam",
+          "box": [
+            [
+              -6.104,
+              18.7,
+              5.08
+            ],
+            [
+              -5.896,
+              20.654,
+              5.524
+            ]
+          ],
+          "support_m": -0.0
+        },
+        {
+          "prefab": "WarningLightRandom01",
+          "pos": [
+            6.0,
+            18.7,
+            5.3
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0,
+          "mount": "beam",
+          "box": [
+            [
+              5.896,
+              18.7,
+              5.08
+            ],
+            [
+              6.104,
+              20.654,
+              5.524
+            ]
+          ],
+          "support_m": -0.0
+        },
+        {
+          "prefab": "LightpoleParkRandom01",
+          "pos": [
+            -2.6,
+            6.3,
+            -9.4
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0,
+          "mount": "deck",
+          "box": [
+            [
+              -2.867,
+              6.3,
+              -9.635
+            ],
+            [
+              -2.333,
+              9.568,
+              -8.567
+            ]
+          ],
+          "support_m": -0.0
+        },
+        {
+          "prefab": "LightpoleParkRandom01",
+          "pos": [
+            2.6,
+            6.3,
+            -9.4
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0,
+          "mount": "deck",
+          "box": [
+            [
+              2.333,
+              6.3,
+              -9.635
+            ],
+            [
+              2.867,
+              9.568,
+              -8.567
+            ]
+          ],
+          "support_m": -0.0
+        },
+        {
+          "prefab": "LightpoleParkRandom01",
+          "pos": [
+            -5.4,
+            6.3,
+            11.15
+          ],
+          "rot": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "parent": 0,
+          "mount": "deck",
+          "box": [
+            [
+              -5.667,
+              6.3,
+              10.317
+            ],
+            [
+              -5.133,
+              9.568,
+              11.385
+            ]
+          ],
+          "support_m": -0.0
+        },
+        {
+          "prefab": "LightpoleParkRandom01",
+          "pos": [
+            5.4,
+            6.3,
+            11.15
+          ],
+          "rot": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "parent": 0,
+          "mount": "deck",
+          "box": [
+            [
+              5.133,
+              6.3,
+              10.317
+            ],
+            [
+              5.667,
+              9.568,
+              11.385
+            ]
+          ],
+          "support_m": -0.0
+        },
+        {
+          "prefab": "LightpoleParkRandom01",
+          "pos": [
+            -9.7,
+            6.3,
+            -7.5
+          ],
+          "rot": [
+            0.0,
+            0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "mount": "deck",
+          "box": [
+            [
+              -9.935,
+              6.3,
+              -7.767
+            ],
+            [
+              -8.867,
+              9.568,
+              -7.233
+            ]
+          ],
+          "support_m": -0.0
+        },
+        {
+          "prefab": "LightpoleParkRandom01",
+          "pos": [
+            9.7,
+            6.3,
+            -7.5
+          ],
+          "rot": [
+            0.0,
+            -0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "mount": "deck",
+          "box": [
+            [
+              8.867,
+              6.3,
+              -7.767
+            ],
+            [
+              9.935,
+              9.568,
+              -7.233
+            ]
+          ],
+          "support_m": -0.0
+        },
+        {
+          "prefab": "GardenBenchRandom01",
+          "pos": [
+            1.4,
+            6.3,
+            10.7
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0,
+          "mount": "deck",
+          "box": [
+            [
+              0.341,
+              6.3,
+              10.204
+            ],
+            [
+              2.459,
+              7.354,
+              11.196
+            ]
+          ],
+          "support_m": -0.0
+        },
+        {
+          "prefab": "GardenBenchRandom01",
+          "pos": [
+            -1.6,
+            6.3,
+            9.4
+          ],
+          "rot": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "parent": 0,
+          "mount": "deck",
+          "box": [
+            [
+              -2.659,
+              6.3,
+              8.904
+            ],
+            [
+              -0.541,
+              7.354,
+              9.896
+            ]
+          ],
+          "support_m": -0.0
+        },
+        {
+          "prefab": "TrashbinRandom01",
+          "pos": [
+            4.6,
+            6.3,
+            10.9
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0,
+          "mount": "deck",
+          "box": [
+            [
+              4.354,
+              6.3,
+              10.654
+            ],
+            [
+              4.846,
+              7.336,
+              11.146
+            ]
+          ],
+          "support_m": -0.0
+        },
+        {
+          "prefab": "WallLightShortRangeRandom01",
+          "pos": [
+            1.76,
+            8.75,
+            -0.4
+          ],
+          "rot": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "parent": 0,
+          "mount": "wall",
+          "box": [
+            [
+              1.618,
+              8.692,
+              -0.515
+            ],
+            [
+              1.902,
+              8.808,
+              -0.4
+            ]
+          ],
+          "support_m": -0.0
+        },
+        {
+          "prefab": "WallLightShortRangeRandom01",
+          "pos": [
+            1.5,
+            8.62,
+            0.2
+          ],
+          "rot": [
+            0.0,
+            -0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "mount": "wall",
+          "box": [
+            [
+              1.385,
+              8.562,
+              0.058
+            ],
+            [
+              1.5,
+              8.678,
+              0.342
+            ]
+          ],
+          "support_m": -0.0
+        }
+      ],
+      "block": {
+        "target_prefab": "SkiTramTopStationBuilding",
+        "frame": "game local",
+        "objects": [
+          {
+            "prefab": "WarningLightRandom01",
+            "guid": "UnityGUID:6b6861547d4e1964aa977434af734126",
+            "pos": [
+              -6.0,
+              18.7,
+              5.3
+            ],
+            "rot": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "parent": 0
+          },
+          {
+            "prefab": "WarningLightRandom01",
+            "guid": "UnityGUID:6b6861547d4e1964aa977434af734126",
+            "pos": [
+              6.0,
+              18.7,
+              5.3
+            ],
+            "rot": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "parent": 0
+          },
+          {
+            "prefab": "LightpoleParkRandom01",
+            "guid": "UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
+            "pos": [
+              -2.6,
+              6.3,
+              -9.4
+            ],
+            "rot": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "parent": 0
+          },
+          {
+            "prefab": "LightpoleParkRandom01",
+            "guid": "UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
+            "pos": [
+              2.6,
+              6.3,
+              -9.4
+            ],
+            "rot": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "parent": 0
+          },
+          {
+            "prefab": "LightpoleParkRandom01",
+            "guid": "UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
+            "pos": [
+              -5.4,
+              6.3,
+              11.15
+            ],
+            "rot": [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            "parent": 0
+          },
+          {
+            "prefab": "LightpoleParkRandom01",
+            "guid": "UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
+            "pos": [
+              5.4,
+              6.3,
+              11.15
+            ],
+            "rot": [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            "parent": 0
+          },
+          {
+            "prefab": "LightpoleParkRandom01",
+            "guid": "UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
+            "pos": [
+              -9.7,
+              6.3,
+              -7.5
+            ],
+            "rot": [
+              0.0,
+              0.7071068,
+              0.0,
+              0.7071068
+            ],
+            "parent": 0
+          },
+          {
+            "prefab": "LightpoleParkRandom01",
+            "guid": "UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
+            "pos": [
+              9.7,
+              6.3,
+              -7.5
+            ],
+            "rot": [
+              0.0,
+              -0.7071068,
+              0.0,
+              0.7071068
+            ],
+            "parent": 0
+          },
+          {
+            "prefab": "GardenBenchRandom01",
+            "guid": "UnityGUID:8df0703be09426948b5bc3262d86bc04",
+            "pos": [
+              1.4,
+              6.3,
+              10.7
+            ],
+            "rot": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "parent": 0
+          },
+          {
+            "prefab": "GardenBenchRandom01",
+            "guid": "UnityGUID:8df0703be09426948b5bc3262d86bc04",
+            "pos": [
+              -1.6,
+              6.3,
+              9.4
+            ],
+            "rot": [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            "parent": 0
+          },
+          {
+            "prefab": "TrashbinRandom01",
+            "guid": "UnityGUID:41e3c9ba6e1d6b948a6b1bc3499a5397",
+            "pos": [
+              4.6,
+              6.3,
+              10.9
+            ],
+            "rot": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "parent": 0
+          },
+          {
+            "prefab": "WallLightShortRangeRandom01",
+            "guid": "UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
+            "pos": [
+              1.76,
+              8.75,
+              -0.4
+            ],
+            "rot": [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            "parent": 0
+          },
+          {
+            "prefab": "WallLightShortRangeRandom01",
+            "guid": "UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
+            "pos": [
+              1.5,
+              8.62,
+              0.2
+            ],
+            "rot": [
+              0.0,
+              -0.7071068,
+              0.0,
+              0.7071068
+            ],
+            "parent": 0
+          },
+          {
+            "kind": "mod",
+            "ref": "CID",
+            "prefab": "SkiDressExtinguisher",
+            "mesh": "SkiDressExtinguisherB",
+            "guid": "CID:04211f82829f421b9899ffaff582e530",
+            "pos": [
+              4.9,
+              7.0,
+              1.9
+            ],
+            "rot": [
+              0.0,
+              0.7071068,
+              0.0,
+              0.7071068
+            ],
+            "parent": 0,
+            "note": "replaces extinguisher('hut', hut -Z face x 4.70, bottom DECK_Y + 0.70): MOVED to the hut's +X face beside the hose reel (no 0.40 m access in front of the -Z face: the cap railing 0.23 m off it)"
+          },
+          {
+            "kind": "mod",
+            "ref": "CID",
+            "prefab": "SkiDressHoseReel",
+            "mesh": "SkiDressHoseReelB",
+            "guid": "CID:e8c76b0b9f9340a08f728e6d992d4692",
+            "pos": [
+              4.9,
+              7.05,
+              1.0
+            ],
+            "rot": [
+              0.0,
+              0.7071068,
+              0.0,
+              0.7071068
+            ],
+            "parent": 0,
+            "note": "replaces hose_reel('hut', hut +X face z 1.00, centre DECK_Y + 1.10, r 0.30 = the kit plate)"
+          },
+          {
+            "kind": "mod",
+            "ref": "CID",
+            "prefab": "SkiDressTools",
+            "mesh": "SkiDressToolsB",
+            "guid": "CID:5f92c70cec824289aa2673d59018e8a5",
+            "pos": [
+              4.475,
+              6.3,
+              2.9925
+            ],
+            "rot": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "parent": 0,
+            "lean": {
+              "wall_point": [
+                4.475,
+                2.6
+              ],
+              "wall_normal": [
+                0.0,
+                1.0
+              ],
+              "rest_z": -0.3925
+            },
+            "note": "replaces tools('hut', foot (x 4.30, hut +Z face + 0.32), +Z): the pair centre x 4.475"
+          }
+        ],
+        "x_convention": "game (gx, gy, gz) = authoring (y, z, x) (cs2_liftdress.blender_to_game); gx NOT negated - the DQ / gondola / tram rows' convention (the Pali M rows use -y); probe X2 decides, branch N = S1b negates gx of every row with gx != 0 and mirrors the yaw (q.y -> -q.y)",
+        "kinds": {
+          "vanilla": 13,
+          "mod": 3
+        }
+      }
+    }
+  },
+  "fine_detail": {
+    "flag": true,
+    "step": "3c",
+    "report": "build/fine-detail-step3c-tram-pali.md",
+    "x_convention": "game (gx, gy, gz) = authoring (y, z, x) (cs2_liftdress.blender_to_game); gx NOT negated - the DQ / gondola / tram rows' convention (the Pali M rows use -y); probe X2 decides, branch N = S1b negates gx of every row with gx != 0 and mirrors the yaw (q.y -> -q.y)",
+    "rows": {
+      "vanilla": 13,
+      "mod": 3
+    },
+    "F1": "3 dressing-kit rows {'SkiDressExtinguisher': 1, 'SkiDressHoseReel': 1, 'SkiDressTools': 1}: CIDs staged, the replaced parts gone, mounts held (floor / whole back on the wall + 0.4 m access / foot-line rule + contact), the real kit meshes clear of every station face, the carrier envelopes (nearest 1.850 m), the keep-outs, every vanilla and kit row, inside the lot",
+    "kit_rows": [
+      {
+        "row": 0,
+        "prop": "SkiDressExtinguisher",
+        "cid": "04211f82829f421b9899ffaff582e530",
+        "mount": "wall",
+        "pos_host": [
+          1.9,
+          4.9,
+          7.0
+        ],
+        "row_pos": [
+          4.9,
+          7.0,
+          1.9
+        ],
+        "row_rot": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "extinguisher('hut', hut -Z face x 4.70, bottom DECK_Y + 0.70): MOVED to the hut's +X face beside the hose reel (no 0.40 m access in front of the -Z face: the cap railing 0.23 m off it)",
+        "wall_silhouette_m": [
+          0.19,
+          0.527
+        ],
+        "access_m": 0.4,
+        "wall_gap_m": 0.0,
+        "envelope_gap_m": 2.992,
+        "nearest_row": [
+          "WallLightShortRangeRandom01@1.50,0.20",
+          3.856
+        ],
+        "aabb_host": [
+          [
+            1.7918,
+            4.91,
+            7.0
+          ],
+          [
+            1.9816,
+            5.0916,
+            7.527
+          ]
+        ],
+        "kit_fbx_sha1": "9bdc6df30869"
+      },
+      {
+        "row": 1,
+        "prop": "SkiDressHoseReel",
+        "cid": "e8c76b0b9f9340a08f728e6d992d4692",
+        "mount": "wall",
+        "pos_host": [
+          1.0,
+          4.9,
+          7.05
+        ],
+        "row_pos": [
+          4.9,
+          7.05,
+          1.0
+        ],
+        "row_rot": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "hose_reel('hut', hut +X face z 1.00, centre DECK_Y + 1.10, r 0.30 = the kit plate)",
+        "wall_silhouette_m": [
+          0.7,
+          0.7
+        ],
+        "access_m": 0.4,
+        "wall_gap_m": 0.0,
+        "envelope_gap_m": 1.85,
+        "nearest_row": [
+          "kit SkiDressExtinguisher@1.90,4.90",
+          0.442
+        ],
+        "aabb_host": [
+          [
+            0.65,
+            4.91,
+            7.05
+          ],
+          [
+            1.35,
+            5.23,
+            7.75
+          ]
+        ],
+        "kit_fbx_sha1": "9648cfba9fce"
+      },
+      {
+        "row": 2,
+        "prop": "SkiDressTools",
+        "cid": "5f92c70cec824289aa2673d59018e8a5",
+        "mount": "lean",
+        "pos_host": [
+          2.6,
+          4.475,
+          6.3
+        ],
+        "row_pos": [
+          4.475,
+          6.3,
+          2.9925
+        ],
+        "row_rot": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "was": "tools('hut', foot (x 4.30, hut +Z face + 0.32), +Z): the pair centre x 4.475",
+        "rest_gap_m": 0.0,
+        "rests_on": [
+          "hut"
+        ],
+        "envelope_gap_m": 3.81,
+        "nearest_row": [
+          "kit SkiDressExtinguisher@1.90,4.90",
+          0.643
+        ],
+        "aabb_host": [
+          [
+            2.61,
+            4.15,
+            6.31
+          ],
+          [
+            3.0025,
+            4.775,
+            7.6519
+          ]
+        ],
+        "kit_fbx_sha1": "6323b9a0d4c3"
+      }
+    ],
+    "removed": [
+      {
+        "prop": "SkiDressExtinguisher",
+        "removed": [
+          "ext_hut"
+        ],
+        "was": "extinguisher('hut', hut -Z face x 4.70, bottom DECK_Y + 0.70): MOVED to the hut's +X face beside the hose reel (no 0.40 m access in front of the -Z face: the cap railing 0.23 m off it)"
+      },
+      {
+        "prop": "SkiDressHoseReel",
+        "removed": [
+          "hosereel_hut_"
+        ],
+        "was": "hose_reel('hut', hut +X face z 1.00, centre DECK_Y + 1.10, r 0.30 = the kit plate)"
+      },
+      {
+        "prop": "SkiDressTools",
+        "removed": [
+          "tool_hut_"
+        ],
+        "was": "tools('hut', foot (x 4.30, hut +Z face + 0.32), +Z): the pair centre x 4.475"
+      }
+    ],
+    "lamps_to_vanilla": [],
+    "fine_geometry": "none (no maze, swing gate, post board or cabinet on the tram stations)",
+    "kept_modelled": {
+      "labels / LIFT boards": "FS5: the host atlas (TICKETS, LIFT OPS, departure board, station name, tension, the three trail boards)",
+      "gates": "boxes stay boxes (benchmark 2.2); the 2.2 m perforated top leaves and the C17 layout unchanged",
+      "medallions": "6-gon discs (FD_MEDAL_RING False: a ring is +28 tris each, not cheap on the top)",
+      "lamp_beacon": "the red lens on the roof mast: it sets the frozen top bound 20.70 (PLACEHOLDER)",
+      "mast, mastarm, antdish, antpanel": "FS1: the anemometer mast stays; dish / panel PLACEHOLDERS (vanilla SatelliteDish / Antenna exist, not in SUBOBJ)"
+    }
+  },
+  "nitpick_b2": {
+    "flag": "RAMPS",
+    "report": "build/nitpick-b2-tram-ramps.md",
+    "rulings": "verdicts-2026-10-11 'Nitpick B (tram) - first pass landed' ORCHESTRATOR RULINGS",
+    "frame_shift": null,
+    "axis_x": 0.0,
+    "lot": [
+      3,
+      3
+    ],
+    "plan": {
+      "z0": 0.5,
+      "z1": 10.1,
+      "run": 9.6,
+      "y_head": 6.3,
+      "y_pad": 5.1,
+      "rise": 1.2,
+      "pad_z": [
+        10.1,
+        11.6
+      ],
+      "pad_depth": 1.5,
+      "x": [
+        7.8,
+        11.7
+      ],
+      "width": 3.9,
+      "clear": 3.724,
+      "grade": 0.125
+    },
+    "ramps": {
+      "L": {
+        "part": "ramp_L",
+        "axis": "z",
+        "grade": 0.125,
+        "grade_1_in": 8.0,
+        "cross_fall": 0.0,
+        "run_m": 9.6,
+        "rise_m": 1.2,
+        "deck_width_m": 3.9,
+        "clear_m": 3.724,
+        "stations": 9,
+        "ends": {
+          "head": {
+            "at": [
+              -9.75,
+              6.3,
+              0.5
+            ],
+            "on": [
+              "grate_gangL"
+            ],
+            "crossing": 3.724,
+            "landing_m": 10.47
+          },
+          "foot": {
+            "at": [
+              -9.75,
+              5.1,
+              10.1
+            ],
+            "on": [
+              "pad_L"
+            ],
+            "crossing": 3.724,
+            "landing_m": 1.5
+          }
+        },
+        "from": [
+          "pad_L"
+        ],
+        "to": [
+          "grate_gangL"
+        ]
+      },
+      "R": {
+        "part": "ramp_R",
+        "axis": "z",
+        "grade": 0.125,
+        "grade_1_in": 8.0,
+        "cross_fall": 0.0,
+        "run_m": 9.6,
+        "rise_m": 1.2,
+        "deck_width_m": 3.9,
+        "clear_m": 3.724,
+        "stations": 9,
+        "ends": {
+          "head": {
+            "at": [
+              9.75,
+              6.3,
+              0.5
+            ],
+            "on": [
+              "grate_headR"
+            ],
+            "crossing": 3.724,
+            "landing_m": 10.47
+          },
+          "foot": {
+            "at": [
+              9.75,
+              5.1,
+              10.1
+            ],
+            "on": [
+              "pad_R"
+            ],
+            "crossing": 3.724,
+            "landing_m": 1.5
+          }
+        },
+        "from": [
+          "pad_R"
+        ],
+        "to": [
+          "grate_headR"
+        ]
+      }
+    },
+    "C15b": {
+      "pad_L": {
+        "terraform": "no-level",
+        "edge_m": 0.4,
+        "ground_y": 0.0,
+        "top_y": 5.1,
+        "ramps_arriving": 1,
+        "counts_as_grade": true,
+        "why": [
+          "a ramp's pad at the lot edge on a no-level station (C15b)"
+        ]
+      },
+      "pad_R": {
+        "terraform": "no-level",
+        "edge_m": 0.4,
+        "ground_y": 0.0,
+        "top_y": 5.1,
+        "ramps_arriving": 1,
+        "counts_as_grade": true,
+        "why": [
+          "a ramp's pad at the lot edge on a no-level station (C15b)"
+        ]
+      }
+    },
+    "goal": null,
+    "rows_added": [],
+    "added_tris_lod0": {
+      "ramp decks": 24,
+      "pads": 20,
+      "head grating + beams": 38,
+      "columns": 80,
+      "rails (posts, rails, kick plates)": 1236
+    },
+    "added_tris_lod0_total": 1398,
+    "removed": [
+      "the +X end stair (flight s, its foot pad and rails stairo / stairi, the outer deck's back rail outerRb)",
+      "the -X end stair (flights wu / wl, landing_midW, stairfoot_1, stairposts 2-3, rails landtopW / stairwu* / landwm* / stairwl*; the gangway's back rail shortened)"
+    ]
+  },
+  "C15": {
+    "flights": {
+      "m": {
+        "treads": 29,
+        "rise_m": 5.4,
+        "riser": 0.18,
+        "going": 0.178,
+        "width": 1.04,
+        "from": [
+          "grate_svcplat"
+        ],
+        "to": [
+          "plinthcap"
+        ]
+      }
+    },
+    "ladders": {},
+    "joins": {
+      "grate_bayL | grate_gangL": {
+        "ok": true,
+        "opening": 2.278,
+        "across": "x",
+        "at": [
+          -10.17,
+          -7.892
+        ],
+        "between": [
+          "rail_capf_knee"
+        ]
+      },
+      "grate_bayL | landing_topW": {
+        "ok": true,
+        "opening": 2.126,
+        "across": "z",
+        "at": [
+          -1.626,
+          0.5
+        ],
+        "between": [
+          "post_headLf_0"
+        ]
+      },
+      "grate_bayR | grate_headR": {
+        "ok": true,
+        "opening": 2.282,
+        "across": "x",
+        "at": [
+          7.888,
+          10.17
+        ],
+        "between": [
+          "post_headRi_0"
+        ]
+      },
+      "grate_bayR | landing_top": {
+        "ok": true,
+        "opening": 2.126,
+        "across": "z",
+        "at": [
+          -1.626,
+          0.5
+        ],
+        "between": [
+          "post_headRf_0"
+        ]
+      },
+      "grate_bayc | plinthcap": {
+        "ok": true,
+        "opening": 4.708,
+        "across": "x",
+        "at": [
+          -3.208,
+          1.5
+        ],
+        "between": [
+          "hut",
+          "rail_capf_knee"
+        ]
+      },
+      "grate_gangL | landing_topW": {
+        "ok": true,
+        "opening": 2.1,
+        "across": "z",
+        "at": [
+          -1.6,
+          0.5
+        ],
+        "between": []
+      },
+      "grate_gangL | plinthcap": {
+        "ok": true,
+        "opening": 0.695,
+        "across": "z",
+        "at": [
+          -0.626,
+          0.07
+        ],
+        "between": [
+          "rail_capf_knee",
+          "sgpost_L0"
+        ]
+      },
+      "grate_headR | landing_top": {
+        "ok": true,
+        "opening": 2.1,
+        "across": "z",
+        "at": [
+          -1.6,
+          0.5
+        ],
+        "between": []
+      }
+    },
+    "not_walkable": {
+      "dwbeam": {
+        "why": "dwbeam",
+        "y": 14.55,
+        "area": 4.31,
+        "at": [
+          -4.37,
+          14.55,
+          0.3
+        ]
+      },
+      "goalbeam": {
+        "why": "goalbeam",
+        "y": 18.7,
+        "area": 6.92,
+        "at": [
+          -5.77,
+          18.7,
+          5.3
+        ]
+      },
+      "headbeam_face": {
+        "why": "headbeam_",
+        "y": 18.3,
+        "area": 15.32,
+        "at": [
+          -7.45,
+          18.3,
+          -9.84
+        ]
+      },
+      "headbeam_rear": {
+        "why": "headbeam_",
+        "y": 18.3,
+        "area": 15.32,
+        "at": [
+          -7.45,
+          18.3,
+          -2.24
+        ]
+      },
+      "headgirder_L": {
+        "why": "headgirder_",
+        "y": 18.24,
+        "area": 4.73,
+        "at": [
+          -7.6,
+          18.24,
+          -8.61
+        ]
+      },
+      "headgirder_R": {
+        "why": "headgirder_",
+        "y": 18.24,
+        "area": 4.73,
+        "at": [
+          7.6,
+          18.24,
+          -8.61
+        ]
+      },
+      "hutroof": {
+        "why": "hutroof",
+        "y": 9.55,
+        "area": 11.93,
+        "at": [
+          1.63,
+          9.55,
+          -0.26
+        ]
+      }
+    },
+    "orphans": [],
+    "ramps": {
+      "L": {
+        "part": "ramp_L",
+        "axis": "z",
+        "grade": 0.125,
+        "grade_1_in": 8.0,
+        "cross_fall": 0.0,
+        "run_m": 9.6,
+        "rise_m": 1.2,
+        "deck_width_m": 3.9,
+        "clear_m": 3.724,
+        "stations": 9,
+        "ends": {
+          "head": {
+            "at": [
+              -9.75,
+              6.3,
+              0.5
+            ],
+            "on": [
+              "grate_gangL"
+            ],
+            "crossing": 3.724,
+            "landing_m": 10.47
+          },
+          "foot": {
+            "at": [
+              -9.75,
+              5.1,
+              10.1
+            ],
+            "on": [
+              "pad_L"
+            ],
+            "crossing": 3.724,
+            "landing_m": 1.5
+          }
+        },
+        "from": [
+          "pad_L"
+        ],
+        "to": [
+          "grate_gangL"
+        ]
+      },
+      "R": {
+        "part": "ramp_R",
+        "axis": "z",
+        "grade": 0.125,
+        "grade_1_in": 8.0,
+        "cross_fall": 0.0,
+        "run_m": 9.6,
+        "rise_m": 1.2,
+        "deck_width_m": 3.9,
+        "clear_m": 3.724,
+        "stations": 9,
+        "ends": {
+          "head": {
+            "at": [
+              9.75,
+              6.3,
+              0.5
+            ],
+            "on": [
+              "grate_headR"
+            ],
+            "crossing": 3.724,
+            "landing_m": 10.47
+          },
+          "foot": {
+            "at": [
+              9.75,
+              5.1,
+              10.1
+            ],
+            "on": [
+              "pad_R"
+            ],
+            "crossing": 3.724,
+            "landing_m": 1.5
+          }
+        },
+        "from": [
+          "pad_R"
+        ],
+        "to": [
+          "grate_headR"
+        ]
+      }
+    },
+    "C15b": {
+      "pad_L": {
+        "terraform": "no-level",
+        "edge_m": 0.4,
+        "ground_y": 0.0,
+        "top_y": 5.1,
+        "ramps_arriving": 1,
+        "counts_as_grade": true,
+        "why": [
+          "a ramp's pad at the lot edge on a no-level station (C15b)"
+        ]
+      },
+      "pad_R": {
+        "terraform": "no-level",
+        "edge_m": 0.4,
+        "ground_y": 0.0,
+        "top_y": 5.1,
+        "ramps_arriving": 1,
+        "counts_as_grade": true,
+        "why": [
+          "a ramp's pad at the lot edge on a no-level station (C15b)"
+        ]
+      }
+    },
+    "goal": null
+  },
+  "C17": {
+    "door": {
+      "source": "lift_cabin.T['door'] (x_out, jamb) + TRAM_STATION['dock_z']",
+      "centre": -5.5,
+      "half": 0.85,
+      "jamb_half": 0.866,
+      "meet_half": 0.012,
+      "manifest": "assets/import/cabins/A/SkiTramCabinA/SkiTramCabinA.manifest.json",
+      "manifest_z_bay": -5.5,
+      "t13_held": true
+    },
+    "span_z": [
+      -6.35,
+      -4.65
+    ],
+    "open_min_m": 1.7,
+    "edges": {
+      "0": {
+        "x": -7.8,
+        "opening_m": 1.9,
+        "centre_z": -5.5,
+        "lo_post": "gatepost_0_2",
+        "hi_post": "gatepost_0_3",
+        "margin_lo_m": 0.1,
+        "margin_hi_m": 0.1,
+        "leaf_lo_m": 1.455,
+        "leaf_hi_m": 1.355,
+        "posts": 6,
+        "leaves": 4
+      },
+      "1": {
+        "x": -3.2,
+        "opening_m": 1.9,
+        "centre_z": -5.5,
+        "lo_post": "gatepost_1_2",
+        "hi_post": "gatepost_1_3",
+        "margin_lo_m": 0.1,
+        "margin_hi_m": 0.1,
+        "leaf_lo_m": 1.455,
+        "leaf_hi_m": 1.355,
+        "posts": 6,
+        "leaves": 4
+      },
+      "2": {
+        "x": 3.2,
+        "opening_m": 1.9,
+        "centre_z": -5.5,
+        "lo_post": "gatepost_2_2",
+        "hi_post": "gatepost_2_3",
+        "margin_lo_m": 0.1,
+        "margin_hi_m": 0.1,
+        "leaf_lo_m": 1.455,
+        "leaf_hi_m": 1.355,
+        "posts": 6,
+        "leaves": 4
+      },
+      "3": {
+        "x": 7.8,
+        "opening_m": 1.9,
+        "centre_z": -5.5,
+        "lo_post": "gatepost_3_2",
+        "hi_post": "gatepost_3_3",
+        "margin_lo_m": 0.1,
+        "margin_hi_m": 0.1,
+        "leaf_lo_m": 1.455,
+        "leaf_hi_m": 1.355,
+        "posts": 6,
+        "leaves": 4
+      }
+    }
+  },
+  "rev2": {
+    "C18": {
+      "LOD0": {
+        "level": 0,
+        "views": 360,
+        "rays": 1866240,
+        "hits": 497295,
+        "back": 16,
+        "max_per_part": 5,
+        "parts": [
+          {
+            "part": "post_svcA_4",
+            "back": 2,
+            "front": 35,
+            "to_sky": 0,
+            "views": 2,
+            "y": [
+              12.8,
+              12.8
+            ]
+          },
+          {
+            "part": "rope_track_L",
+            "back": 2,
+            "front": 1358,
+            "to_sky": 0,
+            "views": 2,
+            "y": [
+              16.02,
+              16.02
+            ]
+          },
+          {
+            "part": "rope_track_R",
+            "back": 2,
+            "front": 1389,
+            "to_sky": 0,
+            "views": 2,
+            "y": [
+              16.02,
+              16.02
+            ]
+          },
+          {
+            "part": "door_hut_jamb0",
+            "back": 1,
+            "front": 63,
+            "to_sky": 0,
+            "views": 1,
+            "y": [
+              6.85,
+              6.85
+            ]
+          },
+          {
+            "part": "drip_hutroof_px",
+            "back": 1,
+            "front": 45,
+            "to_sky": 0,
+            "views": 1,
+            "y": [
+              9.52,
+              9.52
+            ]
+          },
+          {
+            "part": "headbeam_face",
+            "back": 1,
+            "front": 25159,
+            "to_sky": 1,
+            "views": 1,
+            "y": [
+              17.1,
+              17.1
+            ]
+          },
+          {
+            "part": "kick_headLo_0",
+            "back": 1,
+            "front": 106,
+            "to_sky": 0,
+            "views": 1,
+            "y": [
+              6.4,
+              6.4
+            ]
+          },
+          {
+            "part": "post_cap_10",
+            "back": 1,
+            "front": 31,
+            "to_sky": 1,
+            "views": 1,
+            "y": [
+              7.4,
+              7.4
+            ]
+          },
+          {
+            "part": "post_cap_5",
+            "back": 1,
+            "front": 31,
+            "to_sky": 1,
+            "views": 1,
+            "y": [
+              7.4,
+              7.4
+            ]
+          },
+          {
+            "part": "post_outerL_1",
+            "back": 1,
+            "front": 35,
+            "to_sky": 1,
+            "views": 1,
+            "y": [
+              7.39,
+              7.39
+            ]
+          },
+          {
+            "part": "post_outerR_1",
+            "back": 1,
+            "front": 35,
+            "to_sky": 1,
+            "views": 1,
+            "y": [
+              7.39,
+              7.39
+            ]
+          },
+          {
+            "part": "post_rampRi_0",
+            "back": 1,
+            "front": 24,
+            "to_sky": 0,
+            "views": 1,
+            "y": [
+              6.66,
+              6.66
+            ]
+          },
+          {
+            "part": "post_svcA_1",
+            "back": 1,
+            "front": 20,
+            "to_sky": 0,
+            "views": 1,
+            "y": [
+              12.74,
+              12.74
+            ]
+          }
+        ],
+        "rims_open": {
+          "bullrim": 0,
+          "drumrim_L": 0,
+          "drumrim_R": 0,
+          "dwrim_L": 0,
+          "dwrim_R": 0,
+          "fsrim_L": 0,
+          "fsrim_R": 0
+        },
+        "known": []
+      },
+      "LOD1": {
+        "level": 1,
+        "views": 144,
+        "rays": 589824,
+        "hits": 159585,
+        "back": 0,
+        "max_per_part": 3,
+        "parts": [],
+        "rims_open": null,
+        "known": []
+      },
+      "LOD2": {
+        "level": 2,
+        "views": 48,
+        "rays": 110592,
+        "hits": 27361,
+        "back": 0,
+        "max_per_part": 3,
+        "parts": [],
+        "rims_open": null,
+        "known": []
+      }
+    },
+    "C19": {
+      "pairs": 75,
+      "cm2": 4431.6,
+      "over_25_cm2": 12,
+      "fail": [],
+      "kit": [],
+      "all": [
+        {
+          "a": "deckbeam_3",
+          "b": "deckbeam_9",
+          "cm2": 340.0,
+          "kit": false,
+          "visible": false,
+          "lo": [
+            3.0,
+            6.24,
+            -5.1
+          ],
+          "hi": [
+            3.17,
+            6.24,
+            -4.9
+          ]
+        },
+        {
+          "a": "deckbeam_11",
+          "b": "deckbeam_4",
+          "cm2": 340.0,
+          "kit": false,
+          "visible": false,
+          "lo": [
+            7.83,
+            6.24,
+            -5.1
+          ],
+          "hi": [
+            8.0,
+            6.24,
+            -4.9
+          ]
+        },
+        {
+          "a": "deckbeam_0",
+          "b": "deckbeam_10",
+          "cm2": 340.0,
+          "kit": false,
+          "visible": false,
+          "lo": [
+            -10.17,
+            6.24,
+            -5.1
+          ],
+          "hi": [
+            -10.0,
+            6.24,
+            -4.9
+          ]
+        },
+        {
+          "a": "deckbeam_11",
+          "b": "deckbeam_5",
+          "cm2": 340.0,
+          "kit": false,
+          "visible": false,
+          "lo": [
+            10.0,
+            6.24,
+            -5.1
+          ],
+          "hi": [
+            10.17,
+            6.24,
+            -4.9
+          ]
+        },
+        {
+          "a": "deckbeam_2",
+          "b": "deckbeam_9",
+          "cm2": 340.0,
+          "kit": false,
+          "visible": false,
+          "lo": [
+            -3.17,
+            6.24,
+            -5.1
+          ],
+          "hi": [
+            -3.0,
+            6.24,
+            -4.9
+          ]
+        },
+        {
+          "a": "deckbeam_1",
+          "b": "deckbeam_10",
+          "cm2": 340.0,
+          "kit": false,
+          "visible": false,
+          "lo": [
+            -8.0,
+            6.24,
+            -5.1
+          ],
+          "hi": [
+            -7.83,
+            6.24,
+            -4.9
+          ]
+        },
+        {
+          "a": "deckbeam_3",
+          "b": "deckbeam_6",
+          "cm2": 289.0,
+          "kit": false,
+          "visible": false,
+          "lo": [
+            3.0,
+            6.24,
+            -9.97
+          ],
+          "hi": [
+            3.17,
+            6.24,
+            -9.8
+          ]
+        },
+        {
+          "a": "deckbeam_1",
+          "b": "deckbeam_7",
+          "cm2": 289.0,
+          "kit": false,
+          "visible": false,
+          "lo": [
+            -8.0,
+            6.24,
+            -9.97
+          ],
+          "hi": [
+            -7.83,
+            6.24,
+            -9.8
+          ]
+        },
+        {
+          "a": "deckbeam_0",
+          "b": "deckbeam_7",
+          "cm2": 289.0,
+          "kit": false,
+          "visible": false,
+          "lo": [
+            -10.17,
+            6.24,
+            -9.97
+          ],
+          "hi": [
+            -10.0,
+            6.24,
+            -9.8
+          ]
+        },
+        {
+          "a": "deckbeam_5",
+          "b": "deckbeam_8",
+          "cm2": 289.0,
+          "kit": false,
+          "visible": false,
+          "lo": [
+            10.0,
+            6.24,
+            -9.97
+          ],
+          "hi": [
+            10.17,
+            6.24,
+            -9.8
+          ]
+        },
+        {
+          "a": "deckbeam_2",
+          "b": "deckbeam_6",
+          "cm2": 289.0,
+          "kit": false,
+          "visible": false,
+          "lo": [
+            -3.17,
+            6.24,
+            -9.97
+          ],
+          "hi": [
+            -3.0,
+            6.24,
+            -9.8
+          ]
+        },
+        {
+          "a": "deckbeam_4",
+          "b": "deckbeam_8",
+          "cm2": 289.0,
+          "kit": false,
+          "visible": false,
+          "lo": [
+            7.83,
+            6.24,
+            -9.97
+          ],
+          "hi": [
+            8.0,
+            6.24,
+            -9.8
+          ]
+        },
+        {
+          "a": "post_svcB_1",
+          "b": "rail_svcB_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -1.5,
+            12.24,
+            4.93
+          ],
+          "hi": [
+            -1.47,
+            12.26,
+            4.97
+          ]
+        },
+        {
+          "a": "post_facec_2",
+          "b": "rail_facec_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            1.02,
+            6.84,
+            -9.97
+          ],
+          "hi": [
+            1.05,
+            6.86,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_facec_1",
+          "b": "rail_facec_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -1.05,
+            6.84,
+            -9.97
+          ],
+          "hi": [
+            -1.02,
+            6.86,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_cap_8",
+          "b": "rail_cap_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            1.16,
+            6.84,
+            11.48
+          ],
+          "hi": [
+            1.18,
+            6.86,
+            11.52
+          ]
+        },
+        {
+          "a": "post_cap_7",
+          "b": "rail_cap_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -1.18,
+            6.84,
+            11.48
+          ],
+          "hi": [
+            -1.16,
+            6.86,
+            11.52
+          ]
+        },
+        {
+          "a": "post_svcB_2",
+          "b": "rail_svcB_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            0.37,
+            12.24,
+            4.93
+          ],
+          "hi": [
+            0.4,
+            12.26,
+            4.97
+          ]
+        },
+        {
+          "a": "post_svcA_3",
+          "b": "rail_svcA_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            0.37,
+            12.24,
+            2.53
+          ],
+          "hi": [
+            0.4,
+            12.26,
+            2.57
+          ]
+        },
+        {
+          "a": "post_cap_9",
+          "b": "rail_cap_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            3.5,
+            6.84,
+            11.48
+          ],
+          "hi": [
+            3.52,
+            6.86,
+            11.52
+          ]
+        },
+        {
+          "a": "post_cap_16",
+          "b": "rail_cap_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            4.54,
+            6.84,
+            -0.67
+          ],
+          "hi": [
+            4.56,
+            6.86,
+            -0.63
+          ]
+        },
+        {
+          "a": "post_capf_1",
+          "b": "rail_capf_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -5.56,
+            6.84,
+            -0.67
+          ],
+          "hi": [
+            -5.54,
+            6.86,
+            -0.63
+          ]
+        },
+        {
+          "a": "post_svcA_2",
+          "b": "rail_svcA_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -2.1,
+            12.24,
+            2.53
+          ],
+          "hi": [
+            -2.07,
+            12.26,
+            2.57
+          ]
+        },
+        {
+          "a": "post_cap_6",
+          "b": "rail_cap_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -3.52,
+            6.84,
+            11.48
+          ],
+          "hi": [
+            -3.5,
+            6.86,
+            11.52
+          ]
+        },
+        {
+          "a": "post_facec_0",
+          "b": "rail_facec_knee",
+          "cm2": 15.6,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -3.11,
+            6.84,
+            -9.97
+          ],
+          "hi": [
+            -3.09,
+            6.86,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_facec_3",
+          "b": "rail_facec_knee",
+          "cm2": 15.6,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            3.09,
+            6.84,
+            -9.97
+          ],
+          "hi": [
+            3.11,
+            6.86,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_svcB_0",
+          "b": "rail_svcB_knee",
+          "cm2": 15.6,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -3.36,
+            12.24,
+            4.93
+          ],
+          "hi": [
+            -3.34,
+            12.26,
+            4.97
+          ]
+        },
+        {
+          "a": "post_svcB_3",
+          "b": "rail_svcB_knee",
+          "cm2": 15.6,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            2.24,
+            12.24,
+            4.93
+          ],
+          "hi": [
+            2.26,
+            12.26,
+            4.97
+          ]
+        },
+        {
+          "a": "post_gangb_0",
+          "b": "rail_gangb_knee",
+          "cm2": 15.5,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -7.77,
+            6.84,
+            0.45
+          ],
+          "hi": [
+            -7.75,
+            6.86,
+            0.49
+          ]
+        },
+        {
+          "a": "post_gangb_1",
+          "b": "rail_gangb_knee",
+          "cm2": 15.5,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -5.96,
+            6.84,
+            0.45
+          ],
+          "hi": [
+            -5.94,
+            6.86,
+            0.49
+          ]
+        },
+        {
+          "a": "post_capf_2",
+          "b": "rail_capf_knee",
+          "cm2": 15.5,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -7.86,
+            6.84,
+            -0.67
+          ],
+          "hi": [
+            -7.84,
+            6.86,
+            -0.63
+          ]
+        },
+        {
+          "a": "post_capf_0",
+          "b": "rail_capf_knee",
+          "cm2": 15.5,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -3.26,
+            6.84,
+            -0.67
+          ],
+          "hi": [
+            -3.24,
+            6.86,
+            -0.63
+          ]
+        },
+        {
+          "a": "post_headLf_1",
+          "b": "rail_headLf_knee",
+          "cm2": 15.5,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -11.65,
+            6.84,
+            -1.67
+          ],
+          "hi": [
+            -11.63,
+            6.86,
+            -1.63
+          ]
+        },
+        {
+          "a": "post_headRf_1",
+          "b": "rail_headRf_knee",
+          "cm2": 15.5,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            11.63,
+            6.84,
+            -1.67
+          ],
+          "hi": [
+            11.65,
+            6.86,
+            -1.63
+          ]
+        },
+        {
+          "a": "post_headLf_0",
+          "b": "rail_headLf_knee",
+          "cm2": 15.5,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -10.26,
+            6.84,
+            -1.67
+          ],
+          "hi": [
+            -10.24,
+            6.86,
+            -1.63
+          ]
+        },
+        {
+          "a": "post_headRf_0",
+          "b": "rail_headRf_knee",
+          "cm2": 15.5,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            10.24,
+            6.84,
+            -1.67
+          ],
+          "hi": [
+            10.26,
+            6.86,
+            -1.63
+          ]
+        },
+        {
+          "a": "post_cap_17",
+          "b": "rail_cap_knee",
+          "cm2": 15.4,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            3.24,
+            6.84,
+            -0.67
+          ],
+          "hi": [
+            3.26,
+            6.86,
+            -0.63
+          ]
+        },
+        {
+          "a": "post_outerL_0",
+          "b": "rail_outerL_knee",
+          "cm2": 15.4,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -7.91,
+            6.84,
+            -9.97
+          ],
+          "hi": [
+            -7.89,
+            6.86,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_outerR_0",
+          "b": "rail_outerR_knee",
+          "cm2": 15.4,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            7.89,
+            6.84,
+            -9.97
+          ],
+          "hi": [
+            7.91,
+            6.86,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_cap_8",
+          "b": "rail_cap_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            1.16,
+            7.39,
+            11.48
+          ],
+          "hi": [
+            1.18,
+            7.4,
+            11.52
+          ]
+        },
+        {
+          "a": "post_facec_1",
+          "b": "rail_facec_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -1.05,
+            7.39,
+            -9.97
+          ],
+          "hi": [
+            -1.02,
+            7.4,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_facec_2",
+          "b": "rail_facec_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            1.02,
+            7.39,
+            -9.97
+          ],
+          "hi": [
+            1.05,
+            7.4,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_cap_7",
+          "b": "rail_cap_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -1.18,
+            7.39,
+            11.48
+          ],
+          "hi": [
+            -1.16,
+            7.4,
+            11.52
+          ]
+        },
+        {
+          "a": "post_cap_17",
+          "b": "rail_cap_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            3.24,
+            7.39,
+            -0.67
+          ],
+          "hi": [
+            3.26,
+            7.4,
+            -0.63
+          ]
+        },
+        {
+          "a": "post_cap_6",
+          "b": "rail_cap_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -3.52,
+            7.39,
+            11.48
+          ],
+          "hi": [
+            -3.5,
+            7.4,
+            11.52
+          ]
+        },
+        {
+          "a": "post_gangb_0",
+          "b": "rail_gangb_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -7.77,
+            7.39,
+            0.45
+          ],
+          "hi": [
+            -7.75,
+            7.4,
+            0.49
+          ]
+        },
+        {
+          "a": "post_gangb_1",
+          "b": "rail_gangb_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -5.96,
+            7.39,
+            0.45
+          ],
+          "hi": [
+            -5.94,
+            7.4,
+            0.49
+          ]
+        },
+        {
+          "a": "post_outerL_0",
+          "b": "rail_outerL_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -7.91,
+            7.39,
+            -9.97
+          ],
+          "hi": [
+            -7.89,
+            7.4,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_cap_16",
+          "b": "rail_cap_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            4.54,
+            7.39,
+            -0.67
+          ],
+          "hi": [
+            4.56,
+            7.4,
+            -0.63
+          ]
+        },
+        {
+          "a": "post_headLf_0",
+          "b": "rail_headLf_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -10.26,
+            7.39,
+            -1.67
+          ],
+          "hi": [
+            -10.24,
+            7.4,
+            -1.63
+          ]
+        },
+        {
+          "a": "post_headLf_1",
+          "b": "rail_headLf_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -11.65,
+            7.39,
+            -1.67
+          ],
+          "hi": [
+            -11.63,
+            7.4,
+            -1.63
+          ]
+        },
+        {
+          "a": "post_headRf_0",
+          "b": "rail_headRf_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            10.24,
+            7.39,
+            -1.67
+          ],
+          "hi": [
+            10.26,
+            7.4,
+            -1.63
+          ]
+        },
+        {
+          "a": "post_headRf_1",
+          "b": "rail_headRf_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            11.63,
+            7.39,
+            -1.67
+          ],
+          "hi": [
+            11.65,
+            7.4,
+            -1.63
+          ]
+        },
+        {
+          "a": "post_outerR_0",
+          "b": "rail_outerR_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            7.89,
+            7.39,
+            -9.97
+          ],
+          "hi": [
+            7.91,
+            7.4,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_cap_9",
+          "b": "rail_cap_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            3.5,
+            7.39,
+            11.48
+          ],
+          "hi": [
+            3.52,
+            7.4,
+            11.52
+          ]
+        },
+        {
+          "a": "post_svcB_1",
+          "b": "rail_svcB_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -1.5,
+            12.79,
+            4.93
+          ],
+          "hi": [
+            -1.47,
+            12.8,
+            4.97
+          ]
+        },
+        {
+          "a": "post_svcB_2",
+          "b": "rail_svcB_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            0.37,
+            12.79,
+            4.93
+          ],
+          "hi": [
+            0.4,
+            12.8,
+            4.97
+          ]
+        },
+        {
+          "a": "post_svcA_3",
+          "b": "rail_svcA_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            0.37,
+            12.79,
+            2.53
+          ],
+          "hi": [
+            0.4,
+            12.8,
+            2.57
+          ]
+        },
+        {
+          "a": "post_svcA_2",
+          "b": "rail_svcA_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -2.1,
+            12.79,
+            2.53
+          ],
+          "hi": [
+            -2.07,
+            12.8,
+            2.57
+          ]
+        },
+        {
+          "a": "post_capf_1",
+          "b": "rail_capf_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -5.56,
+            7.39,
+            -0.67
+          ],
+          "hi": [
+            -5.54,
+            7.4,
+            -0.63
+          ]
+        },
+        {
+          "a": "post_facec_3",
+          "b": "rail_facec_top",
+          "cm2": 7.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            3.09,
+            7.39,
+            -9.97
+          ],
+          "hi": [
+            3.11,
+            7.4,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_facec_0",
+          "b": "rail_facec_top",
+          "cm2": 7.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -3.11,
+            7.39,
+            -9.97
+          ],
+          "hi": [
+            -3.09,
+            7.4,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_svcB_0",
+          "b": "rail_svcB_top",
+          "cm2": 7.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -3.36,
+            12.79,
+            4.93
+          ],
+          "hi": [
+            -3.34,
+            12.8,
+            4.97
+          ]
+        },
+        {
+          "a": "post_svcB_3",
+          "b": "rail_svcB_top",
+          "cm2": 7.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            2.24,
+            12.79,
+            4.93
+          ],
+          "hi": [
+            2.26,
+            12.8,
+            4.97
+          ]
+        },
+        {
+          "a": "post_capf_2",
+          "b": "rail_capf_top",
+          "cm2": 7.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -7.86,
+            7.39,
+            -0.67
+          ],
+          "hi": [
+            -7.84,
+            7.4,
+            -0.63
+          ]
+        },
+        {
+          "a": "post_capf_0",
+          "b": "rail_capf_top",
+          "cm2": 7.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -3.26,
+            7.39,
+            -0.67
+          ],
+          "hi": [
+            -3.24,
+            7.4,
+            -0.63
+          ]
+        },
+        {
+          "a": "rail_stairmo_top",
+          "b": "rail_svcA_top",
+          "cm2": 6.4,
+          "kit": false,
+          "visible": null,
+          "lo": [
+            -4.57,
+            12.79,
+            4.97
+          ],
+          "hi": [
+            -4.53,
+            12.81,
+            4.99
+          ]
+        },
+        {
+          "a": "rail_stairmo_knee",
+          "b": "rail_svcA_knee",
+          "cm2": 6.4,
+          "kit": false,
+          "visible": null,
+          "lo": [
+            -4.57,
+            12.24,
+            4.97
+          ],
+          "hi": [
+            -4.53,
+            12.26,
+            4.99
+          ]
+        },
+        {
+          "a": "kick_cap_1",
+          "b": "kick_cap_2",
+          "cm2": 2.0,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            5.84,
+            6.31,
+            11.49
+          ],
+          "hi": [
+            5.85,
+            6.4,
+            11.5
+          ]
+        },
+        {
+          "a": "kick_cap_0",
+          "b": "kick_cap_1",
+          "cm2": 2.0,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -5.85,
+            6.31,
+            11.49
+          ],
+          "hi": [
+            -5.84,
+            6.4,
+            11.5
+          ]
+        },
+        {
+          "a": "kick_cap_2",
+          "b": "kick_cap_3",
+          "cm2": 2.0,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            5.84,
+            6.3,
+            -0.65
+          ],
+          "hi": [
+            5.85,
+            6.4,
+            -0.64
+          ]
+        },
+        {
+          "a": "kick_svcA_1",
+          "b": "kick_svcA_2",
+          "cm2": 2.0,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            2.84,
+            11.7,
+            2.55
+          ],
+          "hi": [
+            2.85,
+            11.81,
+            2.56
+          ]
+        },
+        {
+          "a": "kick_outerL_0",
+          "b": "kick_outerL_1",
+          "cm2": 2.0,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -10.15,
+            6.31,
+            -9.95
+          ],
+          "hi": [
+            -10.14,
+            6.4,
+            -9.94
+          ]
+        },
+        {
+          "a": "kick_outerR_0",
+          "b": "kick_outerR_1",
+          "cm2": 2.0,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            10.14,
+            6.31,
+            -9.95
+          ],
+          "hi": [
+            10.15,
+            6.4,
+            -9.94
+          ]
+        },
+        {
+          "a": "kick_svcA_0",
+          "b": "kick_svcA_1",
+          "cm2": 2.0,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -4.55,
+            11.7,
+            2.55
+          ],
+          "hi": [
+            -4.54,
+            11.81,
+            2.56
+          ]
+        }
+      ]
+    },
+    "C20": {
+      "code": "C20",
+      "wrap_deg": {
+        "lane": 90.0,
+        "foot": 139.205,
+        "bull": 98.409
+      },
+      "strand_deg": 49.205,
+      "length_m": 50.444,
+      "tangency_worst_mm": 0.0,
+      "points": 24,
+      "bullwheel_dia_m": 3.6,
+      "bullwheel_centre": [
+        0.0,
+        12.4,
+        1.6
+      ],
+      "above_deck_m": 6.1,
+      "below_crest_m": 3.6,
+      "rim_over_hut_m": 1.05,
+      "foot_over_hut_m": 0.2,
+      "spokes": 5
+    },
+    "lod_top_y": {
+      "1": 20.5,
+      "2": 20.5
+    },
+    "haul_route": {
+      "wrap_deg": {
+        "lane": 90.0,
+        "foot": 139.205,
+        "bull": 98.409
+      },
+      "strand_deg": 49.205,
+      "length_m": 50.444
+    }
+  },
+  "carriers_json": [],
+  "prefab_contract": {
+    "prefab": "SkiTramTopStationBuilding",
+    "lot": [
+      3,
+      3
+    ],
+    "stub_tip_z": -12.0,
+    "face_z": -10.4,
+    "deck_y": 6.3,
+    "pivot_y": 6.0,
+    "track_y": 16.0,
+    "haul_y": 15.6,
+    "carriage_top_y": 16.5,
+    "hang_m": 10.5,
+    "rope_below_carriage_top_m": 0.5,
+    "track_x": 5.5,
+    "haul_x": 5.0,
+    "lanes": {
+      "track": {
+        "prefab": "SkiTramTrackRope",
+        "copy_of": "SkiLiftHaulRopeB",
+        "m_UtilityType": 64,
+        "m_Hanging": 0.004,
+        "fallback": "UnityGUID:5d88ac45a40b30341a79535930e3b735"
+      },
+      "haul": {
+        "prefab": "SkiTramHaulRope",
+        "copy_of": "SkiLiftHaulRopeB",
+        "m_UtilityType": 8,
+        "m_Hanging": 0.004,
+        "fallback": "UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b"
+      }
+    },
+    "stubs": [
+      {
+        "kind": "track",
+        "a": [
+          -5.5,
+          16.0,
+          -12.0
+        ],
+        "b": [
+          -5.5,
+          16.0,
+          -11.916666666666666
+        ],
+        "c": [
+          -5.5,
+          16.0,
+          -11.833333333333334
+        ],
+        "d": [
+          -5.5,
+          16.0,
+          -11.75
+        ],
+        "lane": "SkiTramTrackRope",
+        "lane_fallback": "UnityGUID:5d88ac45a40b30341a79535930e3b735",
+        "m_NodeIndex": [
+          0,
+          0
+        ],
+        "m_ParentMesh": [
+          0,
+          0
+        ]
+      },
+      {
+        "kind": "track",
+        "a": [
+          5.5,
+          16.0,
+          -12.0
+        ],
+        "b": [
+          5.5,
+          16.0,
+          -11.916666666666666
+        ],
+        "c": [
+          5.5,
+          16.0,
+          -11.833333333333334
+        ],
+        "d": [
+          5.5,
+          16.0,
+          -11.75
+        ],
+        "lane": "SkiTramTrackRope",
+        "lane_fallback": "UnityGUID:5d88ac45a40b30341a79535930e3b735",
+        "m_NodeIndex": [
+          1,
+          1
+        ],
+        "m_ParentMesh": [
+          0,
+          0
+        ]
+      },
+      {
+        "kind": "haul",
+        "a": [
+          -5.0,
+          15.6,
+          -12.0
+        ],
+        "b": [
+          -5.0,
+          15.6,
+          -11.916666666666666
+        ],
+        "c": [
+          -5.0,
+          15.6,
+          -11.833333333333334
+        ],
+        "d": [
+          -5.0,
+          15.6,
+          -11.75
+        ],
+        "lane": "SkiTramHaulRope",
+        "lane_fallback": "UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b",
+        "m_NodeIndex": [
+          2,
+          2
+        ],
+        "m_ParentMesh": [
+          0,
+          0
+        ]
+      },
+      {
+        "kind": "haul",
+        "a": [
+          5.0,
+          15.6,
+          -12.0
+        ],
+        "b": [
+          5.0,
+          15.6,
+          -11.916666666666666
+        ],
+        "c": [
+          5.0,
+          15.6,
+          -11.833333333333334
+        ],
+        "d": [
+          5.0,
+          15.6,
+          -11.75
+        ],
+        "lane": "SkiTramHaulRope",
+        "lane_fallback": "UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b",
+        "m_NodeIndex": [
+          3,
+          3
+        ],
+        "m_ParentMesh": [
+          0,
+          0
+        ]
+      }
+    ],
+    "stubs_measured": [
+      {
+        "lane": "track",
+        "a": [
+          -5.5,
+          16.0,
+          -12.0
+        ],
+        "ring_centre": [
+          -5.5,
+          16.0,
+          -12.0
+        ]
+      },
+      {
+        "lane": "track",
+        "a": [
+          5.5,
+          16.0,
+          -12.0
+        ],
+        "ring_centre": [
+          5.5,
+          16.0,
+          -12.0
+        ]
+      },
+      {
+        "lane": "haul",
+        "a": [
+          -5.0,
+          15.6,
+          -12.0
+        ],
+        "ring_centre": [
+          -5.0,
+          15.6,
+          -12.0
+        ]
+      },
+      {
+        "lane": "haul",
+        "a": [
+          5.0,
+          15.6,
+          -12.0
+        ],
+        "ring_centre": [
+          5.0,
+          15.6,
+          -12.0
+        ]
+      }
+    ],
+    "docks": [
+      {
+        "carriage_top": [
+          -5.5,
+          16.5,
+          -5.5
+        ],
+        "rope": [
+          -5.5,
+          16.0,
+          -5.5
+        ],
+        "pivot": [
+          -5.5,
+          6.0,
+          -5.5
+        ]
+      },
+      {
+        "carriage_top": [
+          5.5,
+          16.5,
+          -5.5
+        ],
+        "rope": [
+          5.5,
+          16.0,
+          -5.5
+        ],
+        "pivot": [
+          5.5,
+          6.0,
+          -5.5
+        ]
+      }
+    ],
+    "hosted": [],
+    "terraform": {
+      "mode": "no-level (FG top override kept)",
+      "m_LevelMinOffset": [
+        1600,
+        1600
+      ],
+      "m_LevelMaxOffset": [
+        0,
+        0
+      ],
+      "DontRaise": true,
+      "DontLower": true
+    },
+    "wheel_centres": {
+      "bullwheel": {
+        "centre": [
+          0.0,
+          12.4,
+          1.6
+        ],
+        "rope_r": 1.6,
+        "rim_r": 1.8,
+        "axle": "z",
+        "slot": 2
+      },
+      "deflection": [
+        {
+          "centre": [
+            -5.0,
+            14.3,
+            0.3
+          ],
+          "rope_r": 1.3,
+          "axle": "x",
+          "slot": 2
+        },
+        {
+          "centre": [
+            5.0,
+            14.3,
+            0.3
+          ],
+          "rope_r": 1.3,
+          "axle": "x",
+          "slot": 2
+        }
+      ],
+      "foot_sheaves": [
+        {
+          "centre": [
+            -4.5,
+            10.4,
+            1.6
+          ],
+          "rope_r": 0.5,
+          "axle": "z"
+        },
+        {
+          "centre": [
+            4.5,
+            10.4,
+            1.6
+          ],
+          "rope_r": 0.5,
+          "axle": "z"
+        }
+      ],
+      "anchor_drums": [
+        {
+          "centre": [
+            -6.4,
+            2.8,
+            7.6
+          ],
+          "rope_r": 1.9,
+          "axle": "x",
+          "leave_deg": 31.41
+        },
+        {
+          "centre": [
+            6.4,
+            2.8,
+            7.6
+          ],
+          "rope_r": 1.9,
+          "axle": "x",
+          "leave_deg": 31.41
+        }
+      ]
+    },
+    "bounds": {
+      "min": [
+        -11.8,
+        0.0,
+        -12.0
+      ],
+      "max": [
+        11.8,
+        20.7,
+        11.6
+      ]
+    },
+    "atlas_rule": {
+      "requested": "2048",
+      "surface_m2": 2655.5,
+      "chosen": 2048,
+      "shipped_median": 20.78
+    },
+    "engine_base": {
+      "verdict": "OK",
+      "ok_edges": 128,
+      "blocked_edges": 0
+    },
+    "lod_switch_m": {
+      "csum": 67.9,
+      "switch": {
+        "1": 208.7,
+        "2": 691.8
+      },
+      "cull": 14756.9,
+      "note": "formula only (lodFactor 652, unverified)"
+    },
+    "axis_x": 0.0,
+    "frame": {
+      "design_to_prefab_dx": 0.0,
+      "lot_was": [
+        3,
+        3
+      ],
+      "why": "unchanged (the top keeps its 3 x 3 lot)"
+    }
+  }
+}

@@ -127,8 +127,67 @@
 // and TripPlannerBlocksSkiDays (SkiDaySystem.TripPlannerBlocksSkiDays: LeisureSystem or CitizenBehaviorSystem off,
 // ski days NOT ARMED), read in ReadCity; the stats DUMP's city line names them. Labels only (DECISIONS 150).
 //
-// LOGS: `Stats [arm]` once per load (rules, constants, daysPerYear, providers); a WARN at arm if
-// HubRules.ChairSpeedMps drifted from ChairPinSystem's; `Stats [rebuild] (why): …` (Round F7, log-audit D10)
+// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.4 with
+// round-2-contract-skeptic.md MUST 1 and MUST 4, lift group; contract 6):
+//   * lifts per type: capacity = riding × the row type's SeatsPerCarrier × SpeedMps × 3600 / loop for a Loop type, −1
+//     for a Shuttle (the tram, Phase C) or an untyped row; ride time = HubRules.RideTimeS(loop, the type's speed); LiftStats
+//     gains Type (LiftTypeDef.Id), TypeIndex, Mixed, Seats, SpeedMps (seam S6); HubProblemLift gets Type / Mixed (code 23
+//     and the per-type build items); a station's stub tip (lift resort tether, rise) uses its row's StubTipLocalZ.
+//   * lodges: the building walk fetches the catalog's LodgeDefs once (Phase A review finding 1); LodgeNoRoad counts only
+//     lodges whose row has RoadRule Base (MUST 4: a Hut or Summit lodge is roadless by design, R9). Problem 24 counts the
+//     active lodges with MuSummit > Mu that SkiResortAttractivenessSystem.CopyActiveLodgeInfo (seam S5) reports not
+//     summit-served (subject = the lowest); 25 = the Result's SchoolActive && RunsCounted > 0 && !GreenCounted.
+//     IfLodgesOn (MUST 1) = HubRules.AttractionWithLodgeApplied with the ladder (SkiResortScore.LodgeBase) over every
+//     lodge of the area switched on, summit-served by this area's lifts (LiftServedRule.SummitServed) — computed only for
+//     the LodgesAllOff row that shows it.
+//   * ResortLive (contract 6) appends LodgeBest (the best lodge's BuildItemId), LodgeExtra, LuxuryIgnored (ALWAYS 0 since
+//     2026-10-11: the one-luxury-lodge cap was removed; the field stays so contract 6 and its lock do not change),
+//     SchoolValue, PatrolledRuns, PriceTolerance (from the Result) and LodgeSpendMonth (the ledger's LodgeSpendIncome by the tickets'
+//     month rule, seam S8; 0 while the "Lodge spend per guest" setting or the ticket price is 0); LiftsValue = the
+//     Result's LiftsApplied (skeptic SHOULD; = LiftsValue × LiftShare for fixed-grip only). The net's income is
+//     max(0, tickets) + max(0, lodge spend), estimated when either is (skeptic SHOULD; identical while the setting is 0).
+//   * DUMP: a "lodges:" line per sign (best, extras, capacity, tolerance, school, patrols, runs
+//     patrolled, lodge spend, summit lodges not served) and each lift's type / seats / speed.
+//
+// CATALOG PHASE C (2026-10-11, docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §6.2 / C14 with
+// round-3-contract-skeptic.md MUST 4, rules group; contract 6 unchanged — no field, binding or enum value is new):
+//   * a Shuttle row (the tram) reads TramShuttleSystem (seam S3, resolved per load with GetExistingSystemManaged, null-safe)
+//     instead of ChairPinSystem.TryGetLoop: state 0 = Complete with a shuttle path and ≥ 1 cabin on it (status Running,
+//     or NoPower when unpowered: HubRules.LiftStatusOf; the mover holds the cabins at their terminals), else 1 (Complete
+//     without a path or without cabins → ChairsStopped when powered, NoPower when not; skeptic C14 nuance); Open /
+//     Unfinished / StationsOnly as every row. ChairsRiding = ShuttleView.CabinsOnPath; Chairs = CabinsHostedBy(the base
+//     station) (a tram edge carries no carriers, so the census Row.Chairs is 0); capacity = HubRules.ShuttleCapacityPerHour
+//     (cabins on the path, the type's seats, ShuttleView.PathM, speed, accel, dwell) for state 0 while the mover is Running
+//     (a Held, unpowered tram adds no capacity: Richard's ruling O2), else −1; ride time =
+//     HubRules.ShuttleRideTimeS(PathM, speed, accel, dwell) while a path exists (the trip; the dwell switch is
+//     HubRules.ShuttleRideIncludesDwell, an open decision). Unregistered mover → state 1, capacity / ride −1, chairs 0.
+//   * Loop rows: operand for operand Phase B's (the ride-time expression moved into a local, unchanged).
+//   * No new change-signature input: the mover has no generation counter (seam S3); a path appearing or a cabin count
+//     moving reaches the hub within the HeartbeatS wall-clock rebuild while the panel is open; the census Revision covers
+//     the lift completing or opening.
+//   * `Stats [arm]` names the Shuttle rule and "tram mover: registered | NOT registered"; the per-lift DUMP line adds
+//     "; shuttle <TramShuttleSystem.DescribeShuttle>" inside the type bracket for a Shuttle row.
+//
+// PHASE D (2026-10-11, docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §2.6 / D9 with
+// round-4-contract-skeptic.md MUST-2, hub group; Richard's ruling DECISIONS 171: an unpowered lift of every type carries no
+// guests; contract 6 unchanged — no field, binding or enum value is new):
+//   * capacity −1 ("–") for EVERY lift row that does not carry: after the power block (not moved), capacity =
+//     HubRules.LiftCapacityShown(capacity, LiftServedRule.Carries(complete, powered, closed: false)). O2 generalised: the
+//     tram keeps its own `shuttle.State == Running` test as well (both must hold). The area total sums capacity ≥ 0 only, so
+//     "Design capacity, all lifts" drops by the lift's share and reads "–" when no lift of the area carries.
+//   * `powered` is the census's one reading of the lift's BASE station (ruling 3: the top station needs no power, it is
+//     fed through the modelled lift line; nothing here reads a station's consumer): the score's LiftScoreView.Powered, else
+//     the hub's own CopyServeLifts read — both through LiftCensusSystem.ReadLiftPower and its flicker guard.
+//   * Status (LiftStatusOf(state, powered): "No power"), the chairs count and the ride time are unchanged; a powered
+//     (carrying) row computes the same float as before (LiftCapacityShown(c, true) == c). Upkeep is not this file's: power
+//     never lowers the bill (ruling 2, SkiLiftChargeSystem / SkiMoneyRules.LiftUpkeepBillingOf), so an unpowered lift pays in
+//     full while its ski area counts a run and 25 % (NoOpenRun, like every complete lift there) while it counts none (no
+//     snow, or backcountry 0 with no other serving lift); BilledReduced still reads the charge row as before.
+//   * `Stats [arm]` appends the gate clause; the per-lift DUMP line adds "carries Y|N (capacity N/h | –)".
+//
+// LOGS: `Stats [arm]` once per load (rules, constants, daysPerYear, providers) (Catalog Phase A: the WARN at arm
+// when HubRules.ChairSpeedMps drifted from ChairPinSystem's is gone — both alias SkiCatalog.FixedGrip.SpeedMps, a
+// single compile-time source; tests/ResortBatch CatalogGuardTests CG-1); `Stats [rebuild] (why): …` (Round F7, log-audit D10)
 // only when a count or a band problem changed, or on a request / the hub opening — through a LogWindow
 // (LogWindowS: a burst folds into one line, trailing line within the window) — and every other rebuild
 // counted into ONE `Stats [rebuild] n rebuild(s) in … s that changed no count and no problem row` line per
@@ -202,6 +261,18 @@ namespace SkiResortMod.Systems
         // Round S1 (contract 4, ski-days ch4 §A.1): appended in this order; −1 unknown, State and Limit 0.
         public int SkiDaysState, SkiDaysThisMonth, SkiDaysLastMonth, SkiDaysSent, SkiDaysSentCar, SkiDaysSentNoCar,
                    SkiDaysNow, SkiDaysCap, SkiDaysLimit, SkiDaysPowderPct;
+        // Catalog Phase B (contract 6, round-2-contract §8.5, seam S6): appended in this order. LodgeBest = the season's best
+        // lodge's BuildItemId ("" none); LodgeExtra = the season's extras after the cap (Result.LodgeExtraApplied);
+        // SchoolValue, PatrolledRuns, PriceTolerance from the Result (−1 / 0 without one, as the other score
+        // numbers); LodgeSpendMonth = the ledger's lodge spend per month by the tickets' month rule (−1 unknown; 0 while
+        // the "Lodge spend per guest" setting is 0). LuxuryIgnored is RETAINED FOR THE WIRE ONLY and is always 0: the
+        // one-luxury-lodge cap (D3) was removed on 2026-10-11 (Richard: no count limit), and dropping the field would
+        // have bumped HUB_CONTRACT (contract.lock) for nothing.
+        public string LodgeBest;
+        public float LodgeExtra;
+        public int LuxuryIgnored;
+        public float SchoolValue;
+        public int PatrolledRuns, PriceTolerance, LodgeSpendMonth;
     }
 
     /// <summary>bindings.ts RunRow (contract 3). Catalog row order.</summary>
@@ -232,6 +303,12 @@ namespace SkiResortMod.Systems
         public float CapacityPerHour;        // −1 when no chair rides
         public bool HasBase, HasTop, Powered, Counted; public int Status;
         public float RideTimeS; public int RunsServed, CostMonth; public bool BilledReduced;
+        // Catalog Phase B (contract 6, round-2-contract §8.5, seam S6): the census row's lift type — Type = its
+        // LiftTypeDef.Id ("" unknown; LiftRow.type), TypeIndex = its SkiCatalog.Lifts index (LiftCensus.NoType when
+        // unknown; the hub's per-type hints and items), Mixed = the row's component mixes lift types (Unfinished),
+        // Seats / SpeedMps = the type's (0 unknown; LiftRow.seats / speedMps, the capacity and ride-time tips).
+        public string Type; public byte TypeIndex; public bool Mixed;
+        public int Seats; public float SpeedMps;
     }
 
     /// <summary>bindings.ts ProblemRow. Grouped by area in resorts order (ch5 §5.6).</summary>
@@ -309,9 +386,9 @@ namespace SkiResortMod.Systems
             /// change fold, Round M2 D9).</summary>
             public const float QuietSummaryS = 60f;
 
-            /// <summary>Local position of a station's HV stub tip (SkiTopStationBuilding.Prefab /
-            /// SkiBaseStationBuilding.Prefab ObjectSubNets: (0,0,−9) → (0,0,−12)).</summary>
-            public const float StubTipLocalZ = -12f;
+            // Catalog Phase A (ext row 11; was SkiResortStatsSystem.cs:312-314 Tuning.StubTipLocalZ = -12f, the second
+            // copy of the station's HV stub tip z): removed. The one value is SkiCatalog.StubTipLocalZ, aliased by
+            // StationAlign.StubTipLocalZ; StubTip() below calls StationAlign.StubTip.
 
             /// <summary>Round E1 (ch5 §5.8): the `Stats [cost]` line after this many rebuilds of a load.</summary>
             public const int CostLogAfterRebuilds = 32;
@@ -380,6 +457,13 @@ namespace SkiResortMod.Systems
         // Mod.cs's (code-map V.2 #3; a GetOrCreate in OnCreate could create them first); null-safe everywhere.
         private SkiDaySystem m_SkiDays;
         private SkiLodgeParkingSystem m_LodgeParking;        // DUMP only (s1-spec N12)
+        // Catalog Phase B (round-2-contract §6.4): the prefab catalog's views (lodge rows for the building walk — Phase A
+        // review finding 1: fetched once, no per-building delegate — and station rows for the per-row stub tip).
+        private SkiPrefabCatalogSystem m_PrefabCatalog;
+        // Catalog Phase C (round-3-contract §6.2): the tram shuttle mover (seam S3), resolved at each load with
+        // GetExistingSystemManaged like m_SkiDays (creation order stays Mod.cs's); null = not registered → a Shuttle row
+        // reads state 1, capacity / ride −1, chairs 0.
+        private TramShuttleSystem m_Tram;
 
         // Queries.
         private EntityQuery m_BuildingQuery;     // {Building, PrefabRef, Transform} None {Temp, Deleted}
@@ -444,6 +528,12 @@ namespace SkiResortMod.Systems
         private readonly List<HubProblemLift> m_PLifts = new List<HubProblemLift>(8);
         private readonly List<int> m_PLiftRows = new List<int>(8);
         private readonly List<HubProblem> m_POut = new List<HubProblem>(16);
+        // Catalog Phase B (round-2-contract §6.4; skeptic SHOULD "no per-recompute allocation"): reused scratch.
+        private readonly List<int> m_CensusResort = new List<int>(8);                              // census row → resort (−1 Not linked)
+        private readonly List<LiftServedRule.Lift> m_AreaServeLifts = new List<LiftServedRule.Lift>(8);   // one area's lifts
+        private readonly List<SkiResortAttractivenessSystem.LodgeInfo> m_LodgeInfo =
+            new List<SkiResortAttractivenessSystem.LodgeInfo>(4);                                 // seam S5, one area's active lodges
+        private readonly List<SkiResortScore.LodgeInput> m_LadderLodges = new List<SkiResortScore.LodgeInput>(4);   // IfLodgesOn
         private readonly Dictionary<Entity, int> m_BudgetOf = new Dictionary<Entity, int>();    // service prefab → budget %, per rebuild
         private Func<int, string> m_ResortDefaultFormat;                                         // cached delegate (no per-rebuild allocation)
         private NativeList<ServiceUpkeepData> m_UpkeepScratchList;   // Persistent, created on first use, disposed in OnDestroy
@@ -468,6 +558,9 @@ namespace SkiResortMod.Systems
             // Round F7 D5 (CollectLodges): Building.m_RoadEdge Null on the sign; the area's lodges with a Null edge
             // and the one with the lowest (Index, Version) — LodgeNoRoad's subject, stable across chunk order.
             public bool SignNoRoad; public int LodgesNoRoad; public Entity LodgeNoRoad;
+            // Catalog Phase B (round-2-contract §6.4): active lodges whose row counts more summit-served (MuSummit > Mu)
+            // and that are not (seam S5 LodgeInfo.SummitServed false), and the lowest such lodge (the problem's subject).
+            public int SummitNotServed; public Entity SummitNotServedLodge;
             // The attraction chapter's view of the area (BuildResortRows; reused by BuildProblems).
             public bool HasResult;
             public SkiResortAttractivenessSystem.AreaScoreView View;
@@ -599,6 +692,7 @@ namespace SkiResortMod.Systems
             m_LiftTicket = World.GetOrCreateSystemManaged<SkiLiftTicketSystem>();
             m_CityServiceBudget = World.GetOrCreateSystemManaged<CityServiceBudgetSystem>();
             m_Simulation = World.GetOrCreateSystemManaged<SimulationSystem>();
+            m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();   // Catalog Phase B (§6.4)
 
             m_BuildingQuery = GetEntityQuery(new EntityQueryDesc
             {
@@ -689,6 +783,7 @@ namespace SkiResortMod.Systems
             // Round S1 (ch4 §A.4, §C.4): the ski-day systems of this world (null-safe) and a fresh F1 state.
             m_SkiDays = World.GetExistingSystemManaged<SkiDaySystem>();
             m_LodgeParking = World.GetExistingSystemManaged<SkiLodgeParkingSystem>();
+            m_Tram = World.GetExistingSystemManaged<TramShuttleSystem>();   // Catalog Phase C (§6.2): null-safe
             m_SkiDaysOff = false;
             m_EffRowOn.Clear();
             m_EffRowOnNext.Clear();
@@ -733,8 +828,20 @@ namespace SkiResortMod.Systems
 
             m_Armed = true;
             int providers = m_ProviderQuery.CalculateEntityCount();
-            // Round M2: contract 5 (R9 appends CityStats.tripPlanner / tripPlannerBlocksSkiDays).
-            Mod.Log.Info("Stats [arm] — the Ski Resort hub's rows (contract 5; econ-round spec ch5, ski-days spec ch4): ski areas = live Welcome " +
+            // Round M2: contract 5 (R9 appends CityStats.tripPlanner / tripPlannerBlocksSkiDays). Catalog Phase B: contract 6
+            // (LiftRow type / seats / speedMps, ResortLive's ladder fields; round-2-contract §8.5).
+            // Catalog Phase C (round-3-contract §6.2; was "−1 for a Shuttle; ride time half the loop at the type's speed"): the
+            // Shuttle rule and whether the tram mover is registered.
+            Mod.Log.Info("Stats [arm] — the Ski Resort hub's rows (contract 6; econ-round spec ch5, ski-days spec ch4, code-round-2 " +
+                         "§6.4: lift rows typed — capacity riding × the type's seats × speed × 3600 / loop for a Loop type; ride " +
+                         "time half the loop at the type's speed; code-round-3 §6.2: a Shuttle row (tram) reads TramShuttleSystem " +
+                         "— capacity cabins on the path × seats × 3600 / (2 × (trip + dwell)), ride time the dock-to-dock trip " +
+                         "(dwell " + (HubRules.ShuttleRideIncludesDwell ? "included" : "excluded") + "), chairs = the cabins its " +
+                         "base hosts, state 0 with a path and a cabin on it, else 1; tram mover: " +
+                         (m_Tram != null ? "registered" : "NOT registered (Shuttle rows: state 1, capacity and ride −1, chairs 0)") +
+                         "; problems 23 mixed lift types, 24 summit " +
+                         "lodges not lift-served, 25 school without a counted green run; LodgeNoRoad counts lodges whose row needs " +
+                         "a road only; IfLodgesOn = the ladder with every lodge on; lodge spend in the net): ski areas = live Welcome " +
                          "Signs in (Index, Version) order + a Not linked row; runs by their bound sign (catalog Gate), lodges " +
                          "by their sign's InstalledUpgrade buffer (else free-standing → Not linked), lifts and stations by the " +
                          $"nearest live sign within TetherMeters={SkiRunOwnershipSystem.TetherMeters:F0} m of the base station " +
@@ -748,18 +855,15 @@ namespace SkiResortMod.Systems
                          "opens, on a catalog / lift census / chair loop / attractiveness / snow texel / snow state / guests / " +
                          $"lift charge change at most every MinRebuildIntervalS={Tuning.MinRebuildIntervalS} s, and every " +
                          $"HeartbeatS={Tuning.HeartbeatS} s wall clock; LogWindowS={Tuning.LogWindowS}; " +
-                         $"StubTipLocalZ={Tuning.StubTipLocalZ}; daysPerYear {m_TimeSystem.daysPerYear} (TimeSettingsData, " +
+                         $"StubTipLocalZ={StationAlign.StubTipLocalZ} (fixed-grip; per station row since Catalog Phase B); daysPerYear {m_TimeSystem.daysPerYear} (TimeSettingsData, " +
                          "copied by TimeSystem's first sim update — 1 before it; a later line reports the value once it is > " +
                          $"1); {providers} attractiveness provider(s) at load; contract 3: resorts/resortLive and runs/runLive " +
-                         "split, problems built in C#; ski days from SkiDaySystem " + (m_SkiDays != null ? "(present)" : "(absent)"));
-            // ch5 §5.8: the hub's ride time uses its own copy of the chair speed (HubRules is pure). Locals, not
-            // the constants themselves, so the compiler does not fold the compare into unreachable code.
-            float hubSpeed = HubRules.ChairSpeedMps, pinSpeed = ChairPinSystem.ChairSpeedMps;
-            if (hubSpeed != pinSpeed)
-            {
-                Mod.Log.Warn($"Stats [arm]: HubRules.ChairSpeedMps {hubSpeed} != ChairPinSystem.ChairSpeedMps {pinSpeed} — " +
-                             "ride times in the hub are wrong; fix HubRules");
-            }
+                         "split, problems built in C#; ski days from SkiDaySystem " + (m_SkiDays != null ? "(present)" : "(absent)") +
+                         // Phase D (round-4-contract §4.2; was the line's end): the capacity gate of every lift type.
+                         "; a lift that does not carry (unpowered) shows capacity – (Phase D)");
+            // Catalog Phase A (ext row 17; was SkiResortStatsSystem.cs:755-762, ch5 §5.8: a WARN when HubRules.ChairSpeedMps
+            // differed from ChairPinSystem.ChairSpeedMps): removed — single source SkiCatalog.FixedGrip.SpeedMps since
+            // Catalog Phase A (both names alias it, so the compare could never fire); tests/ResortBatch CatalogGuardTests CG-1.
         }
 
         protected override void OnUpdate()
@@ -1180,6 +1284,9 @@ namespace SkiResortMod.Systems
             var prefabRefHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
             var transformHandle = GetComponentTypeHandle<Game.Objects.Transform>(isReadOnly: true);
             var buildingHandle = GetComponentTypeHandle<Building>(isReadOnly: true);   // Round F7 D5: m_RoadEdge
+            // Catalog Phase B (round-2-contract §6.4; Phase A review finding 1; was m_Attractiveness.IsLodgePrefab(prefab), a
+            // delegate call per building): the catalog's lodge rows, fetched ONCE before the chunk loop (M4's rule).
+            IReadOnlyDictionary<Entity, LodgeDef> lodgeDefs = m_PrefabCatalog.LodgeDefs;
             using (var chunks = m_BuildingQuery.ToArchetypeChunkArray(Allocator.Temp))
             {
                 for (int c = 0; c < chunks.Length; c++)
@@ -1197,10 +1304,13 @@ namespace SkiResortMod.Systems
                             if (buildings[i].m_RoadEdge == Entity.Null)
                                 m_NoRoad.Add(entities[i]);
                         }
-                        else if (m_Attractiveness.IsLodgePrefab(prefab))
+                        else if (lodgeDefs.TryGetValue(prefab, out LodgeDef lodgeDef))
                         {
                             m_LodgeEntities.Add(entities[i]);
-                            if (buildings[i].m_RoadEdge == Entity.Null)
+                            // Catalog Phase B (round-2-contract-skeptic MUST 4; was every lodge with m_RoadEdge Null): only
+                            // a lodge whose row needs a road (RoadRule Base) counts toward LodgeNoRoad — a Hut or Summit
+                            // lodge is roadless by design (R9; LodgeRoadSystem clears its NoRoadConnection).
+                            if (buildings[i].m_RoadEdge == Entity.Null && lodgeDef != null && lodgeDef.RoadRule == LodgeRoadRule.Base)
                                 m_NoRoad.Add(entities[i]);
                         }
                     }
@@ -1263,6 +1373,9 @@ namespace SkiResortMod.Systems
         {
             m_LodgeResort.Clear();
             m_LodgeActive.Clear();
+            // Catalog Phase B (Phase A review finding 1): the lodge set fetched once (was m_Attractiveness.IsLodgePrefab per
+            // upgrade); school and patrol upgrades are not lodges and stay out of the lodge counts.
+            HashSet<Entity> lodgePrefabs = m_PrefabCatalog.LodgePrefabSet;
             for (int s = 0; s < m_SignEntities.Count; s++)
             {
                 Entity sign = m_SignEntities[s];
@@ -1274,7 +1387,7 @@ namespace SkiResortMod.Systems
                 for (int u = 0; u < upgrades.Length; u++)
                 {
                     Entity upgrade = upgrades[u].m_Upgrade;
-                    if (EntityManager.TryGetComponent(upgrade, out PrefabRef pr) && m_Attractiveness.IsLodgePrefab(pr.m_Prefab) &&
+                    if (EntityManager.TryGetComponent(upgrade, out PrefabRef pr) && lodgePrefabs.Contains(pr.m_Prefab) &&
                         !m_LodgeResort.ContainsKey(upgrade))
                     {
                         m_LodgeResort[upgrade] = s;
@@ -1465,6 +1578,7 @@ namespace SkiResortMod.Systems
         {
             m_CensusRows.Clear();
             m_Census.CopyRows(m_CensusRows);
+            m_CensusResort.Clear();   // Catalog Phase B: census row → resort (the area filter of SummitServed / IfLodgesOn)
             m_BaseUse.Clear();
             m_TopUse.Clear();
             for (int k = 0; k < m_CensusRows.Count; k++)
@@ -1499,6 +1613,14 @@ namespace SkiResortMod.Systems
                     resort = m_Index.IndexOf(sign);
                 if (resort >= resorts)
                     resort = -1;
+                m_CensusResort.Add(resort);
+                // Catalog Phase B (round-2-contract §6.4): the row's lift type (seam S1); null = untyped (NoType).
+                LiftTypeDef typeDef = SkiCatalog.LiftByIndex(c.Type);
+                // Catalog Phase C (round-3-contract §6.2, C14): a Shuttle row (the tram) reads TramShuttleSystem (seam S3)
+                // instead of ChairPin's loop; every Loop row below is operand for operand Phase B's.
+                bool shuttleRow = typeDef != null && typeDef.Mover == MoverKind.Shuttle;
+                bool shuttlePath = false;
+                ShuttleView shuttle = default(ShuttleView);
 
                 int riding = 0;
                 double loopM = 0.0;
@@ -1507,6 +1629,14 @@ namespace SkiResortMod.Systems
                 bool complete = c.State == LiftCensus.State.Complete;
                 switch (c.State)
                 {
+                    case LiftCensus.State.Complete when shuttleRow:
+                        // C14: state 0 = a shuttle path with ≥ 1 cabin on it (status Running, or NoPower when unpowered —
+                        // the mover holds the cabins at their terminals); 1 = Complete without a path or without cabins
+                        // (ChairsStopped when powered, HubRules.LiftStatusOf). Unregistered mover → 1.
+                        shuttlePath = m_Tram != null && m_Tram.TryGetShuttle(baseStation, topStation, out shuttle);
+                        riding = shuttlePath ? shuttle.CabinsOnPath : 0;
+                        state = (byte)(shuttlePath && riding > 0 ? 0 : 1);
+                        break;
                     case LiftCensus.State.Complete:
                         loop = m_ChairPin.TryGetLoop(baseStation, topStation, out riding, out loopM);
                         state = (byte)(loop && riding > 0 ? 0 : 1);
@@ -1526,9 +1656,36 @@ namespace SkiResortMod.Systems
                         state = 4;
                         break;
                 }
-                float capacity = riding > 0 && loopM > 0.0
-                    ? (float)(riding * ChairPinSystem.SeatsPerChair * (double)ChairPinSystem.ChairSpeedMps * 3600.0 / loopM)
+                // Catalog Phase A (ext row 17; was ChairPinSystem.SeatsPerChair (4) × ChairPinSystem.ChairSpeedMps): the lift
+                // type's numbers from SkiCatalog — 3 seats (the triple, ROUND-SPEC R2: capacity × 0.75 for the same lift,
+                // contract §8 N2), 2.5 m/s. Display only (the hub and the area sum; no rule reads it).
+                // Catalog Phase B (round-2-contract §6.4; was SkiCatalog.FixedGrip.SeatsPerCarrier × .SpeedMps): the ROW's
+                // type — riding × seats × speed × 3600 / loop for a Loop type; −1 for a Shuttle type (the tram moves in
+                // Phase C) or an untyped row. The fixed-grip row's expression is today's, operand for operand.
+                float capacity = riding > 0 && loopM > 0.0 && typeDef != null && typeDef.Mover == MoverKind.Loop
+                    ? (float)(riding * typeDef.SeatsPerCarrier * (double)typeDef.SpeedMps * 3600.0 / loopM)
                     : -1f;
+                // Catalog Phase C (round-3-contract §6.2, C5; was −1 for every Shuttle row): the tram's numbers come from the
+                // mover's own profile (ShuttleProfile via HubRules): capacity only for state 0 (cabins on a path) and only
+                // while the mover is Running (O2), ride time whenever a path exists. PathM is the mover's mean dock-to-dock length (ShuttleView).
+                float rideTimeS = complete && loop && typeDef != null ? HubRules.RideTimeS((float)loopM, typeDef.SpeedMps) : -1f;
+                int chairs = c.Chairs;
+                if (shuttleRow)
+                {
+                    // Richard's ruling O2 (2026-10-11, DECISIONS 171; round-3-review-behaviour #2 fix text): a Held (unpowered)
+                    // tram carries nobody (the cabins stand at their terminals), so it adds NO capacity to the area total while
+                    // its status reads No power. Status (LiftStatusOf) and the cabins count (2/2) are untouched.
+                    capacity = state == 0 && shuttle.State == ShuttleState.Running
+                        ? HubRules.ShuttleCapacityPerHour(riding, typeDef.SeatsPerCarrier, (float)shuttle.PathM, typeDef.SpeedMps,
+                                                          typeDef.AccelMps2, typeDef.DwellS)
+                        : -1f;
+                    rideTimeS = shuttlePath
+                        ? HubRules.ShuttleRideTimeS((float)shuttle.PathM, typeDef.SpeedMps, typeDef.AccelMps2, typeDef.DwellS)
+                        : -1f;
+                    // C14: a tram edge carries no carrier sub-objects (the census Row.Chairs is edge-based, 0): the row's
+                    // "chairs" are the cabins hosted on its base station (R29).
+                    chairs = m_Tram != null && baseStation != Entity.Null ? m_Tram.CabinsHostedBy(baseStation) : 0;
+                }
 
                 // Power and counted (ch5 §5.2; e1-spec R1, R5): the score's view keyed by (row id, row top); a
                 // Complete row with no view → the hub's own CopyServeLifts read; not Complete → powered (not read).
@@ -1546,6 +1703,15 @@ namespace SkiResortMod.Systems
                         powered = m_ServeLifts[k].Power != LiftPower.NoPower;
                     }
                 }
+                // Phase D (round-4-contract §2.6 step 2, D9; inserted after the power block, which stays where it was:
+                // round-4-contract-skeptic.md MUST-2; DECISIONS 171 ruling 1 generalises O2 to every lift type): a lift that does
+                // not carry (LiftServedRule.Carries: complete, powered at its BASE station — ruling 3, the census reads only the
+                // base's consumer — and not closed) has no capacity: −1 ("–"), left out of the area total below. Status, chairs
+                // and ride time are untouched. capacity is first read after this line (the area sum, CapacityPerHour), so both
+                // see the gate; a carrying row gets its float back bit for bit (HubRules.LiftCapacityShown, ResortBatch HK-1).
+                // A row that is not Complete already has −1 (riding 0, state ≠ 0). closed: not wired (D7, the pre-beta item).
+                bool carries = LiftServedRule.Carries(complete, powered, closed: false);
+                capacity = HubRules.LiftCapacityShown(capacity, carries);
                 int costMonth = -1;
                 bool reduced = false;
                 if (m_LiftCharge.TryGetLift(id, topStation, out SkiLiftChargeSystem.LiftCharge lc))
@@ -1571,7 +1737,7 @@ namespace SkiResortMod.Systems
                     Resort = resort,
                     Id = c.Id,
                     State = state,
-                    Chairs = c.Chairs,
+                    Chairs = chairs,          // Catalog Phase C (§6.2; was c.Chairs): = c.Chairs for every Loop row
                     LengthM = c.LengthM,
                     RiseM = c.RiseM,
                     BaseTipY = baseTipY,
@@ -1585,8 +1751,8 @@ namespace SkiResortMod.Systems
                     State = state,
                     Sections = c.Sections,
                     Towers = c.Towers,
-                    Chairs = c.Chairs,
-                    ChairsRiding = riding,
+                    Chairs = chairs,          // Catalog Phase C (§6.2; was c.Chairs): = c.Chairs for every Loop row
+                    ChairsRiding = riding,    // a Shuttle row: the cabins on its path (ShuttleView.CabinsOnPath)
                     Gaps = c.Gaps,
                     TowersRemoved = c.TowersRemoved,
                     LengthM = c.LengthM,
@@ -1601,10 +1767,19 @@ namespace SkiResortMod.Systems
                     Powered = powered,
                     Counted = counted,
                     Status = (int)HubRules.LiftStatusOf(state, powered),
-                    RideTimeS = complete && loop ? HubRules.RideTimeS((float)loopM) : -1f,
+                    // Catalog Phase B (round-2-contract §6.4; was HubRules.RideTimeS((float)loopM), the fixed-grip speed):
+                    // half the loop at the row type's speed (fixed-grip 2.5 = today's value). Catalog Phase C (§6.2; was the
+                    // same expression inline): the local rideTimeS = that expression for a Loop row, the trip for a tram.
+                    RideTimeS = rideTimeS,
                     RunsServed = serveRow && k < m_ServedCount.Count ? m_ServedCount[k] : 0,
                     CostMonth = costMonth,
                     BilledReduced = reduced,
+                    // Catalog Phase B (seam S6): the row's type, mixed flag, seats and speed.
+                    Type = typeDef != null ? typeDef.Id : "",
+                    TypeIndex = c.Type,
+                    Mixed = c.Mixed,
+                    Seats = typeDef != null ? typeDef.SeatsPerCarrier : 0,
+                    SpeedMps = typeDef != null ? typeDef.SpeedMps : 0f,
                 });
             }
 
@@ -1664,13 +1839,21 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Stub tip y of a station (Transform ∘ local (0, 0, StubTipLocalZ)) and its xz;
-        /// NaN when the entity is Null or has no Transform.</summary>
+        /// NaN when the entity is Null or has no Transform. Catalog Phase A (ext row 11; was this file's own copy of
+        /// the formula with Tuning.StubTipLocalZ, :1673): StationAlign.StubTip, the same expression
+        /// (position + mul(rotation, (0, 0, StubTipLocalZ))).</summary>
         private float StubTip(Entity station, out float2 xz)
         {
             xz = new float2(float.NaN, float.NaN);
             if (station == Entity.Null || !EntityManager.TryGetComponent(station, out Game.Objects.Transform t))
                 return float.NaN;
-            float3 tip = t.m_Position + math.mul(t.m_Rotation, new float3(0f, 0f, Tuning.StubTipLocalZ));
+            // Catalog Phase B (round-2-contract §6.4; was StationAlign.StubTip(pos, rot), the fixed-grip −12): the station
+            // row's own stub tip z (−16 on the detachable / gondola stations); an unknown station keeps −12.
+            float stubZ = StationAlign.StubTipLocalZ;
+            if (EntityManager.TryGetComponent(station, out PrefabRef pr) && m_PrefabCatalog.TryGetStation(pr.m_Prefab, out StationDef def) &&
+                def != null)
+                stubZ = def.StubTipLocalZ;
+            float3 tip = StationAlign.StubTip(t.m_Position, t.m_Rotation, stubZ);
             xz = t.m_Position.xz;
             return tip.y;
         }
@@ -1771,6 +1954,10 @@ namespace SkiResortMod.Systems
             SkiResortSettings settings = Mod.Settings;
             m_SkiDaysOff = SkiResortSettings.SkiDayLocalsPctOf(settings) == 0 && SkiResortSettings.SkiDayTouristsPctOf(settings) == 0;
             bool skiDaysArmed = m_SkiDays != null && m_SkiDays.IsArmed;
+            // Catalog Phase B (D15, §8.5): the "Lodge spend per guest" setting, clamped as the ticket job reads it; 0 = off
+            // (lodgeSpendMonth 0, nothing estimated, the net unchanged).
+            int lodgeSpendSetting = SkiMoneyRules.ClampLodgeSpend(settings != null ? settings.LodgeSpendPerGuest
+                                                                                     : SkiMoneyRules.LodgeSpendDefault);
 
             // Names (§3.2, amended in the fixer round, finding u2-data-02): custom names first; an unnamed
             // sign's display-only label is the smallest "Ski area N" no custom name and no earlier
@@ -1850,13 +2037,23 @@ namespace SkiResortMod.Systems
                     live.Terrain = (float)HubRules.Terrain(in r);
                     live.RunsValue = (float)r.RunsValue;
                     live.OpenSharePct = HubRules.OpenSharePct(r.RunsValue, work.RunsValueFull);
-                    live.LiftsValue = (float)(r.LiftsValue * r.LiftShare);
+                    // Catalog Phase B (skeptic SHOULD; was r.LiftsValue × r.LiftShare): the season's lift term of S, summed
+                    // per type (equal for fixed-grip only: λ is the one share).
+                    live.LiftsValue = (float)r.LiftsApplied;
                     live.LiftsComplete = r.LiftsComplete;
                     live.LiftsCounted = r.LiftsCounted;
                     live.VarietyMultiplier = (float)r.VarietyMultiplier;
                     live.VerticalMultiplier = (float)r.VerticalMultiplier;
                     live.ScoreVerticalM = (float)r.VerticalM;
                     live.EfficiencyPct = v.EfficiencyPct;
+                    // Catalog Phase B (contract 6, §8.5): the ladder, school and patrol facts of the Result.
+                    LodgeDef best = r.LodgeBestIndex >= 0 && r.LodgeBestIndex < SkiCatalog.Lodges.Count
+                        ? SkiCatalog.Lodges[r.LodgeBestIndex] : null;
+                    live.LodgeBest = best != null ? best.BuildItemId ?? "" : "";
+                    live.LodgeExtra = (float)r.LodgeExtraApplied;
+                    live.SchoolValue = (float)r.SchoolValue;
+                    live.PatrolledRuns = r.RunsPatrolled;
+                    live.PriceTolerance = r.PriceTolerance;
                 }
                 else
                 {
@@ -1864,6 +2061,7 @@ namespace SkiResortMod.Systems
                     live.Attraction = live.AttractionFull = live.LodgesActive = -1;
                     live.LiftsComplete = live.LiftsCounted = live.EfficiencyPct = live.OpenSharePct = -1;
                     live.VarietyMultiplier = live.VerticalMultiplier = 1f;
+                    live.LodgeBest = "";   // Catalog Phase B: no result → no best lodge, the counts 0
                 }
                 live.RunsValueFull = (float)work.RunsValueFull;
                 live.Status = (int)HubRules.Status(row.Runs, live.RunsOpen, live.RunsPartly);
@@ -1920,9 +2118,14 @@ namespace SkiResortMod.Systems
                 live.LastMonthFull = lastMonthFull;
                 int ticketIncome, ticketPaid;
                 bool ticketEstimated;
+                int lodgeSpendMonth = -1;          // Catalog Phase B (seam S8): −1 unknown
+                bool lodgeSpendEstimated = true;
                 if (counterArmed)
                 {
                     SkiResortLedger.Entry e = m_GuestCounter.TryGetMonth(sign, out SkiResortLedger.Entry entry) ? entry : default;
+                    // Catalog Phase B (round-2-contract §6.4, seam S8): the lodge spend per month by the tickets' month rule.
+                    lodgeSpendMonth = HubRules.TicketIncomeMonth(lastMonthFull, e.Last.LodgeSpendIncome, e.Last.LodgeSpends,
+                        e.This.LodgeSpendIncome, e.This.LodgeSpends, countedFraction, out int _, out lodgeSpendEstimated);
                     live.GuestsThisMonth = e.This.Guests;
                     live.TouristsThisMonth = e.This.TouristGuests;
                     live.TouristGroupsThisMonth = e.This.TouristParties;
@@ -1958,6 +2161,13 @@ namespace SkiResortMod.Systems
                 live.TicketIncomeMonth = ticketIncome;
                 live.TicketPaidMonth = ticketPaid;
                 live.TicketIncomeEstimated = ticketEstimated;
+                if (lodgeSpendSetting == 0 || price == 0)
+                {
+                    // Catalog Phase B (D15): the setting off (or tickets off: nobody pays, nobody spends) → 0, not estimated.
+                    lodgeSpendMonth = 0;
+                    lodgeSpendEstimated = false;
+                }
+                live.LodgeSpendMonth = lodgeSpendMonth;
 
                 // Ski days (Round S1, ch4 §A.4): SkiDaySystem's last published view of the sign, else −1 (State and
                 // Limit 0). `d = default` first: definite assignment does not flow through `has` (CS0165).
@@ -2021,7 +2231,13 @@ namespace SkiResortMod.Systems
                 live.BuildingsMonth = buildingsF >= 0f ? RoundToInt(buildingsF) : -1;
                 live.WagesMonth = wagesF >= 0f ? RoundToInt(wagesF) : -1;
                 float runCosts = work.CostGroomed + work.CostSnowmaking + work.CostNight;
-                live.NetMonth = HubRules.NetMonth(live.TicketIncomeMonth, live.TicketIncomeEstimated, runCosts, liftRate,
+                // Catalog Phase B (round-2-contract §6.4, skeptic SHOULD "Money"): the income is max(0, tickets) +
+                // max(0, lodge spend), estimated when either is projected or unknown (< 0). With the setting 0 the lodge
+                // spend is 0 and not estimated, so the net is today's exactly (NetMonth's own max(0, …) and "< 0" test).
+                int incomeMonth = ClampToInt((long)Math.Max(0, live.TicketIncomeMonth) + Math.Max(0, lodgeSpendMonth));
+                bool incomeEstimated = live.TicketIncomeEstimated || live.TicketIncomeMonth < 0 ||
+                                       lodgeSpendEstimated || lodgeSpendMonth < 0;
+                live.NetMonth = HubRules.NetMonth(incomeMonth, incomeEstimated, runCosts, liftRate,
                     buildingsF, wagesF, out bool netEstimated);
                 live.NetEstimated = netEstimated;
                 m_ResortLiveNext.Add(live);
@@ -2050,6 +2266,8 @@ namespace SkiResortMod.Systems
                 SkiDaysState = 0, SkiDaysLimit = 0,
                 SkiDaysThisMonth = -1, SkiDaysLastMonth = -1, SkiDaysSent = -1, SkiDaysSentCar = -1, SkiDaysSentNoCar = -1,
                 SkiDaysNow = -1, SkiDaysCap = -1, SkiDaysPowderPct = -1,
+                // Catalog Phase B (contract 6): no ski area — no best lodge, the counts 0, the lodge spend unknown.
+                LodgeBest = "", LodgeSpendMonth = -1,
             };
             if (m_LiftCharge.TryGetResort(Entity.Null, out SkiLiftChargeSystem.ResortLiftCharge charge))
             {
@@ -2248,6 +2466,9 @@ namespace SkiResortMod.Systems
                     {
                         State = l.State, Powered = l.Powered, HasBase = l.HasBase, HasTop = l.HasTop,
                         CustomName = l.CustomName,   // E1 fixer pass 2: the station-pair row takes the kept name
+                        // Catalog Phase B (§6.1, §6.4): the row's type (its build items; NoType reads fixed-grip) and Mixed.
+                        Type = l.TypeIndex == LiftCensus.NoType ? (byte)0 : l.TypeIndex,
+                        Mixed = l.Mixed,
                     });
                     m_PLiftRows.Add(k);
                 }
@@ -2255,6 +2476,11 @@ namespace SkiResortMod.Systems
                 // Round S1 D28 (ch4 §C.4): the ski-day rows only for a sign with a SkiDaySystem view while ski days are on.
                 bool skiDayRows = !notLinked && work.HasSkiDays && !m_SkiDaysOff;
                 SkiDayAreaView d = work.SkiDays;
+                // Catalog Phase B (round-2-contract §6.4): summit lodges not lift-served (seam S5) and the IfLodgesOn ladder.
+                if (!notLinked)
+                    CountSummitNotServed(sign, ref m_Work[s]);
+                work = m_Work[s];
+                int ifLodgesOn = hasResult && row.Lodges > 0 ? IfLodgesOnApplied(s, sign, in r) : -1;
                 var input = new HubProblemInput
                 {
                     Unlinked = notLinked,
@@ -2270,7 +2496,9 @@ namespace SkiResortMod.Systems
                     BackcountryPct = hasResult ? r.BackcountryPercent : city.BackcountryPct,
                     AttractionFull = hasResult ? r.AttractionFullEfficiency : -1,
                     IfOneLodge = hasResult && row.Lodges == 0 ? HubRules.AttractionWithLodges(in r, 1) : -1,
-                    IfLodgesOn = hasResult && row.Lodges > 0 ? HubRules.AttractionWithLodges(in r, row.Lodges) : -1,
+                    // Catalog Phase B (skeptic MUST 1; was AttractionWithLodges(r, row.Lodges): n A-frames, wrong for tiers):
+                    // the ladder over every lodge of the area switched on (IfLodgesOnApplied).
+                    IfLodgesOn = ifLodgesOn,
                     // Round F7 D5: road edges, read in the building walk (no result needed: a placement fact).
                     SignNoRoad = !notLinked && work.SignNoRoad,
                     LodgesNoRoad = notLinked ? 0 : work.LodgesNoRoad,
@@ -2280,6 +2508,9 @@ namespace SkiResortMod.Systems
                     LodgesNotSlopeside = skiDayRows ? d.LodgesNotSlopeside : 0,
                     // Round S1 F1: did the band show the Efficiency row on this area's previous build?
                     EfficiencyRowWasOn = !notLinked && m_EffRowOn.Contains(sign),
+                    // Catalog Phase B (§6.4): rows 24 and 25. School: active, runs count, none of them a counted green.
+                    SummitLodgesNotServed = notLinked ? 0 : work.SummitNotServed,
+                    SchoolNoGreenRun = hasResult && r.SchoolActive && r.RunsCounted > 0 && !r.GreenCounted,
                 };
                 HubProblems.Build(in input, m_POut);
                 for (int i = 0; i < m_POut.Count; i++)
@@ -2303,6 +2534,10 @@ namespace SkiResortMod.Systems
                         subject = d.FirstLodgeNoParking;
                     else if (p.Code == HubProblemCode.LodgeNotSlopeside)
                         subject = d.FirstLodgeNotSlopeside;
+                    else if (p.Code == HubProblemCode.SummitLodgeNotLiftServed)
+                        subject = work.SummitNotServedLodge;   // Catalog Phase B: the lowest such lodge
+                    else if (p.Code == HubProblemCode.SchoolNoGreenRun)
+                        subject = sign;                        // Catalog Phase B: the school sits on the sign
                     if (p.Code == HubProblemCode.Efficiency)
                         m_EffRowOnNext.Add(sign);   // F1: the band shows it on this build (Not linked never has one)
                     m_ProblemsNext.Add(new ProblemStats
@@ -2342,6 +2577,70 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info($"Stats [problems] first build this load: {resorts + 1} area(s), {bandRows} band row(s), " +
                              $"{factorRows} factor row(s) in {m_LastProblemsMs:F2} ms");
             }
+        }
+
+        /// <summary>Catalog Phase B (round-2-contract §6.4, seam S5): the area's ACTIVE lodges whose row counts more when
+        /// summit-served (MuSummit &gt; Mu: the Hut and the Summit lodge) and that are not (LodgeInfo.SummitServed of the
+        /// attraction model's last recompute), and the lowest such lodge by (Index, Version) — HubProblemCode 24's count
+        /// and subject. Allocation-free once m_LodgeInfo has grown.</summary>
+        private void CountSummitNotServed(Entity sign, ref AreaWork w)
+        {
+            w.SummitNotServed = 0;
+            w.SummitNotServedLodge = Entity.Null;
+            m_Attractiveness.CopyActiveLodgeInfo(sign, m_LodgeInfo);
+            IReadOnlyList<LodgeDef> lodges = SkiCatalog.Lodges;
+            for (int i = 0; i < m_LodgeInfo.Count; i++)
+            {
+                SkiResortAttractivenessSystem.LodgeInfo info = m_LodgeInfo[i];
+                LodgeDef def = info.LodgeIndex >= 0 && info.LodgeIndex < lodges.Count ? lodges[info.LodgeIndex] : null;
+                if (def == null || !(def.MuSummit > def.Mu) || info.SummitServed)
+                    continue;
+                Entity lodge = info.Lodge;
+                Entity first = w.SummitNotServedLodge;
+                if (w.SummitNotServed == 0 || lodge.Index < first.Index || (lodge.Index == first.Index && lodge.Version < first.Version))
+                    w.SummitNotServedLodge = lodge;
+                w.SummitNotServed++;
+            }
+            m_LodgeInfo.Clear();
+        }
+
+        /// <summary>Catalog Phase B (round-2-contract-skeptic MUST 1: "say who calls AttractionWithLodgeApplied for
+        /// IfLodgesOn" — this method): the "if fixed" A of the LodgesAllOff row = the model's A with EVERY lodge the sign
+        /// lists switched on — the ladder (SkiResortScore.LodgeBase, seam S4) over their tiers in the Result's season, each
+        /// summit-served when a complete, powered lift top of this ski area is within Ladder.SummitServedRadiusM
+        /// (LiftServedRule.SummitServed over this area's serve lifts, seam S2) — through HubRules.AttractionWithLodgeApplied.
+        /// Computed only for an area whose lodges are all switched off (the only row that shows it); −1 otherwise. Reads
+        /// each lodge's Transform (the rebuild's existing sync point; at most a handful per area).</summary>
+        private int IfLodgesOnApplied(int s, Entity sign, in SkiResortScore.Result r)
+        {
+            if (m_Work[s].LodgesActive > 0)
+                return -1;   // HubProblems.Build shows IfLodgesOn only on LodgesAllOff (LodgesActive == 0)
+            m_AreaServeLifts.Clear();
+            for (int k = 0; k < m_ServeLifts.Count && k < m_CensusResort.Count && k < m_CensusRows.Count; k++)
+            {
+                if (m_CensusResort[k] == s && m_ServeLifts[k].Id == m_CensusRows[k].Id && m_ServeLifts[k].Top == m_CensusRows[k].Top)
+                    m_AreaServeLifts.Add(m_ServeLifts[k]);
+            }
+            IReadOnlyDictionary<Entity, LodgeDef> lodgeDefs = m_PrefabCatalog.LodgeDefs;
+            m_LadderLodges.Clear();
+            for (int i = 0; i < m_LodgeEntities.Count; i++)
+            {
+                Entity lodge = m_LodgeEntities[i];
+                if (!m_LodgeResort.TryGetValue(lodge, out int lr) || lr != s)
+                    continue;
+                if (!EntityManager.TryGetComponent(lodge, out PrefabRef pr) || !lodgeDefs.TryGetValue(pr.m_Prefab, out LodgeDef def) ||
+                    def == null)
+                    continue;
+                bool served = false;
+                if (def.MuSummit > def.Mu && EntityManager.TryGetComponent(lodge, out Game.Objects.Transform t))
+                    served = LiftServedRule.SummitServed(t.m_Position.xz, m_AreaServeLifts, SkiCatalog.Ladder.SummitServedRadiusM);
+                m_LadderLodges.Add(new SkiResortScore.LodgeInput { LodgeIndex = def.Index, SummitServed = served });
+            }
+            bool summer = (r.Flags & SkiResortScore.ScoreFlags.SummerMode) != 0;
+            SkiResortScore.LodgeBase(m_LadderLodges, summer, out double applied, out int _, out double _);
+            m_LadderLodges.Clear();
+            m_AreaServeLifts.Clear();
+            return HubRules.AttractionWithLodgeApplied(in r, applied);
         }
 
         private static string[] BuildFactorNames()
@@ -2548,6 +2847,14 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.SkiDaysCap);
                 h = Mix(h, (uint)r.SkiDaysLimit);
                 h = Mix(h, (uint)r.SkiDaysPowderPct);
+                // Catalog Phase B (contract 6): every appended field is hashed (a field not hashed would never re-send).
+                h = MixS(h, r.LodgeBest);
+                h = MixF(h, r.LodgeExtra);
+                h = Mix(h, (uint)r.LuxuryIgnored);
+                h = MixF(h, r.SchoolValue);
+                h = Mix(h, (uint)r.PatrolledRuns);
+                h = Mix(h, (uint)r.PriceTolerance);
+                h = Mix(h, (uint)r.LodgeSpendMonth);
             }
             return Mix(h, (uint)rows.Count);
         }
@@ -2626,6 +2933,11 @@ namespace SkiResortMod.Systems
                 h = MixF(h, r.RideTimeS);
                 h = Mix(h, (uint)r.RunsServed);
                 h = Mix(h, (uint)r.CostMonth);
+                // Catalog Phase B (contract 6): the row's type, mixed flag, seats and speed.
+                h = MixS(h, r.Type);
+                h = Mix(h, (uint)r.TypeIndex | (r.Mixed ? 1u << 8 : 0u));
+                h = Mix(h, (uint)r.Seats);
+                h = MixF(h, r.SpeedMps);
             }
             return Mix(h, (uint)rows.Count);
         }
@@ -2730,10 +3042,27 @@ namespace SkiResortMod.Systems
                 {
                     LiftStats l = m_Lifts[i];
                     sb.Append("    lift '").Append(l.Name).Append("' ").Append(Ent(l.Entity))
+                      // Catalog Phase B: the row's type, seats and speed (and whether it mixes lift types).
+                      .Append(" [").Append(string.IsNullOrEmpty(l.Type) ? "untyped" : l.Type).Append(", ").Append(l.Seats)
+                      .Append(" seats, ").Append(F(l.SpeedMps, "0.#")).Append(" m/s").Append(l.Mixed ? ", MIXES lift types" : "");
+                    // Catalog Phase C (round-3-contract §6.2): a Shuttle row names the mover's view of it (DUMP time only).
+                    // l.Entity is the census row id = the base station when the row has one (LiftCensus.Row.Id).
+                    LiftTypeDef dumpType = l.Mixed ? null : SkiCatalog.LiftByIndex(l.TypeIndex);
+                    if (dumpType != null && dumpType.Mover == MoverKind.Shuttle)
+                    {
+                        string shuttleText = m_Tram != null && l.HasBase ? m_Tram.DescribeShuttle(l.Entity, l.Top) : "";
+                        sb.Append("; shuttle ").Append(m_Tram == null ? "mover NOT registered"
+                                                       : string.IsNullOrEmpty(shuttleText) ? "none (no path)" : shuttleText);
+                    }
+                    sb.Append(']')
                       .Append(" state ").Append(l.State).Append(' ').Append(((HubLiftStatus)l.Status).ToString())
                       .Append(", sections ").Append(l.Sections).Append(", chairs ").Append(l.ChairsRiding).Append('/').Append(l.Chairs)
                       .Append(", length ").Append(F(l.LengthM, "F0")).Append(" m, rise ").Append(F(l.RiseM, "F0"))
                       .Append(" m, powered ").Append(l.Powered).Append(", counted ").Append(l.Counted)
+                      // Phase D (round-4-contract §4.3; was ", counted …" then ", ride …"): the run predicate as the hub applied it
+                      // (state 0 / 1 = census Complete) and the capacity it left ("–" = −1, not in the area total).
+                      .Append(", carries ").Append(LiftServedRule.Carries(l.State <= 1, l.Powered, closed: false) ? "Y" : "N")
+                      .Append(" (capacity ").Append(l.CapacityPerHour >= 0f ? F(l.CapacityPerHour, "F0") + "/h" : "–").Append(')')
                       .Append(", ride ").Append(F(l.RideTimeS, "F0")).Append(" s, serves ").Append(l.RunsServed)
                       .Append(" run(s), cost ").Append(l.CostMonth).Append("/month").Append(l.BilledReduced ? " (at 25 %)" : "")
                       .Append(", sign ").Append(Ent(l.Sign)).Append('\n');
@@ -2830,6 +3159,7 @@ namespace SkiResortMod.Systems
                   .Append(l.SkiDaysLastMonth).Append(" last").Append(l.SkiDaysLastMonth >= 0 && !l.LastMonthFull ? " (partial)" : "")
                   .Append(", sent ").Append(l.SkiDaysSent).Append(" (car ").Append(l.SkiDaysSentCar).Append(", no car ")
                   .Append(l.SkiDaysSentNoCar).Append("), powder ").Append(l.SkiDaysPowderPct).Append(" %\n");
+                AppendLadder(sb, r.Sign, l);   // Catalog Phase B (round-2-contract §6.4): the lodge ladder, school, patrol
                 AppendSignDetail(sb, r.Sign);
                 AppendSignNotifications(sb, r.Sign);
             }
@@ -2839,6 +3169,55 @@ namespace SkiResortMod.Systems
         private static string GateName(int gate)
         {
             return gate < 0 ? "-" : ((SkiMoneyRules.TicketGate)gate).ToString();
+        }
+
+        /// <summary>Catalog Phase B (round-2-contract §6.4): the DUMP's ladder line of a sign — "lodges: best SkiLodgeGrand
+        /// (40), extras 4, capacity 1440, tolerance 40; school on (green counted); patrols 2, runs
+        /// patrolled 3; lodge spend/month 0; summit lodges not lift-served 0". Best / extras / tolerance /
+        /// patrolled from the Result the hub sent; capacity = Σ Capacity of the active lodges (seam S5); patrols =
+        /// the sign's patrol upgrades; school = the Result's SchoolActive / GreenCounted. Allocates (DUMP only).</summary>
+        private void AppendLadder(StringBuilder sb, Entity sign, ResortLiveStats l)
+        {
+            int capacity = 0;
+            m_Attractiveness.CopyActiveLodgeInfo(sign, m_LodgeInfo);
+            for (int i = 0; i < m_LodgeInfo.Count; i++)
+            {
+                SkiResortAttractivenessSystem.LodgeInfo info = m_LodgeInfo[i];
+                if (info.LodgeIndex >= 0 && info.LodgeIndex < SkiCatalog.Lodges.Count)
+                    capacity += SkiCatalog.Lodges[info.LodgeIndex].Capacity;
+            }
+            m_LodgeInfo.Clear();
+            int patrols = 0;
+            if (EntityManager.HasBuffer<InstalledUpgrade>(sign))
+            {
+                HashSet<Entity> patrolPrefabs = m_PrefabCatalog.PatrolPrefabSet;
+                DynamicBuffer<InstalledUpgrade> upgrades = EntityManager.GetBuffer<InstalledUpgrade>(sign, isReadOnly: true);
+                for (int u = 0; u < upgrades.Length; u++)
+                {
+                    if (EntityManager.TryGetComponent(upgrades[u].m_Upgrade, out PrefabRef pr) && patrolPrefabs.Contains(pr.m_Prefab))
+                        patrols++;
+                }
+            }
+            bool hasResult = m_Attractiveness.TryGetAreaScore(sign, out SkiResortAttractivenessSystem.AreaScoreView v);
+            string bestName = "none";
+            if (hasResult && v.Result.LodgeBestIndex >= 0 && v.Result.LodgeBestIndex < SkiCatalog.Lodges.Count)
+            {
+                LodgeDef best = SkiCatalog.Lodges[v.Result.LodgeBestIndex];
+                bestName = best.Prefab + " (" + best.B.ToString("0.##", CultureInfo.InvariantCulture) + ")";
+            }
+            int summitNotServed = 0;
+            for (int s = 0; s < m_SignEntities.Count && s < m_Work.Length; s++)
+            {
+                if (m_SignEntities[s] == sign)
+                    summitNotServed = m_Work[s].SummitNotServed;
+            }
+            sb.Append("      lodges: best ").Append(bestName).Append(", extras ").Append(F(l.LodgeExtra, "0.##"))
+              .Append(", capacity ").Append(capacity)
+              .Append(", tolerance ").Append(l.PriceTolerance).Append("; school ")
+              .Append(hasResult && v.Result.SchoolActive ? (v.Result.GreenCounted ? "on (green counted)" : "on (no counted green run)") : "off")
+              .Append(" worth ").Append(F(l.SchoolValue, "0.##")).Append("; patrols ").Append(patrols).Append(", runs patrolled ")
+              .Append(l.PatrolledRuns).Append("; lodge spend/month ").Append(l.LodgeSpendMonth)
+              .Append("; summit lodges not lift-served ").Append(summitNotServed).Append('\n');
         }
 
         /// <summary>F6 D5 (log-audit defect 10; attraction-honesty.md §9), contract 3: one dump line per sign —

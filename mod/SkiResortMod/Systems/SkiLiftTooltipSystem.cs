@@ -2,6 +2,18 @@
 // bulldozer warning (docs/research/hub-u2-spec.md §5.5 "Tooltip", §5.7; Settings ▸ Lifts ▸
 // LiftBuildAids). Created 2026-10-03 (Round L1, implementer I-2).
 //
+// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.4, lift group): no new
+// text and no code change here — the readout's numbers and its world anchor (SubjectTip / PartnerTip, Last) come from
+// SkiStationAlignSystem, which now measures with each station row's own stub tip (−16 on the detachable / gondola
+// stations) and pairs a station with partners of its own lift type only; the bulldozer warning already reads
+// LiftLinePrefabSet, every FOUND lift line of every type.
+//
+// CATALOG PHASE C (2026-10-11, code-round-3/round-3-contract.md §4.12, mover group) — header note only, no code change: the
+// bulldozer warning covers the tram line through LiftLinePrefabSet once it is FOUND, and its text ("The lift stops until
+// you redraw it") is true for the tram too — a deleted span leaves no shuttle path, so TramShuttleSystem parks both cabins
+// in their hosted pose until the line is redrawn; the alignment readout measures the tram stations with their own rows'
+// stub tips (−12).
+//
 // 1. ALIGNMENT READOUT (state from SkiStationAlignSystem, which runs at Rendering: TooltipUISystem is
 //    a UIUpdate system and UIUpdate precedes Rendering in MainLoop, SystemOrder.cs:67-68, so this is
 //    the PREVIOUS frame's measurement — one frame of lag, accepted). The rows, by StationAlign.Classify
@@ -62,8 +74,10 @@
 //    subject, or when a free station of the other kind exists but is behind / too far (fixer round,
 //    finding l1-lifts-4: in the guided base-first order every base placement and every lone selected
 //    base showed the warning; spec §5.5 literally says "when nothing qualifies"); same WHERE rule.
-// 2. BULLDOZER WARNING while BulldozeToolSystem is the active tool: count Temp SkiChairliftHV edges
-//    whose Temp flags carry Delete (TempFlags.Delete = 2, Game.Tools/TempFlags.cs:9) and sum their
+// 2. BULLDOZER WARNING while BulldozeToolSystem is the active tool: count Temp lift-line edges (every
+//    SkiCatalog lift line, SkiChairliftHV today: SkiPrefabCatalogSystem.LiftLinePrefabSet (Catalog Phase B: every lift
+//    type's line — the set holds all four types' FOUND lines, so the warning covers them with no code change), Catalog Phase A
+//    R4 / extensibility.md §1 row 18 — was the census's single ChairliftPrefab entity) whose Temp flags carry Delete (TempFlags.Delete = 2, Game.Tools/TempFlags.cs:9) and sum their
 //    Curve lengths — the bulldozer preview creates Delete definitions for the hovered target
 //    (BulldozeToolSystem.cs:428-488; ApplyNetSystem.cs:438-441, per spec §5.7) [likely]:
 //      1 section  → BULLDOZE_SECTION (Warning) + BULLDOZE_LENGTH;
@@ -74,7 +88,7 @@
 //      ≥ 2 otherwise (a bulldozer DRAG across several cables) → BULLDOZE_SECTIONS (Warning, neutral) +
 //                   count + length (fixer round, finding l1-lifts-3: spec §5.7's "≥ 2 → tower" called a
 //                   drag "a tower");
-//      any Temp SkiLiftMarker edge with Delete → + BULLDOZE_STUB (Info).
+//      any Temp SkiLiftMarker edge (SkiPrefabCatalogSystem.MarkerEntity) with Delete → + BULLDOZE_STUB (Info).
 //    Vanilla's tower semantics are not changed.
 //
 // MOUSE TOOLTIP MECHANICS as SkiGladeTooltipSystem (whose header carries the citations): widgets
@@ -142,7 +156,9 @@ namespace SkiResortMod.Systems
         private BulldozeToolSystem m_Bulldoze;
         private DefaultToolSystem m_DefaultTool;   // F6 B1: the world group only with this tool
         private SkiStationAlignSystem m_Align;
-        private LiftCensusSystem m_Census;
+        // Catalog Phase A (ext row 18; was :145 LiftCensusSystem m_Census, whose only read was the census's
+        // ChairliftPrefab / MarkerPrefab single entities at :418): the lift lines and the marker from the catalog.
+        private SkiPrefabCatalogSystem m_PrefabCatalog;
         private EntityQuery m_TempEdgeQuery;
 
         // Alignment (world group, or mouse rows while placing — header 1 WHERE).
@@ -170,7 +186,7 @@ namespace SkiResortMod.Systems
             m_Bulldoze = World.GetOrCreateSystemManaged<BulldozeToolSystem>();
             m_DefaultTool = World.GetOrCreateSystemManaged<DefaultToolSystem>();
             m_Align = World.GetOrCreateSystemManaged<SkiStationAlignSystem>();
-            m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
+            m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
 
             m_TempEdgeQuery = GetEntityQuery(
                 ComponentType.ReadOnly<Game.Net.Edge>(),
@@ -415,8 +431,12 @@ namespace SkiResortMod.Systems
         {
             if (m_TempEdgeQuery.IsEmptyIgnoreFilter)
                 return;
-            Entity lift = m_Census.ChairliftPrefab, marker = m_Census.MarkerPrefab;
-            if (lift == Entity.Null)
+            // Catalog Phase A (ext row 18; was SkiLiftTooltipSystem.cs:418-419, the census's single ChairliftPrefab /
+            // MarkerPrefab entities): the catalog's live line set (fetched once, before the chunk loop) and marker.
+            // No line FOUND → no warning, as before (the catalog's ARM line and the census's "!!!" name the miss).
+            HashSet<Entity> lines = m_PrefabCatalog.LiftLinePrefabSet;
+            Entity marker = m_PrefabCatalog.MarkerEntity;
+            if (lines.Count == 0)
                 return;
             int sections = 0;
             float length = 0f;
@@ -438,7 +458,7 @@ namespace SkiResortMod.Systems
                         if ((temps[i].m_Flags & TempFlags.Delete) == 0)
                             continue;
                         Entity prefab = prefabs[i].m_Prefab;
-                        if (prefab == lift)
+                        if (lines.Contains(prefab))   // was prefab == lift (ext row 18)
                         {
                             sections++;
                             length += curves[i].m_Length;
@@ -466,7 +486,7 @@ namespace SkiResortMod.Systems
             {
                 // Header item 2 (fixer round, finding l1-lifts-3): the tower text only when the deleted
                 // sections ARE one tower's sections; a drag over several cables gets the neutral text.
-                AddMouseTooltip(IsOneTower(lift, sections) ? m_TowerWarn : m_SectionsWarn);
+                AddMouseTooltip(IsOneTower(lines, sections) ? m_TowerWarn : m_SectionsWarn);
                 m_Count.value = sections;
                 AddMouseTooltip(m_Count);
             }
@@ -489,8 +509,9 @@ namespace SkiResortMod.Systems
         /// one tower passes it — its outcome is the same as clicking that tower (the node is orphaned and
         /// deleted with them, GenerateNodesSystem.cs:1250-1255), so the text stays true. Main thread;
         /// EntityManager reads sync their own writers; at most every frame while the bulldozer previews
-        /// two or more lift sections.</summary>
-        private bool IsOneTower(Entity liftPrefab, int sections)
+        /// two or more lift sections. Catalog Phase A (ext row 18; was one Entity liftPrefab): a lift section is an
+        /// edge of any catalog lift line (the live LiftLinePrefabSet the caller fetched; one line type today).</summary>
+        private bool IsOneTower(HashSet<Entity> liftPrefabs, int sections)
         {
             if (m_DeletedOriginals.Count != sections || sections < 2)
                 return false;
@@ -513,7 +534,7 @@ namespace SkiResortMod.Systems
                 int liftEdges = 0;
                 for (int c = 0; c < connected.Length; c++)
                 {
-                    if (EntityManager.TryGetComponent(connected[c].m_Edge, out PrefabRef pr) && pr.m_Prefab == liftPrefab)
+                    if (EntityManager.TryGetComponent(connected[c].m_Edge, out PrefabRef pr) && liftPrefabs.Contains(pr.m_Prefab))
                         liftEdges++;
                 }
                 if (liftEdges == sections)

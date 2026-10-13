@@ -1,0 +1,315 @@
+{
+  "name": "SkiLiftChairDQ4M",
+  "written_utc": "2026-10-13T10:16:54Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiLiftChairDQ4M.fbx": {
+      "bytes": 96924,
+      "sha1": "559cf505173ea9b660c44f0a31151506f5106590"
+    },
+    "SkiLiftChairDQ4M_BaseColor.png": {
+      "bytes": 190183,
+      "sha1": "fca6e634d1eb1fadc19f0857af855ab8fa1fb22d"
+    },
+    "SkiLiftChairDQ4M_ControlMask.png": {
+      "bytes": 15285,
+      "sha1": "48cf1a1459535d62565897b5381ee52629780000"
+    },
+    "SkiLiftChairDQ4M_LOD1.fbx": {
+      "bytes": 46476,
+      "sha1": "29754f64e1beffaf9cc841c22c8538a6b00c150e"
+    },
+    "SkiLiftChairDQ4M_LOD2.fbx": {
+      "bytes": 21868,
+      "sha1": "e6faa829b5430165d7592137665ac58b1cd52c08"
+    },
+    "SkiLiftChairDQ4M_MaskMap.png": {
+      "bytes": 71383,
+      "sha1": "a2117f26b4604c945d457d4c0da5e1008120234f"
+    },
+    "SkiLiftChairDQ4M_Normal.png": {
+      "bytes": 32887,
+      "sha1": "b133a24030b750a8dfaf57f69e8eb9bea6036384"
+    },
+    "settings.json": {
+      "bytes": 719,
+      "sha1": "ac84f61a99ed8322f9cc0c2b4b1ff58d79aeccb9"
+    }
+  },
+  "generator": "lift_chair.py",
+  "style": "dq",
+  "letter": "M",
+  "carrier": {
+    "dq": {
+      "object_prefab": "SkiLiftChairDQ4",
+      "mesh_base": "SkiLiftChairDQ4",
+      "line_prefab": "SkiDetachableHV",
+      "seats": 4,
+      "seat_pitch_m": 0.6,
+      "bench_m": 2.4,
+      "hang_m": 3.3,
+      "grip_top_above_rope_m": 0.22,
+      "lane_x_m": 2.6,
+      "axle_m": 8.0,
+      "spacing_m": 30.0,
+      "mast_r_m": 0.5,
+      "lift_type": "detachable",
+      "speed_mps": 5.0
+    }
+  },
+  "tris": {
+    "LOD0": 996,
+    "LOD1": 349,
+    "LOD2": 98
+  },
+  "part_table": [
+    "gripbody",
+    "comb",
+    "jaw_rope",
+    "lever_fin",
+    "lever_roller",
+    "spring_0",
+    "spring_1",
+    "wheel_0",
+    "wheel_1",
+    "axle_0",
+    "axle_1",
+    "tube_hanger",
+    "clampblock",
+    "plate_face",
+    "tube_hoop",
+    "armrest_0",
+    "armrest_1",
+    "armpost_0",
+    "armpost_1",
+    "barhinge_0",
+    "barhinge_1",
+    "barlink",
+    "footstem_0",
+    "footstem_1",
+    "footbar_0",
+    "footbar_1",
+    "seatpan",
+    "backboard",
+    "cushion_0",
+    "cushion_1",
+    "cushion_2",
+    "cushion_3",
+    "pad_0",
+    "pad_1",
+    "pad_2",
+    "pad_3"
+  ],
+  "part_tris": {
+    "gripbody": 36,
+    "comb": 10,
+    "jaw_rope": 12,
+    "lever_fin": 10,
+    "lever_roller": 24,
+    "spring_0": 24,
+    "spring_1": 24,
+    "wheel_0": 32,
+    "wheel_1": 32,
+    "axle_0": 12,
+    "axle_1": 12,
+    "tube_hanger": 144,
+    "clampblock": 12,
+    "plate_face": 2,
+    "tube_hoop": 168,
+    "armrest_0": 18,
+    "armrest_1": 18,
+    "armpost_0": 8,
+    "armpost_1": 8,
+    "barhinge_0": 18,
+    "barhinge_1": 18,
+    "barlink": 84,
+    "footstem_0": 8,
+    "footstem_1": 8,
+    "footbar_0": 24,
+    "footbar_1": 24,
+    "seatpan": 12,
+    "backboard": 10,
+    "cushion_0": 26,
+    "cushion_1": 26,
+    "cushion_2": 26,
+    "cushion_3": 26,
+    "pad_0": 20,
+    "pad_1": 20,
+    "pad_2": 20,
+    "pad_3": 20
+  },
+  "contracts": {
+    "LOD0": {
+      "C1": "z 0 .. 3.3000 (hang 3.300)",
+      "C2": "top owned by gripbody",
+      "C3": "rope z 3.080 inside gripbody, jaw bottom 3.0860",
+      "C4": "bottom owned by footbar",
+      "C5": "tube_hanger 10, tube_hoop 14 rings",
+      "C6": "width 2.500, passing 2.700, mast gap 1.350",
+      "C7": "hanger y -0.337 .. 0.026 (outboard -0.026 .. 0.337, outboard = -Y)",
+      "C8": "996 tris",
+      "C9": "36 parts as contracted",
+      "C13": "bar swings 95 deg about the side-frame hinge (x -0.096, z 0.870, 0.470 above the cushion) in 12 steps x 4: no contact, min clearance 0.033 m at 95 deg (tube_hoop), riders 0.039 m at 0 deg (rider 1 thighs; heads / torsos 0.162 at 95 deg); DOWN lap bar 0.200 above the cushion, 0.013 ahead of the knees; UP lap bar at x 0.122 z 1.468, bottom 1.444 (1.044 above the cushion; head top 1.300, backrest top 0.958, +0.096 vs the face line); first contact 4.0 deg past UP (clampblock)",
+      "C14": "gripbody 6 big faces flat (corner normals <= 0.03 deg off)"
+    },
+    "atlas": {
+      "C11": "quad 2 0.800, quad 3 0.792; every face in its family quad"
+    },
+    "finish": {
+      "C12": "bench 58113 / paint 12592 / galv 9239 texels as recoloured; plate 279 dark texels"
+    },
+    "LOD1": {
+      "C1": "z 0 .. 3.3000 (hang 3.300)",
+      "C2": "top owned by gripbody",
+      "C3": "rope z 3.080 inside gripbody, jaw bottom 3.1010",
+      "C4": "bottom owned by footbar",
+      "C6": "width 2.516, passing 2.684, mast gap 1.342",
+      "C8": "349 tris"
+    },
+    "LOD2": {
+      "C1": "z 0 .. 3.3000 (hang 3.300)",
+      "C2": "top owned by gripbody",
+      "C3": "rope z 3.080 inside gripbody",
+      "C4": "bottom owned by footbar",
+      "C6": "width 2.519, passing 2.681, mast gap 1.340",
+      "C8": "98 tris"
+    },
+    "silhouette": {
+      "LOD1/front/bench": [
+        1.0,
+        0.0
+      ],
+      "LOD1/front/hanger": [
+        1.0,
+        0.0
+      ],
+      "LOD1/front/topbar": [
+        1.0,
+        0.0
+      ],
+      "LOD1/side/bench": [
+        0.987,
+        0.0
+      ],
+      "LOD1/side/hanger": [
+        0.96,
+        0.0
+      ],
+      "LOD1/side/topbar": [
+        1.0,
+        0.0
+      ],
+      "LOD2/front/bench": [
+        1.0,
+        0.0
+      ],
+      "LOD2/front/hanger": [
+        0.994,
+        0.01
+      ],
+      "LOD2/front/topbar": [
+        1.0,
+        0.0
+      ],
+      "LOD2/side/bench": [
+        0.83,
+        0.034
+      ],
+      "LOD2/side/hanger": [
+        0.96,
+        0.0
+      ],
+      "LOD2/side/topbar": [
+        0.889,
+        0.0
+      ]
+    }
+  },
+  "lod_switch": {
+    "csum": 6.759691476821899,
+    "bias": 0.4422800217217887,
+    "distances": [
+      34.25971854619688,
+      57.87629831958961,
+      109.21955988410328
+    ],
+    "switch": {
+      "1": 57.87629831958961,
+      "2": 109.21955988410328
+    },
+    "cull": 1081.2189841701038
+  },
+  "density": {
+    "median": 70.59,
+    "min": 42.35,
+    "min_part": "axle_0",
+    "max": 176.48,
+    "parts": 36,
+    "uv_layer": "UVUnique"
+  },
+  "bake": {
+    "A": 512,
+    "margin_px": 3,
+    "ao": "self",
+    "uncovered_texels": 181370,
+    "files": [
+      "SkiLiftChairDQ4M_BaseColor.png",
+      "SkiLiftChairDQ4M_Normal.png",
+      "SkiLiftChairDQ4M_MaskMap.png",
+      "SkiLiftChairDQ4M_ControlMask.png"
+    ],
+    "px_per_m": {
+      "min": 36.67961438954708,
+      "median": 70.59073910917533,
+      "max": 176.48244565508318
+    }
+  },
+  "lod2": "proxy",
+  "verify": {
+    "height_m": 3.2999999746473985,
+    "levels_ok": [
+      true,
+      true,
+      true
+    ],
+    "normals_per_vertex": {
+      "1": 272,
+      "2": 280,
+      "3": 60
+    },
+    "flat_faces_LOD0": {
+      "faces": 14,
+      "worst_deg": 0.02
+    }
+  },
+  "validation": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "hanger_offset_m": 0.3,
+  "args": {
+    "style": "dq",
+    "out": "../import/chairs/M",
+    "letter": null,
+    "name": null,
+    "seats": null,
+    "preview": "../preview/chairs",
+    "finish": true,
+    "bake": null,
+    "lods": true,
+    "lod2": null,
+    "verify": true,
+    "plate_number": "27",
+    "hanger_offset": null,
+    "carriers": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\catalog\\carriers.json",
+    "ab": null,
+    "basecolor": [
+      0.13,
+      0.16,
+      0.22
+    ],
+    "metallic": 0.1,
+    "smoothness": 0.35,
+    "review": ""
+  }
+}

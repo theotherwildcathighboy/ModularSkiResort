@@ -97,6 +97,15 @@
 // "lost (a load or a return to the menu came before it was due …)" before a load (run 1 D7); the partial midday
 // `[cost]` line at a day change (D10).
 // DUMP and accessors read managed copies only, made after Complete (ch2-RF2-5); never a native container.
+// CATALOG PHASE B (2026-10-11, economy group; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §7.4):
+// RebuildSnapshot copies each active lodge through SkiResortAttractivenessSystem.CopyActiveLodgeInfo (seam S5, the same
+// lodges and order as CopyActiveLodges) and fills the LodgeJob tier fields from SkiCatalog.Lodges on the main thread
+// (Capacity, PriceTolerance, NoRoadNeeded = RoadRule != Base), and AreaJob.SchoolFactor =
+// SchoolRule.DemandFactorOf(Result.SchoolActive, Result.GreenCounted) (1 without a known score); the jobs read only those
+// fields (SkiDaySystem.Jobs.cs header CATALOG PHASE B). Logs: the ARMED line's capacity and price clauses name the
+// per-tier capacity, the tolerance and the school; the `[lodges]` line splits ski-day (target) lodges from mountain lodges
+// that only hold skiers (every lodge of any tier counts; the luxury cap was removed 2026-10-11); the DUMP prints the lodge capacity and tolerance per
+// area and the tier per lodge. An A-frame-only city has the same numbers as before (360 × n, tolerance 0, factor 1).
 // COST (ch2 §11): measured once per load over Tuning.CostPasses passes that scheduled ClaimJob (idle passes and the
 // load's first such pass left out: F7 E3, fixer M-2), rebuilds timed apart, then one pass completed at once: the
 // first one after a pass whose candidate walk ran (else after CostWaitPasses more), with the census scheduled on
@@ -345,6 +354,8 @@ namespace SkiResortMod.Systems
         private readonly List<Entity> m_PruneScratch = new List<Entity>(8);
         private readonly List<Entity> m_SignScratch = new List<Entity>(4);
         private readonly List<Entity> m_LodgeScratch = new List<Entity>(4);
+        // Catalog Phase B (seam S5): the snapshot's active lodges with their tier (RebuildSnapshot).
+        private readonly List<SkiResortAttractivenessSystem.LodgeInfo> m_LodgeInfoScratch = new List<SkiResortAttractivenessSystem.LodgeInfo>(4);
         private readonly List<Entity> m_RunScratch = new List<Entity>(16);
         private readonly List<Entity> m_StationScratch = new List<Entity>(8);
         private readonly List<Entity> m_SnapSigns = new List<Entity>(4);       // signs of the current snapshot
@@ -962,10 +973,17 @@ namespace SkiResortMod.Systems
                 "deadline = closing, pulled in when the hill closes early (no counted run, or the night run closed): a guest on site then leaves at the " +
                 Invariant($"new closing but at least {SkiDayTiming.HoursFor(SkiDayTiming.OnSiteGraceFrames):F0} h from then, a guest on the way when it arrives; ") +
                 "the same Leisure field, lowered only; " +
-                Invariant($"locals min({SkiDayRules.ResidentCap}, {k.LocalsPct}% x A/100 x D) x W x P x confidence, tourists ") +
+                // Catalog Phase B (round-2-contract §7.3-§7.4; was "x W x P x confidence", "P at price … = …" and "capacity
+                // min(runs, 360 x ski-day lodges)"): the school factor, the lodge price tolerance and the per-tier capacity.
+                Invariant($"locals min({SkiDayRules.ResidentCap}, {k.LocalsPct}% x A/100 x D) x W x P x confidence x school ({SchoolRule.DemandFactor} while ") +
+                "the ski school is active and a green run counts), tourists " +
                 Invariant($"min({SkiDayRules.TouristCap}, {k.TouristsPct}% x A/200 x D) x Wt x P x confidence, D = 1 to 1 km then 0 at reach, P at price ") +
-                Invariant($"{price} = {SkiDayRules.PriceFactor(price):F2}; powder = clamp01((snow-hours - 4) / 6) over 24 game hours (precipitation >= 0.1, ") +
-                Invariant($"top at or below freezing), pull {k.PowderPct}%; capacity min(runs, {SkiDayRules.LodgeSkiersPerDay} x ski-day lodges) x ") +
+                Invariant($"{price} = {SkiDayRules.PriceFactor(price):F2} (the full-price threshold raised by the highest price tolerance among the lodges that pass: ") +
+                TierText(tolerance: true) +
+                Invariant($"); powder = clamp01((snow-hours - 4) / 6) over 24 game hours (precipitation >= 0.1, ") +
+                Invariant($"top at or below freezing), pull {k.PowderPct}%; capacity min(runs, {SkiDayRules.LodgeSkiersPerDay} x ski-day lodges ") +
+                "for A-frames — by tier the lodges' skiers a day: " + TierText(tolerance: false) +
+                "; ski-day targets are road lodges, a mountain lodge holds skiers only; no limit on the number of lodges) x " +
                 Invariant($"(1 + {SkiDayRules.PowderCapacityBoost} x powder); slope-side <= {SkiDayRules.SlopesideMaxM} m to a run's outline or a lift station; ") +
                 Invariant($"back-off per area and class: confidence = (arrived + {SkiDayRules.PriorWeight} x prior) / (arrived + failed + {SkiDayRules.PriorWeight}), ") +
                 Invariant($"{SkiDayRules.ConfidenceMin}-1, history x {SkiDayRules.TrackKeep} per outcome; a guest found in the lodge with the outing gone ") +
@@ -1273,6 +1291,9 @@ namespace SkiResortMod.Systems
                     ParkingKnown = parked,
                     ParkingDone = parked && p.Done,
                     CarSpaces = parked ? p.CarSpaces : -1,
+                    LodgeIndex = lj.LodgeIndex,          // Catalog Phase B
+                    Capacity = lj.Capacity,
+                    NoRoadNeeded = lj.NoRoadNeeded != 0,
                 });
             }
 
@@ -1338,6 +1359,9 @@ namespace SkiResortMod.Systems
                 mem.NightRunOpen = aj.NightRunOpen != 0;
                 mem.Capacity = co.CapacityPeople;
                 mem.TargetLodges = co.TargetLodges;
+                mem.LodgeCapacity = co.LodgeCapacity;   // Catalog Phase B
+                mem.PriceTolerance = co.PriceTolerance;
+                mem.SchoolFactor = aj.SchoolFactor;
                 mem.Attraction = aj.Attraction;
                 mem.OpenShare = aj.OpenShare;
                 mem.Powder = aj.Powder;
@@ -2980,6 +3004,43 @@ namespace SkiResortMod.Systems
                 m_RebuildMaxMs = ms;
         }
 
+        /// <summary>Catalog Phase B (header CATALOG PHASE B): one snapshot lodge with its tier's numbers from SkiCatalog.Lodges
+        /// (an out-of-range index reads the A-frame row 0, as the score does; no row at all → today's A-frame values).</summary>
+        private static LodgeJob LodgeJobOf(Entity lodge, int area, in SkiResortAttractivenessSystem.LodgeInfo info)
+        {
+            int count = SkiCatalog.Lodges.Count;
+            LodgeDef def = count == 0 ? null : (info.LodgeIndex >= 0 && info.LodgeIndex < count ? SkiCatalog.Lodges[info.LodgeIndex] : SkiCatalog.Lodges[0]);
+            return new LodgeJob
+            {
+                Lodge = lodge,
+                Area = area,
+                Capacity = def != null ? def.Capacity : (int)SkiDayRules.LodgeSkiersPerDay,
+                PriceTolerance = def != null ? def.PriceTolerance : 0,
+                NoRoadNeeded = (byte)(def != null && def.RoadRule != LodgeRoadRule.Base ? 1 : 0),
+                LodgeIndex = (short)(def != null ? def.Index : 0),
+            };
+        }
+
+        /// <summary>Catalog Phase B: the ARMED line's per-tier numbers from SkiCatalog.Lodges, "aFrame 360, hut 200, …"
+        /// (capacity) or "aFrame 0, …, grand 40" (price tolerance); invariant culture.</summary>
+        private static string TierText(bool tolerance)
+        {
+            var sb = new StringBuilder(96);
+            for (int i = 0; i < SkiCatalog.Lodges.Count; i++)
+            {
+                LodgeDef d = SkiCatalog.Lodges[i];
+                sb.Append(i > 0 ? ", " : "").Append(d.Id).Append(' ')
+                  .Append((tolerance ? d.PriceTolerance : d.Capacity).ToString(CultureInfo.InvariantCulture));
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>Catalog Phase B: the lodge tier's id for logs and the DUMP ("aFrame", "hut", …; "?" out of range).</summary>
+        private static string TierOf(int lodgeIndex)
+        {
+            return lodgeIndex >= 0 && lodgeIndex < SkiCatalog.Lodges.Count ? SkiCatalog.Lodges[lodgeIndex].Id : "?";
+        }
+
         /// <summary>ch2 §4.2: one AreaJob per live sign (CopySigns order), its active lodges (the sign itself
         /// excluded; one area per lodge), its member runs and lift stations (D10 inputs), score inputs and powder;
         /// tracks from AreaMemory. Main thread, between jobs (step 1 completed them); no EntityManager read.</summary>
@@ -3012,14 +3073,17 @@ namespace SkiResortMod.Systems
                 AreaMemory mem = MemoryOf(sign);
 
                 int lodgeStart = m_Lodges.Length;
-                m_Attraction.CopyActiveLodges(sign, m_LodgeScratch);
-                for (int i = 0; i < m_LodgeScratch.Count; i++)
+                // Catalog Phase B (header CATALOG PHASE B; was CopyActiveLodges + LodgeJob { Lodge, Area }): the same
+                // lodges with their tier's numbers (main thread: the jobs never read a catalog row, contract risk R-a).
+                m_Attraction.CopyActiveLodgeInfo(sign, m_LodgeInfoScratch);
+                for (int i = 0; i < m_LodgeInfoScratch.Count; i++)
                 {
-                    Entity lodge = m_LodgeScratch[i];
+                    SkiResortAttractivenessSystem.LodgeInfo info = m_LodgeInfoScratch[i];
+                    Entity lodge = info.Lodge;
                     if (lodge == Entity.Null || lodge == sign)
                         continue;   // never the Welcome Sign (D8)
                     if (m_LodgeIndex.TryAdd(lodge, m_Lodges.Length))
-                        m_Lodges.Add(new LodgeJob { Lodge = lodge, Area = a });
+                        m_Lodges.Add(LodgeJobOf(lodge, a, info));
                 }
                 int runStart = m_SiteRuns.Length, stationStart = m_SiteStations.Length;
                 m_Attraction.CopySiteMembers(sign, m_RunScratch, m_StationScratch);
@@ -3056,6 +3120,8 @@ namespace SkiResortMod.Systems
                     RunsCapacity = known ? r.RunsCapacity : 0.0,
                     OpenShare = known ? SkiDayRules.OpenShare(r.RunsValue, r.RunsValueFull) : 0.0,
                     Powder = powder,
+                    // Catalog Phase B (R13, D13): locals × 1.2 while the school is active and a green run counts.
+                    SchoolFactor = known ? SchoolRule.DemandFactorOf(r.SchoolActive, r.GreenCounted) : 1.0,
                 });
                 for (int c = 0; c < 3; c++)
                     m_Tracks.Add(mem.Tracks[c]);
@@ -3817,19 +3883,30 @@ namespace SkiResortMod.Systems
                 return;
             mem.LodgesLogged = true;
             mem.LodgeVerdicts.Clear();
-            int targets = 0;
+            // Catalog Phase B (header CATALOG PHASE B): a passing mountain lodge holds skiers but is not a ski-day (target)
+            // lodge — listed apart; a tier other than the A-frame is named.
+            // An A-frame-only area writes today's text.
+            int targets = 0, mountain = 0;
             var sb = new StringBuilder(160);
+            var mountainText = new StringBuilder(0);
             for (int li = start; li < end; li++)
             {
                 DumpLodge dl = m_DumpLodges[li];
                 mem.LodgeVerdicts.Add(new LodgeVerdict { Lodge = dl.Lodge, Reject = dl.Reject });
-                if (dl.Reject == (byte)SkiDayRules.LodgeReject.None)
-                {
+                if (dl.Reject != (byte)SkiDayRules.LodgeReject.None)
+                    continue;
+                StringBuilder into = dl.NoRoadNeeded ? mountainText : sb;
+                if (dl.NoRoadNeeded)
+                    mountain++;
+                else
                     targets++;
-                    sb.Append(' ').Append(Fmt(dl.Lodge));
-                }
+                into.Append(' ').Append(Fmt(dl.Lodge));
+                if (dl.LodgeIndex > 0)
+                    into.Append(' ').Append(TierOf(dl.LodgeIndex));
             }
-            string text = $"SkiDays [lodges] ski area {Fmt(sign)}{NameSuffix(sign)}: {targets} ski-day lodge(s){sb}; not used: {end - start - targets}";
+            string text = $"SkiDays [lodges] ski area {Fmt(sign)}{NameSuffix(sign)}: {targets} ski-day lodge(s){sb}" +
+                          (mountain > 0 ? $"; {mountain} mountain lodge(s) holding skiers, not a ski-day target:{mountainText}" : "") +
+                          $"; not used: {end - start - targets - mountain}";
             sb.Clear();
             for (int li = start; li < end; li++)
             {
@@ -3984,8 +4061,12 @@ namespace SkiResortMod.Systems
                   .Append(mem.TopKnown ? mem.TopM.ToString("F0", ic) : "-").Append(" m), claim hours ").Append(mem.ClaimHours ? "y" : "n")
                   .Append(" until ").Append(HourText(SkiDayRules.CloseHourOf(mem.NightRunOpen)))
                   .Append(", capacity ").Append(mem.Capacity).Append(" (").Append((SkiDayLimit)mem.Limit).Append(": runs ")
-                  .Append(mem.RunsCapacity.ToString("F0", ic)).Append(", lodges ").Append(mem.TargetLodges).Append(" x ")
-                  .Append(SkiDayRules.LodgeSkiersPerDay.ToString("F0", ic)).Append("), on the way ").Append(mem.OnTheWay)
+                  // Catalog Phase B (was "lodges N x 360"): the ski-day (target) lodges and the lodges' per-tier
+                  // capacity; the price tolerance and the school factor of the chance.
+                  .Append(mem.RunsCapacity.ToString("F0", ic)).Append(", lodges ").Append(mem.TargetLodges).Append(" ski-day, ")
+                  .Append(mem.LodgeCapacity).Append(" skiers a day by tier (A-frame ").Append(SkiDayRules.LodgeSkiersPerDay.ToString("F0", ic))
+                  .Append(")), price tolerance ").Append(mem.PriceTolerance).Append(", school x").Append(mem.SchoolFactor.ToString("0.##", ic))
+                  .Append(", on the way ").Append(mem.OnTheWay)
                   .Append(" (not left home ").Append(mem.NotLeft).Append(", at the door ").Append(mem.AtDoor).Append(", riding ").Append(mem.Riding)
                   .Append("), on site ").Append(mem.OnSite)
                   .Append(", visit over and still inside ").Append(mem.Leaving).Append(", expired and watched ").Append(mem.Watching)
@@ -4043,6 +4124,9 @@ namespace SkiResortMod.Systems
                         continue;
                     m_CarFailsByLodge.TryGetValue(dl.Lodge, out int fails);
                     sb.Append("      lodge ").Append(Fmt(dl.Lodge)).Append(": ").Append((SkiDayRules.LodgeReject)dl.Reject)
+                      // Catalog Phase B: the tier, its capacity, mountain (not a target).
+                      .Append(", ").Append(TierOf(dl.LodgeIndex)).Append(' ').Append(dl.Capacity).Append(" a day")
+                      .Append(dl.NoRoadNeeded ? ", mountain (not a ski-day target)" : "")
                       .Append(", nearest run or station ").Append(MetresText(dl.NearestM)).Append(" m, xz (")
                       .Append(dl.HasPosition ? dl.Xz.x.ToString("F0", ic) : "-").Append(", ").Append(dl.HasPosition ? dl.Xz.y.ToString("F0", ic) : "-")
                       .Append("), car failures ").Append(fails).Append(", parking ")
@@ -4461,6 +4545,8 @@ namespace SkiResortMod.Systems
             public bool HasPass, ClaimHours, NightRunOpen, TopKnown;
             public byte State, Limit;
             public int Attraction, Capacity, TargetLodges, OnTheWay, OnSite, SnowHours = -1;
+            public int LodgeCapacity, PriceTolerance;   // Catalog Phase B: step A's lodge side and price tolerance (DUMP)
+            public double SchoolFactor = 1.0;           // Catalog Phase B: the area's school factor at the last pass (DUMP)
             public int NotLeft, Riding, Leaving, Watching;   // Round M1 per-pass snapshots
             public int AtDoor, Following;                    // Round M2 per-pass snapshots (D1, D5)
             public double OpenShare, Powder = double.NaN, RunsCapacity, TopM;
@@ -4653,6 +4739,9 @@ namespace SkiResortMod.Systems
             public float2 Xz;
             public float NearestM;
             public int CarSpaces;
+            // Catalog Phase B: the tier, its capacity and a mountain lodge (not a target).
+            public int LodgeIndex, Capacity;
+            public bool NoRoadNeeded;
         }
 
         private struct LodgeVerdict

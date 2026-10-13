@@ -2,9 +2,9 @@
 // "skiResort", contract 3 (Round E1: docs/research/econ-round/spec/ch5-hub-csharp.md §4, design
 // docs/research/econ-round/design/hub-v3-design.md §8; contract 2 was hub-u2-spec.md §2. The TS side is
 // mod/SkiResortUI/src/bindings.ts, the single source of truth for names and shapes, and
-// mod/SkiResortUI/tools/check-bundle.js matches this file's binding/trigger literals, every
-// writer.TypeBegin("SkiResortMod.<X>") block, the ItemIds / ItemPrefabNames arrays and the Item* constants
-// against it — rules R1, R2, R16), the selected resort (§3.2, rules 1-7), rename through the vanilla
+// mod/SkiResortUI/tools/check-bundle.js matches this file's binding/trigger literals and every
+// writer.TypeBegin("SkiResortMod.<X>") block against it — rules R1, R2; since contract 6 the build items are the
+// SkiCatalog.cs BUILD-ITEMS table, which R16 reads there), the selected resort (§3.2, rules 1-7), rename through the vanilla
 // NameSystem, the build launches, the camera fly-to for runs, lifts and buildings, the glade-tool
 // controls, auto-open on Welcome Sign selection, the uiHello handshake and what the piste-map overlay
 // (SkiPisteMapSystem, D19) reads. Created 2026-10-01 (Round U1, implementer U1-B); contract 2 written
@@ -12,7 +12,8 @@
 // 2026-10-05 (Round S1 "Ski days", stream D; docs/research/ski-days/spec/ch4-hub.md §A.5: ten ResortLive fields
 // appended, the bindings and triggers unchanged); contract 5 2026-10-10 (Round M2 R9, builder B3;
 // docs/research/round-m2/build-contract.md §8.1: CityStats.tripPlanner and tripPlannerBlocksSkiDays appended to the
-// `city` writer and comparer, the bindings and triggers unchanged). The
+// `city` writer and comparer, the bindings and triggers unchanged); contract 6 2026-10-11 (Catalog Phase B, code round 2,
+// hub group: header CATALOG PHASE B below). The
 // per-area numbers are NOT computed here: SkiResortStatsSystem owns them and this system only writes its
 // rows (resorts / resortLive / runs / runLive / lifts / problems / city) to the UI.
 //
@@ -303,6 +304,66 @@
 // (docs/research/field-test-7-fixes.md A3 / B3) — SkiSignUtilityHookSystem.AppendDump and
 // LodgeRoadSystem.AppendDump (AppendRoadAndUtilities: resolved with GetExistingSystemManaged at DUMP time like
 // m_PisteMap, each call guarded so a throw lands in the DUMP text and never closes the hub), then the catalog.
+//
+// CATALOG PHASE A (2026-10-11; docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md R3 and §5; no binding,
+// trigger or HubContract change). The build items keep their R16 literal table; ResolveItems resolves each pair through
+// SkiPrefabCatalogSystem.TryGetPrefab (per load, revalidated each frame) instead of its own PrefabID + name-scan copy;
+// CheckItemsAgainstCatalog compares the table with SkiCatalog at every arm (ARMED line "items = SkiCatalog (9/9: …)",
+// or one "!!! Hub [arm]" line); RefreshLocks re-resolves the items when the catalog's Generation moves (a "Hub [items]"
+// WARN, at most Tuning.CatalogItemLinesMax per load); station tests ask the catalog (IsStation), not a cached
+// PowerBridge set; the DUMP gains one "PrefabCatalog: …" line (Describe()) after the build line.
+//
+// CATALOG PHASE B — CONTRACT 6 (2026-10-11, code round 2, hub group; docs/research/art/assets-2026-10/code-round-2/
+// round-2-contract.md §8 with round-2-contract-skeptic.md MUST 6 applied; build-hub.md is the report):
+//   * ONE TABLE (D6, §8.1): the items are SkiCatalog.BuildItems (25 rows, strip order: sign, the five lodge tiers, school,
+//     two patrol huts, each lift type's base / top / line, the four runs). The literal arrays ItemIds / ItemPrefabNames /
+//     ItemPrefabTypes / ItemRunKind, the Item* index consts and CheckItemsAgainstCatalog are deleted; gate R16 parses
+//     SkiCatalog.cs instead of this file. Every per-item array is sized SkiCatalog.BuildItems.Count.
+//   * SENT (D7): an item is offered this load unless its prefab NAME is pending (SkiCatalog.IsExpected false: not imported
+//     yet) AND MISSING, or it belongs to a Shuttle lift type (the tram: Phase C moves it). `build` writes the sent items
+//     only, table order, so a fixed-grip-only city before any import sends today's nine items and the UI draws no picker.
+//     An Expected item that is MISSING is still sent, locked by REASON[Missing] (as before). A pending item that IS found
+//     is sent (D5: Expected changes log severity only; the catalog writes the [pending-found] WARN).
+//   * UPGRADE ITEMS (§8.2): every item whose row IsUpgrade (lodge tiers, school, patrol huts) launches through the lodge
+//     path below (header LODGE steps 1-5); m_UpgradeItem is the launched index. "Active" = the object tool in Upgrade mode
+//     holding ANY upgrade item's prefab (the tier placed from the sign's own upgrade menu is active too).
+//   * LOCKS (§8.3), precedence top to bottom, reason byte → locale key: 3 Missing (an Expected item's prefab MISSING),
+//     1 Locked (progression), 2 NoSign (an upgrade item, no live sign), 4 AlreadyBuilt (the prefab's
+//     ServiceUpgradeData.m_ForbidMultiple and the SHOWN sign's InstalledUpgrade already holds that prefab: the UX mirror of
+//     the engine's own AlreadyUpgraded error, Game.Buildings/ValidationHelpers.cs:49-72, run for every ServiceUpgrade by
+//     ValidationSystem.cs:1026; UpgradeMenuUISystem.cs:346-364 only marks the menu row). Reason 5 was OneLuxury (one
+//     luxury lodge per ski area, our cross-prefab rule D3); it was REMOVED on 2026-10-11 (Richard: no limit on how many
+//     lodges of any tier a player builds) and the number is retired, not reused. The Not linked view (no shown sign)
+//     applies only 3 / 1 / 2. The prefab's m_ForbidMultiple is the truth (skeptic SHOULD); a row that disagrees writes
+//     one WARN per item per load, so a luxury-lodge prefab imported before the surgery flips its ForbidMultiple to false
+//     shows AlreadyBuilt on a sign that has one, with that WARN naming why. The push signature multiplies the reason by 8
+//     (was 4). MUST 6: ApplyLaunch re-checks AlreadyBuilt on the sign the upgrade launch PICKS (the shown sign, the
+//     selected sign or the nearest one) before ActivatePrefabTool and refuses with one Info line and LastTriggerText -
+//     the shown-sign lock alone is evaluated without a sign in the Not linked view.
+//   * VALUES (§8.4, ReadItemValues by kind; ext-chk X4): Line = the type row's LinePerKm / FixedPerMonth / PerKmPerMonth;
+//     Station / Sign = PlaceableObjectData.m_ConstructionCost; Lodge / School / Patrol = ServiceUpgradeData.m_UpgradeCost
+//     (else PlaceableObjectData); Run as before. A FOUND prefab whose cost differs from its row's informational mirror
+//     (StationDef / LodgeDef / SchoolDef / PatrolDef / SignDef.BuildCost) writes one WARN per item per load
+//     ("Hub [items] drift: … — the prefab wins"); with the sign mirrored at 5,000 (skeptic MUST 7) none is expected today.
+//   * HINT (D37 per type): HINT[LiftNoPair] on a line item when HubRules.LiftNoPair holds over the SHOWN area's rows of THAT
+//     lift type (LiftStats.TypeIndex; one scratch list reused per type, no per-recompute allocation).
+//   * ROWS (§8.5): `lifts` appends type / seats / speedMps (LiftStats.Type / Seats / SpeedMps); `resortLive` appends
+//     lodgeBest, lodgeExtra, luxuryIgnored, schoolValue, patrolledRuns, priceTolerance, lodgeSpendMonth (ResortLiveStats).
+//   * focusBuilding accepts the school and the patrol huts (SkiPrefabCatalogSystem.IsUpgradeBuilding), not only lodges.
+//   * Logs: the ARMED line names expected / pending / not-offered items ("build prefabs 9/9 expected […], 16 pending not
+//     offered, tram not offered (Shuttle, Phase C); item costs: …"); launches name the item id ("Hub [launch] lodgeMid ->
+//     …", "!!! Hub upgrade launch (school): …"); the DUMP's build line marks not-sent items and its tool line reads
+//     "upgrade launch: …". BuildItemIds (the dev tab's launch buttons) lists all 25 ids.
+//
+// CATALOG PHASE C (2026-10-11, code round 3, rules group; docs/research/art/assets-2026-10/code-round-3/round-3-contract.md
+// C13 / §6.4; contract 6 unchanged — no binding, field, trigger or enum value moves): D7's Shuttle clause is gone. An item
+// is SENT when (its name is Expected or its prefab is FOUND) and (it is not a Shuttle type's item, or TramShuttleSystem is
+// registered: World.GetExistingSystemManaged at ResolveItems time, i.e. arm and catalog re-resolution). While the tram's
+// prefabs are pending and MISSING (until the S3 import) nothing changes: pending MISSING items are not sent (D7's first
+// clause). Texts: the launch refusal of a found unsent item says "moves as a Shuttle and TramShuttleSystem is not
+// registered"; the ARMED fragment reads "tram moved by TramShuttleSystem" (or "tram NOT offered: TramShuttleSystem not
+// registered (…)"), a found pending Shuttle item is "found and offered" truthfully (round-2 leftover §10 item 7); the
+// DUMP's build line marks such an item "NOT SENT (no tram mover)" (was "(Shuttle)").
 
 using System;
 using System.Collections.Generic;
@@ -333,12 +394,14 @@ namespace SkiResortMod.Systems
         public const string Group = "skiResort";
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a
-        /// binding, trigger, field or meaning changes. 5 = Round M2 (docs/research/round-m2/decisions.md R9,
+        /// binding, trigger, field or meaning changes. 6 = Catalog Phase B (code round 2, round-2-contract.md §8: the 25-row
+        /// SkiCatalog build table, PROBLEM 23-25, LiftRow type / seats / speedMps, the ResortLive lodge-ladder fields).
+        /// 5 = Round M2 (docs/research/round-m2/decisions.md R9,
         /// build-contract.md §8.1: CityStats.tripPlanner and tripPlannerBlocksSkiDays appended); 4 was Round S1, ski
         /// days, docs/research/ski-days/spec (ch4 §A: ten ResortLive fields appended; the six last-month guest fields
         /// also for a partial month); 3 was Round E1 (econ-round spec ch5 §4, design hub-v3-design.md §8); 2 was
         /// hub-u2-spec.md §2 (Rounds U2/M1).</summary>
-        public const int HubContract = 5;
+        public const int HubContract = 6;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed
         /// after the one-shot "!!!" until the next load (amended 2026-10-01, U1 fixer round, finding
@@ -352,6 +415,9 @@ namespace SkiResortMod.Systems
         public const string ReasonKeyLocked = "SkiResort.Hub.REASON[Locked]";
         public const string ReasonKeyNoSign = "SkiResort.Hub.REASON[NoSign]";
         public const string ReasonKeyMissing = "SkiResort.Hub.REASON[Missing]";
+        // Catalog Phase B (contract 6, round-2-contract §8.3): reason byte 4 (header CATALOG PHASE B, LOCKS). Byte 5
+        // (OneLuxury, REASON[OneLuxury]) is retired: the one-luxury-lodge lock was removed on 2026-10-11.
+        public const string ReasonKeyAlreadyBuilt = "SkiResort.Hub.REASON[AlreadyBuilt]";
 
         // Build[].hint locale key (root LocaleEN.cs; text changed in E1, key kept).
         public const string HintKeyLiftNoPair = "SkiResort.Hub.HINT[LiftNoPair]";
@@ -364,6 +430,9 @@ namespace SkiResortMod.Systems
             /// <summary>Wall-clock period (s) of the Locked re-check while the build section is open
             /// (an unlock raises no event we listen to).</summary>
             public const float LockRefreshS = 2f;
+            /// <summary>Catalog Phase A: "Hub [items]" lines (the build items re-resolved after a prefab catalog
+            /// re-resolution) written per load; the DUMP's PrefabCatalog line counts the rest.</summary>
+            public const int CatalogItemLinesMax = 8;
             /// <summary>UIUpdates between the lodge launch and its Upgrade-mode verify (§2.C step 5).</summary>
             public const int LodgeVerifyUpdates = 2;
             /// <summary>Requests queued between two OnUpdates before further ones are dropped (logged).</summary>
@@ -398,35 +467,47 @@ namespace SkiResortMod.Systems
             public const float PushRowsLogWindowS = 10f;
         }
 
-        // ── build items (bindings.ts BUILD_ITEM_IDS / BUILD_ITEM_PREFAB; ids keep in step, the UI orders
-        //    the tiles itself, buildItems.ts orderBuildItems) ───────────────────────────────────────
+        // ── build items (contract 6: the ONE table SkiCatalog.BuildItems; bindings.ts BUILD_ITEM_IDS / BUILD_ITEM_PREFAB and
+        //    buildItems.ts BUILD_ITEMS mirror it row by row, gate R16 parses SkiCatalog.cs; the UI groups the tiles itself) ──
 
-        // Contract 3 (ch5 §4.1, §4.5): nine items, gate rule R16 compares ItemIds / ItemPrefabNames and these
-        // constants with bindings.ts BUILD_ITEM_IDS / BUILD_ITEM_PREFAB (literal values: the gate parses them).
-        private const int ItemSign = 0, ItemLodge = 1, ItemRunFirst = 2, ItemRunLast = 5, ItemLift = 6,
-                          ItemBase = 7, ItemTop = 8, ItemCount = 9;
-        private static readonly string[] ItemIds =
-        {
-            "sign", "lodge", "runNatural", "runGroomed", "runSnowmaking", "runNight", "lift", "baseStation", "topStation",
-        };
-        private static readonly string[] ItemPrefabNames =
-        {
-            "SkiResortGate", "SkiAFrameDayLodge", "SkiRunNaturalA", "SkiRunGroomedA", "SkiRunSnowmakingA", "SkiRunNightA",
-            "SkiChairliftHV", "SkiBaseStationBuilding", "SkiTopStationBuilding",
-        };
-        // PrefabID type names: the gate, lodge and stations are BuildingPrefabs, the runs SurfacePrefabs,
-        // the lift a PowerLinePrefab (the same names the other systems resolve them by:
-        // SkiRunOwnershipSystem, SkiResortAttractivenessSystem, PowerBridgeSystem, ChairPinSystem).
-        private static readonly string[] ItemPrefabTypes =
-        {
-            nameof(BuildingPrefab), nameof(BuildingPrefab), nameof(SurfacePrefab), nameof(SurfacePrefab),
-            nameof(SurfacePrefab), nameof(SurfacePrefab), nameof(PowerLinePrefab), nameof(BuildingPrefab), nameof(BuildingPrefab),
-        };
-        /// <summary>RunKind of each run item (−1 = not a run item). Fixed by the item, never read from a prefab.</summary>
-        private static readonly int[] ItemRunKind = { -1, -1, 3, 0, 1, 2, -1, -1, -1 };
-        private static bool IsRunItem(int i) => i >= ItemRunFirst && i <= ItemRunLast;
+        // Catalog Phase B (round-2-contract §8.1, D6; was SkiResortHubUISystem.cs:461-488: the literal ItemIds /
+        // ItemPrefabNames / ItemPrefabTypes / ItemRunKind arrays and the ItemSign / ItemLodge / ItemRunFirst / ItemRunLast /
+        // ItemLift / ItemBase / ItemTop / ItemCount consts, asserted against SkiCatalog at every arm by
+        // CheckItemsAgainstCatalog): every item fact comes from its BuildItemDef row (kind, prefab name, lift type, run
+        // kind); the PrefabID type is SkiCatalog.TypeNameOf(kind). Static readonly: SkiCatalog's static ctor never throws (a
+        // fault leaves Problems, and the ARMED line names them).
+        private static readonly IReadOnlyList<BuildItemDef> Items = SkiCatalog.BuildItems;
+        private static readonly int ItemCount = SkiCatalog.BuildItems.Count;
+        /// <summary>The table's ids (BuildItemIds, the dev tab's launch buttons), built once.</summary>
+        private static readonly string[] s_ItemIds = CopyItemIds();
 
-        private const byte ReasonNone = 0, ReasonLocked = 1, ReasonNoSign = 2, ReasonMissing = 3;
+        private static string[] CopyItemIds()
+        {
+            var ids = new string[SkiCatalog.BuildItems.Count];
+            for (int i = 0; i < ids.Length; i++)
+                ids[i] = SkiCatalog.BuildItems[i].Id;
+            return ids;
+        }
+
+        /// <summary>Each item's lift type (SkiCatalog.Lifts index; −1 = not a station / line item), built once.</summary>
+        private static readonly int[] s_ItemTypeIndex = CopyItemTypeIndex();
+
+        private static int[] CopyItemTypeIndex()
+        {
+            var types = new int[SkiCatalog.BuildItems.Count];
+            for (int i = 0; i < types.Length; i++)
+            {
+                LiftTypeDef def = SkiCatalog.LiftById(SkiCatalog.BuildItems[i].LiftTypeId);
+                types[i] = def != null ? def.Index : -1;
+            }
+            return types;
+        }
+
+        private static bool IsRunItem(int i) => Items[i].Kind == BuildItemKind.Run;
+        private static bool IsLineItem(int i) => Items[i].Kind == BuildItemKind.Line;
+
+        private const byte ReasonNone = 0, ReasonLocked = 1, ReasonNoSign = 2, ReasonMissing = 3,
+                           ReasonAlreadyBuilt = 4;   // 4: Catalog Phase B (§8.3); 5 (OneLuxury) retired 2026-10-11, never reused
 
         private readonly PrefabBase[] m_ItemPrefab = new PrefabBase[ItemCount];
         private readonly Entity[] m_ItemPrefabEntity = new Entity[ItemCount];
@@ -440,6 +521,16 @@ namespace SkiResortMod.Systems
         private readonly int[] m_ItemMonthly = new int[ItemCount];
         private readonly int[] m_ItemMonthlyPerHa = new int[ItemCount];
         private readonly int[] m_ItemMonthlyPerKm = new int[ItemCount];
+        // Catalog Phase B (§8.1, §8.3): offered this load (D7); the engine's ForbidMultiple (the prefab's ServiceUpgradeData,
+        // else the row) for the AlreadyBuilt lock; the row's luxury label (the DUMP only: no lock hangs on it since
+        // 2026-10-11); the per-load "drift logged" marks (one WARN per item per load).
+        private readonly bool[] m_ItemSent = new bool[ItemCount];
+        private readonly bool[] m_ItemForbidMultiple = new bool[ItemCount];
+        private readonly bool[] m_ItemLuxury = new bool[ItemCount];
+        private readonly bool[] m_ItemDriftLogged = new bool[ItemCount];
+        private int m_SentCount;
+        private bool m_SentMismatchLogged;      // per load: WriteBuild's never-silent guard
+        private Entity m_LockSign = Entity.Null;   // the shown sign the locks were evaluated for (a switch re-checks)
         private int m_ActiveItem = -1;
 
         // ── value shapes ──────────────────────────────────────────────────────────────────────────
@@ -667,13 +758,15 @@ namespace SkiResortMod.Systems
         private SkiResortStatsSystem m_Stats;
         private LiftCensusSystem m_Census;
         private SkiResortAttractivenessSystem m_Attractiveness;
-        private PowerBridgeSystem m_PowerBridge;
+        // Catalog Phase A (ext row 21 / row 6; was :670 + :833 m_PowerBridge, read only at :1011 for the station set):
+        // the build items, the stations and the DUMP line come from the prefab catalog.
+        private SkiPrefabCatalogSystem m_PrefabCatalog;
         private SkiPlacementInfoviewSystem m_Infoview;
         private SkiGladeToolSystem m_GladeTool;
         private SkiPisteMapSystem m_PisteMap;        // DUMP only (ch5 §4.9)
         private SkiSignUtilityHookSystem m_SignUtilityHook;   // DUMP only (Round F7 D7; contract A3)
         private LodgeRoadSystem m_LodgeRoad;                  // DUMP only (Round F7 D7; contract B3)
-        private EntityQuery m_PrefabScanQuery;
+        // (Catalog Phase A, ext row 21: m_PrefabScanQuery, :676 + :838, is gone with the ResolveItems scan copy.)
         private EntityQuery m_CitizenQuery;          // DUMP only (§3.4: citizens at a lodge / sign)
         private EntityQuery m_ConsumerQuery;         // DUMP only (§7.1 step 14: station ElectricityConsumer)
 
@@ -713,7 +806,11 @@ namespace SkiResortMod.Systems
         private bool m_UiErrorCapLogged;
         private readonly Stopwatch m_PushTimer = new Stopwatch();
         private bool m_NonFiniteLogged;
-        private HashSet<Entity> m_StationPrefabs;
+        // Catalog Phase A (ext row 6; skeptic S3; was :716 HashSet<Entity> m_StationPrefabs = PowerBridge's set, cached at
+        // :1011): station tests ask m_PrefabCatalog.IsStation, which runs the catalog's per-frame validation.
+        // The build items' catalog generation (contract R3 SHOULD): RefreshLocks re-resolves the items when it moves.
+        private int m_ItemsGeneration = int.MinValue;
+        private int m_ItemsReresolveLines;
 
         // Selected resort (header SELECTED RESORT).
         private Entity m_SelectedResort;
@@ -734,10 +831,12 @@ namespace SkiResortMod.Systems
         private Dictionary<(Entity, Entity), int> m_LiftStates = new Dictionary<(Entity, Entity), int>();
         private Dictionary<(Entity, Entity), int> m_LiftStatesScratch = new Dictionary<(Entity, Entity), int>();
 
-        // Lift hint (build[lift].hint, D37: per shown area, ch5 §4.5).
+        // Lift hint (build[line].hint, D37: per shown area, ch5 §4.5). Catalog Phase B (§8.3; was one bool m_LiftNoPair for
+        // the "lift" item): one flag per lift type (SkiCatalog.Lifts index), HubRules.LiftNoPair over that type's rows of
+        // the shown area; m_HintRows is the one scratch list, refilled per type (no per-recompute allocation).
         private int m_HintLiftsRevision = int.MinValue;
         private Entity m_HintSign = Entity.Null;
-        private bool m_LiftNoPair;
+        private readonly bool[] m_LiftNoPairByType = new bool[SkiCatalog.Lifts.Count];
         private readonly List<HubLiftHintRow> m_HintRows = new List<HubLiftHintRow>(8);
 
         // Piste map (D19, ch5 §4.2, §4.7) and the run hover (C4).
@@ -764,7 +863,9 @@ namespace SkiResortMod.Systems
         private int m_LayoutLines;
         private bool m_LayoutCapLogged;
 
-        // Lodge launch state (header LODGE).
+        // Upgrade launch state (header LODGE; Catalog Phase B §8.2: every IsUpgrade item - lodge tiers, school, patrol huts -
+        // takes this path; m_UpgradeItem = the launched item's index, −1 none).
+        private int m_UpgradeItem = -1;
         private Entity m_LodgeSign;
         private int m_LodgeVerifyCountdown;
         private bool m_LodgeWatch;
@@ -830,12 +931,11 @@ namespace SkiResortMod.Systems
             m_Stats = World.GetOrCreateSystemManaged<SkiResortStatsSystem>();
             m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
-            m_PowerBridge = World.GetOrCreateSystemManaged<PowerBridgeSystem>();
+            m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();   // Catalog Phase A
             m_Infoview = World.GetOrCreateSystemManaged<SkiPlacementInfoviewSystem>();
             m_GladeTool = World.GetOrCreateSystemManaged<SkiGladeToolSystem>();
             // m_PisteMap (DUMP only) is resolved at DUMP time with GetExistingSystemManaged: SkiPisteMapSystem's
             // OnCreate resolves THIS system, and a GetOrCreate both ways would create one inside the other's OnCreate.
-            m_PrefabScanQuery = GetEntityQuery(ComponentType.ReadOnly<PrefabData>());
             m_CitizenQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[] { ComponentType.ReadOnly<Game.Citizens.Citizen>(), ComponentType.ReadOnly<Game.Citizens.CurrentBuilding>() },
@@ -936,10 +1036,14 @@ namespace SkiResortMod.Systems
                 UiErrorRepeats = 0;
                 m_NonFiniteLogged = false;
                 s_NonFinite = 0;
+                m_UpgradeItem = -1;
                 m_LodgeSign = Entity.Null;
                 m_LodgeVerifyCountdown = 0;
                 m_LodgeWatch = false;
                 LodgeStateText = "-";
+                Array.Clear(m_ItemDriftLogged, 0, m_ItemDriftLogged.Length);   // Catalog Phase B: one drift WARN per item per load
+                m_SentMismatchLogged = false;
+                m_LockSign = Entity.Null;
                 LastTriggerText = "-";
                 LastSelectText = "-";
                 HandshakeText = "no uiHello yet this load";
@@ -954,7 +1058,7 @@ namespace SkiResortMod.Systems
                 m_LiftStates.Clear();
                 m_HintLiftsRevision = int.MinValue;
                 m_HintSign = Entity.Null;
-                m_LiftNoPair = false;
+                Array.Clear(m_LiftNoPairByType, 0, m_LiftNoPairByType.Length);
                 // Round E1 (ch5 §4.2): piste map on at every load (D19), hover and follow state per load.
                 m_PisteMapOn = true;
                 m_PisteMapBinding.Update(true);
@@ -1006,9 +1110,18 @@ namespace SkiResortMod.Systems
                 return;
             try
             {
-                int resolved = ResolveItems(out string itemText);
+                string itemText = ResolveItems();
                 ReadItemValues();
-                m_StationPrefabs = m_PowerBridge.GetResolvedStationPrefabs();
+                m_ItemsGeneration = m_PrefabCatalog.Generation;   // Catalog Phase A: the generation ResolveItems used
+                m_ItemsReresolveLines = 0;
+                // Catalog Phase B (§8.1, D6; was CheckItemsAgainstCatalog, Phase A contract §5): the items ARE SkiCatalog's
+                // table, so nothing is compared at arm time; a catalog sanity problem is named here ("!!!" in the catalog's
+                // own log, SkiPrefabCatalogSystem OnCreate / [arm]).
+                string catalogItems = SkiCatalog.Problems.Count == 0
+                    ? $"items = SkiCatalog.BuildItems ({ItemCount} rows, sanity clean)"
+                    : $"items = SkiCatalog.BuildItems ({ItemCount} rows) — SkiCatalog has " +
+                      $"{SkiCatalog.Problems.Count} sanity problem(s): {string.Join("; ", SkiCatalog.Problems)}";
+                int stationPrefabs = m_PrefabCatalog.StationPrefabSet.Count;   // was m_PowerBridge.GetResolvedStationPrefabs() (:1011)
                 // The stats rows may still hold the previous city's until its first rebuild: start from the
                 // current revisions so rules 1/4/5/6 and the bind notices run on fresh rows only.
                 m_ReconciledResortsRevision = m_Stats.ResortsRevision;
@@ -1026,20 +1139,24 @@ namespace SkiResortMod.Systems
                              "(queued, applied in OnUpdate, one line each; uiLayout only when changed) and hoverRun (a field " +
                              "write, validated next update, counted; first per load logged); settings " +
                              $"ShowHubButton={Mod.Settings == null || Mod.Settings.ShowHubButton} OpenHubOnSignSelect=" +
-                             $"{Mod.Settings == null || Mod.Settings.OpenHubOnSignSelect}; build prefabs {resolved}/{ItemCount} " +
-                             $"[{itemText}]; item costs: {ItemCostText()}; station prefabs {m_StationPrefabs?.Count ?? 0}; " +
-                             $"Locked re-checked every {Tuning.LockRefreshS:0.#} s while the build section is open " +
-                             "(LockRefreshS); the lift hint follows the shown ski area; D36 follow (rule 7): a run bound, a " +
+                             $"{Mod.Settings == null || Mod.Settings.OpenHubOnSignSelect}; {itemText}; {catalogItems}; item " +
+                             $"costs: {ItemCostText()}; station prefabs {stationPrefabs}; " +
+                             $"locks (Locked, Missing, NoSign; AlreadyBuilt on the shown sign, re-checked on the " +
+                             $"picked sign at an upgrade launch) re-checked every {Tuning.LockRefreshS:0.#} s while the build " +
+                             "section is open (LockRefreshS); the line hints follow the shown ski area, per lift type; D36 " +
+                             "follow (rule 7): a run bound, a " +
                              "station placed or a lift closed in another live ski area switches the hub to it while it is " +
                              "open — not in a pass where a new or removed sign already switched, not within " +
                              $"FollowQuietAfterUserS={HubRules.FollowQuietAfterUserS:0.#} s of the player's own switch, at " +
                              $"most one per FollowMinIntervalS={HubRules.FollowMinIntervalS:0.#} s, never moving the camera; " +
-                             "piste map on at load (D19, drawn by SkiPisteMapSystem); lodge launch on the " +
-                             $"selected resort, verified {Tuning.LodgeVerifyUpdates} UI updates later (LodgeVerifyUpdates) " +
-                             "then watched; ‹ › (UI requests only) and the lodge launch fly to the sign unless the camera " +
+                             "piste map on at load (D19, drawn by SkiPisteMapSystem); upgrade launch (lodge tiers, school, " +
+                             $"patrol huts) on the selected resort, verified {Tuning.LodgeVerifyUpdates} UI updates later " +
+                             "(LodgeVerifyUpdates) then watched; ‹ › (UI requests only) and the upgrade launch fly to the " +
+                             "sign unless the camera " +
                              $"is already on it (pivot within {HubCameraRules.KeepZoomFraction} × zoom of the sign and zoom " +
                              $"<= {HubCameraRules.KeepMaxZoomM} m: HubCameraRules.KeepZoomFraction, KeepMaxZoomM), Not " +
-                             "linked never moves it, a switch to a sign ends a lodge on the cursor bound to another sign; " +
+                             "linked never moves it, a switch to a sign ends an upgrade (lodge, school, patrol hut) on the " +
+                             "cursor bound to another sign; " +
                              "a lift that closes in another resort than the one shown is logged (Hub [bind-notice]); " +
                              $"focus zoom = radius × {Tuning.FocusZoomFactor} at {Tuning.FocusPitchDeg}° " +
                              $"(FocusZoomFactor, FocusPitchDeg; no selection, OD6), buildings >= {Tuning.FocusBuildingMinZoomM} m " +
@@ -1604,25 +1721,28 @@ namespace SkiResortMod.Systems
         /// from contract A1's "before flying", reported: the player then looks at the new sign while the lodge
         /// would still attach to the old one — findings resort-assignment.md §4 D1's silent case). The verify
         /// countdown counts as "on the cursor" (a launch and a switch in one queue drain: the tool's mode is
-        /// not Upgrade yet). One "Hub [lodge]" line. Event time only.</summary>
+        /// not Upgrade yet). One "Hub [upgrade]" line. Event time only. Catalog Phase B (§8.2): any upgrade item on the
+        /// cursor (a lodge tier, the school, a patrol hut), hub-launched or from the sign's own upgrade menu.</summary>
         private void EndLodgeForSwitch(Entity target)
         {
-            if (!LodgeOnCursor())
+            int onCursor = UpgradeItemOnCursor();
+            if (onCursor < 0)
                 return;
-            bool verifying = m_LodgeVerifyCountdown > 0;
+            bool verifying = m_LodgeVerifyCountdown > 0 && onCursor == m_UpgradeItem;
             if (m_ObjectTool.actualMode != ObjectToolSystem.Mode.Upgrade && !verifying)
                 return;   // not an upgrade (Create): the watch / verify own that case
             Entity bound = m_ToolSystem.selected;
             if (bound == target)
-                return;   // the lodge already goes on the sign the camera flies to
-            string how = m_LodgeWatch || verifying ? "launched from the hub" : "from the sign's upgrade menu";
+                return;   // the upgrade already goes on the sign the camera flies to
+            bool hub = (m_LodgeWatch || verifying) && onCursor == m_UpgradeItem;
+            string how = hub ? "launched from the hub" : "from the sign's upgrade menu";
+            string id = Items[onCursor].Id;
             m_LodgeWatch = false;
             m_LodgeVerifyCountdown = 0;
             m_ToolSystem.activeTool = m_DefaultTool;   // ToolSystem.cs:84-98; the selection is kept (:101-111)
-            LodgeStateText = $"ended: the hub switched to {Ent(target)}";
-            Mod.Log.Info($"Hub [lodge] placement ended by the resort switch — the lodge on the cursor ({how}) goes on sign " +
-                         $"{Ent(bound)}, not on {ResortLabel(target)}: default tool (the lodge tile puts it on the shown " +
-                         "resort's sign)");
+            LodgeStateText = $"{id}: ended, the hub switched to {Ent(target)}";
+            Mod.Log.Info($"Hub [upgrade] {id} placement ended by the resort switch — it was on the cursor ({how}) for sign " +
+                         $"{Ent(bound)}, not {ResortLabel(target)}: default tool (its tile puts it on the shown resort's sign)");
         }
 
         /// <summary>Rules 1, 4, 5, 6, the bind notices and rule 7 — only when the stats rows changed
@@ -2001,7 +2121,7 @@ namespace SkiResortMod.Systems
                 return null;
             if (m_Ownership.IsRunPrefab(prefabRef.m_Prefab))
                 return "run";
-            if (m_StationPrefabs != null && m_StationPrefabs.Contains(prefabRef.m_Prefab))
+            if (m_PrefabCatalog.IsStation(prefabRef.m_Prefab))   // Catalog Phase A (S3; was m_StationPrefabs, :2004)
                 return "station";
             return null;
         }
@@ -2151,9 +2271,9 @@ namespace SkiResortMod.Systems
         {
             if (id == null)
                 return -1;
-            for (int i = 0; i < ItemIds.Length; i++)
+            for (int i = 0; i < ItemCount; i++)
             {
-                if (string.Equals(ItemIds[i], id, StringComparison.Ordinal))
+                if (string.Equals(Items[i].Id, id, StringComparison.Ordinal))
                     return i;
             }
             return -1;
@@ -2173,9 +2293,23 @@ namespace SkiResortMod.Systems
             PrefabBase prefab = m_ItemPrefab[item];
             if (prefab == null)
             {
-                Mod.Log.Warn($"Hub [launch] {id} refused — prefab '{ItemPrefabNames[item]}' was not found this load " +
-                             $"(asset pack missing?) ({source})");
+                // Catalog Phase B (D7): a pending item that is MISSING is never sent, so only the dev tab (every id) or an
+                // older bundle can ask for it; the line says which case it is.
+                Mod.Log.Warn($"Hub [launch] {id} refused — prefab '{Items[item].Prefab}' was not found this load " +
+                             (SkiCatalog.IsExpected(Items[item].Prefab)
+                                 ? "(asset pack missing?)"
+                                 : "(pending in SkiCatalog: not imported yet, so the hub does not offer it)") +
+                             $" ({source})");
                 LastTriggerText = $"launch {id}: prefab missing";
+                return;
+            }
+            if (!m_ItemSent[item])
+            {
+                // Catalog Phase B (D7): found but not offered = an item of a Shuttle lift type. Catalog Phase C (C13, §6.4;
+                // was "moves as a Shuttle: Phase C"): that happens only while TramShuttleSystem is not registered.
+                Mod.Log.Info($"Hub [launch] {id} refused — not offered this load (lift type '{Items[item].LiftTypeId}' " +
+                             $"moves as a Shuttle and TramShuttleSystem is not registered) ({source})");
+                LastTriggerText = $"launch {id}: not offered";
                 return;
             }
             if (item == ActiveItemIndex())
@@ -2192,9 +2326,9 @@ namespace SkiResortMod.Systems
                 LastTriggerText = $"launch {id}: locked";
                 return;
             }
-            if (item == ItemLodge)
+            if (Items[item].IsUpgrade)
             {
-                LaunchLodge(prefab, source);
+                LaunchUpgrade(item, prefab, source);
                 return;
             }
 
@@ -2208,10 +2342,15 @@ namespace SkiResortMod.Systems
             LastTriggerText = $"launch {id}: {(ok ? "ok" : "no tool took it")} -> {ToolId(tool)}";
         }
 
-        private void LaunchLodge(PrefabBase lodge, string source)
+        /// <summary>Header LODGE, generalised to every upgrade item (Catalog Phase B §8.2: lodge tiers, school, patrol huts;
+        /// was LaunchLodge for the one ItemLodge). Picks the sign, re-checks AlreadyBuilt on THAT sign (MUST 6:
+        /// the hub's lock read the shown sign only, and none in the Not linked view), flies, then hands the prefab to the
+        /// object tool in Upgrade mode and verifies it two UI updates later.</summary>
+        private void LaunchUpgrade(int item, PrefabBase upgrade, string source)
         {
-            // (1) Pick the sign (§3.2 last item): the hub's selected resort, else the selected sign, else the
-            //     sign nearest the camera.
+            string id = Items[item].Id;
+            // (1) Pick the sign (§3.2 last item): the hub's selected resort, else the selected sign, else the sign nearest
+            //     the camera.
             Entity sign;
             string pick;
             Entity selected = m_ToolSystem.selected;
@@ -2234,8 +2373,21 @@ namespace SkiResortMod.Systems
             }
             if (sign == Entity.Null)
             {
-                Mod.Log.Info($"Hub [launch] lodge refused — no Ski Area Welcome Sign in this city (place one first) ({source})");
-                LastTriggerText = "launch lodge: no sign";
+                Mod.Log.Info($"Hub [launch] {id} refused — no Ski Area Welcome Sign in this city (place one first) ({source})");
+                LastTriggerText = $"launch {id}: no sign";
+                return;
+            }
+
+            // (1a) Catalog Phase B, skeptic MUST 6: the one-per-sign rule on the PICKED sign, before anything moves. The
+            //      engine refuses a second ForbidMultiple upgrade itself (AlreadyUpgraded: Game.Buildings/ValidationHelpers.cs
+            //      :49-72, ValidationSystem.cs:1026); this only spares the player a cursor the game would then refuse. The
+            //      lodge tiers are NOT ForbidMultiple (no count limit, 2026-10-11), so only the school can hit it.
+            byte conflict = UpgradeConflict(sign, item, out Entity other);
+            if (conflict != ReasonNone)
+            {
+                Mod.Log.Info($"Hub [launch] {id} refused — already built on that sign (ForbidMultiple; the game would refuse it too): " +
+                             $"{Ent(other)} {PrefabNameOf(other)} on {pick} {Ent(sign)} ({source})");
+                LastTriggerText = $"launch {id} on {Ent(sign)}: refused, already built";
                 return;
             }
 
@@ -2246,7 +2398,7 @@ namespace SkiResortMod.Systems
             if (CameraAlreadyOn(sign, out string view))
                 camera = "camera already on it (" + view + ")";
             else
-                camera = ApplyFocusBuilding(sign, "lodge launch: fly — " + view)
+                camera = ApplyFocusBuilding(sign, $"{id} launch: fly — " + view)
                     ? "camera flew there"
                     : "camera not moved (the fly was refused, see the Hub [focus] line)";
 
@@ -2256,30 +2408,61 @@ namespace SkiResortMod.Systems
             // (3) Select the sign (the object tool's upgrade target is GetUpgradable(selected)).
             m_SelectedInfo.SetSelection(sign);
             // (4) Locked was checked by the caller; launch.
-            bool ok = m_ToolSystem.ActivatePrefabTool(lodge);
+            bool ok = m_ToolSystem.ActivatePrefabTool(upgrade);
             ToolBaseSystem tool = m_ToolSystem.activeTool;
+            m_UpgradeItem = item;
             m_LodgeSign = sign;
             m_LodgeWatch = false;
             m_LodgeVerifyCountdown = ok ? Tuning.LodgeVerifyUpdates : 0;
             if (ok)
             {
-                Mod.Log.Info($"Hub [launch] lodge -> {ToolId(tool)} mode {ModeText(tool)} locked=False ok=True on {pick} " +
+                Mod.Log.Info($"Hub [launch] {id} -> {ToolId(tool)} mode {ModeText(tool)} locked=False ok=True on {pick} " +
                              $"{Ent(sign)}; {camera} — verifying Upgrade mode in {Tuning.LodgeVerifyUpdates} UI updates " +
                              $"({source})");
-                LodgeStateText = $"verifying on sign {Ent(sign)}";
+                LodgeStateText = $"{id}: verifying on sign {Ent(sign)}";
             }
             else
             {
-                Mod.Log.Error($"!!! Hub lodge launch: no tool accepted the lodge prefab (ActivatePrefabTool returned false " +
-                              $"and switched to the default tool) — sign {Ent(sign)} selected ({camera}), nothing placed " +
-                              $"({source})");
-                LodgeStateText = "failed: no tool took the prefab";
+                Mod.Log.Error($"!!! Hub upgrade launch ({id}): no tool accepted the prefab '{Items[item].Prefab}' " +
+                              $"(ActivatePrefabTool returned false and switched to the default tool) — sign {Ent(sign)} " +
+                              $"selected ({camera}), nothing placed ({source})");
+                LodgeStateText = $"{id}: failed, no tool took the prefab";
             }
-            LastTriggerText = $"launch lodge on {Ent(sign)}: {(ok ? "verifying" : "FAILED")}";
+            LastTriggerText = $"launch {id} on {Ent(sign)}: {(ok ? "verifying" : "FAILED")}";
+        }
+
+        /// <summary>Catalog Phase B (§8.3; MUST 6): whether <paramref name="sign"/>'s InstalledUpgrade buffer already holds
+        /// <paramref name="item"/>'s prefab while it is ForbidMultiple (ReasonAlreadyBuilt — the engine's AlreadyUpgraded
+        /// test, Game.Buildings/ValidationHelpers.cs:49-72: same owner, same prefab, another entity); ReasonNone otherwise
+        /// or for a non-upgrade item / a sign without the buffer. Deleted and Temp entries are skipped. There is no
+        /// cross-prefab rule: the one-luxury-lodge lock (ReasonOneLuxury, D3) was removed on 2026-10-11.
+        /// <paramref name="conflict"/> = the installed upgrade that decides. Event time (RefreshLocks cadence, launches).</summary>
+        private byte UpgradeConflict(Entity sign, int item, out Entity conflict)
+        {
+            conflict = Entity.Null;
+            if (sign == Entity.Null || item < 0 || item >= ItemCount || !Items[item].IsUpgrade)
+                return ReasonNone;
+            Entity prefab = m_ItemPrefabEntity[item];
+            if (!m_ItemForbidMultiple[item] || prefab == Entity.Null || !EntityManager.Exists(sign) ||
+                !EntityManager.TryGetBuffer(sign, isReadOnly: true, out DynamicBuffer<Game.Buildings.InstalledUpgrade> upgrades))
+                return ReasonNone;
+            for (int k = 0; k < upgrades.Length; k++)
+            {
+                Entity u = upgrades[k].m_Upgrade;
+                if (u == Entity.Null || !EntityManager.Exists(u) || EntityManager.HasComponent<Deleted>(u) ||
+                    EntityManager.HasComponent<Temp>(u) || !EntityManager.TryGetComponent(u, out PrefabRef prefabRef))
+                    continue;
+                if (prefabRef.m_Prefab == prefab)
+                {
+                    conflict = u;
+                    return ReasonAlreadyBuilt;
+                }
+            }
+            return ReasonNone;
         }
 
         /// <summary>Header LODGE (5) and the watch. Per frame: an int compare; while a hub-launched
-        /// lodge is on the cursor, a few field reads.</summary>
+        /// upgrade is on the cursor, a few field reads.</summary>
         private void LodgeStep()
         {
             if (m_LodgeVerifyCountdown > 0)
@@ -2292,10 +2475,32 @@ namespace SkiResortMod.Systems
                 WatchLodge();
         }
 
+        /// <summary>The hub-launched upgrade item (m_UpgradeItem) is the object tool's prefab.</summary>
         private bool LodgeOnCursor()
         {
-            return m_ToolSystem.activeTool == m_ObjectTool && ReferenceEquals(m_ObjectTool.prefab, m_ItemPrefab[ItemLodge]);
+            return m_UpgradeItem >= 0 && m_ToolSystem.activeTool == m_ObjectTool &&
+                   ReferenceEquals(m_ObjectTool.prefab, m_ItemPrefab[m_UpgradeItem]);
         }
+
+        /// <summary>Catalog Phase B (§8.2): ANY upgrade item's prefab is the object tool's (hub-launched or placed from the
+        /// sign's own upgrade menu); the item index, else −1. Event time and the per-frame ActiveItemIndex (≤ 7 reference
+        /// compares while the object tool is active).</summary>
+        private int UpgradeItemOnCursor()
+        {
+            if (m_ToolSystem.activeTool != m_ObjectTool)
+                return -1;
+            PrefabBase held = m_ObjectTool.prefab;
+            if (ReferenceEquals(held, null))
+                return -1;
+            for (int i = 0; i < ItemCount; i++)
+            {
+                if (Items[i].IsUpgrade && m_ItemPrefab[i] != null && ReferenceEquals(held, m_ItemPrefab[i]))
+                    return i;
+            }
+            return -1;
+        }
+
+        private string UpgradeId => m_UpgradeItem >= 0 && m_UpgradeItem < ItemCount ? Items[m_UpgradeItem].Id : "upgrade";
 
         private void VerifyLodge()
         {
@@ -2303,11 +2508,12 @@ namespace SkiResortMod.Systems
             bool onCursor = LodgeOnCursor();
             ObjectToolSystem.Mode mode = m_ObjectTool.actualMode;
             Entity selected = m_ToolSystem.selected;
+            string id = UpgradeId;
             if (onCursor && mode == ObjectToolSystem.Mode.Upgrade && selected == m_LodgeSign)
             {
                 m_LodgeWatch = true;
-                LodgeStateText = $"on the cursor, Upgrade mode on sign {Ent(m_LodgeSign)}";
-                Mod.Log.Info($"Hub [launch] lodge verified — object tool in Upgrade mode on sign {Ent(m_LodgeSign)}");
+                LodgeStateText = $"{id}: on the cursor, Upgrade mode on sign {Ent(m_LodgeSign)}";
+                Mod.Log.Info($"Hub [launch] {id} verified — object tool in Upgrade mode on sign {Ent(m_LodgeSign)}");
                 return;
             }
             string cause;
@@ -2320,7 +2526,7 @@ namespace SkiResortMod.Systems
             else if (mode != ObjectToolSystem.Mode.Upgrade)
                 cause = $"the object tool fell back to {mode} mode: the selected entity {Ent(selected)} has no " +
                         "InstalledUpgrade buffer (ObjectToolSystem.cs:3246-3249, 1.6.2 :3305-3308) — it would place a " +
-                        "free-standing lodge";
+                        $"free-standing {id}";
             else
                 cause = $"the selection moved to {Ent(selected)} (expected sign {Ent(m_LodgeSign)})";
             bool cancelled = false;
@@ -2329,20 +2535,21 @@ namespace SkiResortMod.Systems
                 m_ToolSystem.activeTool = m_DefaultTool;
                 cancelled = true;
             }
-            LodgeStateText = "verify FAILED: " + cause;
-            Mod.Log.Error($"!!! Hub lodge launch failed — {cause}; " +
+            LodgeStateText = $"{id}: verify FAILED: " + cause;
+            Mod.Log.Error($"!!! Hub upgrade launch ({id}) failed — {cause}; " +
                           (cancelled
-                              ? "switched to the default tool so no lodge can be placed off its sign"
-                              : "the lodge is not on the cursor, nothing to cancel"));
+                              ? "switched to the default tool so nothing can be placed off its sign"
+                              : "it is not on the cursor, nothing to cancel"));
         }
 
         private void WatchLodge()
         {
+            string id = UpgradeId;
             if (!LodgeOnCursor())
             {
                 m_LodgeWatch = false;
-                LodgeStateText = $"ended (tool now '{ToolId(m_ToolSystem.activeTool)}')";
-                Mod.Log.Info($"Hub [lodge] placement ended — tool now '{ToolId(m_ToolSystem.activeTool)}'");
+                LodgeStateText = $"{id}: ended (tool now '{ToolId(m_ToolSystem.activeTool)}')";
+                Mod.Log.Info($"Hub [upgrade] {id} placement ended — tool now '{ToolId(m_ToolSystem.activeTool)}'");
                 return;
             }
             ObjectToolSystem.Mode mode = m_ObjectTool.actualMode;
@@ -2351,35 +2558,34 @@ namespace SkiResortMod.Systems
             {
                 m_LodgeWatch = false;
                 m_ToolSystem.activeTool = m_DefaultTool;
-                LodgeStateText = $"cancelled: left Upgrade mode ({mode})";
-                Mod.Log.Error($"!!! Hub lodge: the object tool left Upgrade mode (now {mode}; selected {Ent(selected)} has no " +
-                              "InstalledUpgrade buffer, ObjectToolSystem.cs:3246-3249) — switched to the default tool so no " +
-                              "free-standing lodge can be placed");
+                LodgeStateText = $"{id}: cancelled, left Upgrade mode ({mode})";
+                Mod.Log.Error($"!!! Hub upgrade ({id}): the object tool left Upgrade mode (now {mode}; selected {Ent(selected)} " +
+                              "has no InstalledUpgrade buffer, ObjectToolSystem.cs:3246-3249) — switched to the default tool so " +
+                              $"no free-standing {id} can be placed");
                 return;
             }
             if (selected != m_LodgeSign)
             {
                 if (m_Ownership.IsLiveGate(selected))
                 {
-                    Mod.Log.Info($"Hub [lodge] now goes on sign {Ent(selected)} (selection changed from {Ent(m_LodgeSign)})");
+                    Mod.Log.Info($"Hub [upgrade] {id} now goes on sign {Ent(selected)} (selection changed from {Ent(m_LodgeSign)})");
                     m_LodgeSign = selected;
-                    LodgeStateText = $"on the cursor, Upgrade mode on sign {Ent(m_LodgeSign)}";
+                    LodgeStateText = $"{id}: on the cursor, Upgrade mode on sign {Ent(m_LodgeSign)}";
                 }
                 else
                 {
                     m_LodgeWatch = false;
                     m_ToolSystem.activeTool = m_DefaultTool;
-                    LodgeStateText = $"cancelled: selection moved to {Ent(selected)}";
-                    Mod.Log.Error($"!!! Hub lodge: the selection moved to {Ent(selected)}, which is not a Welcome Sign, " +
-                                  "while the lodge was on the cursor — switched to the default tool so the lodge cannot " +
-                                  "attach to another building (the upgrade target is the selected entity, " +
-                                  "ObjectToolSystem.cs:3318)");
+                    LodgeStateText = $"{id}: cancelled, selection moved to {Ent(selected)}";
+                    Mod.Log.Error($"!!! Hub upgrade ({id}): the selection moved to {Ent(selected)}, which is not a Welcome Sign, " +
+                                  "while it was on the cursor — switched to the default tool so it cannot attach to another " +
+                                  "building (the upgrade target is the selected entity, ObjectToolSystem.cs:3318)");
                 }
             }
         }
 
         /// <summary>Where the camera looks (the active controller's pivot), else the camera position.
-        /// Event time only (lodge launch).</summary>
+        /// Event time only (upgrade launch).</summary>
         private float3 CameraPoint()
         {
             try
@@ -2399,21 +2605,26 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The build item whose tool is active, or -1 (header LAUNCHING "Active"). Per frame
-        /// while the build section is open: two field reads and up to eight reference compares.</summary>
+        /// while the build section is open: two field reads and up to ItemCount reference compares. Catalog Phase B
+        /// (§8.2): an upgrade item is active while the object tool holds its prefab in Upgrade mode (any upgrade item,
+        /// hub-launched or from the sign's own menu; GetPrefab is null in Upgrade mode, ObjectToolSystem.cs:2836-2847).</summary>
         private int ActiveItemIndex()
         {
             ToolBaseSystem tool = m_ToolSystem.activeTool;
             if (tool == null || tool == m_DefaultTool)
                 return -1;
-            if (tool == m_ObjectTool && m_ItemPrefab[ItemLodge] != null &&
-                ReferenceEquals(m_ObjectTool.prefab, m_ItemPrefab[ItemLodge]))
-                return m_ObjectTool.actualMode == ObjectToolSystem.Mode.Upgrade ? ItemLodge : -1;
+            if (tool == m_ObjectTool)
+            {
+                int upgrade = UpgradeItemOnCursor();
+                if (upgrade >= 0)
+                    return m_ObjectTool.actualMode == ObjectToolSystem.Mode.Upgrade ? upgrade : -1;
+            }
             PrefabBase active = tool.GetPrefab();
             if (ReferenceEquals(active, null))
                 return -1;
             for (int i = 0; i < ItemCount; i++)
             {
-                if (i != ItemLodge && ReferenceEquals(active, m_ItemPrefab[i]))
+                if (!Items[i].IsUpgrade && ReferenceEquals(active, m_ItemPrefab[i]))
                     return i;
             }
             return -1;
@@ -2479,13 +2690,15 @@ namespace SkiResortMod.Systems
             {
                 if (m_Attractiveness.IsLodgePrefab(prefabRef.m_Prefab))
                     what = "lodge";
-                else if (m_StationPrefabs != null && m_StationPrefabs.Contains(prefabRef.m_Prefab))
+                else if (m_PrefabCatalog.IsStation(prefabRef.m_Prefab))   // Catalog Phase A (S3; was m_StationPrefabs, :2482)
                     what = "station";
+                else if (m_PrefabCatalog.IsUpgradeBuilding(prefabRef.m_Prefab))   // Catalog Phase B: the school, a patrol hut
+                    what = "upgrade building";
             }
             if (what == null)
             {
-                Mod.Log.Info($"Hub [focus] refused — {Ent(building)} ({PrefabNameOf(building)}) is not a live sign, lodge or " +
-                             $"lift station of ours ({source})");
+                Mod.Log.Info($"Hub [focus] refused — {Ent(building)} ({PrefabNameOf(building)}) is not a live sign, lodge, " +
+                             $"school, patrol hut or lift station of ours ({source})");
                 LastTriggerText = $"focusBuilding {Ent(building)}: refused";
                 return false;
             }
@@ -2754,21 +2967,26 @@ namespace SkiResortMod.Systems
         {
             float now = UnityEngine.Time.realtimeSinceStartup;
             int resortsRevision = m_Stats.ResortsRevision;
-            if (rising || m_LocksDirty || now >= m_NextLockRefresh || resortsRevision != m_LockResortsRevision)
+            // Catalog Phase B (§8.3): the AlreadyBuilt lock reads the SHOWN sign, so a switch re-checks at once.
+            if (rising || m_LocksDirty || now >= m_NextLockRefresh || resortsRevision != m_LockResortsRevision ||
+                m_SelectedResort != m_LockSign)
             {
                 RefreshLocks();
                 m_LocksDirty = false;
                 m_NextLockRefresh = now + Tuning.LockRefreshS;
                 m_LockResortsRevision = resortsRevision;
+                m_LockSign = m_SelectedResort;
             }
             RefreshLiftHint();
             int active = ActiveItemIndex();
-            int signature = active + 1;   // 0..8
+            int signature = active + 1;   // 0..ItemCount
             unchecked
             {
+                // Catalog Phase B (§8.3): reasons 0..5, so × 8 (was × 4); the sent bit and every type's hint flag join.
                 for (int i = 0; i < ItemCount; i++)
-                    signature = (signature * 4 + m_ItemReason[i]) * 31 + m_ItemPrice[i];   // reason implies locked
-                signature = signature * 2 + (m_LiftNoPair ? 1 : 0);
+                    signature = ((signature * 8 + m_ItemReason[i]) * 31 + m_ItemPrice[i]) * 2 + (m_ItemSent[i] ? 1 : 0);
+                for (int t = 0; t < m_LiftNoPairByType.Length; t++)
+                    signature = signature * 2 + (m_LiftNoPairByType[t] ? 1 : 0);
             }
             if (rising || signature != m_BuildPushedSignature || active != m_ActiveItem)
             {
@@ -2780,72 +2998,195 @@ namespace SkiResortMod.Systems
 
         private void RefreshLocks()
         {
+            // Catalog Phase A (contract R3 SHOULD): a catalog re-resolution (a prefab entity replaced or deleted,
+            // PrefabSystem.cs:766-824) moves Generation; the items follow it here, at the LockRefreshS cadence, instead
+            // of keeping a Deleted prefab entity until the next load. At most Tuning.CatalogItemLinesMax lines per load.
+            int generation = m_PrefabCatalog.Generation;
+            if (generation != m_ItemsGeneration)
+            {
+                m_ItemsGeneration = generation;
+                string itemText = ResolveItems();
+                ReadItemValues();
+                if (m_ItemsReresolveLines < Tuning.CatalogItemLinesMax)
+                {
+                    m_ItemsReresolveLines++;
+                    Mod.Log.Warn($"Hub [items] prefab catalog generation {generation} (re-resolved after the load): " +
+                                 $"{itemText}; item costs: {ItemCostText()}" +
+                                 (m_ItemsReresolveLines == Tuning.CatalogItemLinesMax
+                                     ? " — further [items] lines this load are not written (PrefabCatalog lines in the DUMP)"
+                                     : ""));
+                }
+            }
             int signs = SignCount();
+            // Catalog Phase B (§8.3): the shown ski area's sign for AlreadyBuilt; the Not linked view has none
+            // (Missing / Locked / NoSign only: the launch picks a sign and re-checks there, MUST 6).
+            Entity shown = m_SelectedResort != Entity.Null && m_Ownership.IsLiveGate(m_SelectedResort) ? m_SelectedResort : Entity.Null;
             for (int i = 0; i < ItemCount; i++)
             {
+                BuildItemDef item = Items[i];
                 byte reason = ReasonNone;
                 if (m_ItemPrefab[i] == null || m_ItemPrefabEntity[i] == Entity.Null ||
                     !EntityManager.Exists(m_ItemPrefabEntity[i]))
                     reason = ReasonMissing;
                 else if (EntityManager.HasEnabledComponent<Locked>(m_ItemPrefabEntity[i]))
                     reason = ReasonLocked;
-                else if (i == ItemLodge && signs <= 0)
+                else if (item.IsUpgrade && signs <= 0)
                     reason = ReasonNoSign;
+                else if (item.IsUpgrade && shown != Entity.Null && m_ItemSent[i])
+                    reason = UpgradeConflict(shown, i, out Entity _);
                 m_ItemReason[i] = reason;
                 m_ItemLocked[i] = reason != ReasonNone;
                 // Contract 3 (ch5 §4.5, D21): `price` = the run's BASE fee by its item's kind (no prefab read).
-                m_ItemPrice[i] = IsRunItem(i) && reason != ReasonMissing ? SkiRunFees.BaseFee(ItemRunKind[i]) : -1;
+                m_ItemPrice[i] = IsRunItem(i) && reason != ReasonMissing ? SkiRunFees.BaseFee(item.RunKind) : -1;
             }
         }
 
         /// <summary>ch5 §4.5: the six optional item numbers, read once at arm time (prefab data does not change
         /// in a session). Run fees and rates need no prefab; a missing building prefab sends cost −1. A uint
-        /// above int.MaxValue is sent as int.MaxValue.</summary>
+        /// above int.MaxValue is sent as int.MaxValue. Catalog Phase B (§8.4, ext-chk X4; was by item index: the lift
+        /// read HubRules.LiftLinePerKm and SkiMoneyRules' fixed-grip rates, the lodge its ServiceUpgradeData): by the
+        /// row's KIND - Line = its lift type's row (LinePerKm, FixedPerMonth, PerKmPerMonth: the fixed-grip row is what
+        /// those consts alias, CG-1); Station / Sign = PlaceableObjectData.m_ConstructionCost; Lodge / School / Patrol =
+        /// ServiceUpgradeData.m_UpgradeCost (else PlaceableObjectData); Run as before. Also the upgrade items' lock facts
+        /// (ForbidMultiple from the prefab's ServiceUpgradeData, the truth ValidateUpgrade reads; the luxury label from
+        /// the lodge row, for the DUMP) and one drift WARN per item per load when a FOUND prefab's cost or ForbidMultiple differs from
+        /// its SkiCatalog row (informational mirrors: "the prefab wins").</summary>
         private void ReadItemValues()
         {
             for (int i = 0; i < ItemCount; i++)
             {
+                BuildItemDef item = Items[i];
                 m_ItemPricePerHa[i] = m_ItemCost[i] = m_ItemCostPerKm[i] = -1;
                 m_ItemMonthly[i] = m_ItemMonthlyPerHa[i] = m_ItemMonthlyPerKm[i] = -1;
+                m_ItemForbidMultiple[i] = false;
+                m_ItemLuxury[i] = false;
                 Entity prefab = m_ItemPrefabEntity[i];
                 bool live = prefab != Entity.Null && EntityManager.Exists(prefab);
-                if (IsRunItem(i))
+                int rowCost = -1;
+                bool rowForbid = false, hasUpgradeData = false, prefabForbid = false;
+                switch (item.Kind)
                 {
-                    int kind = ItemRunKind[i];
-                    m_ItemPricePerHa[i] = SkiRunFees.PerHaFee(kind);
-                    m_ItemMonthlyPerHa[i] = SkiRunUpkeepSystem.CostPerHaMonth((RunKind)kind);
+                    case BuildItemKind.Run:
+                        m_ItemPricePerHa[i] = SkiRunFees.PerHaFee(item.RunKind);
+                        m_ItemMonthlyPerHa[i] = SkiRunUpkeepSystem.CostPerHaMonth((RunKind)item.RunKind);
+                        break;
+                    case BuildItemKind.Line:
+                    {
+                        LiftTypeDef def = SkiCatalog.LiftById(item.LiftTypeId);
+                        if (def != null)
+                        {
+                            m_ItemCostPerKm[i] = def.LinePerKm;
+                            m_ItemMonthly[i] = (int)def.FixedPerMonth;
+                            m_ItemMonthlyPerKm[i] = (int)def.PerKmPerMonth;
+                        }
+                        break;
+                    }
+                    case BuildItemKind.Lodge:
+                    case BuildItemKind.School:
+                    case BuildItemKind.Patrol:
+                    {
+                        if (live && EntityManager.TryGetComponent(prefab, out ServiceUpgradeData upgrade))
+                        {
+                            m_ItemCost[i] = ClampCost(upgrade.m_UpgradeCost);
+                            hasUpgradeData = true;
+                            prefabForbid = upgrade.m_ForbidMultiple;
+                        }
+                        else if (live && EntityManager.TryGetComponent(prefab, out PlaceableObjectData placeable))
+                        {
+                            m_ItemCost[i] = ClampCost(placeable.m_ConstructionCost);
+                        }
+                        LodgeDef lodge = SkiCatalog.LodgeByPrefab(item.Prefab);
+                        SchoolDef school = lodge == null ? SkiCatalog.SchoolByPrefab(item.Prefab) : null;
+                        PatrolDef patrol = lodge == null && school == null ? SkiCatalog.PatrolByPrefab(item.Prefab) : null;
+                        if (lodge != null)
+                        {
+                            rowCost = lodge.BuildCost;
+                            rowForbid = lodge.ForbidMultiple;
+                            m_ItemLuxury[i] = lodge.Luxury;
+                        }
+                        else if (school != null)
+                        {
+                            rowCost = school.BuildCost;
+                            rowForbid = school.ForbidMultiple;
+                        }
+                        else if (patrol != null)
+                        {
+                            rowCost = patrol.BuildCost;
+                            rowForbid = patrol.ForbidMultiple;
+                        }
+                        break;
+                    }
+                    default:   // Sign, Station
+                    {
+                        if (live && EntityManager.TryGetComponent(prefab, out PlaceableObjectData placeable))
+                            m_ItemCost[i] = ClampCost(placeable.m_ConstructionCost);
+                        if (item.Kind == BuildItemKind.Station)
+                        {
+                            StationDef station = SkiCatalog.StationByPrefab(item.Prefab);
+                            rowCost = station != null ? station.BuildCost : -1;
+                        }
+                        else
+                        {
+                            for (int s = 0; s < SkiCatalog.Signs.Count; s++)
+                            {
+                                if (string.Equals(SkiCatalog.Signs[s].Prefab, item.Prefab, StringComparison.Ordinal))
+                                    rowCost = SkiCatalog.Signs[s].BuildCost;
+                            }
+                        }
+                        break;
+                    }
                 }
-                else if (i == ItemLift)
+                // The engine validates the prefab's flag (ValidationHelpers.cs:49-72), so the lock follows the prefab;
+                // the row decides only while the prefab has no ServiceUpgradeData (or is MISSING: the item is locked anyway).
+                m_ItemForbidMultiple[i] = hasUpgradeData ? prefabForbid : rowForbid;
+                if (!live || m_ItemDriftLogged[i])
+                    continue;
+                string drift = null;
+                if (rowCost >= 0 && m_ItemCost[i] >= 0 && m_ItemCost[i] != rowCost)
+                    drift = $"costs {m_ItemCost[i]}, SkiCatalog says {rowCost}";
+                if (hasUpgradeData && prefabForbid != rowForbid)
+                    drift = (drift == null ? "" : drift + "; ") +
+                            $"ForbidMultiple {prefabForbid}, SkiCatalog says {rowForbid} (the AlreadyBuilt lock follows the prefab)";
+                if (drift != null)
                 {
-                    m_ItemCostPerKm[i] = HubRules.LiftLinePerKm;
-                    m_ItemMonthly[i] = (int)SkiMoneyRules.LiftFixedPerMonth;
-                    m_ItemMonthlyPerKm[i] = (int)SkiMoneyRules.LiftPerKmPerMonth;
-                }
-                else if (i == ItemLodge)
-                {
-                    if (live && EntityManager.TryGetComponent(prefab, out ServiceUpgradeData upgrade))
-                        m_ItemCost[i] = ClampCost(upgrade.m_UpgradeCost);
-                    else if (live && EntityManager.TryGetComponent(prefab, out PlaceableObjectData placeable))
-                        m_ItemCost[i] = ClampCost(placeable.m_ConstructionCost);
-                }
-                else if (live && EntityManager.TryGetComponent(prefab, out PlaceableObjectData placeable))
-                {
-                    m_ItemCost[i] = ClampCost(placeable.m_ConstructionCost);   // sign, base and top stations
+                    m_ItemDriftLogged[i] = true;
+                    Mod.Log.Warn($"Hub [items] drift: '{item.Prefab}' ({item.Id}) {drift} — the prefab wins; update the row in " +
+                                 "Systems/SkiCatalog.cs with the prefab surgery (round-2-contract §10.1)");
                 }
             }
         }
 
         private static int ClampCost(uint cost) => cost > int.MaxValue ? int.MaxValue : (int)cost;
 
-        /// <summary>The ARMED line's item costs (ch5 §4.8).</summary>
+        /// <summary>The ARMED line's item costs (ch5 §4.8; Catalog Phase B: every SENT item by its kind - run: base + per ha;
+        /// line: per km + a month + per km a month; else the one-time cost).</summary>
         private string ItemCostText()
         {
-            string Fee(int item) => SkiRunFees.BaseFee(ItemRunKind[item]).ToString(CultureInfo.InvariantCulture) + "+" +
-                                    SkiRunFees.PerHaFee(ItemRunKind[item]).ToString(CultureInfo.InvariantCulture) + "/ha";
-            return $"sign {m_ItemCost[ItemSign]}, lodge {m_ItemCost[ItemLodge]}, base {m_ItemCost[ItemBase]}, top " +
-                   $"{m_ItemCost[ItemTop]}, lift {m_ItemCostPerKm[ItemLift]}/km + {m_ItemMonthly[ItemLift]}/month + " +
-                   $"{m_ItemMonthlyPerKm[ItemLift]}/km/month, runs natural {Fee(2)} groomed {Fee(3)} snowmaking {Fee(4)} " +
-                   $"night {Fee(5)}";
+            var sb = new StringBuilder(512);
+            for (int i = 0; i < ItemCount; i++)
+            {
+                if (!m_ItemSent[i])
+                    continue;
+                if (sb.Length > 0)
+                    sb.Append(", ");
+                sb.Append(Items[i].Id).Append(' ');
+                switch (Items[i].Kind)
+                {
+                    case BuildItemKind.Run:
+                        sb.Append(SkiRunFees.BaseFee(Items[i].RunKind).ToString(CultureInfo.InvariantCulture)).Append('+')
+                          .Append(SkiRunFees.PerHaFee(Items[i].RunKind).ToString(CultureInfo.InvariantCulture)).Append("/ha");
+                        break;
+                    case BuildItemKind.Line:
+                        sb.Append(m_ItemCostPerKm[i].ToString(CultureInfo.InvariantCulture)).Append("/km + ")
+                          .Append(m_ItemMonthly[i].ToString(CultureInfo.InvariantCulture)).Append("/month + ")
+                          .Append(m_ItemMonthlyPerKm[i].ToString(CultureInfo.InvariantCulture)).Append("/km/month");
+                        break;
+                    default:
+                        sb.Append(m_ItemCost[i].ToString(CultureInfo.InvariantCulture));
+                        break;
+                }
+            }
+            return sb.Length > 0 ? sb.ToString() : "none (no item sent)";
         }
 
         /// <summary>Live signs in the stats rows (the rows are fresh while the build section is observed:
@@ -2870,10 +3211,11 @@ namespace SkiResortMod.Systems
             return signs;
         }
 
-        /// <summary>build[lift].hint (D37, ch5 §4.5): HINT[LiftNoPair] when HubRules.LiftNoPair holds for the
-        /// SHOWN area's lift rows (stats rows whose Sign == m_SelectedResort; Null = the Not linked rows).
-        /// Recomputed only when the stats LiftsRevision moved or the shown area changed. Text only: the
-        /// Build-strip dot comes from ProblemRow.buildItem (UI).</summary>
+        /// <summary>build[line].hint (D37, ch5 §4.5): HINT[LiftNoPair] when HubRules.LiftNoPair holds for the
+        /// SHOWN area's lift rows (stats rows whose Sign == m_SelectedResort; Null = the Not linked rows) - Catalog Phase B
+        /// (§8.3): per lift type, over the rows of that type (LiftStats.TypeIndex; a NoType row joins no type), one flag per
+        /// SkiCatalog.Lifts index, the one scratch list refilled per type. Recomputed only when the stats LiftsRevision
+        /// moved or the shown area changed. Text only: the Build-strip dot comes from ProblemRow.buildItem (UI).</summary>
         private void RefreshLiftHint()
         {
             int revision = m_Stats.LiftsRevision;
@@ -2881,14 +3223,25 @@ namespace SkiResortMod.Systems
                 return;
             m_HintLiftsRevision = revision;
             m_HintSign = m_SelectedResort;
-            m_HintRows.Clear();
-            for (int i = 0; i < m_Stats.LiftCount; i++)
+            int count = m_Stats.LiftCount;
+            for (int t = 0; t < m_LiftNoPairByType.Length; t++)
             {
-                LiftStats l = m_Stats.GetLift(i);
-                if (l.Sign == m_SelectedResort)
-                    m_HintRows.Add(new HubLiftHintRow { State = l.State, HasBase = l.HasBase, HasTop = l.HasTop });
+                m_HintRows.Clear();
+                for (int i = 0; i < count; i++)
+                {
+                    LiftStats l = m_Stats.GetLift(i);
+                    if (l.Sign == m_SelectedResort && l.TypeIndex == t)
+                        m_HintRows.Add(new HubLiftHintRow { State = l.State, HasBase = l.HasBase, HasTop = l.HasTop, Type = l.TypeIndex });
+                }
+                m_LiftNoPairByType[t] = HubRules.LiftNoPair(m_HintRows);
             }
-            m_LiftNoPair = HubRules.LiftNoPair(m_HintRows);
+        }
+
+        /// <summary>The line item's HINT[LiftNoPair] flag: its lift type's (false for every other item).</summary>
+        private bool LiftNoPairOf(int item)
+        {
+            int t = s_ItemTypeIndex[item];
+            return IsLineItem(item) && t >= 0 && t < m_LiftNoPairByType.Length && m_LiftNoPairByType[t];
         }
 
         private static string ReasonKey(byte reason)
@@ -2898,20 +3251,26 @@ namespace SkiResortMod.Systems
                 case ReasonLocked: return ReasonKeyLocked;
                 case ReasonNoSign: return ReasonKeyNoSign;
                 case ReasonMissing: return ReasonKeyMissing;
+                case ReasonAlreadyBuilt: return ReasonKeyAlreadyBuilt;
                 default: return "";
             }
         }
 
-        /// <summary>`build` (RawValueBinding writer): one typed object per item, ItemIds order (the UI orders
-        /// the tiles by id). Runs on Update() and on subscribe (main thread). Fixed-size arrays only.</summary>
+        /// <summary>`build` (RawValueBinding writer): one typed object per SENT item (Catalog Phase B, D7: m_ItemSent;
+        /// m_SentCount of them), table order (the UI groups the tiles by id). Runs on Update() and on subscribe (main
+        /// thread). Fixed-size arrays only.</summary>
         private void WriteBuild(IJsonWriter writer)
         {
-            writer.ArrayBegin(ItemCount);
+            writer.ArrayBegin((uint)m_SentCount);
+            int written = 0;
             for (int i = 0; i < ItemCount; i++)
             {
+                if (!m_ItemSent[i])
+                    continue;
+                written++;
                 writer.TypeBegin("SkiResortMod.BuildItem");
                 writer.PropertyName("id");
-                writer.Write(ItemIds[i]);
+                writer.Write(Items[i].Id);
                 writer.PropertyName("locked");
                 writer.Write(m_ItemLocked[i]);
                 writer.PropertyName("active");
@@ -2921,7 +3280,7 @@ namespace SkiResortMod.Systems
                 writer.PropertyName("price");
                 writer.Write(m_ItemPrice[i]);
                 writer.PropertyName("hint");
-                writer.Write(i == ItemLift && m_LiftNoPair ? HintKeyLiftNoPair : "");
+                writer.Write(LiftNoPairOf(i) ? HintKeyLiftNoPair : "");
                 // Contract 3 (ch5 §4.5): six optional numbers, −1 = not applicable.
                 writer.PropertyName("pricePerHa");
                 writer.Write(m_ItemPricePerHa[i]);
@@ -2938,6 +3297,12 @@ namespace SkiResortMod.Systems
                 writer.TypeEnd();
             }
             writer.ArrayEnd();
+            if (written != m_SentCount && !m_SentMismatchLogged)
+            {
+                m_SentMismatchLogged = true;   // cannot happen (both from m_ItemSent); never silent if it does
+                Mod.Log.Error($"!!! Hub [build] wrote {written} item(s) into an array announced as {m_SentCount} — the UI may " +
+                              "drop the build strip; logged once per load");
+            }
         }
 
         /// <summary>`resorts` (bindings.ts ResortRow, contract 3: identity and slow facts): SkiResortStatsSystem
@@ -3159,6 +3524,22 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.SkiDaysLimit));
                 writer.PropertyName("skiDaysPowderPct");
                 writer.Write(Fin(r.SkiDaysPowderPct));
+                // Catalog Phase B (contract 6, round-2-contract §8.5): appended in bindings.ts order; the model's Result
+                // (SkiResortStatsSystem fills them, seam S6); "" / −1 unknown.
+                writer.PropertyName("lodgeBest");
+                writer.Write(r.LodgeBest ?? "");
+                writer.PropertyName("lodgeExtra");
+                writer.Write(Fin(r.LodgeExtra));
+                writer.PropertyName("luxuryIgnored");
+                writer.Write(Fin(r.LuxuryIgnored));
+                writer.PropertyName("schoolValue");
+                writer.Write(Fin(r.SchoolValue));
+                writer.PropertyName("patrolledRuns");
+                writer.Write(Fin(r.PatrolledRuns));
+                writer.PropertyName("priceTolerance");
+                writer.Write(Fin(r.PriceTolerance));
+                writer.PropertyName("lodgeSpendMonth");
+                writer.Write(Fin(r.LodgeSpendMonth));
                 writer.TypeEnd();
             }
             writer.ArrayEnd();
@@ -3315,6 +3696,14 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.CostMonth));
                 writer.PropertyName("billedReduced");
                 writer.Write(r.BilledReduced);
+                // Catalog Phase B (contract 6, round-2-contract §8.5, seam S6): the row's lift type (LiftTypeDef.Id, ""
+                // unknown) and that type's seats / speed (0 unknown) for the capacity and ride-time tooltips.
+                writer.PropertyName("type");
+                writer.Write(r.Type ?? "");
+                writer.PropertyName("seats");
+                writer.Write(Fin(r.Seats));
+                writer.PropertyName("speedMps");
+                writer.Write(Fin(r.SpeedMps));
                 writer.TypeEnd();
             }
             writer.ArrayEnd();
@@ -3360,72 +3749,105 @@ namespace SkiResortMod.Systems
             writer.ArrayEnd();
         }
 
-        // ── prefab resolution (house pattern: PrefabID fast path, name-scan fallback) ───────────────
+        // ── prefab resolution: Catalog Phase A (ext row 21; was :3365-3416, the house pattern's PrefabID fast path +
+        //    name-scan copy): each item is resolved by SkiPrefabCatalogSystem.TryGetPrefab (same per-load cache as every other
+        //    consumer). Catalog Phase B (§8.1, D6, D7): the (type, name) pair is the table row's (SkiCatalog.TypeNameOf(kind),
+        //    Prefab); every item is classed expected / pending found / pending missing (not sent) and Shuttle (not sent), and
+        //    CheckItemsAgainstCatalog (Phase A's arm-time table check) is gone with the hub's literal table. ──
 
-        private int ResolveItems(out string text)
+        /// <summary>Resolves every item, fills m_ItemPrefab / m_ItemPrefabEntity / m_ItemSent / m_SentCount, and returns the
+        /// ARMED line's fragment: "build prefabs 9/9 expected [sign=SkiResortGate, …], 0 pending found and offered, 16
+        /// pending not offered (not imported yet: lodgeHut, …), tram moved by TramShuttleSystem" (Catalog Phase C, C13; "tram
+        /// NOT offered: TramShuttleSystem not registered (…)" when the mover is absent).
+        /// An Expected item that is MISSING keeps " MISSING" in the list (sent, locked by REASON[Missing]).</summary>
+        private string ResolveItems()
         {
-            var sb = new StringBuilder(256);
-            int resolved = 0;
+            var expected = new StringBuilder(256);
+            var pendingFound = new StringBuilder(64);
+            var pendingMissing = new StringBuilder(256);
+            int expectedCount = 0, expectedFound = 0, pendingFoundCount = 0, pendingMissingCount = 0, sent = 0;
+            // Catalog Phase C (round-3-contract C13, §6.4): a Shuttle type's items are offered when TramShuttleSystem is
+            // registered (Mod.cs, mover group) — it moves the tram's cabins; resolved here, at event time (arm and catalog
+            // re-resolution), never per frame.
+            bool tramMoverRegistered = World.GetExistingSystemManaged<TramShuttleSystem>() != null;
             for (int i = 0; i < ItemCount; i++)
             {
+                BuildItemDef item = Items[i];
                 m_ItemPrefab[i] = null;
                 m_ItemPrefabEntity[i] = Entity.Null;
                 m_ItemPrice[i] = -1;
-                Entity entity = Entity.Null;
-                PrefabBase prefab = null;
-                if (m_PrefabSystem.TryGetPrefab(new PrefabID(ItemPrefabTypes[i], ItemPrefabNames[i]), out PrefabBase found) &&
-                    found != null)
-                {
-                    prefab = found;
-                    m_PrefabSystem.TryGetEntity(prefab, out entity);
-                }
-                if (entity == Entity.Null)
-                {
-                    var candidates = m_PrefabScanQuery.ToEntityArray(Allocator.Temp);
-                    try
-                    {
-                        for (int c = 0; c < candidates.Length; c++)
-                        {
-                            if (m_PrefabSystem.GetPrefabName(candidates[c]) == ItemPrefabNames[i])
-                            {
-                                entity = candidates[c];
-                                break;
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        candidates.Dispose();
-                    }
-                    if (entity != Entity.Null && m_PrefabSystem.TryGetPrefab(entity, out PrefabBase scanned))
-                        prefab = scanned;
-                }
-                if (i > 0)
-                    sb.Append(", ");
-                sb.Append(ItemIds[i]).Append('=').Append(ItemPrefabNames[i]);
-                if (prefab != null && entity != Entity.Null)
+                m_PrefabCatalog.TryGetPrefab(SkiCatalog.TypeNameOf(item.Kind), item.Prefab, out Entity entity, out PrefabBase prefab);
+                bool found = prefab != null && entity != Entity.Null;
+                if (found)
                 {
                     m_ItemPrefab[i] = prefab;
                     m_ItemPrefabEntity[i] = entity;
-                    resolved++;
+                }
+                bool expectedName = SkiCatalog.IsExpected(item.Prefab);
+                LiftTypeDef type = s_ItemTypeIndex[i] >= 0 ? SkiCatalog.LiftByIndex(s_ItemTypeIndex[i]) : null;
+                bool shuttle = type != null && type.Mover == MoverKind.Shuttle;
+                // Catalog Phase C (C13; was `!shuttle && (expectedName || found)`, D7's Shuttle clause): the D7 rule for
+                // every item, plus "a Shuttle item needs the tram mover registered".
+                m_ItemSent[i] = (expectedName || found) && (!shuttle || tramMoverRegistered);
+                if (m_ItemSent[i])
+                    sent++;
+                if (expectedName)
+                {
+                    expectedCount++;
+                    if (found)
+                        expectedFound++;
+                    if (expected.Length > 0)
+                        expected.Append(", ");
+                    expected.Append(item.Id).Append('=').Append(item.Prefab).Append(found ? "" : " MISSING");
+                }
+                else if (found)
+                {
+                    pendingFoundCount++;
+                    if (pendingFound.Length > 0)
+                        pendingFound.Append(", ");
+                    // Catalog Phase C (C13; was " (Shuttle: not offered)" for every Shuttle item, round-2 leftover §10 item 7):
+                    // a found pending Shuttle item is offered once the mover is registered, so only the unregistered case
+                    // is marked.
+                    pendingFound.Append(item.Id).Append('=').Append(item.Prefab)
+                                .Append(shuttle && !tramMoverRegistered ? " (Shuttle: NOT offered, TramShuttleSystem not registered)" : "");
                 }
                 else
                 {
-                    sb.Append(" MISSING");
+                    pendingMissingCount++;
+                    if (pendingMissing.Length > 0)
+                        pendingMissing.Append(", ");
+                    pendingMissing.Append(item.Id);
                 }
             }
-            text = sb.ToString();
-            return resolved;
+            m_SentCount = sent;
+            var shuttles = new StringBuilder(64);
+            for (int t = 0; t < SkiCatalog.Lifts.Count; t++)
+            {
+                LiftTypeDef def = SkiCatalog.Lifts[t];
+                if (def.Mover != MoverKind.Shuttle)
+                    continue;
+                if (shuttles.Length > 0)
+                    shuttles.Append(", ");
+                // Catalog Phase C (C13, §6.4; was "<id> not offered (Shuttle, Phase C: its station and line items)").
+                shuttles.Append(def.Id).Append(tramMoverRegistered
+                    ? " moved by TramShuttleSystem"
+                    : " NOT offered: TramShuttleSystem not registered (its station and line items)");
+            }
+            return $"build prefabs {expectedFound}/{expectedCount} expected [{expected}], {pendingFoundCount} pending found " +
+                   $"and offered{(pendingFoundCount > 0 ? " [" + pendingFound + "]" : "")}, {pendingMissingCount} pending not " +
+                   $"offered (not imported yet{(pendingMissingCount > 0 ? ": " + pendingMissing : "")})" +
+                   (shuttles.Length > 0 ? ", " + shuttles : "") + $"; {sent} of {ItemCount} sent";
         }
 
         // ── small helpers ─────────────────────────────────────────────────────────────────────────
 
         private bool IsStation(Entity entity)
         {
-            return m_StationPrefabs != null && entity != Entity.Null && EntityManager.Exists(entity) &&
+            // Catalog Phase A (S3; was m_StationPrefabs, :3425-3428): the prefab catalog's station test.
+            return entity != Entity.Null && EntityManager.Exists(entity) &&
                    !EntityManager.HasComponent<Deleted>(entity) &&
                    EntityManager.TryGetComponent(entity, out PrefabRef prefabRef) &&
-                   m_StationPrefabs.Contains(prefabRef.m_Prefab);
+                   m_PrefabCatalog.IsStation(prefabRef.m_Prefab);
         }
 
         private string PrefabNameOf(Entity entity)
@@ -3497,7 +3919,7 @@ namespace SkiResortMod.Systems
                 return "-";
             ToolBaseSystem tool = m_ToolSystem.activeTool;
             int item = m_Armed ? ActiveItemIndex() : -1;
-            return $"tool '{ToolId(tool)}' mode {ModeText(tool)}, hub item {(item >= 0 ? ItemIds[item] : "-")}, selected " +
+            return $"tool '{ToolId(tool)}' mode {ModeText(tool)}, hub item {(item >= 0 ? Items[item].Id : "-")}, selected " +
                    $"{Ent(m_ToolSystem.selected)}";
         }
 
@@ -3518,16 +3940,22 @@ namespace SkiResortMod.Systems
             sb.Append("  settings: ShowHubButton ").Append(Mod.Settings == null || Mod.Settings.ShowHubButton)
               .Append(", OpenHubOnSignSelect ").Append(Mod.Settings == null || Mod.Settings.OpenHubOnSignSelect)
               .Append(", LiftBuildAids ").Append(Mod.Settings == null || Mod.Settings.LiftBuildAids).Append('\n');
-            sb.Append("  ").Append(ToolText()).Append("; lodge: ").Append(LodgeStateText).Append('\n');
+            // Catalog Phase B (§8.2): "upgrade launch" (was "lodge"): every upgrade item takes the lodge path.
+            sb.Append("  ").Append(ToolText()).Append("; upgrade launch: ").Append(LodgeStateText).Append('\n');
             sb.Append("  selected resort: ").Append(ResortLabel(m_SelectedResort)).Append("; last select: ").Append(LastSelectText)
               .Append("; last layout: ").Append(m_LastLayout ?? "-").Append('\n');
             sb.Append("  hub v3: ").Append(HubV3Text()).Append('\n');
-            sb.Append("  build:");
+            // Catalog Phase B (§8.1): every table row; not-sent items are marked (pending not imported, or a Shuttle type).
+            // Catalog Phase C (C13, §6.4; was "NOT SENT (Shuttle)"): a found item is unsent only for want of the tram mover.
+            sb.Append("  build (").Append(m_SentCount).Append(" of ").Append(ItemCount).Append(" sent):");
             for (int i = 0; i < ItemCount; i++)
             {
-                sb.Append(' ').Append(ItemIds[i]).Append('[')
+                sb.Append(' ').Append(Items[i].Id).Append('[')
                   .Append(m_ItemPrefab[i] != null ? "ok" : "MISSING")
-                  .Append(m_ItemLocked[i] ? ", locked " + ReasonKey(m_ItemReason[i]) : "");
+                  .Append(m_ItemSent[i] ? "" : ", NOT SENT (" + (m_ItemPrefab[i] == null ? "pending" : "no tram mover") + ")")
+                  .Append(m_ItemLocked[i] ? ", locked " + ReasonKey(m_ItemReason[i]) : "")
+                  .Append(Items[i].IsUpgrade && m_ItemForbidMultiple[i] ? ", one per sign" : "")
+                  .Append(m_ItemLuxury[i] ? ", luxury" : "");
                 AppendItemValue(sb, "price", m_ItemPrice[i]);
                 AppendItemValue(sb, "perHa", m_ItemPricePerHa[i]);
                 AppendItemValue(sb, "cost", m_ItemCost[i]);
@@ -3535,10 +3963,15 @@ namespace SkiResortMod.Systems
                 AppendItemValue(sb, "month", m_ItemMonthly[i]);
                 AppendItemValue(sb, "monthPerHa", m_ItemMonthlyPerHa[i]);
                 AppendItemValue(sb, "monthPerKm", m_ItemMonthlyPerKm[i]);
-                sb.Append(i == ItemLift && m_LiftNoPair ? ", hint LiftNoPair" : "")
+                sb.Append(LiftNoPairOf(i) ? ", hint LiftNoPair" : "")
                   .Append(i == m_ActiveItem ? ", ACTIVE" : "").Append(']');
             }
             sb.Append('\n');
+            // Catalog Phase A (contract R3 SHOULD): the prefab catalog's state (load, generation, validations,
+            // re-resolves, the last ARM / re-resolve text) and the generation the build items were resolved at.
+            sb.Append("  ").Append(m_PrefabCatalog.Describe()).Append(" (hub items at generation ")
+              .Append(m_ItemsGeneration == int.MinValue ? "-" : m_ItemsGeneration.ToString(CultureInfo.InvariantCulture))
+              .Append(")\n");
             HubGladeState g = GladeNow();
             sb.Append("  glade: available ").Append(g.Available).Append(", active ").Append(g.Active)
               .Append(", level ").Append(g.Level).Append(", tree line ").Append(g.TreeLine)
@@ -3708,8 +4141,9 @@ namespace SkiResortMod.Systems
         internal const int DevKindDump = (int)RequestKind.Dump;
         internal const int DevKindTogglePisteMap = (int)RequestKind.TogglePisteMap;   // Round E1 (ch5 §4.2)
 
-        /// <summary>The nine build ids (contract 3; the dev tab's launch buttons follow them).</summary>
-        internal static IReadOnlyList<string> BuildItemIds => ItemIds;
+        /// <summary>The build ids of the SkiCatalog table (contract 6: 25; the dev tab's launch buttons follow them; a pending
+        /// item that is not imported is refused at launch with its own line).</summary>
+        internal static IReadOnlyList<string> BuildItemIds => s_ItemIds;   // Catalog Phase B: all 25 table ids (was ItemIds, 9)
 
         /// <summary>DUMP build line: ", name value", omitted for −1 (ch5 §4.9).</summary>
         private static void AppendItemValue(StringBuilder sb, string name, int value)

@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiLodgeChaletCommercialLowB_LOD1_BaseColor.png": "SkiLodgeChaletCommercialLowB_BaseColor.png",
+    "SkiLodgeChaletCommercialLowB_LOD1_ControlMask.png": "SkiLodgeChaletCommercialLowB_ControlMask.png",
+    "SkiLodgeChaletCommercialLowB_LOD1_MaskMap.png": "SkiLodgeChaletCommercialLowB_MaskMap.png",
+    "SkiLodgeChaletCommercialLowB_LOD1_Normal.png": "SkiLodgeChaletCommercialLowB_Normal.png",
+    "SkiLodgeChaletCommercialLowB_LOD2_BaseColor.png": "SkiLodgeChaletCommercialLowB_BaseColor.png",
+    "SkiLodgeChaletCommercialLowB_LOD2_ControlMask.png": "SkiLodgeChaletCommercialLowB_ControlMask.png",
+    "SkiLodgeChaletCommercialLowB_LOD2_MaskMap.png": "SkiLodgeChaletCommercialLowB_MaskMap.png",
+    "SkiLodgeChaletCommercialLowB_LOD2_Normal.png": "SkiLodgeChaletCommercialLowB_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

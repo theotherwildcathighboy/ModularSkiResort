@@ -1,0 +1,8 @@
+{
+  "sharedAssets": {
+    "SkiDressSkiRackV2B_BaseColor.png": "../SkiDressSkiRackB/SkiDressSkiRackB_BaseColor.png",
+    "SkiDressSkiRackV2B_ControlMask.png": "../SkiDressSkiRackB/SkiDressSkiRackB_ControlMask.png",
+    "SkiDressSkiRackV2B_MaskMap.png": "../SkiDressSkiRackB/SkiDressSkiRackB_MaskMap.png",
+    "SkiDressSkiRackV2B_Normal.png": "../SkiDressSkiRackB/SkiDressSkiRackB_Normal.png"
+  }
+}

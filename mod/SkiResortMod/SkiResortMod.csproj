@@ -207,6 +207,10 @@
 		     bindings.ts, so a C#-only change of a compared enum must re-run it. Round S1 (ski-days s1-spec §4.2
 		     step 8) appends SkiDayRules.cs: its top-level SkiDayLimit is the SKI_DAY_LIMIT pair. -->
 		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\HubRules.cs;$(MSBuildProjectDirectory)\Systems\EntityRef.cs;$(MSBuildProjectDirectory)\Systems\SkiMoneyRules.cs;$(MSBuildProjectDirectory)\Systems\SkiDayRules.cs" />
+		<!-- Catalog Phase B (round-2-contract-skeptic MUST 9, added 2026-10-11 by the round-2 integrator): check-bundle R16 now
+		     parses the NAMES and BUILD-ITEMS blocks of Systems\SkiCatalog.cs (the C# item table moved there from the hub
+		     system), so a SkiCatalog-only edit must re-run the gate. -->
+		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\SkiCatalog.cs" />
 		<SkiUiInput Include="$(SkiUiDir)\tools\*.lock" />
 		<SkiUiInput Include="$(SkiCsiiInstall)\Cities2_Data\Content\Game\.ModdingToolchain\npx-create-csii-ui-mod\template\types\*.d.ts" Condition="'$(SkiCsiiInstall)' != ''" />
 		<SkiUiInput Include="$(SkiCsiiInstall)\Cities2_Data\Content\Game\UI\index.js" Condition="'$(SkiCsiiInstall)' != ''" />

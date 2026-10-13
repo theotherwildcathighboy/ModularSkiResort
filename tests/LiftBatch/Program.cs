@@ -6,6 +6,19 @@
 // docs/research/econ-round/spec/ch2-runs.md §3.7) adds LiftServedRule (the D5/D6 served rule, Assign's
 // "serves N runs" map, PowerOf and the one power predicate IsPowered of e1-spec R1): rows 1-26. The E1
 // fixer pass 2 adds StationAlign.PlaceOf (where the alignment readout goes, e1-spec §8.10 G1): 11 checks.
+// Catalog Phase A (2026-10-11, docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md §6.1) adds the pure
+// prefab catalog SkiCatalog.cs and its CatalogTests.cs (CT-1 to CT-10; StationAlign and LiftServedRule alias it).
+// Catalog Phase B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.1): CatalogTests.cs
+// grows to CT-1..CT-16 (core); LiftTypeTests.cs (LT-1..LT-10, the lift group's typed census / served rule / summit-served
+// rows) runs after it. The World helper below is `internal` (with a BeforeBuild hook) so LiftTypeTests can reuse it
+// and stamp Edge / Station types onto the census input before Build.
+// Catalog Phase C (2026-10-11, docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §8.1, loopcache group):
+// the loop cache gets its headless host at last (extensibility F8) — its topology pass is the pure LiftLoopTopology.cs,
+// tested by LoopCacheTests.cs (LC-1..LC-10, LC-REF vs the frozen LoopCacheReference.cs); the tram's stateless profile
+// ShuttleProfile.cs by ShuttleTests.cs (SH-1..SH-10). The Game-side geometry of LiftLoopCache still is not linked here.
+// Phase D (2026-10-11, docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §7.1, rules group): unpowered lifts are
+// inert — PowerGateTests.cs (PG-0..PG-4: THE run predicate LiftServedRule.Carries and the flicker guard GuardPower, composed
+// with F2) and LoopHoldTests.cs (LH-1..LH-4: the pure hold / resume arithmetic of the new LiftLoopHold.cs, linked here).
 // Run (from the ModularSkiResort root):
 //   dotnet run --project tests/LiftBatch/LiftBatch.csproj -c Release
 // Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures (the
@@ -89,6 +102,19 @@ namespace LiftBatch
             ServedAssignTests();
             PowerRuleTests();
 
+            // Catalog Phase A (catalog-a/phase-a-contract.md §6.1): the pure prefab catalog (CatalogTests.cs, CT-1 to CT-10).
+            // Catalog Phase B (code-round-2/round-2-contract.md §11.1): CT-1 to CT-16 (core), then the typed lift rows
+            // (LiftTypeTests.cs, LT-1 to LT-10, the lift group's body).
+            CatalogTests.Run(Check);
+            LiftTypeTests.Run(Check);
+            // Catalog Phase C (code-round-3/round-3-contract.md §8.1): the loop cache's pure topology (LoopCacheTests.cs,
+            // LC-1 to LC-10 and LC-REF against the frozen LoopCacheReference.cs) and the shuttle profile (ShuttleTests.cs).
+            LoopCacheTests.Run(Check);
+            ShuttleTests.Run(Check);
+            // Phase D (code-round-4/round-4-contract.md §7.1): the power gate and the loop hold.
+            PowerGateTests.Run(Check);
+            LoopHoldTests.Run(Check);
+
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  LiftBatch checks={0} failures={1}", s_Checks, s_Failures));
             Environment.ExitCode = s_Failures;
@@ -130,7 +156,7 @@ namespace LiftBatch
         // ================================================================== synthetic world
 
         /// <summary>A tiny editable lift world, materialised into the census input lists.</summary>
-        private sealed class World
+        internal sealed class World
         {
             private struct St { public bool IsBase; public float3 Pos; public quaternion Rot; }
             private struct Nd { public float3 Pos; public int Station; public bool Tower; }
@@ -141,6 +167,9 @@ namespace LiftBatch
             private readonly SortedDictionary<int, Ed> m_Edges = new SortedDictionary<int, Ed>();
 
             public readonly LiftCensus Census = new LiftCensus();
+            /// <summary>Catalog Phase B seam (LiftTypeTests): called with the materialised census input right before
+            /// Census.Build, so a test can set per-edge / per-station fields (lift types) the World does not model.</summary>
+            public Action<List<LiftCensus.Edge>, List<LiftCensus.Node>, List<LiftCensus.Station>> BeforeBuild { get; set; }
             public readonly List<LiftCensus.Event> Events = new List<LiftCensus.Event>();
 
             public void Station(int id, bool isBase, float3 pos, float yawDeg)
@@ -240,6 +269,7 @@ namespace LiftBatch
                         });
                     }
                 }
+                BeforeBuild?.Invoke(edges, nodes, stations);
                 Census.Build(edges, nodes, stations, Events);
             }
 
@@ -267,12 +297,12 @@ namespace LiftBatch
             }
         }
 
-        private static EntityRef R(int index) => new EntityRef(index, 1);
+        internal static EntityRef R(int index) => new EntityRef(index, 1);
 
         /// <summary>The reference lift: base 1 at the origin facing north (+z), top 2 at
         /// (0, 100, 600) facing south; tip nodes 200 (base) and 205 (top), towers 201-204,
         /// sections 101-105 (101 = base approach, 105 = top approach). Tips at z = 12 and 588.</summary>
-        private static World StraightLift()
+        internal static World StraightLift()
         {
             var w = new World();
             w.Station(1, true, new float3(0f, 0f, 0f), 180f);    // −Z rotated to +z

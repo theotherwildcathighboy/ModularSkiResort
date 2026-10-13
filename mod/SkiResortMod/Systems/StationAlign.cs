@@ -2,7 +2,14 @@
 // OD-9 (a): read-only guide + readout + an "aligned" state at 0.5 m / 0.5°). Created 2026-10-03
 // (Round L1, implementer I-2). Consumers: SkiStationAlignSystem (subject / partner / overlay /
 // placement log), SkiLiftTooltipSystem (readout), LiftCensus (per-row AlignKnown / AlignOffsetM /
-// AlignYawDeg), tests/LiftBatch (sign and threshold tests).
+// AlignYawDeg), tests/LiftBatch (sign and threshold tests). Catalog Phase A (2026-10-11): StubTipLocalZ
+// aliases the PURE SkiCatalog.cs, so SkiCatalog.cs is linked wherever this file is (tests/LiftBatch);
+// SkiResortStatsSystem's stub-tip height calls StubTip (its own copy of the formula is gone).
+// Catalog Phase B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.4, lift group): the
+// stub tip is PER STATION ROW — StubTip(position, rotation, StationDef.StubTipLocalZ) (−16 on the detachable / gondola
+// stations, −12 on the fixed-grip and tram stations); the 2-argument overload stays = the fixed-grip −12. Adds the pure
+// up-lane rule of the loop cache (orchestrator addendum 1: chain A = the cable on the RIGHT looking uphill):
+// SideLookingUphill / UpLaneIsSecond, tested in tests/LiftBatch LiftTypeTests LT-11.
 //
 // GEOMETRY (verified in the prefab JSON, gamedata-mirror/ImportedData):
 //   * Both station prefabs carry their high-voltage connection stub as an ObjectSubNet of the
@@ -10,7 +17,8 @@
 //     {0,1}: SkiTopStationBuilding.Prefab:58-106 (tip z at :86), SkiBaseStationBuilding.Prefab
 //     :65-112 (net :67, tip z at :92). The base's SECOND stub at x = 6 (from :115, net 877654d1…
 //     at :116) is the low-voltage feed, NOT the lift axis. The lift line leaves the station along local −Z
-//     through x = 0, so:
+//     through x = 0 (nitpick B2, 2026-10-13: through x = StationDef.StubTipLocalX - 0 on every station but the
+//     tram base, whose 6 x 3 lot put its line axis at prefab x −4.00; the 4-argument StubTip), so:
 //       tip  P = LocalToWorld(T, (0,0,StubTipLocalZ))   — ObjectUtils.LocalToWorld(Transform, float3)
 //                                                         is position + mul(rotation, local)
 //                                                         (Game.Objects/ObjectUtils.cs:208-211)
@@ -95,8 +103,11 @@ namespace SkiResortMod.Systems
     public static class StationAlign
     {
         /// <summary>Station-local z of the HV stub's outer node (the line's connection point):
-        /// SkiTopStationBuilding.Prefab:86 / SkiBaseStationBuilding.Prefab:92 (curve point d).</summary>
-        public const float StubTipLocalZ = -12f;
+        /// SkiTopStationBuilding.Prefab:86 / SkiBaseStationBuilding.Prefab:92 (curve point d).
+        /// Catalog Phase A (ext row 11; was StationAlign.cs:99 = -12f, and a second copy in
+        /// SkiResortStatsSystem.cs:314 that now calls StubTip below): an alias of SkiCatalog.StubTipLocalZ
+        /// (every StationDef carries the same value; tests/LiftBatch CatalogTests CT-6).</summary>
+        public const float StubTipLocalZ = SkiCatalog.StubTipLocalZ;
 
         /// <summary>OD-9 (a) offset tolerance, metres.</summary>
         public const float AlignedOffsetM = 0.5f;
@@ -160,10 +171,68 @@ namespace SkiResortMod.Systems
             public bool Aligned;
         }
 
-        /// <summary>World position of the HV stub tip: position + mul(rotation, (0,0,−12)).</summary>
+        /// <summary>World position of the HV stub tip: position + mul(rotation, (0,0,−12)) — the fixed-grip stations'
+        /// value. Catalog Phase B: = StubTip(position, rotation, StubTipLocalZ); a caller that has the station's
+        /// StationDef passes its StubTipLocalZ to the 3-argument overload.</summary>
         public static float3 StubTip(float3 position, quaternion rotation)
         {
-            return position + math.mul(rotation, new float3(0f, 0f, StubTipLocalZ));
+            return StubTip(position, rotation, StubTipLocalZ);
+        }
+
+        /// <summary>Catalog Phase B (round-2-contract §6.4): the HV stub tip of a station whose stub ends at
+        /// <paramref name="stubTipLocalZ"/> (StationDef.StubTipLocalZ, PER ROW: −12 on the fixed-grip and tram
+        /// stations, −16 on the detachable and gondola stations, SkiDQBaseStationA.manifest.json `stub_tip_local_z`):
+        /// position + mul(rotation, (0, 0, stubTipLocalZ)) — ObjectUtils.LocalToWorld (Game.Objects/ObjectUtils.cs
+        /// :208-211). A non-finite z falls back to StubTipLocalZ (the fixed-grip value).</summary>
+        public static float3 StubTip(float3 position, quaternion rotation, float stubTipLocalZ)
+        {
+            return StubTip(position, rotation, stubTipLocalZ, 0f);
+        }
+
+        /// <summary>Nitpick B2 (2026-10-13, build/nitpick-b2-tram-ramps.md): the same with the lift line axis at
+        /// prefab-local x <paramref name="stubTipLocalX"/> (StationDef.StubTipLocalX: −4.00 on the tram base, whose 6 x 3
+        /// lot moved its building 4 m toward −X; 0 elsewhere): position + mul(rotation, (x, 0, z)). A non-finite x
+        /// counts as 0, a non-finite z falls back to StubTipLocalZ.</summary>
+        public static float3 StubTip(float3 position, quaternion rotation, float stubTipLocalZ, float stubTipLocalX)
+        {
+            float z = float.IsNaN(stubTipLocalZ) || float.IsInfinity(stubTipLocalZ) ? StubTipLocalZ : stubTipLocalZ;
+            float x = float.IsNaN(stubTipLocalX) || float.IsInfinity(stubTipLocalX) ? 0f : stubTipLocalX;
+            return position + math.mul(rotation, new float3(x, 0f, z));
+        }
+
+        /// <summary>Catalog Phase B (round-2-contract orchestrator addendum 1, dq-family-review-geometry.md F2): which
+        /// side of the lift a point lies on, LOOKING UPHILL (from the base toward the top), in the horizontal plane.
+        /// +1 = right, −1 = left, 0 = on the axis (within 1 mm) or a degenerate axis (base and top within 1 mm in xz).
+        /// Left-handed CS2 world (header SIGN CONVENTION): looking along d = top − base, the right-hand normal is
+        /// (d.z, −d.x) — along +z the right is +x, along +x it is −z.</summary>
+        public static int SideLookingUphill(float2 baseXz, float2 topXz, float2 pointXz)
+        {
+            float2 d = topXz - baseXz;
+            float len = math.length(d);
+            if (!(len > 1e-3f))
+                return 0;
+            float side = math.dot(pointXz - baseXz, new float2(d.y, -d.x) / len);
+            if (!(math.abs(side) > 1e-3f))
+                return 0;
+            return side > 0f ? 1 : -1;
+        }
+
+        /// <summary>Catalog Phase B (orchestrator addendum 1): the up lane of a loop is the cable on the RIGHT looking
+        /// uphill, so a carrier facing its travel direction with its hanger at local +x keeps the hanger OUTBOARD of
+        /// the tower decks on both sides (up: right looking uphill; down: facing downhill, +x is the left looking
+        /// uphill — outboard again). Given the two chains' midpoints (the mean of a chain's two end points: independent
+        /// of the chain's direction), true when the SECOND chain lies right of the first, i.e. the caller must swap
+        /// them to make chain A the up lane. False when the first is already right, or when the two cannot be told
+        /// apart (a degenerate axis or both midpoints on the same side within 1 mm: keep the order found).</summary>
+        public static bool UpLaneIsSecond(float2 baseXz, float2 topXz, float2 firstMidXz, float2 secondMidXz)
+        {
+            float2 d = topXz - baseXz;
+            float len = math.length(d);
+            if (!(len > 1e-3f))
+                return false;
+            float2 right = new float2(d.y, -d.x) / len;
+            float delta = math.dot(secondMidXz - firstMidXz, right);
+            return delta > 1e-3f;
         }
 
         /// <summary>Unit horizontal direction in which the line leaves the station (local −Z), as

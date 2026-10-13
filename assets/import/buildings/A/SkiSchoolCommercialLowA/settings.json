@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiSchoolCommercialLowA_LOD1_BaseColor.png": "SkiSchoolCommercialLowA_BaseColor.png",
+    "SkiSchoolCommercialLowA_LOD1_ControlMask.png": "SkiSchoolCommercialLowA_ControlMask.png",
+    "SkiSchoolCommercialLowA_LOD1_MaskMap.png": "SkiSchoolCommercialLowA_MaskMap.png",
+    "SkiSchoolCommercialLowA_LOD1_Normal.png": "SkiSchoolCommercialLowA_Normal.png",
+    "SkiSchoolCommercialLowA_LOD2_BaseColor.png": "SkiSchoolCommercialLowA_BaseColor.png",
+    "SkiSchoolCommercialLowA_LOD2_ControlMask.png": "SkiSchoolCommercialLowA_ControlMask.png",
+    "SkiSchoolCommercialLowA_LOD2_MaskMap.png": "SkiSchoolCommercialLowA_MaskMap.png",
+    "SkiSchoolCommercialLowA_LOD2_Normal.png": "SkiSchoolCommercialLowA_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

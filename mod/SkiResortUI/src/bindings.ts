@@ -10,7 +10,12 @@
  * 20-22; the six last-month guest fields are now also sent for a partial month, F7); contract 5 on
  * 2026-10-10 (Round M2, ruling R9 "Enabled flags": docs/research/round-m2/build-contract.md section
  * 8.1, understand/enabled-flags.md C5: CityStats gains tripPlanner and tripPlannerBlocksSkiDays, and
- * TRIP_PLANNER_UNKNOWN names the C# "?" label; the only contract change of Round M2).
+ * TRIP_PLANNER_UNKNOWN names the C# "?" label; the only contract change of Round M2); contract 6 on
+ * 2026-10-11 (Catalog Phase B, code round 2, hub group: docs/research/art/assets-2026-10/code-round-2/
+ * round-2-contract.md section 8.5 with the skeptic's MUST-CHANGE applied): the build items are the 25
+ * rows of the ONE table in C# Systems/SkiCatalog.cs (BUILD-ITEMS block; src/hub/buildItems.ts
+ * BUILD_ITEMS mirrors it row by row), PROBLEM 23-25 appended, LiftRow gains type / seats / speedMps and
+ * ResortLive the lodge-ladder fields (lodgeBest ... lodgeSpendMonth); no binding or trigger changes.
  * Authority before contract 3: docs/research/hub-u2-spec.md section 2.2 (binding table) and 2.3
  * (shapes); contract 1 was resort-hub-understand.md section 5.3. The C# side (SkiResortHubUISystem,
  * group "skiResort") must register EXACTLY these names with these shapes (ch5 section 4.4 writes the
@@ -29,7 +34,8 @@
  *   - every `bindValue<T>(GROUP, BINDING.x, FALLBACK.x)`: the TS type of binding x;
  *   - every `hubTriggers` entry `(a: A, b: B): void => fire(TRIGGER.x, ...)`: the argument list of x;
  *   - (Round E1) rule R16: BUILD_ITEM_IDS, the BuildItemId union and BUILD_ITEM_PREFAB (with
- *     src/hub/buildItems.ts BUILD_GROUPS) against C# ItemIds / ItemPrefabNames / the item constants;
+ *     src/hub/buildItems.ts BUILD_ITEMS, BUILD_GROUPS and BUILD_ITEM_ICON); contract 6 compares them
+ *     with C# Systems/SkiCatalog.cs (the NAMES and BUILD-ITEMS blocks), no longer with the hub system;
  *   - (Round E1) rule R17: the const objects RUN_KIND, RESORT_STATUS, OPEN_STATE, SEASON_HINT,
  *     NEXT_STEP, LIFT_STATUS, PROBLEM, TICKET_GATE (literal numbers) against their C# enums
  *     (EntityRef.cs RunKind, HubRules.cs, SkiMoneyRules.TicketGate). BAND and LIFT_STATE have no
@@ -82,7 +88,9 @@ import type { Entity } from "cs2/utils";
 export const GROUP = "skiResort";
 
 /**
- * Contract 5 (Round M2 R9: CityStats.tripPlanner / tripPlannerBlocksSkiDays, docs/research/round-m2/
+ * Contract 6 (Catalog Phase B, code round 2: round-2-contract.md section 8.5 - 25 build items from the
+ * SkiCatalog table, PROBLEM 23-25, LiftRow.type / seats / speedMps, the ResortLive lodge-ladder fields;
+ * contract 5 was Round M2 R9: CityStats.tripPlanner / tripPlannerBlocksSkiDays, docs/research/round-m2/
  * build-contract.md section 8.1; contract 4 was Round S1, ski days: docs/research/ski-days/spec/
  * ch4-hub.md section A; contract 3 was Round E1, D32). C#: SkiResortHubUISystem.HubContract.
  * Bump both whenever a binding, trigger, field or meaning below changes (tools/check-bundle.js
@@ -90,7 +98,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree
  * controls (CORE only) and says why (spec 4.5).
  */
-export const HUB_CONTRACT = 5;
+export const HUB_CONTRACT = 6;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -174,6 +182,9 @@ export const PROBLEM = {
   SkiDaysCannotReach: 20, // Round S1 D28: most car ski-day guests never arrived (sev 2); subject = that lodge, else the sign
   NoParkingNearLodge: 21, // Round S1 D28 (D26 census): ski-day lodges with 0 car spaces within 300 m (sev 1); count
   LodgeNotSlopeside: 22, // Round S1 D28 (D10): active lodges more than 800 m from the runs and stations (sev 1); count
+  MixedLiftTypes: 23, // Contract 6 (D18): a lift's line and stations span two of our lift types (sev 2); counts 0
+  SummitLodgeNotLiftServed: 24, // Contract 6 (D11): summit-bonus lodges no working lift's top reaches (sev 1); count
+  SchoolNoGreenRun: 25, // Contract 6 (D13): the ski school is on but no green run counts (sev 1)
 } as const;
 
 /** ResortLive.skiDaysState. C# HubRules HubSkiDayState (Round S1, contract 4). */
@@ -182,27 +193,61 @@ export const SKI_DAY_STATE = { Unknown: 0, Off: 1, SignOff: 2, NoRun: 3, NoLodge
 /** ResortLive.skiDaysLimit. C# SkiDayRules SkiDayLimit (ch1): which D21 term sets the capacity. */
 export const SKI_DAY_LIMIT = { None: 0, Runs: 1, Lodges: 2 } as const;
 
-/** Build-strip ids. C# SkiResortHubUISystem.ItemIds holds the same set (gate rule R16). C# owns
- *  what each id launches; this order is only a fallback (the strip draws BUILD_GROUPS of
- *  src/hub/buildItems.ts, D17 build order). */
+/** Build-strip ids. Contract 6: the 25 ids of the ONE C# table, SkiCatalog.cs BUILD-ITEMS, in its order (gate
+ *  rule R16 compares the union, this list, BUILD_ITEM_PREFAB and buildItems.ts BUILD_ITEMS / BUILD_GROUPS /
+ *  BUILD_ITEM_ICON with it). C# owns what each id launches and which ids it SENDS (a pending prefab that is not
+ *  imported, and every item of a Shuttle lift type, are not sent: round-2-contract D7); the strip draws
+ *  BUILD_GROUPS. Phase A's nine ids keep their spelling. */
 export type BuildItemId =
-  | "sign" | "lodge" | "runNatural" | "runGroomed" | "runSnowmaking" | "runNight" | "lift" | "baseStation" | "topStation";
+  | "sign" | "lodge" | "lodgeHut" | "lodgeMid" | "lodgeSummit" | "lodgeGrand"
+  | "school" | "patrolHut" | "patrolHQ"
+  | "baseStation" | "topStation" | "lift"
+  | "baseStationDetachable" | "topStationDetachable" | "liftDetachable"
+  | "baseStationGondola" | "topStationGondola" | "liftGondola"
+  | "baseStationTram" | "topStationTram" | "liftTram"
+  | "runNatural" | "runGroomed" | "runSnowmaking" | "runNight";
 export const BUILD_ITEM_IDS: readonly BuildItemId[] = [
-  "sign", "lodge", "baseStation", "topStation", "lift", "runNatural", "runGroomed", "runSnowmaking", "runNight",
+  "sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand",
+  "school", "patrolHut", "patrolHQ",
+  "baseStation", "topStation", "lift",
+  "baseStationDetachable", "topStationDetachable", "liftDetachable",
+  "baseStationGondola", "topStationGondola", "liftGondola",
+  "baseStationTram", "topStationTram", "liftTram",
+  "runNatural", "runGroomed", "runSnowmaking", "runNight",
 ];
 
-/** Display only: the prefab behind each id (rule R16 compares it with C# ItemPrefabNames). */
+/** Display only: the prefab behind each id (rule R16 compares it with the C# table row's Names.X value). */
 export const BUILD_ITEM_PREFAB: Readonly<Record<BuildItemId, string>> = {
   sign: "SkiResortGate",
   lodge: "SkiAFrameDayLodge",
+  lodgeHut: "SkiLodgeHut",
+  lodgeMid: "SkiLodgeMid",
+  lodgeSummit: "SkiLodgeSummit",
+  lodgeGrand: "SkiLodgeGrand",
+  school: "SkiSchool",
+  patrolHut: "SkiPatrolHut",
+  patrolHQ: "SkiPatrolHQ",
+  baseStation: "SkiBaseStationBuilding",
+  topStation: "SkiTopStationBuilding",
+  lift: "SkiChairliftHV",
+  baseStationDetachable: "SkiDQBaseStationBuilding",
+  topStationDetachable: "SkiDQTopStationBuilding",
+  liftDetachable: "SkiDetachableHV",
+  baseStationGondola: "SkiGondolaBaseStationBuilding",
+  topStationGondola: "SkiGondolaTopStationBuilding",
+  liftGondola: "SkiGondolaHV",
+  baseStationTram: "SkiTramBaseStationBuilding",
+  topStationTram: "SkiTramTopStationBuilding",
+  liftTram: "SkiTramHV",
   runNatural: "SkiRunNaturalA",
   runGroomed: "SkiRunGroomedA",
   runSnowmaking: "SkiRunSnowmakingA",
   runNight: "SkiRunNightA",
-  lift: "SkiChairliftHV",
-  baseStation: "SkiBaseStationBuilding",
-  topStation: "SkiTopStationBuilding",
 };
+
+/** LiftRow.type: C# SkiCatalog.Lifts[i].Id, APPEND ONLY (Lifts[0] = fixedGrip forever); "" = unknown. Display only:
+ *  the hub maps it to LIFT_TYPE[...] (hubText.ts); BUILD_ITEMS rows carry the same ids (gate R16). */
+export const LIFT_TYPE_IDS: readonly string[] = ["fixedGrip", "detachable", "gondola", "tram"];
 
 // ---- value shapes (C# -> UI); C# structs mirror them field for field ----------------------------
 
@@ -210,7 +255,8 @@ export const BUILD_ITEM_PREFAB: Readonly<Record<BuildItemId, string>> = {
 export interface BuildItem {
   /** One of BUILD_ITEM_IDS (typed as string: treat an unknown id as "not for this bundle"). */
   id: string;
-  /** Locked by progression (or no sign for the lodge); `reason` says why. */
+  /** Locked by progression, a missing prefab, no sign for an upgrade item, or (contract 6) already on the shown
+   *  sign (ForbidMultiple: the school; a lodge tier only if its prefab still has m_ForbidMultiple — the prefab flag decides until the surgery sets it false); `reason` says why. */
   locked: boolean;
   /** This item's tool is the active tool (clicking it again returns to the default tool). */
   active: boolean;
@@ -218,19 +264,19 @@ export interface BuildItem {
   reason: string;
   /** Run items: D21 base fee (SkiRunFees.BaseFee); -1 others. */
   price?: number;
-  /** A locale key or "" (lift item: HINT[LiftNoPair] for the SHOWN area, D37). */
+  /** A locale key or "" (line items: HINT[LiftNoPair] for the SHOWN area's rows of that lift type, D37). */
   hint?: string;
   /** Run items: D21 fee per hectare (SkiRunFees.PerHaFee); -1 others. */
   pricePerHa?: number;
-  /** Sign, base, top: construction cost; lodge: upgrade cost; -1 unknown. */
+  /** Sign and stations: construction cost; lodges, school, patrol huts: upgrade cost; -1 unknown. */
   cost?: number;
-  /** Lift item: line construction per km (D24); -1 others. */
+  /** Line items: line construction per km (D24; the type's row); -1 others. */
   costPerKm?: number;
-  /** Lift item: fixed running cost per complete lift a month (D23); -1 others. */
+  /** Line items: fixed running cost per complete lift a month (D23; the type's row); -1 others. */
   monthly?: number;
   /** Run items: running cost per active hectare a month (D22); -1 others. */
   monthlyPerHa?: number;
-  /** Lift item: running cost per km of line a month (D23); -1 others. */
+  /** Line items: running cost per km of line a month (D23; the type's row); -1 others. */
   monthlyPerKm?: number;
 }
 
@@ -385,6 +431,23 @@ export interface ResortLive {
   skiDaysLimit: number;
   /** Powder 0-100 (HubRules.Percent of the area's powder, D19); -1 unknown. */
   skiDaysPowderPct: number;
+  // Contract 6 (Catalog Phase B, round-2-contract section 8.5; the model's Result, never recomputed here): appended in
+  // this order, as in C# ResortLiveStats.
+  /** The best counted lodge of the season's selection, as its BuildItemId ("lodge", "lodgeGrand", ...); "" none. */
+  lodgeBest: string;
+  /** The other lodges' extras as applied (after the extras cap, ExtraCap 24); -1 unknown. */
+  lodgeExtra: number;
+  /** RETAINED FOR THE WIRE ONLY, always 0 since 2026-10-11 (was: luxury lodges the one-per-area cap did not count, D3;
+   *  the cap was removed, no limit on lodges). Kept so contract 6 and tools/contract.lock do not change; no view reads it. */
+  luxuryIgnored: number;
+  /** The ski school's term in the terrain sum (0 while no green run counts or no school); -1 unknown. */
+  schoolValue: number;
+  /** Runs a ski patrol hut covers (R13); -1 unknown. */
+  patrolledRuns: number;
+  /** The highest counted lodge's ticket price tolerance (Luxury 40, Chalet 20, else 0); -1 unknown. */
+  priceTolerance: number;
+  /** Lodge spend income a month, the tickets' month rule; -1 unknown, 0 while the setting is 0 (D15). */
+  lodgeSpendMonth: number;
 }
 
 /** One run of ours: identity, rating, service, value parts. */
@@ -476,6 +539,13 @@ export interface LiftRow {
   runsServed: number;
   costMonth: number;
   billedReduced: boolean;
+  // Contract 6 (Catalog Phase B, round-2-contract section 8.5): appended in this order, as in C# LiftStats.
+  /** The row's lift type: SkiCatalog.Lifts[row.Type].Id (LIFT_TYPE_IDS); "" = unknown. */
+  type: string;
+  /** Seats per carrier of that type (the capacity tooltip's {SEATS}); 0 unknown. */
+  seats: number;
+  /** Cable speed of that type, m/s (the capacity and ride tooltips' {SPEED}); 0 unknown. */
+  speedMps: number;
 }
 
 /** One problem of one area (band rows ranked by C#, then Factor rows). */

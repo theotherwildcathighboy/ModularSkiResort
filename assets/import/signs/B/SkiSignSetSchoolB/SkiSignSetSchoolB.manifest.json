@@ -1,0 +1,1556 @@
+{
+  "name": "SkiSignSetSchoolB",
+  "written_utc": "2026-10-13T08:25:20Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiSignSetSchoolB.fbx": {
+      "bytes": 13628,
+      "sha1": "60832112fb36f7cd8757db49fe815272fb9a0d30"
+    },
+    "SkiSignSetSchoolB_BaseColor.png": {
+      "bytes": 267204,
+      "sha1": "a24f4a549f55b01e9cc4abb91fae64e3cc2af832"
+    },
+    "SkiSignSetSchoolB_ControlMask.png": {
+      "bytes": 73562,
+      "sha1": "abc68bebd476204b38a599502881bd0a841fe03a"
+    },
+    "SkiSignSetSchoolB_Emissive.png": {
+      "bytes": 205546,
+      "sha1": "4d28bfa42257279ec4dc313c48d7f8795f98d9b6"
+    },
+    "SkiSignSetSchoolB_MaskMap.png": {
+      "bytes": 78304,
+      "sha1": "84e4ce2564a0a98c05c7f4b8f350f47ebe495aa7"
+    },
+    "SkiSignSetSchoolB_Normal.png": {
+      "bytes": 78300,
+      "sha1": "7cdd95d2754cdb31571921e3632c8796f0dda647"
+    },
+    "settings.json": {
+      "bytes": 2,
+      "sha1": "bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f"
+    }
+  },
+  "generator": "cs2_signset.py (via lodge.py)",
+  "spec": "fine-detail step 2",
+  "kind": "sign set (building sheet)",
+  "object_prefab": "SkiSignSetSchool",
+  "mesh": "SkiSignSetSchoolB",
+  "object_cid": "b02314cd9be447ebb50050363012e32b",
+  "cid_state": "staged",
+  "host": {
+    "name": "SkiSchoolCommercialLowA",
+    "prefab": "SkiSchool",
+    "lot_half_game": [
+      16.0,
+      20.0
+    ],
+    "switch_lod2_m": 561.22,
+    "host_tris": {
+      "0": 3841,
+      "1": 1458,
+      "2": 418
+    }
+  },
+  "host_recipe": "school",
+  "tris": 22,
+  "bounds_game": {
+    "min": [
+      -8.08,
+      1.0,
+      1.084
+    ],
+    "max": [
+      3.1,
+      4.2,
+      16.08
+    ]
+  },
+  "faces": {
+    "sign_bibs_face": {
+      "kind": "school.bibs",
+      "normal_authoring": [
+        0.0,
+        -1.0,
+        0.0
+      ],
+      "rect": [
+        1276,
+        834,
+        1876,
+        1104
+      ],
+      "size_m": [
+        2.0,
+        0.9
+      ]
+    },
+    "sign_lesson0_face": {
+      "kind": "school.lesson0",
+      "normal_authoring": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "rect": [
+        1524,
+        436,
+        1704,
+        616
+      ],
+      "size_m": [
+        0.6,
+        0.6
+      ]
+    },
+    "sign_lesson1_face": {
+      "kind": "school.lesson1",
+      "normal_authoring": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "rect": [
+        1712,
+        436,
+        1892,
+        616
+      ],
+      "size_m": [
+        0.6,
+        0.6
+      ]
+    },
+    "sign_lesson2_face": {
+      "kind": "school.lesson2",
+      "normal_authoring": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "rect": [
+        1516,
+        1112,
+        1696,
+        1292
+      ],
+      "size_m": [
+        0.6,
+        0.6
+      ]
+    },
+    "sign_lesson3_face": {
+      "kind": "school.lesson3",
+      "normal_authoring": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "rect": [
+        1704,
+        1112,
+        1884,
+        1292
+      ],
+      "size_m": [
+        0.6,
+        0.6
+      ]
+    },
+    "sign_markL_face": {
+      "kind": "school.markstaff",
+      "normal_authoring": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "rect": [
+        744,
+        1616,
+        876,
+        1724
+      ],
+      "size_m": [
+        0.44,
+        0.36
+      ]
+    },
+    "sign_markM_face": {
+      "kind": "school.markstaff",
+      "normal_authoring": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "rect": [
+        744,
+        1616,
+        876,
+        1724
+      ],
+      "size_m": [
+        0.44,
+        0.36
+      ]
+    },
+    "sign_meet_face": {
+      "kind": "school.meet",
+      "normal_authoring": [
+        0.0,
+        -1.0,
+        0.0
+      ],
+      "rect": [
+        796,
+        436,
+        1516,
+        796
+      ],
+      "size_m": [
+        2.4,
+        1.2
+      ]
+    },
+    "sign_nosled_face": {
+      "kind": "school.marknosled",
+      "normal_authoring": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "rect": [
+        884,
+        1616,
+        1112,
+        1724
+      ],
+      "size_m": [
+        0.76,
+        0.36
+      ]
+    },
+    "sign_notice_face": {
+      "kind": "school.notice",
+      "normal_authoring": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "rect": [
+        1396,
+        8,
+        1606,
+        308
+      ],
+      "size_m": [
+        0.7,
+        1.0
+      ]
+    },
+    "sign_school_face": {
+      "kind": "school.name",
+      "normal_authoring": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "rect": [
+        8,
+        834,
+        1268,
+        1104
+      ],
+      "size_m": [
+        4.2,
+        0.9
+      ]
+    }
+  },
+  "cull": {
+    "extent_m": [
+      11.18,
+      3.2,
+      14.996
+    ],
+    "area_m2": 11.1904,
+    "thin_bias": 2.7449,
+    "cull_bias0_m": 952.4,
+    "target_m": 561.2,
+    "m_Bias": 0.76,
+    "cull_at_bias_m": 562.4,
+    "lod_factor": 652.0,
+    "small_mesh_rule": "not applied (LodProperties present)",
+    "status": "[U] formula until SkiProbeLodA / F5"
+  },
+  "emissive": {
+    "intensity_at_surgery": 0.2,
+    "purpose": "importer 33 / 34",
+    "lit_kinds": [
+      "school.name",
+      "hut.name",
+      "p1.name",
+      "p2.name",
+      "l5.name",
+      "gate.header"
+    ],
+    "status": "lit while the owner chain has power (FS16: the host's ElectricityConsumer, else its efficiency)"
+  },
+  "row": {
+    "kind": "mod",
+    "ref": "CID",
+    "m_Object": "b02314cd9be447ebb50050363012e32b",
+    "prefab": "SkiSignSetSchool",
+    "mesh": "SkiSignSetSchoolB",
+    "position": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "rotation": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "m_ParentMesh": 0,
+    "role": "signset"
+  },
+  "x_convention": "game (gx, gy, gz) = authoring (y, z, x) = FBX-raw (x, z, -y); gx NOT negated (the school's / every shipped building row's convention). build/probes-b.md section 2: the game appears to negate FBX x; probe X2 decides; branch N = S1b negates gx of every row with gx != 0 and mirrors yaw (q.y -> -q.y). Identity rows (role signset) are frame-free.",
+  "sheet": {
+    "owner": "SkiSignSetSchoolB",
+    "is_owner": true,
+    "size": 2048,
+    "ppm": 300.0,
+    "gutter_px": 8,
+    "dilate_px": 4,
+    "maps": [
+      "BaseColor",
+      "ControlMask",
+      "MaskMap",
+      "Normal",
+      "Emissive"
+    ],
+    "layout_sha": "afee251d75da1b40",
+    "free_rows_top": 260,
+    "kinds": [
+      {
+        "key": "school.name",
+        "host": "school",
+        "size_m": [
+          4.2,
+          0.9
+        ],
+        "rect": [
+          8,
+          834,
+          1268,
+          1104
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "SKI SCHOOL in Franklin Gothic Demi Cond, white on board brown (nitpick C, was Bfont)"
+      },
+      {
+        "key": "school.meet",
+        "host": "school",
+        "size_m": [
+          2.4,
+          1.2
+        ],
+        "rect": [
+          796,
+          436,
+          1516,
+          796
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.bibs",
+        "host": "school",
+        "size_m": [
+          2.0,
+          0.9
+        ],
+        "rect": [
+          1276,
+          834,
+          1876,
+          1104
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.notice",
+        "host": "school",
+        "size_m": [
+          0.7,
+          1.0
+        ],
+        "rect": [
+          1396,
+          8,
+          1606,
+          308
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.lesson0",
+        "host": "school",
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "rect": [
+          1524,
+          436,
+          1704,
+          616
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.lesson1",
+        "host": "school",
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "rect": [
+          1712,
+          436,
+          1892,
+          616
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.lesson2",
+        "host": "school",
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "rect": [
+          1516,
+          1112,
+          1696,
+          1292
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.lesson3",
+        "host": "school",
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "rect": [
+          1704,
+          1112,
+          1884,
+          1292
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.door1",
+        "host": "school",
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "rect": [
+          1900,
+          436,
+          1990,
+          526
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "revision 2: plain red plate, no digit (unused by the school)"
+      },
+      {
+        "key": "school.door2",
+        "host": "school",
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "rect": [
+          1884,
+          834,
+          1974,
+          924
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "revision 2: plain red plate, no digit (unused by the school)"
+      },
+      {
+        "key": "school.door3",
+        "host": "school",
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "rect": [
+          1892,
+          1112,
+          1982,
+          1202
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "revision 2: plain red plate, no digit (unused by the school)"
+      },
+      {
+        "key": "school.door4",
+        "host": "school",
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "rect": [
+          1884,
+          1360,
+          1974,
+          1450
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "revision 2: plain red plate, no digit (unused by the school)"
+      },
+      {
+        "key": "hut.name",
+        "host": "hut",
+        "size_m": [
+          5.0,
+          0.8
+        ],
+        "rect": [
+          8,
+          1112,
+          1508,
+          1352
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "RESTAURANT in Franklin Gothic Demi Cond, white on hut red (nitpick C, was Bfont)"
+      },
+      {
+        "key": "hut.picto",
+        "host": "hut",
+        "size_m": [
+          2.4,
+          0.6
+        ],
+        "rect": [
+          8,
+          1608,
+          728,
+          1788
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "BLANK board (nitpick C: the fork-and-knife pictogram Richard called 'quite bad' on L3 / L4 is the same glyph): board brown with a thin rim in the hut's green trim; a label surface for the player"
+      },
+      {
+        "key": "hut.menu",
+        "host": "hut",
+        "size_m": [
+          0.55,
+          0.8
+        ],
+        "rect": [
+          1787,
+          8,
+          1952,
+          248
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "p1.name",
+        "host": "p1",
+        "size_m": [
+          2.6,
+          1.3
+        ],
+        "rect": [
+          8,
+          436,
+          788,
+          826
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "SKI / PATROL in Franklin Gothic Demi Cond, white on patrol red (nitpick C, was Bfont)"
+      },
+      {
+        "key": "p1.info",
+        "host": "p1",
+        "size_m": [
+          0.55,
+          0.85
+        ],
+        "rect": [
+          1614,
+          8,
+          1779,
+          263
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "info board, three colour bars (P1_BOARD, _civic.BarsPainter); painted at approval"
+      },
+      {
+        "key": "p2.name",
+        "host": "p2",
+        "size_m": [
+          4.6,
+          1.4
+        ],
+        "rect": [
+          8,
+          8,
+          1388,
+          428
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "SKI PATROL / FIRST AID in Franklin Gothic Demi Cond, white on patrol red (nitpick C, was Bfont)"
+      },
+      {
+        "key": "l5.name",
+        "host": "l5",
+        "size_m": [
+          5.0,
+          0.8
+        ],
+        "rect": [
+          8,
+          1360,
+          1508,
+          1600
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "GRAND LODGE in Bookman Old Style Bold, letter-spaced caps between two lozenges, a thin cream rule inside the face; cream on board brown (nitpick C; was Bfont, step 3e)"
+      },
+      {
+        "key": "tram.stn",
+        "host": "tram",
+        "size_m": [
+          1.2,
+          0.5
+        ],
+        "rect": [
+          1516,
+          1360,
+          1876,
+          1510
+        ],
+        "state": "reserved",
+        "lit": false,
+        "note": "tram top TRAM board (tram_station.py label_stn) if rev 2 moves it off the host"
+      },
+      {
+        "key": "school.markstaff",
+        "host": "school",
+        "size_m": [
+          0.44,
+          0.36
+        ],
+        "rect": [
+          744,
+          1616,
+          876,
+          1724
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "red placard on the white doors, Franklin Gothic Demi Cond (nitpick C; legend a stand-in)"
+      },
+      {
+        "key": "school.marknosled",
+        "host": "school",
+        "size_m": [
+          0.76,
+          0.36
+        ],
+        "rect": [
+          884,
+          1616,
+          1112,
+          1724
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "red NO SLEDDING sign with a white rim, Franklin Gothic Demi Cond (nitpick C; Street View 120856)"
+      },
+      {
+        "key": "gate.header",
+        "host": "gate",
+        "size_m": [
+          2.6,
+          0.6
+        ],
+        "rect": [
+          1260,
+          1608,
+          2040,
+          1788
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "SKI AREA lettering panel of the welcome sign header in Bookman Old Style Bold (the resort-identity face; nitpick C, was Bfont); lit: the resort name board (H2)"
+      },
+      {
+        "key": "gate.flake",
+        "host": "gate",
+        "size_m": [
+          0.7,
+          0.6
+        ],
+        "rect": [
+          1524,
+          624,
+          1734,
+          804
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "snowflake end panel of the welcome sign header (ORNAMENT_D 0.36 m, centred); used twice (L / R)"
+      }
+    ],
+    "metrics": {
+      "school.name": {
+        "key": "school.name",
+        "rect": [
+          8,
+          834,
+          1268,
+          1104
+        ],
+        "size_m": [
+          4.2,
+          0.9
+        ],
+        "lit": true,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "text",
+            "lines": [
+              "SKI SCHOOL"
+            ],
+            "font": "Franklin Gothic Demi Cond",
+            "font_file": "FRADMCN.TTF",
+            "font_sha1": "8f6c5b31ee254ce5",
+            "font_weight_offset": 0.0,
+            "tracking_cap": 0.06,
+            "cap_m": 0.4734,
+            "stem_px": 31.215,
+            "thin_px": 25.389,
+            "stroke_m": 0.08463,
+            "stroke_px": 25.389,
+            "tier": "T1",
+            "width_m": 3.57,
+            "ornament": null
+          }
+        ],
+        "lit_texels": 72728
+      },
+      "school.meet": {
+        "key": "school.meet",
+        "rect": [
+          796,
+          436,
+          1516,
+          796
+        ],
+        "size_m": [
+          2.4,
+          1.2
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "shapes",
+            "items": [
+              [
+                "square",
+                0.96
+              ],
+              [
+                "glyph:cand_d",
+                0.816
+              ],
+              [
+                "circle",
+                0.3996
+              ],
+              [
+                "square",
+                0.3396
+              ],
+              [
+                "diamond",
+                0.4596
+              ]
+            ]
+          }
+        ]
+      },
+      "school.bibs": {
+        "key": "school.bibs",
+        "rect": [
+          1276,
+          834,
+          1876,
+          1104
+        ],
+        "size_m": [
+          2.0,
+          0.9
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "bibs",
+            "n": 8,
+            "font": "Bfont vector",
+            "cap_m": 0.121,
+            "stroke_m": 0.01739,
+            "stroke_px": 5.216
+          }
+        ]
+      },
+      "school.notice": {
+        "key": "school.notice",
+        "rect": [
+          1396,
+          8,
+          1606,
+          308
+        ],
+        "size_m": [
+          0.7,
+          1.0
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "notices",
+            "n": 6,
+            "seed": 55090
+          }
+        ]
+      },
+      "school.lesson0": {
+        "key": "school.lesson0",
+        "rect": [
+          1524,
+          436,
+          1704,
+          616
+        ],
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "shapes",
+            "items": [
+              [
+                "circle",
+                0.48
+              ]
+            ]
+          }
+        ]
+      },
+      "school.lesson1": {
+        "key": "school.lesson1",
+        "rect": [
+          1712,
+          436,
+          1892,
+          616
+        ],
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "shapes",
+            "items": [
+              [
+                "square",
+                0.42
+              ]
+            ]
+          }
+        ]
+      },
+      "school.lesson2": {
+        "key": "school.lesson2",
+        "rect": [
+          1516,
+          1112,
+          1696,
+          1292
+        ],
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "shapes",
+            "items": [
+              [
+                "diamond",
+                0.516
+              ]
+            ]
+          }
+        ]
+      },
+      "school.lesson3": {
+        "key": "school.lesson3",
+        "rect": [
+          1704,
+          1112,
+          1884,
+          1292
+        ],
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "shapes",
+            "items": [
+              [
+                "glyph:cand_d",
+                0.516
+              ]
+            ]
+          }
+        ]
+      },
+      "school.door1": {
+        "key": "school.door1",
+        "rect": [
+          1900,
+          436,
+          1990,
+          526
+        ],
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "shapes",
+            "items": []
+          }
+        ]
+      },
+      "school.door2": {
+        "key": "school.door2",
+        "rect": [
+          1884,
+          834,
+          1974,
+          924
+        ],
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "shapes",
+            "items": []
+          }
+        ]
+      },
+      "school.door3": {
+        "key": "school.door3",
+        "rect": [
+          1892,
+          1112,
+          1982,
+          1202
+        ],
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "shapes",
+            "items": []
+          }
+        ]
+      },
+      "school.door4": {
+        "key": "school.door4",
+        "rect": [
+          1884,
+          1360,
+          1974,
+          1450
+        ],
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "shapes",
+            "items": []
+          }
+        ]
+      },
+      "hut.name": {
+        "key": "hut.name",
+        "rect": [
+          8,
+          1112,
+          1508,
+          1352
+        ],
+        "size_m": [
+          5.0,
+          0.8
+        ],
+        "lit": true,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "text",
+            "lines": [
+              "RESTAURANT"
+            ],
+            "font": "Franklin Gothic Demi Cond",
+            "font_file": "FRADMCN.TTF",
+            "font_sha1": "8f6c5b31ee254ce5",
+            "font_weight_offset": 0.0,
+            "tracking_cap": 0.06,
+            "cap_m": 0.44,
+            "stem_px": 29.011,
+            "thin_px": 23.596,
+            "stroke_m": 0.07865,
+            "stroke_px": 23.596,
+            "tier": "T1",
+            "width_m": 3.5213,
+            "ornament": null
+          }
+        ],
+        "lit_texels": 71624
+      },
+      "hut.picto": {
+        "key": "hut.picto",
+        "rect": [
+          8,
+          1608,
+          728,
+          1788
+        ],
+        "size_m": [
+          2.4,
+          0.6
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "blank",
+            "bg": [
+              0.2,
+              0.14,
+              0.1
+            ],
+            "rim": [
+              0.214,
+              0.472,
+              0.425
+            ],
+            "rim_m": 0.02,
+            "inset_m": 0.05,
+            "rim_px": 6.0
+          }
+        ]
+      },
+      "hut.menu": {
+        "key": "hut.menu",
+        "rect": [
+          1787,
+          8,
+          1952,
+          248
+        ],
+        "size_m": [
+          0.55,
+          0.8
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "menu",
+            "rows": 6
+          }
+        ]
+      },
+      "p1.name": {
+        "key": "p1.name",
+        "rect": [
+          8,
+          436,
+          788,
+          826
+        ],
+        "size_m": [
+          2.6,
+          1.3
+        ],
+        "lit": true,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "text",
+            "lines": [
+              "SKI",
+              "PATROL"
+            ],
+            "font": "Franklin Gothic Demi Cond",
+            "font_file": "FRADMCN.TTF",
+            "font_sha1": "8f6c5b31ee254ce5",
+            "font_weight_offset": 0.0,
+            "tracking_cap": 0.04,
+            "cap_m": 0.4149,
+            "stem_px": 27.356,
+            "thin_px": 22.25,
+            "stroke_m": 0.07417,
+            "stroke_px": 22.25,
+            "tier": "T1",
+            "width_m": 1.8772,
+            "ornament": null
+          }
+        ],
+        "lit_texels": 52888
+      },
+      "p1.info": {
+        "key": "p1.info",
+        "rect": [
+          1614,
+          8,
+          1779,
+          263
+        ],
+        "size_m": [
+          0.55,
+          0.85
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "bars",
+            "n": 3,
+            "font": null
+          }
+        ]
+      },
+      "p2.name": {
+        "key": "p2.name",
+        "rect": [
+          8,
+          8,
+          1388,
+          428
+        ],
+        "size_m": [
+          4.6,
+          1.4
+        ],
+        "lit": true,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "text",
+            "lines": [
+              "SKI PATROL",
+              "FIRST AID"
+            ],
+            "font": "Franklin Gothic Demi Cond",
+            "font_file": "FRADMCN.TTF",
+            "font_sha1": "8f6c5b31ee254ce5",
+            "font_weight_offset": 0.0,
+            "tracking_cap": 0.04,
+            "cap_m": 0.4468,
+            "stem_px": 29.46,
+            "thin_px": 23.961,
+            "stroke_m": 0.07987,
+            "stroke_px": 23.961,
+            "tier": "T1",
+            "width_m": 3.1288,
+            "ornament": null
+          }
+        ],
+        "lit_texels": 111965
+      },
+      "l5.name": {
+        "key": "l5.name",
+        "rect": [
+          8,
+          1360,
+          1508,
+          1600
+        ],
+        "size_m": [
+          5.0,
+          0.8
+        ],
+        "lit": true,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "text",
+            "lines": [
+              "GRAND LODGE"
+            ],
+            "font": "Bookman Old Style Bold",
+            "font_file": "BOOKOSB.TTF",
+            "font_sha1": "275aab405883ea72",
+            "font_weight_offset": 0.0,
+            "tracking_cap": 0.08,
+            "cap_m": 0.3238,
+            "stem_px": 24.02,
+            "thin_px": 15.178,
+            "stroke_m": 0.05059,
+            "stroke_px": 15.178,
+            "tier": "T2",
+            "width_m": 3.9755,
+            "ornament": {
+              "kind": "diamond",
+              "d_m": 0.1166,
+              "gap_m": 0.1457
+            }
+          },
+          {
+            "kind": "frame",
+            "width_m": 0.015,
+            "inset_m": 0.05,
+            "width_px": 4.5
+          }
+        ],
+        "lit_texels": 56193
+      },
+      "tram.stn": {
+        "state": "reserved",
+        "rect": [
+          1516,
+          1360,
+          1876,
+          1510
+        ],
+        "size_m": [
+          1.2,
+          0.5
+        ],
+        "lit": false
+      },
+      "school.markstaff": {
+        "key": "school.markstaff",
+        "rect": [
+          744,
+          1616,
+          876,
+          1724
+        ],
+        "size_m": [
+          0.44,
+          0.36
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "text",
+            "lines": [
+              "STAFF",
+              "ONLY"
+            ],
+            "font": "Franklin Gothic Demi Cond",
+            "font_file": "FRADMCN.TTF",
+            "font_sha1": "8f6c5b31ee254ce5",
+            "font_weight_offset": 0.0,
+            "tracking_cap": 0.04,
+            "cap_m": 0.1011,
+            "stem_px": 6.666,
+            "thin_px": 5.422,
+            "stroke_m": 0.01807,
+            "stroke_px": 5.422,
+            "tier": "T2",
+            "width_m": 0.365,
+            "ornament": null
+          }
+        ]
+      },
+      "school.marknosled": {
+        "key": "school.marknosled",
+        "rect": [
+          884,
+          1616,
+          1112,
+          1724
+        ],
+        "size_m": [
+          0.76,
+          0.36
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "text",
+            "lines": [
+              "NO",
+              "SLEDDING"
+            ],
+            "font": "Franklin Gothic Demi Cond",
+            "font_file": "FRADMCN.TTF",
+            "font_sha1": "8f6c5b31ee254ce5",
+            "font_weight_offset": 0.0,
+            "tracking_cap": 0.04,
+            "cap_m": 0.097,
+            "stem_px": 6.398,
+            "thin_px": 5.204,
+            "stroke_m": 0.01735,
+            "stroke_px": 5.204,
+            "tier": "T2",
+            "width_m": 0.5928,
+            "ornament": null
+          },
+          {
+            "kind": "frame",
+            "width_m": 0.018,
+            "inset_m": 0.014,
+            "width_px": 5.4
+          }
+        ]
+      },
+      "gate.header": {
+        "key": "gate.header",
+        "rect": [
+          1260,
+          1608,
+          2040,
+          1788
+        ],
+        "size_m": [
+          2.6,
+          0.6
+        ],
+        "lit": true,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "text",
+            "lines": [
+              "SKI AREA"
+            ],
+            "font": "Bookman Old Style Bold",
+            "font_file": "BOOKOSB.TTF",
+            "font_sha1": "275aab405883ea72",
+            "font_weight_offset": 0.0,
+            "tracking_cap": 0.06,
+            "cap_m": 0.3121,
+            "stem_px": 23.152,
+            "thin_px": 14.63,
+            "stroke_m": 0.04877,
+            "stroke_px": 14.63,
+            "tier": "T2",
+            "width_m": 2.47,
+            "ornament": null
+          }
+        ],
+        "lit_texels": 33702
+      },
+      "gate.flake": {
+        "key": "gate.flake",
+        "rect": [
+          1524,
+          624,
+          1734,
+          804
+        ],
+        "size_m": [
+          0.7,
+          0.6
+        ],
+        "lit": false,
+        "ppm": 300.0,
+        "ppm_uv": [
+          300.0,
+          300.0
+        ],
+        "draws": [
+          {
+            "kind": "flake",
+            "d_m": 0.36,
+            "px": 108,
+            "font": null
+          }
+        ]
+      }
+    }
+  },
+  "folder_layout": {
+    "owner": "assets/import/signs/B/SkiSignSetSchoolB/",
+    "same_round_sharer": "assets/import/signs/B/SkiSignSet<Host>B/ -> ../SkiSignSetSchoolB/SkiSignSetSchoolB_<Map>.png",
+    "later_round_sharer": "assets/import/signs/<L>/SkiSignSet<Host><L>/ -> ../../B/SkiSignSetSchoolB/SkiSignSetSchoolB_<Map>.png [U]; fallback: m_SurfaceAssets repoint to the owner Surface CID (FS8)",
+    "staging": "assets/staging/prefabs/signs/<L>/SkiSignSetSchool/"
+  },
+  "staging": [
+    "assets/staging/prefabs/signs/B/SkiSignSetSchool/SkiSignSetSchool.Prefab",
+    "assets/staging/prefabs/signs/B/SkiSignSetSchool/SkiSignSetSchoolB Mesh.LodProperties.fragment",
+    "assets/staging/prefabs/signs/B/SkiSignSetSchool/SkiSignSetSchoolB Mesh.surgery.json"
+  ]
+}

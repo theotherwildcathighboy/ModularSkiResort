@@ -1,0 +1,1174 @@
+{
+  "name": "SkiLiftTowerGD12O",
+  "written_utc": "2026-10-12T04:39:21Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiLiftTowerGD12O.fbx": {
+      "bytes": 217052,
+      "sha1": "088ee827ab41f543c4c112f399ebc6b65e108eaa"
+    },
+    "SkiLiftTowerGD12O_BaseColor.png": {
+      "bytes": 845378,
+      "sha1": "577e85d4030acec5891c07305bfd4e42431d6ccd"
+    },
+    "SkiLiftTowerGD12O_ControlMask.png": {
+      "bytes": 49554,
+      "sha1": "93473987658045161ce9a74be32bc58cb2392c89"
+    },
+    "SkiLiftTowerGD12O_LOD1.fbx": {
+      "bytes": 122828,
+      "sha1": "a44a33c90a6584e612edc3ad4f7c69e39f5c9c5a"
+    },
+    "SkiLiftTowerGD12O_LOD2.fbx": {
+      "bytes": 44844,
+      "sha1": "24fe1b7bb9256d2cfa1705ab86d3462ff2bc4fc6"
+    },
+    "SkiLiftTowerGD12O_MaskMap.png": {
+      "bytes": 506768,
+      "sha1": "7f843c5df584ca50b3f6dcd59b967e89bca64391"
+    },
+    "SkiLiftTowerGD12O_Normal.png": {
+      "bytes": 272678,
+      "sha1": "7814de0d4afc426738e0d9a2a06f2f6c7404995d"
+    },
+    "settings.json": {
+      "bytes": 735,
+      "sha1": "7822868e6dfe8dcfdf0492ffe81057a5d7e46cf7"
+    }
+  },
+  "generator": "lift_tower.py@6af00f1-dirty",
+  "spec": "towers-v2 + skeptic; Revision 1b GD (tram_tower.GD / lattice-towers D2 contract)",
+  "variant": "GD12",
+  "family": "GD",
+  "role": "line",
+  "kind": "support",
+  "head": "rebuild",
+  "derived_from": {
+    "source": "Kagelok 'Chair Lift' (CC BY 4.0)",
+    "uid": "afd305cdd4cb450f80b59f24b4b3e236",
+    "url": "https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236",
+    "mode": "traced proportions (the DQ rebuild head kit, stretched to the 6.0 m gauge)"
+  },
+  "tris": {
+    "0": 3150,
+    "1": 1400,
+    "2": 400
+  },
+  "lod_drift_top_m": {
+    "1": 0.0,
+    "2": 0.03061
+  },
+  "parts": 181,
+  "axle": 10.0,
+  "gauge": 6.0,
+  "h_top": 2.0,
+  "bounds_m": {
+    "min_z": -4.0,
+    "max_z": 12.0,
+    "lateral": 3.3930001258850098,
+    "travel": 3.140000104904175
+  },
+  "top_anchor_y": 12.0,
+  "pier": 4.0,
+  "comm_lv_y": 11.2,
+  "atlas": 1024,
+  "ao_samples": 48,
+  "pack_margin_px": 6,
+  "sheave_profile": "lite (lift_tower.lite_sheave, 6 x segs tris)",
+  "sheaves_per_side": 10,
+  "train_sag_m": 0.0,
+  "density_worst": [
+    {
+      "part": "rail_deckn0_top",
+      "source_px_per_m": 5955.2,
+      "shipped_px_per_m": 35.8
+    },
+    {
+      "part": "rail_deckn0_knee",
+      "source_px_per_m": 5955.2,
+      "shipped_px_per_m": 35.8
+    },
+    {
+      "part": "rail_deckn1_top",
+      "source_px_per_m": 5955.2,
+      "shipped_px_per_m": 35.8
+    },
+    {
+      "part": "rail_deckp0_top",
+      "source_px_per_m": 5955.2,
+      "shipped_px_per_m": 35.8
+    },
+    {
+      "part": "rail_deckp0_knee",
+      "source_px_per_m": 5955.2,
+      "shipped_px_per_m": 35.8
+    },
+    {
+      "part": "rail_deckp1_top",
+      "source_px_per_m": 5955.2,
+      "shipped_px_per_m": 35.8
+    },
+    {
+      "part": "rail_deckp1_knee",
+      "source_px_per_m": 5955.2,
+      "shipped_px_per_m": 35.8
+    },
+    {
+      "part": "rail_deckn1_knee",
+      "source_px_per_m": 5955.2,
+      "shipped_px_per_m": 35.8
+    }
+  ],
+  "lod_switch_m": {
+    "csum": 29.06600046157837,
+    "bias": 0.6724496349757705,
+    "distances": [
+      70.62014859385641,
+      105.93022289078463,
+      198.17730048095714
+    ],
+    "switch": {
+      "1": 105.93022289078463,
+      "2": 198.17730048095714
+    },
+    "cull": 3963.5478576237624
+  },
+  "ingest": null,
+  "bake": {
+    "A": 1024,
+    "margin_px": 6,
+    "ao": "self",
+    "uncovered_texels": 708597
+  },
+  "prefab_notes": {
+    "size_y": "ObjectUtils.GetSize y = bounds.max.y (1.6.0f1 ObjectUtils.cs:51-58)",
+    "switch_points": "GD 8/3, 20/3, 34/3, 53/3, 76/3 m (tubular GD12/16/20 + lattice 25/32/40; Revision 1b)",
+    "leg_size_y": "StandingObject.m_LegSize.y = leg zone above the origin (ObjectInitializeSystem.cs:1293); pick it on purpose (FG/ET use the mast height)"
+  },
+  "catalog_handoff": {
+    "AimHeightM": 11.0,
+    "piece_lanes": [
+      3.0,
+      10.0
+    ],
+    "piece_comm_lv_y": 11.2,
+    "line_net_subobject_y": 12.0,
+    "member_axle_y": 10.0,
+    "member_comm_lv_y": 11.2
+  },
+  "gd_numbers": {
+    "top_anchor_y": 12.0,
+    "axle": 10.0,
+    "h_top": 2.0,
+    "tube_top": 10.5,
+    "mast_r": 0.5,
+    "lane_x": 3.0,
+    "comm_lv_y": 11.2,
+    "sheaves_per_side": 10,
+    "sheave_r_w_pitch_segs": [
+      0.25,
+      0.1,
+      0.62,
+      12
+    ],
+    "deck_y": [
+      0.695,
+      2.19
+    ],
+    "deck_top_y": 9.704,
+    "rail_y": 2.09,
+    "hanger_columns_rel_rope": [
+      {
+        "half": 0.81,
+        "z0": -2.1,
+        "z1": 0.08
+      },
+      {
+        "half": 1.1,
+        "z0": -4.5,
+        "z1": -1.92
+      }
+    ],
+    "gantry_rise": 0.05,
+    "beam_half": 3.322,
+    "flange_r": 0.65,
+    "pad_r": 0.61,
+    "pier": 4.0,
+    "bounds": {
+      "max_z": 12.0,
+      "min_z": -4.0,
+      "lateral": 3.393,
+      "travel": 3.14
+    }
+  },
+  "prefab": {
+    "tower_prefab": "SkiLiftTowerGD12",
+    "mesh": "SkiLiftTowerGD12O",
+    "placeholder": "SkiGondolaTowerPlaceholder",
+    "copy_from": "SkiLiftTowerDQ16 (tubular sibling) with the GD stubs of SkiGondolaLattice25",
+    "utility_object": {
+      "type": 8,
+      "position": [
+        0.0,
+        10.0,
+        0.0
+      ]
+    },
+    "stubs": [
+      {
+        "lane": "HV haul",
+        "lane_prefab": "SkiGondolaHaulRope",
+        "lane_fallback": "UnityGUID:5d88ac45a40b30341a79535930e3b735",
+        "pos": [
+          -3.0,
+          10.0,
+          0.0
+        ],
+        "node_index": [
+          0,
+          0
+        ]
+      },
+      {
+        "lane": "HV haul",
+        "lane_prefab": "SkiGondolaHaulRope",
+        "lane_fallback": "UnityGUID:5d88ac45a40b30341a79535930e3b735",
+        "pos": [
+          3.0,
+          10.0,
+          0.0
+        ],
+        "node_index": [
+          1,
+          1
+        ]
+      },
+      {
+        "lane": "LV comm",
+        "lane_prefab": "UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b",
+        "lane_fallback": "UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b",
+        "pos": [
+          0.0,
+          11.2,
+          0.0
+        ],
+        "node_index": [
+          2,
+          2
+        ]
+      }
+    ],
+    "standing_object": {
+      "m_LegSize": [
+        2.2,
+        4.0,
+        2.2
+      ],
+      "m_CircularLeg": false,
+      "m_LegGap": [
+        0,
+        0
+      ],
+      "note": "SkiLiftTowerFG12 pattern (pad, pier, pad) = (1.8, 4, 1.8)"
+    },
+    "pillar_object": {
+      "m_Type": 2,
+      "m_AnchorOffset": 0,
+      "m_VerticalPillarOffsetRange": [
+        -1,
+        1
+      ]
+    },
+    "terraform_override": "copy SkiLiftTowerFG12",
+    "bounds_top": 12.0,
+    "raw_bounds_min_y": -4.0,
+    "clamp_bounds_min_y": -0.01,
+    "color_slot1_default": [
+      0.2,
+      0.21,
+      0.22
+    ],
+    "net_subobjects": {
+      "line": "SkiGondolaHV",
+      "m_Position": [
+        0.0,
+        12.0,
+        0.0
+      ],
+      "m_Placement": 0,
+      "m_AnchorTop": false,
+      "note": "spec y = the GD12 bounds top 12.000 (tram_tower.GD tubular_tops[0])"
+    },
+    "elevation_range": [
+      0,
+      28.0
+    ],
+    "piece_lanes": {
+      "hv": [
+        3.0,
+        10.0
+      ],
+      "lv_comm": [
+        0.0,
+        11.2
+      ]
+    }
+  },
+  "placeholder_row_new": {
+    "row": {
+      "variant": "GD12",
+      "member_prefab": "SkiLiftTowerGD12",
+      "mesh": "SkiLiftTowerGD12O",
+      "top_anchor_y": 12.0,
+      "utility_object_y": 10.0,
+      "hv_lanes": [
+        3.0,
+        10.0
+      ],
+      "lv_comm_y": 11.2,
+      "base_below_node_m": 0.0,
+      "wins_e_m": [
+        0.0,
+        2.667
+      ],
+      "base_above_terrain_m": [
+        0.0,
+        2.667
+      ],
+      "pier": 4.0
+    },
+    "family": {
+      "placeholder": "SkiGondolaTowerPlaceholder",
+      "net_subobject_y": 12.0,
+      "score": "1/(1+(s>=0 ? 2s : -s)), s = top - (e + y)",
+      "switch_points_e_m": [
+        2.667,
+        6.667,
+        11.333,
+        17.667,
+        25.333
+      ],
+      "grounded_up_to_e_m": 36.0,
+      "members": [
+        {
+          "variant": "GD12",
+          "member_prefab": "SkiLiftTowerGD12",
+          "mesh": "SkiLiftTowerGD12O",
+          "top_anchor_y": 12.0,
+          "utility_object_y": 10.0,
+          "hv_lanes": [
+            3.0,
+            10.0
+          ],
+          "lv_comm_y": 11.2,
+          "base_below_node_m": 0.0,
+          "wins_e_m": [
+            0.0,
+            2.667
+          ],
+          "base_above_terrain_m": [
+            0.0,
+            2.667
+          ],
+          "pier": 4.0
+        },
+        {
+          "variant": "GD16",
+          "member_prefab": "SkiLiftTowerGD16",
+          "mesh": "SkiLiftTowerGD16O",
+          "top_anchor_y": 16.0,
+          "utility_object_y": 14.0,
+          "hv_lanes": [
+            3.0,
+            14.0
+          ],
+          "lv_comm_y": 15.2,
+          "base_below_node_m": 4.0,
+          "wins_e_m": [
+            2.667,
+            6.667
+          ],
+          "base_above_terrain_m": [
+            -1.333,
+            2.667
+          ],
+          "pier": 4.0
+        },
+        {
+          "variant": "GD20",
+          "member_prefab": "SkiLiftTowerGD20",
+          "mesh": "SkiLiftTowerGD20O",
+          "top_anchor_y": 20.0,
+          "utility_object_y": 18.0,
+          "hv_lanes": [
+            3.0,
+            18.0
+          ],
+          "lv_comm_y": 19.2,
+          "base_below_node_m": 8.0,
+          "wins_e_m": [
+            6.667,
+            11.333
+          ],
+          "base_above_terrain_m": [
+            -1.333,
+            3.333
+          ],
+          "pier": 4.0
+        },
+        {
+          "variant": "Lattice25",
+          "member_prefab": "SkiGondolaLattice25",
+          "mesh": "SkiGondolaLattice25O",
+          "top_anchor_y": 25.0,
+          "utility_object_y": 23.0,
+          "hv_lanes": [
+            3.0,
+            23.0
+          ],
+          "lv_comm_y": 24.2,
+          "base_below_node_m": 13.0,
+          "wins_e_m": [
+            11.333,
+            17.667
+          ],
+          "base_above_terrain_m": [
+            -1.667,
+            4.667
+          ],
+          "pier": 8.0,
+          "generator": "tram_tower.py"
+        },
+        {
+          "variant": "Lattice32",
+          "member_prefab": "SkiGondolaLattice32",
+          "mesh": "SkiGondolaLattice32O",
+          "top_anchor_y": 32.0,
+          "utility_object_y": 30.0,
+          "hv_lanes": [
+            3.0,
+            30.0
+          ],
+          "lv_comm_y": 31.2,
+          "base_below_node_m": 20.0,
+          "wins_e_m": [
+            17.667,
+            25.333
+          ],
+          "base_above_terrain_m": [
+            -2.333,
+            5.333
+          ],
+          "pier": 8.0,
+          "generator": "tram_tower.py"
+        },
+        {
+          "variant": "Lattice40",
+          "member_prefab": "SkiGondolaLattice40",
+          "mesh": "SkiGondolaLattice40O",
+          "top_anchor_y": 40.0,
+          "utility_object_y": 38.0,
+          "hv_lanes": [
+            3.0,
+            38.0
+          ],
+          "lv_comm_y": 39.2,
+          "base_below_node_m": 28.0,
+          "wins_e_m": [
+            25.333,
+            36.0
+          ],
+          "base_above_terrain_m": [
+            -2.667,
+            8.0
+          ],
+          "pier": 8.0,
+          "generator": "tram_tower.py"
+        }
+      ]
+    }
+  },
+  "detail_pass_1": {
+    "relief": {
+      "drawn": {
+        "edge_round": 155,
+        "marks:band": 64,
+        "marks:boltring": 32,
+        "bolts": 246,
+        "grate": 8,
+        "marks:ring": 40
+      },
+      "skipped": {}
+    },
+    "tone": {
+      "drawn": {
+        "mottle": 1226,
+        "chalk": 189
+      },
+      "skipped": {}
+    },
+    "tone_gate": {
+      "material": {
+        "galv": {
+          "texels": 107533,
+          "s0": 0.018,
+          "s1": 0.0281,
+          "want": 0.0266,
+          "delivered": 0.923,
+          "ok": true
+        },
+        "paint": {
+          "texels": 173522,
+          "s0": 0.011,
+          "s1": 0.0328,
+          "want": 0.0233,
+          "delivered": 1.321,
+          "ok": true
+        }
+      },
+      "class": {
+        "conduit": {
+          "texels": 756,
+          "s0": 0.0135,
+          "s1": 0.024,
+          "want": 0.0243,
+          "delivered": 0.846
+        },
+        "endplate": {
+          "texels": 4523,
+          "s0": 0.0112,
+          "s1": 0.0327,
+          "want": 0.0233,
+          "delivered": 1.315
+        },
+        "flange_mastbase": {
+          "texels": 1950,
+          "s0": 0.0044,
+          "s1": 0.0306,
+          "want": 0.0214,
+          "delivered": 1.296
+        },
+        "gantry_beam": {
+          "texels": 19943,
+          "s0": 0.0117,
+          "s1": 0.035,
+          "want": 0.0236,
+          "delivered": 1.41
+        },
+        "gantry_brace": {
+          "texels": 19650,
+          "s0": 0.0103,
+          "s1": 0.0336,
+          "want": 0.023,
+          "delivered": 1.368
+        },
+        "gantry_girder": {
+          "texels": 20789,
+          "s0": 0.0097,
+          "s1": 0.0358,
+          "want": 0.0228,
+          "delivered": 1.471
+        },
+        "gantry_post": {
+          "texels": 6910,
+          "s0": 0.0081,
+          "s1": 0.0186,
+          "want": 0.0223,
+          "delivered": 0.714
+        },
+        "grate_deckn": {
+          "texels": 35584,
+          "s0": 0.0176,
+          "s1": 0.028,
+          "want": 0.0263,
+          "delivered": 0.931
+        },
+        "grate_deckn_lip": {
+          "texels": 3112,
+          "s0": 0.0195,
+          "s1": 0.0259,
+          "want": 0.0274,
+          "delivered": 0.728
+        },
+        "grate_deckp": {
+          "texels": 35584,
+          "s0": 0.0192,
+          "s1": 0.0295,
+          "want": 0.0272,
+          "delivered": 0.96
+        },
+        "grate_deckp_lip": {
+          "texels": 3179,
+          "s0": 0.0212,
+          "s1": 0.0341,
+          "want": 0.0284,
+          "delivered": 1.145
+        },
+        "grate_landn": {
+          "texels": 490,
+          "s0": 0.0184,
+          "s1": 0.0244,
+          "want": 0.0268,
+          "delivered": 0.684
+        },
+        "grate_landn_lip": {
+          "texels": 315,
+          "s0": 0.019,
+          "s1": 0.0304,
+          "want": 0.0271,
+          "delivered": 1.012
+        },
+        "grate_landp": {
+          "texels": 476,
+          "s0": 0.0125,
+          "s1": 0.038,
+          "want": 0.0239,
+          "delivered": 1.532
+        },
+        "grate_landp_lip": {
+          "texels": 295,
+          "s0": 0.0184,
+          "s1": 0.0283,
+          "want": 0.0268,
+          "delivered": 0.918
+        },
+        "gusset_apex": {
+          "texels": 1487,
+          "s0": 0.0063,
+          "s1": 0.0166,
+          "want": 0.0218,
+          "delivered": 0.657
+        },
+        "hanger": {
+          "texels": 495,
+          "s0": 0.0107,
+          "s1": 0.0347,
+          "want": 0.0231,
+          "delivered": 1.412
+        },
+        "jbox": {
+          "texels": 243,
+          "s0": 0.0167,
+          "s1": 0.0165,
+          "want": 0.0259,
+          "delivered": 0.0
+        },
+        "kick_deckn": {
+          "texels": 1727,
+          "s0": 0.0098,
+          "s1": 0.0277,
+          "want": 0.0228,
+          "delivered": 1.108
+        },
+        "kick_deckp": {
+          "texels": 1732,
+          "s0": 0.0108,
+          "s1": 0.0258,
+          "want": 0.0232,
+          "delivered": 1.001
+        },
+        "ladder_rail": {
+          "texels": 3366,
+          "s0": 0.0177,
+          "s1": 0.0272,
+          "want": 0.0264,
+          "delivered": 0.887
+        },
+        "ladder_rung": {
+          "texels": 1824,
+          "s0": 0.0188,
+          "s1": 0.0281,
+          "want": 0.027,
+          "delivered": 0.892
+        },
+        "mast": {
+          "texels": 42866,
+          "s0": 0.0085,
+          "s1": 0.0235,
+          "want": 0.0224,
+          "delivered": 0.938
+        },
+        "pivot": {
+          "texels": 439,
+          "s0": 0.0125,
+          "s1": 0.02,
+          "want": 0.0239,
+          "delivered": 0.664
+        },
+        "post_deckn": {
+          "texels": 1369,
+          "s0": 0.0041,
+          "s1": 0.0237,
+          "want": 0.0214,
+          "delivered": 0.997
+        },
+        "post_deckp": {
+          "texels": 1332,
+          "s0": 0.0089,
+          "s1": 0.0268,
+          "want": 0.0225,
+          "delivered": 1.082
+        },
+        "rail_deckn_knee": {
+          "texels": 1236,
+          "s0": 0.0084,
+          "s1": 0.0384,
+          "want": 0.0224,
+          "delivered": 1.599
+        },
+        "rail_deckn_top": {
+          "texels": 1248,
+          "s0": 0.0083,
+          "s1": 0.0401,
+          "want": 0.0224,
+          "delivered": 1.675
+        },
+        "rail_deckp_knee": {
+          "texels": 1236,
+          "s0": 0.0147,
+          "s1": 0.0386,
+          "want": 0.0249,
+          "delivered": 1.526
+        },
+        "rail_deckp_top": {
+          "texels": 1242,
+          "s0": 0.0164,
+          "s1": 0.0372,
+          "want": 0.0257,
+          "delivered": 1.425
+        },
+        "rocker_link": {
+          "texels": 858,
+          "s0": 0.0106,
+          "s1": 0.0195,
+          "want": 0.0231,
+          "delivered": 0.702
+        },
+        "rocker_main": {
+          "texels": 14521,
+          "s0": 0.0102,
+          "s1": 0.0281,
+          "want": 0.023,
+          "delivered": 1.119
+        },
+        "rocker_sub": {
+          "texels": 15369,
+          "s0": 0.0098,
+          "s1": 0.0324,
+          "want": 0.0228,
+          "delivered": 1.318
+        },
+        "sheave": {
+          "texels": 21568,
+          "s0": 0.0155,
+          "s1": 0.0241,
+          "want": 0.0252,
+          "delivered": 0.793
+        },
+        "stiff_mastjoint": {
+          "texels": 1713,
+          "s0": 0.0068,
+          "s1": 0.0315,
+          "want": 0.0219,
+          "delivered": 1.313
+        },
+        "yoke": {
+          "texels": 11326,
+          "s0": 0.0116,
+          "s1": 0.0322,
+          "want": 0.0235,
+          "delivered": 1.284
+        }
+      }
+    },
+    "tone_gate_ok": true,
+    "plates": [
+      {
+        "px": [
+          57,
+          127
+        ],
+        "ppm": 356.2,
+        "glyph_px": 50,
+        "cap_px": 46.0,
+        "numeral": "12",
+        "rect": [
+          6,
+          63,
+          347,
+          474
+        ]
+      },
+      {
+        "px": [
+          57,
+          128
+        ],
+        "ppm": 356.2,
+        "glyph_px": 50,
+        "cap_px": 46.0,
+        "numeral": "12",
+        "rect": [
+          454,
+          511,
+          129,
+          257
+        ]
+      }
+    ],
+    "decal_rects": 4,
+    "numeral": "12",
+    "subtexel_fill": {
+      "faces": 14,
+      "texels": 253,
+      "by_class": {
+        "kick_deckn": 4,
+        "kick_deckp": 2,
+        "platerim": 8
+      },
+      "f3b_faces": 18,
+      "f3b_texels": 1044,
+      "f3b_by_class": {
+        "arrest": 2,
+        "gusset_apex": 4,
+        "kick_deckn": 2,
+        "kick_deckp": 2,
+        "platerim": 8
+      },
+      "slivers_unfilled": {},
+      "black_after": 0,
+      "black_after_faces": [],
+      "black_after_lods": {
+        "1": 0,
+        "2": 0
+      }
+    },
+    "pad": {
+      "triangle_texels": 3334,
+      "triangle_edge_fractional": 0.532,
+      "band_texels": 1656,
+      "band_yellow": 587,
+      "band_black": 592
+    },
+    "weather": {
+      "intensity": 0.25,
+      "slot_wear": "free",
+      "snow": 0.0,
+      "ok": true,
+      "failed": [],
+      "VL1": 0.02934,
+      "VL2": 0.04687,
+      "VL3": -0.00821,
+      "VL4": 0.1319,
+      "dLstar": 0.7723,
+      "share_dLstar_gt_2": 0.1381,
+      "G5_ctl_identity": true,
+      "G6_protect_identical": true,
+      "roles": {
+        "paint_steel": 173522,
+        "pad": 31075,
+        "galv": 107533,
+        "masonry": 4908,
+        "none": 22927
+      },
+      "protect_texels": 21804
+    },
+    "weather_probe": {
+      "0.50": {
+        "ok": false,
+        "VL1": 0.05825,
+        "VL2": 0.13901,
+        "VL4": 0.2599,
+        "failed": [
+          "VL1",
+          "VL2"
+        ],
+        "dLstar": 1.4955
+      },
+      "0.45": {
+        "ok": false,
+        "VL1": 0.0525,
+        "VL2": 0.12935,
+        "VL4": 0.2346,
+        "failed": [
+          "VL1",
+          "VL2"
+        ],
+        "dLstar": 1.3541
+      },
+      "0.40": {
+        "ok": false,
+        "VL1": 0.04674,
+        "VL2": 0.11737,
+        "VL4": 0.2091,
+        "failed": [
+          "VL2"
+        ],
+        "dLstar": 1.2113
+      },
+      "0.35": {
+        "ok": false,
+        "VL1": 0.04096,
+        "VL2": 0.10213,
+        "VL4": 0.1837,
+        "failed": [
+          "VL2"
+        ],
+        "dLstar": 1.0668
+      },
+      "0.30": {
+        "ok": true,
+        "VL1": 0.03516,
+        "VL2": 0.07991,
+        "VL4": 0.158,
+        "failed": [],
+        "dLstar": 0.9205
+      },
+      "0.25": {
+        "ok": true,
+        "VL1": 0.02934,
+        "VL2": 0.04687,
+        "VL4": 0.1319,
+        "failed": [],
+        "dLstar": 0.7723
+      },
+      "0.20": {
+        "ok": true,
+        "VL1": 0.02351,
+        "VL2": 0.02702,
+        "VL4": 0.1058,
+        "failed": [],
+        "dLstar": 0.6222
+      },
+      "0.15": {
+        "ok": true,
+        "VL1": 0.01765,
+        "VL2": 0.00051,
+        "VL4": 0.0794,
+        "failed": [],
+        "dLstar": 0.4699
+      },
+      "0.10": {
+        "ok": true,
+        "VL1": 0.01178,
+        "VL2": 0.0,
+        "VL4": 0.053,
+        "failed": [],
+        "dLstar": 0.3156
+      }
+    }
+  },
+  "weather": {
+    "A": 1024,
+    "N": 339965,
+    "compose_contact": false,
+    "coverage": {
+      "edge": 0.13879,
+      "grime": 0.34102,
+      "grime_cavity": 0.21614,
+      "grime_door": 0.0,
+      "grime_eave": 0.15736,
+      "grime_ground": 0.02641,
+      "rust": 0.11515,
+      "scuff": 0.01996,
+      "snow": 0.0
+    },
+    "doors": [],
+    "fields_MB": 30.3,
+    "ground": "grade",
+    "guards": {
+      "G1_alpha_kept": true,
+      "G2_msk_GB_kept": true,
+      "G3_worst_full_slot_rel": 0.344,
+      "G4_worst_floor_gap": 0.1122115,
+      "G5_ctl_identity": true,
+      "G6_protect_identical": true,
+      "G7_range_ok": true
+    },
+    "intensity": 0.25,
+    "name": "SkiLiftTowerGD12O",
+    "perceptual": {
+      "mean_Lstar_before": 62.456,
+      "mean_abs_dLstar": 0.7723,
+      "p95_abs_dLstar": 4.045,
+      "share_dLstar_gt_2": 0.1381,
+      "texels": 219608,
+      "tinted": false
+    },
+    "protect_texels": 21804,
+    "role_source": {
+      "material": 164,
+      "override": 17
+    },
+    "roles": {
+      "galv": 107533,
+      "masonry": 4908,
+      "none": 22927,
+      "pad": 31075,
+      "paint_steel": 173522
+    },
+    "roles_refined": 0,
+    "seed": 918622039,
+    "slot_wear": "free",
+    "snow": 0.0,
+    "sources": {
+      "cover_overflow_cells": 67,
+      "doors": 0,
+      "down_faces": 381,
+      "geo_candidates": 5768,
+      "geo_pairs": 836,
+      "lattice_curtain_faces": 0,
+      "lattice_faces": 84,
+      "lattice_skipped": 0,
+      "rust_sources": 153,
+      "traffic_parts": 0
+    },
+    "spec_key": "0ed9f49096628da2bcb13882db41e62e1f42fd35",
+    "vanilla": {
+      "VL1_all_covered": 0.02676,
+      "VL1_mean_rel_dL": 0.02934,
+      "VL2_share_rel_dL_gt_0.15": 0.04687,
+      "VL3_max_abs_dsmooth": 0.11378,
+      "VL3_mean_dsmooth": -0.00821,
+      "VL4_max": 0.1319,
+      "VL4_parts": [
+        {
+          "floored": false,
+          "part": "mast",
+          "ratio": 0.0293,
+          "role": "paint_steel",
+          "std_L": 0.11251,
+          "texels": 37444
+        },
+        {
+          "floored": false,
+          "part": "grate_deckn",
+          "ratio": 0.0101,
+          "role": "galv",
+          "std_L": 0.04188,
+          "texels": 17707
+        },
+        {
+          "floored": false,
+          "part": "grate_deckp",
+          "ratio": 0.0103,
+          "role": "galv",
+          "std_L": 0.04116,
+          "texels": 17702
+        },
+        {
+          "floored": false,
+          "part": "crashpad_outer",
+          "ratio": 0.1319,
+          "role": "pad",
+          "std_L": 0.1247,
+          "texels": 17596
+        },
+        {
+          "floored": false,
+          "part": "gantry_beam",
+          "ratio": 0.074,
+          "role": "paint_steel",
+          "std_L": 0.08927,
+          "texels": 12856
+        }
+      ],
+      "VL5_snow_share": 0.0,
+      "budget": {
+        "VL1": 0.05,
+        "VL2": 0.08,
+        "VL3_abs": 0.3,
+        "VL3_hi": 0.01,
+        "VL3_lo": -0.06,
+        "VL4": 0.5
+      },
+      "failed": [],
+      "ok": true,
+      "visible_texels": 219608
+    }
+  },
+  "weather_probe": {
+    "0.50": {
+      "ok": false,
+      "VL1": 0.05825,
+      "VL2": 0.13901,
+      "VL4": 0.2599,
+      "failed": [
+        "VL1",
+        "VL2"
+      ],
+      "dLstar": 1.4955
+    },
+    "0.45": {
+      "ok": false,
+      "VL1": 0.0525,
+      "VL2": 0.12935,
+      "VL4": 0.2346,
+      "failed": [
+        "VL1",
+        "VL2"
+      ],
+      "dLstar": 1.3541
+    },
+    "0.40": {
+      "ok": false,
+      "VL1": 0.04674,
+      "VL2": 0.11737,
+      "VL4": 0.2091,
+      "failed": [
+        "VL2"
+      ],
+      "dLstar": 1.2113
+    },
+    "0.35": {
+      "ok": false,
+      "VL1": 0.04096,
+      "VL2": 0.10213,
+      "VL4": 0.1837,
+      "failed": [
+        "VL2"
+      ],
+      "dLstar": 1.0668
+    },
+    "0.30": {
+      "ok": true,
+      "VL1": 0.03516,
+      "VL2": 0.07991,
+      "VL4": 0.158,
+      "failed": [],
+      "dLstar": 0.9205
+    },
+    "0.25": {
+      "ok": true,
+      "VL1": 0.02934,
+      "VL2": 0.04687,
+      "VL4": 0.1319,
+      "failed": [],
+      "dLstar": 0.7723
+    },
+    "0.20": {
+      "ok": true,
+      "VL1": 0.02351,
+      "VL2": 0.02702,
+      "VL4": 0.1058,
+      "failed": [],
+      "dLstar": 0.6222
+    },
+    "0.15": {
+      "ok": true,
+      "VL1": 0.01765,
+      "VL2": 0.00051,
+      "VL4": 0.0794,
+      "failed": [],
+      "dLstar": 0.4699
+    },
+    "0.10": {
+      "ok": true,
+      "VL1": 0.01178,
+      "VL2": 0.0,
+      "VL4": 0.053,
+      "failed": [],
+      "dLstar": 0.3156
+    }
+  }
+}

@@ -1,6 +1,13 @@
 // SkiPlacementInfoviewSystem — closes the Electricity infoview that the vanilla net tool opens when
-// the player starts drawing our lift LINE (SkiChairliftHV), once per tool activation, and leaves it
-// open when the player had it open before. Created 2026-10-03 (Round M1, implementer I-4).
+// the player starts drawing one of our lift LINES (every SkiCatalog.Lifts row with CloseElectricityView;
+// today SkiChairliftHV), once per tool activation, and leaves it open when the player had it open
+// before. Created 2026-10-03 (Round M1, implementer I-4). Catalog Phase A (2026-10-11,
+// docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md R5; extensibility.md §1 row 19): the
+// targets come from SkiCatalog and their PrefabBase from SkiPrefabCatalogSystem (PrefabID fast path, then
+// its one name scan — the old PrefabID-only lookup had no scan fallback, contract §8 N4).
+// Catalog Phase B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.4, lift group): every
+// FOUND lift line whose row has CloseElectricityView is a target (all four types today); `!!! Infoview: … not found` only
+// for an EXPECTED line MISSING; pending lines (not imported yet) are listed in the ARMED line ("pending: …").
 // Authority: docs/research/hub-u2-spec.md §6.2 (and OD-11 (a) of §0.1: close it for the lift line,
 // keep it for the base station, where the low-voltage feed is run — LocaleEN.cs, the base station's
 // description). Every engine citation is `Game.X/File.cs:line` in tools/decompile/1.6.0f1; "1.6.2 :N"
@@ -87,6 +94,7 @@
 // one "cap reached" line, so a long bulldoze ↔ redraw session cannot flood. Game mode only.
 
 using System;
+using System.Collections.Generic;
 using Colossal.Serialization.Entities;
 using Game;
 using Game.Prefabs;
@@ -103,15 +111,17 @@ namespace SkiResortMod.Systems
             public const int LogLinesMax = 64;
         }
 
-        /// <summary>The target: the lift LINE only (OD-11 (a)); the base station keeps its view.</summary>
-        private const string TargetPrefabName = "SkiChairliftHV";
-        private const string TargetPrefabType = nameof(PowerLinePrefab);
+        // Catalog Phase A (ext row 19; was SkiPlacementInfoviewSystem.cs:106-108 TargetPrefabName "SkiChairliftHV" /
+        // TargetPrefabType nameof(PowerLinePrefab)): the targets are the lift LINES of SkiCatalog.Lifts with
+        // CloseElectricityView (OD-11 (a)); the base station keeps its view. Their type is SkiCatalog.TypeLine.
 
         private ToolSystem m_ToolSystem;
-        private PrefabSystem m_PrefabSystem;
+        private SkiPrefabCatalogSystem m_PrefabCatalog;
 
-        // Resolved once per load (OnGameLoadingComplete).
-        private PrefabBase m_Target;
+        // Resolved once per load (OnGameLoadingComplete). Catalog Phase A (ext row 19; was :114 PrefabBase m_Target):
+        // a list (one entry today), compared by reference in IsTarget; never holds null.
+        private readonly List<PrefabBase> m_Targets = new List<PrefabBase>(2);
+        private string m_TargetNames = "-";
 
         // The rule's state (header THE RULE).
         private PrefabBase m_LastPrefab;
@@ -143,7 +153,7 @@ namespace SkiResortMod.Systems
         {
             base.OnCreate();
             m_ToolSystem = World.GetOrCreateSystemManaged<ToolSystem>();
-            m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
+            m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
             Mod.Log.Info($"{nameof(SkiPlacementInfoviewSystem)} created");
         }
 
@@ -153,7 +163,8 @@ namespace SkiResortMod.Systems
             m_Armed = false;
             m_Disabled = false;
             m_ErrorLogged = false;
-            m_Target = null;
+            m_Targets.Clear();
+            m_TargetNames = "-";
             m_LastPrefab = null;
             m_PrevView = null;
             m_PrevViewByTool = false;
@@ -171,18 +182,57 @@ namespace SkiResortMod.Systems
                 return;
             try
             {
-                if (!m_PrefabSystem.TryGetPrefab(new PrefabID(TargetPrefabType, TargetPrefabName), out PrefabBase target) ||
-                    target == null)
+                // Catalog Phase A (ext row 19; was SkiPlacementInfoviewSystem.cs:174-182, a PrefabID-only lookup): every
+                // lift line with CloseElectricityView, from the catalog (null when MISSING → the "!!!" below, as before).
+                // Catalog Phase B (round-2-contract §6.4): targets = every FOUND line whose row has CloseElectricityView;
+                // `!!!` only when an EXPECTED line (LiftTypeDef.LineExpected) is MISSING; a pending line (not imported
+                // yet) MISSING is listed in the ARMED line ("pending: …"), never `!!!`.
+                var wanted = new List<string>(4);
+                var found = new List<string>(4);
+                var missing = new List<string>(4);
+                var pending = new List<string>(4);
+                for (int l = 0; l < SkiCatalog.Lifts.Count; l++)
+                {
+                    LiftTypeDef def = SkiCatalog.Lifts[l];
+                    if (!def.CloseElectricityView)
+                        continue;
+                    PrefabBase target = m_PrefabCatalog.LinePrefabBase(def);
+                    if (target == null)
+                    {
+                        if (def.LineExpected)
+                        {
+                            wanted.Add(def.LinePrefab);
+                            missing.Add(def.LinePrefab);
+                        }
+                        else
+                        {
+                            pending.Add(def.LinePrefab);
+                        }
+                        continue;
+                    }
+                    wanted.Add(def.LinePrefab);
+                    if (!m_Targets.Contains(target))
+                        m_Targets.Add(target);
+                    found.Add(def.LinePrefab);
+                }
+                if (m_Targets.Count == 0)
                 {
                     m_Disabled = true;
                     LastAction = "DISABLED: target prefab missing";
-                    Mod.Log.Error($"!!! Infoview: {TargetPrefabName} not found — the Electricity view will stay open " +
-                                  "while drawing lifts (asset pack missing?)");
+                    string names = wanted.Count > 0 ? string.Join(", ", wanted.ToArray())
+                                                    : "(no expected SkiCatalog lift line with CloseElectricityView)";
+                    Mod.Log.Error($"!!! Infoview: {names} not found — the Electricity view will stay open " +
+                                  "while drawing lifts (asset pack missing?)" +
+                                  (pending.Count > 0 ? $"; pending (not imported yet): {string.Join(", ", pending.ToArray())}" : ""));
                     return;
                 }
-                m_Target = target;
+                if (missing.Count > 0)
+                    Mod.Log.Error($"!!! Infoview: {string.Join(", ", missing.ToArray())} not found — the Electricity view " +
+                                  "will stay open while drawing that lift line (asset pack missing?); the other target(s) stay armed");
+                m_TargetNames = string.Join(", ", found.ToArray());
                 m_Armed = true;
-                Mod.Log.Info($"Infoview: ARMED — targets {TargetPrefabName} ({TargetPrefabType}) only (OD-11 (a): the base " +
+                Mod.Log.Info($"Infoview: ARMED — targets {TargetsText(found)} only; pending: " +
+                             $"{(pending.Count > 0 ? string.Join(", ", pending.ToArray()) : "none")} (OD-11 (a): the base " +
                              "station keeps the Electricity view for its low-voltage feed); on each activation of the lift " +
                              "tool the view it opened is closed once (ToolSystem.infoview = null), unless the player had it " +
                              "open before (kept); re-opening it by hand is kept until the next activation; a view we closed " +
@@ -222,7 +272,7 @@ namespace SkiResortMod.Systems
                 }
                 m_LastTool = tool;
 
-                if (!m_Latched && view != null && ReferenceEquals(view, toolView) && ReferenceEquals(prefab, m_Target))
+                if (!m_Latched && view != null && ReferenceEquals(view, toolView) && IsTarget(prefab))
                 {
                     m_Latched = true;
                     if (m_PlayerHadIt)
@@ -252,7 +302,7 @@ namespace SkiResortMod.Systems
                     {
                         m_ClosedView = null;   // a view is open again, or ToolSystem's cache moved on (:333-336)
                     }
-                    else if (!ReferenceEquals(prefab, m_Target))
+                    else if (!IsTarget(prefab))
                     {
                         InfoviewPrefab restore = m_ClosedView;
                         m_ClosedView = null;
@@ -275,6 +325,28 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>Catalog Phase A (ext row 19; was ReferenceEquals(prefab, m_Target) at :225 and :255): a reference
+        /// compare over the per-load target list (one entry today). No allocation; null is never a target (the list
+        /// never holds null). Reference compares only, as before (no UnityEngine.Object == overload).</summary>
+        private bool IsTarget(PrefabBase prefab)
+        {
+            for (int i = 0; i < m_Targets.Count; i++)
+            {
+                if (ReferenceEquals(prefab, m_Targets[i]))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>"SkiChairliftHV (PowerLinePrefab)" per target, joined: the ARMED line's words, from the catalog.</summary>
+        private static string TargetsText(List<string> names)
+        {
+            var parts = new string[names.Count];
+            for (int i = 0; i < names.Count; i++)
+                parts[i] = names[i] + " (" + SkiCatalog.TypeLine + ")";
+            return string.Join(", ", parts);
+        }
+
         /// <summary>One close / keep line, capped per load (header HOUSE CONTRACT).</summary>
         private void Line(string text)
         {
@@ -295,7 +367,7 @@ namespace SkiResortMod.Systems
         /// <summary>DUMP text (main thread).</summary>
         public string StateText()
         {
-            return $"armed {m_Armed}, disabled {m_Disabled}, target {(m_Target != null ? m_Target.name : "-")}, closed {Closed}, " +
+            return $"armed {m_Armed}, disabled {m_Disabled}, target {m_TargetNames}, closed {Closed}, " +
                    $"kept {Kept}, restored {Restored}, latched {m_Latched}, pending restore " +
                    $"{(m_ClosedView != null ? m_ClosedView.name : "-")}, last: {LastAction}";
         }

@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiGondolaLattice25O_LOD1_BaseColor.png": "SkiGondolaLattice25O_BaseColor.png",
+    "SkiGondolaLattice25O_LOD1_ControlMask.png": "SkiGondolaLattice25O_ControlMask.png",
+    "SkiGondolaLattice25O_LOD1_MaskMap.png": "SkiGondolaLattice25O_MaskMap.png",
+    "SkiGondolaLattice25O_LOD1_Normal.png": "SkiGondolaLattice25O_Normal.png",
+    "SkiGondolaLattice25O_LOD2_BaseColor.png": "SkiGondolaLattice25O_BaseColor.png",
+    "SkiGondolaLattice25O_LOD2_ControlMask.png": "SkiGondolaLattice25O_ControlMask.png",
+    "SkiGondolaLattice25O_LOD2_MaskMap.png": "SkiGondolaLattice25O_MaskMap.png",
+    "SkiGondolaLattice25O_LOD2_Normal.png": "SkiGondolaLattice25O_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

@@ -1,0 +1,559 @@
+{
+  "name": "SkiSignSetPatrolHQB",
+  "written_utc": "2026-10-13T02:49:18Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiSignSetPatrolHQB.fbx": {
+      "bytes": 12748,
+      "sha1": "bab88995e17c23b9c08af2e2d07785794ead09c4"
+    },
+    "settings.json": {
+      "bytes": 511,
+      "sha1": "0c8fddc683ac61a79d88dbd0e4e6b8541e088e43"
+    }
+  },
+  "generator": "cs2_signset.py (via lodge.py)",
+  "spec": "fine-detail step 2",
+  "kind": "sign set (building sheet)",
+  "object_prefab": "SkiSignSetPatrolHQ",
+  "mesh": "SkiSignSetPatrolHQB",
+  "object_cid": "467055a60eca428b9e60b49521f79934",
+  "cid_state": "staged",
+  "host": {
+    "name": "SkiPatrolHQCommercialLowA",
+    "prefab": "SkiPatrolHQ",
+    "lot_half_game": [
+      8.0,
+      8.0
+    ],
+    "switch_lod2_m": 427.41,
+    "host_tris": {
+      "0": 1599,
+      "1": 649,
+      "2": 150
+    }
+  },
+  "host_recipe": "P2",
+  "tris": 2,
+  "bounds_game": {
+    "min": [
+      4.28,
+      2.2,
+      -3.0
+    ],
+    "max": [
+      4.28,
+      3.6,
+      1.6
+    ]
+  },
+  "faces": {
+    "sign_hqname_face": {
+      "kind": "p2.name",
+      "normal_authoring": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "rect": [
+        8,
+        8,
+        1388,
+        428
+      ],
+      "size_m": [
+        4.6,
+        1.4
+      ]
+    }
+  },
+  "cull": {
+    "extent_m": [
+      0.0,
+      1.4,
+      4.6
+    ],
+    "area_m2": 6.44,
+    "thin_bias": 0.5001,
+    "cull_bias0_m": 922.0,
+    "target_m": 427.4,
+    "m_Bias": 1.11,
+    "cull_at_bias_m": 427.2,
+    "lod_factor": 652.0,
+    "small_mesh_rule": "not applied (LodProperties present)",
+    "status": "[U] formula until SkiProbeLodA / F5"
+  },
+  "emissive": {
+    "intensity_at_surgery": 0.2,
+    "purpose": "importer 33 / 34",
+    "lit_kinds": [
+      "school.name",
+      "hut.name",
+      "p1.name",
+      "p2.name",
+      "l5.name",
+      "gate.header"
+    ],
+    "status": "lit while the owner chain has power (FS16: the host's ElectricityConsumer, else its efficiency)"
+  },
+  "row": {
+    "kind": "mod",
+    "ref": "CID",
+    "m_Object": "467055a60eca428b9e60b49521f79934",
+    "prefab": "SkiSignSetPatrolHQ",
+    "mesh": "SkiSignSetPatrolHQB",
+    "position": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "rotation": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "m_ParentMesh": 0,
+    "role": "signset"
+  },
+  "x_convention": "game (gx, gy, gz) = authoring (y, z, x) = FBX-raw (x, z, -y); gx NOT negated (the school's / every shipped building row's convention). build/probes-b.md section 2: the game appears to negate FBX x; probe X2 decides; branch N = S1b negates gx of every row with gx != 0 and mirrors yaw (q.y -> -q.y). Identity rows (role signset) are frame-free.",
+  "sheet": {
+    "owner": "SkiSignSetSchoolB",
+    "is_owner": false,
+    "size": 2048,
+    "ppm": 300.0,
+    "gutter_px": 8,
+    "dilate_px": 4,
+    "maps": [
+      "BaseColor",
+      "ControlMask",
+      "MaskMap",
+      "Normal",
+      "Emissive"
+    ],
+    "layout_sha": "afee251d75da1b40",
+    "free_rows_top": 260,
+    "kinds": [
+      {
+        "key": "school.name",
+        "host": "school",
+        "size_m": [
+          4.2,
+          0.9
+        ],
+        "rect": [
+          8,
+          834,
+          1268,
+          1104
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": ""
+      },
+      {
+        "key": "school.meet",
+        "host": "school",
+        "size_m": [
+          2.4,
+          1.2
+        ],
+        "rect": [
+          796,
+          436,
+          1516,
+          796
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.bibs",
+        "host": "school",
+        "size_m": [
+          2.0,
+          0.9
+        ],
+        "rect": [
+          1276,
+          834,
+          1876,
+          1104
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.notice",
+        "host": "school",
+        "size_m": [
+          0.7,
+          1.0
+        ],
+        "rect": [
+          1396,
+          8,
+          1606,
+          308
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.lesson0",
+        "host": "school",
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "rect": [
+          1524,
+          436,
+          1704,
+          616
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.lesson1",
+        "host": "school",
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "rect": [
+          1712,
+          436,
+          1892,
+          616
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.lesson2",
+        "host": "school",
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "rect": [
+          1516,
+          1112,
+          1696,
+          1292
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.lesson3",
+        "host": "school",
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "rect": [
+          1704,
+          1112,
+          1884,
+          1292
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.door1",
+        "host": "school",
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "rect": [
+          1900,
+          436,
+          1990,
+          526
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "revision 2: plain red plate, no digit (unused by the school)"
+      },
+      {
+        "key": "school.door2",
+        "host": "school",
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "rect": [
+          1884,
+          834,
+          1974,
+          924
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "revision 2: plain red plate, no digit (unused by the school)"
+      },
+      {
+        "key": "school.door3",
+        "host": "school",
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "rect": [
+          1892,
+          1112,
+          1982,
+          1202
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "revision 2: plain red plate, no digit (unused by the school)"
+      },
+      {
+        "key": "school.door4",
+        "host": "school",
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "rect": [
+          1884,
+          1360,
+          1974,
+          1450
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "revision 2: plain red plate, no digit (unused by the school)"
+      },
+      {
+        "key": "hut.name",
+        "host": "hut",
+        "size_m": [
+          5.0,
+          0.8
+        ],
+        "rect": [
+          8,
+          1112,
+          1508,
+          1352
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": ""
+      },
+      {
+        "key": "hut.picto",
+        "host": "hut",
+        "size_m": [
+          2.4,
+          0.6
+        ],
+        "rect": [
+          8,
+          1608,
+          728,
+          1788
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "hut.menu",
+        "host": "hut",
+        "size_m": [
+          0.55,
+          0.8
+        ],
+        "rect": [
+          1787,
+          8,
+          1952,
+          248
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "p1.name",
+        "host": "p1",
+        "size_m": [
+          2.6,
+          1.3
+        ],
+        "rect": [
+          8,
+          436,
+          788,
+          826
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "SKI / PATROL white on patrol red (recipes/patrol.py P1_NAME); painted at approval"
+      },
+      {
+        "key": "p1.info",
+        "host": "p1",
+        "size_m": [
+          0.55,
+          0.85
+        ],
+        "rect": [
+          1614,
+          8,
+          1779,
+          263
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "info board, three colour bars (P1_BOARD, _civic.BarsPainter); painted at approval"
+      },
+      {
+        "key": "p2.name",
+        "host": "p2",
+        "size_m": [
+          4.6,
+          1.4
+        ],
+        "rect": [
+          8,
+          8,
+          1388,
+          428
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "SKI PATROL / FIRST AID white on patrol red (P2_NAME); painted at approval"
+      },
+      {
+        "key": "l5.name",
+        "host": "l5",
+        "size_m": [
+          5.0,
+          0.8
+        ],
+        "rect": [
+          8,
+          1360,
+          1508,
+          1600
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "GRAND LODGE cream on board brown, the L5 porte-cochere name board (recipes/l5_swanky_bottom NB_TEXT); painted at approval (step 3e)"
+      },
+      {
+        "key": "tram.stn",
+        "host": "tram",
+        "size_m": [
+          1.2,
+          0.5
+        ],
+        "rect": [
+          1516,
+          1360,
+          1876,
+          1510
+        ],
+        "state": "reserved",
+        "lit": false,
+        "note": "tram top TRAM board (tram_station.py label_stn) if rev 2 moves it off the host"
+      },
+      {
+        "key": "school.markstaff",
+        "host": "school",
+        "size_m": [
+          0.44,
+          0.36
+        ],
+        "rect": [
+          744,
+          1616,
+          876,
+          1724
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "red placard on the white doors (original photo; legend a stand-in)"
+      },
+      {
+        "key": "school.marknosled",
+        "host": "school",
+        "size_m": [
+          0.76,
+          0.36
+        ],
+        "rect": [
+          884,
+          1616,
+          1112,
+          1724
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "red NO SLEDDING sign with a white rim (Street View 120856)"
+      },
+      {
+        "key": "gate.header",
+        "host": "gate",
+        "size_m": [
+          2.6,
+          0.6
+        ],
+        "rect": [
+          1260,
+          1608,
+          2040,
+          1788
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "SKI AREA lettering panel of the welcome sign header (welcome_sign HEADER_TEXT, cap 0.42 m = HEADER_CAP); lit: the resort name board (H2)"
+      },
+      {
+        "key": "gate.flake",
+        "host": "gate",
+        "size_m": [
+          0.7,
+          0.6
+        ],
+        "rect": [
+          1524,
+          624,
+          1734,
+          804
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "snowflake end panel of the welcome sign header (ORNAMENT_D 0.36 m, centred); used twice (L / R)"
+      }
+    ],
+    "metrics": null
+  },
+  "folder_layout": {
+    "owner": "assets/import/signs/B/SkiSignSetSchoolB/",
+    "same_round_sharer": "assets/import/signs/B/SkiSignSet<Host>B/ -> ../SkiSignSetSchoolB/SkiSignSetSchoolB_<Map>.png",
+    "later_round_sharer": "assets/import/signs/<L>/SkiSignSet<Host><L>/ -> ../../B/SkiSignSetSchoolB/SkiSignSetSchoolB_<Map>.png [U]; fallback: m_SurfaceAssets repoint to the owner Surface CID (FS8)",
+    "staging": "assets/staging/prefabs/signs/<L>/SkiSignSetPatrolHQ/"
+  },
+  "staging": [
+    "assets/staging/prefabs/signs/B/SkiSignSetPatrolHQ/SkiSignSetPatrolHQ.Prefab",
+    "assets/staging/prefabs/signs/B/SkiSignSetPatrolHQ/SkiSignSetPatrolHQB Mesh.LodProperties.fragment",
+    "assets/staging/prefabs/signs/B/SkiSignSetPatrolHQ/SkiSignSetPatrolHQB Mesh.surgery.json"
+  ]
+}

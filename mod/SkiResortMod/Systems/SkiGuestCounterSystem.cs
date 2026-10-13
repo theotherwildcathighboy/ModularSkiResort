@@ -31,7 +31,9 @@
 //     :283-312) gets the same baseline at the next leisure scan, so nobody is counted or charged twice.
 //
 // TARGETS (ch4 §2.2, §4.2): every live Welcome Sign (SkiRunOwnershipSystem.IsGatePrefab) and every ACTIVE
-// lodge listed in a live sign's InstalledUpgrade buffer (SkiResortAttractivenessSystem.IsLodgePrefab and
+// lodge listed in a live sign's InstalledUpgrade buffer (SkiResortAttractivenessSystem.IsLodgePrefab — since Catalog
+// Phase B (round-2-contract §7.4, Phase A review finding 1) its LodgePrefabSet fetched ONCE per rebuild, every lodge tier;
+// the school and the patrol huts are not targets — and
 // !BuildingUtils.CheckOption(entry, BuildingOption.Inactive), BuildingUtils.cs:356). Free-standing and
 // out-of-service lodges are not targets (counted for the targets line only). The map building → sign is
 // rebuilt on the main thread between jobs when the Park query's entity count moves, when the attraction
@@ -1031,6 +1033,9 @@ namespace SkiResortMod.Systems
             }
 
             int lodgeBuildings = 0;
+            // Catalog Phase B (round-2-contract §7.4, Phase A review finding 1; was m_Attractiveness.IsLodgePrefab per
+            // building at :1052 and :1072): the catalog's lodge-prefab view, fetched once for this rebuild.
+            HashSet<Entity> lodgePrefabs = m_Attractiveness.LodgePrefabSet;
             if (!m_TargetQuery.IsEmptyIgnoreFilter)
             {
                 // E1 fixer (F7): sync only what the walk reads — PrefabRef (Entity needs no sync; Building
@@ -1049,7 +1054,7 @@ namespace SkiResortMod.Systems
                             Entity prefab = prefabs[i].m_Prefab;
                             if (m_Ownership.IsGatePrefab(prefab))
                                 m_Signs.Add(entities[i]);
-                            else if (m_Attractiveness.IsLodgePrefab(prefab))
+                            else if (lodgePrefabs.Contains(prefab))
                                 lodgeBuildings++;
                         }
                     }
@@ -1069,7 +1074,7 @@ namespace SkiResortMod.Systems
                 {
                     InstalledUpgrade entry = upgrades[u];
                     Entity lodge = entry.m_Upgrade;
-                    if (!EntityManager.TryGetComponent(lodge, out PrefabRef pr) || !m_Attractiveness.IsLodgePrefab(pr.m_Prefab))
+                    if (!EntityManager.TryGetComponent(lodge, out PrefabRef pr) || !lodgePrefabs.Contains(pr.m_Prefab))
                         continue;
                     if (!m_ListedScratch.Add(lodge))
                         continue;   // listed twice (should not happen): counted once

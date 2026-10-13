@@ -1,0 +1,5189 @@
+{
+  "name": "SkiLodgeSwankyBottomCommercialLowB",
+  "written_utc": "2026-10-13T08:30:47Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiLodgeSwankyBottomCommercialLowB.fbx": {
+      "bytes": 1460012,
+      "sha1": "6f34da42d69e7ba223b94f98a427f71c6ceb67c7"
+    },
+    "SkiLodgeSwankyBottomCommercialLowB_BaseColor.png": {
+      "bytes": 15846625,
+      "sha1": "33aae8ffc403627a4768dbe0e70006b547f1f881"
+    },
+    "SkiLodgeSwankyBottomCommercialLowB_ControlMask.png": {
+      "bytes": 717224,
+      "sha1": "fc0acefba4585ecb174227f392eae2900af71085"
+    },
+    "SkiLodgeSwankyBottomCommercialLowB_Emissive.png": {
+      "bytes": 309374,
+      "sha1": "cecb98131f63df313009e84d80c030e7b9adf8ef"
+    },
+    "SkiLodgeSwankyBottomCommercialLowB_LOD1.fbx": {
+      "bytes": 831036,
+      "sha1": "ffb7a97c672872d58b141635c5c89ee58a13eec6"
+    },
+    "SkiLodgeSwankyBottomCommercialLowB_LOD1_Win.fbx": {
+      "bytes": 59228,
+      "sha1": "0f196d5b8e2434d9be10ace6220cafcc6269dbf4"
+    },
+    "SkiLodgeSwankyBottomCommercialLowB_LOD2.fbx": {
+      "bytes": 56780,
+      "sha1": "bc15cb7bc751c5dc173eaee41fe3f55d54b9d887"
+    },
+    "SkiLodgeSwankyBottomCommercialLowB_LOD2_Win.fbx": {
+      "bytes": 59228,
+      "sha1": "946f2c5e55a1b3477a8454f751ec937930ccaef0"
+    },
+    "SkiLodgeSwankyBottomCommercialLowB_MaskMap.png": {
+      "bytes": 5728881,
+      "sha1": "8d243c70804ecc8234435091c22f8c2000b4dd85"
+    },
+    "SkiLodgeSwankyBottomCommercialLowB_Normal.png": {
+      "bytes": 10589877,
+      "sha1": "e270ec975427564569219e67d31bfd3cf51160b2"
+    },
+    "SkiLodgeSwankyBottomCommercialLowB_Win.fbx": {
+      "bytes": 59228,
+      "sha1": "0903d458cdcca9e81dcdb8e8adf07e740933c2fb"
+    },
+    "settings.json": {
+      "bytes": 1007,
+      "sha1": "674e5b2dde680768686c2a786c4f94891c7108b9"
+    }
+  },
+  "generator": "lodge.py",
+  "git_sha": "6af00f1",
+  "spec": "bldg-kit-2026-10",
+  "recipe": "L5",
+  "args": {
+    "lodge": "L5",
+    "school": false,
+    "patrol": null,
+    "recipe": null,
+    "out": null,
+    "export": true,
+    "name": null,
+    "letter": null,
+    "blockout": false,
+    "finish": true,
+    "lods": true,
+    "no_validate": false,
+    "tex": "auto",
+    "interior": "name",
+    "tower": true,
+    "roof_windows": "win",
+    "preview": "",
+    "ab": null,
+    "review": "",
+    "review_out": null,
+    "ao_samples": 48,
+    "packer": "calibrated",
+    "weather_sweep": null,
+    "signset": true,
+    "no_signset": false,
+    "no_fine": false,
+    "signset_out": null
+  },
+  "prefab": "SkiLodgeGrand",
+  "tris": {
+    "0": 23019,
+    "1": 10359,
+    "2": 479
+  },
+  "budget": {
+    "lod0_target": 26000,
+    "lod0_cap": 30000,
+    "lod1": 11000,
+    "lod2": 480,
+    "lod2_cap": 800
+  },
+  "parts": 2438,
+  "materials_used": [
+    "accent",
+    "concrete",
+    "deck",
+    "galv",
+    "glass_dark",
+    "label",
+    "lamp",
+    "lux_balrail",
+    "lux_drive",
+    "lux_ember",
+    "lux_glulam",
+    "lux_paver",
+    "lux_pooltile",
+    "lux_siding_red",
+    "lux_siding_walnut",
+    "lux_slate",
+    "lux_stone_tan",
+    "lux_tg",
+    "lux_trim",
+    "lux_vboard_red",
+    "lux_water",
+    "metal_roof",
+    "plaster",
+    "ski_black",
+    "timber_lap",
+    "timber_shake",
+    "trim"
+  ],
+  "materials": {
+    "accent": {
+      "set": null,
+      "albedo_lin": [
+        0.6038,
+        0.6038,
+        0.6038
+      ],
+      "target_srgb": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "slot": 2,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "concrete": {
+      "set": "Concrete034",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_159",
+      "N": 159,
+      "ppm": 53.01,
+      "tile_sq": 3.0,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        0.58,
+        0.58,
+        0.58
+      ],
+      "set_mean_srgb": [
+        0.723,
+        0.723,
+        0.723
+      ],
+      "target_srgb": null,
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "deck": {
+      "set": "Planks021",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_61",
+      "N": 61,
+      "ppm": 39.76,
+      "tile_sq": 1.54,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        0.3534,
+        0.3607,
+        0.484
+      ],
+      "set_mean_srgb": [
+        0.77,
+        0.671,
+        0.466
+      ],
+      "target_srgb": [
+        0.48,
+        0.42,
+        0.33
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "galv": {
+      "set": "Metal032",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_53",
+      "N": 53,
+      "ppm": 26.51,
+      "tile_sq": 2.0,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "set_mean_srgb": [
+        0.49,
+        0.536,
+        0.579
+      ],
+      "target_srgb": null,
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "glass_dark": {
+      "set": null,
+      "albedo_lin": [
+        0.006,
+        0.0085,
+        0.0116
+      ],
+      "target_srgb": [
+        0.07,
+        0.09,
+        0.11
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "label": {
+      "set": null,
+      "albedo_lin": [
+        0.6921,
+        0.6921,
+        0.6921
+      ],
+      "target_srgb": [
+        0.85,
+        0.85,
+        0.85
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "lamp": {
+      "set": null,
+      "albedo_lin": [
+        0.3185,
+        0.2957,
+        0.233
+      ],
+      "target_srgb": [
+        0.6,
+        0.58,
+        0.52
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": [
+        0.89,
+        0.6921,
+        0.3801
+      ]
+    },
+    "lux_balrail": {
+      "set": "WoodSiding009",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_76",
+      "N": 76,
+      "ppm": 31.81,
+      "tile_sq": 2.4,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        0.8463,
+        0.448,
+        0.2842
+      ],
+      "set_mean_srgb": [
+        0.792,
+        0.758,
+        0.628
+      ],
+      "target_srgb": [
+        0.7354,
+        0.5271,
+        0.3492
+      ],
+      "slot": 0,
+      "uv_rot": 90,
+      "proj": "box"
+    },
+    "lux_drive": {
+      "set": "Concrete034",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_64",
+      "N": 64,
+      "ppm": 21.2,
+      "tile_sq": 3.0,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        0.2211,
+        0.2211,
+        0.2341
+      ],
+      "set_mean_srgb": [
+        0.723,
+        0.723,
+        0.723
+      ],
+      "target_srgb": [
+        0.36,
+        0.36,
+        0.37
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "lux_ember": {
+      "set": null,
+      "albedo_lin": [
+        0.0835,
+        0.0174,
+        0.0049
+      ],
+      "target_srgb": [
+        0.32,
+        0.14,
+        0.06
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": [
+        1.0,
+        0.2633,
+        0.0509
+      ]
+    },
+    "lux_glulam": {
+      "set": "Planks021",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_82",
+      "N": 82,
+      "ppm": 53.01,
+      "tile_sq": 1.54,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        0.9017,
+        0.5876,
+        0.5439
+      ],
+      "set_mean_srgb": [
+        0.77,
+        0.671,
+        0.466
+      ],
+      "target_srgb": [
+        0.7354,
+        0.5271,
+        0.3492
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "along"
+    },
+    "lux_paver": {
+      "set": "Bricks096",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Bricks096_42",
+      "N": 42,
+      "ppm": 26.51,
+      "tile_sq": 1.6,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        1.4178,
+        0.6474,
+        0.7835
+      ],
+      "set_mean_srgb": [
+        0.442,
+        0.418,
+        0.316
+      ],
+      "target_srgb": [
+        0.52,
+        0.34,
+        0.28
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "lux_pooltile": {
+      "set": null,
+      "albedo_lin": [
+        0.2633,
+        0.5705,
+        0.6383
+      ],
+      "target_srgb": [
+        0.55,
+        0.78,
+        0.82
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "lux_siding_red": {
+      "set": "WoodSiding009",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_148",
+      "N": 148,
+      "ppm": 53.01,
+      "tile_sq": 2.8,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        0.3385,
+        0.1867,
+        0.1932
+      ],
+      "set_mean_srgb": [
+        0.792,
+        0.758,
+        0.628
+      ],
+      "target_srgb": [
+        0.4845,
+        0.3492,
+        0.2892
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "lux_siding_walnut": {
+      "set": "WoodSiding009",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_148",
+      "N": 148,
+      "ppm": 53.01,
+      "tile_sq": 2.8,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        0.2369,
+        0.1493,
+        0.1421
+      ],
+      "set_mean_srgb": [
+        0.792,
+        0.758,
+        0.628
+      ],
+      "target_srgb": [
+        0.41,
+        0.3133,
+        0.2478
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "lux_slate": {
+      "set": "RoofingTiles003",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\RoofingTiles003_102",
+      "N": 102,
+      "ppm": 31.81,
+      "tile_sq": 3.2,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "set_mean_srgb": [
+        0.214,
+        0.224,
+        0.215
+      ],
+      "target_srgb": null,
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "inplane"
+    },
+    "lux_stone_tan": {
+      "set": "Bricks096",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Bricks096_127",
+      "N": 127,
+      "ppm": 53.01,
+      "tile_sq": 2.4,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        1.8253,
+        1.1565,
+        1.2246
+      ],
+      "set_mean_srgb": [
+        0.442,
+        0.418,
+        0.316
+      ],
+      "target_srgb": [
+        0.5838,
+        0.448,
+        0.3485
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "lux_tg": {
+      "set": "WoodSiding009",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_127",
+      "N": 127,
+      "ppm": 53.01,
+      "tile_sq": 2.4,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        0.6771,
+        0.3547,
+        0.2415
+      ],
+      "set_mean_srgb": [
+        0.792,
+        0.758,
+        0.628
+      ],
+      "target_srgb": [
+        0.6652,
+        0.4731,
+        0.3227
+      ],
+      "slot": 0,
+      "uv_rot": 90,
+      "proj": "box"
+    },
+    "lux_trim": {
+      "set": null,
+      "albedo_lin": [
+        0.6038,
+        0.6038,
+        0.6038
+      ],
+      "target_srgb": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "slot": 1,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "lux_vboard_red": {
+      "set": "WoodSiding009",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_148",
+      "N": 148,
+      "ppm": 53.01,
+      "tile_sq": 2.8,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        0.3385,
+        0.1867,
+        0.1932
+      ],
+      "set_mean_srgb": [
+        0.792,
+        0.758,
+        0.628
+      ],
+      "target_srgb": [
+        0.4845,
+        0.3492,
+        0.2892
+      ],
+      "slot": 0,
+      "uv_rot": 90,
+      "proj": "box"
+    },
+    "lux_water": {
+      "set": null,
+      "albedo_lin": [
+        0.006,
+        0.1065,
+        0.1706
+      ],
+      "target_srgb": [
+        0.07,
+        0.36,
+        0.45
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "metal_roof": {
+      "set": null,
+      "albedo_lin": [
+        0.6038,
+        0.6038,
+        0.6038
+      ],
+      "target_srgb": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "slot": 3,
+      "proj": "inplane",
+      "emissive_lin": null
+    },
+    "plaster": {
+      "set": "Plaster002",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Plaster002_106",
+      "N": 106,
+      "ppm": 53.01,
+      "tile_sq": 2.0,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "set_mean_srgb": [
+        0.852,
+        0.838,
+        0.826
+      ],
+      "target_srgb": null,
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "ski_black": {
+      "set": null,
+      "albedo_lin": [
+        0.0049,
+        0.0049,
+        0.0054
+      ],
+      "target_srgb": [
+        0.06,
+        0.06,
+        0.065
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "timber_lap": {
+      "set": "WoodSiding009",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_127",
+      "N": 127,
+      "ppm": 53.01,
+      "tile_sq": 2.4,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        0.1198,
+        0.0841,
+        0.0813
+      ],
+      "set_mean_srgb": [
+        0.792,
+        0.758,
+        0.628
+      ],
+      "target_srgb": [
+        0.295,
+        0.235,
+        0.185
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "timber_shake": {
+      "set": "WoodSiding013",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding013_95",
+      "N": 95,
+      "ppm": 53.01,
+      "tile_sq": 1.8,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "set_mean_srgb": [
+        0.406,
+        0.352,
+        0.275
+      ],
+      "target_srgb": null,
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "trim": {
+      "set": null,
+      "albedo_lin": [
+        0.6038,
+        0.6038,
+        0.6038
+      ],
+      "target_srgb": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "slot": 1,
+      "proj": "box",
+      "emissive_lin": null
+    }
+  },
+  "cull": {
+    "faces_before": 16304,
+    "faces_removed": 4210,
+    "area_before": 26793.0,
+    "area_after": 20833.2,
+    "wall_area_deleted_by_rays": 0.0,
+    "wall_rule": "contact",
+    "d_min": 25.0,
+    "rays": 24,
+    "ring": 8,
+    "removed_per_part": {
+      "wall_mf2": 11,
+      "wall_mf3": 21,
+      "wall_mf4": 10,
+      "roof_mA": 6,
+      "soffit_mA": 1,
+      "rake_mA0": 1,
+      "rake_mA1": 1,
+      "fascia_mA": 5,
+      "roof_mB": 5,
+      "rake_mB0": 1,
+      "rake_mB1": 1,
+      "fascia_mB": 3,
+      "ridge_m": 9,
+      "gable_m0": 2,
+      "gable_m1": 2,
+      "trim_trussxgm0": 8,
+      "trim_trussxgm1": 8,
+      "wall_wsf2": 2,
+      "wall_wsf3": 2,
+      "wall_wsf4": 2,
+      "roof_wsA": 5,
+      "rake_wsA0": 1,
+      "rake_wsA1": 15,
+      "fascia_wsA": 8,
+      "roof_wsB": 5,
+      "rake_wsB0": 2,
+      "rake_wsB1": 15,
+      "fascia_wsB": 8,
+      "ridge_ws": 9,
+      "gable_wsend": 2,
+      "trim_trussxgends": 8,
+      "wall_wnf2": 2,
+      "wall_wnf3": 2,
+      "wall_wnf4": 2,
+      "roof_wnA": 5,
+      "rake_wnA0": 1,
+      "rake_wnA1": 15,
+      "fascia_wnA": 8,
+      "roof_wnB": 5,
+      "rake_wnB0": 1,
+      "rake_wnB1": 15,
+      "fascia_wnB": 8,
+      "ridge_wn": 9,
+      "gable_wnend": 2,
+      "trim_trussxgendn": 8,
+      "trim_belt": 13,
+      "trim_corners": 8,
+      "pier_m0": 1,
+      "plinthcap_m0": 7,
+      "pier_m1": 2,
+      "plinthcap_m1": 8,
+      "pier_m3": 1,
+      "plinthcap_m3": 7,
+      "cmull_mgr0": 10,
+      "ctran_mgr0": 4,
+      "cmull_mgr1": 12,
+      "ctran_mgr1": 4,
+      "cmull_mgr2": 12,
+      "ctran_mgr2": 4,
+      "cmull_mgr3": 10,
+      "ctran_mgr3": 3,
+      "sill_mr00u2": 1,
+      "head_mr00u2": 1,
+      "jamb_mr00u20": 2,
+      "jamb_mr00u21": 2,
+      "mull_mr00u2": 2,
+      "sill_mr00u3": 1,
+      "head_mr00u3": 1,
+      "jamb_mr00u30": 2,
+      "jamb_mr00u31": 2,
+      "mull_mr00u3": 2,
+      "sill_mr00u4": 1,
+      "head_mr00u4": 1,
+      "jamb_mr00u40": 2,
+      "jamb_mr00u41": 2,
+      "mull_mr00u4": 2,
+      "sill_mr01u2": 1,
+      "head_mr01u2": 1,
+      "jamb_mr01u20": 2,
+      "jamb_mr01u21": 2,
+      "mull_mr01u2": 2,
+      "sill_mr01u3": 1,
+      "head_mr01u3": 1,
+      "jamb_mr01u30": 2,
+      "jamb_mr01u31": 2,
+      "mull_mr01u3": 2,
+      "sill_mr01u4": 1,
+      "head_mr01u4": 2,
+      "jamb_mr01u40": 2,
+      "jamb_mr01u41": 2,
+      "mull_mr01u4": 2,
+      "sill_mr10u2": 1,
+      "head_mr10u2": 1,
+      "jamb_mr10u20": 2,
+      "jamb_mr10u21": 2,
+      "mull_mr10u2": 2,
+      "sill_mr10u3": 1,
+      "head_mr10u3": 1,
+      "jamb_mr10u30": 2,
+      "jamb_mr10u31": 2,
+      "mull_mr10u3": 2,
+      "sill_mr10u4": 1,
+      "head_mr10u4": 2,
+      "jamb_mr10u40": 2,
+      "jamb_mr10u41": 2,
+      "mull_mr10u4": 2,
+      "sill_mr11u2": 1,
+      "head_mr11u2": 1,
+      "jamb_mr11u20": 2,
+      "jamb_mr11u21": 2,
+      "mull_mr11u2": 2,
+      "sill_mr11u3": 1,
+      "head_mr11u3": 1,
+      "jamb_mr11u30": 2,
+      "jamb_mr11u31": 2,
+      "mull_mr11u3": 2,
+      "sill_mr11u4": 1,
+      "head_mr11u4": 2,
+      "jamb_mr11u40": 2,
+      "jamb_mr11u41": 2,
+      "mull_mr11u4": 2,
+      "sill_mr20u2": 2,
+      "head_mr20u2": 1,
+      "jamb_mr20u20": 2,
+      "jamb_mr20u21": 2,
+      "mull_mr20u2": 2,
+      "sill_mr20u3": 1,
+      "head_mr20u3": 1,
+      "jamb_mr20u30": 2,
+      "jamb_mr20u31": 2,
+      "mull_mr20u3": 2,
+      "sill_mr20u4": 1,
+      "head_mr20u4": 2,
+      "jamb_mr20u40": 2,
+      "jamb_mr20u41": 2,
+      "mull_mr20u4": 2,
+      "sill_mr21u2": 2,
+      "head_mr21u2": 1,
+      "jamb_mr21u20": 2,
+      "jamb_mr21u21": 2,
+      "mull_mr21u2": 2,
+      "sill_mr21u3": 1,
+      "head_mr21u3": 1,
+      "jamb_mr21u30": 2,
+      "jamb_mr21u31": 2,
+      "mull_mr21u3": 2,
+      "sill_mr21u4": 1,
+      "head_mr21u4": 2,
+      "jamb_mr21u40": 2,
+      "jamb_mr21u41": 2,
+      "mull_mr21u4": 2,
+      "sill_mr30u2": 1,
+      "head_mr30u2": 1,
+      "jamb_mr30u20": 2,
+      "jamb_mr30u21": 2,
+      "mull_mr30u2": 2,
+      "sill_mr30u3": 1,
+      "head_mr30u3": 1,
+      "jamb_mr30u30": 2,
+      "jamb_mr30u31": 2,
+      "mull_mr30u3": 2,
+      "sill_mr30u4": 1,
+      "head_mr30u4": 2,
+      "jamb_mr30u40": 2,
+      "jamb_mr30u41": 2,
+      "mull_mr30u4": 2,
+      "sill_mr31u2": 1,
+      "head_mr31u2": 1,
+      "jamb_mr31u20": 2,
+      "jamb_mr31u21": 2,
+      "mull_mr31u2": 2,
+      "sill_mr31u3": 1,
+      "head_mr31u3": 1,
+      "jamb_mr31u30": 2,
+      "jamb_mr31u31": 2,
+      "mull_mr31u3": 2,
+      "sill_mr31u4": 1,
+      "head_mr31u4": 2,
+      "jamb_mr31u40": 2,
+      "jamb_mr31u41": 2,
+      "mull_mr31u4": 2,
+      "wall_xgr0": 1,
+      "roof_xgr0A": 2,
+      "rake_xgr0A0": 15,
+      "rake_xgr0A1": 1,
+      "fascia_xgr0A": 8,
+      "roof_xgr0B": 4,
+      "rake_xgr0B0": 15,
+      "rake_xgr0B1": 2,
+      "fascia_xgr0B": 8,
+      "ridge_xgr0": 9,
+      "gable_xgr0f": 2,
+      "trim_trussxgr0": 10,
+      "sill_xgr0gf": 2,
+      "head_xgr0gf": 1,
+      "jamb_xgr0gf0": 2,
+      "jamb_xgr0gf1": 2,
+      "mull_xgr0gf": 2,
+      "sill_xgr0d2": 2,
+      "head_xgr0d2": 1,
+      "jamb_xgr0d20": 2,
+      "jamb_xgr0d21": 2,
+      "mull_xgr0d2": 2,
+      "bracket_xgr02": 1,
+      "jamb_xgr0w200": 2,
+      "jamb_xgr0w201": 2,
+      "jamb_xgr0w210": 2,
+      "jamb_xgr0w211": 2,
+      "sill_xgr0d3": 2,
+      "head_xgr0d3": 1,
+      "jamb_xgr0d30": 2,
+      "jamb_xgr0d31": 2,
+      "mull_xgr0d3": 2,
+      "bracket_xgr03": 2,
+      "jamb_xgr0w300": 2,
+      "jamb_xgr0w301": 2,
+      "jamb_xgr0w310": 2,
+      "jamb_xgr0w311": 2,
+      "sill_xgr0d4": 2,
+      "head_xgr0d4": 1,
+      "jamb_xgr0d40": 2,
+      "jamb_xgr0d41": 2,
+      "mull_xgr0d4": 2,
+      "bracket_xgr04": 2,
+      "jamb_xgr0w400": 2,
+      "jamb_xgr0w401": 2,
+      "jamb_xgr0w410": 2,
+      "jamb_xgr0w411": 2,
+      "jamb_xgr0g00": 2,
+      "jamb_xgr0g01": 2,
+      "jamb_xgr0g10": 2,
+      "jamb_xgr0g11": 2,
+      "wall_xgr1": 1,
+      "roof_xgr1A": 3,
+      "rake_xgr1A0": 15,
+      "rake_xgr1A1": 2,
+      "fascia_xgr1A": 8,
+      "roof_xgr1B": 4,
+      "rake_xgr1B0": 15,
+      "rake_xgr1B1": 2,
+      "fascia_xgr1B": 8,
+      "ridge_xgr1": 9,
+      "gable_xgr1f": 2,
+      "trim_trussxgr1": 10,
+      "sill_xgr1gf": 2,
+      "head_xgr1gf": 1,
+      "jamb_xgr1gf0": 2,
+      "jamb_xgr1gf1": 2,
+      "mull_xgr1gf": 2,
+      "sill_xgr1d2": 2,
+      "head_xgr1d2": 1,
+      "jamb_xgr1d20": 2,
+      "jamb_xgr1d21": 2,
+      "mull_xgr1d2": 2,
+      "bracket_xgr12": 3,
+      "jamb_xgr1w200": 2,
+      "jamb_xgr1w201": 2,
+      "jamb_xgr1w210": 2,
+      "jamb_xgr1w211": 2,
+      "sill_xgr1d3": 2,
+      "head_xgr1d3": 1,
+      "jamb_xgr1d30": 2,
+      "jamb_xgr1d31": 2,
+      "mull_xgr1d3": 2,
+      "bracket_xgr13": 2,
+      "jamb_xgr1w300": 2,
+      "jamb_xgr1w301": 2,
+      "jamb_xgr1w310": 2,
+      "jamb_xgr1w311": 2,
+      "sill_xgr1d4": 2,
+      "head_xgr1d4": 1,
+      "jamb_xgr1d40": 2,
+      "jamb_xgr1d41": 2,
+      "mull_xgr1d4": 2,
+      "bracket_xgr14": 2,
+      "jamb_xgr1w400": 2,
+      "jamb_xgr1w401": 2,
+      "jamb_xgr1w410": 2,
+      "jamb_xgr1w411": 2,
+      "jamb_xgr1g00": 2,
+      "jamb_xgr1g01": 2,
+      "jamb_xgr1g10": 2,
+      "jamb_xgr1g11": 2,
+      "pier_mc0": 2,
+      "plinthcap_mc0": 12,
+      "pier_mc1": 2,
+      "plinthcap_mc1": 11,
+      "pier_mc2": 1,
+      "plinthcap_mc2": 7,
+      "pier_mc3": 2,
+      "plinthcap_mc3": 7,
+      "pier_mc4": 2,
+      "plinthcap_mc4": 11,
+      "pier_mc5": 2,
+      "plinthcap_mc5": 12,
+      "cmull_mgc0": 10,
+      "ctran_mgc0": 3,
+      "cmull_mgc1": 10,
+      "ctran_mgc1": 3,
+      "cmull_mgc3": 10,
+      "ctran_mgc3": 3,
+      "cmull_mgc4": 10,
+      "ctran_mgc4": 3,
+      "sill_mcb0d2": 2,
+      "head_mcb0d2": 1,
+      "jamb_mcb0d20": 2,
+      "jamb_mcb0d21": 2,
+      "mull_mcb0d2": 2,
+      "bracket_mcb02": 3,
+      "sill_mcb0w20": 1,
+      "head_mcb0w20": 1,
+      "jamb_mcb0w200": 2,
+      "jamb_mcb0w201": 2,
+      "mull_mcb0w20": 2,
+      "sill_mcb0w21": 1,
+      "head_mcb0w21": 1,
+      "jamb_mcb0w210": 2,
+      "jamb_mcb0w211": 2,
+      "mull_mcb0w21": 2,
+      "sill_mcb0d3": 2,
+      "head_mcb0d3": 1,
+      "jamb_mcb0d30": 2,
+      "jamb_mcb0d31": 2,
+      "mull_mcb0d3": 2,
+      "bracket_mcb03": 3,
+      "sill_mcb0w30": 1,
+      "head_mcb0w30": 1,
+      "jamb_mcb0w300": 2,
+      "jamb_mcb0w301": 2,
+      "mull_mcb0w30": 2,
+      "sill_mcb0w31": 1,
+      "head_mcb0w31": 1,
+      "jamb_mcb0w310": 2,
+      "jamb_mcb0w311": 2,
+      "mull_mcb0w31": 2,
+      "sill_mcb0d4": 2,
+      "head_mcb0d4": 1,
+      "jamb_mcb0d40": 2,
+      "jamb_mcb0d41": 2,
+      "mull_mcb0d4": 2,
+      "bracket_mcb04": 2,
+      "sill_mcb0w40": 1,
+      "head_mcb0w40": 2,
+      "jamb_mcb0w400": 2,
+      "jamb_mcb0w401": 2,
+      "mull_mcb0w40": 2,
+      "sill_mcb0w41": 1,
+      "head_mcb0w41": 2,
+      "jamb_mcb0w410": 2,
+      "jamb_mcb0w411": 2,
+      "mull_mcb0w41": 2,
+      "sill_mcb1d2": 2,
+      "head_mcb1d2": 1,
+      "jamb_mcb1d20": 2,
+      "jamb_mcb1d21": 2,
+      "mull_mcb1d2": 2,
+      "bracket_mcb12": 3,
+      "sill_mcb1w20": 1,
+      "head_mcb1w20": 1,
+      "jamb_mcb1w200": 2,
+      "jamb_mcb1w201": 2,
+      "mull_mcb1w20": 2,
+      "sill_mcb1w21": 1,
+      "head_mcb1w21": 1,
+      "jamb_mcb1w210": 2,
+      "jamb_mcb1w211": 2,
+      "mull_mcb1w21": 2,
+      "sill_mcb1d3": 2,
+      "head_mcb1d3": 1,
+      "jamb_mcb1d30": 2,
+      "jamb_mcb1d31": 2,
+      "mull_mcb1d3": 2,
+      "bracket_mcb13": 3,
+      "sill_mcb1w30": 1,
+      "head_mcb1w30": 1,
+      "jamb_mcb1w300": 2,
+      "jamb_mcb1w301": 2,
+      "mull_mcb1w30": 2,
+      "sill_mcb1w31": 1,
+      "head_mcb1w31": 1,
+      "jamb_mcb1w310": 2,
+      "jamb_mcb1w311": 2,
+      "mull_mcb1w31": 2,
+      "sill_mcb1d4": 2,
+      "head_mcb1d4": 2,
+      "jamb_mcb1d40": 2,
+      "jamb_mcb1d41": 2,
+      "mull_mcb1d4": 2,
+      "bracket_mcb14": 2,
+      "sill_mcb1w40": 1,
+      "head_mcb1w40": 2,
+      "jamb_mcb1w400": 2,
+      "jamb_mcb1w401": 2,
+      "mull_mcb1w40": 2,
+      "sill_mcb1w41": 1,
+      "head_mcb1w41": 2,
+      "jamb_mcb1w410": 2,
+      "jamb_mcb1w411": 2,
+      "mull_mcb1w41": 2,
+      "sill_mc0u2": 1,
+      "head_mc0u2": 1,
+      "jamb_mc0u20": 2,
+      "jamb_mc0u21": 2,
+      "mull_mc0u2": 2,
+      "sill_mc0u3": 1,
+      "head_mc0u3": 1,
+      "jamb_mc0u30": 2,
+      "jamb_mc0u31": 2,
+      "mull_mc0u3": 2,
+      "sill_mc0u4": 1,
+      "head_mc0u4": 2,
+      "jamb_mc0u40": 2,
+      "jamb_mc0u41": 2,
+      "mull_mc0u4": 2,
+      "sill_mc1u2": 1,
+      "head_mc1u2": 1,
+      "jamb_mc1u20": 2,
+      "jamb_mc1u21": 2,
+      "mull_mc1u2": 2,
+      "sill_mc1u3": 1,
+      "head_mc1u3": 1,
+      "jamb_mc1u30": 2,
+      "jamb_mc1u31": 2,
+      "mull_mc1u3": 2,
+      "sill_mc1u4": 1,
+      "head_mc1u4": 2,
+      "jamb_mc1u40": 2,
+      "jamb_mc1u41": 2,
+      "mull_mc1u4": 2,
+      "wall_xgc0": 1,
+      "roof_xgc0A": 3,
+      "rake_xgc0A0": 3,
+      "rake_xgc0A1": 15,
+      "fascia_xgc0A": 9,
+      "roof_xgc0B": 5,
+      "rake_xgc0B0": 2,
+      "rake_xgc0B1": 15,
+      "fascia_xgc0B": 8,
+      "ridge_xgc0": 9,
+      "gable_xgc0f": 2,
+      "trim_trussxgc0": 10,
+      "sill_xgc0d2": 2,
+      "head_xgc0d2": 1,
+      "jamb_xgc0d20": 2,
+      "jamb_xgc0d21": 2,
+      "mull_xgc0d2": 2,
+      "bracket_xgc02": 3,
+      "jamb_xgc0w200": 2,
+      "jamb_xgc0w201": 2,
+      "jamb_xgc0w210": 2,
+      "jamb_xgc0w211": 2,
+      "sill_xgc0d3": 2,
+      "head_xgc0d3": 1,
+      "jamb_xgc0d30": 2,
+      "jamb_xgc0d31": 2,
+      "mull_xgc0d3": 2,
+      "bracket_xgc03": 3,
+      "jamb_xgc0w300": 2,
+      "jamb_xgc0w301": 2,
+      "jamb_xgc0w310": 2,
+      "jamb_xgc0w311": 2,
+      "sill_xgc0d4": 2,
+      "head_xgc0d4": 1,
+      "jamb_xgc0d40": 2,
+      "jamb_xgc0d41": 2,
+      "mull_xgc0d4": 2,
+      "bracket_xgc04": 3,
+      "jamb_xgc0w400": 2,
+      "jamb_xgc0w401": 2,
+      "jamb_xgc0w410": 2,
+      "jamb_xgc0w411": 2,
+      "jamb_xgc0g00": 2,
+      "jamb_xgc0g01": 2,
+      "jamb_xgc0g10": 2,
+      "jamb_xgc0g11": 2,
+      "bracket_xgc0k0": 7,
+      "bracket_xgc0k1": 5,
+      "wall_xgc1": 1,
+      "roof_xgc1A": 2,
+      "rake_xgc1A0": 2,
+      "rake_xgc1A1": 15,
+      "fascia_xgc1A": 8,
+      "roof_xgc1B": 5,
+      "rake_xgc1B0": 3,
+      "rake_xgc1B1": 15,
+      "fascia_xgc1B": 8,
+      "ridge_xgc1": 9,
+      "gable_xgc1f": 2,
+      "trim_trussxgc1": 10,
+      "sill_xgc1d2": 2,
+      "head_xgc1d2": 1,
+      "jamb_xgc1d20": 2,
+      "jamb_xgc1d21": 2,
+      "mull_xgc1d2": 2,
+      "bracket_xgc12": 3,
+      "jamb_xgc1w200": 2,
+      "jamb_xgc1w201": 2,
+      "jamb_xgc1w210": 2,
+      "jamb_xgc1w211": 2,
+      "sill_xgc1d3": 2,
+      "head_xgc1d3": 1,
+      "jamb_xgc1d30": 2,
+      "jamb_xgc1d31": 2,
+      "mull_xgc1d3": 2,
+      "bracket_xgc13": 3,
+      "jamb_xgc1w300": 2,
+      "jamb_xgc1w301": 2,
+      "jamb_xgc1w310": 2,
+      "jamb_xgc1w311": 2,
+      "sill_xgc1d4": 2,
+      "head_xgc1d4": 1,
+      "jamb_xgc1d40": 2,
+      "jamb_xgc1d41": 2,
+      "mull_xgc1d4": 2,
+      "bracket_xgc14": 3,
+      "jamb_xgc1w400": 2,
+      "jamb_xgc1w401": 2,
+      "jamb_xgc1w410": 2,
+      "jamb_xgc1w411": 2,
+      "jamb_xgc1g00": 2,
+      "jamb_xgc1g01": 2,
+      "jamb_xgc1g10": 2,
+      "jamb_xgc1g11": 2,
+      "bracket_xgc1k0": 4,
+      "bracket_xgc1k1": 7,
+      "sill_me00g": 1,
+      "head_me00g": 1,
+      "jamb_me00g0": 2,
+      "jamb_me00g1": 2,
+      "mull_me00g": 2,
+      "sill_me01g": 2,
+      "head_me01g": 1,
+      "jamb_me01g0": 2,
+      "jamb_me01g1": 2,
+      "mull_me01g": 2,
+      "sill_meb0d2": 2,
+      "head_meb0d2": 1,
+      "jamb_meb0d20": 2,
+      "jamb_meb0d21": 2,
+      "mull_meb0d2": 2,
+      "bracket_meb02": 2,
+      "sill_meb0w20": 1,
+      "head_meb0w20": 1,
+      "jamb_meb0w200": 2,
+      "jamb_meb0w201": 2,
+      "mull_meb0w20": 2,
+      "sill_meb0w21": 1,
+      "head_meb0w21": 1,
+      "jamb_meb0w210": 2,
+      "jamb_meb0w211": 2,
+      "mull_meb0w21": 2,
+      "sill_meb0d3": 2,
+      "head_meb0d3": 1,
+      "jamb_meb0d30": 2,
+      "jamb_meb0d31": 2,
+      "mull_meb0d3": 2,
+      "bracket_meb03": 2,
+      "sill_meb0w30": 1,
+      "head_meb0w30": 1,
+      "jamb_meb0w300": 2,
+      "jamb_meb0w301": 2,
+      "mull_meb0w30": 2,
+      "sill_meb0w31": 1,
+      "head_meb0w31": 1,
+      "jamb_meb0w310": 2,
+      "jamb_meb0w311": 2,
+      "mull_meb0w31": 2,
+      "sill_meb0d4": 2,
+      "head_meb0d4": 1,
+      "jamb_meb0d40": 2,
+      "jamb_meb0d41": 2,
+      "mull_meb0d4": 2,
+      "bracket_meb04": 2,
+      "sill_meb0w40": 1,
+      "head_meb0w40": 1,
+      "jamb_meb0w400": 2,
+      "jamb_meb0w401": 2,
+      "mull_meb0w40": 2,
+      "sill_meb0w41": 1,
+      "head_meb0w41": 1,
+      "jamb_meb0w410": 2,
+      "jamb_meb0w411": 2,
+      "mull_meb0w41": 2,
+      "jamb_meg000": 2,
+      "jamb_meg001": 2,
+      "jamb_meg010": 2,
+      "jamb_meg011": 2,
+      "sill_me10g": 1,
+      "head_me10g": 1,
+      "jamb_me10g0": 2,
+      "jamb_me10g1": 2,
+      "mull_me10g": 2,
+      "sill_me11g": 2,
+      "head_me11g": 1,
+      "jamb_me11g0": 2,
+      "jamb_me11g1": 2,
+      "mull_me11g": 2,
+      "sill_meb1d2": 2,
+      "head_meb1d2": 1,
+      "jamb_meb1d20": 2,
+      "jamb_meb1d21": 2,
+      "mull_meb1d2": 2,
+      "bracket_meb12": 2,
+      "sill_meb1w20": 1,
+      "head_meb1w20": 1,
+      "jamb_meb1w200": 2,
+      "jamb_meb1w201": 2,
+      "mull_meb1w20": 2,
+      "sill_meb1w21": 1,
+      "head_meb1w21": 1,
+      "jamb_meb1w210": 2,
+      "jamb_meb1w211": 2,
+      "mull_meb1w21": 2,
+      "sill_meb1d3": 2,
+      "head_meb1d3": 1,
+      "jamb_meb1d30": 2,
+      "jamb_meb1d31": 2,
+      "mull_meb1d3": 2,
+      "bracket_meb13": 2,
+      "sill_meb1w30": 1,
+      "head_meb1w30": 1,
+      "jamb_meb1w300": 2,
+      "jamb_meb1w301": 2,
+      "mull_meb1w30": 2,
+      "sill_meb1w31": 1,
+      "head_meb1w31": 1,
+      "jamb_meb1w310": 2,
+      "jamb_meb1w311": 2,
+      "mull_meb1w31": 2,
+      "sill_meb1d4": 2,
+      "head_meb1d4": 1,
+      "jamb_meb1d40": 2,
+      "jamb_meb1d41": 2,
+      "mull_meb1d4": 2,
+      "bracket_meb14": 2,
+      "sill_meb1w40": 1,
+      "head_meb1w40": 1,
+      "jamb_meb1w400": 2,
+      "jamb_meb1w401": 2,
+      "mull_meb1w40": 2,
+      "sill_meb1w41": 1,
+      "head_meb1w41": 1,
+      "jamb_meb1w410": 2,
+      "jamb_meb1w411": 2,
+      "mull_meb1w41": 2,
+      "jamb_meg100": 2,
+      "jamb_meg101": 2,
+      "jamb_meg110": 2,
+      "jamb_meg111": 2,
+      "pier_ws0": 2,
+      "plinthcap_ws0": 7,
+      "pier_ws1": 2,
+      "plinthcap_ws1": 11,
+      "pier_ws2": 2,
+      "plinthcap_ws2": 12,
+      "cmull_wgcs0": 8,
+      "ctran_wgcs0": 4,
+      "cmull_wgcs2": 8,
+      "ctran_wgcs2": 4,
+      "sill_wcs0u2": 1,
+      "head_wcs0u2": 1,
+      "jamb_wcs0u20": 2,
+      "jamb_wcs0u21": 2,
+      "mull_wcs0u2": 2,
+      "sill_wcs0u3": 1,
+      "head_wcs0u3": 1,
+      "jamb_wcs0u30": 2,
+      "jamb_wcs0u31": 2,
+      "mull_wcs0u3": 2,
+      "sill_wcs0u4": 1,
+      "head_wcs0u4": 2,
+      "jamb_wcs0u40": 2,
+      "jamb_wcs0u41": 2,
+      "mull_wcs0u4": 2,
+      "sill_wcs1u2": 1,
+      "head_wcs1u2": 1,
+      "jamb_wcs1u20": 2,
+      "jamb_wcs1u21": 2,
+      "mull_wcs1u2": 2,
+      "sill_wcs1u3": 1,
+      "head_wcs1u3": 1,
+      "jamb_wcs1u30": 2,
+      "jamb_wcs1u31": 2,
+      "mull_wcs1u3": 2,
+      "sill_wcs1u4": 1,
+      "head_wcs1u4": 2,
+      "jamb_wcs1u40": 2,
+      "jamb_wcs1u41": 2,
+      "mull_wcs1u4": 2,
+      "sill_wcs2u2": 2,
+      "head_wcs2u2": 1,
+      "jamb_wcs2u20": 2,
+      "jamb_wcs2u21": 2,
+      "mull_wcs2u2": 2,
+      "sill_wcs2u3": 1,
+      "head_wcs2u3": 1,
+      "jamb_wcs2u30": 2,
+      "jamb_wcs2u31": 2,
+      "mull_wcs2u3": 2,
+      "sill_wcs2u4": 1,
+      "head_wcs2u4": 2,
+      "jamb_wcs2u40": 2,
+      "jamb_wcs2u41": 2,
+      "mull_wcs2u4": 2,
+      "sill_wcs3u2": 1,
+      "head_wcs3u2": 1,
+      "jamb_wcs3u20": 2,
+      "jamb_wcs3u21": 2,
+      "mull_wcs3u2": 2,
+      "sill_wcs3u3": 1,
+      "head_wcs3u3": 1,
+      "jamb_wcs3u30": 2,
+      "jamb_wcs3u31": 2,
+      "mull_wcs3u3": 2,
+      "sill_wcs3u4": 1,
+      "head_wcs3u4": 2,
+      "jamb_wcs3u40": 2,
+      "jamb_wcs3u41": 2,
+      "mull_wcs3u4": 2,
+      "wall_xgws": 1,
+      "roof_xgwsA": 3,
+      "rake_xgwsA0": 15,
+      "rake_xgwsA1": 2,
+      "fascia_xgwsA": 8,
+      "roof_xgwsB": 5,
+      "rake_xgwsB0": 15,
+      "rake_xgwsB1": 3,
+      "fascia_xgwsB": 9,
+      "ridge_xgws": 9,
+      "gable_xgwsf": 2,
+      "trim_trussxgws": 10,
+      "sill_xgwsd2": 2,
+      "head_xgwsd2": 1,
+      "jamb_xgwsd20": 2,
+      "jamb_xgwsd21": 2,
+      "mull_xgwsd2": 2,
+      "bracket_xgws2": 3,
+      "jamb_xgwsw200": 2,
+      "jamb_xgwsw201": 2,
+      "sill_xgwsw21": 1,
+      "jamb_xgwsw210": 2,
+      "jamb_xgwsw211": 2,
+      "sill_xgwsd3": 2,
+      "head_xgwsd3": 1,
+      "jamb_xgwsd30": 2,
+      "jamb_xgwsd31": 2,
+      "mull_xgwsd3": 2,
+      "bracket_xgws3": 3,
+      "jamb_xgwsw300": 2,
+      "jamb_xgwsw301": 2,
+      "jamb_xgwsw310": 2,
+      "jamb_xgwsw311": 2,
+      "sill_xgwsd4": 2,
+      "head_xgwsd4": 1,
+      "jamb_xgwsd40": 2,
+      "jamb_xgwsd41": 2,
+      "mull_xgwsd4": 2,
+      "bracket_xgws4": 3,
+      "jamb_xgwsw400": 2,
+      "jamb_xgwsw401": 2,
+      "jamb_xgwsw410": 2,
+      "jamb_xgwsw411": 2,
+      "jamb_xgwsg00": 2,
+      "jamb_xgwsg01": 2,
+      "jamb_xgwsg10": 2,
+      "jamb_xgwsg11": 2,
+      "bracket_xgwsk0": 4,
+      "bracket_xgwsk1": 6,
+      "sill_wos0g": 1,
+      "head_wos0g": 1,
+      "jamb_wos0g0": 2,
+      "jamb_wos0g1": 2,
+      "mull_wos0g": 2,
+      "sill_wos0u2": 1,
+      "head_wos0u2": 1,
+      "jamb_wos0u20": 2,
+      "jamb_wos0u21": 2,
+      "mull_wos0u2": 2,
+      "sill_wos0u3": 1,
+      "head_wos0u3": 1,
+      "jamb_wos0u30": 2,
+      "jamb_wos0u31": 2,
+      "mull_wos0u3": 2,
+      "sill_wos0u4": 1,
+      "head_wos0u4": 2,
+      "jamb_wos0u40": 2,
+      "jamb_wos0u41": 2,
+      "mull_wos0u4": 2,
+      "sill_wos1g": 1,
+      "head_wos1g": 1,
+      "jamb_wos1g0": 2,
+      "jamb_wos1g1": 2,
+      "mull_wos1g": 2,
+      "sill_wos1u2": 1,
+      "head_wos1u2": 1,
+      "jamb_wos1u20": 2,
+      "jamb_wos1u21": 2,
+      "mull_wos1u2": 2,
+      "sill_wos1u3": 1,
+      "head_wos1u3": 1,
+      "jamb_wos1u30": 2,
+      "jamb_wos1u31": 2,
+      "mull_wos1u3": 2,
+      "sill_wos1u4": 1,
+      "head_wos1u4": 2,
+      "jamb_wos1u40": 2,
+      "jamb_wos1u41": 2,
+      "mull_wos1u4": 2,
+      "sill_wos2g": 2,
+      "head_wos2g": 1,
+      "jamb_wos2g0": 2,
+      "jamb_wos2g1": 2,
+      "mull_wos2g": 2,
+      "sill_wos2u2": 1,
+      "head_wos2u2": 1,
+      "jamb_wos2u20": 2,
+      "jamb_wos2u21": 2,
+      "mull_wos2u2": 2,
+      "sill_wos2u3": 1,
+      "head_wos2u3": 1,
+      "jamb_wos2u30": 2,
+      "jamb_wos2u31": 2,
+      "mull_wos2u3": 2,
+      "sill_wos2u4": 1,
+      "head_wos2u4": 2,
+      "jamb_wos2u40": 2,
+      "jamb_wos2u41": 2,
+      "mull_wos2u4": 2,
+      "sill_wos3g": 2,
+      "head_wos3g": 1,
+      "jamb_wos3g0": 2,
+      "jamb_wos3g1": 2,
+      "mull_wos3g": 2,
+      "sill_wos3u2": 1,
+      "head_wos3u2": 1,
+      "jamb_wos3u20": 2,
+      "jamb_wos3u21": 2,
+      "mull_wos3u2": 2,
+      "sill_wos3u3": 1,
+      "head_wos3u3": 1,
+      "jamb_wos3u30": 2,
+      "jamb_wos3u31": 2,
+      "mull_wos3u3": 2,
+      "sill_wos3u4": 1,
+      "head_wos3u4": 2,
+      "jamb_wos3u40": 2,
+      "jamb_wos3u41": 2,
+      "mull_wos3u4": 2,
+      "chim_wssh": 1,
+      "sill_wes0g": 1,
+      "head_wes0g": 1,
+      "jamb_wes0g0": 2,
+      "jamb_wes0g1": 2,
+      "mull_wes0g": 2,
+      "sill_wes1g": 1,
+      "head_wes1g": 1,
+      "jamb_wes1g0": 2,
+      "jamb_wes1g1": 2,
+      "mull_wes1g": 2,
+      "sill_websd2": 2,
+      "head_websd2": 1,
+      "jamb_websd20": 2,
+      "jamb_websd21": 2,
+      "mull_websd2": 2,
+      "bracket_webs2": 2,
+      "sill_websw20": 1,
+      "head_websw20": 1,
+      "jamb_websw200": 2,
+      "jamb_websw201": 2,
+      "mull_websw20": 2,
+      "sill_websw21": 1,
+      "head_websw21": 1,
+      "jamb_websw210": 2,
+      "jamb_websw211": 2,
+      "mull_websw21": 2,
+      "sill_websd3": 2,
+      "head_websd3": 1,
+      "jamb_websd30": 2,
+      "jamb_websd31": 2,
+      "mull_websd3": 2,
+      "bracket_webs3": 2,
+      "sill_websw30": 1,
+      "head_websw30": 1,
+      "jamb_websw300": 2,
+      "jamb_websw301": 2,
+      "mull_websw30": 2,
+      "sill_websw31": 1,
+      "head_websw31": 1,
+      "jamb_websw310": 2,
+      "jamb_websw311": 2,
+      "mull_websw31": 2,
+      "sill_websd4": 2,
+      "head_websd4": 1,
+      "jamb_websd40": 2,
+      "jamb_websd41": 2,
+      "mull_websd4": 2,
+      "bracket_webs4": 2,
+      "sill_websw40": 1,
+      "head_websw40": 1,
+      "jamb_websw400": 2,
+      "jamb_websw401": 2,
+      "mull_websw40": 2,
+      "sill_websw41": 1,
+      "head_websw41": 1,
+      "jamb_websw410": 2,
+      "jamb_websw411": 2,
+      "mull_websw41": 2,
+      "jamb_wegs00": 2,
+      "jamb_wegs01": 2,
+      "jamb_wegs10": 2,
+      "jamb_wegs11": 2,
+      "pier_wn0": 2,
+      "plinthcap_wn0": 7,
+      "pier_wn1": 2,
+      "plinthcap_wn1": 11,
+      "pier_wn2": 2,
+      "plinthcap_wn2": 12,
+      "cmull_wgcn0": 8,
+      "ctran_wgcn0": 4,
+      "cmull_wgcn2": 8,
+      "ctran_wgcn2": 4,
+      "sill_wcn0u2": 1,
+      "head_wcn0u2": 1,
+      "jamb_wcn0u20": 2,
+      "jamb_wcn0u21": 2,
+      "mull_wcn0u2": 2,
+      "sill_wcn0u3": 1,
+      "head_wcn0u3": 1,
+      "jamb_wcn0u30": 2,
+      "jamb_wcn0u31": 2,
+      "mull_wcn0u3": 2,
+      "sill_wcn0u4": 1,
+      "head_wcn0u4": 1,
+      "jamb_wcn0u40": 2,
+      "jamb_wcn0u41": 2,
+      "mull_wcn0u4": 2,
+      "sill_wcn1u2": 1,
+      "head_wcn1u2": 1,
+      "jamb_wcn1u20": 2,
+      "jamb_wcn1u21": 2,
+      "mull_wcn1u2": 2,
+      "sill_wcn1u3": 1,
+      "head_wcn1u3": 1,
+      "jamb_wcn1u30": 2,
+      "jamb_wcn1u31": 2,
+      "mull_wcn1u3": 2,
+      "sill_wcn1u4": 1,
+      "head_wcn1u4": 2,
+      "jamb_wcn1u40": 2,
+      "jamb_wcn1u41": 2,
+      "mull_wcn1u4": 2,
+      "sill_wcn2u2": 2,
+      "head_wcn2u2": 1,
+      "jamb_wcn2u20": 2,
+      "jamb_wcn2u21": 2,
+      "mull_wcn2u2": 2,
+      "sill_wcn2u3": 1,
+      "head_wcn2u3": 1,
+      "jamb_wcn2u30": 2,
+      "jamb_wcn2u31": 2,
+      "mull_wcn2u3": 2,
+      "sill_wcn2u4": 1,
+      "head_wcn2u4": 2,
+      "jamb_wcn2u40": 2,
+      "jamb_wcn2u41": 2,
+      "mull_wcn2u4": 2,
+      "sill_wcn3u2": 1,
+      "head_wcn3u2": 1,
+      "jamb_wcn3u20": 2,
+      "jamb_wcn3u21": 2,
+      "mull_wcn3u2": 2,
+      "sill_wcn3u3": 1,
+      "head_wcn3u3": 1,
+      "jamb_wcn3u30": 2,
+      "jamb_wcn3u31": 2,
+      "mull_wcn3u3": 2,
+      "sill_wcn3u4": 1,
+      "head_wcn3u4": 2,
+      "jamb_wcn3u40": 2,
+      "jamb_wcn3u41": 2,
+      "mull_wcn3u4": 2,
+      "wall_xgwn": 1,
+      "roof_xgwnA": 3,
+      "rake_xgwnA0": 1,
+      "rake_xgwnA1": 15,
+      "fascia_xgwnA": 8,
+      "roof_xgwnB": 5,
+      "rake_xgwnB0": 2,
+      "rake_xgwnB1": 15,
+      "fascia_xgwnB": 8,
+      "ridge_xgwn": 9,
+      "gable_xgwnf": 2,
+      "trim_trussxgwn": 10,
+      "sill_xgwnd2": 2,
+      "head_xgwnd2": 1,
+      "jamb_xgwnd20": 2,
+      "jamb_xgwnd21": 2,
+      "mull_xgwnd2": 2,
+      "jamb_xgwnw200": 2,
+      "jamb_xgwnw201": 2,
+      "sill_xgwnw21": 1,
+      "jamb_xgwnw210": 2,
+      "jamb_xgwnw211": 2,
+      "sill_xgwnd3": 2,
+      "head_xgwnd3": 1,
+      "jamb_xgwnd30": 2,
+      "jamb_xgwnd31": 2,
+      "mull_xgwnd3": 2,
+      "bracket_xgwn3": 2,
+      "jamb_xgwnw300": 2,
+      "jamb_xgwnw301": 2,
+      "jamb_xgwnw310": 2,
+      "jamb_xgwnw311": 2,
+      "sill_xgwnd4": 2,
+      "head_xgwnd4": 1,
+      "jamb_xgwnd40": 2,
+      "jamb_xgwnd41": 2,
+      "mull_xgwnd4": 2,
+      "bracket_xgwn4": 2,
+      "jamb_xgwnw400": 2,
+      "jamb_xgwnw401": 2,
+      "jamb_xgwnw410": 2,
+      "jamb_xgwnw411": 2,
+      "jamb_xgwng00": 2,
+      "jamb_xgwng01": 2,
+      "jamb_xgwng10": 2,
+      "jamb_xgwng11": 2,
+      "bracket_xgwnk0": 4,
+      "bracket_xgwnk1": 6,
+      "sill_won0g": 1,
+      "head_won0g": 1,
+      "jamb_won0g0": 2,
+      "jamb_won0g1": 2,
+      "mull_won0g": 2,
+      "sill_won0u2": 1,
+      "head_won0u2": 1,
+      "jamb_won0u20": 2,
+      "jamb_won0u21": 2,
+      "mull_won0u2": 2,
+      "sill_won0u3": 1,
+      "head_won0u3": 1,
+      "jamb_won0u30": 2,
+      "jamb_won0u31": 2,
+      "mull_won0u3": 2,
+      "sill_won0u4": 1,
+      "head_won0u4": 2,
+      "jamb_won0u40": 2,
+      "jamb_won0u41": 2,
+      "mull_won0u4": 2,
+      "sill_won1g": 1,
+      "head_won1g": 1,
+      "jamb_won1g0": 2,
+      "jamb_won1g1": 2,
+      "mull_won1g": 2,
+      "sill_won1u2": 1,
+      "head_won1u2": 1,
+      "jamb_won1u20": 2,
+      "jamb_won1u21": 2,
+      "mull_won1u2": 2,
+      "sill_won1u3": 1,
+      "head_won1u3": 1,
+      "jamb_won1u30": 2,
+      "jamb_won1u31": 2,
+      "mull_won1u3": 2,
+      "sill_won1u4": 1,
+      "head_won1u4": 2,
+      "jamb_won1u40": 2,
+      "jamb_won1u41": 2,
+      "mull_won1u4": 2,
+      "sill_won2g": 2,
+      "head_won2g": 1,
+      "jamb_won2g0": 2,
+      "jamb_won2g1": 2,
+      "mull_won2g": 2,
+      "sill_won2u2": 1,
+      "head_won2u2": 1,
+      "jamb_won2u20": 2,
+      "jamb_won2u21": 2,
+      "mull_won2u2": 2,
+      "sill_won2u3": 1,
+      "head_won2u3": 1,
+      "jamb_won2u30": 2,
+      "jamb_won2u31": 2,
+      "mull_won2u3": 2,
+      "sill_won2u4": 1,
+      "head_won2u4": 2,
+      "jamb_won2u40": 2,
+      "jamb_won2u41": 2,
+      "mull_won2u4": 2,
+      "sill_won3g": 2,
+      "head_won3g": 1,
+      "jamb_won3g0": 2,
+      "jamb_won3g1": 2,
+      "mull_won3g": 2,
+      "sill_won3u2": 1,
+      "head_won3u2": 1,
+      "jamb_won3u20": 2,
+      "jamb_won3u21": 2,
+      "mull_won3u2": 2,
+      "sill_won3u3": 1,
+      "head_won3u3": 1,
+      "jamb_won3u30": 2,
+      "jamb_won3u31": 2,
+      "mull_won3u3": 2,
+      "sill_won3u4": 1,
+      "head_won3u4": 2,
+      "jamb_won3u40": 2,
+      "jamb_won3u41": 2,
+      "mull_won3u4": 2,
+      "chim_wnsh": 1,
+      "sill_wen0g": 1,
+      "head_wen0g": 1,
+      "jamb_wen0g0": 2,
+      "jamb_wen0g1": 2,
+      "mull_wen0g": 2,
+      "sill_wen1g": 1,
+      "head_wen1g": 1,
+      "jamb_wen1g0": 2,
+      "jamb_wen1g1": 2,
+      "mull_wen1g": 2,
+      "sill_webnd2": 2,
+      "head_webnd2": 1,
+      "jamb_webnd20": 2,
+      "jamb_webnd21": 2,
+      "mull_webnd2": 2,
+      "bracket_webn2": 2,
+      "sill_webnw20": 1,
+      "head_webnw20": 1,
+      "jamb_webnw200": 2,
+      "jamb_webnw201": 2,
+      "mull_webnw20": 2,
+      "sill_webnw21": 1,
+      "head_webnw21": 1,
+      "jamb_webnw210": 2,
+      "jamb_webnw211": 2,
+      "mull_webnw21": 2,
+      "sill_webnd3": 2,
+      "head_webnd3": 1,
+      "jamb_webnd30": 2,
+      "jamb_webnd31": 2,
+      "mull_webnd3": 2,
+      "bracket_webn3": 2,
+      "sill_webnw30": 1,
+      "head_webnw30": 1,
+      "jamb_webnw300": 2,
+      "jamb_webnw301": 2,
+      "mull_webnw30": 2,
+      "sill_webnw31": 1,
+      "head_webnw31": 1,
+      "jamb_webnw310": 2,
+      "jamb_webnw311": 2,
+      "mull_webnw31": 2,
+      "sill_webnd4": 2,
+      "head_webnd4": 1,
+      "jamb_webnd40": 2,
+      "jamb_webnd41": 2,
+      "mull_webnd4": 2,
+      "bracket_webn4": 2,
+      "sill_webnw40": 1,
+      "head_webnw40": 1,
+      "jamb_webnw400": 2,
+      "jamb_webnw401": 2,
+      "mull_webnw40": 2,
+      "sill_webnw41": 1,
+      "head_webnw41": 1,
+      "jamb_webnw410": 2,
+      "jamb_webnw411": 2,
+      "mull_webnw41": 2,
+      "jamb_wegn00": 2,
+      "jamb_wegn01": 2,
+      "jamb_wegn10": 2,
+      "jamb_wegn11": 2,
+      "doorsill_dws": 3,
+      "door_dws_frame": 10,
+      "door_dws_leaf0": 12,
+      "door_dws_kick0": 1,
+      "door_dws_pull0": 3,
+      "door_dws_leaf1": 12,
+      "door_dws_kick1": 1,
+      "door_dws_pull1": 3,
+      "cmull_dwssl0": 4,
+      "ctran_dwssl0": 4,
+      "cmull_dwssl1": 4,
+      "ctran_dwssl1": 4,
+      "cmull_dwstr": 4,
+      "doorsill_dwn": 3,
+      "door_dwn_frame": 10,
+      "door_dwn_leaf0": 12,
+      "door_dwn_kick0": 1,
+      "door_dwn_pull0": 3,
+      "door_dwn_leaf1": 12,
+      "door_dwn_kick1": 1,
+      "door_dwn_pull1": 3,
+      "cmull_dwnsl0": 4,
+      "ctran_dwnsl0": 5,
+      "cmull_dwnsl1": 4,
+      "ctran_dwnsl1": 5,
+      "cmull_dwntr": 4,
+      "ctran_dwntr": 1,
+      "doorsill_dm": 3,
+      "door_dm_frame": 9,
+      "door_dm_leaf0": 11,
+      "door_dm_kick0": 1,
+      "door_dm_pull0": 3,
+      "door_dm_leaf1": 11,
+      "door_dm_kick1": 1,
+      "door_dm_pull1": 3,
+      "cmull_dmsl0": 4,
+      "ctran_dmsl0": 3,
+      "cmull_dmsl1": 4,
+      "ctran_dmsl1": 3,
+      "cmull_dmtr": 4,
+      "dormer_d0_front": 4,
+      "dormer_d0_cheek0": 2,
+      "dormer_d0_cheek1": 2,
+      "dormer_d0_gable": 2,
+      "sill_dormerd0": 1,
+      "head_dormerd0": 1,
+      "jamb_dormerd00": 2,
+      "jamb_dormerd01": 2,
+      "mull_dormerd0": 2,
+      "dormer_d1_front": 4,
+      "dormer_d1_cheek0": 2,
+      "dormer_d1_cheek1": 2,
+      "dormer_d1_gable": 2,
+      "sill_dormerd1": 1,
+      "head_dormerd1": 1,
+      "jamb_dormerd10": 2,
+      "jamb_dormerd11": 2,
+      "mull_dormerd1": 2,
+      "dormer_d2_front": 4,
+      "dormer_d2_cheek0": 2,
+      "dormer_d2_cheek1": 2,
+      "dormer_d2_gable": 2,
+      "sill_dormerd2": 1,
+      "head_dormerd2": 1,
+      "jamb_dormerd20": 2,
+      "jamb_dormerd21": 2,
+      "mull_dormerd2": 2,
+      "dormer_d3_front": 4,
+      "dormer_d3_cheek0": 2,
+      "dormer_d3_cheek1": 2,
+      "dormer_d3_gable": 2,
+      "sill_dormerd3": 1,
+      "head_dormerd3": 1,
+      "jamb_dormerd30": 2,
+      "jamb_dormerd31": 2,
+      "mull_dormerd3": 2,
+      "dormer_d4_front": 4,
+      "dormer_d4_cheek0": 2,
+      "dormer_d4_cheek1": 2,
+      "dormer_d4_gable": 2,
+      "sill_dormerd4": 1,
+      "head_dormerd4": 1,
+      "jamb_dormerd40": 2,
+      "jamb_dormerd41": 2,
+      "mull_dormerd4": 2,
+      "dormer_d5_front": 4,
+      "dormer_d5_cheek0": 2,
+      "dormer_d5_cheek1": 2,
+      "dormer_d5_gable": 2,
+      "sill_dormerd5": 1,
+      "head_dormerd5": 1,
+      "jamb_dormerd50": 2,
+      "jamb_dormerd51": 2,
+      "mull_dormerd5": 2,
+      "dormer_d6_front": 4,
+      "dormer_d6_cheek0": 2,
+      "dormer_d6_cheek1": 2,
+      "dormer_d6_gable": 2,
+      "sill_dormerd6": 1,
+      "head_dormerd6": 1,
+      "jamb_dormerd60": 2,
+      "jamb_dormerd61": 2,
+      "mull_dormerd6": 2,
+      "dormer_d7_front": 4,
+      "dormer_d7_cheek0": 2,
+      "dormer_d7_cheek1": 2,
+      "dormer_d7_gable": 2,
+      "sill_dormerd7": 1,
+      "head_dormerd7": 1,
+      "jamb_dormerd70": 2,
+      "jamb_dormerd71": 2,
+      "mull_dormerd7": 2,
+      "dormer_d8_front": 4,
+      "dormer_d8_cheek0": 2,
+      "dormer_d8_cheek1": 2,
+      "dormerroof_dormerd81": 1,
+      "dormer_d8_gable": 2,
+      "sill_dormerd8": 1,
+      "head_dormerd8": 1,
+      "jamb_dormerd80": 2,
+      "jamb_dormerd81": 2,
+      "mull_dormerd8": 2,
+      "dormer_d9_front": 4,
+      "dormer_d9_cheek0": 2,
+      "dormer_d9_cheek1": 2,
+      "dormer_d9_gable": 2,
+      "sill_dormerd9": 1,
+      "head_dormerd9": 1,
+      "jamb_dormerd90": 2,
+      "jamb_dormerd91": 2,
+      "mull_dormerd9": 2,
+      "dormer_d10_front": 4,
+      "dormer_d10_cheek0": 2,
+      "dormer_d10_cheek1": 2,
+      "dormer_d10_gable": 2,
+      "sill_dormerd10": 1,
+      "head_dormerd10": 1,
+      "jamb_dormerd100": 2,
+      "jamb_dormerd101": 2,
+      "mull_dormerd10": 2,
+      "dormer_d11_front": 4,
+      "dormer_d11_cheek0": 2,
+      "dormer_d11_cheek1": 2,
+      "dormer_d11_gable": 2,
+      "sill_dormerd11": 1,
+      "head_dormerd11": 1,
+      "jamb_dormerd110": 2,
+      "jamb_dormerd111": 2,
+      "mull_dormerd11": 2,
+      "dormer_d12_front": 4,
+      "dormer_d12_cheek0": 2,
+      "dormer_d12_cheek1": 2,
+      "dormer_d12_gable": 2,
+      "sill_dormerd12": 1,
+      "head_dormerd12": 1,
+      "jamb_dormerd120": 2,
+      "jamb_dormerd121": 2,
+      "mull_dormerd12": 2,
+      "plinth_hring": 4,
+      "roof_hA": 6,
+      "rake_hA0": 15,
+      "rake_hA1": 2,
+      "fascia_hA": 8,
+      "roof_hB": 5,
+      "rake_hB0": 15,
+      "rake_hB1": 1,
+      "fascia_hB": 8,
+      "ridge_h": 9,
+      "gable_hfront": 2,
+      "cmull_hlo0": 8,
+      "ctran_hlo0": 1,
+      "cmull_hlo1": 8,
+      "ctran_hlo1": 1,
+      "cmull_hup": 16,
+      "ctran_hup": 2,
+      "entry_h": 3,
+      "door_h0_leaf": 4,
+      "door_h0_jamb0": 2,
+      "door_h0_head": 3,
+      "door_h0_handle": 6,
+      "door_h0_kick": 2,
+      "door_h1_leaf": 4,
+      "door_h1_jamb1": 2,
+      "door_h1_head": 3,
+      "door_h1_handle": 6,
+      "door_h1_kick": 2,
+      "cmull_hgab": 5,
+      "ctran_hgab": 2,
+      "sill_hfs00": 1,
+      "jamb_hfs000": 2,
+      "jamb_hfs001": 2,
+      "mull_hfs00": 2,
+      "sill_hfs01": 1,
+      "jamb_hfs010": 2,
+      "jamb_hfs011": 2,
+      "mull_hfs01": 2,
+      "head_hfs10": 2,
+      "jamb_hfs100": 2,
+      "jamb_hfs101": 2,
+      "mull_hfs10": 2,
+      "jamb_hfs110": 2,
+      "jamb_hfs111": 2,
+      "mull_hfs11": 2,
+      "sill_hfn00": 2,
+      "head_hfn00": 1,
+      "jamb_hfn000": 2,
+      "jamb_hfn001": 2,
+      "mull_hfn00": 2,
+      "sill_hfn01": 1,
+      "head_hfn01": 1,
+      "jamb_hfn010": 2,
+      "jamb_hfn011": 2,
+      "mull_hfn01": 2,
+      "sill_hfn10": 1,
+      "head_hfn10": 2,
+      "jamb_hfn100": 2,
+      "jamb_hfn101": 2,
+      "mull_hfn10": 2,
+      "sill_hfn11": 1,
+      "head_hfn11": 1,
+      "jamb_hfn110": 2,
+      "jamb_hfn111": 2,
+      "mull_hfn11": 2,
+      "pier_h0": 9,
+      "plinthcap_h0": 5,
+      "pier_h1": 9,
+      "plinthcap_h1": 5,
+      "truss_hchord": 8,
+      "truss_hraft0": 9,
+      "truss_hraft1": 11,
+      "truss_hking": 13,
+      "truss_hstrut0": 8,
+      "truss_hpost0": 9,
+      "truss_hbrace0": 15,
+      "truss_hstrut1": 8,
+      "truss_hpost1": 11,
+      "truss_hbrace1": 12,
+      "banner_h0": 2,
+      "banner_h1": 2,
+      "banner_h2": 2,
+      "banner_h3": 2,
+      "chim_hxsh": 1,
+      "pier_pc0": 9,
+      "plinthcap_pc0": 2,
+      "col_pc0": 7,
+      "pier_pc1": 9,
+      "plinthcap_pc1": 2,
+      "col_pc1": 9,
+      "pier_pc2": 9,
+      "plinthcap_pc2": 1,
+      "col_pc2": 5,
+      "pier_pc3": 9,
+      "plinthcap_pc3": 1,
+      "col_pc3": 4,
+      "beam_pcl0": 9,
+      "beam_pcl1": 9,
+      "roof_pcA": 4,
+      "rake_pcA0": 2,
+      "rake_pcA1": 1,
+      "fascia_pcA": 2,
+      "roof_pcB": 5,
+      "rake_pcB0": 2,
+      "rake_pcB1": 1,
+      "fascia_pcB": 3,
+      "ridge_pc": 1,
+      "trim_trusspc0": 24,
+      "trim_trusspc1": 8,
+      "bracket_pcx0": 7,
+      "bracket_pcy0": 5,
+      "bracket_pcx1": 7,
+      "bracket_pcy1": 5,
+      "bracket_pcx2": 6,
+      "bracket_pcy2": 4,
+      "bracket_pcx3": 5,
+      "bracket_pcy3": 4,
+      "gable_pcgab0": 5,
+      "gable_pcgab1": 5,
+      "trim_pcfrieze": 4,
+      "lamp_pc0arm": 1,
+      "lamp_pc1arm": 1,
+      "poolcap_rim": 1,
+      "deck_w0": 5,
+      "deck_w1": 4,
+      "deck_w2": 5,
+      "plinthcap_ctbase": 2,
+      "trim_ctcorners": 8,
+      "tower_ctstage": 1,
+      "trim_ctlouvre0": 1,
+      "trim_ctslat0": 2,
+      "trim_ctlouvre1": 1,
+      "trim_ctslat1": 3,
+      "trim_ctdial2": 1,
+      "clockring_ct2": 1,
+      "trim_ctlouvre2": 1,
+      "trim_ctslat2": 3,
+      "trim_ctlouvre3": 1,
+      "trim_ctslat3": 3,
+      "fascia_ctcap": 16,
+      "ridge_ctcap": 32,
+      "tower_ctfin": 10,
+      "entry_ctxp": 3,
+      "door_ctxp0_leaf": 4,
+      "door_ctxp0_jamb0": 2,
+      "door_ctxp0_head": 3,
+      "door_ctxp0_handle": 6,
+      "door_ctxp0_kick": 2,
+      "door_ctxp1_leaf": 4,
+      "door_ctxp1_jamb1": 2,
+      "door_ctxp1_head": 3,
+      "door_ctxp1_handle": 6,
+      "door_ctxp1_kick": 2,
+      "entry_ctyn": 7,
+      "door_ctyn0_leaf": 4,
+      "door_ctyn0_jamb0": 2,
+      "door_ctyn0_head": 3,
+      "door_ctyn0_handle": 6,
+      "door_ctyn0_kick": 2,
+      "door_ctyn1_leaf": 4,
+      "door_ctyn1_jamb1": 2,
+      "door_ctyn1_head": 3,
+      "door_ctyn1_handle": 6,
+      "door_ctyn1_kick": 3,
+      "deckfascia_tw": 1,
+      "pier_tw0": 9,
+      "plinthcap_tw0": 3,
+      "col_tw0": 7,
+      "pier_tw1": 9,
+      "plinthcap_tw1": 2,
+      "col_tw1": 7,
+      "pier_tw2": 9,
+      "plinthcap_tw2": 1,
+      "col_tw2": 3,
+      "pier_tw3": 9,
+      "plinthcap_tw3": 1,
+      "col_tw3": 2,
+      "pier_tw4": 9,
+      "plinthcap_tw4": 1,
+      "col_tw4": 2,
+      "beam_tw0": 9,
+      "beam_tw1": 14,
+      "bracket_tw0": 4,
+      "bracket_tw1": 4,
+      "bracket_tw2": 4,
+      "bracket_tw3": 4,
+      "balcwall_tw": 4,
+      "trim_twcap": 8,
+      "stair_tw_treads": 21,
+      "stair_tw_str0": 1,
+      "stair_tw_str1": 1,
+      "post_stairtwL_6": 1,
+      "kick_stairtwL_0": 1,
+      "post_stairtwR_6": 1,
+      "kick_stairtwR_0": 1,
+      "entry_ctdk": 1,
+      "door_ctdk0_leaf": 4,
+      "door_ctdk0_jamb0": 2,
+      "door_ctdk0_head": 3,
+      "door_ctdk0_handle": 6,
+      "door_ctdk0_kick": 2,
+      "door_ctdk1_leaf": 4,
+      "door_ctdk1_jamb1": 2,
+      "door_ctdk1_head": 3,
+      "door_ctdk1_kick": 2
+    }
+  },
+  "area_report": {
+    "kept_m2": 20833.2,
+    "sum_w2a": 13187.7,
+    "k": 0.48,
+    "predicted_ppm_w1": {
+      "1024": 4.28,
+      "2048": 8.56,
+      "4096": 17.12
+    },
+    "predicted_ppm_unweighted": {
+      "1024": 3.41,
+      "2048": 6.81,
+      "4096": 13.62
+    },
+    "by_prefix": {
+      "balc_": [
+        382.9,
+        215.4
+      ],
+      "balcwall_": [
+        525.9,
+        189.3
+      ],
+      "banner_": [
+        13.1,
+        3.3
+      ],
+      "beam_": [
+        46.8,
+        46.8
+      ],
+      "bracket_": [
+        88.6,
+        22.2
+      ],
+      "chim_": [
+        647.2,
+        647.2
+      ],
+      "chimcap_": [
+        79.5,
+        19.9
+      ],
+      "clock_": [
+        26.1,
+        235.1
+      ],
+      "clockring_": [
+        2.9,
+        2.9
+      ],
+      "cmull_": [
+        127.5,
+        127.5
+      ],
+      "col_": [
+        42.4,
+        42.4
+      ],
+      "ctran_": [
+        102.7,
+        102.7
+      ],
+      "deck_": [
+        2606.5,
+        718.2
+      ],
+      "deckfascia_": [
+        11.8,
+        3.0
+      ],
+      "door_": [
+        34.7,
+        78.0
+      ],
+      "doorsill_": [
+        1.2,
+        0.3
+      ],
+      "dormer_": [
+        216.1,
+        216.1
+      ],
+      "dormerroof_": [
+        335.8,
+        120.9
+      ],
+      "entry_": [
+        33.3,
+        74.8
+      ],
+      "fascia_": [
+        400.9,
+        128.7
+      ],
+      "flue_": [
+        2.8,
+        2.8
+      ],
+      "fp_": [
+        17.6,
+        17.6
+      ],
+      "gable_": [
+        746.2,
+        919.1
+      ],
+      "glassback_": [
+        14.3,
+        3.6
+      ],
+      "gutter_": [
+        130.9,
+        32.7
+      ],
+      "head_": [
+        220.5,
+        220.5
+      ],
+      "jamb_": [
+        631.7,
+        157.9
+      ],
+      "kick_": [
+        3.7,
+        0.9
+      ],
+      "lamp_": [
+        6.6,
+        1.6
+      ],
+      "mull_": [
+        192.2,
+        48.0
+      ],
+      "pier_": [
+        333.8,
+        333.8
+      ],
+      "plinth_": [
+        59.3,
+        59.3
+      ],
+      "plinthcap_": [
+        97.2,
+        97.2
+      ],
+      "poolcap_": [
+        85.6,
+        85.6
+      ],
+      "poolcope_": [
+        38.4,
+        38.4
+      ],
+      "poolwall_": [
+        22.5,
+        3.6
+      ],
+      "post_": [
+        2.5,
+        0.6
+      ],
+      "rail_": [
+        5.7,
+        1.4
+      ],
+      "rake_": [
+        316.5,
+        107.2
+      ],
+      "ridge_": [
+        268.3,
+        67.1
+      ],
+      "roof_": [
+        4684.5,
+        1686.4
+      ],
+      "sign_": [
+        13.5,
+        13.5
+      ],
+      "sill_": [
+        204.7,
+        51.2
+      ],
+      "soffit_": [
+        407.9,
+        25.5
+      ],
+      "stair_": [
+        59.3,
+        38.0
+      ],
+      "stairblk_": [
+        53.1,
+        53.1
+      ],
+      "tower_": [
+        308.2,
+        308.2
+      ],
+      "trim_": [
+        717.1,
+        588.2
+      ],
+      "trsplate_": [
+        5.6,
+        5.6
+      ],
+      "truss_": [
+        129.7,
+        129.7
+      ],
+      "wall_": [
+        5210.1,
+        5087.0
+      ],
+      "water_": [
+        117.0,
+        7.3
+      ]
+    }
+  },
+  "shipped_density": {
+    "median_w1": 17.67,
+    "median_all": 10.6,
+    "by_weight": {
+      "0.25": 4.42,
+      "0.4": 7.07,
+      "0.5": 8.84,
+      "0.6": 10.6,
+      "0.75": 13.25,
+      "1": 17.67,
+      "1.5": 26.51,
+      "3": 53.02
+    }
+  },
+  "tex": 4096,
+  "bake": {
+    "A": 4096,
+    "margin_px": 8,
+    "uncovered_texels": 12660840,
+    "seconds": {
+      "pack": 0.9696688000112772,
+      "emit": 11.706214800011367,
+      "ao": 7.587866300018504,
+      "total": 32.801953799964394
+    },
+    "files": [
+      "SkiLodgeSwankyBottomCommercialLowB_BaseColor.png",
+      "SkiLodgeSwankyBottomCommercialLowB_Normal.png",
+      "SkiLodgeSwankyBottomCommercialLowB_MaskMap.png",
+      "SkiLodgeSwankyBottomCommercialLowB_ControlMask.png",
+      "SkiLodgeSwankyBottomCommercialLowB_Emissive.png"
+    ],
+    "ao": "self",
+    "pack_px_per_m": {
+      "min": 4.417653594266169,
+      "median": 10.603152066765572,
+      "max": 53.01617834523149
+    }
+  },
+  "pack_margin": {
+    "islands": 5510,
+    "margin_px": 8,
+    "contract_px": 64,
+    "packer": "calibrated",
+    "dry_pack_w1_ppm": 17.67
+  },
+  "rooms": {
+    "f0a": 21,
+    "f0b": 22,
+    "f0c": 23,
+    "f0d": 1,
+    "f1a": 2,
+    "f1b": 3,
+    "f1c": 4,
+    "f1d": 5,
+    "f2a": 6,
+    "f2b": 7,
+    "f2c": 8,
+    "f2d": 9,
+    "f3a": 10,
+    "f3b": 11,
+    "f3c": 12,
+    "f3d": 13,
+    "f4a": 14,
+    "f4b": 15,
+    "hgab": 16,
+    "hlo": 17,
+    "hup": 18
+  },
+  "rooms_n": 21,
+  "engine_base": {
+    "0": {
+      "verdict": "OK",
+      "ok_edges": 73,
+      "blocked_edges": 0,
+      "below_verts": 0,
+      "ok_parts": [
+        "wall_gct",
+        "wall_gh",
+        "wall_ghgl",
+        "wall_gm",
+        "wall_gpool",
+        "wall_gwn",
+        "wall_gws",
+        "wall_gxr0",
+        "wall_gxr1"
+      ],
+      "mode": "engine"
+    },
+    "1": {
+      "verdict": "OK",
+      "ok_edges": 73,
+      "blocked_edges": 0,
+      "below_verts": 0,
+      "ok_parts": [
+        "wall_gct",
+        "wall_gh",
+        "wall_ghgl",
+        "wall_gm",
+        "wall_gpool",
+        "wall_gwn",
+        "wall_gws",
+        "wall_gxr0",
+        "wall_gxr1"
+      ],
+      "mode": "engine"
+    },
+    "2": {
+      "verdict": "OK",
+      "ok_edges": 73,
+      "blocked_edges": 0,
+      "below_verts": 0,
+      "ok_parts": [
+        "wall_gct",
+        "wall_gh",
+        "wall_ghgl",
+        "wall_gm",
+        "wall_gpool",
+        "wall_gwn",
+        "wall_gws",
+        "wall_gxr0",
+        "wall_gxr1"
+      ],
+      "mode": "engine"
+    }
+  },
+  "lot": {
+    "x": [
+      -35.4,
+      35.4
+    ],
+    "y": [
+      -38.5,
+      38.5
+    ],
+    "z": [
+      0.0,
+      29.8
+    ],
+    "half_lot": [
+      36.0,
+      40.0
+    ],
+    "margin_x": 0.6,
+    "margin_y": 1.5,
+    "warn": []
+  },
+  "mesh_hash": {
+    "LOD0_prebake": "f9526ae3a44a",
+    "Win": "6249bf89e4dd",
+    "LOD0": "63e553167727",
+    "LOD1": "35e26ce65ffb",
+    "LOD2": "6f76b11b7438"
+  },
+  "facing": {
+    "arrival_centroid_x": "27.078",
+    "need": 9.0
+  },
+  "extent_game_m": {
+    "x": 77.0,
+    "y": 29.8,
+    "z": 70.8,
+    "min_y": 0.0
+  },
+  "lod_plan": {
+    "LOD1": {
+      "cap": 10359,
+      "achievable": 13846,
+      "target": 10359,
+      "dry_run": 10359,
+      "protected_tris": 206,
+      "note": "ok"
+    },
+    "LOD2": {
+      "cap": 480,
+      "achievable": 905,
+      "target": 480,
+      "dry_run": 479,
+      "protected_tris": 206,
+      "note": "ok"
+    }
+  },
+  "lod_info": [
+    {
+      "deleted_faces": 4565,
+      "after_delete": 14015,
+      "after_planar": 13846,
+      "protected_tris": 206,
+      "target": 10359,
+      "tris": 10359,
+      "ratio": 0.7444
+    },
+    {
+      "deleted_faces": 11535,
+      "after_delete": 1064,
+      "after_planar": 905,
+      "protected_tris": 206,
+      "target": 480,
+      "tris": 479,
+      "ratio": 0.392
+    }
+  ],
+  "lod_switch_m": {
+    "csum": 177.60000228881836,
+    "bias": -0.0,
+    "distances": [
+      254.40513856683975,
+      379.23655172860117,
+      1763.605111386937
+    ],
+    "switch": {
+      "1": 379.23655172860117,
+      "2": 1763.605111386937
+    },
+    "cull": 38598.40049743652
+  },
+  "panes_off_surface": {
+    "1": [],
+    "2": [
+      [
+        149,
+        0.353
+      ],
+      [
+        150,
+        0.394
+      ],
+      [
+        153,
+        0.917
+      ],
+      [
+        184,
+        0.593
+      ],
+      [
+        185,
+        0.453
+      ],
+      [
+        191,
+        1.56
+      ],
+      [
+        192,
+        1.629
+      ],
+      [
+        193,
+        1.626
+      ],
+      [
+        194,
+        1.562
+      ],
+      [
+        195,
+        1.628
+      ],
+      [
+        196,
+        1.625
+      ],
+      [
+        197,
+        1.56
+      ],
+      [
+        200,
+        1.625
+      ],
+      [
+        201,
+        1.628
+      ],
+      [
+        202,
+        1.56
+      ],
+      [
+        209,
+        1.451
+      ],
+      [
+        212,
+        1.628
+      ],
+      [
+        213,
+        1.625
+      ],
+      [
+        214,
+        1.634
+      ],
+      [
+        215,
+        1.634
+      ],
+      [
+        220,
+        1.633
+      ],
+      [
+        229,
+        1.633
+      ],
+      [
+        230,
+        0.691
+      ],
+      [
+        231,
+        0.654
+      ],
+      [
+        232,
+        0.898
+      ],
+      [
+        233,
+        0.862
+      ],
+      [
+        238,
+        1.271
+      ],
+      [
+        239,
+        1.271
+      ],
+      [
+        240,
+        1.55
+      ],
+      [
+        251,
+        0.453
+      ],
+      [
+        252,
+        0.502
+      ],
+      [
+        253,
+        0.664
+      ],
+      [
+        254,
+        0.707
+      ],
+      [
+        261,
+        0.483
+      ],
+      [
+        262,
+        0.524
+      ],
+      [
+        265,
+        0.789
+      ],
+      [
+        276,
+        0.329
+      ],
+      [
+        277,
+        0.327
+      ],
+      [
+        288,
+        0.327
+      ],
+      [
+        289,
+        0.329
+      ],
+      [
+        296,
+        0.465
+      ],
+      [
+        297,
+        0.326
+      ],
+      [
+        298,
+        0.666
+      ],
+      [
+        303,
+        1.328
+      ],
+      [
+        304,
+        1.617
+      ],
+      [
+        305,
+        1.603
+      ],
+      [
+        306,
+        1.329
+      ],
+      [
+        307,
+        1.616
+      ],
+      [
+        308,
+        1.602
+      ],
+      [
+        309,
+        1.328
+      ],
+      [
+        312,
+        1.602
+      ],
+      [
+        313,
+        1.616
+      ],
+      [
+        314,
+        1.328
+      ],
+      [
+        321,
+        1.308
+      ],
+      [
+        324,
+        1.616
+      ],
+      [
+        325,
+        1.602
+      ],
+      [
+        326,
+        1.622
+      ],
+      [
+        327,
+        1.622
+      ],
+      [
+        332,
+        1.622
+      ],
+      [
+        333,
+        0.322
+      ],
+      [
+        334,
+        0.322
+      ],
+      [
+        335,
+        0.322
+      ],
+      [
+        336,
+        0.322
+      ],
+      [
+        340,
+        0.505
+      ],
+      [
+        341,
+        1.622
+      ],
+      [
+        342,
+        0.586
+      ],
+      [
+        343,
+        0.55
+      ],
+      [
+        344,
+        0.794
+      ],
+      [
+        345,
+        0.757
+      ],
+      [
+        350,
+        1.361
+      ],
+      [
+        351,
+        1.374
+      ],
+      [
+        352,
+        1.55
+      ],
+      [
+        361,
+        0.328
+      ],
+      [
+        363,
+        0.453
+      ],
+      [
+        364,
+        0.502
+      ],
+      [
+        365,
+        0.726
+      ],
+      [
+        366,
+        0.785
+      ],
+      [
+        373,
+        0.55
+      ],
+      [
+        374,
+        0.624
+      ],
+      [
+        377,
+        0.661
+      ],
+      [
+        378,
+        0.362
+      ],
+      [
+        379,
+        0.342
+      ],
+      [
+        385,
+        0.309
+      ],
+      [
+        388,
+        0.495
+      ],
+      [
+        389,
+        0.433
+      ],
+      [
+        400,
+        0.433
+      ],
+      [
+        401,
+        0.495
+      ],
+      [
+        406,
+        0.308
+      ],
+      [
+        407,
+        0.308
+      ],
+      [
+        408,
+        0.655
+      ],
+      [
+        409,
+        0.776
+      ],
+      [
+        410,
+        1.134
+      ],
+      [
+        411,
+        0.407
+      ],
+      [
+        412,
+        0.384
+      ],
+      [
+        413,
+        0.512
+      ],
+      [
+        414,
+        0.492
+      ],
+      [
+        415,
+        1.096
+      ],
+      [
+        416,
+        1.47
+      ],
+      [
+        417,
+        1.37
+      ],
+      [
+        418,
+        1.097
+      ],
+      [
+        419,
+        1.469
+      ],
+      [
+        420,
+        1.37
+      ],
+      [
+        421,
+        1.096
+      ],
+      [
+        424,
+        1.37
+      ],
+      [
+        425,
+        1.469
+      ],
+      [
+        426,
+        1.096
+      ],
+      [
+        431,
+        0.35
+      ],
+      [
+        432,
+        0.369
+      ],
+      [
+        433,
+        1.166
+      ],
+      [
+        436,
+        1.47
+      ],
+      [
+        437,
+        1.37
+      ],
+      [
+        438,
+        1.601
+      ],
+      [
+        439,
+        1.601
+      ],
+      [
+        444,
+        1.5
+      ],
+      [
+        445,
+        0.482
+      ],
+      [
+        446,
+        0.508
+      ],
+      [
+        447,
+        0.566
+      ],
+      [
+        448,
+        0.566
+      ],
+      [
+        450,
+        0.418
+      ],
+      [
+        451,
+        1.054
+      ],
+      [
+        452,
+        1.316
+      ],
+      [
+        453,
+        1.5
+      ],
+      [
+        454,
+        0.508
+      ],
+      [
+        455,
+        0.482
+      ],
+      [
+        456,
+        0.689
+      ],
+      [
+        457,
+        0.653
+      ],
+      [
+        462,
+        1.291
+      ],
+      [
+        463,
+        1.366
+      ],
+      [
+        464,
+        1.499
+      ],
+      [
+        471,
+        0.357
+      ],
+      [
+        473,
+        0.69
+      ],
+      [
+        474,
+        0.631
+      ],
+      [
+        475,
+        0.521
+      ],
+      [
+        476,
+        0.589
+      ],
+      [
+        477,
+        0.83
+      ],
+      [
+        478,
+        0.889
+      ],
+      [
+        485,
+        0.35
+      ],
+      [
+        486,
+        0.35
+      ],
+      [
+        487,
+        0.35
+      ],
+      [
+        488,
+        0.35
+      ],
+      [
+        491,
+        0.931
+      ],
+      [
+        492,
+        0.931
+      ],
+      [
+        493,
+        0.932
+      ],
+      [
+        494,
+        0.932
+      ],
+      [
+        495,
+        0.724
+      ],
+      [
+        496,
+        0.724
+      ],
+      [
+        497,
+        0.724
+      ],
+      [
+        498,
+        0.724
+      ],
+      [
+        499,
+        0.931
+      ],
+      [
+        500,
+        0.931
+      ],
+      [
+        501,
+        0.932
+      ],
+      [
+        502,
+        0.931
+      ],
+      [
+        503,
+        0.932
+      ],
+      [
+        504,
+        0.932
+      ],
+      [
+        505,
+        0.932
+      ],
+      [
+        506,
+        0.932
+      ],
+      [
+        507,
+        0.931
+      ],
+      [
+        508,
+        0.931
+      ],
+      [
+        509,
+        0.931
+      ],
+      [
+        510,
+        0.931
+      ],
+      [
+        511,
+        0.35
+      ],
+      [
+        512,
+        0.35
+      ],
+      [
+        513,
+        0.35
+      ],
+      [
+        514,
+        0.35
+      ],
+      [
+        515,
+        0.35
+      ],
+      [
+        516,
+        0.35
+      ],
+      [
+        517,
+        0.35
+      ],
+      [
+        518,
+        0.35
+      ],
+      [
+        519,
+        0.35
+      ],
+      [
+        520,
+        0.35
+      ],
+      [
+        521,
+        0.35
+      ],
+      [
+        522,
+        0.35
+      ],
+      [
+        525,
+        0.931
+      ],
+      [
+        526,
+        0.931
+      ],
+      [
+        527,
+        0.932
+      ],
+      [
+        528,
+        0.932
+      ],
+      [
+        529,
+        0.724
+      ],
+      [
+        530,
+        0.724
+      ]
+    ]
+  },
+  "batches_per_mesh_group": 9,
+  "vram_mb": 111.9,
+  "interior": {
+    "route": "name",
+    "keyword": "CommercialLow"
+  },
+  "emissive": true,
+  "review_pack": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\preview\\review\\SkiLodgeSwankyBottomCommercialLowB.blend",
+  "stage_seconds": {
+    "build": 1.9,
+    "parts": 210.4,
+    "cull": 212.0,
+    "bake": 274.6,
+    "lods": 275.2
+  },
+  "total_seconds": 291.7,
+  "we_boards": {
+    "by": "lodge.py nitpick C (build/nitpick-c-lodges.md)",
+    "use": "optional Write Everywhere layouts (another fleet): each face is the board's flat printable quad, unobstructed (its frame ring sits outside the face, 0.03 m proud); role blank = an empty panel left for the player's own label, name = a lit name board (sheet kind) a WE text may cover",
+    "frame": "centre / normal / right / up in prefab-local game metres; game (gx, gy, gz) = authoring (y, z, x) = FBX-raw (x, z, -y); gx NOT negated (the school's / every shipped building row's convention). build/probes-b.md section 2: the game appears to negate FBX x; probe X2 decides; branch N = S1b negates gx of every row with gx != 0 and mirrors yaw (q.y -> -q.y). Identity rows (role signset) are frame-free.",
+    "boards": [
+      {
+        "face": "sign_l5name_face",
+        "role": "name",
+        "sheet_kind": "l5.name",
+        "drawn_by": "sign set SkiSignSetGrandB",
+        "centre": [
+          0.0,
+          5.0,
+          31.145
+        ],
+        "normal": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "right": [
+          1.0,
+          0.0,
+          -0.0
+        ],
+        "up": [
+          0.0,
+          1.0,
+          -0.0
+        ],
+        "size_m": [
+          5.0,
+          0.8
+        ]
+      }
+    ]
+  },
+  "sub_objects": {
+    "target_prefab": "SkiLodgeGrand",
+    "frame": "game local (gx, gy, gz) = authoring (y, z, x); rotation (x, y, z, w)",
+    "notes": "ObjectSubObjects on the hand-made prefab: m_GroupIndex 0, m_Probability 100; m_ParentMesh per object (-1 = on the lot, 0 = attached to the main mesh: wall lights, deck props); GUIDs = the variant family's placeholder (design/detail-pass-1.md 1.6), whitelisted in tools/preflight.ps1 at the surgery round",
+    "objects": [
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          -12.0,
+          0.14,
+          -32.8
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          -6.5,
+          0.14,
+          -32.8
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          6.5,
+          0.14,
+          -32.8
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          12.0,
+          0.14,
+          -32.8
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          -12.0,
+          0.14,
+          -29.2
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          -6.5,
+          0.14,
+          -29.2
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          6.5,
+          0.14,
+          -29.2
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          12.0,
+          0.14,
+          -29.2
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "b7e2343fd7ff9f642b77084a04738e43",
+        "prefab": "ParasolRandom01",
+        "position": [
+          6.5,
+          0.14,
+          -31.43
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "b7e2343fd7ff9f642b77084a04738e43",
+        "prefab": "ParasolRandom01",
+        "position": [
+          -6.5,
+          0.14,
+          -31.43
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "b7e2343fd7ff9f642b77084a04738e43",
+        "prefab": "ParasolRandom01",
+        "position": [
+          12.0,
+          0.14,
+          -30.57
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "b7e2343fd7ff9f642b77084a04738e43",
+        "prefab": "ParasolRandom01",
+        "position": [
+          -12.0,
+          0.14,
+          -30.57
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "0bbcb0620e01694448cb78385580351b",
+        "prefab": "GasHeaterRandom01",
+        "position": [
+          -9.25,
+          0.14,
+          -27.4
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "0bbcb0620e01694448cb78385580351b",
+        "prefab": "GasHeaterRandom01",
+        "position": [
+          9.25,
+          0.14,
+          -27.4
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8df0703be09426948b5bc3262d86bc04",
+        "prefab": "GardenBenchRandom01",
+        "position": [
+          -31.0,
+          0.14,
+          -32.4
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8df0703be09426948b5bc3262d86bc04",
+        "prefab": "GardenBenchRandom01",
+        "position": [
+          -33.4,
+          0.14,
+          -30.0
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8df0703be09426948b5bc3262d86bc04",
+        "prefab": "GardenBenchRandom01",
+        "position": [
+          -31.0,
+          0.14,
+          -27.6
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8df0703be09426948b5bc3262d86bc04",
+        "prefab": "GardenBenchRandom01",
+        "position": [
+          -28.0,
+          0.14,
+          -26.85
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8df0703be09426948b5bc3262d86bc04",
+        "prefab": "GardenBenchRandom01",
+        "position": [
+          28.0,
+          0.14,
+          -26.85
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "41e3c9ba6e1d6b948a6b1bc3499a5397",
+        "prefab": "TrashbinRandom01",
+        "position": [
+          -2.4,
+          0.14,
+          -34.8
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "41e3c9ba6e1d6b948a6b1bc3499a5397",
+        "prefab": "TrashbinRandom01",
+        "position": [
+          2.4,
+          0.14,
+          -34.8
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "41e3c9ba6e1d6b948a6b1bc3499a5397",
+        "prefab": "TrashbinRandom01",
+        "position": [
+          -34.4,
+          0.14,
+          -32.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8d8722db083c3564291e3778cceeb1ae",
+        "prefab": "PotRandom01",
+        "position": [
+          -3.0,
+          0.14,
+          -26.7
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8d8722db083c3564291e3778cceeb1ae",
+        "prefab": "PotRandom01",
+        "position": [
+          3.0,
+          0.14,
+          -26.7
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8d8722db083c3564291e3778cceeb1ae",
+        "prefab": "PotRandom01",
+        "position": [
+          -14.5,
+          0.14,
+          -34.7
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8d8722db083c3564291e3778cceeb1ae",
+        "prefab": "PotRandom01",
+        "position": [
+          14.5,
+          0.14,
+          -34.7
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          -33.0,
+          0.14,
+          -34.9
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          -16.5,
+          0.14,
+          -34.9
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          -3.4,
+          0.14,
+          -34.9
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          3.4,
+          0.14,
+          -34.9
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          16.5,
+          0.14,
+          -34.9
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          33.0,
+          0.14,
+          -34.9
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "f7955fd41c1617847b4a4138acabcbcb",
+        "prefab": "TreeWildRandom01",
+        "position": [
+          -37.0,
+          0.14,
+          -33.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "f7955fd41c1617847b4a4138acabcbcb",
+        "prefab": "TreeWildRandom01",
+        "position": [
+          37.0,
+          0.14,
+          -33.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "63c46490ab59afd4dae01ee442f1e462",
+        "prefab": "DeckChairRandom01",
+        "position": [
+          -6.0,
+          0.72,
+          -10.85
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "63c46490ab59afd4dae01ee442f1e462",
+        "prefab": "DeckChairRandom01",
+        "position": [
+          -4.2,
+          0.72,
+          -10.85
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "63c46490ab59afd4dae01ee442f1e462",
+        "prefab": "DeckChairRandom01",
+        "position": [
+          -2.4,
+          0.72,
+          -10.85
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "63c46490ab59afd4dae01ee442f1e462",
+        "prefab": "DeckChairRandom01",
+        "position": [
+          2.4,
+          0.72,
+          -10.85
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "63c46490ab59afd4dae01ee442f1e462",
+        "prefab": "DeckChairRandom01",
+        "position": [
+          4.2,
+          0.72,
+          -10.85
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "63c46490ab59afd4dae01ee442f1e462",
+        "prefab": "DeckChairRandom01",
+        "position": [
+          6.0,
+          0.72,
+          -10.85
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "63c46490ab59afd4dae01ee442f1e462",
+        "prefab": "DeckChairRandom01",
+        "position": [
+          -8.5,
+          0.72,
+          -23.25
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "63c46490ab59afd4dae01ee442f1e462",
+        "prefab": "DeckChairRandom01",
+        "position": [
+          -6.5,
+          0.72,
+          -23.25
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "63c46490ab59afd4dae01ee442f1e462",
+        "prefab": "DeckChairRandom01",
+        "position": [
+          -4.5,
+          0.72,
+          -23.25
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "63c46490ab59afd4dae01ee442f1e462",
+        "prefab": "DeckChairRandom01",
+        "position": [
+          4.5,
+          0.72,
+          -23.25
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "b7e2343fd7ff9f642b77084a04738e43",
+        "prefab": "ParasolRandom01",
+        "position": [
+          -3.3,
+          0.72,
+          -10.5
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "b7e2343fd7ff9f642b77084a04738e43",
+        "prefab": "ParasolRandom01",
+        "position": [
+          3.3,
+          0.72,
+          -10.5
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "b7e2343fd7ff9f642b77084a04738e43",
+        "prefab": "ParasolRandom01",
+        "position": [
+          -10.5,
+          0.72,
+          -23.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "b7e2343fd7ff9f642b77084a04738e43",
+        "prefab": "ParasolRandom01",
+        "position": [
+          5.5,
+          0.72,
+          -23.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          -16.25,
+          0.72,
+          -24.25
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          16.25,
+          0.72,
+          -24.25
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          8.0,
+          0.72,
+          -24.25
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          -16.25,
+          0.72,
+          -9.75
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          16.25,
+          0.72,
+          -9.75
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          7.0,
+          0.72,
+          -9.75
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          11.45,
+          4.5,
+          21.6
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          18.3,
+          4.5,
+          21.6
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          11.45,
+          4.5,
+          13.4
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "b7e2343fd7ff9f642b77084a04738e43",
+        "prefab": "ParasolRandom01",
+        "position": [
+          11.45,
+          4.5,
+          20.23
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "0bbcb0620e01694448cb78385580351b",
+        "prefab": "GasHeaterRandom01",
+        "position": [
+          11.2,
+          4.5,
+          17.4
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          10.9,
+          4.5,
+          24.45
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          15.2,
+          4.5,
+          24.45
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          20.45,
+          4.5,
+          21.0
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8df0703be09426948b5bc3262d86bc04",
+        "prefab": "GardenBenchRandom01",
+        "position": [
+          -4.2,
+          0.14,
+          23.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8df0703be09426948b5bc3262d86bc04",
+        "prefab": "GardenBenchRandom01",
+        "position": [
+          4.2,
+          0.14,
+          23.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "41e3c9ba6e1d6b948a6b1bc3499a5397",
+        "prefab": "TrashbinRandom01",
+        "position": [
+          -10.3,
+          0.14,
+          22.85
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          -14.8,
+          0.14,
+          25.3
+        ],
+        "rotation": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          -11.2,
+          0.28,
+          34.8
+        ],
+        "rotation": [
+          0.0,
+          -0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "c987b53e24a01e744b4a00ee5b1f8a08",
+        "prefab": "LightpoleParkRandom01",
+        "position": [
+          6.2,
+          0.28,
+          34.8
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "ba47f549eb430ac46a7c1b4cca509594",
+        "prefab": "GardenLightRandom01",
+        "position": [
+          -15.5,
+          0.14,
+          25.55
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "ba47f549eb430ac46a7c1b4cca509594",
+        "prefab": "GardenLightRandom01",
+        "position": [
+          -10.8,
+          0.14,
+          25.55
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "ba47f549eb430ac46a7c1b4cca509594",
+        "prefab": "GardenLightRandom01",
+        "position": [
+          12.3,
+          0.14,
+          25.55
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "ba47f549eb430ac46a7c1b4cca509594",
+        "prefab": "GardenLightRandom01",
+        "position": [
+          17.8,
+          0.14,
+          25.55
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "ba47f549eb430ac46a7c1b4cca509594",
+        "prefab": "GardenLightRandom01",
+        "position": [
+          24.0,
+          0.14,
+          25.55
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "ba47f549eb430ac46a7c1b4cca509594",
+        "prefab": "GardenLightRandom01",
+        "position": [
+          30.4,
+          0.14,
+          25.55
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "ba47f549eb430ac46a7c1b4cca509594",
+        "prefab": "GardenLightRandom01",
+        "position": [
+          -11.6,
+          0.28,
+          30.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "ba47f549eb430ac46a7c1b4cca509594",
+        "prefab": "GardenLightRandom01",
+        "position": [
+          -8.0,
+          0.28,
+          30.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "ba47f549eb430ac46a7c1b4cca509594",
+        "prefab": "GardenLightRandom01",
+        "position": [
+          -2.6,
+          0.28,
+          30.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "ba47f549eb430ac46a7c1b4cca509594",
+        "prefab": "GardenLightRandom01",
+        "position": [
+          2.6,
+          0.28,
+          30.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "ba47f549eb430ac46a7c1b4cca509594",
+        "prefab": "GardenLightRandom01",
+        "position": [
+          6.6,
+          0.28,
+          30.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8d8722db083c3564291e3778cceeb1ae",
+        "prefab": "PotRandom01",
+        "position": [
+          -7.6,
+          0.28,
+          33.2
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8d8722db083c3564291e3778cceeb1ae",
+        "prefab": "PotRandom01",
+        "position": [
+          -2.4,
+          0.28,
+          33.2
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8d8722db083c3564291e3778cceeb1ae",
+        "prefab": "PotRandom01",
+        "position": [
+          2.4,
+          0.28,
+          33.2
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "f7955fd41c1617847b4a4138acabcbcb",
+        "prefab": "TreeWildRandom01",
+        "position": [
+          -25.0,
+          0.0,
+          28.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": -1
+      },
+      {
+        "m_Object": "f7955fd41c1617847b4a4138acabcbcb",
+        "prefab": "TreeWildRandom01",
+        "position": [
+          -31.0,
+          0.0,
+          18.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": -1
+      },
+      {
+        "m_Object": "f7955fd41c1617847b4a4138acabcbcb",
+        "prefab": "TreeWildRandom01",
+        "position": [
+          38.5,
+          0.0,
+          16.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": -1
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          -1.0,
+          6.0,
+          30.58
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          1.0,
+          6.0,
+          30.58
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          -35.0,
+          2.6,
+          10.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          -12.0,
+          2.6,
+          10.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          12.0,
+          2.6,
+          10.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          35.0,
+          2.6,
+          10.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "m_Object": "697285a4905f6972960bf5d91fe8307c",
+        "prefab": "SkiDressSkiRack",
+        "mesh": "SkiDressSkiRackB",
+        "position": [
+          -24.5,
+          0.14,
+          -33.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0,
+        "note": "replaces skirack_pzS (ski_rack_frame 8 slots along Y with gear at authoring (-37.6, -24.5) on the plaza slab 0.14); identity: kit +Z = authoring +X",
+        "colour_set": "red",
+        "variant": "SkiDressSkiRack_Red"
+      },
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "m_Object": "e7380c568464e51607acf1f592abbadd",
+        "prefab": "SkiDressSkiRackV2",
+        "mesh": "SkiDressSkiRackV2B",
+        "position": [
+          -20.0,
+          0.14,
+          -33.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0,
+        "note": "replaces skirack_pzW (ski_rack_frame 8 slots along Y with gear at authoring (-37.6, -20.0) on the plaza slab 0.14); identity: kit +Z = authoring +X",
+        "colour_set": "red",
+        "variant": "SkiDressSkiRackV2_Red"
+      },
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "m_Object": "e5bba332e084f091fafbbb7243a34ea7",
+        "prefab": "SkiDressSkiRackV3",
+        "mesh": "SkiDressSkiRackV3B",
+        "position": [
+          20.0,
+          0.14,
+          -33.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0,
+        "note": "replaces skirack_pzE (ski_rack_frame 8 slots along Y with gear at authoring (-37.6, 20.0) on the plaza slab 0.14); identity: kit +Z = authoring +X",
+        "colour_set": "red",
+        "variant": "SkiDressSkiRackV3_Red"
+      },
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "m_Object": "697285a4905f6972960bf5d91fe8307c",
+        "prefab": "SkiDressSkiRack",
+        "mesh": "SkiDressSkiRackB",
+        "position": [
+          24.5,
+          0.14,
+          -33.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0,
+        "note": "replaces skirack_pzN (ski_rack_frame 8 slots along Y with gear at authoring (-37.6, 24.5) on the plaza slab 0.14); identity: kit +Z = authoring +X",
+        "colour_set": "red",
+        "variant": "SkiDressSkiRack_Red"
+      },
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "m_Object": "0aac04c6c9c94d82a563d924fec6f1cd",
+        "prefab": "SkiSignSetGrand",
+        "mesh": "SkiSignSetGrandB",
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0,
+        "role": "signset",
+        "bounds": [
+          [
+            -2.5,
+            4.6,
+            31.145
+          ],
+          [
+            2.5,
+            5.4,
+            31.145
+          ]
+        ]
+      }
+    ],
+    "x_convention": "game (gx, gy, gz) = authoring (y, z, x) = FBX-raw (x, z, -y); gx NOT negated (the school's / every shipped building row's convention). build/probes-b.md section 2: the game appears to negate FBX x; probe X2 decides; branch N = S1b negates gx of every row with gx != 0 and mirrors yaw (q.y -> -q.y). Identity rows (role signset) are frame-free.",
+    "kinds": {
+      "vanilla": 91,
+      "mod": 5
+    }
+  },
+  "fine_detail": {
+    "fine_detail": true,
+    "x_convention": "game (gx, gy, gz) = authoring (y, z, x) = FBX-raw (x, z, -y); gx NOT negated (the school's / every shipped building row's convention). build/probes-b.md section 2: the game appears to negate FBX x; probe X2 decides; branch N = S1b negates gx of every row with gx != 0 and mirrors yaw (q.y -> -q.y). Identity rows (role signset) are frame-free.",
+    "sign_set": {
+      "cid": "0aac04c6c9c94d82a563d924fec6f1cd",
+      "faces": [
+        "sign_l5name_face"
+      ],
+      "mesh": "SkiSignSetGrandB",
+      "asset_dir": "assets/import/signs/B/SkiSignSetGrandB",
+      "tris": 2,
+      "cull": {
+        "extent_m": [
+          5.0,
+          0.8,
+          0.0
+        ],
+        "area_m2": 4.0,
+        "thin_bias": 0.5001,
+        "cull_bias0_m": 891.3,
+        "target_m": 1763.6,
+        "m_Bias": -0.98,
+        "cull_at_bias_m": 1758.0,
+        "lod_factor": 652.0,
+        "small_mesh_rule": "not applied (LodProperties present)",
+        "status": "[U] formula until SkiProbeLodA / F5"
+      },
+      "bounds_game": [
+        [
+          -2.5,
+          4.6,
+          31.145
+        ],
+        [
+          2.5,
+          5.4,
+          31.145
+        ]
+      ],
+      "row": {
+        "kind": "mod",
+        "ref": "CID",
+        "m_Object": "0aac04c6c9c94d82a563d924fec6f1cd",
+        "prefab": "SkiSignSetGrand",
+        "mesh": "SkiSignSetGrandB",
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0,
+        "role": "signset"
+      },
+      "owner": false,
+      "validate": {
+        "errors": [],
+        "warnings": [],
+        "tris": {
+          "0": 2
+        },
+        "tex": [
+          2048
+        ]
+      },
+      "staged": [
+        "assets/staging/prefabs/signs/B/SkiSignSetGrand/SkiSignSetGrand.Prefab",
+        "assets/staging/prefabs/signs/B/SkiSignSetGrand/SkiSignSetGrandB Mesh.LodProperties.fragment",
+        "assets/staging/prefabs/signs/B/SkiSignSetGrand/SkiSignSetGrandB Mesh.surgery.json"
+      ]
+    },
+    "rows": {
+      "vanilla": 91,
+      "mod": 5
+    }
+  }
+}

@@ -1,0 +1,613 @@
+{
+  "name": "SkiTramCabinA",
+  "written_utc": "2026-10-11T23:30:44Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiTramCabinA.fbx": {
+      "bytes": 400172,
+      "sha1": "7dba146a4dae68a91a61a3220a9b9df0e836f24b"
+    },
+    "SkiTramCabinA_BaseColor.png": {
+      "bytes": 2047240,
+      "sha1": "0f6037dab66efee54eb805142ed12af840ea183a"
+    },
+    "SkiTramCabinA_ControlMask.png": {
+      "bytes": 90578,
+      "sha1": "c7ebe472de6a4973f349182c8bf2c1a3525c6680"
+    },
+    "SkiTramCabinA_LOD1.fbx": {
+      "bytes": 235212,
+      "sha1": "036df57e570de6a95b6dd851683043bb4ad9f7a6"
+    },
+    "SkiTramCabinA_LOD2.fbx": {
+      "bytes": 48428,
+      "sha1": "658a9c383d336484397fad33becbef5388617690"
+    },
+    "SkiTramCabinA_MaskMap.png": {
+      "bytes": 735006,
+      "sha1": "2c5f32d4d5b719761ab2eb8281d9c857ca9192b9"
+    },
+    "SkiTramCabinA_Normal.png": {
+      "bytes": 414011,
+      "sha1": "3b6fff9e8aac362f638a06368521e417e9096a14"
+    },
+    "settings.json": {
+      "bytes": 671,
+      "sha1": "57b313e91e262117c6ac5e3209e98dab6ec4c10f"
+    }
+  },
+  "generator": "lift_cabin.py",
+  "args": {
+    "kind": "tram",
+    "out": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\import\\cabins\\A",
+    "export": true,
+    "name": null,
+    "source": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\external\\wilin-gondola\\source\\gondola.fbx",
+    "carriers": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\catalog\\carriers.json",
+    "finish": true,
+    "draft": false,
+    "lods": true,
+    "verify": true,
+    "preview": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\preview\\cabins",
+    "review": "",
+    "plate_number": "27",
+    "outboard": "+Y",
+    "lod2": "proxy",
+    "hang": 10.5,
+    "split": false,
+    "ab": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\import\\chairs\\L\\SkiLiftChair6L",
+    "no_validate": false
+  },
+  "kind": "hanging",
+  "carrier": "tram",
+  "role": "whole",
+  "quality": "finish",
+  "texture_px": 2048,
+  "tris": {
+    "LOD0": 5678,
+    "LOD1": 2612,
+    "LOD2": 460
+  },
+  "budget": {
+    "LOD0": 5678,
+    "LOD0_cap": 8000,
+    "projection": 5678,
+    "RS_target": 6000,
+    "LOD1_ratio": 0.46,
+    "LOD2": 460,
+    "ok": true
+  },
+  "contract": {
+    "hang_m": 10.5,
+    "track_rope_m": 10.0,
+    "haul_rope_m": 9.6,
+    "haul_dy_m": 0.5,
+    "wheel_centre_m": 10.2506,
+    "fin_top_m": 4.6,
+    "fork_m": [
+      5.8999999999999995,
+      6.18
+    ],
+    "k_pin_m": 10.38,
+    "half_width_max_m": 1.1,
+    "role": "whole"
+  },
+  "contracts_held": {
+    "LOD0": [
+      "T1",
+      "T2",
+      "T3",
+      "T3b",
+      "T4",
+      "T5",
+      "T6",
+      "T8",
+      "T10",
+      "T11a",
+      "T11b",
+      "T12",
+      "T13"
+    ],
+    "LOD1": [
+      "T1",
+      "T2",
+      "T3",
+      "T3b",
+      "T4",
+      "T5",
+      "T6",
+      "T8",
+      "T11a",
+      "T11b",
+      "T13"
+    ],
+    "LOD2": [
+      "T1",
+      "T3",
+      "T3b",
+      "T4",
+      "T5",
+      "T6",
+      "T8",
+      "T11a",
+      "T11b"
+    ]
+  },
+  "bounds_authoring_m": {
+    "min": [
+      -4.03,
+      -1.88,
+      0.0
+    ],
+    "max": [
+      4.03,
+      1.88,
+      10.5
+    ]
+  },
+  "density_px_per_m": {
+    "median": 50.0,
+    "min": 9.6,
+    "max": 960.0
+  },
+  "density_hero_px_per_m": {
+    "band_": 185.6,
+    "bogie_": 57.5,
+    "carbeam_": 57.5,
+    "carhead_": 57.5,
+    "chamfer_": 62.0,
+    "doorband_": 185.6,
+    "doorframe_": 130.0,
+    "doorgrab_": 71.9,
+    "doortrim_": 140.0,
+    "fork_": 47.9,
+    "frame_": 130.0,
+    "hanger_": 47.9,
+    "logo_": 822.9,
+    "reveal_": 130.0,
+    "roof_": 62.0,
+    "sill_": 130.0,
+    "trim_": 140.0
+  },
+  "stamp_layout": {
+    "A": 2048,
+    "margin_px": 32.0,
+    "logo_px": 576,
+    "logo_ppm": {
+      "logo_siden0": 822.9,
+      "logo_siden1": 822.9,
+      "logo_endn": 960.0,
+      "logo_sidep0": 822.9,
+      "logo_sidep1": 822.9,
+      "logo_endp": 960.0
+    },
+    "logo_vs_shipped": 4.27,
+    "fill_turned": 7,
+    "fill_ppm": 185.6,
+    "fill_islands": 12,
+    "fill_region_px": [
+      1400.0,
+      616.0
+    ],
+    "groups": [
+      {
+        "prefixes": [
+          "frame_",
+          "sill_",
+          "reveal_",
+          "doorframe_",
+          "doorheader_"
+        ],
+        "ppm": 130.0,
+        "stripe_px": 332.0,
+        "islands": 54,
+        "turned": 33
+      },
+      {
+        "prefixes": [
+          "trim_",
+          "doortrim_"
+        ],
+        "ppm": 140.0,
+        "stripe_px": 52.0,
+        "islands": 12,
+        "turned": 7
+      },
+      {
+        "prefixes": [
+          "doorgasket_",
+          "doorseal_",
+          "doorjamb_",
+          "doorpocket_",
+          "doorroller_",
+          "bumper_"
+        ],
+        "ppm": 50.0,
+        "stripe_px": 59.0,
+        "islands": 80,
+        "turned": 72
+      },
+      {
+        "prefixes": [
+          "roof_",
+          "under_",
+          "chamfer_",
+          "mullion_"
+        ],
+        "ppm": 62.0,
+        "stripe_px": 243.0,
+        "islands": 53,
+        "turned": 45
+      },
+      {
+        "prefixes": [
+          "glass_",
+          "doorglass_"
+        ],
+        "ppm": 40.0,
+        "stripe_px": 85.0,
+        "islands": 12,
+        "turned": 4
+      }
+    ],
+    "rects": [
+      [
+        0.0,
+        0.6875,
+        1.0,
+        1.0
+      ],
+      [
+        0.0,
+        0.52539,
+        1.0,
+        0.6875
+      ],
+      [
+        0.0,
+        0.5,
+        1.0,
+        0.52539
+      ],
+      [
+        0.0,
+        0.47119,
+        1.0,
+        0.5
+      ],
+      [
+        0.0,
+        0.35254,
+        1.0,
+        0.47119
+      ],
+      [
+        0.0,
+        0.31104,
+        1.0,
+        0.35254
+      ]
+    ],
+    "band_v": [
+      0.0,
+      0.30604
+    ],
+    "prestretch_v": 3.2676,
+    "pinned_faces": 940,
+    "stripe1_px": 640.0,
+    "reserved_restored": 6
+  },
+  "revision": "Revision 1 (Richard's verdicts 2026-10-11 items 6 / 9): soft-edged rebuild, CAD-tell cleanup, pinned >= 4x logo square; Revision 1b (2026-10-11): geometry defects C1-C4 fixed (cap triangulation, closed shell, 2 mm insets), G11 / G12 / T12 + cap_check contracts; Revision 2 (2026-10-11, tram): centred outward-opening sliding double doors on both long sides (closed, 15 mm proud, gap-line seals, pocket grab bars, release pulls, header rollers, threshold nosing, drip rail), gondola detail parity (bolt rows above the texel floor, hanger pin, roof hatches, end bumpers, intercoms), T13 door contract",
+  "lod_switch": {
+    "switch_m": {
+      "1": 80.5,
+      "2": 191.9
+    },
+    "cull_m": 4115.0,
+    "bias": 0.237,
+    "area_m2": 222.22,
+    "lod_factor": 652.0,
+    "status": "formula prediction until the SkiProbeLodA verdict [U]"
+  },
+  "catalog": {
+    "catalog": "catalog/carriers.json",
+    "row": "tram",
+    "generator_row": {
+      "object_prefab": "SkiTramCabin",
+      "mesh_base": "SkiTramCabin",
+      "line_prefab": "SkiTramHV",
+      "lift_type": "tram",
+      "host": "base station ObjectSubObjects x2, identity rotation (R29)",
+      "seats": 100,
+      "hang_m": 10.5,
+      "grip_top_above_rope_m": 0.5,
+      "lane_x_m": 5.5,
+      "haul_x_m": 5.0,
+      "haul_dy_m": -0.4,
+      "track_ropes_per_side": 1,
+      "speed_mps": 10.0,
+      "dwell_s": 60,
+      "bounds_lat_half_m": 1.9,
+      "bounds_travel_half_m": 4.05,
+      "carriage_half_w_m": 1.1,
+      "pivot": "floor underside",
+      "facing": "identity, never yawed 180 (R29)",
+      "pivot_k_up_m": 10.38,
+      "lane_hanging_max": 0.004
+    },
+    "drift": [],
+    "compared": [
+      "hang_m",
+      "grip_top_above_rope_m",
+      "lane_x_m",
+      "haul_x_m",
+      "haul_dy_m",
+      "bounds_lat_half_m",
+      "bounds_travel_half_m",
+      "carriage_half_w_m",
+      "lane_hanging_max"
+    ]
+  },
+  "clearance": {
+    "rows": [
+      {
+        "Ly_m": 30.0,
+        "span_m": 250.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 7.5,
+        "underside_above_chord_mid_m": 12.5,
+        "heightrange_min_max": 14.0
+      },
+      {
+        "Ly_m": 30.0,
+        "span_m": 250.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 1.0,
+        "underside_above_chord_mid_m": 19.0,
+        "heightrange_min_max": 20.5
+      },
+      {
+        "Ly_m": 30.0,
+        "span_m": 500.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 15.0,
+        "underside_above_chord_mid_m": 5.0,
+        "heightrange_min_max": 6.5
+      },
+      {
+        "Ly_m": 30.0,
+        "span_m": 500.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 2.0,
+        "underside_above_chord_mid_m": 18.0,
+        "heightrange_min_max": 19.5
+      },
+      {
+        "Ly_m": 30.0,
+        "span_m": 1000.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 30.0,
+        "underside_above_chord_mid_m": -10.0,
+        "heightrange_min_max": -8.5
+      },
+      {
+        "Ly_m": 30.0,
+        "span_m": 1000.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 4.0,
+        "underside_above_chord_mid_m": 16.0,
+        "heightrange_min_max": 17.5
+      },
+      {
+        "Ly_m": 45.0,
+        "span_m": 250.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 7.5,
+        "underside_above_chord_mid_m": 27.5,
+        "heightrange_min_max": 29.0
+      },
+      {
+        "Ly_m": 45.0,
+        "span_m": 250.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 1.0,
+        "underside_above_chord_mid_m": 34.0,
+        "heightrange_min_max": 35.5
+      },
+      {
+        "Ly_m": 45.0,
+        "span_m": 500.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 15.0,
+        "underside_above_chord_mid_m": 20.0,
+        "heightrange_min_max": 21.5
+      },
+      {
+        "Ly_m": 45.0,
+        "span_m": 500.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 2.0,
+        "underside_above_chord_mid_m": 33.0,
+        "heightrange_min_max": 34.5
+      },
+      {
+        "Ly_m": 45.0,
+        "span_m": 1000.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 30.0,
+        "underside_above_chord_mid_m": 5.0,
+        "heightrange_min_max": 6.5
+      },
+      {
+        "Ly_m": 45.0,
+        "span_m": 1000.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 4.0,
+        "underside_above_chord_mid_m": 31.0,
+        "heightrange_min_max": 32.5
+      },
+      {
+        "Ly_m": 60.0,
+        "span_m": 250.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 7.5,
+        "underside_above_chord_mid_m": 42.5,
+        "heightrange_min_max": 44.0
+      },
+      {
+        "Ly_m": 60.0,
+        "span_m": 250.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 1.0,
+        "underside_above_chord_mid_m": 49.0,
+        "heightrange_min_max": 50.5
+      },
+      {
+        "Ly_m": 60.0,
+        "span_m": 500.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 15.0,
+        "underside_above_chord_mid_m": 35.0,
+        "heightrange_min_max": 36.5
+      },
+      {
+        "Ly_m": 60.0,
+        "span_m": 500.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 2.0,
+        "underside_above_chord_mid_m": 48.0,
+        "heightrange_min_max": 49.5
+      },
+      {
+        "Ly_m": 60.0,
+        "span_m": 1000.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 30.0,
+        "underside_above_chord_mid_m": 20.0,
+        "heightrange_min_max": 21.5
+      },
+      {
+        "Ly_m": 60.0,
+        "span_m": 1000.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 4.0,
+        "underside_above_chord_mid_m": 46.0,
+        "heightrange_min_max": 47.5
+      }
+    ],
+    "note": "underside(mid) = chord + Ly - 10.00 - span x h_lane (shuttle places by the rope, R27); carving min <= Ly - 8.50 - span x h_lane; R31 lane prefab m_Hanging ~0.004"
+  },
+  "prefab_numbers": {
+    "object_prefab": "SkiTramCabin",
+    "mesh": "SkiTramCabinA",
+    "UtilityObject": {
+      "m_UtilityType": 8,
+      "m_UtilityPosition": [
+        0.0,
+        10.5,
+        0.0
+      ],
+      "why": "R27 grip-top idiom: carriage top = bounds max"
+    },
+    "PillarObject": "none; hosted cabins carry UtilityObject only",
+    "expected_mesh_bounds_prefab_local": {
+      "x": [
+        -1.88,
+        1.88
+      ],
+      "y": [
+        0.0,
+        10.5
+      ],
+      "z": [
+        -4.03,
+        4.03
+      ]
+    },
+    "carriage_top_m": 10.5,
+    "track_rope_m": 10.0,
+    "haul_rope_m": 9.6,
+    "lane_offset_m": 5.5,
+    "haul_offset_m": 5.0,
+    "ropes": "R28: ONE HV track rope per side at +-5.5 (the rider lane, the carriage rides it at dy 0); LV haul at +-5.0, 0.40 below; no LV track lanes",
+    "hosted_poses": {
+      "host": "base station ObjectSubObjects",
+      "cabin_A": "(-5.50, Yp, z_bay) identity (0,0,0,1)",
+      "cabin_B": "(+5.50, Yp, z_bay) identity (0,0,0,1)",
+      "Yp": "pivot = floor underside = platform deck top - 0.30 (interior floor 0.30 above the underside)",
+      "derived": "TRACK_Y = Yp + 10.00; HAUL_Y = Yp + 9.60; carriage top = Yp + 10.50",
+      "station": {
+        "source": "tram_station.py DECK_Y / DOCK_Z / TRACK_Y (anchor owner)",
+        "deck_y": 6.3,
+        "Yp": 6.0,
+        "z_bay": -5.5,
+        "track_y": 16.0,
+        "haul_y": 15.6,
+        "carriage_top_y": 16.5,
+        "matches_station_track_y": true,
+        "clearance": "base face girder opening 18.60 and top portal heads 17.10 clear the carriage top 16.50 (station contract C4 + the real-cabin sweep)"
+      }
+    },
+    "station_deck_edge_m": "lane +- 2.30 as built (bay deck edges x +-3.20 / +-7.80; 0.42 m to the 1.88 body); the cabin lens' tighter ask was lane +- 1.95",
+    "tower_envelope": "R30: tower <= lane + 0.36 at dz -0.80..+0.60 and <= lane + 0.80 at dz -3.80..-0.70; carrier half-width <= 1.10 above the fin; carrier symmetric (the inboard fork upright clips the saddle cantilever arm for ~0.7 s per tower pass - the accepted centred-hanger class, lattice-towers D4)",
+    "ColorProperties": {
+      "on": "LOD0 RenderPrefab only",
+      "m_VariationRanges": [
+        0,
+        0,
+        0
+      ],
+      "sets": [
+        {
+          "name": "Jackson red (default)",
+          "slot1": [
+            0.75,
+            0.06,
+            0.05
+          ],
+          "slot2": [
+            0.05,
+            0.05,
+            0.06
+          ],
+          "slot3": [
+            0.05,
+            0.05,
+            0.06
+          ]
+        }
+      ],
+      "documented": [
+        "Snowbird (documented)",
+        "Aiguille (documented)"
+      ]
+    },
+    "seats": "100 (+1 operator)",
+    "lot": "n/a (hosted)",
+    "stubs": "n/a (station lens)"
+  },
+  "code_consequences": [
+    "R27: the shuttle places by the ROPE (bounds 10.50 - 0.50 = 10.00 above the pivot), never by bounds.max.y",
+    "R29: shuttle never yaws 180 at a reversal (cabins symmetric); hosted identity in both bays",
+    "R28: rider lane = the HV track rope at +-5.5 (harvest by HighVoltageLine, ChairPinSystem.cs:746, :1203); haul is LV at +-5.0 / -0.40",
+    "carriage pitch: one mesh stays level on pitched ropes (ends +-2.80 tan(theta)); --split gives SkiTramCarriageA pitched about K = (0, 0, hang - 0.12)",
+    "R31: tram rope-lane prefab m_Hanging ~0.004 (1 km x 0.03 = 30 m sag); carving envelope includes span x h_lane",
+    "Phase C shuttle: terminals-only serve, dwell 60 s, speed 10 m/s (RS section 5)"
+  ],
+  "rulings": [
+    "R27 hang 10.50 / rope 10.00",
+    "R28 one HV track rope per side",
+    "R29 symmetric, identity, pivot floor underside",
+    "R30 half-width 1.10 + tower keep-outs",
+    "R31 lanes",
+    "R8 painted glass",
+    "R18 2048"
+  ],
+  "ingest": null,
+  "credit": null,
+  "geometry_hashes": {
+    "LOD0": "b66130086c0eb840",
+    "LOD1": "503330634b98de38",
+    "LOD2": "77c056a3269eb90c"
+  }
+}

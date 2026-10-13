@@ -88,8 +88,23 @@
 // nodes + stations) with dictionary lookups; it reuses its member collections, so a build allocates
 // only when a collection grows or a build note is written.
 //
+// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §4.1, D18, lift
+// group) — the TYPED census. Edge.Type = the SkiCatalog.Lifts index of the edge's line prefab, Station.Type = its
+// StationDef.LiftTypeIndex (NoType = 255 when the harvest could not type it — defensive only). In the union pass an
+// edge with Type == NoType is IGNORED: never unioned, never part of a component, a row or a degree count, one build
+// note "edge {id} has no lift type — ignored" (the harvest passes catalog lines only, so a vanilla HV feeder never
+// arrives here at all — DECISIONS 94 lets one feed a station stub; ext-chk X1). Every component carries TypeMask (bit
+// Type of each typed edge and each touched station); popcount > 1 = MIXED (D18: a detachable line between fixed-grip
+// terminals is as broken as two line types — gauge ±2.6 vs ±1.8 anchors): Complex (→ Unfinished through the existing
+// MakeRow path), a build note "component of N edge(s) from {edge} mixes lift types (fixedGrip+detachable) —
+// Unfinished", and every row built from it gets Mixed = true. Attribution is unchanged (a mixed component touching one
+// base and one top keeps that pair's key, so removing the stray edge returns the same row to Complete). Row.Type = the
+// live base station's type, else the live top's, else the lowest-index edge's; StationsOnly rows: their station's.
+// The row hash (Revision) covers Type and Mixed; the topology hash covers the edges' types.
+//
 // PURE FILE: `using System;` + `using System.Collections.Generic;` + `using Unity.Mathematics;` only
-// (the test-host rule of tests/SlopeBatch; EntityRef.cs is the pure stand-in for Entity).
+// (the test-host rule of tests/SlopeBatch; EntityRef.cs is the pure stand-in for Entity), + SkiCatalog (pure, linked
+// wherever this file is) for the type ids in the "mixes lift types" note.
 
 using System;
 using System.Collections.Generic;
@@ -102,12 +117,17 @@ namespace SkiResortMod.Systems
     {
         public enum State : byte { Complete, Open, Unfinished, StationsOnly }
 
+        /// <summary>Catalog Phase B (round-2-contract §4.1): an edge or station the harvest could not type (defensive
+        /// only: the harvest passes catalog lines and catalog stations). Never a SkiCatalog.Lifts index.</summary>
+        public const byte NoType = 255;
+
         public struct Edge
         {
             public EntityRef Id, Start, End;
             public float3 StartPos, EndPos;
             public float LengthM;
             public int Chairs;
+            public byte Type;     // Catalog Phase B: SkiCatalog.Lifts index of the edge's line prefab (NoType = ignored)
         }
 
         /// <summary>Station: index into the station list, or −1.</summary>
@@ -125,6 +145,7 @@ namespace SkiResortMod.Systems
             public bool IsBase;
             public float3 Position, StubTip;
             public float2 Axis;
+            public byte Type;     // Catalog Phase B: StationDef.LiftTypeIndex (NoType when unknown)
         }
 
         public struct Row
@@ -138,6 +159,10 @@ namespace SkiResortMod.Systems
             public bool HasGap;
             public bool AlignKnown;
             public float AlignOffsetM, AlignYawDeg;
+            // Catalog Phase B (round-2-contract §4.1, seam S1): the row's lift type (SkiCatalog.Lifts index; NoType when
+            // nothing typed it) and whether its component spans two or more of our lift types (then State Unfinished).
+            public byte Type;
+            public bool Mixed;
         }
 
         public enum EventKind : byte { SectionsDeleted, Opened, Closed, NewLine, Removed }
@@ -183,6 +208,8 @@ namespace SkiResortMod.Systems
             public EntityRef LowestEdge;
             public Key Key;
             public bool Complex;
+            public uint TypeMask;        // Catalog Phase B: bit Type of every typed edge and touched station
+            public bool Mixed;           // Catalog Phase B: popcount(TypeMask) > 1 (D18)
 
             public void Reset()
             {
@@ -192,6 +219,8 @@ namespace SkiResortMod.Systems
                 LowestEdge = default;
                 Key = default;
                 Complex = false;
+                TypeMask = 0u;
+                Mixed = false;
             }
         }
 
@@ -321,9 +350,14 @@ namespace SkiResortMod.Systems
                 m_StationIndex[stations[i].Id] = i;
             m_CurrentEdges.Clear();
             for (int i = 0; i < edges.Count; i++)
-                m_CurrentEdges.Add(edges[i].Id);
+            {
+                if (edges[i].Type != NoType)   // Catalog Phase B: an untyped edge is not a lift edge (header)
+                    m_CurrentEdges.Add(edges[i].Id);
+            }
 
             // ── 2. union-find through non-station nodes; degree per node ─────────────────────
+            // Catalog Phase B (round-2-contract §4.1): an edge with Type == NoType is never linked (it never connects
+            // two components) and adds no degree (it is ignored, so it cannot make a dead end look connected).
             m_Parent.Clear();
             for (int i = 0; i < edges.Count; i++)
                 m_Parent.Add(i);
@@ -331,6 +365,8 @@ namespace SkiResortMod.Systems
             m_Degree.Clear();
             for (int i = 0; i < edges.Count; i++)
             {
+                if (edges[i].Type == NoType)
+                    continue;
                 LinkEndpoint(i, edges[i].Start, nodes, stations.Count);
                 LinkEndpoint(i, edges[i].End, nodes, stations.Count);
             }
@@ -342,6 +378,12 @@ namespace SkiResortMod.Systems
                 m_CompOfRoot.Add(-1);
             for (int i = 0; i < edges.Count; i++)
             {
+                if (edges[i].Type == NoType)
+                {
+                    // Catalog Phase B: defensive (the harvest only passes catalog lines); one note per such edge.
+                    Notes.Add("edge " + edges[i].Id + " has no lift type — ignored");
+                    continue;
+                }
                 int root = Find(i);
                 int ci = m_CompOfRoot[root];
                 Comp comp;
@@ -358,8 +400,22 @@ namespace SkiResortMod.Systems
                 comp.Edges.Add(i);
                 if (comp.LowestEdge.IsNull || edges[i].Id.CompareTo(comp.LowestEdge) < 0)
                     comp.LowestEdge = edges[i].Id;
+                comp.TypeMask |= TypeBit(edges[i].Type);   // Catalog Phase B
                 TouchStation(comp, StationOf(edges[i].Start, nodes, stations.Count), stations);
                 TouchStation(comp, StationOf(edges[i].End, nodes, stations.Count), stations);
+            }
+
+            // ── 3b. Catalog Phase B (D18): a component whose edges and touched stations span two or more of our lift
+            //        types is MIXED — Complex (→ Unfinished in MakeRow), one note, every row built from it Mixed. ──
+            for (int c = 0; c < m_Comps.Count; c++)
+            {
+                Comp comp = m_Comps[c];
+                if (math.countbits(comp.TypeMask) <= 1)
+                    continue;
+                comp.Mixed = true;
+                comp.Complex = true;
+                Notes.Add("component of " + comp.Edges.Count + " edge(s) from " + comp.LowestEdge + " mixes lift types (" +
+                          TypeIds(comp.TypeMask) + ") — Unfinished");
             }
 
             // ── 4. attribution (rules a-d) ─────────────────────────────────────────────────────
@@ -418,6 +474,7 @@ namespace SkiResortMod.Systems
                     FocusCenter = st.Position,
                     GapAt = st.Position,
                     FocusRadius = MinFocusRadiusM,
+                    Type = st.Type,   // Catalog Phase B: a StationsOnly row's type is its station's
                 });
             }
 
@@ -550,6 +607,29 @@ namespace SkiResortMod.Systems
             comp.Stations.Add(station);
             if (stations[station].IsBase) comp.Bases++;
             else comp.Tops++;
+            comp.TypeMask |= TypeBit(stations[station].Type);   // Catalog Phase B (D18): stations count for Mixed
+        }
+
+        /// <summary>Catalog Phase B: bit <paramref name="type"/> of a component's TypeMask; 0 for NoType (and any index
+        /// past 31 — SkiCatalog.Lifts holds 4 rows, APPEND ONLY).</summary>
+        private static uint TypeBit(byte type)
+        {
+            return type < 32 ? 1u << type : 0u;
+        }
+
+        /// <summary>Catalog Phase B: "fixedGrip+detachable" — the type ids of a mask in index order (SkiCatalog
+        /// LiftTypeDef.Id; "type N" for an index the catalog does not know). Allocates: build notes only.</summary>
+        private static string TypeIds(uint mask)
+        {
+            string ids = "";
+            for (int t = 0; t < 32; t++)
+            {
+                if ((mask & (1u << t)) == 0)
+                    continue;
+                LiftTypeDef def = SkiCatalog.LiftByIndex(t);
+                ids += (ids.Length > 0 ? "+" : "") + (def != null ? def.Id : "type " + t);
+            }
+            return ids;
         }
 
         // ── attribution ───────────────────────────────────────────────────────────────────────
@@ -657,9 +737,10 @@ namespace SkiResortMod.Systems
             bool hasBase = !key.Base.IsNull && m_StationIndex.TryGetValue(key.Base, out baseIdx);
             bool hasTop = !key.Top.IsNull && m_StationIndex.TryGetValue(key.Top, out topIdx);
 
-            bool complex = false, touchedBase = false, touchedTop = false;
+            bool complex = false, touchedBase = false, touchedTop = false, mixed = false;
             int bothTouching = 0;
             EntityRef lowest = default;
+            byte lowestType = NoType;   // Catalog Phase B: the lowest-index edge's type (Row.Type's last fallback)
             float3 bmin = new float3(float.MaxValue), bmax = new float3(float.MinValue);
             float chordXZ = 0f;
             m_RowNodes.Clear();
@@ -668,6 +749,7 @@ namespace SkiResortMod.Systems
             {
                 Comp comp = comps[c];
                 complex |= comp.Complex;
+                mixed |= comp.Mixed;
                 bool tb = hasBase && comp.Stations.Contains(baseIdx);
                 bool tt = hasTop && comp.Stations.Contains(topIdx);
                 touchedBase |= tb;
@@ -681,7 +763,10 @@ namespace SkiResortMod.Systems
                     row.Chairs += e.Chairs;
                     chordXZ += math.length(e.EndPos.xz - e.StartPos.xz);
                     if (lowest.IsNull || e.Id.CompareTo(lowest) < 0)
+                    {
                         lowest = e.Id;
+                        lowestType = e.Type;
+                    }
                     Grow(ref bmin, ref bmax, e.StartPos);
                     Grow(ref bmin, ref bmax, e.EndPos);
                     CountNode(ref row, e.Start, nodes);
@@ -719,6 +804,11 @@ namespace SkiResortMod.Systems
             // Id: the live base, else the live top, else the lowest edge (header; a key may hold a
             // removed station since the fixer round).
             row.Id = hasBase ? key.Base : hasTop ? key.Top : lowest;
+
+            // Catalog Phase B (round-2-contract §4.1): the row's type follows its Id's rule — the live base station's
+            // type, else the live top's, else the lowest-index edge's; Mixed when any of its components is.
+            row.Type = hasBase ? stations[baseIdx].Type : hasTop ? stations[topIdx].Type : lowestType;
+            row.Mixed = mixed;
 
             // Focus
             if (bmin.x <= bmax.x)
@@ -954,6 +1044,7 @@ namespace SkiResortMod.Systems
                 h = Mix(h, Bits(r.FocusRadius));
                 h = Mix(h, r.HasGap ? 1u : 0u); h = Mix(h, r.AlignKnown ? 1u : 0u);
                 h = Mix(h, Bits(r.AlignOffsetM)); h = Mix(h, Bits(r.AlignYawDeg));
+                h = Mix(h, r.Type); h = Mix(h, r.Mixed ? 1u : 0u);   // Catalog Phase B (§4.1)
             }
             return (int)h;
         }
@@ -969,6 +1060,7 @@ namespace SkiResortMod.Systems
                     h = Mix(h, (uint)edges[i].Id.Index); h = Mix(h, (uint)edges[i].Id.Version);
                     h = Mix(h, (uint)edges[i].Start.Index); h = Mix(h, (uint)edges[i].Start.Version);
                     h = Mix(h, (uint)edges[i].End.Index); h = Mix(h, (uint)edges[i].End.Version);
+                    h = Mix(h, edges[i].Type);   // Catalog Phase B: a type change is a topology change
                     sum += h;
                 }
                 for (int i = 0; i < nodes.Count; i++)

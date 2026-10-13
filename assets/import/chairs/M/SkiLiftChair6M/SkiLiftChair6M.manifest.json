@@ -1,0 +1,252 @@
+{
+  "name": "SkiLiftChair6M",
+  "written_utc": "2026-10-11T17:33:56Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiLiftChair6M.fbx": {
+      "bytes": 50620,
+      "sha1": "1e5768cfddc104fc471f20dfb1d85efc5f1be23b"
+    },
+    "SkiLiftChair6M_BaseColor.png": {
+      "bytes": 219964,
+      "sha1": "47ac5dbda7a28aa692725165cf39e9b124497385"
+    },
+    "SkiLiftChair6M_ControlMask.png": {
+      "bytes": 12939,
+      "sha1": "1a2f2fc1249d85a8c80f04fed1a5679df3dd6818"
+    },
+    "SkiLiftChair6M_LOD1.fbx": {
+      "bytes": 34012,
+      "sha1": "93df22cf9009a673145292a7694797607106693a"
+    },
+    "SkiLiftChair6M_LOD2.fbx": {
+      "bytes": 18284,
+      "sha1": "5738eab2772080a48b6302c1c59ab9a23e758004"
+    },
+    "SkiLiftChair6M_MaskMap.png": {
+      "bytes": 72176,
+      "sha1": "9ca420b399d82e7052d6d0385a4cce10ad55f10f"
+    },
+    "SkiLiftChair6M_Normal.png": {
+      "bytes": 35843,
+      "sha1": "f58fe6d24fe4b9efe0498c0b3ec3f87115a9bef7"
+    },
+    "settings.json": {
+      "bytes": 687,
+      "sha1": "56e17096dcc35afd88a8a4fe1c62f00e6b227d5e"
+    }
+  },
+  "generator": "lift_chair.py",
+  "style": "tr",
+  "letter": "M",
+  "carrier": {
+    "tr": {
+      "object_prefab": "SkiLiftChair4",
+      "mesh_base": "SkiLiftChair6",
+      "line_prefab": "SkiChairliftHV",
+      "seats": 3,
+      "seat_pitch_m": 0.6,
+      "bench_m": 1.8,
+      "hang_m": 2.4,
+      "grip_top_above_rope_m": 0.08,
+      "lane_x_m": 1.8,
+      "axle_m": 7.04,
+      "spacing_m": 15.0,
+      "mast_r_m": 0.38,
+      "lift_type": "fixedGrip",
+      "speed_mps": 2.5
+    }
+  },
+  "tris": {
+    "LOD0": 494,
+    "LOD1": 220,
+    "LOD2": 62
+  },
+  "part_table": [
+    "grip",
+    "gripjaw",
+    "gripspring",
+    "gripplate_0",
+    "gripplate_1",
+    "tube_stem",
+    "clampblock",
+    "backrail",
+    "backbar_o0",
+    "backbar_o1",
+    "backrest",
+    "plate_rim",
+    "plate_face",
+    "seat",
+    "cushion_0",
+    "cushion_1",
+    "cushion_2",
+    "pad_0",
+    "pad_1",
+    "pad_2",
+    "armrest_0",
+    "armpost_0",
+    "armrest_1",
+    "armpost_1"
+  ],
+  "part_tris": {
+    "grip": 12,
+    "gripjaw": 20,
+    "gripspring": 18,
+    "gripplate_0": 12,
+    "gripplate_1": 12,
+    "tube_stem": 128,
+    "clampblock": 12,
+    "backrail": 32,
+    "backbar_o0": 12,
+    "backbar_o1": 12,
+    "backrest": 12,
+    "plate_rim": 8,
+    "plate_face": 2,
+    "seat": 12,
+    "cushion_0": 26,
+    "cushion_1": 26,
+    "cushion_2": 26,
+    "pad_0": 20,
+    "pad_1": 20,
+    "pad_2": 20,
+    "armrest_0": 18,
+    "armpost_0": 8,
+    "armrest_1": 18,
+    "armpost_1": 8
+  },
+  "contracts": {
+    "LOD0": {
+      "C1": "z 0 .. 2.4000 (hang 2.400)",
+      "C2": "top owned by grip",
+      "C3": "rope z 2.320 inside grip",
+      "C4": "bottom owned by seat",
+      "C5": "tube_stem 9 rings",
+      "C6": "width 1.800, passing 1.800, mast gap 0.900",
+      "C8": "494 tris",
+      "C9": "24 parts as contracted"
+    },
+    "atlas": {
+      "C11": "quad 2 0.800, quad 3 0.792; every face in its family quad"
+    },
+    "finish": {
+      "C12": "bench 86619 / paint 41287 / galv 9221 texels as recoloured; plate 715 dark texels"
+    },
+    "LOD1": {
+      "C1": "z 0 .. 2.4000 (hang 2.400)",
+      "C2": "top owned by grip",
+      "C3": "rope z 2.320 inside grip",
+      "C4": "bottom owned by seat",
+      "C6": "width 1.800, passing 1.800, mast gap 0.900",
+      "C8": "220 tris"
+    },
+    "LOD2": {
+      "C1": "z 0 .. 2.4000 (hang 2.400)",
+      "C2": "top owned by grip",
+      "C3": "rope z 2.320 inside grip",
+      "C4": "bottom owned by seat",
+      "C6": "width 1.800, passing 1.800, mast gap 0.900",
+      "C8": "62 tris"
+    },
+    "silhouette": {
+      "LOD1/front/bench": [
+        1.0,
+        0.0
+      ],
+      "LOD1/side/bench": [
+        1.0,
+        0.0
+      ],
+      "LOD2/front/bench": [
+        0.999,
+        0.003
+      ],
+      "LOD2/side/bench": [
+        0.887,
+        0.023
+      ]
+    }
+  },
+  "lod_switch": {
+    "csum": 5.1149998009204865,
+    "bias": 0.5048662646575486,
+    "distances": [
+      35.247506211760445,
+      52.81782700553931,
+      99.4938016313123
+    ],
+    "switch": {
+      "1": 52.81782700553931,
+      "2": 99.4938016313123
+    },
+    "cull": 783.4153427278108
+  },
+  "density": {
+    "median": 134.69,
+    "min": 89.79,
+    "min_part": "plate_rim",
+    "max": 280.6,
+    "parts": 24,
+    "uv_layer": "UVUnique"
+  },
+  "bake": {
+    "A": 512,
+    "margin_px": 3,
+    "ao": "self",
+    "uncovered_texels": 122998,
+    "files": [
+      "SkiLiftChair6M_BaseColor.png",
+      "SkiLiftChair6M_Normal.png",
+      "SkiLiftChair6M_MaskMap.png",
+      "SkiLiftChair6M_ControlMask.png"
+    ],
+    "px_per_m": {
+      "min": 89.79170134806988,
+      "median": 128.07432228753473,
+      "max": 280.6007617360098
+    }
+  },
+  "lod2": "proxy",
+  "verify": {
+    "height_m": 2.3999998670822356,
+    "levels_ok": [
+      true,
+      true,
+      true
+    ],
+    "normals_per_vertex": {
+      "1": 119,
+      "2": 130,
+      "3": 72
+    }
+  },
+  "validation": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "hanger_offset_m": null,
+  "args": {
+    "style": "tr",
+    "out": "assets/import/chairs/M",
+    "letter": null,
+    "name": null,
+    "seats": null,
+    "preview": "assets/preview/chairs",
+    "finish": true,
+    "bake": null,
+    "lods": true,
+    "lod2": null,
+    "verify": true,
+    "plate_number": "27",
+    "hanger_offset": null,
+    "carriers": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\catalog\\carriers.json",
+    "ab": null,
+    "basecolor": [
+      0.13,
+      0.16,
+      0.22
+    ],
+    "metallic": 0.1,
+    "smoothness": 0.35,
+    "review": ""
+  }
+}

@@ -1,0 +1,559 @@
+{
+  "name": "SkiSignSetGrandB",
+  "written_utc": "2026-10-13T08:30:30Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiSignSetGrandB.fbx": {
+      "bytes": 12684,
+      "sha1": "d45499b75e051e12f32ee5e2e54757a963b73e57"
+    },
+    "settings.json": {
+      "bytes": 496,
+      "sha1": "ba50610adcddf43fea6e1b87902eb184433687f1"
+    }
+  },
+  "generator": "cs2_signset.py (via lodge.py)",
+  "spec": "fine-detail step 2",
+  "kind": "sign set (building sheet)",
+  "object_prefab": "SkiSignSetGrand",
+  "mesh": "SkiSignSetGrandB",
+  "object_cid": "0aac04c6c9c94d82a563d924fec6f1cd",
+  "cid_state": "staged",
+  "host": {
+    "name": "SkiLodgeSwankyBottomCommercialLowB",
+    "prefab": "SkiLodgeGrand",
+    "lot_half_game": [
+      40.0,
+      36.0
+    ],
+    "switch_lod2_m": 1763.61,
+    "host_tris": {
+      "0": 23019,
+      "1": 10359,
+      "2": 479
+    }
+  },
+  "host_recipe": "L5",
+  "tris": 2,
+  "bounds_game": {
+    "min": [
+      -2.5,
+      4.6,
+      31.145
+    ],
+    "max": [
+      2.5,
+      5.4,
+      31.145
+    ]
+  },
+  "faces": {
+    "sign_l5name_face": {
+      "kind": "l5.name",
+      "normal_authoring": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "rect": [
+        8,
+        1360,
+        1508,
+        1600
+      ],
+      "size_m": [
+        5.0,
+        0.8
+      ]
+    }
+  },
+  "cull": {
+    "extent_m": [
+      5.0,
+      0.8,
+      0.0
+    ],
+    "area_m2": 4.0,
+    "thin_bias": 0.5001,
+    "cull_bias0_m": 891.3,
+    "target_m": 1763.6,
+    "m_Bias": -0.98,
+    "cull_at_bias_m": 1758.0,
+    "lod_factor": 652.0,
+    "small_mesh_rule": "not applied (LodProperties present)",
+    "status": "[U] formula until SkiProbeLodA / F5"
+  },
+  "emissive": {
+    "intensity_at_surgery": 0.2,
+    "purpose": "importer 33 / 34",
+    "lit_kinds": [
+      "school.name",
+      "hut.name",
+      "p1.name",
+      "p2.name",
+      "l5.name",
+      "gate.header"
+    ],
+    "status": "lit while the owner chain has power (FS16: the host's ElectricityConsumer, else its efficiency)"
+  },
+  "row": {
+    "kind": "mod",
+    "ref": "CID",
+    "m_Object": "0aac04c6c9c94d82a563d924fec6f1cd",
+    "prefab": "SkiSignSetGrand",
+    "mesh": "SkiSignSetGrandB",
+    "position": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "rotation": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "m_ParentMesh": 0,
+    "role": "signset"
+  },
+  "x_convention": "game (gx, gy, gz) = authoring (y, z, x) = FBX-raw (x, z, -y); gx NOT negated (the school's / every shipped building row's convention). build/probes-b.md section 2: the game appears to negate FBX x; probe X2 decides; branch N = S1b negates gx of every row with gx != 0 and mirrors yaw (q.y -> -q.y). Identity rows (role signset) are frame-free.",
+  "sheet": {
+    "owner": "SkiSignSetSchoolB",
+    "is_owner": false,
+    "size": 2048,
+    "ppm": 300.0,
+    "gutter_px": 8,
+    "dilate_px": 4,
+    "maps": [
+      "BaseColor",
+      "ControlMask",
+      "MaskMap",
+      "Normal",
+      "Emissive"
+    ],
+    "layout_sha": "afee251d75da1b40",
+    "free_rows_top": 260,
+    "kinds": [
+      {
+        "key": "school.name",
+        "host": "school",
+        "size_m": [
+          4.2,
+          0.9
+        ],
+        "rect": [
+          8,
+          834,
+          1268,
+          1104
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "SKI SCHOOL in Franklin Gothic Demi Cond, white on board brown (nitpick C, was Bfont)"
+      },
+      {
+        "key": "school.meet",
+        "host": "school",
+        "size_m": [
+          2.4,
+          1.2
+        ],
+        "rect": [
+          796,
+          436,
+          1516,
+          796
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.bibs",
+        "host": "school",
+        "size_m": [
+          2.0,
+          0.9
+        ],
+        "rect": [
+          1276,
+          834,
+          1876,
+          1104
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.notice",
+        "host": "school",
+        "size_m": [
+          0.7,
+          1.0
+        ],
+        "rect": [
+          1396,
+          8,
+          1606,
+          308
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.lesson0",
+        "host": "school",
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "rect": [
+          1524,
+          436,
+          1704,
+          616
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.lesson1",
+        "host": "school",
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "rect": [
+          1712,
+          436,
+          1892,
+          616
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.lesson2",
+        "host": "school",
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "rect": [
+          1516,
+          1112,
+          1696,
+          1292
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.lesson3",
+        "host": "school",
+        "size_m": [
+          0.6,
+          0.6
+        ],
+        "rect": [
+          1704,
+          1112,
+          1884,
+          1292
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "school.door1",
+        "host": "school",
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "rect": [
+          1900,
+          436,
+          1990,
+          526
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "revision 2: plain red plate, no digit (unused by the school)"
+      },
+      {
+        "key": "school.door2",
+        "host": "school",
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "rect": [
+          1884,
+          834,
+          1974,
+          924
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "revision 2: plain red plate, no digit (unused by the school)"
+      },
+      {
+        "key": "school.door3",
+        "host": "school",
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "rect": [
+          1892,
+          1112,
+          1982,
+          1202
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "revision 2: plain red plate, no digit (unused by the school)"
+      },
+      {
+        "key": "school.door4",
+        "host": "school",
+        "size_m": [
+          0.3,
+          0.3
+        ],
+        "rect": [
+          1884,
+          1360,
+          1974,
+          1450
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "revision 2: plain red plate, no digit (unused by the school)"
+      },
+      {
+        "key": "hut.name",
+        "host": "hut",
+        "size_m": [
+          5.0,
+          0.8
+        ],
+        "rect": [
+          8,
+          1112,
+          1508,
+          1352
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "RESTAURANT in Franklin Gothic Demi Cond, white on hut red (nitpick C, was Bfont)"
+      },
+      {
+        "key": "hut.picto",
+        "host": "hut",
+        "size_m": [
+          2.4,
+          0.6
+        ],
+        "rect": [
+          8,
+          1608,
+          728,
+          1788
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "BLANK board (nitpick C: the fork-and-knife pictogram Richard called 'quite bad' on L3 / L4 is the same glyph): board brown with a thin rim in the hut's green trim; a label surface for the player"
+      },
+      {
+        "key": "hut.menu",
+        "host": "hut",
+        "size_m": [
+          0.55,
+          0.8
+        ],
+        "rect": [
+          1787,
+          8,
+          1952,
+          248
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": ""
+      },
+      {
+        "key": "p1.name",
+        "host": "p1",
+        "size_m": [
+          2.6,
+          1.3
+        ],
+        "rect": [
+          8,
+          436,
+          788,
+          826
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "SKI / PATROL in Franklin Gothic Demi Cond, white on patrol red (nitpick C, was Bfont)"
+      },
+      {
+        "key": "p1.info",
+        "host": "p1",
+        "size_m": [
+          0.55,
+          0.85
+        ],
+        "rect": [
+          1614,
+          8,
+          1779,
+          263
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "info board, three colour bars (P1_BOARD, _civic.BarsPainter); painted at approval"
+      },
+      {
+        "key": "p2.name",
+        "host": "p2",
+        "size_m": [
+          4.6,
+          1.4
+        ],
+        "rect": [
+          8,
+          8,
+          1388,
+          428
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "SKI PATROL / FIRST AID in Franklin Gothic Demi Cond, white on patrol red (nitpick C, was Bfont)"
+      },
+      {
+        "key": "l5.name",
+        "host": "l5",
+        "size_m": [
+          5.0,
+          0.8
+        ],
+        "rect": [
+          8,
+          1360,
+          1508,
+          1600
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "GRAND LODGE in Bookman Old Style Bold, letter-spaced caps between two lozenges, a thin cream rule inside the face; cream on board brown (nitpick C; was Bfont, step 3e)"
+      },
+      {
+        "key": "tram.stn",
+        "host": "tram",
+        "size_m": [
+          1.2,
+          0.5
+        ],
+        "rect": [
+          1516,
+          1360,
+          1876,
+          1510
+        ],
+        "state": "reserved",
+        "lit": false,
+        "note": "tram top TRAM board (tram_station.py label_stn) if rev 2 moves it off the host"
+      },
+      {
+        "key": "school.markstaff",
+        "host": "school",
+        "size_m": [
+          0.44,
+          0.36
+        ],
+        "rect": [
+          744,
+          1616,
+          876,
+          1724
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "red placard on the white doors, Franklin Gothic Demi Cond (nitpick C; legend a stand-in)"
+      },
+      {
+        "key": "school.marknosled",
+        "host": "school",
+        "size_m": [
+          0.76,
+          0.36
+        ],
+        "rect": [
+          884,
+          1616,
+          1112,
+          1724
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "red NO SLEDDING sign with a white rim, Franklin Gothic Demi Cond (nitpick C; Street View 120856)"
+      },
+      {
+        "key": "gate.header",
+        "host": "gate",
+        "size_m": [
+          2.6,
+          0.6
+        ],
+        "rect": [
+          1260,
+          1608,
+          2040,
+          1788
+        ],
+        "state": "painted",
+        "lit": true,
+        "note": "SKI AREA lettering panel of the welcome sign header in Bookman Old Style Bold (the resort-identity face; nitpick C, was Bfont); lit: the resort name board (H2)"
+      },
+      {
+        "key": "gate.flake",
+        "host": "gate",
+        "size_m": [
+          0.7,
+          0.6
+        ],
+        "rect": [
+          1524,
+          624,
+          1734,
+          804
+        ],
+        "state": "painted",
+        "lit": false,
+        "note": "snowflake end panel of the welcome sign header (ORNAMENT_D 0.36 m, centred); used twice (L / R)"
+      }
+    ],
+    "metrics": null
+  },
+  "folder_layout": {
+    "owner": "assets/import/signs/B/SkiSignSetSchoolB/",
+    "same_round_sharer": "assets/import/signs/B/SkiSignSet<Host>B/ -> ../SkiSignSetSchoolB/SkiSignSetSchoolB_<Map>.png",
+    "later_round_sharer": "assets/import/signs/<L>/SkiSignSet<Host><L>/ -> ../../B/SkiSignSetSchoolB/SkiSignSetSchoolB_<Map>.png [U]; fallback: m_SurfaceAssets repoint to the owner Surface CID (FS8)",
+    "staging": "assets/staging/prefabs/signs/<L>/SkiSignSetGrand/"
+  },
+  "staging": [
+    "assets/staging/prefabs/signs/B/SkiSignSetGrand/SkiSignSetGrand.Prefab",
+    "assets/staging/prefabs/signs/B/SkiSignSetGrand/SkiSignSetGrandB Mesh.LodProperties.fragment",
+    "assets/staging/prefabs/signs/B/SkiSignSetGrand/SkiSignSetGrandB Mesh.surgery.json"
+  ]
+}

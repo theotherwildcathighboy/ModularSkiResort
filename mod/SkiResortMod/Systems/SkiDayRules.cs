@@ -11,8 +11,9 @@
 // SKI_DAY_LIMIT (check-bundle ENUM_PAIRS; SkiResortMod.csproj lists this file in SkiUiInput), so its
 // literal values never change.
 //
-// PURE FILE: `using System;` and `using Unity.Mathematics;` only, plus EntityRef (never Entity). Every method
-// is static, allocation-free and Burst-callable (SkiDaySystem's jobs call it): no managed type, no string,
+// PURE FILE: `using System;` and `using Unity.Mathematics;` only, plus EntityRef (never Entity), + SkiCatalog
+// consts (Catalog Phase A R9: compile-time literals; Burst sees numbers — never a SkiCatalog.Lodges[…] row read
+// here, contract D4 / risk R-c). Every method is static, allocation-free and Burst-callable (SkiDaySystem's jobs call it): no managed type, no string,
 // no exception. net48 traps (the mod build is the API gate): no Math.Clamp, MathF, double.IsFinite, Span<T>
 // — math.* stands in (math.isfinite, math.clamp, math.floor).
 //
@@ -32,6 +33,21 @@
 // LearnSpeed returning whether it applied; measure-core helpers (the [area] log keys, HillClosedForCount,
 // ClosingEdgeOf, MiddayRearmDue, DoneDayOf, CostDayEnded). Measure and text only except SystemOff (R9).
 // SkiDayTests sections U-X and the A / M rows.
+// CATALOG PHASE B (2026-10-11, economy group; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §7.3):
+// the lodge ladder, the school and the mountain lodges reach the ski day through four ADDITIVE overloads; every old
+// signature is kept and equals the new one with today's arguments bit for bit (SkiDayTests section Y):
+//   * LodgeFacts.NoRoadNeeded (false = road required: every existing caller keeps its verdict): a mountain lodge (R9,
+//     LodgeRoadRule.Mountain) passes CheckLodge without a road;
+//   * PriceFactor(price, tolerance): the lodge's PriceTolerance is added to the full-price threshold (mid 20, luxury 40);
+//     PriceFactor(price) = PriceFactor(price, 0);
+//   * Capacity(runs, lodgeCapacity, targetLodges, powder, out limit): the lodge side is the passing lodges' summed
+//     per-tier capacity (A-frame 360, hut 200, mid 720, summit 480, grand 1,080); the old (runs, n, …) = (runs, 360 n, n,
+//     …); the limit is Lodges when no target (road) lodge passes;
+//   * Chance(…, price, priceTolerance, schoolFactor, confidence, knobs): residents × schoolFactor (SchoolRule, 1.2 while
+//     the school is active with a counted green run) outside the cap like W and P (D16); tourists ignore it; the old
+//     signature = (…, price, 0, 1.0, …).
+// Per-tier numbers reach the Burst jobs as LodgeJob / AreaJob fields filled on the main thread (contract risk R-a); this
+// file still reads only consts.
 
 using System;
 using Unity.Mathematics;
@@ -78,7 +94,7 @@ namespace SkiResortMod.Systems
         public const int SnowHourSamples = 24;                       // D19
         public const int PowderStartHours = 4, PowderFullHours = 10; // D19
         public const double PowderMarkAt = 0.5;                      // D29
-        public const double LodgeSkiersPerDay = 360.0, PowderCapacityBoost = 0.25;   // D21
+        public const double LodgeSkiersPerDay = SkiCatalog.AFrameLodge.SkiersPerDay, PowderCapacityBoost = 0.25;   // D21. Catalog Phase A (F10 / LodgeDef; was SkiDayRules.cs:81 = 360.0): const alias (D4)
         public const int MaxCapacityPeople = 1000000;                // guard
         public const float SlopesideMaxM = 800f;                     // D10
         // The settings' numbers (decisions §8; s1-spec §2.11 aliases them, N8):
@@ -130,6 +146,9 @@ namespace SkiResortMod.Systems
         {
             public bool IsLodgePrefab, OnLiveSign, Active, Destroyed, LeisureTagged, HasRoad;
             public float NearestRunOrStationM;
+            /// <summary>Catalog Phase B (R9, round-2-contract §7.3): a mountain lodge (LodgeRoadRule != Base) needs no road.
+            /// false (the default) = road required, today's verdict for every existing caller.</summary>
+            public bool NoRoadNeeded;
         }
 
         public struct AreaFacts                         // D9 + lodges passing CheckLodge
@@ -198,8 +217,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>D8, D10 (ch1 §3.2), in this order: not a lodge (the Welcome Sign is never a target), not on a
-        /// live sign, inactive, destroyed, no leisure tag (a Tourism Overhaul gate is respected), no road, not
-        /// slope-side.</summary>
+        /// live sign, inactive, destroyed, no leisure tag (a Tourism Overhaul gate is respected), no road (unless
+        /// NoRoadNeeded: a mountain lodge, Catalog Phase B), not slope-side.</summary>
         public static LodgeReject CheckLodge(in LodgeFacts l)
         {
             if (!l.IsLodgePrefab)
@@ -212,7 +231,7 @@ namespace SkiResortMod.Systems
                 return LodgeReject.Destroyed;
             if (!l.LeisureTagged)
                 return LodgeReject.NoLeisureTag;
-            if (!l.HasRoad)
+            if (!l.HasRoad && !l.NoRoadNeeded)   // Catalog Phase B (round-2-contract §7.3; was `if (!l.HasRoad)`)
                 return LodgeReject.NoRoad;
             return IsSlopeside(l.NearestRunOrStationM) ? LodgeReject.None : LodgeReject.NotSlopeside;
         }
@@ -508,9 +527,18 @@ namespace SkiResortMod.Systems
             };
         }
 
-        /// <summary>D16 P = clamp01((240 − clamp(price, 0, 200)) / 200): 1 up to ₵40, 0.7 at ₵100, 0.2 from ₵200.</summary>
+        /// <summary>D16 P = clamp01((240 − clamp(price, 0, 200)) / 200): 1 up to ₵40, 0.7 at ₵100, 0.2 from ₵200.
+        /// = PriceFactor(price, 0) bit for bit (Catalog Phase B).</summary>
         public static double PriceFactor(int ticketPrice)
-            => Unit01((PriceFullAt - math.clamp(ticketPrice, 0, PriceMax)) / (double)PriceSpan);
+            => PriceFactor(ticketPrice, 0);
+
+        /// <summary>Catalog Phase B (R11, round-2-contract §7.3): P = clamp01((240 + max(0, tolerance) − clamp(price, 0,
+        /// 200)) / 200) — the area's best lodge's PriceTolerance (A-frame / hut 0, mid 20, luxury 40) raises the
+        /// full-price threshold by that much (tolerance 40: 1 up to ₵80, 0.4 from ₵200). Exact in int before the one
+        /// division. The tolerance is clamped to 0..PriceMax (the contract's max(0, t), plus an overflow guard: from 160
+        /// on every price ≤ 200 already reads 1, so the upper clamp changes no result).</summary>
+        public static double PriceFactor(int ticketPrice, int tolerance)
+            => Unit01((PriceFullAt + math.clamp(tolerance, 0, PriceMax) - math.clamp(ticketPrice, 0, PriceMax)) / (double)PriceSpan);
 
         /// <summary>D16 open share, value-weighted (Result.RunsValue / Result.RunsValueFull = the hub's "open %",
         /// ch1 §11 N-3); 0 unless the full value is finite and &gt; 0.</summary>
@@ -532,9 +560,21 @@ namespace SkiResortMod.Systems
 
         /// <summary>D16 / D17 (ch1 §3.6): base = min(cap, pct/100 × share × D), share A/100 residents, A/200
         /// tourists (ch1 §11 N-1); × W × P × confidence outside the cap (powder and price always act). Knobs
-        /// clamped; every input sanitised, so the result is in [0, 0.6] residents, [0, 0.45] tourists.</summary>
+        /// clamped; every input sanitised, so the result is in [0, 0.6] residents, [0, 0.45] tourists.
+        /// = Chance(…, ticketPrice, 0, 1.0, confidence, knobs) bit for bit (Catalog Phase B).</summary>
         public static double Chance(GuestKind who, int attraction, double distanceKm, double openShare, double powder,
                                     int ticketPrice, double confidence, in Knobs knobs)
+        {
+            return Chance(who, attraction, distanceKm, openShare, powder, ticketPrice, 0, 1.0, confidence, knobs);
+        }
+
+        /// <summary>Catalog Phase B (round-2-contract §7.3; R11, R13): as the 8-argument Chance, with P =
+        /// PriceFactor(ticketPrice, priceTolerance) (the area's best lodge's tolerance) and, for RESIDENTS only, ×
+        /// schoolFactor after every other factor (outside the cap, like W and P; SchoolRule.DemandFactorOf: 1 or 1.2; a
+        /// NaN or non-positive factor reads 1); tourists ignore it. The result is clamped to [0, 1] (residents reach
+        /// 0.72 at the most with the school, tourists 0.45).</summary>
+        public static double Chance(GuestKind who, int attraction, double distanceKm, double openShare, double powder,
+                                    int ticketPrice, int priceTolerance, double schoolFactor, double confidence, in Knobs knobs)
         {
             Knobs k = ClampKnobs(knobs);
             double d = DistanceFactor(distanceKm, k.ReachKm);
@@ -542,7 +582,9 @@ namespace SkiResortMod.Systems
             double b = who == GuestKind.Tourist
                 ? math.min(TouristCap, k.TouristsPct / 100.0 * a / 200.0 * d)
                 : math.min(ResidentCap, k.LocalsPct / 100.0 * a / 100.0 * d);
-            double p = b * SnowFactor(who, openShare, powder, k.PowderPct) * PriceFactor(ticketPrice) * Unit01(confidence);
+            double p = b * SnowFactor(who, openShare, powder, k.PowderPct) * PriceFactor(ticketPrice, priceTolerance) * Unit01(confidence);
+            if (who == GuestKind.Resident && schoolFactor > 0.0 && schoolFactor != 1.0 && math.isfinite(schoolFactor))
+                p *= schoolFactor;   // last: with 1.0 (no school) p is today's bit for bit
             return Unit01(p);
         }
 
@@ -771,12 +813,23 @@ namespace SkiResortMod.Systems
 
         /// <summary>D21 room on the hill: min(runs, lodges) × (1 + 0.25 × powder). runs = Result.RunsCapacity
         /// (NaN / ≤ 0 → 0, capped at 1e6); lodges = 360 per lodge passing CheckLodge (ch1 §11 DV-1). The limit is
-        /// Lodges when no lodge passes, else the smaller side (a tie names the runs).</summary>
+        /// Lodges when no lodge passes, else the smaller side (a tie names the runs).
+        /// = Capacity(runs, skiDayLodges × 360, skiDayLodges, powder) bit for bit (Catalog Phase B).</summary>
         public static double Capacity(double runsCapacity, int skiDayLodges, double powder, out SkiDayLimit limit)
         {
+            return Capacity(runsCapacity, skiDayLodges > 0 ? skiDayLodges * LodgeSkiersPerDay : 0.0, skiDayLodges, powder, out limit);
+        }
+
+        /// <summary>Catalog Phase B (R11, round-2-contract §7.3): the lodge side is <paramref name="lodgeCapacity"/> = Σ
+        /// Capacity over the lodges passing CheckLodge (every tier, any number; a mountain lodge holds skiers without
+        /// being a claim target); NaN / ≤ 0 → 0. The limit is Lodges when no TARGET
+        /// lodge passes (<paramref name="targetLodges"/> ≤ 0: nowhere to send a guest), else the smaller side (a tie
+        /// names the runs).</summary>
+        public static double Capacity(double runsCapacity, double lodgeCapacity, int targetLodges, double powder, out SkiDayLimit limit)
+        {
             double runs = runsCapacity > 0.0 ? math.min(runsCapacity, (double)MaxCapacityPeople) : 0.0;
-            double lodges = skiDayLodges > 0 ? skiDayLodges * LodgeSkiersPerDay : 0.0;
-            limit = skiDayLodges <= 0 ? SkiDayLimit.Lodges : (runs <= lodges ? SkiDayLimit.Runs : SkiDayLimit.Lodges);
+            double lodges = lodgeCapacity > 0.0 ? lodgeCapacity : 0.0;
+            limit = targetLodges <= 0 ? SkiDayLimit.Lodges : (runs <= lodges ? SkiDayLimit.Runs : SkiDayLimit.Lodges);
             return math.min(runs, lodges) * (1.0 + PowderCapacityBoost * Unit01(powder));
         }
 

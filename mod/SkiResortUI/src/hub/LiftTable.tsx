@@ -19,8 +19,9 @@
  *     sentence. LiftRow.powered is the raw LiftPower (status NoPower); `counted` follows the one
  *     predicate LiftServedRule.IsPowered (e1-spec R1) - both arrive from C#, the UI decides nothing.
  *   - Tooltip (design 6.7): name; status word; the line-2 sentence; ride time + its basis; capacity +
- *     its basis; runs it serves; running cost (+ "billed at 25 %" while reduced: no power, a section
- *     missing, unfinished, or - Round M2 T2 - no open run in its ski area; the reason is
+ *     its basis; runs it serves; running cost (+ "billed at 25 %" while reduced: a section missing,
+ *     unfinished, or - Round M2 T2 - no open run in its ski area; since Phase D power is never a reason, and a
+ *     No power row billed reduced shows the no-open-run text through LIFT_COST_REDUCED[NoPower]; the reason is
  *     hubRules.liftCostReason, mapped to LIFT_COST_REDUCED[*] by liftCostReducedEntry below, oracle
  *     T8.11); sections, towers, chairs (riding / total when complete),
  *     straightness or offset / angle (OD-9 tolerance 0.5 m / 0.5°), tower removed (today's rules);
@@ -29,6 +30,13 @@
  *     unknown: minusIsUnknown false; S6 detail).
  *   - Memoised on every LiftRow field it shows (today's list + hasBase, hasTop, powered, counted,
  *     status, rideTimeS, runsServed, costMonth, billedReduced), focus, renaming, `t` and the callbacks.
+ *   - Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; round-2-contract.md section 8.5): the
+ *     tooltip's second line is the lift's type (LIFT_TYPE[row.type], under its name); the capacity tip is
+ *     <LocText HUB_FMT.liftCapacityTip {SEATS, SPEED}> from row.seats / row.speedMps and the ride tip
+ *     <LocText HUB_FMT.liftRideTip {SPEED}> (every type has its own; "–" while C# sends 0 = unknown). In the row
+ *     the type is a dim word between the name and the status word ONLY while the shown area's rows span two or
+ *     more types (`typeWords` non-null, LiftsView): a fixed-grip-only area keeps today's row. Memo adds type,
+ *     seats, speedMps and typeWords.
  */
 import { memo } from "react";
 import { Button } from "cs2/ui";
@@ -39,7 +47,7 @@ import type { LiftRow } from "../bindings";
 import type { LocEntry, Translate } from "../l10n";
 import { liftCostReason, liftLine2, liftMark } from "./hubRules";
 import type { LiftCostReason } from "./hubRules";
-import { HUB_FMT, HUB_LOC, liftStatusEntry } from "./hubText";
+import { HUB_FMT, HUB_LOC, LIFT_TYPE, liftStatusEntry } from "./hubText";
 import { LocText, Num, StableWidth, Tip, TipLines, cx, numArg } from "./parts";
 import { RenameField } from "./RenameField";
 import { keepFocus } from "./RunList";
@@ -86,15 +94,25 @@ function liftCostReducedEntry(reason: LiftCostReason): LocEntry | null {
   }
 }
 
+/** Contract 6: the type word of a row (LIFT_TYPE[row.type]); null for an unknown or missing type. */
+export function liftTypeWord(row: LiftRow, t: Translate): string | null {
+  const e = row && typeof row.type === "string" ? LIFT_TYPE[row.type] : undefined;
+  return e ? t(e) : null;
+}
+
 function liftTip(row: LiftRow, partner: boolean, t: Translate): JSX.Element {
   const straight = row.alignKnown &&
     Math.abs(row.alignOffsetM) <= ALIGN_TOLERANCE_M && Math.abs(row.alignYawDeg) <= ALIGN_TOLERANCE_DEG;
   const complete = row.state === LIFT_STATE.Running || row.state === LIFT_STATE.Static;
   const reduced = liftCostReducedEntry(liftCostReason(row));
+  // Contract 6: per-type numbers through placeholders; 0 (unknown) reads "–".
+  const SPEED = row.speedMps > 0 ? numArg(row.speedMps, Unit.FloatSingleFraction) : "–";
+  const SEATS = row.seats > 0 ? numArg(row.seats, Unit.Integer) : "–";
   return (
     <TipLines
       lines={[
         row.name,
+        liftTypeWord(row, t),
         t(liftStatusEntry(row.status)),
         <Line2Text key="l2" row={row} partner={partner} t={t} />,
         {
@@ -102,9 +120,9 @@ function liftTip(row: LiftRow, partner: boolean, t: Translate): JSX.Element {
           value: row.rideTimeS >= 0
             ? <LocText entry={HUB_FMT.liftRideMin} args={{ MIN: numArg(row.rideTimeS / 60, Unit.FloatSingleFraction) }} /> : "–",
         },
-        t(HUB_LOC.liftRideTip),
+        <LocText key="rt" entry={HUB_FMT.liftRideTip} args={{ SPEED }} />,
         { label: t(HUB_LOC.liftCapacity), value: row.capacityPerHour >= 0 ? <Num value={row.capacityPerHour} unit={Unit.Integer} /> : "–" },
-        t(HUB_LOC.liftCapacityTip),
+        <LocText key="ct" entry={HUB_FMT.liftCapacityTip} args={{ SEATS, SPEED }} />,
         { label: t(HUB_LOC.liftRuns), value: <Num value={row.runsServed} unit={Unit.Integer} /> },
         { label: t(HUB_LOC.liftCost), value: row.costMonth >= 0 ? <Num value={row.costMonth} unit={Unit.MoneyPerMonth} /> : "–" },
         reduced && t(reduced),
@@ -134,6 +152,9 @@ export interface LiftLineProps {
   t: Translate;
   /** The five status words, translated (the word cell's StableWidth blinds). */
   words: readonly string[];
+  /** Contract 6: the lift-type words, translated (the type cell's StableWidth blinds), while the shown area's rows
+   *  span two or more types; null = no type cell (a one-type area keeps today's row). */
+  typeWords: readonly string[] | null;
   focused: boolean;
   renaming: boolean;
   onPick: (row: LiftRow) => void;
@@ -142,7 +163,7 @@ export interface LiftLineProps {
   onRenameClose: () => void;
 }
 
-function LiftLine2Impl({ row, partner, t, words, focused, renaming, onPick, onPen, onRename, onRenameClose }: LiftLineProps): JSX.Element {
+function LiftLine2Impl({ row, partner, t, words, typeWords, focused, renaming, onPick, onPen, onRename, onRenameClose }: LiftLineProps): JSX.Element {
   const mark = liftMark(row.status);
   const markCls = mark.ring
     ? cx(styles.liftDot, styles.liftDotRing, mark.tone === "warn" ? styles.liftRingWarn : styles.liftRingDim)
@@ -157,6 +178,11 @@ function LiftLine2Impl({ row, partner, t, words, focused, renaming, onPick, onPe
           <RenameField key="rename" initial={row.name} onCommit={(text) => onRename(row, text)} onClose={onRenameClose} />
         ) : row.name}
       </div>
+      {typeWords && (
+        <StableWidth samples={typeWords} align="end" className={styles.liftTypeWord}>
+          {liftTypeWord(row, t) ?? ""}
+        </StableWidth>
+      )}
       <StableWidth samples={words} align="end" className={cx(styles.liftWord, wordTone)}>
         {t(liftStatusEntry(row.status))}
       </StableWidth>
@@ -192,7 +218,9 @@ function LiftLine2Impl({ row, partner, t, words, focused, renaming, onPick, onPe
 
 /** Re-render a row only when something it shows changed. */
 export const LiftLine2 = memo(LiftLine2Impl, (a, b) =>
-  a.t === b.t && a.partner === b.partner && a.words === b.words && a.focused === b.focused && a.renaming === b.renaming &&
+  a.t === b.t && a.partner === b.partner && a.words === b.words && a.typeWords === b.typeWords &&
+  a.focused === b.focused && a.renaming === b.renaming &&
+  a.row.type === b.row.type && a.row.seats === b.row.seats && a.row.speedMps === b.row.speedMps &&
   a.onPick === b.onPick && a.onPen === b.onPen && a.onRename === b.onRename && a.onRenameClose === b.onRenameClose &&
   a.row.name === b.row.name && a.row.state === b.row.state && a.row.sections === b.row.sections &&
   a.row.towers === b.row.towers && a.row.chairs === b.row.chairs && a.row.chairsRiding === b.row.chairsRiding &&

@@ -43,6 +43,14 @@
  *     SubLine's ellipsis is the net).
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$
  *     (Round F7: the run kinds of the area).
+ *   - Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; round-2-contract.md section 8.5): the price
+ *     line's PCT is priceFactorPct(price, ResortLive.priceTolerance) (C# SkiDayRules.PriceFactor(price, tolerance):
+ *     the counted lodges keep ski days full up to 40 + tolerance) and its tooltip adds MONEY_PRICE_TIP[Tolerance]
+ *     while priceTolerance > 0; a "Lodge spend" income row (MONEY_ROW[LodgeSpend], tooltip MONEY_TIP[LodgeSpend])
+ *     sits under it only while lodgeSpendMonth > 0 (hubRules.lodgeSpendShown: the default setting 0 draws nothing,
+ *     so the view stays today's); the lifts row's tooltip lists each offered lift type's rates
+ *     (MONEY_TIP[LiftsTypes] + MONEY_TIP_LIFT_RATE per line item C# sent) when two or more line items are sent, else
+ *     today's MONEY_TIP[Lifts] with the fixed-grip line's rates. The net is still C#'s (tickets + lodge spend).
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
@@ -50,10 +58,13 @@ import { RUN_KIND, build$, city$, resortLive$, resorts$, runs$, selectedResort$ 
 import type { BuildItem, BuildItemId, CityStats, ResortLive, ResortRow, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
-import { findBuildItem } from "./buildItems";
-import { PRICE_EXAMPLES, PRICE_NO_EFFECT_MAX, buildingsAndWages, hubPrice, incomeNote, liveOf, priceFactorPct, ticketsRow } from "./hubRules";
+import { BUILD_ITEMS, findBuildItem } from "./buildItems";
+import {
+  PRICE_EXAMPLES, PRICE_NO_EFFECT_MAX, buildingsAndWages, hubPrice, incomeNote, liveOf, lodgeSpendShown, priceFactorPct,
+  priceFullWith, ticketsRow,
+} from "./hubRules";
 import type { IncomeNote } from "./hubRules";
-import { HUB_FMT, HUB_LOC } from "./hubText";
+import { HUB_FMT, HUB_LOC, LIFT_TYPE } from "./hubText";
 import { Divider, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, TipLines, numArg, useNumberSamples } from "./parts";
 import type { NumberSamples } from "./parts";
 import { currentResort, resortEntries, runsOf } from "./resortData";
@@ -98,23 +109,57 @@ function MoneyHeader({ note, samples, t }: { note: IncomeNote; samples: NumberSa
   );
 }
 
-function LiftsRow({ row, l, build, samples }: {
-  row: ResortRow; l: ResortLive | null; build: readonly BuildItem[]; samples: NumberSamples;
+/** Contract 6: the line items C# sent (every lift type that has a line tile), table order. */
+function sentLines(build: readonly BuildItem[]): Array<{ id: BuildItemId; liftType: string }> {
+  const out: Array<{ id: BuildItemId; liftType: string }> = [];
+  for (const m of BUILD_ITEMS) if (m.kind === "line" && findBuildItem(build, m.id)) out.push({ id: m.id, liftType: m.liftType });
+  return out;
+}
+
+function LiftsRow({ row, l, build, samples, t }: {
+  row: ResortRow; l: ResortLive | null; build: readonly BuildItem[]; samples: NumberSamples; t: Translate;
 }): JSX.Element {
   const billed = l ? l.liftsBilled : -1;
   const reduced = l ? l.liftsBilledReduced : -1;
+  const FULL = billed >= 0 && reduced >= 0 ? numArg(billed - reduced, Unit.Integer) : DASH;
+  const REDUCED = numArg(reduced, Unit.Integer);
+  const lines = sentLines(build);
+  // Contract 6: one type -> today's text with its rates; two or more -> the per-type lines.
+  const tip = lines.length >= 2
+    ? <TipLines lines={[
+      <LocText key="l" entry={HUB_FMT.moneyTipLiftsTypes} args={{ FULL, REDUCED }} />,
+      ...lines.map((x) => (
+        <LocText key={x.id} entry={HUB_FMT.moneyTipLiftRate} args={{
+          TYPE: LIFT_TYPE[x.liftType] ? t(LIFT_TYPE[x.liftType]) : x.liftType,
+          BASE: rate(build, x.id, "monthly"), PERKM: rate(build, x.id, "monthlyPerKm"),
+        }} />
+      )),
+    ]} />
+    : <TipLines lines={[
+      <LocText key="l" entry={HUB_FMT.moneyTipLifts} args={{
+        BASE: rate(build, lines.length === 1 ? lines[0].id : "lift", "monthly"),
+        PERKM: rate(build, lines.length === 1 ? lines[0].id : "lift", "monthlyPerKm"),
+        FULL, REDUCED,
+      }} />,
+    ]} />;
   return (
     <InfoLine
       sub
       label={<LocText entry={HUB_FMT.moneyRowLifts} args={{ N: numArg(billed, Unit.Integer), LEN: numArg(row.liftLengthM, Unit.Length) }} />}
       value={<Cell samples={samples}>{costValue(l ? l.liftCostMonth : -1)}</Cell>}
-      tip={<TipLines lines={[
-        <LocText key="l" entry={HUB_FMT.moneyTipLifts} args={{
-          BASE: rate(build, "lift", "monthly"), PERKM: rate(build, "lift", "monthlyPerKm"),
-          FULL: billed >= 0 && reduced >= 0 ? numArg(billed - reduced, Unit.Integer) : DASH,
-          REDUCED: numArg(reduced, Unit.Integer),
-        }} />,
-      ]} />}
+      tip={tip}
+    />
+  );
+}
+
+/** Contract 6 (D15): the lodge-spend income row, only while lodge spend earned money this month (lodgeSpendShown). */
+function LodgeSpendRow({ l, samples, t }: { l: ResortLive | null; samples: NumberSamples; t: Translate }): JSX.Element | null {
+  if (!l || !lodgeSpendShown(l)) return null;
+  return (
+    <InfoLine
+      label={t(HUB_LOC.moneyRowLodgeSpend)}
+      value={<Cell samples={samples}><SignedNum value={l.lodgeSpendMonth} unit={Unit.Money} /></Cell>}
+      tip={t(HUB_LOC.moneyTipLodgeSpend)}
     />
   );
 }
@@ -157,8 +202,10 @@ function TicketsRow({ l, price, samples, t }: { l: ResortLive | null; price: num
 /** Round M2 R7 (hub-price.md section 2 item 2): under the tickets row, the Options price and what it does to ski
  *  days (D16's factor as a whole percent, hubRules.priceFactorPct). Read-only; the tooltip says where to change it.
  *  `price` = hubRules.hubPrice(city): -1 ("–") until C# has sent the city. One text node (gate R13). */
-function PriceLine({ price, t }: { price: number; t: Translate }): JSX.Element {
-  const pct = priceFactorPct(price);
+function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; t: Translate }): JSX.Element {
+  // Contract 6: the area's lodges' price tolerance (ResortLive.priceTolerance; -1 unknown reads as 0).
+  const tol = tolerance > 0 ? tolerance : 0;
+  const pct = priceFactorPct(price, tol);
   const ex = (i: number): { P: JSX.Element | string; F: JSX.Element | string } => ({
     P: numArg(PRICE_EXAMPLES[i], Unit.Money), F: numArg(priceFactorPct(PRICE_EXAMPLES[i]), Unit.Percentage),
   });
@@ -170,6 +217,7 @@ function PriceLine({ price, t }: { price: number; t: Translate }): JSX.Element {
       <LocText key="c" entry={HUB_FMT.moneyPriceTipCurve} args={{
         FULL: numArg(PRICE_NO_EFFECT_MAX, Unit.Money), P1: a.P, F1: a.F, P2: b.P, F2: b.F, P3: c.P, F3: c.F,
       }} />,
+      tol > 0 && <LocText key="t" entry={HUB_FMT.moneyPriceTipTolerance} args={{ FULL: numArg(priceFullWith(tol), Unit.Money) }} />,
       t(HUB_LOC.moneyPriceTipWho),
     ]} />}>
       {pct < 0 ? DASH : <LocText entry={HUB_FMT.moneyPriceLine} args={{ PRICE: numArg(price, Unit.Money), PCT: numArg(pct, Unit.Percentage) }} />}
@@ -188,7 +236,8 @@ function SignMoney({ row, l, city, build, kinds, samples, t }: {
     <>
       <MoneyHeader note={note} samples={samples} t={t} />
       <TicketsRow l={l} price={city.ticketPrice} samples={samples} t={t} />
-      <PriceLine price={hubPrice(city)} t={t} />
+      <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} t={t} />
+      <LodgeSpendRow l={l} samples={samples} t={t} />
       <InfoLine header label={t(HUB_LOC.sectionCosts)} />
       {kinds.has(RUN_KIND.Natural) && (
         <InfoLine
@@ -222,7 +271,7 @@ function SignMoney({ row, l, city, build, kinds, samples, t }: {
           tip={<LocText entry={HUB_FMT.moneyTipRuns} args={{ RATE: rate(build, "runNight", "monthlyPerHa") }} />}
         />
       )}
-      <LiftsRow row={row} l={l} build={build} samples={samples} />
+      <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />
       <InfoLine
         sub
         label={t(HUB_LOC.moneyRowBuildings)}
@@ -249,7 +298,7 @@ function UnlinkedMoney({ row, l, build, samples, t }: {
   return (
     <>
       <MoneyHeader note={null} samples={samples} t={t} />
-      <LiftsRow row={row} l={l} build={build} samples={samples} />
+      <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />
       <Divider />
       <NetRow l={l} samples={samples} t={t} />
       <Divider />

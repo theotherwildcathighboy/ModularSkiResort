@@ -29,6 +29,12 @@
  *     a value change never changes layout (D33).
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, runs$ (the
  *     unrateable count), problems$ (factor rows, gains), city$.
+ *   - Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; round-2-contract.md section 8.5): the
+ *     lodge-base tooltip adds RECEIPT_TIP_LODGE_BEST (the best lodge's Assets.NAME from
+ *     ResortLive.lodgeBest, the others' extras lodgeExtra); the parts line becomes RECEIPT_PARTS_SCHOOL with the school
+ *     term while schoolValue > 0 (hubRules.receiptPartsVariant), its tooltip RECEIPT_TIP[School]. Every number is still
+ *     the model's Result (D10). ResortLive.luxuryIgnored is no longer read (always 0 since 2026-10-11, when the
+ *     one-luxury-lodge cap went; the field stays on the wire so contract 6 does not change).
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
@@ -36,8 +42,9 @@ import { BAND, PROBLEM, city$, problems$, resortLive$, resorts$, runs$, sameEnti
 import type { CityStats, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
-import { factorRowsOf, hectares, liveOf, resultVariant, scoreBarParts } from "./hubRules";
-import { BAND_NAME, HUB_FMT, HUB_LOC, factorEntry } from "./hubText";
+import { factorRowsOf, hectares, liveOf, receiptPartsVariant, resultVariant, scoreBarParts } from "./hubRules";
+import { ASSET_NAME, BAND_NAME, HUB_FMT, HUB_LOC, factorEntry } from "./hubText";
+import type { BuildItemId } from "../bindings";
 import {
   BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, cx, numArg,
 } from "./parts";
@@ -182,6 +189,15 @@ function Receipt({ row, l, city, problems, t }: {
   const lodgeLabel = l && l.lodgesActive === 0 ? HUB_LOC.receiptLodgeBaseNone
     : l && l.summer ? HUB_LOC.receiptLodgeBaseHalf : HUB_LOC.receiptLodgeBase;
   const variant = resultVariant(l);
+  // Contract 6: the best lodge's name (an unknown id shows nothing) and the school variant of the parts line.
+  const bestEntry = l && typeof l.lodgeBest === "string" && l.lodgeBest !== "" ? ASSET_NAME[l.lodgeBest as BuildItemId] : undefined;
+  const parts = {
+    RUNS: numArg(l ? l.runsValue : -1, Unit.FloatSingleFraction),
+    LIFTS: numArg(l ? l.liftsValue : -1, Unit.FloatSingleFraction),
+    VARIETY: numArg(l ? l.varietyMultiplier : -1, Unit.FloatTwoFractions),
+    VERTICAL: numArg(l ? l.verticalMultiplier : -1, Unit.FloatTwoFractions),
+  };
+  const school = receiptPartsVariant(l) === "school";
   const noLodgeRow = variant === "noLodge" ? problemOf(problems, row.sign, PROBLEM.NoLodge) : null;
   const allOffRow = variant === "noLodge" && !noLodgeRow ? problemOf(problems, row.sign, PROBLEM.LodgesAllOff) : null;
 
@@ -219,6 +235,7 @@ function Receipt({ row, l, city, problems, t }: {
         tip={<TipLines lines={[
           t(HUB_LOC.receiptLodgeBase), t(HUB_LOC.receiptTipLodgeBase),
           l && l.lodgesActive >= 0 && <LocText key="n" entry={HUB_FMT.receiptTipLodges} args={{ N: numArg(l.lodgesActive, Unit.Integer) }} />,
+          l && bestEntry && <LocText key="b" entry={HUB_FMT.receiptTipLodgeBest} args={{ NAME: t(bestEntry), E: numArg(l.lodgeExtra, Unit.FloatSingleFraction) }} />,
         ]} />}
       />
       <InfoLine
@@ -228,16 +245,13 @@ function Receipt({ row, l, city, problems, t }: {
       />
       <SubLine
         tip={<TipLines lines={[
-          t(HUB_LOC.receiptTipRuns), t(HUB_LOC.receiptTipLifts), t(HUB_LOC.receiptTipVariety),
+          t(HUB_LOC.receiptTipRuns), t(HUB_LOC.receiptTipLifts), school && t(HUB_LOC.receiptTipSchool), t(HUB_LOC.receiptTipVariety),
           <LocText key="v" entry={HUB_FMT.receiptTipVertical} args={{ M: numArg(l ? l.scoreVerticalM : -1, Unit.Height) }} />,
         ]} />}
       >
-        <LocText entry={HUB_FMT.receiptParts} args={{
-          RUNS: numArg(l ? l.runsValue : -1, Unit.FloatSingleFraction),
-          LIFTS: numArg(l ? l.liftsValue : -1, Unit.FloatSingleFraction),
-          VARIETY: numArg(l ? l.varietyMultiplier : -1, Unit.FloatTwoFractions),
-          VERTICAL: numArg(l ? l.verticalMultiplier : -1, Unit.FloatTwoFractions),
-        }} />
+        {school && l
+          ? <LocText entry={HUB_FMT.receiptPartsSchool} args={{ ...parts, SCHOOL: numArg(l.schoolValue, Unit.FloatSingleFraction) }} />
+          : <LocText entry={HUB_FMT.receiptParts} args={parts} />}
       </SubLine>
       <SubLine tip={<LocText entry={HUB_FMT.receiptTipOpen} args={{ FULL: numArg(l ? l.runsValueFull : -1, Unit.FloatSingleFraction) }} />}>
         {l && l.openSharePct >= 0

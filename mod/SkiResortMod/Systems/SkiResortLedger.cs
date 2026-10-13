@@ -43,6 +43,15 @@
 // needs no change (SkiResortStatsSystem.cs:1714, lastMonthFull = LastMonthKnown && !LastMonthSinceLoad): the
 // Guests view marks such a month "(partial)" and the Money tile does not use it as a full month.
 //
+// CATALOG PHASE B (2026-10-11, economy group; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §7.4
+// D15, seam S8): the optional lodge spend. Month gains LodgeSpends (guests who spent at a lodge after their ticket) and
+// LodgeSpendIncome (₵ moved to the city with them); AddLodgeSpend(sign, spends, income) books one batch under the
+// AddTickets rules (inputs below 0 read 0, an all-zero call changes nothing, Revision++ otherwise). Advance / Prune / Total
+// carry the two fields like the ticket fields (the whole Month moves). The setting's default 0 never calls it with a
+// non-zero amount, so a city that does not use the option has every month bit-identical to Phase A's (ResortBatch
+// LadderTests ledger rows; MoneyBatch T7 / T10-T11 unchanged). Consumers: SkiLiftTicketSystem (books it),
+// SkiResortStatsSystem (the hub's month income, lift group).
+//
 // PURE FILE: `using System;` and `using System.Collections.Generic;` plus EntityRef only (tests/ResortBatch
 // links it).
 
@@ -60,6 +69,9 @@ namespace SkiResortMod.Systems
             public int TicketsPaid, TicketsUnpaid, TicketsFree;
             public long TicketIncome;
             public double LiftCharged;
+            // Catalog Phase B (D15, seam S8): the optional lodge spend (0 while the setting is 0).
+            public int LodgeSpends;          // paying guests who also spent at the lodge they arrived at
+            public long LodgeSpendIncome;    // ₵ moved from their households to the city for it
             public int Guests => TouristGuests + LocalGuests;
         }
 
@@ -209,6 +221,25 @@ namespace SkiResortMod.Systems
             Revision++;
         }
 
+        /// <summary>Catalog Phase B (D15, seam S8): adds one batch of lodge spends (guests who spent, ₵ moved) under the
+        /// AddTickets rules — each input below 0 reads 0; all 0 changes nothing (no entry is created); else the entry is
+        /// created on first use and Revision moves.</summary>
+        public void AddLodgeSpend(EntityRef sign, int spends, long income)
+        {
+            if (spends < 0)
+                spends = 0;
+            if (income < 0)
+                income = 0;
+            if (spends == 0 && income == 0)
+                return;
+            int i = IndexOf(sign);
+            Entry e = m_Entries[i];
+            e.This.LodgeSpends += spends;
+            e.This.LodgeSpendIncome += income;
+            m_Entries[i] = e;
+            Revision++;
+        }
+
         /// <summary>Adds what the lift charge accrued for this ski area (EntityRef.Null = Not linked);
         /// an amount that is not > 0 (NaN included) changes nothing.</summary>
         public void AddLiftCharge(EntityRef sign, double amount)
@@ -260,6 +291,8 @@ namespace SkiResortMod.Systems
                 t.TicketsFree += m.TicketsFree;
                 t.TicketIncome += m.TicketIncome;
                 t.LiftCharged += m.LiftCharged;
+                t.LodgeSpends += m.LodgeSpends;              // Catalog Phase B (D15)
+                t.LodgeSpendIncome += m.LodgeSpendIncome;
             }
             return t;
         }

@@ -1,0 +1,1151 @@
+{
+ "_meta": {
+  "built": "2026-10-11",
+  "dump": "%TEMP%/pltar/dump.zip (base game dump)",
+  "rebuild": "blender --background --factory-startup --python cs2_subobj.py -- --build-bounds [--prop <PlaceholderName> ...]",
+  "what": "union of the placeholder mesh and every variant mesh (RenderPrefab m_Bounds, game local, y up) per placeholder GUID, as cs2_liftdress.verify_subobj reads them"
+ },
+ "props": {
+  "024ff26a34d89b241b55fd5ea12c5dcc": {
+   "bounds": [
+    [
+     -0.38,
+     -0.007,
+     -0.406
+    ],
+    [
+     0.38,
+     1.088,
+     0.406
+    ]
+   ],
+   "guid": "024ff26a34d89b241b55fd5ea12c5dcc",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "ChairCommercialRandom01 Mesh",
+    "ChairCommercial01 Mesh",
+    "ChairCommercial02 Mesh",
+    "ChairCommercial03 Mesh",
+    "ChairCommercial04 Mesh",
+    "ChairCommercial05 Mesh",
+    "ChairCommercial06 Mesh"
+   ],
+   "prefab": "ChairCommercialRandom01",
+   "prefabs": [
+    "ChairCommercialRandom01"
+   ],
+   "source": "dump",
+   "tris": 592,
+   "variants": [
+    "ChairCommercial01",
+    "ChairCommercial02",
+    "ChairCommercial03",
+    "ChairCommercial04",
+    "ChairCommercial05",
+    "ChairCommercial06"
+   ]
+  },
+  "0bbcb0620e01694448cb78385580351b": {
+   "bounds": [
+    [
+     -0.37,
+     0.0,
+     -0.367
+    ],
+    [
+     0.365,
+     2.241,
+     0.367
+    ]
+   ],
+   "guid": "0bbcb0620e01694448cb78385580351b",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "GasHeaterRandom01 Mesh",
+    "GasHeater01 Mesh",
+    "GasHeater02 Mesh"
+   ],
+   "prefab": "GasHeaterRandom01",
+   "prefabs": [
+    "GasHeaterRandom01"
+   ],
+   "source": "dump",
+   "tris": 2050,
+   "variants": [
+    "GasHeater01",
+    "GasHeater02"
+   ]
+  },
+  "0d01c98e6f7cd9b44ac31084b6ba7ccd": {
+   "bounds": [
+    [
+     -1.577,
+     0.0,
+     -0.646
+    ],
+    [
+     1.577,
+     1.594,
+     0.646
+    ]
+   ],
+   "guid": "0d01c98e6f7cd9b44ac31084b6ba7ccd",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "FirewoodPileRandom01 Mesh",
+    "FirewoodPile01 Mesh"
+   ],
+   "prefab": "FirewoodPileRandom01",
+   "prefabs": [
+    "FirewoodPileRandom01"
+   ],
+   "source": "dump",
+   "tris": 718,
+   "variants": [
+    "FirewoodPile01"
+   ]
+  },
+  "3f8dafc1558bce24597bd8ca898947fa": {
+   "bounds": [
+    [
+     -1.212,
+     0.0,
+     -0.852
+    ],
+    [
+     1.212,
+     2.793,
+     0.852
+    ]
+   ],
+   "guid": "3f8dafc1558bce24597bd8ca898947fa",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "ParkInfosignRandom01 Mesh",
+    "ParkInfosign01 Mesh",
+    "ParkInfosign02 Mesh",
+    "ParkInfosign03 Mesh"
+   ],
+   "prefab": "ParkInfosignRandom01",
+   "prefabs": [
+    "ParkInfosignRandom01"
+   ],
+   "source": "dump",
+   "tris": 128,
+   "variants": [
+    "ParkInfosign01",
+    "ParkInfosign02",
+    "ParkInfosign03"
+   ]
+  },
+  "41e3c9ba6e1d6b948a6b1bc3499a5397": {
+   "bounds": [
+    [
+     -0.246,
+     0.0,
+     -0.246
+    ],
+    [
+     0.246,
+     1.036,
+     0.246
+    ]
+   ],
+   "guid": "41e3c9ba6e1d6b948a6b1bc3499a5397",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "TrashbinRandom01 Mesh"
+   ],
+   "prefab": "TrashbinRandom01",
+   "prefabs": [
+    "TrashbinRandom01"
+   ],
+   "source": "dump",
+   "tris": 364,
+   "variants": [
+    "Trashbin01",
+    "Trashbin02",
+    "Trashbin03",
+    "Trashbin04"
+   ]
+  },
+  "63c46490ab59afd4dae01ee442f1e462": {
+   "bounds": [
+    [
+     -0.398,
+     0.0,
+     -1.195
+    ],
+    [
+     0.398,
+     1.226,
+     1.195
+    ]
+   ],
+   "guid": "63c46490ab59afd4dae01ee442f1e462",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "DeckChairRandom01 Mesh",
+    "DeckChair01 Mesh",
+    "DeckChair02 Mesh",
+    "DeckChair03 Mesh"
+   ],
+   "prefab": "DeckChairRandom01",
+   "prefabs": [
+    "DeckChairRandom01"
+   ],
+   "source": "dump",
+   "tris": 388,
+   "variants": [
+    "DeckChair01",
+    "DeckChair02",
+    "DeckChair03"
+   ]
+  },
+  "68c87b3894d5ed74d8180dd43c12da30": {
+   "bounds": [
+    [
+     -0.026,
+     0.0,
+     -2.0
+    ],
+    [
+     0.03,
+     1.028,
+     2.0
+    ]
+   ],
+   "guid": "68c87b3894d5ed74d8180dd43c12da30",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "FenceResidentialPieceLowRandom01 Mesh",
+    "FenceResidentialPieceLow01 Mesh",
+    "FenceResidentialPieceLow02 Mesh"
+   ],
+   "prefab": "FenceResidentialPieceLowRandom01",
+   "prefabs": [
+    "FenceResidentialPieceLowRandom01"
+   ],
+   "source": "dump",
+   "tris": 1034,
+   "variants": [
+    "FenceResidentialPieceLow01",
+    "FenceResidentialPieceLow02"
+   ]
+  },
+  "6b6861547d4e1964aa977434af734126": {
+   "bounds": [
+    [
+     -0.104,
+     0.0,
+     -0.22
+    ],
+    [
+     0.104,
+     1.954,
+     0.224
+    ]
+   ],
+   "guid": "6b6861547d4e1964aa977434af734126",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "WarningLightRandom01 Mesh",
+    "WarningLight01 Mesh",
+    "WarningLight02 Mesh"
+   ],
+   "prefab": "WarningLightRandom01",
+   "prefabs": [
+    "WarningLightRandom01"
+   ],
+   "source": "dump",
+   "tris": 708,
+   "variants": [
+    "WarningLight01",
+    "WarningLight02"
+   ]
+  },
+  "8d8722db083c3564291e3778cceeb1ae": {
+   "bounds": [
+    [
+     -0.549,
+     0.0,
+     -0.597
+    ],
+    [
+     0.56,
+     1.103,
+     0.543
+    ]
+   ],
+   "guid": "8d8722db083c3564291e3778cceeb1ae",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "PotRandom01 Mesh",
+    "FlowerPot01 Mesh",
+    "FlowerPot02 Mesh",
+    "PlantPot01 Mesh",
+    "PlantPot02 Mesh"
+   ],
+   "note": "added 2026-10-12 (L5 revision 3), derived as cs2_subobj.DumpIndex.derive",
+   "prefab": "PotRandom01",
+   "prefabs": [
+    "PotRandom01"
+   ],
+   "source": "dump",
+   "tris": 690,
+   "variants": [
+    "FlowerPot01",
+    "FlowerPot02",
+    "PlantPot01",
+    "PlantPot02"
+   ]
+  },
+  "8df0703be09426948b5bc3262d86bc04": {
+   "bounds": [
+    [
+     -1.059,
+     0.0,
+     -0.496
+    ],
+    [
+     1.059,
+     1.054,
+     0.496
+    ]
+   ],
+   "guid": "8df0703be09426948b5bc3262d86bc04",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "GardenBenchRandom01 Mesh",
+    "GardenBench01 Mesh",
+    "GardenBench02 Mesh",
+    "GardenBench03 Mesh",
+    "GardenBench04 Mesh"
+   ],
+   "prefab": "GardenBenchRandom01",
+   "prefabs": [
+    "GardenBenchRandom01"
+   ],
+   "source": "dump",
+   "tris": 906,
+   "variants": [
+    "GardenBench01",
+    "GardenBench02",
+    "GardenBench03",
+    "GardenBench04"
+   ]
+  },
+  "96d63256a8b9f4942b1949c7067e6613": {
+   "bounds": [
+    [
+     -0.197,
+     -0.105,
+     0.0
+    ],
+    [
+     0.197,
+     0.508,
+     0.55
+    ]
+   ],
+   "guid": "96d63256a8b9f4942b1949c7067e6613",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "WallLightRandom01 Mesh",
+    "WallLight01 Mesh",
+    "WallLight02 Mesh",
+    "WallLight03 Mesh",
+    "WallLight04 Mesh"
+   ],
+   "prefab": "WallLightRandom01",
+   "prefabs": [
+    "WallLightRandom01"
+   ],
+   "source": "dump",
+   "tris": 1082,
+   "variants": [
+    "WallLight01",
+    "WallLight02",
+    "WallLight03",
+    "WallLight04"
+   ]
+  },
+  "SkiDressAkja": {
+   "bounds": [
+    [
+     -0.3446,
+     0.0,
+     -0.7108
+    ],
+    [
+     0.3446,
+     1.939,
+     0.22
+    ]
+   ],
+   "guid": null,
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SkiDressAkjaB Mesh"
+   ],
+   "prefab": "SkiDressAkja",
+   "prefabs": [
+    "SkiDressAkja",
+    "SkiDressAkjaB"
+   ],
+   "source": "dress_kit (game local, prefab frame)",
+   "tris": 252,
+   "variants": []
+  },
+  "SkiDressEStop": {
+   "bounds": [
+    [
+     -0.085,
+     0.0,
+     -0.07
+    ],
+    [
+     0.085,
+     1.19,
+     0.07
+    ]
+   ],
+   "guid": null,
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SkiDressEStopB Mesh"
+   ],
+   "prefab": "SkiDressEStop",
+   "prefabs": [
+    "SkiDressEStop",
+    "SkiDressEStopB"
+   ],
+   "source": "dress_kit (game local, prefab frame)",
+   "tris": 102,
+   "variants": []
+  },
+  "SkiDressExtinguisher": {
+   "bounds": [
+    [
+     -0.0816,
+     0.0,
+     -0.0
+    ],
+    [
+     0.1082,
+     0.527,
+     0.1816
+    ]
+   ],
+   "guid": null,
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SkiDressExtinguisherB Mesh"
+   ],
+   "prefab": "SkiDressExtinguisher",
+   "prefabs": [
+    "SkiDressExtinguisher",
+    "SkiDressExtinguisherB"
+   ],
+   "source": "dress_kit (game local, prefab frame)",
+   "tris": 178,
+   "variants": []
+  },
+  "SkiDressHoseReel": {
+   "bounds": [
+    [
+     -0.35,
+     0.0,
+     -0.0
+    ],
+    [
+     0.35,
+     0.7,
+     0.32
+    ]
+   ],
+   "guid": null,
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SkiDressHoseReelB Mesh"
+   ],
+   "prefab": "SkiDressHoseReel",
+   "prefabs": [
+    "SkiDressHoseReel",
+    "SkiDressHoseReelB"
+   ],
+   "source": "dress_kit (game local, prefab frame)",
+   "tris": 256,
+   "variants": []
+  },
+  "SkiDressSkiRack": {
+   "bounds": [
+    [
+     -0.85,
+     0.0,
+     -0.6792
+    ],
+    [
+     0.85,
+     1.6519,
+     0.6792
+    ]
+   ],
+   "guid": null,
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SkiDressSkiRackB Mesh"
+   ],
+   "prefab": "SkiDressSkiRack",
+   "prefabs": [
+    "SkiDressSkiRack",
+    "SkiDressSkiRackB"
+   ],
+   "source": "dress_kit (game local, prefab frame)",
+   "tris": 692,
+   "variants": []
+  },
+  "SkiDressSkiRackV2": {
+   "bounds": [
+    [
+     -0.85,
+     0.0,
+     -0.6792
+    ],
+    [
+     0.85,
+     1.6519,
+     0.6792
+    ]
+   ],
+   "guid": null,
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SkiDressSkiRackV2B Mesh"
+   ],
+   "prefab": "SkiDressSkiRackV2",
+   "prefabs": [
+    "SkiDressSkiRackV2",
+    "SkiDressSkiRackV2B"
+   ],
+   "source": "dress_kit (game local, prefab frame)",
+   "tris": 640,
+   "variants": []
+  },
+  "SkiDressSkiRackV3": {
+   "bounds": [
+    [
+     -0.85,
+     0.0,
+     -0.6792
+    ],
+    [
+     0.85,
+     1.6519,
+     0.6792
+    ]
+   ],
+   "guid": null,
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SkiDressSkiRackV3B Mesh"
+   ],
+   "prefab": "SkiDressSkiRackV3",
+   "prefabs": [
+    "SkiDressSkiRackV3",
+    "SkiDressSkiRackV3B"
+   ],
+   "source": "dress_kit (game local, prefab frame)",
+   "tris": 600,
+   "variants": []
+  },
+  "SkiDressSkiRackWall": {
+   "bounds": [
+    [
+     -1.47,
+     0.0,
+     -0.3195
+    ],
+    [
+     1.47,
+     1.7403,
+     0.4604
+    ]
+   ],
+   "guid": null,
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SkiDressSkiRackWallB Mesh"
+   ],
+   "prefab": "SkiDressSkiRackWall",
+   "prefabs": [
+    "SkiDressSkiRackWall",
+    "SkiDressSkiRackWallB"
+   ],
+   "source": "dress_kit (game local, prefab frame)",
+   "tris": 336,
+   "variants": []
+  },
+  "SkiDressSkiRackWallV2": {
+   "bounds": [
+    [
+     -1.47,
+     0.0,
+     -0.3195
+    ],
+    [
+     1.47,
+     1.7403,
+     0.4604
+    ]
+   ],
+   "guid": null,
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SkiDressSkiRackWallV2B Mesh"
+   ],
+   "prefab": "SkiDressSkiRackWallV2",
+   "prefabs": [
+    "SkiDressSkiRackWallV2",
+    "SkiDressSkiRackWallV2B"
+   ],
+   "source": "dress_kit (game local, prefab frame)",
+   "tris": 320,
+   "variants": []
+  },
+  "SkiDressSpineBoard": {
+   "bounds": [
+    [
+     -0.225,
+     0.0,
+     -0.1612
+    ],
+    [
+     0.225,
+     1.8473,
+     0.0498
+    ]
+   ],
+   "guid": null,
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SkiDressSpineBoardB Mesh"
+   ],
+   "prefab": "SkiDressSpineBoard",
+   "prefabs": [
+    "SkiDressSpineBoard",
+    "SkiDressSpineBoardB"
+   ],
+   "source": "dress_kit (game local, prefab frame)",
+   "tris": 28,
+   "variants": []
+  },
+  "SkiDressTools": {
+   "bounds": [
+    [
+     -0.325,
+     0.0,
+     -0.3925
+    ],
+    [
+     0.3,
+     1.3419,
+     -0.0
+    ]
+   ],
+   "guid": null,
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SkiDressToolsB Mesh"
+   ],
+   "prefab": "SkiDressTools",
+   "prefabs": [
+    "SkiDressTools",
+    "SkiDressToolsB"
+   ],
+   "source": "dress_kit (game local, prefab frame)",
+   "tris": 92,
+   "variants": []
+  },
+  "a4fdfd0ffe3c5fa4bb7cc6522ef81d01": {
+   "bounds": [
+    [
+     -0.93,
+     -0.005,
+     -0.438
+    ],
+    [
+     0.938,
+     1.372,
+     0.692
+    ]
+   ],
+   "guid": "a4fdfd0ffe3c5fa4bb7cc6522ef81d01",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SnowmanRandom01 Mesh",
+    "Snowman01 Mesh",
+    "Snowman02 Mesh",
+    "Snowman03 Mesh"
+   ],
+   "prefab": "SnowmanRandom01",
+   "prefabs": [
+    "SnowmanRandom01"
+   ],
+   "source": "dump",
+   "tris": 2600,
+   "variants": [
+    "Snowman01",
+    "Snowman02",
+    "Snowman03"
+   ]
+  },
+  "b0ea4a4915b28f14a826bb809e02db7a": {
+   "bounds": [
+    [
+     -0.169,
+     -0.152,
+     -0.169
+    ],
+    [
+     0.169,
+     0.0,
+     0.169
+    ]
+   ],
+   "guid": "b0ea4a4915b28f14a826bb809e02db7a",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "RoofLightRandom01 Mesh",
+    "RoofLight01 Mesh",
+    "RoofLight02 Mesh",
+    "RoofLight03 Mesh",
+    "RoofLight04 Mesh"
+   ],
+   "prefab": "RoofLightRandom01",
+   "prefabs": [
+    "RoofLightRandom01"
+   ],
+   "source": "dump",
+   "tris": 380,
+   "variants": [
+    "RoofLight01",
+    "RoofLight02",
+    "RoofLight03",
+    "RoofLight04"
+   ]
+  },
+  "b7e2343fd7ff9f642b77084a04738e43": {
+   "bounds": [
+    [
+     -1.75,
+     0.0,
+     -0.726
+    ],
+    [
+     1.75,
+     2.641,
+     3.056
+    ]
+   ],
+   "guid": "b7e2343fd7ff9f642b77084a04738e43",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "ParasolRandom01 Mesh",
+    "Parasol01 Mesh",
+    "Parasol02 Mesh",
+    "Parasol03 Mesh"
+   ],
+   "prefab": "ParasolRandom01",
+   "prefabs": [
+    "ParasolRandom01"
+   ],
+   "source": "dump",
+   "tris": 1130,
+   "variants": [
+    "Parasol01",
+    "Parasol02",
+    "Parasol03"
+   ]
+  },
+  "b99325ff4ff4dfd459734d8f765c2597": {
+   "bounds": [
+    [
+     -0.187,
+     -0.196,
+     0.0
+    ],
+    [
+     0.187,
+     0.284,
+     0.247
+    ]
+   ],
+   "guid": "b99325ff4ff4dfd459734d8f765c2597",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "ACVentWallRandom01 Mesh",
+    "ACVentWall01 Mesh",
+    "ACVentWall02 Mesh",
+    "ACVentWall03 Mesh",
+    "ACVentWall04 Mesh",
+    "ACVentWall05 Mesh"
+   ],
+   "prefab": "ACVentWallRandom01",
+   "prefabs": [
+    "ACVentWallRandom01"
+   ],
+   "source": "dump",
+   "tris": 116,
+   "variants": [
+    "ACVentWall01",
+    "ACVentWall02",
+    "ACVentWall03",
+    "ACVentWall04",
+    "ACVentWall05"
+   ]
+  },
+  "ba47f549eb430ac46a7c1b4cca509594": {
+   "bounds": [
+    [
+     -0.144,
+     0.0,
+     -0.144
+    ],
+    [
+     0.144,
+     0.62,
+     0.144
+    ]
+   ],
+   "guid": "ba47f549eb430ac46a7c1b4cca509594",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "GardenLightRandom01 Mesh",
+    "GardenLight01 Mesh",
+    "GardenLight02 Mesh",
+    "GardenLight03 Mesh"
+   ],
+   "prefab": "GardenLightRandom01",
+   "prefabs": [
+    "GardenLightRandom01"
+   ],
+   "source": "dump",
+   "tris": 714,
+   "variants": [
+    "GardenLight01",
+    "GardenLight02",
+    "GardenLight03"
+   ]
+  },
+  "c1d98e3e6f5e1204cb071deaf0f74020": {
+   "bounds": [
+    [
+     -1.122,
+     0.0,
+     -0.409
+    ],
+    [
+     1.122,
+     1.362,
+     0.409
+    ]
+   ],
+   "guid": "c1d98e3e6f5e1204cb071deaf0f74020",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "FirewoodShelterRandom01 Mesh",
+    "FirewoodShelter01 Mesh",
+    "FirewoodShelter03 Mesh"
+   ],
+   "prefab": "FirewoodShelterRandom01",
+   "prefabs": [
+    "FirewoodShelterRandom01"
+   ],
+   "source": "dump",
+   "tris": 796,
+   "variants": [
+    "FirewoodShelter01",
+    "FirewoodShelter03"
+   ]
+  },
+  "c987b53e24a01e744b4a00ee5b1f8a08": {
+   "bounds": [
+    [
+     -0.267,
+     0.0,
+     -0.235
+    ],
+    [
+     0.267,
+     3.268,
+     0.833
+    ]
+   ],
+   "guid": "c987b53e24a01e744b4a00ee5b1f8a08",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "LightpoleParkRandom01 Mesh",
+    "LightpolePark01 Mesh",
+    "LightpolePark02 Mesh",
+    "LightpolePark03 Mesh",
+    "LightpolePark04 Mesh"
+   ],
+   "prefab": "LightpoleParkRandom01",
+   "prefabs": [
+    "LightpoleParkRandom01"
+   ],
+   "source": "dump",
+   "tris": 1788,
+   "variants": [
+    "LightpolePark01",
+    "LightpolePark02",
+    "LightpolePark03",
+    "LightpolePark04"
+   ]
+  },
+  "cfc12fde01d9da24b86ddedd657eaae1": {
+   "bounds": [
+    [
+     -0.142,
+     -0.058,
+     0.0
+    ],
+    [
+     0.142,
+     0.058,
+     0.115
+    ]
+   ],
+   "guid": "cfc12fde01d9da24b86ddedd657eaae1",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "WallLightShortRangeRandom01 Mesh",
+    "WallLightShortRange01 Mesh",
+    "WallLightShortRange02 Mesh",
+    "WallLightShortRange03 Mesh"
+   ],
+   "prefab": "WallLightShortRangeRandom01",
+   "prefabs": [
+    "WallLightShortRangeRandom01"
+   ],
+   "source": "dump",
+   "tris": 138,
+   "variants": [
+    "WallLightShortRange01",
+    "WallLightShortRange02",
+    "WallLightShortRange03"
+   ]
+  },
+  "dc8abeea43367b24ba2668784a309e56": {
+   "bounds": [
+    [
+     -0.202,
+     0.0,
+     -0.202
+    ],
+    [
+     0.202,
+     1.082,
+     0.202
+    ]
+   ],
+   "guid": "dc8abeea43367b24ba2668784a309e56",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SafetyConeRandom01 Mesh",
+    "SafetyCone01 Mesh",
+    "SafetyCone02 Mesh",
+    "SafetyCone03 Mesh",
+    "SafetyCone04 Mesh"
+   ],
+   "note": "added by the fine-detail step 2 builder (2026-10-12), verified against the dump (cs2_liftdress.SUBOBJ)",
+   "prefab": "SafetyConeRandom01",
+   "prefabs": [
+    "SafetyConeRandom01"
+   ],
+   "source": "dump",
+   "tris": 258,
+   "variants": [
+    "SafetyCone01",
+    "SafetyCone02",
+    "SafetyCone03",
+    "SafetyCone04"
+   ]
+  },
+  "ed041afbdfcc3db4188ce264b34304a2": {
+   "bounds": [
+    [
+     -0.026,
+     0.0,
+     -1.009
+    ],
+    [
+     0.03,
+     1.028,
+     0.991
+    ]
+   ],
+   "guid": "ed041afbdfcc3db4188ce264b34304a2",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "FenceResidentialPieceLowShortRandom01 Mesh",
+    "FenceResidentialPieceLowShort01 Mesh",
+    "FenceResidentialPieceLowShort02 Mesh"
+   ],
+   "prefab": "FenceResidentialPieceLowShortRandom01",
+   "prefabs": [
+    "FenceResidentialPieceLowShortRandom01"
+   ],
+   "source": "dump",
+   "tris": 570,
+   "variants": [
+    "FenceResidentialPieceLowShort01",
+    "FenceResidentialPieceLowShort02"
+   ]
+  },
+  "f7955fd41c1617847b4a4138acabcbcb": {
+   "bounds": [
+    [
+     -9.8,
+     -0.035,
+     -10.128
+    ],
+    [
+     9.637,
+     21.57,
+     10.128
+    ]
+   ],
+   "guid": "f7955fd41c1617847b4a4138acabcbcb",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "TreeWildRandom01 Mesh",
+    "BirchTreeAdult01 Mesh",
+    "BirchTreeChild01 Mesh",
+    "BirchTreeDead01 Mesh",
+    "BirchTreeElderly01 Mesh",
+    "BirchTreeStump01 Mesh",
+    "BirchTreeTeen01 Mesh",
+    "EU_AlderTreeAdult01 Mesh",
+    "EU_AlderTreeChild01 Mesh",
+    "EU_AlderTreeDead01 Mesh",
+    "EU_AlderTreeElderly01 Mesh",
+    "EU_AlderTreeStump01 Mesh",
+    "EU_AlderTreeTeen01 Mesh",
+    "NA_HickoryTreeAdult01 Mesh",
+    "NA_HickoryTreeChild01 Mesh",
+    "NA_HickoryTreeDead01 Mesh",
+    "NA_HickoryTreeElderly01 Mesh",
+    "NA_HickoryTreeStump01 Mesh",
+    "NA_HickoryTreeTeen01 Mesh",
+    "OakTreeAdult01 Mesh",
+    "OakTreeChild01 Mesh",
+    "OakTreeDead01 Mesh",
+    "OakTreeElderly01 Mesh",
+    "OakTreeStump01 Mesh",
+    "OakTreeTeen01 Mesh",
+    "PineTreeAdult01 Mesh",
+    "PineTreeChild01 Mesh",
+    "PineTreeDead01 Mesh",
+    "PineTreeElderly01 Mesh",
+    "PineTreeStump01 Mesh",
+    "PineTreeTeen01 Mesh",
+    "SpruceTreeAdult01 Mesh",
+    "SpruceTreeChild01 Mesh",
+    "SpruceTreeDead01 Mesh",
+    "SpruceTreeElderly01 Mesh",
+    "SpruceTreeStump01 Mesh",
+    "SpruceTreeTeen01 Mesh"
+   ],
+   "note": "added 2026-10-12 (L5 revision 3): variants BirchTree01, EU_AlderTree01, NA_HickoryTree01, OakTree01, PineTree01, SpruceTree01 have no '<variant> Mesh'; their alternative mesh set (growth stages / states) is in the union, as tests/test_lodges_swanky.verify_vanilla derives it",
+   "prefab": "TreeWildRandom01",
+   "prefabs": [
+    "TreeWildRandom01"
+   ],
+   "source": "dump",
+   "tris": 30630,
+   "variants": [
+    "BirchTree01",
+    "EU_AlderTree01",
+    "NA_HickoryTree01",
+    "OakTree01",
+    "PineTree01",
+    "SpruceTree01"
+   ]
+  },
+  "fb4247f7a6f75b1478d9dd01ac88ce86": {
+   "bounds": [
+    [
+     -0.345,
+     0.0,
+     -0.345
+    ],
+    [
+     0.345,
+     0.864,
+     0.345
+    ]
+   ],
+   "guid": "fb4247f7a6f75b1478d9dd01ac88ce86",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "BarrelRandom01 Mesh",
+    "Barrel01 Mesh",
+    "Barrel02 Mesh",
+    "Barrel03 Mesh"
+   ],
+   "note": "added by the fine-detail step 2 builder (2026-10-12), verified against the dump (cs2_liftdress.SUBOBJ)",
+   "prefab": "BarrelRandom01",
+   "prefabs": [
+    "BarrelRandom01"
+   ],
+   "source": "dump",
+   "tris": 408,
+   "variants": [
+    "Barrel01",
+    "Barrel02",
+    "Barrel03"
+   ]
+  },
+  "fc058a3d03b337e4794c432a84170316": {
+   "bounds": [
+    [
+     -1.099,
+     -0.013,
+     -1.259
+    ],
+    [
+     1.099,
+     1.088,
+     1.259
+    ]
+   ],
+   "guid": "fc058a3d03b337e4794c432a84170316",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "TableSetCommercialRandom01 Mesh",
+    "TableSetCommercial01 Mesh",
+    "TableSetCommercial02 Mesh",
+    "TableSetCommercial03 Mesh",
+    "TableSetCommercial04 Mesh",
+    "TableSetCommercial05 Mesh",
+    "TableSetCommercial06 Mesh"
+   ],
+   "prefab": "TableSetCommercialRandom01",
+   "prefabs": [
+    "TableSetCommercialRandom01"
+   ],
+   "source": "dump",
+   "tris": 1636,
+   "variants": [
+    "TableSetCommercial01",
+    "TableSetCommercial02",
+    "TableSetCommercial03",
+    "TableSetCommercial04",
+    "TableSetCommercial05",
+    "TableSetCommercial06"
+   ]
+  }
+ }
+}

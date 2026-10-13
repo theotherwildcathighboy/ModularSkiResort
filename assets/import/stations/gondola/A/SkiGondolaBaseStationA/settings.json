@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiGondolaBaseStationA_LOD1_BaseColor.png": "SkiGondolaBaseStationA_BaseColor.png",
+    "SkiGondolaBaseStationA_LOD1_ControlMask.png": "SkiGondolaBaseStationA_ControlMask.png",
+    "SkiGondolaBaseStationA_LOD1_MaskMap.png": "SkiGondolaBaseStationA_MaskMap.png",
+    "SkiGondolaBaseStationA_LOD1_Normal.png": "SkiGondolaBaseStationA_Normal.png",
+    "SkiGondolaBaseStationA_LOD2_BaseColor.png": "SkiGondolaBaseStationA_BaseColor.png",
+    "SkiGondolaBaseStationA_LOD2_ControlMask.png": "SkiGondolaBaseStationA_ControlMask.png",
+    "SkiGondolaBaseStationA_LOD2_MaskMap.png": "SkiGondolaBaseStationA_MaskMap.png",
+    "SkiGondolaBaseStationA_LOD2_Normal.png": "SkiGondolaBaseStationA_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

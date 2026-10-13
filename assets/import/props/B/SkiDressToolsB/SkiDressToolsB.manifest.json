@@ -1,0 +1,188 @@
+{
+  "name": "SkiDressToolsB",
+  "written_utc": "2026-10-12T09:58:07Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiDressToolsB.fbx": {
+      "bytes": 18956,
+      "sha1": "6323b9a0d4c3a2cecf0fe4957f72c56362f478f1"
+    },
+    "settings.json": {
+      "bytes": 387,
+      "sha1": "03898f6ce83af56738d027e3bf35c2863f505051"
+    }
+  },
+  "generator": "assets/blender/dress_kit.py",
+  "args": [
+    "--out",
+    "../import/props/B",
+    "--export",
+    "--preview",
+    "../preview/props/B",
+    "--review",
+    "--json",
+    "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/38d24a4a-44c3-4d12-8079-26649af2ccd6/scratchpad/real_kit.json"
+  ],
+  "letter": "B",
+  "kind": "prop (hosted sub-object, lean; no engine base rule)",
+  "object_prefab": "SkiDressTools",
+  "mesh_prefab": "SkiDressToolsB Mesh",
+  "kit_part": "SkiDressTools",
+  "variant": 1,
+  "builder": "cs2_liftdress.tools(lean 75, gap 0.35) + T / D grips",
+  "design_rows": "approved DQ 2, gondola 2; pending FG M 2, tram top 1",
+  "tris": {
+    "LOD0": 92
+  },
+  "lod0_cap": 110,
+  "tris_hi": 980,
+  "lods": "LOD0 only (41 / 50 vanilla props ship none); no LodProperties",
+  "texture": {
+    "owner": false,
+    "shared_from": "SkiDressSkiRackB",
+    "px": 1024,
+    "settings_sharedAssets": "../SkiDressSkiRackB/SkiDressSkiRackB_<Map>.png"
+  },
+  "px_per_m": {
+    "median": 255.0,
+    "p10": 255.0,
+    "min": 255.0,
+    "area_m2": 0.588,
+    "median_w1": 255.0,
+    "downweighted_area_share": 0.0
+  },
+  "normal_detail": {
+    "texels": 38584,
+    "core_texels": 21556,
+    "hf_rms_deg": 13.38,
+    "hf_p95_deg": 36.97,
+    "tilt_rms_deg": 17.73
+  },
+  "normal_detail_benchmark": {
+    "GardenBench01_hf_rms_deg": 10.7,
+    "DK3_min_deg": 5.0
+  },
+  "bounds_m": {
+    "min": [
+      -0.325,
+      0.0,
+      -0.3925
+    ],
+    "max": [
+      0.3,
+      1.3419,
+      -0.0
+    ]
+  },
+  "cull": {
+    "max_dim_m": 1.342,
+    "surface_m2": 0.588,
+    "thin_bias": 1.226,
+    "small_mesh_bias": 0.023,
+    "cull_m_1_6_0": 219.1,
+    "cull_m": 215.6,
+    "status": "[U] formula until SkiProbeLodA"
+  },
+  "colour": null,
+  "row_spec": {
+    "m_Object": "$fstrref:\"CID:5f92c70cec824289aa2673d59018e8a5\"",
+    "object_prefab": "SkiDressTools",
+    "m_GroupIndex": 0,
+    "m_Probability": 100,
+    "m_ParentMesh": "0 on a deck / wall / roof of the host mesh; -1 on the lot (snaps to terrain)",
+    "rotation": "yaw quaternion turning the prop's +Z (front / out of the wall) to the host facing in the hosts' row frame (fine_detail.yaw_quat((dx, dz)) / kit_row(facing=)); identity = +Z to game +Z = authoring +X; leaning props may add a pitch about the prop's x axis (the foot line) to change the lean",
+    "frame": "hosts' row frame (fine_detail.X_CONVENTION, every shipped building manifest): game (gx, gy, gz) = authoring (y, z, x), gx NOT negated (probe X2 decides; branch N mirrors every row in S1b). In it the IDENTITY rotation puts the prop's +Z (front / out of the wall) on game +Z = authoring +X and its long axis (prefab x) on game x = authoring y (fine-detail step 2 D11: the kit frame = the removed rack vertex for vertex at identity)",
+    "pivot": "foot line centre on the ground; the part leans back toward -Z",
+    "rest_plane_prefab_z": -0.3925,
+    "from_builder": "position = the foot line; the support face (wall / bar) must lie at prefab z -0.3925 +0..0.02 behind it (LEAN contract, recipes/_lean.py)"
+  },
+  "validation": {
+    "errors": 0,
+    "warnings": 1,
+    "warn_list": [
+      "normal-b: SkiDressToolsB_Normal.png has 29 covered texel(s) with B <= 0.5 (0.09 %): not a tangent-space normal (DirectX-flipped, black-filled, or bake bleed)"
+    ],
+    "error_list": []
+  },
+  "stock_validator_on_sharer": {
+    "errors": [
+      "folder",
+      "settings"
+    ],
+    "n_errors": 5,
+    "n_warnings": 4
+  },
+  "dk": {
+    "DK1_tris_le_cap": true,
+    "DK3_hf_ge_5deg": true,
+    "DK4_pivot": true,
+    "DK5_no_mirrored": true,
+    "DK6_w1_median_ge_250": true
+  },
+  "kit": {
+    "A": 1024,
+    "owner": "SkiDressSkiRackB",
+    "margin_px": 8,
+    "kit_px_per_m_area_median": 255.0,
+    "DK6_kit_median_ge_250": true,
+    "bake": {
+      "layout": {
+        "base_px_per_m": 255.03,
+        "islands": 176,
+        "dup_parts": 358,
+        "margin_px": 8,
+        "rect_fill": 0.8971,
+        "unique_px_per_m": {
+          "median": 255.0,
+          "p10": 76.4,
+          "min": 76.2,
+          "median_w1": 255.0,
+          "area_m2": 13.9,
+          "downweighted_area_share": 0.358
+        }
+      },
+      "compose": {
+        "files": [
+          "SkiDressSkiRackB_BaseColor.png",
+          "SkiDressSkiRackB_Normal.png",
+          "SkiDressSkiRackB_MaskMap.png",
+          "SkiDressSkiRackB_ControlMask.png"
+        ],
+        "covered_texels": 644285,
+        "coverage": 0.6144,
+        "painted_texels": {
+          "HR_plate": 348,
+          "EX_body": 2905,
+          "ES_box": 618,
+          "SB_side": 988,
+          "SB_front": 6390,
+          "SB_back": 740
+        },
+        "texels_by_material": {
+          "galv": 183411,
+          "ski_blue": 27976,
+          "ski_black": 61733,
+          "trim_white": 13302,
+          "accent": 146288,
+          "ski_red": 8874,
+          "fire_red": 61011,
+          "hose_canvas": 18613,
+          "brass": 1224,
+          "safety_black": 4416,
+          "darksteel": 27063,
+          "safety_yellow": 80282,
+          "rubber": 10092
+        }
+      },
+      "hi_tris": 198714,
+      "low_tris": 3496,
+      "seconds_high_to_low": 2.39,
+      "share": {
+        "dup_parts": 358
+      },
+      "route": "cs2_bake.bake_high_to_low into an own UVUnique (layout_unique) + compose_kit"
+    },
+    "DK2_sharers": []
+  },
+  "review_pack": "assets/preview/review/SkiDressToolsB.blend"
+}

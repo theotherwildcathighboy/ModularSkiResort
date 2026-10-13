@@ -1,0 +1,207 @@
+{
+  "name": "SkiProbeSignSetB",
+  "written_utc": "2026-10-13T02:57:29Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiProbeSignSetB.fbx": {
+      "bytes": 13260,
+      "sha1": "fceab9e88f97faba9d6fe70c22fdd998346e1783"
+    },
+    "SkiProbeSignSetB_BaseColor.png": {
+      "bytes": 15658,
+      "sha1": "c21dbfeca0c0e70999cd574a264242dc61c480b1"
+    },
+    "SkiProbeSignSetB_ControlMask.png": {
+      "bytes": 4836,
+      "sha1": "4a12ebc1072ce2cffe126d5d5150ac60563c4561"
+    },
+    "SkiProbeSignSetB_Emissive.png": {
+      "bytes": 14540,
+      "sha1": "49bcb97218bc70b01006505e71bdab59b5eebec3"
+    },
+    "SkiProbeSignSetB_MaskMap.png": {
+      "bytes": 5808,
+      "sha1": "60bb79f2fdf0e8bf69686d55a094a2f442539ccf"
+    },
+    "SkiProbeSignSetB_Normal.png": {
+      "bytes": 5805,
+      "sha1": "c8069272138f21a14c943c76a0d5158bbe235ec0"
+    },
+    "settings.json": {
+      "bytes": 2,
+      "sha1": "bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f"
+    }
+  },
+  "generator": "assets/blender/fine_probes.py",
+  "args": [
+    "--out",
+    "../import/probes/B",
+    "--export",
+    "--preview",
+    "../preview/probes/B"
+  ],
+  "round": "probes B, import session S1 (fine-detail pass F1 / F4 / FS7)",
+  "lods": "LOD0 only (settings: no LOD keys)",
+  "kind": "F4 sign-set sub-object (identity row, host frame)",
+  "batch": 1,
+  "object_prefab": "SkiProbeSignSet",
+  "object_cid": "e5ab7f6855024a08bd90ab39253b7028",
+  "mesh_prefab": "SkiProbeSignSetB Mesh",
+  "tris": {
+    "LOD0": 20
+  },
+  "bounds_m": {
+    "min": [
+      -4.52,
+      2.325,
+      3.9
+    ],
+    "max": [
+      5.6,
+      4.7,
+      10.0
+    ]
+  },
+  "texture_px": 512,
+  "maps": [
+    "BaseColor",
+    "Normal",
+    "MaskMap",
+    "ControlMask",
+    "Emissive"
+  ],
+  "host": {
+    "gameplay_prefab": "SkiDQBaseStationBuilding",
+    "mesh": "SkiDQBaseStationA",
+    "fbx_sha1_measured": "419d4381751f23d88db8f8c94c1b1ccadd988954"
+  },
+  "cards": [
+    {
+      "key": "card_a_lettered",
+      "ok": true,
+      "reasons": [],
+      "wall_x_measured": 5.6,
+      "flat_mm": 0.0,
+      "normal_err_deg": 0.0,
+      "rays": 45,
+      "clear_m": 2.0,
+      "parts_hit": [
+        "engroom_walls"
+      ],
+      "frame": "FBX-raw (host and set flip together; in game x is negated)",
+      "card_centre_raw": [
+        5.59,
+        2.525,
+        4.5
+      ],
+      "front_plane_x_raw": 5.58,
+      "card_centre_in_game": [
+        -5.59,
+        2.525,
+        4.5
+      ]
+    },
+    {
+      "key": "card_b_ruler",
+      "ok": true,
+      "reasons": [],
+      "wall_x_measured": -4.5,
+      "flat_mm": 0.0,
+      "normal_err_deg": 0.0,
+      "rays": 45,
+      "clear_m": 2.0,
+      "parts_hit": [
+        "band_n_2"
+      ],
+      "frame": "FBX-raw (host and set flip together; in game x is negated)",
+      "card_centre_raw": [
+        -4.51,
+        4.6,
+        9.5
+      ],
+      "front_plane_x_raw": -4.52,
+      "card_centre_in_game": [
+        4.51,
+        4.6,
+        9.5
+      ]
+    }
+  ],
+  "card_t_m": 0.02,
+  "paint": {
+    "card_a": {
+      "rect": [
+        16,
+        336,
+        496,
+        496
+      ],
+      "px_per_m": 400.0,
+      "cap_m": 0.1878,
+      "border_m": 0.015,
+      "lit_texels": 11481
+    },
+    "card_b": {
+      "rect": [
+        16,
+        224,
+        416,
+        304
+      ],
+      "px_per_m": 400.0,
+      "band_px": 40.0,
+      "bands": 10
+    }
+  },
+  "row": {
+    "m_Position": [
+      0,
+      0,
+      0
+    ],
+    "m_Rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "m_ParentMesh": 0,
+    "m_GroupIndex": 0,
+    "m_Probability": 100
+  },
+  "emissive_surgery": {
+    "importer_writes": "purpose 34 (DecorativeLight), intensity 5, LOD0",
+    "set_intensity": 0.2,
+    "emitted_colour_srgb_in_map": [
+      1.0,
+      0.9,
+      0.7
+    ]
+  },
+  "mesh_hash": "51118741cecc6e218b593d64f5323988508c1668",
+  "validation": {
+    "errors": 0,
+    "warnings": 0,
+    "error_list": [],
+    "warn_list": [],
+    "tris": {
+      "0": 20
+    },
+    "tex": [
+      512
+    ]
+  },
+  "mesh_validation": {
+    "errors": [],
+    "warnings": []
+  },
+  "previews": [
+    "assets/preview/probes/B/SkiProbeSignSetB_onSkiDQBaseStationA_cardA_with_LIFTOPS_noon.png",
+    "assets/preview/probes/B/SkiProbeSignSetB_onSkiDQBaseStationA_cardA_dusk_lit.png",
+    "assets/preview/probes/B/SkiProbeSignSetB_onSkiDQBaseStationA_cardB_ruler_noon.png",
+    "assets/preview/probes/B/SkiProbeSignSetB_onSkiDQBaseStationA_wide_noon.png",
+    "assets/preview/probes/B/probesB_onSkiAFrameDayLodge_front_noon.png",
+    "assets/preview/probes/B/probesB_onSkiAFrameDayLodge_wide_noon.png",
+    "assets/preview/probes/B/probesB_onSkiAFrameDayLodge_school_board_3m_noon.png"
+  ]
+}

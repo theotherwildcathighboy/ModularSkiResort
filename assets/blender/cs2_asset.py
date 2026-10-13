@@ -1133,7 +1133,11 @@ def make_lod_chain(obj, name, targets, delete_prefixes, tol=0.25, min_tris=60,
     return lods
 
 
-def write_settings(out_dir, name, supplied_lods=(), dedicated_texture_lods=()):
+SHARED_MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal")
+
+
+def write_settings(out_dir, name, supplied_lods=(), dedicated_texture_lods=(), *,
+                   shared_from=None, shared_maps=SHARED_MAPS, surface=None):
     """
     Write settings.json.
 
@@ -1156,9 +1160,37 @@ def write_settings(out_dir, name, supplied_lods=(), dedicated_texture_lods=()):
     chain", which is the right answer for small props (91-98% of comparable vanilla props
     ship none) but is not the same statement. SPEC §11.1 and lift_tower's --lods help text
     carry the same inverted claim and want the same correction.
+
+    `shared_from` (fine-detail pass, design C.3 / FS12 SG7; default None = the output above,
+    byte-identical): a SHARER of another asset's texture set. A path prefix relative to this
+    asset folder, e.g. "../SkiSignSetSchoolB/SkiSignSetSchoolB": one sharedAssets key per map in
+    `shared_maps` (add "Emissive" for a five-map set), `<name>_<Map>.png` ->
+    `<shared_from>_<Map>.png` (AssetImportPipeline.cs:502-509 1.6.2f1 resolves the target with
+    Path.GetFullPath(Path.Combine(rootPath, target)); share vs copy is probe F1). A sharer
+    ships LOD0 only (sign sets, kit props): supplied_lods with shared_from raises (whether the
+    importer chains a LOD key through a cross-asset key is unverified).
+
+    `surface` (orange safety fence, 2026-10-13, design safety-fence.md §4 / C13; default None =
+    every output above, byte-identical): a dict written as the LAST key, "Surface", e.g.
+    {"materialTemplate": "CurvedHashedCutout", "needsAlphaClip": True, "alphaCutoff": 0.54}.
+    The importer expands it to <name>, <name>_LOD1, <name>_LOD2 (Colossal.AssetPipeline 1.6.2f1
+    SettingsImporter.cs:222-241) and an explicit materialTemplate replaces the template it would
+    pick (SurfacePostProcessor.cs:156): the only way to give an imported LANE mesh a Curved*
+    template. An empty or non-dict value raises.
     """
+    if surface is not None and (not isinstance(surface, dict) or not surface):
+        raise ValueError(f"write_settings {name}: surface must be a non-empty dict, got {surface!r}")
     settings = {}
     shared = {}
+    if shared_from is not None:
+        if supplied_lods:
+            raise ValueError(f"write_settings {name}: a shared_from sharer ships LOD0 only")
+        prefix = str(shared_from).replace("\\", "/")
+        if not prefix or prefix.endswith((".png", "/")):
+            raise ValueError(f"write_settings {name}: shared_from {shared_from!r} must be a path "
+                             f"prefix like '../Owner/Owner'")
+        for m in shared_maps:
+            shared[f"{name}_{m}.png"] = f"{prefix}_{m}.png"
     dedicated = set(dedicated_texture_lods or ())
     for lod in supplied_lods:
         for m in ("BaseColor", "ControlMask", "MaskMap", "Normal"):
@@ -1168,6 +1200,8 @@ def write_settings(out_dir, name, supplied_lods=(), dedicated_texture_lods=()):
 
     if shared:
         settings = {"sharedAssets": shared, **settings}
+    if surface is not None:
+        settings["Surface"] = dict(surface)
 
     path = os.path.join(out_dir, "settings.json")
     with open(path, "w", encoding="utf-8") as fh:

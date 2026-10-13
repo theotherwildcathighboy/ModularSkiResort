@@ -14,7 +14,7 @@
  *     ../bindings. tools/test-hub-rules.js throws on any other import.
  *   - Total: every function answers any input without throwing.
  *   - A new rule adds its literal rows to tools/test-hub-rules.js (76 checks in Round E1; 80 after the E1 fixer: T8.7-T8.10;
- *     98 in Round S1; 113 in Round M2).
+ *     98 in Round S1; 113 in Round M2; 147 in contract 6).
  *   - Round F7 (2026-10-04, implementer 4; docs/research/field-test-7-fixes.md D5): the appended codes
  *     SignNoRoad (18) and LodgeNoRoad (19) are band rows ("signNoRoad" / "lodgeNoRoad") whose click flies to
  *     `subject` (the sign; the first lodge without a road), like the other building rows. Their oracle rows
@@ -27,13 +27,24 @@
  *     and picks the ski-day state line and its tooltip (skiDayLine, skiDayTip; skiDayWalk for the counts).
  *     Oracles T2.15-T2.16, T3.17-T3.19, T4.14, T6.9, T7.7-T7.8, T9.1-T9.4.
  *   - Round M2 (2026-10-10, builder B4; docs/research/round-m2/build-contract.md sections 1 B4, 7, 8):
- *     liftCostReason names why a lift is billed at 25 % (thaw-rules T2: "noOpenRun" for a complete, powered
- *     lift in an area with no counted run; LiftTable.tsx maps it to LIFT_COST_REDUCED[*]); the price line
+ *     liftCostReason names why a lift is billed at 25 % (thaw-rules T2: "noOpenRun" for a complete lift in an
+ *     area with no counted run; since Phase D power never lowers the bill, so a No power row billed reduced is
+ *     billed for that reason too and its "noPower" key LIFT_COST_REDUCED[NoPower] names it; LiftTable.tsx maps
+ *     the reason to LIFT_COST_REDUCED[*]); the price line
  *     of the Money view (R7, hub-price.md section 2 item 1): PRICE_FULL_AT / PRICE_SPAN / PRICE_MAX /
  *     PRICE_NO_EFFECT_MAX / PRICE_EXAMPLES, hubPrice, priceFactor (D16's factor, its C# half pinned by
  *     ResortBatch HubRulesTests H17) and priceFactorPct (the factor as a whole percent, contract Decided
  *     here 13); tripPlannerNote picks the Guests view's trip-planner note (R9, enabled-flags.md C5).
  *     Oracles T8.11, T10.1-T10.6, T11.1-T11.8.
+ *   - Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; docs/research/art/assets-2026-10/
+ *     code-round-2/round-2-contract.md section 8.5): the PICKERS - the lodge tiers and the lift types are
+ *     alternatives in the Build strip (pickerSets, effectiveSelection, visibleIds, optionOf, dotTarget; the
+ *     build table rows are passed in as `meta`, because this file imports values only from ../bindings, and
+ *     buildItems.ts BUILD_ITEMS is what the strip passes); line1Variant switches on the item's KIND (a line of any
+ *     lift type reads "about per km"); priceFactor / priceFactorPct take the lodges' price tolerance (C#
+ *     SkiDayRules.PriceFactor(price, tolerance), seam of the economy group); PROBLEM 23-25 are band rows
+ *     (mixedLiftTypes flies to the lift, the other two to their subject); receiptPartsVariant and
+ *     lodgeSpendShown pick the Overview's school term and the Money view's lodge-spend row. Oracles T12-T14.
  */
 import type { Entity } from "cs2/utils";
 import {
@@ -102,7 +113,8 @@ export type ProblemVariant =
   | "stationsPair" | "stationsBaseOnly" | "stationsTopOnly" | "liftChairsStopped"
   | "runsUnserved" | "runsUnrateable" | "runsRating" | "freeLodges" | "runsFlat"
   | "signNoRoad" | "lodgeNoRoad"
-  | "skiDaysCannotReach" | "noParkingNearLodge" | "lodgeNotSlopeside";
+  | "skiDaysCannotReach" | "noParkingNearLodge" | "lodgeNotSlopeside"
+  | "mixedLiftTypes" | "summitLodgeNotLiftServed" | "schoolNoGreenRun";
 
 /** Which one string a band row renders; null = not a band row. */
 export function problemVariant(p: ProblemRow): ProblemVariant | null {
@@ -131,6 +143,9 @@ export function problemVariant(p: ProblemRow): ProblemVariant | null {
     case PROBLEM.SkiDaysCannotReach: return "skiDaysCannotReach";
     case PROBLEM.NoParkingNearLodge: return "noParkingNearLodge";
     case PROBLEM.LodgeNotSlopeside: return "lodgeNotSlopeside";
+    case PROBLEM.MixedLiftTypes: return "mixedLiftTypes";
+    case PROBLEM.SummitLodgeNotLiftServed: return "summitLodgeNotLiftServed";
+    case PROBLEM.SchoolNoGreenRun: return "schoolNoGreenRun";
     default: return null;
   }
 }
@@ -169,15 +184,18 @@ export function problemIcon(p: ProblemRow | null): ProblemIcon {
 export type ProblemClick = "sign" | "lift" | "liftsView" | "runsView" | null;
 
 /** What a click on a band row does (design 7.2). "sign" = fly to `subject` (a building: the sign, or for
- *  LodgeNoRoad the lodge; Round F7 D5; Round S1: the lodge C# names for 20-22, the sign for 20 without one). */
+ *  LodgeNoRoad the lodge; Round F7 D5; Round S1: the lodge C# names for 20-22, the sign for 20 without one;
+ *  contract 6: the lowest summit lodge no lift reaches for 24, the subject C# names for 25). MixedLiftTypes (23)
+ *  is a lift row: its click flies to the lift (to its gap while a section is missing), like LiftUnfinished. */
 export function problemClick(p: ProblemRow): ProblemClick {
   switch (p.code) {
     case PROBLEM.NoLodge: case PROBLEM.LodgesAllOff: case PROBLEM.LodgesSomeOff: case PROBLEM.Efficiency:
     case PROBLEM.SignNoRoad: case PROBLEM.LodgeNoRoad:
     case PROBLEM.SkiDaysCannotReach: case PROBLEM.NoParkingNearLodge: case PROBLEM.LodgeNotSlopeside:
+    case PROBLEM.SummitLodgeNotLiftServed: case PROBLEM.SchoolNoGreenRun:
       return "sign";
     case PROBLEM.LiftNoPower: case PROBLEM.LiftSectionMissing: case PROBLEM.LiftUnfinished:
-    case PROBLEM.StationsOnly: case PROBLEM.LiftChairsStopped:
+    case PROBLEM.StationsOnly: case PROBLEM.LiftChairsStopped: case PROBLEM.MixedLiftTypes:
       return "lift";
     case PROBLEM.NoLift: return "liftsView";
     case PROBLEM.NoRuns: case PROBLEM.RunsUnserved: case PROBLEM.RunsUnrateable: case PROBLEM.RunsRating:
@@ -271,12 +289,125 @@ function known(n: number | undefined): n is number {
 
 export const RUN_ITEMS: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["runNatural", "runGroomed", "runSnowmaking", "runNight"]);
 
-/** Footer line 1 of a tile (design 6.10): runs with a base fee and a per-ha fee -> run; the lift line
- *  with a per-km cost -> lift; anything with a cost -> cost; else the name alone. */
-export function line1Variant(id: BuildItemId, item: BuildItem): Line1Variant {
-  if (RUN_ITEMS.has(id)) return known(item.price) && known(item.pricePerHa) ? "run" : "name";
-  if (id === "lift") return known(item.costPerKm) ? "lift" : "name";
+/** Footer line 1 of a tile (design 6.10; contract 6: by the item's KIND, buildItems.ts BuildItemMeta.kind): runs with
+ *  a base fee and a per-ha fee -> run; a line of any lift type with a per-km cost -> lift; anything else with a cost
+ *  (sign, lodge tiers, school, patrol huts, stations) -> cost; else the name alone (an unknown kind included). */
+export function line1Variant(kind: string | undefined, item: BuildItem): Line1Variant {
+  if (kind === "run") return known(item.price) && known(item.pricePerHa) ? "run" : "name";
+  if (kind === "line") return known(item.costPerKm) ? "lift" : "name";
   return known(item.cost) ? "cost" : "name";
+}
+
+// ---- pickers (contract 6, round-2-contract section 8.5) -------------------------------------------
+
+/** One build-table row as the pickers read it: buildItems.ts BuildItemMeta (BUILD_ITEMS) is passed in, because this
+ *  file imports values only from ../bindings. */
+export interface PickerMeta {
+  id: string;
+  kind: string;
+  liftType: string;
+}
+
+export type PickerSet = "lodge" | "lift";
+
+/** The options of the two alternative sets, in table order, from the items C# SENT. */
+export interface PickerSets {
+  /** Lodge tiers: the ids of the sent lodge items ("lodge", "lodgeHut", ...). */
+  lodge: string[];
+  /** Lift types (LiftTypeDef.Id) whose station AND line items are ALL sent (skeptic SHOULD: a half-imported family,
+   *  stations first, is not offered, so it cannot invite a fixed-grip line between detachable stations). */
+  lift: string[];
+}
+
+/** The remembered choice of each set ("" = none yet: the first option). */
+export interface PickerSelection {
+  lodge: string;
+  lift: string;
+}
+
+export const NO_PICK: PickerSelection = { lodge: "", lift: "" };
+
+function sentIdSet(items: readonly BuildItem[] | null | undefined): Set<string> {
+  const s = new Set<string>();
+  for (const it of items ?? []) if (it && typeof it.id === "string") s.add(it.id);
+  return s;
+}
+
+function isLiftKind(kind: string): boolean {
+  return kind === "station" || kind === "line";
+}
+
+/** The two sets' options (contract 6 section 8.5): a picker row is drawn only for a set with >= 2 options, so a
+ *  fixed-grip-only city before any import draws none (its footer is today's). */
+export function pickerSets(items: readonly BuildItem[] | null | undefined, meta: readonly PickerMeta[]): PickerSets {
+  const sent = sentIdSet(items);
+  const lodge: string[] = [];
+  const order: string[] = [];
+  const count = new Map<string, { total: number; sent: number }>();
+  for (const m of meta ?? []) {
+    if (!m) continue;
+    if (m.kind === "lodge") {
+      if (sent.has(m.id)) lodge.push(m.id);
+    } else if (isLiftKind(m.kind) && m.liftType) {
+      let c = count.get(m.liftType);
+      if (!c) { c = { total: 0, sent: 0 }; count.set(m.liftType, c); order.push(m.liftType); }
+      c.total++;
+      if (sent.has(m.id)) c.sent++;
+    }
+  }
+  const lift = order.filter((t) => { const c = count.get(t); return !!c && c.total > 0 && c.sent === c.total; });
+  return { lodge, lift };
+}
+
+/** The choice in force: the remembered option while it is still offered, else the first option ("" = none). An
+ *  option that disappears (a prefab gone after a re-resolution) therefore falls back to the first. */
+export function effectiveSelection(sets: PickerSets, sel: PickerSelection | null | undefined): PickerSelection {
+  const pick = (options: string[], want: string | undefined): string =>
+    want && options.indexOf(want) >= 0 ? want : options.length > 0 ? options[0] : "";
+  return { lodge: pick(sets.lodge, sel ? sel.lodge : ""), lift: pick(sets.lift, sel ? sel.lift : "") };
+}
+
+/** The ids the strip draws (contract 6): every SENT id of the table except the lodge tiers other than the chosen one
+ *  and the station / line items of every lift type other than the chosen one (a half-imported type is never drawn). */
+export function visibleIds(items: readonly BuildItem[] | null | undefined, meta: readonly PickerMeta[],
+  sel: PickerSelection | null | undefined): Set<string> {
+  const sent = sentIdSet(items);
+  const eff = effectiveSelection(pickerSets(items, meta), sel);
+  const out = new Set<string>();
+  for (const m of meta ?? []) {
+    if (!m || !sent.has(m.id)) continue;
+    if (m.kind === "lodge" && m.id !== eff.lodge) continue;
+    if (isLiftKind(m.kind) && m.liftType !== eff.lift) continue;
+    out.add(m.id);
+  }
+  return out;
+}
+
+/** The picker option an item belongs to: a lodge tier is its own option, a station or line item its lift type; null
+ *  for every other item (BuildStrip selects it when the item becomes the active tool). */
+export function optionOf(id: string | null | undefined, meta: readonly PickerMeta[]): { set: PickerSet; value: string } | null {
+  if (!id) return null;
+  for (const m of meta ?? []) {
+    if (!m || m.id !== id) continue;
+    if (m.kind === "lodge") return { set: "lodge", value: m.id };
+    if (isLiftKind(m.kind) && m.liftType) return { set: "lift", value: m.liftType };
+    return null;
+  }
+  return null;
+}
+
+export type DotTarget = { kind: "tile"; id: string } | { kind: "chip"; set: PickerSet; value: string } | null;
+
+/** Where the ONE dot goes (D37 with contract 6): on its tile when the tile is drawn; on the picker chip of its option
+ *  when the item is an alternative that is not chosen (a chip exists only in a set with >= 2 options); else nowhere. */
+export function dotTarget(dot: string | null | undefined, items: readonly BuildItem[] | null | undefined,
+  meta: readonly PickerMeta[], sel: PickerSelection | null | undefined): DotTarget {
+  if (!dot) return null;
+  if (visibleIds(items, meta, sel).has(dot)) return { kind: "tile", id: dot };
+  const opt = optionOf(dot, meta);
+  if (!opt) return null;
+  const options = pickerSets(items, meta)[opt.set];
+  return options.length >= 2 && options.indexOf(opt.value) >= 0 ? { kind: "chip", set: opt.set, value: opt.value } : null;
 }
 
 export type FooterState = "hover" | "follow" | "active" | "locked" | "empty" | "idle";
@@ -354,19 +485,44 @@ export function hubPrice(city: CityStats | null | undefined): number {
   return typeof p === "number" && Number.isFinite(p) && p >= 0 ? p : -1;
 }
 
-/** D16 P = min(1, (240 − min(price, 200)) / 200): the factor on every ski-day chance (C# SkiDayRules.PriceFactor).
+/** A price tolerance as the factor reads it: max(0, t), 0 when not a finite number (C# math.max(0, tolerance)). */
+function toleranceOf(tolerance: number | undefined): number {
+  return typeof tolerance === "number" && Number.isFinite(tolerance) && tolerance > 0 ? tolerance : 0;
+}
+
+/** D16 P = min(1, (240 + tolerance − min(price, 200)) / 200): the factor on every ski-day chance (C#
+ *  SkiDayRules.PriceFactor(price, tolerance); contract 6: the counted lodges' price tolerance, ResortLive
+ *  .priceTolerance - Luxury 40, Chalet 20, else 0; `tolerance` omitted = 0 = the contract-5 factor).
  *  -1 for an unknown price (negative or not finite). C# never sends one (ClampTicketPrice); C# would clamp a
  *  negative to 0 and answer 1 - deliberate, the hub shows "–" instead. */
-export function priceFactor(price: number): number {
+export function priceFactor(price: number, tolerance = 0): number {
   if (typeof price !== "number" || !Number.isFinite(price) || price < 0) return -1;
-  return Math.min(1, Math.max(0, (PRICE_FULL_AT - Math.min(PRICE_MAX, price)) / PRICE_SPAN));
+  return Math.min(1, Math.max(0, (PRICE_FULL_AT + toleranceOf(tolerance) - Math.min(PRICE_MAX, price)) / PRICE_SPAN));
 }
 
 /** The factor as a whole percent for the hub (R7: Gameface strips trailing zeros, so a percent reads cleanly). Integer
- *  math: (240 − min(price, 200)) × 100 / 200, rounded half up (45 → 98); −1 for an unknown price. */
-export function priceFactorPct(price: number): number {
+ *  math: (240 + tolerance − min(price, 200)) × 100 / 200, rounded half up (45 → 98); −1 for an unknown price. */
+export function priceFactorPct(price: number, tolerance = 0): number {
   if (typeof price !== "number" || !Number.isFinite(price) || price < 0) return -1;
-  return Math.round(Math.min(100, Math.max(0, (PRICE_FULL_AT - Math.min(PRICE_MAX, price)) * 100 / PRICE_SPAN)));
+  return Math.round(Math.min(100, Math.max(0,
+    (PRICE_FULL_AT + toleranceOf(tolerance) - Math.min(PRICE_MAX, price)) * 100 / PRICE_SPAN)));
+}
+
+/** The price a lodge tolerance keeps ski days full up to (MONEY_PRICE_TIP[Tolerance] {FULL}): 40 + tolerance. */
+export function priceFullWith(tolerance: number): number {
+  return PRICE_NO_EFFECT_MAX + toleranceOf(tolerance);
+}
+
+/** Contract 6: the Overview's RECEIPT_PARTS line - "school" (RECEIPT_PARTS_SCHOOL, the school term shown) while the
+ *  model counts a school value above 0, else "plain" (today's line). */
+export function receiptPartsVariant(l: ResortLive | null): "school" | "plain" {
+  return l && l.schoolValue > 0 ? "school" : "plain";
+}
+
+/** Contract 6 (D15): the Money view's "Lodge spend" income row is drawn only while lodge spend earned money this month
+ *  (lodgeSpendMonth > 0; -1 unknown and 0 = the setting off draw nothing, so the default view is today's). */
+export function lodgeSpendShown(l: ResortLive | null): boolean {
+  return !!l && l.lodgeSpendMonth > 0;
 }
 
 /** Buildings + wages a month, or -1 when either is unknown. */
@@ -509,6 +665,17 @@ export function loneStations(rows: readonly LiftRow[] | null | undefined): { bas
   return { base, top };
 }
 
+/** Contract 6: the distinct lift types (LiftRow.type, "" and non-strings skipped) of some rows, first-seen order. The
+ *  Lifts view shows a type word per row only when an area's rows span two or more. */
+export function liftTypesOf(rows: readonly LiftRow[] | null | undefined): string[] {
+  const out: string[] = [];
+  for (const r of rows ?? []) {
+    if (!r || typeof r.type !== "string" || r.type === "") continue;
+    if (out.indexOf(r.type) < 0) out.push(r.type);
+  }
+  return out;
+}
+
 /** Whether `row` is a lone station whose partner kind is placed in the area (liftLine2's second argument). */
 export function partnerPlaced(row: LiftRow, lone: { base: boolean; top: boolean }): boolean {
   if (row.hasBase && !row.hasTop) return lone.top;
@@ -519,9 +686,11 @@ export function partnerPlaced(row: LiftRow, lone: { base: boolean; top: boolean 
 export type LiftCostReason = "noPower" | "sectionMissing" | "unfinished" | "noOpenRun" | null;
 
 /** Why a lift is billed at 25 % (the lift tooltip's line; LiftTable.tsx maps it to LIFT_COST_REDUCED[*]); null
- *  while billed in full. The status names the three old reasons (C# SkiMoneyRules.LiftBillingOf: no power,
- *  unfinished; a missing section is unfinished); a complete, powered lift (Running or ChairsStopped) is billed
- *  reduced only for Round M2 T2's reason, no counted run in its ski area (R3, LiftBilling.NoOpenRun). */
+ *  while billed in full. Unfinished (a missing section is unfinished) is the status's own reason; any complete
+ *  lift is billed reduced only for Round M2 T2's reason, no counted run in its ski area (R3, LiftBilling.NoOpenRun).
+ *  Phase D (code round 4, DECISIONS 171; C# SkiMoneyRules.LiftUpkeepBillingOf): power no longer reduces the bill,
+ *  so a No power row billed reduced is billed for no counted run as well. It keeps "noPower" (oracle T8.11), and
+ *  LIFT_COST_REDUCED[NoPower] names the no-open-run reason. */
 export function liftCostReason(row: LiftRow): LiftCostReason {
   if (!row || !row.billedReduced) return null;
   if (row.status === LIFT_STATUS.NoPower) return "noPower";

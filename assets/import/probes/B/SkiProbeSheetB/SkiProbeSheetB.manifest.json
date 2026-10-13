@@ -1,0 +1,378 @@
+{
+  "name": "SkiProbeSheetB",
+  "written_utc": "2026-10-13T02:57:29Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiProbeSheetB.fbx": {
+      "bytes": 13356,
+      "sha1": "4c18fb6b0fd350caeedce1a6ebcc30aabf428a4d"
+    },
+    "SkiProbeSheetB_BaseColor.png": {
+      "bytes": 274289,
+      "sha1": "7365e7c995f84c2f246edecb117c2dafce578352"
+    },
+    "SkiProbeSheetB_ControlMask.png": {
+      "bytes": 73562,
+      "sha1": "abc68bebd476204b38a599502881bd0a841fe03a"
+    },
+    "SkiProbeSheetB_MaskMap.png": {
+      "bytes": 78304,
+      "sha1": "84e4ce2564a0a98c05c7f4b8f350f47ebe495aa7"
+    },
+    "SkiProbeSheetB_Normal.png": {
+      "bytes": 78300,
+      "sha1": "7cdd95d2754cdb31571921e3632c8796f0dda647"
+    },
+    "settings.json": {
+      "bytes": 2,
+      "sha1": "bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f"
+    }
+  },
+  "generator": "assets/blender/fine_probes.py",
+  "args": [
+    "--out",
+    "../import/probes/B",
+    "--export",
+    "--preview",
+    "../preview/probes/B"
+  ],
+  "round": "probes B, import session S1 (fine-detail pass F1 / F4 / FS7)",
+  "lods": "LOD0 only (settings: no LOD keys)",
+  "kind": "F1 sheet OWNER (static prop)",
+  "batch": 1,
+  "object_prefab": "SkiProbeSheet",
+  "object_cid": "42f6878fef5c428f95a32818435f2258",
+  "mesh_prefab": "SkiProbeSheetB Mesh",
+  "tris": {
+    "LOD0": 10
+  },
+  "bounds_m": {
+    "min": [
+      -0.5,
+      0.0,
+      -0.02
+    ],
+    "max": [
+      0.5,
+      1.0,
+      0.02
+    ]
+  },
+  "texture_px": 2048,
+  "maps": [
+    "BaseColor",
+    "Normal",
+    "MaskMap",
+    "ControlMask"
+  ],
+  "vram_mb_raw_bc": 21.33,
+  "sheet_layout": {
+    "tile_A_lift": [
+      0,
+      1024,
+      1024,
+      2048
+    ],
+    "tile_B_school": [
+      1024,
+      1024,
+      2048,
+      2048
+    ],
+    "tile_C_user": [
+      0,
+      0,
+      1024,
+      1024
+    ],
+    "tile_D_late": [
+      1024,
+      0,
+      2048,
+      1024
+    ],
+    "grey_edges": [
+      0,
+      0,
+      64,
+      64
+    ]
+  },
+  "density_samples": {
+    "unload@900": {
+      "px_per_m": [
+        900.0,
+        900.0
+      ],
+      "size_m": [
+        0.7,
+        0.55
+      ],
+      "cap_m": 0.07,
+      "stroke_px": 9.32,
+      "lines": [
+        "UNLOAD"
+      ]
+    },
+    "unload@400": {
+      "px_per_m": [
+        400.0,
+        400.0
+      ],
+      "size_m": [
+        0.7,
+        0.55
+      ],
+      "cap_m": 0.07,
+      "stroke_px": 4.14,
+      "lines": [
+        "UNLOAD"
+      ]
+    },
+    "ops@450": {
+      "px_per_m": [
+        450.0,
+        451.43
+      ],
+      "size_m": [
+        1.2,
+        0.35
+      ],
+      "cap_m": 0.1772,
+      "stroke_px": 12.79,
+      "lines": [
+        "LIFT OPS"
+      ]
+    },
+    "school_vector": {
+      "px_per_m": 300.0,
+      "cap_m": 0.2689,
+      "rect": [
+        1100,
+        1800,
+        1820,
+        1980
+      ],
+      "font": "Bfont (cs2_liftdress._text_cov)"
+    },
+    "school_5x7": {
+      "px_per_m": 70.83,
+      "cell_px": 2.881,
+      "cell_m": 0.0407,
+      "rect": [
+        1100,
+        1700,
+        1270,
+        1743
+      ],
+      "font": "ski_launcher_glyph.FONT 5x7"
+    }
+  },
+  "mesh_hash": "58a394bdbdd6e1fe8d9d7a2dfe89f72166323f04",
+  "validation": {
+    "errors": 0,
+    "warnings": 0,
+    "error_list": [],
+    "warn_list": [],
+    "tris": {
+      "0": 10
+    },
+    "tex": [
+      2048
+    ]
+  },
+  "mesh_validation": {
+    "errors": [],
+    "warnings": []
+  },
+  "lodge_row": {
+    "asset": "SkiProbeSheetB",
+    "object_prefab": "SkiProbeSheet",
+    "m_Position_in_game": [
+      -8.0,
+      0.0,
+      17.0
+    ],
+    "position_fbx_raw": [
+      8.0,
+      0.0,
+      17.0
+    ],
+    "m_ParentMesh": -1,
+    "m_Rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "footprint_xz": [
+      1.0,
+      0.04
+    ],
+    "ok": true,
+    "reasons": []
+  },
+  "measure": {
+    "dq_fbx": "assets/import/stations/detachable/A/SkiDQBaseStationA/SkiDQBaseStationA.fbx",
+    "dq_fbx_sha1": "419d4381751f23d88db8f8c94c1b1ccadd988954",
+    "lodge_fbx": "assets/import/lodges/A/SkiAFrameDayLodge/SkiAFrameDayLodge.fbx",
+    "lodge_fbx_sha1": "3d8722ff91f95bea3833903de42fd6c1e86097bc",
+    "dq_fbx_bounds": {
+      "min": [
+        -7.5,
+        -0.0,
+        -11.0
+      ],
+      "max": [
+        7.97,
+        9.6422,
+        16.0
+      ]
+    },
+    "lodge_fbx_bounds": {
+      "min": [
+        -22.12,
+        -3.0,
+        -18.4
+      ],
+      "max": [
+        22.75,
+        17.86,
+        14.2
+      ]
+    },
+    "lodge_bounds_deployed": {
+      "min": [
+        -22.75,
+        -0.01,
+        -18.4
+      ],
+      "max": [
+        22.12,
+        17.86,
+        14.2
+      ]
+    },
+    "lodge_fbx_vs_deployed_bounds_m": 2.99,
+    "lodge_rows": [
+      {
+        "asset": "SkiProbeSheetB",
+        "object_prefab": "SkiProbeSheet",
+        "m_Position_in_game": [
+          -8.0,
+          0.0,
+          17.0
+        ],
+        "position_fbx_raw": [
+          8.0,
+          0.0,
+          17.0
+        ],
+        "m_ParentMesh": -1,
+        "m_Rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "footprint_xz": [
+          1.0,
+          0.04
+        ],
+        "ok": true,
+        "reasons": []
+      },
+      {
+        "asset": "SkiProbeSheetUserB",
+        "object_prefab": "SkiProbeSheetUser",
+        "m_Position_in_game": [
+          -4.5,
+          0.0,
+          17.0
+        ],
+        "position_fbx_raw": [
+          4.5,
+          0.0,
+          17.0
+        ],
+        "m_ParentMesh": -1,
+        "m_Rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "footprint_xz": [
+          2.4,
+          0.2
+        ],
+        "ok": true,
+        "reasons": []
+      },
+      {
+        "asset": "SkiProbeSheetLateB",
+        "object_prefab": "SkiProbeSheetLate",
+        "m_Position_in_game": [
+          -1.0,
+          0.0,
+          17.0
+        ],
+        "position_fbx_raw": [
+          1.0,
+          0.0,
+          17.0
+        ],
+        "m_ParentMesh": -1,
+        "m_Rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "footprint_xz": [
+          0.9,
+          0.7
+        ],
+        "ok": true,
+        "reasons": []
+      },
+      {
+        "asset": "SkiProbeRackB",
+        "object_prefab": "SkiProbeRack",
+        "m_Position_in_game": [
+          3.0,
+          0.0,
+          17.0
+        ],
+        "position_fbx_raw": [
+          -3.0,
+          0.0,
+          17.0
+        ],
+        "m_ParentMesh": -1,
+        "m_Rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "footprint_xz": [
+          1.25,
+          0.6
+        ],
+        "ok": true,
+        "reasons": []
+      }
+    ],
+    "ok": true
+  },
+  "previews": [
+    "assets/preview/probes/B/SkiProbeSignSetB_onSkiDQBaseStationA_cardA_with_LIFTOPS_noon.png",
+    "assets/preview/probes/B/SkiProbeSignSetB_onSkiDQBaseStationA_cardA_dusk_lit.png",
+    "assets/preview/probes/B/SkiProbeSignSetB_onSkiDQBaseStationA_cardB_ruler_noon.png",
+    "assets/preview/probes/B/SkiProbeSignSetB_onSkiDQBaseStationA_wide_noon.png",
+    "assets/preview/probes/B/probesB_onSkiAFrameDayLodge_front_noon.png",
+    "assets/preview/probes/B/probesB_onSkiAFrameDayLodge_wide_noon.png",
+    "assets/preview/probes/B/probesB_onSkiAFrameDayLodge_school_board_3m_noon.png"
+  ]
+}

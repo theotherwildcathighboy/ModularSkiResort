@@ -48,6 +48,25 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftServedRule.cs" Link="LiftServedRule.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\HubRules.cs" Link="HubRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\PisteMapRules.cs" Link="PisteMapRules.cs" />
+    <!-- Catalog Phase A (2026-10-11, catalog-a/phase-a-contract.md C6/C7): the pure catalog the rule files above
+         alias (SkiResortScore, SkiMoneyRules, LiftServedRule, HubRules; SkiDayRules below), and its guard. -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiCatalog.cs" Link="SkiCatalog.cs" />
+    <Compile Include="CatalogGuardTests.cs" />
+  </ItemGroup>
+  <!-- Catalog Phase B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md 7.2 / 11.2): the
+       economy group's new pure files (SchoolRule.cs, PatrolRule.cs) are linked ONLY when they exist, so the host builds
+       and runs before that group lands (CatalogGuardTests prints "not landed yet" until then); LadderTests.cs holds the
+       ladder / school / patrol / ledger rows (skeleton by core, body by the economy group). -->
+  <ItemGroup>
+    <Compile Include="LadderTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SchoolRule.cs" Link="SchoolRule.cs" Condition="Exists('..\..\mod\SkiResortMod\Systems\SchoolRule.cs')" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\PatrolRule.cs" Link="PatrolRule.cs" Condition="Exists('..\..\mod\SkiResortMod\Systems\PatrolRule.cs')" />
+  </ItemGroup>
+  <!-- Catalog Phase C (2026-10-11, docs/research/art/assets-2026-10/code-round-3/round-3-contract.md 8.3, rules group): the
+       tram's pure shuttle profile, which HubRules.ShuttleRideTimeS / ShuttleCapacityPerHour call (HubRulesTests section J).
+       Pure: System + Unity.Mathematics (the package below). -->
+  <ItemGroup>
+    <Compile Include="..\..\mod\SkiResortMod\Systems\ShuttleProfile.cs" Link="ShuttleProfile.cs" />
   </ItemGroup>
   <!-- ROUND F7 (2026-10-04, docs/research/field-test-7-fixes.md C1, implementer 2): the run outline overlay's rules. -->
   <ItemGroup>
@@ -68,6 +87,12 @@
     <Compile Include="DensityTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunPropDensityRules.cs" Link="RunPropDensityRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiTripSystems.cs" Link="SkiTripSystems.cs" />
+  </ItemGroup>
+  <!-- Phase D (2026-10-11, docs/research/art/assets-2026-10/code-round-4/round-4-contract.md 7.2, rules group): unpowered
+       lifts are inert. UnpoweredTests.cs UP-1 to UP-6 over the files linked above (LiftServedRule, SkiResortScore, PatrolRule,
+       SchoolRule, SkiMoneyRules, SkiDayRules); HubRulesTests.cs gains section K. No new linked file. -->
+  <ItemGroup>
+    <Compile Include="UnpoweredTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />

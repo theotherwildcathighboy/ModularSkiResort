@@ -22,6 +22,16 @@ Contract (docs/research/art/art-pipeline-v2.md 3.3, round L spec "cs2_uv.py"):
         rotate=False is mandatory: the EMIT rebake that follows does not re-rotate the
         tangent-space normal texels.
 
+    pack_unique(..., share=None) / _pack_layout(..., share=None)   (detail pass 1, lifts)
+        Bay sharing: `share` = [(canon_polys, [dup_polys, ...]), ...] (polygon index lists,
+        pairwise the same length and loop counts; cs2_liftdress.share_identical builds it).
+        Dup faces are held back with the pinned set for steps 2-5 (not equalised, weighted,
+        packed or squeezed); after step 5 every dup loop takes its canonical loop's UV
+        (loop k of dup poly j = loop k of canon poly j), so the copies stack on ONE island.
+        The report gains "shared_faces" / "shared_groups". share=None (the default) runs the
+        exact pre-pass code path and never passes the keyword on (cs2_bldg's drop-in packer
+        keeps its signature): byte-identical layouts, proven on the shipped lift stations.
+
     finish_packer(obj, mesh, A, reserved) -> None
         Drop-in packer hook for lift_tower.apply_finish_textures(packer=...): the layer
         "UVUnique" already exists and is active; performs steps 1-6 above and nothing else.
@@ -323,9 +333,56 @@ def check_layout(mesh, layer, reserved, pinned, tol=BOUNDS_TOL):
     return islands
 
 
+def _share_loops(mesh, share, pinned):
+    """Validate a bay-sharing list (pack_unique `share`) against the mesh and the pinned set.
+    Returns (dup face set, canonical loop indices, dup loop indices) as int arrays in
+    correspondence: loop k of dup poly j <- loop k of canon poly j. Raises ValueError on a
+    malformed list (unequal lengths / loop counts, a face used twice, a pinned face, an
+    index out of range)."""
+    start, total = face_loop_table(mesh)
+    n = len(start)
+    seen, dup = set(), set()
+    src, dst = [], []
+    for g, (canon, dups) in enumerate(share):
+        canon = [int(f) for f in canon]
+        if not canon:
+            raise ValueError(f"{mesh.name}: share group {g} has no canonical faces")
+        for f in canon:
+            if not 0 <= f < n:
+                raise ValueError(f"{mesh.name}: share group {g}: face {f} out of range")
+            if f in seen:
+                raise ValueError(f"{mesh.name}: share group {g}: face {f} used twice")
+            seen.add(f)
+        for d, dp in enumerate(dups):
+            dp = [int(f) for f in dp]
+            if len(dp) != len(canon):
+                raise ValueError(f"{mesh.name}: share group {g} dup {d}: {len(dp)} faces, "
+                                 f"canonical {len(canon)}")
+            for fc, fd in zip(canon, dp):
+                if not 0 <= fd < n:
+                    raise ValueError(f"{mesh.name}: share group {g}: face {fd} out of range")
+                if fd in seen:
+                    raise ValueError(f"{mesh.name}: share group {g}: face {fd} used twice")
+                if int(total[fc]) != int(total[fd]):
+                    raise ValueError(f"{mesh.name}: share group {g}: face {fd} has "
+                                     f"{int(total[fd])} loops, canonical {fc} {int(total[fc])}")
+                seen.add(fd)
+                dup.add(fd)
+                src.append(np.arange(start[fc], start[fc] + total[fc]))
+                dst.append(np.arange(start[fd], start[fd] + total[fd]))
+    bad = sorted(seen & set(pinned))
+    if bad:
+        raise ValueError(f"{mesh.name}: shared faces {bad[:8]} lie in a reserved rect (pinned)")
+    if not src:
+        return dup, np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.int64)
+    return dup, np.concatenate(src).astype(np.int64), np.concatenate(dst).astype(np.int64)
+
+
 def _pack_layout(obj, mesh, A, reserved, margin_px=None, equalise=True,
-                 density_layer=DENSITY_ATTR):
-    """Steps 1-6 of the contract on the existing 'UVUnique' layer; returns the report."""
+                 density_layer=DENSITY_ATTR, share=None):
+    """Steps 1-6 of the contract on the existing 'UVUnique' layer; returns the report.
+    `share` (default None = the pre-pass code path, unchanged): bay sharing, module
+    docstring."""
     if UNIQUE_LAYER not in mesh.uv_layers:
         raise RuntimeError(f"{mesh.name}: no '{UNIQUE_LAYER}' layer to pack")
     reserved = list(reserved or [])
@@ -335,7 +392,11 @@ def _pack_layout(obj, mesh, A, reserved, margin_px=None, equalise=True,
 
     # 1. pin by deselection
     pinned = pinned_faces(mesh, layer, reserved)
-    _select_unpinned(obj, mesh, pinned)
+    hold = pinned                                  # faces the uv ops never see
+    if share is not None:
+        dup, share_src, share_dst = _share_loops(mesh, share, pinned)
+        hold = pinned | dup
+    _select_unpinned(obj, mesh, hold)
     # 2. equalise: UV area proportional to 3D area
     if equalise:
         bpy.ops.uv.average_islands_scale()
@@ -343,9 +404,9 @@ def _pack_layout(obj, mesh, A, reserved, margin_px=None, equalise=True,
     # 3. per-island density weights (about the island centroid; global scale follows)
     layer = mesh.uv_layers[UNIQUE_LAYER]           # mode switches invalidate the handle
     weights = face_density_weights(mesh, density_layer)
-    n_scaled = _scale_islands_by_weight(mesh, layer, pinned, weights)
+    n_scaled = _scale_islands_by_weight(mesh, layer, hold, weights)
     # 4. ONE pack pass, no rotation (the EMIT rebake keeps texel vectors as they are)
-    _select_unpinned(obj, mesh, pinned)
+    _select_unpinned(obj, mesh, hold)
     bpy.ops.uv.pack_islands(rotate=False, scale=True, margin_method="FRACTION",
                             margin=margin_px / float(A), shape_method="AABB")
     bpy.ops.object.mode_set(mode="OBJECT")
@@ -353,7 +414,12 @@ def _pack_layout(obj, mesh, A, reserved, margin_px=None, equalise=True,
     layer = mesh.uv_layers[UNIQUE_LAYER]
     lo, hi = free_v_band(reserved) if reserved else (0.0, 1.0)
     if reserved:
-        _squeeze_into_band(mesh, layer, pinned, lo, hi)
+        _squeeze_into_band(mesh, layer, hold, lo, hi)
+    # 5b. bay sharing: every dup loop takes its canonical loop's packed UV
+    if share is not None and len(share_dst):
+        uv = loop_uvs(layer)
+        uv[share_dst] = uv[share_src]
+        set_loop_uvs(layer, uv)
     # 6. contract asserts
     islands = check_layout(mesh, layer, reserved, pinned)
 
@@ -371,6 +437,11 @@ def _pack_layout(obj, mesh, A, reserved, margin_px=None, equalise=True,
                      "median": float(np.median(d)) if d.size else 0.0,
                      "max": float(d.max()) if d.size else 0.0},
     }
+    if share is not None:                          # keys only exist when sharing was asked
+        report["shared_faces"] = len(dup)
+        report["shared_groups"] = len(share)
+        print(f"[uv] {obj.name}: bay sharing {len(dup)} dup faces in {len(share)} group(s) "
+              f"stacked on their canonical islands")
     print(f"[uv] {obj.name}: packed {report['islands']} islands ({report['pinned_faces']} "
           f"pinned faces) @ {A}, margin {margin_px} px, band v {lo:.3f}..{hi:.3f}, "
           f"px/m min {report['px_per_m']['min']:.0f} / med {report['px_per_m']['median']:.0f}"
@@ -379,14 +450,17 @@ def _pack_layout(obj, mesh, A, reserved, margin_px=None, equalise=True,
 
 
 def pack_unique(obj, A, reserved_rects, margin_px=None, equalise=True,
-                density_layer=DENSITY_ATTR):
+                density_layer=DENSITY_ATTR, share=None):
     """
     Create "UVUnique" from the active UV layer and pack it uniquely (module docstring).
 
     The active layer keeps its name (lift_tower renames it "UVAtlas" itself). A stale
     "UVUnique" that is not the active layer is rebuilt from the active one.
+    `share` = bay sharing (module docstring); None keeps the pre-pass call exactly (the
+    keyword is not even passed on, so a patched _pack_layout without it still works).
     Returns the report dict.
     """
+    kw = {} if share is None else {"share": share}
     mesh = obj.data
     src = mesh.uv_layers.active
     if src is None:
@@ -400,7 +474,7 @@ def pack_unique(obj, A, reserved_rects, margin_px=None, equalise=True,
     uniq = mesh.uv_layers.new(name=UNIQUE_LAYER, do_init=True)   # copies the active layer
     mesh.uv_layers.active = uniq
     return _pack_layout(obj, mesh, A, reserved_rects, margin_px=margin_px,
-                        equalise=equalise, density_layer=density_layer)
+                        equalise=equalise, density_layer=density_layer, **kw)
 
 
 def finish_packer(obj, mesh, A, reserved):

@@ -49,6 +49,16 @@
 //       (ParkingTests.cs; ch3 §7.2 P1, P3-P6)
 //   * ROUND M2 (docs/research/round-m2/build-contract.md): ST27-ST46 (SkiDayTimingTests), SkiDayTests U-X and
 //     A/M rows, MoneyBatch T13, HubRulesTests H17-H18, SnowRulesTests S17-S23, DensityTests D1-D8
+//   * Catalog Phase A (2026-10-11, docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md §6.2): the pure
+//     prefab catalog SkiCatalog.cs against the rule files that alias it, and the locale text guard
+//     (CatalogGuardTests.cs, CG-1, CG-2, CG-T1 to CG-T4)
+//   * Catalog Phase B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.2): CG-1 grows to
+//     four lift rows and the other groups' seam consts (reflection), CG-T to T6 (derived numbers, placeholders); the
+//     lodge ladder, school, patrol and lodge-spend ledger rows (LadderTests.cs: skeleton by core, body by economy)
+//   * Phase D (2026-10-11, docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §7.2, rules group): unpowered
+//     lifts are inert — UnpoweredTests.cs (UP-1 to UP-6 per lift type: served, attraction, summit, full upkeep per
+//     DECISIONS 171 / skeptic MUST-1, tickets, ski day) and HubRulesTests section K (HK-1 to HK-3: capacity "–", status,
+//     THE run predicate LiftServedRule.Carries)
 
 using System;
 using System.Collections.Generic;
@@ -90,6 +100,9 @@ namespace ResortBatch
             SkiDayTimingTests.Run(Check);   // ROUND S1 B
             ParkingTests.Run(Check);   // ROUND S1 C
             DensityTests.Run(Check);   // ROUND M2 density
+            CatalogGuardTests.Run(Check);   // Catalog Phase A; Phase B: CG-1 seams, CG-T1 to T6
+            LadderTests.Run(Check);   // Catalog Phase B (round-2-contract §11.2): ladder / school / patrol / ledger (economy body)
+            UnpoweredTests.Run(Check);   // Phase D (round-4-contract §7.2): unpowered lifts are inert, full upkeep (UP-1 to UP-6)
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  ResortBatch checks={0} failures={1}", s_Checks, s_Failures));
             Environment.ExitCode = s_Failures;

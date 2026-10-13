@@ -32,6 +32,19 @@
 // `false, false` (gunsLiveKnown, anyGunOn: the fallback is the old rule, expected values unchanged); H17 the price
 // factor's shared literal table with test-hub-rules.js T10.1 and the 40 / 200 edge (2 checks); H18 eight Season rows
 // with the live gun gates (R5). HubRulesTests +10.
+// Catalog Phase B (lift group, 2026-10-11; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.2 with
+// round-2-contract-skeptic.md MUST 1): B's summer synthetic row carries ScoreFlags.SummerMode (AttractionWithLodges reads
+// the A-frame's season share from the flag, not from LodgeShare) and L10's oracle moves 61 → 73 (LodgeBaseOf(10) 32 → 44);
+// E gains codes 23-25 (26 values); new section I — RideTimeS per speed, MUST 1's summer-no-lodge row, AttractionWithLodgeApplied,
+// LodgePart = LodgeApplied, problems 23-25 and the per-type build items / pairing, H17 with the price tolerance.
+// Catalog Phase C (rules group, 2026-10-11; docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §8.3 with
+// round-3-contract-skeptic.md MUST 4): new section J — the tram's hub numbers, HubRules.ShuttleRideTimeS (with its dwell
+// parameter and the ShuttleRideIncludesDwell switch) and ShuttleCapacityPerHour, over the pure ShuttleProfile.cs (linked
+// into this host); the float oracles HJ-1/2/3/5 are bit-exact (the skeptic recomputed them with Math.fround); the brief's
+// a → ∞ figures (code-economy A.2: 2,250 / 1,000 pph); the catalog's tram row through both; C14's status mapping.
+// Phase D (rules group, 2026-10-11; docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §7.2): new section K —
+// HubRules.LiftCapacityShown (capacity "–" for a lift that does not carry, every type), LiftStatusOf restated for a held lift,
+// and LiftServedRule.Carries (the bool overload; D1's equivalence with SkiMoneyRules.LiftOperating).
 // Tolerances: ±1e-9 for the parity identity, ±1e-6 for ch1's 9-decimal values, ±1e-4 for float rules.
 
 using System;
@@ -56,6 +69,9 @@ namespace ResortBatch
             SectionF();
             SectionG();
             SectionH();   // Round S1 (ch4 §G.3, refutation RF-12)
+            SectionI();   // Catalog Phase B (round-2-contract §11.2, lift group)
+            SectionJ();   // Catalog Phase C (round-3-contract §8.3, rules group)
+            SectionK();   // Phase D (round-4-contract §7.2, rules group)
             s_Check = null;
         }
 
@@ -308,12 +324,16 @@ namespace ResortBatch
             Eq(HubRules.AttractionWithLodges(in s, 0), 0, w, "AttractionWithLodges(T2 terrain, 0)");
             s.Efficiency = 0.5;
             Eq(HubRules.AttractionWithLodges(in s, 2), 48, w, "AttractionWithLodges(T2 terrain at 0.5, 2)");
-            var sw = new SkiResortScore.Result { AOpen = 4.898979486, LodgeBase = 0, LodgeShare = 0.5, Efficiency = 1 };
+            // Catalog Phase B (round-2-contract-skeptic MUST 1): the A-frame's season share comes from the Result's summer
+            // flag, not from LodgeShare (a summer Result carries ScoreFlags.SummerMode; was `LodgeShare = 0.5` alone).
+            var sw = new SkiResortScore.Result { AOpen = 4.898979486, LodgeBase = 0, LodgeShare = 0.5, Efficiency = 1,
+                                                 Flags = SkiResortScore.ScoreFlags.SummerMode };
             Eq(HubRules.AttractionWithLodges(in sw, 1), 15, w, "AttractionWithLodges(W1 terrain, 1)");
             var s0 = new SkiResortScore.Result { AOpen = 71.585929905, LodgeBase = 0, LodgeShare = 1, Efficiency = 0 };
             Eq(HubRules.AttractionWithLodges(in s0, 1), 0, w, "AttractionWithLodges(efficiency 0, 1)");
             var s10 = new SkiResortScore.Result { AOpen = 28.882668052, LodgeBase = 0, LodgeShare = 1, Efficiency = 1 };
-            Eq(HubRules.AttractionWithLodges(in s10, 10), 61, w, "AttractionWithLodges(T1 terrain, 10)");
+            // Catalog Phase B (MUST 1, §11.2 L10): LodgeBaseOf(10) = 20 + min(4 × 9, 24) = 44 (R11's cap 24; was 32 → 61).
+            Eq(HubRules.AttractionWithLodges(in s10, 10), 73, w, "AttractionWithLodges(T1 terrain, 10) (L10: 44, was 61)");
             Eq(HubRules.AttractionWithLodges(in nl, 2), 96, w, "AttractionWithLodges(NL from Compute, 2) — a lodge pair restores T2");
 
             // RunValueFull = the run's value fully open.
@@ -894,7 +914,10 @@ namespace ResortBatch
             Eq((int)HubProblemCode.SkiDaysCannotReach, 20, w, "HubProblemCode.SkiDaysCannotReach");   // Round S1 D28
             Eq((int)HubProblemCode.NoParkingNearLodge, 21, w, "HubProblemCode.NoParkingNearLodge");   // Round S1 D28
             Eq((int)HubProblemCode.LodgeNotSlopeside, 22, w, "HubProblemCode.LodgeNotSlopeside");     // Round S1 D28
-            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 23, w, "HubProblemCode has 23 values (append only)");
+            Eq((int)HubProblemCode.MixedLiftTypes, 23, w, "HubProblemCode.MixedLiftTypes");                     // Catalog Phase B
+            Eq((int)HubProblemCode.SummitLodgeNotLiftServed, 24, w, "HubProblemCode.SummitLodgeNotLiftServed"); // Catalog Phase B
+            Eq((int)HubProblemCode.SchoolNoGreenRun, 25, w, "HubProblemCode.SchoolNoGreenRun");                 // Catalog Phase B
+            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 26, w, "HubProblemCode has 26 values (append only)");
             Eq((int)HubSkiDayState.Full, 7, w, "HubSkiDayState.Full");                                // Round S1 (contract 4)
             Eq(Enum.GetValues(typeof(HubSkiDayState)).Length, 8, w, "HubSkiDayState has 8 values");
             Eq((int)SeasonHint.GatingOff, 6, w, "SeasonHint.GatingOff");
@@ -1220,12 +1243,332 @@ namespace ResortBatch
                "H18 Season(true,7,5,true,true,true,false,NaN,0,2)");
         }
 
+        // ================================================================== I. Catalog Phase B (lift group)
+
+        private static HubProblemLift LT(int state, bool powered, bool hasBase, bool hasTop, byte type, bool mixed = false,
+                                         bool named = false) =>
+            new HubProblemLift { State = state, Powered = powered, HasBase = hasBase, HasTop = hasTop, CustomName = named,
+                                 Type = type, Mixed = mixed };
+
+        /// <summary>Catalog Phase B (round-2-contract §11.2 "HubRulesTests.cs + MoneyBatch.cs (lift)"; skeptic MUST 1):
+        ///   I1  RideTimeS(loop, speed) per lift type, and the one-argument CG-2 twin;
+        ///   I2  MUST 1: a SUMMER area with no lodge keeps today's "if one lodge" number (15), whatever LodgeShare says;
+        ///   I3  AttractionWithLodgeApplied (the IfLodgesOn ladder value) on literal results and on T2 from Compute;
+        ///   I4  LodgePart = LodgeApplied (seam S4);
+        ///   I5  problems: MixedLiftTypes 23 (build item by type, no LiftUnfinished row), 24 and 25 (counts, severities,
+        ///       the 24 cap), StationsOnly / SectionMissing build items per type, and lone stations pairing per type only;
+        ///   I6  H17 with tolerance: SkiDayRules.PriceFactor(price, tolerance) = the TS priceFactor table
+        ///       (mod/SkiResortUI/tools/test-hub-rules.js, §8.7), and PriceFactor(p) ≡ PriceFactor(p, 0).
+        /// Oracles are literal hand values (contract §11.1-§11.2 tables).</summary>
+        private static void SectionI()
+        {
+            const string w = "hub I";
+
+            // I1 ride time per speed (contract §11.2)
+            Eq(HubRules.RideTimeS(2045f, 5.0f), 204.5f, w, "RideTimeS(2045, 5.0) (detachable)");
+            Eq(HubRules.RideTimeS(2045f, 5.5f), 2045f / 2f / 5.5f, w, "RideTimeS(2045, 5.5) (gondola)");
+            Eq(HubRules.RideTimeS(2045f, 0f), -1f, w, "RideTimeS(2045, 0)");
+            Eq(HubRules.RideTimeS(2045f, -2.5f), -1f, w, "RideTimeS(2045, -2.5)");
+            Eq(HubRules.RideTimeS(2045f, float.NaN), -1f, w, "RideTimeS(2045, NaN)");
+            Eq(HubRules.RideTimeS(0f, 5.0f), -1f, w, "RideTimeS(0, 5.0)");
+            Eq(HubRules.RideTimeS(2045f), 409f, w, "RideTimeS(2045) (CG-2 twin: the fixed-grip 2.5)");
+            Eq(HubRules.RideTimeS(2045f, SkiCatalog.FixedGrip.SpeedMps), HubRules.RideTimeS(2045f), w,
+               "RideTimeS(2045, FixedGrip.SpeedMps) == RideTimeS(2045)");
+
+            // I2 MUST 1: summer, 0 lodges, from Compute (W1's runs with no lodge): today's 4.898979486 + 20 × 0.5 → 15.
+            var p = new List<SkiResortScore.RunPart>();
+            SkiResortScore.Result nlw = Score(0, 1.0, Small(0.0), 1, p);
+            Check((nlw.Flags & SkiResortScore.ScoreFlags.SummerMode) != 0, w, "I2: Small(0) with no lodge is summer mode");
+            Check(nlw.LodgeApplied == 0.0, w, $"I2: no lodge → LodgeApplied 0, got {nlw.LodgeApplied}");
+            Eq(HubRules.AttractionWithLodges(in nlw, 1), 15, w, "I2 MUST 1: AttractionWithLodges(summer, 0 lodges, 1) = today's 15");
+            Eq(HubRules.AttractionWithLodges(in nlw, 2), 17, w, "I2: AttractionWithLodges(summer, 0 lodges, 2) = 4.899 + 12 → 17");
+
+            // I3 AttractionWithLodgeApplied (seam S4; the stats system's IfLodgesOn with the ladder's applied value).
+            var s = new SkiResortScore.Result { AOpen = 71.585929905, Efficiency = 1 };   // T2 terrain, no lodge applied
+            Eq(HubRules.AttractionWithLodgeApplied(in s, 40.0), 112, w, "I3: T2 terrain + 40 (a Grand alone) → 112");
+            Eq(HubRules.AttractionWithLodgeApplied(in s, 52.0), 124, w, "I3: T2 terrain + 52 (a Grand and a Summit, no luxury cap: LD5) → 124");
+            Eq(HubRules.AttractionWithLodgeApplied(in s, 64.0), 136, w, "I3: T2 terrain + 64 (three luxury lodges, the extras cap reached: LX1) → 136");
+            Eq(HubRules.AttractionWithLodgeApplied(in s, 24.0), 96, w, "I3: T2 terrain + 24 (two A-frames) → 96");
+            Eq(HubRules.AttractionWithLodgeApplied(in s, 24.0), HubRules.AttractionWithLodges(in s, 2), w,
+               "I3: applied 24 == AttractionWithLodges(r, 2) in winter");
+            Eq(HubRules.AttractionWithLodgeApplied(in s, double.NaN), 72, w, "I3: a NaN applied value reads 0 → 72");
+            Eq(HubRules.AttractionWithLodgeApplied(in s, -5.0), 72, w, "I3: a negative applied value reads 0 → 72");
+            s.Efficiency = 0.5;
+            Eq(HubRules.AttractionWithLodgeApplied(in s, 40.0), 56, w, "I3: 111.586 × 0.5 → 56");
+            var big = new SkiResortScore.Result { AOpen = 190.0, Efficiency = 1 };
+            Eq(HubRules.AttractionWithLodgeApplied(in big, 40.0), 200, w, "I3: clamped to MaxAttraction before rounding");
+            SkiResortScore.Result t2 = Score(2, 1.0, Medium(), 3, p);
+            NearF(t2.LodgeApplied, 24.0, 1e-9, w, "I3: T2 (two A-frames, winter) LodgeApplied");
+            Eq(HubRules.AttractionWithLodgeApplied(in t2, 44.0), 116, w, "I3: T2 with a Grand + an A-frame (44) → 116 (LD4)");
+            Eq(HubRules.AttractionWithLodgeApplied(in t2, 24.0), 96, w, "I3: T2 with its own lodges → its A 96");
+
+            // I4 LodgePart = LodgeApplied (LS3: Grand + A-frame in summer, applied 26 of base 44).
+            var ls3 = new SkiResortScore.Result { LodgeBase = 44, LodgeShare = 26.0 / 44.0, LodgeApplied = 26 };
+            NearF(HubRules.LodgePart(in ls3), 26.0, 1e-12, w, "I4: LodgePart = LodgeApplied");
+            var nan = new SkiResortScore.Result { LodgeApplied = double.NaN };
+            NearF(HubRules.LodgePart(in nan), 0.0, 0.0, w, "I4: a NaN LodgeApplied reads 0");
+
+            // I5 problems (§6.1).
+            var o = new List<HubProblem>();
+            HubProblemInput x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(LT(3, true, true, true, 1, mixed: true));
+            Expect("I5a mixed detachable line on fixed-grip stations", x, o,
+                P(HubProblemCode.MixedLiftTypes, 2, liftIndex: 0, build: "liftDetachable"));
+            x = In(1, 1, 100, 2, 3);
+            x.Lifts = Ls(LT(0, true, true, true, 0), LT(3, true, true, false, 0, mixed: true));
+            Expect("I5b a mixed row typed fixed-grip (its base) builds the fixed-grip line", x, o,
+                P(HubProblemCode.MixedLiftTypes, 2, liftIndex: 1, build: "lift"));
+            x = In(3, 3, 100, 1, 3);
+            x.Lifts = Ls(LT(0, true, true, true, 0));
+            x.SummitLodgesNotServed = 2;
+            x.SchoolNoGreenRun = true;
+            Expect("I5c rows 24 and 25", x, o,
+                P(HubProblemCode.SummitLodgeNotLiftServed, 1, count: 2),
+                P(HubProblemCode.SchoolNoGreenRun, 1));
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(LT(0, true, true, true, 0));
+            x.SummitLodgesNotServed = 3;
+            Expect("I5d row 24 counts at most the area's lodges", x, o, P(HubProblemCode.SummitLodgeNotLiftServed, 1, count: 1));
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(LT(0, true, true, true, 0));
+            Expect("I5e no row 24 / 25 without their inputs", x, o);
+            x = In(1, 1, 100, 2, 3);
+            x.Lifts = Ls(LT(4, false, true, false, 1), LT(4, false, false, true, 2));
+            Expect("I5f lone detachable base and lone gondola top: different types never pair", x, o,
+                P(HubProblemCode.StationsOnly, 1, liftIndex: 0, detail: 1, build: "topStationDetachable"),
+                P(HubProblemCode.StationsOnly, 1, liftIndex: 1, detail: 2, build: "baseStationGondola"));
+            x = In(1, 1, 100, 2, 3);
+            x.Lifts = Ls(LT(4, false, true, false, 1), LT(4, false, false, true, 1));
+            Expect("I5g lone detachable base and top pair: one 'draw the detachable line' row at the top's row", x, o,
+                P(HubProblemCode.StationsOnly, 1, liftIndex: 1, detail: 0, build: "liftDetachable"));
+            x = In(1, 1, 100, 2, 3);
+            x.Lifts = Ls(LT(4, false, true, false, 1, named: true), LT(4, false, false, true, 1));
+            Expect("I5h the pair row sits at a named base's row", x, o,
+                P(HubProblemCode.StationsOnly, 1, liftIndex: 0, detail: 0, build: "liftDetachable"));
+            x = In(1, 1, 100, 2, 3);
+            x.Lifts = Ls(LT(4, false, true, false, 1), LT(3, true, false, true, 0));
+            Expect("I5i a fixed-grip line from a top does not complete a detachable base", x, o,
+                P(HubProblemCode.LiftUnfinished, 2, liftIndex: 1, build: "lift"),
+                P(HubProblemCode.StationsOnly, 1, liftIndex: 0, detail: 1, build: "topStationDetachable"));
+            x = In(1, 1, 100, 2, 3);
+            x.Lifts = Ls(LT(4, false, true, false, 2), LT(3, true, false, true, 2));
+            Expect("I5j a gondola line from a top waits for the lone gondola base", x, o,
+                P(HubProblemCode.LiftUnfinished, 2, liftIndex: 1, build: "liftGondola"),
+                P(HubProblemCode.StationsOnly, 1, liftIndex: 0, detail: 0, build: "liftGondola"));
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(LT(2, true, true, true, 3));
+            Expect("I5k a tram section missing builds the tram line", x, o,
+                P(HubProblemCode.LiftSectionMissing, 2, liftIndex: 0, build: "liftTram"));
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(LT(4, false, true, false, 255));
+            Expect("I5l an untyped lone base falls back to the fixed-grip items", x, o,
+                P(HubProblemCode.StationsOnly, 1, liftIndex: 0, detail: 1, build: "topStation"));
+
+            // I6 H17 with tolerance (C# half; test-hub-rules.js holds the TS priceFactor rows of contract §8.7).
+            int[] tolPrice = { 80, 80, 80, 200, 250, 200, 0 };
+            int[] tolTol = { 0, 20, 40, 40, 40, 0, 40 };
+            double[] tolOut = { 0.8, 0.9, 1.0, 0.4, 0.4, 0.2, 1.0 };
+            bool tolOk = true;
+            string tolFirst = "";
+            for (int i = 0; i < tolPrice.Length; i++)
+            {
+                double got = SkiDayRules.PriceFactor(tolPrice[i], tolTol[i]);
+                if (!Near(got, tolOut[i], 1e-12) && tolOk)
+                {
+                    tolOk = false;
+                    tolFirst = $"PriceFactor({tolPrice[i]}, {tolTol[i]}) = {got}, table {tolOut[i]}";
+                }
+            }
+            Check(tolOk, w, "I6 H17 price factor with tolerance C# = the TS table: " + tolFirst);
+            bool sameOk = true;
+            string sameFirst = "";
+            for (int price = -10; price <= 260; price++)
+            {
+                double a = SkiDayRules.PriceFactor(price), b = SkiDayRules.PriceFactor(price, 0);
+                if (!(a == b) && sameOk)
+                {
+                    sameOk = false;
+                    sameFirst = $"price {price}: PriceFactor(p) {a}, PriceFactor(p, 0) {b}";
+                }
+            }
+            Check(sameOk, w, "I6 PriceFactor(p) ≡ PriceFactor(p, 0) for p in −10..260: " + sameFirst);
+        }
+
         private static void State(string name, bool off, bool hasView, bool scoreKnown, bool signRunning, int runsCounted,
                                   int targetLodges, bool claimHours, int now, int cap, HubSkiDayState want)
         {
             HubSkiDayState got = HubRules.SkiDayStateOf(off, hasView, scoreKnown, signRunning, runsCounted, targetLodges, claimHours, now, cap);
             Check(got == want, "hub H", $"{name} SkiDayStateOf({off},{hasView},{scoreKnown},{signRunning},{runsCounted},{targetLodges}," +
                                         $"{claimHours},{now},{cap}) = {got}, want {want}");
+        }
+
+        // ================================================================== J. Catalog Phase C (rules group): the tram
+
+        /// <summary>Catalog Phase C (round-3-contract §8.3, C5, C14; skeptic MUST 4). v 10 m/s, a 0.8 m/s² (0.8f, as the
+        /// catalog row), dwell 60 s. Literal oracles (contract §3.3's worked rows; the skeptic's Math.fround recomputation):
+        ///   HJ-1..HJ-3  ShuttleRideTimeS: 1 km 112.5 s, 3 km 312.5 s, 100 m 22.360679774997898 (triangle) — bit-exact floats;
+        ///               2 km 212.5, 125 m 25 (the degenerate trapezoid with 0.8f);
+        ///   HJ-4        invalid → −1 (path 0 / NaN / −5 / ∞, speed 0, accel 0, dwell −1 / NaN);
+        ///   HJ-4b       C5: the dwell does not enter the ride time while ShuttleRideIncludesDwell is false (pinned false:
+        ///               flipping it is Richard's open decision and must revisit these oracles and LIFT_RIDE_TIP);
+        ///   HJ-5        ShuttleCapacityPerHour(2, 100, 1 km) == (float)(720000 / 345) bit-exact;
+        ///   HJ-6        a → ∞ (1e9): 1 km 2,250 and 3 km 1,000 pph ± 0.01 (the brief's "pax × 3600 / (L/v + dwell)");
+        ///   HJ-7        one cabin = half (exact in float); cabins 0, seats 0, dwell −1, cabins −1, NaN path → −1;
+        ///   HJ-8        the Loop rule untouched: RideTimeS(2045, 2.5) == 409 (CG-2 twin);
+        ///   HJ-9        the catalog's tram row (SkiCatalog index 3) through both: 112.5 s / 2,086.96 pph at 1 km; the worked
+        ///               capacities 100 m 4,371.0, 125 m 4,235.3, 2 km 1,321.10, 3 km 966.44;
+        ///   HJ-10       C14's mapping through LiftStatusOf: Running / Held (NoPower) / no path (ChairsStopped, NoPower).</summary>
+        private static void SectionJ()
+        {
+            const string w = "hub J";
+            const float v = 10f, a = 0.8f, d = 60f;
+
+            // HJ-1..HJ-3 ride time (trip, dock to dock)
+            Eq(HubRules.ShuttleRideTimeS(1000f, v, a, d), 112.5f, w, "HJ-1 ShuttleRideTimeS(1000, 10, 0.8, 60)");
+            Eq(HubRules.ShuttleRideTimeS(3000f, v, a, d), 312.5f, w, "HJ-2 ShuttleRideTimeS(3000, 10, 0.8, 60)");
+            Eq(HubRules.ShuttleRideTimeS(100f, v, a, d), (float)22.360679774997898, w, "HJ-3 ShuttleRideTimeS(100, …) (triangle)");
+            Eq(HubRules.ShuttleRideTimeS(2000f, v, a, d), 212.5f, w, "HJ-2b ShuttleRideTimeS(2000, …)");
+            Eq(HubRules.ShuttleRideTimeS(125f, v, a, d), 25f, w, "HJ-2c ShuttleRideTimeS(125, …) (ramps meet)");
+
+            // HJ-4 invalid inputs
+            Eq(HubRules.ShuttleRideTimeS(0f, v, a, d), -1f, w, "HJ-4 ShuttleRideTimeS(0, …)");
+            Eq(HubRules.ShuttleRideTimeS(float.NaN, v, a, d), -1f, w, "HJ-4 ShuttleRideTimeS(NaN, …)");
+            Eq(HubRules.ShuttleRideTimeS(-5f, v, a, d), -1f, w, "HJ-4 ShuttleRideTimeS(-5, …)");
+            Eq(HubRules.ShuttleRideTimeS(float.PositiveInfinity, v, a, d), -1f, w, "HJ-4 ShuttleRideTimeS(+inf, …)");
+            Eq(HubRules.ShuttleRideTimeS(1000f, 0f, a, d), -1f, w, "HJ-4 ShuttleRideTimeS(1000, 0, 0.8, 60)");
+            Eq(HubRules.ShuttleRideTimeS(1000f, v, 0f, d), -1f, w, "HJ-4 ShuttleRideTimeS(1000, 10, 0, 60)");
+            Eq(HubRules.ShuttleRideTimeS(1000f, v, a, -1f), -1f, w, "HJ-4 ShuttleRideTimeS(1000, 10, 0.8, -1)");
+            Eq(HubRules.ShuttleRideTimeS(1000f, v, a, float.NaN), -1f, w, "HJ-4 ShuttleRideTimeS(1000, 10, 0.8, NaN)");
+
+            // HJ-4b C5 / MUST 4: the trip only, whatever the dwell, while the switch is off.
+            Check(!HubRules.ShuttleRideIncludesDwell, w, "HJ-4b ShuttleRideIncludesDwell is false (C5 as built; open decision)");
+            Eq(HubRules.ShuttleRideTimeS(1000f, v, a, 0f), 112.5f, w, "HJ-4b ShuttleRideTimeS(1000, 10, 0.8, 0)");
+            Eq(HubRules.ShuttleRideTimeS(1000f, v, a, 600f), 112.5f, w, "HJ-4b ShuttleRideTimeS(1000, 10, 0.8, 600)");
+
+            // HJ-5 capacity, 2 cabins × 100 seats, 1 km: 720000 / 345
+            float cap2 = HubRules.ShuttleCapacityPerHour(2, 100, 1000f, v, a, d);
+            Eq(cap2, (float)(720000.0 / 345.0), w, "HJ-5 ShuttleCapacityPerHour(2, 100, 1000, 10, 0.8, 60)");
+
+            // HJ-6 the brief's limit (a → ∞): 2 × 100 × 3600 / (2 (L/v + D)) = 100 × 3600 / (L/v + D)
+            NearF(HubRules.ShuttleCapacityPerHour(2, 100, 1000f, v, 1e9f, d), 2250.0, 0.01, w, "HJ-6 a 1e9, 1 km");
+            NearF(HubRules.ShuttleCapacityPerHour(2, 100, 3000f, v, 1e9f, d), 1000.0, 0.01, w, "HJ-6 a 1e9, 3 km");
+
+            // HJ-7 one cabin = half; refusals
+            Eq(HubRules.ShuttleCapacityPerHour(1, 100, 1000f, v, a, d), cap2 / 2f, w, "HJ-7 one cabin = half of two");
+            Eq(HubRules.ShuttleCapacityPerHour(0, 100, 1000f, v, a, d), -1f, w, "HJ-7 cabins 0");
+            Eq(HubRules.ShuttleCapacityPerHour(-1, 100, 1000f, v, a, d), -1f, w, "HJ-7 cabins -1");
+            Eq(HubRules.ShuttleCapacityPerHour(2, 0, 1000f, v, a, d), -1f, w, "HJ-7 seats 0");
+            Eq(HubRules.ShuttleCapacityPerHour(2, 100, 1000f, v, a, -1f), -1f, w, "HJ-7 dwell -1");
+            Eq(HubRules.ShuttleCapacityPerHour(2, 100, float.NaN, v, a, d), -1f, w, "HJ-7 path NaN");
+            Eq(HubRules.ShuttleCapacityPerHour(2, 100, 1000f, v, 0f, d), -1f, w, "HJ-7 accel 0");
+
+            // HJ-8 the Loop rule is untouched
+            Eq(HubRules.RideTimeS(2045f, 2.5f), 409f, w, "HJ-8 RideTimeS(2045, 2.5)");
+
+            // HJ-9 the catalog's tram row through both functions
+            LiftTypeDef tram = SkiCatalog.LiftByIndex(3);
+            if (Check(tram != null && tram.Id == "tram" && tram.Mover == MoverKind.Shuttle, w, "HJ-9 SkiCatalog row 3 is the tram (Shuttle)"))
+            {
+                Check(tram.SeatsPerCarrier == 100 && tram.SpeedMps == 10f && tram.AccelMps2 == 0.8f && tram.DwellS == 60f, w,
+                      "HJ-9 tram row 100 seats, 10 m/s, 0.8 m/s², 60 s (got " + tram.SeatsPerCarrier + ", " + tram.SpeedMps + ", " +
+                      tram.AccelMps2 + ", " + tram.DwellS + ")");
+                Eq(HubRules.ShuttleRideTimeS(1000f, tram.SpeedMps, tram.AccelMps2, tram.DwellS), 112.5f, w, "HJ-9 ride 1 km");
+                Eq(HubRules.ShuttleCapacityPerHour(2, tram.SeatsPerCarrier, 1000f, tram.SpeedMps, tram.AccelMps2, tram.DwellS), cap2,
+                   w, "HJ-9 capacity 1 km");
+                NearF(cap2, 2086.96, 0.005, w, "HJ-9 capacity 1 km ≈ 2,086.96");
+                NearF(HubRules.ShuttleCapacityPerHour(2, tram.SeatsPerCarrier, 100f, tram.SpeedMps, tram.AccelMps2, tram.DwellS),
+                      4371.0, 0.05, w, "HJ-9 capacity 100 m");
+                NearF(HubRules.ShuttleCapacityPerHour(2, tram.SeatsPerCarrier, 125f, tram.SpeedMps, tram.AccelMps2, tram.DwellS),
+                      4235.29, 0.01, w, "HJ-9 capacity 125 m");
+                NearF(HubRules.ShuttleCapacityPerHour(2, tram.SeatsPerCarrier, 2000f, tram.SpeedMps, tram.AccelMps2, tram.DwellS),
+                      1321.10, 0.01, w, "HJ-9 capacity 2 km");
+                NearF(HubRules.ShuttleCapacityPerHour(2, tram.SeatsPerCarrier, 3000f, tram.SpeedMps, tram.AccelMps2, tram.DwellS),
+                      966.44, 0.01, w, "HJ-9 capacity 3 km");
+            }
+
+            // HJ-10 C14: the stats state of a tram row → the hub status (no new HubLiftStatus value, contract 6)
+            Eq(HubRules.LiftStatusOf(0, true), HubLiftStatus.Running, w, "HJ-10 path + cabins, powered → Running");
+            Eq(HubRules.LiftStatusOf(0, false), HubLiftStatus.NoPower, w, "HJ-10 path + cabins, unpowered (Held) → NoPower");
+            Eq(HubRules.LiftStatusOf(1, true), HubLiftStatus.ChairsStopped, w, "HJ-10 no path / no cabin, powered → ChairsStopped");
+            Eq(HubRules.LiftStatusOf(1, false), HubLiftStatus.NoPower, w, "HJ-10 no path / no cabin, unpowered → NoPower");
+        }
+
+        // ================================================================== K. Phase D (rules group): unpowered lifts
+
+        /// <summary>Phase D (round-4-contract §7.2, D9; Richard's re-ruling DECISIONS 171: an unpowered lift of every type
+        /// carries no guests). Literal oracles:
+        ///   HK-1  LiftCapacityShown: the Loop capacities riding × seats × speed × 3600 / L (the Stats expression, riding 40,
+        ///         L 2,000 m: fixed-grip 3 / 2.5 → 540, detachable 4 / 5.0 → 1,440, gondola 8 / 5.5 → 3,168) and the tram's
+        ///         ShuttleCapacityPerHour(2, 100, 1000, 10, 0.8, 60): (c, true) bit-equal to c, (c, false) == −1, (−1, true)
+        ///         == −1; through Carries for a powered and an unpowered complete row (the hub's composition, §2.6);
+        ///   HK-2  LiftStatusOf(0, false) NoPower, (0, true) Running, (1, false) NoPower, (1, true) ChairsStopped (unchanged
+        ///         oracles, restated next to the capacity rows: the status of a held lift stays "No power");
+        ///   HK-3  Carries(complete, shownPowered, closed), 8 rows; equal to Carries(complete, p, closed) with shownPowered =
+        ///         p != NoPower, and to SkiMoneyRules.LiftOperating(complete, IsPowered(p)) &amp;&amp; !closed for all 12 inputs
+        ///         (D1's equivalence with the billing system's operating predicate, SkiMoneyRules.cs:73).</summary>
+        private static void SectionK()
+        {
+            const string w = "hub K";
+            Check(LiftServedRule.PowerGatesService, w, "PowerGatesService is true (the oracles assume power gates service)");
+
+            // HK-1 the four types' capacities, as SkiResortStatsSystem computes them (Loop) and HubRules (tram)
+            const int riding = 40;
+            const double loopM = 2000.0;
+            float[] caps = new float[4];
+            int[] seats = { 3, 4, 8 };
+            float[] speeds = { 2.5f, 5.0f, 5.5f };
+            float[] want = { 540f, 1440f, 3168f };
+            for (int t = 0; t < 3; t++)
+            {
+                LiftTypeDef def = SkiCatalog.LiftByIndex(t);
+                Check(def != null && def.Mover == MoverKind.Loop && def.SeatsPerCarrier == seats[t] && def.SpeedMps == speeds[t], w,
+                      "HK-1 catalog row " + t + " is a Loop with " + seats[t] + " seats at " + speeds[t] + " m/s");
+                caps[t] = (float)(riding * seats[t] * (double)speeds[t] * 3600.0 / loopM);
+                Eq(caps[t], want[t], w, "HK-1 Loop capacity row " + t);
+            }
+            caps[3] = HubRules.ShuttleCapacityPerHour(2, 100, 1000f, 10f, 0.8f, 60f);
+            Eq(caps[3], (float)(720000.0 / 345.0), w, "HK-1 tram capacity (HJ-5's)");
+            for (int t = 0; t < 4; t++)
+            {
+                float c = caps[t];
+                Eq(BitConverter.SingleToInt32Bits(HubRules.LiftCapacityShown(c, true)), BitConverter.SingleToInt32Bits(c), w,
+                   "HK-1 LiftCapacityShown(c, true) bit-equal c, row " + t);
+                Eq(HubRules.LiftCapacityShown(c, false), -1f, w, "HK-1 LiftCapacityShown(c, false) row " + t);
+                Eq(HubRules.LiftCapacityShown(c, LiftServedRule.Carries(true, true, false)), c, w, "HK-1 a powered complete row keeps c, row " + t);
+                Eq(HubRules.LiftCapacityShown(c, LiftServedRule.Carries(true, false, false)), -1f, w, "HK-1 an unpowered complete row shows −1, row " + t);
+            }
+            Eq(HubRules.LiftCapacityShown(-1f, true), -1f, w, "HK-1 LiftCapacityShown(−1, true)");
+            Eq(HubRules.LiftCapacityShown(-1f, false), -1f, w, "HK-1 LiftCapacityShown(−1, false)");
+            Eq(BitConverter.SingleToInt32Bits(HubRules.LiftCapacityShown(float.NaN, true)), BitConverter.SingleToInt32Bits(float.NaN), w,
+               "HK-1 LiftCapacityShown passes any float through untouched when it carries (NaN bits)");
+
+            // HK-2 the status of a held lift (unchanged)
+            Eq(HubRules.LiftStatusOf(0, false), HubLiftStatus.NoPower, w, "HK-2 LiftStatusOf(0, false)");
+            Eq(HubRules.LiftStatusOf(0, true), HubLiftStatus.Running, w, "HK-2 LiftStatusOf(0, true)");
+            Eq(HubRules.LiftStatusOf(1, false), HubLiftStatus.NoPower, w, "HK-2 LiftStatusOf(1, false)");
+            Eq(HubRules.LiftStatusOf(1, true), HubLiftStatus.ChairsStopped, w, "HK-2 LiftStatusOf(1, true)");
+
+            // HK-3 the bool overload, and D1's equivalences
+            for (int c = 0; c < 2; c++)
+                for (int s = 0; s < 2; s++)
+                    for (int z = 0; z < 2; z++)
+                    {
+                        bool complete = c == 1, shown = s == 1, closed = z == 1;
+                        Eq(LiftServedRule.Carries(complete, shown, closed), complete && shown && !closed, w,
+                           "HK-3 Carries(" + complete + ", shownPowered " + shown + ", closed " + closed + ")");
+                    }
+            LiftPower[] powers = { LiftPower.Unknown, LiftPower.Powered, LiftPower.NoPower };
+            for (int c = 0; c < 2; c++)
+                foreach (LiftPower p in powers)
+                    for (int z = 0; z < 2; z++)
+                    {
+                        bool complete = c == 1, closed = z == 1;
+                        bool byEnum = LiftServedRule.Carries(complete, p, closed);
+                        string tag = complete + ", " + p + ", closed " + closed;
+                        Eq(LiftServedRule.Carries(complete, p != LiftPower.NoPower, closed), byEnum, w, "HK-3 bool overload == enum overload (" + tag + ")");
+                        Eq(SkiMoneyRules.LiftOperating(complete, LiftServedRule.IsPowered(p)) && !closed, byEnum, w,
+                           "HK-3 Carries == LiftOperating(complete, IsPowered(p)) && !closed (" + tag + ")");
+                    }
         }
 
         // ================================================================== helpers

@@ -1,0 +1,187 @@
+{
+  "name": "SkiDressExtinguisherB",
+  "written_utc": "2026-10-12T09:58:07Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiDressExtinguisherB.fbx": {
+      "bytes": 24652,
+      "sha1": "9bdc6df308699c90e7774f1bcbc1ff650a219c34"
+    },
+    "settings.json": {
+      "bytes": 415,
+      "sha1": "e925a40e123a2187016540b9b9a8c1b9f8cb6274"
+    }
+  },
+  "generator": "assets/blender/dress_kit.py",
+  "args": [
+    "--out",
+    "../import/props/B",
+    "--export",
+    "--preview",
+    "../preview/props/B",
+    "--review",
+    "--json",
+    "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/38d24a4a-44c3-4d12-8079-26649af2ccd6/scratchpad/real_kit.json"
+  ],
+  "letter": "B",
+  "kind": "prop (hosted sub-object, wall; no engine base rule)",
+  "object_prefab": "SkiDressExtinguisher",
+  "mesh_prefab": "SkiDressExtinguisherB Mesh",
+  "kit_part": "SkiDressExtinguisher",
+  "variant": 1,
+  "builder": "dims of cs2_liftdress.extinguisher (r 0.08, h 0.45, 0.02 off the wall); 16-seg",
+  "design_rows": "approved DQ 2, gondola 4; pending FG M 3, tram 3",
+  "tris": {
+    "LOD0": 178
+  },
+  "lod0_cap": 180,
+  "tris_hi": 2668,
+  "lods": "LOD0 only (41 / 50 vanilla props ship none); no LodProperties",
+  "texture": {
+    "owner": false,
+    "shared_from": "SkiDressSkiRackB",
+    "px": 1024,
+    "settings_sharedAssets": "../SkiDressSkiRackB/SkiDressSkiRackB_<Map>.png"
+  },
+  "px_per_m": {
+    "median": 255.0,
+    "p10": 255.0,
+    "min": 247.2,
+    "area_m2": 0.281,
+    "median_w1": 255.0,
+    "downweighted_area_share": 0.0
+  },
+  "normal_detail": {
+    "texels": 18224,
+    "core_texels": 14297,
+    "hf_rms_deg": 5.38,
+    "hf_p95_deg": 6.89,
+    "tilt_rms_deg": 6.99
+  },
+  "normal_detail_benchmark": {
+    "GardenBench01_hf_rms_deg": 10.7,
+    "DK3_min_deg": 5.0
+  },
+  "bounds_m": {
+    "min": [
+      -0.0816,
+      0.0,
+      -0.0
+    ],
+    "max": [
+      0.1082,
+      0.527,
+      0.1816
+    ]
+  },
+  "cull": {
+    "max_dim_m": 0.527,
+    "surface_m2": 0.281,
+    "thin_bias": 0.355,
+    "small_mesh_bias": 0.001,
+    "cull_m_1_6_0": 152.7,
+    "cull_m": 152.5,
+    "status": "[U] formula until SkiProbeLodA"
+  },
+  "colour": null,
+  "row_spec": {
+    "m_Object": "$fstrref:\"CID:04211f82829f421b9899ffaff582e530\"",
+    "object_prefab": "SkiDressExtinguisher",
+    "m_GroupIndex": 0,
+    "m_Probability": 100,
+    "m_ParentMesh": "0 on a deck / wall / roof of the host mesh; -1 on the lot (snaps to terrain)",
+    "rotation": "yaw quaternion turning the prop's +Z (front / out of the wall) to the host facing in the hosts' row frame (fine_detail.yaw_quat((dx, dz)) / kit_row(facing=)); identity = +Z to game +Z = authoring +X; leaning props may add a pitch about the prop's x axis (the foot line) to change the lean",
+    "frame": "hosts' row frame (fine_detail.X_CONVENTION, every shipped building manifest): game (gx, gy, gz) = authoring (y, z, x), gx NOT negated (probe X2 decides; branch N mirrors every row in S1b). In it the IDENTITY rotation puts the prop's +Z (front / out of the wall) on game +Z = authoring +X and its long axis (prefab x) on game x = authoring y (fine-detail step 2 D11: the kit frame = the removed rack vertex for vertex at identity)",
+    "pivot": "wall plane (prop back at prefab z 0), bottom of the prop at y 0, centred on x",
+    "from_builder": "position = the old extinguisher mount point on the wall face with y = the old bottom z (the body stands 0.02 off the wall as before)"
+  },
+  "validation": {
+    "errors": 0,
+    "warnings": 1,
+    "warn_list": [
+      "normal-b: SkiDressExtinguisherB_Normal.png has 28 covered texel(s) with B <= 0.5 (0.17 %): not a tangent-space normal (DirectX-flipped, black-filled, or bake bleed)"
+    ],
+    "error_list": []
+  },
+  "stock_validator_on_sharer": {
+    "errors": [
+      "folder",
+      "settings"
+    ],
+    "n_errors": 5,
+    "n_warnings": 4
+  },
+  "dk": {
+    "DK1_tris_le_cap": true,
+    "DK3_hf_ge_5deg": true,
+    "DK4_pivot": true,
+    "DK5_no_mirrored": true,
+    "DK6_w1_median_ge_250": true
+  },
+  "kit": {
+    "A": 1024,
+    "owner": "SkiDressSkiRackB",
+    "margin_px": 8,
+    "kit_px_per_m_area_median": 255.0,
+    "DK6_kit_median_ge_250": true,
+    "bake": {
+      "layout": {
+        "base_px_per_m": 255.03,
+        "islands": 176,
+        "dup_parts": 358,
+        "margin_px": 8,
+        "rect_fill": 0.8971,
+        "unique_px_per_m": {
+          "median": 255.0,
+          "p10": 76.4,
+          "min": 76.2,
+          "median_w1": 255.0,
+          "area_m2": 13.9,
+          "downweighted_area_share": 0.358
+        }
+      },
+      "compose": {
+        "files": [
+          "SkiDressSkiRackB_BaseColor.png",
+          "SkiDressSkiRackB_Normal.png",
+          "SkiDressSkiRackB_MaskMap.png",
+          "SkiDressSkiRackB_ControlMask.png"
+        ],
+        "covered_texels": 644285,
+        "coverage": 0.6144,
+        "painted_texels": {
+          "HR_plate": 348,
+          "EX_body": 2905,
+          "ES_box": 618,
+          "SB_side": 988,
+          "SB_front": 6390,
+          "SB_back": 740
+        },
+        "texels_by_material": {
+          "galv": 183411,
+          "ski_blue": 27976,
+          "ski_black": 61733,
+          "trim_white": 13302,
+          "accent": 146288,
+          "ski_red": 8874,
+          "fire_red": 61011,
+          "hose_canvas": 18613,
+          "brass": 1224,
+          "safety_black": 4416,
+          "darksteel": 27063,
+          "safety_yellow": 80282,
+          "rubber": 10092
+        }
+      },
+      "hi_tris": 198714,
+      "low_tris": 3496,
+      "seconds_high_to_low": 2.39,
+      "share": {
+        "dup_parts": 358
+      },
+      "route": "cs2_bake.bake_high_to_low into an own UVUnique (layout_unique) + compose_kit"
+    },
+    "DK2_sharers": []
+  },
+  "review_pack": "assets/preview/review/SkiDressExtinguisherB.blend"
+}

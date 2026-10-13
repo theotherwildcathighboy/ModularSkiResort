@@ -1,0 +1,437 @@
+{
+  "name": "SkiBeaconRedA",
+  "written_utc": "2026-10-12T01:52:49Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiBeaconRedA.fbx": {
+      "bytes": 18908,
+      "sha1": "7cb542012d9122592b6186ba30346914ddef1195"
+    },
+    "SkiBeaconRedA_BaseColor.png": {
+      "bytes": 15009,
+      "sha1": "3fa84141e6589ef58d6e25f4a97ce16d3837e8dd"
+    },
+    "SkiBeaconRedA_ControlMask.png": {
+      "bytes": 548,
+      "sha1": "ee7563f16c4a8b350ba9800b6a7227763937bd3b"
+    },
+    "SkiBeaconRedA_Emissive.png": {
+      "bytes": 2610,
+      "sha1": "00b31045407592e3efdd38c860e3f4b4df30db4f"
+    },
+    "SkiBeaconRedA_MaskMap.png": {
+      "bytes": 6939,
+      "sha1": "7eaca12ef23ab2198315611e0b6deb09083dc933"
+    },
+    "SkiBeaconRedA_Normal.png": {
+      "bytes": 3767,
+      "sha1": "cb038d809a83d87aa62d7ed64a912b0aa83063a8"
+    },
+    "settings.json": {
+      "bytes": 2,
+      "sha1": "bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f"
+    }
+  },
+  "generator": "assets/blender/beacon.py",
+  "args": [
+    "--out",
+    "../import/props/A",
+    "--export",
+    "--preview",
+    "../preview/props",
+    "--review"
+  ],
+  "kind": "prop (hosted sub-object; no engine base rule)",
+  "object_prefab": "SkiBeaconRed",
+  "mesh_prefab": "SkiBeaconRedA Mesh",
+  "tris": {
+    "LOD0": 86
+  },
+  "lod0_cap": 100,
+  "lods": "LOD0 only: emissive is LOD0-only engine-side; reach via LodProperties.m_Bias",
+  "texture_px": 128,
+  "maps": [
+    "BaseColor",
+    "Normal",
+    "MaskMap",
+    "ControlMask",
+    "Emissive"
+  ],
+  "vram_mb": {
+    "uncompressed_with_mips": 0.417,
+    "bc_1byte_per_texel_with_mips": 0.104
+  },
+  "bounds_m": {
+    "min": [
+      -0.13,
+      0.0,
+      -0.13
+    ],
+    "max": [
+      0.13,
+      0.4508,
+      0.13
+    ]
+  },
+  "contracts": {
+    "tris": 86,
+    "verts": 65,
+    "faces": 49,
+    "bounds_blender_m": [
+      [
+        -0.13,
+        -0.13,
+        0.0
+      ],
+      [
+        0.13,
+        0.13,
+        0.4508
+      ]
+    ],
+    "lens_rim_diameter_m": 0.26,
+    "cage_clearance_mm": {
+      "above_rim": 2.9,
+      "above_shoulder": 10.8
+    },
+    "lens_faces": 16
+  },
+  "reach": {
+    "bbox_size_m": [
+      0.26,
+      0.26,
+      0.4508
+    ],
+    "surface_area_m2": 0.261,
+    "area_bias": 0.605,
+    "lod_factor": 652.0,
+    "cull_m_by_bias": {
+      "0": 138.7,
+      "-1": 277.4,
+      "-2": 554.8
+    },
+    "lod1_switch_m_if_12tri_chain": 40.0,
+    "surgery_bias": -1,
+    "cull_m_at_surgery_bias": 277.4
+  },
+  "validation": {
+    "errors": 0,
+    "warnings": 0,
+    "tris": {
+      "0": 86
+    },
+    "warn_list": []
+  },
+  "atlas_px": {
+    "lens_block": [
+      0,
+      72,
+      128,
+      128
+    ],
+    "lens_band": [
+      0,
+      72,
+      128,
+      96
+    ],
+    "lens_cap": [
+      0,
+      96,
+      32,
+      128
+    ],
+    "housing": [
+      0,
+      48,
+      128,
+      72
+    ],
+    "galv_block": [
+      0,
+      0,
+      128,
+      48
+    ]
+  },
+  "materials_srgb": {
+    "galv": [
+      0.5,
+      0.53,
+      0.565
+    ],
+    "housing": [
+      0.165,
+      0.17,
+      0.175
+    ],
+    "lens": [
+      0.6,
+      0.065,
+      0.05
+    ],
+    "emissive_lens": [
+      0.95,
+      0.12,
+      0.08
+    ]
+  },
+  "emissive_properties_surgery": {
+    "purpose": 34,
+    "color": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "colorOff": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "intensity": 4.0,
+    "luminance": 0,
+    "responseTime": 0.05,
+    "animationIndex": 0,
+    "materialId": 0
+  },
+  "animation_curve_surgery": {
+    "m_Duration": 2.0,
+    "keys_t_v_in_out": [
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.4995,
+        0.0,
+        0.0,
+        1000.0
+      ],
+      [
+        0.5,
+        1.0,
+        1000.0,
+        0.0
+      ],
+      [
+        0.6495,
+        1.0,
+        0.0,
+        -1000.0
+      ],
+      [
+        0.65,
+        0.0,
+        -1000.0,
+        0.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "on_s": 0.3,
+    "flashes_per_min": 30.0
+  },
+  "lod_properties_surgery": {
+    "m_Bias": -1,
+    "m_ShadowBias": 0,
+    "m_LodMeshes": []
+  },
+  "hosting": {
+    "rows": [
+      {
+        "prefab": "SkiLiftTowerGD12",
+        "mesh": "SkiLiftTowerGD12O",
+        "host": "top gantry beam",
+        "anchor": [
+          0.0,
+          11.976,
+          0.0
+        ],
+        "design_y": 11.976,
+        "delta_vs_design_m": -0.0,
+        "hit_normal_y": 1.0,
+        "bounds_top_m": 12.0,
+        "footprint_flat_m": 0.0,
+        "footprint_misses": 0,
+        "envelope_verts": 0,
+        "up_hits": 0,
+        "side_hits": 0,
+        "nearest_geometry_above_m": null,
+        "lamp_top_m": 12.426,
+        "fbx_mtime": 1791766950.4976082,
+        "ok": true
+      },
+      {
+        "prefab": "SkiLiftTowerGD16",
+        "mesh": "SkiLiftTowerGD16O",
+        "host": "top gantry beam",
+        "anchor": [
+          0.0,
+          15.976,
+          0.0
+        ],
+        "design_y": 15.976,
+        "delta_vs_design_m": -0.0,
+        "hit_normal_y": 1.0,
+        "bounds_top_m": 16.0,
+        "footprint_flat_m": 0.0,
+        "footprint_misses": 0,
+        "envelope_verts": 0,
+        "up_hits": 0,
+        "side_hits": 0,
+        "nearest_geometry_above_m": null,
+        "lamp_top_m": 16.426,
+        "fbx_mtime": 1791766999.291927,
+        "ok": true
+      },
+      {
+        "prefab": "SkiLiftTowerGD20",
+        "mesh": "SkiLiftTowerGD20O",
+        "host": "top gantry beam",
+        "anchor": [
+          0.0,
+          19.976,
+          0.0
+        ],
+        "design_y": 19.976,
+        "delta_vs_design_m": -0.0,
+        "hit_normal_y": 1.0,
+        "bounds_top_m": 20.0,
+        "footprint_flat_m": 0.0,
+        "footprint_misses": 0,
+        "envelope_verts": 0,
+        "up_hits": 0,
+        "side_hits": 0,
+        "nearest_geometry_above_m": null,
+        "lamp_top_m": 20.426,
+        "fbx_mtime": 1791767046.9534004,
+        "ok": true
+      },
+      {
+        "prefab": "SkiGondolaLattice25",
+        "mesh": "SkiGondolaLattice25O",
+        "host": "head beam top",
+        "anchor": [
+          0.0,
+          25.0,
+          0.0
+        ],
+        "design_y": 25.0,
+        "delta_vs_design_m": 0.0,
+        "hit_normal_y": 1.0,
+        "bounds_top_m": 25.0,
+        "footprint_flat_m": 0.0,
+        "footprint_misses": 0,
+        "envelope_verts": 0,
+        "up_hits": 0,
+        "side_hits": 0,
+        "nearest_geometry_above_m": null,
+        "lamp_top_m": 25.45,
+        "fbx_mtime": 1791769806.2636526,
+        "ok": true
+      },
+      {
+        "prefab": "SkiGondolaLattice32",
+        "mesh": "SkiGondolaLattice32O",
+        "host": "head beam top",
+        "anchor": [
+          0.0,
+          32.0,
+          0.0
+        ],
+        "design_y": 32.0,
+        "delta_vs_design_m": 0.0,
+        "hit_normal_y": 1.0,
+        "bounds_top_m": 32.0,
+        "footprint_flat_m": 0.0,
+        "footprint_misses": 0,
+        "envelope_verts": 0,
+        "up_hits": 0,
+        "side_hits": 0,
+        "nearest_geometry_above_m": null,
+        "lamp_top_m": 32.45,
+        "fbx_mtime": 1791769858.451261,
+        "ok": true
+      },
+      {
+        "prefab": "SkiGondolaLattice40",
+        "mesh": "SkiGondolaLattice40O",
+        "host": "head beam top",
+        "anchor": [
+          0.0,
+          40.0,
+          0.0
+        ],
+        "design_y": 40.0,
+        "delta_vs_design_m": 0.0,
+        "hit_normal_y": 1.0,
+        "bounds_top_m": 40.0,
+        "footprint_flat_m": 0.0,
+        "footprint_misses": 0,
+        "envelope_verts": 0,
+        "up_hits": 0,
+        "side_hits": 0,
+        "nearest_geometry_above_m": null,
+        "lamp_top_m": 40.45,
+        "fbx_mtime": 1791769913.594407,
+        "ok": true
+      },
+      {
+        "prefab": "SkiTramTower60",
+        "mesh": "SkiTramTower60A",
+        "host": "gantryx_1",
+        "anchor": [
+          0.0,
+          59.96,
+          0.0
+        ],
+        "design_y": 59.96,
+        "delta_vs_design_m": -0.0,
+        "hit_normal_y": 1.0,
+        "bounds_top_m": 60.0,
+        "footprint_flat_m": 0.0,
+        "footprint_misses": 0,
+        "envelope_verts": 0,
+        "up_hits": 0,
+        "side_hits": 0,
+        "nearest_geometry_above_m": null,
+        "lamp_top_m": 60.41,
+        "fbx_mtime": 1791769502.1811078,
+        "ok": true
+      }
+    ],
+    "rotation_xyzw": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "m_ParentMesh": 0,
+    "m_GroupIndex": 0,
+    "m_Probability": 100,
+    "note": "one ObjectSubObjects row per host tower; no Night condition (DECISIONS 83/84); anchor = beacon origin = plate bottom"
+  },
+  "previews": [
+    "assets/preview/props/SkiBeaconRedA_pbr_three_quarter.png",
+    "assets/preview/props/SkiBeaconRedA_pbr_top.png",
+    "assets/preview/props/SkiBeaconRedA_pbr_side.png",
+    "assets/preview/props/SkiBeaconRedA_dusk_three_quarter.png",
+    "assets/preview/props/SkiBeaconRedA_dusk_top.png",
+    "assets/preview/props/SkiBeaconRedA_dusk_side.png",
+    "assets/preview/props/SkiBeaconRedA_normals_three_quarter.png",
+    "assets/preview/props/SkiBeaconRedA_normals_top.png",
+    "assets/preview/props/SkiBeaconRedA_normals_side.png",
+    "assets/preview/props/SkiBeaconRedA_density_three_quarter.png",
+    "assets/preview/props/SkiBeaconRedA_density_top.png",
+    "assets/preview/props/SkiBeaconRedA_density_side.png"
+  ],
+  "review_pack": "assets/preview/review/SkiBeaconRedA.blend"
+}

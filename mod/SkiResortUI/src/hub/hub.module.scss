@@ -973,6 +973,106 @@
   background-color: var(--lockedColor);
 }
 
+// Contract 6 (Catalog Phase B, code round 2; round-2-contract section 8.5): the PICKER ROW above the tiles, drawn only
+// while the lodge tiers or the lift types offer >= 2 options (BuildStrip.tsx). ONE fixed-height line (never
+// min-height: the tiles below must not move under the mouse while it shows); one segmented control per set, each as
+// wide as its option count (flex-grow inline), lodge first; every chip flex 1 1 0 / min-width 0, its label one nowrap
+// text node that shrinks, then ellipsis (the tile row's own rules). The ONE dot (.buildHintDot) can sit on a chip.
+.pickerRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  height: calc(22rem * var(--fontScale));
+  margin-bottom: 4rem;
+}
+
+.pickerSet {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
+.pickerGap {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 8rem;
+}
+
+.pickerCell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
+.pickerCellNext {
+  margin-left: 2rem;
+}
+
+// A chip is a cs2/ui Button with theme={{ button: pickerChip }} (our class replaces the theme), like .buildTile.
+.pickerChip {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: calc(22rem * var(--fontScale));
+  padding: 0rem 4rem;
+  overflow: hidden;
+  font-size: var(--fontSizeXS);
+  color: rgba(240, 251, 255, 0.7);
+  background-color: var(--sectionBackgroundColor);
+  border-style: solid;
+  border-top-width: 1rem;
+  border-right-width: 1rem;
+  border-bottom-width: 1rem;
+  border-left-width: 1rem;
+  border-top-color: rgba(0, 0, 0, 0);
+  border-right-color: rgba(0, 0, 0, 0);
+  border-bottom-color: rgba(0, 0, 0, 0);
+  border-left-color: rgba(0, 0, 0, 0);
+  border-radius: 3rem;
+}
+
+.pickerChip:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.pickerChip:active {
+  background-color: var(--activeColorNormal);
+}
+
+// The chosen option (listed with :hover so the hover colour does not hide it; the .buttonOn idiom).
+.pickerChipOn,
+.pickerChipOn:hover {
+  color: var(--normalTextColor);
+  background-color: var(--selectedColor);
+  border-top-color: var(--accentColorNormal);
+  border-right-color: var(--accentColorNormal);
+  border-bottom-color: var(--accentColorNormal);
+  border-left-color: var(--accentColorNormal);
+}
+
+.pickerLabel {
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0rem;
+  line-height: calc(20rem * var(--fontScale));
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  coh-font-fit-mode: shrink;
+}
+
 // ---- hub v3 (Round E1, ch6-hub-ui.md section 8): the checked reference hub-v3-additions.scss --------
 // Dim text: literal colours, NOT --textColorDim / --textColorDimmer (both resolve to white in the
 // game's :root, and Dimmer is white in the dark-grey-orange style: installed index.css @2587, @3184,
@@ -1823,6 +1923,13 @@
 
 .liftWordDim {
   color: rgba(240, 251, 255, 0.7);
+}
+
+// Contract 6: the lift-type word in line 1 (only while the shown area mixes types; LiftsView), dimmer than the name.
+.liftTypeWord {
+  margin-left: 8rem;
+  font-size: var(--fontSizeXS);
+  color: rgba(240, 251, 255, 0.5);
 }
 
 // -- guests view (design 5.2) -------------------------------------------------------------------------

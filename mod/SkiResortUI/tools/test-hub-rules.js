@@ -7,13 +7,20 @@
  * Written for this repo (MIT). Created 2026-10-04 (Round E1, stream S6; docs/research/econ-round/spec/
  * ch6-hub-ui.md section 5.3, the checked reference spec/ch6-hub-ui-ref/tools/test-hub-rules.js).
  * tools/check-bundle.js runs it as rule R18 (full gate and --contract-only, against --src= when given);
- * standalone: `node tools/test-hub-rules.js [srcDir]` -> `test-hub-rules: 113 check(s), failures=0` (76 in Round E1;
+ * standalone: `node tools/test-hub-rules.js [srcDir]` -> `test-hub-rules: 147 check(s), failures=0` (76 in Round E1;
  * the E1 fixer added T8.7-T8.10 and changed T8.6's no-live oracle 3 -> 0, e1-spec 8.9 F9 / F11; Round F7 D5 added
  * T2.13-T2.14 and T3.14-T3.16 for the two road rows, docs/research/field-test-7-fixes.md; Round S1 added
  * T2.15-T2.16, T3.17-T3.19, T4.14, T6.9, T7.7-T7.8 and section T9, docs/research/ski-days/spec/ch4-hub.md G.2;
  * 98 + 1 + 6 + 8 = 113: Round M2 added T8.11, T10 (hub-price) and T11 (enabled-flags), docs/research/round-m2/
  * build-contract.md section 7; T11 reads bindings.ts too (FALLBACK.city, TRIP_PLANNER_UNKNOWN), the same
- * compiled module hubRules.ts imports).
+ * compiled module hubRules.ts imports; 113 + 1 (T5.14) + 20 (T12) + 4 (T13) + 9 (T14) = 147 in contract 6).
+ * Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; docs/research/art/assets-2026-10/code-round-2/
+ * round-2-contract.md section 8.7): line1Variant switches on the item KIND (T5.5-T5.11 rewritten, T5.14 every kind);
+ * priceFactor / priceFactorPct take a tolerance, so the T10 table rows call them through an arrow (Array.map would pass
+ * the INDEX as the tolerance); new T12 (the pickers over the real buildItems.ts BUILD_ITEMS, which load() now compiles
+ * too: sets with 1 / 2 / 3 sent options, the fallback, a half-imported type, visible ids, optionOf, dotTarget), T13 (the
+ * price tolerance: (80, 0) 0.8, (80, 20) 0.9, (80, 40) 1, (200, 40) 0.4, (250, 40) 0.4), T14 (PROBLEM 23-25, isBuildItemId
+ * for all 25 ids, liftTypesOf, receiptPartsVariant, lodgeSpendShown).
  * A new rule in hubRules.ts adds its literal rows here (oracles are literals, never recomputed).
  */
 "use strict";
@@ -54,12 +61,14 @@ function load(srcDir, ts) {
   };
   const rules = compile(path.join(srcDir, "hub", "hubRules.ts"));
   // Round M2 (T11): the bindings module hubRules.ts loaded (same cache entry, so the same values).
-  return { rules, bindings: compile(path.join(srcDir, "bindings.ts")) };
+  // Contract 6 (T12): buildItems.ts (BUILD_ITEMS, the table the strip passes to the pickers); it imports values only from
+  // ../bindings (the same cache entry). The purity check above applies to hubRules.ts only.
+  return { rules, bindings: compile(path.join(srcDir, "bindings.ts")), items: compile(path.join(srcDir, "hub", "buildItems.ts")) };
 }
 
 function run(srcDir) {
   const ts = require("typescript");
-  const { rules: R, bindings: BIND } = load(srcDir, ts);
+  const { rules: R, bindings: BIND, items: ITEMS } = load(srcDir, ts);
   const failures = [];
   let checks = 0;
   const eq = (name, got, want) => {
@@ -160,19 +169,24 @@ function run(srcDir) {
   eq("T5.3 next steps", [0, 1, 2, 3].map((s) => R.nextVariant(true, false, { nextStep: s })), ["done", "lodge", "lift", "run"]);
   eq("T5.4 next missing live", R.nextVariant(true, false, null), "done");
   const item = (extra) => Object.assign({ id: "x", locked: false, active: false, reason: "" }, extra);
-  eq("T5.5 line1 run", R.line1Variant("runNatural", item({ price: 500, pricePerHa: 250 })), "run");
-  eq("T5.6 line1 run no per-ha (contract-2 DLL)", R.line1Variant("runGroomed", item({ price: 2000 })), "name");
-  eq("T5.7 line1 lift", R.line1Variant("lift", item({ costPerKm: 7500 })), "lift");
-  eq("T5.8 line1 lift unknown", R.line1Variant("lift", item({ costPerKm: -1 })), "name");
+  // Contract 6: line1Variant takes the item's KIND (buildItems.ts BuildItemMeta.kind), not its id.
+  eq("T5.5 line1 run", R.line1Variant("run", item({ price: 500, pricePerHa: 250 })), "run");
+  eq("T5.6 line1 run no per-ha (contract-2 DLL)", R.line1Variant("run", item({ price: 2000 })), "name");
+  eq("T5.7 line1 lift", R.line1Variant("line", item({ costPerKm: 7500 })), "lift");
+  eq("T5.8 line1 lift unknown", R.line1Variant("line", item({ costPerKm: -1 })), "name");
   eq("T5.9 line1 cost", R.line1Variant("lodge", item({ cost: 40000 })), "cost");
   eq("T5.10 line1 cost zero", R.line1Variant("sign", item({ cost: 0 })), "cost");
-  eq("T5.11 line1 name", R.line1Variant("baseStation", item({})), "name");
+  eq("T5.11 line1 name", R.line1Variant("station", item({})), "name");
   eq("T5.12 footer priority", [
     R.footerState(false, true, true, true, true), R.footerState(true, true, true, true, true),
     R.footerState(true, false, true, true, true), R.footerState(true, false, false, true, true),
     R.footerState(true, false, false, false, true), R.footerState(true, false, false, false, false)],
     ["empty", "hover", "follow", "active", "locked", "idle"]);
   eq("T5.13 run kinds", ["runNatural", "runGroomed", "runSnowmaking", "runNight", "lift"].map(R.runKindOfItem), [3, 0, 1, 2, undefined]);
+  // Contract 6: every kind (a line of any lift type reads "about per km"; an unknown kind reads its cost).
+  const full = item({ cost: 125000, costPerKm: 15000, price: 500, pricePerHa: 250 });
+  eq("T5.14 line1 every kind", ["sign", "lodge", "school", "patrol", "station", "line", "run", undefined, "bogus"].map((k) => R.line1Variant(k, full)),
+    ["cost", "cost", "cost", "cost", "cost", "lift", "run", "cost", "cost"]);
 
   // T6 money and guests
   eq("T6.1 ticketNote", [[0, 40], [1, 40], [2, 40], [3, 40], [4, 40], [0, 0]].map(([g, p]) => R.ticketNote(g, p)), ["open", "off", "noEfficiency", "nothingOpen", "notKnownYet", "off"]);
@@ -240,12 +254,14 @@ function run(srcDir) {
   // T10 ticket price line (Round M2 R7, hub-price.md section 3; build-contract.md section 7 and Decided here 13): D16's
   // factor; T10.1's table is also ResortBatch HubRulesTests H17 (the C# half, on factors).
   const prices = [0, 5, 40, 45, 80, 100, 120, 150, 200, 260];
-  eq("T10.1 priceFactor table", prices.map(R.priceFactor), [1, 1, 1, 0.975, 0.8, 0.7, 0.6, 0.45, 0.2, 0.2]);
-  eq("T10.2 unknown price (priceFactor, priceFactorPct)", [[-1, -5, NaN, Infinity].map(R.priceFactor), [-1, -5, NaN, Infinity].map(R.priceFactorPct)],
+  // Contract 6: priceFactor / priceFactorPct take a tolerance (default 0), so every row calls them through an arrow.
+  const pf = (p) => R.priceFactor(p), pfp = (p) => R.priceFactorPct(p);
+  eq("T10.1 priceFactor table", prices.map(pf), [1, 1, 1, 0.975, 0.8, 0.7, 0.6, 0.45, 0.2, 0.2]);
+  eq("T10.2 unknown price (priceFactor, priceFactorPct)", [[-1, -5, NaN, Infinity].map(pf), [-1, -5, NaN, Infinity].map(pfp)],
     [[-1, -1, -1, -1], [-1, -1, -1, -1]]);
   eq("T10.3 price constants", [R.PRICE_FULL_AT, R.PRICE_SPAN, R.PRICE_MAX, R.PRICE_NO_EFFECT_MAX, R.PRICE_EXAMPLES], [240, 200, 200, 40, [80, 120, 200]]);
-  eq("T10.4 priceFactorPct table (45 rounds half up)", prices.map(R.priceFactorPct), [100, 100, 100, 98, 80, 70, 60, 45, 20, 20]);
-  eq("T10.5 tooltip examples", R.PRICE_EXAMPLES.map(R.priceFactorPct), [80, 60, 20]);
+  eq("T10.4 priceFactorPct table (45 rounds half up)", prices.map(pfp), [100, 100, 100, 98, 80, 70, 60, 45, 20, 20]);
+  eq("T10.5 tooltip examples", R.PRICE_EXAMPLES.map(pfp), [80, 60, 20]);
   eq("T10.6 hubPrice", [R.hubPrice({ known: true, ticketPrice: 40 }), R.hubPrice({ known: true, ticketPrice: 0 }),
     R.hubPrice({ known: false, ticketPrice: 0 }), R.hubPrice({ known: true, ticketPrice: -3 }), R.hubPrice(null)],
     [40, 0, -1, -1, -1]);
@@ -260,6 +276,72 @@ function run(srcDir) {
   eq("T11.6 empty label", R.tripPlannerNote(tp("", true)), "none");
   eq("T11.7 no city, no field", [null, { tripPlanner: undefined }].map(R.tripPlannerNote), ["none", "none"]);
   eq("T11.8 TRIP_PLANNER_UNKNOWN", BIND.TRIP_PLANNER_UNKNOWN, "?");
+
+  // T12 pickers (contract 6, round-2-contract section 8.5) over the real buildItems.ts BUILD_ITEMS.
+  const META = ITEMS.BUILD_ITEMS;
+  const sent = (...ids) => ids.map((id) => item({ id }));
+  const sorted = (s) => [...s].sort();
+  const FG_ONLY = sent("sign", "lodge", "baseStation", "topStation", "lift", "runNatural", "runGroomed", "runSnowmaking", "runNight");
+  const DQ = ["baseStationDetachable", "topStationDetachable", "liftDetachable"];
+  const GD = ["baseStationGondola", "topStationGondola", "liftGondola"];
+  const NO = R.NO_PICK;
+  eq("T12.1 FG-only city: one option per set (no picker row)", R.pickerSets(FG_ONLY, META), { lodge: ["lodge"], lift: ["fixedGrip"] });
+  eq("T12.2 FG-only city: today's nine tiles", sorted(R.visibleIds(FG_ONLY, META, NO)),
+    ["baseStation", "lift", "lodge", "runGroomed", "runNatural", "runNight", "runSnowmaking", "sign", "topStation"]);
+  const TWO_LODGES = FG_ONLY.concat(sent("lodgeMid"));
+  eq("T12.3 two tiers sent: lodge set", R.pickerSets(TWO_LODGES, META).lodge, ["lodge", "lodgeMid"]);
+  eq("T12.4 default = the first option", [R.visibleIds(TWO_LODGES, META, NO).has("lodge"), R.visibleIds(TWO_LODGES, META, NO).has("lodgeMid")], [true, false]);
+  eq("T12.5 chosen tier drawn instead", [R.visibleIds(TWO_LODGES, META, { lodge: "lodgeMid", lift: "" }).has("lodge"),
+    R.visibleIds(TWO_LODGES, META, { lodge: "lodgeMid", lift: "" }).has("lodgeMid")], [false, true]);
+  const THREE_LODGES = FG_ONLY.concat(sent("lodgeHut", "lodgeGrand"));
+  eq("T12.6 three tiers, table order", R.pickerSets(THREE_LODGES, META).lodge, ["lodge", "lodgeHut", "lodgeGrand"]);
+  eq("T12.7 a chosen tier that disappeared falls back to the first", R.effectiveSelection(R.pickerSets(THREE_LODGES, META), { lodge: "lodgeMid", lift: "gondola" }),
+    { lodge: "lodge", lift: "fixedGrip" });
+  eq("T12.8 effectiveSelection of null", R.effectiveSelection({ lodge: [], lift: ["detachable"] }, null), { lodge: "", lift: "detachable" });
+  const FG_DQ = FG_ONLY.concat(sent(...DQ));
+  eq("T12.9 two lift types", R.pickerSets(FG_DQ, META).lift, ["fixedGrip", "detachable"]);
+  eq("T12.10 detachable chosen: its three tiles, no fixed-grip ones", sorted(R.visibleIds(FG_DQ, META, { lodge: "", lift: "detachable" })),
+    ["baseStationDetachable", "liftDetachable", "lodge", "runGroomed", "runNatural", "runNight", "runSnowmaking", "sign", "topStationDetachable"]);
+  const HALF_DQ = FG_ONLY.concat(sent("baseStationDetachable", "topStationDetachable"));
+  eq("T12.11 half-imported type (stations, no line) is not offered", R.pickerSets(HALF_DQ, META).lift, ["fixedGrip"]);
+  eq("T12.12 ... and never drawn", [R.visibleIds(HALF_DQ, META, { lodge: "", lift: "detachable" }).has("baseStationDetachable"),
+    R.visibleIds(HALF_DQ, META, { lodge: "", lift: "detachable" }).has("baseStation")], [false, true]);
+  eq("T12.13 three lift types", R.pickerSets(FG_DQ.concat(sent(...GD)), META).lift, ["fixedGrip", "detachable", "gondola"]);
+  eq("T12.14 optionOf", ["lodgeGrand", "liftGondola", "topStation", "sign", "school", "runNight", "bogus", null].map((id) => R.optionOf(id, META)),
+    [{ set: "lodge", value: "lodgeGrand" }, { set: "lift", value: "gondola" }, { set: "lift", value: "fixedGrip" }, null, null, null, null, null]);
+  eq("T12.15 dotTarget: drawn tile", R.dotTarget("topStation", FG_DQ, META, NO), { kind: "tile", id: "topStation" });
+  eq("T12.16 dotTarget: unchosen tier -> its chip", R.dotTarget("lodgeMid", TWO_LODGES, META, NO), { kind: "chip", set: "lodge", value: "lodgeMid" });
+  eq("T12.17 dotTarget: fixed-grip item while detachable is chosen -> the fixed-grip chip",
+    R.dotTarget("baseStation", FG_DQ, META, { lodge: "", lift: "detachable" }), { kind: "chip", set: "lift", value: "fixedGrip" });
+  eq("T12.18 dotTarget: nowhere (half-imported, not sent, none)", [R.dotTarget("baseStationDetachable", HALF_DQ, META, NO),
+    R.dotTarget("school", FG_ONLY, META, NO), R.dotTarget(null, FG_ONLY, META, NO), R.dotTarget("runGroomed", FG_ONLY, META, NO)],
+    [null, null, null, { kind: "tile", id: "runGroomed" }]);
+  eq("T12.19 school and patrol huts are not alternatives", sorted(R.visibleIds(FG_ONLY.concat(sent("school", "patrolHut", "patrolHQ")), META, NO)).filter((x) => /school|patrol/.test(x)),
+    ["patrolHQ", "patrolHut", "school"]);
+  eq("T12.20 unknown ids and junk are ignored", R.pickerSets([null, { id: 7 }, item({ id: "runPowder" })].concat(FG_ONLY), META), { lodge: ["lodge"], lift: ["fixedGrip"] });
+
+  // T13 price tolerance (contract 6; C# SkiDayRules.PriceFactor(price, tolerance), economy seam; ResortBatch SkiDayTests holds the C# half).
+  eq("T13.1 priceFactor(price, tolerance)", [[80, 0], [80, 20], [80, 40], [200, 40], [250, 40], [0, 40], [200, 0]].map(([p, t]) => R.priceFactor(p, t)),
+    [0.8, 0.9, 1, 0.4, 0.4, 1, 0.2]);
+  eq("T13.2 priceFactorPct(price, tolerance)", [[80, 0], [80, 20], [80, 40], [200, 40], [250, 40]].map(([p, t]) => R.priceFactorPct(p, t)), [80, 90, 100, 40, 40]);
+  eq("T13.3 a bad tolerance reads 0", [R.priceFactor(80, -20), R.priceFactor(80, NaN), R.priceFactorPct(80, Infinity)], [0.8, 0.8, 80]);
+  eq("T13.4 priceFullWith", [R.priceFullWith(40), R.priceFullWith(20), R.priceFullWith(0), R.priceFullWith(-5)], [80, 60, 40, 40]);
+
+  // T14 contract 6 band rows, ids, lift types, receipt and money helpers.
+  eq("T14.1 codes 23-25 variants", [23, 24, 25].map((c) => R.problemVariant(P(A, c, c === 23 ? 2 : 1))), ["mixedLiftTypes", "summitLodgeNotLiftServed", "schoolNoGreenRun"]);
+  eq("T14.2 codes 23-25 clicks", [23, 24, 25].map((c) => R.problemClick(P(A, c, 1))), ["lift", "sign", "sign"]);
+  eq("T14.3 kept in the band, C# order; the mixed row's line item is the dot",
+    [R.bandRowsOf([P(A, 23, 2, { buildItem: "liftDetachable" }), P(A, 24, 1, { count: 1 }), P(A, 25, 1)], A).map((p) => p.code),
+      R.dotItem([P(A, 23, 2, { buildItem: "liftDetachable" })], A, true)], [[23, 24, 25], "liftDetachable"]);
+  eq("T14.4 isBuildItemId: all 25 ids", BIND.BUILD_ITEM_IDS.filter((id) => R.isBuildItemId(id)).length, 25);
+  eq("T14.5 isBuildItemId: strangers", ["lift2", "", null, "Lodge", "liftCable"].map((id) => R.isBuildItemId(id)), [false, false, false, false, false]);
+  eq("T14.6 liftTypesOf", [R.liftTypesOf([{ type: "fixedGrip" }, { type: "fixedGrip" }, { type: "" }, { type: "detachable" }, {}]), R.liftTypesOf(null)],
+    [["fixedGrip", "detachable"], []]);
+  eq("T14.7 receiptPartsVariant", [R.receiptPartsVariant({ schoolValue: 12 }), R.receiptPartsVariant({ schoolValue: 0 }), R.receiptPartsVariant({ schoolValue: -1 }),
+    R.receiptPartsVariant({}), R.receiptPartsVariant(null)], ["school", "plain", "plain", "plain", "plain"]);
+  eq("T14.8 lodgeSpendShown", [R.lodgeSpendShown({ lodgeSpendMonth: 150 }), R.lodgeSpendShown({ lodgeSpendMonth: 0 }), R.lodgeSpendShown({ lodgeSpendMonth: -1 }),
+    R.lodgeSpendShown(null)], [true, false, false, false]);
+  eq("T14.9 BUILD_ITEMS covers every id once, table order = BUILD_ITEM_IDS", META.map((m) => m.id), BIND.BUILD_ITEM_IDS);
   return { checks, failures };
 }
 

@@ -1,0 +1,109 @@
+{
+  "name": "SkiNetPostA",
+  "written_utc": "2026-10-13T09:16:06Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiNetPostA.fbx": {
+      "bytes": 15148,
+      "sha1": "d337d11cc9d714193ff9cfd0955de8d145d9246f"
+    },
+    "SkiNetPostA_BaseColor.png": {
+      "bytes": 27890,
+      "sha1": "2d51b63049dd740614a280b81bf6cf12245a0865"
+    },
+    "SkiNetPostA_ControlMask.png": {
+      "bytes": 2217,
+      "sha1": "bae178e637e467c9ae50ec9bdbc1d16c125a9e77"
+    },
+    "SkiNetPostA_MaskMap.png": {
+      "bytes": 2254,
+      "sha1": "2fa69703822a41037d12439990da8a9d3c486311"
+    },
+    "SkiNetPostA_Normal.png": {
+      "bytes": 1852,
+      "sha1": "de7d8e24102f2c2188459763057c8d704e474f77"
+    },
+    "settings.json": {
+      "bytes": 2,
+      "sha1": "bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f"
+    }
+  },
+  "generator": "assets/blender/safety_fence.py",
+  "args": [
+    "--out",
+    "../import/fences/A",
+    "--export",
+    "--preview",
+    "../preview/fences/A",
+    "--review",
+    "--stage"
+  ],
+  "kind": "prop (UtilityLane.m_NodeObject end post; optional)",
+  "object_prefab": "SkiNetPost",
+  "mesh_prefab": "SkiNetPostA Mesh",
+  "tris": {
+    "LOD0": 32
+  },
+  "lod0_cap": 40,
+  "texture_px": 256,
+  "prefab_bounds": {
+    "LOD0": {
+      "min": [
+        -0.0225,
+        0.0,
+        -0.019486
+      ],
+      "max": [
+        0.0225,
+        1.58,
+        0.019486
+      ],
+      "tris": 32,
+      "verts": 24,
+      "area_m2": 0.1735
+    }
+  },
+  "contracts": {
+    "tris": 32,
+    "verts": 24,
+    "bounds_prefab_m": {
+      "min": [
+        -0.0225,
+        0.0,
+        -0.0195
+      ],
+      "max": [
+        0.0225,
+        1.58,
+        0.0195
+      ]
+    }
+  },
+  "settings_json": {},
+  "validation": {
+    "errors": 0,
+    "warnings": 0,
+    "tris": {
+      "0": 32
+    },
+    "tex": [
+      256
+    ],
+    "warn_list": []
+  },
+  "atlas_px": {
+    "post_band": [
+      4,
+      32,
+      252,
+      128
+    ],
+    "cap": [
+      16,
+      160,
+      80,
+      224
+    ]
+  },
+  "review_pack": "assets/preview/review/SkiNetPostA.blend"
+}

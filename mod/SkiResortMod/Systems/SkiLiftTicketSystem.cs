@@ -80,6 +80,19 @@
 // Round M2 (2026-10-10, builder B3; docs/research/round-m2/build-contract.md §1 B3, §6.8): T1 (R2) the gate needs a
 // counted run, known = score present and not held (TicketSlot loses OperatingLifts; the gate line's NothingOpen /
 // NotKnownYet texts and the ARMED gate clause); D10 CostDayEnd and m_CostByRearm; D16a m_LastGate pruned.
+// CATALOG PHASE B (2026-10-11, economy group; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §7.4,
+// D15; seams S3 SkiMoneyRules lodge-spend rules, S7 Mod.Settings.LodgeSpendPerGuest, S8 SkiResortLedger.AddLodgeSpend):
+// the optional LODGE SPEND. The setting (Options, Balance; 0-50, default 0 = off) is read live every tick and clamped
+// (SkiMoneyRules.ClampLodgeSpend). Per request, on the main thread: SpendPerPerson = SkiMoneyRules.LodgeSpendOf(setting,
+// the lodge row's SpendMultiplier) when the arrival's building is a lodge (the prefab catalog's LodgeDefs view: A-frame /
+// hut × 1, mid × 1.5, luxury × 3), else 0 — a plain int field, so the Burst job reads no catalog row (risk R-a). In the
+// job, only for a PAYING guest of an OPEN gate, AFTER the ticket: spends = SkiMoneyRules.SpendPaid(paid, spend per
+// person, money left after the tickets) — never into debt (DV9) — taken from the same household buffer and added to the
+// same single PlayerMoney.Add (the fare pattern above); the result carries Spends / SpendIncome per request, booked with
+// AddLodgeSpend. Price 0 = gate Off = nothing charged (BookAllFree, no job). Setting 0 = no change at all: every
+// SpendPerPerson is 0, the job moves no extra money, AddLodgeSpend is never called with a non-zero amount. Logs:
+// `Tickets [lodge spend]` on a setting change (like `Tickets [price]`), the ARMED line names it, `Tickets [first]` adds
+// the first lodge spend of the batch, and the DUMP sums it.
 
 using System;
 using System.Collections.Generic;
@@ -111,13 +124,19 @@ namespace SkiResortMod.Systems
             public const int CostTicks = 64;
         }
 
-        private struct TicketRequest { public int Slot; public Entity Household; public int People; public byte Tourist; }
+        // Catalog Phase B (D15): SpendPerPerson = the lodge spend per paying guest of this request (0 = none), filled on the
+        // main thread; Spends / SpendIncome = the guests who spent and the ₵ moved for it.
+        private struct TicketRequest { public int Slot; public Entity Household; public int People; public byte Tourist; public int SpendPerPerson; }
         // Round M2 T1: OperatingLifts removed (the gate no longer reads lifts); RunStateKnown = score present and not held.
         private struct TicketSlot { public Entity Sign; public byte RunStateKnown; public int OpenRuns; }
-        private struct TicketResult { public int Paid, Unpaid, Free, Income; public byte NoCity; }
+        private struct TicketResult { public int Paid, Unpaid, Free, Income, Spends, SpendIncome; public byte NoCity; }
 
         /// <summary>The clamped setting read on the last tick (SkiMoneyRules.ClampTicketPrice).</summary>
         internal int Price { get; private set; } = SkiMoneyRules.TicketPriceDefault;
+
+        /// <summary>Catalog Phase B (D15): the clamped lodge-spend setting read on the last tick (SkiMoneyRules.ClampLodgeSpend;
+        /// 0 = off).</summary>
+        internal int LodgeSpend { get; private set; } = SkiMoneyRules.LodgeSpendDefault;
 
         /// <summary>The gate the last ticket tick evaluated for <paramref name="sign"/>.</summary>
         internal bool TryGetLastGate(Entity sign, out SkiMoneyRules.TicketGate gate)
@@ -131,6 +150,7 @@ namespace SkiResortMod.Systems
         private CitySystem m_CitySystem;
         private SkiGuestCounterSystem m_Counter;
         private SkiResortAttractivenessSystem m_Attractiveness;
+        private SkiPrefabCatalogSystem m_PrefabCatalog;   // Catalog Phase B (D15): the lodge rows (LodgeDefs)
         private SkiLiftChargeSystem m_LiftCharge;
         private BufferLookup<Efficiency> m_EfficiencyLookup;
         private BufferLookup<GameResources> m_ResourcesLookup;
@@ -164,6 +184,7 @@ namespace SkiResortMod.Systems
         // ── per-load state ────────────────────────────────────────────────────────────────────────
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_NoCityWarned;
         private long m_BusyTicks, m_RequestsTotal, m_GuestsTotal, m_IncomeTotal;
+        private long m_SpendsTotal, m_SpendIncomeTotal;   // Catalog Phase B (D15): this load (DUMP)
         private int m_LargestBatch, m_MaxLagTicks, m_LastLagTicks;
         private int m_CostTicks, m_CostLargestBatch;
         private double m_CostSumMs, m_CostMaxMs;
@@ -181,6 +202,9 @@ namespace SkiResortMod.Systems
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
             m_Counter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
+            // Catalog Phase B: after the attractiveness system, which creates the catalog in its own OnCreate (creation
+            // order = load-hook order, GameSystemBase.cs:27-29: unchanged by this call).
+            m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
             m_LiftCharge = World.GetOrCreateSystemManaged<SkiLiftChargeSystem>();
             m_EfficiencyLookup = GetBufferLookup<Efficiency>(isReadOnly: true);
             m_ResourcesLookup = GetBufferLookup<GameResources>(isReadOnly: false);
@@ -285,6 +309,7 @@ namespace SkiResortMod.Systems
             m_ErrorLogged = false;
             m_NoCityWarned = false;
             m_BusyTicks = m_RequestsTotal = m_GuestsTotal = m_IncomeTotal = 0;
+            m_SpendsTotal = m_SpendIncomeTotal = 0;   // Catalog Phase B
             m_LargestBatch = m_MaxLagTicks = m_LastLagTicks = 0;
             m_CostTicks = m_CostLargestBatch = 0;
             m_CostSumMs = m_CostMaxMs = 0.0;
@@ -294,6 +319,7 @@ namespace SkiResortMod.Systems
             m_CostMeasurements = 0;
             m_CostByRearm = false;         // Round M2 (D10): the load's measurement keeps the M1 rule
             Price = ReadPrice();
+            LodgeSpend = ReadLodgeSpend(); // Catalog Phase B (D15)
 
             if (mode != GameMode.Game)
                 return;
@@ -304,7 +330,10 @@ namespace SkiResortMod.Systems
                          "vanilla transit fare (ResidentAISystem BoardingJob) without a FeeEvent; a household pays for as many " +
                          "members as its money covers, never below 0; gate = Welcome Sign efficiency above 0 and a counted run " +
                          "(open or patchy; a running lift alone does not open it), not known while the ski area's first score " +
-                         "after a load is held; one job per 16-frame tick with arrivals");
+                         "after a load is held; one job per 16-frame tick with arrivals; " +
+                         $"lodge spend {LodgeSpend} per paying guest at a lodge (setting LodgeSpendPerGuest, 0 = off; read live; " +
+                         "× the lodge tier's multiplier, A-frame / hut 1, mid 1.5, luxury 3; after the ticket, open gate only, " +
+                         "never below 0)");
         }
 
         protected override void OnUpdate()
@@ -332,6 +361,14 @@ namespace SkiResortMod.Systems
                     Mod.Log.Info($"Tickets [price] lift ticket price {Price} → {price}{(price == 0 ? " (tickets off)" : "")}");
                     Price = price;
                 }
+                // 2a. Catalog Phase B (D15): the lodge-spend setting, live.
+                int spend = ReadLodgeSpend();
+                if (spend != LodgeSpend)
+                {
+                    Mod.Log.Info($"Tickets [lodge spend] per paying guest at a lodge {LodgeSpend} → {spend}{(spend == 0 ? " (off)" : "")} " +
+                                 "(× the lodge tier's multiplier; charged after the ticket while the gate is open, never below 0)");
+                    LodgeSpend = spend;
+                }
                 if (m_GateLog.Count > 0)
                 {
                     float now = UnityEngine.Time.realtimeSinceStartup;
@@ -349,7 +386,7 @@ namespace SkiResortMod.Systems
                 m_JobPendingFrame = m_Counter.LastPendingFrame;
 
                 // 5 (before 4: the price-0 path logs its gates with the same slot inputs).
-                BuildSlots();
+                BuildSlots(price, spend);
 
                 // 4. Tickets off: every arrival is booked free, no job.
                 if (price == 0)
@@ -385,15 +422,25 @@ namespace SkiResortMod.Systems
             return SkiMoneyRules.ClampTicketPrice(Mod.Settings?.LiftTicketPrice ?? SkiMoneyRules.TicketPriceDefault);
         }
 
+        /// <summary>Catalog Phase B (D15, seams S3 / S7): the lodge-spend setting, clamped; the default when no settings.</summary>
+        private static int ReadLodgeSpend()
+        {
+            return SkiMoneyRules.ClampLodgeSpend(Mod.Settings?.LodgeSpendPerGuest ?? SkiMoneyRules.LodgeSpendDefault);
+        }
+
         // ── slots and the job ─────────────────────────────────────────────────────────────────────
 
         /// <summary>One slot per distinct sign of this tick's arrivals (gate inputs, e1-spec R6) and one request
-        /// per arrival.</summary>
-        private void BuildSlots()
+        /// per arrival. Catalog Phase B (D15): with a price and a lodge-spend setting above 0, a request whose building is
+        /// a lodge carries SpendPerPerson = LodgeSpendOf(setting, its row's SpendMultiplier) (the catalog's LodgeDefs view,
+        /// fetched once; one PrefabRef read per such arrival); 0 otherwise — so with either setting at 0 nothing is read
+        /// and every request is today's.</summary>
+        private void BuildSlots(int price, int spendSetting)
         {
             m_SlotOf.Clear();
             m_Slots.Clear();
             m_Requests.Clear();
+            IReadOnlyDictionary<Entity, LodgeDef> lodgeDefs = price > 0 && spendSetting > 0 ? m_PrefabCatalog.LodgeDefs : null;
             for (int i = 0; i < m_Arrivals.Count; i++)
             {
                 GuestArrival a = m_Arrivals[i];
@@ -411,12 +458,18 @@ namespace SkiResortMod.Systems
                         OpenRuns = known ? view.Result.RunsCounted : 0,
                     });
                 }
+                int spendPerPerson = 0;
+                if (lodgeDefs != null && a.Building != Entity.Null && a.Building != a.Sign &&
+                    EntityManager.Exists(a.Building) && EntityManager.HasComponent<Game.Prefabs.PrefabRef>(a.Building) &&
+                    lodgeDefs.TryGetValue(EntityManager.GetComponentData<Game.Prefabs.PrefabRef>(a.Building).m_Prefab, out LodgeDef lodge))
+                    spendPerPerson = SkiMoneyRules.LodgeSpendOf(spendSetting, lodge.SpendMultiplier);
                 m_Requests.Add(new TicketRequest
                 {
                     Slot = slot,
                     Household = a.Household,
                     People = a.People,
                     Tourist = (byte)(a.Tourist ? 1 : 0),
+                    SpendPerPerson = spendPerPerson,
                 });
             }
         }
@@ -480,13 +533,16 @@ namespace SkiResortMod.Systems
                 TicketResult r = m_Results[i];
                 Entity sign = m_Slots[q.Slot].Sign;
                 ledger.AddTickets(Ref(sign), r.Paid, r.Unpaid, r.Free, r.Income);
+                ledger.AddLodgeSpend(Ref(sign), r.Spends, r.SpendIncome);   // Catalog Phase B (D15, seam S8): all-zero = no change
                 if (q.Tourist == 0)
                     m_Counter.AddLocalsPaid(sign, r.Paid);
                 m_GuestsTotal += Math.Max(0, q.People);
                 m_IncomeTotal += r.Income;
+                m_SpendsTotal += r.Spends;
+                m_SpendIncomeTotal += r.SpendIncome;
                 noCity |= r.NoCity != 0;
                 if (!quiet && r.Paid > 0 && m_FirstPaid.Add(sign))
-                    FirstTicketLine(sign, q.People, r.Paid, r.Income);
+                    FirstTicketLine(sign, q.People, r.Paid, r.Income, r.Spends, r.SpendIncome);
             }
             m_RequestsTotal += m_Requests.Length;
             if (m_Requests.Length > m_LargestBatch)
@@ -629,14 +685,16 @@ namespace SkiResortMod.Systems
             m_GateLog.Wrote(now);
         }
 
-        /// <summary>The first paid ticket per ski area per load; reads PlayerMoney on the main thread once (rare).</summary>
-        private void FirstTicketLine(Entity sign, int people, int paid, int income)
+        /// <summary>The first paid ticket per ski area per load; reads PlayerMoney on the main thread once (rare).
+        /// Catalog Phase B (D15): names the batch's lodge spend when there was one.</summary>
+        private void FirstTicketLine(Entity sign, int people, int paid, int income, int spends, int spendIncome)
         {
             Entity city = m_CitySystem.City;
             string balance = city != Entity.Null && EntityManager.HasComponent<PlayerMoney>(city)
                 ? EntityManager.GetComponentData<PlayerMoney>(city).money.ToString()
                 : "n/a";
-            Mod.Log.Info($"Tickets [first] ski area {Fmt(sign)}: {people} guest(s), {paid} paid +{income} (balance {balance})");
+            string spend = spends > 0 ? $", lodge spend {spends} +{spendIncome}" : "";
+            Mod.Log.Info($"Tickets [first] ski area {Fmt(sign)}: {people} guest(s), {paid} paid +{income}{spend} (balance {balance})");
         }
 
         /// <summary>Round M1 (M8, m1-spec F10): once the last `Tickets [cost]` line was written, the first tick at or
@@ -717,6 +775,8 @@ namespace SkiResortMod.Systems
                   .Append(", busy ticks ").Append(m_BusyTicks).Append(", requests ").Append(m_RequestsTotal)
                   .Append(" (largest batch ").Append(m_LargestBatch).Append("), guests ").Append(m_GuestsTotal)
                   .Append(", income +").Append(m_IncomeTotal)
+                  .Append(", lodge spend ").Append(LodgeSpend).Append(" per guest (× tier): ").Append(m_SpendsTotal)   // Catalog Phase B (D15)
+                  .Append(" spent +").Append(m_SpendIncomeTotal)
                   .Append(", lag arrival → booked ").Append(m_LastLagTicks).Append(" tick(s) (max ").Append(m_MaxLagTicks)
                   .Append(") of 16 frames; gates (charged):");
                 if (m_LastGate.Count == 0)
@@ -744,7 +804,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>Per slot: the sign's efficiency (inline BuildingUtils.cs:121-133) and the gate. Per request:
         /// a closed gate (or a City without PlayerMoney) books the guests free; an open one takes
-        /// TicketsPaid × price from the household (never below 0) and credits the city once at the end.</summary>
+        /// TicketsPaid × price from the household (never below 0) and credits the city once at the end.
+        /// Catalog Phase B (D15): after the ticket, a request with SpendPerPerson &gt; 0 also takes SpendPaid(paid,
+        /// SpendPerPerson, money left) × SpendPerPerson from the same household (never below 0) into the same credit.</summary>
         [BurstCompile]
         private struct TicketJob : IJob
         {
@@ -784,12 +846,25 @@ namespace SkiResortMod.Systems
                     if (HouseholdResources.HasBuffer(q.Household))
                     {
                         DynamicBuffer<GameResources> buffer = HouseholdResources[q.Household];
-                        paid = SkiMoneyRules.TicketsPaid(people, Price, EconomyUtils.GetResources(Resource.Money, buffer));
+                        int money = EconomyUtils.GetResources(Resource.Money, buffer);
+                        paid = SkiMoneyRules.TicketsPaid(people, Price, money);
                         if (paid > 0)
                         {
                             r.Income = paid * Price;                   // paid ≤ money / price: no overflow, never below 0
                             EconomyUtils.AddResources(Resource.Money, -r.Income, buffer);
                             credited += r.Income;
+                            // Catalog Phase B (D15): the lodge spend of the paying guests, from what the tickets left.
+                            if (q.SpendPerPerson > 0)
+                            {
+                                int spends = SkiMoneyRules.SpendPaid(paid, q.SpendPerPerson, money - r.Income);
+                                if (spends > 0)
+                                {
+                                    r.Spends = spends;
+                                    r.SpendIncome = spends * q.SpendPerPerson;   // ≤ money left: no overflow, never below 0
+                                    EconomyUtils.AddResources(Resource.Money, -r.SpendIncome, buffer);
+                                    credited += r.SpendIncome;
+                                }
+                            }
                         }
                     }
                     r.Paid = paid;

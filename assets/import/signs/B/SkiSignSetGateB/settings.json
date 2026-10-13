@@ -1,0 +1,9 @@
+{
+  "sharedAssets": {
+    "SkiSignSetGateB_BaseColor.png": "../SkiSignSetSchoolB/SkiSignSetSchoolB_BaseColor.png",
+    "SkiSignSetGateB_ControlMask.png": "../SkiSignSetSchoolB/SkiSignSetSchoolB_ControlMask.png",
+    "SkiSignSetGateB_MaskMap.png": "../SkiSignSetSchoolB/SkiSignSetSchoolB_MaskMap.png",
+    "SkiSignSetGateB_Normal.png": "../SkiSignSetSchoolB/SkiSignSetSchoolB_Normal.png",
+    "SkiSignSetGateB_Emissive.png": "../SkiSignSetSchoolB/SkiSignSetSchoolB_Emissive.png"
+  }
+}

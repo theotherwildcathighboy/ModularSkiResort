@@ -23,16 +23,16 @@
 //     prefab's ElectricityConnectionData (SkiLiftMarker: voltage HV, direction Both,
 //     capacity 800000), wires transformer↔valve, and EnsureMarkerNodeEdgeConnections wires
 //     the marker to any attached lift-line edges (dedup via HasAnyFlowEdge);
-//   * CreateOrUpdateBuildingNodes builds the building side — SINCE THE STATION-AS-
-//     UPGRADE MIGRATION (entry 93) that side lives on the GATE, not the station: a
-//     ServiceUpgrade-carrying station loses runtime Transformer (Transformer.cs
-//     archetype guard) and is excluded from every EBGS building arm
-//     (None{ServiceUpgrade}, EBGS:574-578). ServiceUpgradeSystem instead applies
-//     Transformer+Efficiency to the gate on install, EBGS registers the GATE, and its
-//     InstalledUpgrade recursion (EBGS:189-199) walks into the station's own SubNet
-//     buffer — where it hits the same valve||IsOrphan gate this system exists to
-//     satisfy. The stub edge stays station-owned, so IsOrphan still fails and the
-//     valve bootstrap is still load-bearing, unchanged;
+//   * CreateOrUpdateBuildingNodes builds the building side. Since DECISIONS 96 (stations
+//     back to top-level) that side is the STATION itself, its own transformer node
+//     (EBGS's Building+Transformer arm); since DECISIONS 97 only the BASE drive terminal
+//     keeps a Transformer, and BridgeStations skips a transformer-less station. The stub
+//     edge is station-owned, so IsOrphan still fails and the valve bootstrap stays
+//     load-bearing. (History, DECISIONS 93-95: while stations were gate ServiceUpgrades,
+//     EBGS excluded them from every building arm (None{ServiceUpgrade}, EBGS:574-578) and
+//     registered the GATE, whose InstalledUpgrade recursion (EBGS:189-199) reached the
+//     station's SubNet and the same valve||IsOrphan gate; BridgeStations' tag target is
+//     still dual-mode for that world);
 //   * ElectricityEdgeGraphSystem (Modification2B) already self-wires newly drawn line edges
 //     to any node carrying ElectricityNodeConnection (GetOrCreateNetNodeConnection), so
 //     later line draws/deletes need nothing from us;
@@ -57,17 +57,27 @@
 // SCHEDULING (load-bearing): anchored UpdateBefore<PowerBridgeSystem, EBGS> at
 // Modification4B — EBGS's own phase (SystemOrder line 185). Our EntityManager writes are
 // immediate, so EBGS's job (scheduled after us, same frame) sees the valve and takes its
-// maintain path instead of its delete path. Fresh panel placement needs no tagging from
-// us: ApplyObjectsSystem:595 tags the GATE Updated when its upgrade temp applies, and
-// the gate carries Transformer by the time EBGS runs (ServiceUpgradeSystem adds it at
-// the Modification4 barrier, which plays back before 4B). On the repair/load pass we
-// tag the station's OWNER (the gate) Updated — tagging the station itself would be
-// useless, EBGS cannot see ServiceUpgrade carriers (mod-era saves reload the whole flow
-// graph natively; this pass only heals valve loss, and is idempotent).
+// maintain path instead of its delete path. A freshly placed station carries Created /
+// Updated, so the update pass bridges it before EBGS processes it the same frame. On the
+// repair/load pass we tag the station itself Updated (top-level, DECISIONS 96), or its
+// OWNER when it has one (the entry-93 gate world, where EBGS cannot see ServiceUpgrade
+// carriers) — the dual-mode block in BridgeStations. Mod-era saves reload the whole flow
+// graph natively; this pass only heals valve loss, and is idempotent.
 //
-// SAFETY: touches ONLY nodes owned by our station prefabs (name-resolved, same pattern as
-// ChairPinSystem); every other building keeps the untouched vanilla path. Defensive
-// try/catch with one-shot disable; missing prefabs tolerated (logged once).
+// SAFETY: touches ONLY nodes owned by our station prefabs (the prefab catalog's station set,
+// SkiPrefabCatalogSystem.StationPrefabSet); every other building keeps the untouched vanilla
+// path. Defensive try/catch with one-shot disable; missing prefabs tolerated (logged per load).
+//
+// CATALOG PHASE A (2026-10-11; docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md §3.2 L6):
+// StationPrefabNames, the station set and its name resolver (extensibility.md §1 row 6, F5) are gone. The
+// names live in the PURE SkiCatalog.cs (Stations); SkiPrefabCatalogSystem resolves them per LOAD and
+// revalidates them at the first catalog call of each frame, where this file resolved once per APP RUN
+// (contract §8 N1). GetResolvedStationPrefabs keeps its signature (LiftReconnectSystem.cs:222 reads it each
+// frame) and returns the catalog's live set. Per Game / Editor load OnGameLoadingComplete writes this
+// system's own lines: a WARN per station prefab not found, a WARN when none resolved (bridging inactive this
+// load), else one Info line naming the stations. Comment only, same round (extensibility.md F17, REVIEW #32):
+// the THE FIX bullet on the building side and the SCHEDULING paragraph above, which still described the
+// entry-93 gate world, now describe the DECISIONS 96 / 97 world; the code was already dual-mode.
 
 using System;
 using System.Collections.Generic;
@@ -87,24 +97,16 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class PowerBridgeSystem : GameSystemBase
     {
-        // Station prefabs whose stub nodes we bridge. Extend when new station generations
-        // ship. Resolution is by name, once per session, missing names tolerated.
-        private static readonly string[] StationPrefabNames =
-        {
-            "SkiBaseStationBuilding",
-            "SkiTopStationBuilding",
-        };
-
-        private PrefabSystem m_PrefabSystem;
+        // Catalog Phase A (ext row 6; was PowerBridgeSystem.cs:90-96 StationPrefabNames { "SkiBaseStationBuilding",
+        // "SkiTopStationBuilding" }, :101 m_StationPrefabs, :105 m_PrefabScanQuery, :107 m_PrefabsResolved): the
+        // station prefabs whose stub nodes we bridge are SkiCatalog.Stations (a new station generation adds a row
+        // there), resolved per load by the prefab catalog; missing names tolerated (WARN per load).
+        private SkiPrefabCatalogSystem m_PrefabCatalog;
         private ElectricityFlowSystem m_ElectricityFlowSystem;
-
-        private readonly HashSet<Entity> m_StationPrefabs = new HashSet<Entity>();
 
         private EntityQuery m_UpdatedStationQuery; // stations changed this frame
         private EntityQuery m_AllStationQuery;     // every live station (load pass)
-        private EntityQuery m_PrefabScanQuery;     // fallback prefab-by-name resolution
 
-        private bool m_PrefabsResolved;
         private bool m_FullPassPending;
         private bool m_Disabled;    // tripped by the catch; re-armed per load (v1.2.1 hardening)
         private bool m_ErrorLogged; // one error with stack per load
@@ -112,7 +114,7 @@ namespace SkiResortMod.Systems
         protected override void OnCreate()
         {
             base.OnCreate();
-            m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
+            m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();   // Catalog Phase A
             m_ElectricityFlowSystem = World.GetOrCreateSystemManaged<ElectricityFlowSystem>();
 
             // NO Transformer requirement in the QUERIES (entry 93 lesson: a chunk-level
@@ -156,7 +158,7 @@ namespace SkiResortMod.Systems
                 },
             });
 
-            m_PrefabScanQuery = GetEntityQuery(ComponentType.ReadOnly<PrefabData>());
+            // (Catalog Phase A, F5: the prefab-by-name scan query created here, was :159, is gone.)
 
             Mod.Log.Info($"{nameof(PowerBridgeSystem)} created");
         }
@@ -167,7 +169,8 @@ namespace SkiResortMod.Systems
             if (mode != GameMode.Game && mode != GameMode.Editor)
                 return;
 
-            ResolveStationPrefabs();
+            // Catalog Phase A (ext row 6; F5): ResolveStationPrefabs() was called here, once per APP RUN; the
+            // catalog resolves per load and LogStationPrefabs() below writes this system's per-load lines.
             // Saves written before this system shipped have unregistered stations; also
             // covers valve loss from any earlier session. Idempotent when already bridged.
             m_FullPassPending = true;
@@ -175,13 +178,19 @@ namespace SkiResortMod.Systems
             // Re-arm per load (an error no longer kills the whole app run).
             m_Disabled = false;
             m_ErrorLogged = false;
+
+            LogStationPrefabs();
         }
 
         protected override void OnUpdate()
         {
             try
             {
-                if (m_Disabled || m_StationPrefabs.Count == 0)
+                // Catalog Phase A (ext row 6): the catalog's live station set, validated by the first catalog call
+                // of the frame (was m_StationPrefabs, resolved once per app run). Empty before the first game /
+                // editor load, so the startup main menu returns here, as before.
+                HashSet<Entity> stationPrefabs = m_PrefabCatalog.StationPrefabSet;
+                if (m_Disabled || stationPrefabs.Count == 0)
                     return; // error-tripped this load, or station prefabs missing — logged already
 
                 if (m_FullPassPending)
@@ -220,6 +229,9 @@ namespace SkiResortMod.Systems
         {
             int valvesCreated = 0, stationsTouched = 0, stationsSeen = 0;
 
+            // Catalog Phase A (ext row 6; was m_StationPrefabs, :235): the catalog's station set, fetched ONCE before
+            // the chunk loop (contract §2.1).
+            HashSet<Entity> stationPrefabs = m_PrefabCatalog.StationPrefabSet;
             var stations = new NativeList<Entity>(8, Allocator.Temp);
             var chunks = query.ToArchetypeChunkArray(Allocator.Temp);
             try
@@ -232,7 +244,7 @@ namespace SkiResortMod.Systems
                     var prefabRefs = chunks[c].GetNativeArray(ref prefabRefHandle);
                     for (int i = 0; i < entities.Length; i++)
                     {
-                        if (m_StationPrefabs.Contains(prefabRefs[i].m_Prefab))
+                        if (stationPrefabs.Contains(prefabRefs[i].m_Prefab))
                             stations.Add(entities[i]);
                     }
                 }
@@ -351,64 +363,61 @@ namespace SkiResortMod.Systems
             return created;
         }
 
-        /// <summary>Shared station-prefab resolution for the lift system family
-        /// (LiftReconnectSystem reuses this set — one source of truth). Resolves on first
-        /// call; safe to call from any main-thread system once prefabs are loaded.</summary>
+        /// <summary>The station prefab set of the lift system family (LiftReconnectSystem reads it
+        /// each frame — one source of truth). Catalog Phase A (ext row 6; contract D6, signature
+        /// kept): the prefab catalog's LIVE set (SkiPrefabCatalogSystem.StationPrefabSet), validated at
+        /// each call — the first catalog call of a frame revalidates it, and it is resolved per load
+        /// (was: resolved on the first call, once per app run). Empty before the first game / editor
+        /// load. Read-only by convention. Main thread.</summary>
         internal HashSet<Entity> GetResolvedStationPrefabs()
         {
-            ResolveStationPrefabs();
-            return m_StationPrefabs;
+            return m_PrefabCatalog.StationPrefabSet;
         }
 
         // ─────────────────────────────────────────────────────────────────────────────────
-        // Prefab resolution — same two-tier pattern as ChairPinSystem: PrefabID fast path,
-        // name-scan fallback, once per session, missing names logged and tolerated.
+        // Prefab state — per load. Catalog Phase A (ext row 6; F5): ResolveStationPrefabs (was
+        // PowerBridgeSystem.cs:363-411: PrefabID fast path, name-scan fallback, once per APP RUN)
+        // is gone; SkiPrefabCatalogSystem resolves the same names with ONE typed resolver per load
+        // (its "PrefabCatalog [arm]" line names every prefab FOUND or MISSING). This method keeps
+        // this system's own lines, now per load, with the old texts ("this session" → "this load").
         // ─────────────────────────────────────────────────────────────────────────────────
-        private void ResolveStationPrefabs()
+        // Catalog Phase B (2026-10-11, code-round-2/round-2-contract.md §6.4, lift group): the station set is the catalog's
+        // (every lift type's terminals; a transformer-less station is skipped in BridgeStations as before). The per-station
+        // "not found" WARN fires for EXPECTED rows only (StationDef.Expected, the name's own flag); the pending stations
+        // (designed, not imported yet) get ONE Info line per load.
+        private void LogStationPrefabs()
         {
-            if (m_PrefabsResolved)
-                return;
-            m_PrefabsResolved = true;
-
-            foreach (string name in StationPrefabNames)
+            HashSet<Entity> stationPrefabs = m_PrefabCatalog.StationPrefabSet;
+            var found = new System.Text.StringBuilder();
+            var pending = new System.Text.StringBuilder();
+            IReadOnlyList<StationDef> defs = SkiCatalog.Stations;
+            for (int i = 0; i < defs.Count; i++)
             {
-                Entity prefabEntity = Entity.Null;
-                if (m_PrefabSystem.TryGetPrefab(new PrefabID(nameof(BuildingPrefab), name), out PrefabBase prefabBase))
-                    m_PrefabSystem.TryGetEntity(prefabBase, out prefabEntity);
-
-                if (prefabEntity == Entity.Null)
+                string name = defs[i].Prefab;
+                if (m_PrefabCatalog.EntityOf(name) == Entity.Null)
                 {
-                    var candidates = m_PrefabScanQuery.ToEntityArray(Allocator.Temp);
-                    try
+                    if (!defs[i].Expected)
                     {
-                        for (int i = 0; i < candidates.Length; i++)
-                        {
-                            if (m_PrefabSystem.GetPrefabName(candidates[i]) == name)
-                            {
-                                prefabEntity = candidates[i];
-                                break;
-                            }
-                        }
+                        if (pending.Length > 0)
+                            pending.Append(", ");
+                        pending.Append('\'').Append(name).Append('\'');
+                        continue;
                     }
-                    finally
-                    {
-                        candidates.Dispose();
-                    }
-                }
-
-                if (prefabEntity == Entity.Null)
-                {
                     Mod.Log.Warn($"{nameof(PowerBridgeSystem)}: station prefab '{name}' not found — " +
                                  "not bridged (asset pack missing or renamed?)");
                     continue;
                 }
-
-                m_StationPrefabs.Add(prefabEntity);
-                Mod.Log.Info($"{nameof(PowerBridgeSystem)}: resolved station prefab '{name}'");
+                if (found.Length > 0)
+                    found.Append(", ");
+                found.Append('\'').Append(name).Append('\'');
             }
 
-            if (m_StationPrefabs.Count == 0)
-                Mod.Log.Warn($"{nameof(PowerBridgeSystem)}: no station prefabs resolved — power bridging inactive this session");
+            if (stationPrefabs.Count == 0)
+                Mod.Log.Warn($"{nameof(PowerBridgeSystem)}: no station prefabs resolved — power bridging inactive this load");
+            else
+                Mod.Log.Info($"{nameof(PowerBridgeSystem)}: station prefab(s) {found} from the prefab catalog");
+            if (pending.Length > 0)
+                Mod.Log.Info($"{nameof(PowerBridgeSystem)}: pending station prefab(s) not imported yet: {pending}");
         }
     }
 }

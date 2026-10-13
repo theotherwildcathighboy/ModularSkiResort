@@ -33,6 +33,9 @@
 // a ski area's score as much as a new one. Both match vanilla entities, so the result is filtered in
 // managed code against the attractiveness system's prefab sets (IsWatchedBuildingPrefab = lodge ∪ lift
 // station ∪ Welcome Sign; IsWatchedAreaPrefab = SkiRunOwnershipSystem.IsRunPrefab — one source of truth).
+// Catalog Phase B (2026-10-11, round-2-contract §7.4): IsWatchedBuildingPrefab adds the ski school and the patrol huts
+// (SkiPrefabCatalogSystem.IsUpgradeBuilding), so their placement recomputes the area on the next tick; the reason text
+// and the ARMED line name them. Nothing else changes here.
 // IsEmptyIgnoreFilter keeps idle frames free of any job sync; on an event frame the only sync is
 // PrefabRef's writers (ToComponentDataArray — the bind trigger's AnyRunPrefab contract; no query-wide
 // CompleteDependency). Nothing is scanned while a structural recompute is already pending.
@@ -64,8 +67,9 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiResortAttractivenessWatchSystem : GameSystemBase
     {
-        // Reason texts (ch1 §10.1 / §10.2, exact).
-        internal const string ReasonBuildings = "lodge, lift station or Welcome Sign placed, moved or removed";
+        // Reason texts (ch1 §10.1 / §10.2, exact). Catalog Phase B (round-2-contract §7.4; was "lodge, lift station or
+        // Welcome Sign placed, moved or removed"): the ski school and the patrol huts trigger too.
+        internal const string ReasonBuildings = "lodge, ski school, patrol hut, lift station or Welcome Sign placed, moved or removed";
         internal const string ReasonRuns = "ski run drawn, edited or removed";
         internal const string ReasonBoth = "buildings and ski runs changed";
 
@@ -132,8 +136,8 @@ namespace SkiResortMod.Systems
             m_ErrorLogged = false;
             Triggers = 0;
             if (m_Armed)
-                Mod.Log.Info("Attractiveness [watch]: ARMED — ModificationEnd every frame (paused included): a lodge, lift station, " +
-                             "Welcome Sign or ski run of ours Created, Updated or Deleted asks the attractiveness system to recompute " +
+                Mod.Log.Info("Attractiveness [watch]: ARMED — ModificationEnd every frame (paused included): a lodge, ski school, " +
+                             "patrol hut, lift station, Welcome Sign or ski run of ours Created, Updated or Deleted asks the attractiveness system to recompute " +
                              "the ski area scores on its next 16-frame tick (GameSimulation: not while paused); bindings, the lift " +
                              "census, ratings, run open states, settings, sign efficiency, lodge on/off and lift power are compared on " +
                              "that tick; first trigger per load logged, the rest counted (hub DUMP)");

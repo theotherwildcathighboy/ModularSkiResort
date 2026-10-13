@@ -64,6 +64,14 @@
 // REGISTRATION (I-4, Mod.cs): updateSystem.UpdateBefore<SkiStationAlignSystem,
 // Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering).
 //
+// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.4, lift group): the
+// partner must be a station of the SUBJECT'S LIFT TYPE (StationDef.LiftTypeIndex through LiftCensusSystem.TryGetStationDef)
+// — a row partner of another type (a mixed row) is not used, and a free candidate of another type is never picked: a
+// detachable top is aligned with a detachable base only. Every stub tip is the station row's own
+// (StationAlign.StubTip(pos, rot, StationDef.StubTipLocalZ): −16 on the detachable / gondola stations), for the subject,
+// the partner, the candidates and the placement / settle log lines; SkiLiftTooltipSystem's readout reads SubjectTip /
+// PartnerTip from here, so it follows. A fixed-grip-only city measures exactly as before (−12, one type).
+//
 // HOUSE RULES: "created" line; one `Align: ARMED` line per load with every constant; Game mode
 // only; m_Armed / m_Disabled / m_ErrorLogged per load; one-shot `!!!` catch that disables the aid
 // until the next load. No per-frame managed allocation: queries are probed with IsEmptyIgnoreFilter,
@@ -138,6 +146,7 @@ namespace SkiResortMod.Systems
         // ── private state ─────────────────────────────────────────────────────────────────────────
         private Entity m_Partner, m_Challenger;
         private int m_ChallengerFrames;
+        private int m_SubjectType = -1;   // Catalog Phase B: the subject's StationDef.LiftTypeIndex (partners share it)
         private long m_SubjectKey = long.MinValue;
         private float2 m_SubjectAxis, m_PartnerAxis;
         private ObjectPrefab m_LastToolPrefab;
@@ -189,7 +198,8 @@ namespace SkiResortMod.Systems
                 return;
             Mod.Log.Info($"Align: ARMED (Lift building aids {(AidsOn ? "on" : "OFF")}) — subject: the station preview " +
                          $"of the object tool (Create/Move), else a station moved within {MovedWindowS} s, else the selected " +
-                         $"station; partner: its lift's other station, else the opposite kind within {PartnerRadiusM} m in " +
+                         $"station; partner (Catalog Phase B: of the subject's lift type; stub tips per station row): its lift's " +
+                         $"other station, else the opposite kind within {PartnerRadiusM} m in " +
                          $"front, best bearing then nearest, switch only {SwitchMarginDeg}° better for {SwitchFrames} frames; " +
                          $"aligned |offset| ≤ {StationAlign.AlignedOffsetM} m, |yaw| ≤ {StationAlign.AlignedYawDeg}°, amber " +
                          $"≤ {NearOffsetM} m / {NearYawDeg}°; guide: partner axis dashed to max(along + {PartnerAxisExtraM}, " +
@@ -221,7 +231,7 @@ namespace SkiResortMod.Systems
                 LogSettledMove();
 
                 if (!FindSubject(out Entity subject, out bool isTemp, out bool isMoved, out Entity original,
-                        out bool subjectIsBase, out Transform subjectTransform, out long key))
+                        out bool subjectIsBase, out Transform subjectTransform, out long key, out StationDef subjectDef))
                 {
                     if (Active)
                         ResetSubject();
@@ -238,7 +248,9 @@ namespace SkiResortMod.Systems
                 SubjectIsTemp = isTemp;
                 SubjectIsMoved = isMoved;
                 SubjectIsBase = subjectIsBase;
-                float3 tip = StationAlign.StubTip(subjectTransform.m_Position, subjectTransform.m_Rotation);
+                // Catalog Phase B (round-2-contract §6.4): the subject's lift type and its row's stub tip.
+                m_SubjectType = subjectDef != null ? subjectDef.LiftTypeIndex : -1;
+                float3 tip = StationAlign.StubTip(subjectTransform.m_Position, subjectTransform.m_Rotation, StubZ(subjectDef), StubX(subjectDef));
                 m_SubjectAxis = StationAlign.Axis(subjectTransform.m_Rotation);
                 SubjectTip = tip;
 
@@ -282,7 +294,27 @@ namespace SkiResortMod.Systems
             m_Partner = m_Challenger = Entity.Null;
             m_ChallengerFrames = 0;
             m_SubjectKey = long.MinValue;
+            m_SubjectType = -1;
             Last = default;
+        }
+
+        /// <summary>Catalog Phase B: the row's stub tip z (StationAlign.StubTipLocalZ, the fixed-grip −12, without a row).</summary>
+        private static float StubZ(StationDef def)
+        {
+            return def != null ? def.StubTipLocalZ : StationAlign.StubTipLocalZ;
+        }
+
+        /// <summary>Nitpick B2 (2026-10-13): the row's line axis x (StationDef.StubTipLocalX: −4.00 on the tram base's 6 x 3
+        /// lot), 0 without a row.</summary>
+        private static float StubX(StationDef def)
+        {
+            return def != null ? def.StubTipLocalX : 0f;
+        }
+
+        /// <summary>Catalog Phase B: a station row of the subject's lift type (both unknown counts as the same).</summary>
+        private bool SameType(StationDef def)
+        {
+            return (def != null ? def.LiftTypeIndex : -1) == m_SubjectType;
         }
 
         // ════════════════════════════════════════════════════════════════════════════════════════
@@ -290,12 +322,13 @@ namespace SkiResortMod.Systems
         // ════════════════════════════════════════════════════════════════════════════════════════
 
         private bool FindSubject(out Entity subject, out bool isTemp, out bool isMoved, out Entity original,
-            out bool isBase, out Transform transform, out long key)
+            out bool isBase, out Transform transform, out long key, out StationDef def)
         {
             subject = original = Entity.Null;
             isTemp = isMoved = isBase = false;
             transform = default;
             key = 0;
+            def = null;
 
             // (i) placing / relocating a station with the vanilla object tool.
             if (m_ToolSystem.activeTool == m_ObjectTool)
@@ -307,6 +340,7 @@ namespace SkiResortMod.Systems
                 {
                     if (!FindTempStation(toolPrefab, out subject, out original, out transform))
                         return false;   // placing, no preview this frame: no subject at all
+                    m_Census.TryGetStationDef(toolPrefab, out def);   // Catalog Phase B: the preview's row (type, stub z)
                     isTemp = true;
                     key = ((long)toolPrefab.Index << 32) ^ (uint)original.Index ^ 0x5A5A0000L;
                     return true;
@@ -317,7 +351,7 @@ namespace SkiResortMod.Systems
             Entity moved = m_Census.LastMovedStation;
             if (moved != Entity.Null &&
                 UnityEngine.Time.realtimeSinceStartup - m_Census.LastMovedRealtime <= MovedWindowS &&
-                TryRealStation(moved, out isBase, out transform))
+                TryRealStation(moved, out isBase, out transform, out def))
             {
                 subject = moved;
                 isMoved = true;   // E1 fixer pass 2: the tooltip shows this one on the mouse under any tool
@@ -327,7 +361,7 @@ namespace SkiResortMod.Systems
 
             // (iii) the selected station.
             Entity selected = m_ToolSystem.selected;
-            if (selected != Entity.Null && TryRealStation(selected, out isBase, out transform))
+            if (selected != Entity.Null && TryRealStation(selected, out isBase, out transform, out def))
             {
                 subject = selected;
                 key = ((long)selected.Index << 32) | (uint)selected.Version;
@@ -386,11 +420,19 @@ namespace SkiResortMod.Systems
 
         private bool TryRealStation(Entity e, out bool isBase, out Transform transform)
         {
+            return TryRealStation(e, out isBase, out transform, out _);
+        }
+
+        /// <summary>Catalog Phase B: TryRealStation with the station's catalog row (lift type, stub tip z).</summary>
+        private bool TryRealStation(Entity e, out bool isBase, out Transform transform, out StationDef def)
+        {
             isBase = false;
             transform = default;
+            def = null;
             return EntityManager.Exists(e) && !EntityManager.HasComponent<Deleted>(e) &&
                    !EntityManager.HasComponent<Temp>(e) &&
                    EntityManager.TryGetComponent<PrefabRef>(e, out var prefab) &&
+                   m_Census.TryGetStationDef(prefab.m_Prefab, out def) &&
                    m_Census.TryGetStationKind(prefab.m_Prefab, out isBase) &&
                    EntityManager.TryGetComponent<Transform>(e, out transform);
         }
@@ -412,10 +454,12 @@ namespace SkiResortMod.Systems
         /// :4353; 1.6.2 :3079, :4421).</summary>
         private bool TryRowPartner(Entity station)
         {
+            // Catalog Phase B (round-2-contract §6.4): the row partner must share the subject's lift type (a mixed row's
+            // other station is no partner: the free-station rule picks one of the right type instead).
             if (m_Census.TryGetOppositeStation(station, out Entity other) &&
-                TryRealStation(other, out bool otherIsBase, out Transform t))
+                TryRealStation(other, out bool otherIsBase, out Transform t, out StationDef otherDef) && SameType(otherDef))
             {
-                SetPartner(other, otherIsBase, t);
+                SetPartner(other, otherIsBase, t, otherDef);
                 m_Challenger = Entity.Null;
                 m_ChallengerFrames = 0;
                 OtherKindExists = true;
@@ -434,6 +478,7 @@ namespace SkiResortMod.Systems
             bool currentValid = false;
             Transform bestT = default, currentT = default;
             bool bestIsBase = false, currentIsBase = false;
+            StationDef bestDef = null, currentDef = null;
             OtherKindExists = false;
 
             int n = m_Census.StationCount;
@@ -442,12 +487,14 @@ namespace SkiResortMod.Systems
                 Entity e = m_Census.StationEntityAt(i);
                 if (e == subject || e == original || m_Census.StationAt(i).IsBase == subjectIsBase)
                     continue;
-                if (!TryRealStation(e, out bool eIsBase, out Transform t) || eIsBase == subjectIsBase)
+                // Catalog Phase B (round-2-contract §6.4): only a station of the subject's lift type is a candidate.
+                if (!TryRealStation(e, out bool eIsBase, out Transform t, out StationDef eDef) || eIsBase == subjectIsBase ||
+                    !SameType(eDef))
                     continue;
                 if (m_Census.IsOnCompleteRow(e))
                     continue;
                 OtherKindExists = true;
-                StationAlign.Result r = StationAlign.Measure(StationAlign.StubTip(t.m_Position, t.m_Rotation),
+                StationAlign.Result r = StationAlign.Measure(StationAlign.StubTip(t.m_Position, t.m_Rotation, StubZ(eDef), StubX(eDef)),
                     StationAlign.Axis(t.m_Rotation), tip, axis);
                 if (!(r.AlongM > 0f) || r.DistanceM > PartnerRadiusM)
                     continue;
@@ -457,6 +504,7 @@ namespace SkiResortMod.Systems
                     currentErr = r.BearingErrorDeg;
                     currentT = t;
                     currentIsBase = eIsBase;
+                    currentDef = eDef;
                 }
                 if (r.BearingErrorDeg < bestErr || (r.BearingErrorDeg == bestErr && r.DistanceM < bestDist))
                 {
@@ -465,6 +513,7 @@ namespace SkiResortMod.Systems
                     bestDist = r.DistanceM;
                     bestT = t;
                     bestIsBase = eIsBase;
+                    bestDef = eDef;
                 }
             }
 
@@ -480,10 +529,10 @@ namespace SkiResortMod.Systems
                 m_ChallengerFrames = 0;
                 if (!currentValid)
                 {
-                    SetPartner(best, bestIsBase, bestT);
+                    SetPartner(best, bestIsBase, bestT, bestDef);
                     return true;
                 }
-                SetPartner(m_Partner, currentIsBase, currentT);
+                SetPartner(m_Partner, currentIsBase, currentT, currentDef);
                 return true;
             }
 
@@ -496,7 +545,7 @@ namespace SkiResortMod.Systems
                 {
                     m_Challenger = Entity.Null;
                     m_ChallengerFrames = 0;
-                    SetPartner(best, bestIsBase, bestT);
+                    SetPartner(best, bestIsBase, bestT, bestDef);
                     return true;
                 }
             }
@@ -505,15 +554,16 @@ namespace SkiResortMod.Systems
                 m_Challenger = Entity.Null;
                 m_ChallengerFrames = 0;
             }
-            SetPartner(m_Partner, currentIsBase, currentT);
+            SetPartner(m_Partner, currentIsBase, currentT, currentDef);
             return true;
         }
 
-        private void SetPartner(Entity partner, bool isBase, Transform t)
+        private void SetPartner(Entity partner, bool isBase, Transform t, StationDef def)
         {
             m_Partner = partner;
             PartnerIsBase = isBase;
-            PartnerTip = StationAlign.StubTip(t.m_Position, t.m_Rotation);
+            // Catalog Phase B: the partner row's own stub tip (was StationAlign.StubTip(pos, rot), the fixed-grip −12).
+            PartnerTip = StationAlign.StubTip(t.m_Position, t.m_Rotation, StubZ(def), StubX(def));
             m_PartnerAxis = StationAlign.Axis(t.m_Rotation);
         }
 
@@ -617,18 +667,23 @@ namespace SkiResortMod.Systems
         /// 0.1° (aligned)", measured with the same partner rule as the guide (log only: allocates).</summary>
         private string DescribeAlignment(Entity station)
         {
-            if (!TryRealStation(station, out bool isBase, out Transform t))
+            if (!TryRealStation(station, out bool isBase, out Transform t, out StationDef stationDef))
                 return $"station {station.Index}:{station.Version} (gone)";
             string name = EntityManager.TryGetComponent<PrefabRef>(station, out var prefab)
                 ? m_PrefabSystem.GetPrefabName(prefab.m_Prefab) : "station";
-            float3 tip = StationAlign.StubTip(t.m_Position, t.m_Rotation);
+            // Catalog Phase B (round-2-contract §6.4): the station row's stub tip; partners of the same lift type only.
+            float3 tip = StationAlign.StubTip(t.m_Position, t.m_Rotation, StubZ(stationDef), StubX(stationDef));
             float2 axis = StationAlign.Axis(t.m_Rotation);
+            int type = stationDef != null ? stationDef.LiftTypeIndex : -1;
 
             Entity partner = Entity.Null;
             bool partnerIsBase = false;
             Transform pt = default;
+            StationDef partnerDef = null;
             string how = "its lift's";
-            if (m_Census.TryGetOppositeStation(station, out Entity other) && TryRealStation(other, out partnerIsBase, out pt))
+            if (m_Census.TryGetOppositeStation(station, out Entity other) &&
+                TryRealStation(other, out partnerIsBase, out pt, out partnerDef) &&
+                (partnerDef != null ? partnerDef.LiftTypeIndex : -1) == type)
             {
                 partner = other;
             }
@@ -639,10 +694,10 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < m_Census.StationCount; i++)
                 {
                     Entity e = m_Census.StationEntityAt(i);
-                    if (e == station || !TryRealStation(e, out bool eb, out Transform et) || eb == isBase ||
-                        m_Census.IsOnCompleteRow(e))
+                    if (e == station || !TryRealStation(e, out bool eb, out Transform et, out StationDef eDef) || eb == isBase ||
+                        (eDef != null ? eDef.LiftTypeIndex : -1) != type || m_Census.IsOnCompleteRow(e))
                         continue;
-                    var r = StationAlign.Measure(StationAlign.StubTip(et.m_Position, et.m_Rotation),
+                    var r = StationAlign.Measure(StationAlign.StubTip(et.m_Position, et.m_Rotation, StubZ(eDef), StubX(eDef)),
                         StationAlign.Axis(et.m_Rotation), tip, axis);
                     if (!(r.AlongM > 0f) || r.DistanceM > PartnerRadiusM)
                         continue;
@@ -653,6 +708,7 @@ namespace SkiResortMod.Systems
                         partner = e;
                         partnerIsBase = eb;
                         pt = et;
+                        partnerDef = eDef;
                     }
                 }
             }
@@ -660,7 +716,8 @@ namespace SkiResortMod.Systems
             if (partner == Entity.Null)
                 return $"{name} {station.Index}:{station.Version} — no free {kind} station within {PartnerRadiusM:F0} m in front of it";
 
-            var m = StationAlign.Measure(StationAlign.StubTip(pt.m_Position, pt.m_Rotation), StationAlign.Axis(pt.m_Rotation), tip, axis);
+            var m = StationAlign.Measure(StationAlign.StubTip(pt.m_Position, pt.m_Rotation, StubZ(partnerDef), StubX(partnerDef)),
+                StationAlign.Axis(pt.m_Rotation), tip, axis);
             string side = math.abs(m.LateralM) < 0.05f ? string.Empty : m.LateralM > 0f ? " left" : " right";
             // F6 B2: the same classes as the readout (StationAlign header READOUT CLASS).
             StationAlign.Readout cls = StationAlign.Classify(m);

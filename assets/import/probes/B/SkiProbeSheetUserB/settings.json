@@ -1,0 +1,8 @@
+{
+  "sharedAssets": {
+    "SkiProbeSheetUserB_BaseColor.png": "../SkiProbeSheetB/SkiProbeSheetB_BaseColor.png",
+    "SkiProbeSheetUserB_ControlMask.png": "../SkiProbeSheetB/SkiProbeSheetB_ControlMask.png",
+    "SkiProbeSheetUserB_MaskMap.png": "../SkiProbeSheetB/SkiProbeSheetB_MaskMap.png",
+    "SkiProbeSheetUserB_Normal.png": "../SkiProbeSheetB/SkiProbeSheetB_Normal.png"
+  }
+}

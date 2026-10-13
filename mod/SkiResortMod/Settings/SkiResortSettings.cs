@@ -112,6 +112,15 @@
 // jobs get values): SkiDaySystem reads all four live every pass, so a change applies at its next pass;
 // SkiResortStatsSystem reads Locals and Tourists (both 0 = ski days off, the hub's "Off" line).
 // SkiDayRules.ClampKnobs is a second, defensive clamp.
+//
+// LODGE SPEND (Catalog Phase B, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §9, D15; ROUND-SPEC
+// R11 "lodge spend OFF by default"): LodgeSpendPerGuest (Balance group, directly after LiftTicketPrice; 0-50 step 5,
+// unit "money", default 0 = off). What each PAYING ski guest also spends at the lodge they arrive at, × the lodge
+// tier's SkiCatalog.LodgeDef.SpendMultiplier, rounded half up; charged in SkiLiftTicketSystem's ticket job after the
+// ticket, never into debt, and only while the ticket gate is open — a ticket price of 0 charges nothing. Read live by
+// SkiLiftTicketSystem through SkiMoneyRules.ClampLodgeSpend(Mod.Settings?.LodgeSpendPerGuest ?? LodgeSpendDefault).
+// The Default / Max / Step constants alias SkiCatalog.LodgeSpend (one source). Persisted under this property name —
+// never rename.
 
 using Colossal.IO.AssetDatabase;
 using Game.Input;
@@ -183,6 +192,10 @@ namespace SkiResortMod.Settings
         public const int SkiDayReachKmMax = SkiDayRules.ReachKmMax;                   // 12
         public const int DefaultSkiDayPowderPct = SkiDayRules.PowderPctDefault;       // 100
         public const int SkiDayPowderPctMax = SkiDayRules.PowderPctMax;               // 200
+        // Catalog Phase B (round-2-contract §9, D15): aliases of SkiCatalog.LodgeSpend — the one source of the numbers.
+        public const int DefaultLodgeSpendPerGuest = SkiCatalog.LodgeSpend.Default;   // 0 = off (R11)
+        public const int LodgeSpendPerGuestMax = SkiCatalog.LodgeSpend.Max;           // 50
+        public const int LodgeSpendPerGuestStep = SkiCatalog.LodgeSpend.Step;         // 5
 
         public SkiResortSettings(IMod mod) : base(mod)
         {
@@ -230,6 +243,14 @@ namespace SkiResortMod.Settings
         [SettingsUISlider(min = 0f, max = 200f, step = 5f, unit = "money")]
         [SettingsUISection(SectionMain, GroupBalance)]
         public int LiftTicketPrice { get; set; }
+
+        /// <summary>LodgeSpendPerGuest (Catalog Phase B, round-2-contract §9, D15; header LODGE SPEND): what each paying
+        /// ski guest also spends at the lodge they arrive at (× the tier's SpendMultiplier), charged with the ticket. Read
+        /// live by SkiLiftTicketSystem through SkiMoneyRules.ClampLodgeSpend. 0 = off (the default, R11). Persisted under
+        /// this property name — never rename. unit "money" as LiftTicketPrice.</summary>
+        [SettingsUISlider(min = 0f, max = LodgeSpendPerGuestMax, step = LodgeSpendPerGuestStep, unit = "money")]
+        [SettingsUISection(SectionMain, GroupBalance)]
+        public int LodgeSpendPerGuest { get; set; }
 
         // --- Ski days (Round S1, s1-spec §2.11; ski-days spec ch4 §E; header SKI DAYS) ----------
         // Persisted under these property names — never rename. Read only through the *Of readers below.
@@ -393,6 +414,7 @@ namespace SkiResortMod.Settings
             AttractivenessScaleK = DefaultAttractivenessScaleK;         // E1 (e1-spec §2.3)
             BackcountryValuePercent = DefaultBackcountryValuePercent;   // E1
             LiftTicketPrice = SkiMoneyRules.TicketPriceDefault;         // E1 D26 (ch4 §5.4)
+            LodgeSpendPerGuest = DefaultLodgeSpendPerGuest;             // Catalog Phase B (round-2-contract §9, D15): 0 = off
             SkiDayLocalsPct = DefaultSkiDayLocalsPct;                   // S1 (s1-spec §2.11)
             SkiDayTouristsPct = DefaultSkiDayTouristsPct;               // S1
             SkiDayReachKm = DefaultSkiDayReachKm;                       // S1

@@ -43,3 +43,13 @@ assets/staging/
 docs/
 assets/textures/
 mod/SkiResortMod/Textures/
+
+# Third-party originals (ROUND-SPEC R20): WHITELIST - everything under assets/external
+# stays local (any extension: .blend1, .jpeg, .tga, the Sketchfab .zip ...) except each
+# assets/external/<id>/SOURCE.md (author, URL, licence, what was archived).
+assets/external/**
+!assets/external/**/
+!assets/external/*/SOURCE.md
+
+# 2026-10-13 cleanup: superseded exports / frames / packs consolidated under assets/archive/ (8+ GB of PNG/FBX; never commit)
+assets/archive/

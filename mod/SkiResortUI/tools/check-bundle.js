@@ -112,9 +112,18 @@
  *         BUILD_GROUPS); R17 enum parity (eight TS const objects against their C# enums); R18 the UI
  *         rules self-test (tools/test-hub-rules.js). R11's lists follow contract 3. Proven with
  *         scratch fault copies (--contract-only --src= / --cs-dir= / --hub-cs=; build/notes-S6.md).
+ *      CONTRACT 6 (2026-10-11, Catalog Phase B, code round 2, hub group; docs/research/art/assets-2026-10/
+ *         code-round-2/round-2-contract.md section 8.7 with skeptic MUST 8): R16 is REWRITTEN for the ONE
+ *         build-item table. It reads mod/SkiResortMod/Systems/SkiCatalog.cs (`--catalog-cs=` overrides it),
+ *         no longer the hub system: the NAMES block (`public const string X = "Name"; // Type[, item id]
+ *         [, pending]`) and the BUILD-ITEMS block (`new BuildItemDef("id", Names.X, BuildItemKind.K, "type",
+ *         n),`, the markers INSIDE the braces: every line between them is a row) as RAW text (the NAMES
+ *         grammar lives in end-of-line comments and the markers are comments, so this rule does not strip
+ *         comments), and compares them with bindings.ts BuildItemId / BUILD_ITEM_IDS / BUILD_ITEM_PREFAB /
+ *         LIFT_TYPE_IDS and src/hub/buildItems.ts BUILD_ITEMS / BUILD_GROUPS / BUILD_ITEM_ICON (checkBuildItems).
  *      `node tools/check-bundle.js --contract-only` runs R1-R7, R10 and R11-R18 plus the source lint
- *      without a bundle; `--hub-cs=`, `--locale=`, `--lock=`, `--src=` and `--cs-dir=` point the
- *      checks at other files (fault tests; any override is reported as a WARNING).
+ *      without a bundle; `--hub-cs=`, `--catalog-cs=`, `--locale=`, `--lock=`, `--src=` and `--cs-dir=`
+ *      point the checks at other files (fault tests; any override is reported as a WARNING).
  *
  * Runtime export lists: parsed at check time from the INSTALLED game's index.js (so a patch that
  * removes an export fails the build on patch day). When CSII_INSTALLATIONPATH is set but that
@@ -155,6 +164,8 @@ const CS_DIR = pathArg("cs-dir", path.resolve(ROOT, "..", "SkiResortMod"));
 const LOCALE_EN = pathArg("locale", path.join(CS_DIR, "LocaleEN.cs"));
 /** The C# side of the binding contract (spec 2.2; rule R1). */
 const HUB_CS = pathArg("hub-cs", path.join(CS_DIR, "Systems", "SkiResortHubUISystem.cs"));
+/** Rule R16 since contract 6: the ONE build-item table and the NAMES block (round-2-contract section 1.1, 1.6). */
+const CATALOG_CS = pathArg("catalog-cs", path.join(CS_DIR, "Systems", "SkiCatalog.cs"));
 /** Rule R3. Written by `npm run contract:lock` (= node tools/check-bundle.js --write-lock). */
 const CONTRACT_LOCK = pathArg("lock", path.join(ROOT, "tools", "contract.lock"));
 /** The one file allowed an <input> (rule R6; spec 4.3). */
@@ -1773,28 +1784,10 @@ function lintPanelEdgeFocus(ts, parsed, errors) {
 // ------------------------------------------------------------------------------------------------
 // Rules R16-R18 (Round E1, 2026-10-04, stream S6; docs/research/econ-round/spec/ch6-hub-ui.md
 // sections 10.2-10.4; ported from the checked prototype spec/ch6-hub-ui-ref/tools/gate-r16-r17.js
-// with this gate's own stripCsComments). R16 and R17 read the C# files LITERALLY: keep ItemIds /
-// ItemPrefabNames literal string[] initializers, the item constants literal `const int`s and the
-// compared enums literal (SkiResortHubUISystem.cs, HubRules.cs, EntityRef.cs, SkiMoneyRules.cs).
-
-/** `string[] <name> = { "a", ... }` (optionally `new string[] { ... }`) -> ["a", ...], or null. */
-function csStringArray(src, name) {
-  const m = new RegExp(`\\bstring\\s*\\[\\s*\\]\\s+${name}\\s*=\\s*(?:new\\s+string\\s*\\[\\s*\\]\\s*)?\\{([^}]*)\\}`).exec(src);
-  if (!m) return null;
-  return [...m[1].matchAll(/"([^"]*)"/g)].map((x) => x[1]);
-}
-
-/** Every `const int A = n, B = m;` of a C# file (multi-line allowed) -> Map name -> number. */
-function csIntConsts(src) {
-  const out = new Map();
-  for (const m of src.matchAll(/\bconst\s+int\s+([^;]+);/g)) {
-    for (const part of m[1].split(",")) {
-      const kv = /^\s*([A-Za-z_]\w*)\s*=\s*(-?\d+)\s*$/.exec(part);
-      if (kv) out.set(kv[1], Number(kv[2]));
-    }
-  }
-  return out;
-}
+// with this gate's own stripCsComments). R16 and R17 read the C# files LITERALLY: keep the compared
+// enums literal (HubRules.cs, EntityRef.cs, SkiMoneyRules.cs, SkiDayRules.cs). Contract 6: R16 reads
+// Systems/SkiCatalog.cs's NAMES and BUILD-ITEMS blocks as raw lines (one grammar each, below); the hub
+// system's ItemIds / ItemPrefabNames arrays and item constants are gone (round-2-contract D6).
 
 /** `enum <name> [: type] { A = 0, B, ... }` -> Map name -> number (explicit values or the implicit
  *  +1 rule), or null when absent or not literal. Comments must be stripped first. */
@@ -1816,11 +1809,13 @@ function csEnum(src, name) {
 }
 
 /** The TS literals R16 / R17 read (TypeScript AST): bindings.ts BUILD_ITEM_IDS, the BuildItemId union,
- *  BUILD_ITEM_PREFAB and every UPPER_CASE const object of literal numbers; buildItems.ts BUILD_GROUPS.
- *  A missing value stays null (the rule reports it). */
+ *  BUILD_ITEM_PREFAB, LIFT_TYPE_IDS (contract 6) and every UPPER_CASE const object of literal numbers;
+ *  buildItems.ts BUILD_GROUPS and (contract 6) BUILD_ITEMS (rows of literals) and BUILD_ITEM_ICON (its keys).
+ *  A missing or non-literal value stays null (the rule reports it). */
 function readTsLiterals(ts, errors) {
-  const out = { ids: null, union: null, prefab: null, groups: null, consts: new Map() };
+  const out = { ids: null, union: null, prefab: null, groups: null, liftTypes: null, items: null, iconKeys: null, consts: new Map() };
   const unwrap = (e) => { while (e && (ts.isAsExpression(e) || ts.isParenthesizedExpression(e))) e = e.expression; return e; };
+  const keyText = (sf, p) => p.name.getText(sf).replace(/^["']|["']$/g, "");
   let textB = null, textI = null;
   try { textB = fs.readFileSync(path.join(SRC, BINDINGS_TS), "utf8"); } catch { errors.push(`contract: cannot read src/${BINDINGS_TS} (rules R16, R17)`); }
   try { textI = fs.readFileSync(path.join(SRC, BUILD_ITEMS_TS), "utf8"); } catch { errors.push(`contract: cannot read src/${BUILD_ITEMS_TS.split(path.sep).join("/")} (rule R16)`); }
@@ -1835,10 +1830,14 @@ function readTsLiterals(ts, errors) {
         if (n.name.text === "BUILD_ITEM_IDS" && ts.isArrayLiteralExpression(init)) {
           out.ids = init.elements.every(ts.isStringLiteral) ? init.elements.map((e) => e.text) : null;
         }
+        if (n.name.text === "LIFT_TYPE_IDS" && ts.isArrayLiteralExpression(init)) {
+          out.liftTypes = init.elements.every(ts.isStringLiteral) ? init.elements.map((e) => e.text) : null;
+        }
         if (n.name.text === "BUILD_ITEM_PREFAB" && ts.isObjectLiteralExpression(init)) {
           out.prefab = new Map();
           for (const p of init.properties) {
-            if (ts.isPropertyAssignment(p) && ts.isStringLiteralLike(p.initializer)) out.prefab.set(p.name.getText(sf).replace(/^["']|["']$/g, ""), p.initializer.text);
+            if (ts.isPropertyAssignment(p) && ts.isStringLiteralLike(p.initializer)) out.prefab.set(keyText(sf, p), p.initializer.text);
+            else { out.prefab = null; break; }
           }
         }
         if (/^[A-Z][A-Z_]+$/.test(n.name.text) && ts.isObjectLiteralExpression(init)) {
@@ -1850,7 +1849,7 @@ function readTsLiterals(ts, errors) {
             const v = ts.isNumericLiteral(e) ? Number(e.text)
               : ts.isPrefixUnaryExpression(e) && e.operator === ts.SyntaxKind.MinusToken && ts.isNumericLiteral(e.operand) ? -Number(e.operand.text) : null;
             if (v === null) { ok = false; break; }
-            m.set(p.name.getText(sf).replace(/^["']|["']$/g, ""), v);
+            m.set(keyText(sf, p), v);
           }
           if (ok && m.size) out.consts.set(n.name.text, m);
         }
@@ -1861,11 +1860,38 @@ function readTsLiterals(ts, errors) {
   }
   if (textI !== null) {
     const sf = ts.createSourceFile("buildItems.ts", textI, ts.ScriptTarget.ES2020, true, ts.ScriptKind.TS);
+    // One literal row: { id: "x", kind: "y", liftType: "z", runKind: n } (a leading "-" allowed), nothing else.
+    const row = (e) => {
+      e = unwrap(e);
+      if (!ts.isObjectLiteralExpression(e)) return null;
+      const r = {};
+      for (const p of e.properties) {
+        if (!ts.isPropertyAssignment(p)) return null;
+        const k = keyText(sf, p);
+        const v = unwrap(p.initializer);
+        if (ts.isStringLiteralLike(v)) r[k] = v.text;
+        else if (ts.isNumericLiteral(v)) r[k] = Number(v.text);
+        else if (ts.isPrefixUnaryExpression(v) && v.operator === ts.SyntaxKind.MinusToken && ts.isNumericLiteral(v.operand)) r[k] = -Number(v.operand.text);
+        else return null;
+      }
+      const keys = Object.keys(r).sort().join(",");
+      if (keys !== "id,kind,liftType,runKind") return null;
+      if (typeof r.id !== "string" || typeof r.kind !== "string" || typeof r.liftType !== "string" || typeof r.runKind !== "number") return null;
+      return r;
+    };
     const visit = (n) => {
-      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === "BUILD_GROUPS" && n.initializer) {
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
         const init = unwrap(n.initializer);
-        if (ts.isArrayLiteralExpression(init) && init.elements.every((g) => ts.isArrayLiteralExpression(g) && g.elements.every(ts.isStringLiteral))) {
+        if (n.name.text === "BUILD_GROUPS" && ts.isArrayLiteralExpression(init) &&
+            init.elements.every((g) => ts.isArrayLiteralExpression(g) && g.elements.every(ts.isStringLiteral))) {
           out.groups = init.elements.map((g) => g.elements.map((e) => e.text));
+        }
+        if (n.name.text === "BUILD_ITEMS" && ts.isArrayLiteralExpression(init)) {
+          const rows = init.elements.map(row);
+          out.items = rows.every((r) => r !== null) ? rows : null;
+        }
+        if (n.name.text === "BUILD_ITEM_ICON" && ts.isObjectLiteralExpression(init)) {
+          out.iconKeys = init.properties.every(ts.isPropertyAssignment) ? init.properties.map((p) => keyText(sf, p)) : null;
         }
       }
       ts.forEachChild(n, visit);
@@ -1875,64 +1901,167 @@ function readTsLiterals(ts, errors) {
   return out;
 }
 
+/** Contract 6 (round-2-contract section 1.1): one NAMES line; groups 1 const, 2 prefab name, 3 PrefabID type, 4 item, 5 pending. */
+const NAMES_LINE_RE = /^\s*public const string (\w+)\s*=\s*"([^"]+)";\s*\/\/\s*(\w+Prefab)(?:,\s*item\s+(\w+))?(?:,\s*(pending))?\s*$/;
+/** Contract 6 (round-2-contract section 1.6): one BUILD-ITEMS row; groups 1 id, 2 Names const, 3 kind, 4 lift type, 5 run kind. */
+const BUILD_ITEM_LINE_RE = /^\s*new BuildItemDef\("(\w+)",\s*Names\.(\w+),\s*BuildItemKind\.(\w+),\s*"(\w*)",\s*(-?\d+)\),\s*$/;
+/** C# BuildItemKind -> its PrefabID type (SkiCatalog.TypeNameOf): Line -> PowerLinePrefab, Run -> SurfacePrefab, else BuildingPrefab. */
+function typeNameOfKind(kind) {
+  return kind === "Line" ? "PowerLinePrefab" : kind === "Run" ? "SurfacePrefab" : "BuildingPrefab";
+}
+
 /**
- * Rule R16: build items, C# <-> TS (ch6 section 10.2; natural-run Verification M7: an id only one side
- * knows is dropped silently - C# would refuse the launch, the UI would never draw the tile). Reads
- * HUB_CS (comments stripped) and the TS literals. FAILS, one line each ending "(rule R16)":
- * non-literal arrays / TS literals; a duplicate id; ItemCount or ItemPrefabNames.Length != ItemIds
- * .Length; the set of ItemIds != BUILD_ITEM_IDS; the BuildItemId union != BUILD_ITEM_IDS; BUILD_GROUPS
- * not holding every id exactly once; a per-index prefab mismatch; ItemSign / ItemLodge / ItemLift
- * (and ItemBase / ItemTop when declared) not naming "sign" / "lodge" / "lift" / "baseStation" /
- * "topStation"; a "run..." id outside ItemRunFirst..ItemRunLast or another id inside it.
+ * The raw lines between `// <name>-BEGIN` and `// <name>-END` of a C# text, with their 1-based line numbers, or an
+ * error text (markers missing, repeated or out of order). `before` / `after` = the lines right outside the markers.
+ */
+function markerBlock(lines, name) {
+  const begin = [], end = [];
+  lines.forEach((l, i) => {
+    if (new RegExp(`^\\s*//\\s*${name}-BEGIN\\s*$`).test(l)) begin.push(i);
+    if (new RegExp(`^\\s*//\\s*${name}-END\\s*$`).test(l)) end.push(i);
+  });
+  if (begin.length !== 1 || end.length !== 1) return { error: `has ${begin.length} "// ${name}-BEGIN" and ${end.length} "// ${name}-END" marker line(s), want one each` };
+  if (end[0] <= begin[0]) return { error: `"// ${name}-END" (line ${end[0] + 1}) is not after "// ${name}-BEGIN" (line ${begin[0] + 1})` };
+  const body = [];
+  for (let i = begin[0] + 1; i < end[0]; i++) body.push({ text: lines[i], line: i + 1 });
+  return { body, before: begin[0] > 0 ? lines[begin[0] - 1] : "", after: end[0] + 1 < lines.length ? lines[end[0] + 1] : "", beginLine: begin[0] + 1 };
+}
+
+/**
+ * Rule R16: build items, C# <-> TS. CONTRACT 6 (round-2-contract section 8.7, skeptic MUST 8; the Round E1
+ * version compared the hub system's ItemIds / ItemPrefabNames arrays, deleted with D6). Reads CATALOG_CS RAW (its
+ * NAMES grammar sits in end-of-line comments and the markers are comments) and the TS literals. FAILS, one line
+ * each ending "(rule R16)": the file unreadable; a block's markers missing / repeated / out of order; a BUILD-ITEMS
+ * block not directly inside its array braces (`{` before BEGIN, `};` after END: MUST 8, as LiftBatch CT-9); a line
+ * inside a block that does not match its grammar (a comment line included: every line between the markers is an
+ * entry); an empty NAMES block or table; a duplicate NAMES const or prefab name; a duplicate table id; an unknown
+ * BuildItemKind (the C# enum, comments stripped); `Names.X` not in NAMES; the NAMES type not the kind's
+ * (TypeNameOf); a NAMES `item` token without a table row, or a row whose NAMES entry has a different or no item
+ * token; a Run row whose id does not start with "run" (or another row whose id does), a run kind outside RUN_KIND
+ * (TS, itself R17-checked against C# RunKind), a non-run row with run kind != -1; a Station / Line row without a lift
+ * type or another row with one; a lift type without exactly one base station ("baseStation..." id), one top station
+ * ("topStation..." id, the LiftBatch CT-14 naming) and one line row; the table's lift types != bindings.ts
+ * LIFT_TYPE_IDS; a TS literal missing or not literal; BUILD_ITEMS row i != C# row i (id, kind in lower camel case,
+ * liftType, runKind) or a different row count; the BuildItemId union, BUILD_ITEM_IDS, BUILD_ITEM_PREFAB keys or
+ * BUILD_ITEM_ICON keys != the table's id set; BUILD_ITEM_PREFAB[id] != the C# row's prefab; BUILD_GROUPS not holding
+ * every id exactly once.
  */
 function checkBuildItems(tsSide, errors, report) {
-  const at = path.basename(HUB_CS);
+  const at = path.basename(CATALOG_CS);
+  const fail = (msg) => errors.push(`contract: ${msg} (rule R16)`);
   let text;
-  try { text = fs.readFileSync(HUB_CS, "utf8"); } catch (e) { errors.push(`contract: cannot read ${HUB_CS} (${e && e.code ? e.code : e}) (rule R16)`); return; }
-  const src = stripCsComments(text);
-  const ids = csStringArray(src, "ItemIds");
-  const prefabs = csStringArray(src, "ItemPrefabNames");
-  const k = csIntConsts(src);
-  if (!ids || !prefabs) { errors.push(`contract: ${at} has no literal ItemIds / ItemPrefabNames string arrays (rule R16)`); return; }
-  if (!tsSide.ids || !tsSide.union || !tsSide.prefab || !tsSide.groups) {
-    errors.push("contract: bindings.ts BUILD_ITEM_IDS / BuildItemId / BUILD_ITEM_PREFAB or buildItems.ts BUILD_GROUPS is not literal (rule R16)");
+  try { text = fs.readFileSync(CATALOG_CS, "utf8"); } catch (e) { fail(`cannot read ${CATALOG_CS} (${e && e.code ? e.code : e})`); return; }
+  const lines = text.split(/\r?\n/);
+
+  // ---- C#: the NAMES block --------------------------------------------------------------------------------------
+  const nb = markerBlock(lines, "NAMES");
+  if (nb.error) { fail(`${at} ${nb.error}`); return; }
+  const names = new Map();          // const -> { name, type, item, pending, line }
+  const byPrefab = new Set();
+  for (const { text: l, line } of nb.body) {
+    const m = NAMES_LINE_RE.exec(l);
+    if (!m) { fail(`${at}:${line} inside the NAMES block does not match \`public const string X = "Name"; // Type[, item id][, pending]\`: "${l.trim()}"`); continue; }
+    if (names.has(m[1])) fail(`${at}:${line} NAMES const ${m[1]} declared twice`);
+    if (byPrefab.has(m[2])) fail(`${at}:${line} NAMES prefab "${m[2]}" listed twice`);
+    byPrefab.add(m[2]);
+    names.set(m[1], { name: m[2], type: m[3], item: m[4] || null, pending: !!m[5], line });
+  }
+  if (names.size === 0) { fail(`${at} has an empty NAMES block`); return; }
+
+  // ---- C#: the BUILD-ITEMS block ---------------------------------------------------------------------------------
+  const bb = markerBlock(lines, "BUILD-ITEMS");
+  if (bb.error) { fail(`${at} ${bb.error}`); return; }
+  if (bb.before.trim() !== "{") fail(`${at}:${bb.beginLine} the line before "// BUILD-ITEMS-BEGIN" must be "{" (the markers sit INSIDE the array braces: MUST 8), found "${bb.before.trim()}"`);
+  if (bb.after.trim() !== "};") fail(`${at} the line after "// BUILD-ITEMS-END" must be "};" (the markers sit INSIDE the array braces: MUST 8), found "${bb.after.trim()}"`);
+  const csKinds = csEnum(stripCsComments(text), "BuildItemKind");
+  if (!csKinds) fail(`${at} has no enum BuildItemKind with literal values`);
+  const rows = [];
+  for (const { text: l, line } of bb.body) {
+    const m = BUILD_ITEM_LINE_RE.exec(l);
+    if (!m) { fail(`${at}:${line} inside the BUILD-ITEMS block does not match \`new BuildItemDef("id", Names.X, BuildItemKind.K, "type", n),\`: "${l.trim()}"`); continue; }
+    rows.push({ id: m[1], nameConst: m[2], kind: m[3], liftType: m[4], runKind: Number(m[5]), line });
+  }
+  if (rows.length === 0) { fail(`${at} has an empty BUILD-ITEMS table`); return; }
+
+  const runKinds = tsSide.consts.get("RUN_KIND");
+  const runKindValues = runKinds ? new Set(runKinds.values()) : null;
+  if (!runKindValues) fail("bindings.ts has no literal const object RUN_KIND");
+  const ids = [];
+  const prefabOf = new Map();
+  const itemRows = new Map();       // item id -> NAMES const of its row
+  const types = new Map();          // lift type -> { base, top, line }
+  for (const r of rows) {
+    const w = `${at}:${r.line} row "${r.id}"`;
+    if (ids.indexOf(r.id) >= 0) fail(`${w} duplicates an id`);
+    ids.push(r.id);
+    if (csKinds && !csKinds.has(r.kind)) fail(`${w}: BuildItemKind.${r.kind} is not a member of the C# enum`);
+    const n = names.get(r.nameConst);
+    if (!n) { fail(`${w}: Names.${r.nameConst} is not in the NAMES block`); continue; }
+    prefabOf.set(r.id, n.name);
+    itemRows.set(r.id, r.nameConst);
+    if (n.type !== typeNameOfKind(r.kind)) fail(`${w}: Names.${r.nameConst} "${n.name}" is a ${n.type}, a ${r.kind} item needs a ${typeNameOfKind(r.kind)}`);
+    if (n.item !== r.id) fail(`${w}: Names.${r.nameConst} carries ${n.item ? `item token "${n.item}"` : "no item token"} (${at}:${n.line}), want "item ${r.id}"`);
+    const isRun = r.kind === "Run";
+    if (isRun !== r.id.startsWith("run")) fail(`${w}: ${isRun ? "a Run row's id must start with \"run\"" : `only Run rows may have an id starting with "run" (kind ${r.kind})`}`);
+    if (isRun && runKindValues && !runKindValues.has(r.runKind)) fail(`${w}: run kind ${r.runKind} is not a RUN_KIND value`);
+    if (!isRun && r.runKind !== -1) fail(`${w}: a ${r.kind} row must have run kind -1, has ${r.runKind}`);
+    const lift = r.kind === "Station" || r.kind === "Line";
+    if (lift !== (r.liftType !== "")) fail(`${w}: ${lift ? `a ${r.kind} row needs a lift type` : `a ${r.kind} row must have lift type "", has "${r.liftType}"`}`);
+    if (lift && r.liftType) {
+      if (!types.has(r.liftType)) types.set(r.liftType, { base: 0, top: 0, line: 0 });
+      const t = types.get(r.liftType);
+      if (r.kind === "Line") t.line++;
+      else if (r.id.startsWith("baseStation")) t.base++;
+      else if (r.id.startsWith("topStation")) t.top++;
+      else fail(`${w}: a Station row's id must start with "baseStation" or "topStation" (LiftBatch CT-14)`);
+    }
+  }
+  for (const [c, n] of names) {
+    if (n.item && !rows.some((r) => r.id === n.item && r.nameConst === c)) {
+      fail(`${at}:${n.line} Names.${c} "${n.name}" carries "item ${n.item}" but no BUILD-ITEMS row "${n.item}" names Names.${c}`);
+    }
+  }
+  for (const [type, t] of types) {
+    if (t.base !== 1 || t.top !== 1 || t.line !== 1) fail(`${at} lift type "${type}" has ${t.base} base station, ${t.top} top station and ${t.line} line row(s), want 1 each`);
+  }
+
+  // ---- TS side -----------------------------------------------------------------------------------------------------
+  if (!tsSide.ids || !tsSide.union || !tsSide.prefab || !tsSide.groups || !tsSide.items || !tsSide.iconKeys || !tsSide.liftTypes) {
+    const missing = [["bindings.ts BUILD_ITEM_IDS", tsSide.ids], ["bindings.ts BuildItemId", tsSide.union], ["bindings.ts BUILD_ITEM_PREFAB", tsSide.prefab],
+      ["bindings.ts LIFT_TYPE_IDS", tsSide.liftTypes], ["buildItems.ts BUILD_ITEMS", tsSide.items], ["buildItems.ts BUILD_GROUPS", tsSide.groups],
+      ["buildItems.ts BUILD_ITEM_ICON", tsSide.iconKeys]].filter((x) => !x[1]).map((x) => x[0]);
+    fail(`${missing.join(", ")} missing or not literal`);
     return;
   }
   const set = (a) => [...new Set(a)].sort().join(",");
-  if (new Set(ids).size !== ids.length) errors.push(`contract: ${at} ItemIds has a duplicate id (rule R16)`);
-  if (!k.has("ItemCount")) errors.push(`contract: ${at} has no literal const int ItemCount (rule R16)`);
-  else if (k.get("ItemCount") !== ids.length) errors.push(`contract: ${at} ItemCount ${k.get("ItemCount")} != ItemIds.Length ${ids.length} (rule R16)`);
-  if (prefabs.length !== ids.length) errors.push(`contract: ${at} ItemPrefabNames has ${prefabs.length} entries, ItemIds ${ids.length} (rule R16)`);
-  if (set(ids) !== set(tsSide.ids)) {
-    errors.push(`contract: C# ItemIds {${set(ids)}} != bindings.ts BUILD_ITEM_IDS {${set(tsSide.ids)}} - an id only one side knows is dropped silently (rule R16)`);
+  const tableSet = set(ids);
+  const lowerCamel = (k) => k.charAt(0).toLowerCase() + k.slice(1);
+  if (tsSide.items.length !== rows.length) fail(`buildItems.ts BUILD_ITEMS has ${tsSide.items.length} row(s), ${at} BUILD-ITEMS ${rows.length}`);
+  for (let i = 0; i < Math.min(rows.length, tsSide.items.length); i++) {
+    const c = rows[i], s = tsSide.items[i];
+    const diffs = [];
+    if (s.id !== c.id) diffs.push(`id "${s.id}" vs "${c.id}"`);
+    if (s.kind !== lowerCamel(c.kind)) diffs.push(`kind "${s.kind}" vs "${lowerCamel(c.kind)}"`);
+    if (s.liftType !== c.liftType) diffs.push(`liftType "${s.liftType}" vs "${c.liftType}"`);
+    if (s.runKind !== c.runKind) diffs.push(`runKind ${s.runKind} vs ${c.runKind}`);
+    if (diffs.length) fail(`buildItems.ts BUILD_ITEMS[${i}] differs from ${at}:${c.line}: ${diffs.join(", ")}`);
   }
-  if (set(tsSide.union) !== set(tsSide.ids)) errors.push(`contract: bindings.ts BuildItemId {${set(tsSide.union)}} != BUILD_ITEM_IDS {${set(tsSide.ids)}} (rule R16)`);
-  const grouped = tsSide.groups.flat();
-  if (grouped.length !== new Set(grouped).size || set(grouped) !== set(tsSide.ids)) {
-    errors.push(`contract: buildItems.ts BUILD_GROUPS {${grouped.join(",")}} must hold every BUILD_ITEM_IDS id exactly once (rule R16)`);
-  }
-  ids.forEach((id, i) => {
+  if (set(tsSide.union) !== tableSet) fail(`bindings.ts BuildItemId {${set(tsSide.union)}} != the C# table's ids {${tableSet}} - an id only one side knows is dropped silently`);
+  if (set(tsSide.ids) !== tableSet || tsSide.ids.length !== ids.length) fail(`bindings.ts BUILD_ITEM_IDS {${tsSide.ids.join(",")}} != the C# table's ids {${tableSet}}`);
+  if (set([...tsSide.prefab.keys()]) !== tableSet) fail(`bindings.ts BUILD_ITEM_PREFAB keys {${set([...tsSide.prefab.keys()])}} != the C# table's ids {${tableSet}}`);
+  if (set(tsSide.iconKeys) !== tableSet || tsSide.iconKeys.length !== ids.length) fail(`buildItems.ts BUILD_ITEM_ICON keys {${set(tsSide.iconKeys)}} != the C# table's ids {${tableSet}} (every item needs its icon)`);
+  for (const id of ids) {
     const p = tsSide.prefab.get(id);
-    if (p !== undefined && p !== prefabs[i]) errors.push(`contract: build id "${id}": C# ItemPrefabNames[${i}] "${prefabs[i]}" != bindings.ts BUILD_ITEM_PREFAB "${p}" (rule R16)`);
-  });
-  const fixed = [["ItemSign", "sign", true], ["ItemLodge", "lodge", true], ["ItemLift", "lift", true], ["ItemBase", "baseStation", false], ["ItemTop", "topStation", false]];
-  for (const [c, id, required] of fixed) {
-    if (!k.has(c)) {
-      if (required) errors.push(`contract: ${at} has no literal const int ${c} (rule R16)`);
-      continue; // ItemBase / ItemTop: optional constants (ch5 section 4.1 declares them)
-    }
-    if (ids[k.get(c)] !== id) errors.push(`contract: ${at} ${c} = ${k.get(c)} but ItemIds[${k.get(c)}] = "${ids[k.get(c)]}", expected "${id}" (rule R16)`);
+    if (p !== undefined && prefabOf.has(id) && p !== prefabOf.get(id)) fail(`build id "${id}": the C# row's prefab "${prefabOf.get(id)}" != bindings.ts BUILD_ITEM_PREFAB "${p}"`);
   }
-  if (!k.has("ItemRunFirst") || !k.has("ItemRunLast")) {
-    errors.push(`contract: ${at} has no literal const int ItemRunFirst / ItemRunLast (rule R16)`);
-  } else {
-    const first = k.get("ItemRunFirst"), last = k.get("ItemRunLast");
-    ids.forEach((id, i) => {
-      const inRange = i >= first && i <= last;
-      if (inRange !== id.startsWith("run")) errors.push(`contract: ${at} ItemIds[${i}] "${id}" is ${inRange ? "inside" : "outside"} ItemRunFirst..ItemRunLast (${first}..${last}) (rule R16)`);
-    });
-  }
-  report.push(`contract R16: ${ids.length} C# build item(s) ${ids.length === tsSide.ids.length ? "=" : "!="} ${tsSide.ids.length} TS id(s); prefabs and run range checked`);
+  const grouped = tsSide.groups.flat();
+  if (grouped.length !== new Set(grouped).size || set(grouped) !== tableSet) fail(`buildItems.ts BUILD_GROUPS {${grouped.join(",")}} must hold every build id exactly once`);
+  if (set(tsSide.liftTypes) !== set([...types.keys()])) fail(`bindings.ts LIFT_TYPE_IDS {${set(tsSide.liftTypes)}} != the C# table's lift types {${set([...types.keys()])}}`);
+
+  let expected = 0, pending = 0;
+  for (const n of names.values()) { if (n.pending) pending++; else expected++; }
+  report.push(`contract R16: ${rows.length} C# build item(s) (${at}) ${rows.length === tsSide.items.length ? "=" : "!="} ${tsSide.items.length} TS row(s); ` +
+    `${names.size} NAMES (${expected} expected, ${pending} pending); ${types.size} lift type(s) with base/top/line; prefabs, kinds, run kinds, groups, icons checked`);
 }
 
 /**

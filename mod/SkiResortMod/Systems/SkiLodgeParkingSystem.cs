@@ -73,6 +73,12 @@
 // 85-96 disables a system whose OnGamePreload throws); OnDestroy completes, flushes and disposes.
 //
 // S1 stage 0 laid down the shell (s1-spec §4.2 step 6); stream C wrote the system (2026-10-05).
+// CATALOG PHASE B (2026-10-11, economy group; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §7.4):
+// the census pairs are the active lodges whose SkiCatalog row has LodgeRoadRule.Base — the ski-day TARGETS (SkiDaySystem
+// claims Base lodges only). Mountain lodges (hut, summit: roadless by design, R9) and patrol huts (never listed by
+// CopyActiveLodges) never get a parking row, so hub row 21 "No parking near the lodge" can never name them. The tier comes
+// from SkiResortAttractivenessSystem.CopyActiveLodgeInfo (seam S5, the same lodge order as CopyActiveLodges); the
+// mountain lodges skipped by the last census are counted in the DUMP's system line. An A-frame-only city is unchanged.
 
 using System;
 using System.Collections.Generic;
@@ -177,6 +183,9 @@ namespace SkiResortMod.Systems
         private readonly List<Entity> m_Drop = new List<Entity>(2);
         private readonly List<Entity> m_Signs = new List<Entity>(4);
         private readonly List<Entity> m_Lodges = new List<Entity>(4);
+        // Catalog Phase B: the snapshot's lodge tiers (seam S5) and the mountain lodges the last census skipped (DUMP).
+        private readonly List<SkiResortAttractivenessSystem.LodgeInfo> m_LodgeInfo = new List<SkiResortAttractivenessSystem.LodgeInfo>(4);
+        private int m_LastMountainSkipped;
         private readonly HashSet<Entity> m_Paired = new HashSet<Entity>();
         private readonly LogWindow m_CensusLog = new LogWindow(Tuning.LogWindowS);
 
@@ -215,7 +224,8 @@ namespace SkiResortMod.Systems
                   .Append(", radius ").Append(SkiParkingRules.RadiusM.ToString("0", CultureInfo.InvariantCulture))
                   .Append(" m, backstop ").Append(SkiParkingRules.BackstopTicks * 16).Append(" frames; last census ")
                   .Append(m_LastLanesVisited).Append(" lane(s) visited, ").Append(m_LastFacilitiesInReach)
-                  .Append(" parking building(s) in reach\n");
+                  .Append(" parking building(s) in reach; mountain lodges skipped (no parking row) ").Append(m_LastMountainSkipped)   // Catalog Phase B
+                  .Append('\n');
                 for (int i = 0; i < m_Order.Count; i++)
                 {
                     if (!m_ByLodge.TryGetValue(m_Order[i], out LodgeParking p))
@@ -391,6 +401,8 @@ namespace SkiResortMod.Systems
             m_Drop.Clear();
             m_Signs.Clear();
             m_Lodges.Clear();
+            m_LodgeInfo.Clear();          // Catalog Phase B
+            m_LastMountainSkipped = 0;
             m_Paired.Clear();
             m_CensusLog.Reset();   // flushed in OnGamePreload; nothing carries over
 
@@ -406,7 +418,7 @@ namespace SkiResortMod.Systems
             }
 
             m_Armed = true;
-            Mod.Log.Info("Parking: ARMED — car spaces within 300 m of each active lodge: street parking lanes (not boarding-only " +
+            Mod.Log.Info("Parking: ARMED — car spaces within 300 m of each active road lodge (mountain lodges and patrol huts get no row): street parking lanes (not boarding-only " +
                          "lanes such as the two-way Gravel Road's and Alley's), lanes and garages of parking lots and halls; " +
                          "not bicycle, service or private spaces; census when the lodge list or the parking count changes, at " +
                          $"least every {SkiParkingRules.BackstopTicks * 16} sim frames; in memory, reset on load");
@@ -461,21 +473,31 @@ namespace SkiResortMod.Systems
                 long t0 = Stopwatch.GetTimestamp();
 
                 // 3. The (lodge, sign) pairs of the attraction snapshot (first sign wins, as CopyActiveLodges does).
+                // Catalog Phase B (round-2-contract §7.4; was CopyActiveLodges): Base road lodges only (the ski-day
+                // targets); mountain lodges are counted for the DUMP and get no row.
                 m_JobLodges.Clear();
                 m_JobSigns.Clear();
                 m_Paired.Clear();
+                int mountain = 0;
                 m_Attractiveness.CopySigns(m_Signs);
                 for (int s = 0; s < m_Signs.Count; s++)
                 {
-                    m_Attractiveness.CopyActiveLodges(m_Signs[s], m_Lodges);
-                    for (int l = 0; l < m_Lodges.Count; l++)
+                    m_Attractiveness.CopyActiveLodgeInfo(m_Signs[s], m_LodgeInfo);
+                    for (int l = 0; l < m_LodgeInfo.Count; l++)
                     {
-                        if (!m_Paired.Add(m_Lodges[l]))
+                        SkiResortAttractivenessSystem.LodgeInfo info = m_LodgeInfo[l];
+                        if (!IsBaseRoadLodge(info.LodgeIndex))
+                        {
+                            mountain++;
                             continue;
-                        m_JobLodges.Add(m_Lodges[l]);
+                        }
+                        if (!m_Paired.Add(info.Lodge))
+                            continue;
+                        m_JobLodges.Add(info.Lodge);
                         m_JobSigns.Add(m_Signs[s]);
                     }
                 }
+                m_LastMountainSkipped = mountain;
                 if (m_JobLodges.Length == 0)
                 {
                     if (m_ByLodge.Count > 0)
@@ -764,7 +786,19 @@ namespace SkiResortMod.Systems
                 return;
             if (m_CensusLog.Count > 0)
                 WriteCensusSummary(UnityEngine.Time.realtimeSinceStartup);
-            Mod.Log.Info("Parking [idle]: no active lodge on a Welcome Sign — nothing counted");
+            // Catalog Phase B: a ski area with mountain lodges only is idle too (they need no parking); the line says so.
+            Mod.Log.Info("Parking [idle]: no active lodge on a Welcome Sign — nothing counted" +
+                         (m_LastMountainSkipped > 0 ? $" ({m_LastMountainSkipped} active mountain lodge(s): roadless by design, no parking row)" : ""));
+        }
+
+        /// <summary>Catalog Phase B (round-2-contract §7.4): a lodge row whose LodgeRoadRule is Base (a ski-day target, needs
+        /// a road and parking). An out-of-range index reads the A-frame row (Base), as the score does.</summary>
+        private static bool IsBaseRoadLodge(int lodgeIndex)
+        {
+            if (SkiCatalog.Lodges.Count == 0)
+                return true;
+            LodgeDef def = lodgeIndex >= 0 && lodgeIndex < SkiCatalog.Lodges.Count ? SkiCatalog.Lodges[lodgeIndex] : SkiCatalog.Lodges[0];
+            return def.RoadRule == LodgeRoadRule.Base;
         }
 
         // ── helpers ───────────────────────────────────────────────────────────────────────────────

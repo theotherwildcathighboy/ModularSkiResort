@@ -76,8 +76,52 @@
 //                     MaxBandRows, then one Factor row per efficiency factor that costs at least
 //                     FactorRowMinLossPct points (Round S1 F1b; severity 0, never in the band)
 //
+// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.1 with
+// round-2-contract-skeptic.md MUST 1, lift group):
+//   RideTimeS(loop, speed) — loop / 2 / speed (−1 without a finite loop > 0 or a speed > 0); RideTimeS(loop) stays
+//                     = RideTimeS(loop, ChairSpeedMps) (CG-2);
+//   HubProblemCode    APPEND MixedLiftTypes = 23, SummitLodgeNotLiftServed = 24, SchoolNoGreenRun = 25;
+//   HubProblems.Build a lift row with Mixed writes MixedLiftTypes (severity 2, its line item by type) instead of
+//                     LiftUnfinished; every other lift row's build item comes from the row's type (LineItemOf /
+//                     StationItemOf; fixed-grip = today's "lift" / "baseStation" / "topStation"); NoLift keeps
+//                     "baseStation"; SummitLodgesNotServed > 0 → row 24 (severity 1, count); SchoolNoGreenRun → row 25
+//                     (severity 1);
+//   HubLiftHintRow.Type — the hub calls LiftNoPair per lift type over the rows of that type (pure rule unchanged);
+//   LodgePart         = r.LodgeApplied (seam S4: the ladder's season value; for A-frames = LodgeBase × LodgeShare);
+//   AttractionWithLodges(r, n) (MUST 1) = r.AOpen − r.LodgeApplied + LodgeBaseOf(n) × (summer ? SummerLodgeShare : 1):
+//                     n A-frames in place of the area's applied lodge base — no base × share reconstruction, so a
+//                     SUMMER area with no lodge keeps today's "if fixed" number (its LodgeApplied is 0);
+//   AttractionWithLodgeApplied(r, applied) = r.AOpen − r.LodgeApplied + applied: the stats system's IfLodgesOn, with
+//                     the ladder's applied value of the area's lodges all switched on (SkiResortScore.LodgeBase).
+//   Both clamp to 0..MaxAttraction before RoundToEven, at the Result's efficiency, as before.
+//
+// CATALOG PHASE C (2026-10-11, docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §6.1 / C5 with
+// round-3-contract-skeptic.md MUST 4, rules group): the tram (a Shuttle lift type) gets its two hub numbers from the
+// SAME pure profile the mover uses (ShuttleProfile.cs), so the hub shows what the player sees:
+//   ShuttleRideTimeS(path, v, a, dwell) — ShuttleProfile.TripTimeS (dock to dock, the trapezoid's ramps included, the
+//                     dwell excluded: C5, "time riding" as for every lift type); −1 unless ShuttleProfile.Valid(path, v,
+//                     a, dwell). The dwell is a PARAMETER (MUST 4) and ShuttleRideIncludesDwell (false) is the one switch:
+//                     the brief said "ride time L/v + dwell"; C5 departs from it and the choice is Richard's (open
+//                     decision, code-round-3/build-rules.md) — flipping it changes this one constant, HubRulesTests J's
+//                     ride oracles and the LIFT_RIDE_TIP wording, nothing else;
+//   ShuttleCapacityPerHour(cabins, seats, path, v, a, dwell) — ShuttleProfile.CapacityPerHour: cabins × seats × 3600 /
+//                     (2 × (trip + dwell)) (the cabin is unavailable while it dwells); −1 when invalid, cabins ≤ 0 or
+//                     seats ≤ 0. The brief's "pax × 3600 / (L/v + dwell)" is the a → ∞ limit with both cabins (HJ-6).
+//   Both widen their float inputs to double once and narrow the result once (the float oracles HJ-1..HJ-5 are bit-exact).
+//
+// PHASE D (2026-10-11, docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §2.6, D9, seam S3; rules group):
+// Richard's re-ruling, DECISIONS 171 — an unpowered lift of every type carries no guests, so it shows no capacity (Richard's
+// O2 tram gate generalised to every type):
+//   LiftCapacityShown(capacity, carries) — capacity when the lift carries (LiftServedRule.Carries: complete, powered at its
+//                     base station, not closed), else −1 (the UI's "–", LiftTable.tsx). A carrying row returns its argument
+//                     bit for bit (ResortBatch HK-1), so a powered lift's number and the area sum are unchanged. Status
+//                     (LiftStatusOf: "No power"), the chairs count and the ride time are not touched by it.
+//
 // PURE FILE: `using System;` and `using System.Collections.Generic;` only, plus SkiResortScore (pure,
-// ch1). No Entities, no Game, no Unity.Mathematics. net48 traps: no Math.Clamp, MathF, double.IsFinite,
+// ch1) and SkiCatalog consts (Catalog Phase A, 2026-10-11: ChairSpeedMps and LiftLinePerKm alias
+// SkiCatalog.FixedGrip — compile-time literals; SkiCatalog.cs is linked wherever this file is, tests/ResortBatch),
+// and (Catalog Phase C) the pure ShuttleProfile.cs, linked into tests/ResortBatch next to this file.
+// No Entities, no Game, no Unity.Mathematics. net48 traps: no Math.Clamp, MathF, double.IsFinite,
 // Span<T>; private Clamp and IsFinite below. No allocation once the caller's lists have grown.
 
 using System;
@@ -109,6 +153,7 @@ namespace SkiResortMod.Systems
         RunsFlat = 17,   // second pass (e1-spec §2.5 H1): appended after Factor
         SignNoRoad = 18, LodgeNoRoad = 19,   // Round F7 D5 (field-test-7-fixes.md): appended (gate R17)
         SkiDaysCannotReach = 20, NoParkingNearLodge = 21, LodgeNotSlopeside = 22,   // Round S1 D28 (ski-days ch4 §C.1): appended
+        MixedLiftTypes = 23, SummitLodgeNotLiftServed = 24, SchoolNoGreenRun = 25,   // Catalog Phase B (round-2-contract §6.1): appended
     }
 
     /// <summary>bindings.ts SKI_DAY_STATE (gate R17): ResortLive.skiDaysState, the Guests view's state line (Round
@@ -118,16 +163,19 @@ namespace SkiResortMod.Systems
     /// <summary>Rule 7's verdict (D36; C# only, not in the contract).</summary>
     public enum FollowVerdict : byte { Follow = 0, HubClosed = 1, RuleSwitched = 2, UserJustSelected = 3, TooSoon = 4 }
 
-    /// <summary>One lift row of the shown area for LiftNoPair (State = the stats LIFT_STATE).</summary>
-    public struct HubLiftHintRow { public int State; public bool HasBase, HasTop; }
+    /// <summary>One lift row of the shown area for LiftNoPair (State = the stats LIFT_STATE). Catalog Phase B: Type = the
+    /// row's SkiCatalog.Lifts index — the hub calls LiftNoPair once per lift type with that type's rows.</summary>
+    public struct HubLiftHintRow { public int State; public bool HasBase, HasTop; public byte Type; }
 
     /// <summary>One efficiency factor below 100 % (worst first): the EfficiencyFactor enum NAME and the
     /// game's effect number (FactorEffectPct).</summary>
     public struct HubProblemFactor { public string Name; public int EffectPct; }
 
     /// <summary>One lift row of the area in `lifts` order (State = the stats LIFT_STATE). CustomName (E1
-    /// fixer pass 2) = the row's name is a station's custom name (LiftStats.CustomName), not "Lift N".</summary>
-    public struct HubProblemLift { public int State; public bool Powered, HasBase, HasTop, CustomName; }
+    /// fixer pass 2) = the row's name is a station's custom name (LiftStats.CustomName), not "Lift N". Catalog Phase B
+    /// (round-2-contract §6.1): Type = the row's SkiCatalog.Lifts index (its build items; 0 = fixed-grip, the struct
+    /// default, so every pre-Phase-B constructor keeps today's items), Mixed = its component spans two lift types.</summary>
+    public struct HubProblemLift { public int State; public bool Powered, HasBase, HasTop, CustomName; public byte Type; public bool Mixed; }
 
     /// <summary>The inputs of HubProblems.Build for ONE area (ch5 §5.6).</summary>
     public struct HubProblemInput
@@ -149,6 +197,11 @@ namespace SkiResortMod.Systems
         public int LodgesNotSlopeside;           // D10: active lodges more than 800 m from the area's runs and stations
         // Round S1 F1: the band showed the Efficiency row on this area's previous build (hysteresis state, ch4 §C.4).
         public bool EfficiencyRowWasOn;
+        // Catalog Phase B (round-2-contract §6.1, §6.4): active lodges whose row counts more when summit-served
+        // (MuSummit > Mu) and that no complete, powered lift top reaches within 300 m; the school is active and runs
+        // count but none of them is a counted green run (its +12 and its demand share need one, D13).
+        public int SummitLodgesNotServed;
+        public bool SchoolNoGreenRun;
     }
 
     /// <summary>One problems row (band or Factor) before the stats system adds the area's entities.</summary>
@@ -205,13 +258,18 @@ namespace SkiResortMod.Systems
     /// <summary>The hub's pure rules (ch5 §6.1-6.2). Header RULES.</summary>
     public static class HubRules
     {
-        public const float ChairSpeedMps = 2.5f;        // = ChairPinSystem.ChairSpeedMps (checked at the stats arm, ch5 §5.8)
+        // Catalog Phase A (ext row 15; was HubRules.cs:208 = 2.5f, the second copy of the chair speed, compared with
+        // ChairPinSystem's at the stats arm, ch5 §5.8): an alias of SkiCatalog.FixedGrip.SpeedMps, as ChairPinSystem's is
+        // — one source, so the runtime compare is gone (tests/ResortBatch CatalogGuardTests CG-1, CG-2).
+        public const float ChairSpeedMps = SkiCatalog.FixedGrip.SpeedMps;
         public const float MinCountedFraction = 0.25f;  // never project tickets from less than a quarter month
         public const int EfficiencyProblemPct = 90;     // the band shows efficiency at or below this
         public const int EfficiencyClearPct = 95;       // Round S1 F1: a shown Efficiency row stays until this (FT8: 98 flaps)
         public const int FactorRowMinLossPct = 5;       // Round S1 F1b (ruling R-Q2): a Factor row only from a 5-point loss
         public const int MaxBandRows = 8;
-        public const int LiftLinePerKm = 7500;          // D24: 60 per 8 m piece × 125 pieces per km (ground level)
+        // Catalog Phase A (ext row 16; was HubRules.cs:214 = 7500): D24's documented hand copy (60 per 8 m piece × 125
+        // pieces per km, ground level) lives in SkiCatalog.FixedGrip.LinePerKm; this aliases it (CG-1).
+        public const int LiftLinePerKm = SkiCatalog.FixedGrip.LinePerKm;
         public const int TicksPerDay = 262144;          // TimeSystem.kTicksPerDay (TimeSystem.cs:18)
         public const float FollowMinIntervalS = 2f;     // D36: at most one follow per 2 s of real time
         public const float FollowQuietAfterUserS = 2f;  // D36: no follow within 2 s of the player's own switch
@@ -283,12 +341,57 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Seconds a chair takes from base to top: half the loop at ChairSpeedMps; −1 without a
-        /// finite loop &gt; 0.</summary>
+        /// finite loop &gt; 0. Catalog Phase B: = RideTimeS(loopM, ChairSpeedMps) (CG-2).</summary>
         public static float RideTimeS(float loopM)
         {
-            if (!IsFiniteF(loopM) || !(loopM > 0f))
+            return RideTimeS(loopM, ChairSpeedMps);
+        }
+
+        /// <summary>Catalog Phase B (round-2-contract §6.1): seconds a carrier takes from base to top on a loop of
+        /// <paramref name="loopM"/> at <paramref name="speedMps"/> (LiftTypeDef.SpeedMps): half the loop / speed; −1
+        /// without a finite loop &gt; 0 or a finite speed &gt; 0.</summary>
+        public static float RideTimeS(float loopM, float speedMps)
+        {
+            if (!IsFiniteF(loopM) || !(loopM > 0f) || !IsFiniteF(speedMps) || !(speedMps > 0f))
                 return -1f;
-            return loopM / 2f / ChairSpeedMps;
+            return loopM / 2f / speedMps;
+        }
+
+        /// <summary>Catalog Phase C (round-3-contract C5 with round-3-contract-skeptic MUST 4): false = a tram row's ride
+        /// time is the trip alone (C5, as built); true = trip + dwell (the brief's "L/v + dwell"). OPEN DECISION for
+        /// Richard (code-round-3/build-rules.md): this constant is the whole flip (plus HubRulesTests J's ride oracles and
+        /// the LIFT_RIDE_TIP wording).</summary>
+        public const bool ShuttleRideIncludesDwell = false;
+
+        /// <summary>Catalog Phase C (round-3-contract §6.1, C5): seconds a tram cabin rides dock to dock on a path of
+        /// <paramref name="pathM"/> (ShuttleView.PathM) at line speed <paramref name="speedMps"/> with the trapezoid's
+        /// <paramref name="accelMps2"/> ramps (ShuttleProfile.TripTimeS: 1 km at 10 m/s, 0.8 m/s² = 112.5 s); the dwell is
+        /// added only when ShuttleRideIncludesDwell. −1 unless ShuttleProfile.Valid(path, speed, accel, dwell).</summary>
+        public static float ShuttleRideTimeS(float pathM, float speedMps, float accelMps2, float dwellS)
+        {
+            if (!ShuttleProfile.Valid(pathM, speedMps, accelMps2, dwellS))
+                return -1f;
+            double tripS = ShuttleProfile.TripTimeS(pathM, speedMps, accelMps2);
+            return (float)(ShuttleRideIncludesDwell ? tripS + dwellS : tripS);
+        }
+
+        /// <summary>Catalog Phase C (round-3-contract §6.1, C5): riders an hour of a tram with <paramref name="cabins"/>
+        /// cabins on its path (ShuttleView.CabinsOnPath) of <paramref name="seats"/> seats (LiftTypeDef.SeatsPerCarrier):
+        /// ShuttleProfile.CapacityPerHour = cabins × seats × 3600 / (2 × (trip + dwell)) (2 cabins × 100 at 1 km: 2,087).
+        /// −1 when the profile is invalid, cabins ≤ 0 or seats ≤ 0.</summary>
+        public static float ShuttleCapacityPerHour(int cabins, int seats, float pathM, float speedMps, float accelMps2, float dwellS)
+        {
+            double capacity = ShuttleProfile.CapacityPerHour(cabins, seats, pathM, speedMps, accelMps2, dwellS);
+            return capacity < 0.0 ? -1f : (float)capacity;
+        }
+
+        /// <summary>Phase D (round-4-contract §2.6, D9; seam S3): the capacity the hub shows for a lift row —
+        /// <paramref name="capacity"/> when the lift carries (LiftServedRule.Carries: complete, powered at its base station,
+        /// not closed), else −1 ("–"). The caller passes its Loop or Shuttle capacity (the tram keeps its own O2 Running test
+        /// as well); a carrying row gets its argument back bit for bit (HK-1).</summary>
+        public static float LiftCapacityShown(float capacity, bool carries)
+        {
+            return carries ? capacity : -1f;
         }
 
         public static int OpenSharePct(double runsValue, double runsValueFull)
@@ -364,14 +467,32 @@ namespace SkiResortMod.Systems
             return ClampInt(net);
         }
 
-        /// <summary>The model's A with <paramref name="lodges"/> active lodges, everything else as in
-        /// <paramref name="r"/> (ch5 §6.2; the problems' "if fixed" numbers). Clamp before rounding.</summary>
+        /// <summary>The model's A with <paramref name="lodges"/> active A-frame lodges, everything else as in
+        /// <paramref name="r"/> (ch5 §6.2; the problems' "if fixed" numbers — IfOneLodge). Clamp before rounding.
+        /// Catalog Phase B (round-2-contract-skeptic.md MUST 1; was `r.AOpen − r.LodgeBase × r.LodgeShare +
+        /// LodgeBaseOf(n) × r.LodgeShare`, HubRules.cs:381): r.AOpen − r.LodgeApplied + LodgeBaseOf(n) × the A-frame's
+        /// season share (SummerLodgeShare in summer mode, else 1) — no base × share reconstruction, so a summer area
+        /// with no lodge keeps today's value whatever LodgeShare the Result reports.</summary>
         public static int AttractionWithLodges(in SkiResortScore.Result r, int lodges)
         {
             if (lodges <= 0)
                 return 0;
+            bool summer = (r.Flags & SkiResortScore.ScoreFlags.SummerMode) != 0;
+            double share = summer ? SkiResortScore.SummerLodgeShare : 1.0;
+            return AttractionWithLodgeApplied(in r, SkiResortScore.LodgeBaseOf(lodges) * share);
+        }
+
+        /// <summary>Catalog Phase B (round-2-contract §6.1, seam S4; MUST 1): the model's A with the area's applied
+        /// lodge base replaced by <paramref name="lodgeApplied"/> (a season value: the ladder's applied value of the
+        /// lodges the "if fixed" assumes — SkiResortStatsSystem's IfLodgesOn passes SkiResortScore.LodgeBase over every
+        /// lodge of the area switched on), everything else as in <paramref name="r"/>: (r.AOpen − r.LodgeApplied +
+        /// lodgeApplied) × efficiency, clamped to 0..MaxAttraction BEFORE RoundToEven. A non-finite or negative
+        /// <paramref name="lodgeApplied"/> reads 0.</summary>
+        public static int AttractionWithLodgeApplied(in SkiResortScore.Result r, double lodgeApplied)
+        {
             double eff = r.Efficiency > 0.0 ? r.Efficiency : 0.0;   // NaN → 0
-            double aOpen = r.AOpen - r.LodgeBase * r.LodgeShare + SkiResortScore.LodgeBaseOf(lodges) * r.LodgeShare;
+            double applied = IsFiniteD(lodgeApplied) && lodgeApplied > 0.0 ? lodgeApplied : 0.0;
+            double aOpen = r.AOpen - FiniteOr0(r.LodgeApplied) + applied;
             double raw = aOpen * eff;
             if (!(raw >= 0.0))
                 raw = 0.0;
@@ -407,10 +528,12 @@ namespace SkiResortMod.Systems
             return !(loneBase && loneTop);
         }
 
-        /// <summary>The receipt's "Lodge base": r.LodgeBase × r.LodgeShare (non-finite → 0).</summary>
+        /// <summary>The receipt's "Lodge base": the ladder's season value r.LodgeApplied (non-finite → 0). Catalog Phase B
+        /// (round-2-contract §6.1, seam S4; was r.LodgeBase × r.LodgeShare, HubRules.cs:420 — equal for A-frames, where
+        /// LodgeApplied = LodgeBase × 0.5 in summer exactly). LodgePart + Terrain = AOpen (= LodgeApplied + K√S).</summary>
         public static double LodgePart(in SkiResortScore.Result r)
         {
-            return FiniteOr0(r.LodgeBase * r.LodgeShare);
+            return FiniteOr0(r.LodgeApplied);
         }
 
         /// <summary>The receipt's "Terrain": r.K × √r.S (S ≤ 0 or NaN → 0). LodgePart + Terrain = AOpen.</summary>
@@ -586,31 +709,25 @@ namespace SkiResortMod.Systems
             // else "Lift N" numbered by top-station height with rows without a top last, SkiResortAggregate
             // .LiftOrdinals) — the base's row when the base has a custom name, else the top's row. At the
             // base's row the band named "Lift 2" a lift that the hub calls "Lift 1" once its line is drawn.
+            // Catalog Phase B (round-2-contract §6.1): the pairing runs PER LIFT TYPE — a lone fixed-grip base never
+            // pairs with a lone detachable top (that line would be Mixed). For a fixed-grip-only area (every Type 0)
+            // the counts, the pairs and the rows are exactly today's. A Mixed row is not an unfinished line of its
+            // stations' kind, so it does not count as one. No allocation: per-type counts are rescans (an area has a
+            // handful of lift rows).
             int lifts = input.Lifts != null ? input.Lifts.Count : 0;
-            int loneBases = 0, loneTops = 0;
-            bool unfinishedBase = false, unfinishedTop = false;
             for (int k = 0; k < lifts; k++)
             {
                 HubProblemLift l = input.Lifts[k];
-                bool baseOnly = l.HasBase && !l.HasTop, topOnly = l.HasTop && !l.HasBase;
-                if (l.State == 4)
+                // Catalog Phase B (round-2-contract §6.1): the build items come from the row's lift type (the fixed-grip
+                // row's are today's "lift" / "topStation" / "baseStation"; an unknown type falls back to them).
+                string lineItem = LineItem(l.Type);
+                if (l.Mixed && l.State != 0 && l.State != 1)
                 {
-                    if (baseOnly)
-                        loneBases++;
-                    else if (topOnly)
-                        loneTops++;
+                    // Catalog Phase B (D18): a component that mixes our lift types is Unfinished in the census; the band
+                    // names the cause (redraw the line with the stations' kind) instead of "unfinished".
+                    output.Add(Row(HubProblemCode.MixedLiftTypes, 2, liftIndex: k, buildItem: lineItem));
+                    continue;
                 }
-                else if (l.State == 3)
-                {
-                    unfinishedBase |= baseOnly;
-                    unfinishedTop |= topOnly;
-                }
-            }
-            int pairs = Math.Min(loneBases, loneTops);
-            int seenBases = 0, seenTops = 0;
-            for (int k = 0; k < lifts; k++)
-            {
-                HubProblemLift l = input.Lifts[k];
                 switch (l.State)
                 {
                     case 0:
@@ -621,41 +738,45 @@ namespace SkiResortMod.Systems
                             output.Add(Row(HubProblemCode.LiftChairsStopped, 1, liftIndex: k));
                         break;
                     case 2:
-                        output.Add(Row(HubProblemCode.LiftSectionMissing, 2, liftIndex: k, buildItem: "lift"));
+                        output.Add(Row(HubProblemCode.LiftSectionMissing, 2, liftIndex: k, buildItem: lineItem));
                         break;
                     case 3:
-                        output.Add(Row(HubProblemCode.LiftUnfinished, 2, liftIndex: k, buildItem: "lift"));
+                        output.Add(Row(HubProblemCode.LiftUnfinished, 2, liftIndex: k, buildItem: lineItem));
                         break;
                     case 4:
                         if (l.HasBase && l.HasTop)   // defensive: the census does not build this row (above)
-                            output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 0, buildItem: "lift"));
+                            output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 0, buildItem: lineItem));
                         else if (l.HasBase)
                         {
-                            seenBases++;
+                            int pairs = Math.Min(CountLone(input.Lifts, l.Type, true, lifts), CountLone(input.Lifts, l.Type, false, lifts));
+                            int seenBases = CountLone(input.Lifts, l.Type, true, k + 1);   // this base's 1-based rank
                             if (seenBases <= pairs)
                             {
                                 if (l.CustomName)   // pass 2: the finished lift keeps the base's name
-                                    output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 0, buildItem: "lift"));
+                                    output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 0, buildItem: lineItem));
                             }
-                            else if (unfinishedTop)
-                                output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 0, buildItem: "lift"));
+                            else if (UnfinishedLine(input.Lifts, l.Type, false))
+                                output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 0, buildItem: lineItem));
                             else
-                                output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 1, buildItem: "topStation"));
+                                output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 1,
+                                    buildItem: StationItem(l.Type, StationRole.Top)));
                         }
                         else if (l.HasTop)
                         {
-                            seenTops++;
+                            int pairs = Math.Min(CountLone(input.Lifts, l.Type, true, lifts), CountLone(input.Lifts, l.Type, false, lifts));
+                            int seenTops = CountLone(input.Lifts, l.Type, false, k + 1);    // this top's 1-based rank
                             if (seenTops <= pairs)
                             {
                                 // pass 2: listed here unless its pair's base has a custom name (listed there).
-                                if (!LoneBaseNamed(input.Lifts, seenTops))
-                                    output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 0, buildItem: "lift"));
+                                if (!LoneBaseNamed(input.Lifts, l.Type, seenTops))
+                                    output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 0, buildItem: lineItem));
                                 break;
                             }
-                            if (unfinishedBase)
-                                output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 0, buildItem: "lift"));
+                            if (UnfinishedLine(input.Lifts, l.Type, true))
+                                output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 0, buildItem: lineItem));
                             else
-                                output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 2, buildItem: "baseStation"));
+                                output.Add(Row(HubProblemCode.StationsOnly, 1, liftIndex: k, detail: 2,
+                                    buildItem: StationItem(l.Type, StationRole.Base)));
                         }
                         break;
                 }
@@ -689,6 +810,15 @@ namespace SkiResortMod.Systems
             if (lodgesFar > 0 && input.Runs > 0)
                 output.Add(Row(HubProblemCode.LodgeNotSlopeside, 1, count: lodgesFar));
 
+            // 8c. Catalog Phase B (round-2-contract §6.1): summit lodges no working lift top reaches (they count their
+            // summit-served summer share only within 300 m, R11), counted up to the area's lodges; the ski school
+            // without a counted green run (its +12 and its demand factor need one, D13). Both dim (severity 1).
+            int summitNotServed = Math.Min(input.SummitLodgesNotServed, Math.Max(0, input.Lodges));
+            if (summitNotServed > 0)
+                output.Add(Row(HubProblemCode.SummitLodgeNotLiftServed, 1, count: summitNotServed));
+            if (input.SchoolNoGreenRun)
+                output.Add(Row(HubProblemCode.SchoolNoGreenRun, 1));
+
             SortAndCut(output);
 
             // 9. Factor rows (only with a result), input order. Round S1 F1b (orchestrator ruling R-Q2): only a factor
@@ -709,18 +839,67 @@ namespace SkiResortMod.Systems
         /// <summary>E1 fixer pass 2: the CustomName of the <paramref name="n"/>-th (1-based) lone base of state
         /// 4 in `lifts` order (false when there is none). O(lifts) per call, no allocation; called once per
         /// paired top, and an area has a handful of lift rows.</summary>
-        private static bool LoneBaseNamed(List<HubProblemLift> lifts, int n)
+        private static bool LoneBaseNamed(List<HubProblemLift> lifts, byte type, int n)
         {
+            // Catalog Phase B: the n-th lone base OF THE SAME LIFT TYPE (pairing per type, Build step 4).
             int seen = 0;
             for (int k = 0; k < lifts.Count; k++)
             {
                 HubProblemLift l = lifts[k];
-                if (l.State != 4 || !l.HasBase || l.HasTop)
+                if (l.State != 4 || !l.HasBase || l.HasTop || l.Type != type)
                     continue;
                 if (++seen == n)
                     return l.CustomName;
             }
             return false;
+        }
+
+        /// <summary>Catalog Phase B: lone stations (state 4, exactly one of HasBase / HasTop) of lift type
+        /// <paramref name="type"/>, bases when <paramref name="bases"/> else tops, among the first
+        /// <paramref name="upTo"/> rows. No allocation.</summary>
+        private static int CountLone(List<HubProblemLift> lifts, byte type, bool bases, int upTo)
+        {
+            int n = 0;
+            for (int k = 0; k < upTo && k < lifts.Count; k++)
+            {
+                HubProblemLift l = lifts[k];
+                if (l.State != 4 || l.Type != type)
+                    continue;
+                if (bases ? l.HasBase && !l.HasTop : l.HasTop && !l.HasBase)
+                    n++;
+            }
+            return n;
+        }
+
+        /// <summary>Catalog Phase B: an Unfinished (state 3), not Mixed, row of lift type <paramref name="type"/> that
+        /// carries exactly one station — its base when <paramref name="fromBase"/>, else its top (a line drawn from that
+        /// station, waiting for the other kind). The E1 F9 rule per type.</summary>
+        private static bool UnfinishedLine(List<HubProblemLift> lifts, byte type, bool fromBase)
+        {
+            for (int k = 0; k < lifts.Count; k++)
+            {
+                HubProblemLift l = lifts[k];
+                if (l.State != 3 || l.Mixed || l.Type != type)
+                    continue;
+                if (fromBase ? l.HasBase && !l.HasTop : l.HasTop && !l.HasBase)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>Catalog Phase B: the row type's LINE build item ("lift", "liftDetachable", …); an unknown type reads
+        /// the fixed-grip "lift" (SkiCatalog.LineItemOf returns null out of range).</summary>
+        private static string LineItem(byte type)
+        {
+            return SkiCatalog.LineItemOf(type) ?? SkiCatalog.FixedGrip.BuildItemId;
+        }
+
+        /// <summary>Catalog Phase B: the row type's base / top STATION build item ("baseStation", "topStationGondola",
+        /// …); an unknown type reads the fixed-grip station's.</summary>
+        private static string StationItem(byte type, StationRole role)
+        {
+            return SkiCatalog.StationItemOf(type, role) ?? SkiCatalog.StationItemOf(0, role) ??
+                   (role == StationRole.Base ? "baseStation" : "topStation");
         }
 
         private static HubProblem Row(HubProblemCode code, byte severity, int liftIndex = -1, int count = -1, int pct = -1,

@@ -126,6 +126,22 @@ namespace SkiResortMod
             // and the hub. Logs the climate constants once per load. Not a stub (E1 fixer F20).
             updateSystem.UpdateAt<SnowLineSystem>(SystemUpdatePhase.GameSimulation);
 
+            // Prefab catalog (Catalog Phase A; docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md): every
+            // lift, station, lodge, sign and run prefab NAME lives in the pure SkiCatalog.cs; this system resolves them
+            // lazily on the first query after each Game / Editor load (OnGamePreload invalidates for those modes ONLY —
+            // a main-menu preload keeps the last load's views: GameManager.cs:1023 fires it before every load's
+            // deserialization, :1126 completes the load; skeptic M1), revalidates the cached prefab entities once per
+            // frame (PrefabSystem.UpdatePrefabs gives an updated prefab a new entity and tags the old one Deleted,
+            // PrefabSystem.cs:766-824) and writes one PrefabCatalog [arm] line per load. Registered like
+            // CursorAimSystem: Enabled = false, no per-frame work, the phase is NOT load-bearing (load hooks fire for a
+            // disabled system, GameSystemBase.cs:27-29, :60-70); consumers reach it with GetOrCreateSystemManaged in
+            // their OnCreate, so registration order is not load-bearing either.
+            // Catalog Phase B (docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §1-§2): 30 names — 4 lift
+            // types (line + carrier each), the marker, 8 stations, 5 lodge tiers, the school, 2 patrol huts, the sign, 4
+            // runs — 11 expected and 19 pending (designed, not imported yet: a MISSING pending name is an Info line), and
+            // the ONE 25-row build-item table; counts are computed in its "created" and [arm] lines.
+            updateSystem.UpdateAt<SkiPrefabCatalogSystem>(SystemUpdatePhase.GameSimulation);
+
             // Chair pinning (milestone 1: static). Phase choice is load-bearing:
             // SubObjectSystem spawns/moves chairs at Modification2B, LaneSystem finalizes the
             // cable-lane curves at Modification4 (ModificationBarrier4) — at Modification4B both
@@ -492,6 +508,18 @@ namespace SkiResortMod
             // :278-292; the SkiRunGateCascadeSystem precedent above), but the anchor must stay at
             // Modification4B or the census silently never runs.
             updateSystem.UpdateBefore<LiftCensusSystem, ChairPinSystem>(SystemUpdatePhase.Modification4B);
+
+            // Catalog Phase C (docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §4.2): the tram shuttle mover
+            // (moves the two cabins hosted on a tram base station along the two track ropes; no save data). Anchor is
+            // load-bearing: at Modification4B the cabins exist in their final vanilla state (SubObjectSystem, Modification2B,
+            // SystemOrder.cs:131, re-hosts them on a station update and its barrier plays at the end of 2B, :88), the
+            // track-rope lanes are final (LaneSystem, Modification4, :155), and our Transform write lands before
+            // Game.Objects.SearchSystem (Modification5, :197), UpdateGroupSystem (:214) and PreCulling (:633). AFTER
+            // LiftCensusSystem so the census rows (Complete / Mixed / Revision) are this frame's. A mod-to-mod anchor recurses
+            // (UpdateSystem.cs:178-181 registers under the anchor, :278-292; AddSystemUpdate :382-441 adds a system's
+            // same-phase before-entries, then itself, then its after-entries): census (anchored before ChairPin) → this →
+            // ChairPinSystem. The phase must stay Modification4B or the anchor is skipped and the system silently never runs.
+            updateSystem.UpdateAfter<TramShuttleSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
 
             // Lift park emitter (§5.3 OD-6 (a); I-2's fix of a spec error, registration added by the
             // integrator 2026-10-03). The census (4B) only QUEUES the surviving sections of an opened lift:

@@ -15,6 +15,10 @@
  *     Pen: rename(row.entity, text) - C# renames the base station, else the top station, and refuses
  *     (with a log line) a row with no station; one row renames at a time.
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, lifts$; local focused$.
+ *   - Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; round-2-contract.md section 8.5): while the
+ *     shown area's rows span two or more lift types (hubRules.liftTypesOf), each row shows its type word
+ *     (LiftLine2 `typeWords`); the totals row's tooltip is LIFTS_TOTAL_CAPACITY_TIP (it sums several types, so the
+ *     per-type LIFT_CAPACITY_TIP with {SEATS} / {SPEED} would not fit it).
  */
 import { useCallback, useMemo, useState } from "react";
 import type { RefObject } from "react";
@@ -23,9 +27,9 @@ import { Unit } from "cs2/l10n";
 import { entityId, hubTriggers, lifts$, resorts$, selectedResort$ } from "../bindings";
 import type { LiftRow } from "../bindings";
 import { useT } from "../l10n";
-import { loneStations, partnerPlaced } from "./hubRules";
+import { liftTypesOf, loneStations, partnerPlaced } from "./hubRules";
 import { focused$ } from "./hubState";
-import { HUB_FMT, HUB_LOC, LIFT_STATUS_TEXT } from "./hubText";
+import { HUB_FMT, HUB_LOC, LIFT_STATUS_TEXT, LIFT_TYPE } from "./hubText";
 import { LiftLine2, liftId } from "./LiftTable";
 import { Divider, InfoLine, LocText, Num, numArg } from "./parts";
 import { currentResort, liftsOf, resortEntries } from "./resortData";
@@ -40,6 +44,8 @@ export function LiftsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): 
   const [renaming, setRenaming] = useState<string | null>(null);
 
   const words = useMemo(() => LIFT_STATUS_TEXT.map((e) => t(e)), [t]);
+  // Contract 6: the type words' StableWidth samples (every known type, so a row's cell never changes width).
+  const allTypeWords = useMemo(() => Object.keys(LIFT_TYPE).map((k) => t(LIFT_TYPE[k])), [t]);
   const onPick = useCallback((row: LiftRow) => {
     focused$.update({ kind: "lift", entity: row.entity, top: row.top });
     hubTriggers.focusLift(row.entity, row.top);
@@ -58,6 +64,7 @@ export function LiftsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): 
   const lifts = liftsOf(liftRows, selected);
   // E1 fixer (F9): lone stations pair across rows (the census never puts both on one row).
   const lone = loneStations(lifts);
+  const typeWords = liftTypesOf(lifts).length >= 2 ? allTypeWords : null;
   const focusedId = focused.kind === "lift" ? `${entityId(focused.entity)}/${entityId(focused.top)}` : "";
   const keyCount = new Map<string, number>();
 
@@ -78,6 +85,7 @@ export function LiftsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): 
                 partner={partnerPlaced(l, lone)}
                 t={t}
                 words={words}
+                typeWords={typeWords}
                 focused={id === focusedId}
                 renaming={seen === 0 && id === renaming}
                 onPick={onPick}
@@ -97,7 +105,7 @@ export function LiftsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): 
       <InfoLine
         label={t(HUB_LOC.liftsTotalCapacity)}
         value={row && row.capacityPerHour >= 0 ? <LocText entry={HUB_FMT.capacityValue} args={{ CAP: numArg(row.capacityPerHour, Unit.Integer) }} /> : "–"}
-        tip={t(HUB_LOC.liftCapacityTip)}
+        tip={t(HUB_LOC.liftsTotalCapacityTip)}
       />
     </>
   );

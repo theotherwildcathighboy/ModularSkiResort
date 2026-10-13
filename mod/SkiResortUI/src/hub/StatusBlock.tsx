@@ -174,6 +174,10 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "skiDaysCannotReach": return <>{t(HUB_LOC.problemSkiDaysCannotReach)}</>;
     case "noParkingNearLodge": return <>{t(HUB_LOC.problemNoParkingNearLodge)}</>;
     case "lodgeNotSlopeside": return <>{t(HUB_LOC.problemLodgeNotSlopeside)}</>;
+    // Catalog Phase B (round-2-contract §8.5, codes 23-25; integrator, patch from build-hub.md §6)
+    case "mixedLiftTypes": return <LocText entry={HUB_FMT.problemMixedLiftTypes} args={{ NAME }} />;
+    case "summitLodgeNotLiftServed": return <LocText entry={HUB_FMT.problemSummitLodgeNotLiftServed} args={{ N }} />;
+    case "schoolNoGreenRun": return <>{t(HUB_LOC.problemSchoolNoGreenRun)}</>;
     default: return <>{"–"}</>;
   }
 }
@@ -206,6 +210,9 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "skiDaysCannotReach": body = t(HUB_LOC.problemTipSkiDaysCannotReach); break;
     case "noParkingNearLodge": body = t(HUB_LOC.problemTipNoParkingNearLodge); break;
     case "lodgeNotSlopeside": body = t(HUB_LOC.problemTipLodgeNotSlopeside); break;
+    case "mixedLiftTypes": body = t(HUB_LOC.problemTipMixedLiftTypes); break;
+    case "summitLodgeNotLiftServed": body = t(HUB_LOC.problemTipSummitLodgeNotLiftServed); break;
+    case "schoolNoGreenRun": body = t(HUB_LOC.problemTipSchoolNoGreenRun); break;
     default: body = null;
   }
   const isEff = p.code === PROBLEM.Efficiency;

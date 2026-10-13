@@ -1,0 +1,153 @@
+{
+  "name": "SkiProbeSheetLateB",
+  "written_utc": "2026-10-13T02:57:29Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiProbeSheetLateB.fbx": {
+      "bytes": 13068,
+      "sha1": "6e97cb69489b0259f1f706997b5fe1309ec90db4"
+    },
+    "settings.json": {
+      "bytes": 387,
+      "sha1": "1ddefd91527ae722a131500d38d937a022326ab4"
+    }
+  },
+  "generator": "assets/blender/fine_probes.py",
+  "args": [
+    "--out",
+    "../import/probes/B",
+    "--export",
+    "--preview",
+    "../preview/probes/B"
+  ],
+  "round": "probes B, import session S1 (fine-detail pass F1 / F4 / FS7)",
+  "lods": "LOD0 only (settings: no LOD keys)",
+  "kind": "F1 sheet SHARER (static prop, no own maps)",
+  "batch": 2,
+  "object_prefab": "SkiProbeSheetLate",
+  "object_cid": "bfb6b40f754c4c69a908bf9d6ebb3cfa",
+  "mesh_prefab": "SkiProbeSheetLateB Mesh",
+  "tris": {
+    "LOD0": 6
+  },
+  "bounds_m": {
+    "min": [
+      -0.45,
+      0.0,
+      -0.35
+    ],
+    "max": [
+      0.45,
+      1.1,
+      0.35
+    ]
+  },
+  "shared_from": "SkiProbeSheetB",
+  "sharedAssets": {
+    "SkiProbeSheetLateB_BaseColor.png": "../SkiProbeSheetB/SkiProbeSheetB_BaseColor.png",
+    "SkiProbeSheetLateB_ControlMask.png": "../SkiProbeSheetB/SkiProbeSheetB_ControlMask.png",
+    "SkiProbeSheetLateB_MaskMap.png": "../SkiProbeSheetB/SkiProbeSheetB_MaskMap.png",
+    "SkiProbeSheetLateB_Normal.png": "../SkiProbeSheetB/SkiProbeSheetB_Normal.png"
+  },
+  "shared_targets_exist": {
+    "SkiProbeSheetLateB_BaseColor.png": true,
+    "SkiProbeSheetLateB_ControlMask.png": true,
+    "SkiProbeSheetLateB_MaskMap.png": true,
+    "SkiProbeSheetLateB_Normal.png": true
+  },
+  "uv_rects": {
+    "front": [
+      1024,
+      0,
+      2048,
+      1024
+    ],
+    "back": [
+      0,
+      1024,
+      1024,
+      2048
+    ],
+    "sides": [
+      0,
+      0,
+      64,
+      64
+    ]
+  },
+  "mesh_hash": "36690669d8dbeafd5860b1e6b2180ae8d33807c7",
+  "validation_as_shipped": {
+    "errors": 5,
+    "warnings": 4,
+    "error_list": [
+      "folder: no SkiProbeSheetLateB_<map>.png textures",
+      "settings: sharedAssets['SkiProbeSheetLateB_BaseColor.png'] -> '../SkiProbeSheetB/SkiProbeSheetB_BaseColor.png' does not exist",
+      "settings: sharedAssets['SkiProbeSheetLateB_ControlMask.png'] -> '../SkiProbeSheetB/SkiProbeSheetB_ControlMask.png' does not exist",
+      "settings: sharedAssets['SkiProbeSheetLateB_MaskMap.png'] -> '../SkiProbeSheetB/SkiProbeSheetB_MaskMap.png' does not exist",
+      "settings: sharedAssets['SkiProbeSheetLateB_Normal.png'] -> '../SkiProbeSheetB/SkiProbeSheetB_Normal.png' does not exist"
+    ],
+    "warn_list": [
+      "settings: sharedAssets key 'SkiProbeSheetLateB_BaseColor.png' is not a `SkiProbeSheetLateB_LODn_<map>.png` name",
+      "settings: sharedAssets key 'SkiProbeSheetLateB_ControlMask.png' is not a `SkiProbeSheetLateB_LODn_<map>.png` name",
+      "settings: sharedAssets key 'SkiProbeSheetLateB_MaskMap.png' is not a `SkiProbeSheetLateB_LODn_<map>.png` name",
+      "settings: sharedAssets key 'SkiProbeSheetLateB_Normal.png' is not a `SkiProbeSheetLateB_LODn_<map>.png` name"
+    ],
+    "tris": {
+      "0": 6
+    },
+    "tex": []
+  },
+  "validation_staged_with_owner_maps": {
+    "errors": 0,
+    "warnings": 0,
+    "error_list": [],
+    "warn_list": [],
+    "tris": {
+      "0": 6
+    },
+    "tex": [
+      2048
+    ]
+  },
+  "mesh_validation": {
+    "errors": [],
+    "warnings": []
+  },
+  "note": "assets-check / the folder validator cannot follow a cross-asset sharedAssets path: the as-shipped run reports the missing-target / no-maps errors by design; the staged run is the importer's view",
+  "lodge_row": {
+    "asset": "SkiProbeSheetLateB",
+    "object_prefab": "SkiProbeSheetLate",
+    "m_Position_in_game": [
+      -1.0,
+      0.0,
+      17.0
+    ],
+    "position_fbx_raw": [
+      1.0,
+      0.0,
+      17.0
+    ],
+    "m_ParentMesh": -1,
+    "m_Rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "footprint_xz": [
+      0.9,
+      0.7
+    ],
+    "ok": true,
+    "reasons": []
+  },
+  "previews": [
+    "assets/preview/probes/B/SkiProbeSignSetB_onSkiDQBaseStationA_cardA_with_LIFTOPS_noon.png",
+    "assets/preview/probes/B/SkiProbeSignSetB_onSkiDQBaseStationA_cardA_dusk_lit.png",
+    "assets/preview/probes/B/SkiProbeSignSetB_onSkiDQBaseStationA_cardB_ruler_noon.png",
+    "assets/preview/probes/B/SkiProbeSignSetB_onSkiDQBaseStationA_wide_noon.png",
+    "assets/preview/probes/B/probesB_onSkiAFrameDayLodge_front_noon.png",
+    "assets/preview/probes/B/probesB_onSkiAFrameDayLodge_wide_noon.png",
+    "assets/preview/probes/B/probesB_onSkiAFrameDayLodge_school_board_3m_noon.png"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "sharedAssets": {
+    "SkiSafetyNetA_LOD1_BaseColor.png": "SkiSafetyNetA_BaseColor.png",
+    "SkiSafetyNetA_LOD1_ControlMask.png": "SkiSafetyNetA_ControlMask.png",
+    "SkiSafetyNetA_LOD1_MaskMap.png": "SkiSafetyNetA_MaskMap.png",
+    "SkiSafetyNetA_LOD1_Normal.png": "SkiSafetyNetA_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "Surface": {
+    "materialTemplate": "CurvedHashedCutout",
+    "needsAlphaClip": true,
+    "alphaCutoff": 0.54
+  }
+}

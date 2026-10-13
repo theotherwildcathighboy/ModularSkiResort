@@ -36,7 +36,8 @@
 // :24) and GetUpgradeComponents puts AttractivenessProvider on the OWNER sign when m_Attractiveness > 0
 // (:30-36; ServiceUpgradeSystem.cs:138-157). Since Round E1 the sign prefab has no Attraction and the lodge
 // prefab's Attraction is 0, so no sign gets a provider and vanilla writes nothing that could stack (the old
-// (20·N)² exploit). The model's lodge base (20, +4 per extra lodge, at most +12) lives in SkiResortScore.
+// (20·N)² exploit). The model's lodge base (20, +4 per extra lodge, at most +12; since Catalog Phase B the ladder by
+// tier, extras at most +24) lives in SkiResortScore.
 // Each ACTIVE member lodge carries PerLodge = round(A / √N) (added on first contact, then written every
 // tick after vanilla), so the game's Σ a² sees N·PerLodge² ≈ A² (exact up to rounding, ch1 M2). A lodge
 // that is switched off or listed by no live sign carries NO provider (removed once, ch1 §7.3): an upgrade
@@ -52,6 +53,8 @@
 //   S = (Σ counted v, ascending + λ × 6 × complete-and-powered lifts) × variety × vertical
 //   A = N ≥ 1 ? clamp(round((lodgeBase(N) × μ + K × √S) × sign efficiency), 0, 200) : 0
 //   summer (no counted run, I2): μ 0.5, λ 0.25
+//   Catalog Phase B: the lift term is per type (value and λ from the row), the lodge term is the ladder's applied value,
+//   S also gains the school and a patrolled run's factors (header CATALOG PHASE B; SkiResortScore's header).
 //
 // MEMBERSHIP (ch1 §6; computed here, independent of the hub — the score works with the hub never opened):
 //   * Ski area = a live Welcome Sign from one chunk walk of the PARK query {Building, Game.Buildings.Park,
@@ -157,6 +160,25 @@
 // recompute publishes other (sign, active lodges) lists — LodgeSetChanged, per sign — and when WriteProviders
 // drops a deleted lodge); consumers SkiDaySystem, SkiLodgeParkingSystem, SkiLiftTicketSystem's gate watch.
 // F4: an efficiency-only area line is written only when A moves by 2 or the area was quiet for 60 s (LogArea).
+// CATALOG PHASE B (2026-10-11, economy group; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §7.4,
+// skeptic MUST 3 / SHOULD "no per-recompute allocation"). The sign's ServiceUpgrades are read by catalog row:
+//   * LODGES (every SkiCatalog.Lodges row): slot.Active / Inactive as before, plus slot.ActiveInfo (seam S5 LodgeInfo:
+//     the lodge's SkiCatalog.Lodges index, SummitServed) → AreaInput.Lodges, the ladder (SkiResortScore R11).
+//     SummitServed (D11) = LiftServedRule.SummitServed(lodge xz, the area's complete powered lifts, Ladder.Summit-
+//     ServedRadiusM 300) — evaluated only for rows whose summer share rises when served (μ summit > μ: hut, summit);
+//     false for the others, which it cannot change. Every active lodge counts: LodgeInfo.Counted and the "second luxury
+//     lodge not counted" Info line (the one-luxury-lodge cap, D3) were removed on 2026-10-11 (Richard: no count limit).
+//   * THE SKI SCHOOL (SkiCatalog.Schools): an active entry → slot.SchoolActive → AreaInput.SchoolActive (R13).
+//   * PATROL HUTS (SkiCatalog.Patrols): active entries → slot.PatrolEntities; each member run's RunInput.Patrolled =
+//     PatrolRule.Patrolled(its top node xz, the area's patrol xz) (R13, D12).
+//   The poll hash mixes the school and patrol entries' (entity, active) bits too (an FG-only city hashes as before).
+//   Lodge and patrol POSITIONS are read only when due (structural or backstop), cached like m_BaseXz (header SYNC
+//   POINTS): no new Transform sync on a soft recompute (a miss there is a counted fallback read).
+//   * LIFTS: LiftInput.TypeIndex = the census row's Type (seam S1; Mixed rows are Unfinished and never reach here).
+//   * IsWatchedBuildingPrefab: lodge ∪ school ∪ patrol hut (IsUpgradeBuilding) ∪ lift station ∪ Welcome Sign.
+//   * Generation also moves when a published LodgeInfo list changes (SummitServed flips without a score
+//     change, e.g. in winter), so the hub's "summit lodge not lift-served" row follows.
+// No serialized state: a lodge's tier IS its PrefabRef; everything here is recomputed from live components.
 // ─────────────────────────────────────────────────────────────────────────────────────────
 
 using System;
@@ -212,10 +234,13 @@ namespace SkiResortMod.Systems
 
         // Prefab set — tolerant resolution (not yet imported ⇒ system stays inert). The run prefab sets are
         // the ownership system's (one registry, natural included; ch2 §13 item 1).
-        private static readonly string[] LodgePrefabNames = { "SkiAFrameDayLodge" };
-
-        private PrefabSystem m_PrefabSystem;
-        private PowerBridgeSystem m_PowerBridgeSystem;   // shared station prefab set (watcher)
+        // Catalog Phase A (F5 / F10; docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md R1; was :213-215
+        // LodgePrefabNames { "SkiAFrameDayLodge" }, :218 + :677 m_PowerBridgeSystem (read only at :480 for the station
+        // set), :226 m_LodgePrefabs, :230 + :718 m_PrefabScanQuery, :232 m_PrefabsResolved and the :2037-2091
+        // ResolvePrefabs / ResolveSet copy): the lodges are SkiCatalog.Lodges, the stations SkiCatalog.Stations, both
+        // resolved per load by SkiPrefabCatalogSystem (was once per APP RUN here: contract §8 N1 — a lodge imported
+        // mid-session or a prefab replaced is now followed at the next load / frame).
+        private SkiPrefabCatalogSystem m_PrefabCatalog;
         private SkiRunOwnershipSystem m_Ownership;       // sign set, run kinds, BindGeneration
         private SkiRunCatalogSystem m_Catalog;           // ratings, run tops, rating service
         private LiftCensusSystem m_Census;               // rows, serve lifts, power
@@ -223,13 +248,9 @@ namespace SkiResortMod.Systems
         private SnowLineSystem m_SnowLine;               // the one snow gating read
         private Game.Simulation.TimeSystem m_Time;       // Round M2 (D8): the [cost] WARN's midday re-arm and clocks
 
-        private readonly HashSet<Entity> m_LodgePrefabs = new HashSet<Entity>();
-
         private EntityQuery m_ParkQuery;       // signs, lodges (and other parks)
         private EntityQuery m_RunQuery;        // our bound runs
-        private EntityQuery m_PrefabScanQuery; // name-resolution fallback
 
-        private bool m_PrefabsResolved;
         private bool m_Disabled;
         private bool m_ErrorLogged;
 
@@ -251,6 +272,15 @@ namespace SkiResortMod.Systems
             public int OpenUnknown;
             public SkiResortScore.Result Result;
             public bool Held;
+            // Catalog Phase B (header CATALOG PHASE B). ActiveInfo is parallel to Active (same order); Lodges is the
+            // score's AreaInput.Lodges built from it; ServeLifts = indices into m_ServeLifts of this area's lifts.
+            public readonly List<LodgeInfo> ActiveInfo = new List<LodgeInfo>(4);
+            public readonly List<SkiResortScore.LodgeInput> Lodges = new List<SkiResortScore.LodgeInput>(4);
+            public readonly List<Entity> PatrolEntities = new List<Entity>(2);
+            public readonly List<float2> PatrolXz = new List<float2>(2);
+            public readonly List<int> ServeLifts = new List<int>(8);
+            public bool SchoolActive;
+            public int Schools;   // school entries listed (active or not; DUMP)
 
             public void Reset(Entity sign)
             {
@@ -267,6 +297,13 @@ namespace SkiResortMod.Systems
                 OpenUnknown = 0;
                 Result = default;
                 Held = false;
+                ActiveInfo.Clear();     // Catalog Phase B
+                Lodges.Clear();
+                PatrolEntities.Clear();
+                PatrolXz.Clear();
+                ServeLifts.Clear();
+                SchoolActive = false;
+                Schools = 0;
             }
         }
 
@@ -408,6 +445,11 @@ namespace SkiResortMod.Systems
         // are due (a structural recompute, the backstop), reused by soft recomputes.
         private readonly SkiResortIndex m_SignIndex = new SkiResortIndex();
         private readonly Dictionary<Entity, float2> m_BaseXz = new Dictionary<Entity, float2>();
+        // Catalog Phase B (header CATALOG PHASE B): the same cache rule for the summit-served lodges and the patrol huts.
+        private readonly Dictionary<Entity, float2> m_LodgeXz = new Dictionary<Entity, float2>();
+        private readonly Dictionary<Entity, float2> m_PatrolXz = new Dictionary<Entity, float2>();
+        private readonly List<LiftServedRule.Lift> m_AreaServeLifts = new List<LiftServedRule.Lift>(8);   // one area's lifts (SummitServed)
+        private bool m_PositionsReadThisRecompute;   // CollectAreas' verdict, for the lodge / patrol reads after it
         private bool m_PositionsDue = true;      // the backstop asks for a position read (header COST)
         private int m_PositionReads, m_PositionFallbacks;   // this load (DUMP)
         private readonly HashSet<Entity> m_LiveLodges = new HashSet<Entity>();
@@ -458,26 +500,36 @@ namespace SkiResortMod.Systems
         /// compare for equality).</summary>
         public int Generation => m_Generation;
 
-        /// <summary>True for the lodge BuildingPrefab entity (SkiAFrameDayLodge).</summary>
+        /// <summary>True for a lodge BuildingPrefab entity (every SkiCatalog.Lodges row; SkiAFrameDayLodge today).
+        /// Catalog Phase A (D6: signature kept for SkiResortStatsSystem, SkiGuestCounterSystem and the hub; was
+        /// m_LodgePrefabs.Contains, :462-465): the prefab catalog's answer.</summary>
         internal bool IsLodgePrefab(Entity prefab)
         {
-            return m_LodgePrefabs.Contains(prefab);
+            return m_PrefabCatalog.IsLodge(prefab);
         }
 
-        /// <summary>Scoring runs this load: not error-disabled, the lodge prefab resolved and the ownership
+        /// <summary>Catalog Phase B (Phase A review finding 1): the prefab catalog's live lodge-prefab view, for a caller
+        /// that tests many buildings in one scan (SkiGuestCounterSystem.RebuildMap fetches it once instead of calling
+        /// IsLodgePrefab per building). Main thread; do not keep it across frames (the catalog revalidates per frame).</summary>
+        internal HashSet<Entity> LodgePrefabSet => m_PrefabCatalog.LodgePrefabSet;
+
+        /// <summary>Scoring runs this load: not error-disabled, a lodge prefab resolved (catalog) and the ownership
         /// system's prefab sets ready (sign set and run sets, Game mode).</summary>
-        internal bool IsActive => !m_Disabled && m_LodgePrefabs.Count > 0 && m_Ownership.PrefabSetsReady;
+        internal bool IsActive => !m_Disabled && m_PrefabCatalog.LodgeCount > 0 && m_Ownership.PrefabSetsReady;   // Catalog Phase A (was :469 m_LodgePrefabs.Count > 0)
 
         /// <summary>A STRUCTURAL recompute is already waiting for the next 16-frame tick (a pending soft one
         /// does not count, so a placement is never delayed behind it).</summary>
         internal bool RecomputePending => m_StructuralPending;
 
-        /// <summary>A building prefab whose placement, move or removal changes a ski area: a lodge, a lift
-        /// station (PowerBridgeSystem's shared set) or a Welcome Sign (§10.2).</summary>
+        /// <summary>A building prefab whose placement, move or removal changes a ski area: a lodge, the ski school, a
+        /// patrol hut (Catalog Phase B: every ServiceUpgrade the catalog knows), a lift station (the prefab catalog's)
+        /// or a Welcome Sign (§10.2; the sign stays the ownership registry's: run family, contract D5).</summary>
         internal bool IsWatchedBuildingPrefab(Entity prefab)
         {
-            return m_LodgePrefabs.Contains(prefab) ||
-                   m_PowerBridgeSystem.GetResolvedStationPrefabs().Contains(prefab) ||
+            // Catalog Phase A (ext row 6 / F10; was :479-481 m_LodgePrefabs.Contains || PowerBridge's station set).
+            // Catalog Phase B (round-2-contract §7.4; was m_PrefabCatalog.IsLodge(prefab)): lodge ∪ school ∪ patrol hut.
+            return m_PrefabCatalog.IsUpgradeBuilding(prefab) ||
+                   m_PrefabCatalog.IsStation(prefab) ||
                    m_Ownership.IsGatePrefab(prefab);
         }
 
@@ -632,6 +684,31 @@ namespace SkiResortMod.Systems
             return into.Count;
         }
 
+        /// <summary>Catalog Phase B, seam S5 (round-2-contract §7.4): one ACTIVE lodge of the last recompute with its tier.
+        /// LodgeIndex = SkiCatalog.Lodges index (the lodge's PrefabRef is its tier); SummitServed = within
+        /// Ladder.SummitServedRadiusM of a complete, powered lift's top stub tip of its ski area (evaluated for rows with
+        /// μ summit &gt; μ; false for the others). Every active lodge counts (no luxury cap since 2026-10-11).</summary>
+        internal struct LodgeInfo
+        {
+            public Entity Lodge;
+            public short LodgeIndex;
+            public bool SummitServed;
+        }
+
+        /// <summary>Seam S5: the LodgeInfo of every lodge CopyActiveLodges returns for <paramref name="sign"/>, in the
+        /// same order; clears <paramref name="into"/>; returns the count (0 for an unknown sign). Main thread, plain copy
+        /// (allocation-free once the caller's list has grown). CopyActiveLodges is unchanged (base and mountain lodges).</summary>
+        internal int CopyActiveLodgeInfo(Entity sign, List<LodgeInfo> into)
+        {
+            into.Clear();
+            if (m_Cur.TryGetSlot(sign, out AreaSlot slot))
+            {
+                for (int i = 0; i < slot.ActiveInfo.Count; i++)
+                    into.Add(slot.ActiveInfo[i]);
+            }
+            return into.Count;
+        }
+
         /// <summary>D10 inputs for SkiDaySystem's SiteJob (ch3 refutation R5): clears both; runs = slot.RunEntities
         /// of <paramref name="sign"/>; stations = the non-Null Base / Top of every m_Cur.Lifts value with Sign ==
         /// sign, deduplicated; returns runs.Count + liftStations.Count; 0 for an unknown sign.</summary>
@@ -673,8 +750,11 @@ namespace SkiResortMod.Systems
         protected override void OnCreate()
         {
             base.OnCreate();
-            m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
-            m_PowerBridgeSystem = World.GetOrCreateSystemManaged<PowerBridgeSystem>();
+            m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();   // Catalog Phase A
+            // Catalog Phase A: m_PowerBridgeSystem is gone (its station set was read only at :480), but the call stays
+            // so PowerBridgeSystem is still CREATED here: this system is registered first (Mod.cs, before PowerBridge),
+            // and creation order is load-hook subscription order (GameSystemBase.cs:27-29) — kept identical.
+            World.GetOrCreateSystemManaged<PowerBridgeSystem>();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
             m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
             m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
@@ -715,7 +795,6 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Deleted>(),
                 },
             });
-            m_PrefabScanQuery = GetEntityQuery(ComponentType.ReadOnly<PrefabData>());
 
             Mod.Log.Info($"{nameof(SkiResortAttractivenessSystem)} created");
         }
@@ -797,24 +876,29 @@ namespace SkiResortMod.Systems
             m_CostMaxMinute = -1;
             m_SignIndex.Clear();
             m_BaseXz.Clear();
+            m_LodgeXz.Clear();       // Catalog Phase B
+            m_PatrolXz.Clear();
             m_PositionsDue = true;   // the load's recompute is structural anyway
             m_PositionReads = m_PositionFallbacks = 0;
 
             if (mode != GameMode.Game && mode != GameMode.Editor)
                 return;
-            ResolvePrefabs();
+            LogLodgePrefabs();   // Catalog Phase A (was :805 ResolvePrefabs(), once per app run): per load now
             if (mode != GameMode.Game)
                 return;
 
             Mod.RefreshTourismOverhaulDetection(); // fixes the OnLoad-time load-order race
             ReadHeldValues();
             ReadSettings(out int k, out int backcountry, out bool gating);
-            // Integers and fixed text only (no culture-dependent number in this line).
+            // Integers and fixed text only, or invariant culture (ArmModelText).
+            // Catalog Phase B (round-2-contract §7.4; was "lodge base × mu", "lambda × lifts", "lodge base 20 +4 per extra
+            // lodge (max +12)", "lift 6 (complete and powered)", "summer … mu 0.5 lambda 0.25"): the ladder, the per-type
+            // lift values, the school and the patrol, every number from SkiCatalog.
             Mod.Log.Info(
-                "Attractiveness [arm]: model v2 (E1) — one score per ski area: A = clamp(round((lodge base × mu + K × sqrt(S)) × sign efficiency), 0, 200), " +
-                "S = (runs + lambda × lifts) × variety × vertical; lodge base 20 +4 per extra lodge (max +12); band 0/6/12/20/28, unrateable 3; " +
+                "Attractiveness [arm]: model v2 (E1) + Catalog Phase B — one score per ski area: A = clamp(round((lodge applied + K × sqrt(S)) × sign efficiency), 0, 200), " +
+                "S = (runs + lifts (summer: × each type's share) + school) × variety × vertical; " + ArmModelText() + "; band 0/6/12/20/28, unrateable 3; " +
                 "size 1 + 0.3 ln(area / 20000 m²) in [0.25, 2] from 10000 m², proportional below (0.792 per ha); night ×1.25; natural ×0.5/0.75/1/1; " +
-                "lift 6 (complete and powered); variety ×1.15; vertical / 600 m (max ×2); summer (no run worth more than 0) mu 0.5 lambda 0.25; " +
+                "variety ×1.15; vertical / 600 m (max ×2); summer = no run worth more than 0; " +
                 $"K {k}, backcountry {backcountry} %, snow gating {(gating ? "on" : "off")}; each active lodge carries round(A / sqrt(N)); " +
                 $"held saved values {m_HeldValues.Count} lodge(s); first write waits for ratings and snow (max {Tuning.RatingHoldMaxTicks} ticks); " +
                 $"poll every {Tuning.StatePollTicks} ticks, backstop every {Tuning.PeriodicRefreshTicks} ticks");
@@ -828,7 +912,10 @@ namespace SkiResortMod.Systems
         /// component is ISerializable, so it is deserialized before any tick).</summary>
         private void ReadHeldValues()
         {
-            if (m_LodgePrefabs.Count == 0 || m_ParkQuery.IsEmptyIgnoreFilter)
+            // Catalog Phase A (F10; was :831 / :845 m_LodgePrefabs): the catalog's live lodge view, fetched once
+            // before the chunk loop (skeptic M4).
+            HashSet<Entity> lodgePrefabs = m_PrefabCatalog.LodgePrefabSet;
+            if (lodgePrefabs.Count == 0 || m_ParkQuery.IsEmptyIgnoreFilter)
                 return;
             m_ParkQuery.CompleteDependency();
             var entityHandle = GetEntityTypeHandle();
@@ -842,7 +929,7 @@ namespace SkiResortMod.Systems
                     var prefabRefs = chunks[c].GetNativeArray(ref prefabRefHandle);
                     for (int i = 0; i < entities.Length; i++)
                     {
-                        if (m_LodgePrefabs.Contains(prefabRefs[i].m_Prefab))
+                        if (lodgePrefabs.Contains(prefabRefs[i].m_Prefab))
                             m_ScratchEntities.Add(entities[i]);
                     }
                 }
@@ -1029,10 +1116,17 @@ namespace SkiResortMod.Systems
             bool readPositions = structural || m_PositionsDue;
             m_PositionsDue = false;
             readPositions = CollectAreas(next, readPositions);
+            m_PositionsReadThisRecompute = readPositions;
+            if (readPositions)
+            {
+                m_LodgeXz.Clear();    // Catalog Phase B: re-read when due, like m_BaseXz (header CATALOG PHASE B)
+                m_PatrolXz.Clear();
+            }
             ulong stateHash = SkiRunRatingRules.FnvOffset;
             m_LodgeClaimed.Clear();
             for (int s = 0; s < next.SlotCount; s++)
                 ReadSign(next.Slots[s].Sign, next.Slots[s], ref stateHash);
+            ReadPatrolPositions(next);   // Catalog Phase B (R13): each area's active patrol huts' xz
 
             // 2. Member runs (bound-run walk): rating, snow, top node.
             CollectRuns(next);
@@ -1058,6 +1152,13 @@ namespace SkiResortMod.Systems
                 AreaSlot slot = next.Slots[rr.Slot];
                 SkiResortScore.RunInput input = slot.Runs[rr.Index];
                 input.Served = !censusArmed || m_ServingLift[i] >= 0;
+                // Catalog Phase B (R13, D12): patrolled = the run's top node within PatrolRule.RadiusM of an active patrol
+                // hut of its own area (the served rule's test point; NaN without facts → not patrolled).
+                if (slot.PatrolXz.Count > 0)
+                {
+                    float3 top = m_RunTops[i];
+                    input.Patrolled = PatrolRule.Patrolled(new float2(top.x, top.z), slot.PatrolXz);
+                }
                 slot.Runs[rr.Index] = input;
             }
             next.Chords = m_Chords.Count;
@@ -1148,6 +1249,8 @@ namespace SkiResortMod.Systems
             m_LiveLodges.Clear();
             if (!m_ParkQuery.IsEmptyIgnoreFilter)
             {
+                // Catalog Phase A (F10; was :1165 m_LodgePrefabs): the live lodge view, once before the chunk loop (M4).
+                HashSet<Entity> lodgePrefabs = m_PrefabCatalog.LodgePrefabSet;
                 EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
                 var entityHandle = GetEntityTypeHandle();
                 var prefabRefHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
@@ -1162,7 +1265,7 @@ namespace SkiResortMod.Systems
                             Entity prefab = prefabRefs[i].m_Prefab;
                             if (m_Ownership.IsGatePrefab(prefab))
                                 next.AddSlot(entities[i]);
-                            else if (m_LodgePrefabs.Contains(prefab))
+                            else if (lodgePrefabs.Contains(prefab))
                                 m_LiveLodges.Add(entities[i]);
                         }
                     }
@@ -1247,22 +1350,95 @@ namespace SkiResortMod.Systems
 
             if (!EntityManager.TryGetBuffer(sign, isReadOnly: true, out DynamicBuffer<InstalledUpgrade> upgrades))
                 return;
+            // Catalog Phase A (F10; was :1254 m_LodgePrefabs), once per sign. Catalog Phase B (round-2-contract §7.4): the
+            // lodge rows by tier (LodgeDefs), the school and the patrol huts, each view fetched once per sign.
+            HashSet<Entity> lodgePrefabs = m_PrefabCatalog.LodgePrefabSet;
+            IReadOnlyDictionary<Entity, LodgeDef> lodgeDefs = m_PrefabCatalog.LodgeDefs;
+            HashSet<Entity> schoolPrefabs = m_PrefabCatalog.SchoolPrefabSet;
+            HashSet<Entity> patrolPrefabs = m_PrefabCatalog.PatrolPrefabSet;
             for (int u = 0; u < upgrades.Length; u++)
             {
                 InstalledUpgrade entry = upgrades[u];
-                Entity lodge = entry.m_Upgrade;
-                if (!EntityManager.TryGetComponent(lodge, out PrefabRef prefabRef) || !m_LodgePrefabs.Contains(prefabRef.m_Prefab))
+                Entity upgrade = entry.m_Upgrade;
+                if (!EntityManager.TryGetComponent(upgrade, out PrefabRef prefabRef))
+                    continue;
+                Entity prefab = prefabRef.m_Prefab;
+                bool isLodge = lodgePrefabs.Contains(prefab);
+                bool isSchool = !isLodge && schoolPrefabs.Contains(prefab);
+                bool isPatrol = !isLodge && !isSchool && patrolPrefabs.Contains(prefab);
+                if (!isLodge && !isSchool && !isPatrol)
                     continue;
                 bool active = !BuildingUtils.CheckOption(entry, BuildingOption.Inactive);
                 hash = SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(hash,
-                    unchecked((uint)lodge.Index)), unchecked((uint)lodge.Version)), active ? 1u : 0u);
-                if (slot == null || !m_LiveLodges.Contains(lodge) || !m_LodgeClaimed.Add(lodge))
+                    unchecked((uint)upgrade.Index)), unchecked((uint)upgrade.Version)), active ? 1u : 0u);
+                if (slot == null)
                     continue;
-                if (active)
+                if (isLodge)
+                {
+                    Entity lodge = upgrade;
+                    if (!m_LiveLodges.Contains(lodge) || !m_LodgeClaimed.Add(lodge))
+                        continue;
+                    if (!active)
+                    {
+                        slot.Inactive.Add(lodge);
+                        continue;
+                    }
                     slot.Active.Add(lodge);
-                else
-                    slot.Inactive.Add(lodge);
+                    // Seam S5: the tier (the lodge's PrefabRef IS its tier; no serialized state). SummitServed is filled in
+                    // ScoreAreas, once the area's lifts are known.
+                    int index = lodgeDefs.TryGetValue(prefab, out LodgeDef def) ? def.Index : 0;
+                    slot.ActiveInfo.Add(new LodgeInfo { Lodge = lodge, LodgeIndex = (short)index, SummitServed = false });
+                }
+                else if (isSchool)
+                {
+                    slot.Schools++;
+                    if (active && IsLiveUpgrade(upgrade))
+                        slot.SchoolActive = true;
+                }
+                else if (active && IsLiveUpgrade(upgrade))
+                {
+                    slot.PatrolEntities.Add(upgrade);
+                }
             }
+        }
+
+        /// <summary>Catalog Phase B: a school or patrol hut entry counts while its building exists and is neither Deleted
+        /// nor Temp (they are not in the park walk: m_LiveLodges holds lodges only).</summary>
+        private bool IsLiveUpgrade(Entity building)
+        {
+            return building != Entity.Null && EntityManager.Exists(building) && !EntityManager.HasComponent<Deleted>(building) &&
+                   !EntityManager.HasComponent<Temp>(building);
+        }
+
+        /// <summary>Catalog Phase B (R13): each area's active patrol huts' xz into slot.PatrolXz, from m_PatrolXz (read
+        /// when due: a structural recompute or the backstop; a miss on a soft recompute reads it and is counted as a
+        /// fallback, header SYNC POINTS). A hut without a Transform is skipped (it patrols nothing).</summary>
+        private void ReadPatrolPositions(Snapshot next)
+        {
+            for (int s = 0; s < next.SlotCount; s++)
+            {
+                AreaSlot slot = next.Slots[s];
+                for (int i = 0; i < slot.PatrolEntities.Count; i++)
+                {
+                    if (TryCachedXz(m_PatrolXz, slot.PatrolEntities[i], out float2 xz))
+                        slot.PatrolXz.Add(xz);
+                }
+            }
+        }
+
+        /// <summary>Catalog Phase B: one building's xz through a per-load cache (cleared when positions are due, header
+        /// SYNC POINTS). A miss reads the Transform (counted as a fallback on a soft recompute); false without one.</summary>
+        private bool TryCachedXz(Dictionary<Entity, float2> cache, Entity building, out float2 xz)
+        {
+            if (cache.TryGetValue(building, out xz))
+                return true;
+            if (!EntityManager.TryGetComponent(building, out Game.Objects.Transform transform))
+                return false;
+            xz = transform.m_Position.xz;
+            cache[building] = xz;
+            if (!m_PositionsReadThisRecompute)
+                m_PositionFallbacks++;
+            return true;
         }
 
         /// <summary>The bound-run walk (§6): each member run's RunInput (Served filled later), its entity, its
@@ -1423,10 +1599,15 @@ namespace SkiResortMod.Systems
 
                 LiftPower power = LiftPower.Unknown;
                 if (aligned && m_ServeLifts[k].Id == row.Id && m_ServeLifts[k].Top == row.Top)
+                {
                     power = m_ServeLifts[k].Power;
+                    slot.ServeLifts.Add(k);   // Catalog Phase B: this area's lifts for SummitServed (D11)
+                }
                 bool complete = row.State == LiftCensus.State.Complete;
                 bool powered = LiftServedRule.IsPowered(power);
-                slot.Lifts.Add(new SkiResortScore.LiftInput { Complete = complete, Powered = powered });
+                // Catalog Phase B (round-2-contract §7.4, seam S1): the row's lift type (SkiCatalog.Lifts index; Mixed rows
+                // are Unfinished and skipped above, a NoType 255 reads the fixed-grip row in the score).
+                slot.Lifts.Add(new SkiResortScore.LiftInput { Complete = complete, Powered = powered, TypeIndex = row.Type });
                 Entity id = LiftCensusSystem.Ent(row.Id);
                 next.Lifts[new LiftKey(id, topStation)] = new LiftScoreView
                 {
@@ -1457,12 +1638,15 @@ namespace SkiResortMod.Systems
             for (int s = 0; s < next.SlotCount; s++)
             {
                 AreaSlot slot = next.Slots[s];
+                BuildLodgeInputs(slot);   // Catalog Phase B: tiers + SummitServed (D11)
                 var input = new SkiResortScore.AreaInput
                 {
                     ActiveLodges = slot.Active.Count,
                     InactiveLodges = slot.Inactive.Count,
                     Efficiency = slot.EfficiencyValue,
                     Settings = settings,
+                    Lodges = slot.Lodges,               // Catalog Phase B (R11): the ladder (Count == ActiveLodges)
+                    SchoolActive = slot.SchoolActive,   // Catalog Phase B (R13)
                 };
                 slot.Result = SkiResortScore.Compute(input, slot.Runs, slot.Lifts, slot.Parts);
 
@@ -1537,6 +1721,48 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>Catalog Phase B (R11, D11): slot.Lodges (the score's AreaInput.Lodges) from slot.ActiveInfo, with
+        /// SummitServed evaluated for the rows whose summer share rises when served (μ summit &gt; μ): the lodge's xz
+        /// (m_LodgeXz, read when due) within Ladder.SummitServedRadiusM of the top stub tip of a complete, powered lift
+        /// of this area (LiftServedRule.SummitServed over the area's m_ServeLifts rows). Allocation-free once grown.</summary>
+        private void BuildLodgeInputs(AreaSlot slot)
+        {
+            slot.Lodges.Clear();
+            bool liftsCopied = false;
+            for (int i = 0; i < slot.ActiveInfo.Count; i++)
+            {
+                LodgeInfo info = slot.ActiveInfo[i];
+                bool served = false;
+                if (info.LodgeIndex >= 0 && info.LodgeIndex < SkiCatalog.Lodges.Count)
+                {
+                    LodgeDef def = SkiCatalog.Lodges[info.LodgeIndex];
+                    if (def.MuSummit > def.Mu && TryCachedXz(m_LodgeXz, info.Lodge, out float2 xz))
+                    {
+                        if (!liftsCopied)
+                        {
+                            m_AreaServeLifts.Clear();
+                            for (int k = 0; k < slot.ServeLifts.Count; k++)
+                            {
+                                int idx = slot.ServeLifts[k];
+                                if (idx >= 0 && idx < m_ServeLifts.Count)
+                                    m_AreaServeLifts.Add(m_ServeLifts[idx]);
+                            }
+                            liftsCopied = true;
+                        }
+                        served = LiftServedRule.SummitServed(xz, m_AreaServeLifts, SkiCatalog.Ladder.SummitServedRadiusM);
+                    }
+                }
+                info.SummitServed = served;
+                slot.ActiveInfo[i] = info;
+                slot.Lodges.Add(new SkiResortScore.LodgeInput { LodgeIndex = info.LodgeIndex, SummitServed = served });
+            }
+        }
+
+        private static string LodgeName(int lodgeIndex)
+        {
+            return lodgeIndex >= 0 && lodgeIndex < SkiCatalog.Lodges.Count ? SkiCatalog.Lodges[lodgeIndex].Prefab : "?";
+        }
+
         private void LogFirstWrite(AreaSlot slot, AreaState state, bool expired)
         {
             if (expired)
@@ -1594,6 +1820,10 @@ namespace SkiResortMod.Systems
             structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.LiftsUnpowered));
             structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.LiftsCounted));
             structKey = SkiRunRatingRules.Mix(structKey, (uint)r.Flags);
+            // Catalog Phase B: the ladder's best tier, the school and the patrolled runs.
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.LodgeBestIndex));
+            structKey = SkiRunRatingRules.Mix(structKey, (r.SchoolActive ? 1u : 0u) | (r.GreenCounted ? 2u : 0u));
+            structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.RunsPatrolled));
             bool heldForRatings = slot.Held && r.RunsPending > 0 && !ratingFailed;
             structKey = SkiRunRatingRules.Mix(structKey, !slot.Held ? 0u : heldForRatings ? 1u : 2u);
             ulong key = SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(structKey, unchecked((uint)r.Attraction)),
@@ -1627,14 +1857,25 @@ namespace SkiResortMod.Systems
             log.LoggedEffPct = slot.EfficiencyPct;
 
             // Each Invariant(...) holds ONE interpolated string (C# 9: a `+` of two of them is a plain string).
+            // Catalog Phase B: LodgeBase × LodgeShare = the ladder's applied value (display); the best tier is named when it
+            // is not the A-frame; "lifts n × 6 × λ" stays for fixed-grip-only areas, other types print their summed value;
+            // the school and patrolled runs are appended only when on / non-zero.
+            string lodgeTier = r.LodgeBestIndex > 0 ? ", best " + LodgeName(r.LodgeBestIndex) : "";
+            string liftsText = r.LiftsValue == SkiResortScore.LiftValue * r.LiftsCounted
+                ? Invariant($"lifts {r.LiftsCounted} × 6 × {r.LiftShare:0.##}")
+                : Invariant($"lifts {r.LiftsCounted} = {r.LiftsValue:0.##} pts × {r.LiftShare:0.##}");
+            string extras = (r.SchoolActive ? (r.GreenCounted ? "; school on (+" + r.SchoolValue.ToString("0.##", CultureInfo.InvariantCulture) + ")"
+                                                              : "; school on (no counted green run: +0)") : "") +
+                            (r.RunsPatrolled > 0 ? Invariant($"; patrolled {r.RunsPatrolled}") : "");
             string text =
                 Invariant($"Attractiveness: area {slot.Sign.Index}:{slot.Sign.Version} A {r.Attraction} = round(({r.LodgeBase:0.##} × {r.LodgeShare:0.##} + ") +
-                Invariant($"{r.K} × sqrt({r.S:F1})) × {r.Efficiency:F2}) — lodges {r.ActiveLodges} active (+{r.InactiveLodges} off) × {r.PerLodge}; ") +
+                Invariant($"{r.K} × sqrt({r.S:F1})) × {r.Efficiency:F2}) — lodges {r.ActiveLodges} active (+{r.InactiveLodges} off) × {r.PerLodge}") +
+                lodgeTier + "; " +
                 Invariant($"runs {r.RunsCounted}/{r.Runs} counted = {r.RunsValue:F1} pts ({r.RunsOpen} open, {r.RunsUnserved} without a lift, ") +
                 Invariant($"{r.RunsPending} unrated, {slot.OpenUnknown} open unknown") +
                 ((r.Flags & SkiResortScore.ScoreFlags.OpenEstimated) != 0 ? ", estimated" : "") + "); " +
-                Invariant($"lifts {r.LiftsCounted} × 6 × {r.LiftShare:0.##} ({r.LiftsOpenSection} with a section open, {r.LiftsUnpowered} unpowered); ") +
-                Invariant($"variety ×{r.VarietyMultiplier:0.##}; vertical {r.VerticalM:F0} m ×{r.VerticalMultiplier:F2}") +
+                liftsText + Invariant($" ({r.LiftsOpenSection} with a section open, {r.LiftsUnpowered} unpowered); ") +
+                Invariant($"variety ×{r.VarietyMultiplier:0.##}; vertical {r.VerticalM:F0} m ×{r.VerticalMultiplier:F2}") + extras +
                 ((r.Flags & SkiResortScore.ScoreFlags.SummerMode) != 0 ? "; SUMMER" : "") +
                 ((r.Flags & SkiResortScore.ScoreFlags.NoLodge) != 0 ? "; NO LODGE" : "") +
                 (!slot.Held ? "" : heldForRatings ? "; HELD (ratings pending)" : "; HELD (snow settling)") +
@@ -1706,6 +1947,16 @@ namespace SkiResortMod.Systems
                     if (a.Factors[i].m_Factor != b.Factors[i].m_Factor || a.Factors[i].m_Efficiency != b.Factors[i].m_Efficiency)
                         return true;
                 }
+                // Catalog Phase B (seam S5): a published LodgeInfo that changed (tier, SummitServed) moves
+                // Generation even when the score did not (e.g. SummitServed flipping in winter).
+                if (a.ActiveInfo.Count != b.ActiveInfo.Count)
+                    return true;
+                for (int i = 0; i < a.ActiveInfo.Count; i++)
+                {
+                    LodgeInfo x = a.ActiveInfo[i], y = b.ActiveInfo[i];
+                    if (x.Lodge != y.Lodge || x.LodgeIndex != y.LodgeIndex || x.SummitServed != y.SummitServed)
+                        return true;
+                }
             }
             foreach (var pair in next.Runs)
             {
@@ -1756,6 +2007,7 @@ namespace SkiResortMod.Systems
             SkiResortScore.RunInput x = a.Input, y = b.Input;
             return a.Run == b.Run && a.Sign == b.Sign && a.Part.Equals(b.Part) &&
                    x.Kind == y.Kind && x.State == y.State && x.Band == y.Band && x.Served == y.Served &&
+                   x.Patrolled == y.Patrolled &&   // Catalog Phase B (R13)
                    x.OpenEstimated == y.OpenEstimated && Bits(x.AreaM2) == Bits(y.AreaM2) &&
                    Bits(x.OpenFactor) == Bits(y.OpenFactor) && Bits(x.TopM) == Bits(y.TopM) && Bits(x.BottomM) == Bits(y.BottomM);
         }
@@ -1982,6 +2234,7 @@ namespace SkiResortMod.Systems
                     if (slot.Active.Count == 0)
                         sb.Append('-');
                     sb.Append(", TO-damped ").Append(damped).Append(" lodge(s)\n");
+                    AppendLadder(sb, slot);   // Catalog Phase B
 
                     for (int i = 0; i < slot.RunEntities.Count && i < slot.Parts.Count; i++)
                         AppendRun(sb, slot.RunEntities[i], slot.Runs[i], slot.Parts[i]);
@@ -1991,6 +2244,33 @@ namespace SkiResortMod.Systems
             {
                 sb.Append("  attractiveness: DUMP failed (").Append(e.GetType().Name).Append(": ").Append(e.Message).Append(")\n");
             }
+        }
+
+        /// <summary>Catalog Phase B (round-2-contract §7.4): one DUMP line per area — the ladder (best tier, winter base,
+        /// the season's applied value and extras, price tolerance), each active lodge's tier with its SummitServed flag, the
+        /// school, the patrol and the per-type lift sums.</summary>
+        private static void AppendLadder(StringBuilder sb, AreaSlot slot)
+        {
+            CultureInfo ic = CultureInfo.InvariantCulture;
+            SkiResortScore.Result r = slot.Result;
+            sb.Append("      ladder: best ").Append(r.LodgeBestIndex >= 0 ? LodgeName(r.LodgeBestIndex) : "-")
+              .Append(", base ").Append(r.LodgeBase.ToString("0.##", ic)).Append(" (winter), applied ").Append(r.LodgeApplied.ToString("0.##", ic))
+              .Append(" (extras ").Append(r.LodgeExtraApplied.ToString("0.##", ic)).Append(')')
+              .Append(", price tolerance ").Append(r.PriceTolerance).Append("; lodges:");
+            if (slot.ActiveInfo.Count == 0)
+                sb.Append(" -");
+            for (int i = 0; i < slot.ActiveInfo.Count; i++)
+            {
+                LodgeInfo info = slot.ActiveInfo[i];
+                sb.Append(i > 0 ? "," : "").Append(' ').Append(IdOf(info.Lodge)).Append(' ').Append(LodgeName(info.LodgeIndex));
+                if (info.SummitServed)
+                    sb.Append(" summit-served");
+            }
+            sb.Append("; school ").Append(r.SchoolActive ? "on" : "off").Append(" (").Append(slot.Schools).Append(" listed, green counted ")
+              .Append(r.GreenCounted ? "y" : "n").Append(", +").Append(r.SchoolValue.ToString("0.##", ic)).Append("); patrols ")
+              .Append(slot.PatrolEntities.Count).Append(" (").Append(slot.PatrolXz.Count).Append(" with a position), runs patrolled ")
+              .Append(r.RunsPatrolled).Append("; lifts value ").Append(r.LiftsValue.ToString("0.##", ic)).Append(", applied ")
+              .Append(r.LiftsApplied.ToString("0.##", ic)).Append('\n');
         }
 
         private static void AppendRun(StringBuilder sb, Entity run, SkiResortScore.RunInput input, SkiResortScore.RunPart part)
@@ -2007,7 +2287,8 @@ namespace SkiResortMod.Systems
             sb.Append(Invariant($"      run {run.Index}:{run.Version} {kind} {band}, {input.AreaM2:F0} m²: band {part.BandValue:0.##} × size {part.SizeFactor:F3} × ") +
                       Invariant($"type {part.TypeFactor:0.##} × served {part.ServedFactor:0.##} × open {part.OpenFactor:F2}") +
                       (input.OpenEstimated ? " (estimated)" : "") +
-                      Invariant($" = {part.Value:F3}") + (part.Counted ? "" : " (not counted)") + "\n");
+                      Invariant($" = {part.Value:F3}") + (part.Counted ? "" : " (not counted)") +
+                      (input.Patrolled ? " (patrolled)" : "") + "\n");   // Catalog Phase B (R13)
         }
 
         /// <summary>Round M2 (D8): "YYYY-MM HH:MM" from a SkiMoneyRules month key and a SkiDayTiming.MinuteOfDay
@@ -2035,59 +2316,83 @@ namespace SkiResortMod.Systems
         }
 
         // ─────────────────────────────────────────────────────────────────────────────────
-        // Prefab resolution — house pattern (fast PrefabID path + name-scan fallback,
-        // tolerate missing: the system logs its inertness once and sleeps until the lodge exists).
+        // Prefab state — Catalog Phase A (F5; was :2037-2091 ResolvePrefabs / ResolveSet, the PrefabID + name-scan
+        // copy, once per APP RUN): SkiPrefabCatalogSystem resolves per load and its "PrefabCatalog [arm]" line names
+        // every lodge FOUND / MISSING; this system still says, per load, whether it is inert (tolerated pre-import).
         // ─────────────────────────────────────────────────────────────────────────────────
-        private void ResolvePrefabs()
+        private void LogLodgePrefabs()
         {
-            if (m_PrefabsResolved)
-                return;
-            m_PrefabsResolved = true;
+            // Catalog Phase B (round-2-contract D5): a pending name (not imported yet) is listed apart from an expected
+            // one that is missing; the school and the patrol huts are listed too (they change the score once imported).
+            var found = new List<string>(SkiCatalog.Lodges.Count);
+            var missing = new List<string>(SkiCatalog.Lodges.Count);
+            var pending = new List<string>(SkiCatalog.Lodges.Count + 3);
+            var upgrades = new List<string>(3);
+            for (int i = 0; i < SkiCatalog.Lodges.Count; i++)
+            {
+                string name = SkiCatalog.Lodges[i].Prefab;
+                if (m_PrefabCatalog.EntityOf(name) != Entity.Null)
+                    found.Add(name);
+                else if (SkiCatalog.IsExpected(name))
+                    missing.Add(name);
+                else
+                    pending.Add(name);
+            }
+            for (int i = 0; i < SkiCatalog.Schools.Count + SkiCatalog.Patrols.Count; i++)
+            {
+                string name = i < SkiCatalog.Schools.Count ? SkiCatalog.Schools[i].Prefab : SkiCatalog.Patrols[i - SkiCatalog.Schools.Count].Prefab;
+                if (m_PrefabCatalog.EntityOf(name) != Entity.Null)
+                    upgrades.Add(name);
+                else if (SkiCatalog.IsExpected(name))
+                    missing.Add(name);
+                else
+                    pending.Add(name);
+            }
+            string pendingText = pending.Count > 0 ? $"; pending (not imported yet): '{string.Join("', '", pending.ToArray())}'" : "";
 
-            ResolveSet(LodgePrefabNames, nameof(BuildingPrefab), m_LodgePrefabs, "lodge");
-
-            if (m_LodgePrefabs.Count == 0)
+            if (m_PrefabCatalog.LodgeCount == 0)
+            {
+                var all = new List<string>(missing);
+                all.AddRange(pending);
                 Mod.Log.Info("Attractiveness: lodge prefab not present — system inert until " +
-                             $"'{string.Join("', '", LodgePrefabNames)}' is imported (expected pre-import)");
+                             $"'{string.Join("', '", all.ToArray())}' is imported (expected pre-import)");
+                return;
+            }
+            Mod.Log.Info($"Attractiveness: lodge prefab(s) '{string.Join("', '", found.ToArray())}' from the prefab catalog" +
+                         (upgrades.Count > 0 ? $"; school / patrol prefab(s) '{string.Join("', '", upgrades.ToArray())}'" : "") +
+                         (missing.Count > 0 ? $"; not found (tolerated): '{string.Join("', '", missing.ToArray())}'" : "") + pendingText);
         }
 
-        private void ResolveSet(string[] names, string typeName, HashSet<Entity> target, string kind)
+        /// <summary>Catalog Phase B: the [arm] line's model numbers, every one from SkiCatalog (invariant culture): the
+        /// ladder rows, its area rules, the per-type lift values and summer shares, the school and the patrol.</summary>
+        private static string ArmModelText()
         {
-            foreach (string name in names)
+            CultureInfo ic = CultureInfo.InvariantCulture;
+            var sb = new StringBuilder(640);
+            sb.Append("lodges by tier: lodge base = B(best) + min(sum E(others), ").Append(SkiCatalog.Ladder.ExtraCap.ToString("0", ic)).Append(") (");
+            for (int i = 0; i < SkiCatalog.Lodges.Count; i++)
             {
-                Entity prefabEntity = Entity.Null;
-                if (m_PrefabSystem.TryGetPrefab(new PrefabID(typeName, name), out PrefabBase prefabBase))
-                    m_PrefabSystem.TryGetEntity(prefabBase, out prefabEntity);
-
-                if (prefabEntity == Entity.Null)
-                {
-                    var candidates = m_PrefabScanQuery.ToEntityArray(Allocator.Temp);
-                    try
-                    {
-                        for (int i = 0; i < candidates.Length; i++)
-                        {
-                            if (m_PrefabSystem.GetPrefabName(candidates[i]) == name)
-                            {
-                                prefabEntity = candidates[i];
-                                break;
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        candidates.Dispose();
-                    }
-                }
-
-                if (prefabEntity == Entity.Null)
-                {
-                    Mod.Log.Info($"Attractiveness: {kind} prefab '{name}' not found (tolerated)");
-                    continue;
-                }
-
-                target.Add(prefabEntity);
-                Mod.Log.Info($"Attractiveness: resolved {kind} prefab '{name}'");
+                LodgeDef d = SkiCatalog.Lodges[i];
+                sb.Append(i > 0 ? ", " : "").Append(d.Id).Append(' ').Append(d.B.ToString("0.##", ic)).Append('/').Append(d.E.ToString("0.##", ic))
+                  .Append(" mu ").Append(d.Mu.ToString("0.##", ic));
+                if (d.MuSummit > d.Mu)
+                    sb.Append(" (").Append(d.MuSummit.ToString("0.##", ic)).Append(" summit-served)");
+                if (d.Luxury)
+                    sb.Append(" luxury");
             }
+            sb.Append("); lodge applied = the base in winter, in summer best B × mu + the others' E × mu (scaled when sum E > ")
+              .Append(SkiCatalog.Ladder.ExtraCap.ToString("0", ic)).Append("); no limit on the number of lodges of any tier; summit-served = within ").Append(SkiCatalog.Ladder.SummitServedRadiusM.ToString("0", ic))
+              .Append(" m of a complete, powered lift's top; lifts (complete and powered) value / summer share: ");
+            for (int i = 0; i < SkiCatalog.Lifts.Count; i++)
+            {
+                LiftTypeDef l = SkiCatalog.Lifts[i];
+                sb.Append(i > 0 ? ", " : "").Append(l.Id).Append(' ').Append(l.ScoreValue.ToString("0.##", ic)).Append(" / ")
+                  .Append(l.SummerShare.ToString("0.##", ic));
+            }
+            sb.Append("; school +").Append(SchoolRule.ScoreValue.ToString("0.##", ic)).Append(" to S while a green run counts; patrol: expert runs within ")
+              .Append(PatrolRule.RadiusM.ToString("0", ic)).Append(" m ×").Append(PatrolRule.ExpertFactor.ToString("0.##", ic))
+              .Append(", an unserved patrolled run served at least ").Append((PatrolRule.BackcountryServedMin * 100.0).ToString("0", ic)).Append(" %");
+            return sb.ToString();
         }
     }
 }
