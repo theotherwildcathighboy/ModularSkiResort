@@ -640,7 +640,7 @@ namespace SkiResortMod.Systems
         /// <summary>The "Lodge spend per guest" option (contract §9, D15; SkiMoneyRules aliases these).</summary>
         public static class LodgeSpend
         {
-            // Default 0 -> 15 (econ-2 round 2, revenue-design §6a; Richard 2026-10-15): 15 / 23 / 45 per paying guest at the
+            // Default 0 -> 15 (DECISIONS 241, revenue-design §6a; Richard 2026-10-15): 15 / 23 / 45 per paying guest at the
             // A-frame and hut / the chalet / the summit and grand lodges (x1 / x1.5 / x3). 0 still turns it off.
             public const int Default = 15, Max = 50, Step = 5;
         }

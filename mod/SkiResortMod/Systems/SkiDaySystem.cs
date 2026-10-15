@@ -270,7 +270,7 @@ namespace SkiResortMod.Systems
         private ComponentLookup<Destroyed> m_DestroyedLookup;
         private ComponentLookup<Deleted> m_DeletedLookup;
         private ComponentLookup<Game.Buildings.LeisureProvider> m_LeisureProviderLookup;
-        private ComponentLookup<SkiSeasonPass> m_SeasonPassLookup;   // Season passes v1 (DECISIONS 240): a holder gets P = 1 in the chance
+        private ComponentLookup<SkiSeasonPass> m_SeasonPassLookup;   // DECISIONS 240: a holder gets P = 1 in the chance
         private ComponentLookup<Game.Objects.OutsideConnection> m_OutsideConnectionLookup;
         private ComponentLookup<Worker> m_WorkerLookup;
         private ComponentLookup<AttendingMeeting> m_AttendingMeetingLookup;
@@ -480,7 +480,7 @@ namespace SkiResortMod.Systems
             return m_Views.TryGetValue(sign, out view);
         }
 
-        /// <summary>Econ-2 round 2 (P3, the pre-season pass sale; docs/research/econ-2/build/round-2.md): the ski-day inputs a resident
+        /// <summary>DECISIONS 241 (the pre-season pass sale; docs/research/econ-2/build/round-2.md): the ski-day inputs a resident
         /// household's chance at <paramref name="sign"/>'s area is made of, copied from the area snapshot the decision job reads (m_Areas,
         /// m_Lodges, m_SiteOut, m_LodgeReject, m_Tracks, m_Knobs, m_Price) so the sale job rates a household with the same numbers:
         /// attraction, school factor, the area's price tolerance, the three class confidences (SkiDayRules.Confidence of the learned
@@ -526,7 +526,6 @@ namespace SkiResortMod.Systems
                 ConfidenceCar = conf[(int)SkiDayRules.TravelClass.Car],
                 ConfidenceNoCar = conf[(int)SkiDayRules.TravelClass.NoCarFar],
                 Knobs = m_Knobs,
-                TargetLodges = targetXz.Length,
             };
             return PresaleCopy.Ready;
         }
@@ -672,7 +671,7 @@ namespace SkiResortMod.Systems
             m_DestroyedLookup = GetComponentLookup<Destroyed>(isReadOnly: true);
             m_DeletedLookup = GetComponentLookup<Deleted>(isReadOnly: true);
             m_LeisureProviderLookup = GetComponentLookup<Game.Buildings.LeisureProvider>(isReadOnly: true);
-            m_SeasonPassLookup = GetComponentLookup<SkiSeasonPass>(isReadOnly: true);   // Season passes v1
+            m_SeasonPassLookup = GetComponentLookup<SkiSeasonPass>(isReadOnly: true);
             m_OutsideConnectionLookup = GetComponentLookup<Game.Objects.OutsideConnection>(isReadOnly: true);
             m_WorkerLookup = GetComponentLookup<Worker>(isReadOnly: true);
             m_AttendingMeetingLookup = GetComponentLookup<AttendingMeeting>(isReadOnly: true);
@@ -3456,7 +3455,7 @@ namespace SkiResortMod.Systems
                 m_DestroyedLookup.Update(this);
                 m_DeletedLookup.Update(this);
                 m_LeisureProviderLookup.Update(this);
-                m_SeasonPassLookup.Update(this);   // Season passes v1
+                m_SeasonPassLookup.Update(this);
 
                 NativeList<ArchetypeChunk> chunks = m_CandidateQuery.ToArchetypeChunkListAsync(Allocator.TempJob, out JobHandle chunksHandle);
                 NativeQueue<Entity>.ParallelWriter reserve = m_Behavior.GetCarReserveQueue(out JobHandle reserveDeps);   // CBS :1094-1098, 1.6.2 :1126-1130
@@ -3490,7 +3489,7 @@ namespace SkiResortMod.Systems
                     Destroyeds = m_DestroyedLookup,
                     Deleteds = m_DeletedLookup,
                     LeisureProviders = m_LeisureProviderLookup,
-                    SeasonPasses = m_SeasonPassLookup,   // Season passes v1
+                    SeasonPasses = m_SeasonPassLookup,
                     SeasonKey = SkiMoneyRules.SeasonKeyOfDate(m_Time.year, m_Time.normalizedDate),
                     Areas = areaArray,
                     Lodges = lodgeArray,
@@ -4813,10 +4812,12 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>Econ-2 round 2 (P3): one ski area's resident-chance inputs for the pre-season pass sale, plain values so a Burst job
-    /// reads no managed row (SkiDaySystem.TryCopyPresaleInputs).</summary>
+    /// <summary>The outcome of SkiDaySystem.TryCopyPresaleInputs (DECISIONS 241): NotReady = unarmed or unknown sign, Ready, NoTarget =
+    /// the area has no target lodge.</summary>
     public enum PresaleCopy : byte { NotReady = 0, Ready = 1, NoTarget = 2 }
 
+    /// <summary>One ski area's resident-chance inputs for the pre-season pass sale, plain values so a Burst job reads no managed row
+    /// (SkiDaySystem.TryCopyPresaleInputs).</summary>
     public struct SkiDayPresaleInputs
     {
         public int Attraction;
@@ -4824,7 +4825,6 @@ namespace SkiResortMod.Systems
         public int PriceTolerance;
         public double ConfidenceWalk, ConfidenceCar, ConfidenceNoCar;
         public SkiDayRules.Knobs Knobs;
-        public int TargetLodges;
     }
 
     /// <summary>One ski area's ski-day state for the hub (ch2 §9, ch4 §H.1; s1-spec §2.5). Published every armed

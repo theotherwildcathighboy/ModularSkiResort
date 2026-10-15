@@ -1584,8 +1584,8 @@ namespace SkiResortMod.Systems
             [ReadOnly] public ComponentLookup<Destroyed> Destroyeds;
             [ReadOnly] public ComponentLookup<Deleted> Deleteds;
             [ReadOnly] public ComponentLookup<Game.Buildings.LeisureProvider> LeisureProviders;
-            [ReadOnly] public ComponentLookup<SkiSeasonPass> SeasonPasses;   // Season passes v1: a holder gets P = 1 (Candidate)
-            public int SeasonKey;                                           // Season passes v1: SkiMoneyRules.SeasonKeyOfDate at the schedule
+            [ReadOnly] public ComponentLookup<SkiSeasonPass> SeasonPasses;   // a holder gets P = 1 (Candidate)
+            public int SeasonKey;                                           // SkiMoneyRules.SeasonKeyOfDate at the schedule
 
             [ReadOnly] public NativeArray<AreaJob> Areas;
             [ReadOnly] public NativeArray<LodgeJob> Lodges;
@@ -1833,7 +1833,7 @@ namespace SkiResortMod.Systems
                 if (last)
                     CountFresh(who, withCar);
 
-                // Season passes v1 (DECISIONS 240): a resident household that holds this season's pass is not deterred by the
+                // DECISIONS 240: a resident household that holds this season's pass is not deterred by the
                 // ticket price (P = 1 in the chance: the pass is sunk cost). Tourists never hold one; a Declined standing or a pass
                 // of an older season is a plain price-sensitive household.
                 bool passHolder = who == SkiDayRules.GuestKind.Resident && SeasonPasses.TryGetComponent(hh, out SkiSeasonPass pass) &&
@@ -1879,7 +1879,7 @@ namespace SkiResortMod.Systems
                     }
                     // Catalog Phase B (round-2-contract §7.3-§7.4): the area's price tolerance and school factor.
                     double p = SkiDayRules.Chance(who, aj.Attraction, d / 1000.0, aj.OpenShare, aj.Powder, Price,
-                                                  co.PriceTolerance, aj.SchoolFactor, SkiDayRules.Confidence(cls, t), Knobs, passHolder);   // Season passes v1
+                                                  co.PriceTolerance, aj.SchoolFactor, SkiDayRules.Confidence(cls, t), Knobs, passHolder);
                     if (!SkiDayRules.IsBetter(p, d, aj.SignRef, bestP, bestD, bestSign))
                         continue;
                     bestA = a;
@@ -2015,7 +2015,7 @@ namespace SkiResortMod.Systems
                 MeasureWrite.Bump(Measure, a * CM.Count + (fit == SkiDayRules.Fit.NoTimeBeforeOwnDeadline ? CM.TooLateOwn : CM.TooLateClosing) + (int)cls);
                 ClaimOut co = Out[a];
                 co.TooLateChanceSum += SkiDayRules.Chance(who, aj.Attraction, d / 1000.0, aj.OpenShare, aj.Powder, Price,
-                                                          co.PriceTolerance, aj.SchoolFactor, SkiDayRules.Confidence(cls, t), Knobs, passHolder);   // Catalog Phase B; season passes v1
+                                                          co.PriceTolerance, aj.SchoolFactor, SkiDayRules.Confidence(cls, t), Knobs, passHolder);   // Catalog Phase B
                 Out[a] = co;
             }
 

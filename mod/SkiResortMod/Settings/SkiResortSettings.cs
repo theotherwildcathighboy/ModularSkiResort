@@ -11,16 +11,17 @@
 //   * LiftTicketPrice (Round E1 ch4, D26): read live by SkiLiftTicketSystem through
 //     SkiMoneyRules.ClampTicketPrice(Mod.Settings?.LiftTicketPrice ?? SkiMoneyRules.TicketPriceDefault);
 //     0 turns tickets off. Persisted under this property name — never rename.
-//   * BookTicketsAsFees (stage 1a, DECISIONS 239): read live by SkiLiftTicketSystem through
-//     Mod.Settings?.BookTicketsAsFees ?? DefaultBookTicketsAsFees; default on. Persisted under this property name — never rename.
-//   * SeasonPassShare / SeasonPassMultiplier (season passes v1, DECISIONS 240): read live by SkiLiftTicketSystem through
+//   * BookTicketsAsFees (DECISIONS 239, 241): read live by SkiLiftTicketSystem through
+//     Mod.Settings?.BookTicketsAsFees ?? DefaultBookTicketsAsFees; default on. It books lift tickets, passes, lessons and lodge spend
+//     as public transportation fees (label "Book resort income as public transportation fees"). Persisted under this property
+//     name — never rename.
+//   * SeasonPassShare / SeasonPassMultiplier (DECISIONS 240): read live by SkiLiftTicketSystem through
 //     SkiMoneyRules.ClampPassShare / ClampPassMultiplier (Mod.Settings?.X ?? DefaultX); defaults 50 % (0 = passes off) and 4.
 //     Persisted under these property names — never rename.
-//   * LessonShare / LessonMultiplier (econ-2 round 2, DECISIONS 241): the ski-school lesson fee, read live by SkiLiftTicketSystem
+//   * LessonShare / LessonMultiplier (DECISIONS 241): the lesson fee, read live by SkiLiftTicketSystem
 //     through SkiMoneyRules.ClampLessonShare / ClampLessonMultiplier (Mod.Settings?.X ?? DefaultX); defaults 20 % (0 = lessons off)
-//     and 1.5 × the day ticket. LessonMultiplier is a float slider (Game.UI.Menu AutomaticSettings.cs:1083: float + SettingsUISlider =
-//     FloatSlider). Persisted under these property names — never rename. BookTicketsAsFees now also covers passes, lessons and lodge
-//     spend (label "Book resort income as public-transport fees"; the property name is unchanged).
+//     and 1.5 × the lift ticket. LessonMultiplier is a float slider (Game.UI.Menu AutomaticSettings.cs:1083: float + SettingsUISlider =
+//     FloatSlider). Persisted under these property names — never rename.
 //   * EnableSnowGating (D13): read only through SnowLineSystem.IsSnowGatingEnabled() (true when the
 //     settings are not loaded); the score and the hub call that.
 //   * SnowmakingBonusCelsius (D14, default 2, was 3): THE snowmaking margin, read only through
@@ -124,7 +125,7 @@
 // SkiDayRules.ClampKnobs is a second, defensive clamp.
 //
 // LODGE SPEND (Catalog Phase B, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §9, D15; ROUND-SPEC
-// R11 "lodge spend OFF by default" -- reversed by econ-2 round 2, revenue-design §6a: default 15, 0 = off): LodgeSpendPerGuest
+// R11 "lodge spend OFF by default", reversed by DECISIONS 241, revenue-design §6a: default 15, 0 = off): LodgeSpendPerGuest
 // (Balance group, directly after LiftTicketPrice; 0-50 step 5, unit "money"). What each PAYING ski guest also spends at the lodge they arrive at, × the lodge
 // tier's SkiCatalog.LodgeDef.SpendMultiplier, rounded half up; charged in SkiLiftTicketSystem's ticket job after the
 // ticket, never into debt, and only while the ticket gate is open — a ticket price of 0 charges nothing. Read live by
@@ -188,11 +189,11 @@ namespace SkiResortMod.Settings
         public const int DefaultAttractivenessScaleK = 4;
         public const int DefaultBackcountryValuePercent = 40;
         public const bool DefaultEnableSnowGating = true;
-        public const bool DefaultBookTicketsAsFees = true;   // Stage 1a (DECISIONS 239)
-        public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;             // 50 (0 = passes off); season passes v1
-        public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;   // 4 day tickets
-        public const int DefaultLessonShare = SkiMoneyRules.LessonShareDefault;               // 20 % (0 = lessons off); econ-2 round 2
-        public const float DefaultLessonMultiplier = SkiMoneyRules.LessonMultiplierDefault;   // 1.5 day tickets
+        public const bool DefaultBookTicketsAsFees = true;   // DECISIONS 239
+        public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;             // 50 % (0 = passes off); DECISIONS 240
+        public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;   // 4 lift tickets
+        public const int DefaultLessonShare = SkiMoneyRules.LessonShareDefault;               // 20 % (0 = lessons off); DECISIONS 241
+        public const float DefaultLessonMultiplier = SkiMoneyRules.LessonMultiplierDefault;   // 1.5 lift tickets
         public const int DefaultSnowmakingBonusCelsius = 2;   // = RunSnowRules.DefaultSnowmakingMarginC (D14; was 3)
         // Round E1 addendum A1, kept in F7: 8 = the look of the game's lot outline (snap distance 8 × 0.3,
         // AreaBorderRenderSystem.cs:517, :531): outline and corner dots 2.4 m. Since F7 it sets nothing else.
@@ -208,7 +209,7 @@ namespace SkiResortMod.Settings
         public const int DefaultSkiDayPowderPct = SkiDayRules.PowderPctDefault;       // 100
         public const int SkiDayPowderPctMax = SkiDayRules.PowderPctMax;               // 200
         // Catalog Phase B (round-2-contract §9, D15): aliases of SkiCatalog.LodgeSpend — the one source of the numbers.
-        public const int DefaultLodgeSpendPerGuest = SkiCatalog.LodgeSpend.Default;   // 15 (econ-2 round 2; was 0 = off, R11)
+        public const int DefaultLodgeSpendPerGuest = SkiCatalog.LodgeSpend.Default;   // 15 (DECISIONS 241; was 0 = off, R11)
         public const int LodgeSpendPerGuestMax = SkiCatalog.LodgeSpend.Max;           // 50
         public const int LodgeSpendPerGuestStep = SkiCatalog.LodgeSpend.Step;         // 5
 
@@ -252,7 +253,7 @@ namespace SkiResortMod.Settings
         /// <summary>LiftTicketPrice (Round E1 ch4, D26): read live by SkiLiftTicketSystem (and by SkiResortStatsSystem
         /// for the hub; header LIFT TICKET PRICE readers). Persisted under
         /// this property name — never rename. 0 = tickets off; 0-200 step 5 (SkiMoneyRules.TicketPriceMax /
-        /// TicketPriceStep); default SkiMoneyRules.TicketPriceDefault (60 since econ-2 round 2; was 40). unit "money" = Game.UI.Unit.kMoney
+        /// TicketPriceStep); default SkiMoneyRules.TicketPriceDefault (60 since DECISIONS 241; was 40). unit "money" = Game.UI.Unit.kMoney
         /// (Game.UI/Unit.cs:49, 1.6.0f1 and 1.6.2f1; fallback "integer" if the Options row renders it badly,
         /// UNVERIFIED until field step 2).</summary>
         [SettingsUISlider(min = 0f, max = 200f, step = 5f, unit = "money")]
@@ -267,39 +268,39 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupBalance)]
         public int LodgeSpendPerGuest { get; set; }
 
-        /// <summary>BookTicketsAsFees (stage 1a, DECISIONS 239; docs/research/econ-2/build/stage1a-fare-booking.md): on = each
-        /// paid lift ticket is booked as a public-transport fare (a ServiceFeeSystem FeeEvent, like the vanilla bus fare), so the
-        /// income shows in the Economy panel and the budget credits the treasury; off = the old direct add to the city's balance.
-        /// Econ-2 round 2 (DECISIONS 241): the same switch now covers season passes, lessons AND lodge spend (label "Book resort
-        /// income as public-transport fees"); the property name is unchanged.
+        /// <summary>BookTicketsAsFees (DECISIONS 239, 241; docs/research/econ-2/build/stage1a-fare-booking.md): on = each paid lift
+        /// ticket, season pass, lesson and lodge spend is booked as a public transportation fee (a ServiceFeeSystem FeeEvent, like the
+        /// vanilla bus fare), so the income shows in the Economy panel and the budget credits the treasury; off = a direct add to the
+        /// city's balance. Label "Book resort income as public transportation fees".
         /// Read live by SkiLiftTicketSystem (ReadBookAsFees; true when settings are not loaded). Default on. Persisted under
         /// this property name — never rename.</summary>
         [SettingsUISection(SectionMain, GroupBalance)]
         public bool BookTicketsAsFees { get; set; }
 
-        /// <summary>SeasonPassShare (season passes v1, DECISIONS 240; docs/research/econ-2/build/season-pass-v1.md): the share, in
-        /// percent, of resident households that buy a season pass when they first ski in a season; 0 = passes off. Read live by
+        /// <summary>SeasonPassShare (DECISIONS 240, 241; docs/research/econ-2/build/season-pass-v1.md): the share, in percent, of
+        /// resident households that buy a season pass (rolled in the pre-season sale, or at the first ski of the season for households
+        /// outside it); 0 = passes off. Read live by
         /// SkiLiftTicketSystem through SkiMoneyRules.ClampPassShare(Mod.Settings?.SeasonPassShare ?? DefaultSeasonPassShare).
         /// Persisted under this property name — never rename.</summary>
         [SettingsUISlider(min = 0f, max = SkiMoneyRules.PassShareMax, step = SkiMoneyRules.PassShareStep, unit = "percentage")]
         [SettingsUISection(SectionMain, GroupBalance)]
         public int SeasonPassShare { get; set; }
 
-        /// <summary>SeasonPassMultiplier (season passes v1): a pass costs this many day tickets (the price at the moment of
+        /// <summary>SeasonPassMultiplier (DECISIONS 240): a pass costs this many lift tickets (the price at the moment of
         /// sale, locked). Read live by SkiLiftTicketSystem through SkiMoneyRules.ClampPassMultiplier. Persisted under this
         /// property name — never rename.</summary>
         [SettingsUISlider(min = SkiMoneyRules.PassMultiplierMin, max = SkiMoneyRules.PassMultiplierMax, step = 1f, unit = "integer")]
         [SettingsUISection(SectionMain, GroupBalance)]
         public int SeasonPassMultiplier { get; set; }
 
-        /// <summary>LessonShare (econ-2 round 2, DECISIONS 241; docs/research/econ-2/build/round-2.md): the percentage of the people
+        /// <summary>LessonShare (DECISIONS 241; docs/research/econ-2/build/round-2.md): the percentage of the people
         /// counted at a ski area with an ACTIVE ski school who take a lesson that day; 0 = lessons off. Read live by
         /// SkiLiftTicketSystem through SkiMoneyRules.ClampLessonShare. Persisted under this property name — never rename.</summary>
         [SettingsUISlider(min = 0f, max = SkiMoneyRules.LessonShareMax, step = SkiMoneyRules.LessonShareStep, unit = "percentage")]
         [SettingsUISection(SectionMain, GroupBalance)]
         public int LessonShare { get; set; }
 
-        /// <summary>LessonMultiplier (econ-2 round 2): a lesson costs this many day tickets at the ticket price now (1.0-3.0 step 0.5).
+        /// <summary>LessonMultiplier (DECISIONS 241): a lesson costs this many lift tickets at the ticket price now (1.0-3.0 step 0.5).
         /// Read live through SkiMoneyRules.ClampLessonMultiplier. Persisted under this property name — never rename.</summary>
         [SettingsUISlider(min = SkiMoneyRules.LessonMultiplierMin, max = SkiMoneyRules.LessonMultiplierMax, step = SkiMoneyRules.LessonMultiplierStep, unit = "floatSingleFraction")]
         [SettingsUISection(SectionMain, GroupBalance)]
@@ -467,12 +468,12 @@ namespace SkiResortMod.Settings
             AttractivenessScaleK = DefaultAttractivenessScaleK;         // E1 (e1-spec §2.3)
             BackcountryValuePercent = DefaultBackcountryValuePercent;   // E1
             LiftTicketPrice = SkiMoneyRules.TicketPriceDefault;         // E1 D26 (ch4 §5.4)
-            LodgeSpendPerGuest = DefaultLodgeSpendPerGuest;             // Catalog Phase B (round-2-contract §9, D15): 15 since econ-2 round 2, 0 = off
-            BookTicketsAsFees = DefaultBookTicketsAsFees;               // Stage 1a (DECISIONS 239): on
-            SeasonPassShare = DefaultSeasonPassShare;                   // Season passes v1 (DECISIONS 240): 50 %, 0 = off
-            SeasonPassMultiplier = DefaultSeasonPassMultiplier;         // Season passes v1: 4 day tickets
-            LessonShare = DefaultLessonShare;                           // Econ-2 round 2 (DECISIONS 241): 20 %, 0 = off
-            LessonMultiplier = DefaultLessonMultiplier;                 // Econ-2 round 2: 1.5 day tickets
+            LodgeSpendPerGuest = DefaultLodgeSpendPerGuest;             // Catalog Phase B (round-2-contract §9, D15): 15 since DECISIONS 241, 0 = off
+            BookTicketsAsFees = DefaultBookTicketsAsFees;               // DECISIONS 239: on
+            SeasonPassShare = DefaultSeasonPassShare;                   // DECISIONS 240: 50 %, 0 = off
+            SeasonPassMultiplier = DefaultSeasonPassMultiplier;         // 4 lift tickets
+            LessonShare = DefaultLessonShare;                           // DECISIONS 241: 20 %, 0 = off
+            LessonMultiplier = DefaultLessonMultiplier;                 // 1.5 lift tickets
             SkiDayLocalsPct = DefaultSkiDayLocalsPct;                   // S1 (s1-spec §2.11)
             SkiDayTouristsPct = DefaultSkiDayTouristsPct;               // S1
             SkiDayReachKm = DefaultSkiDayReachKm;                       // S1

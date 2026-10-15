@@ -48,7 +48,7 @@
  *     the row is replaced by the SubLine EST_TO_NOTE / EST_TO_TIP (the tourist estimate's pattern, GuestsView). The lesson and
  *     lodge-spend money is booked like tickets, so MONEY_NOTE[Fees] / MONEY_NOTE[Panel] now say "Resort income" / name all four.
  *   - Contract 7 (2026-10-14, season passes v1; docs/research/econ-2/build/season-pass-v1.md): under the tickets row, while city.bookTicketsAsFees
- *     (stage 1a), ONE dim SubLine MONEY_NOTE[Fees] "Shown in the Economy panel under public transportation fees"; after the lodge-spend
+ *     (stage 1a), ONE dim SubLine MONEY_NOTE[Fees] "Resort income shows in the Economy panel under public transportation fees."; after the lodge-spend
  *     slot, only while hubRules.passesShown (the Options pass share above 0, or a pass sold / a holder skied): the income row MONEY_ROW[Passes]
  *     "Season passes sold (this season) · {N}" with the season's pass income as its value (MONEY_TIP[Passes]) and the count row
  *     MONEY_ROW[PassHolders] "Pass holders skiing (this month)" (MONEY_TIP[PassHolders]). The net is still C#'s tickets + lodge spend: the

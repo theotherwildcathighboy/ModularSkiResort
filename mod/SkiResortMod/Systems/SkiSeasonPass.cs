@@ -1,5 +1,5 @@
-// SkiSeasonPass — the persisted season-pass standing of a RESIDENT household (season passes v1, 2026-10-14;
-// docs/research/econ-2/build/season-pass-v1.md, DECISIONS 240). Our persisted-component house pattern is
+// SkiSeasonPass — the persisted season-pass standing of a RESIDENT household (DECISIONS 240, 241;
+// docs/research/econ-2/build/season-pass-v1.md). Our persisted-component house pattern is
 // SkiRunBinding.cs; its header holds the verified serialization facts and they apply here unchanged:
 //   * Mod components are registered with the save serializer automatically (ComponentSerializerLibrary walks every
 //     TypeManager ISerializable type of an assembly other than Game.dll, Game.Serialization/SerializerSystem.cs:194-209);
@@ -15,11 +15,11 @@
 //   Flags 0                         → the household HOLDS a pass for SeasonKey: PricePaid is what it paid (locked at the sale).
 //   Flags & SkiMoneyRules.PassFlagDeclined → it was asked this season and did not buy (rolled out, or could not pay): it pays
 //                                    day tickets all season and is not asked again; PricePaid is 0.
-// WHO WRITES: SkiLiftTicketSystem only, on the main thread at step 1 of the tick after the job decided (never in the
-// Burst job: a structural change). WHO READS: the ticket job (ComponentLookup, read-only) and the ski-day decision job
-// (a holder gets P = 1).
+// WHO WRITES: SkiLiftTicketSystem only, on the main thread in the tick after the job decided (never in a Burst job: a
+// structural change). WHO READS: the ticket job and the pre-season sale job (ComponentLookup, read-only) and the ski-day
+// decision job (a holder gets P = 1).
 //
-// Created 2026-10-14 (season passes v1).
+// Created 2026-10-14.
 
 using Colossal.Serialization.Entities;
 using Unity.Entities;

@@ -631,7 +631,7 @@ namespace SkiResortMod.Systems
                 writer.Write(value.TripPlanner ?? "");
                 writer.PropertyName("tripPlannerBlocksSkiDays");
                 writer.Write(value.TripPlannerBlocksSkiDays);
-                // Contract 7 (season passes v1): the booking setting (stage 1a) and the pass share (0 = passes off).
+                // Contract 7: the booking setting and the pass share (0 = passes off).
                 writer.PropertyName("bookTicketsAsFees");
                 writer.Write(value.BookTicketsAsFees);
                 writer.PropertyName("passShare");
@@ -3556,7 +3556,7 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.PriceTolerance));
                 writer.PropertyName("lodgeSpendMonth");
                 writer.Write(Fin(r.LodgeSpendMonth));
-                // Contract 7 (season passes v1): this ski season's pass sales (since the game was loaded) and the pass-holder guests by month.
+                // Contract 7: this ski season's pass sales (since the game was loaded) and the pass-holder guests by month.
                 writer.PropertyName("passesSoldSeason");
                 writer.Write(Fin(r.PassesSoldSeason));
                 writer.PropertyName("passIncomeSeason");
@@ -3565,7 +3565,7 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.PassHoldersThisMonth));
                 writer.PropertyName("passHoldersLastMonth");
                 writer.Write(Fin(r.PassHoldersLastMonth));
-                // Contract 8 (econ-2 round 2): lessons by month, the lesson income so far this month, the pre-season part of the season's
+                // Contract 8: lessons by month, the lesson income so far this month, the pre-season part of the season's
                 // passes, and the city-income estimate (-1 = unknown or Tourism Overhaul).
                 writer.PropertyName("lessonsThisMonth");
                 writer.Write(Fin(r.LessonsThisMonth));

@@ -1,14 +1,14 @@
-// SkiLiftTicketSystem.Presale — the PRE-SEASON PASS SALE (passes v2; econ-2 round 2, P3; docs/research/econ-2/build/round-2.md,
-// DECISIONS 241; V2-IDEAS "Season passes"). The ticket system's second job: once per (ski area, season key), at the first ticket
+// SkiLiftTicketSystem.Presale — the PRE-SEASON PASS SALE (DECISIONS 241; docs/research/econ-2/build/round-2.md; V2-IDEAS "Season
+// passes"). The ticket system's second job: once per (ski area, season key), at the first ticket
 // tick in which that area's gate is Open in a new season (SkiMoneyRules.SeasonKeyOf), ONE Burst job rates every resident household of the
-// area's pool and sells passes in bulk; v1's first-arrival sale (SkiLiftTicketSystem.cs, header SEASON PASSES v1) then applies only to
+// area's pool and sells passes in bulk; the first-arrival sale (SkiLiftTicketSystem.cs, header SEASON PASSES) then applies only to
 // households that were not in the pool (new residents, or out of reach when the sale ran).
 //
-// THE POOL. The brief called it "the ski-days resident pool snapshot SkiDaySystem already builds"; there is none at household level:
-// SkiDaySystem keeps an AREA snapshot (m_Areas / m_Lodges / m_SiteOut / m_Tracks) and walks the CITIZENS of m_CandidateQuery chunk by chunk
-// each pass (busy citizens excluded, sliced by UpdateFrame) — "pool" in its stats counts DECISIONS. So this job reuses what exists — the
+// THE POOL. SkiDaySystem has no household-level pool: it keeps an AREA snapshot (m_Areas / m_Lodges / m_SiteOut / m_Tracks) and walks
+// the CITIZENS of m_CandidateQuery chunk by chunk each pass (busy citizens excluded, sliced by UpdateFrame); "pool" in its stats counts
+// DECISIONS. So this job reuses the
 // area snapshot, through SkiDaySystem.TryCopyPresaleInputs (attraction, school factor, price tolerance, class confidences, knobs, the xz
-// of the target lodges; the decision job's NearestTarget set) and the SAME SkiDayRules functions (WithinReach, ClassOf, Chance) — and walks
+// of the target lodges; the decision job's NearestTarget set) and the SAME SkiDayRules functions (WithinReach, ClassOf, Chance), and walks
 // resident HOUSEHOLDS itself (its own query: Household + PropertyRenter + HouseholdCitizen; not tourist, commuter, homeless or moving away).
 // Pool = such a household with no SkiSeasonPass standing this season (SkiMoneyRules.PassStandingOf) whose home is within the ski-day reach of
 // a target lodge of this area. Per pool household (the decision job's inputs): distance d = straight line home → nearest target lodge,
@@ -16,7 +16,7 @@
 // tolerance, school factor, confidence, knobs, PASS HOLDER), p = SkiMoneyRules.PresaleProbability(PassShare, chance), one deterministic roll
 // (SkiMoneyRules.PresaleUniform: household index + season key, differs from the first-arrival roll). Buyer: pays PassPrice(multiplier, ticket now)
 // if its money covers it (never below 0; else CannotPay), booked EXACTLY like tickets (a FeeEvent per pass with BookAsFees, else the direct add).
-// EVERY pool household gets a standing: Bought, or Declined (rolled out and could not pay both store Declined, like v1).
+// EVERY pool household gets a standing: Bought, or Declined (rolled out and could not pay both store Declined, like the first-arrival sale).
 //
 // ORDERING. The job writes household money and PlayerMoney like TicketJob, and its standings are components applied on the main thread at the
 // NEXT tick's step 1 (batch structural change). So a tick that starts a sale does not drain arrivals (they stay in the counter's pending
@@ -30,7 +30,8 @@
 // LOGS: `Passes [season sale]` once per area per season (pool, offered, bought, could not pay, income, cost); a `Passes [season sale]` line
 // also says when an area had no target lodge (no sale); ARMED clause (PassArmedText); DUMP. Known limits: a load mid-season runs the check
 // again (in-memory per-area record), but only households with no standing are pooled, so a reload sells nothing twice; a save made between the
-// sale job and the next tick's step 1 loses the standings and the households are decided again (same limit as v1's decision 10).
+// sale job and the next tick's step 1 loses the standings and the households are decided again (the known limit of DECISIONS 240,
+// season-pass-v1.md decision 10).
 
 using System;
 using System.Diagnostics;
@@ -274,8 +275,8 @@ namespace SkiResortMod.Systems
             string meanP = r.Pool > 0 ? (r.ChanceSum / r.Pool).ToString("P1", System.Globalization.CultureInfo.InvariantCulture) : "n/a";
             Mod.Log.Info($"Passes [season sale] ski area {Fmt(m_SaleSign)} season {m_SaleSeasonKey}: pool {r.Pool} resident household(s) within reach " +
                          $"with no standing, offered {r.Offered} (rolled in at {PassShare} % × their ski-day chance as pass holders, mean p {meanP}), " +
-                         $"bought {r.Bought} +{r.Income} ({PassMultiplier} × the day ticket {Price} = {m_SalePassPrice} each, " +
-                         $"{(BookAsFees ? "booked as public-transport fees" : "added directly")}), could not pay {r.CannotPay}, rolled out {declined}; " +
+                         $"bought {r.Bought} +{r.Income} ({PassMultiplier} × the lift ticket {Price} = {m_SalePassPrice} each, " +
+                         $"{(BookAsFees ? "booked as public transportation fees" : "added directly")}), could not pay {r.CannotPay}, rolled out {declined}; " +
                          $"cost: scheduled in {m_SaleScheduleMs:F2} ms, applied in {applyMs:F2} ms, waited {waitMs:F2} ms for the job " +
                          "(once per ski area per season)");
         }

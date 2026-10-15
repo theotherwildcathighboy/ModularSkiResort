@@ -273,11 +273,11 @@ namespace SkiResortMod.Systems
         public int LuxuryIgnored;
         public float SchoolValue;
         public int PatrolledRuns, PriceTolerance, LodgeSpendMonth;
-        // Season passes v1 (contract 7), appended in this order: PassesSoldSeason / PassIncomeSeason = this ski season's pass sales at
+        // Contract 7 (passes), appended in this order: PassesSoldSeason / PassIncomeSeason = this ski season's pass sales at
         // the area (SkiMoneyRules.SeasonKeyOfDate; counted since the game was loaded, the ledger is in memory), PassHoldersThisMonth /
         // LastMonth = guests who came in on a pass (-1 unknown, as the other guest numbers).
         public int PassesSoldSeason, PassIncomeSeason, PassHoldersThisMonth, PassHoldersLastMonth;
-        // Econ-2 round 2 (contract 8), appended in this order: LessonsThisMonth / LessonsLastMonth = people who took a ski-school lesson
+        // Contract 8 (lessons, pre-season sale, city income), appended in this order: LessonsThisMonth / LessonsLastMonth = people who took a lesson
         // (-1 unknown, as the other guest numbers; Last -1 until a month rolled); LessonIncomeMonth = what this month's lessons paid so far
         // (the ledger's raw month figure, no projection; -1 unknown); PassesPreSeason / PassIncomePreSeason = the part of this ski season's
         // pass sales (PassesSoldSeason / PassIncomeSeason) made in the pre-season sale (-1 unknown); CityIncomeEst = the resort's SharePct of
@@ -344,7 +344,7 @@ namespace SkiResortMod.Systems
         // ", ", or "?" (SkiTripSystems.UnknownLabel = bindings.ts TRIP_PLANNER_UNKNOWN: a system off, no known mod).
         public string TripPlanner;
         public bool TripPlannerBlocksSkiDays;   // LeisureSystem or CitizenBehaviorSystem off: ski days not armed
-        public bool BookTicketsAsFees;          // Contract 7 (stage 1a setting): tickets and passes are public-transport fees
+        public bool BookTicketsAsFees;          // Contract 7: resort income is booked as public transportation fees
         public int PassShare;                   // Contract 7: SeasonPassShare, clamped 0..100 (0 = passes off)
 
         public bool Equals(CityStats o)
@@ -465,7 +465,7 @@ namespace SkiResortMod.Systems
         private CitySystem m_CitySystem;
         private SnowLineSystem m_SnowLine;
         private TimeSystem m_TimeSystem;
-        private CityStatisticsSystem m_CityStatistics;       // Econ-2 round 2 (contract 8): the TouristIncome statistic, read once per rebuild
+        private CityStatisticsSystem m_CityStatistics;       // contract 8: the TouristIncome statistic, read once per rebuild
         private ResourceSystem m_ResourceSystem;
         private PrefabSystem m_PrefabSystem;                 // DUMP only (notification prefab names)
         private SkiGuestCounterSystem m_GuestCounter;        // Round E1 (ch4 §10)
@@ -1940,7 +1940,7 @@ namespace SkiResortMod.Systems
             // Upkeep inputs (CityServiceBudgetSystem.cs:392-421), fetched once per rebuild.
             bool upkeepReady = PrepareUpkeep(out EconomyParameterData economy, out ResourcePrefabs resourcePrefabs);
 
-            // Econ-2 round 2 (contract 8): the game's TouristIncome statistic, once per rebuild (GetStatisticValue completes the
+            // Contract 8: the game's TouristIncome statistic, once per rebuild (GetStatisticValue completes the
             // statistics writers, a short sync); not read under Tourism Overhaul (the UI hides the row), -1 when unavailable.
             int touristIncome = -1;
             if (!city.TourismOverhaul && m_CityStatistics != null)
@@ -2180,13 +2180,13 @@ namespace SkiResortMod.Systems
                     live.ResidentsLastMonth = lastKnown ? e.Last.LocalGuests : -1;
                     live.PaidLastMonth = lastKnown ? e.Last.TicketsPaid : -1;
                     live.TicketsLastMonth = lastKnown ? ClampToInt(Math.Max(0L, e.Last.TicketIncome)) : -1;
-                    // Season passes v1 (contract 7): the season's sales (the ledger keeps them across month rolls) and the holders by month.
+                    // Contract 7: the season's sales (the ledger keeps them across month rolls) and the holders by month.
                     int seasonKey = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate);
                     live.PassesSoldSeason = SkiResortLedger.PassSeasonSoldOf(e, seasonKey);
                     live.PassIncomeSeason = ClampToInt(SkiResortLedger.PassSeasonIncomeOf(e, seasonKey));
                     live.PassHoldersThisMonth = e.This.PassHolderGuests;
                     live.PassHoldersLastMonth = lastKnown ? e.Last.PassHolderGuests : -1;
-                    // Contract 8 (econ-2 round 2): lessons by month, the lesson income so far this month, the pre-season part of the season's passes.
+                    // Contract 8: lessons by month, the lesson income so far this month, the pre-season part of the season's passes.
                     live.LessonsThisMonth = e.This.Lessons;
                     live.LessonsLastMonth = lastKnown ? e.Last.Lessons : -1;
                     live.LessonIncomeMonth = ClampToInt(Math.Max(0L, e.This.LessonIncome));
@@ -2481,7 +2481,7 @@ namespace SkiResortMod.Systems
                 RealisticWorkplaces = SkiOtherMods.RealisticWorkplacesDetected,
                 TripPlanner = m_SkiDays != null ? m_SkiDays.TripPlannerLabel ?? "" : "",
                 TripPlannerBlocksSkiDays = m_SkiDays != null && m_SkiDays.TripPlannerBlocksSkiDays,
-                // Contract 7 (season passes v1): the settings the ticket system reads.
+                // Contract 7: the settings the ticket system reads.
                 BookTicketsAsFees = settings != null ? settings.BookTicketsAsFees : SkiResortSettings.DefaultBookTicketsAsFees,
                 PassShare = SkiMoneyRules.ClampPassShare(settings != null ? settings.SeasonPassShare : SkiMoneyRules.PassShareDefault),
             };
@@ -3102,7 +3102,7 @@ namespace SkiResortMod.Systems
                   // Round M2 R9 (build-contract.md §6.11): the trip planner label and whether it blocks ski days.
                   .Append(", trip planner ").Append(string.IsNullOrEmpty(c.TripPlanner) ? "game's own" : c.TripPlanner)
                   .Append(c.TripPlannerBlocksSkiDays ? " (ski days off)" : "")
-                  .Append(", tickets booked as ").Append(c.BookTicketsAsFees ? "public-transport fees" : "a direct add")   // Contract 7
+                  .Append(", resort income booked as ").Append(c.BookTicketsAsFees ? "public transportation fees" : "a direct add")   // Contract 7
                   .Append(", season pass share ").Append(c.PassShare).Append(" %").Append('\n');
                 for (int i = 0; i < m_Resorts.Count; i++)
                 {

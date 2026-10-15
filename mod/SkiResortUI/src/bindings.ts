@@ -452,7 +452,7 @@ export interface ResortLive {
   priceTolerance: number;
   /** Lodge spend income a month, the tickets' month rule; -1 unknown, 0 while the setting is 0 (D15). */
   lodgeSpendMonth: number;
-  // Contract 7 (season passes v1, DECISIONS 240): appended in this order, as in C# ResortLiveStats.
+  // Contract 7 (DECISIONS 240): appended in this order, as in C# ResortLiveStats.
   /** Season passes sold at this area in the current ski season (July to June), counted since the game was loaded; -1 unknown. */
   passesSoldSeason: number;
   /** What those passes paid; -1 unknown. */
@@ -461,8 +461,8 @@ export interface ResortLive {
   passHoldersThisMonth: number;
   /** The same, last month; -1 until a month rolled since counting started. */
   passHoldersLastMonth: number;
-  // Contract 8 (econ-2 round 2, DECISIONS 241): appended in this order, as in C# ResortLiveStats.
-  /** People who took a ski-school lesson at this area this month (one lesson each); -1 unknown. */
+  // Contract 8 (DECISIONS 241): appended in this order, as in C# ResortLiveStats.
+  /** People who took a lesson at this area this month (one lesson each); -1 unknown. */
   lessonsThisMonth: number;
   /** The same, last month; -1 until a month rolled since counting started. */
   lessonsLastMonth: number;
@@ -619,8 +619,8 @@ export interface CityStats {
   /** Round M2 R9: the game's LeisureSystem or CitizenBehaviorSystem is switched off, so ski days do not arm
    *  this load (C# ArmVerdict.SystemOff; SkiDaySystem.TripPlannerBlocksSkiDays = SkiTripSystems.BlocksSkiDays). */
   tripPlannerBlocksSkiDays: boolean;
-  /** Contract 7: the Options setting Book lift tickets as public-transport fees (stage 1a): tickets and passes then show in the
-   *  game's Economy panel under public transportation fees. */
+  /** Contract 7: the Options setting Book resort income as public transportation fees: lift tickets, passes, lessons and lodge spend
+   *  then show in the game's Economy panel under public transportation fees. */
   bookTicketsAsFees: boolean;
   /** Contract 7: the Options setting Season pass share, 0-100 (0 = passes off). */
   passShare: number;

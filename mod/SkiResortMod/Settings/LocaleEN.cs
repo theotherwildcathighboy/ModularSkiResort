@@ -142,21 +142,14 @@ namespace SkiResortMod.Settings
                     "Lift ticket price"
                 },
                 // Description: Round M2 hub-price fix 2 (build-contract.md §6.9: hub-price.md §2 item 5 with "then
-                // fewer: about 80 % as many at 80"), replacing the E1 text. The gate clause follows R2 (T1): tickets
-                // need an open run, a running lift alone no longer opens the gate. 40 and 200 are SkiDayRules' price
-                // edge and SkiMoneyRules.TicketPriceMax (HubRulesTests H17 holds them).
+                // fewer: about 80 % as many at 80"), replacing the E1 text. 40 and 200 are SkiDayRules' price edge and
+                // SkiMoneyRules.TicketPriceMax (HubRulesTests H17 holds them). The gate (Welcome Sign working, an open run) and the
+                // household with no money are in the hub's ticket notes, not here (DECISIONS 242).
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
-                    "What each guest pays when they arrive at a ski area: tourist groups per person, and " +
-                    "residents who come to a lodge. The money comes from the guest's household and goes " +
-                    "to your city's balance (listed in the Economy panel only while \"Book resort income as " +
-                    "public-transport fees\" is on). A household that has " +
-                    "run out of money is let in without paying. Tickets are sold only while the Welcome " +
-                    "Sign works (efficiency above 0) and the ski area has an open run. The price changes " +
-                    "only ski days (the residents and hotel guests this mod sends skiing): no effect up to 40, " +
-                    "then fewer: about 90 % as many at 60, 80 % at 80 and 20 % at 200. Visitors the game sends on its own come " +
-                    "at any price (and still pay it), and the attraction score ignores it. One price for " +
-                    "every ski area, shown in the hub's Money view. 0 turns tickets off. Default 60."
+                    "What each guest pays on arrival, one price for every ski area. Above 40 it lowers ski days " +
+                    "(about 90 % as many at 60, 80 % at 80, 20 % at 200); visitors the game sends on its own come " +
+                    "at any price and still pay it. 0 turns lift tickets off. Default 60."
                 },
                 // Catalog Phase B (round-2-contract §8.6 / §9, D15): the contract's text plus D15's "price 0 = nothing
                 // charged" (documented in the slider tip) and the default. Multipliers: SkiCatalog.LodgeDef.SpendMultiplier.
@@ -166,66 +159,61 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LodgeSpendPerGuest)),
-                    "On by default: each paying ski guest also spends this at the lodge they arrive at, more at bigger " +
-                    "lodges (15 at a hut or A-frame, 23 at a chalet, 45 at a summit or grand lodge). " +
-                    "Charged with the lift ticket, so nothing is spent while the ticket price is 0; a household " +
-                    "spends only what it has left after its tickets. 0 turns it off. Default 15."
+                    "What each paying ski guest also spends at the lodge they arrive at, more at bigger lodges: at the " +
+                    "default, 15 at a hut or A-frame, 23 at a chalet and 45 at a summit or grand lodge. It comes out of " +
+                    "what the household has left after the lift ticket, so nothing is spent while lift tickets are off. " +
+                    "0 turns it off. Default 15."
                 },
-                // Stage 1a (DECISIONS 239).
+                // Econ-2 (DECISIONS 239-241): income booking, lessons, season passes.
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.BookTicketsAsFees)),
-                    "Book resort income as public-transport fees"
+                    "Book resort income as public transportation fees"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.BookTicketsAsFees)),
-                    "On: lift tickets, season passes, ski lessons and lodge spend are booked like bus fares, so all the " +
-                    "resort's income shows in the Economy panel on one line, under public transportation fees, and " +
-                    "reaches your balance through the game's budget. Off: the money goes straight to your balance and is " +
-                    "not listed in the Economy panel. Default on."
+                    "On: lift tickets, season passes, lessons and lodge spend show in the Economy panel under public " +
+                    "transportation fees and reach your balance through the game's budget. Off: they go straight to " +
+                    "your balance and are not in the Economy panel. Default on."
                 },
-                // Econ-2 round 2 (DECISIONS 241): the ski-school lesson fee.
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LessonShare)),
                     "Lesson share"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LessonShare)),
-                    "At a ski area with a working ski school (built, and not switched off), this share of the people who " +
-                    "go skiing that day also take a lesson. A lesson is paid from the household's money after the ticket " +
-                    "or pass (never below 0) and is booked like the ticket. 0 turns lessons off. Default 20."
+                    "At a ski area with a working ski school, this share of the people who go skiing that day also take " +
+                    "a lesson. The household pays from what it has left after the lift ticket or pass. 0 turns lessons " +
+                    "off. Default 20 %."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LessonMultiplier)),
-                    "Lesson price (× day ticket)"
+                    "Lesson price (× lift ticket)"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LessonMultiplier)),
-                    "A lesson costs this many day tickets, at the ticket price on the day. Needs a ticket price above 0. " +
+                    "A lesson costs this many lift tickets at the day's ticket price. Needs a lift ticket price above 0. " +
                     "Default 1.5."
                 },
-                // Season passes v1 (DECISIONS 240).
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassShare)),
                     "Season pass share"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SeasonPassShare)),
-                    "The share of your residents' households that buy a season pass (season: July to June). When a ski " +
-                    "area opens for a new season, each household within reach rolls once, at this share times its chance " +
-                    "of skiing there; households that moved in later, or live farther away, decide when they first go " +
-                    "skiing. A pass is paid once, from the household's money, and the household then skis without " +
-                    "paying at the gate for the rest of the season and goes skiing more often. A household that does " +
-                    "not buy pays day tickets all season. Tourists never buy one. 0 turns passes off. Default 50."
+                    "The share of resident households that buy a season pass (July to June). Each household within reach " +
+                    "rolls once when a ski area opens for a new season, at this share times its chance of skiing there; " +
+                    "households that moved in later or live farther away roll on their first visit. Holders ski free at " +
+                    "the gate and go skiing more often. Tourists never buy one. 0 turns passes off. Default 50 %."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassMultiplier)),
-                    "Season pass price (× day ticket)"
+                    "Season pass price (× lift ticket)"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SeasonPassMultiplier)),
-                    "A season pass costs this many day tickets, at the ticket price on the day it is sold (the price " +
-                    "is then locked for the season). It pays off for a household that skis more often than this many " +
-                    "times. Needs a ticket price above 0. Default 4."
+                    "A season pass costs this many lift tickets at the ticket price when it is sold, locked for the " +
+                    "season. It pays off for a household that skis more often than this many times. Needs a lift " +
+                    "ticket price above 0. Default 4."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.EnableSnowGating)),

@@ -579,7 +579,7 @@ namespace SkiResortMod.Systems
             return Chance(who, attraction, distanceKm, openShare, powder, ticketPrice, priceTolerance, schoolFactor, confidence, knobs, false);
         }
 
-        /// <summary>Season passes v1 (DECISIONS 240): as the 10-argument Chance, except that a PASS HOLDER (the household's
+        /// <summary>DECISIONS 240: as the 10-argument Chance, except that a PASS HOLDER (the household's
         /// SkiSeasonPass for this season; residents only, the caller decides) gets P = 1 in place of PriceFactor — the pass is
         /// sunk cost, so the ticket price no longer deters it (the V2-IDEAS "holders ski more"). With
         /// <paramref name="passHolder"/> false this is the 10-argument Chance bit for bit.</summary>
