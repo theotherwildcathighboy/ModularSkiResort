@@ -61,6 +61,12 @@ by its skeptic MC1-MC11; build report build/detail-pass-1-lifts-tram.md).
       18 base vanilla rows (+ 2 park lamps and a bin on the new cell's paving); NB2 measures in the design frame (x -
       frame_dx); NB3 reads the ramps BUILT; D10 the base floors re-based -5 % of the measured RAMPS export (the ramp
       costs the capped 4096 atlas w = 1 24.81 -> 23.48 px/m), the new classes (ramp, landing, plaza) floored too.
+  Revision 3 (build/tram-top-rev3.md; tram_station.PLINTH_TOP): the top in PLINTH MODE (the foundation and supports continue
+      below grade to -12.00). D6: the top's bounds min y 0.00 -> -12.00 (the prefab delta; x / z / top unchanged). D10: the
+      top's floors are UNCHANGED (w = 1 19.7, the wheels / gates 19.7, deckbeam 13.7: the plinth costs the 2048 atlas 2.0 %
+      of w = 1, 20.78 -> 20.36 px/m, with the lattice kit sharing its UV islands), and the below-grade classes (hidden on a
+      summit, seen on a cliff) are floored -5 % of the measured export (found 2.6, lattice members 9.7, pad footings 6.7);
+      they are off the 14 px/m starving list by tram_station.DENSITY_BELOW.
 Exit 1 on any failure.
 """
 import hashlib
@@ -345,7 +351,9 @@ FROZEN = {
     "base": ({"bounds_y": (0.0, 25.0), "x": (-20.40, 23.95), "z": (-12.00, 12.00), "lot": [6, 3]} if ts.RAMPS else
              {"bounds_y": (0.0, 25.0), "x": (-16.40, 20.00), "z": (-12.00, 12.00), "lot": [5, 3]}),
     # revision 2 (ruling Q3): the top bound shrinks 27.00 -> MAST_TOP 20.70 (the 8 m mast dropped); x / z unchanged
-    "top": {"bounds_y": (0.0, ts.MAST_TOP), "x": (-11.80, 11.80), "z": (-12.00, 11.60), "lot": [3, 3]},
+    # revision 3 (PLINTH_TOP): the plinth reaches -12.00 (bounds min y, the prefab delta); x / z / top unchanged
+    "top": {"bounds_y": (-ts.PLINTH["depth"] if ts.PLINTH_TOP else 0.0, ts.MAST_TOP), "x": (-11.80, 11.80),
+            "z": (-12.00, 11.60), "lot": [3, 3]},
 }
 
 
@@ -451,7 +459,11 @@ FLOORS = {   # skeptic MC11: -5 % of the detail-pass build's measured values (re
              {"w1": 24.4, "classes": {"deck": 19.7, "purlin": 17.2, "trackrail": 14.8, "outrigger": 19.7,
                                       "girderroof": 14.8, "glazepanel": 14.8, "bwrim": 24.4, "bwdrim": 24.4}}),
     "top": {"w1": 19.7, "classes": {"deckbeam": 13.7, "bullrim": 19.7, "bullspoke": 19.7, "dwrim": 19.7,
-                                    "dwspoke": 19.7, "gate": 19.7, "fsrim": 19.7}},
+                                    "dwspoke": 19.7, "gate": 19.7, "fsrim": 19.7,
+                                    # revision 3 (PLINTH_TOP): the below-grade classes, -5 % of the measured export
+                                    # (found 2.8, latcol / latgirt / latbrace 10.2, latpad 7.1 px/m)
+                                    **({"found": 2.6, "latcol": 9.7, "latgirt": 9.7, "latbrace": 9.7, "latpad": 6.7}
+                                       if ts.PLINTH_TOP else {})}},
 }
 THIN_ACCEPTED = {"fin", "mullion", "rail", "hornstrut"}
 

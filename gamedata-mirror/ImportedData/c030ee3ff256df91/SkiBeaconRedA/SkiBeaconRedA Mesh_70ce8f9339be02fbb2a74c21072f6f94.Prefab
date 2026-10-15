@@ -1,0 +1,190 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiBeaconRedA Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 2,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.LodProperties, Game",
+                "name": "LodProperties",
+                "active": true,
+                "m_Bias": -1,
+                "m_ShadowBias": 0,
+                "m_LodMeshes": {
+                    "$id": 3,
+                    "$type": "3|Game.Prefabs.RenderPrefab[], Game",
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                }
+            },
+            {
+                "$id": 200,
+                "$type": "4|Game.Prefabs.EmissiveProperties, Game",
+                "name": "EmissiveProperties",
+                "active": true,
+                "m_SingleLights": {
+                    "$id": 201,
+                    "$type": "5|System.Collections.Generic.List`1[[Game.Prefabs.EmissiveProperties+SingleLightMapping, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 202,
+                            "$type": "6|Game.Prefabs.EmissiveProperties+SingleLightMapping, Game",
+                            "purpose": 34,
+                            "color": { "$type": "7|UnityEngine.Color, UnityEngine.CoreModule", 1, 1, 1, 1 },
+                            "colorOff": { "$type": 7, 0, 0, 0, 1 },
+                            "intensity": 4,
+                            "luminance": 0,
+                            "responseTime": 0.05,
+                            "animationIndex": 0,
+                            "materialId": 0
+                        }
+                    ]
+                },
+                "m_MultiLights": {
+                    "$id": 203,
+                    "$type": "8|System.Collections.Generic.List`1[[Game.Prefabs.EmissiveProperties+MultiLightMapping, Game]], mscorlib",
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_AnimationCurves": {
+                    "$id": 204,
+                    "$type": "9|System.Collections.Generic.List`1[[Game.Prefabs.EmissiveProperties+AnimationProperties, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 205,
+                            "$type": "10|Game.Prefabs.EmissiveProperties+AnimationProperties, Game",
+                            "m_Duration": 2,
+                            "m_Curve": {
+                                "$id": 206,
+                                "$type": "11|UnityEngine.AnimationCurve, UnityEngine.CoreModule",
+                                {
+                                    "$id": 207,
+                                    "$type": "12|UnityEngine.Keyframe[], UnityEngine.CoreModule",
+                                    "$rlength": 6,
+                                    "$rcontent": [
+                                        {
+                                            "$type": "13|UnityEngine.Keyframe, UnityEngine.CoreModule",
+                                            "ver": 1,
+                                            "m_Time": 0,
+                                            "m_Value": 0,
+                                            "m_InTangent": 0,
+                                            "m_OutTangent": 0,
+                                            "m_WeightedMode": 0,
+                                            "m_InWeight": 0.333333343,
+                                            "m_OutWeight": 0.333333343
+                                        },
+                                        {
+                                            "$type": 13,
+                                            "ver": 1,
+                                            "m_Time": 0.4995,
+                                            "m_Value": 0,
+                                            "m_InTangent": 0,
+                                            "m_OutTangent": 1000,
+                                            "m_WeightedMode": 0,
+                                            "m_InWeight": 0.333333343,
+                                            "m_OutWeight": 0.333333343
+                                        },
+                                        {
+                                            "$type": 13,
+                                            "ver": 1,
+                                            "m_Time": 0.5,
+                                            "m_Value": 1,
+                                            "m_InTangent": 1000,
+                                            "m_OutTangent": 0,
+                                            "m_WeightedMode": 0,
+                                            "m_InWeight": 0.333333343,
+                                            "m_OutWeight": 0.333333343
+                                        },
+                                        {
+                                            "$type": 13,
+                                            "ver": 1,
+                                            "m_Time": 0.6495,
+                                            "m_Value": 1,
+                                            "m_InTangent": 0,
+                                            "m_OutTangent": -1000,
+                                            "m_WeightedMode": 0,
+                                            "m_InWeight": 0.333333343,
+                                            "m_OutWeight": 0.333333343
+                                        },
+                                        {
+                                            "$type": 13,
+                                            "ver": 1,
+                                            "m_Time": 0.65,
+                                            "m_Value": 0,
+                                            "m_InTangent": -1000,
+                                            "m_OutTangent": 0,
+                                            "m_WeightedMode": 0,
+                                            "m_InWeight": 0.333333343,
+                                            "m_OutWeight": 0.333333343
+                                        },
+                                        {
+                                            "$type": 13,
+                                            "ver": 1,
+                                            "m_Time": 1,
+                                            "m_Value": 0,
+                                            "m_InTangent": 0,
+                                            "m_OutTangent": 1,
+                                            "m_WeightedMode": 0,
+                                            "m_InWeight": 0.333333343,
+                                            "m_OutWeight": 0.333333343
+                                        }
+                                    ]
+                                },
+                                8,
+                                8
+                            }
+                        }
+                    ]
+                },
+                "m_SignalGroupAnimations": {
+                    "$id": 208,
+                    "$type": "14|System.Collections.Generic.List`1[[Game.Prefabs.EmissiveProperties+SignalGroupAnimation, Game]], mscorlib",
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                }
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:a25e91a8554c43b9590810a80bf5bff1",
+    "m_SurfaceAssets": {
+        "$id": 5,
+        "$type": "15|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:e2edd4bbf403eb6811b97b4dc9b401fa"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "16|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "17|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -0.13,
+            "y": 0,
+            "z": -0.13000001
+        },
+        "max": {
+            "$type": 17,
+            "x": 0.13,
+            "y": 0.4507546,
+            "z": 0.12999998
+        }
+    },
+    "m_SurfaceArea": 0.261014968,
+    "m_IndexCount": 258,
+    "m_VertexCount": 141,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

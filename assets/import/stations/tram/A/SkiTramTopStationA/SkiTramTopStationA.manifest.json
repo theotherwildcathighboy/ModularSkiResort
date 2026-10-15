@@ -1,51 +1,51 @@
 {
   "name": "SkiTramTopStationA",
-  "written_utc": "2026-10-13T11:15:33Z",
+  "written_utc": "2026-10-13T20:05:56Z",
   "blender": "5.2.2 LTS",
   "files": {
     "SkiTramTopStationA.fbx": {
-      "bytes": 971564,
-      "sha1": "ffc6ba0c109ca9c5088f0b27535ba964056298bd"
+      "bytes": 1009244,
+      "sha1": "9359db550e1a7e158dff8a1a5e32dbecbdd97288"
     },
     "SkiTramTopStationA_BaseColor.png": {
-      "bytes": 3229243,
-      "sha1": "e824886899073398ca8e8bcec135b4db7bd6750a"
+      "bytes": 3310804,
+      "sha1": "d43d9836893ee8bd70a54fba51e757f15625cd70"
     },
     "SkiTramTopStationA_ControlMask.png": {
-      "bytes": 136490,
-      "sha1": "ac210a1900bf830d2291bb69c35eb3d005ebebe5"
+      "bytes": 138505,
+      "sha1": "85176a855f41ae32ab3a8bdc22a73a3950eaf9da"
     },
     "SkiTramTopStationA_Emissive.png": {
-      "bytes": 81493,
-      "sha1": "3d94fb76bb4b40446db4965793cc017bbaee7536"
+      "bytes": 81772,
+      "sha1": "afcd068f8f5cf54608738b060546b835f7f35bdf"
     },
     "SkiTramTopStationA_LOD1.fbx": {
-      "bytes": 455228,
-      "sha1": "f397b740902de9840df6fe5def96821ac5681680"
+      "bytes": 447532,
+      "sha1": "c7f8971eaab7537c4e69c943d52fc5acf162c3bd"
     },
     "SkiTramTopStationA_LOD1_Win.fbx": {
       "bytes": 13164,
-      "sha1": "b6df95580fc68e8b1618c09b5777b497fe415a00"
+      "sha1": "f3f2c94ff4972f99e8dd199f88306b2184ac05e4"
     },
     "SkiTramTopStationA_LOD2.fbx": {
-      "bytes": 60524,
-      "sha1": "3bbfdf2871a14e53aee69b07201343944d86366b"
+      "bytes": 60876,
+      "sha1": "54842bf425e0eb59c8d97b4c989ff5716e76e343"
     },
     "SkiTramTopStationA_LOD2_Win.fbx": {
       "bytes": 13164,
-      "sha1": "b775e562bf97e3ff9e0660dc2b914385ef71e04b"
+      "sha1": "10221b4d0eba054fa076be3292eb32858c74ebbc"
     },
     "SkiTramTopStationA_MaskMap.png": {
-      "bytes": 2099927,
-      "sha1": "b60aac4e9b1b5d715c6ac8748342f752752515fb"
+      "bytes": 2118021,
+      "sha1": "d4ca7fd927bdedab1d0ec212304f87506a391a6b"
     },
     "SkiTramTopStationA_Normal.png": {
-      "bytes": 1867460,
-      "sha1": "9d11749e86956a9161509872688f63fc7c5e944a"
+      "bytes": 1921492,
+      "sha1": "b9a8a66be973abf0cb8cd2643c06b08cf1c43446"
     },
     "SkiTramTopStationA_Win.fbx": {
       "bytes": 13164,
-      "sha1": "acfcd3fb52a9648c62e0e01276b03032abc6576f"
+      "sha1": "f1e3c277a0c1bdeb191e5c4353daff2ea1629365"
     },
     "settings.json": {
       "bytes": 751,
@@ -78,66 +78,67 @@
     "no_validate": false,
     "weather": "on",
     "closeups": null,
+    "closeups_only": null,
     "no_fine": false
   },
   "tris": {
-    "0": 12440,
+    "0": 13030,
     "1": 5000,
     "2": 455
   },
-  "parts": 451,
+  "parts": 493,
   "atlas_px": 2048,
   "finish": true,
   "bake": {
     "margin_px": 6,
     "ao": "self",
-    "uncovered_texels": 2782902,
+    "uncovered_texels": 2801337,
     "height_range_m": [
-      -0.0352696068584919,
-      0.021295279264450073
+      -0.034281693398952484,
+      0.028061984106898308
     ],
     "stamps_px": {}
   },
   "density_worst": [
     {
       "part": "label_stn",
-      "source_px_per_m": 25.9,
-      "shipped_px_per_m": 415.5
+      "source_px_per_m": 22.0,
+      "shipped_px_per_m": 422.5
     },
     {
       "part": "label_tension",
-      "source_px_per_m": 25.9,
-      "shipped_px_per_m": 415.5
-    },
-    {
-      "part": "label_trail_1",
-      "source_px_per_m": 25.9,
-      "shipped_px_per_m": 207.8
-    },
-    {
-      "part": "label_trail_2",
-      "source_px_per_m": 25.9,
-      "shipped_px_per_m": 207.8
+      "source_px_per_m": 22.0,
+      "shipped_px_per_m": 422.5
     },
     {
       "part": "label_trail_0",
-      "source_px_per_m": 25.9,
-      "shipped_px_per_m": 207.8
+      "source_px_per_m": 22.0,
+      "shipped_px_per_m": 213.8
     },
     {
-      "part": "rope_haul",
-      "source_px_per_m": 24.4,
-      "shipped_px_per_m": 7.3
+      "part": "label_trail_1",
+      "source_px_per_m": 22.0,
+      "shipped_px_per_m": 213.8
     },
     {
-      "part": "rope_track_R",
-      "source_px_per_m": 24.0,
-      "shipped_px_per_m": 7.3
+      "part": "label_trail_2",
+      "source_px_per_m": 22.0,
+      "shipped_px_per_m": 213.8
     },
     {
-      "part": "rope_track_L",
-      "source_px_per_m": 24.0,
-      "shipped_px_per_m": 7.3
+      "part": "found_slab",
+      "source_px_per_m": 22.0,
+      "shipped_px_per_m": 2.4
+    },
+    {
+      "part": "found_block",
+      "source_px_per_m": 22.0,
+      "shipped_px_per_m": 3.1
+    },
+    {
+      "part": "latpad_L1",
+      "source_px_per_m": 22.0,
+      "shipped_px_per_m": 7.1
     }
   ],
   "submeshes": [
@@ -153,109 +154,109 @@
     "C4": "6 carrier zones clear (R30 + cabin body)",
     "C5": "all 4 bay edges have deck tops at y 6.3 (cabin interior floor) {-7.8: 1, -3.2: 1, 3.2: 1, 7.8: 1}",
     "C7": "x [-11.800, 11.800] z [-12.000, 11.600] inside the 3x3 lot (x +-12, z +-12; strict)",
-    "C8": "bounds y [0.000, 20.700] (want top 20.70)",
+    "C8": "bounds y [-12.000, 20.700] (want top 20.70)",
     "C13": {
       "label_stn": 0.0,
       "label_tension": 1e-05,
-      "label_trail_0": 0.0,
+      "label_trail_0": 1e-05,
       "label_trail_1": 1e-05,
-      "label_trail_2": 0.0
+      "label_trail_2": 1e-05
     },
     "C13_unique": {
       "label_stn": 0.0,
-      "label_tension": 0.0,
+      "label_tension": 2e-05,
       "label_trail_0": 0.0,
-      "label_trail_1": 1e-05,
-      "label_trail_2": 1e-05
+      "label_trail_1": 0.0,
+      "label_trail_2": 0.0
     }
   },
   "detail1": {
     "labels": {
       "label_stn": {
-        "px_per_m": 415.5,
-        "u_px_per_m": 415.5,
-        "v_px_per_m": 415.5,
+        "px_per_m": 422.5,
+        "u_px_per_m": 422.5,
+        "v_px_per_m": 422.5,
         "target_px_per_m": 400.0,
-        "weight": 20.0,
+        "weight": 20.75,
         "rect": [
-          5,
-          214,
-          673,
-          1172
+          6,
+          218,
+          6,
+          513
         ],
         "cap_m": 0.1,
         "glyph_m": 0.434,
-        "stroke_px": 8.32,
+        "stroke_px": 8.45,
         "t2_ok": true,
         "t1_ok": true
       },
       "label_tension": {
-        "px_per_m": 415.5,
-        "u_px_per_m": 415.5,
-        "v_px_per_m": 415.5,
+        "px_per_m": 422.5,
+        "u_px_per_m": 422.5,
+        "v_px_per_m": 422.5,
         "target_px_per_m": 400.0,
-        "weight": 20.0,
+        "weight": 20.75,
         "rect": [
-          676,
-          802,
-          507,
-          632
+          566,
+          694,
+          357,
+          485
         ],
         "cap_m": 0.035,
         "glyph_m": 0.3,
-        "stroke_px": 2.1,
+        "stroke_px": 2.15,
         "t2_ok": null,
         "t1_ok": false
       },
       "label_trail_0": {
-        "px_per_m": 207.8,
-        "u_px_per_m": 207.8,
-        "v_px_per_m": 207.8,
+        "px_per_m": 213.8,
+        "u_px_per_m": 213.8,
+        "v_px_per_m": 213.8,
         "target_px_per_m": 200.0,
-        "weight": 10.0,
+        "weight": 10.5,
         "rect": [
-          1205,
-          1256,
-          813,
-          992
+          138,
+          190,
+          667,
+          852
         ]
       },
       "label_trail_1": {
-        "px_per_m": 207.8,
-        "u_px_per_m": 207.8,
-        "v_px_per_m": 207.8,
+        "px_per_m": 213.8,
+        "u_px_per_m": 213.8,
+        "v_px_per_m": 213.8,
         "target_px_per_m": 200.0,
-        "weight": 10.0,
+        "weight": 10.5,
         "rect": [
-          1143,
-          1194,
-          813,
-          992
+          899,
+          952,
+          122,
+          307
         ]
       },
       "label_trail_2": {
-        "px_per_m": 207.8,
-        "u_px_per_m": 207.8,
-        "v_px_per_m": 207.8,
+        "px_per_m": 213.8,
+        "u_px_per_m": 213.8,
+        "v_px_per_m": 213.8,
         "target_px_per_m": 200.0,
-        "weight": 10.0,
+        "weight": 10.5,
         "rect": [
-          1160,
-          1210,
-          140,
-          320
+          963,
+          1015,
+          122,
+          307
         ]
       }
     },
     "label_weights": {
-      "w1_px_per_m": 21.01,
-      "w1_after_px_per_m": 20.777,
+      "w1_px_per_m": 20.251,
+      "w1_after_px_per_m": 20.361,
       "weights": {
-        "label_stn": 20.0,
-        "label_tension": 20.0,
-        "label_trail_0": 10.0,
-        "label_trail_1": 10.0,
-        "label_trail_2": 10.0
+        "label_stn": 20.75,
+        "label_tension": 20.75,
+        "label_trail_0": 10.5,
+        "label_trail_1": 10.5,
+        "label_trail_2": 10.5
       }
     },
     "weather": {
@@ -264,91 +265,91 @@
         {
           "intensity": 0.4,
           "ok": true,
-          "VL1": 0.0336,
-          "VL2": 0.0571,
-          "VL3": -0.0082,
-          "VL4": 0.225,
-          "dLstar_mean": 0.837,
-          "dLstar_gt2": 0.1024
+          "VL1": 0.034,
+          "VL2": 0.056,
+          "VL3": -0.0085,
+          "VL4": 0.221,
+          "dLstar_mean": 0.819,
+          "dLstar_gt2": 0.098
         },
         {
           "intensity": 0.45,
           "ok": true,
-          "VL1": 0.0378,
-          "VL2": 0.0641,
-          "VL3": -0.0092,
-          "VL4": 0.253,
-          "dLstar_mean": 0.94,
-          "dLstar_gt2": 0.1154
+          "VL1": 0.0383,
+          "VL2": 0.0632,
+          "VL3": -0.0096,
+          "VL4": 0.248,
+          "dLstar_mean": 0.919,
+          "dLstar_gt2": 0.112
         },
         {
           "intensity": 0.5,
           "ok": true,
-          "VL1": 0.042,
-          "VL2": 0.0704,
-          "VL3": -0.0102,
-          "VL4": 0.281,
-          "dLstar_mean": 1.042,
-          "dLstar_gt2": 0.1275
+          "VL1": 0.0425,
+          "VL2": 0.0703,
+          "VL3": -0.0106,
+          "VL4": 0.275,
+          "dLstar_mean": 1.019,
+          "dLstar_gt2": 0.1255
         },
         {
           "intensity": 0.55,
           "ok": true,
-          "VL1": 0.0462,
-          "VL2": 0.0764,
-          "VL3": -0.0112,
-          "VL4": 0.309,
-          "dLstar_mean": 1.143,
-          "dLstar_gt2": 0.1409
+          "VL1": 0.0467,
+          "VL2": 0.0772,
+          "VL3": -0.0117,
+          "VL4": 0.303,
+          "dLstar_mean": 1.119,
+          "dLstar_gt2": 0.1396
         },
         {
           "intensity": 0.6,
           "ok": false,
-          "VL1": 0.0503,
-          "VL2": 0.0829,
-          "VL3": -0.0123,
-          "VL4": 0.337,
-          "dLstar_mean": 1.244,
-          "dLstar_gt2": 0.1556
+          "VL1": 0.051,
+          "VL2": 0.0845,
+          "VL3": -0.0128,
+          "VL4": 0.33,
+          "dLstar_mean": 1.218,
+          "dLstar_gt2": 0.1554
         }
       ],
       "slot_wear": "free",
       "snow": 0.0,
       "preset": "station",
       "vanilla": {
-        "VL1_mean_rel_dL": 0.04617,
-        "VL2_share_rel_dL_gt_0.15": 0.07643,
-        "VL3_mean_dsmooth": -0.01124,
-        "VL4_max": 0.3087,
-        "visible_texels": 949081,
+        "VL1_mean_rel_dL": 0.04674,
+        "VL2_share_rel_dL_gt_0.15": 0.07725,
+        "VL3_mean_dsmooth": -0.0117,
+        "VL4_max": 0.3027,
+        "visible_texels": 917570,
         "ok": true,
         "failed": []
       },
       "perceptual": {
-        "mean_Lstar_before": 58.161,
-        "mean_abs_dLstar": 1.143,
-        "p95_abs_dLstar": 5.891,
-        "share_dLstar_gt_2": 0.1409,
-        "texels": 949081,
+        "mean_Lstar_before": 56.609,
+        "mean_abs_dLstar": 1.1191,
+        "p95_abs_dLstar": 5.484,
+        "share_dLstar_gt_2": 0.1396,
+        "texels": 917570,
         "tinted": false
       },
       "seconds": {
-        "apply": 1.454,
-        "fields": 3.211,
-        "inner": 0.03,
-        "masks": 0.567,
-        "total": 5.613
+        "apply": 1.212,
+        "fields": 2.597,
+        "inner": 0.026,
+        "masks": 0.523,
+        "total": 4.679
       }
     },
     "share": {
-      "groups": 55,
-      "dup_parts": 240,
-      "dup_faces": 2063,
+      "groups": 64,
+      "dup_parts": 271,
+      "dup_faces": 2274,
       "excluded": {
         "never": 10,
         "hero": 8,
         "relief": 45,
-        "size": 34,
+        "size": 36,
         "pinned": 0
       },
       "excluded_relief": [
@@ -387,7 +388,11 @@
     "share_groups": [
       [
         "footing_L",
-        3
+        1
+      ],
+      [
+        "footing_rL",
+        1
       ],
       [
         "footing_lL0",
@@ -604,369 +609,453 @@
       [
         "stripe_bcL",
         3
+      ],
+      [
+        "latpad_L0",
+        5
+      ],
+      [
+        "latcol_L0",
+        5
+      ],
+      [
+        "latgirt_L0a",
+        7
+      ],
+      [
+        "latgirt_Lta",
+        3
+      ],
+      [
+        "latbrace_L0a0",
+        3
+      ],
+      [
+        "latbrace_L0a1",
+        3
+      ],
+      [
+        "latbrace_L0b0",
+        3
+      ],
+      [
+        "latbrace_L0b1",
+        3
       ]
     ],
-    "shared_faces": 2063,
+    "shared_faces": 2274,
     "density": {
-      "w1_px_per_m": 20.78,
-      "median_px_per_m": 20.78,
+      "w1_px_per_m": 20.36,
+      "median_px_per_m": 15.27,
       "classes": {
         "antdish": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 0.42,
           "w": 1.0
         },
         "antpanel": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 0.27,
           "w": 1.0
         },
         "board": {
-          "px_per_m": 14.5,
+          "px_per_m": 14.3,
           "m2": 2.39,
           "w": 0.7
         },
         "brace": {
-          "px_per_m": 14.5,
+          "px_per_m": 14.3,
           "m2": 61.52,
           "w": 0.7
         },
         "bullaxle": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 0.22,
           "w": 1.0
         },
         "bullframe": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 24.47,
           "w": 1.0
         },
         "bullhub": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 4.75,
           "w": 1.0
         },
         "bullrim": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 18.01,
           "w": 1.0
         },
         "bullspoke": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 4.2,
           "w": 1.0
         },
         "cwguard": {
-          "px_per_m": 14.5,
+          "px_per_m": 14.3,
           "m2": 2.47,
           "w": 0.7
         },
         "deckbeam": {
-          "px_per_m": 14.6,
+          "px_per_m": 14.3,
           "m2": 89.37,
           "w": 0.7
         },
         "deckstrut": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 25.32,
           "w": 1.0
         },
         "door": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 2.98,
           "w": 1.0
         },
         "dplate": {
-          "px_per_m": 41.6,
+          "px_per_m": 40.7,
           "m2": 14.6,
           "w": 2.0
         },
         "drip": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 1.13,
           "w": 1.0
         },
         "drumhub": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 4.7,
           "w": 1.0
         },
         "drumrim": {
-          "px_per_m": 16.6,
+          "px_per_m": 16.3,
           "m2": 48.62,
           "w": 0.8
         },
         "drumspoke": {
-          "px_per_m": 16.6,
+          "px_per_m": 16.3,
           "m2": 12.72,
           "w": 0.8
         },
         "dwaxle": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 0.14,
           "w": 1.0
         },
         "dwbeam": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 18.81,
           "w": 1.0
         },
         "dwhub": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 0.85,
           "w": 1.0
         },
         "dwpost": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 18.78,
           "w": 1.0
         },
         "dwrim": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 18.56,
           "w": 1.0
         },
         "dwspoke": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 5.03,
           "w": 1.0
         },
         "footing": {
-          "px_per_m": 20.8,
-          "m2": 42.21,
+          "px_per_m": 20.4,
+          "m2": 51.53,
           "w": 1.0
         },
+        "found": {
+          "px_per_m": 2.8,
+          "m2": 1934.94,
+          "w": 0.12
+        },
         "fsbeam": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 11.79,
           "w": 1.0
         },
         "fshub": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 3.71,
           "w": 1.0
         },
         "fsrim": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 6.8,
           "w": 1.0
         },
         "gate": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 99.83,
           "w": 1.0
         },
         "gatepost": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 17.82,
           "w": 1.0
         },
         "gauge": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 0.16,
           "w": 1.0
         },
         "goalbeam": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 32.44,
           "w": 1.0
         },
         "goalknee": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 5.13,
           "w": 1.0
         },
         "goalpost": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 55.73,
           "w": 1.0
         },
         "grate": {
-          "px_per_m": 20.7,
+          "px_per_m": 20.3,
           "m2": 268.61,
           "w": 1.0
         },
         "headbeam": {
-          "px_per_m": 27.0,
+          "px_per_m": 26.5,
           "m2": 143.89,
           "w": 1.3
         },
         "headgirder": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 53.55,
           "w": 1.0
         },
         "hook": {
-          "px_per_m": 14.5,
+          "px_per_m": 14.3,
           "m2": 0.21,
           "w": 0.7
         },
         "hut": {
-          "px_per_m": 31.2,
+          "px_per_m": 30.5,
           "m2": 48.31,
           "w": 1.5
         },
         "hutroof": {
-          "px_per_m": 31.2,
+          "px_per_m": 30.5,
           "m2": 27.58,
           "w": 1.5
         },
         "kick": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 37.4,
           "w": 1.0
         },
         "label": {
-          "px_per_m": 333.8,
+          "px_per_m": 340.1,
           "m2": 1.31,
-          "w": 10.0
+          "w": 10.5
         },
         "lamp": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 0.18,
           "w": 1.0
         },
         "landing": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 16.74,
           "w": 1.0
         },
+        "latbrace": {
+          "px_per_m": 10.2,
+          "m2": 52.72,
+          "w": 0.5
+        },
+        "latcol": {
+          "px_per_m": 10.2,
+          "m2": 84.46,
+          "w": 0.5
+        },
+        "latgirt": {
+          "px_per_m": 10.2,
+          "m2": 21.12,
+          "w": 0.5
+        },
+        "latpad": {
+          "px_per_m": 7.1,
+          "m2": 43.68,
+          "w": 0.35
+        },
         "leg": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 25.39,
           "w": 1.0
         },
         "legbrace": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 11.22,
           "w": 1.0
         },
         "lug": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 0.9,
           "w": 1.0
         },
         "mast": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 0.66,
           "w": 1.0
         },
         "mastarm": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 0.2,
           "w": 1.0
         },
         "medal": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 1.46,
           "w": 1.0
         },
         "pad": {
-          "px_per_m": 15.6,
-          "m2": 124.2,
+          "px_per_m": 15.3,
+          "m2": 137.3,
           "w": 0.75
         },
         "plinth": {
-          "px_per_m": 27.0,
-          "m2": 268.77,
+          "px_per_m": 26.5,
+          "m2": 271.13,
           "w": 1.3
         },
         "plinthcap": {
-          "px_per_m": 27.0,
+          "px_per_m": 26.5,
           "m2": 320.62,
           "w": 1.3
         },
         "post": {
-          "px_per_m": 14.5,
+          "px_per_m": 14.3,
           "m2": 17.56,
           "w": 0.7
         },
         "rail": {
-          "px_per_m": 9.3,
+          "px_per_m": 9.2,
           "m2": 52.92,
           "w": 0.45
         },
         "ramp": {
-          "px_per_m": 15.6,
+          "px_per_m": 15.3,
           "m2": 167.13,
           "w": 0.75
         },
         "rampcol": {
-          "px_per_m": 15.6,
-          "m2": 36.7,
+          "px_per_m": 15.3,
+          "m2": 37.02,
           "w": 0.75
         },
         "rope": {
-          "px_per_m": 7.3,
+          "px_per_m": 7.1,
           "m2": 23.47,
           "w": 0.35
         },
         "scope": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 1.18,
           "w": 1.0
         },
         "sghanger": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 2.52,
           "w": 1.0
         },
         "sgirder": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 32.21,
           "w": 1.0
         },
         "sgpost": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 36.69,
           "w": 1.0
         },
         "sgtie": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 19.97,
           "w": 1.0
         },
         "stairpost": {
-          "px_per_m": 20.8,
-          "m2": 5.88,
+          "px_per_m": 20.4,
+          "m2": 5.93,
           "w": 1.0
         },
         "stairslab": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 14.61,
           "w": 1.0
         },
         "stairstr": {
-          "px_per_m": 14.5,
+          "px_per_m": 14.3,
           "m2": 10.96,
           "w": 0.7
         },
         "stripe": {
-          "px_per_m": 14.5,
+          "px_per_m": 14.3,
           "m2": 4.06,
           "w": 0.7
         },
         "strut": {
-          "px_per_m": 27.0,
+          "px_per_m": 26.5,
           "m2": 203.31,
           "w": 1.3
         },
         "svcpost": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 10.33,
           "w": 1.0
         },
         "tread": {
-          "px_per_m": 20.8,
+          "px_per_m": 20.4,
           "m2": 8.9,
           "w": 1.0
         }
       },
       "starving_lt14": [
         "rail"
-      ]
+      ],
+      "below_grade": {
+        "found": {
+          "px_per_m": 2.8,
+          "m2": 1934.94,
+          "w": 0.12
+        },
+        "latbrace": {
+          "px_per_m": 10.2,
+          "m2": 52.72,
+          "w": 0.5
+        },
+        "latcol": {
+          "px_per_m": 10.2,
+          "m2": 84.46,
+          "w": 0.5
+        },
+        "latgirt": {
+          "px_per_m": 10.2,
+          "m2": 21.12,
+          "w": 0.5
+        },
+        "latpad": {
+          "px_per_m": 7.1,
+          "m2": 43.68,
+          "w": 0.35
+        }
+      }
     },
-    "emissive_lit_texels": 1020,
+    "emissive_lit_texels": 924,
     "detail_stats": {
       "drawn": {
         "seams": 566,
@@ -1960,7 +2049,7 @@
       "pad_L": {
         "terraform": "no-level",
         "edge_m": 0.4,
-        "ground_y": 0.0,
+        "ground_y": -0.05,
         "top_y": 5.1,
         "ramps_arriving": 1,
         "counts_as_grade": true,
@@ -1971,7 +2060,7 @@
       "pad_R": {
         "terraform": "no-level",
         "edge_m": 0.4,
-        "ground_y": 0.0,
+        "ground_y": -0.05,
         "top_y": 5.1,
         "ramps_arriving": 1,
         "counts_as_grade": true,
@@ -1984,16 +2073,358 @@
     "rows_added": [],
     "added_tris_lod0": {
       "ramp decks": 24,
-      "pads": 20,
+      "pads": 24,
       "head grating + beams": 38,
       "columns": 80,
       "rails (posts, rails, kick plates)": 1236
     },
-    "added_tris_lod0_total": 1398,
+    "added_tris_lod0_total": 1402,
     "removed": [
       "the +X end stair (flight s, its foot pad and rails stairo / stairi, the outer deck's back rail outerRb)",
       "the -X end stair (flights wu / wl, landing_midW, stairfoot_1, stairposts 2-3, rails landtopW / stairwu* / landwm* / stairwl*; the gangway's back rail shortened)"
     ]
+  },
+  "plinth_top": {
+    "flag": "PLINTH_TOP",
+    "report": "build/tram-top-rev3.md",
+    "verdict": "verdicts-2026-10-11 'Twenty-seventh look' T-3",
+    "mode": "plinth",
+    "plan": {
+      "depth": 12.0,
+      "seat": -0.05,
+      "cap": -0.05,
+      "slab_top": -11.4,
+      "block": {
+        "x": [
+          -11.7,
+          11.7
+        ],
+        "z": [
+          -2.85,
+          11.5
+        ],
+        "y": [
+          -11.4,
+          -0.05
+        ]
+      },
+      "slab": {
+        "x": [
+          -11.8,
+          11.8
+        ],
+        "z": [
+          -3.15,
+          11.6
+        ],
+        "y": [
+          -12.0,
+          -11.4
+        ]
+      },
+      "lattice": {
+        "x": 10.1,
+        "z": [
+          -9.6,
+          -7.0,
+          -4.4
+        ],
+        "girt_y": [
+          -1.0,
+          -6.0
+        ],
+        "col_y": [
+          -0.02,
+          -11.6
+        ]
+      }
+    },
+    "C6p": {
+      "LOD0": {
+        "mode": "plinth",
+        "verdict": "NONE",
+        "ok_edges": 0,
+        "blocked_edges": 0,
+        "band_vertices": 0,
+        "min_y": -12.0,
+        "max_y": 20.7,
+        "label": "LOD0",
+        "closed": {
+          "open_edges_below_grade_m": {
+            "footing_rL": 5.953,
+            "footing_rR": 5.953,
+            "found_block": 75.5,
+            "plinth": 47.153,
+            "rampcol_L0": 0.8,
+            "rampcol_L1": 0.8,
+            "rampcol_L2": 0.8,
+            "rampcol_L3": 0.8,
+            "rampcol_R0": 0.8,
+            "rampcol_R1": 0.8,
+            "rampcol_R2": 0.8,
+            "rampcol_R3": 0.8,
+            "stairpost_0": 0.49,
+            "stairpost_1": 0.49
+          },
+          "uncovered": {},
+          "parts_below_grade": [
+            "footing_L",
+            "footing_R",
+            "footing_lL0",
+            "footing_lL1",
+            "footing_lR0",
+            "footing_lR1",
+            "footing_rL",
+            "footing_rR",
+            "found_block",
+            "found_slab",
+            "latbrace_L0a0",
+            "latbrace_L0a1",
+            "latbrace_L0b0",
+            "latbrace_L0b1",
+            "latbrace_L1a0",
+            "latbrace_L1a1",
+            "latbrace_L1b0",
+            "latbrace_L1b1",
+            "latbrace_R0a0",
+            "latbrace_R0a1",
+            "latbrace_R0b0",
+            "latbrace_R0b1",
+            "latbrace_R1a0",
+            "latbrace_R1a1",
+            "latbrace_R1b0",
+            "latbrace_R1b1",
+            "latcol_L0",
+            "latcol_L1",
+            "latcol_L2",
+            "latcol_R0",
+            "latcol_R1",
+            "latcol_R2",
+            "latgirt_L0a",
+            "latgirt_L0b",
+            "latgirt_L1a",
+            "latgirt_L1b",
+            "latgirt_Lta",
+            "latgirt_Ltb",
+            "latgirt_R0a",
+            "latgirt_R0b",
+            "latgirt_R1a",
+            "latgirt_R1b",
+            "latgirt_Rta",
+            "latgirt_Rtb",
+            "latpad_L0",
+            "latpad_L1",
+            "latpad_L2",
+            "latpad_R0",
+            "latpad_R1",
+            "latpad_R2",
+            "pad_L",
+            "pad_R",
+            "plinth",
+            "rampcol_L0",
+            "rampcol_L1",
+            "rampcol_L2",
+            "rampcol_L3",
+            "rampcol_R0",
+            "rampcol_R1",
+            "rampcol_R2",
+            "rampcol_R3",
+            "stairpost_0",
+            "stairpost_1"
+          ]
+        }
+      },
+      "LOD1": {
+        "mode": "plinth",
+        "verdict": "NONE",
+        "ok_edges": 0,
+        "blocked_edges": 0,
+        "band_vertices": 0,
+        "min_y": -12.0,
+        "max_y": 20.5,
+        "label": "LOD1",
+        "closed": {
+          "open_edges_below_grade_m": {
+            "footing_rL": 5.945,
+            "footing_rR": 5.945,
+            "found_block": 75.5,
+            "plinth": 47.145,
+            "rampcol_L0": 0.8,
+            "rampcol_L1": 0.8,
+            "rampcol_L2": 0.8,
+            "rampcol_L3": 0.8,
+            "rampcol_R0": 0.8,
+            "rampcol_R1": 0.8,
+            "rampcol_R2": 0.8,
+            "rampcol_R3": 0.8
+          },
+          "uncovered": {},
+          "parts_below_grade": [
+            "footing_L",
+            "footing_R",
+            "footing_lL0",
+            "footing_lL1",
+            "footing_lR0",
+            "footing_lR1",
+            "footing_rL",
+            "footing_rR",
+            "found_block",
+            "found_slab",
+            "latcol_L0",
+            "latcol_L1",
+            "latcol_L2",
+            "latcol_R0",
+            "latcol_R1",
+            "latcol_R2",
+            "latgirt_L0a",
+            "latgirt_L0b",
+            "latgirt_L1a",
+            "latgirt_L1b",
+            "latgirt_Lta",
+            "latgirt_Ltb",
+            "latgirt_R0a",
+            "latgirt_R0b",
+            "latgirt_R1a",
+            "latgirt_R1b",
+            "latgirt_Rta",
+            "latgirt_Rtb",
+            "latpad_L0",
+            "latpad_L1",
+            "latpad_L2",
+            "latpad_R0",
+            "latpad_R1",
+            "latpad_R2",
+            "pad_L",
+            "pad_R",
+            "plinth",
+            "rampcol_L0",
+            "rampcol_L1",
+            "rampcol_L2",
+            "rampcol_L3",
+            "rampcol_R0",
+            "rampcol_R1",
+            "rampcol_R2",
+            "rampcol_R3"
+          ]
+        }
+      },
+      "LOD2": {
+        "mode": "plinth",
+        "verdict": "NONE",
+        "ok_edges": 0,
+        "blocked_edges": 0,
+        "band_vertices": 0,
+        "min_y": -12.0,
+        "max_y": 20.5,
+        "label": "LOD2"
+      }
+    },
+    "tris_lod0": {
+      "foundation block + footing slab": 22,
+      "lattice columns": 72,
+      "lattice girts + ties": 144,
+      "lattice X braces": 192,
+      "lattice pad footings": 72,
+      "continued below grade (pier, pile caps, pads, ramp columns, stair posts)": 520
+    },
+    "tris_lod0_new": 502,
+    "continued": [
+      "plinth",
+      "footing_",
+      "pad_",
+      "rampcol_",
+      "stairpost_"
+    ],
+    "clearances": {
+      "wheels": {
+        "drumrim_L": {
+          "rim_low_y": 0.75,
+          "to_found_block_m": 0.8,
+          "to_plinth_m": 0.2,
+          "to_plinthcap_m": 0.858,
+          "over_seat_m": 0.8
+        },
+        "drumrim_R": {
+          "rim_low_y": 0.75,
+          "to_found_block_m": 0.8,
+          "to_plinth_m": 0.2,
+          "to_plinthcap_m": 0.858,
+          "over_seat_m": 0.8
+        },
+        "fsrim_L": {
+          "rim_low_y": 9.75,
+          "to_found_block_m": 9.8,
+          "to_plinth_m": 4.269,
+          "to_plinthcap_m": 3.45,
+          "over_seat_m": 9.8
+        },
+        "fsrim_R": {
+          "rim_low_y": 9.75,
+          "to_found_block_m": 9.8,
+          "to_plinth_m": 4.269,
+          "to_plinthcap_m": 3.45,
+          "over_seat_m": 9.8
+        },
+        "bullrim": {
+          "rim_low_y": 10.6,
+          "to_found_block_m": 10.65,
+          "to_plinth_m": 5.263,
+          "to_plinthcap_m": 4.3,
+          "over_seat_m": 10.65
+        },
+        "dwrim_L": {
+          "rim_low_y": 12.85,
+          "to_found_block_m": 12.9,
+          "to_plinth_m": 7.187,
+          "to_plinthcap_m": 6.55,
+          "over_seat_m": 12.9
+        },
+        "dwrim_R": {
+          "rim_low_y": 12.85,
+          "to_found_block_m": 12.9,
+          "to_plinth_m": 7.187,
+          "to_plinthcap_m": 6.55,
+          "over_seat_m": 12.9
+        }
+      },
+      "track_rope_low_y": 0.9,
+      "track_rope_over_seat_m": 0.95,
+      "how": "rim vertices to the target part's surface (BVH nearest); prefab frame"
+    },
+    "density_below_grade": {
+      "found": {
+        "px_per_m": 2.8,
+        "m2": 1934.94,
+        "w": 0.12
+      },
+      "latbrace": {
+        "px_per_m": 10.2,
+        "m2": 52.72,
+        "w": 0.5
+      },
+      "latcol": {
+        "px_per_m": 10.2,
+        "m2": 84.46,
+        "w": 0.5
+      },
+      "latgirt": {
+        "px_per_m": 10.2,
+        "m2": 21.12,
+        "w": 0.5
+      },
+      "latpad": {
+        "px_per_m": 7.1,
+        "m2": 43.68,
+        "w": 0.35
+      }
+    },
+    "rules": {
+      "engine_base": "none: no vertex within PLINTH band of y 0 on LOD0 / LOD1 / LOD2 (C6p); the prefab's LOD0 RenderPrefab gets BaseProperties {m_BaseType: null, m_UseMinBounds: false}",
+      "depth": "min y -12.00 on every LOD (the slab + the lattice pad footings)",
+      "closed": "every open edge of a below-grade part lies on another part's face (C6p closed, LOD0 + LOD1)",
+      "above_grade": "vertex-identical to the shipped nitpick-B2 top above y 0 (test T9)",
+      "C15b": "a pad counts as grade on the no-level top when it stands on OR continues below the grade (lowest vertex <= 0.01; the pads now reach the foundation block at -0.05)"
+    }
   },
   "C15": {
     "flights": {
@@ -2275,7 +2706,7 @@
       "pad_L": {
         "terraform": "no-level",
         "edge_m": 0.4,
-        "ground_y": 0.0,
+        "ground_y": -0.05,
         "top_y": 5.1,
         "ramps_arriving": 1,
         "counts_as_grade": true,
@@ -2286,7 +2717,7 @@
       "pad_R": {
         "terraform": "no-level",
         "edge_m": 0.4,
-        "ground_y": 0.0,
+        "ground_y": -0.05,
         "top_y": 5.1,
         "ramps_arriving": 1,
         "counts_as_grade": true,
@@ -2374,8 +2805,8 @@
         "level": 0,
         "views": 360,
         "rays": 1866240,
-        "hits": 497295,
-        "back": 16,
+        "hits": 617475,
+        "back": 14,
         "max_per_part": 5,
         "parts": [
           {
@@ -2412,17 +2843,6 @@
             ]
           },
           {
-            "part": "door_hut_jamb0",
-            "back": 1,
-            "front": 63,
-            "to_sky": 0,
-            "views": 1,
-            "y": [
-              6.85,
-              6.85
-            ]
-          },
-          {
             "part": "drip_hutroof_px",
             "back": 1,
             "front": 45,
@@ -2442,17 +2862,6 @@
             "y": [
               17.1,
               17.1
-            ]
-          },
-          {
-            "part": "kick_headLo_0",
-            "back": 1,
-            "front": 106,
-            "to_sky": 0,
-            "views": 1,
-            "y": [
-              6.4,
-              6.4
             ]
           },
           {
@@ -2537,7 +2946,7 @@
         "level": 1,
         "views": 144,
         "rays": 589824,
-        "hits": 159585,
+        "hits": 207345,
         "back": 0,
         "max_per_part": 3,
         "parts": [],
@@ -2548,7 +2957,7 @@
         "level": 2,
         "views": 48,
         "rays": 110592,
-        "hits": 27361,
+        "hits": 37060,
         "back": 0,
         "max_per_part": 3,
         "parts": [],
@@ -2557,8 +2966,8 @@
       }
     },
     "C19": {
-      "pairs": 75,
-      "cm2": 4431.6,
+      "pairs": 79,
+      "cm2": 4438.5,
       "over_25_cm2": 12,
       "fail": [],
       "kit": [],
@@ -2768,6 +3177,23 @@
           ]
         },
         {
+          "a": "post_cap_8",
+          "b": "rail_cap_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            1.16,
+            6.84,
+            11.48
+          ],
+          "hi": [
+            1.18,
+            6.86,
+            11.52
+          ]
+        },
+        {
           "a": "post_svcB_1",
           "b": "rail_svcB_knee",
           "cm2": 15.7,
@@ -2782,23 +3208,6 @@
             -1.47,
             12.26,
             4.97
-          ]
-        },
-        {
-          "a": "post_facec_2",
-          "b": "rail_facec_knee",
-          "cm2": 15.7,
-          "kit": true,
-          "visible": null,
-          "lo": [
-            1.02,
-            6.84,
-            -9.97
-          ],
-          "hi": [
-            1.05,
-            6.86,
-            -9.93
           ]
         },
         {
@@ -2819,23 +3228,6 @@
           ]
         },
         {
-          "a": "post_cap_8",
-          "b": "rail_cap_knee",
-          "cm2": 15.7,
-          "kit": true,
-          "visible": null,
-          "lo": [
-            1.16,
-            6.84,
-            11.48
-          ],
-          "hi": [
-            1.18,
-            6.86,
-            11.52
-          ]
-        },
-        {
           "a": "post_cap_7",
           "b": "rail_cap_knee",
           "cm2": 15.7,
@@ -2850,6 +3242,23 @@
             -1.16,
             6.86,
             11.52
+          ]
+        },
+        {
+          "a": "post_facec_2",
+          "b": "rail_facec_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            1.02,
+            6.84,
+            -9.97
+          ],
+          "hi": [
+            1.05,
+            6.86,
+            -9.93
           ]
         },
         {
@@ -2887,37 +3296,20 @@
           ]
         },
         {
-          "a": "post_cap_9",
+          "a": "post_cap_6",
           "b": "rail_cap_knee",
           "cm2": 15.7,
           "kit": true,
           "visible": null,
           "lo": [
-            3.5,
+            -3.52,
             6.84,
             11.48
           ],
           "hi": [
-            3.52,
+            -3.5,
             6.86,
             11.52
-          ]
-        },
-        {
-          "a": "post_cap_16",
-          "b": "rail_cap_knee",
-          "cm2": 15.7,
-          "kit": true,
-          "visible": null,
-          "lo": [
-            4.54,
-            6.84,
-            -0.67
-          ],
-          "hi": [
-            4.56,
-            6.86,
-            -0.63
           ]
         },
         {
@@ -2955,18 +3347,35 @@
           ]
         },
         {
-          "a": "post_cap_6",
+          "a": "post_cap_16",
           "b": "rail_cap_knee",
           "cm2": 15.7,
           "kit": true,
           "visible": null,
           "lo": [
-            -3.52,
+            4.54,
+            6.84,
+            -0.67
+          ],
+          "hi": [
+            4.56,
+            6.86,
+            -0.63
+          ]
+        },
+        {
+          "a": "post_cap_9",
+          "b": "rail_cap_knee",
+          "cm2": 15.7,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            3.5,
             6.84,
             11.48
           ],
           "hi": [
-            -3.5,
+            3.52,
             6.86,
             11.52
           ]
@@ -3006,23 +3415,6 @@
           ]
         },
         {
-          "a": "post_svcB_0",
-          "b": "rail_svcB_knee",
-          "cm2": 15.6,
-          "kit": true,
-          "visible": null,
-          "lo": [
-            -3.36,
-            12.24,
-            4.93
-          ],
-          "hi": [
-            -3.34,
-            12.26,
-            4.97
-          ]
-        },
-        {
           "a": "post_svcB_3",
           "b": "rail_svcB_knee",
           "cm2": 15.6,
@@ -3035,6 +3427,23 @@
           ],
           "hi": [
             2.26,
+            12.26,
+            4.97
+          ]
+        },
+        {
+          "a": "post_svcB_0",
+          "b": "rail_svcB_knee",
+          "cm2": 15.6,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -3.36,
+            12.24,
+            4.93
+          ],
+          "hi": [
+            -3.34,
             12.26,
             4.97
           ]
@@ -3108,40 +3517,6 @@
           ]
         },
         {
-          "a": "post_headLf_1",
-          "b": "rail_headLf_knee",
-          "cm2": 15.5,
-          "kit": true,
-          "visible": null,
-          "lo": [
-            -11.65,
-            6.84,
-            -1.67
-          ],
-          "hi": [
-            -11.63,
-            6.86,
-            -1.63
-          ]
-        },
-        {
-          "a": "post_headRf_1",
-          "b": "rail_headRf_knee",
-          "cm2": 15.5,
-          "kit": true,
-          "visible": null,
-          "lo": [
-            11.63,
-            6.84,
-            -1.67
-          ],
-          "hi": [
-            11.65,
-            6.86,
-            -1.63
-          ]
-        },
-        {
           "a": "post_headLf_0",
           "b": "rail_headLf_knee",
           "cm2": 15.5,
@@ -3171,6 +3546,40 @@
           ],
           "hi": [
             10.26,
+            6.86,
+            -1.63
+          ]
+        },
+        {
+          "a": "post_headLf_1",
+          "b": "rail_headLf_knee",
+          "cm2": 15.5,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -11.65,
+            6.84,
+            -1.67
+          ],
+          "hi": [
+            -11.63,
+            6.86,
+            -1.63
+          ]
+        },
+        {
+          "a": "post_headRf_1",
+          "b": "rail_headRf_knee",
+          "cm2": 15.5,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            11.63,
+            6.84,
+            -1.67
+          ],
+          "hi": [
+            11.65,
             6.86,
             -1.63
           ]
@@ -3244,23 +3653,6 @@
           ]
         },
         {
-          "a": "post_facec_1",
-          "b": "rail_facec_top",
-          "cm2": 7.8,
-          "kit": true,
-          "visible": null,
-          "lo": [
-            -1.05,
-            7.39,
-            -9.97
-          ],
-          "hi": [
-            -1.02,
-            7.4,
-            -9.93
-          ]
-        },
-        {
           "a": "post_facec_2",
           "b": "rail_facec_top",
           "cm2": 7.8,
@@ -3273,6 +3665,23 @@
           ],
           "hi": [
             1.05,
+            7.4,
+            -9.93
+          ]
+        },
+        {
+          "a": "post_facec_1",
+          "b": "rail_facec_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            -1.05,
+            7.39,
+            -9.97
+          ],
+          "hi": [
+            -1.02,
             7.4,
             -9.93
           ]
@@ -3295,18 +3704,18 @@
           ]
         },
         {
-          "a": "post_cap_17",
+          "a": "post_cap_16",
           "b": "rail_cap_top",
           "cm2": 7.8,
           "kit": true,
           "visible": null,
           "lo": [
-            3.24,
+            4.54,
             7.39,
             -0.67
           ],
           "hi": [
-            3.26,
+            4.56,
             7.4,
             -0.63
           ]
@@ -3324,6 +3733,23 @@
           ],
           "hi": [
             -3.5,
+            7.4,
+            11.52
+          ]
+        },
+        {
+          "a": "post_cap_9",
+          "b": "rail_cap_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            3.5,
+            7.39,
+            11.48
+          ],
+          "hi": [
+            3.52,
             7.4,
             11.52
           ]
@@ -3360,40 +3786,6 @@
             -5.94,
             7.4,
             0.49
-          ]
-        },
-        {
-          "a": "post_outerL_0",
-          "b": "rail_outerL_top",
-          "cm2": 7.8,
-          "kit": true,
-          "visible": null,
-          "lo": [
-            -7.91,
-            7.39,
-            -9.97
-          ],
-          "hi": [
-            -7.89,
-            7.4,
-            -9.93
-          ]
-        },
-        {
-          "a": "post_cap_16",
-          "b": "rail_cap_top",
-          "cm2": 7.8,
-          "kit": true,
-          "visible": null,
-          "lo": [
-            4.54,
-            7.39,
-            -0.67
-          ],
-          "hi": [
-            4.56,
-            7.4,
-            -0.63
           ]
         },
         {
@@ -3465,6 +3857,23 @@
           ]
         },
         {
+          "a": "post_cap_17",
+          "b": "rail_cap_top",
+          "cm2": 7.8,
+          "kit": true,
+          "visible": null,
+          "lo": [
+            3.24,
+            7.39,
+            -0.67
+          ],
+          "hi": [
+            3.26,
+            7.4,
+            -0.63
+          ]
+        },
+        {
           "a": "post_outerR_0",
           "b": "rail_outerR_top",
           "cm2": 7.8,
@@ -3482,20 +3891,20 @@
           ]
         },
         {
-          "a": "post_cap_9",
-          "b": "rail_cap_top",
+          "a": "post_outerL_0",
+          "b": "rail_outerL_top",
           "cm2": 7.8,
           "kit": true,
           "visible": null,
           "lo": [
-            3.5,
+            -7.91,
             7.39,
-            11.48
+            -9.97
           ],
           "hi": [
-            3.52,
+            -7.89,
             7.4,
-            11.52
+            -9.93
           ]
         },
         {
@@ -3836,6 +4245,74 @@
             -4.54,
             11.81,
             2.56
+          ]
+        },
+        {
+          "a": "latbrace_R0a0",
+          "b": "latbrace_R1b0",
+          "cm2": 1.7,
+          "kit": false,
+          "visible": null,
+          "lo": [
+            10.03,
+            -6.03,
+            -7.07
+          ],
+          "hi": [
+            10.18,
+            -6.0,
+            -7.0
+          ]
+        },
+        {
+          "a": "latbrace_L0b1",
+          "b": "latbrace_L1a1",
+          "cm2": 1.7,
+          "kit": false,
+          "visible": null,
+          "lo": [
+            -10.16,
+            -6.03,
+            -7.0
+          ],
+          "hi": [
+            -10.05,
+            -6.0,
+            -6.93
+          ]
+        },
+        {
+          "a": "latbrace_L0a0",
+          "b": "latbrace_L1b0",
+          "cm2": 1.7,
+          "kit": false,
+          "visible": null,
+          "lo": [
+            -10.18,
+            -6.03,
+            -7.07
+          ],
+          "hi": [
+            -10.03,
+            -6.0,
+            -7.0
+          ]
+        },
+        {
+          "a": "latbrace_R0b1",
+          "b": "latbrace_R1a1",
+          "cm2": 1.7,
+          "kit": false,
+          "visible": null,
+          "lo": [
+            10.05,
+            -6.03,
+            -7.0
+          ],
+          "hi": [
+            10.16,
+            -6.0,
+            -6.93
           ]
         }
       ]
@@ -4229,7 +4706,7 @@
     "bounds": {
       "min": [
         -11.8,
-        0.0,
+        -12.0,
         -12.0
       ],
       "max": [
@@ -4240,23 +4717,56 @@
     },
     "atlas_rule": {
       "requested": "2048",
-      "surface_m2": 2655.5,
+      "surface_m2": 4817.6,
       "chosen": 2048,
-      "shipped_median": 20.78
+      "shipped_median": 15.27
     },
     "engine_base": {
-      "verdict": "OK",
-      "ok_edges": 128,
-      "blocked_edges": 0
+      "verdict": "NONE",
+      "ok_edges": 0,
+      "blocked_edges": 0,
+      "mode": "plinth"
     },
     "lod_switch_m": {
-      "csum": 67.9,
+      "csum": 79.9,
       "switch": {
-        "1": 208.7,
-        "2": 691.8
+        "1": 245.6,
+        "2": 814.1
       },
-      "cull": 14756.9,
+      "cull": 17364.9,
       "note": "formula only (lodFactor 652, unverified)"
+    },
+    "base_mode": "plinth",
+    "plinth": {
+      "depth_m": 12.0,
+      "min_y": -12.0,
+      "band_m": 0.01,
+      "per_lod": {
+        "LOD0": {
+          "min_y": -12.0,
+          "band_vertices": 0,
+          "ok_edges": 0
+        },
+        "LOD1": {
+          "min_y": -12.0,
+          "band_vertices": 0,
+          "ok_edges": 0
+        },
+        "LOD2": {
+          "min_y": -12.0,
+          "band_vertices": 0,
+          "ok_edges": 0
+        }
+      },
+      "surgery": {
+        "LOD0 RenderPrefab BaseProperties": {
+          "m_BaseType": null,
+          "m_UseMinBounds": false
+        },
+        "m_Bounds": "unclamped: min y -12.00 on LOD0 / LOD1 / LOD2 (MC11, as L4; culling then keeps the plinth: no HasBase, so PreCullingSystem uses the mesh bounds)",
+        "terraform": "unchanged: the FG-top no-level block (LevelMin 1600, DontRaise + DontLower)"
+      },
+      "why": "revision 3 (Richard T-3): the foundation and supports continue below grade so the station can be set into a cliff edge or buried on a flat summit"
     },
     "axis_x": 0.0,
     "frame": {

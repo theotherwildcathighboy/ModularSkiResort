@@ -1,0 +1,203 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.NetFencePrefab, Game",
+    "name": "SkiSafetyFence",
+    "active": true,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 5,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.UIObject, Game",
+                "name": "UIObject",
+                "active": true,
+                "m_Group": $fstrref:"UnityGUID:05564431524791c48846dbd183fd232d",
+                "m_Priority": 1000,
+                "m_Icon": "Media/Game/Icons/Fences/TallIndustrialChainLinkFence.svg",
+                "m_IsDebugObject": false
+            },
+            {
+                "$id": 3,
+                "$type": "3|Game.Prefabs.UIObjectOverrideGroup, Game",
+                "name": "UIObjectOverrideGroup",
+                "active": true,
+                "m_Group": $fstrref:"UnityGUID:71df37e0fc45ade46a64fba0eedd7c54"
+            },
+            {
+                "$id": 4,
+                "$type": "4|Game.Prefabs.PlaceableNet, Game",
+                "name": "PlaceableNet",
+                "active": true,
+                "m_ElevationRange": {
+                    "$type": "5|Colossal.Mathematics.Bounds1, Colossal.Mathematics",
+                    "min": 0,
+                    "max": 0
+                },
+                "m_AllowParallelMode": false,
+                "m_DisableZoneOverlay": true,
+                "m_UndergroundPrefab": null,
+                "m_XPReward": 0
+            },
+            {
+                "$id": 5,
+                "$type": "6|Game.Prefabs.ServiceObject, Game",
+                "name": "ServiceObject",
+                "active": true,
+                "m_Service": $fstrref:"UnityGUID:5930db6811522d34495a9e16c4fd4c18"
+            },
+            {
+                "$id": 6,
+                "$type": "7|Game.Prefabs.Unlockable, Game",
+                "name": "Unlockable",
+                "active": true,
+                "m_RequireAll": {
+                    "$id": 7,
+                    "$type": "8|Game.Prefabs.PrefabBase[], Game",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        $fstrref:"UnityGUID:3e47e765f44f210409edf4e6229fd0df"
+                    ]
+                },
+                "m_RequireAny": {
+                    "$id": 8,
+                    "$type": 8,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_IgnoreDependencies": false
+            }
+        ]
+    },
+    "m_Sections": {
+        "$id": 9,
+        "$type": "9|Game.Prefabs.NetSectionInfo[], Game",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 10,
+                "$type": "10|Game.Prefabs.NetSectionInfo, Game",
+                "m_Section": $fstrref:"CID:8868b503e1cc4ac3921c66e6b19736c5",
+                "m_RequireAll": {
+                    "$id": 11,
+                    "$type": "11|Game.Prefabs.NetPieceRequirements[], Game",
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_RequireAny": {
+                    "$id": 12,
+                    "$type": 11,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_RequireNone": {
+                    "$id": 13,
+                    "$type": 11,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_HiddenLayers": 0,
+                "m_Invert": false,
+                "m_Flip": false,
+                "m_Median": false,
+                "m_HalfLength": false,
+                "m_Offset": {
+                    "$type": "12|Unity.Mathematics.float3, Unity.Mathematics",
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                }
+            }
+        ]
+    },
+    "m_EdgeStates": {
+        "$id": 14,
+        "$type": "13|Game.Prefabs.NetEdgeStateInfo[], Game",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 15,
+                "$type": "14|Game.Prefabs.NetEdgeStateInfo, Game",
+                "m_RequireAll": {
+                    "$id": 16,
+                    "$type": 11,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_RequireAny": {
+                    "$id": 17,
+                    "$type": 11,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_RequireNone": {
+                    "$id": 18,
+                    "$type": 11,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_SetState": {
+                    "$id": 19,
+                    "$type": 11,
+                    "$rlength": 1,
+                    "$rcontent": [
+                        95
+                    ]
+                }
+            }
+        ]
+    },
+    "m_NodeStates": {
+        "$id": 20,
+        "$type": "15|Game.Prefabs.NetNodeStateInfo[], Game",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 21,
+                "$type": "16|Game.Prefabs.NetNodeStateInfo, Game",
+                "m_RequireAll": {
+                    "$id": 22,
+                    "$type": 11,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_RequireAny": {
+                    "$id": 23,
+                    "$type": 11,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_RequireNone": {
+                    "$id": 24,
+                    "$type": 11,
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_SetState": {
+                    "$id": 25,
+                    "$type": 11,
+                    "$rlength": 1,
+                    "$rcontent": [
+                        95
+                    ]
+                },
+                "m_MatchType": 0
+            }
+        ]
+    },
+    "m_MaxSlopeSteepness": 2,
+    "m_AggregateType": null,
+    "m_StyleType": null,
+    "m_InvertMode": 0
+}

@@ -93,6 +93,22 @@ skeptic's MUST-CHANGEs and ROUND-SPEC R27-R31).
       not-walkable list. T2n NB3 (each FAILS C15 with "the side area is a dead end"): no stair (the B2 base's dead end),
       the wall not cut, 3 risers of 0.367 m, treads 1.0 m wide, the landing block begun inside the annex; ANNEX_STAIR False
       is the B2 base again (annexcap not walkable, flights u + l, no route, door goal reached); the pure plan numbers.
+  Revision 3 (build/tram-top-rev3.md; tram_station.PLINTH_TOP; Richard's twenty-seventh look T-3): the TOP in PLINTH MODE
+      (the L4 rule): no engine base, the foundation and supports continue below grade to min y -12.00, closed.
+  T9  (a) above grade NOTHING moved: the plinth-mode top blockout vs the PLINTH_TOP False blockout (= the shipped nitpick-B2
+      top) in process - every vertex above y 0.01 identical (0.1 mm), every old part present, the parts whose vertices
+      changed are exactly the ones that now continue below grade (R3_CONTINUED: the pier, the pile caps, the pads, the ramp
+      columns, the stair posts), every new part (found_*, lat*) wholly below grade; (b) the plinth on the contract build:
+      C6p (no engine-base edge, no vertex within 0.01 of y 0, min y -12.00, every open edge below grade seated on another
+      part) and an independent ray test - 3,456 rays from 1 m under the plinth floor up and from the four sides into the
+      below-grade volume: no back face is ever the first hit (the PLINTH_TOP False top shows its open pad / footing bottoms
+      there: the self-check); (c) bounds (-11.80, -12.00, -12.00) -> (11.80, 20.70, 11.60): only min y moved; (d) T9n: a part
+      on the grade line, a part below the plinth floor, an open-bottom box floating below grade, the foundation stopped
+      short of the plinth depth each FAIL C6p; PLINTH_TOP False passes C6 (engine base) again. T3 / T4 on the top's
+      export: prefab_contract base_mode plinth, engine_base NONE (mode plinth), bounds min y -12.00 (RE-PINNED: the 1e
+      manifest's 0.00 -> -12.00, the prefab delta; every other frozen number unchanged), the plinth rule on LOD0 / LOD1 /
+      LOD2, the manifest plinth_top block (clearances), and the exported LOD0 vertex-identical above y 0.01 to the archived
+      shipped top (assets/archive/.../superseded-tramtop-rev3-2026-10-13; skipped when the archive is absent).
 Exit 1 on any failure.
 """
 import datetime
@@ -371,8 +387,13 @@ def t2_negative():
                                                                -6.0, -5.0, "concrete"))
     expect_fail("C6 closed ground part", "C6", B, lambda k: k.box("probe_c6", -18.0, -17.0, 0.0,
                                                                    1.0, 5.0, 6.0, "concrete"))
-    expect_fail("C6 below ground", "C6", T, lambda k: k.box("probe_below", 0.0, 1.0, -0.50, 0.50,
-                                                             5.0, 6.0, "concrete"))
+    if ts.PLINTH_TOP:
+        # revision 3: the top is in plinth mode (geometry below y 0 is the design); its own negatives are T9n's
+        expect_fail("C6p a part on the grade line (the top in plinth mode)", "C6p", T,
+                    lambda k: k.box("probe_below", 0.0, 1.0, 0.0, 0.50, 5.0, 6.0, "concrete"))
+    else:
+        expect_fail("C6 below ground", "C6", T, lambda k: k.box("probe_below", 0.0, 1.0, -0.50, 0.50,
+                                                                 5.0, 6.0, "concrete"))
     # nitpick B2: the base lot reaches design x 28.0 (prefab 24.0): the probe sits 0.4 m past it (it sat past 20.0)
     x7 = 28.4 if ts.RAMPS else 20.4
     expect_fail("C7 lot fit", "C7", B, lambda k: k.box("probe_c7", x7, x7 + 0.8, 0.5, 1.0, 0.0, 1.0,
@@ -858,6 +879,8 @@ def t3_t4_t5(work):
             man = json.load(fh)
         t4_manifest(role, man)
         t5_lods(role, rep)
+        if role == "top" and ts.PLINTH_TOP:
+            t9_export_above_grade(os.path.join(d, f"{name}.fbx"))
     return out
 
 
@@ -905,8 +928,29 @@ def t4_manifest(role, man):
         check(len(pole) == 1 and pole[0]["m_ParentMesh"] == -1, "T4 base: LV pole parent -1")
     else:
         check(hosted == [], "T4 top: hosts nothing")
-    check(pc["engine_base"]["verdict"] == "OK" and pc["engine_base"]["blocked_edges"] == 0,
-          f"T4 {role}: engine base {pc['engine_base']}")
+    if role == "top" and ts.PLINTH_TOP:
+        # revision 3: plinth mode - no engine base by design; the plinth rule on every LOD
+        pl = pc.get("plinth") or {}
+        per = pl.get("per_lod") or {}
+        check(pc["engine_base"]["verdict"] == "NONE" and pc["engine_base"].get("mode") == "plinth"
+              and pc["engine_base"]["ok_edges"] == 0 and pc.get("base_mode") == "plinth"
+              and set(per) == {"LOD0", "LOD1", "LOD2"}
+              and all(abs(v["min_y"] + ts.PLINTH["depth"]) <= 0.01 and v["band_vertices"] == 0 and v["ok_edges"] == 0
+                      for v in per.values())
+              and (pl.get("surgery") or {}).get("LOD0 RenderPrefab BaseProperties") == {"m_BaseType": None,
+                                                                                         "m_UseMinBounds": False},
+              f"T4 top: engine base {pc['engine_base']} (plinth mode); per LOD {per}; surgery {pl.get('surgery')}")
+        r3 = man.get("plinth_top") or {}
+        cl = (r3.get("clearances") or {}).get("wheels") or {}
+        check(bool(r3) and r3.get("mode") == "plinth" and set(r3.get("C6p") or {}) == {"LOD0", "LOD1", "LOD2"}
+              and not ((r3.get("C6p") or {}).get("LOD0", {}).get("closed") or {}).get("uncovered", ["?"])
+              and abs(cl.get("drumrim_R", {}).get("rim_low_y", 0.0) - 0.75) < 0.01
+              and cl.get("drumrim_R", {}).get("to_found_block_m", 0.0) >= 0.79,
+              f"T4 top: manifest plinth_top block: C6p {sorted(r3.get('C6p') or {})}, tris {r3.get('tris_lod0')}, the lowest "
+              f"wheel rim (anchor drum) {cl.get('drumrim_R')}")
+    else:
+        check(pc["engine_base"]["verdict"] == "OK" and pc["engine_base"]["blocked_edges"] == 0,
+              f"T4 {role}: engine base {pc['engine_base']}")
     c17 = man.get("C17") or {}
     ed = c17.get("edges") or {}
     check(len(ed) == 4 and abs(c17.get("door", {}).get("centre", 9.0) - ts.DOCK_Z) < 1e-9
@@ -929,6 +973,10 @@ def t4_manifest(role, man):
         b, b0 = pc["bounds"], old["bounds"]
         want_min = list(b0["min"])
         want_max = list(b0["max"]) if role == "base" else [b0["max"][0], round(ts.MAST_TOP, 3), b0["max"][2]]
+        if role == "top" and ts.PLINTH_TOP:
+            # revision 3 (RE-PINNED for the top ONLY): plinth mode - the foundation reaches -PLINTH depth (the prefab delta,
+            # bounds min y 0 -> -12.00); every other frozen number is the 1e manifest's
+            want_min = [b0["min"][0], -round(ts.PLINTH["depth"], 3), b0["min"][2]]
         if dx:
             # nitpick B2 (RE-PINNED by the lot shift only): the 1e numbers re-expressed in the shifted frame (every x +
             # dx, the relative geometry identical), the lot 6 x 3; bounds min x + dx, max x = the new cell's paving edge
@@ -939,7 +987,8 @@ def t4_manifest(role, man):
         diff = [k_ for k_ in frozen if pc.get(k_) != old.get(k_)]
         check(not diff and b["min"] == want_min and b["max"] == want_max,
               f"T4 {role}: frozen prefab numbers == the shipped 1e manifest ({len(frozen)} keys{', differ ' + str(diff) if diff else ''}); "
-              f"bounds {b} (1e {b0}{'; top max y re-pinned 27.00 -> ' + str(round(ts.MAST_TOP, 2)) + ' by ruling Q3' if role == 'top' else ''})")
+              f"bounds {b} (1e {b0}{'; top max y re-pinned 27.00 -> ' + str(round(ts.MAST_TOP, 2)) + ' by ruling Q3' if role == 'top' else ''}"
+              f"{'; top min y re-pinned 0.00 -> -12.00 by revision 3 (plinth mode)' if role == 'top' and ts.PLINTH_TOP else ''})")
     r2 = man.get("rev2") or {}
     c18 = r2.get("C18") or {}
     ok18 = set(c18) == {"LOD0", "LOD1", "LOD2"} and all(
@@ -1172,6 +1221,176 @@ def t8_cabin_sweep():
                         f"the station{'' if not hits else ' - HITS ' + str(sorted(hits.items())[:8])}")
 
 
+# --------------------------------------------------------------------------------------
+# T9 (revision 3, PLINTH_TOP; build/tram-top-rev3.md)
+# --------------------------------------------------------------------------------------
+R3_ARCHIVE_FBX = os.path.join(os.path.dirname(os.path.dirname(LIB)), "assets", "archive", "2026-10-11-13", "import",
+                              "superseded-tramtop-rev3-2026-10-13", "stations", "tram", "A", "SkiTramTopStationA",
+                              "SkiTramTopStationA.fbx")
+ABOVE_Y, ABOVE_TOL = 0.01, 1e-4            # "above grade" and the vertex match tolerance (0.1 mm)
+
+
+def _above(P, thr=ABOVE_Y):
+    return np.unique(np.round(P[P[:, 1] > thr], 5), axis=0)
+
+
+def _unmatched(P, Q, tol=ABOVE_TOL):
+    """Rows of P with no row of Q within tol (KD-tree)."""
+    from mathutils.kdtree import KDTree
+    if not len(Q):
+        return list(P)
+    kd = KDTree(len(Q))
+    for i, q in enumerate(Q):
+        kd.insert(q.tolist(), i)
+    kd.balance()
+    return [p for p in P if kd.find(p.tolist())[2] > tol]
+
+
+def _fbx_points(path):
+    """Prefab-frame vertex positions of an exported FBX (raw cm = prefab-local, as cabin_sweep_mask reads it)."""
+    objs = cs2_validate.import_fbx_temp(path)
+    try:
+        out = []
+        for o in objs:
+            if o.type != "MESH":
+                continue
+            co = np.empty(len(o.data.vertices) * 3, np.float32)
+            o.data.vertices.foreach_get("co", co)
+            out.append(co.reshape(-1, 3).astype(np.float64) / 100.0)
+        return np.concatenate(out)
+    finally:
+        cs2_validate.remove_objects(objs)
+
+
+def t9_export_above_grade(fbx):
+    """T9 on the export: the exported plinth-mode LOD0 vs the archived shipped top's LOD0 (the same finish geometry: bevels
+    included), above y 0.01 vertex for vertex. Skipped when the archive (gitignored) is absent."""
+    if not os.path.isfile(R3_ARCHIVE_FBX):
+        print(f"[tram-test] SKIP T9 export: {R3_ARCHIVE_FBX} absent")
+        return
+    A0, A1 = _above(_fbx_points(R3_ARCHIVE_FBX)), _above(_fbx_points(fbx))
+    oa, ob = _unmatched(A0, A1), _unmatched(A1, A0)
+    check(not oa and not ob, f"T9 export: the exported top LOD0 above y {ABOVE_Y} == the archived shipped top's "
+                             f"({len(A0)} / {len(A1)} unique vertices; shipped-only {len(oa)}, new-only {len(ob)}, "
+                             f"tol {ABOVE_TOL * 1000:.1f} mm)")
+
+
+def _below_rays(t):
+    """Revision 3: rays from 1 m under the plinth floor straight up (a 0.5 m grid over the lot) and horizontally from 2 m
+    outside each lot side into the below-grade volume (every 1 m down to -11.5, 1 m apart): {part: back-face first hits},
+    rays, hits. A back face first = an open part seen from below / the side (what a cliff edge exposes)."""
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    tri, names = ts.triangles(t)
+    nm = np.array(names)
+    bvh = BVHTree.FromPolygons(tri.reshape(-1, 3).tolist(), [(3 * i, 3 * i + 1, 3 * i + 2) for i in range(len(tri))],
+                               all_triangles=True)
+    n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+    D = ts.PLINTH["depth"]
+    rays = [((x, -D - 1.0, z), (0.0, 1.0, 0.0)) for x in np.arange(-11.75, 11.76, 0.5)
+            for z in np.arange(-11.75, 11.76, 0.5)]
+    for y in np.arange(-0.5, -D + 0.4, -1.0):
+        for c in np.arange(-11.5, 11.6, 1.0):
+            rays += [((14.0, y, c), (-1.0, 0.0, 0.0)), ((-14.0, y, c), (1.0, 0.0, 0.0)),
+                     ((c, y, -14.0), (0.0, 0.0, 1.0)), ((c, y, 14.0), (0.0, 0.0, -1.0))]
+    back, hits = {}, 0
+    for o, d in rays:
+        hit, _nrm, idx, _dist = bvh.ray_cast(Vector(o), Vector(d))
+        if hit is None:
+            continue
+        hits += 1
+        if float(np.dot(n[idx], d)) > 0.0:
+            back[str(nm[idx])] = back.get(str(nm[idx]), 0) + 1
+    return back, len(rays), hits
+
+
+def t9_plinth():
+    """T9 (revision 3; module docstring): above grade nothing moved, the plinth closed and deep, the bounds, the negatives."""
+    if not ts.PLINTH_TOP:
+        print("[tram-test] SKIP T9: PLINTH_TOP off")
+        return
+    T = ["--role", "top"]
+    # T9a: the plinth-mode blockout vs the PLINTH_TOP False blockout (the shipped nitpick-B2 top), in process
+    builds = {}
+    for flag in (False, True):
+        saved = ts.PLINTH_TOP
+        ts.PLINTH_TOP = flag
+        try:
+            args = ts.parse_args(T)
+            ts.clear_scene()
+            t, _tb, _s, _m = ts.assemble("top", args, False)
+            pf, parts = ts._part_tris(t)
+            builds[flag] = (pf.copy(), {n_: np.unique(v.ravel()) for n_, v in parts.items()})
+        finally:
+            ts.PLINTH_TOP = saved
+    (P0, parts0), (P1, parts1) = builds[False], builds[True]
+    A0, A1 = _above(P0), _above(P1)
+    oa, ob = _unmatched(A0, A1), _unmatched(A1, A0)
+    check(not oa and not ob, f"T9a above grade: every vertex above y {ABOVE_Y} identical to the shipped top's "
+                             f"({len(A0)} / {len(A1)} unique; shipped-only {len(oa)}, new-only {len(ob)}, tol 0.1 mm)")
+    missing = sorted(set(parts0) - set(parts1))
+    new = sorted(set(parts1) - set(parts0))
+    changed = sorted(n_ for n_ in parts0 if n_ in parts1 and (
+        len(parts0[n_]) != len(parts1[n_]) or _unmatched(P0[parts0[n_]], P1[parts1[n_]], 1e-4)))
+    new_low = {n_: round(float(P1[parts1[n_]][:, 1].max()), 3) for n_ in new}
+    check(not missing and all(n_.startswith(ts.R3_CONTINUED) for n_ in changed)
+          and all(n_.startswith(("found_", "lat")) for n_ in new) and max(new_low.values()) < -ts.PLINTH["band"]
+          and {n_.split("_")[0] for n_ in changed} == {"plinth", "footing", "pad", "rampcol", "stairpost"},
+          f"T9a parts: none missing {missing}; changed (they now continue below grade) {changed}; {len(new)} new parts, "
+          f"all below grade (highest {max(new_low.values()):.3f}): {sorted({n_.split('_')[0] for n_ in new})}")
+    # T9b: the plinth on the contract build (C6p) + the independent ray test (and its self-check on the shipped top)
+    t, _win, _tb, rep = ts.build_checked(T)
+    c6 = rep["C6p"]["LOD0"]
+    pf, _part, _table = ts.mesh_arrays(t)
+    y = pf[:, 1]
+    check(c6["verdict"] == "NONE" and c6["ok_edges"] == 0 and c6["band_vertices"] == 0
+          and abs(float(y.min()) + ts.PLINTH["depth"]) < 1e-3 and not (np.abs(y) <= ts.PLINTH["band"]).any()
+          and not c6["closed"]["uncovered"] and "found_slab" in c6["closed"]["parts_below_grade"],
+          f"T9b C6p: verdict {c6['verdict']}, {c6['ok_edges']} OK edges, {c6['band_vertices']} band vertices, min y "
+          f"{float(y.min()):.3f}, open edges below grade all seated ({len(c6['closed']['open_edges_below_grade_m'])} "
+          f"parts: {sorted(c6['closed']['open_edges_below_grade_m'])})")
+    back, nr, nh = _below_rays(t)
+    check(not back and nh > 0.6 * nr, f"T9b rays from below / the sides into the plinth: {nr} rays, {nh} hits, "
+                                      f"back-face first hits {back or 'none'}")
+    saved = ts.PLINTH_TOP
+    ts.PLINTH_TOP = False
+    try:
+        t0, _w0, _t0b, rep0 = ts.build_checked(T)
+        back0, _n0, _h0 = _below_rays(t0)
+        check(bool(back0) and {k_.split("_")[0] for k_ in back0} <= {"pad", "footing"}
+              and rep0.get("C6p") is None and "C7" in rep0,
+              f"T9b self-check: the shipped (PLINTH_TOP False, engine base) top passes C6 and the same rays find its "
+              f"open bottoms {sorted(back0.items())}")
+    finally:
+        ts.PLINTH_TOP = saved
+    # T9c: only min y moved
+    b = rep["bounds"]
+    check(b == {"min": [-11.8, -round(ts.PLINTH["depth"], 3), -12.0], "max": [11.8, round(ts.MAST_TOP, 3), 11.6]},
+          f"T9c bounds {b}: x +-11.80, z -12.00..11.60, top {ts.MAST_TOP} (frozen), min y -{ts.PLINTH['depth']:.2f} "
+          f"(the prefab delta)")
+    # T9n: wrong plinths FAIL C6p
+    expect_fail("C6p a part on the grade line (band vertices)", "C6p", T,
+                lambda k: k.box("probe_band", -1.0, 0.0, 0.0, 1.0, 8.0, 9.0, "concrete"))
+    expect_fail("C6p a part below the plinth floor", "C6p", T,
+                lambda k: k.box("probe_deep", 0.0, 1.0, -12.50, -11.0, -6.0, -5.0, "concrete"))
+    expect_fail("C6p an open-bottom box floating below grade (not closed)", "C6p", T,
+                lambda k: k.prism("probe_open", [(-1.0, -6.0, -6.0), (0.0, -6.0, -6.0), (0.0, -6.0, -5.0),
+                                                 (-1.0, -6.0, -5.0)],
+                                  [(-1.0, -4.0, -6.0), (0.0, -4.0, -6.0), (0.0, -4.0, -5.0), (-1.0, -4.0, -5.0)],
+                                  "concrete", open_bottom=True))
+    saved_fn = ts.build_top_foundation
+    ts.build_top_foundation = lambda k: k.box("found_block", -11.70, 11.70, -11.40, ts.PLINTH["seat"], -2.85, 11.50,
+                                              "concrete")
+    try:
+        ts.build_checked(T)
+        check(False, "T9n the foundation stopped short of the plinth depth (no slab, no bents): build passed")
+    except ts.ContractError as e:
+        check(str(e).startswith("C6p") and "min y" in str(e),
+              f"T9n the foundation stopped short of the plinth depth: fails with {str(e)[:160]}")
+    finally:
+        ts.build_top_foundation = saved_fn
+
+
 def t7_skirt():
     try:
         ts.parse_args(["--role", "top", "--skirt", "6"])
@@ -1187,6 +1406,7 @@ def main():
         t1_determinism()
         t2_contracts()
         t2_negative()
+        t9_plinth()
         t7_skirt()
         t8_cabin_sweep()
         t3_t4_t5(work)

@@ -16,7 +16,7 @@
                 "m_ElevationRange": {
                     "$type": "3|Colossal.Mathematics.Bounds1, Colossal.Mathematics",
                     "min": 0,
-                    "max": 10
+                    "max": 16
                 },
                 "m_AllowParallelMode": true,
                 "m_UndergroundPrefab": null,

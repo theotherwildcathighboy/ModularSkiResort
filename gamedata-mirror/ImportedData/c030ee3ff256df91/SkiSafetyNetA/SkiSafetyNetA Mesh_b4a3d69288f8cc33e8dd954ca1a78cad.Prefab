@@ -1,0 +1,116 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiSafetyNetA Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 3,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.LodProperties, Game",
+                "name": "LodProperties",
+                "active": true,
+                "m_Bias": 0,
+                "m_ShadowBias": 0,
+                "m_LodMeshes": {
+                    "$id": 3,
+                    "$type": "3|Game.Prefabs.RenderPrefab[], Game",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        $fstrref:"CID:6ccc6d0eb4841020376aece1c80aa994"
+                    ]
+                }
+            },
+            {
+                "$id": 900,
+                "$type": "4|Game.Prefabs.CurveProperties, Game",
+                "name": "CurveProperties",
+                "active": true,
+                "m_TilingCount": 4,
+                "m_OverrideLength": 4,
+                "m_SmoothingDistance": 0,
+                "m_GeometryTiling": true,
+                "m_StraightTiling": true,
+                "m_InvertCurve": false,
+                "m_SubFlow": false,
+                "m_HangingSwaying": false
+            },
+            {
+                "$id": 910,
+                "$type": "5|Game.Prefabs.ColorProperties, Game",
+                "name": "ColorProperties",
+                "active": true,
+                "m_ColorVariations": {
+                    "$id": 911,
+                    "$type": "6|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+VariationSet, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 912,
+                            "$type": "7|Game.Prefabs.ColorProperties+VariationSet, Game",
+                            "m_Colors": {
+                                "$id": 913,
+                                "$type": "8|UnityEngine.Color[], UnityEngine.CoreModule",
+                                "$rlength": 3,
+                                "$rcontent": [
+                                    { "$type": "9|UnityEngine.Color, UnityEngine.CoreModule", 1, 1, 1, 1 },
+                                    { "$type": 9, 1, 0.15, 0.02, 1 },
+                                    { "$type": 9, 1, 0.15, 0.02, 1 }
+                                ]
+                            },
+                            "m_VariationGroup": ""
+                        }
+                    ]
+                },
+                "m_ChannelsBinding": {
+                    "$id": 914,
+                    "$type": "10|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+ColorChannelBinding, Game]], mscorlib",
+                    "$rlength": 3,
+                    "$rcontent": [
+                        { "$id": 915, "$type": "11|Game.Prefabs.ColorProperties+ColorChannelBinding, Game", "m_ChannelId": 0, "m_CanBeModifiedByExternal": false },
+                        { "$id": 916, "$type": 11, "m_ChannelId": 1, "m_CanBeModifiedByExternal": false },
+                        { "$id": 917, "$type": 11, "m_ChannelId": 2, "m_CanBeModifiedByExternal": false }
+                    ]
+                },
+                "m_VariationRanges": { "$type": "12|Unity.Mathematics.int3, Unity.Mathematics", "x": 0, "y": 0, "z": 0 },
+                "m_AlphaRanges": { "$type": 12, "x": 0, "y": 0, "z": 0 },
+                "m_ExternalColorSource": 0
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:17d2858df31f84795a9f5ad0c3a6506f",
+    "m_SurfaceAssets": {
+        "$id": 4,
+        "$type": "13|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:95951a31f8a3d2e0d3bdfc649cce3c0e"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "14|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "15|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -0.0400000438,
+            "y": -0.1500001,
+            "z": -2
+        },
+        "max": {
+            "$type": 15,
+            "x": 0.0225,
+            "y": 1.58,
+            "z": 2
+        }
+    },
+    "m_SurfaceArea": 10.780941,
+    "m_IndexCount": 288,
+    "m_VertexCount": 160,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

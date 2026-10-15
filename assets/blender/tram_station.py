@@ -120,6 +120,23 @@ as a WALKABLE surface (it leaves NOT_WALKABLE; ANNEX_STAIR False restores the ol
 -> turn landing -> ramp B -> landing -> balcony -> (side-area door) -> annex floor -> stair -> landing -> (hall door) -> deck:
 the report's `route` (no other stair may carry it), with the stair >= 1.20 m wide between rails and the doorway clear.
 
+Revision 3 (2026-10-13; Richard's twenty-seventh look T-3: "Can we have the whole FOUNDATION and SUPPORTS go LOWER? I'm
+imagining sticking it into a cliff edge, so players will bury some of it and then parts of it stick out and reach further.
+Or if they place it on a flat mountain top the whole support structure just gets buried. Also it'll help to clear the
+low-down bullwheels."; build/tram-top-rev3.md; PLINTH_TOP, False = the shipped nitpick-B2 top byte for byte): the TOP in
+PLINTH MODE, the L4 pattern. No engine base (C6p: no vertex within 0.01 of y 0 on any LOD, min y -12.00 = PLINTH depth on
+every LOD, no OK base edge; the prefab gets BaseProperties {m_BaseType: null} and unclamped bounds min y -12), and the
+structure itself continues below grade, closed (C6p closed: every open edge of a below-grade part lies on another part's
+face). The concrete pier (plinth), both ramp pads, the eight ramp columns, both stair posts and the two rear-portal caps
+stand on a FOUNDATION BLOCK (x +-11.70, z -2.85..11.50, top -0.05: the pier's housing widened under the anchor-drum bays and
+the ramps to the lot's sides) on a 0.60 m FOOTING SLAB to -12.00; the face-portal and deck-leg caps became closed pile caps
+(-0.05..0.80) on two cross-braced steel LATTICE BENTS (photo 01; x +-10.10, columns at z -9.60 / -7.00 / -4.40, girts at
+-1.00 / -6.00, X braces in each panel, ties into the block's line face) down to concrete pad footings at -12.00. Above
+y 0 every vertex is the shipped top's (test T9); lot, bound 20.70, stubs, docks, lanes, rows, C17, the no-level terraform
+block unchanged; prefab delta = bounds min y 0 -> -12 + BaseProperties. LOD1 keeps the plinth and the bents (their X braces
+go), LOD2 the block + slab (the plinth reaches -12 on every LOD, as L4's). C15b's ground rule reads "stands on or continues
+below the grade". Previews: a sketched cliff edge (cliff_y, render only) and the flat summit (CLOSEUP_SHOTS_R3).
+
 Build contract: docs/research/art/assets-2026-10/design/tram-stations.md with
 tram-stations-skeptic.md MUST-CHANGE 1-11 applied and ROUND-SPEC R27-R31 overriding it.
 What the rulings changed (everything else is the contract verbatim; the build report
@@ -471,7 +488,7 @@ RAMP = {"grade": 1.0 / 8.0,            # the decks the builders lay (1:8; the or
         "rail_kinds": ("post", "rail", "kick")}   # what may bound the clear width (a handrail kit on each side)
 C1_CORRIDOR_X = 19.60                  # C1's line corridor on the RAMPS base (design |x|: the annex's +X face)
 C15B = {"edge": 0.45,                  # a pad's outer face within this of the lot line (= the C15 join depth)
-        "ground": 0.01}                # ... standing on the grade (its lowest vertex in the engine band)
+        "ground": 0.01}                # ... standing on the grade or (revision 3, plinth mode) continuing below it
 # base ramp (DESIGN frame): the plaza paving over the new cell (0.05 m concrete slabs; the clock-tower side's walkway
 # x 19.62..22.60 stays clear in front of the annex's three LIFT TICKETS windows), lane A (outer) from the paving at the
 # village end up toward the line, the turn landing, lane B (inner) back up to the top landing + balcony at the annex
@@ -513,6 +530,40 @@ ANNEX_WALK = ("annexcap",)              # the annex floor: a C15 walkable surfac
 # top ramps (each side x: 7.80..11.70 deck = 3.90 m, rails 0.06 in: 3.724 m clear >= 3.40): head at the deck 6.30 on
 # z 0.50 (the -X stair's landing / gangway back edge, mirrored by a +X head grating + landing), 1:8 down to the pad
 TOP_RAMP = {"x": (7.80, 11.70), "z0": 0.50, "pad": (10.10, 11.60), "head_grate": (7.80, 10.20, -0.70, 0.50)}
+# Revision 3 (2026-10-13; Richard's twenty-seventh look T-3: "Can we have the whole FOUNDATION and SUPPORTS go LOWER? I'm
+# imagining sticking it into a cliff edge ... if they place it on a flat mountain top the whole support structure just
+# gets buried"; build/tram-top-rev3.md): the TOP in PLINTH MODE, the L4 pattern (recipes/l4_swanky_top.py + cs2_bldg
+# check_base_mode "plinth"): no engine base (no vertex within PLINTH band of y 0 on any LOD, so the importer finds no
+# base edge; the prefab carries BaseProperties {m_BaseType: null} and unclamped bounds min y -12), the structure itself
+# continues below grade to min y -PLINTH depth, closed (every open edge of a below-grade part lies on another part's
+# face; a footing slab under the foundation). Everything that met the grade continues down: the concrete pier (plinth)
+# and the pads stand on a FOUNDATION BLOCK whose top is `seat` below grade (it also carries the ramp columns, the stair
+# posts and the rear-portal caps: the pier's housing under the anchor-drum bays, out to the lot's sides) on a footing
+# slab; the line-side pile caps (face portal + deck legs) sit on cross-braced steel LATTICE BENTS (photo 01) down to
+# concrete pad footings at the same depth. Above y 0 every vertex is the shipped (nitpick B2) top's. False = the shipped
+# top byte for byte (engine base, everything on the grade).
+PLINTH_TOP = True
+PLINTH = {"depth": 12.00,              # min y of the top: L4's plinth depth (bounds min y; the prefab delta)
+          "band": 0.01,                # no vertex within this of y 0 anywhere, on any LOD (the engine-base band)
+          # the foundation block's top (what the pier, pads, ramp columns, posts, rear caps stand on) and the line-side pile
+          # caps' underside (on the lattice columns): L4's rule, a part either reaches >= 0.02 or stops <= -0.05 below grade.
+          # 0.05 keeps the above-grade parts' texels out of the buried band (the first scratch export seated them at -0.30 /
+          # -0.60: their buried strips, grimed by the plinth ground mode inside cs2_weather's visible band (z >= -0.5),
+          # pushed the weathering budget's VL2 over at 0.55 -> 0.50 shipped; at -0.05 the sweep keeps 0.55)
+          "seat": -0.05,
+          "cap": -0.05,
+          "slab_t": 0.60,              # the footing slab / the lattice pad footings: their thickness (top -11.40)
+          "closed_tol": 0.003}         # C6p closed: an open edge below grade lies within this of another part's face
+# the foundation block (concrete; prefab x +-11.70, z -2.85..11.50; y slab top .. seat) on its footing slab (x +-11.80 =
+# the frozen bound, z -3.15..11.60 = the frozen back bound): the rear caps (z -2.75..-1.25) stand on it 0.10 in from its
+# line face; the pads overhang it 0.10 on their outer and back faces (closed undersides)
+FOUND_BLOCK = {"x": 11.70, "z0": -2.85, "z1": 11.50}
+FOUND_SLAB = {"x": 11.80, "z0": -3.15, "z1": 11.60}
+# the lattice bents (steel, photo 01: cross-braced legs on concrete footings): one per side in the plane x = +-LAT x,
+# columns under the face-portal cap (z -9.60) and the two deck-leg caps (z -7.00 / -4.40), girts at `girt_y`, an X brace
+# in each panel (two bays x two tiers), two tie girts from the last column into the block's line face
+LAT = {"x": 10.10, "z": (-9.60, -7.00, -4.40), "col": 0.30, "girt": 0.20, "brace": 0.15, "pad": 0.70,
+       "girt_y": (-1.00, -6.00), "into_cap": 0.03, "into": 0.20}     # a column runs 0.03 into its cap, 0.20 into its pad
 # Revision 2 (see-through, design S1 / S2 / B3; contracts C18 + C18b). Every cs2_kit.sheave rim was an
 # OPEN ring (its 7-point profile has no bore face): in game (back-face culling) the open bore shows what
 # is behind the rim - 3,798 back-face first hits per walk-around on the 1e top, 1,958 on the 10.4 m
@@ -593,6 +644,34 @@ def check_constants(role=None):
             top_ramp_plan()
     if ANNEX_STAIR and role in (None, "base"):                  # nitpick B3: the annex stair's levels fit the annex
         base_annex_plan()
+    if PLINTH_TOP and role in (None, "top"):
+        top_plinth_plan()                                       # revision 3: the below-grade layout fits
+
+
+def top_plinth_plan():
+    """Revision 3 (PLINTH_TOP): the below-grade levels and the layout identities, asserted: the plinth rule needs the
+    shipped ramps (the end stairs' foot pads stood on the grade) and every grade-standing part's new seat below the band;
+    the foundation block carries the rear caps, the pads, the ramp columns and the stair posts and stays inside the
+    frozen bound; the slab and the lattice footings reach exactly -depth; the face footing stays behind FACE_Z (C1)."""
+    D, band, seat, cap = PLINTH["depth"], PLINTH["band"], PLINTH["seat"], PLINTH["cap"]
+    ys = round(-D + PLINTH["slab_t"], 6)
+    bx, bz0, bz1 = FOUND_BLOCK["x"], FOUND_BLOCK["z0"], FOUND_BLOCK["z1"]
+    fx, fz0, fz1 = FOUND_SLAB["x"], FOUND_SLAB["z0"], FOUND_SLAB["z1"]
+    p = {"depth": D, "seat": seat, "cap": cap, "slab_top": ys, "block": {"x": [-bx, bx], "z": [bz0, bz1], "y": [ys, seat]},
+         "slab": {"x": [-fx, fx], "z": [fz0, fz1], "y": [-D, ys]},
+         "lattice": {"x": LAT["x"], "z": list(LAT["z"]), "girt_y": list(LAT["girt_y"]),
+                     "col_y": [round(cap + LAT["into_cap"], 6), round(ys - LAT["into"], 6)]}}
+    assert RAMPS, "PLINTH_TOP needs the ramps (the end stairs' foot pads stand on the grade)"
+    assert seat <= -0.05 and cap <= -0.05 and cap + LAT["into_cap"] < -band and -D < ys < cap, p
+    rear = [(xc, zc, h) for nm, xc, zc, h in top_footings() if nm.startswith("footing_r")]
+    assert all(abs(xc) + h <= bx and bz0 + 0.05 <= zc - h and zc + h <= bz1 for xc, zc, h in rear), (rear, p)
+    x0, x1 = TOP_RAMP["x"]
+    e = 1e-9
+    assert x0 >= TOP_PLX and TOP_PAD_X1 - 0.10 - e <= bx <= TOP_PAD_X1 and TOP_RAMP["pad"][1] - 0.10 - e <= bz1, p   # pads on it
+    assert bz0 <= -1.60 and 11.68 <= bx and bx < fx <= 11.80 and fz1 <= 11.60 and fz0 < bz0 and bz1 < fz1, p
+    assert min(LAT["z"]) - LAT["pad"] >= FACE_Z + 0.05, p      # C1: the face footing stays behind the free-air face
+    assert LAT["z"][-1] + LAT["pad"] + 0.30 <= bz0 and abs(LAT["x"]) + LAT["pad"] <= fx, p
+    return p
 
 
 # --------------------------------------------------------------------------------------
@@ -2383,11 +2462,24 @@ def ext_tangent(c1, r1, c2, r2):
 def build_top(k, opts):
     # -- concrete plinth (cast in place, JH-08 / JH-14), open bottom; the anchor drums sit on
     # its side faces; the front stays behind the cabin envelope (skeptic MC2/F1) ------------
-    k.box("plinth", -TOP_PLX, TOP_PLX, 0.0, DECK_Y - 0.60, -0.50, 11.40, "concrete",
-          open_bottom=True, drop=("+Y",))
+    if PLINTH_TOP:
+        # revision 3 (plinth mode): the pier continues below grade onto the foundation block (its bottom ring on the
+        # block's top at PLINTH seat; build_top_foundation): nothing is left on the y 0 line
+        k.box("plinth", -TOP_PLX, TOP_PLX, PLINTH["seat"], DECK_Y - 0.60, -0.50, 11.40, "concrete",
+              drop=("+Y", "-Y"))
+    else:
+        k.box("plinth", -TOP_PLX, TOP_PLX, 0.0, DECK_Y - 0.60, -0.50, 11.40, "concrete",
+              open_bottom=True, drop=("+Y",))
     k.box("plinthcap", -TOP_CAPX, TOP_CAPX, DECK_Y - 0.60, DECK_Y, -0.70, 11.60, "concrete")
     for nm, xc, zc, h in top_footings():
-        k.box(nm, xc - h, xc + h, 0.0, 0.80, zc - h, zc + h, "concrete", open_bottom=True)
+        if not PLINTH_TOP:
+            k.box(nm, xc - h, xc + h, 0.0, 0.80, zc - h, zc + h, "concrete", open_bottom=True)
+        elif nm.startswith("footing_r"):
+            # revision 3: the rear-portal caps stand on the foundation block (0.10 in from its line face)
+            k.box(nm, xc - h, xc + h, PLINTH["seat"], 0.80, zc - h, zc + h, "concrete", drop=("-Y",))
+        else:
+            # revision 3: the face-portal and deck-leg caps are pile caps on the lattice bents' columns, closed underneath
+            k.box(nm, xc - h, xc + h, PLINTH["cap"], 0.80, zc - h, zc + h, "concrete")
 
     # -- open steel frame, no roof: face + rear portals, head beams / girders, braces ------
     yh = (HEAD_Y0 + HEAD_Y1) / 2.0
@@ -2530,8 +2622,8 @@ def build_top(k, opts):
         y0, z0 = stair_flight(k, "s", 10.10, 11.70, DECK_Y, -0.70, 35, 0.25, +1, slab=True)
         k.box("stairfoot_0", 10.00, 11.80, 0.0, STAIRFOOT_H, z0 - 0.25, z0 + 0.60, "concrete",
               open_bottom=True)
-    k.cyl("stairpost_0", 0.08, (11.60, 0.0, -1.50), (11.60, DECK_Y - 0.30, -1.50), "steel",
-          segs=8, caps="none")
+    k.cyl("stairpost_0", 0.08, (11.60, PLINTH["seat"] if PLINTH_TOP else 0.0, -1.50), (11.60, DECK_Y - 0.30, -1.50),
+          "steel", segs=8, caps="none")             # revision 3: on the foundation block
     if not RAMPS:
         k.handrail("stairo", [(10.25, DECK_Y, -1.65), (11.65, DECK_Y, -1.65), (11.65, DECK_Y, -0.70),
                               (11.65, 0.15, z0)], "galv")
@@ -2542,7 +2634,56 @@ def build_top(k, opts):
         build_top_ramps(k)
     if DETAIL1:
         build_top_detail(k)
+    if PLINTH_TOP:
+        build_top_foundation(k)                     # revision 3: below grade only (appended: the parts above keep their order)
     return {"wheels": bool(opts.wheels), "drums": drums}
+
+
+def build_top_foundation(k):
+    """Revision 3 (PLINTH_TOP; Richard's twenty-seventh look T-3; photo 01: lattice legs on concrete footings in front of the
+    concrete housing that carries the counterweight wheel; photo 02: the wheel on its concrete wall). Everything is BELOW
+    grade (max y PLINTH seat / cap), so on a flat summit the terrain hides it and on a cliff edge it reaches down the face:
+      - the FOUNDATION BLOCK (`found_block`): the pier's housing widened under the anchor-drum bays and the ramps out to
+        the lot's sides, x +-FOUND_BLOCK x, z FOUND_BLOCK z0..z1, from the slab up to PLINTH seat - the pier (`plinth`),
+        both pads, the eight ramp columns, both stair posts and the two rear-portal caps stand on its top; bottom face
+        dropped (it sits on the slab);
+      - the FOOTING SLAB (`found_slab`) under it, PLINTH slab_t thick to min y -PLINTH depth, stepping out to the frozen
+        bound (x +-11.80, the back z 11.60) and 0.30 in front of the block's line face: closed;
+      - two LATTICE BENTS (photo 01), one per side in the plane x = +-LAT x under the face-portal cap (z -9.60) and the two
+        deck-leg caps (z -7.00 / -4.40): square steel columns (`latcol_`) from inside the pile caps down into concrete pad
+        footings (`latpad_`, closed), girts (`latgirt_`) at LAT girt_y between the columns and as ties into the block's line
+        face, an X brace (`latbrace_`) in each panel (two bays x two tiers; the second member of every X XCROSS_SHALLOW
+        shallower, as the deck legs' braces)."""
+    D, seat = PLINTH["depth"], PLINTH["seat"]
+    ys = round(-D + PLINTH["slab_t"], 6)                    # -11.40: the slab's / the pad footings' top
+    fx, fz0, fz1 = FOUND_SLAB["x"], FOUND_SLAB["z0"], FOUND_SLAB["z1"]
+    bx, bz0, bz1 = FOUND_BLOCK["x"], FOUND_BLOCK["z0"], FOUND_BLOCK["z1"]
+    k.box("found_slab", -fx, fx, -D, ys, fz0, fz1, "concrete")
+    k.box("found_block", -bx, bx, ys, seat, bz0, bz1, "concrete", drop=("-Y",))
+    L = LAT
+    yt, ym = L["girt_y"]
+    zs = L["z"]
+    for sx, tag in ((-1, "L"), (1, "R")):
+        x = sx * L["x"]
+        for i, z in enumerate(zs):
+            k.box(f"latpad_{tag}{i}", x - L["pad"], x + L["pad"], -D, ys, z - L["pad"], z + L["pad"], "concrete")
+            k.member(f"latcol_{tag}{i}", (x, PLINTH["cap"] + L["into_cap"], z), (x, ys - L["into"], z), L["col"],
+                     L["col"], "steel", up=(0, 0, 1))
+        g_in = L["col"] / 2.0 - 0.05                      # a girt runs 0.05 into each column (no shared end rings)
+        for j, y in enumerate((yt, ym)):
+            for i in range(len(zs) - 1):
+                k.member(f"latgirt_{tag}{i}{'ab'[j]}", (x, y, zs[i] + g_in), (x, y, zs[i + 1] - g_in), L["girt"], L["girt"],
+                         "steel", up=(0, 1, 0))
+            k.member(f"latgirt_{tag}t{'ab'[j]}", (x, y, zs[-1] + g_in), (x, y, bz0 + 0.05), L["girt"], L["girt"], "steel",
+                     up=(0, 1, 0))
+        b = L["brace"]
+        for i in range(len(zs) - 1):
+            for j, (y0, y1) in enumerate(((yt, ym), (ym, ys))):
+                # (up +X on both sides: the two bents are translation copies, so they share UV islands: R3_SHARE)
+                k.member(f"latbrace_{tag}{i}{'ab'[j]}0", (x, y0, zs[i]), (x, y1, zs[i + 1]), b, b, "steel",
+                         up=(1, 0, 0))
+                k.member(f"latbrace_{tag}{i}{'ab'[j]}1", (x, y1, zs[i]), (x, y0, zs[i + 1]), b, b - XCROSS_SHALLOW,
+                         "steel", up=(1, 0, 0))
 
 
 def left_stair_plan():
@@ -2575,7 +2716,8 @@ def build_top_left_stair(k):
     if RAMPS:
         # nitpick B2: the landing and the gangway are the -X ramp's head (build_top_ramps; its outer rail takes the
         # landing's): no flights, no foot pad; the landing keeps its post, the gangway its back rail east of the ramp
-        k.cyl("stairpost_1", 0.08, (-11.60, 0.0, -1.50), (-11.60, DECK_Y - 0.30, -1.50), "steel", segs=8, caps="none")
+        k.cyl("stairpost_1", 0.08, (-11.60, PLINTH["seat"] if PLINTH_TOP else 0.0, -1.50), (-11.60, DECK_Y - 0.30, -1.50),
+              "steel", segs=8, caps="none")         # revision 3: on the foundation block
         k.handrail("gangb", [(-(TOP_RAMP["x"][0] + NB2_RAIL_IN) + 0.10, DECK_Y, gz1 - 0.03), (gx1, DECK_Y, gz1 - 0.03)],
                    "galv")
         return
@@ -2631,13 +2773,22 @@ def build_top_ramps(k):
             k.grating("headR", hx0, hx1, hz0, hz1, DECK_Y)
             k.box("deckbeam_rR", xa, hx1 - 0.02, dbeam[0], dbeam[1], z0 - 0.22, z0 - 0.02, "steel")
         _ramp_deck(k, f"ramp_{tag}", xa, xb, p0, yp, z0, DECK_Y, t)
-        k.box(f"pad_{tag}", min(s * x0, s * TOP_PAD_X1), max(s * x0, s * TOP_PAD_X1), 0.0, yp, p0, p1, "concrete",
-              open_bottom=True)
+        if PLINTH_TOP:
+            # revision 3: the pad continues below grade onto the foundation block; it overhangs the block 0.10 on its
+            # outer and back faces (the frozen bound), so it keeps a closed underside
+            k.box(f"pad_{tag}", min(s * x0, s * TOP_PAD_X1), max(s * x0, s * TOP_PAD_X1), PLINTH["seat"], yp, p0, p1,
+                  "concrete")
+        else:
+            k.box(f"pad_{tag}", min(s * x0, s * TOP_PAD_X1), max(s * x0, s * TOP_PAD_X1), 0.0, yp, p0, p1, "concrete",
+                  open_bottom=True)
         zm = (z0 + p0) / 2.0
         ym = DECK_Y - (zm - z0) * g - t                     # the deck soffit at the mid bent
         for j, (x, z, ytop) in enumerate(((xi, z0 - 0.12, dbeam[0]), (xo, z0 - 0.12, DECK_Y - 0.30), (xi, zm, ym),
                                           (xo, zm, ym))):
-            k.box(f"rampcol_{tag}{j}", x - c, x + c, 0.0, ytop, z - c, z + c, "steel", open_bottom=True)
+            if PLINTH_TOP:                                  # revision 3: on the foundation block
+                k.box(f"rampcol_{tag}{j}", x - c, x + c, PLINTH["seat"], ytop, z - c, z + c, "steel", drop=("-Y",))
+            else:
+                k.box(f"rampcol_{tag}{j}", x - c, x + c, 0.0, ytop, z - c, z + c, "steel", open_bottom=True)
         xri, xro = s * (x0 + ri), s * (x1 - ri)
         y1 = DECK_Y - e * g                                  # the deck 0.10 m down from its head
         runs = [(f"head{tag}f", (s * 10.25, DECK_Y, -1.65), (xro, DECK_Y, -1.65)),
@@ -3388,6 +3539,68 @@ def nitpick_b3_block(role, t, report):
             "removed": "annexback (one 12-tri box) -> annexback_0..2"}
 
 
+# revision 3 (PLINTH_TOP): the families the plinth mode adds or continues below grade (manifest `plinth_top`: LOD0 tris)
+R3_FAMILIES = {"foundation block + footing slab": ("found_",), "lattice columns": ("latcol_",),
+               "lattice girts + ties": ("latgirt_",), "lattice X braces": ("latbrace_",),
+               "lattice pad footings": ("latpad_",),
+               "continued below grade (pier, pile caps, pads, ramp columns, stair posts)":
+                   ("plinth", "footing_", "pad_", "rampcol_", "stairpost_")}
+R3_CONTINUED = ("plinth", "footing_", "pad_", "rampcol_", "stairpost_")   # the shipped parts that now reach below grade
+# the wheels whose clearance the report measures (the lowest first: the anchor drums' rims stand 0.75 m over the grade)
+R3_WHEELS = ("drumrim_L", "drumrim_R", "fsrim_L", "fsrim_R", "bullrim", "dwrim_L", "dwrim_R")
+
+
+def plinth_clearances(t):
+    """Revision 3: each wheel rim's lowest point, and its nearest distance (rim vertices to the other part's surface) to
+    the foundation block, the pier (plinth) and the plinth deck; the track rope's lowest point over the block."""
+    from mathutils.bvhtree import BVHTree
+    pf, parts = _part_tris(t)
+
+    def bvh(nm):
+        tr = parts.get(nm)
+        return None if tr is None else BVHTree.FromPolygons(pf.tolist(), tr.tolist(), all_triangles=True)
+    targets = {k_: bvh(k_) for k_ in ("found_block", "plinth", "plinthcap")}
+    out = {}
+    for nm in R3_WHEELS:
+        tr = parts.get(nm)
+        if tr is None:
+            continue
+        vs = pf[np.unique(tr.ravel())]
+        row = {"rim_low_y": round(float(vs[:, 1].min()), 3)}
+        for k_, b in targets.items():
+            if b is not None:
+                row[f"to_{k_}_m"] = round(min(b.find_nearest(Vector(v.tolist()))[3] for v in vs), 3)
+        row["over_seat_m"] = round(row["rim_low_y"] - PLINTH["seat"], 3)
+        out[nm] = row
+    ropes = [n for n in parts if n.startswith("rope_track_")]
+    low = min(float(pf[np.unique(parts[n].ravel())][:, 1].min()) for n in ropes) if ropes else None
+    return {"wheels": out, "track_rope_low_y": round(low, 3) if low is not None else None,
+            "track_rope_over_seat_m": round(low - PLINTH["seat"], 3) if low is not None else None,
+            "how": "rim vertices to the target part's surface (BVH nearest); prefab frame"}
+
+
+def plinth_top_block(role, t, report, detail1=None):
+    """The manifest's `plinth_top` block (None on the base / with PLINTH_TOP off): the plan, the plinth rule per LOD
+    (C6p), the families' LOD0 tris, the wheel clearances, the below-grade density classes."""
+    if base_mode(role) != "plinth":
+        return None
+    _tri, names = triangles(t)
+    fam = {k_: sum(1 for n_ in names if n_.startswith(p_)) for k_, p_ in R3_FAMILIES.items()}
+    dens = ((detail1 or {}).get("density") or {}).get("below_grade")
+    return {"flag": "PLINTH_TOP", "report": "build/tram-top-rev3.md",
+            "verdict": "verdicts-2026-10-11 'Twenty-seventh look' T-3", "mode": "plinth",
+            "plan": top_plinth_plan(), "C6p": report.get("C6p"), "tris_lod0": fam,
+            "tris_lod0_new": sum(v for k_, v in fam.items() if not k_.startswith("continued")),
+            "continued": list(R3_CONTINUED), "clearances": plinth_clearances(t), "density_below_grade": dens,
+            "rules": {"engine_base": "none: no vertex within PLINTH band of y 0 on LOD0 / LOD1 / LOD2 (C6p); the prefab's "
+                                     "LOD0 RenderPrefab gets BaseProperties {m_BaseType: null, m_UseMinBounds: false}",
+                      "depth": f"min y -{PLINTH['depth']:.2f} on every LOD (the slab + the lattice pad footings)",
+                      "closed": "every open edge of a below-grade part lies on another part's face (C6p closed, LOD0 + LOD1)",
+                      "above_grade": "vertex-identical to the shipped nitpick-B2 top above y 0 (test T9)",
+                      "C15b": "a pad counts as grade on the no-level top when it stands on OR continues below the grade "
+                              "(lowest vertex <= 0.01; the pads now reach the foundation block at -0.05)"}}
+
+
 def fd_probe(t, role):
     """A temporary copy of the oriented LOD0 with the kit rows' real meshes appended (parts kitrow_*): C15
     measures its crossings with them (oriented Blender = (X, -Z, Y) of prefab). None with FINE_DETAIL off."""
@@ -3504,6 +3717,20 @@ DENSITY_NB2 = {"base": {"ramp_": 0.62, "rampcol_": 0.6, "rampbeam_": 0.6, "plaza
 DENSITY_NB3 = {"landing_annex": 0.7, "tread_annex_": 0.7}
 
 
+# revision 3 (PLINTH_TOP): the below-grade structure. Hidden on a flat summit and seen only where a cliff exposes it (from
+# a distance, from below): the foundation's big plain concrete faces at a low weight (its slab's underside lowest), the
+# lattice members at the deck braces' class; DENSITY_BELOW keeps them off the 14 px/m starving list (D10 floors them
+# separately). Measured cost on the shipped atlas: build/tram-top-rev3.md.
+DENSITY_R3 = {"found_block": 0.15, "found_slab": 0.12, "latpad_": 0.35, "latcol_": 0.50, "latgirt_": 0.50,
+              "latbrace_": 0.50}
+DENSITY_BELOW = ("found", "lat")
+# revision 3: the lattice kit is built translation-identical (both sides with the same member `up`), so its copies share
+# one UV island per shape (cs2_liftdress.share_identical; columns 6 -> 1, bay girts 8 -> 1, ties 4 -> 1, braces 16 -> 4, pad
+# footings 6 -> 1): thin members pay the pack margin once, not per copy (the first scratch export, unshared, cost the 2048
+# atlas 6.4 % of w = 1)
+R3_SHARE = ("latcol_", "latgirt_", "latbrace_", "latpad_")
+
+
 def density_weights(role):
     """DENSITY_WEIGHTS, plus (DETAIL1) the dressing families and the station's resolution moves, plus (JH_DETAILS) the
     nitpick-B parts, plus (RAMPS) the nitpick-B2 ramps, plus (ANNEX_STAIR) the nitpick-B3 annex stair."""
@@ -3517,6 +3744,8 @@ def density_weights(role):
         w.update(DENSITY_NB2[role])
     if ANNEX_STAIR and role == "base":
         w.update(DENSITY_NB3)
+    if PLINTH_TOP and role == "top":
+        w.update(DENSITY_R3)
     return w
 
 # LOD1 drops sub-pixel hardware; LOD2 keeps the masses (MC4: opcab / hut stay, so the
@@ -3550,7 +3779,10 @@ LOD1_DELETE = ("bolt_", "clamp_", "drip_", "kick_", "post_", "tread_", "lrung_",
                "annexdoor_bar",
                # nitpick B3: the annex stair's railing tubes (its posts, kick plates and treads go with post_ / kick_ /
                # tread_); the landing block stays (it fills the doorway's sill in the cut wall)
-               "rail_annex")
+               "rail_annex",
+               # revision 3 (PLINTH_TOP): the lattice bents' X braces (their columns and girts stay at LOD1: the legs a cliff
+               # shows at the LOD1 distance)
+               "latbrace_")
 LOD2_COMMON = LOD1_DELETE + (
     "rail_", "deck_", "deckbeam_", "edgestrip_", "bw",
     "drivehouse", "cwshaft_", "girderroof_", "stonepier_", "pictowall", "pictodisc",
@@ -3583,14 +3815,18 @@ LOD2_DELETE = {"base": LOD2_COMMON + ("brace_", "grate_", "sgirder_", "sportal_"
                                      # revision 1c: the -X stair keeps its sloped slabs at LOD2
                                      "stairstr_w", "grate_gang",
                                      # nitpick B2: the ramps keep their decks and pads at LOD2 (the photo-05 read)
-                                     "rampcol_", "grate_headR")}
+                                     "rampcol_", "grate_headR",
+                                     # revision 3: the lattice bents and their pad footings go at LOD2 (sub-pixel members);
+                                     # the foundation block and its slab stay: the plinth (min y -12) on every LOD, as L4
+                                     "lat")}
 # survivors asserted by the tests (contract 15 T5, adapted to the <= 500 LOD2)
 LOD2_KEEP = {"base": ("stonebase", "stonecap", "col_", "girderface", "glazepanel_", "roof",
                       "annexbase", "annexcap", "annexroof", "opcab", "ctbase", "ctshaft", "ctcap",
                       "stairstr_"),
              "top": ("plinth", "plinthcap", "footing_", "strut_", "brace_", "headbeam_",
                      "headgirder_", "grate_bay", "hut", "bullrim", "sgirder_", "goalbeam",
-                     "goalpost_", "pad_" if RAMPS else "stairstr_", "mast")}   # nitpick B2: the pads, not the stair
+                     "goalpost_", "pad_" if RAMPS else "stairstr_", "mast")      # nitpick B2: the pads, not the stair
+                     + (("found_block", "found_slab") if PLINTH_TOP else ())}   # revision 3: the plinth at LOD2
 
 
 # grating pitch per station (design S1 / 5.7 / 6.5: at 0.06 m the bars were 1.2-1.5 texels apart, under
@@ -4043,8 +4279,12 @@ def check_contracts(t, role, opts, report):
     want = HEIGHT[key]
     if abs(hi[1] - want) > HEIGHT_TOL[key]:
         _fail("C8", f"bounds max y {hi[1]:.3f} != {want:.3f} +- {HEIGHT_TOL[key]}")
-    if lo[1] < -0.001 and not getattr(opts, "skirt", 0.0):
+    if base_mode(role) == "engine" and lo[1] < -0.001 and not getattr(opts, "skirt", 0.0):
         _fail("C6", f"geometry below y 0 ({lo[1]:.4f})")
+    # revision 3: in plinth mode geometry below y 0 is the design (C6p in check_stage: no band vertex, min y -depth,
+    # closed); nothing may reach deeper than the plinth
+    if base_mode(role) == "plinth" and lo[1] < -PLINTH["depth"] - 0.01:
+        _fail("C6p", f"plinth: geometry below the plinth depth ({lo[1]:.4f} < -{PLINTH['depth']:.2f})")
     report["C8"] = f"bounds y [{lo[1]:.3f}, {hi[1]:.3f}] (want top {want:.2f})"
     report["bounds"] = {"min": [round(float(v), 3) for v in lo],
                         "max": [round(float(v), 3) for v in hi]}
@@ -4073,6 +4313,104 @@ def check_engine_base(obj, parts_req, label="LOD0"):
                             f"{missing}, offending {r['offending_parts']}, below "
                             f"{r['below_verts']}")
     return r
+
+
+def base_mode(role):
+    """Revision 3: 'plinth' on the PLINTH_TOP top (the L4 rule: no engine base, the structure continues below grade),
+    'engine' everywhere else (C6 / C10: the engine draws the base from the y 0 outline)."""
+    return "plinth" if (role == "top" and PLINTH_TOP) else "engine"
+
+
+PLINTH_CLOSED_SAMPLES = (0.1, 0.3, 0.5, 0.7, 0.9)    # C6p closed: points along each open edge below grade
+
+
+def check_plinth(obj, label="LOD0", closed=True):
+    """C6p (revision 3, plinth mode; the cs2_bldg check_base_mode("plinth") rule L4 ships, plus closure). On any LOD:
+      - no engine base: ground_ring_report finds no OK base edge (the importer then builds no base ribbon);
+      - no vertex within PLINTH band of y 0 (the engine band) - nothing is left ON the grade line;
+      - min y == -PLINTH depth (+-0.01): the plinth depth (the prefab's bounds min y);
+      - closed (`closed`): every OPEN edge (an edge with one face of its own part) of a part that reaches below grade,
+        where it runs below grade, lies within PLINTH closed_tol of ANOTHER part's face - a dropped face seated on its
+        support (the pier's bottom ring on the block, a ramp column on the block, the block on its slab). An open
+        bottom, an open box side or a gap below grade FAILS (the footing slab closes the foundation).
+    Raises ContractError ("C6p ..."); returns the report (verdict / ok_edges / blocked_edges as check_engine_base's, for
+    the manifest's engine_base block)."""
+    from mathutils.bvhtree import BVHTree
+    r = cs2_validate.ground_ring_report(obj)
+    pf, part, table = mesh_arrays(obj)
+    me = obj.data
+    start, total, lv = poly_vertices(me)
+    names = part_names_of_polys(part, table)
+    y = pf[:, 1]
+    band = int((np.abs(y) <= PLINTH["band"]).sum())
+    ymin = float(y.min())
+    problems = []
+    if r["ok_edges"]:
+        problems.append(f"{r['ok_edges']} OK engine-base edges (plinth mode wants none; parts {list(r['ok_parts'])[:6]})")
+    if band:
+        idx = np.where(np.abs(y) <= PLINTH["band"])[0]
+        on = sorted({names[i] for i in range(len(start)) if np.isin(lv[int(start[i]):int(start[i]) + int(total[i])],
+                                                                     idx).any()})
+        problems.append(f"{band} vertices within {PLINTH['band']} of y 0 (parts {on[:8]})")
+    if abs(ymin + PLINTH["depth"]) > 0.01:
+        problems.append(f"min y {ymin:.3f} != -{PLINTH['depth']:.2f}")
+    rep = {"mode": "plinth", "verdict": r["verdict"], "ok_edges": r["ok_edges"], "blocked_edges": r["blocked_edges"],
+           "band_vertices": band, "min_y": round(ymin, 4), "max_y": round(float(y.max()), 4), "label": label}
+    if closed:
+        tri_v, tri_p = [], []
+        edge_parts = {}
+        pid = {}
+        for i in range(len(start)):
+            vs = [int(v) for v in lv[int(start[i]):int(start[i]) + int(total[i])]]
+            k_ = pid.setdefault(names[i], len(pid))
+            for j in range(1, len(vs) - 1):
+                tri_v.append((vs[0], vs[j], vs[j + 1]))
+                tri_p.append(k_)
+            for a, b in zip(vs, vs[1:] + vs[:1]):
+                e = (min(a, b), max(a, b))
+                d = edge_parts.setdefault(e, {})
+                d[k_] = d.get(k_, 0) + 1
+        bvh = BVHTree.FromPolygons(pf.tolist(), tri_v, all_triangles=True)
+        tri_p = np.array(tri_p)
+        part_min = {}
+        for i in range(len(start)):
+            k_ = pid[names[i]]
+            part_min[k_] = min(part_min.get(k_, 1e9), float(y[lv[int(start[i]):int(start[i]) + int(total[i])]].min()))
+        below_parts = {k_ for k_, m in part_min.items() if m < -PLINTH["band"]}
+        inv = {v: k_ for k_, v in pid.items()}
+        open_len, open_bad = {}, {}
+        tol = PLINTH["closed_tol"]
+        for (a, b), d in edge_parts.items():
+            for k_, cnt in d.items():
+                if cnt != 1 or k_ not in below_parts:
+                    continue
+                if min(y[a], y[b]) >= -PLINTH["band"]:
+                    continue                                    # an open edge above grade (seated caps, rims): not C6p's
+                pa, pb = pf[a], pf[b]
+                L = float(np.linalg.norm(pb - pa))
+                nm = inv[k_]
+                open_len[nm] = open_len.get(nm, 0.0) + L
+                for t_ in PLINTH_CLOSED_SAMPLES:
+                    q = pa + (pb - pa) * t_
+                    if q[1] >= -PLINTH["band"]:
+                        continue
+                    hits = bvh.find_nearest_range(Vector(q.tolist()), tol)
+                    if not any(int(tri_p[h[2]]) != k_ for h in hits):
+                        open_bad.setdefault(nm, []).append([round(float(c), 3) for c in q])
+                        break
+        rep["closed"] = {"open_edges_below_grade_m": {k_: round(v, 3) for k_, v in sorted(open_len.items())},
+                         "uncovered": {k_: v[:3] for k_, v in sorted(open_bad.items())},
+                         "parts_below_grade": sorted(inv[k_] for k_ in below_parts)}
+        if open_bad:
+            problems.append("open below grade (an open edge on no other part's face): " + ", ".join(
+                f"{k_} at {v[0]}" for k_, v in sorted(open_bad.items())[:8]))
+    print(f"[tram] C6p plinth {label}: verdict {r['verdict']} ({r['ok_edges']} OK edges), {band} band vertices, "
+          f"min y {ymin:.3f}" + (f", open edges below grade seated on other parts: "
+                                 f"{len(rep['closed']['open_edges_below_grade_m'])} parts, uncovered "
+                                 f"{sorted(rep['closed']['uncovered'])}" if closed else ""))
+    if problems:
+        _fail("C6p", f"plinth {label}: " + "; ".join(problems))
+    return rep
 
 
 def survivor_tris(obj, table, prefixes):
@@ -4434,6 +4772,18 @@ CONTACTS = {
     "nitpick B3 annex stair, doorway, landing block":
         "annexback:annexback annexback:landing annexcap:landing landing:stonecap annexcap:tread "
         "tread:tread annexcap:post",
+    # revision 3 (PLINTH_TOP, below grade): the pier, both pads, the ramp columns, the stair posts and the rear caps seated
+    # on the foundation block, the block on its footing slab, the bents' tie girts into the block's line face; the lattice
+    # kit (columns into the pile caps and into their pad footings, girts and X braces into the columns, the X pairs
+    # crossing, the bottom braces onto the pad footings)
+    "revision 3 plinth: foundation block, footing slab, lattice bents":
+        "found:plinth found:found found:pad found:rampcol found:stairpost footing:found found:latgirt "
+        "footing:latcol latcol:latpad latcol:latgirt latbrace:latcol latbrace:latbrace latbrace:latgirt latbrace:latpad",
+    # revision 3 (measured): the saddle-girder hangers end ON the rear head beam's underside (top = HEAD_Y0 = the beam's
+    # bottom: a designed face-to-face contact). The pair reads as touching or not at float32 epsilon: the plinth-mode
+    # join origin (the first part, `plinth`, moved its centre) re-rounds every vertex by ~1e-7 m, and the BVH overlap
+    # then sees the shared plane. Declared, not moved (nothing above grade moves in revision 3)
+    "saddle-girder hangers under the rear head beam (face contact)": "headbeam:sghanger",
 }
 CONTACT_KINDS = {tuple(sorted(tok.split(":"))): why for why, toks in CONTACTS.items()
                  for tok in toks.split()}
@@ -6142,6 +6492,20 @@ def prefab_contract(role, report, atlas_rule, base_report, switch):
         "engine_base": {k_: base_report[k_] for k_ in ("verdict", "ok_edges", "blocked_edges")},
         "lod_switch_m": switch,
     }
+    if base_mode(role) == "plinth":
+        # revision 3 (plinth mode, the L4 sheet): no engine base by design; what the surgery writes
+        out["engine_base"]["mode"] = "plinth"
+        out["base_mode"] = "plinth"
+        out["plinth"] = {
+            "depth_m": PLINTH["depth"], "min_y": (report.get("bounds") or {}).get("min", [None, None])[1],
+            "band_m": PLINTH["band"], "per_lod": {k_: {f: v[f] for f in ("min_y", "band_vertices", "ok_edges")}
+                                                   for k_, v in (report.get("C6p") or {}).items()},
+            "surgery": {"LOD0 RenderPrefab BaseProperties": {"m_BaseType": None, "m_UseMinBounds": False},
+                        "m_Bounds": "unclamped: min y -12.00 on LOD0 / LOD1 / LOD2 (MC11, as L4; culling then keeps "
+                                    "the plinth: no HasBase, so PreCullingSystem uses the mesh bounds)",
+                        "terraform": "unchanged: the FG-top no-level block (LevelMin 1600, DontRaise + DontLower)"},
+            "why": "revision 3 (Richard T-3): the foundation and supports continue below grade so the station can be set "
+                   "into a cliff edge or buried on a flat summit"}
     if RAMPS:
         # nitpick B2: the line axis in prefab x (the stubs / docks / hosted cabins sit +-TRACK_X / +-HAUL_X about it)
         # and the design -> prefab shift of this build (SkiCatalog.cs StationDef.StubTipLocalX reads axis_x)
@@ -6272,9 +6636,13 @@ def density_classes(t, table, A):
         out[k_] = {"px_per_m": round(math.sqrt(float((area[sel] * dens[sel] ** 2).sum()) / a), 1),
                    "m2": round(a, 2), "w": round(float(np.median(wts[sel])), 2)}
     starving = sorted(k_ for k_, v in out.items() if v["px_per_m"] < 14.0 and v["m2"] >= 0.5
-                      and not k_.startswith(DENSITY_HIDDEN))
-    return {"w1_px_per_m": round(w1, 2), "median_px_per_m": round(area_weighted_median(dens[ok], area[ok]), 2),
-            "classes": out, "starving_lt14": starving}
+                      and not k_.startswith(DENSITY_HIDDEN) and not k_.startswith(DENSITY_BELOW))
+    res = {"w1_px_per_m": round(w1, 2), "median_px_per_m": round(area_weighted_median(dens[ok], area[ok]), 2),
+           "classes": out, "starving_lt14": starving}
+    below = {k_: v for k_, v in out.items() if k_.startswith(DENSITY_BELOW)}
+    if below:                       # revision 3: the plinth-mode top's below-grade classes, reported (D10 floors them)
+        res["below_grade"] = below
+    return res
 
 
 def emissive_lit_texels(asset_dir, name, thr=0.02):
@@ -6502,6 +6870,10 @@ def weather_spec(name, role, intensity):
     w = TRAM_WEATHER[role]
     traffic = tuple(w["traffic_extra"]) + (NB2_TRAFFIC[role] if RAMPS else ())
     overrides = tuple(w["overrides"]) + ((("ramp_", {"scuff": 1.2}),) if RAMPS else ())
+    if PLINTH_TOP and role == "top":
+        # revision 3: the foundation concrete grimes like the footings, never rusts; the lattice is galvanised-steel
+        # framing like the deck legs (the "plinth" ground mode already gives everything below grade a ground-dirt tone)
+        overrides += (("found_", {"grime": 1.3, "rust": 0.0}), ("latpad_", {"grime": 1.3, "rust": 0.0}))
     return LD.station_weather_spec(name, ground=w["ground"], ground_z=w["ground_z"],
                                    overrides=overrides + tuple(LD.DRESS_WEATHER_OVERRIDES),
                                    traffic_extra=traffic, intensity=intensity)
@@ -6763,6 +7135,18 @@ CLOSEUP_SHOTS_NB3 = (
     ("nb3_annex_stair_10m", (14.90, 5.90, -6.60), _eye((14.90, 5.90, -6.60), (4.4, 2.4, 8.7)), ("noon", "dusk")),
     ("nb3_annex_doorway_10m", (13.30, 6.70, -6.60), _eye((13.30, 6.70, -6.60), (5.9, 0.4, 8.0)), ("noon",)),
 )
+# revision 3 (PLINTH_TOP): the cliff-edge shots (render_closeups puts a sketched cliff under them: cliff_y) - from 10 m
+# below grade looking up at the lattice legs and the foundation, the side elevation, down the face from the dock's edge, the
+# arriving cabin's view of the dock - and the summit case (the flat ground at y 0 hides the plinth). Prefab frame = design
+CLOSEUP_SHOTS_R3 = (
+    ("r3_cliff_below_legs", (8.0, -3.0, -5.0), (16.0, -10.0, -26.0), ("noon",)),
+    ("r3_cliff_below_front", (0.0, -1.5, -4.0), (-6.0, -10.0, -30.0), ("noon", "dusk")),
+    ("r3_cliff_side_40m", (2.0, -3.0, -1.0), (42.0, 2.0, -14.0), ("noon",)),
+    ("r3_cliff_dock_down", (10.1, -8.0, -7.0), (5.5, 9.0, -12.0), ("noon",)),
+    ("r3_cliff_approach_30m", (2.0, 1.0, -4.0), (4.0, 8.0, -34.0), ("noon", "dusk")),
+    ("r3_summit_30m", (0.0, 5.0, 0.0), (26.0, 14.0, -20.0), ("noon",)),
+    ("r3_summit_dock_10m", (6.0, 5.0, -6.0), _eye((6.0, 5.0, -6.0), (-0.55, 0.35, -0.75)), ("noon",)),
+)
 CLOSEUP_SHOTS = {
     "base": (("dep",(HALL_X - 0.15, 10.10, -6.60), (7.40, 9.30, -5.90), ("noon", "dusk")),
              ("tickets", (-8.70, 2.30, HALL_Z), (-7.90, 2.10, 15.80), ("noon",)),
@@ -6793,7 +7177,8 @@ CLOSEUP_SHOTS = {
             ("gates", (3.20, 7.40, -5.50), (0.40, 8.00, -1.20), ("noon",)),
             ("medallions", (-10.15, 7.00, -6.10), (-8.40, 7.80, -4.20), ("noon",)),
             ("roof_mast", (0.0, 19.60, 5.30), (3.20, 17.80, 1.20), ("noon",)))
-           + (() if not RAMPS else CLOSEUP_SHOTS_NB2["top"]),
+           + (() if not RAMPS else CLOSEUP_SHOTS_NB2["top"])
+           + (() if not PLINTH_TOP else CLOSEUP_SHOTS_R3),
 }
 
 
@@ -6837,6 +7222,58 @@ def _terrain_sketch(rig, role):
         o.hide_render = False
         out.append(rig.track(o))
     return out
+# revision 3 (PLINTH_TOP): the render-only sketched CLIFF EDGE across the lot (cliff_y; NOT geometry) and the summit case
+# (cs2_preview's flat ground at y 0, which hides everything below grade). The cliff: the summit plateau at the pads' top
+# behind the station (B2's assumption), a moulded bank down to the station's grade in front of the pads, the grade up to
+# the brink at z 0 (the plinth's line face is at -0.50), then a ~49 deg face falling toward the line side
+CLIFF = {"bank": (9.00, 11.60), "slope": 1.15, "floor": -45.0, "half_x": 70.0, "z": (-60.0, 45.0), "step": 0.5}
+
+
+def cliff_y(z):
+    """Revision 3 (the top's cliff previews only; NOT geometry): the sketched terrain height at prefab z (see CLIFF)."""
+    b0, b1 = CLIFF["bank"]
+    y_pad = top_ramp_plan()["y_pad"]
+    if z >= b1:
+        return y_pad
+    if z >= b0:
+        return y_pad * (z - b0) / (b1 - b0)
+    if z >= 0.0:
+        return 0.0
+    return max(CLIFF["floor"], CLIFF["slope"] * z)
+
+
+def _cliff_terrain(rig, role):
+    """Revision 3: the cliff_y heightfield as a render-only mesh (rock-brown, rough), tracked by the rig. None unless the
+    top is in plinth mode. Built in the prefab frame through _Q (the oriented Blender frame)."""
+    if base_mode(role) != "plinth":
+        return None
+    hx = CLIFF["half_x"]
+    z0, z1 = CLIFF["z"]
+    n = int(round((z1 - z0) / CLIFF["step"]))
+    zs = [z0 + (z1 - z0) * i / n for i in range(n + 1)]
+    bm = bmesh.new()
+    rows = [[bm.verts.new(_Q(x, cliff_y(z), z)) for x in (-hx, hx)] for z in zs]
+    for a, b in zip(rows, rows[1:]):
+        f = bm.faces.new((a[0], a[1], b[1], b[0]))
+    bm.normal_update()
+    for f in bm.faces:
+        if f.normal.z < 0:
+            f.normal_flip()
+    me = rig.track_data(bpy.data.meshes, bpy.data.meshes.new("CS2T_cliff"))
+    bm.to_mesh(me)
+    bm.free()
+    mat = rig.track_data(bpy.data.materials, bpy.data.materials.new("CS2T_cliff"))
+    mat.use_nodes = True
+    b_ = next(n_ for n_ in mat.node_tree.nodes if n_.type == "BSDF_PRINCIPLED")
+    b_.inputs["Base Color"].default_value = (0.42, 0.33, 0.24, 1.0)
+    b_.inputs["Roughness"].default_value = 0.95
+    me.materials.append(mat)
+    o = rig.track(bpy.data.objects.new("CS2T_cliff", me))
+    bpy.context.collection.objects.link(o)
+    o.hide_render = True
+    return o
+
+
 STANDIN_RGB = (("Light", (1.00, 0.82, 0.18)), ("Bench", (0.25, 0.45, 0.95)), ("Trashbin", (0.25, 0.80, 0.35)))
 
 
@@ -6884,7 +7321,8 @@ def render_closeups(t, asset_dir, name, out_dir, role, tint, win=None, only=None
         cam = cs2_preview._make_camera(rig)
         cs2_preview._assign(t, cs2_preview._pbr_material(rig, asset_dir, name, tint))
         _closeup_standins(rig, role)
-        _terrain_sketch(rig, role)                               # nitpick B2 (top): the moulded-terrain sketch line
+        sketch = _terrain_sketch(rig, role)                      # nitpick B2 (top): the moulded-terrain sketch line
+        cliff = _cliff_terrain(rig, role)                        # revision 3 (plinth top): the sketched cliff edge
         if win is not None:
             gm = rig.track_data(bpy.data.materials, bpy.data.materials.new("StandInGlass"))
             gm.use_nodes = True
@@ -6906,6 +7344,14 @@ def render_closeups(t, asset_dir, name, out_dir, role, tint, win=None, only=None
             _world, sun = cs2_preview._make_world(rig, **world_spec)
             gnd = cs2_preview._make_ground(rig)
             for vname, tgt, eye, _modes in shots:
+                # revision 3: the r3_cliff* shots stand on the sketched cliff (the flat ground hidden), the other r3_ shots
+                # on the flat summit ground; the B2 terrain sketch lines show on the B2 shots only
+                on_cliff = cliff is not None and vname.startswith("r3_cliff")
+                gnd.hide_render = on_cliff
+                if cliff is not None:
+                    cliff.hide_render = not on_cliff
+                for o_ in sketch or ():
+                    o_.hide_render = vname.startswith("r3_")
                 tg, ey = _Q(*pf(role, tgt)), _Q(*pf(role, eye))          # design-frame shots (nitpick B2)
                 cs2_preview._aim(cam, tg, ey - tg, (ey - tg).length)
                 path = os.path.join(out_dir, f"{name}_{vname}_{mode}.png")
@@ -6942,8 +7388,12 @@ def check_stage(t, table, name, role, args, report):
         _fail("C11", "no `_Win` panes")
     report["C11"] = check_win_cells(win, role)
     report["C13"] = check_label_uvs(t, table, "UVMap")
-    base_report = check_engine_base(t, engine_base_parts(role, args)) if not args.skirt else \
-        cs2_validate.ground_ring_report(t)
+    if base_mode(role) == "plinth":
+        base_report = check_plinth(t, "LOD0")             # revision 3: C6p replaces C6 (no engine base)
+        report["C6p"] = {"LOD0": base_report}
+    else:
+        base_report = check_engine_base(t, engine_base_parts(role, args)) if not args.skirt else \
+            cs2_validate.ground_ring_report(t)
     n0 = cs2_asset.tri_count(t)
     if n0 > LOD0_CAP[role]:
         _fail("C9", f"LOD0 {n0} tris > cap {LOD0_CAP[role]}")
@@ -7090,6 +7540,9 @@ def parse_args(argv=None):
     if a.skirt and not a.skirt_ack_probe:
         ap.error("--skirt needs --skirt-ack-probe: the BaseProperties {m_BaseType null} probe "
                  "has not passed (ROUND-SPEC section 9)")
+    if a.skirt and PLINTH_TOP:
+        ap.error("--skirt is moot in plinth mode (revision 3, PLINTH_TOP): the top's own foundation continues below "
+                 "grade; its rock skirt would put vertices on the y 0 line")
     return a
 
 
@@ -7155,7 +7608,8 @@ def main(argv=None):
     LD = _LD() if (finish and DETAIL1) else None
     share = None
     if LD is not None:
-        share = LD.share_identical(t, table, LD.TRAM_SHARE_WHITELIST, detail_specs=detail_specs(role),
+        share = LD.share_identical(t, table, LD.TRAM_SHARE_WHITELIST + (R3_SHARE if base_mode(role) == "plinth" else ()),
+                                   detail_specs=detail_specs(role),
                                    hero=LD.TRAM_SHARE_HERO, uv_layer="UVMap",
                                    ground_band=(TRAM_WEATHER[role]["ground_z"], 0.60))
     if not finish:
@@ -7272,14 +7726,21 @@ def main(argv=None):
                                         delete_prefixes=(LOD1_DELETE, LOD2_DELETE[role]),
                                         shade_angle=SHADE_ANGLE)
         for i, lod in enumerate(lods, start=1):
-            moved = pin_ground(lod)
-            if moved:
-                print(f"[tram] LOD{i}: pinned {moved} ground vertices to y 0")
+            if base_mode(role) == "engine":
+                moved = pin_ground(lod)
+                if moved:
+                    print(f"[tram] LOD{i}: pinned {moved} ground vertices to y 0")
             flipped = fix_lod_decks(lod)                  # revision 2 (C18 LOD2: a flattened deck faces up)
             if flipped:
                 print(f"[tram] LOD{i}: flattened decks turned up {flipped}")
                 report.setdefault("lod_decks_flipped", {})[i] = flipped
-            check_engine_base(lod, ENGINE_BASE_PARTS_LOD[role], f"LOD{i}")
+            if base_mode(role) == "plinth":
+                # revision 3: the plinth on every LOD (L4 keeps it at LOD1 / LOD2 too: min y -12, nothing on the grade
+                # line, no engine base); closure is asserted on LOD1 (decimation keeps the closed parts), measured on LOD2
+                rp = check_plinth(lod, f"LOD{i}", closed=True) if i == 1 else check_plinth(lod, f"LOD{i}", closed=False)
+                report["C6p"][f"LOD{i}"] = rp
+            else:
+                check_engine_base(lod, ENGINE_BASE_PARTS_LOD[role], f"LOD{i}")
             tris[i] = cs2_asset.tri_count(lod)
             cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{name}_LOD{i}.fbx"))
         if tris[1] > 0.5 * n0:
@@ -7340,6 +7801,7 @@ def main(argv=None):
     nb_block = nitpick_b_block(role, t)                  # nitpick B (None on the top / with JH_DETAILS off)
     nb2_block = nitpick_b2_block(role, t, report)        # nitpick B2 (None with RAMPS off)
     nb3_block = nitpick_b3_block(role, t, report)        # nitpick B3 (None on the top / with ANNEX_STAIR off)
+    r3_block = plinth_top_block(role, t, report, detail1)  # revision 3 (None on the base / with PLINTH_TOP off)
     print("[tram] hosted local transforms (prefab space):")
     for h in contract["hosted"] or [{"what": "none (top hosts nothing; ObjectSubObjects removed)"}]:
         print(f"[tram]   {h['what']}: pos {h.get('m_Position')} rot {h.get('m_Rotation')} "
@@ -7366,6 +7828,7 @@ def main(argv=None):
         **({"nitpick_b": nb_block} if nb_block else {}),
         **({"nitpick_b2": nb2_block} if nb2_block else {}),
         **({"nitpick_b3": nb3_block} if nb3_block else {}),
+        **({"plinth_top": r3_block} if r3_block else {}),
         "C15": {k_: report["C15"][k_] for k_ in ("flights", "ladders", "joins", "not_walkable", "orphans")
                 + (("ramps", "C15b", "goal") if RAMPS else ())
                 + (("route",) if (ANNEX_STAIR and role == "base") else ())},
@@ -7416,7 +7879,10 @@ def main(argv=None):
     print(f"[tram] asset folder: {asset_dir}")
     print(f"PASS tram_station: {name} LOD0 {tris[0]} tris, chain "
           f"{[tris[i] for i in sorted(tris) if i]}, atlas {A}, _Win {report['C11']}, engine base "
-          f"{base_report['verdict']}, batches {report['batches']}, finish {'on' if finish else 'off'}"
+          f"{base_report['verdict']}"
+          + (f" (plinth mode, min y {base_report['min_y']:.2f}, 0 band vertices on LOD0-{len(lods)})"
+             if base_mode(role) == "plinth" else "")
+          + f", batches {report['batches']}, finish {'on' if finish else 'off'}"
           + (f", fine-detail on ({fine_block['rows']})" if fine_block else ", fine-detail off"))
     report["fine_detail"] = fine_block
     return report

@@ -1,0 +1,148 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiGondolaCabin8A Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 2,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.LodProperties, Game",
+                "name": "LodProperties",
+                "active": true,
+                "m_Bias": 0,
+                "m_ShadowBias": 0,
+                "m_LodMeshes": {
+                    "$id": 3,
+                    "$type": "3|Game.Prefabs.RenderPrefab[], Game",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        $fstrref:"CID:74f0e03dadbebd850fb6074056c5bc8a",
+                        $fstrref:"CID:0332c84eb577ddc6afc213fd4959e54b"
+                    ]
+                }
+            },
+            {
+                "$id": 100,
+                "$type": "4|Game.Prefabs.ColorProperties, Game",
+                "name": "ColorProperties",
+                "active": true,
+                "m_ColorVariations": {
+                    "$id": 101,
+                    "$type": "5|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+VariationSet, Game]], mscorlib",
+                    "$rlength": 4,
+                    "$rcontent": [
+                        {
+                            "$id": 102,
+                            "$type": "6|Game.Prefabs.ColorProperties+VariationSet, Game",
+                            "m_Colors": {
+                                "$id": 103,
+                                "$type": "7|UnityEngine.Color[], UnityEngine.CoreModule",
+                                "$rlength": 3,
+                                "$rcontent": [
+                                    { "$type": "8|UnityEngine.Color, UnityEngine.CoreModule", 0.7, 0.07, 0.06, 1 },
+                                    { "$type": 8, 0.7, 0.07, 0.06, 1 },
+                                    { "$type": 8, 0.07, 0.07, 0.08, 1 }
+                                ]
+                            },
+                            "m_VariationGroup": ""
+                        },
+                        {
+                            "$id": 104,
+                            "$type": 6,
+                            "m_Colors": {
+                                "$id": 105,
+                                "$type": 7,
+                                "$rlength": 3,
+                                "$rcontent": [
+                                    { "$type": 8, 0.08, 0.08, 0.09, 1 },
+                                    { "$type": 8, 0.08, 0.08, 0.09, 1 },
+                                    { "$type": 8, 0.3, 0.31, 0.32, 1 }
+                                ]
+                            },
+                            "m_VariationGroup": ""
+                        },
+                        {
+                            "$id": 106,
+                            "$type": 6,
+                            "m_Colors": {
+                                "$id": 107,
+                                "$type": 7,
+                                "$rlength": 3,
+                                "$rcontent": [
+                                    { "$type": 8, 0.95, 0.62, 0.08, 1 },
+                                    { "$type": 8, 0.3, 0.31, 0.32, 1 },
+                                    { "$type": 8, 0.07, 0.07, 0.08, 1 }
+                                ]
+                            },
+                            "m_VariationGroup": ""
+                        },
+                        {
+                            "$id": 108,
+                            "$type": 6,
+                            "m_Colors": {
+                                "$id": 109,
+                                "$type": 7,
+                                "$rlength": 3,
+                                "$rcontent": [
+                                    { "$type": 8, 0.1, 0.25, 0.6, 1 },
+                                    { "$type": 8, 0.9, 0.9, 0.9, 1 },
+                                    { "$type": 8, 0.07, 0.07, 0.08, 1 }
+                                ]
+                            },
+                            "m_VariationGroup": ""
+                        }
+                    ]
+                },
+                "m_ChannelsBinding": {
+                    "$id": 110,
+                    "$type": "9|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+ColorChannelBinding, Game]], mscorlib",
+                    "$rlength": 3,
+                    "$rcontent": [
+                        { "$id": 111, "$type": "10|Game.Prefabs.ColorProperties+ColorChannelBinding, Game", "m_ChannelId": 0, "m_CanBeModifiedByExternal": false },
+                        { "$id": 112, "$type": 10, "m_ChannelId": 1, "m_CanBeModifiedByExternal": false },
+                        { "$id": 113, "$type": 10, "m_ChannelId": 2, "m_CanBeModifiedByExternal": false }
+                    ]
+                },
+                "m_VariationRanges": { "$type": "11|Unity.Mathematics.int3, Unity.Mathematics", "x": 0, "y": 0, "z": 3 },
+                "m_AlphaRanges": { "$type": 11, "x": 0, "y": 0, "z": 0 },
+                "m_ExternalColorSource": 0
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:d7a11310b7449d1fe74f09575799e996",
+    "m_SurfaceAssets": {
+        "$id": 4,
+        "$type": "12|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:af508cd9253fce2c5dd3ffea38eaa636"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "13|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "14|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -1.04991233,
+            "y": 0,
+            "z": -1.18
+        },
+        "max": {
+            "$type": 14,
+            "x": 1.094,
+            "y": 4.5,
+            "z": 1.18
+        }
+    },
+    "m_SurfaceArea": 36.53519,
+    "m_IndexCount": 7212,
+    "m_VertexCount": 2616,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}
