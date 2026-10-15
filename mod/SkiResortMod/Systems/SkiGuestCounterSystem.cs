@@ -259,6 +259,9 @@ namespace SkiResortMod.Systems
 
         // Round M1 (M7 b, c): run upkeep per month (whole city) and the frame the ledger's month in progress began.
         private long m_UpkeepAtMonthStart, m_UpkeepLastMonth = -1;   // -1 = not known (prints "?")
+        // Stage 1a: the ticket income booked as public-transport fees per month, from SkiLiftTicketSystem.FeeBookedThisLoad
+        // baselines (same scheme as the run upkeep above; ApplyResults books ledger and fees together, so the months agree).
+        private long m_FeeAtMonthStart, m_FeeLastMonth = -1;
         private uint m_MonthStartFrame;
         private bool m_HasMonthStart;
         private bool m_MonthByJump;   // fixer R8: the ledger's month in progress started at a calendar jump, not at the load
@@ -600,6 +603,8 @@ namespace SkiResortMod.Systems
             m_ResidentsLastKey = SkiResortLedger.NoMonth;
             m_UpkeepAtMonthStart = 0;         // Round M1 (M7 b; the upkeep's DebitedThisLoad restarts at 0 too)
             m_UpkeepLastMonth = -1;
+            m_FeeAtMonthStart = 0;            // Stage 1a (the ticket system's FeeBookedThisLoad restarts at 0 too)
+            m_FeeLastMonth = -1;
             m_MonthStartFrame = 0;            // Round M1 (M7 c)
             m_HasMonthStart = false;
             m_MonthByJump = false;
@@ -743,6 +748,9 @@ namespace SkiResortMod.Systems
                     long debited = m_Upkeep.DebitedThisLoad;
                     m_UpkeepLastMonth = debited - m_UpkeepAtMonthStart;
                     m_UpkeepAtMonthStart = debited;
+                    long fees = FeeBookedNow();   // Stage 1a: the closed month's fares-booked total
+                    m_FeeLastMonth = fees - m_FeeAtMonthStart;
+                    m_FeeAtMonthStart = fees;
                     m_MonthStartFrame = now;
                     m_MonthByJump = false;
                     WriteMonthLines(prev, last: true, closedSinceLoad ? closedSince :
@@ -771,6 +779,13 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>Stage 1a: the ticket system's fares-booked total this load (0 when that system does not exist).</summary>
+        private long FeeBookedNow()
+        {
+            SkiLiftTicketSystem tickets = World.GetExistingSystemManaged<SkiLiftTicketSystem>();
+            return tickets != null ? tickets.FeeBookedThisLoad : 0;
+        }
+
         /// <summary>Round M1 (M7 a2, b, c): a month that starts without a last month (the first tick after a load, a
         /// calendar jump): its start frame and run-upkeep baseline; the resident sets of both months cleared.</summary>
         private void StartMonthMeasures(uint now)
@@ -779,6 +794,8 @@ namespace SkiResortMod.Systems
             m_HasMonthStart = true;
             m_UpkeepAtMonthStart = m_Upkeep.DebitedThisLoad;
             m_UpkeepLastMonth = -1;
+            m_FeeAtMonthStart = FeeBookedNow();   // Stage 1a
+            m_FeeLastMonth = -1;
             m_ResidentsThis.Clear();
             m_ResidentsLast.Clear();
             m_ResidentsLastKey = SkiResortLedger.NoMonth;
@@ -862,7 +879,11 @@ namespace SkiResortMod.Systems
             // only the total line names it. A charge pass (1,024 frames) that straddles the roll lands in one month.
             long upkeep = last ? m_UpkeepLastMonth : m_Upkeep.DebitedThisLoad - m_UpkeepAtMonthStart;
             string upkeepText = upkeep < 0 ? "?" : "-" + upkeep;
-            Mod.Log.Info($"Guests [month] {month} all ski areas: guests {guests}, tickets +{income}, lift charges -{lift:F0}, " +
+            // Stage 1a: how much of the tickets was booked as public-transport fees (the rest was added to the balance directly).
+            long fees = last ? m_FeeLastMonth : FeeBookedNow() - m_FeeAtMonthStart;
+            string feeText = fees < 0 ? "?" : fees.ToString();
+            Mod.Log.Info($"Guests [month] {month} all ski areas: guests {guests}, tickets +{income} ({feeText} of it booked as " +
+                         $"public-transport fees), lift charges -{lift:F0}, " +
                          $"run upkeep {upkeepText} (whole city), " +
                          $"not linked lift charges -{notLinked:F0}; now picked by {parties} tourist part(ies) on the way, " +
                          $"{locals} local(s) and {tourists} tourist(s) on leisure heading to a lodge");

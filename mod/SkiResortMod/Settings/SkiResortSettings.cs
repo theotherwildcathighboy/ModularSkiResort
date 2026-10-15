@@ -11,6 +11,8 @@
 //   * LiftTicketPrice (Round E1 ch4, D26): read live by SkiLiftTicketSystem through
 //     SkiMoneyRules.ClampTicketPrice(Mod.Settings?.LiftTicketPrice ?? SkiMoneyRules.TicketPriceDefault);
 //     0 turns tickets off. Persisted under this property name — never rename.
+//   * BookTicketsAsFees (stage 1a, DECISIONS 239): read live by SkiLiftTicketSystem through
+//     Mod.Settings?.BookTicketsAsFees ?? DefaultBookTicketsAsFees; default on. Persisted under this property name — never rename.
 //   * EnableSnowGating (D13): read only through SnowLineSystem.IsSnowGatingEnabled() (true when the
 //     settings are not loaded); the score and the hub call that.
 //   * SnowmakingBonusCelsius (D14, default 2, was 3): THE snowmaking margin, read only through
@@ -178,6 +180,7 @@ namespace SkiResortMod.Settings
         public const int DefaultAttractivenessScaleK = 4;
         public const int DefaultBackcountryValuePercent = 40;
         public const bool DefaultEnableSnowGating = true;
+        public const bool DefaultBookTicketsAsFees = true;   // Stage 1a (DECISIONS 239)
         public const int DefaultSnowmakingBonusCelsius = 2;   // = RunSnowRules.DefaultSnowmakingMarginC (D14; was 3)
         // Round E1 addendum A1, kept in F7: 8 = the look of the game's lot outline (snap distance 8 × 0.3,
         // AreaBorderRenderSystem.cs:517, :531): outline and corner dots 2.4 m. Since F7 it sets nothing else.
@@ -251,6 +254,14 @@ namespace SkiResortMod.Settings
         [SettingsUISlider(min = 0f, max = LodgeSpendPerGuestMax, step = LodgeSpendPerGuestStep, unit = "money")]
         [SettingsUISection(SectionMain, GroupBalance)]
         public int LodgeSpendPerGuest { get; set; }
+
+        /// <summary>BookTicketsAsFees (stage 1a, DECISIONS 239; docs/research/econ-2/build/stage1a-fare-booking.md): on = each
+        /// paid lift ticket is booked as a public-transport fare (a ServiceFeeSystem FeeEvent, like the vanilla bus fare), so the
+        /// income shows in the Economy panel and the budget credits the treasury; off = the old direct add to the city's balance.
+        /// Read live by SkiLiftTicketSystem (ReadBookAsFees; true when settings are not loaded). Default on. Persisted under
+        /// this property name — never rename.</summary>
+        [SettingsUISection(SectionMain, GroupBalance)]
+        public bool BookTicketsAsFees { get; set; }
 
         // --- Ski days (Round S1, s1-spec §2.11; ski-days spec ch4 §E; header SKI DAYS) ----------
         // Persisted under these property names — never rename. Read only through the *Of readers below.
@@ -415,6 +426,7 @@ namespace SkiResortMod.Settings
             BackcountryValuePercent = DefaultBackcountryValuePercent;   // E1
             LiftTicketPrice = SkiMoneyRules.TicketPriceDefault;         // E1 D26 (ch4 §5.4)
             LodgeSpendPerGuest = DefaultLodgeSpendPerGuest;             // Catalog Phase B (round-2-contract §9, D15): 0 = off
+            BookTicketsAsFees = DefaultBookTicketsAsFees;               // Stage 1a (DECISIONS 239): on
             SkiDayLocalsPct = DefaultSkiDayLocalsPct;                   // S1 (s1-spec §2.11)
             SkiDayTouristsPct = DefaultSkiDayTouristsPct;               // S1
             SkiDayReachKm = DefaultSkiDayReachKm;                       // S1

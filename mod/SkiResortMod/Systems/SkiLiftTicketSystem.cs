@@ -4,14 +4,28 @@
 // e1-spec R6) and the household can pay (never into debt, DV9). Stage 0 (S0) laid down the shell
 // (e1-spec I-19); stream S4 wrote the system (2026-10-04).
 //
-// THE MONEY MOVEMENT (ch4 §5.1): the vanilla transit-fare pattern (ResidentAISystem.BoardingJob : IJob,
-// ResidentAISystem.cs:3393; the fare at :3922-3935 = EconomyUtils.AddResources(Resource.Money, -price,
-// household resources) + PlayerMoney.Add on the City entity in the same job). One Burst IJob per tick that
-// has arrivals: EconomyUtils.GetResources / AddResources (EconomyUtils.cs:307-338) on the household's
-// Game.Economy.Resources buffer and one PlayerMoney.Add(total) (PlayerMoney.cs:33-36). Money moves; none is
-// created and none is lost (a City without PlayerMoney charges nobody: guests go free, one WARN per load).
-// Two deliberate differences from the fare: NO FeeEvent (PlayerResource is a closed enum with no parks or
-// tourism entry — any choice would book the ticket under a wrong vanilla line), and NEVER INTO DEBT
+// THE MONEY MOVEMENT (ch4 §5.1; stage 1a, DECISIONS 239, docs/research/econ-2/build/stage1a-fare-booking.md): the
+// vanilla transit-fare pattern (ResidentAISystem.BoardingJob : IJob, ResidentAISystem.cs:3393; the fare at
+// :3922-3935 = EconomyUtils.AddResources(Resource.Money, -price, household resources) + PlayerMoney.Add on the
+// City entity + a ServiceFeeSystem.FeeEvent{m_Amount 1, m_Cost price, PlayerResource.PublicTransport, m_Outside
+// false} on the fee queue). One Burst IJob per tick that has arrivals: EconomyUtils.GetResources / AddResources
+// (EconomyUtils.cs:307-338) on the household's Game.Economy.Resources buffer and one PlayerMoney.Add(total)
+// (PlayerMoney.cs:33-36). Money moves; none is created and none is lost (a City without PlayerMoney charges
+// nobody: guests go free, one WARN per load).
+// BOOKED AS FARES (setting BookTicketsAsFees, Options → Balance, default on, read live): each PAID ticket enqueues
+// one FeeEvent like the bus fare, so the income shows in the Economy panel under public transportation fees, and
+// the ticket total is NOT added to PlayerMoney in the job: BudgetApplySystem.cs:28-60 credits the fee line
+// (CityServiceBudgetSystem.cs:225-226 = ServiceFeeSystem.GetServiceFees(PublicTransport).x) into PlayerMoney
+// itself, so adding it here too would pay the city twice (the household is debited once either way). The fee queue
+// and its dependency are handled as ResidentAISystem does (:265 GetFeeQueue(out deps), :277 deps combined into the
+// schedule, :285 AddQueueWriter(handle); ServiceFeeSystem.cs:443-452): always, also with the setting off, so the job
+// struct never holds a default NativeQueue (a job that enqueues nothing is a harmless writer). Setting off = the old
+// behavior: direct PlayerMoney.Add, no FeeEvent, income invisible in the Economy panel. The lodge spend stays a
+// direct add (shopping, not transit; no FeeEvent). UNVERIFIED in game: that the Economy panel line rises and the
+// treasury is credited once; with Realistic Workplaces And Households ("RWH") loaded, which replaces
+// BudgetApplySystem with its own copy, that fee income reaches the treasury at all (one WARN per load).
+// Two deliberate differences from the fare: the direct add is dropped while tickets are booked as fares (above),
+// and NEVER INTO DEBT
 // (DV9): SkiMoneyRules.TicketsPaid = min(people, money / price), the rest are guests who could not pay
 // (counted, admitted, no money): low money makes residents move away (HouseholdBehaviorSystem.cs:172) and
 // hotel tourists leave (TouristLeaveSystem.cs:60-73).
@@ -55,7 +69,9 @@
 // "(the game day ended before 64)" with the ticks it has, or "skipped: no tick with arrivals since noon").
 // Known silent case, out of scope (measure-core-check G11): the LOAD-time measurement never writes when no guest
 // arrives after a load (it waits for CostTicks ticks with arrivals; the midday re-arm needs a written line first).
-// LOGS (ch4 §5.7, exact): created; ARMED; `Tickets [price]` on a change; `Tickets [gate]` per ski area when its
+// LOGS (ch4 §5.7, exact): created; ARMED (names the booking mode, stage 1a); `Tickets [price]` on a change;
+// `Tickets [booking]` on a change of BookTicketsAsFees; one WARN per load when "RWH" is loaded and tickets are booked
+// as fares (SkiOtherMods; assembly name only, behavior never depends on it); `Tickets [gate]` per ski area when its
 // gate changes, evaluated each tick its inputs move (attraction Generation, lift-charge Revision, price) with the
 // hub's inputs (Round S1 F6, ski-days spec ch3 §5: before, the line came only with arriving guests — field test
 // 8's "open" was 4 min 26 s late), the first evaluation of a sign too, through m_GateLog (LogWindow 10 s; R15:
@@ -129,7 +145,8 @@ namespace SkiResortMod.Systems
         private struct TicketRequest { public int Slot; public Entity Household; public int People; public byte Tourist; public int SpendPerPerson; }
         // Round M2 T1: OperatingLifts removed (the gate no longer reads lifts); RunStateKnown = score present and not held.
         private struct TicketSlot { public Entity Sign; public byte RunStateKnown; public int OpenRuns; }
-        private struct TicketResult { public int Paid, Unpaid, Free, Income, Spends, SpendIncome; public byte NoCity; }
+        // Stage 1a: Booked = the ticket income booked as public-transport fares (FeeEvents) instead of added to PlayerMoney.
+        private struct TicketResult { public int Paid, Unpaid, Free, Income, Spends, SpendIncome, Booked; public byte NoCity; }
 
         /// <summary>The clamped setting read on the last tick (SkiMoneyRules.ClampTicketPrice).</summary>
         internal int Price { get; private set; } = SkiMoneyRules.TicketPriceDefault;
@@ -137,6 +154,14 @@ namespace SkiResortMod.Systems
         /// <summary>Catalog Phase B (D15): the clamped lodge-spend setting read on the last tick (SkiMoneyRules.ClampLodgeSpend;
         /// 0 = off).</summary>
         internal int LodgeSpend { get; private set; } = SkiMoneyRules.LodgeSpendDefault;
+
+        /// <summary>Stage 1a: the BookTicketsAsFees setting read on the last tick (true = each paid ticket is a public-transport
+        /// FeeEvent and the job does not add the ticket total to PlayerMoney).</summary>
+        internal bool BookAsFees { get; private set; } = SkiResortMod.Settings.SkiResortSettings.DefaultBookTicketsAsFees;
+
+        /// <summary>Stage 1a: the ticket income booked as public-transport fees this load, as ApplyResults has booked it
+        /// (the counter's `Guests [month]` totals take month baselines of it, like the run upkeep's DebitedThisLoad).</summary>
+        internal long FeeBookedThisLoad => m_FeeBookedTotal;
 
         /// <summary>The gate the last ticket tick evaluated for <paramref name="sign"/>.</summary>
         internal bool TryGetLastGate(Entity sign, out SkiMoneyRules.TicketGate gate)
@@ -148,6 +173,7 @@ namespace SkiResortMod.Systems
         private SimulationSystem m_SimulationSystem;
         private TimeSystem m_TimeSystem;   // Round M1 (M8): the midday re-arm and the [cost] clock
         private CitySystem m_CitySystem;
+        private ServiceFeeSystem m_ServiceFeeSystem;   // Stage 1a: the fee queue (ResidentAISystem.cs:199 pattern)
         private SkiGuestCounterSystem m_Counter;
         private SkiResortAttractivenessSystem m_Attractiveness;
         private SkiPrefabCatalogSystem m_PrefabCatalog;   // Catalog Phase B (D15): the lodge rows (LodgeDefs)
@@ -182,8 +208,9 @@ namespace SkiResortMod.Systems
         private long m_GateMismatches;
 
         // ── per-load state ────────────────────────────────────────────────────────────────────────
-        private bool m_Armed, m_Disabled, m_ErrorLogged, m_NoCityWarned;
+        private bool m_Armed, m_Disabled, m_ErrorLogged, m_NoCityWarned, m_RwhWarned;
         private long m_BusyTicks, m_RequestsTotal, m_GuestsTotal, m_IncomeTotal;
+        private long m_FeeBookedTotal;   // Stage 1a: this load (DUMP, the counter's month line)
         private long m_SpendsTotal, m_SpendIncomeTotal;   // Catalog Phase B (D15): this load (DUMP)
         private int m_LargestBatch, m_MaxLagTicks, m_LastLagTicks;
         private int m_CostTicks, m_CostLargestBatch;
@@ -200,6 +227,7 @@ namespace SkiResortMod.Systems
             m_SimulationSystem = World.GetOrCreateSystemManaged<SimulationSystem>();
             m_TimeSystem = World.GetOrCreateSystemManaged<TimeSystem>();   // Round M1 (M8)
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
+            m_ServiceFeeSystem = World.GetOrCreateSystemManaged<ServiceFeeSystem>();   // Stage 1a
             m_Counter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
             // Catalog Phase B: after the attractiveness system, which creates the catalog in its own OnCreate (creation
@@ -308,6 +336,8 @@ namespace SkiResortMod.Systems
             m_Disabled = false;
             m_ErrorLogged = false;
             m_NoCityWarned = false;
+            m_RwhWarned = false;           // Stage 1a: one WARN per load
+            m_FeeBookedTotal = 0;
             m_BusyTicks = m_RequestsTotal = m_GuestsTotal = m_IncomeTotal = 0;
             m_SpendsTotal = m_SpendIncomeTotal = 0;   // Catalog Phase B
             m_LargestBatch = m_MaxLagTicks = m_LastLagTicks = 0;
@@ -320,20 +350,47 @@ namespace SkiResortMod.Systems
             m_CostByRearm = false;         // Round M2 (D10): the load's measurement keeps the M1 rule
             Price = ReadPrice();
             LodgeSpend = ReadLodgeSpend(); // Catalog Phase B (D15)
+            BookAsFees = ReadBookAsFees(); // Stage 1a
 
             if (mode != GameMode.Game)
                 return;
 
             m_Armed = true;
             Mod.Log.Info($"Tickets: ARMED — price {Price} (setting LiftTicketPrice, 0 = off; read live); each counted guest " +
-                         "pays once on arrival, taken from the guest's household and added to the city's balance like the " +
-                         "vanilla transit fare (ResidentAISystem BoardingJob) without a FeeEvent; a household pays for as many " +
+                         "pays once on arrival, taken from the guest's household; " + BookingText(BookAsFees) +
+                         " (setting BookTicketsAsFees; read live); a household pays for as many " +
                          "members as its money covers, never below 0; gate = Welcome Sign efficiency above 0 and a counted run " +
                          "(open or patchy; a running lift alone does not open it), not known while the ski area's first score " +
                          "after a load is held; one job per 16-frame tick with arrivals; " +
                          $"lodge spend {LodgeSpend} per paying guest at a lodge (setting LodgeSpendPerGuest, 0 = off; read live; " +
                          "× the lodge tier's multiplier, A-frame / hut 1, mid 1.5, luxury 3; after the ticket, open gate only, " +
-                         "never below 0)");
+                         "never below 0; always a direct add to the city's balance)");
+            WarnRwhOnce();
+        }
+
+        /// <summary>Stage 1a: the booking mode as the ARMED and `Tickets [booking]` lines print it.</summary>
+        private static string BookingText(bool asFees)
+        {
+            return asFees
+                ? "booked as public-transport fares: one FeeEvent per paid ticket like the vanilla bus fare " +
+                  "(ResidentAISystem.cs:3922-3935), credited to the city by the budget (BudgetApplySystem), shown in the " +
+                  "Economy panel, NOT added to the balance directly (that would pay twice)"
+                : "added directly to the city's balance like the vanilla transit fare without a FeeEvent " +
+                  "(not shown in the Economy panel)";
+        }
+
+        /// <summary>Stage 1a: one WARN per load when Realistic Workplaces And Households (assembly "RWH", by name only,
+        /// SkiOtherMods) is loaded and tickets are booked as fares. RWH replaces BudgetApplySystem with its own copy, so
+        /// whether fee income reaches the treasury there is UNVERIFIED. The behavior does not depend on it.</summary>
+        private void WarnRwhOnce()
+        {
+            if (m_RwhWarned || !BookAsFees || !SkiOtherMods.RealisticWorkplacesDetected)
+                return;
+            m_RwhWarned = true;
+            Mod.Log.Warn("Tickets: Realistic Workplaces And Households (assembly RWH) is loaded and tickets are booked as " +
+                         "public-transport fares: it replaces BudgetApplySystem with its own copy, so whether fee income " +
+                         "reaches the treasury there is UNVERIFIED — if the balance does not rise with the tickets, turn off " +
+                         "'Book lift tickets as public-transport fees' in Options (warned once per load)");
         }
 
         protected override void OnUpdate()
@@ -369,6 +426,15 @@ namespace SkiResortMod.Systems
                                  "(× the lodge tier's multiplier; charged after the ticket while the gate is open, never below 0)");
                     LodgeSpend = spend;
                 }
+                // 2a'. Stage 1a: the booking mode, live (takes effect with the next job scheduled).
+                bool asFees = ReadBookAsFees();
+                if (asFees != BookAsFees)
+                {
+                    Mod.Log.Info($"Tickets [booking] {(BookAsFees ? "public-transport fares" : "direct add")} → " +
+                                 $"{(asFees ? "public-transport fares" : "direct add")}: {BookingText(asFees)}");
+                    BookAsFees = asFees;
+                    WarnRwhOnce();
+                }
                 if (m_GateLog.Count > 0)
                 {
                     float now = UnityEngine.Time.realtimeSinceStartup;
@@ -392,7 +458,7 @@ namespace SkiResortMod.Systems
                 if (price == 0)
                     BookAllFree();
                 else
-                    ScheduleJob(price);
+                    ScheduleJob(price, asFees);
 
                 RecordCost((Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency, m_Arrivals.Count);
             }
@@ -426,6 +492,12 @@ namespace SkiResortMod.Systems
         private static int ReadLodgeSpend()
         {
             return SkiMoneyRules.ClampLodgeSpend(Mod.Settings?.LodgeSpendPerGuest ?? SkiMoneyRules.LodgeSpendDefault);
+        }
+
+        /// <summary>Stage 1a: BookTicketsAsFees, live; the default when no settings.</summary>
+        private static bool ReadBookAsFees()
+        {
+            return Mod.Settings?.BookTicketsAsFees ?? SkiResortMod.Settings.SkiResortSettings.DefaultBookTicketsAsFees;
         }
 
         // ── slots and the job ─────────────────────────────────────────────────────────────────────
@@ -474,7 +546,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private void ScheduleJob(int price)
+        private void ScheduleJob(int price, bool asFees)
         {
             int requests = m_Requests.Length, slots = m_Slots.Length;
             m_Results.ResizeUninitialized(requests);
@@ -482,6 +554,8 @@ namespace SkiResortMod.Systems
             m_EfficiencyLookup.Update(this);
             m_ResourcesLookup.Update(this);
             m_PlayerMoneyLookup.Update(this);
+            // Stage 1a: the fee queue and its dependency, as ResidentAISystem.cs:265 / :277 / :285 (ServiceFeeSystem.cs:443-452).
+            NativeQueue<ServiceFeeSystem.FeeEvent> feeQueue = m_ServiceFeeSystem.GetFeeQueue(out JobHandle feeDeps);
             var job = new TicketJob
             {
                 Requests = m_Requests.AsArray(),
@@ -489,12 +563,15 @@ namespace SkiResortMod.Systems
                 Efficiencies = m_EfficiencyLookup,
                 HouseholdResources = m_ResourcesLookup,
                 PlayerMoneys = m_PlayerMoneyLookup,
+                FeeQueue = feeQueue,
+                BookAsFees = (byte)(asFees ? 1 : 0),
                 City = m_CitySystem.City,
                 Price = price,
                 Results = m_Results.AsArray(),
                 SlotGate = m_SlotGate.AsArray(),
             };
-            JobHandle handle = job.Schedule(Dependency);
+            JobHandle handle = job.Schedule(JobHandle.CombineDependencies(Dependency, feeDeps));
+            m_ServiceFeeSystem.AddQueueWriter(handle);
             Dependency = handle;
             m_Handle = handle;
             m_JobInFlight = true;
@@ -538,6 +615,7 @@ namespace SkiResortMod.Systems
                     m_Counter.AddLocalsPaid(sign, r.Paid);
                 m_GuestsTotal += Math.Max(0, q.People);
                 m_IncomeTotal += r.Income;
+                m_FeeBookedTotal += r.Booked;
                 m_SpendsTotal += r.Spends;
                 m_SpendIncomeTotal += r.SpendIncome;
                 noCity |= r.NoCity != 0;
@@ -775,6 +853,8 @@ namespace SkiResortMod.Systems
                   .Append(", busy ticks ").Append(m_BusyTicks).Append(", requests ").Append(m_RequestsTotal)
                   .Append(" (largest batch ").Append(m_LargestBatch).Append("), guests ").Append(m_GuestsTotal)
                   .Append(", income +").Append(m_IncomeTotal)
+                  .Append(" (booked as public-transport fees +").Append(m_FeeBookedTotal)   // Stage 1a
+                  .Append(", booking ").Append(BookAsFees ? "fares" : "direct add").Append(')')
                   .Append(", lodge spend ").Append(LodgeSpend).Append(" per guest (× tier): ").Append(m_SpendsTotal)   // Catalog Phase B (D15)
                   .Append(" spent +").Append(m_SpendIncomeTotal)
                   .Append(", lag arrival → booked ").Append(m_LastLagTicks).Append(" tick(s) (max ").Append(m_MaxLagTicks)
@@ -804,7 +884,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>Per slot: the sign's efficiency (inline BuildingUtils.cs:121-133) and the gate. Per request:
         /// a closed gate (or a City without PlayerMoney) books the guests free; an open one takes
-        /// TicketsPaid × price from the household (never below 0) and credits the city once at the end.
+        /// TicketsPaid × price from the household (never below 0) and credits the city once at the end (stage 1a: with
+        /// BookAsFees the ticket total is instead one FeeEvent per paid ticket, credited by the budget, not here).
         /// Catalog Phase B (D15): after the ticket, a request with SpendPerPerson &gt; 0 also takes SpendPaid(paid,
         /// SpendPerPerson, money left) × SpendPerPerson from the same household (never below 0) into the same credit.</summary>
         [BurstCompile]
@@ -815,6 +896,8 @@ namespace SkiResortMod.Systems
             [ReadOnly] public BufferLookup<Efficiency> Efficiencies;
             public BufferLookup<GameResources> HouseholdResources;
             public ComponentLookup<PlayerMoney> PlayerMoneys;
+            public NativeQueue<ServiceFeeSystem.FeeEvent> FeeQueue;   // Stage 1a: always valid (ScheduleJob); written only when BookAsFees
+            public byte BookAsFees;                                   // Stage 1a: 1 = FeeEvents instead of the direct add of the ticket total
             public Entity City;
             public int Price;
             public NativeArray<TicketResult> Results;              // Requests.Length
@@ -852,7 +935,22 @@ namespace SkiResortMod.Systems
                         {
                             r.Income = paid * Price;                   // paid ≤ money / price: no overflow, never below 0
                             EconomyUtils.AddResources(Resource.Money, -r.Income, buffer);
-                            credited += r.Income;
+                            if (BookAsFees != 0)
+                            {
+                                // Stage 1a: one fee per paid ticket, as the bus fare (ResidentAISystem.cs:3929-3935); the budget
+                                // credits the fee line to PlayerMoney (BudgetApplySystem.cs:57-59), so no direct add here.
+                                r.Booked = r.Income;
+                                for (int k = 0; k < paid; k++)
+                                    FeeQueue.Enqueue(new ServiceFeeSystem.FeeEvent
+                                    {
+                                        m_Amount = 1f,
+                                        m_Cost = Price,
+                                        m_Resource = PlayerResource.PublicTransport,
+                                        m_Outside = false,
+                                    });
+                            }
+                            else
+                                credited += r.Income;
                             // Catalog Phase B (D15): the lodge spend of the paying guests, from what the tickets left.
                             if (q.SpendPerPerson > 0)
                             {

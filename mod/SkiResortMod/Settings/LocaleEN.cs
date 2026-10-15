@@ -149,7 +149,8 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
                     "What each guest pays when they arrive at a ski area: tourist groups per person, and " +
                     "residents who come to a lodge. The money comes from the guest's household and goes " +
-                    "to your city's balance; it is not listed in the Economy panel. A household that has " +
+                    "to your city's balance (listed in the Economy panel only while \"Book lift tickets as " +
+                    "public-transport fees\" is on). A household that has " +
                     "run out of money is let in without paying. Tickets are sold only while the Welcome " +
                     "Sign works (efficiency above 0) and the ski area has an open run. The price changes " +
                     "only ski days (the residents and hotel guests this mod sends skiing): no effect up to 40, " +
@@ -168,6 +169,18 @@ namespace SkiResortMod.Settings
                     "Each paying ski guest also spends this at the lodge they arrive at (more at bigger lodges). " +
                     "Charged with the lift ticket, so nothing is spent while the ticket price is 0; a household " +
                     "spends only what it has left after its tickets. 0 turns it off. Default 0."
+                },
+                // Stage 1a (DECISIONS 239).
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.BookTicketsAsFees)),
+                    "Book lift tickets as public-transport fees"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.BookTicketsAsFees)),
+                    "On: each paid lift ticket is booked like a bus fare, so the income shows in the Economy panel " +
+                    "under public transportation fees and reaches your balance through the game's budget. Off: the " +
+                    "money goes straight to your balance and is not listed in the Economy panel. Lodge spend always goes " +
+                    "straight to your balance. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.EnableSnowGating)),
