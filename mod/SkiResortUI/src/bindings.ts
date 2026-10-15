@@ -88,6 +88,8 @@ import type { Entity } from "cs2/utils";
 export const GROUP = "skiResort";
 
 /**
+ * Contract 8 (econ-2 round 2, 2026-10-15: docs/research/econ-2/build/round-2.md - ResortLive appends lessonsThisMonth, lessonsLastMonth,
+ * lessonIncomeMonth, passesPreSeason, passIncomePreSeason, cityIncomeEst; no CityStats, binding or trigger change).
  * Contract 7 (season passes v1, 2026-10-14: docs/research/econ-2/build/season-pass-v1.md - ResortLive appends passesSoldSeason,
  * passIncomeSeason, passHoldersThisMonth, passHoldersLastMonth; CityStats appends bookTicketsAsFees and passShare; no binding or
  * trigger changes). Contract 6 (Catalog Phase B, code round 2: round-2-contract.md section 8.5 - 25 build items from the
@@ -100,7 +102,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree
  * controls (CORE only) and says why (spec 4.5).
  */
-export const HUB_CONTRACT = 7;
+export const HUB_CONTRACT = 8;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -459,6 +461,23 @@ export interface ResortLive {
   passHoldersThisMonth: number;
   /** The same, last month; -1 until a month rolled since counting started. */
   passHoldersLastMonth: number;
+  // Contract 8 (econ-2 round 2, DECISIONS 241): appended in this order, as in C# ResortLiveStats.
+  /** People who took a ski-school lesson at this area this month (one lesson each); -1 unknown. */
+  lessonsThisMonth: number;
+  /** The same, last month; -1 until a month rolled since counting started. */
+  lessonsLastMonth: number;
+  /** What this month's lessons paid so far (the ledger's raw month figure, no projection); -1 unknown. */
+  lessonIncomeMonth: number;
+  /** The part of passesSoldSeason sold in the pre-season sale (once per ski area per season); -1 unknown. */
+  passesPreSeason: number;
+  /** What those pre-season passes paid; -1 unknown. */
+  passIncomePreSeason: number;
+  /** The resort's share of the city's tourist draw (sharePct) x the game's TouristIncome statistic, in money; -1 unknown, no share, or
+   *  Tourism Overhaul detected. C# SkiResortStatsSystem reads CityStatisticsSystem.GetStatisticValue(StatisticType.TouristIncome)
+   *  (decompile 1.6.0f1 Game.Simulation/CityStatisticsSystem.cs:574: an int in money, the last statistics entry's total, sampled
+   *  kUpdatesPerDay = 32 times a game day, :363; BudgetSystem.cs:172-174, 280 reads it the same way). An ESTIMATE: whether that entry is a
+   *  cumulative or a daily window is prefab data, not in the decompile. */
+  cityIncomeEst: number;
 }
 
 /** One run of ours: identity, rating, service, value parts. */

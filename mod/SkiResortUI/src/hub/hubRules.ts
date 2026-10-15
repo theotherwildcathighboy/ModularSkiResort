@@ -471,8 +471,8 @@ export function incomeNote(live: ResortLive, price: number): IncomeNote {
 export const PRICE_FULL_AT = 240;
 export const PRICE_SPAN = 200;
 export const PRICE_MAX = 200;
-/** The highest price with no effect on ski days (240 − 200 = 40, also the default price, C#
- *  SkiMoneyRules.TicketPriceDefault). */
+/** The highest price with no effect on ski days (240 − 200 = 40; the default price is 60 since econ-2 round 2, C#
+ *  SkiMoneyRules.TicketPriceDefault, where the factor is 0.9). */
 export const PRICE_NO_EFFECT_MAX = PRICE_FULL_AT - PRICE_SPAN;
 /** The prices whose factor the price line's tooltip shows (MONEY_PRICE_TIP[Curve] P1..P3). */
 export const PRICE_EXAMPLES: readonly number[] = [80, 120, PRICE_MAX];
@@ -530,6 +530,23 @@ export function lodgeSpendShown(l: ResortLive | null): boolean {
 export function passesShown(l: ResortLive | null, city: CityStats): boolean {
   if (!l) return false;
   return city.passShare > 0 || l.passesSoldSeason > 0 || l.passHoldersThisMonth > 0 || l.passHoldersLastMonth > 0;
+}
+
+/** Contract 8 (econ-2 round 2): the Money view's lesson row and the Guests view's "took a lesson" row are drawn once a lesson was taken
+ *  this month or last (a working ski school and the Options share above 0 are what make one happen); with none, the views are 7's. */
+export function lessonsShown(l: ResortLive | null): boolean {
+  return !!l && (l.lessonsThisMonth > 0 || l.lessonsLastMonth > 0);
+}
+
+/** Contract 8: the "sold before the season" pass row is drawn under the season's pass row once the pre-season sale sold a pass. */
+export function presaleShown(l: ResortLive | null): boolean {
+  return !!l && l.passesPreSeason > 0;
+}
+
+/** Contract 8: the city-income estimate row is drawn when C# sent a figure (>= 0) and Tourism Overhaul is not detected (the views show
+ *  the TO note in its place, as for the tourist estimate). */
+export function cityIncomeShown(l: ResortLive | null, city: CityStats): boolean {
+  return !!l && !city.tourismOverhaul && l.cityIncomeEst >= 0;
 }
 
 /** Buildings + wages a month, or -1 when either is unknown. */

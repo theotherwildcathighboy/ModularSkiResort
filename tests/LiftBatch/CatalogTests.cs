@@ -553,7 +553,7 @@ namespace LiftBatch
             Eq(1000f, SkiCatalog.Patrol.RadiusM, W, "Patrol.RadiusM (R13)");
             Eq(1.15, SkiCatalog.Patrol.ExpertFactor, W, "Patrol.ExpertFactor (R13)");
             Eq(0.70, SkiCatalog.Patrol.BackcountryServedMin, W, "Patrol.BackcountryServedMin (R13)");
-            Eq(0, SkiCatalog.LodgeSpend.Default, W, "LodgeSpend.Default (R11: off)");
+            Eq(15, SkiCatalog.LodgeSpend.Default, W, "LodgeSpend.Default (econ-2 round 2: 15; was R11 off)");
             Eq(50, SkiCatalog.LodgeSpend.Max, W, "LodgeSpend.Max");
             Eq(5, SkiCatalog.LodgeSpend.Step, W, "LodgeSpend.Step");
             Eq(4.0f, SkiCatalog.ApproachPinCeilingFloorM, W, "ApproachPinCeilingFloorM (D9)");
@@ -593,9 +593,9 @@ namespace LiftBatch
             {
                 new object[] { "aFrame", "SkiAFrameDayLodge", "lodge", 20.0, 4.0, 0.5, 0.5, 360, 0, 6, 40000, 3000, false, false, 1.0f, LodgeRoadRule.Base, true },
                 new object[] { "hut", "SkiLodgeHut", "lodgeHut", 16.0, 4.0, 0.5, 0.75, 200, 0, 4, 50000, 3000, false, false, 1.0f, LodgeRoadRule.Mountain, true },
-                new object[] { "mid", "SkiLodgeMid", "lodgeMid", 30.0, 8.0, 0.5, 0.5, 720, 20, 14, 200000, 10000, false, false, 1.5f, LodgeRoadRule.Base, true },
-                new object[] { "summit", "SkiLodgeSummit", "lodgeSummit", 40.0, 12.0, 0.5, 1.0, 480, 40, 24, 1500000, 55000, false, true, 3.0f, LodgeRoadRule.Mountain, true },
-                new object[] { "grand", "SkiLodgeGrand", "lodgeGrand", 40.0, 12.0, 0.6, 0.6, 1080, 40, 32, 1200000, 60000, false, true, 3.0f, LodgeRoadRule.Base, true },
+                new object[] { "mid", "SkiLodgeMid", "lodgeMid", 30.0, 8.0, 0.5, 0.5, 720, 20, 12, 200000, 8000, false, false, 1.5f, LodgeRoadRule.Base, true },
+                new object[] { "summit", "SkiLodgeSummit", "lodgeSummit", 40.0, 12.0, 0.5, 1.0, 480, 40, 8, 1500000, 18000, false, true, 3.0f, LodgeRoadRule.Mountain, true },
+                new object[] { "grand", "SkiLodgeGrand", "lodgeGrand", 40.0, 12.0, 0.6, 0.6, 1080, 40, 18, 1200000, 20000, false, true, 3.0f, LodgeRoadRule.Base, true },
             };
             Eq(rows.Length, SkiCatalog.Lodges.Count, W, "Lodges.Count");
             for (int i = 0; i < rows.Length && i < SkiCatalog.Lodges.Count; i++)
@@ -637,9 +637,9 @@ namespace LiftBatch
                 Eq("school", s.BuildItemId, W, "school item");
                 Eq(12.0, s.ScoreValue, W, "school ScoreValue");
                 Eq(1.2, s.DemandFactor, W, "school DemandFactor");
-                Eq(10, s.Jobs, W, "school Jobs");
+                Eq(6, s.Jobs, W, "school Jobs (instructors; econ-2 round 2, was 10)");
                 Eq(80000, s.BuildCost, W, "school BuildCost");
-                Eq(6000, s.Upkeep, W, "school Upkeep");
+                Eq(4000, s.Upkeep, W, "school Upkeep (econ-2 round 2, was 6000)");
                 Eq(true, s.ForbidMultiple, W, "school ForbidMultiple");
                 Eq(LodgeRoadRule.Base, s.RoadRule, W, "school RoadRule (R9)");
                 Eq(true, s.Expected, W, "school Expected (S1 import flip, 2026-10-13)");

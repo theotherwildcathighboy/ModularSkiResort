@@ -640,7 +640,9 @@ namespace SkiResortMod.Systems
         /// <summary>The "Lodge spend per guest" option (contract §9, D15; SkiMoneyRules aliases these).</summary>
         public static class LodgeSpend
         {
-            public const int Default = 0, Max = 50, Step = 5;
+            // Default 0 -> 15 (econ-2 round 2, revenue-design §6a; Richard 2026-10-15): 15 / 23 / 45 per paying guest at the
+            // A-frame and hut / the chalet / the summit and grand lodges (x1 / x1.5 / x3). 0 still turns it off.
+            public const int Default = 15, Max = 50, Step = 5;
         }
 
         /// <summary>D9: the approach pin ceiling is max(this, HangM + ApproachPinHangMarginM).</summary>
@@ -885,13 +887,13 @@ namespace SkiResortMod.Systems
                                  priceTolerance: 0, jobs: 4, buildCost: 50000, upkeep: 3000, forbidMultiple: false,
                                  luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.Mountain, expected: true),
                     new LodgeDef(2, "mid", Names.LodgeMid, "lodgeMid", b: 30, e: 8, mu: 0.5, muSummit: 0.5, capacity: 720,
-                                 priceTolerance: 20, jobs: 14, buildCost: 200000, upkeep: 10000, forbidMultiple: false,
+                                 priceTolerance: 20, jobs: 12, buildCost: 200000, upkeep: 8000, forbidMultiple: false,
                                  luxury: false, spendMultiplier: 1.5f, roadRule: LodgeRoadRule.Base, expected: true),
                     new LodgeDef(3, "summit", Names.LodgeSummit, "lodgeSummit", b: 40, e: 12, mu: 0.5, muSummit: 1.0, capacity: 480,
-                                 priceTolerance: 40, jobs: 24, buildCost: 1500000, upkeep: 55000, forbidMultiple: false,
+                                 priceTolerance: 40, jobs: 8, buildCost: 1500000, upkeep: 18000, forbidMultiple: false,
                                  luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Mountain, expected: true),
                     new LodgeDef(4, "grand", Names.LodgeGrand, "lodgeGrand", b: 40, e: 12, mu: 0.6, muSummit: 0.6, capacity: 1080,
-                                 priceTolerance: 40, jobs: 32, buildCost: 1200000, upkeep: 60000, forbidMultiple: false,
+                                 priceTolerance: 40, jobs: 18, buildCost: 1200000, upkeep: 20000, forbidMultiple: false,
                                  luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Base, expected: true),
                 };
 
@@ -899,8 +901,8 @@ namespace SkiResortMod.Systems
                 //    roadless and are not written) ──
                 schools = new[]
                 {
-                    new SchoolDef(Names.School, "school", School.ScoreValue, School.DemandFactor, jobs: 10, buildCost: 80000,
-                                  upkeep: 6000, forbidMultiple: true, roadRule: LodgeRoadRule.Base, expected: true),
+                    new SchoolDef(Names.School, "school", School.ScoreValue, School.DemandFactor, jobs: 6, buildCost: 80000,
+                                  upkeep: 4000, forbidMultiple: true, roadRule: LodgeRoadRule.Base, expected: true),
                 };
                 patrols = new[]
                 {

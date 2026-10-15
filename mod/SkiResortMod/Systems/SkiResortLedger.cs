@@ -58,6 +58,11 @@
 // Hub: Entry.PassSeasonKey / PassSeasonSold / PassSeasonIncome keep the ski season's sales across month rolls (PassSeasonSoldOf / IncomeOf).
 // Consumers: SkiLiftTicketSystem (books), SkiGuestCounterSystem (month lines), SkiResortStatsSystem (the hub's rows).
 //
+// ECON-2 ROUND 2 (2026-10-15, docs/research/econ-2/build/round-2.md, DECISIONS 241): Month gains Lessons / LessonIncome
+// (AddLessons) and PassesPre / PassIncomePre; AddPasses(..., preSeason = true) books the pre-season sale (passes v2) — a SUBSET of
+// PassesSold / PassIncome (the totals still count every pass once), also kept per season on the Entry (PassSeasonPre /
+// PassSeasonPreIncome; PassSeasonPreOf / PassSeasonPreIncomeOf). Advance / Total carry the month fields.
+//
 // PURE FILE: `using System;` and `using System.Collections.Generic;` plus EntityRef only (tests/ResortBatch
 // links it).
 
@@ -83,12 +88,23 @@ namespace SkiResortMod.Systems
             public int PassesSold;
             public long PassIncome;
             public int PassHolderGuests;
+            // Econ-2 round 2 (DECISIONS 241): PassesPre / PassIncomePre = the part of PassesSold / PassIncome sold in the pre-season
+            // sale (passes v2); Lessons / LessonIncome = ski-school lessons taken (one per person) and what they paid.
+            public int PassesPre;
+            public long PassIncomePre;
+            public int Lessons;
+            public long LessonIncome;
             public int Guests => TouristGuests + LocalGuests;
         }
 
         // Season passes v1 (hub): the pass sales of the ski season in PassSeasonKey (SkiMoneyRules.SeasonKeyOf), kept across month rolls
         // (Advance never touches them); a reader asks PassSeasonSold / PassSeasonIncome for the season it wants and gets 0 for another.
-        public struct Entry { public EntityRef Sign; public Month This, Last; public int PassSeasonKey, PassSeasonSold; public long PassSeasonIncome; }
+        // Econ-2 round 2: PassSeasonPre / PassSeasonPreIncome = the pre-season sale's part of those totals (a subset, never added twice).
+        public struct Entry
+        {
+            public EntityRef Sign; public Month This, Last; public int PassSeasonKey, PassSeasonSold; public long PassSeasonIncome;
+            public int PassSeasonPre; public long PassSeasonPreIncome;
+        }
 
         public enum AdvanceResult : byte { None = 0, Started = 1, Rolled = 2, Jumped = 3 }
 
@@ -100,6 +116,12 @@ namespace SkiResortMod.Systems
 
         /// <summary>Season passes v1 (hub): what those passes paid (0 for any other season).</summary>
         public static long PassSeasonIncomeOf(in Entry e, int seasonKey) => e.PassSeasonKey == seasonKey ? e.PassSeasonIncome : 0L;
+
+        /// <summary>Econ-2 round 2 (hub): the passes of <paramref name="seasonKey"/> that were sold in the pre-season sale (a subset of PassSeasonSoldOf).</summary>
+        public static int PassSeasonPreOf(in Entry e, int seasonKey) => e.PassSeasonKey == seasonKey ? e.PassSeasonPre : 0;
+
+        /// <summary>Econ-2 round 2 (hub): what those pre-season passes paid (a subset of PassSeasonIncomeOf).</summary>
+        public static long PassSeasonPreIncomeOf(in Entry e, int seasonKey) => e.PassSeasonKey == seasonKey ? e.PassSeasonPreIncome : 0L;
         public int MonthKey { get; private set; } = NoMonth;
         public bool ThisMonthSinceLoad { get; private set; }
         public bool LastMonthKnown { get; private set; }
@@ -263,7 +285,7 @@ namespace SkiResortMod.Systems
         /// <summary>Season passes v1 (DECISIONS 240): one batch of passes sold at this ski area's gate (count, ₵ paid) and of
         /// guests who came in on a pass (<paramref name="holderGuests"/>), under the AddTickets rules — each input below 0
         /// reads 0; all 0 changes nothing (no entry is created); else the entry is created on first use and Revision moves.</summary>
-        public void AddPasses(EntityRef sign, int sold, long income, int holderGuests = 0, int seasonKey = NoSeason)
+        public void AddPasses(EntityRef sign, int sold, long income, int holderGuests = 0, int seasonKey = NoSeason, bool preSeason = false)
         {
             if (sold < 0)
                 sold = 0;
@@ -278,6 +300,11 @@ namespace SkiResortMod.Systems
             e.This.PassesSold += sold;
             e.This.PassIncome += income;
             e.This.PassHolderGuests += holderGuests;
+            if (preSeason)
+            {
+                e.This.PassesPre += sold;      // a subset of PassesSold / PassIncome, never added on top of them
+                e.This.PassIncomePre += income;
+            }
             if (seasonKey != NoSeason && (sold > 0 || income > 0))
             {
                 if (e.PassSeasonKey != seasonKey)
@@ -285,10 +312,36 @@ namespace SkiResortMod.Systems
                     e.PassSeasonKey = seasonKey;   // a new ski season: the totals start over
                     e.PassSeasonSold = 0;
                     e.PassSeasonIncome = 0;
+                    e.PassSeasonPre = 0;
+                    e.PassSeasonPreIncome = 0;
                 }
                 e.PassSeasonSold += sold;
                 e.PassSeasonIncome += income;
+                if (preSeason)
+                {
+                    e.PassSeasonPre += sold;
+                    e.PassSeasonPreIncome += income;
+                }
             }
+            m_Entries[i] = e;
+            Revision++;
+        }
+
+        /// <summary>Econ-2 round 2 (DECISIONS 241): one batch of ski-school lessons (people who took one, ₵ paid for them) under the
+        /// AddTickets rules — each input below 0 reads 0; all 0 changes nothing (no entry is created); else the entry is created on
+        /// first use and Revision moves.</summary>
+        public void AddLessons(EntityRef sign, int lessons, long income)
+        {
+            if (lessons < 0)
+                lessons = 0;
+            if (income < 0)
+                income = 0;
+            if (lessons == 0 && income == 0)
+                return;
+            int i = IndexOf(sign);
+            Entry e = m_Entries[i];
+            e.This.Lessons += lessons;
+            e.This.LessonIncome += income;
             m_Entries[i] = e;
             Revision++;
         }
@@ -349,6 +402,10 @@ namespace SkiResortMod.Systems
                 t.PassesSold += m.PassesSold;                // Season passes v1 (DECISIONS 240)
                 t.PassIncome += m.PassIncome;
                 t.PassHolderGuests += m.PassHolderGuests;
+                t.PassesPre += m.PassesPre;                  // Econ-2 round 2 (DECISIONS 241)
+                t.PassIncomePre += m.PassIncomePre;
+                t.Lessons += m.Lessons;
+                t.LessonIncome += m.LessonIncome;
             }
             return t;
         }

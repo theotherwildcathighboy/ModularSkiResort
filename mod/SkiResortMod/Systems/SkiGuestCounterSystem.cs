@@ -854,6 +854,8 @@ namespace SkiResortMod.Systems
             long income = 0;
             int passesSold = 0, passHolders = 0;   // Season passes v1
             long passIncome = 0;
+            int lessons = 0, passesPre = 0;        // Econ-2 round 2 (DECISIONS 241)
+            long lessonIncome = 0, passIncomePre = 0;
             double lift = 0.0, notLinked = 0.0;
             for (int i = 0; i < m_Ledger.Count; i++)
             {
@@ -869,6 +871,10 @@ namespace SkiResortMod.Systems
                 passesSold += m.PassesSold;
                 passIncome += m.PassIncome;
                 passHolders += m.PassHolderGuests;
+                lessons += m.Lessons;
+                lessonIncome += m.LessonIncome;
+                passesPre += m.PassesPre;
+                passIncomePre += m.PassIncomePre;
                 lift += m.LiftCharged;
                 Entity sign = Ent(e.Sign);
                 Mod.Log.Info($"Guests [month] {month} ski area {Fmt(e.Sign)}{NameSuffix(sign)}: {MonthBody(m)}");
@@ -887,10 +893,12 @@ namespace SkiResortMod.Systems
             // Stage 1a: how much of the tickets was booked as public-transport fees (the rest was added to the balance directly).
             long fees = last ? m_FeeLastMonth : FeeBookedNow() - m_FeeAtMonthStart;
             string feeText = fees < 0 ? "?" : fees.ToString();
-            // Season passes v1: the fee total (feeText) now covers tickets AND passes (the ticket system folds both into Booked).
+            // Season passes v1: the fee total (feeText) covers tickets AND passes; econ-2 round 2: lessons and lodge spend too (the ticket
+            // system folds every booked item into Booked).
             Mod.Log.Info($"Guests [month] {month} all ski areas: guests {guests}, tickets +{income}, passes {passesSold} sold +{passIncome} " +
-                         $"with {passHolders} pass-holder guest(s) ({feeText} of tickets and passes booked as " +
-                         $"public-transport fees), lift charges -{lift:F0}, " +
+                         $"({passesPre} +{passIncomePre} before the season) " +
+                         $"with {passHolders} pass-holder guest(s), lessons {lessons} +{lessonIncome} ({feeText} of tickets, passes, lessons and " +
+                         $"lodge spend booked as public-transport fees), lift charges -{lift:F0}, " +
                          $"run upkeep {upkeepText} (whole city), " +
                          $"not linked lift charges -{notLinked:F0}; now picked by {parties} tourist part(ies) on the way, " +
                          $"{locals} local(s) and {tourists} tourist(s) on leisure heading to a lodge");
@@ -914,7 +922,9 @@ namespace SkiResortMod.Systems
             return $"guests {m.Guests} (tourists {m.TouristGuests} in {m.TouristParties} group(s), {m.TouristOnLeisure} on leisure; " +
                    $"locals {m.LocalGuests}); " +
                    $"tickets {m.TicketsPaid} paid +{m.TicketIncome}, {m.TicketsUnpaid} could not pay, {m.TicketsFree} free; " +
-                   $"passes {m.PassesSold} sold +{m.PassIncome}, {m.PassHolderGuests} pass-holder guest(s); " +   // Season passes v1
+                   $"passes {m.PassesSold} sold +{m.PassIncome} ({m.PassesPre} +{m.PassIncomePre} before the season), " +
+                   $"{m.PassHolderGuests} pass-holder guest(s); " +   // Season passes v1; econ-2 round 2: the pre-season part
+                   $"lessons {m.Lessons} +{m.LessonIncome}; " +        // Econ-2 round 2
                    $"lift charges -{m.LiftCharged:F0}";
         }
 

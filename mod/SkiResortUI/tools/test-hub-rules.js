@@ -347,6 +347,15 @@ function run(srcDir) {
     R.passesShown(pl({ passHoldersThisMonth: 4 }), { passShare: 0 }), R.passesShown(pl({ passHoldersLastMonth: 1 }), { passShare: 0 }),
     R.passesShown(pl({ passesSoldSeason: -1, passHoldersThisMonth: -1, passHoldersLastMonth: -1 }), { passShare: 0 }), R.passesShown(null, { passShare: 50 })],
     [true, false, true, true, true, false, false]);
+  // Contract 8 (econ-2 round 2): lessons, the pre-season sale and the city-income estimate rows.
+  eq("T16.1 lessonsShown", [R.lessonsShown({ lessonsThisMonth: 3, lessonsLastMonth: 0 }), R.lessonsShown({ lessonsThisMonth: 0, lessonsLastMonth: 5 }),
+    R.lessonsShown({ lessonsThisMonth: 0, lessonsLastMonth: 0 }), R.lessonsShown({ lessonsThisMonth: -1, lessonsLastMonth: -1 }), R.lessonsShown(null)],
+    [true, true, false, false, false]);
+  eq("T16.2 presaleShown", [R.presaleShown({ passesPreSeason: 12 }), R.presaleShown({ passesPreSeason: 0 }), R.presaleShown({ passesPreSeason: -1 }),
+    R.presaleShown(null)], [true, false, false, false]);
+  eq("T16.3 cityIncomeShown", [R.cityIncomeShown({ cityIncomeEst: 4200 }, { tourismOverhaul: false }), R.cityIncomeShown({ cityIncomeEst: 0 }, { tourismOverhaul: false }),
+    R.cityIncomeShown({ cityIncomeEst: -1 }, { tourismOverhaul: false }), R.cityIncomeShown({ cityIncomeEst: 4200 }, { tourismOverhaul: true }),
+    R.cityIncomeShown(null, { tourismOverhaul: false })], [true, true, false, false, false]);
   eq("T14.9 BUILD_ITEMS covers every id once, table order = BUILD_ITEM_IDS", META.map((m) => m.id), BIND.BUILD_ITEM_IDS);
   return { checks, failures };
 }

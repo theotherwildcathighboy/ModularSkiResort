@@ -277,6 +277,16 @@ namespace SkiResortMod.Systems
         // the area (SkiMoneyRules.SeasonKeyOfDate; counted since the game was loaded, the ledger is in memory), PassHoldersThisMonth /
         // LastMonth = guests who came in on a pass (-1 unknown, as the other guest numbers).
         public int PassesSoldSeason, PassIncomeSeason, PassHoldersThisMonth, PassHoldersLastMonth;
+        // Econ-2 round 2 (contract 8), appended in this order: LessonsThisMonth / LessonsLastMonth = people who took a ski-school lesson
+        // (-1 unknown, as the other guest numbers; Last -1 until a month rolled); LessonIncomeMonth = what this month's lessons paid so far
+        // (the ledger's raw month figure, no projection; -1 unknown); PassesPreSeason / PassIncomePreSeason = the part of this ski season's
+        // pass sales (PassesSoldSeason / PassIncomeSeason) made in the pre-season sale (-1 unknown); CityIncomeEst = the resort's SharePct of
+        // the game's TouristIncome statistic (CityStatisticsSystem.GetStatisticValue(StatisticType.TouristIncome): an int in money, the last
+        // entry's total — the net money tourist households brought in, HouseholdInitializeSystem.cs:240-244 minus what they take home,
+        // HouseholdMoveAwaySystem.cs:173; sampled kUpdatesPerDay = 32 times a game day, CityStatisticsSystem.cs:363; BudgetSystem.cs:172-174,
+        // 280 reads it the same way). -1 unknown, no share, or Tourism Overhaul detected (the UI hides the row then). An ESTIMATE: the
+        // statistic's window (cumulative / daily) is prefab data, not in the decompile.
+        public int LessonsThisMonth, LessonsLastMonth, LessonIncomeMonth, PassesPreSeason, PassIncomePreSeason, CityIncomeEst;
     }
 
     /// <summary>bindings.ts RunRow (contract 3). Catalog row order.</summary>
@@ -455,6 +465,7 @@ namespace SkiResortMod.Systems
         private CitySystem m_CitySystem;
         private SnowLineSystem m_SnowLine;
         private TimeSystem m_TimeSystem;
+        private CityStatisticsSystem m_CityStatistics;       // Econ-2 round 2 (contract 8): the TouristIncome statistic, read once per rebuild
         private ResourceSystem m_ResourceSystem;
         private PrefabSystem m_PrefabSystem;                 // DUMP only (notification prefab names)
         private SkiGuestCounterSystem m_GuestCounter;        // Round E1 (ch4 §10)
@@ -694,6 +705,7 @@ namespace SkiResortMod.Systems
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
             m_SnowLine = World.GetOrCreateSystemManaged<SnowLineSystem>();
             m_TimeSystem = World.GetOrCreateSystemManaged<TimeSystem>();
+            m_CityStatistics = World.GetOrCreateSystemManaged<CityStatisticsSystem>();
             m_ResourceSystem = World.GetOrCreateSystemManaged<ResourceSystem>();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_GuestCounter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
@@ -1928,6 +1940,21 @@ namespace SkiResortMod.Systems
             // Upkeep inputs (CityServiceBudgetSystem.cs:392-421), fetched once per rebuild.
             bool upkeepReady = PrepareUpkeep(out EconomyParameterData economy, out ResourcePrefabs resourcePrefabs);
 
+            // Econ-2 round 2 (contract 8): the game's TouristIncome statistic, once per rebuild (GetStatisticValue completes the
+            // statistics writers, a short sync); not read under Tourism Overhaul (the UI hides the row), -1 when unavailable.
+            int touristIncome = -1;
+            if (!city.TourismOverhaul && m_CityStatistics != null)
+            {
+                try
+                {
+                    touristIncome = Math.Max(0, m_CityStatistics.GetStatisticValue(StatisticType.TouristIncome));
+                }
+                catch (Exception)
+                {
+                    touristIncome = -1;   // the statistic is an estimate input only; never take the hub down for it
+                }
+            }
+
             // Climate and season inputs, read once.
             bool gating = city.SnowGating;
             float freezing = m_SnowLine.GetFreezingTemperature();
@@ -2105,9 +2132,13 @@ namespace SkiResortMod.Systems
                     }
                 }
                 live.SharePct = -1f;
+                live.CityIncomeEst = -1;
                 if (anyProvider)
                 {
                     live.SharePct = SkiResortTourism.SharePct(sRes, sAll);
+                    // Contract 8: the resort's share of the city's draw x the TouristIncome statistic (header ResortLiveStats).
+                    if (touristIncome >= 0 && live.SharePct >= 0f)
+                        live.CityIncomeEst = ClampToInt((long)Math.Round(live.SharePct * (double)touristIncome / 100.0, MidpointRounding.AwayFromZero));
                     if (haveModifiers && sRes > 0.0)
                     {
                         SkiResortTourism.Estimate(sAll, sRes, modifier, s_TargetTourists, out int _, out int _,
@@ -2155,6 +2186,12 @@ namespace SkiResortMod.Systems
                     live.PassIncomeSeason = ClampToInt(SkiResortLedger.PassSeasonIncomeOf(e, seasonKey));
                     live.PassHoldersThisMonth = e.This.PassHolderGuests;
                     live.PassHoldersLastMonth = lastKnown ? e.Last.PassHolderGuests : -1;
+                    // Contract 8 (econ-2 round 2): lessons by month, the lesson income so far this month, the pre-season part of the season's passes.
+                    live.LessonsThisMonth = e.This.Lessons;
+                    live.LessonsLastMonth = lastKnown ? e.Last.Lessons : -1;
+                    live.LessonIncomeMonth = ClampToInt(Math.Max(0L, e.This.LessonIncome));
+                    live.PassesPreSeason = SkiResortLedger.PassSeasonPreOf(e, seasonKey);
+                    live.PassIncomePreSeason = ClampToInt(SkiResortLedger.PassSeasonPreIncomeOf(e, seasonKey));
                     ticketIncome = HubRules.TicketIncomeMonth(lastMonthFull, e.Last.TicketIncome, e.Last.TicketsPaid,
                         e.This.TicketIncome, e.This.TicketsPaid, countedFraction, out ticketPaid, out ticketEstimated);
                 }
@@ -2165,6 +2202,7 @@ namespace SkiResortMod.Systems
                     live.GuestsLastMonth = live.TouristsLastMonth = live.TouristGroupsLastMonth = live.ResidentsLastMonth = -1;
                     live.PaidLastMonth = live.TicketsLastMonth = -1;
                     live.PassesSoldSeason = live.PassIncomeSeason = live.PassHoldersThisMonth = live.PassHoldersLastMonth = -1;   // Contract 7
+                    live.LessonsThisMonth = live.LessonsLastMonth = live.LessonIncomeMonth = live.PassesPreSeason = live.PassIncomePreSeason = -1;   // Contract 8
                     ticketIncome = ticketPaid = -1;
                     ticketEstimated = true;
                 }
@@ -2286,6 +2324,8 @@ namespace SkiResortMod.Systems
                 LodgeBest = "", LodgeSpendMonth = -1,
                 // Contract 7: no ski area — the pass numbers unknown.
                 PassesSoldSeason = -1, PassIncomeSeason = -1, PassHoldersThisMonth = -1, PassHoldersLastMonth = -1,
+                // Contract 8: no ski area — the lesson, pre-season and city-income numbers unknown.
+                LessonsThisMonth = -1, LessonsLastMonth = -1, LessonIncomeMonth = -1, PassesPreSeason = -1, PassIncomePreSeason = -1, CityIncomeEst = -1,
             };
             if (m_LiftCharge.TryGetResort(Entity.Null, out SkiLiftChargeSystem.ResortLiftCharge charge))
             {
@@ -2880,6 +2920,12 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.PassIncomeSeason);
                 h = Mix(h, (uint)r.PassHoldersThisMonth);
                 h = Mix(h, (uint)r.PassHoldersLastMonth);
+                h = Mix(h, (uint)r.LessonsThisMonth);   // Contract 8: every appended field is hashed
+                h = Mix(h, (uint)r.LessonsLastMonth);
+                h = Mix(h, (uint)r.LessonIncomeMonth);
+                h = Mix(h, (uint)r.PassesPreSeason);
+                h = Mix(h, (uint)r.PassIncomePreSeason);
+                h = Mix(h, (uint)r.CityIncomeEst);
             }
             return Mix(h, (uint)rows.Count);
         }
@@ -3246,6 +3292,9 @@ namespace SkiResortMod.Systems
               .Append(l.PatrolledRuns).Append("; lodge spend/month ").Append(l.LodgeSpendMonth)
               .Append("; passes this season ").Append(l.PassesSoldSeason).Append(" +").Append(l.PassIncomeSeason)   // Contract 7
               .Append(", pass-holder guests this month ").Append(l.PassHoldersThisMonth).Append(" / last ").Append(l.PassHoldersLastMonth)
+              .Append("; pre-season passes ").Append(l.PassesPreSeason).Append(" +").Append(l.PassIncomePreSeason)   // Contract 8
+              .Append("; lessons this month ").Append(l.LessonsThisMonth).Append(" +").Append(l.LessonIncomeMonth).Append(" / last ").Append(l.LessonsLastMonth)
+              .Append("; city income estimate ").Append(l.CityIncomeEst)
               .Append("; summit lodges not lift-served ").Append(summitNotServed).Append('\n');
         }
 

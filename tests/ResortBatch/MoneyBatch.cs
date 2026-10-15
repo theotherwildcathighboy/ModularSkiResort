@@ -49,6 +49,264 @@ namespace ResortBatch
             LiftAreaRuns(check);       // Round M2 T13
             TypeRatesAndSpend(check);  // Catalog Phase B T14 (lift group)
             SeasonPasses(check);       // Season passes v1 T15
+            Lessons(check);            // Econ-2 round 2 T16
+            Presale(check);            // Econ-2 round 2 T17
+        }
+
+        // ── T17 Pre-season pass sale (passes v2; econ-2 round 2, docs/research/econ-2/build/round-2.md): roll, probability, decision, ledger ──
+        // Properties, not hash literals (cannot be computed without running), like T15 / T16.
+        private static void Presale(Func<bool, string, string, bool> check)
+        {
+            const string w = "money T17";
+            // The uniform: in [0, 1), deterministic, season- and household-sensitive, roughly uniform, unrelated to the first-arrival roll.
+            bool inRange = true, same = true, seasonMatters = false, householdMatters = false;
+            double sum = 0;
+            int agree = 0, n = 5000;
+            for (int hh = 0; hh < n; hh++)
+            {
+                double u = SkiMoneyRules.PresaleUniform(hh, 2030);
+                if (!(u >= 0.0 && u < 1.0))
+                    inRange = false;
+                if (u != SkiMoneyRules.PresaleUniform(hh, 2030))
+                    same = false;
+                if (u != SkiMoneyRules.PresaleUniform(hh, 2031))
+                    seasonMatters = true;
+                if (u != SkiMoneyRules.PresaleUniform(hh + 1, 2030))
+                    householdMatters = true;
+                sum += u;
+                if ((u < 0.5) == SkiMoneyRules.PassRoll(hh, 2030, 50))
+                    agree++;
+            }
+            check(inRange, w, "PresaleUniform is in [0, 1)");
+            check(same, w, "the same household and season give the same uniform");
+            check(seasonMatters && householdMatters, w, "the season and the household each change the uniform");
+            check(Math.Abs(sum / n - 0.5) < 0.02, w, $"mean of PresaleUniform over {n} households {sum / n:F3} (0.5 +- 0.02)");
+            double agreeRate = agree / (double)n;
+            check(agreeRate > 0.4 && agreeRate < 0.6, w,
+                  $"the pre-season roll is unrelated to the first-arrival roll: they agree on {agreeRate:P1} of households at share 50 (not ~100 %)");
+            // Band: P(u < p) within 1.5 points of p for a spread of p over 20,000 households.
+            bool band = true;
+            string bandText = "";
+            foreach (double p in new[] { 0.02, 0.05, 0.10, 0.25, 0.60 })
+            {
+                int hits = 0;
+                for (int hh = 0; hh < 20000; hh++)
+                    if (SkiMoneyRules.PresaleUniform(hh * 3 + 1, 2031) < p)
+                        hits++;
+                double rate = hits / 20000.0;
+                if (Math.Abs(rate - p) > 0.015)
+                {
+                    band = false;
+                    bandText += $" p {p}: {rate:F4};";
+                }
+            }
+            check(band, w, "P(roll < p) within 1.5 points of p over 20,000 households:" + bandText);
+
+            // Probability = share / 100 x chance, clamped to [0, 1].
+            check(Math.Abs(SkiMoneyRules.PresaleProbability(50, 0.1) - 0.05) < 1e-12, w, "PresaleProbability(50, 0.1) = 0.05");
+            check(SkiMoneyRules.PresaleProbability(100, 0.6) == 0.6 && SkiMoneyRules.PresaleProbability(100, 1.0) == 1.0, w, "share 100 = the chance itself");
+            check(SkiMoneyRules.PresaleProbability(0, 0.5) == 0.0 && SkiMoneyRules.PresaleProbability(-20, 0.5) == 0.0 &&
+                  SkiMoneyRules.PresaleProbability(50, 0.0) == 0.0 && SkiMoneyRules.PresaleProbability(50, -0.2) == 0.0 &&
+                  SkiMoneyRules.PresaleProbability(50, double.NaN) == 0.0, w, "no share, a debt-like negative or a NaN chance = p 0");
+            check(SkiMoneyRules.PresaleProbability(250, 0.5) == 0.5 && SkiMoneyRules.PresaleProbability(100, 7.0) == 1.0, w,
+                  "the share is clamped to 100 and p to 1");
+
+            // Decision.
+            check(SkiMoneyRules.PresaleDecision(5, 2030, 1.0, 0, 9999) == SkiMoneyRules.PassSaleResult.NotEligible, w, "price 0 is NotEligible");
+            check(SkiMoneyRules.PresaleDecision(5, 2030, 0.0, 240, 9999) == SkiMoneyRules.PassSaleResult.Declined, w, "p 0 is Declined even when rich");
+            check(SkiMoneyRules.PresaleDecision(5, 2030, 1.0, 240, 240) == SkiMoneyRules.PassSaleResult.Bought, w, "p 1 with money == price buys");
+            check(SkiMoneyRules.PresaleDecision(5, 2030, 1.0, 240, 239) == SkiMoneyRules.PassSaleResult.CannotPay, w, "p 1 with money == price - 1 cannot pay");
+            check(SkiMoneyRules.PresaleDecision(5, 2030, 1.0, 240, 0) == SkiMoneyRules.PassSaleResult.CannotPay &&
+                  SkiMoneyRules.PresaleDecision(5, 2030, 1.0, 240, -80) == SkiMoneyRules.PassSaleResult.CannotPay, w, "no money or a debt cannot pay");
+            // Expected buyers over 20,000 rich households at p = 0.1: 2,000 +- 150; and a household that rolls out is Declined whatever it holds.
+            int buyers = 0, outs = 0;
+            bool richOnlyDeclinedOrBought = true;
+            for (int hh = 0; hh < 20000; hh++)
+            {
+                SkiMoneyRules.PassSaleResult res = SkiMoneyRules.PresaleDecision(hh, 2032, 0.1, 240, 1000000);
+                if (res == SkiMoneyRules.PassSaleResult.Bought) buyers++;
+                else if (res == SkiMoneyRules.PassSaleResult.Declined) outs++;
+                else richOnlyDeclinedOrBought = false;
+            }
+            check(richOnlyDeclinedOrBought && buyers + outs == 20000, w, "a rich household is only ever Bought or Declined");
+            check(Math.Abs(buyers - 2000) < 150, w, $"{buyers} buyers of 20,000 rich households at p 0.1 (2,000 +- 150)");
+            // Monotone in p: a household that buys at p buys at every higher p.
+            bool monotone = true;
+            for (int hh = 0; hh < 3000; hh++)
+                if (SkiMoneyRules.PresaleDecision(hh, 2033, 0.2, 240, 9999) == SkiMoneyRules.PassSaleResult.Bought &&
+                    SkiMoneyRules.PresaleDecision(hh, 2033, 0.4, 240, 9999) != SkiMoneyRules.PassSaleResult.Bought)
+                    monotone = false;
+            check(monotone, w, "buying at p 0.2 implies buying at p 0.4");
+
+            // Ledger: AddPasses(preSeason) counts the pre-season passes inside the totals (a subset), per month and per season.
+            var a = new EntityRef(612, 1);
+            var l = new SkiResortLedger();
+            l.Advance(800);
+            l.AddPasses(a, 4, 960, 0, 2030, true);    // the sale
+            l.AddPasses(a, 1, 240, 3, 2030);          // a first-arrival pass + holder guests
+            check(l.TryGet(a, out SkiResortLedger.Entry ea) && ea.This.PassesSold == 5 && ea.This.PassIncome == 1200 && ea.This.PassesPre == 4 &&
+                  ea.This.PassIncomePre == 960 && ea.This.PassHolderGuests == 3, w,
+                  $"month: sold {ea.This.PassesSold} (5), income {ea.This.PassIncome} (1200), pre {ea.This.PassesPre} (4) +{ea.This.PassIncomePre} (960), holder guests {ea.This.PassHolderGuests} (3)");
+            check(SkiResortLedger.PassSeasonSoldOf(ea, 2030) == 5 && SkiResortLedger.PassSeasonIncomeOf(ea, 2030) == 1200 &&
+                  SkiResortLedger.PassSeasonPreOf(ea, 2030) == 4 && SkiResortLedger.PassSeasonPreIncomeOf(ea, 2030) == 960, w,
+                  "season 2030: sold 5 +1200 of which pre 4 +960");
+            check(SkiResortLedger.PassSeasonPreOf(ea, 2031) == 0 && SkiResortLedger.PassSeasonPreIncomeOf(ea, 2031) == 0, w, "another season reads 0");
+            l.AddPasses(a, 2, 480, 0, 2031, true);    // the next season starts over
+            l.TryGet(a, out ea);
+            check(SkiResortLedger.PassSeasonSoldOf(ea, 2031) == 2 && SkiResortLedger.PassSeasonPreOf(ea, 2031) == 2 &&
+                  SkiResortLedger.PassSeasonPreOf(ea, 2030) == 0, w, "a new season resets the season totals including the pre-season part");
+            SkiResortLedger.Month tot = l.Total(false);
+            check(tot.PassesSold == 7 && tot.PassesPre == 6 && tot.PassIncomePre == 1440, w,
+                  $"Total(this): sold {tot.PassesSold} (7), pre {tot.PassesPre} (6) +{tot.PassIncomePre} (1440)");
+            check(l.Advance(801) == Advance.Rolled && l.Total(true).PassesPre == 6 && l.Total(false).PassesPre == 0, w,
+                  "a roll moves the pre-season fields to Last and zeroes This");
+            // The default call (no flag) leaves the pre-season part alone: v1 callers are unchanged.
+            var l2 = new SkiResortLedger();
+            l2.Advance(800);
+            l2.AddPasses(a, 3, 720, 1, 2030);
+            l2.TryGet(a, out SkiResortLedger.Entry e2);
+            check(e2.This.PassesPre == 0 && e2.This.PassIncomePre == 0 && SkiResortLedger.PassSeasonPreOf(e2, 2030) == 0 &&
+                  e2.This.PassesSold == 3, w, "AddPasses without the flag does not touch the pre-season part");
+        }
+
+        // ── T16 Ski-school lessons (econ-2 round 2, docs/research/econ-2/build/round-2.md): constants, price, roll, taken, paid, ledger ──
+        // No literal hash oracles (the values cannot be computed without running): the roll is held by properties, like T15.
+        private static void Lessons(Func<bool, string, string, bool> check)
+        {
+            const string w = "money T16";
+            check(SkiMoneyRules.LessonShareMax == 50 && SkiMoneyRules.LessonShareStep == 5 && SkiMoneyRules.LessonShareDefault == 20, w,
+                  "LessonShare Max / Step / Default = 50 / 5 / 20");
+            check(SkiMoneyRules.LessonMultiplierMin == 1.0f && SkiMoneyRules.LessonMultiplierMax == 3.0f &&
+                  SkiMoneyRules.LessonMultiplierStep == 0.5f && SkiMoneyRules.LessonMultiplierDefault == 1.5f, w,
+                  "LessonMultiplier Min / Max / Step / Default = 1.0 / 3.0 / 0.5 / 1.5");
+            check(SkiMoneyRules.ClampLessonShare(-5) == 0 && SkiMoneyRules.ClampLessonShare(25) == 25 && SkiMoneyRules.ClampLessonShare(99) == 50, w,
+                  "ClampLessonShare(-5, 25, 99) = 0, 25, 50");
+            check(SkiMoneyRules.ClampLessonMultiplier(0.5f) == 1.0f && SkiMoneyRules.ClampLessonMultiplier(2.5f) == 2.5f &&
+                  SkiMoneyRules.ClampLessonMultiplier(4f) == 3.0f, w, "ClampLessonMultiplier(0.5, 2.5, 4) = 1.0, 2.5, 3.0");
+            check(SkiMoneyRules.ClampLessonMultiplier(float.NaN) == 1.5f && SkiMoneyRules.ClampLessonMultiplier(float.PositiveInfinity) == 1.5f, w,
+                  "a non-finite multiplier reads the default 1.5");
+
+            // Price = floor(multiplier x ticket + 0.5), multiplier clamped, 0 without a ticket price.
+            check(SkiMoneyRules.LessonPrice(1.5f, 60) == 90, w, "LessonPrice(1.5, 60) " + SkiMoneyRules.LessonPrice(1.5f, 60) + " (90, the new defaults)");
+            check(SkiMoneyRules.LessonPrice(1.0f, 60) == 60 && SkiMoneyRules.LessonPrice(3.0f, 60) == 180 && SkiMoneyRules.LessonPrice(2.0f, 45) == 90, w,
+                  "LessonPrice(1.0, 60) = 60, (3.0, 60) = 180, (2.0, 45) = 90");
+            check(SkiMoneyRules.LessonPrice(1.5f, 5) == 8 && SkiMoneyRules.LessonPrice(1.5f, 40) == 60, w,
+                  "half up: LessonPrice(1.5, 5) " + SkiMoneyRules.LessonPrice(1.5f, 5) + " (8), (1.5, 40) " + SkiMoneyRules.LessonPrice(1.5f, 40) + " (60)");
+            check(SkiMoneyRules.LessonPrice(1.5f, 0) == 0 && SkiMoneyRules.LessonPrice(1.5f, -5) == 0, w, "no ticket price = no lesson price");
+            check(SkiMoneyRules.LessonPrice(0.2f, 60) == 60 && SkiMoneyRules.LessonPrice(9f, 60) == 180, w,
+                  "the multiplier is clamped: (0.2, 60) = 60, (9, 60) = 180");
+            // Never cheaper than the ticket it follows, for every slider position.
+            bool atLeastTicket = true;
+            for (int p = 0; p <= SkiMoneyRules.TicketPriceMax; p += SkiMoneyRules.TicketPriceStep)
+                for (float m = SkiMoneyRules.LessonMultiplierMin; m <= SkiMoneyRules.LessonMultiplierMax; m += SkiMoneyRules.LessonMultiplierStep)
+                    if (SkiMoneyRules.LessonPrice(m, p) < p)
+                        atLeastTicket = false;
+            check(atLeastTicket, w, "LessonPrice is never below the ticket price (multiplier >= 1) at any slider position");
+
+            // The roll: share 0 never, >= 100 always, deterministic, monotone in the share, sensitive to day and person.
+            bool never = true, always = true, same = true, monotone = true, dayMatters = false, personMatters = false;
+            for (int hh = 1; hh <= 400; hh++)
+            {
+                if (SkiMoneyRules.LessonRoll(hh, 5000, 0, 0) || SkiMoneyRules.LessonRoll(hh, 5000, 0, -10))
+                    never = false;
+                if (!SkiMoneyRules.LessonRoll(hh, 5000, 1, 100) || !SkiMoneyRules.LessonRoll(hh, 5000, 1, 250))
+                    always = false;
+                if (SkiMoneyRules.LessonRoll(hh, 5000, 2, 20) != SkiMoneyRules.LessonRoll(hh, 5000, 2, 20))
+                    same = false;
+                for (int s = 5; s < 100; s += 5)
+                    if (SkiMoneyRules.LessonRoll(hh, 5000, 0, s) && !SkiMoneyRules.LessonRoll(hh, 5000, 0, s + 5))
+                        monotone = false;
+                if (SkiMoneyRules.LessonRoll(hh, 5000, 0, 50) != SkiMoneyRules.LessonRoll(hh, 5001, 0, 50))
+                    dayMatters = true;
+                if (SkiMoneyRules.LessonRoll(hh, 5000, 0, 50) != SkiMoneyRules.LessonRoll(hh, 5000, 1, 50))
+                    personMatters = true;
+            }
+            check(never, w, "share <= 0 never rolls true");
+            check(always, w, "share >= 100 always rolls true");
+            check(same, w, "the same inputs give the same roll");
+            check(monotone, w, "a roll true at a share is true at every higher share");
+            check(dayMatters, w, "the day key changes some rolls (a household is not locked in or out for ever)");
+            check(personMatters, w, "the person index changes some rolls (a party's members roll apart)");
+            // Rate: at shares 5..50 over 20,000 households the share of true rolls sits within 3 points of the setting.
+            bool band = true;
+            string bandText = "";
+            for (int s = 5; s <= 50; s += 5)
+            {
+                int hits = 0;
+                for (int hh = 0; hh < 20000; hh++)
+                    if (SkiMoneyRules.LessonRoll(hh * 7 + 3, 6100, hh % 4, s))
+                        hits++;
+                double rate = hits / 20000.0 * 100.0;
+                if (Math.Abs(rate - s) > 3.0)
+                {
+                    band = false;
+                    bandText += $" share {s}: {rate:F1} %;";
+                }
+            }
+            check(band, w, "roll rate within 3 points of the share at 5..50 over 20,000 households:" + bandText);
+
+            // LessonsTaken: people x roll, one lesson per person at most.
+            check(SkiMoneyRules.LessonsTaken(0, 1, 5000, 100) == 0 && SkiMoneyRules.LessonsTaken(-3, 1, 5000, 100) == 0, w, "no people, no lessons");
+            check(SkiMoneyRules.LessonsTaken(4, 9, 5000, 100) == 4 && SkiMoneyRules.LessonsTaken(4, 9, 5000, 0) == 0, w,
+                  "share 100 = every person, share 0 = nobody");
+            check(SkiMoneyRules.LessonsTaken(500, 9, 5000, 100) == SkiMoneyRules.LessonPeopleGuard, w,
+                  "an absurd party is capped at LessonPeopleGuard " + SkiMoneyRules.LessonPeopleGuard);
+            bool sumOk = true, boundOk = true;
+            double meanSum = 0;
+            for (int hh = 0; hh < 5000; hh++)
+            {
+                int expect = 0;
+                for (int p = 0; p < 3; p++)
+                    if (SkiMoneyRules.LessonRoll(hh, 7200, p, 20))
+                        expect++;
+                int got = SkiMoneyRules.LessonsTaken(3, hh, 7200, 20);
+                if (got != expect)
+                    sumOk = false;
+                if (got < 0 || got > 3)
+                    boundOk = false;
+                meanSum += got;
+            }
+            check(sumOk, w, "LessonsTaken(n) = the count of the n person rolls");
+            check(boundOk, w, "LessonsTaken is within 0..people");
+            double perPerson = meanSum / (5000.0 * 3.0);
+            check(Math.Abs(perPerson - 0.20) < 0.02, w, $"parties of 3 at share 20: {perPerson:F3} lessons per person (0.20 +- 0.02)");
+
+            // LessonsPaid: min(taken, money / price), never into debt.
+            check(SkiMoneyRules.LessonsPaid(3, 90, 270) == 3 && SkiMoneyRules.LessonsPaid(3, 90, 269) == 2 && SkiMoneyRules.LessonsPaid(3, 90, 89) == 0, w,
+                  "LessonsPaid(3, 90, 270 / 269 / 89) = 3 / 2 / 0");
+            check(SkiMoneyRules.LessonsPaid(3, 90, 0) == 0 && SkiMoneyRules.LessonsPaid(3, 90, -5) == 0 && SkiMoneyRules.LessonsPaid(0, 90, 999) == 0 &&
+                  SkiMoneyRules.LessonsPaid(3, 0, 999) == 0, w, "no money, a debt, nobody or no price = no lessons paid");
+            bool coveredOk = true;
+            for (int taken = 0; taken <= 6; taken++)
+                for (int money = -10; money <= 600; money += 7)
+                {
+                    int paidN = SkiMoneyRules.LessonsPaid(taken, 90, money);
+                    if (paidN < 0 || paidN > taken || (paidN > 0 && (long)paidN * 90 > money))
+                        coveredOk = false;
+                }
+            check(coveredOk, w, "LessonsPaid never charges more than the household holds (taken 0-6, money -10..600, price 90)");
+
+            // Ledger: AddLessons books under the AddTickets rules, carries into Total, moves to Last with the month.
+            var a = new EntityRef(512, 1);
+            var b = new EntityRef(513, 1);
+            var l = new SkiResortLedger();
+            l.Advance(700);
+            int rev0 = l.Revision;
+            l.AddLessons(a, 0, 0);
+            l.AddLessons(a, -2, -90);
+            check(l.Revision == rev0 && l.Count == 0, w, "an all-zero (or negative) AddLessons changes nothing and creates no entry");
+            l.AddLessons(a, 2, 180);
+            l.AddLessons(a, 1, 90);
+            l.AddLessons(b, 3, 270);
+            check(l.TryGet(a, out SkiResortLedger.Entry ea) && ea.This.Lessons == 3 && ea.This.LessonIncome == 270, w,
+                  $"ski area a: lessons {ea.This.Lessons} (3), income {ea.This.LessonIncome} (270)");
+            check(l.Revision > rev0, w, "AddLessons with a number moves Revision");
+            SkiResortLedger.Month tot = l.Total(false);
+            check(tot.Lessons == 6 && tot.LessonIncome == 540, w, $"Total(this): lessons {tot.Lessons} (6), income {tot.LessonIncome} (540)");
+            check(l.Advance(701) == Advance.Rolled && l.Total(true).Lessons == 6 && l.Total(true).LessonIncome == 540 && l.Total(false).Lessons == 0, w,
+                  "a roll moves the lesson fields to Last and zeroes This");
+            // A lesson does not touch the ticket or pass fields.
+            check(tot.TicketIncome == 0 && tot.PassIncome == 0 && tot.LodgeSpendIncome == 0, w, "lessons leave tickets, passes and lodge spend alone");
         }
 
         // ── T15 Season passes v1 (docs/research/econ-2/build/season-pass-v1.md): season key, price, roll, standing, sale ──
@@ -256,8 +514,17 @@ namespace ResortBatch
             }
 
             // Lodge spend (seam S3, D15).
-            check(SkiMoneyRules.LodgeSpendDefault == 0 && SkiMoneyRules.LodgeSpendMax == 50 && SkiMoneyRules.LodgeSpendStep == 5, w,
-                  "LodgeSpendDefault / Max / Step = 0 / 50 / 5");
+            check(SkiMoneyRules.LodgeSpendDefault == 15 && SkiMoneyRules.LodgeSpendMax == 50 && SkiMoneyRules.LodgeSpendStep == 5, w,
+                  "LodgeSpendDefault / Max / Step = 15 / 50 / 5 (15 since econ-2 round 2; was 0)");
+            // econ-2 round 2: the default per tier (x1 / x1.5 / x3, rounded half up) = 15 / 23 / 45 per paying guest.
+            check(SkiMoneyRules.LodgeSpendOf(SkiMoneyRules.LodgeSpendDefault, 1.0f) == 15 &&
+                  SkiMoneyRules.LodgeSpendOf(SkiMoneyRules.LodgeSpendDefault, 1.5f) == 23 &&
+                  SkiMoneyRules.LodgeSpendOf(SkiMoneyRules.LodgeSpendDefault, 3.0f) == 45, w,
+                  "LodgeSpendOf(default 15) = 15 / 23 / 45 at x1 / x1.5 / x3");
+            // Slider alignment: the default sits on the slider step.
+            check(SkiMoneyRules.LodgeSpendDefault % SkiMoneyRules.LodgeSpendStep == 0 &&
+                  SkiMoneyRules.TicketPriceDefault % SkiMoneyRules.TicketPriceStep == 0, w,
+                  "defaults sit on their slider steps (ticket 60 / 5, lodge spend 15 / 5)");
             check(SkiMoneyRules.ClampLodgeSpend(-5) == 0 && SkiMoneyRules.ClampLodgeSpend(25) == 25 && SkiMoneyRules.ClampLodgeSpend(55) == 50,
                   w, "ClampLodgeSpend(-5, 25, 55) = 0, 25, 50");
             SpendOf(check, w, 10, 1.5f, 15);
@@ -300,7 +567,7 @@ namespace ResortBatch
             check(SkiMoneyRules.LiftFixedPerMonth == 2500f, w, "LiftFixedPerMonth " + SkiMoneyRules.LiftFixedPerMonth);
             check(SkiMoneyRules.LiftPerKmPerMonth == 1000f, w, "LiftPerKmPerMonth " + SkiMoneyRules.LiftPerKmPerMonth);
             check(SkiMoneyRules.LiftReducedShare == 0.25f, w, "LiftReducedShare " + SkiMoneyRules.LiftReducedShare);
-            check(SkiMoneyRules.TicketPriceDefault == 40, w, "TicketPriceDefault " + SkiMoneyRules.TicketPriceDefault);
+            check(SkiMoneyRules.TicketPriceDefault == 60, w, "TicketPriceDefault " + SkiMoneyRules.TicketPriceDefault + " (60 since econ-2 round 2)");
             check(SkiMoneyRules.TicketPriceMax == 200, w, "TicketPriceMax " + SkiMoneyRules.TicketPriceMax);
             check(SkiMoneyRules.TicketPriceStep == 5, w, "TicketPriceStep " + SkiMoneyRules.TicketPriceStep);
             check(SkiMoneyRules.TicksPerDay == 262144, w, "TicksPerDay " + SkiMoneyRules.TicksPerDay);

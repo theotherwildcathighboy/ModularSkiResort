@@ -47,7 +47,7 @@ $KnownVanilla = @{
     # Relabel, never drop: an unlisted vanilla ref turns into a WARN (section 3 below).
     "9cbf401c04ad63b44a36c0dc0db26e67" = "Low-voltage Ground Cable (m_UndergroundPrefab of the vanilla LV line; used by SkiLiftMarker/LV)"
     "3e47e765f44f210409edf4e6229fd0df" = "Grass Surface 01 unlock requirement (verified: vanilla Grass 01 ships same ref)"
-    "ec48568022d46c1448c6620d95f993c1" = "ParkSign placeholder (vanilla CityPark01/02/04 host it; resolves ParkSign01-03)"
+    "ec48568022d46c1448c6620d95f993c1" = "ParkSign placeholder (vanilla CityPark01/02/04 host it; resolves ParkSign01-03). Relabelled 2026-10-13: SkiResortGate no longer references it (S1 sign surgery replaced its ParkSign row, build/s1-finish.md); no owned prefab does. Kept, never dropped"
     "4010d5851d69dbb418c62e6bd4d19759" = "PowerLinePole01 placeholder (verified: Low-voltage Line NetSubObjects m_Object + PowerLinePole8m01 SpawnableObject back-ref; resolves PowerLinePole 8/13/18m)"
     # Vanilla sub-object placeholders of the shipped manifests' rows (fine-detail step 3d, 2026-10-12: every
     # sub_objects / detail1 / detail row GUID of assets/import/**/*.manifest.json, archive excluded). Each is the
@@ -59,6 +59,16 @@ $KnownVanilla = @{
     # NetFencePrefab references (read from the installed 1.6.2 resources.assets PrefabsMap, design/safety-fence.md).
     "05564431524791c48846dbd183fd232d" = "UIObject group Landscaping > Pathways (vanilla; the fence's toolbar home)"
     "71df37e0fc45ade46a64fba0eedd7c54" = "UIObjectOverrideGroup Fences category (vanilla; no menu, Find It-side only)"
+    "dbc2499e4450e9749a7ee25125c907bf" = "FlagPole01 (S1 GUID harvest 2026-10-13: resources.assets PrefabsMap, field/2026-10-13/guid-harvest.json)"
+    "fa676f526a9a7234897c82f0e27f87f9" = "FlagPole02 (S1 GUID harvest 2026-10-13: resources.assets PrefabsMap, field/2026-10-13/guid-harvest.json)"
+    "3a7712ef866489b4db3fa543f5f86e74" = "SportParkFlag01 (S1 GUID harvest 2026-10-13: resources.assets PrefabsMap, field/2026-10-13/guid-harvest.json)"
+    "99f8212c93f8f5548b69dea85c85e4c2" = "SportParkTrainingCone02 (S1 GUID harvest 2026-10-13: resources.assets PrefabsMap, field/2026-10-13/guid-harvest.json)"
+    "fc5ffc8fb618e0045974f880b5ebd72d" = "CampgroundBench02 (S1 GUID harvest 2026-10-13: resources.assets PrefabsMap, field/2026-10-13/guid-harvest.json)"
+    "dc9890337b0b891448ae01040562a0c7" = "ElectricalBox01 (S1 GUID harvest 2026-10-13: resources.assets PrefabsMap, field/2026-10-13/guid-harvest.json)"
+    "adb8f5879fe0ae64b886341f8dedd97d" = "ElectricalBox02 (S1 GUID harvest 2026-10-13: resources.assets PrefabsMap, field/2026-10-13/guid-harvest.json)"
+    "4f10c06b0f1853547bc9d77c0dfe518b" = "CampgroundFireplace01 (S1 GUID harvest 2026-10-13: resources.assets PrefabsMap, field/2026-10-13/guid-harvest.json)"
+    "98c77a4f2885dd541a7a3700edefa21e" = "CampgroundFireplace02 (S1 GUID harvest 2026-10-13: resources.assets PrefabsMap, field/2026-10-13/guid-harvest.json)"
+    "a95fff86c89ea3146a5730a81b7ecfba" = "CampgroundFireplace03 (S1 GUID harvest 2026-10-13: resources.assets PrefabsMap, field/2026-10-13/guid-harvest.json)"
     "024ff26a34d89b241b55fd5ea12c5dcc" = "ChairCommercialRandom01 placeholder (inferred: variants ChairCommercial01/ChairCommercial02/ChairCommercial03/ChairCommercial04 back-ref it; dump-verified subobj_bounds.json)"
     "63c46490ab59afd4dae01ee442f1e462" = "DeckChairRandom01 placeholder (inferred: variants DeckChair01/DeckChair02/DeckChair03 back-ref it; dump-verified subobj_bounds.json)"
     "68c87b3894d5ed74d8180dd43c12da30" = "FenceResidentialPieceLowRandom01 placeholder (inferred: variants FenceResidentialPieceLow01/FenceResidentialPieceLow02 back-ref it; dump-verified subobj_bounds.json)"

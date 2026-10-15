@@ -480,6 +480,57 @@ namespace SkiResortMod.Systems
             return m_Views.TryGetValue(sign, out view);
         }
 
+        /// <summary>Econ-2 round 2 (P3, the pre-season pass sale; docs/research/econ-2/build/round-2.md): the ski-day inputs a resident
+        /// household's chance at <paramref name="sign"/>'s area is made of, copied from the area snapshot the decision job reads (m_Areas,
+        /// m_Lodges, m_SiteOut, m_LodgeReject, m_Tracks, m_Knobs, m_Price) so the sale job rates a household with the same numbers:
+        /// attraction, school factor, the area's price tolerance, the three class confidences (SkiDayRules.Confidence of the learned
+        /// tracks), the knobs, and the xz of every TARGET lodge (passing, Base road, with a position — the decision job's NearestTarget set)
+        /// into <paramref name="targetXz"/> (cleared first). Main thread. It COMPLETES the pass handle (LodgeReject, the site list and
+        /// the tracks are written by this system's jobs): a sync point, taken only for a known sign of an armed system, once per area
+        /// per season. NotReady: unarmed or unknown sign (nothing synced; try again later); NoTarget: the area has no target lodge.</summary>
+        internal PresaleCopy TryCopyPresaleInputs(Entity sign, NativeList<float2> targetXz, out SkiDayPresaleInputs inputs)
+        {
+            inputs = default;
+            targetXz.Clear();
+            if (!IsArmed || !m_AreaOfSign.TryGetValue(sign, out int a) || a < 0 || a >= m_Areas.Length)
+                return PresaleCopy.NotReady;
+            m_PassHandle.Complete();
+            AreaJob aj = m_Areas[a];
+            int end = math.min(aj.LodgeStart + aj.LodgeCount, math.min(m_LodgeReject.Length, math.min(m_SiteOut.Length, m_Lodges.Length)));
+            int tolerance = 0;
+            for (int li = math.max(0, aj.LodgeStart); li < end; li++)
+            {
+                if (m_LodgeReject[li] != (byte)SkiDayRules.LodgeReject.None)
+                    continue;
+                LodgeJob lj = m_Lodges[li];
+                tolerance = math.max(tolerance, lj.PriceTolerance);   // StepA: every passing lodge counts for the tolerance
+                SiteOut so = m_SiteOut[li];
+                if (lj.NoRoadNeeded == 0 && so.HasPosition != 0)
+                    targetXz.Add(so.Xz);                               // NearestTarget's set
+            }
+            if (targetXz.Length == 0)
+                return PresaleCopy.NoTarget;
+            double[] conf = new double[3];
+            for (int c = 0; c < 3; c++)
+            {
+                int ti = SkiDayTiming.TrackIndex(a, (byte)c);
+                SkiDayRules.ClassTrack t = ti >= 0 && ti < m_Tracks.Length ? m_Tracks[ti] : SkiDayRules.NewTrack((SkiDayRules.TravelClass)c);
+                conf[c] = SkiDayRules.Confidence((SkiDayRules.TravelClass)c, t);
+            }
+            inputs = new SkiDayPresaleInputs
+            {
+                Attraction = aj.Attraction,
+                SchoolFactor = aj.SchoolFactor,
+                PriceTolerance = tolerance,
+                ConfidenceWalk = conf[(int)SkiDayRules.TravelClass.Walk],
+                ConfidenceCar = conf[(int)SkiDayRules.TravelClass.Car],
+                ConfidenceNoCar = conf[(int)SkiDayRules.TravelClass.NoCarFar],
+                Knobs = m_Knobs,
+                TargetLodges = targetXz.Length,
+            };
+            return PresaleCopy.Ready;
+        }
+
         /// <summary>Round M2 (R9): the hub's trip-planner label (CityStats.tripPlanner): "" while the game's six trip
         /// systems are all on (and before a Game load reads them), else the known swaps' names or
         /// SkiTripSystems.UnknownLabel. Main thread.</summary>
@@ -4760,6 +4811,20 @@ namespace SkiResortMod.Systems
         {
             public int Workers, Residents, Tourists, OutingMembers, Other;
         }
+    }
+
+    /// <summary>Econ-2 round 2 (P3): one ski area's resident-chance inputs for the pre-season pass sale, plain values so a Burst job
+    /// reads no managed row (SkiDaySystem.TryCopyPresaleInputs).</summary>
+    public enum PresaleCopy : byte { NotReady = 0, Ready = 1, NoTarget = 2 }
+
+    public struct SkiDayPresaleInputs
+    {
+        public int Attraction;
+        public double SchoolFactor;
+        public int PriceTolerance;
+        public double ConfidenceWalk, ConfidenceCar, ConfidenceNoCar;
+        public SkiDayRules.Knobs Knobs;
+        public int TargetLodges;
     }
 
     /// <summary>One ski area's ski-day state for the hub (ch2 §9, ch4 §H.1; s1-spec §2.5). Published every armed

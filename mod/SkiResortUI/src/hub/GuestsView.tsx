@@ -59,6 +59,9 @@
  *     1,440 skiers at once (lodges limit)" (41 characters, ≈ 21 em XS by ch4 B.5's 0.5 em estimate:
  *     252 / 415 / 523 rem), fits the SubLine room W - 32 = 390 / 568 / 687 (an estimate, not Overpass
  *     advances: the ellipsis is the net).
+ *   - Contract 8 (2026-10-15, econ-2 round 2): once a lesson was taken (hubRules.lessonsShown), the row GUESTS_ROW[Lessons] "of which took a
+ *     lesson" (this month / last month from lessonsThisMonth / lessonsLastMonth; tooltip GUESTS_TIP[Lessons]) above the tickets row. People
+ *     who took a lesson, one lesson each; a subset of the guests counted, like the pass-holder row.
  *   - Contract 7 (2026-10-14, season passes v1): under "Paid a lift ticket", while hubRules.passesShown (the Options pass share above 0,
  *     or a pass sold / a holder skied), the row GUESTS_ROW[PassHolders] "of which pass holders" (this month / last month from
  *     passHoldersThisMonth / passHoldersLastMonth; tooltip GUESTS_TIP[PassHolders]). It is a subset of the residents row, not of the paid row.
@@ -71,7 +74,7 @@ import type { CityStats, ResortLive } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
-  guestBarParts, guestBarScale, lastMonthMark, liveOf, passesShown, skiDayLine, skiDayTip, skiDayWalk, ticketNote, tripPlannerNote,
+  guestBarParts, guestBarScale, lastMonthMark, lessonsShown, liveOf, passesShown, skiDayLine, skiDayTip, skiDayWalk, ticketNote, tripPlannerNote,
 } from "./hubRules";
 import type { LastMonthMark, TicketNote, TripPlannerNote } from "./hubRules";
 import { HUB_FMT, HUB_LOC } from "./hubText";
@@ -297,6 +300,13 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
           label={t(HUB_LOC.guestsRowPassHolders)} samples={samples}
           thisMonth={countCell(l ? l.passHoldersThisMonth : -1)} lastMonth={last(l?.passHoldersLastMonth)}
           tip={rowTip(t(HUB_LOC.guestsRowPassHolders), t(HUB_LOC.guestsTipPassHolders))}
+        />
+      )}
+      {lessonsShown(l) && (
+        <GuestRow
+          label={t(HUB_LOC.guestsRowLessons)} samples={samples}
+          thisMonth={countCell(l ? l.lessonsThisMonth : -1)} lastMonth={last(l?.lessonsLastMonth)}
+          tip={rowTip(t(HUB_LOC.guestsRowLessons), t(HUB_LOC.guestsTipLessons))}
         />
       )}
       <GuestRow

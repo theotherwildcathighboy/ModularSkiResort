@@ -41,6 +41,12 @@
  *     The price line's widest form "Lift ticket ¢200 · ski days 20 %" (32 characters) is about 16 em XS
  *     by the 0.5 em estimate (GuestsView.tsx header): about 192 / 316 / 398 rem, fits (an estimate; the
  *     SubLine's ellipsis is the net).
+ *   - Contract 8 (2026-10-15, econ-2 round 2; docs/research/econ-2/build/round-2.md): after the pass rows, LessonRow (MONEY_ROW[Lessons]
+ *     "Lessons (this month) · {N}" with the lesson income so far as its value, only once a lesson was taken, hubRules.lessonsShown), a
+ *     sub row MONEY_ROW[PassesPre] "Season passes sold before the season · {N}" under the season's passes (hubRules.presaleShown) and
+ *     CityIncomeRow: "City income the resort brings (estimate)" = l.cityIncomeEst, marked "≈", NOT in the net; under Tourism Overhaul
+ *     the row is replaced by the SubLine EST_TO_NOTE / EST_TO_TIP (the tourist estimate's pattern, GuestsView). The lesson and
+ *     lodge-spend money is booked like tickets, so MONEY_NOTE[Fees] / MONEY_NOTE[Panel] now say "Resort income" / name all four.
  *   - Contract 7 (2026-10-14, season passes v1; docs/research/econ-2/build/season-pass-v1.md): under the tickets row, while city.bookTicketsAsFees
  *     (stage 1a), ONE dim SubLine MONEY_NOTE[Fees] "Shown in the Economy panel under public transportation fees"; after the lodge-spend
  *     slot, only while hubRules.passesShown (the Options pass share above 0, or a pass sold / a holder skied): the income row MONEY_ROW[Passes]
@@ -66,8 +72,8 @@ import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import { BUILD_ITEMS, findBuildItem } from "./buildItems";
 import {
-  PRICE_EXAMPLES, PRICE_NO_EFFECT_MAX, buildingsAndWages, hubPrice, incomeNote, liveOf, lodgeSpendShown, passesShown,
-  priceFactorPct, priceFullWith, ticketsRow,
+  PRICE_EXAMPLES, PRICE_NO_EFFECT_MAX, buildingsAndWages, cityIncomeShown, hubPrice, incomeNote, lessonsShown, liveOf, lodgeSpendShown,
+  passesShown, presaleShown, priceFactorPct, priceFullWith, ticketsRow,
 } from "./hubRules";
 import type { IncomeNote } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE } from "./hubText";
@@ -181,6 +187,14 @@ function PassRows({ l, samples, t }: { l: ResortLive | null; samples: NumberSamp
         value={<Cell samples={samples}>{l && l.passIncomeSeason >= 0 ? <SignedNum value={l.passIncomeSeason} unit={Unit.Money} /> : DASH}</Cell>}
         tip={t(HUB_LOC.moneyTipPasses)}
       />
+      {presaleShown(l) && l && (
+        <InfoLine
+          sub
+          label={<LocText entry={HUB_FMT.moneyRowPassesPre} args={{ N: numArg(l.passesPreSeason, Unit.Integer) }} />}
+          value={<Cell samples={samples}>{l.passIncomePreSeason >= 0 ? <SignedNum value={l.passIncomePreSeason} unit={Unit.Money} /> : DASH}</Cell>}
+          tip={t(HUB_LOC.moneyTipPassesPre)}
+        />
+      )}
       <InfoLine
         sub
         label={t(HUB_LOC.moneyRowPassHolders)}
@@ -188,6 +202,33 @@ function PassRows({ l, samples, t }: { l: ResortLive | null; samples: NumberSamp
         tip={t(HUB_LOC.moneyTipPassHolders)}
       />
     </>
+  );
+}
+
+/** Contract 8 (econ-2 round 2): the lessons this month with what they paid, drawn once a lesson was taken (lessonsShown). */
+function LessonRow({ l, samples, t }: { l: ResortLive | null; samples: NumberSamples; t: Translate }): JSX.Element | null {
+  if (!l || !lessonsShown(l)) return null;
+  return (
+    <InfoLine
+      label={<LocText entry={HUB_FMT.moneyRowLessons} args={{ N: numArg(l.lessonsThisMonth, Unit.Integer) }} />}
+      value={<Cell samples={samples}>{l.lessonIncomeMonth >= 0 ? <SignedNum value={l.lessonIncomeMonth} unit={Unit.Money} /> : DASH}</Cell>}
+      tip={t(HUB_LOC.moneyTipLessons)}
+    />
+  );
+}
+
+/** Contract 8: the resort's share of the city's tourist draw x the game's TouristIncome statistic, labelled an estimate and kept out of the
+ *  net; under Tourism Overhaul the row is replaced by the same Detected note as the tourist estimate (EST_TO_NOTE / EST_TO_TIP). */
+function CityIncomeRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
+  if (city.tourismOverhaul) return <SubLine tip={t(HUB_LOC.estToTip)}>{t(HUB_LOC.estToNote)}</SubLine>;
+  if (!l || !cityIncomeShown(l, city)) return null;
+  return (
+    <InfoLine
+      label={t(HUB_LOC.moneyRowCityIncome)}
+      mark="≈"
+      value={<Cell samples={samples}><SignedNum value={l.cityIncomeEst} unit={Unit.Money} /></Cell>}
+      tip={t(HUB_LOC.moneyTipCityIncome)}
+    />
   );
 }
 
@@ -267,6 +308,8 @@ function SignMoney({ row, l, city, build, kinds, samples, t }: {
       <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} t={t} />
       <LodgeSpendRow l={l} samples={samples} t={t} />
       {passesShown(l, city) && <PassRows l={l} samples={samples} t={t} />}
+      <LessonRow l={l} samples={samples} t={t} />
+      <CityIncomeRow l={l} city={city} samples={samples} t={t} />
       <InfoLine header label={t(HUB_LOC.sectionCosts)} />
       {kinds.has(RUN_KIND.Natural) && (
         <InfoLine

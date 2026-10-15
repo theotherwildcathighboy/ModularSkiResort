@@ -34,6 +34,11 @@
 // household's one deterministic roll), PassStandingOf (what its SkiSeasonPass says this season) and PassSale (NotEligible /
 // Declined / Bought / CannotPay), called from the ticket job (Burst) and MoneyBatch T15.
 //
+// Econ-2 round 2 (2026-10-15, docs/research/econ-2/build/round-2.md; DECISIONS 241): TicketPriceDefault 40 -> 60 (LodgeSpendDefault
+// 0 -> 15 through SkiCatalog.LodgeSpend); ski-school lessons — LessonShare / LessonMultiplier consts and clamps, LessonPrice, LessonRoll /
+// LessonsTaken (one stateless roll per person), LessonsPaid; the pre-season pass sale (passes v2) — PresaleUniform (the household's one
+// roll, unrelated to PassRoll's), PresaleProbability (PassShare % x the ski-day chance), PresaleDecision. MoneyBatch T16 / T17.
+//
 // PURE FILE: `using System;` and `using Unity.Mathematics;` only, + SkiCatalog consts (compile-time literals;
 // Burst sees numbers — never a SkiCatalog.Lifts[…] row read here, contract D4 / risk R-c). Every method is static,
 // allocation-free and Burst-callable (the ticket job calls TicketGateOf / TicketsPaid).
@@ -77,7 +82,7 @@ namespace SkiResortMod.Systems
         public const float LiftPerKmPerMonth = SkiCatalog.FixedGrip.PerKmPerMonth;
         public const float LiftReducedShare = 0.25f;
         // D26
-        public const int TicketPriceDefault = 40;
+        public const int TicketPriceDefault = 60;   // econ-2 round 2 (revenue-design §6a): was 40; the ski-day price factor at 60 is 0.9
         public const int TicketPriceMax = 200;
         public const int TicketPriceStep = 5;
         // time (TimeSystem.kTicksPerDay, Game.Simulation/TimeSystem.cs:18; the ECS systems assert it at arm time)
@@ -133,7 +138,7 @@ namespace SkiResortMod.Systems
                                            : LiftReducedShare * LiftFullRate(lengthM, fixedPerMonth, perKmPerMonth);
 
         // ── Catalog Phase B seam S3 (round-2-contract §6.2, D15): lodge spend per paying guest ─────────────────────
-        public const int LodgeSpendDefault = SkiCatalog.LodgeSpend.Default;   // 0 = off (ResortBatch CG-1)
+        public const int LodgeSpendDefault = SkiCatalog.LodgeSpend.Default;   // 15 since econ-2 round 2 (was 0 = off; ResortBatch CG-1)
         public const int LodgeSpendMax = SkiCatalog.LodgeSpend.Max;           // 50
         public const int LodgeSpendStep = SkiCatalog.LodgeSpend.Step;         // 5
 
@@ -276,6 +281,116 @@ namespace SkiResortMod.Systems
             if (!resident || sharePct <= 0 || passPrice <= 0)
                 return PassSaleResult.NotEligible;
             if (!PassRoll(householdIndex, seasonKey, sharePct))
+                return PassSaleResult.Declined;
+            return householdMoney >= passPrice ? PassSaleResult.Bought : PassSaleResult.CannotPay;
+        }
+
+        // ── Ski-school lessons (econ-2 round 2, P2; docs/research/econ-2/build/round-2.md; DECISIONS 241) ───────────────
+        // A counted arrival at an OPEN gate of a ski area whose sign has an ACTIVE ski school: each person counted takes a lesson with
+        // probability LessonShare %, decided by a stateless hash of (household index, day key, person index); the lesson costs
+        // LessonMultiplier × the day ticket now, is taken from what the household has left after the ticket / pass (never into debt),
+        // and is booked exactly like tickets. Called from the ticket job (Burst) and MoneyBatch T16.
+        public const int LessonShareMax = 50;
+        public const int LessonShareStep = 5;
+        public const int LessonShareDefault = 20;   // 0 = lessons off
+        public const float LessonMultiplierMin = 1.0f;
+        public const float LessonMultiplierMax = 3.0f;
+        public const float LessonMultiplierStep = 0.5f;
+        public const float LessonMultiplierDefault = 1.5f;
+        /// <summary>A household never has more people than this in a counted arrival; LessonsTaken stops here (a guard, not a rule).</summary>
+        public const int LessonPeopleGuard = 64;
+
+        public static int ClampLessonShare(int v) => math.clamp(v, 0, LessonShareMax);
+
+        /// <summary>The multiplier clamped to 1.0..3.0; a non-finite value reads the default (the settings file can hold anything).</summary>
+        public static float ClampLessonMultiplier(float v)
+            => !math.isfinite(v) ? LessonMultiplierDefault : math.clamp(v, LessonMultiplierMin, LessonMultiplierMax);
+
+        /// <summary>The lesson price: floor(multiplier × the day ticket now + 0.5), the multiplier clamped; 0 when the ticket price is not &gt; 0.</summary>
+        public static int LessonPrice(float multiplier, int ticketPrice)
+            => ticketPrice <= 0 ? 0 : (int)math.min(math.floor((double)ClampLessonMultiplier(multiplier) * ticketPrice + 0.5), (double)int.MaxValue);
+
+        /// <summary>One person's roll: true with probability sharePct/100. A fixed integer hash (Murmur3 finalizer, constants different
+        /// from PassRoll's) of the household entity index, the day key (SkiDayRules.DayKey) and the person's index within the arrival,
+        /// so the same inputs give the same answer on every call. share &lt;= 0 never, &gt;= 100 always; monotone in the share.</summary>
+        public static bool LessonRoll(int householdIndex, int dayKey, int personIndex, int sharePct)
+        {
+            if (sharePct <= 0)
+                return false;
+            if (sharePct >= 100)
+                return true;
+            uint h;
+            unchecked
+            {
+                h = (uint)householdIndex * 0x9E3779B1u + (uint)dayKey * 0x7FEB352Du + (uint)personIndex * 0x846CA68Bu + 0x165667B1u;
+                h ^= h >> 16;
+                h *= 0x85EBCA6Bu;
+                h ^= h >> 13;
+                h *= 0xC2B2AE35u;
+                h ^= h >> 16;
+            }
+            return h % 100u < (uint)sharePct;
+        }
+
+        /// <summary>People of one arrival (0..LessonPeopleGuard) whose roll succeeds: one lesson per person at most.</summary>
+        public static int LessonsTaken(int people, int householdIndex, int dayKey, int sharePct)
+        {
+            int n = math.min(math.max(0, people), LessonPeopleGuard);
+            int taken = 0;
+            for (int p = 0; p < n; p++)
+            {
+                if (LessonRoll(householdIndex, dayKey, p, sharePct))
+                    taken++;
+            }
+            return taken;
+        }
+
+        /// <summary>Lessons actually paid: min(taken, money left after the ticket or pass / lesson price) — never into debt; 0 when any input is not &gt; 0.</summary>
+        public static int LessonsPaid(int taken, int lessonPrice, int moneyAfter)
+            => taken <= 0 || lessonPrice <= 0 || moneyAfter <= 0 ? 0 : math.min(taken, moneyAfter / lessonPrice);
+
+        // ── Pre-season pass sale (passes v2; econ-2 round 2, P3; docs/research/econ-2/build/round-2.md; DECISIONS 241) ──────────
+        // Once per (ski area, season) at the first ticket tick in which the area's gate is Open: every resident household in the pool
+        // (within reach of the area, no SkiSeasonPass standing this season) rolls ONE deterministic roll against
+        // p = PassShare % × SkiDayRules.Chance(resident, openShare 1, powder 0, pass holder, its own distance / class / confidence).
+        // Called from the sale job (Burst) and MoneyBatch T17.
+
+        /// <summary>The household's one pre-season roll, uniform in [0, 1): a fixed integer hash (the PassRoll mix with +1 added to the
+        /// pre-image, so it is unrelated to the first-arrival roll of the same household and season) of the household entity index and
+        /// the season key; 24 bits of the hash. Same inputs, same answer on every call and after a load.</summary>
+        public static double PresaleUniform(int householdIndex, int seasonKey)
+        {
+            uint h;
+            unchecked
+            {
+                h = (uint)householdIndex * 0x9E3779B1u + (uint)seasonKey * 0x85EBCA6Bu + 0x27D4EB2Fu + 1u;
+                h ^= h >> 16;
+                h *= 0x85EBCA6Bu;
+                h ^= h >> 13;
+                h *= 0xC2B2AE35u;
+                h ^= h >> 16;
+            }
+            return (h >> 8) * (1.0 / 16777216.0);
+        }
+
+        /// <summary>p = (PassShare clamped 0..100) / 100 × chance, in [0, 1]; 0 when the share is not &gt; 0 or the chance not &gt; 0 (NaN included).</summary>
+        public static double PresaleProbability(int sharePct, double chance)
+        {
+            int share = ClampPassShare(sharePct);
+            if (share <= 0 || !(chance > 0.0))
+                return 0.0;
+            double p = share / 100.0 * chance;
+            return p >= 1.0 ? 1.0 : p;
+        }
+
+        /// <summary>One pool household's outcome: NotEligible when the price is not &gt; 0; Declined when p is not &gt; 0 or the roll
+        /// (PresaleUniform &lt; p) fails; Bought when it succeeds and the household has at least the price (never into debt);
+        /// else CannotPay. Callers store Declined for both Declined and CannotPay, like the first-arrival sale.</summary>
+        public static PassSaleResult PresaleDecision(int householdIndex, int seasonKey, double probability, int passPrice, int householdMoney)
+        {
+            if (passPrice <= 0)
+                return PassSaleResult.NotEligible;
+            if (!(probability > 0.0) || !(PresaleUniform(householdIndex, seasonKey) < probability))
                 return PassSaleResult.Declined;
             return householdMoney >= passPrice ? PassSaleResult.Bought : PassSaleResult.CannotPay;
         }

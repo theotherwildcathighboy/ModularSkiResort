@@ -930,7 +930,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_NET", "Net a month" },
                 { "SkiResort.Hub.MONEY_TIP[Natural]", "Natural runs have no running cost." },
                 { "SkiResort.Hub.MONEY_TIP[Net]", "Ticket income minus the running costs at today's rates. What tourists spend in your city's shops and hotels is not included." },
-                { "SkiResort.Hub.MONEY_NOTE[Panel]", "Lift tickets and season passes are listed in the Economy panel under public transportation fees only while Options > Modular Ski Resort > Main > Ski area balance > Book lift tickets as public-transport fees is on; the rest goes straight to your balance. Buildings and wages are billed by the game under Parks & Recreation." },
+                { "SkiResort.Hub.MONEY_NOTE[Panel]", "Lift tickets, season passes, lessons and lodge spend are listed in the Economy panel under public transportation fees only while Options > Modular Ski Resort > Main > Ski area balance > Book resort income as public-transport fees is on; otherwise they go straight to your balance. Buildings and wages are billed by the game under Parks & Recreation." },
                 { "SkiResort.Hub.MONEY_NOTE[Rwh]", "Detected: Realistic Workplaces. The real bill can differ." },
                 { "SkiResort.Hub.MONEY_TIP[Rwh]", "Realistic Workplaces And Households changes staff and service costs, so the bill can differ." },
                 { "SkiResort.Hub.MONEY_NOTE[Est]", "≈ Tickets are projected from this month so far until a full month has been counted." },
@@ -941,8 +941,17 @@ namespace SkiResortMod
                 // Catalog Phase B (D15): the Money view's lodge-spend income row (only while it earned money this month).
                 { "SkiResort.Hub.MONEY_ROW[LodgeSpend]", "Lodge spend" },
                 // Contract 7 (season passes v1; hubText.ts holds the same texts, gate R4).
-                { "SkiResort.Hub.MONEY_NOTE[Fees]", "Shown in the Economy panel under public transportation fees" },
+                { "SkiResort.Hub.MONEY_NOTE[Fees]", "Resort income shows in the Economy panel under public transportation fees" },
                 { "SkiResort.Hub.MONEY_ROW[Passes]", "Season passes sold (this season) · {N}" },
+                // Contract 8 (econ-2 round 2): the pre-season sale and lesson rows, the city-income estimate row, the lesson guests row.
+                { "SkiResort.Hub.MONEY_ROW[PassesPre]", "Season passes sold before the season · {N}" },
+                { "SkiResort.Hub.MONEY_ROW[Lessons]", "Lessons (this month) · {N}" },
+                { "SkiResort.Hub.MONEY_TIP[Lessons]", "Ski-school lessons taken this month and what they paid, counted so far. Needs a working ski school. Booked like lift tickets." },
+                { "SkiResort.Hub.MONEY_TIP[PassesPre]", "The part of this season's passes sold in the one sale before the season, when the ski area first opened. Included in the row above." },
+                { "SkiResort.Hub.MONEY_ROW[CityIncome]", "City income the resort brings (estimate)" },
+                { "SkiResort.Hub.MONEY_TIP[CityIncome]", "This resort's share of the city's tourist draw times the money the game counts as tourist income. Not resort income: it is not in the net." },
+                { "SkiResort.Hub.GUESTS_ROW[Lessons]", "of which took a lesson" },
+                { "SkiResort.Hub.GUESTS_TIP[Lessons]", "People who took a ski-school lesson this month, one lesson each, at a ski area with a working school." },
                 { "SkiResort.Hub.MONEY_TIP[Passes]", "Season passes sold in the current ski season (July to June) and what they paid, counted since the game was loaded. A household that buys a pass skis free at the gate for the rest of the season and goes skiing more often. Set the share and the price in Options > Modular Ski Resort > Main > Ski area balance. Booked like lift tickets." },
                 { "SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holders skiing (this month)" },
                 { "SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a season pass this month. They paid once, so they add no ticket money now." },

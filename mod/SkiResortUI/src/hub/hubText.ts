@@ -356,7 +356,7 @@ export const HUB_LOC = {
   moneyNet: ["SkiResort.Hub.MONEY_NET", "Net a month"],
   moneyTipNatural: ["SkiResort.Hub.MONEY_TIP[Natural]", "Natural runs have no running cost."],
   moneyTipNet: ["SkiResort.Hub.MONEY_TIP[Net]", "Ticket income minus the running costs at today's rates. What tourists spend in your city's shops and hotels is not included."],
-  moneyNotePanel: ["SkiResort.Hub.MONEY_NOTE[Panel]", "Lift tickets and season passes are listed in the Economy panel under public transportation fees only while Options > Modular Ski Resort > Main > Ski area balance > Book lift tickets as public-transport fees is on; the rest goes straight to your balance. Buildings and wages are billed by the game under Parks & Recreation."],
+  moneyNotePanel: ["SkiResort.Hub.MONEY_NOTE[Panel]", "Lift tickets, season passes, lessons and lodge spend are listed in the Economy panel under public transportation fees only while Options > Modular Ski Resort > Main > Ski area balance > Book resort income as public-transport fees is on; otherwise they go straight to your balance. Buildings and wages are billed by the game under Parks & Recreation."],
   moneyNoteRwh: ["SkiResort.Hub.MONEY_NOTE[Rwh]", "Detected: Realistic Workplaces. The real bill can differ."],
   moneyTipRwh: ["SkiResort.Hub.MONEY_TIP[Rwh]", "Realistic Workplaces And Households changes staff and service costs, so the bill can differ."],
   moneyNoteEst: ["SkiResort.Hub.MONEY_NOTE[Est]", "≈ Tickets are projected from this month so far until a full month has been counted."],
@@ -368,12 +368,19 @@ export const HUB_LOC = {
   moneyRowLodgeSpend: ["SkiResort.Hub.MONEY_ROW[LodgeSpend]", "Lodge spend"],
   moneyTipLodgeSpend: ["SkiResort.Hub.MONEY_TIP[LodgeSpend]", "What paying ski guests spent at the lodges (Options > Modular Ski Resort > Main > Ski area balance > Lodge spend per guest)."],
   // Contract 7 (season passes v1): rows drawn while passes are on or used (hubRules.passesShown); the note while tickets are fees.
-  moneyNoteFees: ["SkiResort.Hub.MONEY_NOTE[Fees]", "Shown in the Economy panel under public transportation fees"],
+  moneyNoteFees: ["SkiResort.Hub.MONEY_NOTE[Fees]", "Resort income shows in the Economy panel under public transportation fees"],
   moneyTipPasses: ["SkiResort.Hub.MONEY_TIP[Passes]", "Season passes sold in the current ski season (July to June) and what they paid, counted since the game was loaded. A household that buys a pass skis free at the gate for the rest of the season and goes skiing more often. Set the share and the price in Options > Modular Ski Resort > Main > Ski area balance. Booked like lift tickets."],
   moneyRowPassHolders: ["SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holders skiing (this month)"],
   moneyTipPassHolders: ["SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a season pass this month. They paid once, so they add no ticket money now."],
   guestsRowPassHolders: ["SkiResort.Hub.GUESTS_ROW[PassHolders]", "of which pass holders"],
   guestsTipPassHolders: ["SkiResort.Hub.GUESTS_TIP[PassHolders]", "Residents who came in on a season pass: they paid once for the season and pay nothing at the gate. Tourists never hold one."],
+  // Contract 8 (econ-2 round 2): lessons, the pre-season sale, the city-income estimate (hidden under Tourism Overhaul: EST_TO_NOTE / EST_TO_TIP).
+  moneyTipLessons: ["SkiResort.Hub.MONEY_TIP[Lessons]", "Ski-school lessons taken this month and what they paid, counted so far. Needs a working ski school. Booked like lift tickets."],
+  moneyTipPassesPre: ["SkiResort.Hub.MONEY_TIP[PassesPre]", "The part of this season's passes sold in the one sale before the season, when the ski area first opened. Included in the row above."],
+  moneyRowCityIncome: ["SkiResort.Hub.MONEY_ROW[CityIncome]", "City income the resort brings (estimate)"],
+  moneyTipCityIncome: ["SkiResort.Hub.MONEY_TIP[CityIncome]", "This resort's share of the city's tourist draw times the money the game counts as tourist income. Not resort income: it is not in the net."],
+  guestsRowLessons: ["SkiResort.Hub.GUESTS_ROW[Lessons]", "of which took a lesson"],
+  guestsTipLessons: ["SkiResort.Hub.GUESTS_TIP[Lessons]", "People who took a ski-school lesson this month, one lesson each, at a ski area with a working school."],
   unlinkedMoney: ["SkiResort.Hub.UNLINKED_MONEY", "Runs that are not linked cost nothing and earn nothing; their lifts still cost money to run."],
 
   // ---- build strip (6.10) ----
@@ -517,6 +524,9 @@ export const HUB_FMT = {
   moneyTicketsLast: ["SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets last month: {N} paid"],
   moneyTicketsEst: ["SkiResort.Hub.MONEY_TICKETS[Est]", "Lift tickets (estimated): {N} paid"],
   moneyRowPasses: ["SkiResort.Hub.MONEY_ROW[Passes]", "Season passes sold (this season) · {N}"],
+  /** Contract 8 (econ-2 round 2): {N} = the pre-season sale's passes (Integer) / the lessons taken this month (Integer). */
+  moneyRowPassesPre: ["SkiResort.Hub.MONEY_ROW[PassesPre]", "Season passes sold before the season · {N}"],
+  moneyRowLessons: ["SkiResort.Hub.MONEY_ROW[Lessons]", "Lessons (this month) · {N}"],
   moneyTicketsPrice: ["SkiResort.Hub.MONEY_TICKETS_PRICE", "Ticket price now: {PRICE}"],
   /** Round M2 R7: {PRICE} = hubRules.hubPrice (Money), {PCT} = hubRules.priceFactorPct (Percentage). */
   moneyPriceLine: ["SkiResort.Hub.MONEY_PRICE_LINE", "Lift ticket {PRICE} · ski days {PCT}"],

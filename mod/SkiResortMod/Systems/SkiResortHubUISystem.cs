@@ -14,7 +14,9 @@
 // docs/research/round-m2/build-contract.md §8.1: CityStats.tripPlanner and tripPlannerBlocksSkiDays appended to the
 // `city` writer and comparer, the bindings and triggers unchanged); contract 6 2026-10-11 (Catalog Phase B, code round 2,
 // hub group: header CATALOG PHASE B below); contract 7 2026-10-14 (season passes v1, docs/research/econ-2/build/season-pass-v1.md:
-// four ResortLive fields and two CityStats fields appended, the bindings and triggers unchanged). The
+// four ResortLive fields and two CityStats fields appended, the bindings and triggers unchanged); contract 8 2026-10-15 (econ-2
+// round 2, docs/research/econ-2/build/round-2.md: six ResortLive fields appended — lessons, the pre-season passes, the city-income
+// estimate —, the bindings, triggers and CityStats unchanged). The
 // per-area numbers are NOT computed here: SkiResortStatsSystem owns them and this system only writes its
 // rows (resorts / resortLive / runs / runLive / lifts / problems / city) to the UI.
 //
@@ -396,7 +398,9 @@ namespace SkiResortMod.Systems
         public const string Group = "skiResort";
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a
-        /// binding, trigger, field or meaning changes. 7 = Season passes v1 (2026-10-14, docs/research/econ-2/build/season-pass-v1.md:
+        /// binding, trigger, field or meaning changes. 8 = Econ-2 round 2 (2026-10-15, docs/research/econ-2/build/round-2.md: ResortLive
+        /// appends lessonsThisMonth, lessonsLastMonth, lessonIncomeMonth, passesPreSeason, passIncomePreSeason, cityIncomeEst; no CityStats
+        /// change). 7 = Season passes v1 (2026-10-14, docs/research/econ-2/build/season-pass-v1.md:
         /// ResortLive appends passesSoldSeason, passIncomeSeason, passHoldersThisMonth, passHoldersLastMonth; CityStats appends
         /// bookTicketsAsFees and passShare). 6 = Catalog Phase B (code round 2, round-2-contract.md §8: the 25-row
         /// SkiCatalog build table, PROBLEM 23-25, LiftRow type / seats / speedMps, the ResortLive lodge-ladder fields).
@@ -405,7 +409,7 @@ namespace SkiResortMod.Systems
         /// days, docs/research/ski-days/spec (ch4 §A: ten ResortLive fields appended; the six last-month guest fields
         /// also for a partial month); 3 was Round E1 (econ-round spec ch5 §4, design hub-v3-design.md §8); 2 was
         /// hub-u2-spec.md §2 (Rounds U2/M1).</summary>
-        public const int HubContract = 7;
+        public const int HubContract = 8;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed
         /// after the one-shot "!!!" until the next load (amended 2026-10-01, U1 fixer round, finding
@@ -3561,6 +3565,20 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.PassHoldersThisMonth));
                 writer.PropertyName("passHoldersLastMonth");
                 writer.Write(Fin(r.PassHoldersLastMonth));
+                // Contract 8 (econ-2 round 2): lessons by month, the lesson income so far this month, the pre-season part of the season's
+                // passes, and the city-income estimate (-1 = unknown or Tourism Overhaul).
+                writer.PropertyName("lessonsThisMonth");
+                writer.Write(Fin(r.LessonsThisMonth));
+                writer.PropertyName("lessonsLastMonth");
+                writer.Write(Fin(r.LessonsLastMonth));
+                writer.PropertyName("lessonIncomeMonth");
+                writer.Write(Fin(r.LessonIncomeMonth));
+                writer.PropertyName("passesPreSeason");
+                writer.Write(Fin(r.PassesPreSeason));
+                writer.PropertyName("passIncomePreSeason");
+                writer.Write(Fin(r.PassIncomePreSeason));
+                writer.PropertyName("cityIncomeEst");
+                writer.Write(Fin(r.CityIncomeEst));
                 writer.TypeEnd();
             }
             writer.ArrayEnd();
