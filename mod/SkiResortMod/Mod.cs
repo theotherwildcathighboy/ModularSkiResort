@@ -138,8 +138,8 @@ namespace SkiResortMod
             // their OnCreate, so registration order is not load-bearing either.
             // Catalog Phase B (docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §1-§2): 30 names — 4 lift
             // types (line + carrier each), the marker, 8 stations, 5 lodge tiers, the school, 2 patrol huts, the sign, 4
-            // runs — 11 expected and 19 pending (designed, not imported yet: a MISSING pending name is an Info line), and
-            // the ONE 25-row build-item table; counts are computed in its "created" and [arm] lines.
+            // runs — 30 expected, 0 pending since the S1 import flips of 2026-10-13 (11 / 19 at Phase B; a MISSING pending
+            // name is an Info line), and the ONE 25-row build-item table; counts are computed in its "created" and [arm] lines.
             updateSystem.UpdateAt<SkiPrefabCatalogSystem>(SystemUpdatePhase.GameSimulation);
 
             // Chair pinning (milestone 1: static). Phase choice is load-bearing:

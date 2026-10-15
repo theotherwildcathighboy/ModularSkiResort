@@ -544,29 +544,29 @@ namespace SkiResortMod.Systems
             // NAMES-BEGIN
             public const string LineFixedGrip = "SkiChairliftHV"; // PowerLinePrefab, item lift
             public const string CarrierFixedGrip = "SkiLiftChair4"; // StaticObjectPrefab
-            public const string LineDetachable = "SkiDetachableHV"; // PowerLinePrefab, item liftDetachable, pending
-            public const string CarrierDetachable = "SkiLiftChairDQ4"; // StaticObjectPrefab, pending
-            public const string LineGondola = "SkiGondolaHV"; // PowerLinePrefab, item liftGondola, pending
-            public const string CarrierGondola = "SkiGondolaCabin8"; // StaticObjectPrefab, pending
-            public const string LineTram = "SkiTramHV"; // PowerLinePrefab, item liftTram, pending
-            public const string CarrierTram = "SkiTramCabin"; // StaticObjectPrefab, pending
+            public const string LineDetachable = "SkiDetachableHV"; // PowerLinePrefab, item liftDetachable
+            public const string CarrierDetachable = "SkiLiftChairDQ4"; // StaticObjectPrefab
+            public const string LineGondola = "SkiGondolaHV"; // PowerLinePrefab, item liftGondola
+            public const string CarrierGondola = "SkiGondolaCabin8"; // StaticObjectPrefab
+            public const string LineTram = "SkiTramHV"; // PowerLinePrefab, item liftTram
+            public const string CarrierTram = "SkiTramCabin"; // StaticObjectPrefab
             public const string Marker = "SkiLiftMarker"; // PowerLinePrefab
             public const string StationFixedGripBase = "SkiBaseStationBuilding"; // BuildingPrefab, item baseStation
             public const string StationFixedGripTop = "SkiTopStationBuilding"; // BuildingPrefab, item topStation
-            public const string StationDetachableBase = "SkiDQBaseStationBuilding"; // BuildingPrefab, item baseStationDetachable, pending
-            public const string StationDetachableTop = "SkiDQTopStationBuilding"; // BuildingPrefab, item topStationDetachable, pending
-            public const string StationGondolaBase = "SkiGondolaBaseStationBuilding"; // BuildingPrefab, item baseStationGondola, pending
-            public const string StationGondolaTop = "SkiGondolaTopStationBuilding"; // BuildingPrefab, item topStationGondola, pending
-            public const string StationTramBase = "SkiTramBaseStationBuilding"; // BuildingPrefab, item baseStationTram, pending
-            public const string StationTramTop = "SkiTramTopStationBuilding"; // BuildingPrefab, item topStationTram, pending
+            public const string StationDetachableBase = "SkiDQBaseStationBuilding"; // BuildingPrefab, item baseStationDetachable
+            public const string StationDetachableTop = "SkiDQTopStationBuilding"; // BuildingPrefab, item topStationDetachable
+            public const string StationGondolaBase = "SkiGondolaBaseStationBuilding"; // BuildingPrefab, item baseStationGondola
+            public const string StationGondolaTop = "SkiGondolaTopStationBuilding"; // BuildingPrefab, item topStationGondola
+            public const string StationTramBase = "SkiTramBaseStationBuilding"; // BuildingPrefab, item baseStationTram
+            public const string StationTramTop = "SkiTramTopStationBuilding"; // BuildingPrefab, item topStationTram
             public const string LodgeAFrame = "SkiAFrameDayLodge"; // BuildingPrefab, item lodge
-            public const string LodgeHut = "SkiLodgeHut"; // BuildingPrefab, item lodgeHut, pending
-            public const string LodgeMid = "SkiLodgeMid"; // BuildingPrefab, item lodgeMid, pending
-            public const string LodgeSummit = "SkiLodgeSummit"; // BuildingPrefab, item lodgeSummit, pending
-            public const string LodgeGrand = "SkiLodgeGrand"; // BuildingPrefab, item lodgeGrand, pending
-            public const string School = "SkiSchool"; // BuildingPrefab, item school, pending
-            public const string PatrolHut = "SkiPatrolHut"; // BuildingPrefab, item patrolHut, pending
-            public const string PatrolHQ = "SkiPatrolHQ"; // BuildingPrefab, item patrolHQ, pending
+            public const string LodgeHut = "SkiLodgeHut"; // BuildingPrefab, item lodgeHut
+            public const string LodgeMid = "SkiLodgeMid"; // BuildingPrefab, item lodgeMid
+            public const string LodgeSummit = "SkiLodgeSummit"; // BuildingPrefab, item lodgeSummit
+            public const string LodgeGrand = "SkiLodgeGrand"; // BuildingPrefab, item lodgeGrand
+            public const string School = "SkiSchool"; // BuildingPrefab, item school
+            public const string PatrolHut = "SkiPatrolHut"; // BuildingPrefab, item patrolHut
+            public const string PatrolHQ = "SkiPatrolHQ"; // BuildingPrefab, item patrolHQ
             public const string Sign = "SkiResortGate"; // BuildingPrefab, item sign
             public const string RunNatural = "SkiRunNaturalA"; // SurfacePrefab, item runNatural
             public const string RunGroomed = "SkiRunGroomedA"; // SurfacePrefab, item runGroomed
@@ -671,7 +671,8 @@ namespace SkiResortMod.Systems
         public static readonly IReadOnlyList<BuildItemDef> BuildItems;
         /// <summary>The static initialiser's sanity findings (§1.7). EMPTY when sane. The initialiser NEVER throws.</summary>
         public static readonly IReadOnlyList<string> Problems;
-        /// <summary>Names whose flag is Expected / pending (computed: 11 / 19 today).</summary>
+        /// <summary>Names whose flag is Expected / pending (computed: 30 / 0 since the S1 lift flip of 2026-10-13, round-2-contract
+        /// §10.1, build/s1-fix-codeflip.md; 25 / 5 after the first S1 flip, build/s1-fix-codefix.md; 11 / 19 before both).</summary>
         public static readonly int ExpectedNameCount, PendingNameCount;
 
         // ── the ONE build-item table (contract §1.6, D6; skeptic MUST 8: the markers sit INSIDE the braces, so every line
@@ -744,8 +745,9 @@ namespace SkiResortMod.Systems
             {
                 // ── lift rows (§1.3). Sources: rates, line cost, station costs, weights and λ = ROUND-SPEC §5 (R12); the
                 //    triple = Phase A + §1.2; MaxPylon / slope / hanging = R7, R31; HeightRange.min = the §3.3 clearance
-                //    formula (D16, Richard to confirm); elevation max: FG / DQ SkiChairliftHV.Prefab:19 and towers-v2 Q6,
-                //    gondola lattice-towers §15.2 (40 − 12), tram lattice-towers §15.1 / Q3 (R7 said 60: departure, §0.3). ──
+                //    formula (D16, Richard to confirm); elevation max: FG SkiChairliftHV.Prefab:19 (16 since S1, DECISIONS
+                //    171 / towers-transfer T6 S3), DQ towers-v2 Q6 (10), gondola lattice-towers §15.2 (40 − 12), tram
+                //    lattice-towers §15.1 / Q3 (R7 said 60: departure, §0.3). ──
                 var specs = new[]
                 {
                     new LiftTypeSpec
@@ -762,8 +764,11 @@ namespace SkiResortMod.Systems
                         ElevationCostPer10m = 5,                       // SkiChairliftPiece.Prefab:66 m_ElevationCost
                         StationCostBase = 60000, StationCostTop = 30000,   // SkiBase/TopStationBuilding.Prefab PlaceableObject (CT-12)
                         ScoreValue = FixedGrip.ScoreValue, SummerShare = FixedGrip.SummerShare,
-                        // SkiChairliftHV.Prefab:292 / :288 / :293, PlaceableNet :19; SkiLiftHaulRopeB 0.03; SkiChairliftPiece.Prefab:133
-                        Envelope = new LiftEnvelope(60f, 0.8f, 0.03f, 0.03f, 6f, 10f),
+                        // SkiChairliftHV.Prefab:292 / :288 / :293, PlaceableNet :19; SkiLiftHaulRopeB 0.03; SkiChairliftPiece.Prefab:133.
+                        // Elevation max 10 → 16 (S1 2026-10-13, CT-12 pattern: SkiChairliftHV.Prefab:19 m_ElevationRange.max in
+                        // the same commit; DECISIONS 171 ~17:55 "so FG20 spawns at player nodes"; towers-transfer.md T6 S3:
+                        // the FG ladder grounds exactly to 16, so 0 m of margin, and FG24 stays unneeded only while ≤ 16).
+                        Envelope = new LiftEnvelope(60f, 0.8f, 0.03f, 0.03f, 6f, 16f),
                         CloseElectricityView = FixedGrip.CloseElectricityView, LineExpected = true,
                     },
                     new LiftTypeSpec
@@ -779,7 +784,10 @@ namespace SkiResortMod.Systems
                         FixedPerMonth = 5000f, PerKmPerMonth = 2000f, LineBuildPer8m = 120, ElevationCostPer10m = 10,
                         StationCostBase = 125000, StationCostTop = 65000, ScoreValue = 15.0, SummerShare = 0.25,
                         Envelope = new LiftEnvelope(90f, 0.9f, 0f, 0.004f, 5.8f, 10f),
-                        CloseElectricityView = true, LineExpected = false,
+                        CloseElectricityView = true, LineExpected = true,
+                        // S1 lift flip (2026-10-13, round-2-contract §10.1, build/s1-fix-codeflip.md): SkiDetachableHV and
+                        // SkiLiftChairDQ4 exist game-side: line and carrier Expected, the row derived-Expected (MUST 5).
+                        CarrierExpected = new[] { true },
                     },
                     new LiftTypeSpec
                     {
@@ -794,7 +802,10 @@ namespace SkiResortMod.Systems
                         FixedPerMonth = 8000f, PerKmPerMonth = 3000f, LineBuildPer8m = 175, ElevationCostPer10m = 15,
                         StationCostBase = 190000, StationCostTop = 110000, ScoreValue = 25.0, SummerShare = 0.75,
                         Envelope = new LiftEnvelope(250f, 1.2f, 0f, 0.004f, 6f, 28f),
-                        CloseElectricityView = true, LineExpected = false,
+                        CloseElectricityView = true, LineExpected = true,
+                        // S1 lift flip (2026-10-13, round-2-contract §10.1, build/s1-fix-codeflip.md): SkiGondolaHV and
+                        // SkiGondolaCabin8 exist game-side: line and carrier Expected, the row derived-Expected (MUST 5).
+                        CarrierExpected = new[] { true },
                     },
                     new LiftTypeSpec
                     {
@@ -810,7 +821,10 @@ namespace SkiResortMod.Systems
                         FixedPerMonth = 11000f, PerKmPerMonth = 4500f, LineBuildPer8m = 270, ElevationCostPer10m = 25,
                         StationCostBase = 300000, StationCostTop = 190000, ScoreValue = 30.0, SummerShare = 1.0,
                         Envelope = new LiftEnvelope(1000f, 2.5f, 0f, 0.004f, 13.75f, 30f),
-                        CloseElectricityView = true, LineExpected = false,
+                        CloseElectricityView = true, LineExpected = true,
+                        // S1 import flips (2026-10-13, round-2-contract §10.1): SkiTramCabin (build/s1-fix-codefix.md), then
+                        // SkiTramHV (build/s1-fix-codeflip.md) exist game-side: both names Expected, the row derived-Expected (MUST 5).
+                        CarrierExpected = new[] { true },
                         // Catalog Phase C (round-3-contract §1.2): the shuttle profile. Accel: the brief's "0.8 m/s² or
                         // similar" (real jig-back trams ≈ 0.5-1.0 m/s², unverified); dwell: RS §5 "dwell 60 s",
                         // carriers.json tram dwell_s 60 (CT-11).
@@ -825,33 +839,41 @@ namespace SkiResortMod.Systems
                 //    loop (Shuttle). FG: lift_terminal.py drive (0.2, 3.5) + 0.05 / return 3.7 at the origin, authoring
                 //    (x, y, z) → (y, z, x) (was ChairPinSystem.cs:346-350). DQ: SkiDQ{Base,Top}StationA.manifest.json
                 //    contract.wheel_local_prefab / stub_tip_local_z (the rope at the GRIP-TOP lane, D8). Gondola:
-                //    dq-terminal §12 / §13 (Z_ROPE 0.30 + 0.05 + 4.50; not built yet — re-read its manifest at the
-                //    surgery). Tram: tram-stations §3, SkiTram{Base,Top}StationA.manifest.json prefab_contract.stub_tip_z.
+                //    dq-terminal §12 / §13 (Z_ROPE 0.30 + 0.05 + 4.50), SkiGondola{Base,Top}StationA.manifest.json
+                //    contract.wheel_local_prefab / stub_tip_local_z. Tram: tram-stations §3,
+                //    SkiTram{Base,Top}StationA.manifest.json prefab_contract.stub_tip_z / docks / axis_x. S1 re-read
+                //    (2026-10-13, before the station surgery): DQ (0, 3.70, 9.60) / (0, 3.70, 5.60) −16, gondola
+                //    (0, 4.85, 9.40) / (0, 4.85, 5.40) −16, tram base docks (−9.50 / 1.50, 16.00, −5.50) axis −4.00 −12,
+                //    tram top (−5.50 / 5.50, 16.00, −5.50) axis 0 −12: every row below equals its manifest.
                 //    BuildCost = the type's StationCost{Base,Top} (Sanity checks it). ──
                 float nan = float.NaN;
                 stations = new[]
                 {
-                    // Catalog Phase B (round-2-contract §1.4; was SkiCatalog.cs:291-294, one StubTipLocalZ for every station)
+                    // Catalog Phase B (round-2-contract §1.4; was SkiCatalog.cs:291-294, one StubTipLocalZ for every station).
+                    // S1 import flip (2026-10-13, §10.1): the six DQ / gondola / tram rows are Expected (prefabs game-side and
+                    // mirrored; CT-12 costs 125,000 / 65,000 / 190,000 / 110,000 / 300,000 / 190,000 equal the mirror).
                     Station(lifts, Names.StationFixedGripBase, StationRole.Base, FixedGrip.Id, new float3(0f, 3.55f, 0.2f), StubTipLocalZ, 60000, "baseStation", true),
                     Station(lifts, Names.StationFixedGripTop, StationRole.Top, FixedGrip.Id, new float3(0f, 3.75f, 0f), StubTipLocalZ, 30000, "topStation", true),
-                    Station(lifts, Names.StationDetachableBase, StationRole.Base, "detachable", new float3(0f, 3.70f, 9.60f), -16f, 125000, "baseStationDetachable", false),
-                    Station(lifts, Names.StationDetachableTop, StationRole.Top, "detachable", new float3(0f, 3.70f, 5.60f), -16f, 65000, "topStationDetachable", false),
-                    Station(lifts, Names.StationGondolaBase, StationRole.Base, "gondola", new float3(0f, 4.85f, 9.40f), -16f, 190000, "baseStationGondola", false),
-                    Station(lifts, Names.StationGondolaTop, StationRole.Top, "gondola", new float3(0f, 4.85f, 5.40f), -16f, 110000, "topStationGondola", false),
+                    Station(lifts, Names.StationDetachableBase, StationRole.Base, "detachable", new float3(0f, 3.70f, 9.60f), -16f, 125000, "baseStationDetachable", true),
+                    Station(lifts, Names.StationDetachableTop, StationRole.Top, "detachable", new float3(0f, 3.70f, 5.60f), -16f, 65000, "topStationDetachable", true),
+                    Station(lifts, Names.StationGondolaBase, StationRole.Base, "gondola", new float3(0f, 4.85f, 9.40f), -16f, 190000, "baseStationGondola", true),
+                    Station(lifts, Names.StationGondolaTop, StationRole.Top, "gondola", new float3(0f, 4.85f, 5.40f), -16f, 110000, "topStationGondola", true),
                     // Catalog Phase C (round-3-contract §1.2, C16; was the 9-argument Station(...) rows): the tram's two
                     // docks at the track rope, SkiTram{Base,Top}StationA.manifest.json prefab_contract.docks[0..1].rope
                     // (levels identical on base and top, gondola-tram-integration §2 / §10.4); the base hosts the cabins (R29).
                     // Nitpick B2 (2026-10-13, build/nitpick-b2-tram-ramps.md): the base's lot 5 x 3 -> 6 x 3 (the new cell on the
                     // clock-tower side) moved its building 4.00 m toward -X: the line axis at prefab x -4.00 (manifest
                     // prefab_contract.axis_x), the docks (-5.50 / 5.50) -> (-9.50 / 1.50); the top is unchanged.
-                    Station(lifts, Names.StationTramBase, StationRole.Base, "tram", new float3(nan, nan, nan), -12f, 300000, "baseStationTram", false,
+                    Station(lifts, Names.StationTramBase, StationRole.Base, "tram", new float3(nan, nan, nan), -12f, 300000, "baseStationTram", true,
                             new float3(-9.50f, 16.00f, -5.50f), new float3(1.50f, 16.00f, -5.50f), true, -4.00f),
-                    Station(lifts, Names.StationTramTop, StationRole.Top, "tram", new float3(nan, nan, nan), -12f, 190000, "topStationTram", false,
+                    Station(lifts, Names.StationTramTop, StationRole.Top, "tram", new float3(nan, nan, nan), -12f, 190000, "topStationTram", true,
                             new float3(-5.50f, 16.00f, -5.50f), new float3(5.50f, 16.00f, -5.50f), false),
                 };
 
                 // ── lodge ladder (§1.5; ROUND-SPEC §5 table, R11, R21 complexity 1 everywhere; bldg-kit §18.2). Jobs /
-                //    BuildCost / Upkeep are informational (the prefab is the truth; CT-12 compares an expected row). ──
+                //    BuildCost / Upkeep are informational (the prefab is the truth; CT-12 compares an expected row). S1 import
+                //    flip (2026-10-13, §10.1): the four new tiers, the school and both patrol huts are Expected; their
+                //    m_UpgradeCost / m_ForbidMultiple / m_Workplaces / m_Upkeep in gamedata-mirror equal the rows below. ──
                 lodges = new[]
                 {
                     // Catalog Phase B (round-2-contract §1.5; was SkiCatalog.cs:296 { LodgeAFrame, 360, "lodge" }):
@@ -861,16 +883,16 @@ namespace SkiResortMod.Systems
                                  luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.Base, expected: true),
                     new LodgeDef(1, "hut", Names.LodgeHut, "lodgeHut", b: 16, e: 4, mu: 0.5, muSummit: 0.75, capacity: 200,
                                  priceTolerance: 0, jobs: 4, buildCost: 50000, upkeep: 3000, forbidMultiple: false,
-                                 luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.Mountain, expected: false),
+                                 luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.Mountain, expected: true),
                     new LodgeDef(2, "mid", Names.LodgeMid, "lodgeMid", b: 30, e: 8, mu: 0.5, muSummit: 0.5, capacity: 720,
                                  priceTolerance: 20, jobs: 14, buildCost: 200000, upkeep: 10000, forbidMultiple: false,
-                                 luxury: false, spendMultiplier: 1.5f, roadRule: LodgeRoadRule.Base, expected: false),
+                                 luxury: false, spendMultiplier: 1.5f, roadRule: LodgeRoadRule.Base, expected: true),
                     new LodgeDef(3, "summit", Names.LodgeSummit, "lodgeSummit", b: 40, e: 12, mu: 0.5, muSummit: 1.0, capacity: 480,
                                  priceTolerance: 40, jobs: 24, buildCost: 1500000, upkeep: 55000, forbidMultiple: false,
-                                 luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Mountain, expected: false),
+                                 luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Mountain, expected: true),
                     new LodgeDef(4, "grand", Names.LodgeGrand, "lodgeGrand", b: 40, e: 12, mu: 0.6, muSummit: 0.6, capacity: 1080,
                                  priceTolerance: 40, jobs: 32, buildCost: 1200000, upkeep: 60000, forbidMultiple: false,
-                                 luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Base, expected: false),
+                                 luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Base, expected: true),
                 };
 
                 // ── school and patrol (R13; civic-sign D3 / D11; R9 roads: the school is a Base road row, patrol huts stay
@@ -878,22 +900,22 @@ namespace SkiResortMod.Systems
                 schools = new[]
                 {
                     new SchoolDef(Names.School, "school", School.ScoreValue, School.DemandFactor, jobs: 10, buildCost: 80000,
-                                  upkeep: 6000, forbidMultiple: true, roadRule: LodgeRoadRule.Base, expected: false),
+                                  upkeep: 6000, forbidMultiple: true, roadRule: LodgeRoadRule.Base, expected: true),
                 };
                 patrols = new[]
                 {
                     new PatrolDef(Names.PatrolHut, "patrolHut", Patrol.RadiusM, Patrol.ExpertFactor, Patrol.BackcountryServedMin,
                                   jobs: 2, buildCost: 15000, upkeep: 1500, forbidMultiple: false, roadRule: LodgeRoadRule.None,
-                                  expected: false),
+                                  expected: true),
                     new PatrolDef(Names.PatrolHQ, "patrolHQ", Patrol.RadiusM, Patrol.ExpertFactor, Patrol.BackcountryServedMin,
                                   jobs: 2, buildCost: 15000, upkeep: 1500, forbidMultiple: false, roadRule: LodgeRoadRule.None,
-                                  expected: false),
+                                  expected: true),
                 };
 
-                // Sign: the SHIPPED cost, SkiResortGate.Prefab:25 = 5000 (skeptic MUST 7: no standing hub "[items] drift"
-                // WARN for a known pending difference). R14's 12,000 lands with the sign surgery, in the same commit as the
-                // prefab (§10.1 rule; LiftBatch CT-12 fails on any difference).
-                signs = new[] { new SignDef(Names.Sign, "sign", 5000, true) };
+                // Sign: R14's 12,000, landed with the S1 sign surgery (2026-10-13, STATE §3 step 22): SkiResortGate.Prefab:25
+                // PlaceableObject m_ConstructionCost 5000 → 12000 in the same commit (§10.1 rule; LiftBatch CT-12 fails on any
+                // difference, and the hub writes one "[items] drift" WARN per load while the two disagree, skeptic MUST 7).
+                signs = new[] { new SignDef(Names.Sign, "sign", 12000, true) };
 
                 runs = new[]
                 {

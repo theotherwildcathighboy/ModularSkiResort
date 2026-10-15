@@ -525,6 +525,13 @@ export function lodgeSpendShown(l: ResortLive | null): boolean {
   return !!l && l.lodgeSpendMonth > 0;
 }
 
+/** Contract 7 (season passes v1): the Money view's pass rows and the Guests view's pass-holder row are drawn while passes are on (the
+ *  Options share above 0) or one was sold / a holder skied; with the share at 0 and none, the views are today's. */
+export function passesShown(l: ResortLive | null, city: CityStats): boolean {
+  if (!l) return false;
+  return city.passShare > 0 || l.passesSoldSeason > 0 || l.passHoldersThisMonth > 0 || l.passHoldersLastMonth > 0;
+}
+
 /** Buildings + wages a month, or -1 when either is unknown. */
 export function buildingsAndWages(live: ResortLive): number {
   return live.buildingsMonth < 0 || live.wagesMonth < 0 ? -1 : live.buildingsMonth + live.wagesMonth;

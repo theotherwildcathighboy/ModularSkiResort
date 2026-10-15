@@ -198,9 +198,9 @@ namespace SkiResortMod
                     "Draw the lift line like a road: towers pick their own height, chairs " +
                     "ride the cable."
                 },
-                // Catalog Phase B (round-2-contract §8.6, §10.1): the three new lines and six new stations (pending prefabs:
-                // SkiCatalog NAMES ", pending"; the keys are ready for the prefab-surgery round). The tram is not offered until
-                // Phase C (Shuttle mover). hubText.ts ASSET_NAME holds the same names (gate R4).
+                // Catalog Phase B (round-2-contract §8.6, §10.1): the three new lines and six new stations (keys written while
+                // pending; all nine names Expected since the S1 import flips of 2026-10-13, build/s1-fix-codeflip.md). The tram is
+                // not offered until Phase C (Shuttle mover). hubText.ts ASSET_NAME holds the same names (gate R4).
                 { "Assets.NAME[SkiDetachableHV]", "Detachable Quad Chairlift" },
                 { "Assets.DESCRIPTION[SkiDetachableHV]", "Four-seat chairs that detach from the cable in the stations. Draw it like a road." },
                 { "Assets.NAME[SkiGondolaHV]", "Gondola" },
@@ -389,6 +389,10 @@ namespace SkiResortMod
                 { "Assets.DESCRIPTION[SkiProbeCoatA]", "A test object for one import session. Remove it when the test is done." },
                 { "Assets.NAME[SkiProbeFndA]", "Ski Resort — import probe A: Foundation (delete after test)" },
                 { "Assets.DESCRIPTION[SkiProbeFndA]", "A test object for one import session. Remove it when the test is done." },
+                // FndA is the one probe that is a ServiceUpgrade (its prefab carries Game.Prefabs.ServiceUpgrade), so the panel
+                // and Find It read the UPGRADE_* keys (header :8; build/s1-probes-check.md §5 item 1; S1 fix 2026-10-13).
+                { "Assets.UPGRADE_NAME[SkiProbeFndA]", "Ski Resort — import probe A: Foundation (delete after test)" },
+                { "Assets.UPGRADE_DESCRIPTION[SkiProbeFndA]", "A test object for one import session. Remove it when the test is done." },
                 { "Assets.NAME[SkiProbeGlsA]", "Ski Resort — import probe A: Glass (delete after test)" },
                 { "Assets.DESCRIPTION[SkiProbeGlsA]", "A test object for one import session. Remove it when the test is done." },
                 { "Assets.NAME[SkiProbeLodA]", "Ski Resort — import probe A: LOD (delete after test)" },
@@ -926,7 +930,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_NET", "Net a month" },
                 { "SkiResort.Hub.MONEY_TIP[Natural]", "Natural runs have no running cost." },
                 { "SkiResort.Hub.MONEY_TIP[Net]", "Ticket income minus the running costs at today's rates. What tourists spend in your city's shops and hotels is not included." },
-                { "SkiResort.Hub.MONEY_NOTE[Panel]", "Resort money is not in the game's Economy panel; it goes straight to your balance. Buildings and wages are billed by the game under Parks & Recreation." },
+                { "SkiResort.Hub.MONEY_NOTE[Panel]", "Lift tickets and season passes are listed in the Economy panel under public transportation fees only while Options > Modular Ski Resort > Main > Ski area balance > Book lift tickets as public-transport fees is on; the rest goes straight to your balance. Buildings and wages are billed by the game under Parks & Recreation." },
                 { "SkiResort.Hub.MONEY_NOTE[Rwh]", "Detected: Realistic Workplaces. The real bill can differ." },
                 { "SkiResort.Hub.MONEY_TIP[Rwh]", "Realistic Workplaces And Households changes staff and service costs, so the bill can differ." },
                 { "SkiResort.Hub.MONEY_NOTE[Est]", "≈ Tickets are projected from this month so far until a full month has been counted." },
@@ -936,6 +940,14 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Who]", "Only ski days react to it. Visitors the game sends on its own come at any price, and the attraction score ignores it." },
                 // Catalog Phase B (D15): the Money view's lodge-spend income row (only while it earned money this month).
                 { "SkiResort.Hub.MONEY_ROW[LodgeSpend]", "Lodge spend" },
+                // Contract 7 (season passes v1; hubText.ts holds the same texts, gate R4).
+                { "SkiResort.Hub.MONEY_NOTE[Fees]", "Shown in the Economy panel under public transportation fees" },
+                { "SkiResort.Hub.MONEY_ROW[Passes]", "Season passes sold (this season) · {N}" },
+                { "SkiResort.Hub.MONEY_TIP[Passes]", "Season passes sold in the current ski season (July to June) and what they paid, counted since the game was loaded. A household that buys a pass skis free at the gate for the rest of the season and goes skiing more often. Set the share and the price in Options > Modular Ski Resort > Main > Ski area balance. Booked like lift tickets." },
+                { "SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holders skiing (this month)" },
+                { "SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a season pass this month. They paid once, so they add no ticket money now." },
+                { "SkiResort.Hub.GUESTS_ROW[PassHolders]", "of which pass holders" },
+                { "SkiResort.Hub.GUESTS_TIP[PassHolders]", "Residents who came in on a season pass: they paid once for the season and pay nothing at the gate. Tourists never hold one." },
                 { "SkiResort.Hub.MONEY_TIP[LodgeSpend]", "What paying ski guests spent at the lodges (Options > Modular Ski Resort > Main > Ski area balance > Lodge spend per guest)." },
                 // MONEY_NOTE[Unknown] retired in Round F7 (D2): the tickets row says "counted after a quarter month".
                 { "SkiResort.Hub.UNLINKED_MONEY", "Runs that are not linked cost nothing and earn nothing; their lifts still cost money to run." },

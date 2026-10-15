@@ -69,10 +69,10 @@
 // member call in a loop over every building, M4).
 //
 // LOG CONTRACT — SILENCE MUST BE IMPOSSIBLE (ChairPinSystem header, ChairPinSystem.cs:352-361):
-//   * "SkiPrefabCatalogSystem created (30 names: …; 11 expected, 19 pending; 25 build items; …)" once (counts
+//   * "SkiPrefabCatalogSystem created (30 names: …; 30 expected, 0 pending; 25 build items; …)" once (counts
 //     computed); "!!! PrefabCatalog: …" at OnCreate when SkiCatalog.Problems is not empty or a SkiCatalog.Type* constant
 //     differs from nameof(the Game type);
-//   * ONE "PrefabCatalog [arm] load N, generation G: E/11 expected FOUND, P/19 pending FOUND — …; MISSING: …; pending
+//   * ONE "PrefabCatalog [arm] load N, generation G: E/30 expected FOUND, P/0 pending FOUND — …; MISSING: …; pending
 //     (not imported yet): …; lift types: …; resolver …" per Game / Editor load: Info when every EXPECTED name is FOUND
 //     with its own PrefabID type and every FOUND carrier has bounds within 0.01 m of its HangM, WARN otherwise (a FOUND
 //     pending name with a wrong type or bad bounds counts too: it works like an expected one). Written at the first query
@@ -962,7 +962,7 @@ namespace SkiResortMod.Systems
 
         // ================================================================== text
 
-        /// <summary>"E/11 expected FOUND, P/19 pending FOUND — … ; MISSING: … ; pending (not imported yet): …" into sb;
+        /// <summary>"E/30 expected FOUND, P/0 pending FOUND — … ; MISSING: … ; pending (not imported yet): …" into sb;
         /// sets m_ExpectedMissing / m_PendingFound. True when an EXPECTED name is MISSING or any FOUND name has another
         /// PrefabID type (pending MISSING names never raise it, D5).</summary>
         private bool AppendSlots(StringBuilder sb)

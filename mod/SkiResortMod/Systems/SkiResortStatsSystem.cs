@@ -273,6 +273,10 @@ namespace SkiResortMod.Systems
         public int LuxuryIgnored;
         public float SchoolValue;
         public int PatrolledRuns, PriceTolerance, LodgeSpendMonth;
+        // Season passes v1 (contract 7), appended in this order: PassesSoldSeason / PassIncomeSeason = this ski season's pass sales at
+        // the area (SkiMoneyRules.SeasonKeyOfDate; counted since the game was loaded, the ledger is in memory), PassHoldersThisMonth /
+        // LastMonth = guests who came in on a pass (-1 unknown, as the other guest numbers).
+        public int PassesSoldSeason, PassIncomeSeason, PassHoldersThisMonth, PassHoldersLastMonth;
     }
 
     /// <summary>bindings.ts RunRow (contract 3). Catalog row order.</summary>
@@ -330,6 +334,8 @@ namespace SkiResortMod.Systems
         // ", ", or "?" (SkiTripSystems.UnknownLabel = bindings.ts TRIP_PLANNER_UNKNOWN: a system off, no known mod).
         public string TripPlanner;
         public bool TripPlannerBlocksSkiDays;   // LeisureSystem or CitizenBehaviorSystem off: ski days not armed
+        public bool BookTicketsAsFees;          // Contract 7 (stage 1a setting): tickets and passes are public-transport fees
+        public int PassShare;                   // Contract 7: SeasonPassShare, clamped 0..100 (0 = passes off)
 
         public bool Equals(CityStats o)
         {
@@ -337,7 +343,8 @@ namespace SkiResortMod.Systems
                    TicketPrice == o.TicketPrice && SnowGating == o.SnowGating && SnowmakingMarginC.Equals(o.SnowmakingMarginC) &&
                    SnowVisualsOff == o.SnowVisualsOff && TourismOverhaul == o.TourismOverhaul &&
                    RealisticWorkplaces == o.RealisticWorkplaces && TripPlanner == o.TripPlanner &&
-                   TripPlannerBlocksSkiDays == o.TripPlannerBlocksSkiDays;
+                   TripPlannerBlocksSkiDays == o.TripPlannerBlocksSkiDays && BookTicketsAsFees == o.BookTicketsAsFees &&
+                   PassShare == o.PassShare;
         }
 
         public override bool Equals(object obj)
@@ -360,7 +367,9 @@ namespace SkiResortMod.Systems
                 h = h * 31 + (TourismOverhaul ? 1 : 0);
                 h = h * 31 + (RealisticWorkplaces ? 1 : 0);
                 h = h * 31 + (TripPlanner ?? "").GetHashCode();
-                return h * 31 + (TripPlannerBlocksSkiDays ? 1 : 0);
+                h = h * 31 + (TripPlannerBlocksSkiDays ? 1 : 0);
+                h = h * 31 + (BookTicketsAsFees ? 1 : 0);
+                return h * 31 + PassShare;
             }
         }
     }
@@ -2140,6 +2149,12 @@ namespace SkiResortMod.Systems
                     live.ResidentsLastMonth = lastKnown ? e.Last.LocalGuests : -1;
                     live.PaidLastMonth = lastKnown ? e.Last.TicketsPaid : -1;
                     live.TicketsLastMonth = lastKnown ? ClampToInt(Math.Max(0L, e.Last.TicketIncome)) : -1;
+                    // Season passes v1 (contract 7): the season's sales (the ledger keeps them across month rolls) and the holders by month.
+                    int seasonKey = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate);
+                    live.PassesSoldSeason = SkiResortLedger.PassSeasonSoldOf(e, seasonKey);
+                    live.PassIncomeSeason = ClampToInt(SkiResortLedger.PassSeasonIncomeOf(e, seasonKey));
+                    live.PassHoldersThisMonth = e.This.PassHolderGuests;
+                    live.PassHoldersLastMonth = lastKnown ? e.Last.PassHolderGuests : -1;
                     ticketIncome = HubRules.TicketIncomeMonth(lastMonthFull, e.Last.TicketIncome, e.Last.TicketsPaid,
                         e.This.TicketIncome, e.This.TicketsPaid, countedFraction, out ticketPaid, out ticketEstimated);
                 }
@@ -2149,6 +2164,7 @@ namespace SkiResortMod.Systems
                     live.PaidThisMonth = live.UnpaidThisMonth = live.FreeThisMonth = live.TicketsThisMonth = -1;
                     live.GuestsLastMonth = live.TouristsLastMonth = live.TouristGroupsLastMonth = live.ResidentsLastMonth = -1;
                     live.PaidLastMonth = live.TicketsLastMonth = -1;
+                    live.PassesSoldSeason = live.PassIncomeSeason = live.PassHoldersThisMonth = live.PassHoldersLastMonth = -1;   // Contract 7
                     ticketIncome = ticketPaid = -1;
                     ticketEstimated = true;
                 }
@@ -2268,6 +2284,8 @@ namespace SkiResortMod.Systems
                 SkiDaysNow = -1, SkiDaysCap = -1, SkiDaysPowderPct = -1,
                 // Catalog Phase B (contract 6): no ski area — no best lodge, the counts 0, the lodge spend unknown.
                 LodgeBest = "", LodgeSpendMonth = -1,
+                // Contract 7: no ski area — the pass numbers unknown.
+                PassesSoldSeason = -1, PassIncomeSeason = -1, PassHoldersThisMonth = -1, PassHoldersLastMonth = -1,
             };
             if (m_LiftCharge.TryGetResort(Entity.Null, out SkiLiftChargeSystem.ResortLiftCharge charge))
             {
@@ -2423,6 +2441,9 @@ namespace SkiResortMod.Systems
                 RealisticWorkplaces = SkiOtherMods.RealisticWorkplacesDetected,
                 TripPlanner = m_SkiDays != null ? m_SkiDays.TripPlannerLabel ?? "" : "",
                 TripPlannerBlocksSkiDays = m_SkiDays != null && m_SkiDays.TripPlannerBlocksSkiDays,
+                // Contract 7 (season passes v1): the settings the ticket system reads.
+                BookTicketsAsFees = settings != null ? settings.BookTicketsAsFees : SkiResortSettings.DefaultBookTicketsAsFees,
+                PassShare = SkiMoneyRules.ClampPassShare(settings != null ? settings.SeasonPassShare : SkiMoneyRules.PassShareDefault),
             };
         }
 
@@ -2855,6 +2876,10 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.PatrolledRuns);
                 h = Mix(h, (uint)r.PriceTolerance);
                 h = Mix(h, (uint)r.LodgeSpendMonth);
+                h = Mix(h, (uint)r.PassesSoldSeason);   // Contract 7: every appended field is hashed
+                h = Mix(h, (uint)r.PassIncomeSeason);
+                h = Mix(h, (uint)r.PassHoldersThisMonth);
+                h = Mix(h, (uint)r.PassHoldersLastMonth);
             }
             return Mix(h, (uint)rows.Count);
         }
@@ -3030,7 +3055,9 @@ namespace SkiResortMod.Systems
                   .Append(", Realistic Workplaces ").Append(c.RealisticWorkplaces)
                   // Round M2 R9 (build-contract.md §6.11): the trip planner label and whether it blocks ski days.
                   .Append(", trip planner ").Append(string.IsNullOrEmpty(c.TripPlanner) ? "game's own" : c.TripPlanner)
-                  .Append(c.TripPlannerBlocksSkiDays ? " (ski days off)" : "").Append('\n');
+                  .Append(c.TripPlannerBlocksSkiDays ? " (ski days off)" : "")
+                  .Append(", tickets booked as ").Append(c.BookTicketsAsFees ? "public-transport fees" : "a direct add")   // Contract 7
+                  .Append(", season pass share ").Append(c.PassShare).Append(" %").Append('\n');
                 for (int i = 0; i < m_Resorts.Count; i++)
                 {
                     ResortStats r = m_Resorts[i];
@@ -3217,6 +3244,8 @@ namespace SkiResortMod.Systems
               .Append(hasResult && v.Result.SchoolActive ? (v.Result.GreenCounted ? "on (green counted)" : "on (no counted green run)") : "off")
               .Append(" worth ").Append(F(l.SchoolValue, "0.##")).Append("; patrols ").Append(patrols).Append(", runs patrolled ")
               .Append(l.PatrolledRuns).Append("; lodge spend/month ").Append(l.LodgeSpendMonth)
+              .Append("; passes this season ").Append(l.PassesSoldSeason).Append(" +").Append(l.PassIncomeSeason)   // Contract 7
+              .Append(", pass-holder guests this month ").Append(l.PassHoldersThisMonth).Append(" / last ").Append(l.PassHoldersLastMonth)
               .Append("; summit lodges not lift-served ").Append(summitNotServed).Append('\n');
         }
 

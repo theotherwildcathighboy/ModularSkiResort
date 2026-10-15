@@ -341,6 +341,12 @@ function run(srcDir) {
     R.receiptPartsVariant({}), R.receiptPartsVariant(null)], ["school", "plain", "plain", "plain", "plain"]);
   eq("T14.8 lodgeSpendShown", [R.lodgeSpendShown({ lodgeSpendMonth: 150 }), R.lodgeSpendShown({ lodgeSpendMonth: 0 }), R.lodgeSpendShown({ lodgeSpendMonth: -1 }),
     R.lodgeSpendShown(null)], [true, false, false, false]);
+  // Contract 7 (season passes v1): the pass rows show while the share is above 0 or a pass sold / a holder skied.
+  const pl = (o) => Object.assign({ passesSoldSeason: 0, passHoldersThisMonth: 0, passHoldersLastMonth: 0 }, o);
+  eq("T15.1 passesShown", [R.passesShown(pl({}), { passShare: 50 }), R.passesShown(pl({}), { passShare: 0 }), R.passesShown(pl({ passesSoldSeason: 3 }), { passShare: 0 }),
+    R.passesShown(pl({ passHoldersThisMonth: 4 }), { passShare: 0 }), R.passesShown(pl({ passHoldersLastMonth: 1 }), { passShare: 0 }),
+    R.passesShown(pl({ passesSoldSeason: -1, passHoldersThisMonth: -1, passHoldersLastMonth: -1 }), { passShare: 0 }), R.passesShown(null, { passShare: 50 })],
+    [true, false, true, true, true, false, false]);
   eq("T14.9 BUILD_ITEMS covers every id once, table order = BUILD_ITEM_IDS", META.map((m) => m.id), BIND.BUILD_ITEM_IDS);
   return { checks, failures };
 }

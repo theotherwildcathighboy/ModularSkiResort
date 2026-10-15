@@ -852,6 +852,8 @@ namespace SkiResortMod.Systems
             string month = MonthText(key) + label + suffix;
             int guests = 0;
             long income = 0;
+            int passesSold = 0, passHolders = 0;   // Season passes v1
+            long passIncome = 0;
             double lift = 0.0, notLinked = 0.0;
             for (int i = 0; i < m_Ledger.Count; i++)
             {
@@ -864,6 +866,9 @@ namespace SkiResortMod.Systems
                 }
                 guests += m.Guests;
                 income += m.TicketIncome;
+                passesSold += m.PassesSold;
+                passIncome += m.PassIncome;
+                passHolders += m.PassHolderGuests;
                 lift += m.LiftCharged;
                 Entity sign = Ent(e.Sign);
                 Mod.Log.Info($"Guests [month] {month} ski area {Fmt(e.Sign)}{NameSuffix(sign)}: {MonthBody(m)}");
@@ -882,7 +887,9 @@ namespace SkiResortMod.Systems
             // Stage 1a: how much of the tickets was booked as public-transport fees (the rest was added to the balance directly).
             long fees = last ? m_FeeLastMonth : FeeBookedNow() - m_FeeAtMonthStart;
             string feeText = fees < 0 ? "?" : fees.ToString();
-            Mod.Log.Info($"Guests [month] {month} all ski areas: guests {guests}, tickets +{income} ({feeText} of it booked as " +
+            // Season passes v1: the fee total (feeText) now covers tickets AND passes (the ticket system folds both into Booked).
+            Mod.Log.Info($"Guests [month] {month} all ski areas: guests {guests}, tickets +{income}, passes {passesSold} sold +{passIncome} " +
+                         $"with {passHolders} pass-holder guest(s) ({feeText} of tickets and passes booked as " +
                          $"public-transport fees), lift charges -{lift:F0}, " +
                          $"run upkeep {upkeepText} (whole city), " +
                          $"not linked lift charges -{notLinked:F0}; now picked by {parties} tourist part(ies) on the way, " +
@@ -907,6 +914,7 @@ namespace SkiResortMod.Systems
             return $"guests {m.Guests} (tourists {m.TouristGuests} in {m.TouristParties} group(s), {m.TouristOnLeisure} on leisure; " +
                    $"locals {m.LocalGuests}); " +
                    $"tickets {m.TicketsPaid} paid +{m.TicketIncome}, {m.TicketsUnpaid} could not pay, {m.TicketsFree} free; " +
+                   $"passes {m.PassesSold} sold +{m.PassIncome}, {m.PassHolderGuests} pass-holder guest(s); " +   // Season passes v1
                    $"lift charges -{m.LiftCharged:F0}";
         }
 

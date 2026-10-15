@@ -36,6 +36,10 @@
  * has a winter" is gone), PROBLEM_TIP[Efficiency] and RECEIPT_TIP[Efficiency] (garbage named). Options paths name
  * the tab and the group ("Main > Ski area balance > Lift ticket price", "Main > Snow > Snow & season gating").
  * Nothing retired: MONEY_TICKETS_PRICE stays (the tickets row's tooltip line).
+ * Contract 7 (2026-10-14, season passes v1; identical in LocaleEN.cs, gate R4): MONEY_NOTE[Fees] (the line under the tickets row while
+ * tickets are booked as public-transport fees), MONEY_ROW[Passes] (HUB_FMT, {N}), MONEY_TIP[Passes], MONEY_ROW[PassHolders],
+ * MONEY_TIP[PassHolders], GUESTS_ROW[PassHolders], GUESTS_TIP[PassHolders]; MONEY_NOTE[Panel] reworded (it said tickets are never in the
+ * Economy panel, untrue since stage 1a).
  * Catalog Phase A (2026-10-11; docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md R11, ROUND-SPEC R2):
  * 2 changed texts, same keys, identical in root LocaleEN.cs (gate R4): LIFT_CAPACITY_TIP "3-seat chairs ..." (was
  * "4-seat") and Assets.NAME[SkiChairliftHV] "Fixed-Grip Triple Chairlift" (was "Fixed-Grip Chairlift"). No
@@ -352,7 +356,7 @@ export const HUB_LOC = {
   moneyNet: ["SkiResort.Hub.MONEY_NET", "Net a month"],
   moneyTipNatural: ["SkiResort.Hub.MONEY_TIP[Natural]", "Natural runs have no running cost."],
   moneyTipNet: ["SkiResort.Hub.MONEY_TIP[Net]", "Ticket income minus the running costs at today's rates. What tourists spend in your city's shops and hotels is not included."],
-  moneyNotePanel: ["SkiResort.Hub.MONEY_NOTE[Panel]", "Resort money is not in the game's Economy panel; it goes straight to your balance. Buildings and wages are billed by the game under Parks & Recreation."],
+  moneyNotePanel: ["SkiResort.Hub.MONEY_NOTE[Panel]", "Lift tickets and season passes are listed in the Economy panel under public transportation fees only while Options > Modular Ski Resort > Main > Ski area balance > Book lift tickets as public-transport fees is on; the rest goes straight to your balance. Buildings and wages are billed by the game under Parks & Recreation."],
   moneyNoteRwh: ["SkiResort.Hub.MONEY_NOTE[Rwh]", "Detected: Realistic Workplaces. The real bill can differ."],
   moneyTipRwh: ["SkiResort.Hub.MONEY_TIP[Rwh]", "Realistic Workplaces And Households changes staff and service costs, so the bill can differ."],
   moneyNoteEst: ["SkiResort.Hub.MONEY_NOTE[Est]", "≈ Tickets are projected from this month so far until a full month has been counted."],
@@ -363,6 +367,13 @@ export const HUB_LOC = {
   // Contract 6 (D15): the lodge-spend income row (drawn only while lodgeSpendMonth > 0; hubRules.lodgeSpendShown).
   moneyRowLodgeSpend: ["SkiResort.Hub.MONEY_ROW[LodgeSpend]", "Lodge spend"],
   moneyTipLodgeSpend: ["SkiResort.Hub.MONEY_TIP[LodgeSpend]", "What paying ski guests spent at the lodges (Options > Modular Ski Resort > Main > Ski area balance > Lodge spend per guest)."],
+  // Contract 7 (season passes v1): rows drawn while passes are on or used (hubRules.passesShown); the note while tickets are fees.
+  moneyNoteFees: ["SkiResort.Hub.MONEY_NOTE[Fees]", "Shown in the Economy panel under public transportation fees"],
+  moneyTipPasses: ["SkiResort.Hub.MONEY_TIP[Passes]", "Season passes sold in the current ski season (July to June) and what they paid, counted since the game was loaded. A household that buys a pass skis free at the gate for the rest of the season and goes skiing more often. Set the share and the price in Options > Modular Ski Resort > Main > Ski area balance. Booked like lift tickets."],
+  moneyRowPassHolders: ["SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holders skiing (this month)"],
+  moneyTipPassHolders: ["SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a season pass this month. They paid once, so they add no ticket money now."],
+  guestsRowPassHolders: ["SkiResort.Hub.GUESTS_ROW[PassHolders]", "of which pass holders"],
+  guestsTipPassHolders: ["SkiResort.Hub.GUESTS_TIP[PassHolders]", "Residents who came in on a season pass: they paid once for the season and pay nothing at the gate. Tourists never hold one."],
   unlinkedMoney: ["SkiResort.Hub.UNLINKED_MONEY", "Runs that are not linked cost nothing and earn nothing; their lifts still cost money to run."],
 
   // ---- build strip (6.10) ----
@@ -505,6 +516,7 @@ export const HUB_FMT = {
   // money view (6.9)
   moneyTicketsLast: ["SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets last month: {N} paid"],
   moneyTicketsEst: ["SkiResort.Hub.MONEY_TICKETS[Est]", "Lift tickets (estimated): {N} paid"],
+  moneyRowPasses: ["SkiResort.Hub.MONEY_ROW[Passes]", "Season passes sold (this season) · {N}"],
   moneyTicketsPrice: ["SkiResort.Hub.MONEY_TICKETS_PRICE", "Ticket price now: {PRICE}"],
   /** Round M2 R7: {PRICE} = hubRules.hubPrice (Money), {PCT} = hubRules.priceFactorPct (Percentage). */
   moneyPriceLine: ["SkiResort.Hub.MONEY_PRICE_LINE", "Lift ticket {PRICE} · ski days {PCT}"],

@@ -48,6 +48,158 @@ namespace ResortBatch
             PartialMonths(check);      // Round M1 T12
             LiftAreaRuns(check);       // Round M2 T13
             TypeRatesAndSpend(check);  // Catalog Phase B T14 (lift group)
+            SeasonPasses(check);       // Season passes v1 T15
+        }
+
+        // ── T15 Season passes v1 (docs/research/econ-2/build/season-pass-v1.md): season key, price, roll, standing, sale ──
+        private static void SeasonPasses(Func<bool, string, string, bool> check)
+        {
+            const string w = "money T15";
+            // Season key: July (7) and later = the year; January..June = the year before; December and the next March share it.
+            check(SkiMoneyRules.SeasonKeyOf(2030, 7) == 2030, w, "SeasonKeyOf(2030, 7) " + SkiMoneyRules.SeasonKeyOf(2030, 7));
+            check(SkiMoneyRules.SeasonKeyOf(2030, 6) == 2029, w, "SeasonKeyOf(2030, 6) " + SkiMoneyRules.SeasonKeyOf(2030, 6));
+            check(SkiMoneyRules.SeasonKeyOf(2030, 12) == 2030, w, "SeasonKeyOf(2030, 12) " + SkiMoneyRules.SeasonKeyOf(2030, 12));
+            check(SkiMoneyRules.SeasonKeyOf(2031, 3) == 2030, w, "SeasonKeyOf(2031, 3) " + SkiMoneyRules.SeasonKeyOf(2031, 3));
+            check(SkiMoneyRules.SeasonKeyOf(2031, 1) == 2030, w, "SeasonKeyOf(2031, 1) " + SkiMoneyRules.SeasonKeyOf(2031, 1));
+            check(SkiMoneyRules.SeasonKeyOf(2031, 0) == 2030 && SkiMoneyRules.SeasonKeyOf(2031, 13) == 2031, w,
+                  "a month outside 1..12 is clamped: (2031, 0) " + SkiMoneyRules.SeasonKeyOf(2031, 0) + ", (2031, 13) " + SkiMoneyRules.SeasonKeyOf(2031, 13));
+            // From the clock: normalizedDate 0.5 = month index 6 = July (calendar month 7); 0.49 = June; 0.99 = December.
+            check(SkiMoneyRules.SeasonKeyOfDate(2030, 0.5f) == 2030, w, "SeasonKeyOfDate(2030, 0.5) " + SkiMoneyRules.SeasonKeyOfDate(2030, 0.5f));
+            check(SkiMoneyRules.SeasonKeyOfDate(2030, 0.49f) == 2029, w, "SeasonKeyOfDate(2030, 0.49) " + SkiMoneyRules.SeasonKeyOfDate(2030, 0.49f));
+            check(SkiMoneyRules.SeasonKeyOfDate(2030, 0.99f) == 2030, w, "SeasonKeyOfDate(2030, 0.99) " + SkiMoneyRules.SeasonKeyOfDate(2030, 0.99f));
+            check(SkiMoneyRules.SeasonKeyOfDate(2031, 0.2f) == 2030, w, "SeasonKeyOfDate(2031, 0.2) " + SkiMoneyRules.SeasonKeyOfDate(2031, 0.2f));
+            check(SkiMoneyRules.SeasonKeyOfDate(2031, float.NaN) == 2030, w, "SeasonKeyOfDate(2031, NaN) reads month 1: " + SkiMoneyRules.SeasonKeyOfDate(2031, float.NaN));
+
+            // Price: multiplier × ticket, multiplier clamped 2..10, nothing without a ticket price.
+            check(SkiMoneyRules.PassPrice(4, 40) == 160, w, "PassPrice(4, 40) " + SkiMoneyRules.PassPrice(4, 40));
+            check(SkiMoneyRules.PassPrice(10, 200) == 2000, w, "PassPrice(10, 200) " + SkiMoneyRules.PassPrice(10, 200));
+            check(SkiMoneyRules.PassPrice(2, 5) == 10, w, "PassPrice(2, 5) " + SkiMoneyRules.PassPrice(2, 5));
+            check(SkiMoneyRules.PassPrice(1, 40) == 80 && SkiMoneyRules.PassPrice(99, 40) == 400, w,
+                  "multiplier clamped: (1, 40) " + SkiMoneyRules.PassPrice(1, 40) + ", (99, 40) " + SkiMoneyRules.PassPrice(99, 40));
+            check(SkiMoneyRules.PassPrice(4, 0) == 0 && SkiMoneyRules.PassPrice(4, -5) == 0, w, "PassPrice with no ticket price should be 0");
+
+            // Roll: 0 never, 100 always, deterministic, monotone in the share, and about the share over many households.
+            check(!SkiMoneyRules.PassRoll(77, 2030, 0) && !SkiMoneyRules.PassRoll(77, 2030, -10), w, "share <= 0 should never roll");
+            check(SkiMoneyRules.PassRoll(77, 2030, 100) && SkiMoneyRules.PassRoll(77, 2030, 250), w, "share >= 100 should always roll");
+            bool deterministic = true, monotone = true, differsBySeason = false, differsByHousehold = false;
+            int[] shares = { 5, 25, 50, 75, 95 };
+            int[] hits = new int[shares.Length];
+            const int n = 20000;
+            for (int i = 0; i < n; i++)
+            {
+                bool prev = false;
+                for (int s = 0; s < shares.Length; s++)
+                {
+                    bool r = SkiMoneyRules.PassRoll(i, 2030, shares[s]);
+                    deterministic &= r == SkiMoneyRules.PassRoll(i, 2030, shares[s]);
+                    monotone &= !prev || r;   // true at a lower share implies true at every higher one
+                    prev = r;
+                    if (r) hits[s]++;
+                }
+                differsBySeason |= SkiMoneyRules.PassRoll(i, 2030, 50) != SkiMoneyRules.PassRoll(i, 2031, 50);
+                differsByHousehold |= SkiMoneyRules.PassRoll(i, 2030, 50) != SkiMoneyRules.PassRoll(i + 1, 2030, 50);
+            }
+            check(deterministic, w, "PassRoll gave two answers for the same inputs");
+            check(monotone, w, "PassRoll is not monotone in the share");
+            check(differsBySeason, w, "PassRoll never changes with the season key (a household would be stuck with one answer)");
+            check(differsByHousehold, w, "PassRoll never changes with the household index");
+            for (int s = 0; s < shares.Length; s++)
+            {
+                // Expected n × share / 100 with a ±3 % of n band (n = 20,000: ±600, over 6 sigma at share 50).
+                int expected = n * shares[s] / 100;
+                check(Math.Abs(hits[s] - expected) <= n * 3 / 100, w,
+                      "PassRoll at share " + shares[s] + " hit " + hits[s] + " of " + n + ", expected about " + expected);
+            }
+
+            // Standing: none without a component or with another season's, Declined by the flag, else Holder.
+            check(SkiMoneyRules.PassStandingOf(false, 0, 0, 2030) == SkiMoneyRules.PassStanding.None, w, "no component should be None");
+            check(SkiMoneyRules.PassStandingOf(true, 2029, 0, 2030) == SkiMoneyRules.PassStanding.None, w, "last season's pass should be None");
+            check(SkiMoneyRules.PassStandingOf(true, 2029, SkiMoneyRules.PassFlagDeclined, 2030) == SkiMoneyRules.PassStanding.None, w,
+                  "last season's Declined should be None");
+            check(SkiMoneyRules.PassStandingOf(true, 2030, 0, 2030) == SkiMoneyRules.PassStanding.Holder, w, "this season's pass should be Holder");
+            check(SkiMoneyRules.PassStandingOf(true, 2030, SkiMoneyRules.PassFlagDeclined, 2030) == SkiMoneyRules.PassStanding.Declined, w,
+                  "this season's Declined flag should be Declined");
+            check(SkiMoneyRules.PassFlagDeclined == 1, w, "PassFlagDeclined is the serialized bit 1 (save-format contract)");
+
+            // Sale: eligibility first, then the roll, then the money (never into debt).
+            check(SkiMoneyRules.PassSale(false, 100, 5, 2030, 160, 9999) == SkiMoneyRules.PassSaleResult.NotEligible, w, "a tourist is NotEligible");
+            check(SkiMoneyRules.PassSale(true, 0, 5, 2030, 160, 9999) == SkiMoneyRules.PassSaleResult.NotEligible, w, "share 0 is NotEligible");
+            check(SkiMoneyRules.PassSale(true, 100, 5, 2030, 0, 9999) == SkiMoneyRules.PassSaleResult.NotEligible, w, "price 0 is NotEligible");
+            check(SkiMoneyRules.PassSale(true, 100, 5, 2030, 160, 160) == SkiMoneyRules.PassSaleResult.Bought, w, "money == price should buy");
+            check(SkiMoneyRules.PassSale(true, 100, 5, 2030, 160, 159) == SkiMoneyRules.PassSaleResult.CannotPay, w, "money == price - 1 cannot pay");
+            check(SkiMoneyRules.PassSale(true, 100, 5, 2030, 160, 0) == SkiMoneyRules.PassSaleResult.CannotPay, w, "no money cannot pay");
+            check(SkiMoneyRules.PassSale(true, 100, 5, 2030, 160, -50) == SkiMoneyRules.PassSaleResult.CannotPay, w, "a household in debt cannot pay");
+            // A household that rolls out is Declined whatever it holds; one that rolls in with money buys (found by scanning).
+            int declinedIdx = -1, boughtIdx = -1;
+            for (int i = 0; i < 1000 && (declinedIdx < 0 || boughtIdx < 0); i++)
+            {
+                if (SkiMoneyRules.PassRoll(i, 2030, 50)) { if (boughtIdx < 0) boughtIdx = i; }
+                else if (declinedIdx < 0) declinedIdx = i;
+            }
+            check(declinedIdx >= 0 && boughtIdx >= 0, w, "no household in 0..999 rolled in and out at share 50");
+            check(SkiMoneyRules.PassSale(true, 50, declinedIdx, 2030, 160, 999999) == SkiMoneyRules.PassSaleResult.Declined, w,
+                  "a household that rolls out is Declined even when rich");
+            check(SkiMoneyRules.PassSale(true, 50, boughtIdx, 2030, 160, 999999) == SkiMoneyRules.PassSaleResult.Bought, w,
+                  "a household that rolls in with money buys");
+            check(SkiMoneyRules.PassSale(true, 50, boughtIdx, 2030, 160, 10) == SkiMoneyRules.PassSaleResult.CannotPay, w,
+                  "a household that rolls in without the money cannot pay");
+
+            // Ledger: AddPasses books under the AddTickets rules (inputs below 0 read 0, all-zero changes nothing), carries into Total
+            // and moves to Last with the month.
+            var a = new EntityRef(412, 1);
+            var b = new EntityRef(413, 1);
+            var l = new SkiResortLedger();
+            l.Advance(500);
+            int rev0 = l.Revision;
+            l.AddPasses(a, 0, 0, 0);
+            l.AddPasses(a, -3, -100, -2);
+            check(l.Revision == rev0 && l.Count == 0, w, "an all-zero (or negative) AddPasses should change nothing and create no entry");
+            l.AddPasses(a, 2, 320, 5);
+            l.AddPasses(a, 1, 160);
+            l.AddPasses(b, 0, 0, 4);
+            check(l.TryGet(a, out SkiResortLedger.Entry ea) && ea.This.PassesSold == 3 && ea.This.PassIncome == 480 && ea.This.PassHolderGuests == 5, w,
+                  $"ski area a: sold {ea.This.PassesSold} (3), income {ea.This.PassIncome} (480), holder guests {ea.This.PassHolderGuests} (5)");
+            check(l.TryGet(b, out SkiResortLedger.Entry eb) && eb.This.PassesSold == 0 && eb.This.PassIncome == 0 && eb.This.PassHolderGuests == 4, w,
+                  $"ski area b: holder guests only: {eb.This.PassHolderGuests} (4)");
+            check(l.Revision > rev0, w, "AddPasses with a number should move Revision");
+            SkiResortLedger.Month tot = l.Total(false);
+            check(tot.PassesSold == 3 && tot.PassIncome == 480 && tot.PassHolderGuests == 9, w,
+                  $"Total(this): sold {tot.PassesSold} (3), income {tot.PassIncome} (480), holder guests {tot.PassHolderGuests} (9)");
+            check(l.Advance(501) == Advance.Rolled && l.Total(true).PassesSold == 3 && l.Total(false).PassesSold == 0 && l.Total(true).PassHolderGuests == 9, w,
+                  "a roll should move the pass fields to Last and zero This");
+
+            // Ski days (P3): a pass holder gets P = 1 in place of PriceFactor; the existing 10-argument Chance is the holder-false
+            // 11-argument one bit for bit (PriceFactor(40) is exactly 1, PriceFactor(200) is 0.2, SkiDayTests G / Y).
+            SkiDayRules.Knobs def = SkiDayRules.DefaultKnobs();
+            const SkiDayRules.GuestKind res = SkiDayRules.GuestKind.Resident;
+            double holder200 = SkiDayRules.Chance(res, 75, 3.36, 1.0, 0.0, 200, 0, 1.0, 1.0, def, true);
+            double plain40 = SkiDayRules.Chance(res, 75, 3.36, 1.0, 0.0, 40, 0, 1.0, 1.0, def, false);
+            double plain200 = SkiDayRules.Chance(res, 75, 3.36, 1.0, 0.0, 200, 0, 1.0, 1.0, def, false);
+            check(holder200 > 0.0 && BitConverter.DoubleToInt64Bits(holder200) == BitConverter.DoubleToInt64Bits(plain40), w,
+                  $"a holder at price 200 should chance exactly what a non-holder does at price 40 (P = 1): {holder200} vs {plain40}");
+            check(Math.Abs(plain200 - holder200 * 0.2) < 1e-12, w, $"a non-holder at price 200 is 0.2 of the holder: {plain200} vs {holder200 * 0.2}");
+            bool sameBits = true;
+            int[] prices = { 0, 5, 40, 41, 80, 100, 200 };
+            for (int i = 0; i < prices.Length; i++)
+            {
+                double ten = SkiDayRules.Chance(res, 75, 3.36, 1.0, 0.3, prices[i], 20, 1.2, 0.7, def);
+                double eleven = SkiDayRules.Chance(res, 75, 3.36, 1.0, 0.3, prices[i], 20, 1.2, 0.7, def, false);
+                sameBits &= BitConverter.DoubleToInt64Bits(ten) == BitConverter.DoubleToInt64Bits(eleven);
+                // at or below the full-price threshold a holder gains nothing
+                double holder = SkiDayRules.Chance(res, 75, 3.36, 1.0, 0.3, prices[i], 20, 1.2, 0.7, def, true);
+                check(holder >= eleven, w, $"a holder should never chance less than a non-holder (price {prices[i]}): {holder} vs {eleven}");
+            }
+            check(sameBits, w, "the 10-argument Chance should equal the 11-argument one with passHolder false, bit for bit");
+
+            // Constants (the Options sliders and the defaults).
+            check(SkiMoneyRules.PassMultiplierMin == 2 && SkiMoneyRules.PassMultiplierMax == 10 && SkiMoneyRules.PassMultiplierDefault == 4, w,
+                  "multiplier constants 2..10, default 4");
+            check(SkiMoneyRules.PassShareMax == 100 && SkiMoneyRules.PassShareStep == 5 && SkiMoneyRules.PassShareDefault == 50, w,
+                  "share constants 0..100 step 5, default 50");
+            check(SkiMoneyRules.ClampPassShare(-5) == 0 && SkiMoneyRules.ClampPassShare(130) == 100 && SkiMoneyRules.ClampPassShare(55) == 55, w,
+                  "ClampPassShare");
+            check(SkiMoneyRules.ClampPassMultiplier(0) == 2 && SkiMoneyRules.ClampPassMultiplier(11) == 10 && SkiMoneyRules.ClampPassMultiplier(6) == 6, w,
+                  "ClampPassMultiplier");
         }
 
         // ── T14 Catalog Phase B (round-2-contract §6.2, §11.2; lift group): per-type lift rates, lodge spend (seam S3) ──

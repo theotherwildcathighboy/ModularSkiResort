@@ -182,6 +182,29 @@ namespace SkiResortMod.Settings
                     "money goes straight to your balance and is not listed in the Economy panel. Lodge spend always goes " +
                     "straight to your balance. Default on."
                 },
+                // Season passes v1 (DECISIONS 240).
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassShare)),
+                    "Season pass share"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SeasonPassShare)),
+                    "The share of your residents' households that buy a season pass when they first go skiing in a " +
+                    "season (July to June). A pass is paid once, from the household's money, and the household then " +
+                    "skis without paying at the gate for the rest of the season and goes skiing more often. A " +
+                    "household that does not buy pays day tickets all season. Tourists never buy one. 0 turns passes " +
+                    "off. Default 50."
+                },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassMultiplier)),
+                    "Season pass price (× day ticket)"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SeasonPassMultiplier)),
+                    "A season pass costs this many day tickets, at the ticket price on the day it is sold (the price " +
+                    "is then locked for the season). It pays off for a household that skis more often than this many " +
+                    "times. Needs a ticket price above 0. Default 4."
+                },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.EnableSnowGating)),
                     "Snow & season gating"

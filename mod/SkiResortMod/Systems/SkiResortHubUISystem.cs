@@ -13,7 +13,8 @@
 // appended, the bindings and triggers unchanged); contract 5 2026-10-10 (Round M2 R9, builder B3;
 // docs/research/round-m2/build-contract.md §8.1: CityStats.tripPlanner and tripPlannerBlocksSkiDays appended to the
 // `city` writer and comparer, the bindings and triggers unchanged); contract 6 2026-10-11 (Catalog Phase B, code round 2,
-// hub group: header CATALOG PHASE B below). The
+// hub group: header CATALOG PHASE B below); contract 7 2026-10-14 (season passes v1, docs/research/econ-2/build/season-pass-v1.md:
+// four ResortLive fields and two CityStats fields appended, the bindings and triggers unchanged). The
 // per-area numbers are NOT computed here: SkiResortStatsSystem owns them and this system only writes its
 // rows (resorts / resortLive / runs / runLive / lifts / problems / city) to the UI.
 //
@@ -344,7 +345,8 @@
 //     Station / Sign = PlaceableObjectData.m_ConstructionCost; Lodge / School / Patrol = ServiceUpgradeData.m_UpgradeCost
 //     (else PlaceableObjectData); Run as before. A FOUND prefab whose cost differs from its row's informational mirror
 //     (StationDef / LodgeDef / SchoolDef / PatrolDef / SignDef.BuildCost) writes one WARN per item per load
-//     ("Hub [items] drift: … — the prefab wins"); with the sign mirrored at 5,000 (skeptic MUST 7) none is expected today.
+//     ("Hub [items] drift: … — the prefab wins"); the sign row mirrors R14's 12,000 since the S1 sign surgery (2026-10-13;
+//     skeptic MUST 7: it lands with SkiResortGate.Prefab's m_ConstructionCost), so none is expected once both are in.
 //   * HINT (D37 per type): HINT[LiftNoPair] on a line item when HubRules.LiftNoPair holds over the SHOWN area's rows of THAT
 //     lift type (LiftStats.TypeIndex; one scratch list reused per type, no per-recompute allocation).
 //   * ROWS (§8.5): `lifts` appends type / seats / speedMps (LiftStats.Type / Seats / SpeedMps); `resortLive` appends
@@ -394,14 +396,16 @@ namespace SkiResortMod.Systems
         public const string Group = "skiResort";
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a
-        /// binding, trigger, field or meaning changes. 6 = Catalog Phase B (code round 2, round-2-contract.md §8: the 25-row
+        /// binding, trigger, field or meaning changes. 7 = Season passes v1 (2026-10-14, docs/research/econ-2/build/season-pass-v1.md:
+        /// ResortLive appends passesSoldSeason, passIncomeSeason, passHoldersThisMonth, passHoldersLastMonth; CityStats appends
+        /// bookTicketsAsFees and passShare). 6 = Catalog Phase B (code round 2, round-2-contract.md §8: the 25-row
         /// SkiCatalog build table, PROBLEM 23-25, LiftRow type / seats / speedMps, the ResortLive lodge-ladder fields).
         /// 5 = Round M2 (docs/research/round-m2/decisions.md R9,
         /// build-contract.md §8.1: CityStats.tripPlanner and tripPlannerBlocksSkiDays appended); 4 was Round S1, ski
         /// days, docs/research/ski-days/spec (ch4 §A: ten ResortLive fields appended; the six last-month guest fields
         /// also for a partial month); 3 was Round E1 (econ-round spec ch5 §4, design hub-v3-design.md §8); 2 was
         /// hub-u2-spec.md §2 (Rounds U2/M1).</summary>
-        public const int HubContract = 6;
+        public const int HubContract = 7;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed
         /// after the one-shot "!!!" until the next load (amended 2026-10-01, U1 fixer round, finding
@@ -623,6 +627,11 @@ namespace SkiResortMod.Systems
                 writer.Write(value.TripPlanner ?? "");
                 writer.PropertyName("tripPlannerBlocksSkiDays");
                 writer.Write(value.TripPlannerBlocksSkiDays);
+                // Contract 7 (season passes v1): the booking setting (stage 1a) and the pass share (0 = passes off).
+                writer.PropertyName("bookTicketsAsFees");
+                writer.Write(value.BookTicketsAsFees);
+                writer.PropertyName("passShare");
+                writer.Write(Fin(value.PassShare));
                 writer.TypeEnd();
             }
         }
@@ -637,7 +646,8 @@ namespace SkiResortMod.Systems
                        a.BackcountryPct == b.BackcountryPct && a.TicketPrice == b.TicketPrice && a.SnowGating == b.SnowGating &&
                        a.SnowmakingMarginC.Equals(b.SnowmakingMarginC) && a.SnowVisualsOff == b.SnowVisualsOff &&
                        a.TourismOverhaul == b.TourismOverhaul && a.RealisticWorkplaces == b.RealisticWorkplaces &&
-                       a.TripPlanner == b.TripPlanner && a.TripPlannerBlocksSkiDays == b.TripPlannerBlocksSkiDays;   // Round M2 R9
+                       a.TripPlanner == b.TripPlanner && a.TripPlannerBlocksSkiDays == b.TripPlannerBlocksSkiDays &&   // Round M2 R9
+                       a.BookTicketsAsFees == b.BookTicketsAsFees && a.PassShare == b.PassShare;   // Contract 7
             }
 
             public override int GetHashCode(CityStats c)
@@ -655,7 +665,9 @@ namespace SkiResortMod.Systems
                     h = h * 31 + (c.TourismOverhaul ? 1 : 0);
                     h = h * 31 + (c.RealisticWorkplaces ? 1 : 0);
                     h = h * 31 + (c.TripPlanner ?? "").GetHashCode();   // Round M2 R9
-                    return h * 31 + (c.TripPlannerBlocksSkiDays ? 1 : 0);
+                    h = h * 31 + (c.TripPlannerBlocksSkiDays ? 1 : 0);
+                    h = h * 31 + (c.BookTicketsAsFees ? 1 : 0);   // Contract 7
+                    return h * 31 + c.PassShare;
                 }
             }
         }
@@ -3540,6 +3552,15 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.PriceTolerance));
                 writer.PropertyName("lodgeSpendMonth");
                 writer.Write(Fin(r.LodgeSpendMonth));
+                // Contract 7 (season passes v1): this ski season's pass sales (since the game was loaded) and the pass-holder guests by month.
+                writer.PropertyName("passesSoldSeason");
+                writer.Write(Fin(r.PassesSoldSeason));
+                writer.PropertyName("passIncomeSeason");
+                writer.Write(Fin(r.PassIncomeSeason));
+                writer.PropertyName("passHoldersThisMonth");
+                writer.Write(Fin(r.PassHoldersThisMonth));
+                writer.PropertyName("passHoldersLastMonth");
+                writer.Write(Fin(r.PassHoldersLastMonth));
                 writer.TypeEnd();
             }
             writer.ArrayEnd();

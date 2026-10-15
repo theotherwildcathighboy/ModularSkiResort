@@ -3,7 +3,8 @@
 // round-2-contract.md §11.1 with round-2-contract-skeptic.md MUST 2, 5, 7, 8) updates them and adds CT-11..CT-16.
 // Core builder, 2026-10-11. Where-tags `catalog-…`.
 //   CT-1  SkiCatalog.Problems is empty (the static initialiser never throws; it reports here).
-//   CT-2  AllPrefabNames(): 30 entries (11 expected, 19 pending), unique, "Ski…", one of the four PrefabID types,
+//   CT-2  AllPrefabNames(): 30 entries (30 expected, 0 pending since the S1 lift flip, 2026-10-13; 25 / 5 before it, 11 / 19 before S1), unique,
+//         "Ski…", one of the four PrefabID types,
 //         kind ↔ type, 25 item ids unique; ExpectedNameCount / PendingNameCount.
 //   CT-3  every lift type has exactly one Base and one Top station (StationOf answers them); station → known type and
 //         index; a carrier in one type; Ids unique; Carriers mirror CarrierPrefabs.
@@ -21,7 +22,8 @@
 //   CT-10 the resolver-lifetime decision table, SkiCatalog.NextAction (Phase A §2.2 with the skeptic's M1 / M2).
 //   CT-11 catalog/carriers.json (§10.2, skeptic MUST 2: schema stays 1): every row's numbers == its catalog row's.
 //   CT-12 gamedata-mirror drift, Expected rows only: line, piece, station, lodge, school, patrol and sign prefabs vs
-//         the mirror numbers (MUST 7: the sign row mirrors the shipped 5000, so no allow-list is needed).
+//         the mirror numbers (MUST 7: the sign row mirrors the shipped cost, so no allow-list is needed; 12,000 since the
+//         S1 sign surgery, 2026-10-13, was 5000).
 //   CT-13 every name's ", pending" token ⇔ !Expected; each row's Expected is derived from its names (MUST 5).
 //   CT-14 BUILD-ITEMS ↔ NAMES ↔ lift types: base / top / line per type, `baseStation{Suffix}` ids, LineItemOf /
 //         StationItemOf / TypeNameOf.
@@ -118,34 +120,36 @@ namespace LiftBatch
 
         private const string L = "PowerLinePrefab", O = "StaticObjectPrefab", B = "BuildingPrefab", S = "SurfacePrefab";
 
-        /// <summary>LITERALS (round-2-contract §1.1 / §10.1), NAMES-block order. Save identity: never edit a Name.</summary>
+        /// <summary>LITERALS (round-2-contract §1.1 / §10.1), NAMES-block order. Save identity: never edit a Name. S1 import
+        /// flips (2026-10-13): the 14 stations / lodges / school / patrols / tram cabin (build/s1-fix-codefix.md), then the three
+        /// lift lines and the DQ / gondola carriers (build/s1-fix-codeflip.md): all 30 names are Expected.</summary>
         private static readonly NameOracle[] Frozen =
         {
             new NameOracle("SkiChairliftHV", L, CatalogKind.Line, "lift", true),
             new NameOracle("SkiLiftChair4", O, CatalogKind.Carrier, null, true),
-            new NameOracle("SkiDetachableHV", L, CatalogKind.Line, "liftDetachable", false),
-            new NameOracle("SkiLiftChairDQ4", O, CatalogKind.Carrier, null, false),
-            new NameOracle("SkiGondolaHV", L, CatalogKind.Line, "liftGondola", false),
-            new NameOracle("SkiGondolaCabin8", O, CatalogKind.Carrier, null, false),
-            new NameOracle("SkiTramHV", L, CatalogKind.Line, "liftTram", false),
-            new NameOracle("SkiTramCabin", O, CatalogKind.Carrier, null, false),
+            new NameOracle("SkiDetachableHV", L, CatalogKind.Line, "liftDetachable", true),
+            new NameOracle("SkiLiftChairDQ4", O, CatalogKind.Carrier, null, true),
+            new NameOracle("SkiGondolaHV", L, CatalogKind.Line, "liftGondola", true),
+            new NameOracle("SkiGondolaCabin8", O, CatalogKind.Carrier, null, true),
+            new NameOracle("SkiTramHV", L, CatalogKind.Line, "liftTram", true),
+            new NameOracle("SkiTramCabin", O, CatalogKind.Carrier, null, true),
             new NameOracle("SkiLiftMarker", L, CatalogKind.Marker, null, true),
             new NameOracle("SkiBaseStationBuilding", B, CatalogKind.Station, "baseStation", true),
             new NameOracle("SkiTopStationBuilding", B, CatalogKind.Station, "topStation", true),
-            new NameOracle("SkiDQBaseStationBuilding", B, CatalogKind.Station, "baseStationDetachable", false),
-            new NameOracle("SkiDQTopStationBuilding", B, CatalogKind.Station, "topStationDetachable", false),
-            new NameOracle("SkiGondolaBaseStationBuilding", B, CatalogKind.Station, "baseStationGondola", false),
-            new NameOracle("SkiGondolaTopStationBuilding", B, CatalogKind.Station, "topStationGondola", false),
-            new NameOracle("SkiTramBaseStationBuilding", B, CatalogKind.Station, "baseStationTram", false),
-            new NameOracle("SkiTramTopStationBuilding", B, CatalogKind.Station, "topStationTram", false),
+            new NameOracle("SkiDQBaseStationBuilding", B, CatalogKind.Station, "baseStationDetachable", true),
+            new NameOracle("SkiDQTopStationBuilding", B, CatalogKind.Station, "topStationDetachable", true),
+            new NameOracle("SkiGondolaBaseStationBuilding", B, CatalogKind.Station, "baseStationGondola", true),
+            new NameOracle("SkiGondolaTopStationBuilding", B, CatalogKind.Station, "topStationGondola", true),
+            new NameOracle("SkiTramBaseStationBuilding", B, CatalogKind.Station, "baseStationTram", true),
+            new NameOracle("SkiTramTopStationBuilding", B, CatalogKind.Station, "topStationTram", true),
             new NameOracle("SkiAFrameDayLodge", B, CatalogKind.Lodge, "lodge", true),
-            new NameOracle("SkiLodgeHut", B, CatalogKind.Lodge, "lodgeHut", false),
-            new NameOracle("SkiLodgeMid", B, CatalogKind.Lodge, "lodgeMid", false),
-            new NameOracle("SkiLodgeSummit", B, CatalogKind.Lodge, "lodgeSummit", false),
-            new NameOracle("SkiLodgeGrand", B, CatalogKind.Lodge, "lodgeGrand", false),
-            new NameOracle("SkiSchool", B, CatalogKind.School, "school", false),
-            new NameOracle("SkiPatrolHut", B, CatalogKind.Patrol, "patrolHut", false),
-            new NameOracle("SkiPatrolHQ", B, CatalogKind.Patrol, "patrolHQ", false),
+            new NameOracle("SkiLodgeHut", B, CatalogKind.Lodge, "lodgeHut", true),
+            new NameOracle("SkiLodgeMid", B, CatalogKind.Lodge, "lodgeMid", true),
+            new NameOracle("SkiLodgeSummit", B, CatalogKind.Lodge, "lodgeSummit", true),
+            new NameOracle("SkiLodgeGrand", B, CatalogKind.Lodge, "lodgeGrand", true),
+            new NameOracle("SkiSchool", B, CatalogKind.School, "school", true),
+            new NameOracle("SkiPatrolHut", B, CatalogKind.Patrol, "patrolHut", true),
+            new NameOracle("SkiPatrolHQ", B, CatalogKind.Patrol, "patrolHQ", true),
             new NameOracle("SkiResortGate", B, CatalogKind.Sign, "sign", true),
             new NameOracle("SkiRunNaturalA", S, CatalogKind.Run, "runNatural", true),
             new NameOracle("SkiRunGroomedA", S, CatalogKind.Run, "runGroomed", true),
@@ -221,10 +225,10 @@ namespace LiftBatch
                     expected++;
             }
             Eq(25, withItem, W, "names with a build item id (the 25 strip items)");
-            Eq(11, expected, W, "expected names");
-            Eq(19, all.Count - expected, W, "pending names");
-            Eq(11, SkiCatalog.ExpectedNameCount, W, "ExpectedNameCount");
-            Eq(19, SkiCatalog.PendingNameCount, W, "PendingNameCount");
+            Eq(30, expected, W, "expected names");
+            Eq(0, all.Count - expected, W, "pending names");
+            Eq(30, SkiCatalog.ExpectedNameCount, W, "ExpectedNameCount");
+            Eq(0, SkiCatalog.PendingNameCount, W, "PendingNameCount");
             // The four type constants are the Game type names (the system asserts nameof() at OnCreate; literal here).
             Eq("PowerLinePrefab", SkiCatalog.TypeLine, W, "TypeLine");
             Eq("StaticObjectPrefab", SkiCatalog.TypeCarrier, W, "TypeCarrier");
@@ -434,29 +438,32 @@ namespace LiftBatch
             public float Accel, Dwell;   // Catalog Phase C (round-3-contract §1.2): 0 / 0 on Loop types
         }
 
-        /// <summary>round-2-contract §1.3, literal (the table's numbers, not the catalog's).</summary>
+        /// <summary>round-2-contract §1.3, literal (the table's numbers, not the catalog's). Expected: every row true since the S1
+        /// lift flip (2026-10-13, build/s1-fix-codeflip.md; the three new lines and their carriers exist game-side).</summary>
         private static readonly LiftOracle[] LiftOracles =
         {
             new LiftOracle { Id = "fixedGrip", Line = "SkiChairliftHV", Piece = "SkiChairliftPiece", Item = "lift", Carrier = "SkiLiftChair4",
                 Mover = MoverKind.Loop, Seats = 3, Speed = 2.5f, Gauge = 1.8f, Hang = 2.4f, Grip = 0.08f, Axle = 7.04f, Aim = 8.0f,
                 Spacing = 8f, Design = 15f, Rule = ServeRuleKind.AlongLine, Radius = 150f, Margin = 15f, Fixed = 2500f, PerKm = 1000f,
                 Build8 = 60, Elev10 = 5, StBase = 60000, StTop = 30000, LinePerKm = 7500, Ceiling = 4.0, Value = 6, Summer = 0.25,
-                MaxPylon = 60f, Slope = 0.8f, NetH = 0.03f, LaneH = 0.03f, HMin = 6f, ElevMax = 10f, Expected = true },
+                MaxPylon = 60f, Slope = 0.8f, NetH = 0.03f, LaneH = 0.03f, HMin = 6f, ElevMax = 16f, Expected = true },
+                // ElevMax 10 → 16 (S1 2026-10-13, DECISIONS 173 "Yes to both", CT-12 pattern: SkiCatalog FixedGrip Envelope and
+                // SkiChairliftHV.Prefab:19 m_ElevationRange.max 16 landed together; the only departure from the §1.3 table).
             new LiftOracle { Id = "detachable", Line = "SkiDetachableHV", Piece = "SkiDetachablePiece", Item = "liftDetachable", Carrier = "SkiLiftChairDQ4",
                 Mover = MoverKind.Loop, Seats = 4, Speed = 5.0f, Gauge = 2.6f, Hang = 3.3f, Grip = 0.22f, Axle = 8.0f, Aim = 9.0f,
                 Spacing = 22.5f, Design = 30f, Rule = ServeRuleKind.AlongLine, Radius = 150f, Margin = 15f, Fixed = 5000f, PerKm = 2000f,
                 Build8 = 120, Elev10 = 10, StBase = 125000, StTop = 65000, LinePerKm = 15000, Ceiling = 4.8, Value = 15, Summer = 0.25,
-                MaxPylon = 90f, Slope = 0.9f, NetH = 0f, LaneH = 0.004f, HMin = 5.8f, ElevMax = 10f, Expected = false },
+                MaxPylon = 90f, Slope = 0.9f, NetH = 0f, LaneH = 0.004f, HMin = 5.8f, ElevMax = 10f, Expected = true },
             new LiftOracle { Id = "gondola", Line = "SkiGondolaHV", Piece = "SkiGondolaPiece", Item = "liftGondola", Carrier = "SkiGondolaCabin8",
                 Mover = MoverKind.Loop, Seats = 8, Speed = 5.5f, Gauge = 3.0f, Hang = 4.5f, Grip = 0.08f, Axle = 10.0f, Aim = 11.0f,
                 Spacing = 45f, Design = 60f, Rule = ServeRuleKind.AlongLine, Radius = 150f, Margin = 15f, Fixed = 8000f, PerKm = 3000f,
                 Build8 = 175, Elev10 = 15, StBase = 190000, StTop = 110000, LinePerKm = 21875, Ceiling = 6.0, Value = 25, Summer = 0.75,
-                MaxPylon = 250f, Slope = 1.2f, NetH = 0f, LaneH = 0.004f, HMin = 6f, ElevMax = 28f, Expected = false },
+                MaxPylon = 250f, Slope = 1.2f, NetH = 0f, LaneH = 0.004f, HMin = 6f, ElevMax = 28f, Expected = true },
             new LiftOracle { Id = "tram", Line = "SkiTramHV", Piece = "SkiTramPiece", Item = "liftTram", Carrier = "SkiTramCabin",
                 Mover = MoverKind.Shuttle, Seats = 100, Speed = 10.0f, Gauge = 5.5f, Hang = 10.5f, Grip = 0.5f, Axle = 26.25f, Aim = 26.25f,
                 Spacing = 0f, Design = 0f, Rule = ServeRuleKind.TerminalsOnly, Radius = 300f, Margin = 15f, Fixed = 11000f, PerKm = 4500f,
                 Build8 = 270, Elev10 = 25, StBase = 300000, StTop = 190000, LinePerKm = 33750, Ceiling = 12.0, Value = 30, Summer = 1.0,
-                MaxPylon = 1000f, Slope = 2.5f, NetH = 0f, LaneH = 0.004f, HMin = 13.75f, ElevMax = 30f, Expected = false,
+                MaxPylon = 1000f, Slope = 2.5f, NetH = 0f, LaneH = 0.004f, HMin = 13.75f, ElevMax = 30f, Expected = true,
                 Accel = 0.8f, Dwell = 60f },   // Catalog Phase C (round-3-contract §1.2)
         };
 
@@ -581,13 +588,14 @@ namespace LiftBatch
             // build, upkeep, ForbidMultiple, luxury, spend ×, road, expected. ForbidMultiple is false on EVERY lodge tier and
             // the "exclusive group" column became the plain `Luxury` label (a tip / log tag): Richard, 2026-10-11, no limit
             // on how many lodges a player builds (summit and grand were ForbidMultiple true, exclusive group 1: D3).
+            // S1 import flip (2026-10-13, §10.1): every tier is imported, so every row is Expected.
             object[][] rows =
             {
                 new object[] { "aFrame", "SkiAFrameDayLodge", "lodge", 20.0, 4.0, 0.5, 0.5, 360, 0, 6, 40000, 3000, false, false, 1.0f, LodgeRoadRule.Base, true },
-                new object[] { "hut", "SkiLodgeHut", "lodgeHut", 16.0, 4.0, 0.5, 0.75, 200, 0, 4, 50000, 3000, false, false, 1.0f, LodgeRoadRule.Mountain, false },
-                new object[] { "mid", "SkiLodgeMid", "lodgeMid", 30.0, 8.0, 0.5, 0.5, 720, 20, 14, 200000, 10000, false, false, 1.5f, LodgeRoadRule.Base, false },
-                new object[] { "summit", "SkiLodgeSummit", "lodgeSummit", 40.0, 12.0, 0.5, 1.0, 480, 40, 24, 1500000, 55000, false, true, 3.0f, LodgeRoadRule.Mountain, false },
-                new object[] { "grand", "SkiLodgeGrand", "lodgeGrand", 40.0, 12.0, 0.6, 0.6, 1080, 40, 32, 1200000, 60000, false, true, 3.0f, LodgeRoadRule.Base, false },
+                new object[] { "hut", "SkiLodgeHut", "lodgeHut", 16.0, 4.0, 0.5, 0.75, 200, 0, 4, 50000, 3000, false, false, 1.0f, LodgeRoadRule.Mountain, true },
+                new object[] { "mid", "SkiLodgeMid", "lodgeMid", 30.0, 8.0, 0.5, 0.5, 720, 20, 14, 200000, 10000, false, false, 1.5f, LodgeRoadRule.Base, true },
+                new object[] { "summit", "SkiLodgeSummit", "lodgeSummit", 40.0, 12.0, 0.5, 1.0, 480, 40, 24, 1500000, 55000, false, true, 3.0f, LodgeRoadRule.Mountain, true },
+                new object[] { "grand", "SkiLodgeGrand", "lodgeGrand", 40.0, 12.0, 0.6, 0.6, 1080, 40, 32, 1200000, 60000, false, true, 3.0f, LodgeRoadRule.Base, true },
             };
             Eq(rows.Length, SkiCatalog.Lodges.Count, W, "Lodges.Count");
             for (int i = 0; i < rows.Length && i < SkiCatalog.Lodges.Count; i++)
@@ -634,7 +642,7 @@ namespace LiftBatch
                 Eq(6000, s.Upkeep, W, "school Upkeep");
                 Eq(true, s.ForbidMultiple, W, "school ForbidMultiple");
                 Eq(LodgeRoadRule.Base, s.RoadRule, W, "school RoadRule (R9)");
-                Eq(false, s.Expected, W, "school Expected");
+                Eq(true, s.Expected, W, "school Expected (S1 import flip, 2026-10-13)");
             }
             Eq(2, SkiCatalog.Patrols.Count, W, "Patrols.Count");
             string[] patrolNames = { "SkiPatrolHut", "SkiPatrolHQ" }, patrolItems = { "patrolHut", "patrolHQ" };
@@ -652,7 +660,7 @@ namespace LiftBatch
                 Eq(1500, p.Upkeep, W, at + "Upkeep");
                 Eq(false, p.ForbidMultiple, W, at + "ForbidMultiple");
                 Eq(LodgeRoadRule.None, p.RoadRule, W, at + "RoadRule (roadless, R9)");
-                Eq(false, p.Expected, W, at + "Expected");
+                Eq(true, p.Expected, W, at + "Expected (S1 import flip, 2026-10-13)");
             }
             Eq(1, SkiCatalog.Signs.Count, W, "Signs.Count");
             if (SkiCatalog.Signs.Count > 0)
@@ -660,8 +668,9 @@ namespace LiftBatch
                 SignDef g = SkiCatalog.Signs[0];
                 Eq("SkiResortGate", g.Prefab, W, "sign Prefab");
                 Eq("sign", g.BuildItemId, W, "sign item");
-                // MUST 7: the shipped cost (SkiResortGate.Prefab:25) until the sign surgery flips it to R14's 12,000.
-                Eq(5000, g.BuildCost, W, "sign BuildCost (shipped 5000 until the sign surgery, MUST 7)");
+                // MUST 7: the shipped cost (SkiResortGate.Prefab:25). The S1 sign surgery (2026-10-13, STATE step 22) flipped
+                // the prefab and SkiCatalog's SignDef from 5000 to R14's 12,000 together (CT-12 pattern).
+                Eq(12000, g.BuildCost, W, "sign BuildCost (R14's 12,000 since the S1 sign surgery, MUST 7)");
                 Eq(true, g.Expected, W, "sign Expected");
             }
         }
@@ -671,17 +680,18 @@ namespace LiftBatch
         private static void StationRows()
         {
             const string W = "catalog-stations";
-            // prefab, role, type, wheel (x, y, z) or NaN, stub z, cost, item, expected (round-2-contract §1.4).
+            // prefab, role, type, wheel (x, y, z) or NaN, stub z, cost, item, expected (round-2-contract §1.4; every station
+            // Expected since the S1 import flip, 2026-10-13, §10.1).
             object[][] rows =
             {
                 new object[] { "SkiBaseStationBuilding", StationRole.Base, "fixedGrip", 0f, 3.55f, 0.2f, -12f, 60000, "baseStation", true },
                 new object[] { "SkiTopStationBuilding", StationRole.Top, "fixedGrip", 0f, 3.75f, 0f, -12f, 30000, "topStation", true },
-                new object[] { "SkiDQBaseStationBuilding", StationRole.Base, "detachable", 0f, 3.70f, 9.60f, -16f, 125000, "baseStationDetachable", false },
-                new object[] { "SkiDQTopStationBuilding", StationRole.Top, "detachable", 0f, 3.70f, 5.60f, -16f, 65000, "topStationDetachable", false },
-                new object[] { "SkiGondolaBaseStationBuilding", StationRole.Base, "gondola", 0f, 4.85f, 9.40f, -16f, 190000, "baseStationGondola", false },
-                new object[] { "SkiGondolaTopStationBuilding", StationRole.Top, "gondola", 0f, 4.85f, 5.40f, -16f, 110000, "topStationGondola", false },
-                new object[] { "SkiTramBaseStationBuilding", StationRole.Base, "tram", float.NaN, float.NaN, float.NaN, -12f, 300000, "baseStationTram", false },
-                new object[] { "SkiTramTopStationBuilding", StationRole.Top, "tram", float.NaN, float.NaN, float.NaN, -12f, 190000, "topStationTram", false },
+                new object[] { "SkiDQBaseStationBuilding", StationRole.Base, "detachable", 0f, 3.70f, 9.60f, -16f, 125000, "baseStationDetachable", true },
+                new object[] { "SkiDQTopStationBuilding", StationRole.Top, "detachable", 0f, 3.70f, 5.60f, -16f, 65000, "topStationDetachable", true },
+                new object[] { "SkiGondolaBaseStationBuilding", StationRole.Base, "gondola", 0f, 4.85f, 9.40f, -16f, 190000, "baseStationGondola", true },
+                new object[] { "SkiGondolaTopStationBuilding", StationRole.Top, "gondola", 0f, 4.85f, 5.40f, -16f, 110000, "topStationGondola", true },
+                new object[] { "SkiTramBaseStationBuilding", StationRole.Base, "tram", float.NaN, float.NaN, float.NaN, -12f, 300000, "baseStationTram", true },
+                new object[] { "SkiTramTopStationBuilding", StationRole.Top, "tram", float.NaN, float.NaN, float.NaN, -12f, 190000, "topStationTram", true },
             };
             Eq(rows.Length, SkiCatalog.Stations.Count, W, "Stations.Count");
             for (int i = 0; i < rows.Length && i < SkiCatalog.Stations.Count; i++)
@@ -1300,7 +1310,7 @@ namespace LiftBatch
                     Check(n.Pending == !entry.Expected, W, "'" + n.Name + "': NAMES token " + (n.Pending ? "pending" : "(none)") +
                           " but its row flag says Expected = " + entry.Expected + " (flip both in one edit)");
             }
-            Eq(19, pending, W, "pending tokens in the NAMES block");
+            Eq(0, pending, W, "pending tokens in the NAMES block (0 since the S1 lift flip, 2026-10-13; 5 after the first S1 flip, 19 before)");
             // Each row's Expected is derived from its names (MUST 5).
             foreach (LiftTypeDef d in SkiCatalog.Lifts)
             {

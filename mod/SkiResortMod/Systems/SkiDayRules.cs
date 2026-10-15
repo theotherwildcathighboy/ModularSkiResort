@@ -576,13 +576,24 @@ namespace SkiResortMod.Systems
         public static double Chance(GuestKind who, int attraction, double distanceKm, double openShare, double powder,
                                     int ticketPrice, int priceTolerance, double schoolFactor, double confidence, in Knobs knobs)
         {
+            return Chance(who, attraction, distanceKm, openShare, powder, ticketPrice, priceTolerance, schoolFactor, confidence, knobs, false);
+        }
+
+        /// <summary>Season passes v1 (DECISIONS 240): as the 10-argument Chance, except that a PASS HOLDER (the household's
+        /// SkiSeasonPass for this season; residents only, the caller decides) gets P = 1 in place of PriceFactor — the pass is
+        /// sunk cost, so the ticket price no longer deters it (the V2-IDEAS "holders ski more"). With
+        /// <paramref name="passHolder"/> false this is the 10-argument Chance bit for bit.</summary>
+        public static double Chance(GuestKind who, int attraction, double distanceKm, double openShare, double powder,
+                                    int ticketPrice, int priceTolerance, double schoolFactor, double confidence, in Knobs knobs,
+                                    bool passHolder)
+        {
             Knobs k = ClampKnobs(knobs);
             double d = DistanceFactor(distanceKm, k.ReachKm);
             int a = math.clamp(attraction, 0, MaxAttraction);
             double b = who == GuestKind.Tourist
                 ? math.min(TouristCap, k.TouristsPct / 100.0 * a / 200.0 * d)
                 : math.min(ResidentCap, k.LocalsPct / 100.0 * a / 100.0 * d);
-            double p = b * SnowFactor(who, openShare, powder, k.PowderPct) * PriceFactor(ticketPrice, priceTolerance) * Unit01(confidence);
+            double p = b * SnowFactor(who, openShare, powder, k.PowderPct) * (passHolder ? 1.0 : PriceFactor(ticketPrice, priceTolerance)) * Unit01(confidence);
             if (who == GuestKind.Resident && schoolFactor > 0.0 && schoolFactor != 1.0 && math.isfinite(schoolFactor))
                 p *= schoolFactor;   // last: with 1.0 (no school) p is today's bit for bit
             return Unit01(p);

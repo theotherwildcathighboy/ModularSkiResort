@@ -88,7 +88,9 @@ import type { Entity } from "cs2/utils";
 export const GROUP = "skiResort";
 
 /**
- * Contract 6 (Catalog Phase B, code round 2: round-2-contract.md section 8.5 - 25 build items from the
+ * Contract 7 (season passes v1, 2026-10-14: docs/research/econ-2/build/season-pass-v1.md - ResortLive appends passesSoldSeason,
+ * passIncomeSeason, passHoldersThisMonth, passHoldersLastMonth; CityStats appends bookTicketsAsFees and passShare; no binding or
+ * trigger changes). Contract 6 (Catalog Phase B, code round 2: round-2-contract.md section 8.5 - 25 build items from the
  * SkiCatalog table, PROBLEM 23-25, LiftRow.type / seats / speedMps, the ResortLive lodge-ladder fields;
  * contract 5 was Round M2 R9: CityStats.tripPlanner / tripPlannerBlocksSkiDays, docs/research/round-m2/
  * build-contract.md section 8.1; contract 4 was Round S1, ski days: docs/research/ski-days/spec/
@@ -98,7 +100,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree
  * controls (CORE only) and says why (spec 4.5).
  */
-export const HUB_CONTRACT = 6;
+export const HUB_CONTRACT = 7;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -448,6 +450,15 @@ export interface ResortLive {
   priceTolerance: number;
   /** Lodge spend income a month, the tickets' month rule; -1 unknown, 0 while the setting is 0 (D15). */
   lodgeSpendMonth: number;
+  // Contract 7 (season passes v1, DECISIONS 240): appended in this order, as in C# ResortLiveStats.
+  /** Season passes sold at this area in the current ski season (July to June), counted since the game was loaded; -1 unknown. */
+  passesSoldSeason: number;
+  /** What those passes paid; -1 unknown. */
+  passIncomeSeason: number;
+  /** Guests who came in on a season pass this month (a subset of guestsThisMonth); -1 unknown. */
+  passHoldersThisMonth: number;
+  /** The same, last month; -1 until a month rolled since counting started. */
+  passHoldersLastMonth: number;
 }
 
 /** One run of ours: identity, rating, service, value parts. */
@@ -589,6 +600,11 @@ export interface CityStats {
   /** Round M2 R9: the game's LeisureSystem or CitizenBehaviorSystem is switched off, so ski days do not arm
    *  this load (C# ArmVerdict.SystemOff; SkiDaySystem.TripPlannerBlocksSkiDays = SkiTripSystems.BlocksSkiDays). */
   tripPlannerBlocksSkiDays: boolean;
+  /** Contract 7: the Options setting Book lift tickets as public-transport fees (stage 1a): tickets and passes then show in the
+   *  game's Economy panel under public transportation fees. */
+  bookTicketsAsFees: boolean;
+  /** Contract 7: the Options setting Season pass share, 0-100 (0 = passes off). */
+  passShare: number;
 }
 
 /** CityStats.tripPlanner when a trip system is off and no known replacement is loaded. Manual parity with
@@ -693,7 +709,7 @@ export const FALLBACK = {
   city: {
     known: false, daysPerYear: 0, scaleK: 4, backcountryPct: 40, ticketPrice: 0, snowGating: true,
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
-    tripPlanner: "", tripPlannerBlocksSkiDays: false,
+    tripPlanner: "", tripPlannerBlocksSkiDays: false, bookTicketsAsFees: true, passShare: 50,
   } as CityStats,
   /** D19: the piste map is on by default (C# owns the value). */
   pisteMap: true,

@@ -29,6 +29,11 @@
 //     members not yet counted there that day. The household's day flags are GuestDayOuting | GuestDayLeisure;
 //     the day key is SkiDayRules.DayKey (s1-spec N3), the day sets live in the counter.
 //
+// Season passes v1 (2026-10-14, docs/research/econ-2/build/season-pass-v1.md; DECISIONS 240): SeasonKeyOf / SeasonKeyOfDate (the
+// ski-season year: July on = the year, else year - 1), PassPrice (multiplier × the day ticket at the sale), PassRoll (the
+// household's one deterministic roll), PassStandingOf (what its SkiSeasonPass says this season) and PassSale (NotEligible /
+// Declined / Bought / CannotPay), called from the ticket job (Burst) and MoneyBatch T15.
+//
 // PURE FILE: `using System;` and `using Unity.Mathematics;` only, + SkiCatalog consts (compile-time literals;
 // Burst sees numbers — never a SkiCatalog.Lifts[…] row read here, contract D4 / risk R-c). Every method is static,
 // allocation-free and Burst-callable (the ticket job calls TicketGateOf / TicketsPaid).
@@ -198,6 +203,81 @@ namespace SkiResortMod.Systems
         {
             if (people <= 0 || price <= 0 || householdMoney <= 0) return 0;
             return math.min(people, householdMoney / price);
+        }
+
+        // ── Season passes v1 (2026-10-14, docs/research/econ-2/build/season-pass-v1.md; DECISIONS 240) ───────────────────
+        public const int PassMultiplierMin = 2;
+        public const int PassMultiplierMax = 10;
+        public const int PassMultiplierDefault = 4;
+        public const int PassShareMax = 100;
+        public const int PassShareStep = 5;
+        public const int PassShareDefault = 50;   // 0 = passes off
+        /// <summary>The ski season starts with this calendar month (1..12): July. Months 7..12 belong to the year, 1..6 to the
+        /// year before, so December and the following March share a season key.</summary>
+        public const int SeasonFirstMonth = 7;
+        /// <summary>SkiSeasonPass.Flags bit: the household was asked this season and did not buy (rolled out or could not pay).</summary>
+        public const byte PassFlagDeclined = 1;
+
+        public enum PassSaleResult : byte { NotEligible = 0, Declined = 1, Bought = 2, CannotPay = 3 }
+        public enum PassStanding : byte { None = 0, Holder = 1, Declined = 2 }
+
+        /// <summary>The ski-season year of <paramref name="year"/> + calendar <paramref name="month"/> (1..12, clamped): the
+        /// year from July on, else the year before.</summary>
+        public static int SeasonKeyOf(int year, int month)
+            => math.clamp(month, 1, MonthsPerYear) >= SeasonFirstMonth ? year : year - 1;
+
+        /// <summary>SeasonKeyOf from the clock the systems read (TimeSystem.year, normalizedDate; MonthKey's month rule).</summary>
+        public static int SeasonKeyOfDate(int year, float normalizedDate)
+            => SeasonKeyOf(year, MonthOfKey(MonthKey(year, normalizedDate)));
+
+        public static int ClampPassMultiplier(int v) => math.clamp(v, PassMultiplierMin, PassMultiplierMax);
+        public static int ClampPassShare(int v) => math.clamp(v, 0, PassShareMax);
+
+        /// <summary>The pass price: multiplier × the day-ticket price at the moment of sale (multiplier clamped to
+        /// PassMultiplierMin..Max); 0 when the ticket price is not &gt; 0 (no pass without a ticket to price it by).</summary>
+        public static int PassPrice(int multiplier, int ticketPrice)
+            => ticketPrice <= 0 ? 0 : (int)math.min((long)ClampPassMultiplier(multiplier) * ticketPrice, (long)int.MaxValue);
+
+        /// <summary>The household's one roll of the season: true with probability sharePct/100. A fixed integer hash of the
+        /// household entity index and the season key (Murmur3 finalizer; no state), so the same inputs give the same answer on
+        /// every call and after a load. share &lt;= 0 never, &gt;= 100 always; rolling at a lower share implies the same
+        /// household rolls true at every higher one.</summary>
+        public static bool PassRoll(int householdIndex, int seasonKey, int sharePct)
+        {
+            if (sharePct <= 0)
+                return false;
+            if (sharePct >= PassShareMax)
+                return true;
+            uint h;
+            unchecked
+            {
+                h = (uint)householdIndex * 0x9E3779B1u + (uint)seasonKey * 0x85EBCA6Bu + 0x27D4EB2Fu;
+                h ^= h >> 16;
+                h *= 0x85EBCA6Bu;
+                h ^= h >> 13;
+                h *= 0xC2B2AE35u;
+                h ^= h >> 16;
+            }
+            return h % 100u < (uint)sharePct;
+        }
+
+        /// <summary>What the household's SkiSeasonPass says for <paramref name="seasonKey"/>: None when it has no component or the
+        /// component is of another season (an older pass counts as absent), Declined with PassFlagDeclined, else Holder.</summary>
+        public static PassStanding PassStandingOf(bool hasComponent, int storedSeasonKey, byte flags, int seasonKey)
+            => !hasComponent || storedSeasonKey != seasonKey ? PassStanding.None
+               : (flags & PassFlagDeclined) != 0 ? PassStanding.Declined : PassStanding.Holder;
+
+        /// <summary>The first-arrival decision for a household with no pass standing this season (job-callable): NotEligible when
+        /// it is not a resident, the share is not &gt; 0 or the price not &gt; 0; Declined when the roll fails; Bought when the
+        /// roll succeeds and the household has at least the price (never into debt); else CannotPay. Callers store Declined for
+        /// both Declined and CannotPay (not asked again this season).</summary>
+        public static PassSaleResult PassSale(bool resident, int sharePct, int householdIndex, int seasonKey, int passPrice, int householdMoney)
+        {
+            if (!resident || sharePct <= 0 || passPrice <= 0)
+                return PassSaleResult.NotEligible;
+            if (!PassRoll(householdIndex, seasonKey, sharePct))
+                return PassSaleResult.Declined;
+            return householdMoney >= passPrice ? PassSaleResult.Bought : PassSaleResult.CannotPay;
         }
 
         /// <summary>year × 12 + calendar month 0..11 of the game year; a non-finite date reads month 0.</summary>

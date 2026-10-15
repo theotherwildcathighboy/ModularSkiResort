@@ -41,6 +41,12 @@
  *     The price line's widest form "Lift ticket ¢200 · ski days 20 %" (32 characters) is about 16 em XS
  *     by the 0.5 em estimate (GuestsView.tsx header): about 192 / 316 / 398 rem, fits (an estimate; the
  *     SubLine's ellipsis is the net).
+ *   - Contract 7 (2026-10-14, season passes v1; docs/research/econ-2/build/season-pass-v1.md): under the tickets row, while city.bookTicketsAsFees
+ *     (stage 1a), ONE dim SubLine MONEY_NOTE[Fees] "Shown in the Economy panel under public transportation fees"; after the lodge-spend
+ *     slot, only while hubRules.passesShown (the Options pass share above 0, or a pass sold / a holder skied): the income row MONEY_ROW[Passes]
+ *     "Season passes sold (this season) · {N}" with the season's pass income as its value (MONEY_TIP[Passes]) and the count row
+ *     MONEY_ROW[PassHolders] "Pass holders skiing (this month)" (MONEY_TIP[PassHolders]). The net is still C#'s tickets + lodge spend: the
+ *     pass income is a season figure and is not in the monthly net.
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$
  *     (Round F7: the run kinds of the area).
  *   - Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; round-2-contract.md section 8.5): the price
@@ -60,8 +66,8 @@ import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import { BUILD_ITEMS, findBuildItem } from "./buildItems";
 import {
-  PRICE_EXAMPLES, PRICE_NO_EFFECT_MAX, buildingsAndWages, hubPrice, incomeNote, liveOf, lodgeSpendShown, priceFactorPct,
-  priceFullWith, ticketsRow,
+  PRICE_EXAMPLES, PRICE_NO_EFFECT_MAX, buildingsAndWages, hubPrice, incomeNote, liveOf, lodgeSpendShown, passesShown,
+  priceFactorPct, priceFullWith, ticketsRow,
 } from "./hubRules";
 import type { IncomeNote } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE } from "./hubText";
@@ -164,6 +170,27 @@ function LodgeSpendRow({ l, samples, t }: { l: ResortLive | null; samples: Numbe
   );
 }
 
+/** Contract 7 (season passes v1): the season's pass sales with their income, and the pass holders who skied this month. */
+function PassRows({ l, samples, t }: { l: ResortLive | null; samples: NumberSamples; t: Translate }): JSX.Element {
+  const sold = l ? l.passesSoldSeason : -1;
+  const holders = l ? l.passHoldersThisMonth : -1;
+  return (
+    <>
+      <InfoLine
+        label={<LocText entry={HUB_FMT.moneyRowPasses} args={{ N: numArg(sold, Unit.Integer) }} />}
+        value={<Cell samples={samples}>{l && l.passIncomeSeason >= 0 ? <SignedNum value={l.passIncomeSeason} unit={Unit.Money} /> : DASH}</Cell>}
+        tip={t(HUB_LOC.moneyTipPasses)}
+      />
+      <InfoLine
+        sub
+        label={t(HUB_LOC.moneyRowPassHolders)}
+        value={<Cell samples={samples}>{holders >= 0 ? <Num value={holders} unit={Unit.Integer} /> : DASH}</Cell>}
+        tip={t(HUB_LOC.moneyTipPassHolders)}
+      />
+    </>
+  );
+}
+
 function NetRow({ l, samples, t }: { l: ResortLive | null; samples: NumberSamples; t: Translate }): JSX.Element {
   return (
     <InfoLine
@@ -236,8 +263,10 @@ function SignMoney({ row, l, city, build, kinds, samples, t }: {
     <>
       <MoneyHeader note={note} samples={samples} t={t} />
       <TicketsRow l={l} price={city.ticketPrice} samples={samples} t={t} />
+      {city.bookTicketsAsFees && <SubLine>{t(HUB_LOC.moneyNoteFees)}</SubLine>}
       <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} t={t} />
       <LodgeSpendRow l={l} samples={samples} t={t} />
+      {passesShown(l, city) && <PassRows l={l} samples={samples} t={t} />}
       <InfoLine header label={t(HUB_LOC.sectionCosts)} />
       {kinds.has(RUN_KIND.Natural) && (
         <InfoLine

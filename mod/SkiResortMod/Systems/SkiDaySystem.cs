@@ -270,6 +270,7 @@ namespace SkiResortMod.Systems
         private ComponentLookup<Destroyed> m_DestroyedLookup;
         private ComponentLookup<Deleted> m_DeletedLookup;
         private ComponentLookup<Game.Buildings.LeisureProvider> m_LeisureProviderLookup;
+        private ComponentLookup<SkiSeasonPass> m_SeasonPassLookup;   // Season passes v1 (DECISIONS 240): a holder gets P = 1 in the chance
         private ComponentLookup<Game.Objects.OutsideConnection> m_OutsideConnectionLookup;
         private ComponentLookup<Worker> m_WorkerLookup;
         private ComponentLookup<AttendingMeeting> m_AttendingMeetingLookup;
@@ -620,6 +621,7 @@ namespace SkiResortMod.Systems
             m_DestroyedLookup = GetComponentLookup<Destroyed>(isReadOnly: true);
             m_DeletedLookup = GetComponentLookup<Deleted>(isReadOnly: true);
             m_LeisureProviderLookup = GetComponentLookup<Game.Buildings.LeisureProvider>(isReadOnly: true);
+            m_SeasonPassLookup = GetComponentLookup<SkiSeasonPass>(isReadOnly: true);   // Season passes v1
             m_OutsideConnectionLookup = GetComponentLookup<Game.Objects.OutsideConnection>(isReadOnly: true);
             m_WorkerLookup = GetComponentLookup<Worker>(isReadOnly: true);
             m_AttendingMeetingLookup = GetComponentLookup<AttendingMeeting>(isReadOnly: true);
@@ -3403,6 +3405,7 @@ namespace SkiResortMod.Systems
                 m_DestroyedLookup.Update(this);
                 m_DeletedLookup.Update(this);
                 m_LeisureProviderLookup.Update(this);
+                m_SeasonPassLookup.Update(this);   // Season passes v1
 
                 NativeList<ArchetypeChunk> chunks = m_CandidateQuery.ToArchetypeChunkListAsync(Allocator.TempJob, out JobHandle chunksHandle);
                 NativeQueue<Entity>.ParallelWriter reserve = m_Behavior.GetCarReserveQueue(out JobHandle reserveDeps);   // CBS :1094-1098, 1.6.2 :1126-1130
@@ -3436,6 +3439,8 @@ namespace SkiResortMod.Systems
                     Destroyeds = m_DestroyedLookup,
                     Deleteds = m_DeletedLookup,
                     LeisureProviders = m_LeisureProviderLookup,
+                    SeasonPasses = m_SeasonPassLookup,   // Season passes v1
+                    SeasonKey = SkiMoneyRules.SeasonKeyOfDate(m_Time.year, m_Time.normalizedDate),
                     Areas = areaArray,
                     Lodges = lodgeArray,
                     Sites = siteArray,

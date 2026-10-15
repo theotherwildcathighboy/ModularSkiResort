@@ -1904,8 +1904,8 @@ namespace SkiResortMod.Systems
             return string.Join("', '", names.ToArray());
         }
 
-        /// <summary>Catalog Phase B: "SkiDetachableHV, SkiGondolaHV, SkiTramHV" — the pending lift lines (not imported
-        /// yet), or "none".</summary>
+        /// <summary>Catalog Phase B: the pending lift lines (not imported yet), or "none" (the answer since the S1 lift flip,
+        /// 2026-10-13, build/s1-fix-codeflip.md; "SkiDetachableHV, SkiGondolaHV, SkiTramHV" before it).</summary>
         private static string PendingLineNames()
         {
             IReadOnlyList<LiftTypeDef> lifts = SkiCatalog.Lifts;
