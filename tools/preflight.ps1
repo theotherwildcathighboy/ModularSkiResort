@@ -16,6 +16,14 @@
 #                  R12; extensibility.md F9 / row 24). Catalog Phase B (code-round-2/round-2-contract.md 1.1, D5,
 #                  D14): a line ending ", pending" is a designed name not imported yet - absent = OK (pending),
 #                  present = WARN until its ", pending" is dropped and its row set Expected (the rows work either way).
+#   8. LANES     - every owned NetLaneGeometryPrefab's m_Meshes[].m_Mesh is curve-capable: a known vanilla cable-lane
+#                  mesh GUID, or a CID whose mesh prefab carries CurveProperties; the superseded August lanes
+#                  (SkiLiftHaulRope / SkiLiftHaulRopeB) must not be referenced by any other prefab (DECISIONS 243;
+#                  PIPELINE.md section 6 lift-line invariant). Bug class: a rigid rope rod ~90 degrees across the line.
+#   9. IDIOMS    - PIPELINE.md section 6 rules a file check can catch: HOSTED (no PillarObject on SkiLiftTerminalTower*),
+#                  SPAWN (no plain spawn marker on a ServiceUpgrade child), WEATHER (no WeatherObject on a spawnable),
+#                  NETNULL (no null m_Lane / m_Piece / m_Section), PROP (no gameplay components on scenery props), KEEP (SkiLiftTowerFG2 present), ARRLEN ($rlength /
+#                  $plength match the real array counts). Also in LANES: rope-lane m_Hanging <= 0.01 (R31).
 #
 # Ownership = directories named Ski* under ImportedData, Ski* prefabs inside the
 # Editor library folder (c030ee3ff256df91), plus legacy FixedGripChairLift (reported).
@@ -313,6 +321,186 @@ else {
         $rows.Add("OK    NAMES     $label <- $($hit.Rel)")
     }
 }
+
+# ---- 8. LANES: every rope/wire lane's mesh must be able to bend (DECISIONS 243, PIPELINE.md section 6) ------
+# A lift-line lane is bent into the lane curve by its mesh's CurveProperties (HangingSwaying / SubFlow). The
+# August 2026 custom chain (SkiLiftHaulRope / SkiLiftHaulRopeB -> "SkiLiftCable64 Mesh") has none, so a lane that
+# meshes with it draws as a rigid 64 m rod ~90 degrees across the line; the S1 round copied HaulRopeB for the DQ,
+# gondola and tram lanes and shipped exactly that (T01). The rule, per owned NetLaneGeometryPrefab, for each
+# m_Meshes[].m_Mesh: a UnityGUID must be a known vanilla CABLE-LANE MESH ($CableLaneMeshes below, dump-verified to
+# carry CurveProperties); a CID must resolve to a mesh prefab under ImportedData whose components include
+# CurveProperties. A lane that fails is a FAIL, unless it is one of the retained-but-superseded August lanes
+# ($SupersededLanes), which are then only legal while NO other owned prefab (outside the superseded chain
+# $SupersededChain) references them by CID. Add a new vanilla lane mesh GUID to $CableLaneMeshes only after
+# checking the dump for CurveProperties on it.
+$CableLaneMeshes = @{
+    "463c051da8a824c4a8f2f830a5011a3e" = "High-voltage Cable Lane Mesh (CurveProperties HangingSwaying+SubFlow; dump-verified, DECISIONS 243)"
+    "bbb9724d6daa32241821c52b428c196c" = "Low-voltage Cable Lane Mesh (CurveProperties; dump-verified, DECISIONS 243)"
+}
+$SupersededLanes = @("SkiLiftHaulRope", "SkiLiftHaulRopeB")
+$SupersededChain = @("FixedGripChairLift", "SkiLiftSection", "SkiLiftPiece", "SkiLiftHaulRope", "SkiLiftHaulRopeB")
+$laneMeshRe = [regex]'"m_Mesh":\s*(?:\$fstrref:"(CID|UnityGUID|UnityObjectsMap):([0-9a-fA-F]{32})"|null)'
+$laneNameRe = [regex]'(?m)^ {4}"name":\s*"([^"]+)"'
+$supersededCids = @{}
+$laneCount = 0
+foreach ($p in $ownedPrefabs) {
+    $text = [IO.File]::ReadAllText($p.FullName)
+    if ($text -notmatch '"\$type":\s*"0\|Game\.Prefabs\.NetLaneGeometryPrefab, Game"') { continue }
+    $laneCount++
+    $rel = $p.FullName.Substring($ImportedData.Length + 1)
+    $nm = $laneNameRe.Match($text)
+    $laneName = $p.BaseName
+    if ($nm.Success) { $laneName = $nm.Groups[1].Value }
+    $meshRefs = $laneMeshRe.Matches($text)
+    $why = New-Object System.Collections.Generic.List[string]
+    if ($meshRefs.Count -eq 0) { $why.Add("no m_Meshes[].m_Mesh found") }
+    foreach ($m in $meshRefs) {
+        if (-not $m.Groups[1].Success) { $why.Add("m_Mesh is null (no mesh at all)"); continue }
+        $kind = $m.Groups[1].Value; $val = $m.Groups[2].Value.ToLower()
+        if ($kind -eq "UnityGUID") {
+            if (-not $CableLaneMeshes.ContainsKey($val)) { $why.Add("UnityGUID mesh $val is not a known vanilla cable-lane mesh (tag it in `$CableLaneMeshes only after the dump shows CurveProperties on it)") }
+        }
+        elseif ($kind -eq "CID") {
+            if (-not $allCidValues.ContainsKey($val)) { $why.Add("mesh CID $val does not resolve") ; continue }
+            $meshPath = $allCidValues[$val]
+            if ($meshPath.EndsWith(".cid")) { $meshPath = $meshPath.Substring(0, $meshPath.Length - 4) }
+            if (-not (Test-Path -LiteralPath $meshPath)) { $why.Add("mesh CID $val has no prefab file beside its .cid"); continue }
+            if ([IO.File]::ReadAllText($meshPath) -notmatch 'Game\.Prefabs\.CurveProperties') {
+                $why.Add("mesh CID $val ($([IO.Path]::GetFileName($meshPath))) has no CurveProperties - it draws as a rigid rod")
+            }
+        }
+        else { $why.Add("m_Mesh uses $kind (unsupported for a lane mesh)") }
+    }
+    if ($why.Count -eq 0) {
+        # R31 / DECISIONS 243: a long-span rope lane sags 0.004, not the superseded 0.03 (at 250 m the mid-span cabin
+        # underside drops 2.0 m). Rope classes = utility type 64 (HV) and 8 (LV); the fence lane (16) is exempt.
+        $um = [regex]::Match($text, '"m_UtilityType":\s*(\d+)'); $hm = [regex]::Match($text, '"m_Hanging":\s*([0-9.]+)')
+        if ($um.Success -and $hm.Success -and (@("64", "8") -contains $um.Groups[1].Value) -and [double]::Parse($hm.Groups[1].Value, [Globalization.CultureInfo]::InvariantCulture) -gt 0.01) {
+            $rows.Add("FAIL  LANES     ${rel}: rope lane m_Hanging $($hm.Groups[1].Value) > 0.01 (R31: long-span rope lanes use 0.004; 0.03 is the superseded HaulRopeB value)"); $failures++
+        }
+        else { $rows.Add("OK    LANES     $laneName : curve-capable mesh <- $rel") }
+        continue
+    }
+    if ($SupersededLanes -contains $laneName) {
+        $cidFile = $p.FullName + ".cid"
+        if (Test-Path -LiteralPath $cidFile) { $supersededCids[([IO.File]::ReadAllText($cidFile).Trim().ToLower())] = $laneName }
+        $rows.Add("OK    LANES     $laneName : SUPERSEDED August lane, retained (legal only while nothing outside the superseded chain references it) <- $rel")
+        continue
+    }
+    foreach ($w in $why) { $rows.Add("FAIL  LANES     ${rel}: $w"); $failures++ }
+}
+if ($supersededCids.Count -gt 0) {
+    foreach ($p in $ownedPrefabs) {
+        $text = [IO.File]::ReadAllText($p.FullName)
+        $nm = $laneNameRe.Match($text)
+        $nameHere = $p.BaseName
+        if ($nm.Success) { $nameHere = $nm.Groups[1].Value }
+        if ($SupersededChain -contains $nameHere) { continue }
+        foreach ($k in $supersededCids.Keys) {
+            if ($text.ToLower().Contains("cid:$k")) {
+                $rows.Add("FAIL  LANES     $($p.FullName.Substring($ImportedData.Length + 1)): references the SUPERSEDED lane $($supersededCids[$k]) (CID $k) - use the vanilla HV lane UnityGUID:5d88ac45a40b30341a79535930e3b735 or a lane whose mesh carries CurveProperties"); $failures++
+            }
+        }
+    }
+}
+if ($laneCount -eq 0) { $rows.Add("WARN  LANES     no owned NetLaneGeometryPrefab found (check the ownership filter)"); $warnings++ }
+
+# ---- 9. IDIOMS: PIPELINE.md section 6 rules that a file check can catch (lessons that became gates, 2026-10-17) -------
+# Each row names the DECISIONS entry that paid for the rule; the idiom text lives in docs/PIPELINE.md section 6.
+#   HOSTED   hosted terminal towers (SkiLiftTerminalTower*) never carry PillarObject (entry 8 / PIPELINE section 6): the
+#            flag chain is an else-if and PillarData preempts the UtilityObject branch that grants IgnoreSecondaryCollision.
+#   SPAWN    a ServiceUpgrade child never references the plain Pedestrian / Restricted Spawn Location markers (entries
+#            141 / 143 / 248): the engine pairs the lodge's plain mask-0 markers with the sign's and the sign reads
+#            "No pedestrian access". Use Pedestrian Access Location (d69b0d63...) + Hangaround Area (eb0c6cfa...).
+#   WEATHER  WeatherObject never rides a SpawnableObject / placeholder-group member (entry 76 trap 1): CheckRequirements
+#            returns false and deletes the prop in every season.
+#   NETNULL  net prefabs: m_Lane / m_Piece / m_Section (and a NetSubObjects m_Object) are never null - NetInitializeSystem
+#            dereferences them unguarded and the game hard-crashes (SPEC 8.3, the Editor "Duplicate" trap).
+#   KEEP     owned prefabs nothing references but that the engine reaches through a back-reference must stay: the
+#            SkiLiftTowerFG2 object prefab in the Editor library is the 8 m tower family member (entry 173, "the FG2 trap");
+#            deleting it leaves RESOLVE green and buries the towers 4 m.
+#   PROP     scenery props (SkiSnowGun*, SkiPisteFloodlight*, SkiHydrantBox*, SkiBeacon*) carry none of the gameplay/network
+#            components (prop-integration-plan.md section 4: UtilityObject, PillarObject, ObjectSubLanes/Nets, UI/service/economy ...).
+#   ARRLEN   Odin arrays: "$rlength" / "$plength" equals the real element count of "$rcontent" / "$pcontent"
+#            (T51 / entry 248: validate_prefab.ps1 never checked it). Hand-made prefabs only - the Editor's own
+#            RenderPrefab "Mesh" files are skipped (they are not strict JSON and are never hand-edited).
+Add-Type -AssemblyName System.Web.Extensions
+$jsonSer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+$jsonSer.MaxJsonLength = [int]::MaxValue; $jsonSer.RecursionLimit = 4000
+$script:arrBad = New-Object System.Collections.Generic.List[string]
+function Test-OdinArrays($node, [string]$where) {
+    if ($node -is [System.Collections.IDictionary]) {
+        foreach ($pair in @(@('$rlength', '$rcontent'), @('$plength', '$pcontent'))) {
+            if ($node.ContainsKey($pair[0])) {
+                $content = $node[$pair[1]]
+                $actual = -1
+                if ($null -ne $content) { $actual = @($content).Count }
+                if ($actual -ne [int]$node[$pair[0]]) { $script:arrBad.Add("$where : $($pair[0]) = $($node[$pair[0]]) but $($pair[1]) holds $actual") }
+            }
+        }
+        foreach ($k in @($node.Keys)) { Test-OdinArrays $node[$k] "$where/$k" }
+    }
+    elseif (($node -is [System.Collections.IList]) -and -not ($node -is [string])) {
+        $i = 0; foreach ($e in $node) { Test-OdinArrays $e "$where[$i]" ; $i++ }
+    }
+}
+$spawnGuids = @("c30226ded1fc8d64abee5d0bd2554bc4", "aecdab70637b3bb40ab53772984876e1")
+$idiomRows = 0
+$arrSkipped = 0
+foreach ($p in $ownedPrefabs) {
+    $rel = $p.FullName.Substring($ImportedData.Length + 1)
+    $text = [IO.File]::ReadAllText($p.FullName)
+    $isRender = $text -match '"\$type":\s*"0\|Game\.Prefabs\.RenderPrefab'
+    $nm = [regex]::Match($text, '(?m)^ {4}"name":\s*"([^"]+)"')
+    $rootName = $p.BaseName
+    if ($nm.Success) { $rootName = $nm.Groups[1].Value }
+
+    if (($rootName -like "SkiLiftTerminalTower*") -and ($text -match 'Game\.Prefabs\.PillarObject')) {
+        $rows.Add("FAIL  HOSTED    ${rel}: a hosted terminal tower carries PillarObject (UtilityObject + StandingObject ONLY)"); $failures++
+    }
+    # PROP: scenery props (snow guns, floodlights, hydrants, beacons) carry NONE of the gameplay / network components
+    # (prop-integration-plan.md section 4: a decorative prop on a run border must never plant lanes, bill, place or light).
+    if (($rootName -match '^Ski(SnowGun|PisteFloodlight|HydrantBox|Beacon)') -and ($text -match '"\$type":\s*"0\|Game\.Prefabs\.StaticObjectPrefab, Game"')) {
+        $forbidden = [regex]::Matches($text, 'Game\.Prefabs\.(UtilityObject|PillarObject|ObjectSubLanes|ObjectSubNets|PlaceableObject|UIObject|Unlockable|ServiceObject|CityServiceBuilding|ServiceUpkeepItem|Workplace|ServiceConsumption|Attraction|LeisureProvider|ServiceCoverage|BuildingTerraformOverride|StreetLightObject|WeatherObject|PlaceholderObject)\b') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+        if ($forbidden) { $rows.Add("FAIL  PROP       ${rel}: scenery prop carries $($forbidden -join ', ') (prop-integration-plan.md section 4; PIPELINE section 6)"); $failures++ }
+    }
+    if ($text -match 'Game\.Prefabs\.ServiceUpgrade, Game') {
+        foreach ($g in $spawnGuids) {
+            if ($text.ToLower().Contains($g)) { $rows.Add("FAIL  SPAWN     ${rel}: a ServiceUpgrade child references the plain spawn marker $g (entries 141/143/248: 'No pedestrian access'); use Pedestrian Access Location + Hangaround Area"); $failures++ }
+        }
+    }
+    if (($text -match 'Game\.Prefabs\.WeatherObject') -and ($text -match 'Game\.Prefabs\.(SpawnableObject|PlaceholderObject)')) {
+        $rows.Add("FAIL  WEATHER   ${rel}: WeatherObject on a spawnable / placeholder-group member (entry 76: the prop is deleted in every season)"); $failures++
+    }
+    foreach ($m in [regex]::Matches($text, '"(m_Lane|m_Piece|m_Section)":\s*null')) {
+        $rows.Add("FAIL  NETNULL   ${rel}: $($m.Groups[1].Value) is null (NetInitializeSystem dereferences it unguarded: hard crash, SPEC 8.3)"); $failures++
+    }
+    if (($text -match 'Game\.Prefabs\.NetSubObjects') -and ($text -match '"m_Object":\s*null')) {
+        $rows.Add("FAIL  NETNULL   ${rel}: a NetSubObjects row has m_Object null (hard crash, SPEC 8.3)"); $failures++
+    }
+    if (-not $isRender) {
+        $idiomRows++
+        $parsed = $null
+        try { $parsed = $jsonSer.DeserializeObject(($text -replace '\$fstrref:("[^"]*")', '$1')) }
+        catch {
+            # Odin writes a UnityEngine.Color as bare numbers after its "$type" line (not strict JSON): those few files
+            # are skipped and counted; any other parse failure is a real malformed prefab.
+            if ($text -match '"\$type":\s*"\d+\|UnityEngine\.Color,') { $arrSkipped++ }
+            else { $rows.Add("FAIL  ARRLEN     ${rel}: does not parse as JSON once `$fstrref is quoted ($($_.Exception.Message.Split([char]10)[0]))"); $failures++ }
+        }
+        if ($null -ne $parsed) {
+            $script:arrBad.Clear()
+            Test-OdinArrays $parsed ""
+            foreach ($b in $script:arrBad) { $rows.Add("FAIL  ARRLEN     ${rel}: $b"); $failures++ }
+        }
+    }
+}
+if ($lib -and (Test-Path $lib)) {
+    $fg2 = @(Get-ChildItem (Join-Path $lib "SkiLiftTowerFG2") -Filter "SkiLiftTowerFG2_*.Prefab" -File -ErrorAction SilentlyContinue)
+    if ($fg2.Count -eq 0) { $rows.Add("FAIL  KEEP       c030ee3ff256df91\SkiLiftTowerFG2\SkiLiftTowerFG2_*.Prefab is missing (the 8 m FG tower family member; entry 173 'the FG2 trap')"); $failures++ }
+    else { $rows.Add("OK    KEEP      SkiLiftTowerFG2 object prefab present") }
+}
+$rows.Add("OK    IDIOMS    $idiomRows hand-made prefab(s) scanned (HOSTED, SPAWN, WEATHER, NETNULL, PROP, ARRLEN; $arrSkipped skipped by ARRLEN: Odin Color literals)")
 
 # ---- summary -------------------------------------------------------------------------
 $rows | ForEach-Object { Write-Output $_ }
