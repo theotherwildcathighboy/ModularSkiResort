@@ -96,6 +96,7 @@ namespace ResortBatch
             MoneyBatch.Run(Check);
             HubRulesTests.Run(Check);
             RunOutlineTests.Run(Check);   // ROUND F7 C1 (docs/research/field-test-7-fixes.md): RunOutlineRules
+            RunLabelTests.Run(Check);   // T37 (2026-10-16): RunLabelRules
             SkiDayTests.Run(Check);   // ROUND S1 A
             SkiDayTimingTests.Run(Check);   // ROUND S1 B
             ParkingTests.Run(Check);   // ROUND S1 C

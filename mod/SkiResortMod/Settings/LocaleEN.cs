@@ -323,6 +323,17 @@ namespace SkiResortMod.Settings
                     "average winter snow line (where the December-February average climate reaches freezing, even in " +
                     "summer) and a fainter one below it where snow guns start to work. The tooltip gives both heights."
                 },
+                // T37 (2026-10-16): the run names on the hill.
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ShowRunNamesOnTheHill)),
+                    "Show run names on the hill"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowRunNamesOnTheHill)),
+                    "When enabled, each ski run's name is written on the ground at the run's centre, in its difficulty colour, " +
+                    "while the camera is at piste-map distance. Handy in summer, when the runs carry no snow. The names step " +
+                    "aside while you draw or edit a run."
+                },
                 // Label: Round E1 addendum A1. Description: Round F7 C1 (docs/research/field-test-7-fixes.md),
                 // verbatim — the setting is thickness only since F7 (no corner rule, no snapping).
                 {

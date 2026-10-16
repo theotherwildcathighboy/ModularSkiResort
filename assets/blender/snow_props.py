@@ -5,6 +5,15 @@ snow_props.py — piste-edge snowmaking props (generation A).
             --python snow_props.py -- --out ../import/props/A --variants
     blender --background --factory-startup --python snow_props.py -- --lineup ../preview
     blender --background --factory-startup --python snow_props.py -- --row ../preview
+    blender --background --factory-startup --python-exit-code 1 --python snow_props.py -- \
+            --detail ../preview/snow-props-2026-10-16 --review     # T20 preview gate, no FBX
+
+GENERATION B (T20 detail pass, 2026-10-16) — docs/research/art/snow-props-detail-2026-10-16.md.
+The four snowmaking assets are B (lathe fan head with an open nozzle ring, yoke + trunnions,
+work basket the ladder actually reaches, U-cage of flat-bar hoops, hinged lance, coiled
+hydrant hose, part-tagged LOD chains, smooth shading), then the de-CAD pass (chamfered boxes,
+SOFT_PREFIXES shading, rolled bell lip, cast feet, folded-sheet cabinets, wheel profiles;
+measured with cad_metric). The folded lance is dropped. The floodlight is still A.
 
 ALWAYS PASS --python-exit-code 1 WHEN EXPORTING. Blender swallows a Python exception in
 background mode and still exits 0: the texture-budget guard below fired on a real
@@ -107,13 +116,74 @@ LOD_CHAIN = {
     "flood":   (0.42, 0.12),
 }
 
+# T20: delete-then-decimate for the guns (art-pipeline-v2 section 5, "Snow props B" row).
+# Collapse decimation alone turns rungs, cage bars and nozzle studs into the chunky shards
+# A shipped at LOD1/LOD2; deleting whole parts by name first keeps the silhouette parts
+# clean and spends the decimation on the big shells. Prefixes are cumulative per level.
+LOD_DELETE = {
+    "tower": (("HeadStud", "HeadBolt", "Rung", "FootNut", "Clamp", "Standoff", "Knee", "Kick",
+               "Hose", "CageBar", "HeadSpinner", "Hinge", "Handle", "Louvre", "CabDoor"),
+              ("HeadStud", "HeadBolt", "Rung", "FootNut", "Clamp", "Standoff", "Knee", "Kick",
+               "Hose", "CageBar", "HeadSpinner", "Hinge", "Handle", "Louvre", "CabDoor",
+               "CageHoop", "Stile", "Rail", "Brace", "Flange", "Conduit", "Riser", "HeadTrunnion",
+               "HeadBore", "HeadFan", "HeadGuard", "Beacon", "BasePlate", "MastCollar",
+               "MastFoot", "CabLid")),
+    "fan":   (("GunStud", "GunNuc", "GunBolt", "GunValve", "Feed", "Coil", "Hose", "HubCap",
+               "HubIn", "JackFoot", "GunSpinner", "Axle", "Hinge", "Handle", "Louvre", "CabDoor"),
+              ("GunStud", "GunNuc", "GunBolt", "GunValve", "Feed", "Coil", "Hose", "HubCap",
+               "HubIn", "JackFoot", "GunSpinner", "Axle", "Hinge", "Handle", "Louvre", "CabDoor",
+               "GunManifold", "Jack", "Castor", "GunTrunnion", "GunBore", "GunFan", "GunGuard",
+               "Turntable", "Tank", "Hub", "PedFoot", "CabLid")),
+}
+
+
+def make_lods(key, obj, name):
+    """
+    LOD1..n objects for `obj` (caller exports and removes them). Guns with a LOD_DELETE
+    recipe go through cs2_asset.make_lod_chain; each level's target is the ratio x LOD0,
+    or what is left after the deletion when that is already lower (then no decimation).
+    Assets without the recipe keep the A path (plain ratio decimate).
+    """
+    ratios = LOD_CHAIN.get(key, ())
+    if not ratios:
+        return []
+    if key not in LOD_DELETE or cs2_asset.PART_TABLE_PROP not in obj.data:
+        return [lift_tower.make_lod(obj, r, f"{name}_LOD{i}") for i, r in enumerate(ratios, 1)]
+    import json
+    table = json.loads(obj.data[cs2_asset.PART_TABLE_PROP])
+    lod0 = tri_count(obj)
+    attr = obj.data.attributes["part"].data
+    targets = []
+    for ratio, prefixes in zip(ratios, LOD_DELETE[key]):
+        left = sum(len(poly.vertices) - 2 for poly in obj.data.polygons
+                   if not table[attr[poly.index].value - 1].startswith(prefixes))
+        targets.append(min(int(round(ratio * lod0)), left))
+    return cs2_asset.make_lod_chain(obj, name, targets, LOD_DELETE[key])
+
 # Parts that take the finishing-pass bevel — the BOXY ones only, same rule as
 # lift_tower.BEVEL_PREFIXES. Cylinders already read round; thin bars (rails, rungs, ribs,
 # clamps, jack feet) are too small to catch a specular line and the bevel would cost more
 # tris than it returns. Razor-sharp box edges are the single biggest procedural tell
 # against vanilla assets, so the parts a player can actually see a corner on get 0.02 m.
 BEVEL_PREFIXES = ("Pad", "BasePlate", "Cabinet", "Platform", "Body", "Lid",
-                  "Compressor", "DriveHousing", "PushPlate")
+                  "Compressor", "DriveHousing", "PushPlate",
+                  # T20 de-CAD (generation B): every chunky box gets a real chamfer
+                  "HeadCompressor")
+
+# T20 de-CAD: thin bars, plates, pins and small capped cylinders are SOFT-shaded instead
+# of bevelled: no sharp edges, face-area weighted normals, so a 2.5 cm rung reads as the
+# round bar it is and a pin cap reads domed, for zero triangles. (A geometric bevel on
+# the ~60 bars of a tower would cost ~1,000 tris against an 1,800 cap.)
+SOFT_PREFIXES = ("Rung", "Rail", "Knee", "Kick", "Brace", "Stile", "Standoff", "CageBar",
+                 "Clamp", "HeadFork", "GunFork", "HeadTrunnion", "GunTrunnion", "Chassis",
+                 "Cross", "AxleArm", "Axle", "CastorFork", "Castor", "Cheek", "Rest", "Cradle",
+                 "Louvre", "Hinge", "Handle", "JackFoot", "Jack", "Floor", "CabDoor",
+                 "NumberPlate", "Pin", "Valve", "Conduit", "Marker", "Beacon", "Tank",
+                 "Outlet", "Stub", "NucHead", "HeadCap", "Wheel", "SlewDrive", "Turntable",
+                 "HeadStud", "GunStud", "GunNuc", "HeadBolt", "GunBolt", "FootNut", "HubCap",
+                 "HubIn", "ColumnTop", "CabLid", "Deck", "SensorBox", "Skid", "HeadFan", "GunFan",
+                 "HeadGuard", "GunGuard", "HeadBore", "GunBore", "Pedestal", "GunValve",
+                 "GunManifold", "Lance", "Coil", "HoseCoil", "Hose", "HoseLead", "Feed")
 
 # Assets that ship the fifth (emissive) map. The floodlight's lens is the whole point of
 # the asset; the snow-gun tower has an amber beacon on its cabinet. The lance, hydrant and
@@ -143,9 +213,10 @@ def add_box(name, size, location, rotation=(0, 0, 0)):
     return o
 
 
-def add_tube(name, radius, depth, location, rotation=(0, 0, 0), segments=8):
+def add_tube(name, radius, depth, location, rotation=(0, 0, 0), segments=8, caps=True):
     bpy.ops.mesh.primitive_cylinder_add(vertices=segments, radius=radius, depth=depth,
-                                        location=location, rotation=rotation)
+                                        location=location, rotation=rotation,
+                                        end_fill_type="NGON" if caps else "NOTHING")
     o = bpy.context.active_object
     o.name = name
     return o
@@ -169,6 +240,187 @@ def add_link(name, p0, p1, radius, segments=6, extend=0.02):
     return o
 
 
+# --------------------------------------------------------------------------------------
+# Detail-pass primitives (T20, 2026-10-16). Built from raw verts so every face is one we
+# asked for: no hidden end caps. The A-generation cage hoops were primitive_cylinder rings
+# whose filled caps rendered as SOLID DISCS around the mast, which is what read in game as
+# "the ladder goes through the platforms" (docs/research/art/snow-props-detail-2026-10-16.md).
+# Each face carries a wanted direction and is flipped to match it, so open shapes (bands,
+# ribbons, bores) are wound correctly without relying on recalc_face_normals.
+# --------------------------------------------------------------------------------------
+
+def _mk(name, verts, faces):
+    """faces = [(vertex index list, wanted direction Vector)]; returns a linked object."""
+    out = []
+    for idx, want in faces:
+        n = mathutils.geometry.normal([mathutils.Vector(verts[i]) for i in idx])
+        if want is not None and n.dot(want) < 0.0:
+            idx = list(reversed(idx))
+        out.append(tuple(idx))
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([tuple(v) for v in verts], [], out)
+    me.update()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
+    return o
+
+
+def add_lathe(name, profile, bands, matrix, segments=16):
+    """
+    Revolve (x, r) profile points about local +X, then place with `matrix`. `bands[i]`
+    says which way band i (points i -> i+1) faces: 'out' / 'in' (away from / toward the
+    axis) or '+x' / '-x' (along the axis). No caps: discs are separate parts.
+    """
+    verts = []
+    for x, r in profile:
+        for j in range(segments):
+            a = 2.0 * math.pi * j / segments
+            verts.append(mathutils.Vector((x, r * math.cos(a), r * math.sin(a))))
+    faces = []
+    for i, mode in enumerate(bands):
+        for j in range(segments):
+            j2 = (j + 1) % segments
+            idx = [i * segments + j, (i + 1) * segments + j,
+                   (i + 1) * segments + j2, i * segments + j2]
+            c = sum((verts[k] for k in idx), mathutils.Vector()) / 4.0
+            radial = mathutils.Vector((0.0, c.y, c.z)).normalized()
+            want = {"out": radial, "in": -radial,
+                    "+x": mathutils.Vector((1, 0, 0)), "-x": mathutils.Vector((-1, 0, 0))}[mode]
+            faces.append((idx, want))
+    o = _mk(name, verts, faces)
+    o.data.transform(matrix)
+    o.data.update()
+    return o
+
+
+def add_disc(name, x, r, facing, matrix, segments=16):
+    """One n-gon disc in the local YZ plane at `x`, facing +X (facing=1) or -X (-1)."""
+    verts = [(x, r * math.cos(2 * math.pi * j / segments), r * math.sin(2 * math.pi * j / segments))
+             for j in range(segments)]
+    o = _mk(name, verts, [(list(range(segments)), mathutils.Vector((facing, 0, 0)))])
+    o.data.transform(matrix)
+    o.data.update()
+    return o
+
+
+def add_spinner(name, x, r, h, matrix, segments=8):
+    """Open cone (no base) from radius r at local x to an apex at x + h: the fan hub."""
+    verts = [(x, r * math.cos(2 * math.pi * j / segments), r * math.sin(2 * math.pi * j / segments))
+             for j in range(segments)] + [(x + h, 0.0, 0.0)]
+    faces = []
+    for j in range(segments):
+        a, b = verts[j], verts[(j + 1) % segments]
+        want = mathutils.Vector((0.3, (a[1] + b[1]) * 0.5, (a[2] + b[2]) * 0.5))
+        faces.append(([j, (j + 1) % segments, segments], want))
+    o = _mk(name, verts, faces)
+    o.data.transform(matrix)
+    o.data.update()
+    return o
+
+
+def add_bar(name, p0, p1, w, h, up=None):
+    """
+    Box-section bar from p0 to p1 WITHOUT end caps (8 tris): rungs, rails, posts, braces,
+    stiles. `w` is measured along the side axis (d x up), `h` along the bar's own up.
+    Ends always butt into something (a stile, a post, the mast), so caps would be hidden.
+    """
+    a, b = mathutils.Vector(p0), mathutils.Vector(p1)
+    d = (b - a).normalized()
+    ref = mathutils.Vector(up) if up is not None else mathutils.Vector((0, 0, 1))
+    if abs(d.dot(ref.normalized())) > 0.95:
+        ref = mathutils.Vector((1, 0, 0))
+    side = d.cross(ref).normalized()
+    upv = side.cross(d).normalized()
+    corners = [(+1, +1), (-1, +1), (-1, -1), (+1, -1)]
+    verts = [p + side * (sx * w * 0.5) + upv * (sy * h * 0.5)
+             for p in (a, b) for sx, sy in corners]
+    faces = []
+    for k in range(4):
+        k2 = (k + 1) % 4
+        want = side * (corners[k][0] + corners[k2][0]) + upv * (corners[k][1] + corners[k2][1])
+        faces.append(([k, k2, 4 + k2, 4 + k], want))
+    return _mk(name, verts, faces)
+
+
+def add_ribbon(name, pts, z, height, thick):
+    """
+    Vertical flat bar following a horizontal polyline (cage hoops): an inner and an outer
+    face per segment, 4 tris, no top/bottom (10 mm of edge never reads).
+    """
+    P = [mathutils.Vector((x, y, 0.0)) for x, y in pts]
+    offs = []
+    for i in range(len(P)):
+        t = (P[min(i + 1, len(P) - 1)] - P[max(i - 1, 0)]).normalized()
+        offs.append(mathutils.Vector((t.y, -t.x, 0.0)) * (thick * 0.5))
+    verts = []
+    for p, o in zip(P, offs):
+        for s in (+1, -1):
+            for dz in (-height * 0.5, height * 0.5):
+                verts.append(p + o * s + mathutils.Vector((0, 0, z + dz)))
+    faces = []
+    for i in range(len(P) - 1):
+        a, b = 4 * i, 4 * (i + 1)
+        n = offs[i] + offs[i + 1]
+        faces.append(([a, b, b + 1, a + 1], n))
+        faces.append(([a + 2, b + 2, b + 3, a + 3], -n))
+    return _mk(name, verts, faces)
+
+
+def add_stud(name, base, axis, size, height, roll=0.0):
+    """Triangular nozzle stud standing on a surface along `axis` (7 tris, no base)."""
+    ax = mathutils.Vector(axis).normalized()
+    u = ax.orthogonal().normalized()
+    v = ax.cross(u)
+    base = mathutils.Vector(base)
+    ring = []
+    for k in range(3):
+        a = roll + 2.0 * math.pi * k / 3.0
+        ring.append(u * (math.cos(a) * size * 0.5) + v * (math.sin(a) * size * 0.5))
+    verts = [base + r for r in ring] + [base + r * 0.7 + ax * height for r in ring]
+    faces = [([3, 4, 5], ax)]
+    for k in range(3):
+        k2 = (k + 1) % 3
+        faces.append(([k, k2, 3 + k2, 3 + k], ring[k] + ring[k2]))
+    return _mk(name, verts, faces)
+
+
+def add_torus(name, centre, R, r, segments=10, sides=3):
+    """Low torus lying flat (hose coils): segments x sides quads."""
+    c = mathutils.Vector(centre)
+    verts = []
+    for i in range(segments):
+        a = 2.0 * math.pi * i / segments
+        rad = mathutils.Vector((math.cos(a), math.sin(a), 0.0))
+        for k in range(sides):
+            b = 2.0 * math.pi * k / sides + math.pi / 2.0
+            verts.append(c + rad * (R + r * math.cos(b)) + mathutils.Vector((0, 0, r * math.sin(b))))
+    faces = []
+    for i in range(segments):
+        i2 = (i + 1) % segments
+        for k in range(sides):
+            k2 = (k + 1) % sides
+            idx = [i * sides + k, i2 * sides + k, i2 * sides + k2, i * sides + k2]
+            ctr = sum((verts[q] for q in idx), mathutils.Vector()) / 4.0
+            a = 2.0 * math.pi * (i + 0.5) / segments
+            ring_c = c + mathutils.Vector((math.cos(a), math.sin(a), 0.0)) * R
+            faces.append((idx, ctr - ring_c))
+    return _mk(name, verts, faces)
+
+
+def add_hose(name, pts, radius, segments=5):
+    """Open tube (no caps) through a polyline: returns one part per segment."""
+    out = []
+    for i in range(len(pts) - 1):
+        o = add_tube(f"{name}{i}", radius, (mathutils.Vector(pts[i + 1]) -
+                                            mathutils.Vector(pts[i])).length + 0.03,
+                     tuple((mathutils.Vector(pts[i]) + mathutils.Vector(pts[i + 1])) / 2.0),
+                     segments=segments, caps=False)
+        o.rotation_euler = (mathutils.Vector(pts[i + 1]) -
+                            mathutils.Vector(pts[i])).to_track_quat("Z", "Y").to_euler()
+        out.append(o)
+    return out
+
+
 def tri_count(obj):
     bm = bmesh.new()
     bm.from_mesh(obj.data)
@@ -189,59 +441,77 @@ class TowerParams:
     mast_h: float = 6.5
     mast_r_base: float = 0.11        # 0.22 outer dia
     mast_r_top: float = 0.09
-    pad: tuple = (0.80, 0.80, 0.25)  # concrete pad L,W,H
+    # T20: 1.20 pad per snow-gun-anatomy.md A1 #1 (was 0.80, which left the cabinet
+    # hanging off the pad edge and no room for the ladder foot).
+    pad: tuple = (1.20, 1.20, 0.25)  # concrete pad L,W,H
     base_plate: tuple = (0.60, 0.60, 0.05)
-    head_len: float = 1.25
-    head_r_muzzle: float = 0.45      # 0.90 dia
-    head_r_throat: float = 0.40
-    head_rise: float = 0.45          # head centreline above mast top
+    # Head proportions, T20: TR10 / TF10 photographs (close-up + summer-slope refs) read a
+    # housing ~1.5x as long as it is wide, a flared rear intake bell, and a ring collar a
+    # step wider than the body. Was 1.25 long on a 0.90 cone = a bucket.
+    head_len: float = 1.45
+    head_r_muzzle: float = 0.44      # body front radius; collar = 1.10x -> 0.97 dia
+    head_r_throat: float = 0.39      # body rear radius; bell lip = 1.12x
     pitch_deg: float = 22.0          # nose-up
     yaw_deg: float = 22.0            # off the border tangent — see convention 2
-    platform: tuple = (0.90, 0.90, 0.04)
-    rail_h: float = 1.05
-    cabinet: tuple = (0.45, 0.30, 0.70)   # W(lateral) x D x H
-    cabinet_off: float = 0.62
-    nozzles: int = 12                # 24 real; 12 reads identically and halves the cost
+    # Work basket (SMI Denali pattern, snow-gun-anatomy.md C1/C3): the DECK sits 1.5 m
+    # under the mast top so a standing worker's hands reach the yoke, not 72 % up the mast
+    # where the A generation put it (2.6 m below the head on the Tall: out of reach).
+    deck_below_top: float = 1.50
+    deck: tuple = (0.80, 0.90)       # x (fore-aft) x y; x starts just past the ladder
+    deck_x0: float = -0.24           # deck edge on the ladder side (ladder plane -0.30)
+    rail_h: float = 1.10             # EN ISO 14122-3 top rail
+    ladder_x: float = -0.30          # rung centreline: 0.19 m clear of the mast skin
+    ladder_w: float = 0.40           # stile spacing (anatomy C3)
+    cabinet: tuple = (0.60, 0.26, 0.95)   # W(lateral) x D x H — compressor/control cabinet
+    cabinet_off: float = 0.45
+    nozzles: int = 12                # 24 real (TF10); 12 studs + the open annulus read as a ring
 
 
 @dataclass
 class LanceParams:
     """TechnoAlpin TL8: 4.50 / 7.17 / 10.06 m working heights. Default 7.0."""
     height: float = 7.0
-    pipe_r: float = 0.0275           # 0.055 dia
+    pipe_r: float = 0.030            # 0.06 dia aluminium tube
     # Anatomy study corrects the lean: real working lances sit at 25-40 degrees off
     # vertical, not the 15 the first spec assumed.
     lean_deg: float = 30.0
-    head_len: float = 0.18
-    head_r: float = 0.045
-    column_r: float = 0.07           # 0.14 dia rotating column
-    column_h: float = 0.55
-    base_plate: tuple = (0.35, 0.35, 0.12)
-    pad: tuple = (0.60, 0.60, 0.18)
-    compressor: tuple = (0.70, 0.50, 0.55)
+    pipe_len: float = 0.0            # 0 = reach `height`; >0 = fixed length (folded pose)
+    head_len: float = 0.26
+    head_r: float = 0.050
+    column_r: float = 0.10           # 0.20 dia fixed column (anatomy #40)
+    column_h: float = 0.80
+    base_plate: tuple = (0.40, 0.40, 0.06)
+    pad: tuple = (0.70, 0.70, 0.18)
+    jacket: tuple = (0.24, 0.16, 0.50)    # orange base jacket: r bottom, r top, height
+    stub_len: float = 0.35           # pipe tail behind the pivot = the water inlet
+    compressor_r: float = 0.26       # TechnoAlpin-style drum compressor at the base
+    compressor_l: float = 0.48
     with_compressor: bool = True
+    with_rest: bool = False          # (B1 folded pose, superseded by `laid`)
+    laid: bool = False               # summer pose: swung flat onto a low cradle (T20 verdict 2)
+    cradle_h: float = 0.22           # cradle saddle height under the tube
 
 
 @dataclass
 class FanParams:
     """TechnoAlpin TF10 Manual: 2.70 L (incl. drawbar) x 1.55 W x 2.55 H, turbine 0.90."""
-    barrel_len: float = 1.45
-    barrel_r_muzzle: float = 0.525   # 1.05 dia
-    barrel_r_throat: float = 0.475
+    barrel_len: float = 1.60         # T20: TR10 close-up reads ~1.5x the body diameter
+    barrel_r_muzzle: float = 0.50    # collar 1.10x -> 1.10 dia
+    barrel_r_throat: float = 0.45
     barrel_z: float = 1.65           # centreline height
     pitch_deg: float = 30.0
     yaw_deg: float = 20.0            # see convention 2
     wheel_r: float = 0.30
     wheel_w: float = 0.20
-    track_w: float = 1.20            # between wheel centres
-    frame_w: float = 0.08
+    track_w: float = 1.20            # between rail centres; wheels sit outboard
+    frame_w: float = 0.06
     drawbar_len: float = 0.90
     castor_r: float = 0.10
     jack_h: float = 0.35
     cabinet: tuple = (0.40, 0.25, 0.55)
-    nozzles: int = 12
-    nucleators: int = 6
-    tank_r: float = 0.16             # the blue accent cylinder under the barrel
+    nozzles: int = 12                # T20 de-CAD budget: 12 studs + the open annulus
+    nucleators: int = 0              # (6 in B1; the inner row did not read and cost 42 tris)
+    tank_r: float = 0.15             # the blue accent water module
 
 
 @dataclass
@@ -282,7 +552,8 @@ class HydrantParams:
     pipe_h: float = 0.90
     wheel_r: float = 0.125           # 0.25 handwheel
     hose_r: float = 0.03
-    with_hose: bool = True
+    coil_r: float = 0.30             # T20: the locale says "with a coiled hose"; A laid
+    with_hose: bool = True           # a straight stub instead
 
 
 # --------------------------------------------------------------------------------------
@@ -300,108 +571,198 @@ def gun_axes(pitch_deg, yaw_deg):
     return fwd, side, perp
 
 
-def build_gun_head(prefix, origin, r_muzzle, r_throat, length, pitch_deg, yaw_deg,
-                   nozzles, nucleators=0, scale=1.0, manifold=False):
-    """
-    Barrel pointing +X before rotation, then pitched nose-up and yawed off the border.
-    Returns [(obj, quad), ...]. Origin is the barrel's own centre of mass.
+def add_vlathe(name, centre, profile, bands, segments=12):
+    """Vertical lathe: profile = [(z offset, r)] about a vertical axis through `centre`
+    (bands as add_lathe: 'out' / 'in' radial, '+x' = up, '-x' = down)."""
+    M = (mathutils.Matrix.Translation(centre) @
+         mathutils.Matrix.Rotation(math.radians(-90.0), 4, "Y"))
+    return add_lathe(name, profile, bands, M, segments=segments)
 
-    Detail pass: the first version was a bare cone, which reads as a bucket. Real fan
-    guns have a distinct MUZZLE COLLAR (the nozzle-ring housing, a step wider than the
-    barrel), a recessed dark INTAKE at the rear, and longitudinal RIBS down the housing.
-    Those three are what separate "snow gun" from "cylinder" at 20 m; the nozzle ring
-    itself only pays off close up.
+
+def add_foot(name, centre, r_flange, r_top, height, segments=12):
+    """Cast foot (T20 de-CAD): a flange rim, a sloped shoulder and a fillet into the tube
+    it carries; open at both ends (the plate below and the tube above close it)."""
+    return add_vlathe(name, centre, [(0.0, r_flange), (0.03, r_flange), (0.07, r_flange * 0.62),
+                                     (height, r_top)], ["out", "out", "out"], segments)
+
+
+def add_nuts(prefix, centre, r, z, n, size=0.034, phase=0.0):
+    """Hex-nut stand-ins on a flange: n three-sided studs (7 tris each)."""
+    out = []
+    for i in range(n):
+        a = phase + 2.0 * math.pi * i / n
+        out.append(add_stud(f"{prefix}{i}", (centre[0] + r * math.cos(a),
+                                             centre[1] + r * math.sin(a), z),
+                            (0, 0, 1), size, size * 0.8, roll=a))
+    return out
+
+
+def add_cabinet(name, size, centre, z0, facing, zone, door=True, louvres=True,
+                lid_zone=Z_GALV):
+    """
+    Folded-sheet cabinet (T20 de-CAD; Richard: "a folded-sheet look, door seam, hinges,
+    louvre band, slight overhang"): a chamfered body, a lid that overhangs on all sides,
+    a door leaf standing 5 mm proud (its outline is the seam) with two hinge barrels on one
+    edge and a handle off-centre on the other, and a band of louvre slats low on the side.
+    size = (depth along `facing`, width, height); facing = +-1 along X (door side).
+    Returns [(obj, zone)].
+    """
+    d, w, h = size
+    cx, cy = centre
+    parts = [(add_box(name, (d, w, h), (cx, cy, z0 + h / 2.0)), zone),
+             (add_box(f"CabLid{name}", (d + 0.05, w + 0.05, 0.03),
+                      (cx + facing * 0.012, cy, z0 + h + 0.012)), lid_zone)]
+    fx = cx + facing * (d / 2.0)
+    if door:
+        parts.append((add_box(f"CabDoor{name}", (0.012, w - 0.08, h - 0.10),
+                              (fx + facing * 0.002, cy, z0 + h / 2.0 + 0.01)), zone))
+        hy = cy - (w / 2.0 - 0.045)
+        for k, zf in enumerate((0.25, 0.75)):
+            hz = z0 + 0.06 + zf * (h - 0.12)
+            parts.append((add_tube(f"Hinge{name}{k}", 0.012, 0.07,
+                                   (fx + facing * 0.010, hy, hz), segments=6, caps=False),
+                          Z_GALV))
+        # handle off-centre, on the opening edge (asymmetry is the point)
+        ry = cy + (w / 2.0 - 0.07)
+        parts.append((add_bar(f"Handle{name}", (fx + facing * 0.022, ry, z0 + h * 0.52),
+                              (fx + facing * 0.022, ry, z0 + h * 0.52 + 0.11), 0.016, 0.016),
+                      Z_GALV))
+    if louvres:
+        sy = cy + w / 2.0                                # louvres on the +y side face
+        for k in range(3):
+            z = z0 + 0.10 + 0.05 * k
+            parts.append((add_bar(f"Louvre{name}{k}", (cx - d * 0.32, sy + 0.004, z),
+                                  (cx + d * 0.32, sy + 0.004, z), 0.012, 0.025), Z_GRATE))
+    return parts
+
+
+def body_radius_at(x, length, r_muzzle, r_throat):
+    """Housing radius at local x (the straight body between the bell waist and the collar)."""
+    xa, xb = -length / 2.0 + 0.16 * length, length / 2.0 - 0.13 * length
+    ra, rb = r_throat * 0.98, r_muzzle
+    t = min(max((x - xa) / (xb - xa), 0.0), 1.0)
+    return ra + (rb - ra) * t
+
+
+def build_gun_head(prefix, origin, r_muzzle, r_throat, length, pitch_deg, yaw_deg,
+                   nozzles, nucleators=0, scale=1.0, manifold=False, compressor=False,
+                   segments=14, ring_bolts=6):
+    """
+    Barrel along +X before aiming, then pitched nose-up and yawed off the border.
+    Returns (parts, anchors); origin is the barrel's centre (the trunnion axis).
+
+    T20 detail pass (snow-props-detail-2026-10-16.md). The A head was a 16-sided cone with
+    FILLED caps: from the front it read as a flat lid with studs on it, never as a gun.
+    One lathe profile now carries what the TR10 / TF10 photographs show: a flared rear
+    INTAKE BELL closed by a dark guard disc, a straight BODY ~1.5x as long as it is wide,
+    the NOZZLE-RING COLLAR a step wider than the body (open annulus with the nozzle studs),
+    a dark BORE with the FAN disc and a hub SPINNER.
+    De-CAD (second verdict, "straight outta CAD"): no 90-degree profile corners left. The
+    bell ends in a ROLLED LIP, the collar step is a chamfer and its front edge is rounded
+    into the annulus, which itself turns into the bore over a small radius; bolt heads
+    ring the annulus between the nozzles (fasteners where the eye lands).
     """
     parts = []
-    ox, oy, oz = origin
-
-    # Barrel: cone with the wide end at the muzzle (+X). primitive_cone's axis is +Z,
-    # so rotate +90 about Y to lay it along +X, then apply pitch/yaw.
-    rot = mathutils.Euler((0.0, math.radians(90.0), 0.0), "XYZ").to_matrix().to_4x4()
-    aim = mathutils.Euler((0.0, -math.radians(pitch_deg), math.radians(yaw_deg)),
-                          "XYZ").to_matrix().to_4x4()
-
-    barrel = add_cone(f"{prefix}Barrel", r_throat, r_muzzle, length, (0, 0, 0), segments=16)
-    barrel.matrix_world = aim @ rot
-    bpy.ops.object.select_all(action="DESELECT")
-    barrel.select_set(True)
-    bpy.context.view_layer.objects.active = barrel
-    bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
-    barrel.location = (ox, oy, oz)
-    parts.append((barrel, Z_LIVERY))
-
+    L, R, Rt = length, r_muzzle, r_throat
+    xr, xf = -L / 2.0, L / 2.0
+    xw, xc = xr + 0.16 * L, xf - 0.13 * L          # bell waist, collar step
+    xbore = xf - 0.35 * L                          # fan plane
+    centre = mathutils.Vector(origin)
     fwd, side, perp = gun_axes(pitch_deg, yaw_deg)
-    aim_rot = fwd.to_track_quat("Z", "Y").to_euler()
-    centre = mathutils.Vector((ox, oy, oz))
-    muzzle = centre + fwd * (length * 0.5)
-    throat = centre - fwd * (length * 0.5)
+    M = (mathutils.Matrix.Translation(centre) @
+         mathutils.Euler((0.0, -math.radians(pitch_deg), math.radians(yaw_deg)),
+                         "XYZ").to_matrix().to_4x4())
+    seg = segments
 
-    # Muzzle collar — the step-wider band carrying the nozzle ring. Biggest single
-    # readability win on the barrel.
-    collar = add_tube(f"{prefix}Collar", r_muzzle * 1.10, 0.10 * scale,
-                      tuple(muzzle - fwd * 0.04), segments=16)
-    collar.rotation_euler = aim_rot
-    parts.append((collar, Z_GALV))
+    parts.append((add_lathe(f"{prefix}Housing",
+                            [(xr + 0.04, Rt * 0.88), (xr, Rt * 1.00), (xr + 0.01, Rt * 1.10),
+                             (xr + 0.03, Rt * 1.125), (xr + 0.07, Rt * 1.09), (xw, Rt * 0.98), (xc, R)],
+                            ["-x", "out", "out", "out", "out", "out"], M, segments=seg), Z_LIVERY))
+    parts.append((add_lathe(f"{prefix}Collar",
+                            [(xc, R), (xc + 0.012, R * 1.09), (xf - 0.016, R * 1.10),
+                             (xf, R * 1.065), (xf, R * 0.78)],
+                            ["-x", "out", "out", "+x"], M, segments=seg), Z_GALV))
+    parts.append((add_lathe(f"{prefix}Bore", [(xf, R * 0.78), (xbore, R * 0.78)], ["in"], M,
+                            segments=seg), Z_GRATE))
+    parts.append((add_disc(f"{prefix}Fan", xbore, R * 0.78, +1, M, segments=seg), Z_GRATE))
+    parts.append((add_spinner(f"{prefix}Spinner", xbore, R * 0.24, 0.22 * scale, M), Z_GALV))
+    parts.append((add_disc(f"{prefix}Guard", xr + 0.04, Rt * 0.88, -1, M, segments=seg), Z_GRATE))
 
-    # Longitudinal ribs down the housing (4 is plenty — they read as shading breaks).
-    for i in range(4):
-        a = 2.0 * math.pi * i / 4.0 + math.pi / 4.0
-        radial = (side * math.cos(a) + perp * math.sin(a))
-        rib_r = (r_muzzle + r_throat) * 0.5 * 0.99
-        rib = add_box(f"{prefix}Rib{i}", (length * 0.80, 0.035 * scale, 0.045 * scale),
-                      (0, 0, 0))
-        # The rib's long axis is local X; track X onto the barrel direction.
-        rib.rotation_euler = fwd.to_track_quat("X", "Z").to_euler()
-        rib.location = tuple(centre + radial * rib_r)
-        parts.append((rib, Z_LIVERY))
-
-    # Nozzle ring on the muzzle face.
-    ring_r = r_muzzle * 0.82
+    # Nozzle studs on the collar face (the TR10 close-up: a ring of nozzle bodies on the
+    # aluminium annulus), the inner nucleator row, and bolt heads between the nozzles.
     for i in range(nozzles):
         a = 2.0 * math.pi * i / nozzles
-        p = muzzle + (side * math.cos(a) + perp * math.sin(a)) * ring_r + fwd * 0.02
-        n = add_tube(f"{prefix}Nozzle{i}", 0.022 * scale, 0.08 * scale, tuple(p), segments=6)
-        n.rotation_euler = aim_rot
-        parts.append((n, Z_GALV))
-
-    # Inner nucleator ring (carriage gun — the detail the TF10 diagram calls out).
+        base = M @ mathutils.Vector((xf, R * 0.93 * math.cos(a), R * 0.93 * math.sin(a)))
+        parts.append((add_stud(f"{prefix}Stud{i}", base, fwd, 0.036 * scale, 0.05 * scale,
+                               roll=a), Z_GALV))
     for i in range(nucleators):
-        a = 2.0 * math.pi * i / nucleators + math.pi / nucleators
-        p = muzzle + (side * math.cos(a) + perp * math.sin(a)) * (r_muzzle * 0.32) + fwd * 0.02
-        n = add_tube(f"{prefix}Nuc{i}", 0.016 * scale, 0.07 * scale, tuple(p), segments=6)
-        n.rotation_euler = aim_rot
-        parts.append((n, Z_GALV))
+        a = 2.0 * math.pi * (i + 0.5) / nucleators
+        base = M @ mathutils.Vector((xf, R * 0.84 * math.cos(a), R * 0.84 * math.sin(a)))
+        parts.append((add_stud(f"{prefix}Nuc{i}", base, fwd, 0.026 * scale, 0.035 * scale,
+                               roll=a), Z_GALV))
+    for i in range(ring_bolts):
+        a = 2.0 * math.pi * (i + 0.37) / ring_bolts
+        base = M @ mathutils.Vector((xf, R * 1.025 * math.cos(a), R * 1.025 * math.sin(a)))
+        parts.append((add_stud(f"{prefix}Bolt{i}", base, fwd, 0.022 * scale, 0.014 * scale,
+                               roll=a), Z_GALV))
 
-    # Rear intake: a recessed dark disc inside a rim. The dark circular void is what
-    # tells the eye which end is the back.
-    rim = add_tube(f"{prefix}IntakeRim", r_throat * 1.06, 0.07 * scale,
-                   tuple(throat + fwd * 0.02), segments=16)
-    rim.rotation_euler = aim_rot
-    parts.append((rim, Z_GALV))
-    guard = add_tube(f"{prefix}Guard", r_throat * 0.90, 0.03 * scale,
-                     tuple(throat + fwd * 0.06), segments=12)
-    guard.rotation_euler = aim_rot
-    parts.append((guard, Z_GRATE))
+    anchors = {"centre": centre, "rc": body_radius_at(0.0, L, R, Rt),
+               "fwd": fwd, "side": side, "perp": perp, "hose": None}
+
+    if compressor:
+        # Compressor / water module slung under the housing, a second colour — the yellow
+        # box under the white TF10 in the "fan gun on tower arm" photograph.
+        rcm = body_radius_at(0.16 * L, L, R, Rt)
+        cpos = centre + fwd * (0.16 * L) - perp * (rcm + 0.13)
+        box = add_box(f"{prefix}Compressor", (0.40, 0.34, 0.24), (0, 0, 0))
+        box.rotation_euler = mathutils.Matrix((fwd, perp.cross(fwd), perp)).transposed().to_euler()
+        box.location = cpos
+        parts.append((box, Z_ACCENT))
+        anchors["hose"] = cpos - perp * 0.12 - fwd * 0.18
 
     if manifold:
-        # Chrome pipework and valve bank slung under the barrel — clearly visible in the
-        # user's reference image 4 and the single most "machine-like" detail available.
-        base = centre - perp * (r_muzzle * 0.85)
+        # Valve bank on the lower flank of the barrel (reference "fan gun blowing snow on
+        # ground blue"). On the flank, not dead under: dead under it ran into the yoke.
+        mdir = (-perp * 0.75 - side * 0.66).normalized()
+        base = centre + mdir * (anchors["rc"] + 0.06)
         parts.append((add_link(f"{prefix}ManifoldPipe",
-                               tuple(base - fwd * (length * 0.32)),
-                               tuple(base + fwd * (length * 0.36)),
+                               tuple(base - fwd * (L * 0.16)), tuple(base + fwd * (L * 0.28)),
                                0.032 * scale, segments=6), Z_GALV))
-        for i, t in enumerate((-0.18, 0.06, 0.28)):
-            vp = base + fwd * (length * t)
-            v = add_tube(f"{prefix}Valve{i}", 0.045 * scale, 0.10 * scale,
-                         tuple(vp - perp * 0.05), segments=6)
+        for i, t in enumerate((0.20,)):
+            vp = base + fwd * (L * t) + mdir * 0.05
+            v = add_tube(f"{prefix}Valve{i}", 0.040 * scale, 0.10 * scale, tuple(vp), segments=6)
+            v.rotation_euler = mdir.to_track_quat("Z", "Y").to_euler()
             parts.append((v, Z_GALV))
-        # Feed line dropping away toward the hydrant.
-        parts.append((add_link(f"{prefix}Feed",
-                               tuple(base - fwd * (length * 0.30)),
-                               tuple(base - fwd * (length * 0.30) - perp * 0.42),
-                               0.028 * scale, segments=5), Z_RUBBER))
+        anchors["hose"] = base + fwd * (L * 0.28)
+    return parts, anchors
 
+
+def build_fork(prefix, centre, rc, yaw_deg, z_base):
+    """
+    Yoke holding the barrel by TRUNNIONS at its sides, on a cross-head over the slew drive.
+    The A generation ran one fat tube from the mast top straight into the barrel's middle,
+    so the head looked skewered rather than carried. De-CAD: the arms and cross-head are
+    soft-shaded castings, and three bolt heads ring each trunnion boss.
+    """
+    yaw = math.radians(yaw_deg)
+    s = mathutils.Vector((math.sin(yaw), -math.cos(yaw), 0.0))   # == gun_axes side
+    up = mathutils.Vector((0.0, 0.0, 1.0))
+    fh = mathutils.Vector((-s.y, s.x, 0.0))
+    aw = rc + 0.09
+    b = mathutils.Vector((centre.x, centre.y, z_base))
+    parts = [(add_bar(f"{prefix}ForkBase", tuple(b - s * (aw + 0.05)), tuple(b + s * (aw + 0.05)),
+                      0.12, 0.08), Z_GALV)]
+    for k, sg in enumerate((-1.0, 1.0)):
+        parts.append((add_bar(f"{prefix}ForkArm{k}", tuple(b + s * (aw * sg) - up * 0.035),
+                              tuple(centre + s * (aw * sg) + up * 0.07), 0.11, 0.06,
+                              up=tuple(s)), Z_GALV))
+        parts.append((add_link(f"{prefix}Trunnion{k}", tuple(centre + s * (sg * (rc - 0.04))),
+                               tuple(centre + s * (sg * (aw + 0.06))), 0.055, segments=6),
+                      Z_GALV))
+        for j in range(2):
+            a = math.pi * j + 0.9
+            p = centre + s * (sg * (aw + 0.03)) + (fh * math.cos(a) + up * math.sin(a)) * 0.085
+            parts.append((add_stud(f"{prefix}Bolt{k}{j}", tuple(p), s * sg, 0.022, 0.016), Z_GALV))
     return parts
 
 
@@ -410,234 +771,403 @@ def build_gun_head(prefix, origin, r_muzzle, r_throat, length, pitch_deg, yaw_de
 # --------------------------------------------------------------------------------------
 
 def build_tower(p: TowerParams):
+    """
+    Fan gun on a mast with a caged ladder and a work basket (SMI Denali pattern; the TT10
+    has no ladder, DECISIONS 75). T20 rebuilt the access, after the A mesh shipped with:
+      * cage hoops made of CAPPED cylinders = solid 0.72 m discs threaded on the mast, which
+        read in game as platforms the ladder passes through (Richard, Ash Flat item 30);
+      * the cage centred 0.30 m off the ladder so it wrapped the mast, and its top hoop and
+        two straps cutting through the deck, a rail post and the kick plate;
+      * a rail closed on all four sides (no way onto the deck) and stiles stopping at deck
+        level (EN ISO 14122-4 wants them 1.1 m above it as grab rails);
+      * the deck 2.6 m under the head on the Tall: nobody standing on it reaches the gun.
+    Now: the ladder plane is 0.19 m off the mast skin, the deck starts 0.06 m past it with a
+    0.50 m opening in the rail, and the cage is a U of flat-bar hoops ON THE CLIMBER'S SIDE
+    ONLY (open toward the mast), ending 1 m above the deck beside the opening.
+    De-CAD: the mast is one open lathe standing in a CAST FOOT with nuts (no capped cones
+    meeting face to face), a weld collar under the slew drive, rail posts a size up from
+    the rails and the rails ending on them (A/B1 had 10 coplanar post/rail overlaps), and a
+    folded-sheet cabinet.
+    """
     parts = []
-
-    parts.append((add_box("Pad", p.pad, (0, 0, p.pad[2] / 2.0)), Z_CONCRETE))
+    pad_top = p.pad[2]
+    parts.append((add_box("Pad", p.pad, (0, 0, pad_top / 2.0)), Z_CONCRETE))
     parts.append((add_box("BasePlate", p.base_plate,
-                          (0, 0, p.pad[2] + p.base_plate[2] / 2.0)), Z_GALV))
+                          (0, 0, pad_top + p.base_plate[2] / 2.0 - 0.003)), Z_GALV))
 
-    # Mast: tapered 12-gon in two segments so the taper reads without a lathe.
-    mast_bottom = p.pad[2] + p.base_plate[2]
+    mast_bottom = pad_top + p.base_plate[2]
     mid_z = mast_bottom + (p.mast_h - mast_bottom) * 0.5
     r_mid = (p.mast_r_base + p.mast_r_top) * 0.5
-    seg1 = add_cone("Mast1", p.mast_r_base, r_mid, mid_z - mast_bottom,
-                    (0, 0, (mast_bottom + mid_z) / 2.0), segments=12)
-    parts.append((seg1, Z_GALV))
-    seg2 = add_cone("Mast2", r_mid, p.mast_r_top, p.mast_h - mid_z,
-                    (0, 0, (mid_z + p.mast_h) / 2.0), segments=12)
-    parts.append((seg2, Z_GALV))
-
-    # Service platform + rail at three-quarter height — breaks the mast line, which is
-    # silhouette feature 3 in the spec.
-    plat_z = p.pad[2] + (p.mast_h - p.pad[2]) * 0.72
-    parts.append((add_box("Platform", p.platform, (0.30, 0, plat_z)), Z_GRATE))
-    rail_top = plat_z + p.rail_h
-    for sx, sy in ((0.30 + p.platform[0] / 2, 0), (0.30 - p.platform[0] / 2, 0),
-                   (0.30, p.platform[1] / 2), (0.30, -p.platform[1] / 2)):
-        parts.append((add_link(f"RailPost{sx:.2f}{sy:.2f}", (sx, sy, plat_z),
-                               (sx, sy, rail_top), 0.018, segments=4), Z_GALV))
-    # Rail as a PERIMETER of bars, not a slab — a solid top box reads as a second shelf
-    # floating above the platform, which is exactly what the first render showed.
-    # Anatomy study: top rail 1.10, knee rail at half height, and a 0.10 KICK PLATE at
-    # deck level (EN ISO 14122-3). The kick plate is what makes a platform look walked-on.
-    hw, hd = p.platform[0] / 2.0, p.platform[1] / 2.0
-    edges = ((hw, 0, 0.035, p.platform[1]), (-hw, 0, 0.035, p.platform[1]),
-             (0, hd, p.platform[0], 0.035), (0, -hd, p.platform[0], 0.035))
-    for dx, dy, sx, sy in edges:
-        parts.append((add_box(f"Rail{dx:.2f}{dy:.2f}", (sx, sy, 0.035),
-                              (0.30 + dx, dy, rail_top)), Z_GALV))
-        parts.append((add_box(f"Knee{dx:.2f}{dy:.2f}", (sx, sy, 0.028),
-                              (0.30 + dx, dy, plat_z + p.rail_h * 0.50)), Z_GALV))
-        parts.append((add_box(f"Kick{dx:.2f}{dy:.2f}", (sx, sy, 0.10),
-                              (0.30 + dx, dy, plat_z + 0.06)), Z_GALV))
-
-    # Ladder: two stiles + rungs at the documented 0.28 m pitch, plus a SAFETY CAGE.
-    # The cage is legally required above 3 m fall height (EN ISO 14122-4) and the anatomy
-    # study ranks it the single biggest silhouette change available on this asset — a
-    # caged ladder reads as industrial equipment, a bare one reads as a pole.
-    for sy in (-0.16, 0.16):
-        parts.append((add_link(f"Stile{sy}", (-0.22, sy, p.pad[2]),
-                               (-0.22, sy, plat_z), 0.020, segments=4), Z_GALV))
-    rung_pitch = 0.28
-    rungs = max(2, int((plat_z - p.pad[2]) / rung_pitch))
-    for i in range(rungs):
-        z = p.pad[2] + (i + 0.6) * (plat_z - p.pad[2]) / rungs
-        parts.append((add_box(f"Rung{i}", (0.045, 0.32, 0.024), (-0.22, 0, z)), Z_GALV))
-    cage_z0 = p.pad[2] + 2.4                     # cage starts at the 2.4 m fall threshold
-    if plat_z - cage_z0 > 0.8:
-        hoops = max(2, int((plat_z - cage_z0) / 1.5))
-        cage_r = 0.36
-        for i in range(hoops + 1):
-            z = cage_z0 + i * (plat_z - cage_z0) / hoops
-            parts.append((add_tube(f"CageHoop{i}", cage_r, 0.030, (-0.30, 0, z),
-                                   segments=10), Z_GALV))
-        # Three longitudinal stringers tying the hoops — the part that actually reads.
-        for ang in (-58, 0, 58):
-            a = math.radians(ang)
-            sx, sy = -0.30 + cage_r * math.cos(a), cage_r * math.sin(a)
-            parts.append((add_link(f"CageBar{ang}", (sx, sy, cage_z0), (sx, sy, plat_z),
-                                   0.016, segments=4), Z_GALV))
-
-    # Mast flange joints every ~2.5 m — real masts ship in sections.
-    n_flange = max(1, int((p.mast_h - p.pad[2]) / 2.5))
-    for i in range(1, n_flange + 1):
-        z = p.pad[2] + i * (p.mast_h - p.pad[2]) / (n_flange + 1)
-        parts.append((add_tube(f"Flange{i}", p.mast_r_base * 1.35, 0.045, (0, 0, z),
-                               segments=12), Z_GALV))
-
-    # Head on top.
-    head_z = p.mast_h + p.head_rise
-    parts += build_gun_head("Head", (0.10, 0, head_z), p.head_r_muzzle, p.head_r_throat,
-                            p.head_len, p.pitch_deg, p.yaw_deg, p.nozzles, scale=0.85)
-    # Yoke tying head to mast top, plus the oscillation drive housing that sits in the
-    # crook of every real tower gun.
-    parts.append((add_link("Yoke", (0, 0, p.mast_h - 0.05), (0.10, 0, head_z), 0.055,
-                           segments=6), Z_GALV))
-    parts.append((add_box("DriveHousing", (0.26, 0.30, 0.24), (0.02, 0, p.mast_h + 0.06)),
-                  Z_LIVERY))
-
-    # Service conduit running the mast, cabinet to head — a vertical line that breaks the
-    # bare tube and is visible at any distance the mast itself is.
-    parts.append((add_link("Conduit", (0.14, 0.05, p.pad[2] + 0.10),
-                           (0.14, 0.05, p.mast_h - 0.20), 0.026, segments=5), Z_RUBBER))
-    for i in range(3):
-        z = p.pad[2] + 0.9 + i * (p.mast_h - p.pad[2] - 1.6) / 2.0
-        parts.append((add_box(f"Clamp{i}", (0.10, 0.14, 0.045), (0.13, 0.05, z)),
-                      Z_GALV))
-
-    # Base plate bolt bosses — free realism at the one place the eye lands on a mast.
-    for bx, by in ((0.22, 0.22), (-0.22, 0.22), (0.22, -0.22), (-0.22, -0.22)):
-        parts.append((add_tube(f"Bolt{bx}{by}", 0.026, 0.05,
-                               (bx, by, p.pad[2] + p.base_plate[2] + 0.02), segments=6),
-                      Z_GALV))
-
-    # Base cabinet + beacon — "cluttered base" is silhouette feature 4.
-    cab_w, cab_d, cab_h = p.cabinet
-    cab_z = p.pad[2] + cab_h / 2.0
-    parts.append((add_box("Cabinet", (cab_d, cab_w, cab_h), (p.cabinet_off, 0, cab_z)),
+    parts.append((add_foot("MastFoot", (0, 0, mast_bottom - 0.003), 0.26, p.mast_r_base * 1.04, 0.22,
+                           segments=10),
                   Z_GALV))
-    parts.append((add_tube("Beacon", 0.06, 0.12, (p.cabinet_off, 0, p.pad[2] + cab_h + 0.06),
-                           segments=8), Z_AMBER))
+    parts += [(o, Z_GALV) for o in add_nuts("FootNut", (0, 0), 0.215, mast_bottom + 0.035, 4,
+                                             phase=math.pi / 4.0)]
+    parts.append((add_vlathe("Mast", (0, 0, mast_bottom + 0.10),
+                             [(0.0, p.mast_r_base), (mid_z - mast_bottom - 0.10, r_mid),
+                              (p.mast_h - mast_bottom - 0.10, p.mast_r_top)],
+                             ["out", "out"], 12), Z_GALV))
+
+    def mast_r(z):
+        t = min(max((z - mast_bottom) / (p.mast_h - mast_bottom), 0.0), 1.0)
+        return p.mast_r_base + (p.mast_r_top - p.mast_r_base) * t
+
+    deck_z = p.mast_h - p.deck_below_top          # deck TOP surface
+
+    # Flange joints every ~2.5 m (sections ship that way): open bands, none at the deck.
+    n_flange = max(1, int((p.mast_h - pad_top) / 2.5))
+    for i in range(1, n_flange + 1):
+        z = pad_top + i * (p.mast_h - pad_top) / (n_flange + 1)
+        if abs(z - deck_z) < 0.35:
+            continue
+        parts.append((add_tube(f"Flange{i}", mast_r(z) * 1.25, 0.035, (0, 0, z), segments=10,
+                               caps=False), Z_GALV))
+    parts.append((add_tube("MastCollar", p.mast_r_top * 1.22, 0.06, (0, 0, p.mast_h - 0.03),
+                           segments=12, caps=False), Z_GALV))
+
+    # ---- Work basket -------------------------------------------------------------------
+    x0 = p.deck_x0
+    x1 = x0 + p.deck[0]
+    hy = p.deck[1] / 2.0
+    parts.append((add_box("Deck", (p.deck[0], p.deck[1], 0.05),
+                          ((x0 + x1) / 2.0, 0.0, deck_z - 0.025)), Z_GRATE))
+    gap = p.ladder_w / 2.0 + 0.05                  # rail opening half-width at the ladder
+    pw = 0.05                                      # posts a size up from the 0.04 rails
+    edges = [((x1, -hy), (x1, hy)), ((x0, hy), (x1, hy)), ((x0, -hy), (x1, -hy)),
+             ((x0, gap), (x0, hy)), ((x0, -hy), (x0, -gap))]
+    for k, (a, b) in enumerate(edges):
+        va, vb = mathutils.Vector((*a, 0.0)), mathutils.Vector((*b, 0.0))
+        t = (vb - va).normalized() * (pw / 2.0)
+        a2, b2 = va + t, vb - t                    # end ON the posts, not through them
+        # top rail 1.10, knee rail at half height, 0.10 kick plate (EN ISO 14122-3)
+        for tag, z, w, h in (("Rail", deck_z + p.rail_h, 0.04, 0.04),
+                             ("Knee", deck_z + p.rail_h * 0.5, 0.03, 0.03),
+                             ("Kick", deck_z + 0.06, 0.012, 0.10)):
+            parts.append((add_bar(f"{tag}{k}", (a2.x, a2.y, z), (b2.x, b2.y, z), w, h), Z_GALV))
+    for k, (x, y) in enumerate(((x0, -hy), (x0, hy), (x1, -hy), (x1, hy), (x0, gap), (x0, -gap))):
+        parts.append((add_bar(f"RailPost{k}", (x, y, deck_z - 0.02),
+                              (x, y, deck_z + p.rail_h + 0.03), pw, pw), Z_GALV))
+    for k, sy in enumerate((-1.0, 1.0)):
+        parts.append((add_bar(f"Brace{k}", (0.06, sy * 0.05, deck_z - 0.80),
+                              (x1 - 0.06, sy * (hy - 0.06), deck_z - 0.06), 0.04, 0.04), Z_GALV))
+
+    # ---- Ladder ------------------------------------------------------------------------
+    lx, lw = p.ladder_x, p.ladder_w / 2.0
+    for k, sy in enumerate((-lw, lw)):
+        parts.append((add_bar(f"Stile{k}", (lx, sy, pad_top - 0.01), (lx, sy, deck_z + p.rail_h),
+                              0.06, 0.02, up=(0, 1, 0)), Z_GALV))
+    z, i = deck_z, 0
+    while z > pad_top + 0.20:                      # 0.28 pitch down from the deck
+        parts.append((add_bar(f"Rung{i}", (lx, -lw + 0.01, z), (lx, lw - 0.01, z), 0.025, 0.025),
+                      Z_GALV))
+        z -= 0.28
+        i += 1
+    for i, z in enumerate((pad_top + 1.0, deck_z - 0.35)):
+        for k, sy in enumerate((-lw, lw)):
+            parts.append((add_bar(f"Standoff{i}{k}", (lx + 0.02, sy, z),
+                                  (-mast_r(z) * 0.6, sy * 0.3, z), 0.012, 0.05), Z_GALV))
+
+    cage_z0 = pad_top + 2.4
+    cage_top = deck_z + 1.0
+    if cage_top - cage_z0 > 0.8:
+        ey, depth = 0.36, 0.32
+        cx = lx - depth
+        rho = math.hypot(depth, ey)
+        th0 = math.atan2(ey, depth)
+        arc = [(cx + rho * math.cos(th0 + (2 * math.pi - 2 * th0) * s / 6.0),
+                rho * math.sin(th0 + (2 * math.pi - 2 * th0) * s / 6.0)) for s in range(7)]
+        hoop = [(lx, lw)] + arc + [(lx, -lw)]
+        n = max(1, math.ceil((cage_top - cage_z0) / 1.5))
+        for i in range(n + 1):
+            z = cage_z0 + i * (cage_top - cage_z0) / n
+            parts.append((add_ribbon(f"CageHoop{i}", hoop, z, 0.05, 0.012), Z_GALV))
+        for k, frac in enumerate((0.17, 0.50, 0.83)):
+            th = th0 + (2 * math.pi - 2 * th0) * frac
+            x, y = cx + rho * math.cos(th), rho * math.sin(th)
+            parts.append((add_bar(f"CageBar{k}", (x, y, cage_z0 - 0.03), (x, y, cage_top + 0.03),
+                                  0.045, 0.012, up=(math.cos(th), math.sin(th), 0.0)), Z_GALV))
+
+    # ---- Head --------------------------------------------------------------------------
+    drive_h = 0.16
+    parts.append((add_tube("SlewDrive", 0.17, drive_h, (0, 0, p.mast_h + drive_h / 2.0),
+                           segments=10), Z_ACCENT))
+    z_base = p.mast_h + drive_h + 0.035           # cross-head sunk 5 mm into the drive
+    rc = body_radius_at(0.0, p.head_len, p.head_r_muzzle, p.head_r_throat)
+    head_c = (0.0, 0.0, z_base + 0.045 + rc * 1.08 + 0.08)
+    head, anc = build_gun_head("Head", head_c, p.head_r_muzzle, p.head_r_throat, p.head_len,
+                               p.pitch_deg, p.yaw_deg, p.nozzles, scale=0.85, compressor=True)
+    parts += head
+    parts += build_fork("Head", anc["centre"], anc["rc"], p.yaw_deg, z_base)
+
+    # ---- Services ----------------------------------------------------------------------
+    rx, ry = -0.02, -0.18
+    r_top = p.mast_h - 0.35
+    parts.append((add_tube("Riser", 0.0375, r_top - pad_top, (rx, ry, (pad_top + r_top) / 2.0),
+                           segments=6, caps=False), Z_GALV))
+    # Hose loop: deliberately lopsided (sags further on one side, kinks once).
+    loop = [(rx, ry, r_top), (0.02, -0.33, p.mast_h - 0.62), (0.13, -0.38, p.mast_h - 0.71),
+            (0.27, -0.33, p.mast_h - 0.36), tuple(anc["hose"])]
+    parts += [(o, Z_RUBBER) for o in add_hose("Hose", loop, 0.03)]
+    parts.append((add_link("Conduit", (0.165, 0.05, pad_top + 0.10),
+                           (0.165, 0.05, p.mast_h - 0.20), 0.026, segments=5), Z_RUBBER))
+    for i in range(3):
+        z = pad_top + 0.9 + i * (p.mast_h - pad_top - 1.6) / 2.0
+        parts.append((add_bar(f"Clamp{i}", (0.105, 0.05, z), (0.205, 0.05, z), 0.14, 0.045), Z_GALV))
+
+    # Base compressor / control cabinet: folded sheet, door to +x, beacon on the lid.
+    cab_w, cab_d, cab_h = p.cabinet
+    parts += add_cabinet("Cabinet", (cab_d, cab_w, cab_h), (p.cabinet_off, 0.0), pad_top - 0.004,
+                         +1, Z_ACCENT)
+    parts.append((add_tube("Beacon", 0.06, 0.12,
+                           (p.cabinet_off - 0.04, 0.18, pad_top - 0.004 + cab_h + 0.024 + 0.057),
+                           segments=6), Z_AMBER))
     return parts
 
 
 def build_lance(p: LanceParams):
+    """
+    T20: a lance is a light aluminium tube HINGED on a short galvanised column (the
+    "lance snow gun" photograph: a bracket and pin, the tube's tail running past the pivot
+    to the water inlet). The jacket covers only the lower column so the pivot reads; the
+    tube is galvanised aluminium (Richard: "aluminium tubes"); the machine-coloured parts
+    are the nucleator head and the sensor box.
+    De-CAD: a cast foot with nuts replaces the square plate, the column is one open tube
+    into it with a weld collar under the cheeks, the jacket is a lathe with a rolled top
+    lip, the drum compressor has rounded ends, the sensor box is chamfered.
+    `laid` (second verdict): the summer pose. The tube is swung down through its hinge and
+    rests nearly flat on a low cradle, head out along the border; the hose is coiled at the
+    base and the compressor has gone to the shed.
+    """
     parts = []
-    parts.append((add_box("Pad", p.pad, (0, 0, p.pad[2] / 2.0)), Z_CONCRETE))
-    parts.append((add_box("BasePlate", p.base_plate,
-                          (0, 0, p.pad[2] + p.base_plate[2] / 2.0)), Z_GALV))
+    pad_top = p.pad[2]
+    parts.append((add_box("Pad", p.pad, (0, 0, pad_top / 2.0)), Z_CONCRETE))
+    col_bottom = pad_top + 0.06
+    col_top = col_bottom + p.column_h
+    parts.append((add_foot("ColFoot", (0, 0, pad_top - 0.003), 0.29, p.column_r * 1.05, 0.16,
+                           segments=8), Z_GALV))
+    parts += [(o, Z_GALV) for o in add_nuts("FootNut", (0, 0), 0.268, pad_top + 0.031, 4,
+                                             phase=math.pi / 4.0)]
+    parts.append((add_vlathe("Column", (0, 0, pad_top + 0.05),
+                             [(0.0, p.column_r), (col_top - pad_top - 0.05, p.column_r),
+                              (col_top - pad_top - 0.05 + 0.012, p.column_r * 0.86)],
+                             ["out", "out"], 10), Z_GALV))
+    parts.append((add_disc("ColumnTop", 0.0, p.column_r * 0.86, +1,
+                           mathutils.Matrix.Translation((0, 0, col_top + 0.012)) @
+                           mathutils.Matrix.Rotation(math.radians(-90.0), 4, "Y"), segments=10),
+                  Z_GALV))
+    parts.append((add_tube("WeldCollar", p.column_r * 1.18, 0.05, (0, 0, col_top - 0.07),
+                           segments=10, caps=False), Z_GALV))
+    jr0, jr1, jh = p.jacket
+    parts.append((add_vlathe("BaseJacket", (0, 0, pad_top + 0.05),
+                             [(0.0, jr0), (jh, jr1), (jh + 0.018, jr1 * 0.93),
+                              (jh + 0.022, p.column_r + 0.004)],
+                             ["out", "out", "+x"], 10), Z_PLASTIC))
 
-    col_bottom = p.pad[2] + p.base_plate[2]
-    parts.append((add_tube("Column", p.column_r, p.column_h,
-                           (0, 0, col_bottom + p.column_h / 2.0), segments=8), Z_LIVERY))
+    piv = mathutils.Vector((0.0, 0.0, col_top + 0.27))
+    for k, sy in enumerate((-0.07, 0.07)):
+        parts.append((add_bar(f"Cheek{k}", (0, sy, col_top - 0.10), (0, sy, piv.z + 0.07),
+                              0.16, 0.02, up=(0, 1, 0)), Z_GALV))
+    parts.append((add_link("Pin", (0, -0.10, piv.z), (0, 0.10, piv.z), 0.025, segments=6),
+                  Z_GALV))
 
-    # The lance itself: one leaning pipe. The lean is the whole silhouette.
-    lean = math.radians(p.lean_deg)
-    top_z = p.height
-    run = (top_z - (col_bottom + p.column_h)) * math.tan(lean)
-    a = (0.0, 0.0, col_bottom + p.column_h)
-    b = (run, 0.0, top_z)
-    # Two-tone per the anatomy study: the LANCE PIPE is painted white/livery, the column
-    # under it is galvanised. "The machine is painted, the structure holding it is
-    # galvanised" is the rule that holds across all three manufacturers.
-    parts.append((add_link("Lance", a, b, p.pipe_r, segments=8, extend=0.0), Z_LIVERY))
+    if p.laid:
+        Lp = p.pipe_len
+        drop = piv.z - (p.cradle_h + p.pipe_r + 0.02)
+        lean = math.pi / 2.0 + math.asin(min(0.99, drop / Lp))
+    else:
+        lean = math.radians(p.lean_deg)
+        Lp = p.pipe_len if p.pipe_len > 0 else (p.height - piv.z) / math.cos(lean)
+    d = mathutils.Vector((math.sin(lean), 0.0, math.cos(lean)))
+    nrm = mathutils.Vector((-math.cos(lean), 0.0, math.sin(lean)))
+    tip = piv + d * Lp
+    tail = piv - d * p.stub_len
+    along = d.to_track_quat("Z", "Y").to_euler()
+    parts.append((add_link("Lance", tuple(tail), tuple(tip), p.pipe_r, segments=8, extend=0.0),
+                  Z_GALV))
+    for k, f in enumerate((0.36, 0.68)):           # section couplings
+        t = add_tube(f"Coupling{k}", p.pipe_r * 1.45, 0.10, tuple(piv + d * (Lp * f)), segments=8,
+                     caps=False)
+        t.rotation_euler = along
+        parts.append((t, Z_GALV))
+    mb = piv + d * (Lp * 0.42) + nrm * (p.pipe_r + 0.05)
+    box = add_box("SensorBox", (0.10, 0.10, 0.16), (0, 0, 0))
+    box.rotation_euler = along
+    box.location = mb
+    parts.append((box, Z_LIVERY))
+    mk = add_tube("Marker", 0.025, 0.06, tuple(mb + nrm * 0.075), segments=6)
+    mk.rotation_euler = nrm.to_track_quat("Z", "Y").to_euler()
+    parts.append((mk, Z_AMBER))
 
-    # Insulated base jacket — bright orange, 0.45 x 0.90. The anatomy study rates this the
-    # most eye-catching element on a lance at 150 m, for about 40 tris. It is also the
-    # thing that stops a lance reading as a bare flagpole at distance.
-    parts.append((add_tube("BaseJacket", 0.225, 0.90, (0.0, 0.0, col_bottom + 0.45),
-                           segments=10), Z_PLASTIC))
-
-    # Head cluster at the tip: a slight bulge plus three nucleator stubs.
-    d = (mathutils.Vector(b) - mathutils.Vector(a)).normalized()
-    head_c = mathutils.Vector(b) - d * (p.head_len * 0.4)
-    head = add_tube("Head", p.head_r, p.head_len, tuple(head_c), segments=8)
-    head.rotation_euler = d.to_track_quat("Z", "Y").to_euler()
+    hc = tip - d * (p.head_len * 0.35)
+    head = add_tube("NucHead", p.head_r, p.head_len, tuple(hc), segments=8)
+    head.rotation_euler = along
     parts.append((head, Z_LIVERY))
+    cap = add_tube("HeadCap", p.head_r * 1.3, 0.05, tuple(tip + d * 0.02), segments=6)
+    cap.rotation_euler = along
+    parts.append((cap, Z_LIVERY))
+    u = d.orthogonal().normalized()
     for i in range(3):
-        ang = 2.0 * math.pi * i / 3.0
-        off = mathutils.Vector((math.cos(ang), math.sin(ang), 0)) * (p.head_r * 1.15)
-        stub = add_tube(f"Stub{i}", 0.011, 0.10, tuple(head_c + off + d * 0.05), segments=4)
-        stub.rotation_euler = d.to_track_quat("Z", "Y").to_euler()
-        parts.append((stub, Z_GALV))
+        a = 2.0 * math.pi * i / 3.0
+        r = (u * math.cos(a) + d.cross(u) * math.sin(a))
+        s0 = hc + d * 0.06 + r * (p.head_r * 0.9)
+        parts.append((add_link(f"Stub{i}", tuple(s0), tuple(s0 + r * 0.09 + d * 0.06), 0.012,
+                               segments=4), Z_GALV))
+
+    if p.laid:
+        # Low cradle under the head end: two splayed legs and a saddle bar.
+        cpt = piv + d * (Lp * 0.86)
+        zc = cpt.z - p.pipe_r - 0.012
+        for k, sy in enumerate((-0.22, 0.22)):
+            parts.append((add_bar(f"Cradle{k}", (cpt.x - 0.05, sy, 0.0), (cpt.x, sy * 0.45, zc),
+                                  0.035, 0.035), Z_GALV))
+        parts.append((add_bar("CradleSaddle", (cpt.x, -0.12, zc), (cpt.x, 0.12, zc), 0.04, 0.025),
+                      Z_GALV))
+        # Hose run from the inlet to a coil on the snow beside the pad.
+        parts += [(o, Z_RUBBER) for o in add_hose("Hose", [tuple(tail), (-0.40, 0.22, 0.60),
+                                                           (-0.50, 0.42, 0.05)], 0.03)]
+        parts.append((add_torus("HoseCoil0", (-0.62, 0.62, 0.03), 0.26, 0.03, segments=14),
+                      Z_RUBBER))
+    else:
+        parts += [(o, Z_RUBBER) for o in add_hose("Hose", [tuple(tail), (-0.30, 0.22, 0.62),
+                                                           (-0.44, 0.40, 0.08), (-0.80, 0.44, 0.04)],
+                                                  0.03)]
 
     if p.with_compressor:
-        cw, cd, ch = p.compressor
-        parts.append((add_box("Compressor", (cd, cw, ch), (-0.62, 0.0, ch / 2.0)), Z_GALV))
+        # Drum compressor beside the pad (white dome with a dark intake in the "lance snow
+        # gun" photograph): rounded drum ends, dark intake disc, chamfered skid.
+        cr, cl = p.compressor_r, p.compressor_l
+        cx, cy = -0.66, -0.12
+        parts.append((add_box("Skid", (0.50, cl + 0.06, 0.08), (cx, cy, 0.04)), Z_GALV))
+        DM = (mathutils.Matrix.Translation((cx, cy, 0.08 + cr - 0.004)) @
+              mathutils.Matrix.Rotation(math.radians(90.0), 4, "Z"))
+        parts.append((add_lathe("CompDrum", [(-cl / 2.0, cr * 0.80), (-cl / 2.0 + 0.035, cr),
+                                             (cl / 2.0 - 0.035, cr), (cl / 2.0, cr * 0.80)],
+                                ["out", "out", "out"], DM, segments=10), Z_LIVERY))
+        parts.append((add_disc("CompIntake", cl / 2.0, cr * 0.80, +1, DM, segments=10), Z_GRATE))
+        parts.append((add_disc("CompEnd", -cl / 2.0, cr * 0.80, -1, DM, segments=10), Z_LIVERY))
+    if p.with_rest:
+        rp = piv + d * (Lp * 0.82)
+        for k, sy in enumerate((-0.25, 0.25)):
+            parts.append((add_bar(f"Rest{k}", (rp.x, sy, 0.0), (rp.x, 0.0, rp.z - p.pipe_r),
+                                  0.04, 0.04), Z_GALV))
     return parts
 
 
 def build_fan(p: FanParams):
+    """
+    Carriage fan gun. T20: the TR10/TF10 head from build_gun_head on a YOKE (fork +
+    trunnions) over a turntable, a bent-tube A-frame drawbar to the groomer push plate
+    (anatomy #26/#27; the TR10 close-up shows the bent galvanised tubes), and the services
+    moved off the barrel's path.
+    De-CAD: real wheel profiles (rounded tyre shoulders, dished hub with a cap) instead of
+    capped 12-gon discs, chassis and cross members of different sections so their faces
+    no longer coincide (A/B1: 4 x 108 cm2 coplanar overlaps), round axle stubs, a cast foot
+    under the pedestal, folded-sheet cabinet and compressor, everything that stands on the
+    floor sunk 3 mm into it.
+    """
     parts = []
     fw = p.frame_w
+    zc = 0.42
+    ty = p.track_w / 2.0
+    for k, sy in enumerate((-ty, ty)):
+        parts.append((add_box(f"Chassis{k}", (1.60, fw, fw), (0.0, sy, zc)), Z_GALV))
+    for k, sx in enumerate((-0.62, 0.62)):
+        parts.append((add_box(f"Cross{k}", (fw - 0.012, p.track_w - fw + 0.01, fw - 0.012),
+                              (sx, 0.0, zc - 0.004)), Z_GALV))
 
-    # Chassis rails running fore-aft (+X = forward = along the border).
-    for sy in (-p.track_w / 2.0, p.track_w / 2.0):
-        parts.append((add_box(f"Rail{sy:.2f}", (1.60, fw, fw), (0.0, sy, 0.42)), Z_GALV))
-    for sx in (-0.62, 0.62):
-        parts.append((add_box(f"Cross{sx:.2f}", (fw, p.track_w, fw), (sx, 0.0, 0.42)),
-                      Z_GALV))
-
-    # Wheels.
-    for sy in (-p.track_w / 2.0 - p.wheel_w / 2.0, p.track_w / 2.0 + p.wheel_w / 2.0):
-        w = add_tube(f"Wheel{sy:.2f}", p.wheel_r, p.wheel_w, (-0.10, sy, p.wheel_r),
-                     rotation=(math.radians(90), 0, 0), segments=12)
-        parts.append((w, Z_RUBBER))
-
-    # Drawbar forward + castor.
-    parts.append((add_link("Drawbar", (0.62, 0, 0.42), (0.62 + p.drawbar_len, 0, 0.26),
-                           0.045, segments=6), Z_GALV))
-    parts.append((add_tube("Castor", p.castor_r, 0.07,
-                           (0.62 + p.drawbar_len, 0, p.castor_r),
-                           rotation=(math.radians(90), 0, 0), segments=8), Z_RUBBER))
-    # Groomer push plate at the drawbar apex — the documented "three-point transport
-    # system" that lets a snowcat shove the gun up the hill. Missing from the first pass
-    # and it is Tier-1 silhouette: it says "this machine gets moved" at a glance.
-    parts.append((add_box("PushPlate", (0.06, 0.30, 0.30),
-                          (0.62 + p.drawbar_len + 0.05, 0, 0.30)), Z_GALV))
-
-    # Screw jacks at the rear.
-    for sy in (-0.44, 0.44):
-        parts.append((add_link(f"Jack{sy}", (-0.62, sy, 0.42), (-0.62, sy, 0.02), 0.035,
+    wy = ty + p.wheel_w / 2.0 + 0.05
+    wr, ww = p.wheel_r, p.wheel_w
+    for k, sg in enumerate((-1.0, 1.0)):
+        y = sg * wy
+        WM = (mathutils.Matrix.Translation((-0.10, y, wr)) @
+              mathutils.Matrix.Rotation(math.radians(90.0 * sg), 4, "Z"))   # local +x = outboard
+        parts.append((add_lathe(f"Wheel{k}", [(-ww / 2, wr * 0.62), (-ww / 2, wr * 0.88),
+                                              (-ww / 2 + 0.045, wr), (ww / 2 - 0.045, wr),
+                                              (ww / 2, wr * 0.88), (ww / 2, wr * 0.62)],
+                                  ["-x", "out", "out", "out", "+x"], WM, segments=8), Z_RUBBER))
+        parts.append((add_lathe(f"Hub{k}", [(ww / 2 - 0.004, wr * 0.62), (ww / 2 - 0.035, wr * 0.30)],
+                                ["+x"], WM, segments=8), Z_GALV))
+        parts.append((add_disc(f"HubCap{k}", ww / 2 - 0.035, wr * 0.30, +1, WM, segments=6), Z_GALV))
+        parts.append((add_disc(f"HubIn{k}", -ww / 2 + 0.004, wr * 0.62, -1, WM, segments=8), Z_GALV))
+        parts.append((add_bar(f"AxleArm{k}", (-0.10, sg * ty, zc), (-0.10, sg * ty, wr - 0.02),
+                              0.045, 0.035), Z_GALV))
+        parts.append((add_link(f"Axle{k}", (-0.10, sg * (ty - 0.01), wr), (-0.10, y, wr), 0.025,
                                segments=6), Z_GALV))
-        parts.append((add_box(f"JackFoot{sy}", (0.18, 0.18, 0.03), (-0.62, sy, 0.03)),
-                      Z_GALV))
 
-    # Pedestal carrying the barrel.
-    parts.append((add_link("Pedestal", (0.0, 0, 0.42), (0.0, 0, p.barrel_z - 0.30), 0.085,
+    apex = mathutils.Vector((0.62 + p.drawbar_len, 0.0, 0.30))
+    for k, sg in enumerate((-1.0, 1.0)):
+        parts += [(o, Z_GALV) for o in add_hose(f"Drawbar{k}",
+                                                [(0.62, sg * (ty - 0.05), zc),
+                                                 (0.98, sg * 0.26, 0.40), tuple(apex)],
+                                                0.032, segments=6)]
+    parts.append((add_box("PushPlate", (0.06, 0.34, 0.26), (apex.x + 0.05, 0, 0.30)), Z_GALV))
+    parts.append((add_bar("CastorFork", (apex.x - 0.07, 0.0, apex.z), (apex.x - 0.07, 0.0, p.castor_r),
+                          0.05, 0.05), Z_GALV))
+    parts.append((add_tube("Castor", p.castor_r, 0.07, (apex.x - 0.07, 0, p.castor_r), segments=6,
+                           rotation=(math.radians(90), 0, 0)), Z_RUBBER))
+
+    for k, sy in enumerate((-0.44, 0.44)):
+        parts.append((add_link(f"Jack{k}", (-0.62, sy, zc - 0.03), (-0.62, sy, 0.02), 0.035,
+                               segments=5), Z_GALV))
+        parts.append((add_box(f"JackFoot{k}", (0.18, 0.18, 0.03), (-0.62, sy, 0.03)), Z_GALV))
+
+    # The gun, then the yoke under it. The cross-head height is MEASURED from the built
+    # housing (lowest vertex over the cross-head / turntable footprint) over the working
+    # pitch AND the 45 deg tilt limit (a probe head, deleted again), minus a clearance, so
+    # one yoke height serves every pose of the same machine.
+    head, anc = build_gun_head("Gun", (0.0, 0.0, p.barrel_z), p.barrel_r_muzzle,
+                               p.barrel_r_throat, p.barrel_len, p.pitch_deg, p.yaw_deg,
+                               p.nozzles, nucleators=p.nucleators, scale=1.0, manifold=True,
+                               ring_bolts=4, segments=12)
+    probe, _ = build_gun_head("Probe", (0.0, 0.0, p.barrel_z), p.barrel_r_muzzle,
+                              p.barrel_r_throat, p.barrel_len, max(p.pitch_deg, 45.0),
+                              p.yaw_deg, 0, ring_bolts=0, segments=12)
+    bpy.context.view_layer.update()
+    low = p.barrel_z
+    s = mathutils.Vector((math.sin(math.radians(p.yaw_deg)), -math.cos(math.radians(p.yaw_deg)), 0))
+    fh = mathutils.Vector((-s.y, s.x, 0.0))
+    for parts_set in (head, probe):
+        for o, _z in parts_set:
+            if not o.name.endswith(("Housing", "Guard", "Collar")):
+                continue
+            mw = o.matrix_world
+            for v in o.data.vertices:
+                w = mw @ v.co
+                h = mathutils.Vector((w.x, w.y, 0.0))
+                if h.length < 0.30 or (abs(h.dot(fh)) < 0.12 and abs(h.dot(s)) < anc["rc"] + 0.20):
+                    low = min(low, w.z)
+    for o, _z in probe:
+        me = o.data
+        bpy.data.objects.remove(o, do_unlink=True)
+        bpy.data.meshes.remove(me)
+    z_base = low - 0.10
+    print(f"[fan]   yoke cross-head at z {z_base:.3f} (housing low point {low:.3f})")
+    parts += head
+    parts += build_fork("Gun", anc["centre"], anc["rc"], p.yaw_deg, z_base)
+    parts.append((add_tube("Turntable", 0.22, 0.08, (0, 0, z_base - 0.075), segments=8), Z_GALV))
+    zf = zc + fw / 2.0 + 0.02
+    parts.append((add_link("Pedestal", (0.0, 0, zf - 0.01), (0.0, 0, z_base - 0.10), 0.085,
                            segments=8), Z_GALV))
 
-    # Barrel + muzzle furniture + the chrome manifold under it.
-    parts += build_gun_head("Gun", (0.0, 0.0, p.barrel_z), p.barrel_r_muzzle,
-                            p.barrel_r_throat, p.barrel_len, p.pitch_deg, p.yaw_deg,
-                            p.nozzles, nucleators=p.nucleators, scale=1.0, manifold=True)
-
-    # Turntable under the pedestal — real fan guns rotate 360 degrees and the disc reads.
-    parts.append((add_tube("Turntable", 0.20, 0.07, (0.0, 0, p.barrel_z - 0.34),
-                           segments=12), Z_GALV))
-
-    # Hose coiled on the frame flank, and a laid run trailing off the back — the
-    # "operational" cue the reference photos never lack.
-    for i in range(2):
-        r = 0.19 - i * 0.04
-        parts.append((add_tube(f"Coil{i}", r, 0.05, (-0.30, -0.50, 0.56 + i * 0.05),
-                               rotation=(math.radians(90), 0, 0), segments=8), Z_RUBBER))
-    # Short laid run only. The first pass trailed 2.2 m of hose, which stretched the
-    # asset's footprint to 3.9 m for a 2.7 m machine — placement spacing is set by the
-    # bounding box, so a decorative tail would push real guns apart.
-    hose = [(-0.62, 0.30, 0.06), (-1.00, 0.48, 0.05), (-1.32, 0.30, 0.05)]
-    for i in range(len(hose) - 1):
-        parts.append((add_link(f"Hose{i}", hose[i], hose[i + 1], 0.032, segments=5),
-                      Z_RUBBER))
-
-    # Blue accent tank under the barrel (reference image 2) + control cabinet.
-    # Accent tank on the second recolour slot — the blue cylinder in reference image 2 is
-    # a different colour from the housing on every real machine.
-    parts.append((add_tube("Tank", p.tank_r, 0.70, (0.10, 0.0, 0.86),
+    parts.append((add_box("Floor", (1.24 - 0.02, p.track_w - fw - 0.01, 0.02),
+                          (0.0, 0.0, zf - 0.01)), Z_GRATE))
+    parts.append((add_tube("Tank", p.tank_r, 0.45, (0.40, 0.40, zf + p.tank_r - 0.003),
                            rotation=(0, math.radians(90), 0), segments=8), Z_ACCENT))
+    feed = anc["hose"]
+    parts += [(o, Z_RUBBER) for o in add_hose("Feed", [tuple(feed),
+                                                       (feed.x + 0.06, 0.48, zf + 0.55),
+                                                       (0.63, 0.40, zf + p.tank_r)], 0.028)]
+    t = add_torus("Coil", (0, 0, 0), 0.20, 0.026, segments=8)
+    t.rotation_euler = (math.radians(90), 0, 0)
+    t.location = (-0.50, ty - 0.08, zf + 0.223)
+    parts.append((t, Z_RUBBER))
     cw, cd, ch = p.cabinet
-    parts.append((add_box("Cabinet", (cd, cw, ch), (-0.45, 0.46, 0.42 + ch / 2.0)),
-                  Z_GALV))
+    parts += add_cabinet("Cabinet", (cd, cw, ch), (0.42, -0.34), zf - 0.003, +1, Z_GALV,
+                         louvres=False)
+    parts += add_cabinet("Compressor", (0.42, 0.34, 0.24), (-0.40, -0.32), zf - 0.003, -1, Z_GALV,
+                         door=False)
+    parts += [(o, Z_RUBBER) for o in add_hose("Hose", [(-0.55, 0.20, 0.06), (-1.00, 0.48, 0.05),
+                                                       (-1.32, 0.30, 0.05)], 0.032)]
     return parts
 
 
@@ -700,26 +1230,50 @@ def build_floodlight(p: FloodlightParams):
 
 
 def build_hydrant(p: HydrantParams):
+    """
+    Snowmaking hydrant cover + standpipe. T20: two Camlock outlets and a number plate on
+    the standpipe (the "50" plate on the hydrant in the "fan gun in foreground, snow lance
+    in background" photograph), and the hose now lies COILED as the asset description
+    says; A laid a straight stub.
+    De-CAD: the lid sits 3 mm into the body (A: face on face), two hinge barrels on its back
+    edge and a pull handle off-centre on the front; the standpipe stands in a cast foot and
+    is an open tube under the handwheel; the outlets start inside the pipe wall (B1: their
+    end caps overlapped at the pipe centre).
+    """
     parts = []
     bw, bd, bh = p.box
     body_h = bh - p.lid_h
     parts.append((add_box("Body", (bd, bw, body_h), (0, 0, body_h / 2.0)), Z_GALV))
-    # Lid on the recolour quad: this is the orange cap that dots every real piste.
     # Lid and handwheel are SAFETY plastic (recolour slot 2, orange by default) — not the
-    # manufacturer livery slot. Getting this wrong would have made every hydrant cap
-    # change colour with the guns.
+    # manufacturer livery slot.
     parts.append((add_box("Lid", (bd * 1.06, bw * 1.06, p.lid_h),
-                          (0, 0, body_h + p.lid_h / 2.0)), Z_PLASTIC))
-    parts.append((add_tube("Pipe", p.pipe_r, p.pipe_h, (0.34, 0.0, p.pipe_h / 2.0),
+                          (0, 0, body_h + p.lid_h / 2.0 - 0.003)), Z_PLASTIC))
+    for k, sy in enumerate((-0.14, 0.14)):
+        parts.append((add_tube(f"Hinge{k}", 0.014, 0.08, (-bd * 0.53, sy, body_h + 0.004),
+                               rotation=(math.radians(90), 0, 0), segments=6, caps=False), Z_GALV))
+    parts.append((add_bar("Handle", (bd * 0.53 + 0.012, 0.06, body_h + p.lid_h * 0.4),
+                          (bd * 0.53 + 0.012, 0.17, body_h + p.lid_h * 0.4), 0.016, 0.016), Z_GALV))
+    px = 0.34
+    parts.append((add_foot("PipeFoot", (px, 0.0, -0.003), 0.08, p.pipe_r * 1.08, 0.12,
                            segments=8), Z_GALV))
-    wheel = add_tube("Wheel", p.wheel_r, 0.035, (0.34, 0.0, p.pipe_h), segments=10)
-    parts.append((wheel, Z_PLASTIC))
+    parts.append((add_tube("Pipe", p.pipe_r, p.pipe_h - 0.05, (px, 0.0, 0.05 + (p.pipe_h - 0.05) / 2.0),
+                           segments=8, caps=False), Z_GALV))
+    parts.append((add_tube("Wheel", p.wheel_r, 0.035, (px, 0.0, p.pipe_h), segments=10),
+                  Z_PLASTIC))
+    for k, sg in enumerate((-1.0, 1.0)):
+        parts.append((add_link(f"Outlet{k}", (px, sg * p.pipe_r * 0.6, 0.55), (px, sg * 0.13, 0.55),
+                               0.028, segments=6), Z_GALV))
+    parts.append((add_box("NumberPlate", (0.012, 0.12, 0.09),
+                          (px + p.pipe_r + 0.006, 0.0, 0.76)), "plate"))
     if p.with_hose:
-        # A short laid hose stub — strongest realism cue per tri in the whole set.
-        pts = [(0.34, 0.06, 0.10), (0.75, 0.28, 0.06), (1.25, 0.20, 0.05), (1.70, -0.10, 0.05)]
-        for i in range(len(pts) - 1):
-            parts.append((add_link(f"Hose{i}", pts[i], pts[i + 1], p.hose_r, segments=5),
-                          Z_RUBBER))
+        cx, cy = 0.80, 0.42
+        parts += [(o, Z_RUBBER) for o in add_hose("HoseLead", [(px, 0.13, 0.55), (0.42, 0.30, 0.25),
+                                                               (cx - p.coil_r + 0.02, cy, p.hose_r)],
+                                                  p.hose_r)]
+        parts.append((add_torus("Coil0", (cx, cy, p.hose_r), p.coil_r, p.hose_r, segments=12),
+                      Z_RUBBER))
+        parts.append((add_torus("Coil1", (cx + 0.015, cy - 0.01, p.hose_r * 2.8), p.coil_r - 0.05,
+                                p.hose_r, segments=12), Z_RUBBER))
     return parts
 
 
@@ -727,8 +1281,84 @@ def build_hydrant(p: HydrantParams):
 # Assembly
 # --------------------------------------------------------------------------------------
 
-def finish(parts, name, atlas_size, base_pivot=True, bevel=False):
-    """Per-part atlas UVs, join, weld, base-pivot, and rotate into the CS2 net frame."""
+# Long thin tubes whose smart-project island is a sliver: unwrap_into_rect keeps the
+# island's 7 m : 0.19 m aspect, so the lance tube got ~4 px of atlas around its
+# circumference, the finish repack kept that, and mip filtering bled the neighbouring
+# LIVERY islands onto it (half the B tube rendered yellow in the first preview). Stretching
+# the island across its zone rect costs nothing visible (the zone swatch is plain metal)
+# and gives the repack a full-width island.
+UV_WIDEN = ("Lance", "Stile", "CageBar", "Riser", "Brace")   # name prefixes (de-CAD round:
+                                                             # a stile bled yellow the same way)
+
+
+def _widen_uv(obj, rect, A, inset_px=3):
+    """Stretch the part's islands along their SHORT UV axis to fill the zone rect."""
+    u0, v0, u1, v1 = rect
+    ins = inset_px / float(A)
+    data = obj.data.uv_layers.active.data
+    us = [d.uv[0] for d in data]
+    vs = [d.uv[1] for d in data]
+    if (max(us) - min(us)) / (u1 - u0) <= (max(vs) - min(vs)) / (v1 - v0):
+        lo, hi = min(us), max(us)
+        for d in data:
+            t = (d.uv[0] - lo) / max(hi - lo, 1e-6)
+            d.uv = (u0 + ins + t * (u1 - u0 - 2 * ins), d.uv[1])
+    else:
+        lo, hi = min(vs), max(vs)
+        for d in data:
+            t = (d.uv[1] - lo) / max(hi - lo, 1e-6)
+            d.uv = (d.uv[0], v0 + ins + t * (v1 - v0 - 2 * ins))
+
+
+def _shade(obj, table, angle_deg=66.0):
+    """
+    cs2_asset.shade_by_angle's recipe (attribute route + face-area weighted normals), with
+    one T20 change: edges whose faces all belong to SOFT_PREFIXES parts are never sharp.
+    """
+    import json as _json
+    names = _json.loads(obj.data[cs2_asset.PART_TABLE_PROP])
+    soft = [n.startswith(SOFT_PREFIXES) for n in names]
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    me = obj.data
+    for p in me.polygons:
+        p.use_smooth = True
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    layer = bm.faces.layers.int.get("part")
+    lim = math.radians(angle_deg)
+    flags = []
+    for e in bm.edges:
+        fs = e.link_faces
+        if len(fs) != 2:
+            flags.append(False)
+            continue
+        if any(soft[f[layer] - 1] for f in fs):          # a soft part softens its rim too
+            flags.append(False)
+            continue
+        flags.append(e.calc_face_angle(0.0) > lim)
+    bm.free()
+    attr = me.attributes.get("sharp_edge") or me.attributes.new("sharp_edge", "BOOLEAN", "EDGE")
+    attr.data.foreach_set("value", flags)
+    me.update()
+    mod = obj.modifiers.new("WeightedNormal", type="WEIGHTED_NORMAL")
+    mod.mode = "FACE_AREA"
+    mod.keep_sharp = True
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    print(f"[shade] {obj.name}: {sum(flags)} sharp edges (> {angle_deg:.0f} deg), "
+          f"{sum(soft)} soft parts of {len(names)}")
+
+
+def finish(parts, name, atlas_size, base_pivot=True, bevel=False, smooth=False):
+    """
+    Per-part atlas UVs, join, weld, base-pivot, and rotate into the CS2 net frame.
+
+    `smooth` (T20; the four snowmaking assets pass True, the floodlight keeps the A path):
+    tag every part with the "part" face attribute so the LOD chain can delete parts by name
+    (cs2_asset.make_lod_chain), and shade by angle (66 deg) so 8-16-gon tubes and the
+    housing read round instead of faceted (art-pipeline-v2 item 1). UVs and zones unchanged.
+    """
     # Bevel BEFORE unwrap so the new bevel faces get atlas UVs like everything else —
     # beveling after would leave them unmapped.
     if bevel:
@@ -736,7 +1366,9 @@ def finish(parts, name, atlas_size, base_pivot=True, bevel=False):
             if not obj.name.startswith(BEVEL_PREFIXES):
                 continue
             mod = obj.modifiers.new("Bevel", type="BEVEL")
-            mod.width = 0.02
+            # T20 de-CAD: 0.5-2 cm by part size (15 % of the thinnest side) on the B assets;
+            # the floodlight (smooth=False) keeps the flat 0.02.
+            mod.width = (min(0.02, max(0.005, 0.15 * min(obj.dimensions))) if smooth else 0.02)
             mod.segments = 1
             mod.limit_method = "ANGLE"
             mod.angle_limit = math.radians(45.0)
@@ -746,9 +1378,14 @@ def finish(parts, name, atlas_size, base_pivot=True, bevel=False):
             bpy.context.view_layer.objects.active = obj
             bpy.ops.object.modifier_apply(modifier=mod.name)
 
+    # After bevels (chamfer faces belong to their part), before join (names die there).
+    table = cs2_asset.tag_parts(parts) if smooth else None
+
     zones = cs2_asset.snow_prop_zones(atlas_size)
     for obj, zone in parts:
         cs2_asset.unwrap_into_rect(obj, zones[zone], atlas_size)
+        if smooth and obj.name.startswith(UV_WIDEN):
+            _widen_uv(obj, zones[zone], atlas_size)
 
     bpy.ops.object.select_all(action="DESELECT")
     for o, _ in parts:
@@ -772,16 +1409,24 @@ def finish(parts, name, atlas_size, base_pivot=True, bevel=False):
     bpy.context.scene.cursor.location = (0.0, 0.0, 0.0)
     bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
     cs2_asset.orient_for_net(obj)
+    if smooth:
+        cs2_asset.store_part_table(obj, table)
+        _shade(obj, table)
     return obj
 
 
+# Generation B (T20 detail pass, 2026-10-16) for the four snowmaking assets; the floodlight
+# keeps its A geometry and names. B is free in assets/import/props/B and in ImportedData.
 ASSETS = {
-    "tower":   ("SkiSnowGunTowerA", lambda a: build_tower(TowerParams(mast_h=a.mast)), 256),
-    "lance":   ("SkiSnowGunLanceA", lambda a: build_lance(LanceParams(height=a.lance)), 128),
-    "fan":     ("SkiSnowGunFanA",   lambda a: build_fan(FanParams()), 256),
-    "hydrant": ("SkiHydrantBoxA",   lambda a: build_hydrant(HydrantParams()), 128),
+    "tower":   ("SkiSnowGunTowerB", lambda a: build_tower(TowerParams(mast_h=a.mast)), 256),
+    "lance":   ("SkiSnowGunLanceB", lambda a: build_lance(LanceParams(height=a.lance)), 128),
+    "fan":     ("SkiSnowGunFanB",   lambda a: build_fan(FanParams()), 256),
+    "hydrant": ("SkiHydrantBoxB",   lambda a: build_hydrant(HydrantParams()), 128),
     "flood":   ("SkiPisteFloodlightA", lambda a: build_floodlight(FloodlightParams()), 256),
 }
+
+# finish(smooth=True): part tags for the LOD chain + shade by angle (T20).
+SMOOTH_ASSETS = {"tower", "lance", "fan", "hydrant"}
 
 
 # ── Variants ────────────────────────────────────────────────────────────────────────
@@ -791,26 +1436,29 @@ ASSETS = {
 # breaks the SKYLINE rhythm, which is what the eye actually reads along a run.
 # Naming keeps the generation letter last (PIPELINE.md): never reuse a name.
 VARIANTS = {
-    "tower":   [("SkiSnowGunTowerA",     dict(mast_h=6.5), 256),
-                ("SkiSnowGunTowerLowA",  dict(mast_h=4.5), 256),
-                ("SkiSnowGunTowerTallA", dict(mast_h=8.0), 256)],
-    "lance":   [("SkiSnowGunLanceA",     dict(height=7.0), 128),
-                ("SkiSnowGunLanceTallA", dict(height=10.0, pipe_r=0.035), 128),
-                # Maintenance pose: folded to ~1.4 m. Reads completely differently and
-                # costs one parameter — the off-season / idle member of the group.
-                # Folded pose has a fraction of the surface area of an erect lance, so it
-                # needs a smaller atlas to stay in the texel budget — the guard caught
-                # this at 268 px/m when it inherited the standing lance's size.
-                ("SkiSnowGunLanceDownA", dict(height=1.4, lean_deg=62.0,
-                                              with_compressor=False), 128)],
-    "fan":     [("SkiSnowGunFanA",       dict(), 256),
+    "tower":   [("SkiSnowGunTowerB",     dict(mast_h=6.5), 256),
+                ("SkiSnowGunTowerLowB",  dict(mast_h=4.5), 256),
+                ("SkiSnowGunTowerTallB", dict(mast_h=8.0), 256)],
+    # Lean varies per variant inside the documented 25-40 deg band (anatomy, Machine 3).
+    "lance":   [("SkiSnowGunLanceB",     dict(height=7.0, lean_deg=30.0), 128),
+                ("SkiSnowGunLanceTallB", dict(height=10.0, pipe_r=0.035, lean_deg=35.0), 128),
+                # Folded / summer variant DROPPED (Richard, verdict 2, 2026-10-16: "if it still
+                # does not read in a 150 m shot, drop the variant"). The laid pose (tube swung
+                # flat onto a low cradle, hose coiled, compressor away) reads close up but at
+                # 150 m it is an orange dot with a hairline that vanishes into the snow
+                # (assets/preview/snow-props-2026-10-16/SkiSnowGunLanceDownB_far150m.png).
+                # build_lance(LanceParams(laid=True, pipe_len=6.0, with_compressor=False))
+                # still builds it; the in-game SkiSnowGunLanceDown prefab stays on A until the
+                # surgery round removes it from the spawn group.
+                ],
+    "fan":     [("SkiSnowGunFanB",       dict(), 256),
                 # Parked. CORRECTED by the anatomy study: an idle fan gun sits barrel
                 # NOSE-UP at 30-45 degrees (water drains, snow does not sit in the
                 # muzzle), not dropped level as the first pass assumed. Distinguished
                 # from the working variant by yaw swung back along the frame.
-                ("SkiSnowGunFanIdleA",   dict(pitch_deg=42.0, yaw_deg=-6.0), 256)],
-    "hydrant": [("SkiHydrantBoxA",       dict(), 128),
-                ("SkiHydrantBoxBareA",   dict(with_hose=False), 128)],
+                ("SkiSnowGunFanIdleB",   dict(pitch_deg=42.0, yaw_deg=-6.0), 256)],
+    "hydrant": [("SkiHydrantBoxB",       dict(), 128),
+                ("SkiHydrantBoxBareB",   dict(with_hose=False), 128)],
     # Three mast heights. Real piste spacing is 30-50 m on a single side, so a run gets
     # far fewer of these than snow guns — height variety carries most of the interest.
     "flood":   [("SkiPisteFloodlightA",     dict(height=12.0), 256),
@@ -829,7 +1477,7 @@ BUILDER = {"tower": build_tower, "lance": build_lance,
 def build_one(key, args):
     name, builder, quad_size = ASSETS[key]
     parts = builder(args)
-    obj = finish(parts, name, quad_size * 2)
+    obj = finish(parts, name, quad_size * 2, smooth=key in SMOOTH_ASSETS)
     return obj, name
 
 
@@ -856,8 +1504,12 @@ def mesh_area(obj):
     return a
 
 
-def export_one(key, obj, name, out_root, quad_size, do_finish=False):
-    asset_dir = os.path.join(os.path.abspath(out_root), name)
+def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False):
+    """
+    The texture half of export_one: atlas maps (+ emissive) into `asset_dir`, then the
+    finish rebake. Split out (T20) so the preview build can make the same maps WITHOUT
+    writing an FBX or settings.json.
+    """
     os.makedirs(asset_dir, exist_ok=True)
     tex_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "textures")
     quad_sets, control_quads = cs2_asset.snow_prop_atlas_quads(tex_root)
@@ -883,21 +1535,6 @@ def export_one(key, obj, name, out_root, quad_size, do_finish=False):
                                               ao_samples=24)
         print(f"[{key}]   finish: AO rebake {'ok' if ok else 'FAILED (shipping bevels only)'}")
 
-    cs2_asset.export_fbx(obj, os.path.join(asset_dir, f"{name}.fbx"))
-
-    # Authored LOD chain, decimated from the finished mesh. Supplying an LOD FBX makes the
-    # importer skip generation for that level (they are mutually exclusive), so an asset
-    # either ships a full chain or relies on the default — which, with stock settings,
-    # generates NOTHING. See the write_settings docstring correction.
-    ratios = LOD_CHAIN.get(key, ())
-    for i, ratio in enumerate(ratios, start=1):
-        lod = lift_tower.make_lod(obj, ratio, f"{name}_LOD{i}")
-        print(f"[{key}]   LOD{i}: {tri_count(lod)} tris (ratio {ratio})")
-        cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{name}_LOD{i}.fbx"))
-        bpy.data.objects.remove(lod, do_unlink=True)
-    cs2_asset.write_settings(asset_dir, name,
-                             supplied_lods=tuple(range(1, len(ratios) + 1)))
-
     # TEXTURE BUDGET GUARD. The first version divided quad_size by the LONGEST DIMENSION,
     # which is not the metric the budget was set with and passed everything trivially
     # (the tower scored 69 and sailed through while actually running 250). The budget is
@@ -908,6 +1545,25 @@ def export_one(key, obj, name, out_root, quad_size, do_finish=False):
     if px_per_m > 200:
         raise RuntimeError(f"{name}: {px_per_m:.0f} px/m exceeds the 200 px/m ceiling — "
                            f"halve quad_size (snow-prop-materials.md section 5)")
+    return px_per_m
+
+
+def export_one(key, obj, name, out_root, quad_size, do_finish=False):
+    asset_dir = os.path.join(os.path.abspath(out_root), name)
+    build_maps(key, obj, name, asset_dir, quad_size, do_finish=do_finish)
+
+    cs2_asset.export_fbx(obj, os.path.join(asset_dir, f"{name}.fbx"))
+
+    # Authored LOD chain, decimated from the finished mesh. Supplying an LOD FBX makes the
+    # importer skip generation for that level (they are mutually exclusive), so an asset
+    # either ships a full chain or relies on the default — which, with stock settings,
+    # generates NOTHING. See the write_settings docstring correction.
+    lods = make_lods(key, obj, name)
+    for i, lod in enumerate(lods, start=1):
+        print(f"[{key}]   LOD{i}: {tri_count(lod)} tris")
+        cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{name}_LOD{i}.fbx"))
+        bpy.data.objects.remove(lod, do_unlink=True)
+    cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)))
     print(f"[{key}]   asset folder: {asset_dir}")
     return asset_dir
 
@@ -1183,6 +1839,208 @@ def render_row(objs_by_key, out_dir, stem="SnowPropsRow", vertices=11, seed=7):
     return written
 
 
+# --------------------------------------------------------------------------------------
+# Detail-pass previews (T20, 2026-10-16): the preview gate for generation B
+# --------------------------------------------------------------------------------------
+
+# Preview tint = the TechnoAlpin livery row of LIVERIES as picker multipliers
+# (target / RECOLOR_ALBEDO, the make_tinted_preview maths): yellow machine, orange safety,
+# dark accent.
+DETAIL_TINT = {"R": (1.0, 0.775, 0.05), "G": (1.0, 0.30, 0.11), "B": (0.275, 0.29, 0.31)}
+# Camera directions in the net frame (machine forward = -Y after orient_for_net). The
+# tower's ladder and cage are on its BACK (+Y), so towers get a fourth view of them.
+DETAIL_VIEWS = (("front", (0.0, -1.0, 0.15)), ("side", (1.0, 0.0, 0.12)),
+                ("three_quarter", (1.0, -1.2, 0.45)))
+DETAIL_LADDER_VIEW = ("ladder", (-0.75, 1.0, 0.30))
+FAR_M = 150.0
+FAR_DIR = (1.0, -1.25, 0.20)
+
+
+def _far_shot(obj, asset_dir, name, out_path, tint, label):
+    """Render `obj` alone at FAR_M through the cs2_preview rig, noon. Writes
+    [full frame | 4x nearest crop of the centre] so the pixels the object really gets at
+    150 m are visible next to the frame they live in."""
+    import numpy as np
+    import cs2_preview as P
+    rig = P._Rig(obj, None)
+    try:
+        cam = P._make_camera(rig)
+        P._make_world(rig, **P.NOON)
+        P._make_ground(rig)
+        P._assign(obj, P._pbr_material(rig, asset_dir, name, tint, mat_name=f"{obj.name}_Far"))
+        sc = rig.scene
+        sc.render.resolution_x, sc.render.resolution_y = 1000, 700
+        bb = [obj.matrix_world @ mathutils.Vector(c) for c in obj.bound_box]
+        ctr = sum(bb, mathutils.Vector()) / 8.0
+        P._aim(cam, ctr, FAR_DIR, FAR_M)
+        tmp = out_path[:-4] + "_tmp.png"
+        P._render(rig, tmp, engine="EEVEE")
+        img = P._load_rgba(tmp)
+        h, w = img.shape[:2]
+        c = img[h // 2 - 87:h // 2 + 88, w // 2 - 125:w // 2 + 125]
+        crop = np.repeat(np.repeat(c, 4, axis=0), 4, axis=1)[:h]
+        P._write_rgba(out_path, P._hstack([img, crop]))
+        os.remove(tmp)
+    finally:
+        rig.restore()
+    print(f"[detail] far {FAR_M:.0f} m ({label}) -> {out_path}")
+    return out_path
+
+
+def cad_metric(obj):
+    """
+    The cabin round's "straight outta CAD" metric (lift_cabin.md R1.5 / revision1b):
+      coplanar = same-facing coplanar overlapping triangle pairs and their area (cm2), via
+                 lift_cabin.coplanar_overlaps (1 deg / 0.5 mm / > 0.1 cm2);
+      hard90_m = length of edges with an 80-100 deg dihedral whose corner normals SPLIT
+                 (they render as a razor line); hard90_geo_m = the same edges regardless of
+                 shading (soft-shaded square bars still count here).
+    """
+    import numpy as np
+    import lift_cabin
+    me = obj.data
+    cn = np.zeros(len(me.loops) * 3, np.float32)
+    me.corner_normals.foreach_get("vector", cn)
+    cn = cn.reshape(-1, 3)
+    ek = {}
+    for p in me.polygons:
+        ls = list(p.loop_indices)
+        vs = [me.loops[i].vertex_index for i in ls]
+        for i in range(len(vs)):
+            a, b = vs[i], vs[(i + 1) % len(vs)]
+            ek.setdefault((min(a, b), max(a, b)), []).append(
+                (p.index, {a: ls[i], b: ls[(i + 1) % len(vs)]}))
+    geo = hard = 0.0
+    cos1 = math.cos(math.radians(1.0))
+    for (a, b), fl in ek.items():
+        if len(fl) != 2:
+            continue
+        ang = math.degrees(me.polygons[fl[0][0]].normal.angle(me.polygons[fl[1][0]].normal, 0.0))
+        if 80.0 <= ang <= 100.0:
+            L = (me.vertices[a].co - me.vertices[b].co).length
+            geo += L
+            if any(float(cn[fl[0][1][v]] @ cn[fl[1][1][v]]) < cos1 for v in (a, b)):
+                hard += L
+    tot, _ = lift_cabin.coplanar_summary(lift_cabin.coplanar_overlaps(obj))
+    return {"hard90_m": round(hard, 2), "hard90_geo_m": round(geo, 2),
+            "coplanar_same": [tot["same"]["pairs"], tot["same"]["area_cm2"]],
+            "coplanar_opposed": [tot["opposed"]["pairs"], tot["opposed"]["area_cm2"]]}
+
+
+def _vstack(rows, pad=6):
+    import numpy as np
+    w = max(r.shape[1] for r in rows)
+    out = []
+    for i, r in enumerate(rows):
+        if r.shape[1] < w:
+            r = np.concatenate([r, np.full((r.shape[0], w - r.shape[1], 4), (0.5, 0.5, 0.5, 1.0),
+                                           np.float32)], axis=1)
+        out.append(r)
+        if i < len(rows) - 1:
+            out.append(np.full((pad, w, 4), (0.5, 0.5, 0.5, 1.0), np.float32))
+    return np.concatenate(out[::-1], axis=0)   # Blender pixel rows run bottom-up
+
+
+def detail_previews(out_dir, keys=("tower", "lance", "fan", "hydrant"), review=False,
+                    prev_root=None):
+    """
+    Build every generation-B variant exactly as the export would (bevel + part tags +
+    shading, atlas maps + AO finish, LOD chain) but write NO FBX and no settings.json: the
+    maps land in <out_dir>/_build/<Name>/ only because the renders (and the review packs)
+    need them. Renders, per variant: pbr front / side / three-quarter (+ a ladder view on
+    towers), matcap normals for the same views, and the 150 m shot with the LOD the game
+    would draw there. Plus the A-vs-B pair for the Tall tower and a contact sheet.
+    Returns {name: stats} (also written to <out_dir>/stats.json).
+    """
+    import json as _json
+    import cs2_preview as P
+    out_dir = os.path.abspath(out_dir)
+    build_root = os.path.join(out_dir, "_build")
+    prev_root = prev_root or os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                          "..", "import", "props", "A")
+    stats = {}
+    for key in keys:
+        for name, kwargs, qs in VARIANTS[key]:
+            clear_scene()
+            parts = BUILDER[key](PARAM_CLASS[key](**kwargs))
+            obj = finish(parts, name, qs * 2, bevel=True, smooth=key in SMOOTH_ASSETS)
+            cs2_asset.validate_asset_name(name)
+            t0 = report(key, obj)
+            asset_dir = os.path.join(build_root, name)
+            px = build_maps(key, obj, name, asset_dir, qs, do_finish=True)
+            lods = make_lods(key, obj, name)
+            tris = [t0] + [tri_count(lo) for lo in lods]
+            area = mesh_area(obj)
+            table = P.lod_switch_table(tuple(obj.dimensions), tris, area=area)
+            views = list(DETAIL_VIEWS) + ([DETAIL_LADDER_VIEW] if key == "tower" else [])
+            P.preview(obj, asset_dir, name, out_dir, modes=("pbr", "normals"), views=views,
+                      tint=DETAIL_TINT, resolution=(1000, 1100))
+            # Which level the game draws at FAR_M (LODk from switch[k] outward).
+            level = max([0] + [k for k, d in table["switch"].items() if FAR_M >= d])
+            far_obj = obj if level == 0 else lods[level - 1]
+            culled = FAR_M > table["cull"]
+            _far_shot(far_obj, asset_dir, name, os.path.join(out_dir, f"{name}_far150m.png"),
+                      DETAIL_TINT, f"LOD{level}, {tris[level]} tris" + (", CULLED" if culled else ""))
+            if name == "SkiSnowGunTowerTallB":
+                P.preview(obj, asset_dir, name, out_dir, modes=("ab",), views=views,
+                          tint=DETAIL_TINT, resolution=(1000, 1100),
+                          prev_generation=os.path.join(prev_root, "SkiSnowGunTowerTallA"))
+            if review:
+                import cs2_review
+                cs2_review.write_pack(name, asset_dir,
+                                      {0: obj, **{i + 1: lo for i, lo in enumerate(lods)}},
+                                      meta={"generator": "snow_props.py", "args": ["--detail"],
+                                            "kind": "prop", "letter": "B",
+                                            "caps": {0: BUDGETS[key][1]}})
+            stats[name] = {"tris": tris, "dims_m": [round(v, 2) for v in obj.dimensions],
+                           "px_per_m": round(px, 1), "area_m2": round(area, 1),
+                           "switch_m": {k: round(v, 1) for k, v in table["switch"].items()},
+                           "cull_m": round(table["cull"], 1), "lod_at_150m": level,
+                           "culled_at_150m": culled, "cad": cad_metric(obj)}
+            for lo in lods:
+                bpy.data.objects.remove(lo, do_unlink=True)
+
+    # The A side of the 150 m pair: the shipped Tall tower with ITS LOD at that range.
+    a_dir = os.path.join(prev_root, "SkiSnowGunTowerTallA")
+    if os.path.isdir(a_dir) and "tower" in keys:
+        clear_scene()
+        a_objs = [P.import_generation(os.path.join(a_dir, f"SkiSnowGunTowerTallA{s}.fbx"))
+                  for s in ("", "_LOD1", "_LOD2")]
+        a_tris = [tri_count(o) for o in a_objs]
+        t = P.lod_switch_table(tuple(a_objs[0].dimensions), a_tris, area=mesh_area(a_objs[0]))
+        lv = max([0] + [k for k, d in t["switch"].items() if FAR_M >= d])
+        _far_shot(a_objs[lv], a_dir, "SkiSnowGunTowerTallA",
+                  os.path.join(out_dir, "SkiSnowGunTowerTallA_far150m.png"), DETAIL_TINT,
+                  f"A LOD{lv}, {a_tris[lv]} tris")
+        stats["SkiSnowGunTowerTallA (shipped)"] = {
+            "tris": a_tris, "switch_m": {k: round(v, 1) for k, v in t["switch"].items()},
+            "cull_m": round(t["cull"], 1), "lod_at_150m": lv, "cad": cad_metric(a_objs[0])}
+
+    # Contact sheet: three-quarter pbr of every variant (half size, VARIANTS order, 5 per
+    # row), then the Tall A|B pairs (side, ladder), then the Tall 150 m pair A | B.
+    def tile(n, view="three_quarter"):
+        pth = os.path.join(out_dir, f"{n}_pbr_{view}.png")
+        return P._load_rgba(pth)[::2, ::2] if os.path.exists(pth) else None
+    order = [n for k in keys for n, _kw, _q in VARIANTS[k]]
+    tiles = [t for t in (tile(n) for n in order) if t is not None]
+    rows = [P._hstack(tiles[i:i + 5]) for i in range(0, len(tiles), 5)]
+    pairs = [os.path.join(out_dir, f"SkiSnowGunTowerTallB_ab_{v}.png") for v in ("side", "ladder")]
+    pairs = [P._load_rgba(pth)[::2, ::2] for pth in pairs if os.path.exists(pth)]
+    if pairs:
+        rows.append(P._hstack(pairs))
+    far = [os.path.join(out_dir, f) for f in ("SkiSnowGunTowerTallA_far150m.png",
+                                              "SkiSnowGunTowerTallB_far150m.png")]
+    if all(os.path.exists(f) for f in far):
+        rows.append(P._hstack([P._load_rgba(f)[::2, ::2] for f in far]))
+    if rows:
+        sheet = os.path.join(out_dir, "contact_sheet.png")
+        P._write_rgba(sheet, _vstack(rows))
+        print(f"[detail] contact sheet ({', '.join(order)}) -> {sheet}")
+    with open(os.path.join(out_dir, "stats.json"), "w", encoding="utf-8") as fh:
+        _json.dump(stats, fh, indent=1)
+    return stats
+
+
 def parse_args():
     argv = sys.argv
     argv = argv[argv.index("--") + 1:] if "--" in argv else []
@@ -1198,6 +2056,11 @@ def parse_args():
                     help="export every VARIANTS member, not just the default asset")
     ap.add_argument("--mast", type=float, default=6.5, help="tower gun mast height")
     ap.add_argument("--lance", type=float, default=7.0, help="lance working height")
+    ap.add_argument("--detail", default=None,
+                    help="T20 preview gate: build every variant of --assets (maps, LODs, no FBX) "
+                         "and render the 3-view + 150 m set, A/B pair and contact sheet here")
+    ap.add_argument("--review", action="store_true",
+                    help="with --detail: also write assets/preview/review/<Name>.blend packs")
     return ap.parse_args(argv)
 
 
@@ -1208,6 +2071,10 @@ def main():
         if k not in ASSETS:
             raise SystemExit(f"unknown asset '{k}' (have: {', '.join(ASSETS)})")
 
+    if args.detail:
+        detail_previews(args.detail, keys=tuple(keys), review=args.review)
+        return
+
     if args.lineup or args.row:
         clear_scene()
         objs = []
@@ -1217,7 +2084,7 @@ def main():
             jobs = VARIANTS[k] if args.variants else [(ASSETS[k][0], {}, ASSETS[k][2])]
             for idx, (name, kwargs, qs) in enumerate(jobs):
                 parts = BUILDER[k](PARAM_CLASS[k](**kwargs))
-                obj = finish(parts, name, qs * 2)
+                obj = finish(parts, name, qs * 2, smooth=k in SMOOTH_ASSETS)
                 total += report(k, obj)
                 cs2_asset.validate_asset_name(name)
                 objs.append(obj)
@@ -1266,7 +2133,8 @@ def main():
         for name, kwargs, quad_size in jobs:
             clear_scene()
             parts = BUILDER[k](PARAM_CLASS[k](**kwargs))
-            obj = finish(parts, name, quad_size * 2, bevel=args.finish)
+            obj = finish(parts, name, quad_size * 2, bevel=args.finish,
+                         smooth=k in SMOOTH_ASSETS)
             cs2_asset.validate_asset_name(name)
             total += report(k, obj)
             export_one(k, obj, name, args.out, quad_size, do_finish=args.finish)

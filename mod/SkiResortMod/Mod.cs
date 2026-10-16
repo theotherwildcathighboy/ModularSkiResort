@@ -563,6 +563,13 @@ namespace SkiResortMod
             // UpdateSystem.cs:173-176). Rendering runs paused included. Gated by ShowSnowLineWhilePlacing inside the system.
             updateSystem.UpdateBefore<SkiSnowLineOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
 
+            // Run names on the hill (T37, 2026-10-16; docs/research/field/2026-10-15/build/T37-run-labels.md). NO anchor to OverlayRenderSystem:
+            // the labels are Graphics.DrawMesh calls with the game's own TextMeshPro mesh and overlay text material, nothing is written to
+            // the overlay buffers, so a plain UpdateAt is correct (it must only run after the catalog's UIUpdate-phase rebuilds of the
+            // same frame, which Rendering does, SystemOrder.cs:67-68). Rendering runs paused included. Gated by ShowRunNamesOnTheHill
+            // inside the system.
+            updateSystem.UpdateAt<SkiRunLabelSystem>(SystemUpdatePhase.Rendering);
+
             // Its tooltip line. Anchor is load-bearing like SkiRunTooltipSystem's: UITooltip runs only from TooltipUISystem, which
             // clears the mouse group first (TooltipUISystem.cs:48-55); anchored after the run tooltip (itself after
             // AreaToolTooltipSystem, SystemOrder.cs:916) so the line follows the run's own rows instead of sorting after every

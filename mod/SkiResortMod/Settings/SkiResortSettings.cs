@@ -406,6 +406,12 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool ShowSnowLineWhilePlacing { get; set; }
 
+        /// <summary>T37 (2026-10-16): write each ski run's name flat on the ground at the run's centre, in the piste-map colour of its
+        /// difficulty, while the camera is at piste-map distance (SkiRunLabelSystem). Read live every frame. Default on (Richard's
+        /// ruling). Persisted under this property name — never rename.</summary>
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public bool ShowRunNamesOnTheHill { get; set; }
+
         /// <summary>Round F7 C1 (was E1 addendum A1): the thickness of SkiRunOutlineSystem's overlay — line
         /// width and corner-dot diameter 0.3 × this many metres — on the run areas the game outlines while
         /// the area tool or the bulldozer works on them; 0 = none (the game's thin outline only). Read every
@@ -494,6 +500,7 @@ namespace SkiResortMod.Settings
             ShowRunGradeWhileDrawing = true;      // run-feedback-spec §2
             ContourLinesWhileDrawingRuns = true;  // run-feedback-spec §2
             ShowSnowLineWhilePlacing = true;      // T32 (default on)
+            ShowRunNamesOnTheHill = true;         // T37 (default on)
             RunOutlineSize = DefaultRunOutlineSize;   // E1 addendum A1 (thickness only since F7 C1)
             SnowGunDensityPct = RunPropDensityRules.PctDefault;      // M2 density (look only)
             FloodlightDensityPct = RunPropDensityRules.PctDefault;   // M2 density (look only)

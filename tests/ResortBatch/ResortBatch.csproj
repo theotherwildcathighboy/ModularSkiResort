@@ -71,6 +71,9 @@
   <!-- ROUND F7 (2026-10-04, docs/research/field-test-7-fixes.md C1, implementer 2): the run outline overlay's rules. -->
   <ItemGroup>
     <Compile Include="RunOutlineTests.cs" />
+    <!-- T37 (2026-10-16): the run-name labels' pure rules. -->
+    <Compile Include="RunLabelTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunLabelRules.cs" Link="RunLabelRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunOutlineRules.cs" Link="RunOutlineRules.cs" />
   </ItemGroup>
   <!-- ROUND S1 ski days (docs/research/ski-days/s1-spec.md §4.2) -->
