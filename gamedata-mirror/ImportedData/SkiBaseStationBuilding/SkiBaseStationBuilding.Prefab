@@ -120,25 +120,25 @@
                                     "$type": 11,
                                     "x": 6,
                                     "y": 0,
-                                    "z": -9
+                                    "z": -7.5
                                 },
                                 "b": {
                                     "$type": 11,
                                     "x": 6,
                                     "y": 0,
-                                    "z": -10
+                                    "z": -8.5
                                 },
                                 "c": {
                                     "$type": 11,
                                     "x": 6,
                                     "y": 0,
-                                    "z": -11
+                                    "z": -9.5
                                 },
                                 "d": {
                                     "$type": 11,
                                     "x": 6,
                                     "y": 0,
-                                    "z": -12
+                                    "z": -10.5
                                 }
                             },
                             "m_NodeIndex": {
@@ -359,7 +359,7 @@
                 "m_SubObjects": {
                     "$id": 51,
                     "$type": "24|Game.Prefabs.ObjectSubObjectInfo[], Game",
-                    "$rlength": 11,
+                    "$rlength": 10,
                     "$rcontent": [
                         {
                             "$id": 52,
@@ -386,33 +386,9 @@
                             "m_Probability": 100
                         },
                         {
-                            "$id": 70,
-                            "$type": 25,
-                            "m_Object": $fstrref:"UnityGUID:4010d5851d69dbb418c62e6bd4d19759",
-                            "m_Position": {
-                                "$type": 11,
-                                "x": 6,
-                                "y": 0,
-                                "z": -12
-                            },
-                            "m_Rotation": {
-                                "$type": 21,
-                                "value": {
-                                    "$type": 22,
-                                    "x": 0,
-                                    "y": 0,
-                                    "z": 0,
-                                    "w": 1
-                                }
-                            },
-                            "m_ParentMesh": -1,
-                            "m_GroupIndex": 0,
-                            "m_Probability": 100
-                        },
-                        {
                             "$id": 71,
                             "$type": 25,
-                            "m_Object": $fstrref:"UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
+                            "m_Object": $fstrref:"CID:6827e281427c087a3b7ef19c824ca28b",
                             "m_Position": {
                                 "$type": 11,
                                 "x": 3.4,
@@ -424,9 +400,9 @@
                                 "value": {
                                     "$type": 22,
                                     "x": 0,
-                                    "y": 1,
+                                    "y": 0.9961947,
                                     "z": 0,
-                                    "w": 0
+                                    "w": -0.0871557
                                 }
                             },
                             "m_ParentMesh": 0,

@@ -333,7 +333,7 @@
                         {
                             "$id": 53,
                             "$type": 25,
-                            "m_Object": $fstrref:"UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
+                            "m_Object": $fstrref:"CID:6827e281427c087a3b7ef19c824ca28b",
                             "m_Position": {
                                 "$type": 11,
                                 "x": 4.77,
@@ -345,9 +345,9 @@
                                 "value": {
                                     "$type": 22,
                                     "x": 0,
-                                    "y": 0.7071068,
+                                    "y": 0.9961947,
                                     "z": 0,
-                                    "w": 0.7071068
+                                    "w": -0.0871557
                                 }
                             },
                             "m_ParentMesh": 0,

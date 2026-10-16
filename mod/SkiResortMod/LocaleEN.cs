@@ -183,7 +183,7 @@ namespace SkiResortMod
                 // terminals. The deployed .loc of the base / top station carries different NAME and DESCRIPTION texts; this source
                 // loads after it and wins (probes-B.md "Deployed .loc name conflicts").
                 { "Assets.NAME[SkiBaseStationBuilding]", "Fixed-Grip Chairlift: Base Station" },
-                { "Assets.DESCRIPTION[SkiBaseStationBuilding]", "Drive terminal. Connect a low-voltage line to its pole." },
+                { "Assets.DESCRIPTION[SkiBaseStationBuilding]", "Drive terminal. Connect a low-voltage line to the wire end at its front corner." },
                 { "Assets.NAME[SkiTopStationBuilding]", "Fixed-Grip Chairlift: Top Station" },
                 {
                     "Assets.DESCRIPTION[SkiTopStationBuilding]",
@@ -208,17 +208,17 @@ namespace SkiResortMod
                 { "Assets.NAME[SkiTramHV]", "Aerial Tram" },
                 { "Assets.DESCRIPTION[SkiTramHV]", "Two large cabins shuttle between the base and top terminals." },
                 { "Assets.NAME[SkiDQBaseStationBuilding]", "Detachable Quad Chairlift: Base Station" },
-                { "Assets.DESCRIPTION[SkiDQBaseStationBuilding]", "Drive terminal. Connect a low-voltage line to its pole." },
+                { "Assets.DESCRIPTION[SkiDQBaseStationBuilding]", "Drive terminal. Connect a low-voltage line to the wire end at its front corner." },
                 { "Assets.NAME[SkiDQTopStationBuilding]", "Detachable Quad Chairlift: Top Station" },
                 { "Assets.DESCRIPTION[SkiDQTopStationBuilding]", "Return terminal. Power flows up the line from the base: no hookup needed here." },
                 { "Assets.NAME[SkiGondolaBaseStationBuilding]", "Gondola: Base Station" },
-                { "Assets.DESCRIPTION[SkiGondolaBaseStationBuilding]", "Drive terminal. Connect a low-voltage line to its pole." },
+                { "Assets.DESCRIPTION[SkiGondolaBaseStationBuilding]", "Drive terminal. Connect a low-voltage line to the wire end at its front corner." },
                 { "Assets.NAME[SkiGondolaTopStationBuilding]", "Gondola: Top Station" },
                 { "Assets.DESCRIPTION[SkiGondolaTopStationBuilding]", "Return terminal. Power flows up the line from the base: no hookup needed here." },
                 { "Assets.NAME[SkiTramBaseStationBuilding]", "Aerial Tram: Base Terminal" },
                 // Catalog Phase C (round-3-contract §6.5, optional row; was "Drive terminal. Connect a low-voltage line to its
                 // pole."): the base hosts the two cabins (R29). Not in hubText.ts (no R4 pair).
-                { "Assets.DESCRIPTION[SkiTramBaseStationBuilding]", "Drive terminal; its two cabins park here. Connect a low-voltage line to its pole." },
+                { "Assets.DESCRIPTION[SkiTramBaseStationBuilding]", "Drive terminal; its two cabins park here. Connect a low-voltage line to the wire end at its front corner." },
                 { "Assets.NAME[SkiTramTopStationBuilding]", "Aerial Tram: Top Terminal" },
                 { "Assets.DESCRIPTION[SkiTramTopStationBuilding]", "Return terminal. Power flows up the line from the base: no hookup needed here." },
 
@@ -305,7 +305,7 @@ namespace SkiResortMod
                 { "Assets.NAME[SkiLiftMarker]", "Lift Line Cable Stub (part of a station)" },
                 { "Assets.DESCRIPTION[SkiLiftMarker]", "A short cable end on a lift station, where the lift line connects." },
                 { "Assets.NAME[SkiLiftMarkerLV]", "Power Feed Wire Stub (part of a station)" },
-                { "Assets.DESCRIPTION[SkiLiftMarkerLV]", "A short wire end on a base station's pole, where its low-voltage power connects." },
+                { "Assets.DESCRIPTION[SkiLiftMarkerLV]", "A short wire end at a base station's front corner, where its low-voltage power connects." },
                 { "Assets.NAME[SkiBeaconRed]", "Warning Beacon (Red, Blinking)" },
                 { "Assets.DESCRIPTION[SkiBeaconRed]", "A red aircraft-warning light that blinks day and night. Tall lift towers carry one." },
                 // R16 tram prototype (test only; tram-prototype-sheet.md, NAMES-2026-10-13.md item R1: never the real SkiTramHV).

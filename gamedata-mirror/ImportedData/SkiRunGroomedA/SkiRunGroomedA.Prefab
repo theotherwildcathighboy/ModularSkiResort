@@ -23,9 +23,9 @@
                 "m_DecalLayerMask": 1,
                 "m_BaseColor": {
                     "$type": "3|UnityEngine.Color, UnityEngine.CoreModule",
-                    0.88,
-                    0.91,
                     0.96,
+                    0.98,
+                    1,
                     1
                 },
                 "m_BaseColorMap": $fstrref:"CID:5df3e83c52fa6b7a251ccd8d09f93091",

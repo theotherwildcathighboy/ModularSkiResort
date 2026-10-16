@@ -34,6 +34,7 @@ $KnownVanilla = @{
     "37c8abdb015384f4e8b7ce9b5b2b6c9b" = "Low-voltage wire lane"
     "463c051da8a824c4a8f2f830a5011a3e" = "High-voltage Cable Lane Mesh (T01 2026-10-16: the three 64-type rope lanes; dump-verified)"
     "bbb9724d6daa32241821c52b428c196c" = "Low-voltage Cable Lane Mesh (T01 2026-10-16: SkiTramHaulRope; dump-verified)"
+    "59a83de6faed898459bde98b0256b452" = "PowerLinePole01 Marker (MarkerObjectPrefab; the vanilla Low-voltage Marker's node sub-object; T19 2026-10-16 on SkiLiftMarkerLV; dump-verified)"
     "60c0e17c40a5f1b41bf9d2032670b81d" = "Landscaping>Surfaces UI category"
     "5930db6811522d34495a9e16c4fd4c18" = "Landscaping service"
     "a5749eadf2820a247afc6747989ed959" = "Parks&Rec toolbar menu"

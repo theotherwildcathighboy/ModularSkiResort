@@ -8,7 +8,7 @@
     "components": {
         "$id": 1,
         "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
-        "$rlength": 8,
+        "$rlength": 9,
         "$rcontent": [
             {
                 "$id": 2,
@@ -928,6 +928,775 @@
                             "m_ParentMesh": 0,
                             "m_GroupIndex": 0,
                             "m_Probability": 100
+                        }
+                    ]
+                }
+            },
+            {
+                "$id": 100,
+                "$type": "19|Game.Prefabs.ObjectSubLanes, Game",
+                "name": "ObjectSubLanes",
+                "active": true,
+                "m_SubLanes": {
+                    "$id": 101,
+                    "$type": "20|Game.Prefabs.ObjectSubLaneInfo[], Game",
+                    "$rlength": 18,
+                    "$rcontent": [
+                        {
+                            "$id": 102,
+                            "$type": "21|Game.Prefabs.ObjectSubLaneInfo, Game",
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": "22|Colossal.Mathematics.Bezier4x3, Colossal.Mathematics",
+                                "a": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": 3
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": 1.744
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": 0.489
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -0.767
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": "23|Unity.Mathematics.int2, Unity.Mathematics",
+                                "x": 0,
+                                "y": 1
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 103,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -0.767
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -2.022
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -3.278
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -4.533
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 1,
+                                "y": 2
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 104,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -4.533
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -5.789
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -7.044
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -8.3
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 2,
+                                "y": 3
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 105,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -8.3
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -9.556
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -10.811
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -12.067
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 3,
+                                "y": 4
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 106,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -12.067
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -13.322
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -14.578
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -15.833
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 4,
+                                "y": 5
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 107,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -15.833
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -17.089
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -18.344
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -19.6
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 5,
+                                "y": 6
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 108,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": -14.4,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": -13.667,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": -12.933,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": -12.2,
+                                    "y": 0,
+                                    "z": -19.6
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 6,
+                                "y": 7
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 109,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": -8.8,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": -7.367,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": -5.933,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": -4.5,
+                                    "y": 0,
+                                    "z": -19.6
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 8,
+                                "y": 9
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 110,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": -4.5,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": -3.067,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": -1.633,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": -0.2,
+                                    "y": 0,
+                                    "z": -19.6
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 9,
+                                "y": 10
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 111,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": -0.2,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": 1.233,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": 2.667,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": 4.1,
+                                    "y": 0,
+                                    "z": -19.6
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 10,
+                                "y": 11
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 112,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": 4.1,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": 5.533,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": 6.967,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": 8.4,
+                                    "y": 0,
+                                    "z": -19.6
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 11,
+                                "y": 12
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 113,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": 3
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": 1.744
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": 0.489
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -0.767
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 13,
+                                "y": 14
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 114,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -0.767
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -2.022
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -3.278
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -4.533
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 14,
+                                "y": 15
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 115,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -4.533
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -5.789
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -7.044
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -8.3
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 15,
+                                "y": 16
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 116,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -8.3
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -9.556
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -10.811
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -12.067
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 16,
+                                "y": 17
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 117,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -12.067
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -13.322
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -14.578
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -15.833
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 17,
+                                "y": 18
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 118,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -15.833
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -17.089
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -18.344
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -19.6
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 18,
+                                "y": 19
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
+                        },
+                        {
+                            "$id": 119,
+                            "$type": 21,
+                            "m_LanePrefab": $fstrref:"CID:3a106e6ab5d84d9e9b7d6ca8b7b43789",
+                            "m_BezierCurve": {
+                                "$type": 22,
+                                "a": {
+                                    "$type": 14,
+                                    "x": 14.4,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "b": {
+                                    "$type": 14,
+                                    "x": 13.467,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "c": {
+                                    "$type": 14,
+                                    "x": 12.533,
+                                    "y": 0,
+                                    "z": -19.6
+                                },
+                                "d": {
+                                    "$type": 14,
+                                    "x": 11.6,
+                                    "y": 0,
+                                    "z": -19.6
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 23,
+                                "x": 19,
+                                "y": 20
+                            },
+                            "m_ParentMesh": {
+                                "$type": 23,
+                                "x": -1,
+                                "y": -1
+                            }
                         }
                     ]
                 }
