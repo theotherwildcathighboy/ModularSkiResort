@@ -109,8 +109,8 @@ BUDGETS = {
 # lower detail — apply_finish_textures repacks UVs, so a rebuilt LOD would sample the
 # wrong atlas texels.
 LOD_CHAIN = {
-    "tower":   (0.52, 0.20),
-    "fan":     (0.52, 0.20),
+    "tower":   (0.50, 0.20),
+    "fan":     (0.50, 0.20),
     "lance":   (),
     "hydrant": (),
     "flood":   (0.42, 0.12),
