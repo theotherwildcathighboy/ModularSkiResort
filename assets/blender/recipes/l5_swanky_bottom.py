@@ -3568,6 +3568,12 @@ RECIPE = FineRecipe(
     # revision 3: the cap and target stand (verdict brief); the modelled dressing is vanilla
     # sub-objects now (their tris are vanilla's own, not ours), so LOD0 drops (build report)
     budget=Budget(26000, 30000, 11000, 480, 800),
+    # tiled rollout (2026-10-16, texture-parity-rollout-2026-10-16.md section 2): read only on
+    # the --tiled path. 20,833 m2 of LOD0 cut at 1.5-3 m tiles is ~51,600 tris; 2 x 2 tiles on the
+    # members, pavers and the swanky walls, plus flat trims / soffits / trusses, fit the 30,000 cap
+    tile_scale=(("timber_heavy", 2), ("galv", 2), ("deck", 2), ("lux_glulam", 2), ("lux_balrail", 2),
+                ("lux_paver", 2), ("lux_stone_tan", 2), ("lux_siding_walnut", 2), ("lux_siding_red", 2)),
+    tiled_flat=("soffit_", "trim_", "truss_", "beam_", "poolcap_"),
     massing="custom", builder=build_l5,
     rooms="auto", interior="CommercialLow",
     # VariationSet A (contract 6, STEEL_DEFAULT_RGB convention): bronze / deep red / copper

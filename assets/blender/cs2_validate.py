@@ -867,7 +867,22 @@ def validate_asset_folder_ex(asset_dir, name, spec=None):
             rep.warn("folder", f"unexpected file {f!r}")
     if 0 not in lod_fbx:
         rep.error("folder", f"{name}.fbx missing")
-    if 0 not in map_sets:
+    # tiled rollout (2026-10-16): LOD0 maps may come from ANOTHER asset folder through
+    # cross-asset sharedAssets targets ("../SkiTileSheetR/SkiTileSheetR_BaseColor.png", resolved
+    # against this folder, AssetImportPipeline.cs:502-509 1.6.2f1). The set is then validated at
+    # its real location (max_texture 4096: the family sheet), not in this folder.
+    ext0 = None
+    xt = {m: shared.get(f"{name}_{m}.png") for m in MAPS}
+    if all(isinstance(t, str) and "/" in t for t in xt.values()):
+        tgt = os.path.normpath(os.path.join(asset_dir, xt["BaseColor"]))
+        pre0 = os.path.basename(tgt)[:-len("_BaseColor.png")]
+        if all(os.path.normpath(os.path.join(asset_dir, t)) == os.path.join(os.path.dirname(tgt), f"{pre0}_{m}.png")
+               for m, t in xt.items()):
+            ext0 = (os.path.dirname(tgt), pre0)
+            rep.info("settings", f"LOD0 maps shared from {os.path.relpath(tgt, asset_dir)} (cross-asset set)")
+        else:
+            rep.error("settings", f"LOD0 sharedAssets targets are not one set: {xt}")
+    if 0 not in map_sets and ext0 is None:
         rep.error("folder", f"no {name}_<map>.png textures")
     for lvl in sorted(declared_lods):
         if lvl not in lod_fbx:
@@ -892,7 +907,12 @@ def validate_asset_folder_ex(asset_dir, name, spec=None):
         if not isinstance(target, str):
             rep.error("settings", f"sharedAssets[{key!r}] is not a filename")
             continue
-        if target not in present:
+        if "/" in target:
+            if not os.path.isfile(os.path.normpath(os.path.join(asset_dir, target))):
+                rep.error("settings", f"sharedAssets[{key!r}] -> {target!r} does not exist")
+            if re.fullmatch(rf"{re.escape(name)}_(BaseColor|Normal|MaskMap|ControlMask|Emissive)\.png", key):
+                continue
+        elif target not in present:
             rep.error("settings", f"sharedAssets[{key!r}] -> {target!r} does not exist")
         if key in present:
             if target == key:
@@ -1034,6 +1054,22 @@ def validate_asset_folder_ex(asset_dir, name, spec=None):
                                         f"of the atlas covered, {100.0 * over / max(covered, 1):.1f} % "
                                         f"of it overlapping")
             A = validate_texture_set(asset_dir, prefix, rep, spec, coverage=cov)
+            if A:
+                summary["tex"].add(A)
+        if ext0 is not None and 0 not in map_sets:
+            src = imported.get(("lod", 0))
+            cov = None
+            A_hint = 1024
+            try:
+                A_hint = read_png_header(os.path.join(ext0[0], f"{ext0[1]}_BaseColor.png"))[0]
+            except (OSError, ValueError):
+                pass
+            if src is not None and len(src["obj"].data.uv_layers) == 1:
+                cov = uv_coverage(src["obj"].data, min(A_hint, 1024))
+                covered = int(np.count_nonzero(cov))
+                rep.info("uv-coverage", f"{lod_fbx.get(0)} on the shared set {ext0[1]}: "
+                                        f"{100.0 * covered / cov.size:.1f} % of the sheet covered")
+            A = validate_texture_set(ext0[0], ext0[1], rep, dict(spec, max_texture=4096), coverage=cov)
             if A:
                 summary["tex"].add(A)
     finally:

@@ -616,6 +616,9 @@ RECIPE = FineRecipe(
     lot=LOT, base_mode="plinth", plinth=(-SUPPORT_Z0, PL_TOP), yaw_deg=0.0, tex=2048,
     allow_4096=False,
     budget=Budget(5500, 6000, 2400, 450, 450),
+    # tiled rollout (texture-parity-rollout-2026-10-16.md section 2; --tiled only): columns, snow
+    # guards and decking at 2 x 2 tiles keep the tiled LOD0 under the 6,000 cap
+    tile_scale=(("timber_heavy", 2), ("galv", 2), ("deck", 2)),
     massing="custom", builder=build_hut,
     rooms=ROOMS, interior="CommercialLow",
     # one resort, one trim (lodges-basic Q6): slot 1 = L1's shipped green VariationSet;

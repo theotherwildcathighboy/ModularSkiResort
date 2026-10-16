@@ -153,6 +153,19 @@ class Recipe:
     # True = LOD0 on the shared tile sheet (cs2_tilesheet), LOD1/LOD2 on an own far set.
     # False (every recipe) = the unique-atlas path, byte-identical. lodge.py --tiled sets it.
     tiled: bool = False
+    # ---- tiled rollout (2026-10-16, docs/research/art/texture-parity-rollout-2026-10-16.md); read
+    # ONLY on the tiled path (both default to "nothing": a plain build never looks at them).
+    # tile_scale: ((key, r), ...) the shared sheet's swatch for `key` holds r x r material tiles,
+    #   so this building's faces are cut every r tiles (r^2 fewer pieces, 1/r px/m). The sheet is
+    #   shared, so the family sheet takes max(r) over all recipes for a key (lodge._sheet_repeats).
+    # tiled_weather: None = the default rule set (cs2_tilesheet.TileWeather, fallback ladder by
+    #   tris); or {"level": n} to pin a ladder level, {"off": True} for no LOD0 weathering.
+    # tiled_flat: extra part-name prefixes drawn as their material's flat mean colour (palette
+    #   cell, no cuts) on top of cs2_tilesheet.FLAT_DETAIL_PREFIXES (gutters, downspouts, snow
+    #   guards, ridges): the second per-recipe lever for the LOD0 cap (L5: soffits, trims)
+    tile_scale: tuple = ()
+    tiled_weather: object = None
+    tiled_flat: tuple = ()
 
 
 # ======================================================================================

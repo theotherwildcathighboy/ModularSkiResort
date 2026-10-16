@@ -884,6 +884,8 @@ P2 = FineRecipe(
     asset="SkiPatrolHQCommercialLow", prefab="SkiPatrolHQ", category="buildings",
     lot=P2_LOT, base_mode="engine", plinth=None, yaw_deg=0.0, tex=1024, allow_4096=False,
     budget=Budget(2000, 2500, 650, 200, 200),
+    # tiled rollout (texture-parity-rollout-2026-10-16.md section 2; --tiled only)
+    tile_scale=(("timber_heavy", 2), ("galv", 2), ("deck", 2)),
     massing="custom", builder=build_p2,
     rooms={"hq": (3, 3)}, interior="CommercialLow", slots=SLOTS,
     ground_prefixes=("footing_", "stair_hq_str"),

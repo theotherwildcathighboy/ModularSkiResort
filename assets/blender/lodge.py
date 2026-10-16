@@ -163,9 +163,18 @@ def parse_args(argv=None):
     ap.add_argument("--tiled", action="store_true",
                     help="T16 probe: LOD0 tiled on the family sheet (sets recipe.tiled)")
     ap.add_argument("--sheet-tex", type=int, default=4096, choices=(2048, 4096),
-                    help="tiled: family sheet size (4 x 4 swatches)")
+                    help="tiled: family sheet size")
     ap.add_argument("--far-tex", type=int, default=1024, choices=(512, 1024, 2048),
                     help="tiled: LOD1/LOD2 own unique set (the --tex auto size in tiled mode)")
+    # tiled ROLLOUT (2026-10-16, docs/research/art/texture-parity-rollout-2026-10-16.md): the eight
+    # buildings share ONE family sheet (an owner folder beside the buildings); "probe" rebuilds T16
+    ap.add_argument("--sheet-layout", default="rollout", choices=("rollout", "probe"),
+                    help="tiled: rollout = shared family sheet + weathering; probe = the T16 probe")
+    ap.add_argument("--sheet-dir", default=None,
+                    help="tiled rollout: the family sheet owner folder (default <out>/SkiTileSheet<letter>)")
+    ap.add_argument("--weather-level", default="auto",
+                    help="tiled rollout: LOD0 weathering ladder level 0..5 or auto (highest detail "
+                         "under the LOD0 cap); recipe.tiled_weather overrides")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -1312,6 +1321,12 @@ def run(recipe, args):
                   f"{max(16, A // 64)}), dry pack w=1 median {dry.get('median_w1')} px/m -> "
                   f"prefilter at {K.PREFILTER_FACTOR} x")
             specs, mat_info = K.material_specs(keys, base_ppm)
+            if tiled and getattr(args, "sheet_layout", "probe") == "rollout":
+                # the far set (LOD1 / LOD2) carries the same measured-vanilla smoothness and metal
+                # as the sheet, so the LOD switch does not change the shine (rollout doc section 4)
+                import cs2_tilesheet as TS
+                specs = {k: replace(s, rough=1.0 - TS.smooth_of(k), metal=TS.metal_of(k))
+                         for k, s in specs.items()}
             sources = _final_sources(specs, keys)
             world = bpy.context.scene.world or bpy.data.worlds.new("World")
             bpy.context.scene.world = world
@@ -1410,7 +1425,7 @@ def run(recipe, args):
                                                    area))
     # 20 settings
     if tiled:
-        _tiled_settings(asset_dir, name, len(lods))
+        _tiled_settings(asset_dir, name, len(lods), args, result)
     else:
         cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)))
     # 21 previews / review
@@ -1457,7 +1472,8 @@ def run(recipe, args):
     # 22 manifest + validate
     _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0)
     if not args.no_validate:
-        result["validate"] = validate(asset_dir, name, recipe, obj, win, A)
+        result["validate"] = validate(asset_dir, name, recipe, obj, win, A,
+                                      max_texture=4096 if tiled else None)
     print(f"[lodge] asset folder: {asset_dir}")
     med = (hook.density or {}).get("median_w1") if hook else None
     chain = [result["tris"][i] for i in sorted(result["tris"]) if i]
@@ -1467,6 +1483,244 @@ def run(recipe, args):
 
 
 def _tiled_lod0(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far):
+    """Tiled LOD0 (T16 probe / rollout). Returns (lod0 renamed to `name`, far)."""
+    if getattr(args, "sheet_layout", "probe") == "probe":
+        return _tiled_lod0_probe(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far)
+    return _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far)
+
+
+def _tiled_settings(asset_dir, name, n_lods, args=None, result=None):
+    if args is None or getattr(args, "sheet_layout", "probe") == "probe":
+        return _tiled_settings_probe(asset_dir, name, n_lods)
+    return _tiled_settings_rollout(asset_dir, name, n_lods, result["tiled"])
+
+
+def _sheet_repeats():
+    """{key: r} of the shared sheet: max over every registered recipe's tile_scale."""
+    reps = {}
+    for rc in R.load_recipes().values():
+        for k, r in getattr(rc, "tile_scale", ()) or ():
+            reps[k] = max(int(r), reps.get(k, 1))
+    return reps
+
+
+SHEET_OWNER_KEY = "school"      # the building whose folder carries the family sheet as its LOD0 maps
+
+
+def sheet_paths(args, letter):
+    """(sheet WORKSPACE dir, sheet name) of the rollout family sheet: where it is composed (not an
+    asset folder; the owner building's folder receives the composed maps, install_owner_maps)."""
+    sname = cs2_asset.validate_asset_name("SkiTileSheet" + letter)
+    if getattr(args, "sheet_dir", None):
+        return os.path.abspath(args.sheet_dir), sname
+    root = os.path.abspath(args.out) if args.out else os.path.join(IMPORT_ROOT, "buildings", letter)
+    return os.path.join(root, "_" + sname), sname
+
+
+def sheet_owner(args, letter):
+    """(owner asset dir, owner name): the ski school of the same letter (rollout doc section 7:
+    the sheet travels as the school's own LOD0 maps; the seven others share them cross-asset)."""
+    rc = R.get_recipe(SHEET_OWNER_KEY)
+    oname = rc.asset + letter
+    root = os.path.abspath(args.out) if args.out else os.path.join(IMPORT_ROOT, rc.category, letter)
+    return os.path.join(root, oname), oname
+
+
+def install_owner_maps(sdir, sname, odir, oname, emissive=True):
+    """Copy the composed sheet into the owner's folder under the owner's name."""
+    import shutil
+    os.makedirs(odir, exist_ok=True)
+    out = []
+    for m in ("BaseColor", "Normal", "MaskMap", "ControlMask") + (("Emissive",) if emissive else ()):
+        src = os.path.join(sdir, f"{sname}_{m}.png")
+        dst = os.path.join(odir, f"{oname}_{m}.png")
+        shutil.copyfile(src, dst)
+        out.append(os.path.basename(dst))
+    return out
+
+
+def ensure_family_sheet(sdir, sname, A, repeats, emissive=True):
+    """The composed family sheet in `sdir` (layout JSON + PNGs). Rebuilt when the layout hash
+    (rects, repeats, material definitions, smoothness table) changed; label rects already in
+    `sdir/labels` are pasted. Returns the layout dict (with per-swatch means, no pixels)."""
+    import cs2_tilesheet as TS
+    lay = TS.sheet_layout(A, "rollout", repeats)
+    aux = sdir + ".aux"                       # layout + label rects: never inside the asset folder
+    os.makedirs(aux, exist_ok=True)
+    jp = os.path.join(aux, f"{sname}.layout.json")
+    if os.path.isfile(jp):
+        old = TS.load_layout(jp)
+        if old.get("hash") == lay["hash"] and all(
+                os.path.isfile(os.path.join(sdir, f"{sname}_{m}.png"))
+                for m in ("BaseColor", "Normal", "MaskMap", "ControlMask")):
+            return old
+    print(f"[lodge] tiled: building the family sheet {sname} ({A}, hash {lay['hash']})")
+    full = TS.build_sheet(sdir, sname, A=A, layout="rollout", repeats=repeats)
+    ldir = os.path.join(sdir + ".aux", "labels")
+    labels = sorted(os.path.join(ldir, f) for f in os.listdir(ldir) if f.endswith(".npz")) \
+        if os.path.isdir(ldir) else []
+    TS.write_sheet(full, emissive=emissive, labels=labels)
+    TS.save_layout(full, jp)
+    return TS.load_layout(jp)
+
+
+def recompose_family_sheet(sdir, sname, A=4096):
+    """Rebuild the family sheet PNGs with every building's label rect pasted (run once after the
+    last building of a round; the hash check alone would keep a sheet without new labels)."""
+    jp = os.path.join(sdir + ".aux", f"{sname}.layout.json")
+    if os.path.isfile(jp):
+        os.remove(jp)
+    return ensure_family_sheet(sdir, sname, A, _sheet_repeats())
+
+
+def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far):
+    """Rollout (docs/research/art/texture-parity-rollout-2026-10-16.md): rename the far bake's
+    maps to <name>_LOD1_* (emissive dropped: LOD0-only engine-side, DECISIONS 77), re-mesh `lod0`
+    onto the SHARED family sheet (cs2_tilesheet.tile_mesh with the weathering rules, highest
+    ladder level under the LOD0 cap), paint this building's labels into its own label rect
+    (<sheet_dir>.aux/labels/<name>.npz; recompose_family_sheet pastes every building's rect),
+    measure. No sheet map is written into the building folder: settings.json shares them."""
+    import cs2_tilesheet as TS
+    t0 = time.perf_counter()
+    renamed = []
+    for f in rep["files"]:
+        if f.endswith("_Emissive.png"):
+            os.remove(os.path.join(asset_dir, f))
+            continue
+        dst = f.replace(f"{name}_", f"{name}_LOD1_", 1)
+        os.replace(os.path.join(asset_dir, f), os.path.join(asset_dir, dst))
+        renamed.append(dst)
+    far.name = name + "Far"
+    far.data.name = name + "Far"
+    SA = int(getattr(args, "sheet_tex", 4096))
+    letter = name[len(recipe.asset):] if name.startswith(recipe.asset) else (args.letter or recipe.letter)
+    sdir, sname = sheet_paths(args, letter)
+    repeats = _sheet_repeats()
+    layout = ensure_family_sheet(sdir, sname, SA, repeats)
+    layout["label_rect"] = TS.label_rect_for(layout, recipe.key)
+    uvt = cs2_uv.loop_uvs(lod0.data.uv_layers[cs2_bake.TILE_LAYER])
+    tw = getattr(recipe, "tiled_weather", None) or {}
+    wl = getattr(args, "weather_level", "auto")
+    if tw.get("off"):
+        ladder = [None]
+    elif "level" in tw:
+        ladder = [TS.weather_level(int(tw["level"]))]
+    elif wl != "auto":
+        ladder = [TS.weather_level(int(wl))]
+    else:
+        ladder = [TS.weather_level(i) for i in range(6)]
+    cap = recipe.budget.lod0_cap
+    pristine = lod0.data.copy()
+    tm = None
+    tried = []
+    for W in ladder:
+        if tm is not None:                          # retry from the untouched copy
+            old = lod0.data
+            lod0.data = pristine.copy()
+            bpy.data.meshes.remove(old)
+        tm = TS.tile_mesh(lod0, uvt, sorted(keys), layout,
+                          label_prefixes=tuple(p for p, _pa, _kw in recipe.labels),
+                          ground_prefixes=tuple(recipe.ground_prefixes) if recipe.base_mode == "engine" else (),
+                          label_ppm=TS.LABEL_PPM * SA / 4096.0, weather=W,
+                          flat_prefixes=TS.FLAT_DETAIL_PREFIXES + tuple(getattr(recipe, "tiled_flat", ()) or ()),
+                          grid_offset=0.5 if recipe.base_mode == "plinth" else 0.0)
+        tried.append({"level": None if W is None else W.level, "tris": tm["tris_after"]})
+        print(f"[lodge] tiled: weather level {None if W is None else W.level} -> LOD0 {tm['tris_after']} "
+              f"(cap {cap})")
+        if tm["tris_after"] <= cap:
+            break
+    bpy.data.meshes.remove(pristine)
+    lod0.name = name
+    lod0.data.name = name
+    table = json.loads(lod0.data[cs2_asset.PART_TABLE_PROP])
+    # labels: this building's rect only (the oriented painters want ONE mesh with a UVUnique
+    # layer: hide the far mesh's layer name while they run)
+    lab_npz = None
+    if recipe.labels and tm["label_rects"]:
+        far_uv = far.data.uv_layers.get(cs2_uv.UNIQUE_LAYER)
+        if far_uv is not None:
+            far_uv.name = "UVUniqueFarSet"
+        try:
+            os.makedirs(os.path.join(sdir + ".aux", "labels"), exist_ok=True)
+            lab_npz = TS.paint_labels(layout, tm["label_rects"], recipe.labels, lod0.data, table,
+                                      os.path.join(sdir + ".aux", "labels", f"{name}.npz"))
+        finally:
+            if far_uv is not None:
+                far.data.uv_layers["UVUniqueFarSet"].name = cs2_uv.UNIQUE_LAYER
+    ppm = TS.face_ppm(lod0, SA, sorted(keys), split_weather=True)
+    tm["uv_outside_region"] = TS.check_uv_cells(lod0, layout, sorted(keys))
+    print(f"[lodge] tiled: faces sampling outside their sheet region {tm['uv_outside_region']}")
+    if tm["uv_outside_region"]:
+        raise RuntimeError(f"{name}: faces sample outside their sheet region {tm['uv_outside_region']}")
+    smooth = TS.mask_stats(lod0, os.path.join(sdir, f"{sname}_MaskMap.png"), sorted(keys))
+    wstats = TS.weather_stats(lod0, sorted(keys)) if tm.get("weather") else {}
+    for a in ("cs2ts_mat", "cs2ts_w"):
+        attr = lod0.data.attributes.get(a)
+        if attr is not None:
+            lod0.data.attributes.remove(attr)
+    lod0.data.materials.clear()
+    for lay in [l.name for l in lod0.data.uv_layers if l.name != cs2_uv.UNIQUE_LAYER]:
+        lod0.data.uv_layers.remove(lod0.data.uv_layers[lay])
+    tris0 = cs2_asset.tri_count(lod0)
+    result["tris"][0] = tris0
+    result["base"][0] = K.check_base_mode(lod0, table, recipe.base_mode, recipe.ground_prefixes,
+                                          recipe.plinth)
+    emis = any(n.startswith("lamp_") for n in table) or any(
+        K.BLDG_MATERIALS[k].emissive_srgb is not None for k in keys)
+    lrect = list(layout["label_rect"])
+    odir, oname = sheet_owner(args, letter)
+    is_owner = recipe.key == SHEET_OWNER_KEY
+    if is_owner:
+        if lab_npz:                                 # the owner ships the sheet WITH its own labels
+            layout = recompose_family_sheet(sdir, sname, SA)
+        install_owner_maps(sdir, sname, asset_dir, name)
+    rel = os.path.relpath(odir, asset_dir).replace("\\", "/")
+    result["tiled"] = {
+        "layout": "rollout",
+        "sheet": {"name": sname, "workspace": os.path.relpath(sdir, asset_dir).replace("\\", "/"),
+                  "A": SA, "hash": layout["hash"], "owner": oname, "is_owner": is_owner,
+                  "maps": 5, "mb_raw_bc7": TS.bc7_mb(SA, 5), "shared_prefix": f"{rel}/{oname}",
+                  "emissive_bound": bool(emis), "repeats": layout["repeats"],
+                  "label_rect": lrect, "label_npz": os.path.basename(lab_npz) if lab_npz else None},
+        "far": {"A": A_far, "files": renamed, "mb_raw_bc7": TS.bc7_mb(A_far, len(renamed))},
+        "tile_mesh": tm, "weather_ladder": tried, "ppm_by_material": ppm, "smooth_by_material": smooth,
+        "weather_by_material": wstats, "lod0_tris": tris0, "seconds": round(time.perf_counter() - t0, 1),
+    }
+    print(f"[lodge] tiled: LOD0 {tris0} tris on {sname} ({tm['sliced_tris']} tris sliced into "
+          f"{tm['pieces']} pieces, {tm['tjunction_inserts']} T-junction inserts, weather "
+          f"{tm.get('weather')}); far set {A_far}")
+    for k, v in ppm.items():
+        print(f"[lodge] tiled px/m {k:22s} p10 {v['p10']:7.1f} p50 {v['p50']:7.1f} "
+              f"p90 {v['p90']:7.1f} ({v['area_m2']} m2)")
+    K.assert_budget(lod0, recipe.budget, 0)
+    return lod0, far
+
+
+def _tiled_settings_rollout(asset_dir, name, n_lods, tiled):
+    """Rollout settings.json: LOD0 maps shared from the family sheet owner (cross-asset
+    sharedAssets, AssetImportPipeline.cs:502-509 1.6.2f1 resolves the relative target); LOD1
+    ships its own maps (dedicated, identity entries, the ExampleBakedAlphaFence pattern); LOD2
+    shares LOD1's. Whether a LOD0 cross-asset key and dedicated LOD keys combine in one
+    import is the ONE thing the import probe must show (rollout doc section 7)."""
+    pre = tiled["sheet"]["shared_prefix"]
+    maps = ["BaseColor", "Normal", "MaskMap", "ControlMask"] + (["Emissive"] if tiled["sheet"]["emissive_bound"] else [])
+    # the owner (the school) carries the sheet as its own LOD0 maps; the others share them
+    shared = {} if tiled["sheet"]["is_owner"] else {f"{name}_{m}.png": f"{pre}_{m}.png" for m in maps}
+    if n_lods >= 1:
+        for m in ("BaseColor", "Normal", "MaskMap", "ControlMask"):
+            shared[f"{name}_LOD1_{m}.png"] = f"{name}_LOD1_{m}.png"
+    if n_lods >= 2:
+        for m in ("BaseColor", "Normal", "MaskMap", "ControlMask"):
+            shared[f"{name}_LOD2_{m}.png"] = f"{name}_LOD1_{m}.png"
+    settings = {"sharedAssets": shared}
+    for lvl in range(1, n_lods + 1):
+        settings[f"LOD{lvl}"] = {"mode": "Skip"}
+    with open(os.path.join(asset_dir, "settings.json"), "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(settings, fh, indent=2)
+        fh.write("\n")
+
+
+def _tiled_lod0_probe(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far):
     """T16 probe (docs/research/art/texture-parity-2026-10-16.md): rename the far bake's maps
     to <name>_LOD1_* (emissive dropped: LOD0-only engine-side, DECISIONS 77), build the family
     sheet into the asset folder as the LOD0 maps, re-mesh `lod0` onto it
@@ -1487,7 +1741,7 @@ def _tiled_lod0(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_f
     lod0.name = name
     lod0.data.name = name
     SA = int(getattr(args, "sheet_tex", 4096))
-    layout = TS.build_sheet(asset_dir, name, A=SA, swatch=SA // 4, pad=max(16, SA // 128))
+    layout = TS.build_sheet(asset_dir, name, A=SA, swatch=SA // 4, pad=max(16, SA // 128), layout="probe")
     uvt = cs2_uv.loop_uvs(lod0.data.uv_layers[cs2_bake.TILE_LAYER])
     tm = TS.tile_mesh(lod0, uvt, sorted(keys), layout,
                       label_prefixes=tuple(p for p, _pa, _kw in recipe.labels),
@@ -1542,7 +1796,7 @@ def _tiled_lod0(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_f
     return lod0, far
 
 
-def _tiled_settings(asset_dir, name, n_lods):
+def _tiled_settings_probe(asset_dir, name, n_lods):
     """T16 probe settings.json: LOD0 = the sheet maps in this folder (a production build points
     them at the family owner with sharedAssets, cs2_asset.write_settings(shared_from=...)); LOD1
     ships its own maps (they bind by the LOD1 name); LOD2 shares LOD1's."""
@@ -1663,7 +1917,7 @@ def _export_sign_set(signset, recipe, args, name, obj, lods, result, area):
             "texture": (cs2_signset.SHEET_OWNER, rep["asset_dir"] if rep["owner"] else owner_dir)}
 
 
-def validate(asset_dir, name, recipe, obj, win, A):
+def validate(asset_dir, name, recipe, obj, win, A, max_texture=None):
     """cs2_validate.validate_asset_folder with the section-14 spec (the N11 keys are passed
     for the validator lens and checked here: keyword, emissive file, max texture)."""
     lods = (1, 2)
@@ -1672,7 +1926,7 @@ def validate(asset_dir, name, recipe, obj, win, A):
             "lod1_ratio": 0.5, "lod2_cap": recipe.budget.lod2_cap, "hero": True,
             "expected_lods": lods, "expected_submeshes": ("Win",) if win is not None else (),
             "interior_keyword": recipe.interior,
-            "max_texture": 4096 if recipe.allow_4096 else recipe.tex}
+            "max_texture": max_texture or (4096 if recipe.allow_4096 else recipe.tex)}
     obj.name, obj.data.name = name + "Src", name + "Src"
     if win is not None:
         win.name, win.data.name = name + "WinSrc", name + "WinSrc"
@@ -1683,7 +1937,16 @@ def validate(asset_dir, name, recipe, obj, win, A):
     has_lamps = any(n.startswith("lamp_") for n in json.loads(obj.data[cs2_asset.PART_TABLE_PROP]))
     if has_lamps:
         if not os.path.isfile(emis):
-            raise RuntimeError(f"{name}: lanterns but no _Emissive.png")
+            # tiled rollout: the emissive map is the family sheet's, shared like the other LOD0 maps
+            with open(os.path.join(asset_dir, "settings.json"), encoding="utf-8") as fh:
+                tgt = (json.load(fh).get("sharedAssets") or {}).get(f"{name}_Emissive.png")
+            if not tgt or not os.path.isfile(os.path.normpath(os.path.join(asset_dir, tgt))):
+                raise RuntimeError(f"{name}: lanterns but no _Emissive.png")
+            emis = os.path.normpath(os.path.join(asset_dir, tgt))
+            A = cs2_validate.read_png_header(emis.replace("_Emissive.png", "_BaseColor.png"))[0]
+        bc = emis.replace("_Emissive.png", "_BaseColor.png")
+        if os.path.isfile(bc):                      # the set the emissive belongs to (tiled: the sheet)
+            A = cs2_validate.read_png_header(bc)[0]
         w, h, _d, _c = cs2_validate.read_png_header(emis)
         if (w, h) != (A, A):
             raise RuntimeError(f"{name}: _Emissive is {w}x{h}, set is {A}")
