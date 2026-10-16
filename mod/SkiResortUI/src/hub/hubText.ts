@@ -120,7 +120,7 @@ export const HUB_LOC = {
   // ---- status line (6.2) ----
   statusNoRuns: ["SkiResort.Hub.STATUS_NO_RUNS", "Closed · no runs yet"],
   statusUnlinked: ["SkiResort.Hub.STATUS_UNLINKED", "Not linked to a ski area"],
-  statusTipRule: ["SkiResort.Hub.STATUS_TIP_RULE", "Open: 2 cm or more of snow covers 60 % of the run. Closed: below 40 %. In between: patchy."],
+  statusTipRule: ["SkiResort.Hub.STATUS_TIP_RULE", "Open: 15 cm or more of snow covers 60 % of the run (31 cm on natural black runs). Closed: below 40 %. In between: patchy."],
   statusTipMeasured: ["SkiResort.Hub.STATUS_TIP_MEASURED", "Snow is measured on each run from the game's own snow."],
   statusTipEstimated: ["SkiResort.Hub.STATUS_TIP_ESTIMATED", "Some runs are estimated from the day's temperature until their snow can be measured."],
   statusTipGating: ["SkiResort.Hub.STATUS_TIP_GATING", "Snow & season gating is off in Options, so every run counts as open."],
@@ -227,7 +227,7 @@ export const HUB_LOC = {
   mountainSnow: ["SkiResort.Hub.MOUNTAIN[Snow]", "Snow now"],
   mountainSnowMeasured: ["SkiResort.Hub.MOUNTAIN[SnowMeasured]", "Snow now (measured)"],
   mountainSnowEstimated: ["SkiResort.Hub.MOUNTAIN[SnowEstimated]", "Snow now (estimated)"],
-  mountainTipSnow: ["SkiResort.Hub.MOUNTAIN_TIP[Snow]", "Share of the run area with at least 2 cm of snow."],
+  mountainTipSnow: ["SkiResort.Hub.MOUNTAIN_TIP[Snow]", "Share of the run area with at least 15 cm of snow (31 cm on natural black runs)."],
   unlinkedNote: ["SkiResort.Hub.UNLINKED_NOTE", "These runs and lifts belong to no ski area, so they score nothing and draw no guests."],
 
   // ---- runs view (6.6) ----
@@ -635,11 +635,11 @@ export const BUILD_SHORT_RUN: Readonly<Record<RunKind, LocEntry>> = {
 
 /** Footer idle lines (NEXT, NEXT2) by hubRules.nextVariant. NEXT2[Sign] is BUILD_HINT_SIGN (no own key). */
 export const NEXT_LINE1: Readonly<Record<NextVariant, LocEntry>> = {
-  sign: ["SkiResort.Hub.NEXT[Sign]", "Next: place a Ski Area Welcome Sign."],
+  sign: ["SkiResort.Hub.NEXT[Sign]", "Next: Buildings tab: place a Ski Area Welcome Sign."],
   unlinked: ["SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within 5 km."],
-  lodge: ["SkiResort.Hub.NEXT[Lodge]", "Next: a lodge near this ski area's Welcome Sign."],
-  lift: ["SkiResort.Hub.NEXT[Lift]", "Next: a base station, a top station, then the lift line."],
-  run: ["SkiResort.Hub.NEXT[Run]", "Next: draw a run within 5 km of this Welcome Sign."],
+  lodge: ["SkiResort.Hub.NEXT[Lodge]", "Next: Buildings tab: a lodge near this ski area's Welcome Sign."],
+  lift: ["SkiResort.Hub.NEXT[Lift]", "Next: Lifts tab: a base station, a top station, then the line."],
+  run: ["SkiResort.Hub.NEXT[Run]", "Next: Runs tab: draw a run within 5 km of this Welcome Sign."],
   done: ["SkiResort.Hub.NEXT[Done]", "Hover a tile to see what it builds and what it costs."],
 };
 export const NEXT_LINE2: Readonly<Record<NextVariant, LocEntry>> = {
@@ -699,6 +699,34 @@ export const LODGE_TIER: Readonly<Partial<Record<BuildItemId, LocEntry>>> = {
   lodgeMid: ["SkiResort.Hub.LODGE_TIER[lodgeMid]", "Chalet"],
   lodgeSummit: ["SkiResort.Hub.LODGE_TIER[lodgeSummit]", "Summit"],
   lodgeGrand: ["SkiResort.Hub.LODGE_TIER[lodgeGrand]", "Grand"],
+};
+
+/** T31 (2026-10-16): the Build strip's three tabs (hubRules.BuildTab), their tooltips, and the tiles' visible labels. */
+export const BUILD_TAB: Readonly<Record<string, LocEntry>> = {
+  lifts: ["SkiResort.Hub.BUILD_TAB[Lifts]", "Lifts"],
+  runs: ["SkiResort.Hub.BUILD_TAB[Runs]", "Runs"],
+  buildings: ["SkiResort.Hub.BUILD_TAB[Buildings]", "Buildings"],
+};
+export const BUILD_TAB_TIP: Readonly<Record<string, LocEntry>> = {
+  lifts: ["SkiResort.Hub.BUILD_TAB_TIP[Lifts]", "Lifts: build the two stations, then the line. Pick the lift type below."],
+  runs: ["SkiResort.Hub.BUILD_TAB_TIP[Runs]", "Runs: draw a run from the top of a lift, or plan trees with the tree tool."],
+  buildings: ["SkiResort.Hub.BUILD_TAB_TIP[Buildings]", "Buildings: the Welcome Sign, lodges, the ski school and patrol. Pick the lodge below."],
+};
+/** A tile's visible label by its role: base / top / line (every lift type), sign, lodge (the chosen tier), school, patrolHut,
+ *  patrolHQ, and the four run kinds (short: the Runs tab already says "run"; the tooltip and footer keep RUN_TYPE). */
+export const BUILD_LABEL: Readonly<Record<string, LocEntry>> = {
+  base: ["SkiResort.Hub.BUILD_LABEL[Base]", "Base station"],
+  top: ["SkiResort.Hub.BUILD_LABEL[Top]", "Top station"],
+  line: ["SkiResort.Hub.BUILD_LABEL[Line]", "Lift line"],
+  sign: ["SkiResort.Hub.BUILD_LABEL[Sign]", "Welcome Sign"],
+  lodge: ["SkiResort.Hub.BUILD_LABEL[Lodge]", "Lodge"],
+  school: ["SkiResort.Hub.BUILD_LABEL[School]", "Ski school"],
+  patrolHut: ["SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Patrol hut"],
+  patrolHQ: ["SkiResort.Hub.BUILD_LABEL[PatrolHQ]", "Patrol HQ"],
+  run3: ["SkiResort.Hub.BUILD_LABEL[Natural]", "Natural"],
+  run0: ["SkiResort.Hub.BUILD_LABEL[Groomed]", "Groomed"],
+  run1: ["SkiResort.Hub.BUILD_LABEL[Snowmaking]", "Snowmaking"],
+  run2: ["SkiResort.Hub.BUILD_LABEL[Night]", "Night"],
 };
 
 /** Band names (the drawing tooltip's keys), index = band 0..4. */

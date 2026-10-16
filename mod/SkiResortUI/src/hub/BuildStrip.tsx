@@ -14,6 +14,14 @@
  * Why a footer: cs2/ui Panel renders `footer` in its own div OUTSIDE the content Scrollable
  * (index.js@684600: header / content / footer divs, the content div holding the Scrollable,
  * @733600), so the strip never scrolls away and its tiles never move under the mouse.
+ * T31 (2026-10-16, field report items 1 and 28; docs/research/field/2026-10-15/build/T31-build-tabs.md): THREE TABS above the
+ * tiles, "Lifts | Runs | Buildings" (hubRules.BuildTab; the last one used is the local value hubState.buildTab$, default = the tab
+ * the idle NEXT line points at). The tab shows only its own groups (stations + lines / the four runs / the sign, the chosen
+ * lodge tier, the school and the patrol huts); the family row under the tabs holds the lift-type chips (Lifts), the tree tool
+ * (Runs) or the lodge-tier chips (Buildings), and is ALWAYS drawn at one fixed height so a tab switch never moves the tabs under
+ * the mouse. Every tile now draws its short name under the icon (BUILD_LABEL). The tabs only filter what is drawn: every launch
+ * id, binding and trigger is unchanged. The ONE dot also shows on the tab that holds its tile. The sections below that talk of
+ * ONE tile row and the picker row describe the strip before T31.
  * Contract:
  *   - Groups [sign, lodge tier] | [school, patrolHut, patrolHQ] | [lift type: base "1", top "2", line
  *     "3"] | [runNatural, runGroomed, runSnowmaking, runNight] (src/hub/buildItems.ts). ONE nowrap row;
@@ -83,7 +91,7 @@ import { bindLocalValue, useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { build$, follow$, hubTriggers, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
+import { build$, follow$, glade$, hubTriggers, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
 import type { BuildItem, BuildItemId, RunKind } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
@@ -92,12 +100,14 @@ import {
 } from "./buildItems";
 import type { OrderedBuildItem } from "./buildItems";
 import {
-  NO_PICK, dotItem, dotTarget, effectiveSelection, footerState, line1Variant, liveOf, nextVariant, optionOf, pickerSets,
-  visibleIds,
+  NO_PICK, dotItem, dotTarget, drawnTabs, effectiveSelection, effectiveTab, footerState, line1Variant, liveOf, nextVariant,
+  optionOf, pickerSets, tabOfDot, tabOfItem, tabOfNext, visibleIds,
 } from "./hubRules";
-import type { DotTarget, NextVariant, PickerSelection, PickerSet } from "./hubRules";
+import type { BuildTab, DotTarget, NextVariant, PickerSelection, PickerSet } from "./hubRules";
+import { buildTab$ } from "./hubState";
 import {
-  ASSET_NAME, BUILD_SHORT_RUN, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, NEXT_LINE1, NEXT_LINE2, RUN_TYPE, sentKeyEntry,
+  ASSET_NAME, BUILD_LABEL, BUILD_SHORT_RUN, BUILD_TAB, BUILD_TAB_TIP, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, NEXT_LINE1, NEXT_LINE2,
+  RUN_TYPE, sentKeyEntry,
 } from "./hubText";
 import { AssetIcon, Glyph, LocText, Tip, TipLines, cx, numArg } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
@@ -274,10 +284,87 @@ function PickerSetView({ set, options, chosen, dot, t, onPick }: {
   );
 }
 
+/** T31: a tile's visible label (hubText BUILD_LABEL): by role for stations / lines, by kind or id for the rest, by run kind for runs. */
+function labelEntry(id: BuildItemId): LocEntry {
+  const rk = BUILD_RUN_KIND[id];
+  if (rk !== undefined) return BUILD_LABEL["run" + rk] ?? nameEntry(id);
+  switch (kindOf(id)) {
+    case "station": return BUILD_LABEL[stationRole(id) === "top" ? "top" : "base"];
+    case "line": return BUILD_LABEL.line;
+    case "sign": return BUILD_LABEL.sign;
+    case "lodge": return BUILD_LABEL.lodge;
+    case "school": return BUILD_LABEL.school;
+    case "patrol": return id === "patrolHQ" ? BUILD_LABEL.patrolHQ : BUILD_LABEL.patrolHut;
+    default: return nameEntry(id);
+  }
+}
+
+/** T31: the tab row. Buttons are cs2/ui Buttons with FOCUS_DISABLED (R15); the ONE dot shows on the tab holding it when that
+ *  tab is not the one shown. */
+function TabBarView({ tabs, tab, dotTab, t, onTab }: {
+  tabs: readonly BuildTab[]; tab: string; dotTab: BuildTab | null; t: Translate; onTab: (id: BuildTab) => void;
+}): JSX.Element {
+  return (
+    <div className={styles.tabRow}>
+      {tabs.map((id, i) => {
+        const label = t(BUILD_TAB[id]);
+        const on = id === tab;
+        return (
+          <div key={id} className={cx(styles.pickerCell, i > 0 && styles.pickerCellNext)}>
+            <Tip tip={<TipLines lines={[label, t(BUILD_TAB_TIP[id])]} />}>
+              <Button
+                focusKey={FOCUS_DISABLED}
+                theme={{ button: cx(styles.tabButton, on && styles.tabButtonOn) }}
+                selected={on}
+                onSelect={() => onTab(id)}
+              >
+                <div className={styles.tabLabel}>{label}</div>
+                {dotTab === id && !on && <div className={styles.buildHintDot} />}
+              </Button>
+            </Tip>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** T31: the Runs tab's family row: the glade (tree) tool's on / off, the same trigger as the Runs view's "Tree tool" button
+ *  (TreeControls.tsx; reads the CORE glade binding only). */
+function TreeToolSet({ t }: { t: Translate }): JSX.Element {
+  const g = useValue(glade$);
+  const available = !!g?.available;
+  const active = !!g?.active;
+  const tip = active ? t(HUB_LOC.treeToolTipOn)
+    : !available ? t(sentKeyEntry(g?.reason, HUB_LOC.treesUnavailable))
+      : t(HUB_LOC.treeToolTip);
+  return (
+    <>
+      <div className={styles.pickerSet} style={{ flexGrow: 2 }}>
+        <div className={styles.pickerCell}>
+          <Tip tip={<TipLines lines={[t(HUB_LOC.treeTool), tip]} />}>
+            <Button
+              focusKey={FOCUS_DISABLED}
+              disabled={!available && !active}
+              theme={{ button: cx(styles.pickerChip, active && styles.pickerChipOn) }}
+              selected={active}
+              onSelect={() => hubTriggers.gladeToggle()}
+            >
+              <div className={styles.pickerLabel}>{t(HUB_LOC.treeTool)}</div>
+            </Button>
+          </Tip>
+        </div>
+      </div>
+      <div className={styles.pickerSet} style={{ flexGrow: 3 }} />
+    </>
+  );
+}
+
 export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   const t = useT();
   const items = useValue(build$);
   const sel = useValue(pick$);
+  const storedTab = useValue(buildTab$);
   const [hovered, setHovered] = useState<BuildItemId | null>(null);
   const [lockedClick, setLockedClick] = useState<BuildItemId | null>(null);
 
@@ -286,8 +373,13 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   const eff = effectiveSelection(sets, sel);
   const visible = visibleIds(items, BUILD_ITEMS, sel);
   const all = groupBuildItems(items);
-  const groups = all.map((g) => g.filter((e) => visible.has(e.id))).filter((g) => g.length > 0);
+  const tabs = drawnTabs(visible, BUILD_ITEMS);
+  const tab = effectiveTab(tabs, storedTab, info.next);
+  const groups = all
+    .map((g) => g.filter((e) => visible.has(e.id) && tabOfItem(e.id, BUILD_ITEMS) === tab))
+    .filter((g) => g.length > 0);
   const dot = dotTarget(info.dot, items, BUILD_ITEMS, sel);
+  const dotTab = tabOfDot(dot, BUILD_ITEMS);
 
   let hoveredEntry: OrderedBuildItem | null = null;
   let activeEntry: OrderedBuildItem | null = null;
@@ -297,7 +389,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   for (const g of all) {
     for (const e of g) {
       if (e.item.active && !activeEntry) activeEntry = e;
-      if (!visible.has(e.id)) continue;
+      if (!visible.has(e.id) || tabOfItem(e.id, BUILD_ITEMS) !== tab) continue;
       if (e.id === hovered) hoveredEntry = e;
       if (e.id === lockedClick && e.item.locked) lockedEntry = e;
     }
@@ -313,7 +405,21 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     else if (opt.set === "lift" && cur.lift !== opt.value) pick$.update({ lodge: cur.lodge, lift: opt.value });
   }, [activeId]);
 
-  const state = footerState(groups.length > 0, !!hoveredEntry, info.followName !== null, !!activeEntry, !!lockedEntry);
+  // T31: the tab follows the active tool (a tool started elsewhere, e.g. the Start card's button) and the idle NEXT step when it
+  // CHANGES (not at mount, so the remembered tab survives closing and reopening the hub).
+  useEffect(() => {
+    const at = tabOfItem(activeId, BUILD_ITEMS);
+    if (at && buildTab$.value !== at) buildTab$.update(at);
+  }, [activeId]);
+  const prevNext = useRef(info.next);
+  useEffect(() => {
+    if (prevNext.current === info.next) return;
+    prevNext.current = info.next;
+    const nt = tabOfNext(info.next);
+    if (nt) buildTab$.update(nt);
+  }, [info.next]);
+
+  const state = footerState(tabs.length > 0, !!hoveredEntry, info.followName !== null, !!activeEntry, !!lockedEntry);
 
   let line1: JSX.Element;
   let line2: string;
@@ -345,16 +451,20 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     pick$.update(set === "lodge" ? { lodge: value, lift: cur.lift } : { lodge: cur.lodge, lift: value });
   };
 
-  const pickLodge = sets.lodge.length >= 2;
-  const pickLift = sets.lift.length >= 2;
+  const onTab = (id: BuildTab): void => {
+    setHovered(null);
+    setLockedClick(null);
+    buildTab$.update(id);
+  };
 
   return (
     <div className={styles.buildFooter}>
-      {(pickLodge || pickLift) && (
+      {tabs.length > 0 && <TabBarView tabs={tabs} tab={tab} dotTab={dotTab} t={t} onTab={onTab} />}
+      {tabs.length > 0 && (
         <div className={styles.pickerRow}>
-          {pickLodge && <PickerSetView set="lodge" options={sets.lodge} chosen={eff.lodge} dot={dot} t={t} onPick={onPick} />}
-          {pickLodge && pickLift && <div className={styles.pickerGap} />}
-          {pickLift && <PickerSetView set="lift" options={sets.lift} chosen={eff.lift} dot={dot} t={t} onPick={onPick} />}
+          {tab === "lifts" && sets.lift.length > 0 && <PickerSetView set="lift" options={sets.lift} chosen={eff.lift} dot={dot} t={t} onPick={onPick} />}
+          {tab === "buildings" && sets.lodge.length > 0 && <PickerSetView set="lodge" options={sets.lodge} chosen={eff.lodge} dot={dot} t={t} onPick={onPick} />}
+          {tab === "runs" && <TreeToolSet t={t} />}
         </div>
       )}
       <div className={styles.buildRow}>
@@ -375,6 +485,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
                       onSelect={() => click(e)}
                     >
                       <AssetIcon src={BUILD_ITEM_ICON[e.id]} className={styles.buildIcon} />
+                      <div className={styles.buildTileLabel}>{t(labelEntry(e.id))}</div>
                       {kind === 3 && (
                         <div className={cx(styles.buildStripe, styles.stripeNatural)}>
                           <div className={styles.stripeNaturalPart} />

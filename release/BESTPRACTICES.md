@@ -27,6 +27,12 @@ before upload.)*
 - Stations do not flatten terrain. Site them on reasonably level ground, or terraform
   first (or use Move It afterward).
 
+## Ski school
+
+- Terrain tip: level the ground at the top of the magic carpet bubble, then use the slope tool down to its base.
+
+*(Draft note: reference shot docs/research/field/2026-10-15/shots/21.30.27.94.png. Remove before upload.)*
+
 ## Power
 
 Stations are grid transformers: feed the base station's area with power and the lift line

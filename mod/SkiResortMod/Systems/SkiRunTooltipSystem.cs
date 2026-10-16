@@ -25,6 +25,10 @@
 //                                              the steepest 20 m window, the crux and the average). Rendering of a
 //                                              LocalizedNumber arg with these units: UNVERIFIED in game (vanilla
 //                                              passes units this way, ModManager.cs:341, GraphicsSettings.cs:654).
+//                                              T44: line 1 shows the RATED band (SkiRunDrawFeedbackSystem.TryGetDifficulty:
+//                                              steep-share cap, green-mean rule, wide ease) and this line gains a suffix naming
+//                                              the deciding factor (SkiRunRater.NoteLine; keys SLOPE_AVG_MAX_NARROW / _WIDE /
+//                                              _SHARE / _GENTLE): "· narrow 14 m at the crux". Line 5 keeps the crux band.
 //   5. "Steepest patch (avoidable): 45 %"      IntTooltip, unit "percentage" — only when
 //                                              SkiSlopeClassifier.SteepestPatchShown (below);
 //                                              explains red cells on a run rated easier
@@ -150,7 +154,11 @@ namespace SkiResortMod.Systems
         public const string KeyLength = "SkiResort.Tooltip.RUN_LENGTH";       // R3 (run-binding-glade-spec.md §5.1)
         public const string KeySteepest = "SkiResort.Tooltip.STEEPEST_PATCH";
         public const string KeySlope = "SkiResort.Tooltip.SLOPE_AVG_MAX";     // T35 / T44: "Avg {AD} ({AP}) · steepest {SD} ({SP})"
-        public const string KeyNoGate = "SkiResort.Tooltip.NO_GATE_IN_RANGE";
+        public const string KeySlopeNarrow = "SkiResort.Tooltip.SLOPE_AVG_MAX_NARROW";   // T44: + "· narrow {W} at the crux"
+        public const string KeySlopeWide = "SkiResort.Tooltip.SLOPE_AVG_MAX_WIDE";       // T44: + "· wide {W} at the crux"
+        public const string KeySlopeShare = "SkiResort.Tooltip.SLOPE_AVG_MAX_SHARE";     // T44: + "· only {SS} of the run is steeper than {ST}"
+        public const string KeySlopeGentle = "SkiResort.Tooltip.SLOPE_AVG_MAX_GENTLE";   // T44: + "· gentle run, short steep pitch"
+        public const string KeyNoGate ="SkiResort.Tooltip.NO_GATE_IN_RANGE";
         public const string KeyFee = "SkiResort.Tooltip.RUN_FEE";             // E1 (D21, ch2 §4.6 / §6.4): "Run fee (one-time)"
 
         /// <summary>Built once; index = (int)SlopeBand (Flat 0 .. DoubleBlack 4, spec §2).</summary>
@@ -175,6 +183,7 @@ namespace SkiResortMod.Systems
         private IntTooltip m_Drop;
         private StringTooltip m_Slope;    // T35 / T44: "Avg 18 ° (32 %) · steepest 31 ° (60 %)", rebuilt only when a rounded number changes
         private int m_SlopeAd = -1, m_SlopeAp = -1, m_SlopeSd = -1, m_SlopeSp = -1;
+        private int m_SlopeKind = -1, m_SlopeW = -1, m_SlopeSs = -1, m_SlopeSt = -1;   // T44: suffix kind (SkiRunRater.SlopeNoteLine) and its numbers
         private IntTooltip m_Steepest;    // steepest avoidable patch (R2 line 4)
         private IntTooltip m_Fee;         // E1: one-time run fee (new runs only), money unit
         private StringTooltip m_NoGate;
@@ -311,7 +320,10 @@ namespace SkiResortMod.Systems
 
                 // 1-5. The rating lines (band, pitch, length, drop, steepest patch). Defensive: an
                 // out-of-contract band shows none of them rather than garbage (the fee still shows).
-                int band = (int)r.Band;
+                // T44: the RATED band (steep-share cap, green-mean rule, wide ease) from the classifier result; the readout's
+                // own Band is the crux band (hysteresis) and stays the input of line 5.
+                bool haveDiff = m_Feedback.TryGetDifficulty(out SkiRunDrawFeedbackSystem.Difficulty dif);
+                int band = haveDiff ? (int)dif.Band : (int)r.Band;
                 if (rated && band >= 0 && band < BandText.Length)
                 {
                     // 1. Band. Assign the struct only on change (object.Equals boxes, see header).
@@ -320,7 +332,7 @@ namespace SkiResortMod.Systems
                         m_Grade.value = BandText[band];
                         m_ShownBand = band;
                     }
-                    m_Grade.color = r.Band == SlopeBand.Flat ? TooltipColor.Warning : TooltipColor.Info;
+                    m_Grade.color = band == (int)SlopeBand.Flat ? TooltipColor.Warning : TooltipColor.Info;
                     AddMouseTooltip(m_Grade);
 
                     // 2. Hardest unavoidable pitch (the crux of the easiest line, spec §9.3), percent —
@@ -357,17 +369,47 @@ namespace SkiResortMod.Systems
                     if (SkiRunRater.SlopeReadout(r.MeanGrade, r.RatingGrade, r.SteepestGrade,
                             out int avgDeg, out int avgPct, out int maxDeg, out int maxPct))
                     {
-                        if (avgDeg != m_SlopeAd || avgPct != m_SlopeAp || maxDeg != m_SlopeSd || maxPct != m_SlopeSp)
+                        // T44: the suffix naming the deciding factor (width / steep share / gentle run), if any.
+                        SkiRunRater.SlopeNoteLine noteKind = SkiRunRater.SlopeNoteLine.None;
+                        int noteW = 0, noteSs = 0, noteSt = 0;
+                        if (haveDiff)
+                            noteKind = SkiRunRater.NoteLine(dif.Note, dif.WidthM, dif.SteepShare, dif.CruxBand, out noteW, out noteSs, out noteSt);
+                        if (avgDeg != m_SlopeAd || avgPct != m_SlopeAp || maxDeg != m_SlopeSd || maxPct != m_SlopeSp ||
+                            (int)noteKind != m_SlopeKind || noteW != m_SlopeW || noteSs != m_SlopeSs || noteSt != m_SlopeSt)
                         {
-                            m_Slope.value = LocalizedString.Id(KeySlope,
-                                ("AD", new LocalizedNumber<int>(avgDeg, "angle")),
-                                ("AP", new LocalizedNumber<int>(avgPct, "percentage")),
-                                ("SD", new LocalizedNumber<int>(maxDeg, "angle")),
-                                ("SP", new LocalizedNumber<int>(maxPct, "percentage")));
+                            var ad = new LocalizedNumber<int>(avgDeg, "angle");
+                            var ap = new LocalizedNumber<int>(avgPct, "percentage");
+                            var sd = new LocalizedNumber<int>(maxDeg, "angle");
+                            var sp = new LocalizedNumber<int>(maxPct, "percentage");
+                            switch (noteKind)
+                            {
+                                case SkiRunRater.SlopeNoteLine.Narrow:
+                                case SkiRunRater.SlopeNoteLine.Wide:
+                                    m_Slope.value = LocalizedString.Id(noteKind == SkiRunRater.SlopeNoteLine.Narrow ? KeySlopeNarrow : KeySlopeWide,
+                                        ("AD", ad), ("AP", ap), ("SD", sd), ("SP", sp),
+                                        ("W", new LocalizedNumber<int>(noteW, "length")));   // unit "length" in a LocalizedNumber: UNVERIFIED in game
+                                    break;
+                                case SkiRunRater.SlopeNoteLine.Share:
+                                    m_Slope.value = LocalizedString.Id(KeySlopeShare,
+                                        ("AD", ad), ("AP", ap), ("SD", sd), ("SP", sp),
+                                        ("SS", new LocalizedNumber<int>(noteSs, "percentage")),
+                                        ("ST", new LocalizedNumber<int>(noteSt, "percentage")));
+                                    break;
+                                case SkiRunRater.SlopeNoteLine.Gentle:
+                                    m_Slope.value = LocalizedString.Id(KeySlopeGentle, ("AD", ad), ("AP", ap), ("SD", sd), ("SP", sp));
+                                    break;
+                                default:
+                                    m_Slope.value = LocalizedString.Id(KeySlope, ("AD", ad), ("AP", ap), ("SD", sd), ("SP", sp));
+                                    break;
+                            }
                             m_SlopeAd = avgDeg;
                             m_SlopeAp = avgPct;
                             m_SlopeSd = maxDeg;
                             m_SlopeSp = maxPct;
+                            m_SlopeKind = (int)noteKind;
+                            m_SlopeW = noteW;
+                            m_SlopeSs = noteSs;
+                            m_SlopeSt = noteSt;
                         }
                         AddMouseTooltip(m_Slope);
                     }

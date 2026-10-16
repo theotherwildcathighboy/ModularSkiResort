@@ -633,7 +633,20 @@ def check_rows(tag, p, sub, vanilla_rows):
     import fine_detail as FD
     objs = sub.get("objects") or []
     van = [o for o in objs if o.get("kind") != "mod"]
-    mod = [o for o in objs if o.get("kind") == "mod"]
+    # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): the 2 floodlight "mod" rows per station are
+    # not kit rows (no staged kit CID); literal expectations (game local pos, yaw quaternion x y z w)
+    fl = [o for o in objs if o.get("kind") == "mod" and o["prefab"] == "SkiPisteFloodlightLow"]
+    mod = [o for o in objs if o.get("kind") == "mod" and o["prefab"] != "SkiPisteFloodlightLow"]
+    q155, q205 = (0.0, 0.976296, 0.0, 0.2164396), (0.0, 0.976296, 0.0, -0.2164396)
+    zg = -9.0 if p.kind == "base" else -11.0
+    want_fl = ([((7.2, 0.0, zg), q205), ((-7.2, 0.0, zg), q155)] if p.gondola else
+               [((-5.1, 0.3, 2.4), (0.0, 0.9914449, 0.0, 0.1305262)), ((7.1, 0.3, 5.2), q205)] if p.kind == "base" else
+               [((5.3, 0.3, -9.6), (0.0, 0.9914449, 0.0, -0.1305262)), ((7.1, 0.3, 0.0), q205)])
+    check(len(fl) == 2 and not any(str(o["prefab"]).startswith("LightpolePark") for o in objs)
+          and all(o["guid"] == "CID:6827e281427c087a3b7ef19c824ca28b" and o["mesh"] == "SkiPisteFloodlightLowA Mesh"
+                  and o["parent"] == 0 and all(abs(a - b) < 1e-6 for a, b in zip(o["pos"], pw))
+                  and all(abs(a - b) < 1e-6 for a, b in zip(o["rot"], qw)) for o, (pw, qw) in zip(fl, want_fl)),
+          f"{tag} T17-DQ: no LightpolePark rows, 2 SkiPisteFloodlightLow rows {[o['pos'] for o in fl]}")
     guids = {"UnityGUID:" + v["guid"] for v in LD.SUBOBJ.values()}
     check(len(van) == len(vanilla_rows) and all(o["guid"] in guids and o["parent"] == 0 for o in van),
           f"{tag} vanilla sub-object rows {len(van)} (verified GUIDs, parent 0) for {sub.get('target_prefab')}")
@@ -641,7 +654,7 @@ def check_rows(tag, p, sub, vanilla_rows):
     check(len(mod) == len(specs) and all(o["guid"] == "CID:" + FD.kit_cid(o["prefab"], o.get("colour_set"))
                                          == "CID:" + str(FD.staged_kit_cid(o["prefab"], o.get("colour_set")))
                                          and o["parent"] == 0 and o["mesh"] == FD.KIT[o["prefab"]].mesh for o in mod)
-          and (not D.FINE_DETAIL or sub.get("kinds") == {"vanilla": len(van), "mod": len(mod)}),
+          and (not D.FINE_DETAIL or sub.get("kinds") == {"vanilla": len(van), "mod": len(mod) + len(fl)}),
           f"{tag} kit rows {len(mod)} (staged CIDs, parent 0): {sorted(o['prefab'] for o in mod)}; kinds {sub.get('kinds')}")
 
 
@@ -716,8 +729,11 @@ def check_gondola_rev1(p, name, asset_dir, man, g, doors):
     rb_ = man.get("rev1") or {}
     sub = rb_.get("sub_objects") or {}
     objs = sub.get("objects") or []
-    check(sum(1 for o in objs if o["prefab"].startswith("LightpolePark")) == 4,
-          f"{tag} G10 sub-object rows: 4 lamp posts")
+    # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): 0 vanilla lamp posts, 2 floodlight rows (the
+    # literal positions / yaws are asserted in check_rows)
+    check(sum(1 for o in objs if o["prefab"].startswith("LightpolePark")) == 0
+          and sum(1 for o in objs if o["prefab"] == "SkiPisteFloodlightLow") == 2,
+          f"{tag} G10 sub-object rows: 0 lamp posts, 2 SkiPisteFloodlightLow")
     check_rows(tag, p, sub, D.gd_subobjects(p))
     A = int(man["atlas_px"])
     k = A / float(D.ATLAS)

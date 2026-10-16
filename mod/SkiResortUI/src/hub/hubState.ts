@@ -59,6 +59,11 @@ export const view$ = bindLocalValue<HubView>("overview");
 /** The Trees foldout of the CONTRACT-MISMATCH panel only: expanded by default, remembered (OD-15). */
 export const treesOpen$ = bindLocalValue<boolean>(true);
 
+/** T31 (2026-10-16): the Build strip's tab ("lifts" | "runs" | "buildings", hubRules.BuildTab) the player last used. "" = none
+ *  yet: the strip then opens on the tab the idle NEXT line points at. Local value (nothing sent to C#); survives closing the
+ *  hub, a UI reload resets it. */
+export const buildTab$ = bindLocalValue<string>("");
+
 // ---- hoverRun (D19 emphasis; ch6 section 3.3) -----------------------------------------------------
 
 /** The last run sent with hoverRun (module level: one panel, one UI). */

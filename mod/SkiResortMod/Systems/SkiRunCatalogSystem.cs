@@ -1967,6 +1967,8 @@ namespace SkiResortMod.Systems
               .Append(" ms, max ").Append(m_ClosedRatingMsMax.ToString("F1", CultureInfo.InvariantCulture)).Append(" ms)")
               .Append(", warm-up deadline ").Append(m_WarmupDeadlineHit ? "hit" : "not hit").Append('\n');
             int shown = Math.Min(m_Rows.Count, Tuning.DumpRowsMax);
+            // T09: the injection's per-run snow-made ledger and protection spell, one clause on the run's own row (DUMP time only).
+            SkiSnowInjectionSystem snow = World.GetExistingSystemManaged<SkiSnowInjectionSystem>();
             for (int i = 0; i < shown; i++)
             {
                 RunRow row = m_Rows[i];
@@ -1986,10 +1988,30 @@ namespace SkiResortMod.Systems
                   .Append(", area ").Append(row.AreaM2.ToString("F0", CultureInfo.InvariantCulture))
                   .Append(" m², top ").Append(row.TopM.ToString("F0", CultureInfo.InvariantCulture))
                   .Append(" m, bottom ").Append(row.BottomM.ToString("F0", CultureInfo.InvariantCulture))
-                  .Append(" m, entity ").Append(row.Entity.Index).Append(':').Append(row.Entity.Version).Append('\n');
+                  .Append(" m, entity ").Append(row.Entity.Index).Append(':').Append(row.Entity.Version)
+                  .Append(SnowClause(snow, row)).Append('\n');
             }
             if (m_Rows.Count > shown)
                 sb.Append("    … ").Append(m_Rows.Count - shown).Append(" more row(s) not listed (DumpRowsMax)\n");
+        }
+
+        /// <summary>T09: ", snow made 840 m3 this season / 1200 m3 total (+ 60 / 90 m3 held by protection), protection active 12.5 h
+        /// used" for a gun or groomed run that gained snow, else nothing. The hub tooltip has no text field for it (a bound field
+        /// would be a contract bump), so this DUMP row and the Snow [made] log line carry the ledger. Since this load, not saved.</summary>
+        private static string SnowClause(SkiSnowInjectionSystem snow, RunRow row)
+        {
+            if (snow == null)
+                return "";
+            var ci = CultureInfo.InvariantCulture;
+            string text = "";
+            if (snow.TryGetRunLedger(row.Entity, out RunSnowRules.RunLedger ledger))
+                text += ", snow made " + ledger.MadeSeasonM3.ToString("F0", ci) + " m3 this season / " +
+                        ledger.MadeTotalM3.ToString("F0", ci) + " m3 total (" + ledger.HeldSeasonM3.ToString("F0", ci) + " / " +
+                        ledger.HeldTotalM3.ToString("F0", ci) + " m3 put back by protection)";
+            if (snow.TryGetRunProtection(row.Entity, out RunSnowRules.ProtectRun spell) &&
+                spell.State != RunSnowRules.ProtectState.Idle)
+                text += ", protection " + spell.State + " (" + spell.HoursUsed.ToString("F1", ci) + " game h used)";
+            return text;
         }
 
         private void HandleException(Exception e, string where)

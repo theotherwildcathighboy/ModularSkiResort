@@ -24,7 +24,8 @@
 //     FloatSlider). Persisted under these property names — never rename.
 //   * EnableSnowGating (D13): read only through SnowLineSystem.IsSnowGatingEnabled() (true when the
 //     settings are not loaded); the score and the hub call that.
-//   * SnowmakingBonusCelsius (D14, default 2, was 3): THE snowmaking margin, read only through
+//   * SnowmakingBonusCelsius (D14, default 3.3 since T09 (38 F, Richard 2026-10-16; was 2, before that 3): THE snowmaking margin, a float
+//     slider since T09 (the property was an int; saved ints load into a float, so an options file keeps its stored value), read only through
 //     SnowLineSystem.GetSnowmakingMarginC() (clamped 0..6).
 // The Default* constants are the one copy of each default: SetDefaults and every null-settings
 // fallback use them. Property names are persisted — never rename (labels may change, D15).
@@ -194,7 +195,7 @@ namespace SkiResortMod.Settings
         public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;   // 4 lift tickets
         public const int DefaultLessonShare = SkiMoneyRules.LessonShareDefault;               // 20 % (0 = lessons off); DECISIONS 241
         public const float DefaultLessonMultiplier = SkiMoneyRules.LessonMultiplierDefault;   // 1.5 lift tickets
-        public const int DefaultSnowmakingBonusCelsius = 2;   // = RunSnowRules.DefaultSnowmakingMarginC (D14; was 3)
+        public const float DefaultSnowmakingBonusCelsius = RunSnowRules.DefaultSnowmakingMarginC;   // 3.3 (T09: 38 F; D14 was 2, before that 3)
         // Round E1 addendum A1, kept in F7: 8 = the look of the game's lot outline (snap distance 8 × 0.3,
         // AreaBorderRenderSystem.cs:517, :531): outline and corner dots 2.4 m. Since F7 it sets nothing else.
         public const int DefaultRunOutlineSize = 8;
@@ -363,11 +364,12 @@ namespace SkiResortMod.Settings
 
         /// <summary>E1 D14: THE snowmaking margin — snow guns (snowmaking and night runs) work where the air
         /// on the run is at most this many °C above freezing. Read by SnowLineSystem.GetSnowmakingMarginC
-        /// (injection, estimate, and through the mask the bill). Default 2. Options label "Snowmaking margin
+        /// (injection, estimate, and through the mask the bill). Default 3.3 since T09 (38 F; a float slider, step 0.1;
+        /// an options file saved before T09 keeps its stored 2, no migration). Options label "Snowmaking margin
         /// (°C)"; the property keeps its old name (persisted — never rename).</summary>
-        [SettingsUISlider(min = 0f, max = 6f, step = 1f, unit = "integer")]
+        [SettingsUISlider(min = 0f, max = 6f, step = 0.1f, unit = "floatSingleFraction")]
         [SettingsUISection(SectionMain, GroupSnow)]
-        public int SnowmakingBonusCelsius { get; set; }
+        public float SnowmakingBonusCelsius { get; set; }
 
         // --- Terrain (ski-run terrain paint — research/terrain-material-runs.md) ----------
 

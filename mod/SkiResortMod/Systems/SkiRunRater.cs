@@ -314,6 +314,46 @@ namespace SkiResortMod.Systems
             return true;
         }
 
+        /// <summary>T44 (2026-10-16): which suffix the drawing tooltip's "Avg … · steepest …" line gets (the SLOPE_AVG_MAX_*
+        /// key family), decided from the classifier's SlopeNote. Pure, so SlopeBatch sweeps it.</summary>
+        public enum SlopeNoteLine : byte
+        {
+            None = 0,
+            Narrow = 1,   // "· narrow 14 m at the crux": the cap would have applied, the width kept the band
+            Wide = 2,     // "· wide 72 m at the crux": the width eased the green/blue boundary
+            Share = 3,    // "· only 6 % of the run is steeper than 40 %": the steep-share cap rated the run one band lower
+            Gentle = 4,   // "· gentle run, short steep pitch": a green-mean run rated at most blue
+        }
+
+        /// <summary>Maps a classifier note to the tooltip suffix and its numbers: widthM rounded (Narrow / Wide), the steep
+        /// share and the threshold in percent (Share: share at least 1 %, threshold 40 for a black crux, 60 for a double black
+        /// one). None, with all numbers 0, when there is nothing to say or an input is not finite.</summary>
+        public static SlopeNoteLine NoteLine(SlopeNote note, float widthM, float steepShare, SlopeBand cruxBand,
+            out int widthRounded, out int sharePct, out int thresholdPct)
+        {
+            widthRounded = sharePct = thresholdPct = 0;
+            switch (note)
+            {
+                case SlopeNote.NarrowKept:
+                case SlopeNote.WideEase:
+                    if (!(widthM > 0f) || float.IsInfinity(widthM))
+                        return SlopeNoteLine.None;
+                    widthRounded = (int)Math.Round(widthM, MidpointRounding.AwayFromZero);
+                    return note == SlopeNote.NarrowKept ? SlopeNoteLine.Narrow : SlopeNoteLine.Wide;
+                case SlopeNote.Capped:
+                    if (!(steepShare >= 0f) || float.IsInfinity(steepShare))
+                        return SlopeNoteLine.None;
+                    sharePct = Math.Max(1, (int)Math.Round(100.0 * steepShare, MidpointRounding.AwayFromZero));
+                    thresholdPct = (int)Math.Round(100.0 * (cruxBand == SlopeBand.DoubleBlack ? SkiSlopeClassifier.GradeDoubleBlack : SkiSlopeClassifier.GradeBlack),
+                        MidpointRounding.AwayFromZero);
+                    return SlopeNoteLine.Share;
+                case SlopeNote.GreenMean:
+                    return SlopeNoteLine.Gentle;
+                default:
+                    return SlopeNoteLine.None;
+            }
+        }
+
         /// <summary>The RateStatus of a (plan, final) status pair (see RateStatus).</summary>
         public static RateStatus ToRateStatus(SlopeStatus planStatus, SlopeStatus status)
         {

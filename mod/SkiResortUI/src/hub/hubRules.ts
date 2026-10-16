@@ -410,6 +410,64 @@ export function dotTarget(dot: string | null | undefined, items: readonly BuildI
   return options.length >= 2 && options.indexOf(opt.value) >= 0 ? { kind: "chip", set: opt.set, value: opt.value } : null;
 }
 
+// ---- build tabs (T31, 2026-10-16): Lifts | Runs | Buildings ----------------------------------------------
+
+/** The Build strip's three top-level tabs (T31). Pure grouping of the same 25 build items: no new bound fact. */
+export type BuildTab = "lifts" | "runs" | "buildings";
+
+export const BUILD_TABS: readonly BuildTab[] = ["lifts", "runs", "buildings"];
+
+/** The tab of an item KIND: stations and lines -> lifts; runs -> runs; the sign, lodge tiers, school and patrol huts -> buildings
+ *  (null for a kind this bundle does not know). */
+export function tabOfKind(kind: string | undefined): BuildTab | null {
+  switch (kind) {
+    case "station": case "line": return "lifts";
+    case "run": return "runs";
+    case "sign": case "lodge": case "school": case "patrol": return "buildings";
+    default: return null;
+  }
+}
+
+/** The tab of a build item id (null for an id the table does not hold). */
+export function tabOfItem(id: string | null | undefined, meta: readonly PickerMeta[]): BuildTab | null {
+  if (!id) return null;
+  for (const m of meta ?? []) if (m && m.id === id) return tabOfKind(m.kind);
+  return null;
+}
+
+/** The tab an idle NEXT line points at (null = "done" / "unlinked": no opinion). */
+export function tabOfNext(next: NextVariant): BuildTab | null {
+  switch (next) {
+    case "sign": case "lodge": return "buildings";
+    case "lift": return "lifts";
+    case "run": return "runs";
+    default: return null;
+  }
+}
+
+/** The tab that holds the ONE dot (null = no dot): a tile's own tab, or the tab of the picker the chip belongs to. */
+export function tabOfDot(target: DotTarget, meta: readonly PickerMeta[]): BuildTab | null {
+  if (!target) return null;
+  if (target.kind === "tile") return tabOfItem(target.id, meta);
+  return target.set === "lodge" ? "buildings" : "lifts";
+}
+
+/** The tabs drawn: those holding at least one drawn item, in BUILD_TABS order. */
+export function drawnTabs(visible: ReadonlySet<string>, meta: readonly PickerMeta[]): BuildTab[] {
+  const have = new Set<BuildTab>();
+  visible.forEach((id) => { const t = tabOfItem(id, meta); if (t) have.add(t); });
+  return BUILD_TABS.filter((t) => have.has(t));
+}
+
+/** The tab in force: the remembered one while it is drawn, else the tab the idle NEXT line points at, else the first drawn
+ *  ("" = none drawn). */
+export function effectiveTab(drawn: readonly BuildTab[], stored: string | null | undefined, next: NextVariant): BuildTab | "" {
+  if (stored && (drawn as readonly string[]).indexOf(stored) >= 0) return stored as BuildTab;
+  const n = tabOfNext(next);
+  if (n && drawn.indexOf(n) >= 0) return n;
+  return drawn.length > 0 ? drawn[0] : "";
+}
+
 export type FooterState = "hover" | "follow" | "active" | "locked" | "empty" | "idle";
 
 /** Footer priority (design 6.10): hover > follow notice > active tool > locked click > idle. */

@@ -38,7 +38,7 @@ amended by design/detail-pass-1-lifts-skeptic.md MC1-MC11; build report build/de
       is 2 texels), roof >= 0.95 x baseline, the compose log drew bolts and gratings, bay sharing on;
       D3 labels 400 px/m (>= 380 per axis), T2 everywhere, T1 where claimed, ControlMask 0 under each label;
       D2 emissive lit texels >= the 1c baseline and <= 1.5 % of the atlas, no cool flood-head texels (follow-up);
-      D9 14 / 11 rows (4 lamp posts each); D11 recorded;
+      D9 10 + 2 / 7 + 2 rows legacy, 14 + 7 / 11 + 6 fine (T17-DQ 2026-10-16: no lamp posts, 2 SkiPisteFloodlightLow each); D11 recorded;
       weathering at the highest budget-clean step (vanilla ok, snow 0, ControlMask untouched, protected rects kept).
 
   FINE-DETAIL step 3b (2026-10-12, build/fine-detail-step3b-stations.md; lift_terminal_detach.FINE_DETAIL, default on;
@@ -60,10 +60,10 @@ amended by design/detail-pass-1-lifts-skeptic.md MC1-MC11; build report build/de
       (12-seg; was 18), the hang rods 6-seg; the control cabinets without finish bevel strips (bevel_prefixes) + a 12-tri lid; no
       lamp_ part on the DQ (lamp_s0-3 / cab / eng are RoofLight / WallLight rows: 4 new soffit rows, the 2 / 1 wall-light
       rows moved onto the old lenses).
-  SHIPPED (fine): the rows 18 + 5 / 15 + 4 (vanilla + kit) with the manifest's fine_detail block, D2 emissive: NO
+  SHIPPED (fine): the rows 14 + 7 / 11 + 6 (vanilla + mod, T17-DQ 2026-10-16: kit 5 / 4 + 2 floodlights) with the manifest's fine_detail block, D2 emissive: NO
       _Emissive map on the DQ (no lamp_ part; 2026-10-12: not on disk, not in the manifest's files, 0 lit texels and the
       reason in detail1.emissive, contract.emissive map / purpose / intensity null, settings.json lists no Emissive),
-      the gondola rows 20 + 7 / 19 + 7 (the gondola keeps its map: lamp_eave*).
+      the gondola rows 16 + 9 / 15 + 9 (the gondola keeps its map: lamp_eave*).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_detail_detach.py
 """
@@ -129,11 +129,40 @@ D1_COUNTS = dict(D1_COUNTS_LEGACY, **{"estop_": (0, 0), "ext_": (0, 0), "hoseree
                                       "skirack_": (0, 0), "ski_b_": (0, 0), "lamp_": (0, 0), "cabinet_": (6, 6)})
 # D11 the board order along the chair's travel, as the shipped contract (2026-10-12: the top lost STAY SEATED)
 D11_SEQ = {"base": ("waithere", "carpet", "load", "lowerbar", "tipsup"), "top": ("raisebar", "unload")}
-D9_ROWS_LEGACY = {"base": 14, "top": 11}   # detail pass 10 / 7 + the follow-up's 4 LightpoleParkRandom01 each
-# fine-detail: (vanilla, kit) - + 4 RoofLightRandom01 on the soffit lenses each; the wall lights moved, not added
-D9_ROWS = {"base": (18, 5), "top": (15, 4)}
-GD_ROWS = {"base": (20, 7), "top": (19, 7)}
-D9_LAMPS = 4
+# T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): the 4 vanilla LightpoleParkRandom01 rows per DQ /
+# gondola station are gone; 2 SkiPisteFloodlightLow "mod" rows stand per station (so vanilla -4, "kit" (mod) +2)
+D9_ROWS_LEGACY = {"base": (10, 2), "top": (7, 2)}   # (vanilla, mod) - detail pass 10 / 7 vanilla rows + 2 floodlights
+# fine-detail: (vanilla, mod) - + 4 RoofLightRandom01 on the soffit lenses each; the wall lights moved, not added;
+# the mod count = the dressing kit rows (base 5, top 4) + the 2 floodlights
+D9_ROWS = {"base": (14, 7), "top": (11, 6)}
+GD_ROWS = {"base": (16, 9), "top": (15, 9)}   # gondola: vanilla 20 / 19 - 4 lamp posts, kit 7 + 2 floodlights
+D9_LAMPS = 0
+FLOOD_PREFAB = "SkiPisteFloodlightLow"
+FLOOD_CID = "CID:6827e281427c087a3b7ef19c824ca28b"
+FLOOD_MESH = "SkiPisteFloodlightLowA Mesh"
+# literal rows (game local pos, yaw quaternion (x, y, z, w)): yaw 180 turned toward the line axis by
+# atan(|x| / 17 m) rounded to 5 degrees (d1_flood_yaw): x -5.1 -> 165, 7.1 -> 205, 5.3 -> 195, +-7.2 -> 155 / 205
+D9_FLOODS = {"base": [((-5.1, 0.3, 2.4), (0.0, 0.9914449, 0.0, 0.1305262)),
+                      ((7.1, 0.3, 5.2), (0.0, 0.976296, 0.0, -0.2164396))],
+             "top": [((5.3, 0.3, -9.6), (0.0, 0.9914449, 0.0, -0.1305262)),
+                     ((7.1, 0.3, 0.0), (0.0, 0.976296, 0.0, -0.2164396))]}
+# gondola: the portal-face corner pair (x_nose - 1.0 = -9 / -11), on grade; authoring y -7.2 / +7.2 = game x +7.2 / -7.2
+GD_FLOODS = {"base": [((7.2, 0.0, -9.0), (0.0, 0.976296, 0.0, -0.2164396)),
+                      ((-7.2, 0.0, -9.0), (0.0, 0.976296, 0.0, 0.2164396))],
+             "top": [((7.2, 0.0, -11.0), (0.0, 0.976296, 0.0, -0.2164396)),
+                     ((-7.2, 0.0, -11.0), (0.0, 0.976296, 0.0, 0.2164396))]}
+
+
+def flood_rows_ok(objs_all, want):
+    """The SkiPisteFloodlightLow rows of a manifest block == the literal `want` [(pos, quat)] (CID, mesh, parent 0,
+    mod kind), and no vanilla LightpolePark row."""
+    fl = [o for o in objs_all if o["prefab"] == FLOOD_PREFAB]
+    return (len(fl) == len(want)
+            and not any(str(o["prefab"]).startswith("LightpolePark") for o in objs_all)
+            and all(o.get("kind") == "mod" and o["guid"] == FLOOD_CID and o["mesh"] == FLOOD_MESH and o["parent"] == 0
+                    and all(abs(a - b) < 1e-6 for a, b in zip(o["pos"], pw))
+                    and all(abs(a - b) < 1e-6 for a, b in zip(o["rot"], qw))
+                    for o, (pw, qw) in zip(fl, want)))
 KIT_H1_TOL = 0.001                  # F2: kit vs removed part, metres
 
 
@@ -236,20 +265,23 @@ def _counts_and_frozen_one(kind, fine):
         objs = [o for o in objs_all if o.get("kind") != "mod"]
         mods = [o for o in objs_all if o.get("kind") == "mod"]
         yaw_only = all(abs(o["rot"][0]) < 1e-9 and abs(o["rot"][2]) < 1e-9 for o in objs_all)
-        want_v, want_m = D9_ROWS[kind_] if fine else (D9_ROWS_LEGACY[kind_], 0)
+        want_v, want_m = D9_ROWS[kind_] if fine else D9_ROWS_LEGACY[kind_]
         check(len(objs) == want_v and len(mods) == want_m and all(o["guid"] in guids for o in objs)
               and yaw_only and all(o["parent"] == 0 for o in objs_all)
               and rows["target_prefab"] == p.stem + "Building"
-              and (rows.get("kinds") == {"vanilla": want_v, "mod": want_m} if fine else "kinds" not in rows),
+              # T17-DQ 2026-10-16: the floodlight "mod" rows make the block fine=True in both modes
+              and rows.get("kinds") == {"vanilla": want_v, "mod": want_m},
               f"{kind} D9 {len(objs)} vanilla + {len(mods)} kit rows (verified GUIDs / CIDs, yaw only, parent 0) -> "
               f"{rows['target_prefab']}; kinds {rows.get('kinds')}")
         if fine:
             import fine_detail as FD
             # kit colour variants (2026-10-12): a coloured prop's row names its colour-set variant's CID
+            # (T17-DQ 2026-10-16: the SkiPisteFloodlightLow "mod" rows are not kit props; asserted literally above)
+            kit_mods = [o for o in mods if o["prefab"] != FLOOD_PREFAB]
             check(all(o["guid"] == "CID:" + FD.kit_cid(o["prefab"], o.get("colour_set"))
                       == "CID:" + str(FD.staged_kit_cid(o["prefab"], o.get("colour_set")))
-                      for o in mods) and "x_convention" in rows,
-                  f"{kind} F0 kit rows by staged CID {sorted(o['prefab'] for o in mods)}, frame stated")
+                      for o in kit_mods) and "x_convention" in rows,
+                  f"{kind} F0 kit rows by staged CID {sorted(o['prefab'] for o in kit_mods)}, frame stated")
             soff = [o for o in objs if o["prefab"] == "RoofLightRandom01" and abs(abs(o["pos"][0]) - 3.6) < 1e-6]
             wl = [o for o in objs if o["prefab"] == "WallLightShortRangeRandom01"]
             check(len(soff) == 4 and all(abs(o["pos"][1] - p.z_soffit) < 1e-6 for o in soff)
@@ -263,12 +295,15 @@ def _counts_and_frozen_one(kind, fine):
                   f"{kind} F3 lamps: 4 RoofLight rows on the old soffit lenses (game x +-3.6, y {p.z_soffit}, z "
                   f"{sorted(round(o['pos'][2], 2) for o in soff)}), the wall-light rows moved onto lamp_cab / lamp_eng "
                   f"{[o['pos'] for o in wl]}")
+        # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): no vanilla LightpoleParkRandom01 row,
+        # two floodlight "mod" rows on the deck top, no modelled flood mast
         lamps = [o for o in objs if o["prefab"] == "LightpoleParkRandom01"]
-        check(len(lamps) == D9_LAMPS and all(o["guid"] == "UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08"
-                                             and abs(o["pos"][1] - D.DECK_H) < 1e-6 for o in lamps)
+        floods = [o for o in objs_all if o["prefab"] == FLOOD_PREFAB]
+        check(len(lamps) == D9_LAMPS and flood_rows_ok(objs_all, D9_FLOODS[kind_])
+              and all(abs(o["pos"][1] - D.DECK_H) < 1e-6 for o in floods)
               and not any(n.startswith(("flood", "lamp_flood")) for n in table),
-              f"{kind} follow-up: {len(lamps)} vanilla LightpoleParkRandom01 rows on the deck top (game local "
-              f"{[o['pos'] for o in lamps]}), no modelled flood mast left")
+              f"{kind} T17-DQ: {len(lamps)} vanilla LightpoleParkRandom01 rows, {len(floods)} SkiPisteFloodlightLow rows "
+              f"on the deck top (game local {[o['pos'] for o in floods]}, yaw rule R), no modelled flood mast left")
         # D11 the board order along the chair's travel (measured on the build)
         me = t.data
         try:
@@ -586,9 +621,12 @@ def shipped():
         sub = (d.get("sub_objects") or {}).get("objects") or []
         nv = sum(1 for o in sub if o.get("kind") != "mod")
         nm = sum(1 for o in sub if o.get("kind") == "mod")
-        want = D9_ROWS[kind] if fd else (D9_ROWS_LEGACY[kind], 0)
-        check((nv, nm) == tuple(want) and sum(1 for o in sub if o["prefab"] == "LightpoleParkRandom01") == D9_LAMPS,
-              f"{kind} D9 shipped sub-object rows {nv} vanilla + {nm} kit (want {want}; {D9_LAMPS} lamp posts)")
+        # T17-DQ 2026-10-16: valid only after the export is regenerated (the shipped manifests predate the swap)
+        want = D9_ROWS[kind] if fd else D9_ROWS_LEGACY[kind]
+        check((nv, nm) == tuple(want) and sum(1 for o in sub if o["prefab"] == "LightpoleParkRandom01") == D9_LAMPS
+              and flood_rows_ok(sub, D9_FLOODS[kind]),
+              f"{kind} D9 shipped sub-object rows {nv} vanilla + {nm} mod (want {want}; {D9_LAMPS} lamp posts, "
+              f"2 SkiPisteFloodlightLow)")
         c_ = m.get("contracts") or {}
         check("D11" in c_, f"{kind} D11 shipped board order recorded: {c_.get('D11')}")
         # 2026-10-12: the shipped top reads RAISE BAR -> UNLOAD and carries no STAY SEATED anywhere (label table,
@@ -621,6 +659,7 @@ def shipped():
         nm = sum(1 for o in sub if o.get("kind") == "mod")
         tr = {int(k): v for k, v in m["tris"].items()}
         check(fd is not None and (nv, nm) == GD_ROWS[kind] and "F1" in (m.get("contracts") or {})
+              and flood_rows_ok(sub, GD_FLOODS[kind])   # T17-DQ 2026-10-16 (valid after the export is regenerated)
               and tr[0] <= D.GD_LOD0_TARGET[kind],
               f"gondola {kind} shipped fine: {nv} vanilla + {nm} kit rows (want {GD_ROWS[kind]}), F1 recorded, LOD0 "
               f"{tr[0]} <= {D.GD_LOD0_TARGET[kind]}")
@@ -631,12 +670,13 @@ def shipped():
 def shipped_fine(tag, m, fd, sub):
     """The shipped fine_detail block: the kit rows in it = the sub-object block's mod rows (same pose), each with
     its F1 numbers, the frame stated."""
-    mods = [o for o in sub if o.get("kind") == "mod"]
+    all_mods = [o for o in sub if o.get("kind") == "mod"]
+    mods = [o for o in all_mods if o["prefab"] != FLOOD_PREFAB]     # T17-DQ 2026-10-16: kit rows only
     kr = fd.get("kit_rows") or []
     same = len(kr) == len(mods) and all(
         a["prefab"] == b["prop"] and np.allclose(a["pos"], b["row_pos"], atol=1e-4)
         and np.allclose(a["rot"], b["row_rot"], atol=1e-6) for a, b in zip(mods, kr))
-    check(same and fd.get("x_convention") and fd.get("rows", {}).get("mod") == len(mods)
+    check(same and fd.get("x_convention") and fd.get("rows", {}).get("mod") == len(all_mods)
           and all(r.get("c8_gap_m") is not None and r["c8_gap_m"] > 0.0 for r in kr),
           f"{tag} fine_detail block: {len(kr)} kit rows = the block's mod rows, F1 numbers (nearest C8 "
           f"{min((r['c8_gap_m'] for r in kr), default=None)} m), frame stated")

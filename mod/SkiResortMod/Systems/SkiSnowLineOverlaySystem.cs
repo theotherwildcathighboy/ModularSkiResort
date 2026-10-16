@@ -101,7 +101,8 @@ namespace SkiResortMod.Systems
         // The winter numbers (valid once the climate prefab was read).
         private bool m_WinterValid, m_WinterTried;
         private float m_WinterMeanC, m_WinterMinC, m_WinterMaxC, m_WinterStart, m_WinterEnd;
-        private int m_WinterSamples, m_MarginC;
+        private int m_WinterSamples;
+        private float m_MarginC;   // T09 (2026-10-16): the margin is a float setting now (default 3.3 °C); an int cast drew the guns line ~30 m low
         private float m_BaseHeight, m_Lapse, m_Freezing;
         private float m_SnowLineM = float.NaN, m_GunsLineM = float.NaN;
         private string m_ClimateName = "-", m_WinterSource = "-";
@@ -140,7 +141,7 @@ namespace SkiResortMod.Systems
             var ci = CultureInfo.InvariantCulture;
             return $"armed {m_Armed}, disabled {m_Disabled}, showing {Showing}, winter mean {m_WinterMeanC.ToString("F1", ci)} C " +
                    $"({m_WinterSource}), snow line {m_SnowLineM.ToString("F0", ci)} m, guns line {m_GunsLineM.ToString("F0", ci)} m " +
-                   $"(margin {m_MarginC} C), segments {m_SnowCount}+{m_GunsCount}, builds {Builds} (last {LastBuildMs.ToString("F2", ci)} " +
+                   $"(margin {m_MarginC.ToString("F1", ci)} C), segments {m_SnowCount}+{m_GunsCount}, builds {Builds} (last {LastBuildMs.ToString("F2", ci)} " +
                    $"ms, max {MaxBuildMs.ToString("F2", ci)}), draws {Draws}";
         }
 
@@ -219,7 +220,7 @@ namespace SkiResortMod.Systems
                     return;
                 }
                 // The guns line follows the option (a slider; read here at the activation rate of a frame).
-                int margin = (int)m_SnowLine.GetSnowmakingMarginC();
+                float margin = m_SnowLine.GetSnowmakingMarginC();
                 if (margin != m_MarginC)
                     ApplyMargin(margin);
 
@@ -321,13 +322,13 @@ namespace SkiResortMod.Systems
             m_Lapse = m_Climate.snowTemperatureHeightScale;                     // 0.01 °C / m, ClimateSystem.cs:228
             m_Freezing = m_Climate.freezingTemperature;
             m_ClimateName = prefab.name;
-            ApplyMargin((int)m_SnowLine.GetSnowmakingMarginC());
+            ApplyMargin(m_SnowLine.GetSnowmakingMarginC());
             m_WinterValid = !float.IsNaN(m_SnowLineM);
             if (logArmed)
                 LogArmed(m_WinterValid ? null : "no usable winter mean");
         }
 
-        private void ApplyMargin(int margin)
+        private void ApplyMargin(float margin)
         {
             m_MarginC = margin;
             m_SnowLineM = SnowLineRules.ElevationAt(m_BaseHeight, m_WinterMeanC, m_Freezing, m_Lapse);
@@ -344,7 +345,7 @@ namespace SkiResortMod.Systems
                          $"{m_WinterEnd.ToString("F4", ci)} of the year ({m_WinterSource}, {m_WinterSamples} hourly samples of " +
                          $"ClimatePrefab.m_Temperature), winter mean {m_WinterMeanC.ToString("F1", ci)} C (range {m_WinterMinC.ToString("F1", ci)}.." +
                          $"{m_WinterMaxC.ToString("F1", ci)}), temperatureBaseHeight {m_BaseHeight.ToString("F1", ci)} m, lapse " +
-                         $"{m_Lapse.ToString("F3", ci)} C/m, freezing {m_Freezing.ToString("F1", ci)} C, snowmaking margin {m_MarginC} C → " +
+                         $"{m_Lapse.ToString("F3", ci)} C/m, freezing {m_Freezing.ToString("F1", ci)} C, snowmaking margin {m_MarginC.ToString("F1", ci)} C → " +
                          $"winter snow line {m_SnowLineM.ToString("F0", ci)} m, guns work above {m_GunsLineM.ToString("F0", ci)} m; grid " +
                          $"{SnowLineRules.GridSide}x{SnowLineRules.GridSide} @ {SnowLineRules.CellM:0} m ({SnowLineRules.GridSide * SnowLineRules.GridSide} " +
                          $"samples), rebuild beyond {SnowLineRules.RebuildMoveM:0} m of pivot movement" +

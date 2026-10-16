@@ -674,16 +674,56 @@ D1_CLOSEUP_RES = (2600, 2000)
 # two +Y-facing posts first stood at y -5.40, which put their heads 0.09 m off band_n's outer face (true
 # face distance; D8 tested overlap only) - they stand at y -7.10 now, heads over the apron 1.2 m clear of
 # the band, out of the unloading skiers' path; D8 gates every lamp head (D1_LAMP_HEAD_*).
+# T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard: "same swap on the DQ stations, the lamppost
+# just doesn't work on the lift stations"; precedent build/T17-T23-T25-dressing.md, the FG stations). The four
+# vanilla LightpoleParkRandom01 rows per station (arm-direction facings, D8 head gates) are GONE; at most TWO
+# SkiPisteFloodlightLow rows stand per station (no floodlit stadium), at the old spots of the two posts nearest
+# the loading platform (base) / the unload apron (top). The rows are OUR OWN prop ("mod" rows: CID, no SUBOBJ
+# placeholder), emitted by d1_flood_rows into the manifest; dq_subobjects no longer lists any lamp. The prop's
+# aim is its local +Z with a 25-degree down-tilt baked in, so a row chooses only the yaw (d1_flood_yaw).
+# Authoring (x, y) of each post, deck top. Dropped: base (13.75, 5.20) / (13.75, -5.20) (the back corners,
+# plaza / maze side); top (9.60, -5.30) (over the exit ramp) / (-6.50, 5.10) (the departure side).
 D1_LAMPS = {
-    "base": (((2.40, 5.10), "-X"),       # loading area, +Y front corner (the load line is x 2.85)
-             ((13.75, 5.20), "+X"),      # the maze entrance at the +Y back corner (the old bP mast spot)
-             ((13.75, -5.20), "+X"),     # -Y back corner: plaza, ski rack, back ramp (the old bN spot)
-             ((5.20, -7.10), "+Y")),     # -Y apron's outer side across the lanes from the load point
-    "top": (((-9.60, -5.30), "+X"),      # unload apron, front corner (the old tN mast spot)
-            ((0.00, -7.10), "+Y"),       # unload apron's outer side at the unload line, head toward the lane
-            ((9.60, -5.30), "+X"),       # unload apron, back corner over the exit ramp (the old tP spot)
-            ((-6.50, 5.10), "+X")),      # +Y front corner (the departure side)
+    "base": ((2.40, 5.10),       # loading area, +Y front corner (the load line is x 2.85)
+             (5.20, -7.10)),     # -Y apron's outer side across the lanes from the load point
+    "top": ((-9.60, -5.30),      # unload apron, front corner (the old tN mast spot)
+            (0.00, -7.10)),      # unload apron's outer side at the unload line
 }
+D1_FLOOD_PREFAB = "SkiPisteFloodlightLow"
+D1_FLOOD_CID = "6827e281427c087a3b7ef19c824ca28b"        # the 8 m variant (SkiPisteFloodlightLow.Prefab.cid)
+D1_FLOOD_MESH = "SkiPisteFloodlightLowA Mesh"
+D1_FLOOD_REACH = 17.0          # m: where the 25-degree beam lands ahead of the 8.03 m light point (8.03 / tan 25)
+D1_FLOOD_STEP = 5.0            # degrees: the cross-platform angle is rounded to this
+
+
+def d1_flood_yaw(gx):
+    """The floodlight's yaw (degrees about game +Y; direction (sin, cos) in game (x, z)) for a post at game
+    local x `gx`: local +Z points to the lift line (game -Z, yaw 180) turned toward the line axis (prefab x 0)
+    by atan(|gx| / D1_FLOOD_REACH) rounded to D1_FLOOD_STEP, so the beam lands on the axis about 17 m ahead
+    (FG precedent: x 3.4 -> 10 degrees, yaw 190). A post at x < 0 aims toward +X (yaw < 180), x > 0 toward -X."""
+    a = D1_FLOOD_STEP * round(math.degrees(math.atan2(abs(gx), D1_FLOOD_REACH)) / D1_FLOOD_STEP)
+    return 180.0 if gx == 0 else (180.0 - a if gx < 0 else 180.0 + a)
+
+
+def d1_flood_rows(p):
+    """The SkiPisteFloodlightLow "mod" rows of this station (fine_detail._row shape, game local =
+    blender_to_game, m_ParentMesh 0): the DQ stations' D1_LAMPS spots on the deck top, the gondola stations'
+    portal-face corner pair (gd_flood_spots)."""
+    LD = _LD()
+    if p.gondola:
+        spots = [(x_, y_, 0.0) for x_, y_ in gd_flood_spots(p)]
+    else:
+        spots = [(x_, y_, DECK_H) for x_, y_ in D1_LAMPS[p.kind]]
+    rows = []
+    for pos in spots:
+        g = LD.blender_to_game(pos)
+        yaw = d1_flood_yaw(g[0])
+        h = math.radians(yaw) / 2.0
+        rows.append({"kind": "mod", "ref": "CID", "m_Object": D1_FLOOD_CID, "prefab": D1_FLOOD_PREFAB,
+                     "mesh": D1_FLOOD_MESH, "position": tuple(float(v) for v in g),
+                     "rotation": (0.0, round(math.sin(h), 7), 0.0, round(math.cos(h), 7)), "m_ParentMesh": 0,
+                     "note": f"replaces LightpolePark; yaw {yaw:g} (beam to the line, across to the axis)"})
+    return rows
 # D8 lamp-head gate (C16-style, the tram's check_subobjects + a head standoff): the head zone of each
 # LightpolePark union box - from D1_LAMP_HEAD_REACH along `facing` to the arm end, the top
 # D1_LAMP_HEAD_DROP m - keeps >= D1_LAMP_HEAD_CLEAR m from every station face (a lamp head is not bolted to
@@ -2680,7 +2720,9 @@ def dq_subobjects(p):
     if p.gondola or not DETAIL1:
         return []
     zd, zs = DECK_H, p.z_soffit
-    lamps = [("LightpoleParkRandom01", (x_, y_, zd), f_, "deck") for (x_, y_), f_ in D1_LAMPS[p.kind]]
+    # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): no vanilla lamp rows any more; the
+    # floodlights are "mod" rows (d1_flood_rows, appended by subobject_rows), so no SUBOBJ box test lists them
+    lamps = []
     # fine-detail step 3b (design A.2 / FS15): the cabin / engine-room WallLightShortRange rows MOVE onto the
     # modelled door lamps they replace (lamp_cab over the cabin door, y cy0 + 0.75; lamp_eng over the engine
     # door, y (cy0 + cy1) / 2; lens centre z zf + 2.23 = 2.38), and RoofLights take the soffit lenses
@@ -2875,12 +2917,15 @@ def subobject_rows(p, name):
         rot = LD.facing_quat(facing, frame="blender") if facing else (0.0, 0.0, 0.0, 1.0)
         rows.append((pf, LD.blender_to_game(pos), rot, 0))
     target = name.replace("StationA", "StationBuilding")
+    # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): our own prop, a "mod" row (CID), so the
+    # block is written fine=True; placed after the vanilla rows (where the lamp rows were) and before the kit
+    flood = d1_flood_rows(p) if (p.gondola and GD_REV1) or (not p.gondola and DETAIL1) else []
     if FINE_DETAIL:
         # fine-detail step 3b: + the dressing kit's "mod" rows (cs2_liftdress.sub_object_rows fine=True: kinds,
         # x_convention = this generator's blender_to_game frame)
         kit = fd_kit_rows(p)
-        return LD.sub_object_rows(target, rows + kit, fine=True) if rows or kit else None
-    return LD.sub_object_rows(target, rows) if rows else None
+        return LD.sub_object_rows(target, rows + flood + kit, fine=True) if rows or flood or kit else None
+    return LD.sub_object_rows(target, rows + flood, fine=bool(flood)) if rows or flood else None
 
 
 # --------------------------------------------------------------------------------------
@@ -3800,6 +3845,14 @@ def build_gd_dress(p):
     return out
 
 
+def gd_flood_spots(p):
+    """T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): the gondola stations' two floodlights,
+    the portal-face corner posts of the old LightpolePark rows (authoring (x_nose - 1.0, +-7.2), on grade);
+    yaw by d1_flood_yaw (beam to the line, across to the axis). The entry posts (x_door - 2.4, +-(W2 + 2.2))
+    are dropped (two floodlights per station)."""
+    return [(round(p.x_nose - 1.0, 4), s * 7.2) for s in (-1.0, 1.0)]
+
+
 def gd_subobjects(p):
     """Revision 1 vanilla sub-objects (cs2_liftdress.SUBOBJ GUIDs, verified against the dump): the lamp
     posts are VANILLA LightpolePark props (Richard, eleventh look: no modelled post lights), the
@@ -3818,9 +3871,10 @@ def gd_subobjects(p):
     for s in (-1.0, 1.0):
         fac_in = "-Y" if s > 0 else "+Y"
         rows.append(("WallLightShortRangeRandom01", (xn - 0.02, s * (p.lane_y + 0.33), 5.65), "-X", "wall"))
-        rows.append(("LightpoleParkRandom01", (xn - 1.0, s * 7.2, 0.0), fac_in, "ground"))
+        # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): the two LightpoleParkRandom01 rows
+        # per side are gone (the portal-face corner post (xn - 1.0, s * 7.2) is now a floodlight, see
+        # gd_flood_spots; the entry post (xd - 2.4, s * (W2 + 2.2)) is dropped: two floodlights per station)
         rows.append(("RoofLightRandom01", (xd, s * (W2 + 0.95), zc0), None, "ceiling"))
-        rows.append(("LightpoleParkRandom01", (xd - 2.4, s * (W2 + 2.2), 0.0), "+X", "ground"))
         for x in (xn + 2.5, (xn + X) / 2.0, X - 3.0):
             rows.append(("RoofLightRandom01", (round(x, 4), s * 5.15, ze), None, "ceiling"))
         rows.append(("TrashbinRandom01", (xd + 1.70, s * (W2 + 1.20), 0.0), None, "ground"))

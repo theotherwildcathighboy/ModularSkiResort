@@ -204,8 +204,10 @@ namespace SkiResortMod.Systems
             // our runs sat unchanged deep into July). Targets now sit just above the
             // full-white visual threshold so summer melt clears runs on a season-like
             // timescale. Raise only with a melt-rate measurement in hand.
-            public const float SnowmakingTargetDepthM = 0.12f;
-            public const float GroomedTargetDepthM = 0.08f;
+            // T09 (2026-10-16): 0.12 -> 0.35 and 0.08 -> 0.25 (RunSnowRules.GunTargetDepthM / GroomedTargetDepthM, with the
+            // reasons): the open bar is now 0.15 m, so a gun run must be able to build past it by itself.
+            public const float SnowmakingTargetDepthM = RunSnowRules.GunTargetDepthM;
+            public const float GroomedTargetDepthM = RunSnowRules.GroomedTargetDepthM;
 
             // Edge raggedness (field-calibrated same day: polygon-crisp isolines + visible
             // dither pattern at the boundary). The fold blurs each run's coverage over a
@@ -263,9 +265,9 @@ namespace SkiResortMod.Systems
             // (~0.02 m): ~3-20 top-up windows across a run; the slow tail past saturation
             // is invisible and only pads melt duration. Mean step ≈ DecayPerTopupM, so
             // buildup and managed melt stay symmetric.
-            public const float RampPerTopupM = 0.004f;
-            public const float RampRateMin = 0.25f;
-            public const float RampRateSpan = 1.75f;
+            public const float RampPerTopupM = RunSnowRules.RampPerTopupM;   // T09: the ramp constants live in RunSnowRules (GunWindowsToReach)
+            public const float RampRateMin = RunSnowRules.RampRateMin;
+            public const float RampRateSpan = RunSnowRules.RampRateSpan;
 
             // Chill bias (field round 6, "snow was made from the bottom up"): the R5 field
             // log showed a climate-time scrub dropped ambient 18.8 -> 3.0 °C in ONE top-up
@@ -276,9 +278,9 @@ namespace SkiResortMod.Systems
             // saturate((threshold − T_local) / ChillSpanC) mapped to Floor..Floor+Gain —
             // the top of a run is ALWAYS colder at the same instant, so fill reads
             // top-down in every scenario, organic cooling and scrubs alike.
-            public const float RampChillSpanC = 4f;    // °C below threshold for full output
-            public const float RampChillFloor = 0.35f; // marginal-temperature gun output
-            public const float RampChillGain = 1.65f;  // full-cold gun output = Floor+Gain
+            public const float RampChillSpanC = RunSnowRules.RampChillSpanC;    // °C below threshold for full output
+            public const float RampChillFloor = RunSnowRules.RampChillFloor; // marginal-temperature gun output
+            public const float RampChillGain = RunSnowRules.RampChillGain;  // full-cold gun output = Floor+Gain
 
             // Season gates. ROUND E1 (D14, ch3 §3.3): the snowmaking margin is no longer a
             // constant here — SnowmakingMarginC and NightMarginC were DELETED. THE margin is
@@ -379,6 +381,7 @@ namespace SkiResortMod.Systems
             public int Triangles;
             public int MaskTexels;
             public int DecayTexels;
+            public int ProtectedTexels;   // T09: warm texels held by an Active protection spell (a pass with any is never idle)
             // Per-type ACTIVE texel split (upkeep round): a texel claimed by two
             // overlapping runs counts once, for whichever run claimed it first —
             // no double-charging by construction.
@@ -415,6 +418,9 @@ namespace SkiResortMod.Systems
             public bool Measured;           // sums computed this pass from a usable snapshot
             public bool CarryOver;          // natural run with no measurement due, or no usable snapshot this pass
             public double WhiteW, FootprintW, DepthW, ExcludedW;
+            // T09: the fold's texel counts (injected runs; 0 for a natural run): contained, those cold enough for the guns, and
+            // those a protection spell holds this pass. A warm texel = contained > cold.
+            public int Contained, Cold, ProtectedTexels;
         }
 
         /// <summary>E1 ch3 §4.5: a bound natural run recorded during the chunk loop, pre-clipped and
@@ -423,6 +429,7 @@ namespace SkiResortMod.Systems
         {
             public Entity Run;
             public float BottomY, TopY;
+            public float BarNorm;           // T09: the skiable bar (31 cm when rated black or double black)
         }
 
         /// <summary>E1 ch3 §4.2: the snapshot a pass measures from.</summary>
@@ -467,6 +474,7 @@ namespace SkiResortMod.Systems
         {
             public int NewMaskTexels;
             public int NewDecayTexels;
+            public int Protected;         // T09: warm texels the run's protection holds this pass
             // E1 ch3 §4 / §7: measurement and footprint. Never read by the routing.
             public int Contained;         // texels with Scratch > 0 (this run)
             public int Cold;              // contained texels with localT <= ThermalThresholdC (injected runs)
@@ -477,6 +485,7 @@ namespace SkiResortMod.Systems
         private struct MergeRowPartial
         {
             public int Injected, Lowered, RunTexels;
+            public int Held;               // T09: texels re-raised by warm-spell protection
             public double GlobalDepthSum, RunDepthSum;
         }
 
@@ -486,6 +495,8 @@ namespace SkiResortMod.Systems
             [NativeDisableParallelForRestriction] public NativeArray<float> Mask;
             [NativeDisableParallelForRestriction] public NativeArray<float> DecayMask;
             [NativeDisableParallelForRestriction] public NativeArray<float> RampMask;
+            [NativeDisableParallelForRestriction] public NativeArray<float> ProtectMask;   // T09
+            [NativeDisableParallelForRestriction] public NativeArray<ushort> Owner;        // T09
 
             public void Execute(int row)
             {
@@ -495,6 +506,8 @@ namespace SkiResortMod.Systems
                     Mask[rowBase + tx] = 0f;
                     DecayMask[rowBase + tx] = 0f;
                     RampMask[rowBase + tx] = 0f;
+                    ProtectMask[rowBase + tx] = 0;
+                    Owner[rowBase + tx] = 0;
                 }
             }
         }
@@ -573,6 +586,16 @@ namespace SkiResortMod.Systems
             public float LapseAmbient;
             public float LapseBaseHeight;
             public float LapseScale;
+            // T09: the skiable bar (injected runs: the 15 cm bar), the ledger slot, and the warm-spell protection inputs.
+            // Protecting false = the routing is exactly the pre-T09 routing (every warm texel goes to the decay plane).
+            public float BarNorm;
+            public ushort Slot;
+            [NativeDisableParallelForRestriction] public NativeArray<float> ProtectMask;
+            [NativeDisableParallelForRestriction] public NativeArray<ushort> Owner;
+            public bool Protecting;
+            public bool Spring;
+            public float HoursUsed;     // game hours of the run's current protection spell
+            public float NorthSign;     // 1, or -1 for a southern latitude
 
             public void Execute(int r)
             {
@@ -594,7 +617,7 @@ namespace SkiResortMod.Systems
                         float dn = Snapshot[idx].x * (1f / 65535f);
                         partial.FootprintW += w;
                         partial.DepthW += w * dn;
-                        if (RunSnowRules.IsSkiable(dn, ownValue))
+                        if (RunSnowRules.IsSkiable(dn, ownValue, BarNorm))
                             partial.WhiteW += w;
                     }
                 }
@@ -643,6 +666,28 @@ namespace SkiResortMod.Systems
                     float localT = LapseAmbient - (elevation - LapseBaseHeight) * LapseScale;
                     if (localT > ThermalThresholdC)
                     {
+                        // T09 warm-spell protection: while this run's spell is on, a warm texel that is no warmer than
+                        // ProtectMaxLocalC and whose aspect-scaled budget is not spent is HELD (raised back toward the depth it
+                        // had) instead of left to the managed melt. Natural runs are never folded, so never protected.
+                        if (Protecting && localT <= RunSnowRules.ProtectMaxLocalC)
+                        {
+                            float aspect = AspectAt(wx, wz);
+                            if (RunSnowRules.TexelProtected(HoursUsed, localT, Spring, aspect))
+                            {
+                                float held = EdgeValue(blurred, sumFine, tx, ty);
+                                if (held > 0f)
+                                {
+                                    if (held > ProtectMask[idx])
+                                    {
+                                        if (ProtectMask[idx] == 0f)
+                                            partial.Protected++;
+                                        ProtectMask[idx] = held;
+                                        Owner[idx] = Slot;
+                                    }
+                                    return held;
+                                }
+                            }
+                        }
                         if (DecayMask[idx] == 0f)
                         {
                             DecayMask[idx] = 1f;
@@ -652,31 +697,54 @@ namespace SkiResortMod.Systems
                     }
                     cold = true;
 
-                    float noise = 0.65f * Hash01(tx >> 3, ty >> 3, 0x5EED)
-                                + 0.35f * Hash01(tx, ty, 0x51DE);
-                    float t = math.saturate(
-                        (blurred - (Tuning.EdgeNoiseFloor + noise * Tuning.EdgeNoiseSpan))
-                        / Tuning.EdgeSoftness);
-                    float tFine = math.saturate(
-                        (sumFine * (1f / 9f) - Tuning.SpineCoverageFloor) / Tuning.SpineSoftness);
-                    if (t <= 0f && tFine <= 0f)
+                    float value = EdgeValue(blurred, sumFine, tx, ty);
+                    if (value <= 0f)
                         return 0f;
-
-                    float value = t >= 1f || tFine >= 1f
-                        ? TargetNorm
-                        : math.min(math.max(t, tFine) * (Tuning.FringeMaxDepthM / SnowHeightScaleM),
-                            TargetNorm);
                     if (value > Mask[idx])
                     {
                         if (Mask[idx] == 0f)
                             partial.NewMaskTexels++;
                         Mask[idx] = value;
+                        Owner[idx] = Slot;   // T09: the ledger credits the run whose target the texel is raised toward
                     }
 
                     float chill = math.saturate((ThermalThresholdC - localT) / Tuning.RampChillSpanC);
                     if (chill > RampMask[idx])
                         RampMask[idx] = chill;
                     return value;
+            }
+
+            /// <summary>The edge shape of a texel in this run: the two-octave noise against the blurred coverage, the spine
+            /// rescue, the fringe cap (field rounds 2-7, moved here unchanged by T09 so the protected branch shares it): 0 =
+            /// dropped by the noise, else this run's own target for the texel (the full target, or a fringe partial).</summary>
+            private float EdgeValue(float blurred, float sumFine, int tx, int ty)
+            {
+                float noise = 0.65f * Hash01(tx >> 3, ty >> 3, 0x5EED)
+                            + 0.35f * Hash01(tx, ty, 0x51DE);
+                float t = math.saturate(
+                    (blurred - (Tuning.EdgeNoiseFloor + noise * Tuning.EdgeNoiseSpan))
+                    / Tuning.EdgeSoftness);
+                float tFine = math.saturate(
+                    (sumFine * (1f / 9f) - Tuning.SpineCoverageFloor) / Tuning.SpineSoftness);
+                if (t <= 0f && tFine <= 0f)
+                    return 0f;
+                return t >= 1f || tFine >= 1f
+                    ? TargetNorm
+                    : math.min(math.max(t, tFine) * (Tuning.FringeMaxDepthM / SnowHeightScaleM), TargetNorm);
+            }
+
+            /// <summary>T09: the slope aspect factor at a world position, from central differences of the heights the fold
+            /// already samples (four extra SampleHeight calls, only for a warm texel under protection): the terrain normal's
+            /// horizontal part IS the (negated) height gradient. RunSnowRules.AspectFactor turns it into 0.5..1.5.</summary>
+            private float AspectAt(float wx, float wz)
+            {
+                float dx = TexelSize.x;
+                float dz = TexelSize.y;
+                float hxp = TerrainUtils.SampleHeight(ref HeightData, new float3(wx + dx, 0f, wz));
+                float hxm = TerrainUtils.SampleHeight(ref HeightData, new float3(wx - dx, 0f, wz));
+                float hzp = TerrainUtils.SampleHeight(ref HeightData, new float3(wx, 0f, wz + dz));
+                float hzm = TerrainUtils.SampleHeight(ref HeightData, new float3(wx, 0f, wz - dz));
+                return RunSnowRules.AspectFactor((hxp - hxm) / (2f * dx), (hzp - hzm) / (2f * dz), NorthSign);
             }
         }
 
@@ -685,7 +753,7 @@ namespace SkiResortMod.Systems
         /// managed), and their weight is reported. Neighbour exclusion: the fold writes only texels inside its
         /// own raster and routes each to the decay plane (too warm), the mask (cold, passes the noise) or
         /// nowhere (cold, dropped by the noise); only mask texels are raised and only decay texels lowered, so
-        /// managed snow lives exactly on `Mask > 0 || DecayMask > 0` texels of this pass's footprint. The mask
+        /// managed snow lives exactly on `Mask > 0 || DecayMask > 0 || ProtectMask > 0` texels of this pass's footprint. The mask
         /// is this pass's and the snapshot one window older: when a neighbour is redrawn, a few edge texels
         /// can be misattributed for one window (accepted).</summary>
         [BurstCompile]
@@ -694,10 +762,12 @@ namespace SkiResortMod.Systems
             [ReadOnly] public NativeArray<float> Scratch;
             [ReadOnly] public NativeArray<float> Mask;
             [ReadOnly] public NativeArray<float> DecayMask;
+            [ReadOnly] public NativeArray<float> ProtectMask;   // T09: protected warm texels are managed snow too
             [ReadOnly] public NativeArray<Ushort2> Snapshot;
             public NativeArray<FoldRowPartial> Partials;
             public int RunY0, RunX0, RunX1;
             public bool Measure;
+            public float BarNorm;   // T09: 15 cm, or 31 cm for a natural run rated black or double black
 
             public void Execute(int r)
             {
@@ -711,7 +781,7 @@ namespace SkiResortMod.Systems
                         continue;
                     p.Contained++;
                     float w = math.min(coverage, 1f);
-                    if (Mask[idx] > 0f || DecayMask[idx] > 0f)
+                    if (Mask[idx] > 0f || DecayMask[idx] > 0f || ProtectMask[idx] > 0f)
                     {
                         p.ExcludedW += w;
                         continue;
@@ -721,7 +791,7 @@ namespace SkiResortMod.Systems
                     float dn = Snapshot[idx].x * (1f / 65535f);
                     p.FootprintW += w;
                     p.DepthW += w * dn;
-                    if (RunSnowRules.IsSkiable(dn, 0f))
+                    if (RunSnowRules.IsSkiable(dn, 0f, BarNorm))
                         p.WhiteW += w;
                 }
                 Partials[r] = p;
@@ -751,11 +821,14 @@ namespace SkiResortMod.Systems
             [ReadOnly] public NativeArray<float> Mask;
             [ReadOnly] public NativeArray<float> DecayMask;
             [ReadOnly] public NativeArray<float> RampMask;
+            [ReadOnly] public NativeArray<float> ProtectMask;   // T09: the depth a protected warm texel is held toward
+            [NativeDisableParallelForRestriction] public NativeArray<float> ProtectBase;   // T09: the depth captured when protection first held it
             [NativeDisableParallelForRestriction] public NativeArray<float2> Upload;
             public NativeArray<MergeRowPartial> Partials;
             public bool PackGuard;
             public float DecayNorm;
             public float RampNormBase;
+            public float ProtectRaiseNorm;   // T09: RunSnowRules.ProtectRaisePerTopupM / 8 x the step scale
 
             public void Execute(int row)
             {
@@ -769,7 +842,8 @@ namespace SkiResortMod.Systems
                     float depth = raw.x * inv;
                     p.GlobalDepthSum += depth;
                     float target = Mask[i];
-                    bool onRun = target > 0f || DecayMask[i] > 0f;
+                    float hold = ProtectMask[i];
+                    bool onRun = target > 0f || DecayMask[i] > 0f || hold > 0f;
                     if (onRun)
                     {
                         p.RunDepthSum += depth;
@@ -786,15 +860,78 @@ namespace SkiResortMod.Systems
                             (Tuning.RampRateMin + Tuning.RampRateSpan * rate) * gunOutput);
                         p.Injected++;
                     }
+                    else if (hold > 0f)
+                    {
+                        // T09 protection: remember the depth this texel had when the spell began (at most the run's own
+                        // target: only made snow is held, never a deeper natural pack) and raise it back toward that by
+                        // one step per pass, never past it. Natural snow that falls on top simply raises the base.
+                        float b = ProtectBase[i];
+                        if (b <= 0f)
+                            b = math.min(depth, hold);
+                        else if (depth > b)
+                            b = math.min(depth, hold);
+                        ProtectBase[i] = b;
+                        if (b - depth > HalfQuantum)
+                        {
+                            depth = math.min(b, depth + ProtectRaiseNorm);
+                            p.Held++;
+                        }
+                    }
                     else if (target == 0f && DecayMask[i] > 0f && depth > 0f && !PackGuard)
                     {
                         depth = math.max(0f, depth - DecayNorm);
                         p.Lowered++;
                     }
+                    if (hold <= 0f && ProtectBase[i] != 0f)
+                        ProtectBase[i] = 0f;   // this pass does not hold the texel: the next spell captures it afresh
                     Upload[i] = new float2(depth, raw.y * inv);
                 }
                 Partials[row] = p;
             }
+        }
+
+        /// <summary>T09 snow-made ledger: the depth one run gained in this pass's merge, over the run's texel box, for the
+        /// texels the run owns (Owner plane): x = made (the texel has a gun/groomed target and was raised toward it), y =
+        /// held (warm-spell protection put melted snow back), both as sums of normalized depth, one entry per row.</summary>
+        [BurstCompile]
+        private struct LedgerRowsJob : IJobFor
+        {
+            [ReadOnly] public NativeArray<Ushort2> Readback;
+            [ReadOnly] public NativeArray<float2> Upload;
+            [ReadOnly] public NativeArray<float> Mask;
+            [ReadOnly] public NativeArray<ushort> Owner;
+            public NativeArray<float2> Partials;
+            public int RunY0, RunX0, RunX1;
+            public ushort Slot;
+
+            public void Execute(int r)
+            {
+                int ty = RunY0 + r;
+                float made = 0f, held = 0f;
+                for (int tx = RunX0; tx <= RunX1; tx++)
+                {
+                    int idx = ty * TexSize + tx;
+                    if (Owner[idx] != Slot)
+                        continue;
+                    float gain = Upload[idx].x - Readback[idx].x * (1f / 65535f);
+                    if (gain <= 0f)
+                        continue;
+                    if (Mask[idx] > 0f)
+                        made += gain;
+                    else
+                        held += gain;
+                }
+                Partials[r] = new float2(made, held);
+            }
+        }
+
+        /// <summary>T09: one scheduled injected run's texel box and slot, kept from the mask pass to the ledger pass.</summary>
+        private struct LedgerRun
+        {
+            public Entity Run;
+            public RunKind Kind;
+            public ushort Slot;
+            public int X0, Y0, X1, Y1;
         }
 
         private SnowSystem m_SnowSystem;
@@ -826,6 +963,12 @@ namespace SkiResortMod.Systems
         private NativeArray<float> m_Mask;         // target depth (normalized /8 m) per texel
         private NativeArray<float> m_DecayMask;    // 1 where a gate-OFF run manages melt
         private NativeArray<float> m_RampMask;     // chill factor 0..1 per texel (gun output)
+        // T09: ProtectMask = the depth (normalized) a protected warm texel is held toward this pass (0 elsewhere); ProtectBase =
+        // the depth the merge captured when protection first held the texel (persists between passes, cleared when a pass does
+        // not protect the texel and at load); Owner = the run slot (1..N, schedule order) that claimed the texel for the ledger.
+        private NativeArray<float> m_ProtectMask;
+        private NativeArray<float> m_ProtectBase;
+        private NativeArray<ushort> m_Owner;
         private NativeArray<float> m_Scratch;      // per-run additive coverage accumulator
         private NativeArray<Ushort2> m_Readback;
         private NativeArray<Ushort2> m_MeasureReadback;   // E1 D29: the measure-only snapshot (4 MB)
@@ -854,6 +997,20 @@ namespace SkiResortMod.Systems
         private int4 m_LastGateB;
         private float m_LastGateForceAt;
         private float m_LastGlobalMeanDepthM;   // pack guard input (last pass's map mean)
+
+        // ── T09 per-load state (all reset in OnGameLoadingComplete): warm-spell protection and the snow-made ledger ──
+        private ClimateSystem m_ClimateSystem;       // the current season's name (spring halves the budget)
+        private PlanetarySystem m_PlanetarySystem;   // the latitude's sign (which way "north" faces)
+        private SkiRunCatalogSystem m_Catalog;       // the run's rating (natural black needs 31 cm); resolved lazily, may stay null
+        private readonly Dictionary<Entity, RunSnowRules.ProtectRun> m_Protect = new Dictionary<Entity, RunSnowRules.ProtectRun>();
+        private readonly Dictionary<Entity, RunSnowRules.RunLedger> m_Ledger = new Dictionary<Entity, RunSnowRules.RunLedger>();
+        private readonly List<LedgerRun> m_LedgerRuns = new List<LedgerRun>();
+        private bool m_PassSpring;                   // this pass: the budget halves
+        private float m_PassNorthSign = 1f;          // this pass: -1 for a southern latitude
+        private int m_ProtectActiveRuns;             // runs in an Active spell at the last refresh: a real pass is due (no skip)
+        private uint m_ProtectLastFrame;             // the frame of the last refresh that stepped the machines
+        private bool m_ProtectFrameValid;
+        private double m_MadeLoggedTotalM3;          // the Snow [made] line is written only when the total moved
 
         // ── Round E1 per-load state (ch3 §4.2, §5, §6, §7; all reset in OnGameLoadingComplete, §7.6) ──
         // Snapshot validity per load (§4.2): a buffer is never read before a copy into it succeeded
@@ -1145,6 +1302,8 @@ namespace SkiResortMod.Systems
             m_SnowLineSystem = World.GetOrCreateSystemManaged<SnowLineSystem>();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
+            m_ClimateSystem = World.GetOrCreateSystemManaged<ClimateSystem>();       // T09: the season's name
+            m_PlanetarySystem = World.GetOrCreateSystemManaged<PlanetarySystem>();   // T09: the latitude's sign
 
             m_RunScanQuery = GetEntityQuery(new EntityQueryDesc
             {
@@ -1231,6 +1390,12 @@ namespace SkiResortMod.Systems
                 m_Mask.Dispose();
             if (m_DecayMask.IsCreated)
                 m_DecayMask.Dispose();
+            if (m_ProtectMask.IsCreated)
+                m_ProtectMask.Dispose();
+            if (m_ProtectBase.IsCreated)
+                m_ProtectBase.Dispose();
+            if (m_Owner.IsCreated)
+                m_Owner.Dispose();
             if (m_RampMask.IsCreated)
                 m_RampMask.Dispose();
             if (m_Scratch.IsCreated)
@@ -1371,6 +1536,15 @@ namespace SkiResortMod.Systems
             m_LastSkipKind = TopupSkip.None;
             m_UncalmRuns = 0;
             m_DayKey = int.MinValue;         // the first pass of this load starts a day "from the load"
+            m_Protect.Clear();               // T09: protection spells, the ledger and the per-texel baseline are per load
+            m_Ledger.Clear();
+            m_LedgerRuns.Clear();
+            m_ProtectActiveRuns = 0;
+            m_ProtectLastFrame = 0;
+            m_ProtectFrameValid = false;
+            m_MadeLoggedTotalM3 = 0.0;
+            if (m_ProtectBase.IsCreated)
+                ZeroPlane(m_ProtectBase);
             m_DayFromLoad = false;
             m_DayText = null;
             ZeroDayCounts();
@@ -1450,7 +1624,7 @@ namespace SkiResortMod.Systems
                              "last real pass; either way a real pass every " +
                              $"{RunSnowRules.ForcedRealPassFrames} sim frames; per-run snow measured " +
                              "from the last snow-map snapshot (skiable >= " +
-                             $"{RunSnowRules.SkiableDepthM:F2} m or the texel's own fringe target; open >= " +
+                             $"{RunSnowRules.SkiableDepthM:F2} m ({RunSnowRules.ExpertNaturalSkiableDepthM:F2} m on a natural run rated black or double black) or the texel's own fringe target; open >= " +
                              $"{RunSnowRules.OpenAtShare * 100f:F0} %, closed < {RunSnowRules.CloseBelowShare * 100f:F0} %, " +
                              "multiplier ramps between); measure-only async readback every " +
                              $"{RunSnowRules.MeasureIntervalFrames} sim frames when no write pass is due; " +
@@ -1461,7 +1635,18 @@ namespace SkiResortMod.Systems
                              $"snow & season gating {(m_LastGating ? "on" : "off")}; " +
                              $"{m_SnowmakingPrefabs.Count} snowmaking + {m_GroomedPrefabs.Count} " +
                              $"groomed + {m_NightPrefabs.Count} night + {m_NaturalPrefabs.Count} natural run " +
-                             "prefab(s) watched (natural: measured only)");
+                             "prefab(s) watched (natural: measured only); " +
+                             // T09 (2026-10-16): the rulings' numbers, every one a named constant in RunSnowRules.
+                             $"T09: gun gate margin default {RunSnowRules.DefaultSnowmakingMarginC:F1} C (now {m_LastMarginC:F1}), gun target " +
+                             $"{RunSnowRules.GunTargetDepthM:F2} m / groomed {RunSnowRules.GroomedTargetDepthM:F2} m (open bar " +
+                             $"{RunSnowRules.SkiableDepthM:F2} m), slowest texel reaches the gun target in " +
+                             $"{RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, -3f, RunSnowRules.DefaultSnowmakingMarginC, RunSnowRules.RampRateMin)):F1} " +
+                             "game h at -3 C; warm-spell protection of gun runs: budget " +
+                             $"{RunSnowRules.ProtectBudgetHours:F0} game h (x{RunSnowRules.ProtectSpringFactor:F1} in spring, " +
+                             $"x{RunSnowRules.ProtectNorthFactor:F1} north faces, x{RunSnowRules.ProtectSouthFactor:F1} south faces), none above " +
+                             $"{RunSnowRules.ProtectMaxLocalC:F0} C at the run, +{RunSnowRules.ProtectRaisePerTopupM:F3} m/top-up toward the " +
+                             $"pre-spell depth, budget refills after {RunSnowRules.ProtectRearmColdHours:F0} game h of cold; natural runs none; " +
+                             "snow made / held ledger per run (Snow [made] once per game day, catalog DUMP row; not saved)");
             }
             catch (Exception e)
             {
@@ -1596,6 +1781,9 @@ namespace SkiResortMod.Systems
             float freezing = m_SnowLineSystem.GetFreezingTemperature();
             float margin = m_SnowLineSystem.GetSnowmakingMarginC();   // E1 D14: THE margin, once per pass
             NoteSettingChanges(margin);
+            // T09: this pass's season and hemisphere for the protection budget (a string compare and a float read).
+            m_PassSpring = RunSnowRules.IsSpring(m_ClimateSystem.currentSeasonName, m_TimeSystem.normalizedDate);
+            m_PassNorthSign = m_PlanetarySystem.latitude < 0f ? -1f : 1f;
 
             SnapshotChoice snap = ChooseSnapshot(frame);
             MaskStats stats = BuildMask(playOffset, playSize, ambient, freezing, margin, snap, frame);
@@ -1632,7 +1820,7 @@ namespace SkiResortMod.Systems
             // were off — which is EXACTLY when managed decay must run. Idle only when there
             // is neither anything to inject NOR anything to decay; a gates-off pass with
             // decay coverage proceeds to the merge (0 raised, N lowered).
-            if (stats.MaskTexels == 0 && stats.DecayTexels == 0)
+            if (stats.MaskTexels == 0 && stats.DecayTexels == 0 && stats.ProtectedTexels == 0)
             {
                 EndSkipIfOpen(stats, now);
                 MaybeRequestMeasure(frame, "no managed texel to top up", stats.NaturalScheduled, now);   // E1 §7.1 step 8
@@ -1666,8 +1854,10 @@ namespace SkiResortMod.Systems
             // multiplier 1 to every reader); m_LastGating was refreshed in step 3 (NoteSettingChanges).
             uint sinceReal = frame - m_LastRealPassFrame;
             bool calm = !m_LastGating || m_UncalmRuns == 0;
-            TopupSkip skip = RunSnowRules.SkipKind(m_LastReal, stats.ColdTexels, stats.ContainedTexels,
-                stats.FootprintHash, sinceReal, calm);
+            // T09: a run in an Active protection spell needs a real pass every window (the game melts, we put it back):
+            // never skip while one is on (m_ProtectActiveRuns was set by this pass's RefreshRunSnow).
+            TopupSkip skip = m_ProtectActiveRuns > 0 ? TopupSkip.None : RunSnowRules.SkipKind(m_LastReal,
+                stats.ColdTexels, stats.ContainedTexels, stats.FootprintHash, sinceReal, calm);
             if (skip != TopupSkip.None)
             {
                 NoteSkip(skip, stats, ambient, now, tMask);
@@ -1680,7 +1870,7 @@ namespace SkiResortMod.Systems
             // failing term. E1 fixer (e1-spec §8.9 F6): "forced" only when the frame term is the ONLY failing term,
             // so a pass where the frame term is due AND a texel turned cold (or the footprint changed, or since
             // Round M2 a measured share left the calm band) ends the episode here with that reason, not at step 15.
-            bool forced = m_InSkip && RunSnowRules.IsForcedCheck(m_LastReal, stats.ColdTexels,
+            bool forced = m_InSkip && m_ProtectActiveRuns == 0 && RunSnowRules.IsForcedCheck(m_LastReal, stats.ColdTexels,
                 stats.ContainedTexels, stats.FootprintHash, sinceReal, calm);
             TopupSkip forcedKind = forced ? m_SkipKind : TopupSkip.None;
             if (m_InSkip && !forced)
@@ -1724,7 +1914,7 @@ namespace SkiResortMod.Systems
             // line is built.
             float packMean = m_LastGlobalMeanDepthM;
             bool packGuard = RunSnowRules.PackGuard(packMean);
-            int injected = 0, lowered = 0;
+            int injected = 0, lowered = 0, heldTexels = 0;
             double globalDepthSum = 0.0, runDepthSum = 0.0;
             int runTexels = 0;
             // E1 D30 (ch3 §7.5): ramp and decay steps scale with the frames since the last EVALUATED pass
@@ -1746,6 +1936,9 @@ namespace SkiResortMod.Systems
                     PackGuard = packGuard,
                     DecayNorm = Tuning.DecayPerTopupM / SnowHeightScaleM * stepScale,
                     RampNormBase = Tuning.RampPerTopupM / SnowHeightScaleM * stepScale,
+                    ProtectMask = m_ProtectMask,
+                    ProtectBase = m_ProtectBase,
+                    ProtectRaiseNorm = RunSnowRules.ProtectRaisePerTopupM / SnowHeightScaleM * stepScale,
                 }.ScheduleParallel(TexSize, RowBatch, default).Complete();
 
                 for (int r = 0; r < TexSize; r++)
@@ -1753,6 +1946,7 @@ namespace SkiResortMod.Systems
                     MergeRowPartial p = mergePartials[r];
                     injected += p.Injected;
                     lowered += p.Lowered;
+                    heldTexels += p.Held;
                     runTexels += p.RunTexels;
                     globalDepthSum += p.GlobalDepthSum;
                     runDepthSum += p.RunDepthSum;
@@ -1762,6 +1956,8 @@ namespace SkiResortMod.Systems
             {
                 mergePartials.Dispose();
             }
+            if (injected + heldTexels > 0)
+                AccumulateLedger();   // T09: snow made / held per run, from this merge
             tMerge = timer.Elapsed.TotalMilliseconds;
             m_LastGlobalMeanDepthM = (float)(globalDepthSum / TexelCount) * SnowHeightScaleM;
             MeanRunSnowDepthM = runTexels > 0
@@ -1797,7 +1993,7 @@ namespace SkiResortMod.Systems
                     EndSkip(ForcedEndReason(forcedKind, next), now, force: false);
             }
 
-            if (injected + lowered > 0)
+            if (injected + lowered + heldTexels > 0)
             {
                 // The game's own Deserialize upload path (SnowSystem.cs:323-327), aimed at
                 // the Read buffer only: the renderer samples it as _SnowMap immediately,
@@ -1847,6 +2043,10 @@ namespace SkiResortMod.Systems
                 string body = $"{injected} texel(s) raised of {stats.MaskTexels} " +
                               $"masked, {lowered} lowered by managed melt " +
                               $"(-{Tuning.DecayPerTopupM:F3} m/top-up on gate-off runs)" +
+                              // T09: the protected warm texels this pass held, and put back (only while a spell is on).
+                              (stats.ProtectedTexels > 0 || heldTexels > 0
+                                  ? $", {heldTexels} re-raised of {stats.ProtectedTexels} held by warm-spell protection ({m_ProtectActiveRuns} run(s))"
+                                  : "") +
                               // Round M2 D16c (contract §6.7): the pack guard, with the map mean the merge read.
                               (packGuard
                                   ? $", pack guard on (map mean {packMean:F3} m above " +
@@ -2144,6 +2344,11 @@ namespace SkiResortMod.Systems
             int measured = 0, estimated = 0, open = 0, closed = 0, opening = 0, closing = 0;
             int full = 0, partly = 0, zero = 0;
             int uncalm = 0;   // Round M2 share guard: measured runs with a share in [30 %, 70 %)
+            // T09: game hours since the last refresh (capped), for the protection budgets.
+            float protectDtHours = m_ProtectFrameValid ? RunSnowRules.FramesToHours(frame - m_ProtectLastFrame) : 0f;
+            m_ProtectLastFrame = frame;
+            m_ProtectFrameValid = true;
+            int protectActive = 0;
             double naturalDepthW = 0.0, naturalFootprintW = 0.0;
             for (int i = 0; i < m_RunSnowInputs.Count; i++)
             {
@@ -2204,6 +2409,9 @@ namespace SkiResortMod.Systems
                 if (hasPrev && prev.State != next.State)
                     m_OpenChanges.Add(new OpenChange { Run = input.Run, Old = prev.State, Now = next });
                 m_RunSnowNext[input.Run] = next;
+                // T09: a gun run's protection machine steps on its freshly measured pack (natural and groomed runs have none).
+                if (input.Kind == RunKind.Snowmaking || input.Kind == RunKind.Night)
+                    StepRunProtection(input, next, protectDtHours, ref protectActive);
 
                 if (next.Source == RunSnowSource.Measured)
                     measured++;
@@ -2285,6 +2493,7 @@ namespace SkiResortMod.Systems
             TryGetDressDepth(out m_Summary.DressDepthM, out m_Summary.DressSource);
             m_TableAllMeasured = measured == runs;   // an empty table: vacuously true (§5.3)
             m_UncalmRuns = uncalm;                   // Round M2: read by the next pass's skip test
+            m_ProtectActiveRuns = protectActive;     // T09: an Active spell forbids a skip this pass
 
             if (firstMeasured)
             {
@@ -2332,6 +2541,154 @@ namespace SkiResortMod.Systems
                 }
             }
             m_OpenChanges.Clear();
+        }
+
+        // ── T09: the snow-made ledger and the warm-spell protection machine ────────────────────────────────────────────
+
+        /// <summary>Snow made / held per run, read from this pass's merge (Upload against Readback over each run's texel box, the
+        /// texels the run owns in the Owner plane). "Made" = raised toward a gun or groomed target; "held" = melted snow put
+        /// back by protection. Runtime only, per load; main thread, after the merge.</summary>
+        private void AccumulateLedger()
+        {
+            if (m_LedgerRuns.Count == 0)
+                return;
+            int seasonKey = RunSnowRules.SnowSeasonKey(m_TimeSystem.year, m_TimeSystem.normalizedDate);
+            var partials = new List<NativeArray<float2>>(m_LedgerRuns.Count);
+            JobHandle chain = default;
+            try
+            {
+                for (int k = 0; k < m_LedgerRuns.Count; k++)
+                {
+                    LedgerRun lr = m_LedgerRuns[k];
+                    var rows = new NativeArray<float2>(lr.Y1 - lr.Y0 + 1, Allocator.TempJob);
+                    partials.Add(rows);
+                    chain = new LedgerRowsJob
+                    {
+                        Readback = m_Readback,
+                        Upload = m_Upload,
+                        Mask = m_Mask,
+                        Owner = m_Owner,
+                        Partials = rows,
+                        RunY0 = lr.Y0,
+                        RunX0 = lr.X0,
+                        RunX1 = lr.X1,
+                        Slot = lr.Slot,
+                    }.ScheduleParallel(rows.Length, RowBatch, chain);
+                }
+                chain.Complete();
+                for (int k = 0; k < m_LedgerRuns.Count; k++)
+                {
+                    double made = 0.0, held = 0.0;
+                    NativeArray<float2> rows = partials[k];
+                    for (int r = 0; r < rows.Length; r++)
+                    {
+                        made += rows[r].x;
+                        held += rows[r].y;
+                    }
+                    if (made <= 0.0 && held <= 0.0)
+                        continue;
+                    Entity run = m_LedgerRuns[k].Run;
+                    m_Ledger.TryGetValue(run, out RunSnowRules.RunLedger ledger);
+                    ledger.Add(seasonKey, RunSnowRules.VolumeM3(made, TexelAreaM2), RunSnowRules.VolumeM3(held, TexelAreaM2));
+                    m_Ledger[run] = ledger;
+                }
+            }
+            finally
+            {
+                chain.Complete();
+                for (int k = 0; k < partials.Count; k++)
+                    partials[k].Dispose();
+            }
+        }
+
+        /// <summary>T09: the run's snow ledger (cubic metres this season and in total; made by guns or grooming, and held by
+        /// protection). False before the run has gained anything this load. Main thread. The catalog's DUMP row prints it.</summary>
+        internal bool TryGetRunLedger(Entity run, out RunSnowRules.RunLedger ledger)
+        {
+            return m_Ledger.TryGetValue(run, out ledger);
+        }
+
+        /// <summary>T09: the run's protection record (state, game hours used). False for a run that never had one.</summary>
+        internal bool TryGetRunProtection(Entity run, out RunSnowRules.ProtectRun spell)
+        {
+            return m_Protect.TryGetValue(run, out spell);
+        }
+
+        /// <summary>T09: steps the protection machine of one gun run for this refresh (its pack just measured: <paramref name="next"/>)
+        /// and writes the start / end INFO line. Called from RefreshRunSnow for snowmaking and night runs only.</summary>
+        private void StepRunProtection(in RunSnowInput input, in RunSnow next, float dtHours, ref int active)
+        {
+            m_Protect.TryGetValue(input.Run, out RunSnowRules.ProtectRun spell);
+            float meanY = 0.5f * (input.BottomY + input.TopY);
+            float runC = m_SnowLineSystem.GetLocalTemperature(meanY);
+            bool packOpen = next.Source == RunSnowSource.Measured && next.State == RunSnowState.Open;
+            RunSnowRules.ProtectState before = spell.State;
+            RunSnowRules.ProtectEnd end = RunSnowRules.StepProtection(ref spell, dtHours, input.Contained, input.Cold,
+                packOpen, runC, m_PassSpring, out bool started);
+            m_Ledger.TryGetValue(input.Run, out RunSnowRules.RunLedger ledger);
+            if (started)
+            {
+                spell.HeldAtStartM3 = ledger.HeldTotalM3;
+                Mod.Log.Info($"Snow [protect] run {input.Run.Index}:{input.Run.Version} ({KindName(input.Kind)}) protection " +
+                             $"started: pack open ({next.Share * 100f:F0} % skiable, mean {next.MeanDepthM:F2} m), " +
+                             $"{input.Contained - input.Cold} of {input.Contained} texel(s) too warm for the guns, air at the run " +
+                             $"{runC:F1} C; budget {RunSnowRules.EffectiveBudgetHours(m_PassSpring, 1f):F0} game h on a flat texel " +
+                             $"({RunSnowRules.EffectiveBudgetHours(m_PassSpring, RunSnowRules.ProtectSouthFactor):F0} south .. " +
+                             $"{RunSnowRules.MaxBudgetHours(m_PassSpring):F0} north{(m_PassSpring ? ", halved: spring" : "")}), " +
+                             $"stops above {RunSnowRules.ProtectMaxLocalC:F0} C");
+            }
+            else if (end != RunSnowRules.ProtectEnd.None)
+            {
+                Mod.Log.Info($"Snow [protect] run {input.Run.Index}:{input.Run.Version} ({KindName(input.Kind)}) protection " +
+                             $"ended ({ProtectEndText(end)}): used {spell.HoursUsed:F1} game h of " +
+                             $"{RunSnowRules.EffectiveBudgetHours(m_PassSpring, 1f):F0} h (flat texel), put back " +
+                             $"{ledger.HeldTotalM3 - spell.HeldAtStartM3:F0} m3; pack {next.Share * 100f:F0} % skiable, " +
+                             $"mean {next.MeanDepthM:F2} m, air at the run {runC:F1} C");
+            }
+            if (before != RunSnowRules.ProtectState.Idle || spell.State != RunSnowRules.ProtectState.Idle)
+                m_Protect[input.Run] = spell;
+            if (spell.State == RunSnowRules.ProtectState.Active)
+                active++;
+        }
+
+        private static string ProtectEndText(RunSnowRules.ProtectEnd end)
+        {
+            switch (end)
+            {
+                case RunSnowRules.ProtectEnd.GunsBack: return "every texel cold again: the guns are back";
+                case RunSnowRules.ProtectEnd.BudgetSpent: return "budget spent";
+                case RunSnowRules.ProtectEnd.TooWarm: return $"air at the run above {RunSnowRules.ProtectMaxLocalC:F0} C";
+                case RunSnowRules.ProtectEnd.PackLost: return "the pack fell below the open line";
+                default: return "?";
+            }
+        }
+
+        /// <summary>T09: one Snow [made] line per game day when the season totals moved: every run with snow made or held this
+        /// season. The hub run tooltip has no text field for it (its open line is a fixed locale string with one {PCT} slot and
+        /// a bound-field change would be a contract bump), so the log, the catalog DUMP row and this line carry it.</summary>
+        private void WriteMadeLine()
+        {
+            if (m_Ledger.Count == 0)
+                return;
+            double total = 0.0;
+            foreach (var pair in m_Ledger)
+                total += pair.Value.MadeTotalM3 + pair.Value.HeldTotalM3;
+            if (total <= m_MadeLoggedTotalM3 + 1.0)
+                return;
+            m_MadeLoggedTotalM3 = total;
+            var sb = new System.Text.StringBuilder();
+            foreach (var pair in m_Ledger)
+            {
+                RunSnowRules.RunLedger l = pair.Value;
+                if (sb.Length > 0)
+                    sb.Append("; ");
+                sb.Append("run ").Append(pair.Key.Index).Append(':').Append(pair.Key.Version).Append(' ')
+                  .Append(l.MadeSeasonM3.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)).Append(" m3 made + ")
+                  .Append(l.HeldSeasonM3.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)).Append(" held this season, ")
+                  .Append(l.MadeTotalM3.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)).Append(" + ")
+                  .Append(l.HeldTotalM3.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)).Append(" total");
+            }
+            Mod.Log.Info($"Snow [made] {m_DayText}: {sb} (1 cm over one texel = {TexelAreaM2:F0} m3; since this load, not saved)");
         }
 
         /// <summary>ch3 §10 L-O1 body: `run {Index}:{Version} ({kind}) {old} -> {new}: skiable … % of … texel(s),
@@ -2459,6 +2816,8 @@ namespace SkiResortMod.Systems
         /// when a measured share left the calm band (the share guard; numbers interpolated, topup check G1).</summary>
         private string SkipEndReason(MaskStats stats, bool calm)
         {
+            if (m_ProtectActiveRuns > 0)
+                return $"warm-spell protection is on for {m_ProtectActiveRuns} run(s): a real pass every window (T09)";
             if (stats.ColdTexels > 0)
                 return $"a run texel is cold enough ({stats.ColdTexels} texel(s))";
             if (m_LastReal.ColdTexels > 0)
@@ -2517,6 +2876,7 @@ namespace SkiResortMod.Systems
             bool first = m_DayKey == int.MinValue;
             if (!first)
                 WriteDayLine(null);
+                WriteMadeLine();   // T09
             m_DayKey = day;
             m_DayFromLoad = first;
             int month = SkiMoneyRules.MonthKey(m_TimeSystem.year, m_TimeSystem.normalizedDate);
@@ -2793,6 +3153,9 @@ namespace SkiResortMod.Systems
             public RunKind PublicKind;
             public bool Natural;
             public float BottomY, TopY;
+            public ushort Slot;             // T09: 1..N in schedule order (the Owner plane value; 0 for a natural run)
+            public int X0, Y0, X1, Y1;      // T09: the run's texel bounds (the ledger job's box)
+            public bool Protecting;         // T09: this pass's fold held warm texels of the run
         }
 
         /// <summary>E1 ch3 §4: margin = THE snowmaking margin (D14), snap = the snapshot this pass measures
@@ -2806,6 +3169,9 @@ namespace SkiResortMod.Systems
                 m_Mask = new NativeArray<float>(TexelCount, Allocator.Persistent);
                 m_DecayMask = new NativeArray<float>(TexelCount, Allocator.Persistent);
                 m_RampMask = new NativeArray<float>(TexelCount, Allocator.Persistent);
+                m_ProtectMask = new NativeArray<float>(TexelCount, Allocator.Persistent);
+                m_ProtectBase = new NativeArray<float>(TexelCount, Allocator.Persistent);
+                m_Owner = new NativeArray<ushort>(TexelCount, Allocator.Persistent);
                 m_Scratch = new NativeArray<float>(TexelCount, Allocator.Persistent);
             }
 
@@ -2826,12 +3192,15 @@ namespace SkiResortMod.Systems
                 Mask = m_Mask,
                 DecayMask = m_DecayMask,
                 RampMask = m_RampMask,
+                ProtectMask = m_ProtectMask,
+                Owner = m_Owner,
             }.ScheduleParallel(TexSize, RowBatch, default);
 
             // E1 ch3 §4.2-§4.3: the snapshot every fold of this pass measures from (Measure = snap.Usable;
             // with Measure false the jobs never read it). m_RunSnowInputs gets one entry per scheduled run.
             NativeArray<Ushort2> snapshot = snap.FromMeasure ? m_MeasureReadback : m_Readback;
             m_RunSnowInputs.Clear();
+            m_LedgerRuns.Clear();   // T09: refilled by the reduction below, read by the ledger pass after the merge
             m_NaturalRuns.Clear();
             ulong naturalSig = 0;
 
@@ -2878,15 +3247,20 @@ namespace SkiResortMod.Systems
                             Entity ne = entities[i];
                             Geometry ng = geometries[i];
                             stats.NaturalScheduled++;
+                            // T09 (ruling): a natural run rated black or double black needs 31 cm, every other 15 cm. The band
+                            // comes from the catalog's row (an unrated run reads band -1 = 15 cm until its rating lands).
+                            float naturalBar = RunSnowRules.SkiableBarNorm(RunKind.Natural, NaturalBand(ne));
                             m_NaturalRuns.Add(new NaturalRun
                             {
                                 Run = ne,
                                 BottomY = ng.m_Bounds.min.y,
                                 TopY = ng.m_Bounds.max.y,
+                                BarNorm = naturalBar,
                             });
                             naturalSig = unchecked(naturalSig +
                                 (RunSnowRules.Mix64(((ulong)(uint)ne.Index << 32) | (uint)ne.Version) ^
-                                 RunSnowRules.Mix64(math.asuint(ng.m_SurfaceArea))));
+                                 RunSnowRules.Mix64(math.asuint(ng.m_SurfaceArea)) ^
+                                 RunSnowRules.Mix64(math.asuint(naturalBar))));   // T09: a rating that lands re-measures
                             continue;
                         }
 
@@ -2935,12 +3309,23 @@ namespace SkiResortMod.Systems
                         }
 
                         Geometry geometry = geometries[i];
+                        // T09: an Active protection spell of this gun run (never groomed, never natural) holds its warm texels
+                        // in this pass's fold; the spell state was stepped by the last RefreshRunSnow.
+                        bool protecting = false;
+                        float hoursUsed = 0f;
+                        if ((publicKind == RunKind.Snowmaking || publicKind == RunKind.Night) &&
+                            m_Protect.TryGetValue(entities[i], out RunSnowRules.ProtectRun spell) &&
+                            spell.State == RunSnowRules.ProtectState.Active)
+                        {
+                            protecting = true;
+                            hoursUsed = spell.HoursUsed;
+                        }
                         ScheduleRun(entities[i], triangleAccessor[i], nodeAccessor[i],
                             playOffset, texelSize, targetM / SnowHeightScaleM,
                             thermalThresholdC, heightData, lapseAmbient,
                             lapseBaseHeight, lapseScale, kind, ref chain, pending,
                             ref stats, publicKind, geometry.m_Bounds.min.y, geometry.m_Bounds.max.y,
-                            snapshot, snap.Usable);
+                            snapshot, snap.Usable, protecting, hoursUsed);
                     }
                 }
             }
@@ -2976,7 +3361,7 @@ namespace SkiResortMod.Systems
             {
                 PendingRun run = pending[p];
                 int newTexels = 0, newDecay = 0;
-                int contained = 0, cold = 0;
+                int contained = 0, cold = 0, held = 0;
                 ulong footprintHash = 0;
                 double footprintW = 0.0, whiteW = 0.0, depthW = 0.0;
                 for (int r = 0; r < run.Partials.Length; r++)
@@ -2986,6 +3371,7 @@ namespace SkiResortMod.Systems
                     newDecay += part.NewDecayTexels;
                     contained += part.Contained;
                     cold += part.Cold;
+                    held += part.Protected;
                     footprintHash = unchecked(footprintHash + part.FootprintHash);
                     footprintW += part.FootprintW;
                     whiteW += part.WhiteW;
@@ -3011,10 +3397,19 @@ namespace SkiResortMod.Systems
                     WhiteW = whiteW,
                     FootprintW = footprintW,
                     DepthW = depthW,
+                    Contained = contained,
+                    Cold = cold,
+                    ProtectedTexels = held,
                 });
                 m_RunTexelsNext[run.Run] = newTexels;
+                m_LedgerRuns.Add(new LedgerRun
+                {
+                    Run = run.Run, Kind = run.PublicKind, Slot = run.Slot,
+                    X0 = run.X0, Y0 = run.Y0, X1 = run.X1, Y1 = run.Y1,
+                });
                 stats.MaskTexels += newTexels;
                 stats.DecayTexels += newDecay;
+                stats.ProtectedTexels += held;
                 if (newTexels > 0)
                 {
                     if (run.Kind == 0)
@@ -3131,12 +3526,14 @@ namespace SkiResortMod.Systems
                         Scratch = m_Scratch,
                         Mask = m_Mask,
                         DecayMask = m_DecayMask,
+                        ProtectMask = m_ProtectMask,
                         Snapshot = snapshot,
                         Partials = partials,
                         RunY0 = runY0,
                         RunX0 = runX0,
                         RunX1 = runX1,
                         Measure = snap.Usable,
+                        BarNorm = nr.BarNorm,   // T09: 15 cm, or 31 cm for a natural run rated black or double black
                     }.ScheduleParallel(rowCount, RowBatch, chain);
 
                     chain = new ClearScratchRowsJob
@@ -3261,7 +3658,7 @@ namespace SkiResortMod.Systems
             TerrainHeightData heightData, float lapseAmbient, float lapseBaseHeight,
             float lapseScale, int kind, ref JobHandle chain, List<PendingRun> pending,
             ref MaskStats stats, RunKind publicKind, float bottomY, float topY,
-            NativeArray<Ushort2> snapshot, bool measure)
+            NativeArray<Ushort2> snapshot, bool measure, bool protecting, float hoursUsed)
         {
             NativeList<TriData> tris = PreClip(triangles, nodes, playOffset, texelSize, ref stats.Triangles,
                 out int runX0, out int runY0, out int runX1, out int runY1);
@@ -3278,6 +3675,7 @@ namespace SkiResortMod.Systems
             // (by ref) after EVERY ScheduleParallel: whatever throws mid-way, BuildMask's
             // catch-drain can always complete every scheduled job and dispose every
             // buffer (review finding — the original shape leaked both on a throw here).
+            ushort slot = (ushort)Math.Min(pending.Count + 1, ushort.MaxValue);   // T09: the Owner plane value
             pending.Add(new PendingRun
             {
                 Kind = kind,
@@ -3287,6 +3685,9 @@ namespace SkiResortMod.Systems
                 PublicKind = publicKind,
                 BottomY = bottomY,
                 TopY = topY,
+                Slot = slot,
+                X0 = runX0, Y0 = runY0, X1 = runX1, Y1 = runY1,
+                Protecting = protecting,
             });
 
             chain = new RasterizeRowsJob
@@ -3318,6 +3719,14 @@ namespace SkiResortMod.Systems
                 LapseAmbient = lapseAmbient,
                 LapseBaseHeight = lapseBaseHeight,
                 LapseScale = lapseScale,
+                BarNorm = RunSnowRules.SkiableNorm,   // T09: injected runs open at 15 cm (their guns can reach it)
+                Slot = slot,
+                ProtectMask = m_ProtectMask,
+                Owner = m_Owner,
+                Protecting = protecting,
+                Spring = m_PassSpring,
+                HoursUsed = hoursUsed,
+                NorthSign = m_PassNorthSign,
             }.ScheduleParallel(rowCount, RowBatch, chain);
 
             chain = new ClearScratchRowsJob
@@ -3371,6 +3780,13 @@ namespace SkiResortMod.Systems
             return tris;
         }
 
+
+        /// <summary>T09: zero a float plane (the per-texel protection baseline at a load).</summary>
+        private static void ZeroPlane(NativeArray<float> plane)
+        {
+            for (int i = 0; i < plane.Length; i++)
+                plane[i] = 0f;
+        }
 
         /// <summary>Deterministic per-cell hash noise in [0,1) — integer mix, no state,
         /// identical every top-up (a shimmering edge would read as simulation noise).</summary>
@@ -3428,6 +3844,19 @@ namespace SkiResortMod.Systems
         private bool IsRunBound(Entity run)
         {
             return m_Ownership.IsBound(run);
+        }
+
+        /// <summary>T09: the slope band (0 flat .. 4 double black, SkiResortScore.Band*) of a natural run from the catalog's
+        /// last rebuild; -1 while it is unrated or the catalog is absent (the run then needs the default 15 cm). The catalog is
+        /// resolved lazily and may stay null: nothing here depends on it being there.</summary>
+        private int NaturalBand(Entity run)
+        {
+            if (m_Catalog == null)
+                m_Catalog = World.GetExistingSystemManaged<SkiRunCatalogSystem>();
+            if (m_Catalog != null && m_Catalog.TryGetRow(run, out SkiRunCatalogSystem.RunRow row) &&
+                row.RateState == SkiRunCatalogSystem.RateRated)
+                return row.Band;
+            return -1;
         }
 
         private void ResolvePrefabSet(string[] names, HashSet<Entity> target)

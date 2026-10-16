@@ -222,7 +222,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.EnableSnowGating)),
                     "On: a run adds to its ski area's score only while snow lies on it - open when 60 % " +
-                    "of it has snow, closed below 40 % (measured in the game's own snow, or estimated " +
+                    "of it has 15 cm of snow (31 cm on natural black runs), closed below 40 % (measured in the game's own snow, or estimated " +
                     "from the climate until the first measurement). A ski area with no open run counts " +
                     "as summer sightseeing. Off: every run counts as open all year, for maps without " +
                     "winter. Runs pay upkeep only while their grooming or snow guns run, so on a warm " +
@@ -236,7 +236,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowmakingBonusCelsius)),
                     "Snow guns on snowmaking and night runs work where the air on the run is at most " +
                     "this many degrees above freezing. Higher means a longer season and a bigger " +
-                    "snowmaking bill. Default 2."
+                    "snowmaking bill. Default 3.3 (38 F)."
                 },
                 {
                     m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupTerrain),

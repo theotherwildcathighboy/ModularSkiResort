@@ -114,6 +114,20 @@
 //     crux. SteepestGrade = P90Grade = RatingGrade, Connected = true, CruxValid = false,
 //     ZoneByFallLine = false.
 //
+// T44 DIFFICULTY LAYER (2026-10-16; docs/research/field/2026-10-15/build/T44-difficulty.md; Richard: "an IRL hard blue",
+// run width, and "no cat track becomes a black diamond"). RatingGrade and every crux output are UNCHANGED (SlopeBatch's
+// rating fingerprint is bit-identical: the layer reads them). SlopeResult.Band is now BandOf(RatingGrade) moved by FinishBand,
+// ring mode with a valid easiest line only: (3) green-mean runs (MeanGrade < GreenMeanKeepsBlueMax) rate at most blue unless the
+// crux pitch is >= CruxLengthForBlack; (1) otherwise a borderline black (double black) crux with a steep-cell share below
+// SteepShareForBlack (DoubleBlackShare) and a mean below its floor rates one band lower, unless the pitch is long or the steep
+// section narrower than NarrowWidthM (narrow cells count double in the share); (2) a blue crux < WideEase above the green/blue
+// boundary on a run wider than WideRunM with a green mean rates green. Pitch length = metres of the recorded easiest line
+// (SlopeResult.Path, written by the crux pass) at/above the crux band's floor + PitchBlurM, + EndZoneDepthM per end it touches.
+// Widths = Mask extent across the mean fall line over the lattice already built (no terrain sampling). CruxBand/BandGrade/Note
+// and the evidence fields are published for the tooltip and the tests. Limits: widths need a usable fall line (ZoneByFallLine);
+// the easiest line is the BFS-shortest traversable path, so its stretch follows the pitch the line crosses; the pitch estimate
+// wobbles about +-5 m on a 3.5 m lattice (a 15 m / 50 % pitch reads 34-43 m), so "40 m" is a soft edge.
+//
 // WHAT R2b FIXED (SlopeBatch "R2b end zones", asserted, m = 1, 8 frames = rotations 0/17/45/73°
 // × 2 origins; R2's value in brackets): valley 600 × 120 (40 m floor at 15 %, 30 % sides)
 // 14.24-14.94 % Green [31.8-33.6 % Blue]; steep-wall valleys (10 % floor, 40 / 50 % walls)
@@ -447,6 +461,25 @@ namespace SkiResortMod.Systems
         DoubleBlack = 4,
     }
 
+    /// <summary>T44 (2026-10-16) difficulty layer: why SlopeResult.Band differs from (or nearly differs
+    /// from) BandOf(RatingGrade). None = the crux band stands. Capped = a black (double black) crux
+    /// capped one band down by the steep-cell share. WideEase = a crux within WideEase of the
+    /// green/blue boundary on a wide gentle run rounded down to green. NarrowKept = the cap WOULD
+    /// have applied (few steep cells, short pitch) but the steep section is narrower than
+    /// NarrowWidthM, so the crux band stands: the deciding factor is the width. LongKept = the cap
+    /// would have applied but the crux pitch is at least CruxLengthForBlack long: the length decides.
+    /// GreenMean = a black or double black crux on a run whose MEAN grade is in the green band, rated blue
+    /// (Richard 2026-10-16: no cat track becomes a black diamond).</summary>
+    public enum SlopeNote : byte
+    {
+        None = 0,
+        Capped = 1,
+        WideEase = 2,
+        NarrowKept = 3,
+        LongKept = 4,
+        GreenMean = 5,
+    }
+
     public enum SlopeStatus
     {
         Ok,
@@ -510,7 +543,7 @@ namespace SkiResortMod.Systems
     public sealed class SlopeResult
     {
         public SlopeStatus Status;
-        public SlopeBand Band;                  // BandOf(RatingGrade)
+        public SlopeBand Band;                  // THE rated band: BandOf(RatingGrade) moved by the T44 difficulty layer (CruxBand, Note) in ring mode
         public float RatingGrade, MeanGrade, Drop, MinHeight, MaxHeight, Area, FallCoherence;
         public float2 FallLine;
         public readonly float[] BandShare = new float[5];
@@ -544,6 +577,24 @@ namespace SkiResortMod.Systems
         public float LengthRect;                // m; ring: (P + sqrt(max(0, P² − 16A))) / 4 over the sanitized ring (closing edge included); polyline 0
         public float AxisLength;                // m; ring: ZoneByFallLine ? fall-line key range of the inside cells + step : 0; polyline 0
 
+        // T44 (2026-10-16, docs/research/field/2026-10-15/build/T44-difficulty.md): the difficulty layer
+        // on top of the crux. RatingGrade stays the raw crux (the oracle, "Hardest unavoidable pitch");
+        // Band = the band the run is RATED (the catalog, the hub and the economy read it). Polyline mode,
+        // a broken Mask (!Connected) and cleared results: CruxBand == Band, BandGrade == RatingGrade,
+        // Note None. Evaluated in ring mode only when the crux band is Blue, Black or Double black.
+        public SlopeBand CruxBand;              // BandOf(RatingGrade): the crux's own band
+        public float BandGrade;                 // the grade Band reads: RatingGrade, or when the layer moved the band the crux limited to just below the band's ceiling (a DisplayBand input)
+        public SlopeNote Note;                  // why Band moved / nearly moved (SlopeNote)
+        public float SteepShare;                // black/double-black crux: share of inside cells at/above the band floor (40 / 60 %), unweighted; else 0
+        public float SteepShareWeighted;        // the same with cells in a section narrower than NarrowWidthM counted twice
+        public float CruxPitchM;                // black/double-black crux: estimated length of the crux pitch along the easiest line, m (CruxStretchM + PitchBlurM); else 0
+        public float CruxWidthM;                // mean perpendicular extent over the crux stretch, m; -1 = not evaluated / no usable fall line
+
+        // Classifier-private: the easiest line (cell indices, bottom zone -> top zone) the crux pass walked,
+        // and the index of the crux cell on it. Grown, never shrunk.
+        internal int[] Path;
+        internal int PathLen, PathCrux;
+
         // Classifier-private: |Σg| / n, the mean box gradient's magnitude (ring mode) — the
         // end-zone key gate's input, kept so CruxForTest re-decides the key exactly as Classify.
         internal float MeanGradient;
@@ -564,6 +615,15 @@ namespace SkiResortMod.Systems
         {
             Status = SlopeStatus.NoCells;
             Band = SlopeBand.Flat;
+            CruxBand = SlopeBand.Flat;
+            BandGrade = 0f;
+            Note = SlopeNote.None;
+            SteepShare = 0f;
+            SteepShareWeighted = 0f;
+            CruxPitchM = 0f;
+            CruxWidthM = -1f;
+            PathLen = 0;
+            PathCrux = 0;
             RatingGrade = 0f;
             SteepestGrade = 0f;
             P90Grade = 0f;
@@ -621,6 +681,29 @@ namespace SkiResortMod.Systems
         // key. Whole histogram bins of the key from each end. RatingBuckets = the counting-sort
         // resolution of the per-cell values: bucket = min(2047, (int)(o·1024)), i.e. 1/1024 =
         // 0.098 % grade wide up to 200 %.
+        // T44 (2026-10-16) difficulty layer, applied AFTER the crux (see FinishBand). Every constant with its reason:
+        //  SteepShareForBlack 0.15  a black crux is capped at blue ("hard blue") when fewer than 15 % of the run's cells
+        //                           read at/above 40 %: a few steep cells are a pitch, not a black run (Richard 2026-10-16).
+        //  DoubleBlackShare 0.10    the same against the 60 % band, one step tighter (a 60 % face is rarer and the cap
+        //                           only drops a double black to black, never to blue).
+        //  CruxLengthForBlack 40 m  never cap a crux pitch this long along the easiest line: a 40 m wall is black whatever
+        //                           its share of a long run. Measured as CruxStretchM + PitchBlurM (below).
+        //  PitchBlurM 20 m          the 20 m window smears a wall of length L into about L - 15 .. L - 5 m of line at/above
+        //                           its floor (50 m @ 55 % reads 42 m, 40 m @ 45 % reads 25 m); the estimate adds the window length so a 40 m wall clears 40 m.
+        //  CapMaxOverFloor 0.10     only a BORDERLINE band is capped (crux < floor + 10 pp, Richard: "a borderline black"):
+        //                           a 20 m wall at 62 % is black however few the cells.
+        //  NarrowWidthM 20 m        a steep section narrower than this counts double in the steep share and can never be
+        //                           capped (narrow + steep = harder; a 20 m chute leaves no room to turn).
+        //  WideRunM 60 m, WideEase 0.02  a crux within 2 pp above the green/blue boundary on a run wider than 60 m with a
+        //                           blue-or-gentler mean rounds down to green: room to turn makes the same slope easier.
+        public const float SteepShareForBlack = 0.15f, DoubleBlackShare = 0.10f, CruxLengthForBlack = 40f, PitchBlurM = 20f;
+        public const float CapMaxOverFloor = 0.10f, NarrowWidthM = 20f, WideRunM = 60f, WideEase = 0.02f;
+        //  GreenMeanKeepsBlueMax 25 %  a run whose MEAN grade is below this (the green band, the classifier's own green/blue
+        //                           boundary) rates at most BLUE however short and steep its crux, unless the unavoidable pitch
+        //                           is CruxLengthForBlack or longer: a cat track is narrow and has a short kick, it is not a
+        //                           black diamond (Richard 2026-10-16). The share, margin and width rules do not apply to it.
+        public const float GreenMeanKeepsBlueMax = GradeBlue;
+
         public const float EndZoneShare = 0.10f, EndZoneMaxM2 = 2000f;
         public const float EndZoneDepthM = 20f, EndZoneMinMeanGrade = 0.03f, EndZoneMinCoherence = 0.5f;
         public const int RatingBuckets = 2048;
@@ -1252,6 +1335,8 @@ namespace SkiResortMod.Systems
                 result.SteepestGrade = result.RatingGrade;
                 result.P90Grade = result.RatingGrade;
                 result.Connected = true;
+                result.CruxBand = result.Band;      // T44: no lattice, no difficulty layer
+                result.BandGrade = result.RatingGrade;
             }
             result.Status = status;
             return status;
@@ -1275,7 +1360,7 @@ namespace SkiResortMod.Systems
                 return false;
             result.DiagonalRule = grid.DiagonalRule;
             Crux(grid, result, endZoneShare, endZoneMaxM2, endZoneDepthM, endZoneMinMeanGrade, endZoneMinCoherence);
-            result.Band = BandOf(result.RatingGrade);
+            FinishBand(grid, result);
             return true;
         }
 
@@ -1507,7 +1592,7 @@ namespace SkiResortMod.Systems
             // MeanGradient and FallCoherence: the end-zone key gate reads them, so they are set
             // above on every path).
             Crux(grid, result, endZoneShare, endZoneMaxM2, endZoneDepthM, endZoneMinMeanGrade, endZoneMinCoherence);
-            result.Band = BandOf(result.RatingGrade);
+            FinishBand(grid, result);   // T44: Band = BandOf(RatingGrade) moved by the difficulty layer
 
             // R3 (run-binding-glade-spec.md §5.1): run length = max(equivalent rectangle, fall-line
             // extent). Reads only the sanitized points and AxisLength (set by Crux); writes only
@@ -1606,6 +1691,7 @@ namespace SkiResortMod.Systems
             int[] uf = result.Uf, bound = result.BucketBound, hist = result.HeightHist;
             Array.Clear(bound, 0, RatingBuckets + 1);
             Array.Clear(hist, 0, HeightBins);
+            result.PathLen = 0;                 // T44: the recorded easiest line is void until this pass finds one
 
             // ---- end-zone key (R2b, §9.8; Crux summary "END ZONES"). The fall-line key is
             // computed inline per cell by ZoneKey (no per-cell buffer); it is linear in i along a
@@ -1988,24 +2074,253 @@ namespace SkiResortMod.Systems
                 return; // cannot happen once connected; CruxValid stays false
 
             // Walk bottom -> top; ">=" lets a later (nearer the top) cell win ties.
+            // T44: the walked cells are also recorded (bottom -> top) so the difficulty layer can
+            // measure the crux pitch and its width without a second traversal.
+            Grow(ref result.Path, n + 2);
+            int[] path = result.Path;
+            int pathLen = 0, pathCrux = 0;
             int crux = found, cur = found, steps = 0;
             float cruxValue = cg[found];
             while (true)
             {
+                if (pathLen < path.Length)
+                    path[pathLen++] = cur;
                 if (cg[cur] >= cruxValue)
                 {
                     cruxValue = cg[cur];
                     crux = cur;
+                    pathCrux = pathLen - 1;
                 }
                 int p = uf[cur];
                 if (p < 0 || ++steps > n)
                     break;
                 cur = p;
             }
+            result.PathLen = pathLen;
+            result.PathCrux = pathCrux;
             result.CruxValid = true;
             result.CruxJ = crux / nx;
             result.CruxI = crux - result.CruxJ * nx;
             result.CruxHeight = h[crux];
+        }
+
+        // ================================================================== T44 difficulty layer
+
+        /// <summary>Floor of a band's grade range (Green 6 %, Blue 25 %, Black 40 %, Double black 60 %).</summary>
+        private static float FloorOf(SlopeBand band)
+        {
+            switch (band)
+            {
+                case SlopeBand.Green: return GradeGreen;
+                case SlopeBand.Blue: return GradeBlue;
+                case SlopeBand.Black: return GradeBlack;
+                case SlopeBand.DoubleBlack: return GradeDoubleBlack;
+                default: return 0f;
+            }
+        }
+
+        /// <summary>T44 (2026-10-16). Sets Band / CruxBand / BandGrade / Note and the evidence fields
+        /// from the finished crux pass. Pure: reads only the result (CellGrade, the recorded easiest
+        /// line Path, FallLine, MeanGrade, RatingGrade) and the grid's Mask; no terrain sampling, no
+        /// allocation. Rules, each one a pure function of those numbers (constants and reasons at
+        /// SteepShareForBlack):
+        ///  1. Steep-share cap. Crux in the black (double black) band, within CapMaxOverFloor of its floor,
+        ///     MeanGrade below the floor, and the share of inside cells with CellGrade >= the floor below
+        ///     SteepShareForBlack (DoubleBlackShare): the run rates one band lower (black -> blue, double
+        ///     black -> black; never two). Not when the crux pitch is CruxLengthForBlack or longer
+        ///     (LongKept), nor when the crux stretch is narrower than NarrowWidthM or the width-weighted
+        ///     share (cells in a section narrower than NarrowWidthM counted twice) reaches the limit
+        ///     (NarrowKept: the width decided).
+        ///  3. Green mean (Richard 2026-10-16). MeanGrade below GreenMeanKeepsBlueMax (the green band): at most
+        ///     blue however short and steep the crux (double black included), unless the pitch is
+        ///     CruxLengthForBlack or longer (LongKept). Checked before the share rule; no share, margin
+        ///     or width condition.
+        ///  2. Wide ease. Blue crux less than WideEase above the green/blue boundary, MeanGrade below it,
+        ///     crux stretch wider than WideRunM: Green.
+        /// Widths are perpendicular extents of the Mask across the mean fall line (cells x step), marched
+        /// over the lattice already built. They need a usable fall line (ZoneByFallLine); without one
+        /// (cones, craters, flat ground) width is unknown (CruxWidthM -1) and no width rule fires.
+        /// Polyline mode, a broken Mask (the rating is the P90 fallback, no easiest line) and ShortRun
+        /// results with no valid crux keep Band = BandOf(RatingGrade).</summary>
+        private static void FinishBand(SlopeGrid grid, SlopeResult result)
+        {
+            float rating = result.RatingGrade;
+            SlopeBand crux = BandOf(rating);
+            result.CruxBand = crux;
+            result.Band = crux;
+            result.BandGrade = rating;
+            result.Note = SlopeNote.None;
+            result.SteepShare = 0f;
+            result.SteepShareWeighted = 0f;
+            result.CruxPitchM = 0f;
+            result.CruxWidthM = -1f;
+            if (!result.Connected || !result.CruxValid || result.PathLen < 1 || result.PathCrux < 0 || result.PathCrux >= result.PathLen ||
+                !IsFinite(rating) || !IsFinite(result.MeanGrade))
+                return;
+            if (crux != SlopeBand.Blue && crux != SlopeBand.Black && crux != SlopeBand.DoubleBlack)
+                return;
+
+            int nx = grid.Nx, nz = grid.Nz;
+            float s = grid.Step;
+            float[] cg = result.CellGrade;
+            int[] path = result.Path;
+            int pathLen = result.PathLen, pc = result.PathCrux;
+            float floor = FloorOf(crux);
+
+            // The crux stretch: the cells of the easiest line around the crux cell that read at/above the
+            // crux band's floor (the line is recorded bottom -> top; indices lo..hi, lo the downhill end).
+            int lo = pc, hi = pc;
+            while (lo > 0 && cg[path[lo - 1]] >= floor)
+                lo--;
+            while (hi < pathLen - 1 && cg[path[hi + 1]] >= floor)
+                hi++;
+            double stretchM = s;                           // one cell long at least
+            for (int k = lo; k < hi; k++)
+            {
+                int d = path[k + 1] - path[k];
+                stretchM += (d == 1 || d == -1 || d == nx || d == -nx) ? s : 1.41421356 * s;   // 8-neighbour step: orthogonal or diagonal
+            }
+            // A stretch that reaches an end of the easiest line is cut by the end zone (the line starts / ends inside it, header limit (a)):
+            // the pitch may continue into the zone, so each touched end adds the zone depth and a short-looking wall is not capped.
+            if (lo == 0)
+                stretchM += EndZoneDepthM;
+            if (hi == pathLen - 1)
+                stretchM += EndZoneDepthM;
+
+            // Perpendicular direction of the mean fall line (lattice axes i <-> x, j <-> z).
+            bool haveAxis = result.ZoneByFallLine && (result.FallLine.x != 0f || result.FallLine.y != 0f);
+            float px = -result.FallLine.y, pz = result.FallLine.x;
+            int wideSide = (int)math.ceil(WideRunM / s) + 1;
+
+            if (crux == SlopeBand.Blue)
+            {
+                // Rule 2: wide ease at the green/blue boundary.
+                if (rating < GradeBlue + WideEase && result.MeanGrade < GradeBlue && haveAxis)
+                {
+                    float w = StretchWidth(grid.Mask, nx, nz, path, lo, hi, px, pz, s, wideSide);
+                    result.CruxWidthM = w;
+                    if (w > WideRunM)
+                    {
+                        result.Band = SlopeBand.Green;
+                        result.BandGrade = rating < GradeBlue - 2f * DisplayHysteresis ? rating : GradeBlue - 2f * DisplayHysteresis;
+                        result.Note = SlopeNote.WideEase;
+                    }
+                }
+                return;
+            }
+
+            // Rule 3 (Richard 2026-10-16): a green-mean run (cat track, traverse) rates at most blue unless its
+            // unavoidable pitch is long. Narrowness does NOT keep the band here (cat tracks are narrow by nature).
+            if (result.MeanGrade < GreenMeanKeepsBlueMax)
+            {
+                float pitchG = (float)stretchM + PitchBlurM;
+                result.CruxPitchM = pitchG;
+                if (haveAxis)
+                    result.CruxWidthM = StretchWidth(grid.Mask, nx, nz, path, lo, hi, px, pz, s, wideSide);
+                if (pitchG >= CruxLengthForBlack)
+                {
+                    result.Note = SlopeNote.LongKept;
+                    return;
+                }
+                float ceilingG = GradeBlack - 2f * DisplayHysteresis;
+                result.Band = SlopeBand.Blue;
+                result.BandGrade = rating < ceilingG ? rating : ceilingG;
+                result.Note = SlopeNote.GreenMean;
+                return;
+            }
+
+            // Rule 1: the steep-share cap (crux black or double black).
+            bool black = crux == SlopeBand.Black;
+            float shareLimit = black ? SteepShareForBlack : DoubleBlackShare;
+            if (!(rating - floor < CapMaxOverFloor) || !(result.MeanGrade < floor))
+                return;
+
+            int[] mRuns = grid.MaskRuns, mStart = grid.MaskRowStart;
+            byte[] mask = grid.Mask;
+            int narrowSide = (int)math.ceil(NarrowWidthM / s) + 1;
+            long steep = 0, steepNarrow = 0, cells = 0;
+            for (int j = Dilation; j < nz - Dilation; j++)
+            {
+                int row = j * nx;
+                for (int rk = mStart[j]; rk < mStart[j + 1]; rk++)
+                {
+                    int a = mRuns[2 * rk] < Dilation ? Dilation : mRuns[2 * rk];
+                    int b = mRuns[2 * rk + 1] > nx - 1 - Dilation ? nx - 1 - Dilation : mRuns[2 * rk + 1];
+                    for (int i = a; i <= b; i++)
+                    {
+                        int q = row + i;
+                        if (mask[q] == 0)
+                            continue;
+                        cells++;
+                        if (cg[q] < floor)
+                            continue;
+                        steep++;
+                        if (haveAxis && Extent(mask, nx, nz, i, j, px, pz, s, narrowSide) < NarrowWidthM)
+                            steepNarrow++;
+                    }
+                }
+            }
+            if (cells == 0)
+                return;
+            float share = (float)((double)steep / cells);
+            float weighted = (float)((double)(steep + steepNarrow) / cells);
+            result.SteepShare = share;
+            result.SteepShareWeighted = weighted;
+            float pitchM = (float)stretchM + PitchBlurM;
+            result.CruxPitchM = pitchM;
+            if (haveAxis)
+                result.CruxWidthM = StretchWidth(mask, nx, nz, path, lo, hi, px, pz, s, wideSide);
+            if (!(share < shareLimit))
+                return;                                     // plenty of steep cells: a real black (double black) run
+
+            if (pitchM >= CruxLengthForBlack)
+            {
+                result.Note = SlopeNote.LongKept;           // a long unavoidable wall is black whatever the share
+                return;
+            }
+            if (weighted >= shareLimit || (haveAxis && result.CruxWidthM >= 0f && result.CruxWidthM < NarrowWidthM))
+            {
+                result.Note = SlopeNote.NarrowKept;         // narrow + steep = harder: the width kept the band
+                return;
+            }
+            result.Band = black ? SlopeBand.Blue : SlopeBand.Black;
+            float ceilingBelow = floor - 2f * DisplayHysteresis;
+            result.BandGrade = rating < ceilingBelow ? rating : ceilingBelow;
+            result.Note = SlopeNote.Capped;
+        }
+
+        /// <summary>Mean perpendicular extent (m) over the easiest-line cells path[lo..hi].</summary>
+        private static float StretchWidth(byte[] mask, int nx, int nz, int[] path, int lo, int hi, float px, float pz, float step, int maxSide)
+        {
+            double sum = 0.0;
+            for (int k = lo; k <= hi; k++)
+            {
+                int q = path[k];
+                int j = q / nx, i = q - j * nx;
+                sum += Extent(mask, nx, nz, i, j, px, pz, step, maxSide);
+            }
+            return (float)(sum / (hi - lo + 1));
+        }
+
+        /// <summary>Extent (m) of the Mask through cell (i, j) along the unit direction (px, pz) in lattice
+        /// axes: the inside cells met stepping one cell-length at a time each way, plus the cell itself, times
+        /// the step. At most 2·maxSide + 1 cells (a lower bound when both sides run out of steps). Cells
+        /// outside the clamped lattice count as outside.</summary>
+        private static float Extent(byte[] mask, int nx, int nz, int i, int j, float px, float pz, float step, int maxSide)
+        {
+            int count = 1;
+            for (int dir = -1; dir <= 1; dir += 2)
+            {
+                for (int t = 1; t <= maxSide; t++)
+                {
+                    int ci = (int)math.floor(i + dir * t * px + 0.5f);
+                    int cj = (int)math.floor(j + dir * t * pz + 0.5f);
+                    if (ci < Dilation || ci >= nx - Dilation || cj < Dilation || cj >= nz - Dilation || mask[cj * nx + ci] == 0)
+                        break;
+                    count++;
+                }
+            }
+            return count * step;
         }
 
         /// <summary>z = clamp(round(share·n), 1, max(1, cap)), never above n. Round half up, in

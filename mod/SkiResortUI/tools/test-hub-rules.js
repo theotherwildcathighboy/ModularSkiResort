@@ -356,6 +356,28 @@ function run(srcDir) {
   eq("T16.3 cityIncomeShown", [R.cityIncomeShown({ cityIncomeEst: 4200 }, { tourismOverhaul: false }), R.cityIncomeShown({ cityIncomeEst: 0 }, { tourismOverhaul: false }),
     R.cityIncomeShown({ cityIncomeEst: -1 }, { tourismOverhaul: false }), R.cityIncomeShown({ cityIncomeEst: 4200 }, { tourismOverhaul: true }),
     R.cityIncomeShown(null, { tourismOverhaul: false })], [true, true, false, false, false]);
+  // T31 (2026-10-16): the Build strip's three tabs over the real BUILD_ITEMS table.
+  const kindTabs = {};
+  for (const m of META) kindTabs[m.id] = R.tabOfItem(m.id, META);
+  eq("T17.1 every one of the 25 items is on exactly one tab, by kind", [Object.keys(kindTabs).length, Object.values(kindTabs).filter((x) => x === null).length], [25, 0]);
+  eq("T17.2 tab sizes: 12 lifts, 4 runs, 9 buildings", [Object.values(kindTabs).filter((x) => x === "lifts").length, Object.values(kindTabs).filter((x) => x === "runs").length,
+    Object.values(kindTabs).filter((x) => x === "buildings").length], [12, 4, 9]);
+  eq("T17.3 spot rows", [kindTabs.sign, kindTabs.lodgeGrand, kindTabs.school, kindTabs.patrolHQ, kindTabs.liftTram, kindTabs.topStationGondola, kindTabs.runNight],
+    ["buildings", "buildings", "buildings", "buildings", "lifts", "lifts", "runs"]);
+  eq("T17.4 tabOfItem of an unknown id / null", [R.tabOfItem("nope", META), R.tabOfItem(null, META), R.tabOfKind("weird")], [null, null, null]);
+  eq("T17.5 drawnTabs: FG-only city draws all three, table order", R.drawnTabs(R.visibleIds(FG_ONLY, META, NO), META), ["lifts", "runs", "buildings"]);
+  eq("T17.6 drawnTabs: no lift items sent -> no Lifts tab", R.drawnTabs(R.visibleIds(sent("sign", "lodge", "runNatural"), META, NO), META), ["runs", "buildings"]);
+  eq("T17.7 drawnTabs: nothing sent -> none", R.drawnTabs(new Set(), META), []);
+  const ALL3 = ["lifts", "runs", "buildings"];
+  eq("T17.8 effectiveTab: the remembered tab wins while drawn", [R.effectiveTab(ALL3, "runs", "lift"), R.effectiveTab(ALL3, "buildings", "done")], ["runs", "buildings"]);
+  eq("T17.9 effectiveTab: none remembered -> the NEXT step's tab", [R.effectiveTab(ALL3, "", "sign"), R.effectiveTab(ALL3, "", "lodge"), R.effectiveTab(ALL3, "", "lift"),
+    R.effectiveTab(ALL3, "", "run")], ["buildings", "buildings", "lifts", "runs"]);
+  eq("T17.10 effectiveTab: done / unlinked -> the first drawn; a remembered tab that is not drawn falls back", [R.effectiveTab(ALL3, "", "done"),
+    R.effectiveTab(["runs", "buildings"], "lifts", "unlinked"), R.effectiveTab(["runs", "buildings"], "lifts", "lift"), R.effectiveTab([], "runs", "run")], ["lifts", "runs", "runs", ""]);
+  eq("T17.11 tabOfNext", [R.tabOfNext("sign"), R.tabOfNext("unlinked"), R.tabOfNext("lodge"), R.tabOfNext("lift"), R.tabOfNext("run"), R.tabOfNext("done")],
+    ["buildings", null, "buildings", "lifts", "runs", null]);
+  eq("T17.12 tabOfDot: tile, chip, none", [R.tabOfDot({ kind: "tile", id: "runGroomed" }, META), R.tabOfDot({ kind: "chip", set: "lift", value: "gondola" }, META),
+    R.tabOfDot({ kind: "chip", set: "lodge", value: "lodgeMid" }, META), R.tabOfDot(null, META)], ["runs", "lifts", "buildings", null]);
   eq("T14.9 BUILD_ITEMS covers every id once, table order = BUILD_ITEM_IDS", META.map((m) => m.id), BIND.BUILD_ITEM_IDS);
   return { checks, failures };
 }

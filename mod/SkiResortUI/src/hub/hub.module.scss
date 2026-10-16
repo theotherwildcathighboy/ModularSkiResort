@@ -853,10 +853,11 @@
 .buildTile {
   position: relative;
   display: flex;
-  flex-direction: row;
+  // T31: icon over its short label (was icon only, 44 tall): 2 border + 28 icon + 14 label + 6 air = 50.
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: calc(44rem * var(--fontScale));
+  height: calc(50rem * var(--fontScale));
   padding: 0rem;
   overflow: hidden;
   background-color: var(--sectionBackgroundColor);
@@ -901,8 +902,26 @@
 .buildIcon {
   flex-grow: 0;
   flex-shrink: 0;
-  width: calc(30rem * var(--fontScale));
-  height: calc(30rem * var(--fontScale));
+  width: calc(28rem * var(--fontScale));
+  height: calc(28rem * var(--fontScale));
+}
+
+// T31: the tile's visible name under its icon: ONE nowrap line that shrinks, then ellipsis (the picker label's rules).
+.buildTileLabel {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0rem 2rem;
+  height: calc(14rem * var(--fontScale));
+  line-height: calc(14rem * var(--fontScale));
+  font-size: var(--fontSizeXS);
+  color: var(--normalTextColor);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  coh-font-fit-mode: shrink;
 }
 
 // Drawn instead of a prefab icon that failed to load.
@@ -916,7 +935,7 @@
   position: absolute;
   left: 6rem;
   right: 6rem;
-  bottom: 2rem;
+  top: 2rem; // T31: along the TOP edge now; the bottom holds the label
   height: 4rem;
   box-sizing: border-box;
   border-radius: 2rem;
@@ -985,6 +1004,69 @@
   align-items: stretch;
   height: calc(22rem * var(--fontScale));
   margin-bottom: 4rem;
+}
+
+// T31 (2026-10-16): the TAB ROW above the family row (.pickerRow): three top-level tabs, one fixed-height line like the family row
+// (24 tall + 4 margin = the row's whole cost; the family row below is now always drawn so the footer never changes height
+// with the tab). Tabs reuse .pickerCell / .pickerCellNext; the chosen tab has a heavier accent underline than a family chip.
+.tabRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  height: calc(24rem * var(--fontScale));
+  margin-bottom: 4rem;
+}
+
+.tabButton {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: calc(24rem * var(--fontScale));
+  padding: 0rem 6rem;
+  overflow: hidden;
+  font-size: var(--fontSizeS);
+  color: rgba(240, 251, 255, 0.7);
+  background-color: var(--sectionBackgroundColor);
+  border-style: solid;
+  border-top-width: 1rem;
+  border-right-width: 1rem;
+  border-bottom-width: 3rem;
+  border-left-width: 1rem;
+  border-top-color: rgba(0, 0, 0, 0);
+  border-right-color: rgba(0, 0, 0, 0);
+  border-bottom-color: rgba(0, 0, 0, 0);
+  border-left-color: rgba(0, 0, 0, 0);
+  border-radius: 3rem;
+}
+
+.tabButton:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.tabButton:active {
+  background-color: var(--activeColorNormal);
+}
+
+.tabButtonOn,
+.tabButtonOn:hover {
+  color: var(--normalTextColor);
+  background-color: var(--selectedColor);
+  border-bottom-color: var(--accentColorNormal);
+}
+
+.tabLabel {
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0rem;
+  line-height: calc(20rem * var(--fontScale));
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  coh-font-fit-mode: shrink;
 }
 
 .pickerSet {
