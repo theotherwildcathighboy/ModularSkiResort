@@ -159,6 +159,7 @@ namespace SkiResortMod.Systems
         public const string KeySlopeShare = "SkiResort.Tooltip.SLOPE_AVG_MAX_SHARE";     // T44: + "· only {SS} of the run is steeper than {ST}"
         public const string KeySlopeGentle = "SkiResort.Tooltip.SLOPE_AVG_MAX_GENTLE";   // T44: + "· gentle run, short steep pitch"
         public const string KeyNoGate ="SkiResort.Tooltip.NO_GATE_IN_RANGE";
+        public const string KeyCatSteep = "SkiResort.Tooltip.CAT_TRACK_TOO_STEEP";   // T54 probe 1: a cat track rated blue or steeper
         public const string KeyFee = "SkiResort.Tooltip.RUN_FEE";             // E1 (D21, ch2 §4.6 / §6.4): "Run fee (one-time)"
 
         /// <summary>Built once; index = (int)SlopeBand (Flat 0 .. DoubleBlack 4, spec §2).</summary>
@@ -187,6 +188,7 @@ namespace SkiResortMod.Systems
         private IntTooltip m_Steepest;    // steepest avoidable patch (R2 line 4)
         private IntTooltip m_Fee;         // E1: one-time run fee (new runs only), money unit
         private StringTooltip m_NoGate;
+        private StringTooltip m_CatSteep;      // T54 probe 1: Error line "too steep for a cat track" (SkiRunRatingRules.CatTrackUnsuitable)
         private int m_ShownBand = -1;          // band currently written into m_Grade.value
 
         // Per-load state — reset at OnGameLoadingComplete.
@@ -255,6 +257,12 @@ namespace SkiResortMod.Systems
                 value = LocalizedString.Id(KeyNoGate),
                 color = TooltipColor.Warning,
             };
+            m_CatSteep = new StringTooltip
+            {
+                path = "skiRunCatSteep",
+                value = LocalizedString.Id(KeyCatSteep),
+                color = TooltipColor.Error,
+            };
             // E1 (D21, ch2 §6.4): the vanilla cost row's widget shape (TempCostTooltipSystem.cs:44-56)
             // with our label.
             m_Fee = new IntTooltip
@@ -292,7 +300,8 @@ namespace SkiResortMod.Systems
                          "(connected, >= rating + DisplayHysteresis, a different rounded %, a higher " +
                          "band than the shown band), and a warning on NEW runs with " +
                          "no Ski Area Welcome Sign in range; paths skiRunGrade/skiRunPitch/" +
-                         "skiRunPitchApprox/skiRunLength/skiRunDrop/skiRunSlope/skiRunSteepest/skiRunNoGate; " +
+                         "skiRunPitchApprox/skiRunLength/skiRunDrop/skiRunSlope/skiRunSteepest/skiRunNoGate (+ T54 skiRunCatSteep: " +
+                         "an Error line on a cat track rated blue or steeper); " +
                          "UITooltip after AreaToolTooltipSystem" +
                          ", the one-time run fee (new runs only, SkiRunFees.Fee by plan area, red when the city " +
                          "cannot pay) on path skiRunFee");
@@ -334,6 +343,11 @@ namespace SkiResortMod.Systems
                     }
                     m_Grade.color = band == (int)SlopeBand.Flat ? TooltipColor.Warning : TooltipColor.Info;
                     AddMouseTooltip(m_Grade);
+
+                    // 1b. T54 probe 1 (cat-track-run.md §2, D4): a cat track rated blue or steeper (25 % or more at the crux,
+                    //     the SHOWN band) is "Unsuitable" at bind; say so before the click. The click is not refused.
+                    if (r.Kind == (int)RunKind.CatTrack && SkiRunRatingRules.CatTrackUnsuitable((sbyte)band))
+                        AddMouseTooltip(m_CatSteep);
 
                     // 2. Hardest unavoidable pitch (the crux of the easiest line, spec §9.3), percent —
                     //    or, when the Mask is not connected (RatingGrade = P90 fallback), the same

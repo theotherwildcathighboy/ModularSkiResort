@@ -133,7 +133,8 @@ export const FOLLOW_NOTICE_MS = 6000;
 /** Contract 6: the pickers' choice for the UI session (local value: nothing sent to C#; a UI reload resets it). */
 export const pick$ = bindLocalValue<PickerSelection>(NO_PICK);
 
-const KIND_STRIPE = ["stripeGroomed", "stripeSnowmaking", "stripeNight"] as const;
+// Index = RunKind; 3 (natural) is drawn separately (two bars), 4 (cat track, T54 probe 1) is green.
+const KIND_STRIPE = ["stripeGroomed", "stripeSnowmaking", "stripeNight", "stripeNight", "stripeCatTrack"] as const;
 
 /** The name entry of an item: RUN_TYPE for runs (D17), Assets.NAME for the others. */
 function nameEntry(id: BuildItemId): LocEntry {
@@ -207,7 +208,7 @@ function onceValue(id: BuildItemId, item: BuildItem): JSX.Element | string {
 
 function monthValue(id: BuildItemId, item: BuildItem, t: Translate): JSX.Element | string {
   const kind: RunKind | undefined = BUILD_RUN_KIND[id];
-  if (kind === 3) return t(HUB_LOC.buildMonthNone);
+  if (kind === 3 || kind === 4) return t(HUB_LOC.buildMonthNone);   // natural; cat track (T54 probe 1: no snow bill, D1 pending)
   if (kind !== undefined) {
     return typeof item.monthlyPerHa === "number" && item.monthlyPerHa >= 0
       ? <LocText entry={HUB_FMT.buildMonthRun} args={{ RATE: numArg(item.monthlyPerHa, Unit.Money) }} /> : "–";

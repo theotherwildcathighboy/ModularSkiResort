@@ -2715,6 +2715,7 @@ namespace SkiResortMod.Systems
                 case RunKind.Snowmaking: return "snowmaking";
                 case RunKind.Night: return "night";
                 case RunKind.Natural: return "natural";
+                case RunKind.CatTrack: return "cat track";   // T54 probe 1: never scheduled, only reaches here through an estimate
                 default: return "kind " + (byte)kind;
             }
         }
@@ -3236,6 +3237,11 @@ namespace SkiResortMod.Systems
                             // Geometry heights, a signature term); they are pre-clipped and measured after
                             // the injected chain, and only when a measurement is due. Never scheduled into
                             // the fold: no mask, decay or ramp texel, no active texels, no bill.
+                            // T54 probe 1: the CAT TRACK (SkiRunCatTrackA, RunKind.CatTrack) is in none of the four sets, so
+                            // it lands on this `continue`: NO injection, no measurement, no bill. A 6-12 m ribbon cannot be
+                            // measured on the 14 m texel grid (cat-track-run.md §2); GetRunSnow answers it by the day-mean
+                            // estimate (RunSnowRules.ThresholdC gives it freezing + the gun margin). Do not add its name to
+                            // a set here.
                             if (!m_NaturalPrefabs.Contains(prefabRefs[i].m_Prefab))
                                 continue;
                             stats.NaturalTotal++;

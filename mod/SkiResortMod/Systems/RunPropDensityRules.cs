@@ -166,6 +166,19 @@ namespace SkiResortMod.Systems
             return ClassGun;
         }
 
+        /// <summary>T54 probe 1 (cat-track-run.md §2, D6): which census classes a run kind may carry at its corners. The cat
+        /// track (RunKind.CatTrack = 4) is hydrants only: no guns, no floodlight masts (it is not injected or lit), and no
+        /// empty-marker gaps of its own. Every other kind keeps what its prefab ships (true for all classes: the existing
+        /// groups are untouched by this rule). NO CONSUMER YET: the probe's SkiRunCatTrackA ships no AreaSubObjects (a
+        /// clone of the groomed prefab), so the rule is the spec and the test for the day its hydrant entry lands; the
+        /// prop system already watches the prefab (it bridges nothing without entries).</summary>
+        public static bool PropClassAllowed(int runKind, byte propClass)
+        {
+            if (runKind == (int)RunKind.CatTrack)
+                return propClass == ClassHydrant;
+            return true;
+        }
+
         /// <summary>round(a / b), half up, for a &gt;= 0 and b &gt; 0.</summary>
         private static long RoundDiv(long a, long b)
         {

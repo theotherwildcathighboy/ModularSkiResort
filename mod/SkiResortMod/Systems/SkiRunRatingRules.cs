@@ -147,6 +147,19 @@ namespace SkiResortMod.Systems
             return state == RatePending ? BandPending : BandUnrateable;
         }
 
+        /// <summary>T54 probe 1 (cat-track-run.md §2, D4): the first SlopeBand a cat track may NOT have: Blue (2). The classifier
+        /// cuts Blue at GradeBlue = 25 % (SkiSlopeClassifier.cs BandOf), so a cat track is suitable below 25 % and "Unsuitable" at
+        /// 25 % or steeper (the crux of the easiest line, T44 caps included). No new grade constant: the band IS the rule.</summary>
+        public const sbyte CatTrackFirstUnsuitableBand = 2;
+
+        /// <summary>T54 probe 1: is a cat track with this ROW band (RowBand: -1 pending, -2 unrateable, 0..4 rated) unsuitable?
+        /// Only a rated band of Blue or steeper is; a pending or unrateable track is not (it cannot be judged yet). The hub
+        /// shows it as the "Unsuitable" run state and the drawing tooltip warns before the click.</summary>
+        public static bool CatTrackUnsuitable(sbyte rowBand)
+        {
+            return rowBand >= CatTrackFirstUnsuitableBand;
+        }
+
         /// <summary>Is the state a final "cannot be rated" (2 / 3 / 4)?</summary>
         public static bool IsUnrateable(byte state)
         {

@@ -786,6 +786,11 @@
   background-color: rgba(150, 160, 170, 1);
 }
 
+// T54 probe 1: the cat track's marker, a green bar (the track is green-only).
+.kindCatTrack {
+  background-color: rgba(110, 200, 120, 1);
+}
+
 // Text ellipsis needs overflow:hidden + nowrap, and the font's ellipsis glyph (research 2.F.1).
 .rowName {
   flex-grow: 1;
@@ -960,6 +965,10 @@
 
 .stripeNight {
   background-color: rgba(255, 196, 70, 1);
+}
+
+.stripeCatTrack {
+  background-color: rgba(110, 200, 120, 1);   // T54 probe 1: as .kindCatTrack
 }
 
 // Step number of the lift tiles (stations first).

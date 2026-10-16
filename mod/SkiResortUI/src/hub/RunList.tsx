@@ -48,7 +48,7 @@ import { memo } from "react";
 import type { MouseEvent } from "react";
 import { Button } from "cs2/ui";
 import { Unit } from "cs2/l10n";
-import { OPEN_STATE } from "../bindings";
+import { OPEN_STATE, RUN_KIND } from "../bindings";
 import type { RunLive, RunRow } from "../bindings";
 import type { Translate } from "../l10n";
 import { isRunKind } from "./buildItems";
@@ -103,6 +103,8 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
         : live.openState === 0 ? <LocText key="o" entry={HUB_FMT.runOpenClosed} args={{ PCT }} />
           : null;
   }
+  // T54 probe 1: a cat track rated blue or steeper says why it is shut (OPEN_STATE.Unsuitable, C# HubRules.CatTrackOpenState).
+  if (live && live.openState === OPEN_STATE.Unsuitable) openLine = t(HUB_LOC.runUnsuitable);
   let servedLine: string | JSX.Element | null = null;
   if (row.served) {
     servedLine = liftName ? <LocText key="s" entry={HUB_FMT.runServed} args={{ NAME: liftName }} /> : t(HUB_LOC.runServedAnon);
@@ -118,6 +120,7 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
         !!live && live.snowEstimated && t(HUB_LOC.runEstimated),
         servedLine,
         row.member && row.typeFactor < 1 && t(HUB_LOC.runTypeNote),
+        row.kind === RUN_KIND.CatTrack && t(HUB_LOC.runCatTrackNote),   // T54 probe 1: listed, but not in the score or the capacity
         row.member && {
           label: t(HUB_LOC.runValue),
           value: <LocText entry={HUB_FMT.runValueOf} args={{
@@ -135,7 +138,7 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
         rated && row.gradePct >= 0 && { label: t(HUB_LOC.cruxPitch), value: <Num value={row.gradePct} unit={Unit.PercentageSingleFraction} /> },
         rated && row.steepestPct > row.gradePct && { label: t(HUB_LOC.steepestPatch), value: <Num value={row.steepestPct} unit={Unit.PercentageSingleFraction} /> },
         { label: t(HUB_LOC.colArea), value: <LocText entry={HUB_FMT.areaHa} args={{ HA: numArg(hectares(row.areaM2), Unit.FloatSingleFraction) }} /> },
-        row.kind !== 3 && row.bound && {
+        row.kind !== RUN_KIND.Natural && row.kind !== RUN_KIND.CatTrack && row.bound && {
           label: t(HUB_LOC.runCost),
           value: live && live.costMonth >= 0 ? <Num value={live.costMonth} unit={Unit.MoneyPerMonth} /> : "–",
         },
@@ -179,7 +182,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
   return (
     <div
       className={cx(styles.runRow, focused && styles.runRowFocused, !row.bound && styles.listRowUnbound,
-        state === OPEN_STATE.Closed && !renaming && styles.runRowClosed)}
+        (state === OPEN_STATE.Closed || state === OPEN_STATE.Unsuitable) && !renaming && styles.runRowClosed)}
       onMouseEnter={() => sendHoverRun(row.entity)}
     >
       {renaming ? (

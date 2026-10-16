@@ -256,6 +256,8 @@ export const HUB_LOC = {
   runOpenNone: ["SkiResort.Hub.RUN_OPEN_NONE", "Not linked: no snow state."],
   runServedAnon: ["SkiResort.Hub.RUN_SERVED_ANON", "A running lift reaches its top."],
   runTypeNote: ["SkiResort.Hub.RUN_TYPE_NOTE", "Natural green and blue runs count less; a groomed run counts in full."],
+  runCatTrackNote: ["SkiResort.Hub.RUN_CAT_TRACK_NOTE", "A cat track links the hill but adds nothing to the score or the capacity."],
+  runUnsuitable: ["SkiResort.Hub.RUN_UNSUITABLE", "Unsuitable: steeper than 25 % for a cat track. Redraw it on gentler ground."],
   runValue: ["SkiResort.Hub.RUN_VALUE", "Score value"],
   runCost: ["SkiResort.Hub.RUN_COST", "Running cost"],
   runActions: ["SkiResort.Hub.RUN_ACTIONS", "Click to fly there. The pen renames it."],
@@ -578,6 +580,7 @@ export const RUN_STATE_TEXT: readonly LocEntry[] = [
   ["SkiResort.Hub.RUN_STATE[Closed]", "Closed"],
   ["SkiResort.Hub.RUN_STATE[Patchy]", "Patchy"],
   ["SkiResort.Hub.RUN_STATE[Open]", "Open"],
+  ["SkiResort.Hub.RUN_STATE[Unsuitable]", "Unsuitable"],   // T54 probe 1: OPEN_STATE.Unsuitable = 3, a cat track rated blue or steeper
 ];
 
 /** SEASON_HINT words, index = SEASON_HINT value (0 None = no text). */
@@ -623,6 +626,7 @@ export const RUN_TYPE: Readonly<Record<RunKind, LocEntry>> = {
   1: ["SkiResort.Hub.RUN_TYPE[Snowmaking]", "Snowmaking run"],
   2: ["SkiResort.Hub.RUN_TYPE[Night]", "Night run"],
   3: ["SkiResort.Hub.RUN_TYPE[Natural]", "Natural run"],
+  4: ["SkiResort.Hub.RUN_TYPE[CatTrack]", "Cat track"],
 };
 
 /** Footer line 2 short hint of a run tile, by RunKind (6.10). */
@@ -631,6 +635,7 @@ export const BUILD_SHORT_RUN: Readonly<Record<RunKind, LocEntry>> = {
   1: ["SkiResort.Hub.BUILD_SHORT[Snowmaking]", "Snow guns open it earlier and keep it open longer."],
   2: ["SkiResort.Hub.BUILD_SHORT[Night]", "Floodlit snowmaking run: scores 25 % more."],
   3: ["SkiResort.Hub.BUILD_SHORT[Natural]", "Natural snow only, no running cost; easy runs score less."],
+  4: ["SkiResort.Hub.BUILD_SHORT[CatTrack]", "Green only; crosses other runs. Not part of the score."],
 };
 
 /** Footer idle lines (NEXT, NEXT2) by hubRules.nextVariant. NEXT2[Sign] is BUILD_HINT_SIGN (no own key). */

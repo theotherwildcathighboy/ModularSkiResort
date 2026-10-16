@@ -374,6 +374,10 @@ namespace SkiResortMod
                 { "Assets.DESCRIPTION[SkiSignSetGate]", "The welcome sign's lettered header. The sign places it; placed alone it floats." },
                 { "Assets.NAME[SkiSignSetGrand]", "Swanky Grand Lodge Sign Set (auto-placed)" },
                 { "Assets.DESCRIPTION[SkiSignSetGrand]", "The Grand Lodge name board. The building places it; placed alone it floats." },
+                // T54 / CT1 cat track probe (docs/research/field/2026-10-15/build/T54-probe2-net.md): a road with no drawn surface,
+                // service vehicles and walkers only. Probe: delete this entry and the UIObject of SkiCatTrack.Prefab to hide it.
+                { "Assets.NAME[SkiCatTrack]", "Ski Cat Track (probe)" },
+                { "Assets.DESCRIPTION[SkiCatTrack]", "An invisible service track for mountain lodges: no cars, no paving, the snow shows. Test piece." },
                 // Import probes (deleted after their test: surgery/probes-B.md §7; probes/A are optional and not scheduled).
                 { "Assets.NAME[SkiProbeSheet]", "Ski Resort — import probe B: Sheet (delete after test)" },
                 { "Assets.DESCRIPTION[SkiProbeSheet]", "A test object for one import session. Remove it when the test is done." },
@@ -479,6 +483,13 @@ namespace SkiResortMod
                     "cost. Cut the trail through the forest with the tree tool. Links to the nearest " +
                     "Ski Area Welcome Sign within 5 km."
                 },
+                // T54 probe 1 (docs/research/cat-track-run.md §2): the fifth run type. Description <= 25 words.
+                { "Assets.NAME[SkiRunCatTrackA]", "Cat Track" },
+                {
+                    "Assets.DESCRIPTION[SkiRunCatTrackA]",
+                    "A narrow groomed track for getting across the hill and up to lodges. " +
+                    "Green only: steeper than 25 % is unsuitable. Can cross other runs."
+                },
 
                 // --- Run drawing feedback (docs/research/run-feedback-spec.md §5, §9.6) -------
                 // Mouse tooltip of SkiRunTooltipSystem while the area tool draws or edits a
@@ -519,6 +530,8 @@ namespace SkiResortMod
                     "No Ski Area Welcome Sign within 5 km — this run will stay unbound " +
                     "until one is placed"
                 },
+                // T54 probe 1 (SkiRunTooltipSystem.KeyCatSteep): the Error line on a cat track rated blue or steeper.
+                { "SkiResort.Tooltip.CAT_TRACK_TOO_STEEP", "Too steep for a cat track: it will be unsuitable. Keep it under 25 %." },
                 // R3 (docs/research/run-binding-glade-spec.md §2 "Locale keys", §5.1): the run's
                 // horizontal length, an IntTooltip label in front of a "length" unit value
                 // (SkiRunTooltipSystem.KeyLength).
@@ -600,6 +613,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_DEFAULT[Snowmaking]", "Snowmaking run {N}" },
                 { "SkiResort.Hub.RUN_DEFAULT[Night]", "Night run {N}" },
                 { "SkiResort.Hub.RUN_DEFAULT[Natural]", "Natural run {N}" },
+                { "SkiResort.Hub.RUN_DEFAULT[CatTrack]", "Cat track {N}" },   // T54 probe 1
                 { "SkiResort.Hub.REASON[Locked]", "Not unlocked yet" },
                 { "SkiResort.Hub.REASON[NoSign]", "Place a Ski Area Welcome Sign first" },
                 { "SkiResort.Hub.REASON[Missing]", "Asset not found: is the Modular Ski Resort asset pack installed?" },
@@ -840,6 +854,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_OPEN_NONE", "Not linked: no snow state." },
                 { "SkiResort.Hub.RUN_SERVED_ANON", "A running lift reaches its top." },
                 { "SkiResort.Hub.RUN_TYPE_NOTE", "Natural green and blue runs count less; a groomed run counts in full." },
+                { "SkiResort.Hub.RUN_CAT_TRACK_NOTE", "A cat track links the hill but adds nothing to the score or the capacity." },   // T54 probe 1
+                { "SkiResort.Hub.RUN_UNSUITABLE", "Unsuitable: steeper than 25 % for a cat track. Redraw it on gentler ground." },   // T54 probe 1
                 { "SkiResort.Hub.RUN_VALUE", "Score value" },
                 { "SkiResort.Hub.RUN_COST", "Running cost" },
                 { "SkiResort.Hub.RUN_ACTIONS", "Click to fly there. The pen renames it." },
@@ -1148,6 +1164,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_STATE[Closed]", "Closed" },
                 { "SkiResort.Hub.RUN_STATE[Patchy]", "Patchy" },
                 { "SkiResort.Hub.RUN_STATE[Open]", "Open" },
+                { "SkiResort.Hub.RUN_STATE[Unsuitable]", "Unsuitable" },   // T54 probe 1: a cat track rated blue or steeper
                 { "SkiResort.Hub.SEASON_HINT[SnowSeason]", "Snow season" },
                 { "SkiResort.Hub.SEASON_HINT[SnowGunsOnly]", "Snow guns only" },
                 { "SkiResort.Hub.SEASON_HINT[Thawing]", "Thawing" },
@@ -1170,10 +1187,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_TYPE[Snowmaking]", "Snowmaking run" },
                 { "SkiResort.Hub.RUN_TYPE[Night]", "Night run" },
                 { "SkiResort.Hub.RUN_TYPE[Natural]", "Natural run" },
+                { "SkiResort.Hub.RUN_TYPE[CatTrack]", "Cat track" },   // T54 probe 1
                 { "SkiResort.Hub.BUILD_SHORT[Groomed]", "Snow laid whenever it freezes; scores more on easy runs." },
                 { "SkiResort.Hub.BUILD_SHORT[Snowmaking]", "Snow guns open it earlier and keep it open longer." },
                 { "SkiResort.Hub.BUILD_SHORT[Night]", "Floodlit snowmaking run: scores 25 % more." },
                 { "SkiResort.Hub.BUILD_SHORT[Natural]", "Natural snow only, no running cost; easy runs score less." },
+                { "SkiResort.Hub.BUILD_SHORT[CatTrack]", "Green only; crosses other runs. Not part of the score." },   // T54 probe 1
                 { "SkiResort.Hub.NEXT[Sign]", "Next: Buildings tab: place a Ski Area Welcome Sign." },
                 { "SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within 5 km." },
                 { "SkiResort.Hub.NEXT[Lodge]", "Next: Buildings tab: a lodge near this ski area's Welcome Sign." },

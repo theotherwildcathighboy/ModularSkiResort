@@ -377,15 +377,17 @@ namespace SkiResortMod.Systems
         // Kind tables, indexed by RunKind (Round E1, econ-round spec ch2 §2.3 / §4.4.4: natural = 3
         // appended). m_Templates takes its length from DefaultNameKeys so the tables cannot drift apart
         // (a longer key table with a 3-slot m_Templates would throw in RefreshTemplates, UIUpdate).
-        private static readonly string[] KindNames = { "Groomed", "Snowmaking", "Night", "Natural" };
+        // T54 probe 1: CatTrack = 4 appended (cat-track-run.md §2); its default name is "Cat track {N}", numbered per (resort, kind).
+        private static readonly string[] KindNames = { "Groomed", "Snowmaking", "Night", "Natural", "CatTrack" };
         private static readonly string[] BandNames = { "Flat", "Green", "Blue", "Black", "Double black" };
         private static readonly string[] DefaultNameKeys =
         {
             "SkiResort.Hub.RUN_DEFAULT[Groomed]", "SkiResort.Hub.RUN_DEFAULT[Snowmaking]",
             "SkiResort.Hub.RUN_DEFAULT[Night]", "SkiResort.Hub.RUN_DEFAULT[Natural]",
+            "SkiResort.Hub.RUN_DEFAULT[CatTrack]",
         };
         private static readonly string[] DefaultNameEnglish =
-            { "Groomed run {N}", "Snowmaking run {N}", "Night run {N}", "Natural run {N}" };
+            { "Groomed run {N}", "Snowmaking run {N}", "Night run {N}", "Natural run {N}", "Cat track {N}" };
         private const string OrdinalPlaceholder = "{N}";
 
         private SkiRunOwnershipSystem m_Ownership;

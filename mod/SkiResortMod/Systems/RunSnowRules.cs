@@ -167,6 +167,7 @@ namespace SkiResortMod.Systems
             {
                 case RunKind.Snowmaking:
                 case RunKind.Night:
+                case RunKind.CatTrack:   // T54 probe 1 (cat-track-run.md §2): no injection, opens by the day-mean estimate with the gun margin
                     return freezingC + snowmakingMarginC;
                 case RunKind.Groomed:
                     return freezingC + GroomedMarginC;

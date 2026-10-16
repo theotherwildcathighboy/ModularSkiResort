@@ -575,6 +575,7 @@ namespace SkiResortMod.Systems
             public const string RunGroomed = "SkiRunGroomedA"; // SurfacePrefab, item runGroomed
             public const string RunSnowmaking = "SkiRunSnowmakingA"; // SurfacePrefab, item runSnowmaking
             public const string RunNight = "SkiRunNightA"; // SurfacePrefab, item runNight
+            public const string RunCatTrack = "SkiRunCatTrackA"; // SurfacePrefab, item runCatTrack
             // NAMES-END
         }
 
@@ -713,6 +714,7 @@ namespace SkiResortMod.Systems
             new BuildItemDef("runGroomed", Names.RunGroomed, BuildItemKind.Run, "", 0),
             new BuildItemDef("runSnowmaking", Names.RunSnowmaking, BuildItemKind.Run, "", 1),
             new BuildItemDef("runNight", Names.RunNight, BuildItemKind.Run, "", 2),
+            new BuildItemDef("runCatTrack", Names.RunCatTrack, BuildItemKind.Run, "", 4),
             // BUILD-ITEMS-END
         };
 
@@ -932,6 +934,7 @@ namespace SkiResortMod.Systems
                     new RunDef(RunKind.Groomed, Names.RunGroomed, "runGroomed"),
                     new RunDef(RunKind.Snowmaking, Names.RunSnowmaking, "runSnowmaking"),
                     new RunDef(RunKind.Night, Names.RunNight, "runNight"),
+                    new RunDef(RunKind.CatTrack, Names.RunCatTrack, "runCatTrack"),
                 };
 
                 // ── the name list, NAMES-block order ──
@@ -1479,7 +1482,7 @@ namespace SkiResortMod.Systems
             return TryGetName(name, out CatalogName entry) && entry.Expected;
         }
 
-        /// <summary>30 entries, NAMES-block order. Returns the cached list (no allocation per call).</summary>
+        /// <summary>31 entries (30 + SkiRunCatTrackA, T54 probe 1), NAMES-block order. Returns the cached list (no allocation per call).</summary>
         public static IReadOnlyList<CatalogName> AllPrefabNames()
         {
             return s_AllNames;

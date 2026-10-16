@@ -87,6 +87,7 @@ export const BUILD_ITEMS: readonly BuildItemMeta[] = [
   { id: "runGroomed", kind: "run", liftType: "", runKind: 0 },
   { id: "runSnowmaking", kind: "run", liftType: "", runKind: 1 },
   { id: "runNight", kind: "run", liftType: "", runKind: 2 },
+  { id: "runCatTrack", kind: "run", liftType: "", runKind: 4 },
 ];
 
 const ICON_SIGN = "assetdb://global/b0f0f5932ab14cacca5ab8afef91f6dc"; // SkiResortGate.Prefab:48
@@ -123,6 +124,7 @@ export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   runGroomed: "assetdb://global/092ca9d440ccbca7cf9783c4da1790f5", // SkiRunGroomedA.Prefab:65
   runSnowmaking: "assetdb://global/bc121f42eed0fd6829eacccc5b69b4f8", // SkiRunSnowmakingA.Prefab:65
   runNight: "assetdb://global/a239eef8d124c3ec467a5d8afaa7e447", // SkiRunNightA.Prefab:65 (D20: own icon; was snowmaking's)
+  runCatTrack: "assetdb://global/092ca9d440ccbca7cf9783c4da1790f5", // SkiRunCatTrackA.Prefab:65 (T54 probe 1: the groomed icon until it gets its own art)
 };
 
 /** Four groups in build order (gate R16 checks every id appears exactly once). Group 1's lodge tiers and group 3's
@@ -136,7 +138,7 @@ export const BUILD_GROUPS: ReadonlyArray<readonly BuildItemId[]> = [
     "baseStationGondola", "topStationGondola", "liftGondola",
     "baseStationTram", "topStationTram", "liftTram",
   ],
-  ["runNatural", "runGroomed", "runSnowmaking", "runNight"],
+  ["runNatural", "runGroomed", "runSnowmaking", "runNight", "runCatTrack"],
 ];
 
 /** The step number drawn on the lift tiles (stations first, then the line), for every lift type. */
@@ -167,6 +169,7 @@ export const BUILD_RUN_KIND: Readonly<Partial<Record<BuildItemId, RunKind>>> = {
   runGroomed: RUN_KIND.Groomed,
   runSnowmaking: RUN_KIND.Snowmaking,
   runNight: RUN_KIND.Night,
+  runCatTrack: RUN_KIND.CatTrack,
 };
 
 /** The build id whose prefab is a run of this kind. */
@@ -175,6 +178,7 @@ export const RUN_KIND_ITEM: Readonly<Record<RunKind, BuildItemId>> = {
   [RUN_KIND.Snowmaking]: "runSnowmaking",
   [RUN_KIND.Night]: "runNight",
   [RUN_KIND.Natural]: "runNatural",
+  [RUN_KIND.CatTrack]: "runCatTrack",
 };
 
 export function isBuildItemId(id: string): id is BuildItemId {
@@ -182,7 +186,8 @@ export function isBuildItemId(id: string): id is BuildItemId {
 }
 
 export function isRunKind(kind: number): kind is RunKind {
-  return kind === RUN_KIND.Groomed || kind === RUN_KIND.Snowmaking || kind === RUN_KIND.Night || kind === RUN_KIND.Natural;
+  return kind === RUN_KIND.Groomed || kind === RUN_KIND.Snowmaking || kind === RUN_KIND.Night || kind === RUN_KIND.Natural ||
+    kind === RUN_KIND.CatTrack;
 }
 
 /** The table row of an id (undefined for an id this bundle does not know). */

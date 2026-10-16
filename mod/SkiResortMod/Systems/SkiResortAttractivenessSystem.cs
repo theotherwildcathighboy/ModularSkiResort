@@ -1546,6 +1546,11 @@ namespace SkiResortMod.Systems
                         int kind = m_Ownership.KindOf(prefabRefs[i].m_Prefab);
                         if (kind < 0)
                             continue;
+                        // T54 probe 1 (cat-track-run.md §4): a cat track is a run for the map and the hub list, not for the
+                        // resort's numbers: no RunInput, so no capacity, no attraction, no Runs / RunsOpen, no green-variety
+                        // flag and no "open run" for the lift-closed rule (T13). The hub stats read it from the catalog.
+                        if (!RunKindRules.CountsTowardResort(kind))
+                            continue;
                         AddRun(next.Slots[slotIndex], slotIndex, entities[i], kind, geometries[i]);
                     }
                 }

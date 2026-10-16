@@ -625,6 +625,13 @@ namespace SkiResortMod
             // SystemOrder.cs:1018, 1.6.2 :1019, long before a city load).
             updateSystem.UpdateAt<LodgeRoadSystem>(SystemUpdatePhase.GameSimulation);
 
+            // T54 probe 1 (docs/research/cat-track-run.md §1 option A; field/2026-10-15/build/T54-probe1-overlap.md): forges
+            // AreaGeometryData.m_Type Surface -> Space on the SkiRunCatTrackA prefab at every Game-mode load so a cat track can
+            // cross other runs (ValidationHelpers.cs:551 compares only the type). Registered like LodgeRoadSystem: disabled,
+            // OnGameLoadingComplete only, no per-frame work; the phase is not load-bearing (AreaInitializeSystem fills the
+            // type on the Created prefab entity long before a city load).
+            updateSystem.UpdateAt<SkiRunAreaTypeSystem>(SystemUpdatePhase.GameSimulation);
+
             // T51 step 0 (docs/research/field/2026-10-15/build/T51-markers-step1.md): READ-ONLY lodge spawn-spot diagnostic
             // ("Lodge [spots]": the Game.Buildings.SpawnLocationElement buffer of each lodge as the engine registered it, one INFO
             // line per load and per change, the per-spot lines on the hub DUMP). Phase and order are NOT load-bearing: it only

@@ -337,7 +337,8 @@ export function KindStripe({ kind }: { kind: number }): JSX.Element {
       </div>
     );
   }
-  const cls = kind === 0 ? styles.kindGroomed : kind === 1 ? styles.kindSnowmaking : kind === 2 ? styles.kindNight : styles.kindUnknown;
+  const cls = kind === 0 ? styles.kindGroomed : kind === 1 ? styles.kindSnowmaking : kind === 2 ? styles.kindNight
+    : kind === 4 ? styles.kindCatTrack : styles.kindUnknown;   // T54 probe 1: kind 4 = cat track, green
   return <div className={cx(styles.runMarker, cls)} />;
 }
 

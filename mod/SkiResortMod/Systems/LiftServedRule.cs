@@ -579,10 +579,14 @@ namespace SkiResortMod.Systems
         /// any chain of linked runs (each run is visited once, so the chain is bounded by the run count), to a directly
         /// served run (servedRoot[i] = that directly served run, the nearest by link count, ties to the lower run index;
         /// servedVia[i] = the run it was reached through, one link nearer the root). Unserved: both -1. Output lists are
-        /// cleared and filled; allocation-free once grown.</summary>
+        /// cleared and filled; allocation-free once grown.
+        /// T54 probe 1 (cat-track-run.md §1, D2): <paramref name="leafRuns"/> (null = none, the old behaviour) marks LEAF runs
+        /// by index. A leaf may be served (directly by a lift, or through a link from a served neighbour) but is never
+        /// expanded by the pass: it never passes service on, so a cat track that crosses a black run does not "serve" it.
+        /// A list shorter than the run count reads false for the missing indices.</summary>
         public static void AssignLinked(List<float3> runTops, RunLinks links, List<Lift> lifts, List<Chord> chords,
             List<int> servingLift, List<float> servingDistanceM, List<int> servedCount,
-            List<int> servedRoot, List<int> servedVia)
+            List<int> servedRoot, List<int> servedVia, List<bool> leafRuns = null)
         {
             Assign(runTops, lifts, chords, servingLift, servingDistanceM, servedCount);
             int n = runTops.Count;
@@ -608,6 +612,8 @@ namespace SkiResortMod.Systems
             for (int head = 0; head < queue.Count; head++)
             {
                 int r = queue[head];
+                if (leafRuns != null && r < leafRuns.Count && leafRuns[r])
+                    continue;   // T54 probe 1: a leaf is served at most; it never serves its neighbours
                 links.NeighboursOf(r, out int first, out int count);
                 for (int k = 0; k < count; k++)
                 {

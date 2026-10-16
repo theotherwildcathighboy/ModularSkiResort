@@ -104,6 +104,7 @@ namespace ResortBatch
             CatalogGuardTests.Run(Check);   // Catalog Phase A; Phase B: CG-1 seams, CG-T1 to T6
             LadderTests.Run(Check);   // Catalog Phase B (round-2-contract §11.2): ladder / school / patrol / ledger (economy body)
             UnpoweredTests.Run(Check);   // Phase D (round-4-contract §7.2): unpowered lifts are inert, full upkeep (UP-1 to UP-6)
+            CatTrackTests.Run(Check);   // T54 probe 1: the cat track's pure rules (CT54-1 to CT54-7)
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  ResortBatch checks={0} failures={1}", s_Checks, s_Failures));
             Environment.ExitCode = s_Failures;

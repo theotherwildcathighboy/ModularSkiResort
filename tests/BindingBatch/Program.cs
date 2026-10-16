@@ -538,14 +538,19 @@ namespace BindingBatch
             FeeEq(SkiRunFees.KindNight, float.PositiveInfinity, 14006000, "night +inf (capped at 2,000 ha)");
             FeeEq(SkiRunFees.KindNight, 1e9f, 14006000, "night 1e9 m² (capped at 2,000 ha)");
             // Unknown kinds.
-            FeeEq(4, 12345f, -1, "kind 4");
+            // T54 probe 1: kind 4 is the cat track and pays the groomed fee by plan area (cat-track-run.md §2); 5 is the first unknown.
+            Check(SkiRunFees.KindCatTrack == (int)RunKind.CatTrack && SkiRunFees.KindCatTrack == 4, "fee kinds", "KindCatTrack != RunKind.CatTrack (4)");
+            FeeEq(SkiRunFees.KindCatTrack, 0f, 2000, "cat track 0 m²");
+            FeeEq(SkiRunFees.KindCatTrack, 12345f, SkiRunFees.Fee(SkiRunFees.KindGroomed, 12345f), "cat track 12,345 m² = groomed's");
+            Check(SkiRunFees.BaseFee(4) == SkiRunFees.GroomedBase && SkiRunFees.PerHaFee(4) == SkiRunFees.GroomedPerHa, "fee cat track", "cat track fee != groomed's");
+            FeeEq(5, 12345f, -1, "kind 5");
             FeeEq(-1, 0f, -1, "kind -1");
-            Check(SkiRunFees.BaseFee(4) == -1, "fee unknown", "BaseFee(4) != -1");
+            Check(SkiRunFees.BaseFee(5) == -1, "fee unknown", "BaseFee(5) != -1");
             Check(SkiRunFees.PerHaFee(-1) == -1, "fee unknown", "PerHaFee(-1) != -1");
 
             // Sweep: every kind, 0 to 199,400 m² in steps of 997 m² (201 areas): a multiple of ₵10 and
             // never below the previous step's fee (one Check per step).
-            for (int kind = 0; kind <= 3; kind++)
+            for (int kind = 0; kind <= 4; kind++)
             {
                 int previous = int.MinValue;
                 for (int step = 0; step <= 200; step++)

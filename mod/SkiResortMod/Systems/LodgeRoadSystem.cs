@@ -85,11 +85,37 @@
 // WRITE SITES (acceptance gate A11): EntityManager.SetComponentData of vanilla BuildingData and
 // PlaceableObjectData on the lodge PREFAB entity (Apply; RestoreForEditor writes the game's values back). No component is added to or removed from any entity, nothing
 // is serialized by us, no prefab JSON change, no Harmony, no reflection.
+//
+// CAT TRACK PROBE (T54 / CT1, 2026-10-16; docs/research/cat-track-net.md §6 risk 1, §8; build note
+// docs/research/field/2026-10-15/build/T54-probe2-net.md). SkiCatTrack is a RoadPrefab (JSON only, ImportedData\SkiCatTrack*)
+// with a geometry-less piece, so the road draws nothing and the terrain shows. Two additions here, both probe-only:
+//   W3 NetGeometryData.m_Flags on the SkiCatTrack PREFAB entity: clear GeometryFlags.ClipTerrain (Game.Net, 0x40000) at
+//      every Game-mode load. NetInitializeSystem.cs:1943 ORs FlattenTerrain | ClipTerrain into EVERY RoadPrefab; the terrain
+//      system turns ClipTerrain into a +-0.3 m clip slab along each lane section (TerrainSystem.cs:1136-1139, GetFlags;
+//      GenerateClipDataJob :1698-1722) that vanilla fills with the road mesh. A geometry-less piece would leave that slab
+//      see-through. FlattenTerrain is KEPT (CatTrackClearFlatten = false): it makes the terrain follow the net cross-section
+//      (the ShiftTerrain lane flag, :1140-1143), so the 3 m strip is a level bench and the lane curves sit on the ground;
+//      cleared, a cross-slope would leave the flat lane ribbon hanging above/below the sloping ground by up to
+//      1.5 m x slope, and GroundHeightSystem / LotHeightSystem stop treating the net as a flat surface (they test the same flag,
+//      GroundHeightSystem.cs:322, LotHeightSystem.cs:286). cat-track-net.md recommends exactly this (clear ClipTerrain, keep
+//      FlattenTerrain). If the field test shows a bench scar that is unacceptable, flip CatTrackClearFlatten and re-test
+//      (then lane Y follows the net's own heights: cars may float; a different probe).
+//      Read live by the terrain jobs (the prefab component is looked up at job time), so the write needs no Updated tag.
+//      One line per load: "CatTrack: prefab SkiCatTrack NetGeometryData …". A prefab without the flag the game should have set
+//      (and no earlier write by us) writes nothing and logs one WARN. Not restored for the Editor (the net is a placeable
+//      probe road; nothing in the Editor uses it).
+//   DUMP "Lodge [road]": per lodge / school / patrol hut, which road edge Building.m_RoadEdge holds (entity, prefab name,
+//      "= CAT TRACK" when it is SkiCatTrack), the distance from the building's front point to that edge's boundary curves
+//      (the RoadConnectionSystem.CheckEdge test, limit 8.4 m, RoadConnectionSystem.cs:88, :353-385; edge geometry only,
+//      node geometry ignored) and to its centre curve, and, when the edge is NOT a cat track, the nearest cat-track edge
+//      in reach (so a lodge beside a cat track that a vanilla road beat, or that the Raised/Lowered rule dropped, shows).
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using Colossal.Entities;
+using Colossal.Mathematics;
 using Colossal.Serialization.Entities;
 using Game;
 using Game.Buildings;
@@ -98,7 +124,9 @@ using Game.Prefabs;
 using Game.Tools;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using BuildingFlags = Game.Prefabs.BuildingFlags;   // not Game.Buildings.BuildingFlags (the instance flags)
+using NetGeometryFlags = Game.Net.GeometryFlags;     // not Game.Areas.GeometryFlags
 
 namespace SkiResortMod.Systems
 {
@@ -121,6 +149,20 @@ namespace SkiResortMod.Systems
         }
 
         private readonly Dictionary<Entity, Written> m_Written = new Dictionary<Entity, Written>();
+
+        // ── cat track probe (header CAT TRACK PROBE; W3) ──
+        private const string CatTrackType = "RoadPrefab";
+        private const string CatTrackName = "SkiCatTrack";
+        /// <summary>false = keep FlattenTerrain (cat-track-net.md risk 1, header W3); true = clear both flags (a different probe).</summary>
+        private const bool CatTrackClearFlatten = false;
+        private const float AccessLimitM = 8.4f;   // RoadConnectionSystem.cs:88
+
+        private EntityQuery m_EdgeQuery;                                              // road edges (cat-track search in the DUMP)
+        private Entity m_CatTrackPrefab = Entity.Null;                                // this load; Null = not imported / not found
+        private string m_CatTrackState = "not loaded";
+        /// <summary>The game's own NetGeometryData.m_Flags per prefab entity, kept for the session (prefab entities live for the
+        /// app run): a second load of the same session finds the flag already cleared and says so instead of warning.</summary>
+        private readonly Dictionary<Entity, NetGeometryFlags> m_CatTrackGameFlags = new Dictionary<Entity, NetGeometryFlags>();
 
         // Per-load state — reset at OnGameLoadingComplete. (F7 fixer: the unread PrefabApplied property and its
         // m_Applied field are gone; the DUMP's "prefab …" state says whether the flags were written this load.)
@@ -148,6 +190,21 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Deleted>(),
                 },
             });
+            m_EdgeQuery = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadOnly<Game.Net.Edge>(),
+                    ComponentType.ReadOnly<Game.Net.EdgeGeometry>(),
+                    ComponentType.ReadOnly<Game.Net.Curve>(),
+                    ComponentType.ReadOnly<PrefabRef>(),
+                },
+                None = new[]
+                {
+                    ComponentType.ReadOnly<Temp>(),
+                    ComponentType.ReadOnly<Deleted>(),
+                },
+            });
             Enabled = false;   // nothing per frame; OnGameLoadingComplete still fires (CursorAimSystem precedent)
             Mod.Log.Info("LodgeRoad: system created (the lodge prefab may connect to the road at its front: " +
                          "written at every game load; no sweep, no poll)");
@@ -158,6 +215,8 @@ namespace SkiResortMod.Systems
             base.OnGameLoadingComplete(purpose, mode);
             m_LodgePrefab = Entity.Null;
             m_SignPrefab = Entity.Null;
+            m_CatTrackPrefab = Entity.Null;
+            m_CatTrackState = "not a game (mode " + mode + ")";
             if (mode != GameMode.Game)
             {
                 m_State = "not a game (mode " + mode + ")";
@@ -186,6 +245,74 @@ namespace SkiResortMod.Systems
                 Mod.Log.Error("!!! LodgeRoad EXCEPTION — lodge road connection not applied until the next load (lodges " +
                               $"cannot be reached by guests this load):\n{e}");
             }
+            try
+            {
+                ApplyCatTrack();
+            }
+            catch (Exception e)
+            {
+                m_CatTrackState = "EXCEPTION: " + e.GetType().Name;
+                Mod.Log.Error("!!! CatTrack EXCEPTION — the SkiCatTrack prefab keeps its terrain-clip flag this load (a placed " +
+                              $"cat track may show a see-through strip):\n{e}");
+            }
+        }
+
+        /// <summary>W3 (header CAT TRACK PROBE): clear ClipTerrain (and FlattenTerrain only if CatTrackClearFlatten) on the
+        /// SkiCatTrack RoadPrefab entity's NetGeometryData. One line per load. The prefab is resolved by the prefab catalog's
+        /// "extra" path (any type+name; no SkiCatalog row), so a game without the imported probe logs one Info line.</summary>
+        private void ApplyCatTrack()
+        {
+            if (!m_PrefabCatalog.TryGetPrefab(CatTrackType, CatTrackName, out Entity prefab, out PrefabBase _))
+            {
+                m_CatTrackState = "prefab " + CatTrackName + " not found (the probe is not imported)";
+                Mod.Log.Info($"CatTrack: {m_CatTrackState} — nothing written");
+                return;
+            }
+            m_CatTrackPrefab = prefab;
+            if (!EntityManager.TryGetComponent(prefab, out NetGeometryData geometry))
+            {
+                m_CatTrackState = "prefab " + CatTrackName + " has no NetGeometryData";
+                Mod.Log.Warn($"CatTrack: {m_CatTrackState} (not a net prefab?) — nothing written");
+                return;
+            }
+            NetGeometryFlags old = geometry.m_Flags;
+            NetGeometryFlags clear = NetGeometryFlags.ClipTerrain | (CatTrackClearFlatten ? NetGeometryFlags.FlattenTerrain : 0);
+            bool ours = m_CatTrackGameFlags.TryGetValue(prefab, out NetGeometryFlags gameFlags);
+            if (!ours && (old & NetGeometryFlags.ClipTerrain) == 0)
+            {
+                m_CatTrackState = $"not written: the game did not set ClipTerrain (0x{(int)old:X})";
+                Mod.Log.Warn($"CatTrack: prefab {CatTrackName} NetGeometryData.m_Flags 0x{(int)old:X} has no ClipTerrain (0x40000) — " +
+                             "nothing written; re-check NetInitializeSystem.cs:1943 after this patch");
+                return;
+            }
+            NetGeometryFlags flags = old & ~clear;
+            if (!ours)
+                m_CatTrackGameFlags[prefab] = old;
+            string keep = CatTrackClearFlatten ? "FlattenTerrain off too" : "FlattenTerrain kept";
+            string detail = $"width {geometry.m_DefaultWidth:0.##} m, max slope {geometry.m_MaxSlopeSteepness:0.##}" + RoadDetail(prefab);
+            if (flags != old)
+            {
+                geometry.m_Flags = flags;
+                EntityManager.SetComponentData(prefab, geometry);
+                m_CatTrackState = $"written 0x{(int)old:X} -> 0x{(int)flags:X}";
+                Mod.Log.Info($"CatTrack: prefab {CatTrackName} NetGeometryData.m_Flags 0x{(int)old:X} -> 0x{(int)flags:X} " +
+                             $"(ClipTerrain off, {keep}); {detail}");
+            }
+            else
+            {
+                m_CatTrackState = $"already 0x{(int)flags:X} (game 0x{(int)gameFlags:X}; written earlier this session)";
+                Mod.Log.Info($"CatTrack: prefab {CatTrackName} NetGeometryData.m_Flags already 0x{(int)flags:X} " +
+                             $"(game set 0x{(int)gameFlags:X}; written earlier this session; {keep}); {detail}");
+            }
+        }
+
+        /// <summary>"; speed … km/h, RoadData flags …" for the W3 line (RoadData.m_SpeedLimit is m/s; zoning off = no EnableZoning).</summary>
+        private string RoadDetail(Entity prefab)
+        {
+            if (!EntityManager.TryGetComponent(prefab, out RoadData road))
+                return "; no RoadData";
+            return string.Format(CultureInfo.InvariantCulture, "; speed {0:0} km/h, RoadData flags {1}, zone block {2}",
+                road.m_SpeedLimit * 3.6f, road.m_Flags, road.m_ZoneBlockPrefab == Entity.Null ? "none" : "SET");
         }
 
         protected override void OnUpdate()
@@ -485,6 +612,7 @@ namespace SkiResortMod.Systems
                     AppendRoad(sb, RoadOf(building));
                     sb.Append('\n');
                 }
+                AppendRoadDetail(sb, lodges, others);
             }
             catch (Exception e)
             {
@@ -495,6 +623,140 @@ namespace SkiResortMod.Systems
         private Entity RoadOf(Entity building)
         {
             return EntityManager.TryGetComponent(building, out Building data) ? data.m_RoadEdge : Entity.Null;
+        }
+
+        // ── "Lodge [road]" (header CAT TRACK PROBE): which road edge satisfied each building's access ──────────
+
+        /// <summary>One "Lodge [road]" header (counts, the W3 state, how many SkiCatTrack edges exist) and one line per lodge /
+        /// school / patrol hut: the road edge Building.m_RoadEdge holds (entity, prefab name, "= CAT TRACK"), the distance of the
+        /// building's front point to that edge's boundary and centre curves, and the nearest cat-track edge when the holding
+        /// edge is not one. Reads only; main thread, event time.</summary>
+        private void AppendRoadDetail(StringBuilder sb, List<Entity> lodges, List<Entity> others)
+        {
+            var cat = new List<Entity>(16);
+            if (m_CatTrackPrefab != Entity.Null)
+            {
+                EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
+                using (var edges = m_EdgeQuery.ToEntityArray(Allocator.Temp))
+                using (var refs = m_EdgeQuery.ToComponentDataArray<PrefabRef>(Allocator.Temp))
+                {
+                    for (int i = 0; i < edges.Length; i++)
+                    {
+                        if (refs[i].m_Prefab == m_CatTrackPrefab)
+                            cat.Add(edges[i]);
+                    }
+                }
+            }
+            int viaCat = 0, viaOther = 0, none = 0;
+            var lines = new StringBuilder();
+            for (int i = 0; i < lodges.Count; i++)
+                RoadDetailLine(lines, lodges[i], "lodge", cat, ref viaCat, ref viaOther, ref none);
+            for (int i = 0; i < others.Count; i++)
+                RoadDetailLine(lines, others[i], "school/patrol", cat, ref viaCat, ref viaOther, ref none);
+            sb.Append("  Lodge [road]: ").Append(lodges.Count + others.Count).Append(" building(s): ").Append(viaCat)
+              .Append(" via ").Append(CatTrackName).Append(", ").Append(viaOther).Append(" via other roads, ").Append(none)
+              .Append(" with no road edge; ").Append(cat.Count).Append(' ').Append(CatTrackName).Append(" edge(s) in the city; W3: ")
+              .Append(m_CatTrackState).Append('\n');
+            sb.Append(lines);
+        }
+
+        private void RoadDetailLine(StringBuilder sb, Entity building, string what, List<Entity> cat,
+                                    ref int viaCat, ref int viaOther, ref int none)
+        {
+            Entity prefab = EntityManager.TryGetComponent(building, out PrefabRef pr) ? pr.m_Prefab : Entity.Null;
+            sb.Append("    Lodge [road] ").Append(what).Append(' ').Append(Ent(building)).Append(" '")
+              .Append(prefab != Entity.Null ? m_PrefabSystem.GetPrefabName(prefab) : "?").Append("': ");
+            bool haveFront = TryFrontPoint(building, prefab, out float3 front);
+            Entity edge = RoadOf(building);
+            bool isCat = false;
+            if (edge == Entity.Null)
+            {
+                none++;
+                sb.Append("no road edge (Building.m_RoadEdge null)");
+            }
+            else
+            {
+                Entity edgePrefab = EntityManager.Exists(edge) && EntityManager.TryGetComponent(edge, out PrefabRef er) ? er.m_Prefab : Entity.Null;
+                isCat = edgePrefab != Entity.Null && edgePrefab == m_CatTrackPrefab;
+                if (isCat)
+                    viaCat++;
+                else
+                    viaOther++;
+                sb.Append("satisfied by edge ").Append(Ent(edge)).Append(" '")
+                  .Append(edgePrefab != Entity.Null ? m_PrefabSystem.GetPrefabName(edgePrefab) : "?").Append('\'');
+                if (isCat)
+                    sb.Append(" = CAT TRACK");
+                if (haveFront && EdgeDistances(edge, front, out float boundary, out float centre, out float t))
+                {
+                    sb.Append(": front->boundary ").Append(F(boundary)).Append(" m (limit ").Append(F(AccessLimitM))
+                      .Append("), front->centre ").Append(F(centre)).Append(" m, nearest centre t ").Append(F(t));
+                }
+                else if (!haveFront)
+                    sb.Append(": front point unavailable");
+                if (EntityManager.TryGetComponent(edge, out Game.Net.Composition comp)
+                    && EntityManager.TryGetComponent(comp.m_Edge, out Game.Prefabs.NetCompositionData cd))
+                    sb.Append(", composition width ").Append(F(cd.m_Width)).Append(" m");
+            }
+            if (!isCat && cat.Count > 0 && haveFront)
+            {
+                float best = float.MaxValue;
+                Entity bestEdge = Entity.Null;
+                for (int i = 0; i < cat.Count; i++)
+                {
+                    if (EdgeDistances(cat[i], front, out float b, out float _, out float _) && b < best)
+                    {
+                        best = b;
+                        bestEdge = cat[i];
+                    }
+                }
+                if (bestEdge != Entity.Null)
+                    sb.Append("; nearest ").Append(CatTrackName).Append(" edge ").Append(Ent(bestEdge)).Append(": boundary ").Append(F(best))
+                      .Append(best < AccessLimitM ? " m (IN reach but not the holder: another road is closer, or the Raised/Lowered side rule dropped it)" : " m (out of reach)");
+            }
+            sb.Append('\n');
+        }
+
+        /// <summary>The point RoadConnectionSystem measures from (RoadConnectionSystem.cs:456-474, :518): the lot front,
+        /// or the building position for CanBeOnRoad(Area) without CanBeRoadSide.</summary>
+        private bool TryFrontPoint(Entity building, Entity prefab, out float3 front)
+        {
+            front = default;
+            if (prefab == Entity.Null
+                || !EntityManager.TryGetComponent(building, out Game.Objects.Transform transform)
+                || !EntityManager.TryGetComponent(prefab, out BuildingData data))
+                return false;
+            front = BuildingUtils.CalculateFrontPosition(transform, data.m_LotSize.y);
+            bool onRoad = (data.m_Flags & (BuildingFlags.CanBeOnRoad | BuildingFlags.CanBeOnRoadArea)) != 0;
+            bool roadSide = (data.m_Flags & BuildingFlags.CanBeRoadSide) != 0;
+            if (onRoad && !roadSide)
+                front = transform.m_Position;
+            return true;
+        }
+
+        /// <summary>Distance (xz) from <paramref name="p"/> to the nearest of the edge geometry's four boundary curves (the
+        /// CheckDistance rule without node geometry) and to its centre curve (t = nearest parameter).</summary>
+        private bool EdgeDistances(Entity edge, float3 p, out float boundary, out float centre, out float t)
+        {
+            boundary = 0f;
+            centre = 0f;
+            t = 0f;
+            if (!EntityManager.Exists(edge)
+                || !EntityManager.TryGetComponent(edge, out Game.Net.EdgeGeometry geometry)
+                || !EntityManager.TryGetComponent(edge, out Game.Net.Curve curve))
+                return false;
+            float2 p2 = p.xz;
+            float d1 = MathUtils.Distance(geometry.m_Start.m_Left.xz, p2, out float _);
+            float d2 = MathUtils.Distance(geometry.m_Start.m_Right.xz, p2, out float _);
+            float d3 = MathUtils.Distance(geometry.m_End.m_Left.xz, p2, out float _);
+            float d4 = MathUtils.Distance(geometry.m_End.m_Right.xz, p2, out float _);
+            boundary = math.min(math.min(d1, d2), math.min(d3, d4));
+            centre = MathUtils.Distance(curve.m_Bezier.xz, p2, out t);
+            return true;
+        }
+
+        private static string F(float v)
+        {
+            return v.ToString("0.0", CultureInfo.InvariantCulture);
         }
 
         private void AppendRoad(StringBuilder sb, Entity road)

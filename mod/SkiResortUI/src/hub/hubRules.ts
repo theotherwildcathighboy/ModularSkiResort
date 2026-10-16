@@ -287,7 +287,7 @@ function known(n: number | undefined): n is number {
   return typeof n === "number" && Number.isFinite(n) && n >= 0;
 }
 
-export const RUN_ITEMS: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["runNatural", "runGroomed", "runSnowmaking", "runNight"]);
+export const RUN_ITEMS: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["runNatural", "runGroomed", "runSnowmaking", "runNight", "runCatTrack"]);
 
 /** Footer line 1 of a tile (design 6.10; contract 6: by the item's KIND, buildItems.ts BuildItemMeta.kind): runs with
  *  a base fee and a per-ha fee -> run; a line of any lift type with a per-km cost -> lift; anything else with a cost
@@ -487,6 +487,7 @@ export function runKindOfItem(id: BuildItemId): RunKind | undefined {
     case "runGroomed": return RUN_KIND.Groomed;
     case "runSnowmaking": return RUN_KIND.Snowmaking;
     case "runNight": return RUN_KIND.Night;
+    case "runCatTrack": return RUN_KIND.CatTrack;
     default: return undefined;
   }
 }

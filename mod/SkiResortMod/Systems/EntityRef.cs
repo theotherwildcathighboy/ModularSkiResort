@@ -94,5 +94,33 @@ namespace SkiResortMod.Systems
         Snowmaking = 1,
         Night = 2,
         Natural = 3,   // Round E1 (D16): APPENDED — never renumber (ResortBatch / LiftBatch assert 0/1/2/3)
+        CatTrack = 4,  // T54 probe 1 (cat-track-run.md §2): APPENDED — a drawable green track that may cross other runs
+    }
+
+    /// <summary>T54 probe 1 (docs/research/cat-track-run.md §1 D2, §2, §4): the per-kind rules of the cat track, in one pure
+    /// place so the attraction path, the hub stats and the tests read the same answer. A cat track is a RUN for the map and the
+    /// catalog (listed, numbered, bound, fee) but not for the resort's numbers.</summary>
+    public static class RunKindRules
+    {
+        /// <summary>Does a run of this kind count toward RunsCapacity, the attraction score, Runs / RunsOpen / RunsPartly (and
+        /// so HubRules.Status), the green-variety flag and the "no open run" lift-closed rule? False for the cat track only.
+        /// A whitelist of the four scoring kinds: an unknown kind (-1, or one added later and not registered here) counts false.</summary>
+        public static bool CountsTowardResort(int kind)
+        {
+            return kind >= (int)RunKind.Groomed && kind <= (int)RunKind.Natural;
+        }
+
+        /// <summary>LiftServedRule.AssignLinked's leaf flag: a cat track may be served but never passes service on (D2).</summary>
+        public static bool IsServedLeaf(int kind)
+        {
+            return kind == (int)RunKind.CatTrack;
+        }
+
+        /// <summary>True when a run of this kind is injected, measured or billed by the snow system. The cat track is none of
+        /// these: it opens by the day-mean estimate alone (RunSnowRules.ThresholdC) and is never rasterised.</summary>
+        public static bool HasSnowInjection(int kind)
+        {
+            return kind == (int)RunKind.Groomed || kind == (int)RunKind.Snowmaking || kind == (int)RunKind.Night;
+        }
     }
 }

@@ -97,6 +97,11 @@
   <ItemGroup>
     <Compile Include="UnpoweredTests.cs" />
   </ItemGroup>
+  <!-- T54 probe 1 (2026-10-16, docs/research/field/2026-10-15/build/T54-probe1-overlap.md): the cat track's pure rules (CT54-1 to
+       CT54-7: kinds, leaf, unsuitable, exclusions, snow, props, catalog) over files linked above. No new linked file. -->
+  <ItemGroup>
+    <Compile Include="CatTrackTests.cs" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />
   </ItemGroup>

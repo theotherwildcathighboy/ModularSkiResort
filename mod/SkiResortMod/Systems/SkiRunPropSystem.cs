@@ -105,8 +105,10 @@ namespace SkiResortMod.Systems
         // watched too: it has no AreaSubObjects today, and the prefab-side gate below
         // makes that a no-op until the day it does.
         // E1 (D16): SkiRunNaturalA is deliberately absent — it has no AreaSubObjects, so no border props (marker poles would need an Editor import).
+        // T54 probe 1: SkiRunCatTrackA is watched like groomed (no AreaSubObjects in the probe prefab, so a no-op; its future
+        // hydrants-only entry, RunPropDensityRules.PropClassAllowed, is then bridged without a code change).
         private static readonly string[] RunSurfaceNames =
-            { SnowmakingRunName, "SkiRunGroomedA", NightRunName };
+            { SnowmakingRunName, "SkiRunGroomedA", NightRunName, "SkiRunCatTrackA" };
 
         // Round M2 density: the two run prefabs whose border props the Options sliders thin (header PROP DENSITY).
         private const string SnowmakingRunName = "SkiRunSnowmakingA";

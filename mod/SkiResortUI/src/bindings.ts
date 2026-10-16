@@ -146,9 +146,9 @@ function wire(e: Entity | null | undefined): Entity {
 
 // ---- enumerations (C# enums of the same values; gate rule R17 compares them) ---------------------
 
-/** Run type. C# RunKind (EntityRef.cs): Natural = 3 appended in Round E1 (D16), never renumbered. */
-export type RunKind = 0 | 1 | 2 | 3;
-export const RUN_KIND = { Groomed: 0, Snowmaking: 1, Night: 2, Natural: 3 } as const;
+/** Run type. C# RunKind (EntityRef.cs): Natural = 3 appended in Round E1 (D16), CatTrack = 4 in T54 probe 1, never renumbered. */
+export type RunKind = 0 | 1 | 2 | 3 | 4;
+export const RUN_KIND = { Groomed: 0, Snowmaking: 1, Night: 2, Natural: 3, CatTrack: 4 } as const;
 
 /** RunRow.band (unchanged): -2 cannot be rated (final for the current outline and terrain), -1 not
  *  rated yet, 0 Flat .. 4 DoubleBlack (C#: SkiRunRatingRules.RowBand; literal ints, no enum). */
@@ -160,8 +160,8 @@ export const LIFT_STATE = { Running: 0, Static: 1, Open: 2, Unfinished: 3, Stati
 /** ResortLive.status. C# HubRules ResortStatus. */
 export const RESORT_STATUS = { NoRuns: 0, Closed: 1, Partly: 2, Open: 3 } as const;
 
-/** RunLive.openState. C# HubRules RunOpenState. */
-export const OPEN_STATE = { None: -1, Closed: 0, Partly: 1, Open: 2 } as const;
+/** RunLive.openState. C# HubRules RunOpenState. Unsuitable = 3 (T54 probe 1): a cat track rated blue or steeper. */
+export const OPEN_STATE = { None: -1, Closed: 0, Partly: 1, Open: 2, Unsuitable: 3 } as const;
 
 /** ResortLive.seasonHint. C# HubRules SeasonHint. */
 export const SEASON_HINT = { None: 0, SnowSeason: 1, SnowGunsOnly: 2, Thawing: 3, WaitingForSnow: 4, TooWarm: 5, GatingOff: 6 } as const;
@@ -197,7 +197,7 @@ export const SKI_DAY_STATE = { Unknown: 0, Off: 1, SignOff: 2, NoRun: 3, NoLodge
 /** ResortLive.skiDaysLimit. C# SkiDayRules SkiDayLimit (ch1): which D21 term sets the capacity. */
 export const SKI_DAY_LIMIT = { None: 0, Runs: 1, Lodges: 2 } as const;
 
-/** Build-strip ids. Contract 6: the 25 ids of the ONE C# table, SkiCatalog.cs BUILD-ITEMS, in its order (gate
+/** Build-strip ids. Contract 6: the 26 ids (25 + runCatTrack, T54 probe 1) of the ONE C# table, SkiCatalog.cs BUILD-ITEMS, in its order (gate
  *  rule R16 compares the union, this list, BUILD_ITEM_PREFAB and buildItems.ts BUILD_ITEMS / BUILD_GROUPS /
  *  BUILD_ITEM_ICON with it). C# owns what each id launches and which ids it SENDS (a pending prefab that is not
  *  imported, and every item of a Shuttle lift type, are not sent: round-2-contract D7); the strip draws
@@ -209,7 +209,7 @@ export type BuildItemId =
   | "baseStationDetachable" | "topStationDetachable" | "liftDetachable"
   | "baseStationGondola" | "topStationGondola" | "liftGondola"
   | "baseStationTram" | "topStationTram" | "liftTram"
-  | "runNatural" | "runGroomed" | "runSnowmaking" | "runNight";
+  | "runNatural" | "runGroomed" | "runSnowmaking" | "runNight" | "runCatTrack";
 export const BUILD_ITEM_IDS: readonly BuildItemId[] = [
   "sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand",
   "school", "patrolHut", "patrolHQ",
@@ -217,7 +217,7 @@ export const BUILD_ITEM_IDS: readonly BuildItemId[] = [
   "baseStationDetachable", "topStationDetachable", "liftDetachable",
   "baseStationGondola", "topStationGondola", "liftGondola",
   "baseStationTram", "topStationTram", "liftTram",
-  "runNatural", "runGroomed", "runSnowmaking", "runNight",
+  "runNatural", "runGroomed", "runSnowmaking", "runNight", "runCatTrack",
 ];
 
 /** Display only: the prefab behind each id (rule R16 compares it with the C# table row's Names.X value). */
@@ -247,6 +247,7 @@ export const BUILD_ITEM_PREFAB: Readonly<Record<BuildItemId, string>> = {
   runGroomed: "SkiRunGroomedA",
   runSnowmaking: "SkiRunSnowmakingA",
   runNight: "SkiRunNightA",
+  runCatTrack: "SkiRunCatTrackA",
 };
 
 /** LiftRow.type: C# SkiCatalog.Lifts[i].Id, APPEND ONLY (Lifts[0] = fixedGrip forever); "" = unknown. Display only:

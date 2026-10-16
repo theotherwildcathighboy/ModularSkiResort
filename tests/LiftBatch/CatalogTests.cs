@@ -155,6 +155,7 @@ namespace LiftBatch
             new NameOracle("SkiRunGroomedA", S, CatalogKind.Run, "runGroomed", true),
             new NameOracle("SkiRunSnowmakingA", S, CatalogKind.Run, "runSnowmaking", true),
             new NameOracle("SkiRunNightA", S, CatalogKind.Run, "runNight", true),
+            new NameOracle("SkiRunCatTrackA", S, CatalogKind.Run, "runCatTrack", true),   // T54 probe 1 (31 names, 26 items)
         };
 
         // ================================================================== CT-1
@@ -177,7 +178,7 @@ namespace LiftBatch
         {
             const string W = "catalog-names";
             IReadOnlyList<CatalogName> all = SkiCatalog.AllPrefabNames();
-            Eq(30, all.Count, W, "AllPrefabNames().Count");
+            Eq(31, all.Count, W, "AllPrefabNames().Count");   // T54 probe 1: 30 + SkiRunCatTrackA
             Check(ReferenceEquals(all, SkiCatalog.AllPrefabNames()), W, "AllPrefabNames() is not the cached list (allocates per call)");
             var names = new HashSet<string>(StringComparer.Ordinal);
             var items = new HashSet<string>(StringComparer.Ordinal);
@@ -224,10 +225,10 @@ namespace LiftBatch
                 if (n.Expected)
                     expected++;
             }
-            Eq(25, withItem, W, "names with a build item id (the 25 strip items)");
-            Eq(30, expected, W, "expected names");
+            Eq(26, withItem, W, "names with a build item id (the 26 strip items: 25 + runCatTrack, T54 probe 1)");
+            Eq(31, expected, W, "expected names");
             Eq(0, all.Count - expected, W, "pending names");
-            Eq(30, SkiCatalog.ExpectedNameCount, W, "ExpectedNameCount");
+            Eq(31, SkiCatalog.ExpectedNameCount, W, "ExpectedNameCount");
             Eq(0, SkiCatalog.PendingNameCount, W, "PendingNameCount");
             // The four type constants are the Game type names (the system asserts nameof() at OnCreate; literal here).
             Eq("PowerLinePrefab", SkiCatalog.TypeLine, W, "TypeLine");
@@ -363,6 +364,7 @@ namespace LiftBatch
             RunIs("SkiRunGroomedA", RunKind.Groomed, 0, W);
             RunIs("SkiRunSnowmakingA", RunKind.Snowmaking, 1, W);
             RunIs("SkiRunNightA", RunKind.Night, 2, W);
+            RunIs("SkiRunCatTrackA", RunKind.CatTrack, 4, W);   // T54 probe 1
             foreach (string up in new[] { "SkiAFrameDayLodge", "SkiLodgeHut", "SkiLodgeMid", "SkiLodgeSummit", "SkiLodgeGrand",
                                           "SkiSchool", "SkiPatrolHut", "SkiPatrolHQ" })
                 Check(SkiCatalog.IsUpgradeBuilding(up), W, up + " is not an upgrade building");
@@ -833,6 +835,7 @@ namespace LiftBatch
             new object[] { "runGroomed", "SkiRunGroomedA", BuildItemKind.Run, "", 0 },
             new object[] { "runSnowmaking", "SkiRunSnowmakingA", BuildItemKind.Run, "", 1 },
             new object[] { "runNight", "SkiRunNightA", BuildItemKind.Run, "", 2 },
+            new object[] { "runCatTrack", "SkiRunCatTrackA", BuildItemKind.Run, "", 4 },   // T54 probe 1
         };
 
         private static void BuildItems()
@@ -866,7 +869,7 @@ namespace LiftBatch
             Check(!SkiCatalog.TryGetBuildItem(null, out _, out _) && !SkiCatalog.TryGetBuildItem("", out _, out _), W,
                   "TryGetBuildItem(null / \"\") answered");
             Check(!SkiCatalog.TryGetBuildItemDef("nope", out BuildItemDef noDef) && noDef.Id == null, W, "TryGetBuildItemDef(\"nope\") answered");
-            Eq(4, SkiCatalog.Runs.Count, W, "Runs.Count");
+            Eq(5, SkiCatalog.Runs.Count, W, "Runs.Count");   // T54 probe 1: + the cat track
             for (int i = 0; i < SkiCatalog.Runs.Count; i++)
             {
                 RunDef r = SkiCatalog.Runs[i];
@@ -877,6 +880,7 @@ namespace LiftBatch
             Eq((byte)1, (byte)RunKind.Snowmaking, W, "RunKind.Snowmaking");
             Eq((byte)2, (byte)RunKind.Night, W, "RunKind.Night");
             Eq((byte)3, (byte)RunKind.Natural, W, "RunKind.Natural");
+            Eq((byte)4, (byte)RunKind.CatTrack, W, "RunKind.CatTrack");   // T54 probe 1
         }
 
         // ================================================================== CT-8
@@ -940,7 +944,7 @@ namespace LiftBatch
                 parsed.Add(m.Groups[1].Value + "|" + m.Groups[2].Value + "|" + (m.Groups[3].Success ? m.Groups[3].Value : "") + "|" +
                            (m.Groups[4].Success ? "pending" : ""));
             }
-            Eq(30, parsed.Count, W, "names between the markers");
+            Eq(31, parsed.Count, W, "names between the markers");
             IReadOnlyList<CatalogName> all = SkiCatalog.AllPrefabNames();
             var expected = new List<string>();
             for (int i = 0; i < all.Count; i++)

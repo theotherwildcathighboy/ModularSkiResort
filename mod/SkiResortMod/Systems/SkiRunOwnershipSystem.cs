@@ -211,6 +211,9 @@ namespace SkiResortMod.Systems
         private static readonly string[] NightSurfaceNames = { "SkiRunNightA" };
         // Round E1 (D16, econ-round spec ch2 §4.4.2): the natural run, RunKind.Natural = 3.
         private static readonly string[] NaturalSurfaceNames = { "SkiRunNaturalA" };
+        // T54 probe 1 (cat-track-run.md §2): the cat track, RunKind.CatTrack = 4 (a SurfacePrefab whose AreaType is forged to
+        // Space at load by SkiRunAreaTypeSystem so it can cross other runs).
+        private static readonly string[] CatTrackSurfaceNames = { "SkiRunCatTrackA" };
         private static readonly string[] GateNames = { "SkiResortGate" };
 
         /// <summary>One run's collected facts and decision (collect first, mutate after).</summary>
@@ -241,6 +244,7 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_SnowmakingPrefabs = new HashSet<Entity>();
         private readonly HashSet<Entity> m_NightPrefabs = new HashSet<Entity>();
         private readonly HashSet<Entity> m_NaturalPrefabs = new HashSet<Entity>();   // E1 (D16)
+        private readonly HashSet<Entity> m_CatTrackPrefabs = new HashSet<Entity>();  // T54 probe 1
         private readonly HashSet<Entity> m_GatePrefabs = new HashSet<Entity>();
         private bool m_PrefabsResolved;             // session cache, set only once both sets exist
 
@@ -392,7 +396,8 @@ namespace SkiResortMod.Systems
                              $"per-run lines capped at {Tuning.RunLinesPerPassMax} per pass; " +
                              $"prefab sets: {m_GatePrefabs.Count} sign + {m_GroomedPrefabs.Count} " +
                              $"groomed / {m_SnowmakingPrefabs.Count} snowmaking / " +
-                             $"{m_NightPrefabs.Count} night / {m_NaturalPrefabs.Count} natural; " +
+                             $"{m_NightPrefabs.Count} night / {m_NaturalPrefabs.Count} natural / " +
+                             $"{m_CatTrackPrefabs.Count} cat track (groomed fee); " +
                              "DOWNGRADE HAZARD: a save made by this " +
                              "build opened in an older build re-charges every run");
 
@@ -483,7 +488,8 @@ namespace SkiResortMod.Systems
             return m_GroomedPrefabs.Contains(prefab) ||
                    m_SnowmakingPrefabs.Contains(prefab) ||
                    m_NightPrefabs.Contains(prefab) ||
-                   m_NaturalPrefabs.Contains(prefab);
+                   m_NaturalPrefabs.Contains(prefab) ||
+                   m_CatTrackPrefabs.Contains(prefab);
         }
 
         /// <summary>True for the Ski Area Welcome Sign BuildingPrefab entity.</summary>
@@ -506,6 +512,8 @@ namespace SkiResortMod.Systems
                 return 2;
             if (m_NaturalPrefabs.Contains(prefab))
                 return (int)RunKind.Natural;
+            if (m_CatTrackPrefabs.Contains(prefab))
+                return (int)RunKind.CatTrack;
             return -1;
         }
 
@@ -1349,11 +1357,13 @@ namespace SkiResortMod.Systems
             m_SnowmakingPrefabs.Clear();
             m_NightPrefabs.Clear();
             m_NaturalPrefabs.Clear();
+            m_CatTrackPrefabs.Clear();
             m_GatePrefabs.Clear();
             ResolveSet(GroomedSurfaceNames, "SurfacePrefab", m_GroomedPrefabs);
             ResolveSet(SnowmakingSurfaceNames, "SurfacePrefab", m_SnowmakingPrefabs);
             ResolveSet(NightSurfaceNames, "SurfacePrefab", m_NightPrefabs);
             ResolveSet(NaturalSurfaceNames, "SurfacePrefab", m_NaturalPrefabs);
+            ResolveSet(CatTrackSurfaceNames, "SurfacePrefab", m_CatTrackPrefabs);
             ResolveSet(GateNames, "BuildingPrefab", m_GatePrefabs);
             m_PrefabsResolved = m_GatePrefabs.Count > 0 &&
                 (m_GroomedPrefabs.Count > 0 || m_SnowmakingPrefabs.Count > 0 || m_NightPrefabs.Count > 0 ||

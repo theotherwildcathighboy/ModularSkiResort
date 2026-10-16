@@ -192,6 +192,9 @@ namespace SkiResortMod.Systems
         private const string GroomedPrefabName = "SkiRunGroomedA";
         private const string SnowmakingPrefabName = "SkiRunSnowmakingA";
         private const string NightPrefabName = "SkiRunNightA";
+        // T54 probe 1 (cat-track-run.md §2): the cat track wears the GROOMED pair (textures, winter alpha, snow slots) until it
+        // gets its own pair and summer set; its prefab has RendererPriority 11 so its decal draws over a run it crosses.
+        private const string CatTrackPrefabName = "SkiRunCatTrackA";
 
         // Texture file contract (parallel texture agent delivers these; missing files are
         // logged once per load and their applications skipped — retried next load).
@@ -350,6 +353,9 @@ namespace SkiResortMod.Systems
                 // identity comes from its floodlight masts, not a different decal.
                 new Target(NightPrefabName, SnowmakingBaseColorFile, SnowmakingNormalFile,
                     Tuning.SnowmakingWinterAlphaScale, useSnowPair: false),
+                // T54 probe 1: the cat track reuses the groomed pair (the brief: "reuse the groomed pair for now").
+                new Target(CatTrackPrefabName, GroomedBaseColorFile, GroomedNormalFile,
+                    Tuning.GroomedWinterAlphaScale, useSnowPair: true),
             };
             Mod.Log.Info($"{nameof(SkiRunDecalSystem)} created");
         }

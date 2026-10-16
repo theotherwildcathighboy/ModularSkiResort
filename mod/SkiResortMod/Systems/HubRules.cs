@@ -133,7 +133,7 @@ namespace SkiResortMod.Systems
     public enum ResortStatus : byte { NoRuns = 0, Closed = 1, Partly = 2, Open = 3 }
 
     /// <summary>bindings.ts OPEN_STATE (gate R17).</summary>
-    public enum RunOpenState : sbyte { None = -1, Closed = 0, Partly = 1, Open = 2 }
+    public enum RunOpenState : sbyte { None = -1, Closed = 0, Partly = 1, Open = 2, Unsuitable = 3 }   // T54 probe 1: Unsuitable = 3, a cat track rated blue or steeper
 
     /// <summary>bindings.ts SEASON_HINT (gate R17).</summary>
     public enum SeasonHint : byte { None = 0, SnowSeason = 1, SnowGunsOnly = 2, Thawing = 3, WaitingForSnow = 4, TooWarm = 5, GatingOff = 6 }
@@ -292,6 +292,15 @@ namespace SkiResortMod.Systems
             if (!(openFactor > 0.0))
                 return RunOpenState.Closed;
             return openFactor >= 1.0 ? RunOpenState.Open : RunOpenState.Partly;
+        }
+
+        /// <summary>T54 probe 1 (cat-track-run.md §2, §4): the run-state word of a CAT TRACK row. A cat track is never a "member"
+        /// of the resort's numbers (RunKindRules.CountsTowardResort), yet the list still says whether it is open: Unsuitable
+        /// when rated blue or steeper (SkiRunRatingRules.CatTrackUnsuitable on the ROW band), else the open factor read as a
+        /// member would (the day-mean estimate; the track is never injected).</summary>
+        public static RunOpenState CatTrackOpenState(double openFactor, sbyte rowBand)
+        {
+            return SkiRunRatingRules.CatTrackUnsuitable(rowBand) ? RunOpenState.Unsuitable : OpenStateOf(openFactor, true);
         }
 
         /// <summary>Round M2 R5: the gun word reads the live gun gates (gunsLiveKnown = the injection has measured a

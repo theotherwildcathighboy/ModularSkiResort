@@ -103,10 +103,12 @@ namespace SkiResortMod.Systems
     public static class SkiRunFees
     {
         /// <summary>= RunKind values (BindingBatch asserts the equality).</summary>
-        public const int KindGroomed = 0, KindSnowmaking = 1, KindNight = 2, KindNatural = 3;
+        public const int KindGroomed = 0, KindSnowmaking = 1, KindNight = 2, KindNatural = 3, KindCatTrack = 4;
 
         public const int NaturalBase = 500, NaturalPerHa = 250;
         public const int GroomedBase = 2000, GroomedPerHa = 1000;
+        // T54 probe 1 (cat-track-run.md §2, D1 pending): the cat track pays the groomed fee by plan area.
+        public const int CatTrackBase = GroomedBase, CatTrackPerHa = GroomedPerHa;
         public const int SnowmakingBase = 4000, SnowmakingPerHa = 4000;
         public const int NightBase = 6000, NightPerHa = 7000;
 
@@ -122,6 +124,7 @@ namespace SkiResortMod.Systems
                 case KindSnowmaking: return SnowmakingBase;
                 case KindNight: return NightBase;
                 case KindNatural: return NaturalBase;
+                case KindCatTrack: return CatTrackBase;
                 default: return -1;
             }
         }
@@ -134,6 +137,7 @@ namespace SkiResortMod.Systems
                 case KindSnowmaking: return SnowmakingPerHa;
                 case KindNight: return NightPerHa;
                 case KindNatural: return NaturalPerHa;
+                case KindCatTrack: return CatTrackPerHa;
                 default: return -1;
             }
         }
