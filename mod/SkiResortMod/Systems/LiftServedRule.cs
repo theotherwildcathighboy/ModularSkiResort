@@ -34,6 +34,10 @@
 // TopMarginM alias SkiCatalog.FixedGrip, compile-time literals; SkiCatalog.cs is linked wherever this file is —
 // tests/LiftBatch, tests/ResortBatch). No state; Assign is allocation-free once its lists have grown.
 //
+// ROUND T06 (2026-10-16, docs/research/field/2026-10-15/build/T06-served-links.md): a run is ALSO served when it is linked
+// to a served run (outline nodes within LinkMeters, or overlapping outlines, same ski area; transitive): AssignLinked, RunLinks.
+// Rules 1-4 above are unchanged; they decide whether a run is served by a lift DIRECTLY. Connected-served factor = served (1.0).
+//
 // Created 2026-10-04 (Round E1 stage 0, S0: ch2 §3.2 as edited, verbatim); owned by stream S2.
 //
 // CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.3, lift group) — the
@@ -362,6 +366,321 @@ namespace SkiResortMod.Systems
                 servingLift.Add(best);
                 servingDistanceM.Add(bestD);
             }
+        }
+
+        // ── Round T06 (2026-10-16, docs/research/field/2026-10-15/build/T06-served-links.md): runs that connect to a served run ──
+
+        /// <summary>T06: two runs of the SAME ski area are linked when any outline node of one lies within this many metres
+        /// (xz, inclusive) of any outline node of the other, or their outlines overlap (an edge crossing, or a node inside the
+        /// other's ring). 25 m: a connector is drawn from a node placed on or beside the run it leaves, so the nodes of the
+        /// two outlines meet within a brush width or two; 26 m apart is not linked (ServedLinkTests). Richard's design intent:
+        /// "we should be able to connect runs" (Items 76 / 80). One const, no setting.</summary>
+        public const float LinkMeters = 25f;
+
+        /// <summary>T06: the run-to-run link graph of one recompute. Build(outlines, areas) fills a CSR adjacency; it is
+        /// SELF-VALIDATING: when the per-run outline arrays are the very same objects as at the last Build (the catalog keeps
+        /// one float2[] per run until its outline moves) and the area ids are equal, the graph is kept and no pair is tested,
+        /// so the O(n^2 x nodes) pass runs only after an outline, a binding or the run set changed, not on every soft
+        /// recompute. Allocation-free once grown. Main thread, one instance per caller.</summary>
+        public sealed class RunLinks
+        {
+            private readonly List<float2[]> m_Outlines = new List<float2[]>(32);
+            private readonly List<int> m_Areas = new List<int>(32);
+            private readonly List<float4> m_Box = new List<float4>(32);   // minX, minZ, maxX, maxZ of each outline
+            private readonly List<int> m_Start = new List<int>(33);
+            private readonly List<int> m_Adj = new List<int>(64);
+            private readonly List<int> m_PairA = new List<int>(32);
+            private readonly List<int> m_PairB = new List<int>(32);
+            private readonly List<int> m_Fill = new List<int>(32);
+            internal readonly List<int> Queue = new List<int>(32);        // AssignLinked's BFS scratch
+            private bool m_Valid;
+
+            /// <summary>How many Builds recomputed the graph / kept it (diagnostics, tests).</summary>
+            public int Rebuilds, Reuses;
+
+            /// <summary>The run count of the last Build.</summary>
+            public int Count => m_Areas.Count;
+
+            /// <summary>Number of links the last Build found.</summary>
+            public int LinkCount => m_PairA.Count;
+
+            /// <summary>The runs linked to run <paramref name="run"/>: a slice of the adjacency (first slot and count).</summary>
+            public void NeighboursOf(int run, out int first, out int count)
+            {
+                first = m_Start[run];
+                count = m_Start[run + 1] - first;
+            }
+
+            /// <summary>The run at adjacency slot <paramref name="slot"/> (from NeighboursOf).</summary>
+            public int Neighbour(int slot)
+            {
+                return m_Adj[slot];
+            }
+
+            /// <summary>Builds (or keeps) the graph. outlines[i] = run i's outline nodes (xz; null or empty = no outline, never
+            /// linked); areas[i] = run i's ski area id (any int; a negative id = no area, never linked). Both lists have one
+            /// entry per run. Returns true when the graph was recomputed.</summary>
+            public bool Build(List<float2[]> outlines, List<int> areas)
+            {
+                int n = outlines.Count;
+                if (areas.Count != n)
+                    throw new ArgumentException("areas and outlines differ in length");
+                if (m_Valid && SameInputs(outlines, areas))
+                {
+                    Reuses++;
+                    return false;
+                }
+                Rebuilds++;
+                m_Outlines.Clear();
+                m_Areas.Clear();
+                m_Box.Clear();
+                m_PairA.Clear();
+                m_PairB.Clear();
+                for (int i = 0; i < n; i++)
+                {
+                    m_Outlines.Add(outlines[i]);
+                    m_Areas.Add(areas[i]);
+                    m_Box.Add(BoxOf(outlines[i]));
+                }
+                float margin = LinkMeters;
+                for (int i = 0; i < n; i++)
+                {
+                    if (m_Areas[i] < 0 || m_Outlines[i] == null || m_Outlines[i].Length == 0)
+                        continue;
+                    float4 bi = m_Box[i];
+                    for (int j = i + 1; j < n; j++)
+                    {
+                        if (m_Areas[j] != m_Areas[i] || m_Outlines[j] == null || m_Outlines[j].Length == 0)
+                            continue;
+                        float4 bj = m_Box[j];
+                        if (bi.z + margin < bj.x || bj.z + margin < bi.x || bi.w + margin < bj.y || bj.w + margin < bi.y)
+                            continue;   // boxes (grown by LinkMeters) apart: no node pair is within reach and no edges cross
+                        if (OutlinesLinked(m_Outlines[i], m_Outlines[j]))
+                        {
+                            m_PairA.Add(i);
+                            m_PairB.Add(j);
+                        }
+                    }
+                }
+                // CSR: counts, prefix sums, fill. The order of a run's neighbours is a function of the inputs alone.
+                m_Start.Clear();
+                m_Fill.Clear();
+                for (int i = 0; i <= n; i++)
+                    m_Start.Add(0);
+                for (int k = 0; k < m_PairA.Count; k++)
+                {
+                    m_Start[m_PairA[k] + 1]++;
+                    m_Start[m_PairB[k] + 1]++;
+                }
+                for (int i = 0; i < n; i++)
+                {
+                    m_Start[i + 1] += m_Start[i];
+                    m_Fill.Add(m_Start[i]);
+                }
+                m_Adj.Clear();
+                for (int k = 0; k < m_Start[n]; k++)
+                    m_Adj.Add(0);
+                for (int k = 0; k < m_PairA.Count; k++)
+                {
+                    int a = m_PairA[k], b = m_PairB[k];
+                    m_Adj[m_Fill[a]++] = b;
+                    m_Adj[m_Fill[b]++] = a;
+                }
+                m_Valid = true;
+                return true;
+            }
+
+            private bool SameInputs(List<float2[]> outlines, List<int> areas)
+            {
+                if (m_Areas.Count != outlines.Count)
+                    return false;
+                for (int i = 0; i < outlines.Count; i++)
+                {
+                    if (!ReferenceEquals(m_Outlines[i], outlines[i]) || m_Areas[i] != areas[i])
+                        return false;
+                }
+                return true;
+            }
+
+            private static float4 BoxOf(float2[] outline)
+            {
+                if (outline == null || outline.Length == 0)
+                    return new float4(0f);
+                float2 lo = outline[0], hi = outline[0];
+                for (int k = 1; k < outline.Length; k++)
+                {
+                    lo = math.min(lo, outline[k]);
+                    hi = math.max(hi, outline[k]);
+                }
+                return new float4(lo.x, lo.y, hi.x, hi.y);
+            }
+        }
+
+        /// <summary>T06: are two outlines linked? Any node of a within LinkMeters (xz, inclusive) of any node of b, or an
+        /// edge of a crosses an edge of b, or a node of a lies inside b's ring (or the reverse). Rings are implicitly closed
+        /// (the last node connects to the first, as the catalog's RingMetrics reads them). Null or empty gives false.</summary>
+        public static bool OutlinesLinked(float2[] a, float2[] b)
+        {
+            if (a == null || b == null || a.Length == 0 || b.Length == 0)
+                return false;
+            float r2 = LinkMeters * LinkMeters;
+            for (int i = 0; i < a.Length; i++)
+            {
+                for (int j = 0; j < b.Length; j++)
+                {
+                    if (math.lengthsq(a[i] - b[j]) <= r2)
+                        return true;
+                }
+            }
+            if (a.Length < 3 || b.Length < 3)
+                return false;
+            for (int i = 0; i < a.Length; i++)
+            {
+                float2 a0 = a[i], a1 = a[i + 1 < a.Length ? i + 1 : 0];
+                for (int j = 0; j < b.Length; j++)
+                {
+                    if (SegmentsCross(a0, a1, b[j], b[j + 1 < b.Length ? j + 1 : 0]))
+                        return true;
+                }
+            }
+            return InsideRing(a[0], b) || InsideRing(b[0], a);
+        }
+
+        private static float Cross(float2 o, float2 p, float2 q)
+        {
+            return (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
+        }
+
+        /// <summary>Proper crossing of segments p0-p1 and q0-q1 (touching is already caught by the node distance test).</summary>
+        private static bool SegmentsCross(float2 p0, float2 p1, float2 q0, float2 q1)
+        {
+            float d1 = Cross(q0, q1, p0), d2 = Cross(q0, q1, p1), d3 = Cross(p0, p1, q0), d4 = Cross(p0, p1, q1);
+            return ((d1 > 0f && d2 < 0f) || (d1 < 0f && d2 > 0f)) && ((d3 > 0f && d4 < 0f) || (d3 < 0f && d4 > 0f));
+        }
+
+        /// <summary>Even-odd point-in-ring test.</summary>
+        private static bool InsideRing(float2 p, float2[] ring)
+        {
+            bool inside = false;
+            for (int i = 0, j = ring.Length - 1; i < ring.Length; j = i++)
+            {
+                float2 a = ring[i], b = ring[j];
+                if ((a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x)
+                    inside = !inside;
+            }
+            return inside;
+        }
+
+        /// <summary>T06: THE served rule with run-to-run links; the attraction path and the stats path both call it, so the
+        /// two cannot disagree. Runs <c>Assign</c> first (servingLift / servingDistanceM / servedCount keep their meaning: the
+        /// DIRECT test of each run's top against the lifts; a lift's runs-served count stays direct only), then a
+        /// breadth-first pass over <paramref name="links"/> (Build it first; a graph of another size is ignored, i.e. no
+        /// links): a run is SERVED when its own top passes (servedRoot[i] = i, servedVia[i] = -1) or it is linked, through
+        /// any chain of linked runs (each run is visited once, so the chain is bounded by the run count), to a directly
+        /// served run (servedRoot[i] = that directly served run, the nearest by link count, ties to the lower run index;
+        /// servedVia[i] = the run it was reached through, one link nearer the root). Unserved: both -1. Output lists are
+        /// cleared and filled; allocation-free once grown.</summary>
+        public static void AssignLinked(List<float3> runTops, RunLinks links, List<Lift> lifts, List<Chord> chords,
+            List<int> servingLift, List<float> servingDistanceM, List<int> servedCount,
+            List<int> servedRoot, List<int> servedVia)
+        {
+            Assign(runTops, lifts, chords, servingLift, servingDistanceM, servedCount);
+            int n = runTops.Count;
+            servedRoot.Clear();
+            servedVia.Clear();
+            List<int> queue = links != null ? links.Queue : new List<int>(n);
+            queue.Clear();
+            for (int r = 0; r < n; r++)
+            {
+                servedVia.Add(-1);
+                if (servingLift[r] >= 0)
+                {
+                    servedRoot.Add(r);
+                    queue.Add(r);
+                }
+                else
+                {
+                    servedRoot.Add(-1);
+                }
+            }
+            if (links == null || links.Count != n)
+                return;
+            for (int head = 0; head < queue.Count; head++)
+            {
+                int r = queue[head];
+                links.NeighboursOf(r, out int first, out int count);
+                for (int k = 0; k < count; k++)
+                {
+                    int m = links.Neighbour(first + k);
+                    if (servedRoot[m] >= 0)
+                        continue;
+                    servedRoot[m] = servedRoot[r];
+                    servedVia[m] = r;
+                    queue.Add(m);
+                }
+            }
+        }
+    }
+
+    /// <summary>One ski area's "closed" state with its hysteresis (T13). A plain value the caller keeps per area.</summary>
+    public struct AreaClosedState
+    {
+        public bool Known;          // the area has been observed (settled) at least once
+        public bool Closed;         // the published state: the area has no open run, held for LiftClosedRule.HoldFrames
+        public bool Pending;        // the observed state differs from Closed and has kept differing since PendingSince
+        public uint PendingSince;   // the sim frame of the first observation of the differing state
+    }
+
+    /// <summary>T13 (docs/research/field/2026-10-15/build/T13-closed-gate.md; Tickets T13, report item 78): THE "closed"
+    /// signal of a lift — its ski area has no open run, the very state SkiLiftChargeSystem bills "at 25 %: no open run in
+    /// its ski area" (SkiMoneyRules.LiftAreaRunOpen). It feeds LiftServedRule.Carries' closed flag (ChairPinSystem.IsLoopClosed,
+    /// TramShuttleSystem.IsClosed, the [state] lines). A lift with no ski area is never closed.
+    /// HYSTERESIS: the published state flips only when the observed area state has held for HoldFrames sim frames (one game
+    /// hour), so a run that thaws for a minute does not start and stop the chairs. The clock is the sim frame index the
+    /// charge system already reads (SimulationSystem.frameIndex, 262,144 per game day: SkiMoneyRules.TicksPerDay); it is
+    /// observed at each charge snapshot (a pass every 1,024 frames at most), so a flip lands between HoldFrames and
+    /// HoldFrames + 1,024 frames after the area changed (one game hour to one hour and six minutes). The first settled
+    /// observation after a load is taken at once (nothing to debounce). Pure; no allocation.</summary>
+    public static class LiftClosedRule
+    {
+        /// <summary>One game hour in sim frames: 262,144 / 24 = 10,922.67, rounded up.</summary>
+        public const uint HoldFrames = 10923u;
+
+        /// <summary>Feed one observation: <paramref name="areaOpen"/> = the area has an open run; <paramref name="nowFrame"/> = the
+        /// sim frame (wrap-safe). Returns the published closed state.</summary>
+        public static bool Step(ref AreaClosedState s, bool areaOpen, uint nowFrame)
+        {
+            bool observedClosed = !areaOpen;
+            if (!s.Known)
+            {
+                s.Known = true;
+                s.Closed = observedClosed;
+                s.Pending = false;
+                return s.Closed;
+            }
+            if (observedClosed == s.Closed)
+            {
+                s.Pending = false;
+                return s.Closed;
+            }
+            if (!s.Pending)
+            {
+                s.Pending = true;
+                s.PendingSince = nowFrame;
+            }
+            if (unchecked(nowFrame - s.PendingSince) >= HoldFrames)
+            {
+                s.Closed = observedClosed;
+                s.Pending = false;
+            }
+            return s.Closed;
+        }
+
+        /// <summary>The lift's closed flag: never for a lift with no ski area (<paramref name="linked"/> false); else the area's
+        /// published state.</summary>
+        public static bool ClosedFor(bool linked, in AreaClosedState s)
+        {
+            return linked && s.Known && s.Closed;
         }
     }
 }

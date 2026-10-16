@@ -50,7 +50,7 @@
 //     with active texels in the injection's per-run map (TryGetRunActiveTexels, read for the run costs too) —
 //     once the injection has measured a mask this load and is active (gunsLive); before that the old mean test; an
 //     inactive injection (not armed, or disabled) reads "no gun running" (fixer F6).
-//   * served lift and runs served: LiftCensusSystem.CopyServeLifts + LiftServedRule.Assign over EVERY
+//   * served lift and runs served: LiftCensusSystem.CopyServeLifts + LiftServedRule.AssignLinked (T06: run links) over EVERY
 //     catalog row's NodeTopPos (ch2 §3.4-3.5). servedBy is Null when the run view says not served.
 //   * run costs per kind: TryGetRunActiveTexels × TexelAreaM2 / 10⁴ ha × SkiRunUpkeepSystem
 //     .CostPerHaMonth(kind) for bound runs — the numbers the upkeep bills (natural: 0, its plan area is
@@ -538,6 +538,12 @@ namespace SkiResortMod.Systems
         private float[] m_EfficiencyValues = new float[8];                                       // DUMP: SignEfficiency input
         // Round E1 (ch5 §5.3): served rule, problems, budgets.
         private readonly List<float3> m_RunTops = new List<float3>(32);
+        // T06: the run-link inputs and results of AssignServedLifts (LiftServedRule.AssignLinked, the same call as the attraction path).
+        private readonly List<float2[]> m_RunOutlines = new List<float2[]>(32);
+        private readonly List<int> m_RunAreas = new List<int>(32);
+        private readonly LiftServedRule.RunLinks m_RunLinks = new LiftServedRule.RunLinks();
+        private readonly List<int> m_ServedRoot = new List<int>(32);
+        private readonly List<int> m_ServedVia = new List<int>(32);
         private readonly List<LiftServedRule.Lift> m_ServeLifts = new List<LiftServedRule.Lift>(8);
         private readonly List<LiftServedRule.Chord> m_Chords = new List<LiftServedRule.Chord>(64);
         private readonly List<int> m_ServingLift = new List<int>(32);
@@ -985,6 +991,8 @@ namespace SkiResortMod.Systems
             m_LiftIn.Clear();
             m_LodgeIn.Clear();
             m_RunTops.Clear();
+            m_RunOutlines.Clear();   // T06
+            m_RunAreas.Clear();
             m_BudgetOf.Clear();
 
             bool ready = m_Ownership.PrefabSetsReady;
@@ -1568,6 +1576,8 @@ namespace SkiResortMod.Systems
                     CostMonth = (int)Math.Round(cost, MidpointRounding.AwayFromZero),
                 });
                 m_RunTops.Add(row.NodeTopPos);
+                m_RunOutlines.Add(row.OutlineXZ);   // T06: the catalog row's array, by reference (the link graph keeps while it is unchanged)
+                m_RunAreas.Add(bound ? resort : -1);
             }
         }
 
@@ -1577,11 +1587,16 @@ namespace SkiResortMod.Systems
         {
             long t0 = Stopwatch.GetTimestamp();
             m_Census.CopyServeLifts(m_ServeLifts, m_Chords);
-            LiftServedRule.Assign(m_RunTops, m_ServeLifts, m_Chords, m_ServingLift, m_ServingDistance, m_ServedCount);
+            // T06: the same rule call as the attraction path (a run linked to a served run is served); Served itself comes from
+            // the attraction's view, this call fills servedBy: a linked run shows the lift of the run it is served through.
+            m_RunLinks.Build(m_RunOutlines, m_RunAreas);
+            LiftServedRule.AssignLinked(m_RunTops, m_RunLinks, m_ServeLifts, m_Chords, m_ServingLift, m_ServingDistance,
+                                        m_ServedCount, m_ServedRoot, m_ServedVia);
             for (int i = 0; i < m_RunsNext.Count && i < m_ServingLift.Count; i++)
             {
                 RunStats r = m_RunsNext[i];
-                int l = m_ServingLift[i];
+                int root = m_ServedRoot[i];
+                int l = root >= 0 ? m_ServingLift[root] : -1;
                 if (r.Served && l >= 0 && l < m_ServeLifts.Count)
                 {
                     r.ServedBy = ToEntity(m_ServeLifts[l].Id);
@@ -1730,16 +1745,21 @@ namespace SkiResortMod.Systems
                 // base's consumer — and not closed) has no capacity: −1 ("–"), left out of the area total below. Status, chairs
                 // and ride time are untouched. capacity is first read after this line (the area sum, CapacityPerHour), so both
                 // see the gate; a carrying row gets its float back bit for bit (HubRules.LiftCapacityShown, ResortBatch HK-1).
-                // A row that is not Complete already has −1 (riding 0, state ≠ 0). closed: not wired (D7, the pre-beta item).
-                bool carries = LiftServedRule.Carries(complete, powered, closed: false);
-                capacity = HubRules.LiftCapacityShown(capacity, carries);
+                // A row that is not Complete already has −1 (riding 0, state ≠ 0). closed: T13 (2026-10-16,
+                // docs/research/field/2026-10-15/build/T13-closed-gate.md) — the charge system's settled "no open run in its
+                // ski area" flag (LiftCharge.Closed, one game hour of hysteresis), the same read ChairPinSystem.IsLoopClosed and
+                // TramShuttleSystem.IsClosed use, so the hub's "–" and the stopped carriers agree. Read before Carries.
                 int costMonth = -1;
                 bool reduced = false;
+                bool closed = false;
                 if (m_LiftCharge.TryGetLift(id, topStation, out SkiLiftChargeSystem.LiftCharge lc))
                 {
                     costMonth = RoundToInt(lc.RatePerMonth);
                     reduced = lc.Billing != SkiMoneyRules.LiftBilling.Full;
+                    closed = lc.Closed;
                 }
+                bool carries = LiftServedRule.Carries(complete, powered, closed);
+                capacity = HubRules.LiftCapacityShown(capacity, carries);
 
                 // Per area (Not linked = the last work row).
                 ref AreaWork work = ref m_Work[resort >= 0 ? resort : resorts];
@@ -2081,7 +2101,7 @@ namespace SkiResortMod.Systems
                     live.VarietyMultiplier = (float)r.VarietyMultiplier;
                     live.VerticalMultiplier = (float)r.VerticalMultiplier;
                     live.ScoreVerticalM = (float)r.VerticalM;
-                    live.EfficiencyPct = v.EfficiencyPct;
+                    live.EfficiencyPct = v.EfficiencyUsedPct;
                     // Catalog Phase B (contract 6, §8.5): the ladder, school and patrol facts of the Result.
                     LodgeDef best = r.LodgeBestIndex >= 0 && r.LodgeBestIndex < SkiCatalog.Lodges.Count
                         ? SkiCatalog.Lodges[r.LodgeBestIndex] : null;
@@ -3133,8 +3153,9 @@ namespace SkiResortMod.Systems
                       .Append(", length ").Append(F(l.LengthM, "F0")).Append(" m, rise ").Append(F(l.RiseM, "F0"))
                       .Append(" m, powered ").Append(l.Powered).Append(", counted ").Append(l.Counted)
                       // Phase D (round-4-contract §4.3; was ", counted …" then ", ride …"): the run predicate as the hub applied it
-                      // (state 0 / 1 = census Complete) and the capacity it left ("–" = −1, not in the area total).
-                      .Append(", carries ").Append(LiftServedRule.Carries(l.State <= 1, l.Powered, closed: false) ? "Y" : "N")
+                      // (state 0 / 1 = census Complete) and the capacity it left ("–" = −1, not in the area total). T13: the row
+                      // carries the closed gate through its capacity (−1 when complete + powered but closed), so read that.
+                      .Append(", carries ").Append(l.CapacityPerHour >= 0f ? "Y" : "N")
                       .Append(" (capacity ").Append(l.CapacityPerHour >= 0f ? F(l.CapacityPerHour, "F0") + "/h" : "–").Append(')')
                       .Append(", ride ").Append(F(l.RideTimeS, "F0")).Append(" s, serves ").Append(l.RunsServed)
                       .Append(" run(s), cost ").Append(l.CostMonth).Append("/month").Append(l.BilledReduced ? " (at 25 %)" : "")

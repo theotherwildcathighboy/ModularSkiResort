@@ -13,6 +13,12 @@
 //         at the hold == positions at the resume (< 1e-6 m); spacing mod L unchanged (< 1e-9 m); one frame (1/60 s) after
 //         the resume every chair has advanced by speed / 60 (< 1e-6 m).
 //   LH-4  GateOf, 2 × 2 × 3 × 2 = 24 rows: Hold only for (row known, Complete, NoPower) and (row known, Complete, closed).
+//   LH-5  T13 (report item 78, LiftClosedRule): closed = the ski area has no open run, with one game hour (HoldFrames 10,923 sim
+//         frames) of hysteresis: the first observation is taken at once; the state flips only after the observed state held
+//         HoldFrames (boundary exact, both ways, uint-wrap safe); a flicker never flips; an interrupted spell restarts the
+//         clock; at the 1,024-frame charge cadence the flip lands in [10,923, 11,947); Not linked is never closed; GateOf
+//         stops a Complete powered lift and resumes it (a season walk); not Complete / no row never holds; the tram
+//         shuttle's predicate Carries(true, power, closed) follows.
 
 using System;
 using System.Collections.Generic;
@@ -35,6 +41,7 @@ namespace LiftBatch
             Lh2Identity();
             Lh3HoldResume();
             Lh4GateOf();
+            Lh5ClosedRule();
             s_Check = null;
         }
 
@@ -193,6 +200,146 @@ namespace LiftBatch
             Eq(4, holds, W, "Hold rows (known + Complete with NoPower, closed, or both)");
             Eq((byte)0, (byte)LoopGate.Run, W, "LoopGate.Run = 0");
             Eq((byte)1, (byte)LoopGate.Hold, W, "LoopGate.Hold = 1");
+        }
+
+        // ── T13 (report item 78): closed = the lift's ski area has no open run, with one game hour of hysteresis ──
+
+        /// <summary>Feeds the rule one observation every <paramref name="stride"/> frames from <paramref name="from"/> to
+        /// <paramref name="to"/> inclusive with a constant area state; returns the first frame at which the published state
+        /// equals <paramref name="wantClosed"/>, or -1.</summary>
+        private static long FirstFlip(ref AreaClosedState s, bool areaOpen, uint from, uint to, uint stride, bool wantClosed)
+        {
+            for (uint f = from; f <= to; f += stride)
+            {
+                bool closed = LiftClosedRule.Step(ref s, areaOpen, f);
+                if (closed == wantClosed)
+                    return f;
+            }
+            return -1;
+        }
+
+        private static void Lh5ClosedRule()
+        {
+            const string W = "loop-hold/LH-5";
+
+            // The delay: one game hour (262,144 sim frames a day, SkiMoneyRules.TicksPerDay).
+            Eq(10923u, LiftClosedRule.HoldFrames, W, "HoldFrames");
+            Check(LiftClosedRule.HoldFrames * 24u >= 262144u && (LiftClosedRule.HoldFrames - 1u) * 24u < 262144u, W,
+                  "HoldFrames is 262,144 / 24 rounded up (one game hour)");
+
+            // a: the first settled observation is taken at once (no debounce on a load): closed, and open.
+            var first = new AreaClosedState();
+            Eq(true, LiftClosedRule.Step(ref first, false, 5000u), W, "first observation no-open-run: closed at once");
+            var firstOpen = new AreaClosedState();
+            Eq(false, LiftClosedRule.Step(ref firstOpen, true, 5000u), W, "first observation open-run: open at once");
+            Check(!LiftClosedRule.ClosedFor(true, new AreaClosedState()), W, "an unobserved area is not closed");
+
+            // b: a lift with no ski area is never closed, whatever a state says.
+            var closedState = new AreaClosedState { Known = true, Closed = true };
+            Check(!LiftClosedRule.ClosedFor(false, closedState), W, "Not linked: never closed, even beside a closed state");
+            Check(LiftClosedRule.ClosedFor(true, closedState), W, "linked, area closed: closed");
+            Check(!LiftClosedRule.ClosedFor(true, new AreaClosedState { Known = true, Closed = false }), W, "linked, area open: open");
+
+            // c: open to closed only after the no-open-run state has HELD HoldFrames (boundary exact).
+            var s = new AreaClosedState();
+            LiftClosedRule.Step(ref s, true, 1000u);
+            Eq(false, LiftClosedRule.Step(ref s, false, 2000u), W, "no open run seen at 2000: still open (the clock starts)");
+            Eq(false, LiftClosedRule.Step(ref s, false, 2000u + LiftClosedRule.HoldFrames - 1u), W, "HoldFrames - 1 later: still open");
+            Eq(true, LiftClosedRule.Step(ref s, false, 2000u + LiftClosedRule.HoldFrames), W, "HoldFrames later: closed");
+            Eq(true, LiftClosedRule.Step(ref s, false, 2000u + LiftClosedRule.HoldFrames + 5000u), W, "stays closed");
+
+            // d: reopen: closed to open only after an open run has held HoldFrames.
+            Eq(true, LiftClosedRule.Step(ref s, true, 100000u), W, "a run opens: still closed (the clock starts)");
+            Eq(true, LiftClosedRule.Step(ref s, true, 100000u + LiftClosedRule.HoldFrames - 1u), W, "HoldFrames - 1 later: still closed");
+            Eq(false, LiftClosedRule.Step(ref s, true, 100000u + LiftClosedRule.HoldFrames), W, "HoldFrames later: open again");
+
+            // e: at the charge cadence (an observation every 1,024 frames) the flip lands in [HoldFrames, HoldFrames + 1,024).
+            var cad = new AreaClosedState();
+            LiftClosedRule.Step(ref cad, true, 0u);
+            long flip = FirstFlip(ref cad, false, 1024u, 1024u + 40000u, 1024u, true);
+            Check(flip >= 1024 + LiftClosedRule.HoldFrames && flip < 1024 + LiftClosedRule.HoldFrames + 1024, W,
+                  "cadence 1,024: closes " + (flip - 1024) + " frames after the first sighting (>= 10,923, < 11,947)");
+            long back = FirstFlip(ref cad, true, 60000u, 60000u + 40000u, 1024u, false);
+            Check(back >= 60000 + LiftClosedRule.HoldFrames && back < 60000 + LiftClosedRule.HoldFrames + 1024, W,
+                  "cadence 1,024: reopens " + (back - 60000) + " frames after the run appears (>= 10,923, < 11,947)");
+
+            // f: a flicker shorter than the hold never flips (an area that thaws and refreezes).
+            var fl = new AreaClosedState();
+            LiftClosedRule.Step(ref fl, true, 0u);
+            int flips = 0;
+            bool last = false;
+            for (uint f = 1024u; f < 200000u; f += 1024u)
+            {
+                bool open = (f / 8192u) % 2u == 0u;   // 8,192 frames open, 8,192 closed: each spell < HoldFrames
+                bool now = LiftClosedRule.Step(ref fl, open, f);
+                if (now != last)
+                    flips++;
+                last = now;
+            }
+            Eq(0, flips, W, "alternating 8,192-frame spells: the published state never flips");
+
+            // g: an interrupted spell restarts the clock (no accumulation: 8,000 + 8,000 frames of closed is not one hour).
+            var rs = new AreaClosedState();
+            LiftClosedRule.Step(ref rs, true, 0u);
+            LiftClosedRule.Step(ref rs, false, 1000u);
+            LiftClosedRule.Step(ref rs, false, 9000u);
+            LiftClosedRule.Step(ref rs, true, 9500u);                 // open again: pending cleared
+            LiftClosedRule.Step(ref rs, false, 10000u);               // a new spell starts here
+            Eq(false, LiftClosedRule.Step(ref rs, false, 10000u + LiftClosedRule.HoldFrames - 1u), W, "restarted spell: not yet");
+            Eq(true, LiftClosedRule.Step(ref rs, false, 10000u + LiftClosedRule.HoldFrames), W, "restarted spell: closes HoldFrames after ITS start");
+
+            // h: wrap-safe across the uint frame counter.
+            var wr = new AreaClosedState();
+            LiftClosedRule.Step(ref wr, true, 0xFFFFF000u);
+            LiftClosedRule.Step(ref wr, false, 0xFFFFF800u);
+            Eq(false, LiftClosedRule.Step(ref wr, false, unchecked(0xFFFFF800u + LiftClosedRule.HoldFrames - 1u)), W, "across the wrap: not yet");
+            Eq(true, LiftClosedRule.Step(ref wr, false, unchecked(0xFFFFF800u + LiftClosedRule.HoldFrames)), W, "across the wrap: closed");
+
+            // i: GateOf: closed stops a Complete powered lift; it reopens when the area does; not Complete / no row never holds.
+            foreach (LiftPower p in new[] { LiftPower.Unknown, LiftPower.Powered })
+            {
+                Eq(LoopGate.Run, LiftLoopHold.GateOf(true, true, p, false), W, "Complete, " + p + ", area open: Run");
+                Eq(LoopGate.Hold, LiftLoopHold.GateOf(true, true, p, true), W, "Complete, " + p + ", area closed: Hold");
+                Eq(LoopGate.Run, LiftLoopHold.GateOf(true, true, p, false), W, "Complete, " + p + ", a run opens: Run again");
+                Eq(LoopGate.Run, LiftLoopHold.GateOf(true, false, p, true), W, "not Complete, closed: Run (fail open)");
+                Eq(LoopGate.Run, LiftLoopHold.GateOf(false, true, p, true), W, "no census row, closed: Run (fail open)");
+            }
+
+            // j: the whole chain over a season: area state, hysteresis, closed flag, gate; a powered Complete linked lift.
+            var sum = new AreaClosedState();
+            LoopGate g0 = Gate(ref sum, true, true, 0u);                       // autumn: a run is open
+            LoopGate g1 = Gate(ref sum, false, true, 100000u);                 // the last run closes
+            LoopGate g2 = Gate(ref sum, false, true, 100000u + LiftClosedRule.HoldFrames - 1u);
+            LoopGate g3 = Gate(ref sum, false, true, 100000u + LiftClosedRule.HoldFrames);
+            LoopGate g4 = Gate(ref sum, true, true, 400000u);                  // a run is painted open
+            LoopGate g5 = Gate(ref sum, true, true, 400000u + LiftClosedRule.HoldFrames);
+            Eq(LoopGate.Run, g0, W, "season: run open: Run");
+            Eq(LoopGate.Run, g1, W, "season: last run just closed: still Run (hysteresis)");
+            Eq(LoopGate.Run, g2, W, "season: HoldFrames - 1: still Run");
+            Eq(LoopGate.Hold, g3, W, "season: HoldFrames: Hold (chairs stop)");
+            Eq(LoopGate.Hold, g4, W, "season: run opened: still Hold (hysteresis)");
+            Eq(LoopGate.Run, g5, W, "season: HoldFrames later: Run (chairs resume)");
+            var nl = new AreaClosedState();
+            LiftClosedRule.Step(ref nl, false, 0u);
+            Eq(LoopGate.Run, GateOfLinked(false, nl), W, "Not linked lift beside a closed state: Run (never closed)");
+
+            // k: the tram shuttle predicate (TramShuttleSystem.Gate: Carries(true, power, IsClosed)): Running, Held, Running.
+            Eq(true, LiftServedRule.Carries(true, LiftPower.Powered, false), W, "tram: powered, area open: carries (Running)");
+            Eq(false, LiftServedRule.Carries(true, LiftPower.Powered, true), W, "tram: powered, area closed: held");
+            Eq(false, LiftServedRule.Carries(true, LiftPower.Unknown, true), W, "tram: power unknown, area closed: held");
+            Eq(true, LiftServedRule.Carries(true, LiftPower.Powered, false), W, "tram: a run opens: carries again");
+            Eq(false, LiftServedRule.Carries(true, LiftPower.NoPower, false), W, "tram: no power still holds (power is read first)");
+        }
+
+        private static LoopGate Gate(ref AreaClosedState s, bool areaOpen, bool linked, uint frame)
+        {
+            LiftClosedRule.Step(ref s, areaOpen, frame);
+            return GateOfLinked(linked, s);
+        }
+
+        private static LoopGate GateOfLinked(bool linked, in AreaClosedState s)
+        {
+            return LiftLoopHold.GateOf(true, true, LiftPower.Powered, LiftClosedRule.ClosedFor(linked, s));
         }
     }
 }

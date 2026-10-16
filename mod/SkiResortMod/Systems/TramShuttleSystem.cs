@@ -257,6 +257,7 @@ namespace SkiResortMod.Systems
             public LiftCensus.State RowState;
             public bool RowMixed;
             public LiftPower Power = LiftPower.Unknown;
+            public bool Closed;                                    // T13: the last IsClosed read (Gate); PollPower re-gates on a change
             public ShuttleState State = ShuttleState.Parked;
             public bool StateKnown;                                // false until the first gate of this run
             public string StateWhy = "";
@@ -843,7 +844,9 @@ namespace SkiResortMod.Systems
                     continue;
                 LiftPower power = census.ReadLiftPower(run.Base);
                 m_DiagPowerReads++;
-                if (power == run.Power)
+                // T13: a change of the closed flag re-gates too (the ski area's run state flips the cabins like power does).
+                bool closedNow = IsClosed(run);
+                if (power == run.Power && closedNow == run.Closed)
                     continue;
                 run.Power = power;
                 ReGate(run, timeS);
@@ -1042,7 +1045,8 @@ namespace SkiResortMod.Systems
                     return ShuttleState.Parked;
                 }
             }
-            bool closed = IsClosed(run);   // C7: false
+            bool closed = IsClosed(run);   // T13: the ski area has no open run (was C7: false)
+            run.Closed = closed;           // PollPower re-gates when it changes
             // Phase D (round-4-contract §3.3; was TramShuttleSystem.cs:1026-1035, two tests): THE run predicate; the row is
             // Complete here (checked above, or assumed while the census has not built: C12). Carries(true, power, closed) =
             // IsPowered(power) && !closed (LiftBatch PG-1), so the decisions and texts are the old ones (power first).
@@ -1056,12 +1060,19 @@ namespace SkiResortMod.Systems
             return ShuttleState.Running;
         }
 
-        /// <summary>C7: "closed" (hours / season) is not wired in Phase C — always false. The pre-beta item "lifts stop
-        /// when closed" (lift-network.md F10) wires chairs and the tram together through one per-lift signal.</summary>
-        private static bool IsClosed(Run run)
+        /// <summary>T13 (report item 78; was C7, "closed" not wired, always false): the shuttle's lift is closed when its ski area
+        /// has no open run — SkiLiftChargeSystem.IsLiftClosed, the one per-lift signal the chairs read too (LiftClosedRule: the
+        /// state the 25 % billing reads, held one game hour before it flips). No census row, or no ski area: never closed.</summary>
+        private bool IsClosed(Run run)
         {
-            return false;
+            if (!run.RowFound)
+                return false;
+            if (m_Charge == null)
+                m_Charge = World.GetExistingSystemManaged<SkiLiftChargeSystem>();
+            return m_Charge != null && m_Charge.IsLiftClosed(run.Base, run.Top);
         }
+
+        private SkiLiftChargeSystem m_Charge;   // T13: resolved lazily (GetExistingSystemManaged, never created here)
 
         /// <summary>A gate change outside a rebuild (power, kill switch): transition, latch, log.</summary>
         private void ReGate(Run run, double timeS)
@@ -1296,6 +1307,10 @@ namespace SkiResortMod.Systems
                 if (EntityManager.TryGetBuffer<Game.Net.SubNet>(station, isReadOnly: true, out var subNets))
                     for (int k = 0; k < subNets.Length; k++)
                         m_StationByOwnerIndex[subNets[k].m_SubNet.Index] = i;
+                // T02: an HV edge lane's end PathNode is built as PathNode(owner = the edge, ...) (Game.Net/LaneSystem.cs:4093-4095,
+                // 1.6.0), so a terminal's owner index is the LINE's edge, never a node: there is no node to map here. The station
+                // map is only ever hit when FindAnchor snapped the end to a station-owned lane; otherwise the terminal falls to
+                // the position rules (dock reach, LiftLoopTopology.ClassifyShuttleTerminal).
             }
         }
 
@@ -1884,7 +1899,7 @@ namespace SkiResortMod.Systems
                     if (FindRun(b, t) != null)
                         continue;
                     string text = $"TramShuttle [rebuild]: {def.Id} lift base {Ent(b)} → top {Ent(t)} is Complete in the census but " +
-                                  $"its track ropes give no shuttle path ({PairNotes(b, t)}) — its cabins stay parked";
+                                  $"its track ropes give no shuttle path ({PairNotes(b, t)}{ChainTerminalNotes()}) — its cabins stay parked";
                     if (m_Warned.Add(text))
                         Mod.Log.Warn(text);
                 }
@@ -1898,7 +1913,7 @@ namespace SkiResortMod.Systems
                         continue;
                     if (note.IndexOf(": shuttle, path", StringComparison.Ordinal) >= 0)
                         continue;   // a success note
-                    string text = "TramShuttle [rebuild]: no census rows this load — " + note;
+                    string text = "TramShuttle [rebuild]: no census rows this load — " + note + ChainTerminalNotes();
                     if (m_Warned.Add(text))
                         Mod.Log.Warn(text);
                 }
@@ -1942,6 +1957,32 @@ namespace SkiResortMod.Systems
                           $"{m_Cache.m_ChainCount} chain(s), {m_Cache.m_UnclosedChainCount} unclosed");
             return sb.ToString();
         }
+
+        /// <summary>T02 (2026-10-16): the per-chain terminal diagnostics the topology keeps (LiftLoopCache.m_ChainDiags) and the
+        /// watchdog used to be the only place to print: for every track-rope chain, its link count and, per terminal, the
+        /// station index it classified to (-1 = none), the PathNode owner index, how it was decided ("owner", "child",
+        /// "pos 8.3m", "dock 12.1m", or "none (owner N, nearest station Xm, nearest dock Ym)") and the world position.
+        /// Empty when the build saw no chain. Appended to the [rebuild] WARNs, which fire once per text per load
+        /// (m_Warned), so the numbers reach the log the first time a Complete lift has no path.</summary>
+        private string ChainTerminalNotes()
+        {
+            List<LiftLoopCache.ChainDiag> diags = m_Cache.m_ChainDiags;
+            if (diags.Count == 0)
+                return "";
+            var sb = new StringBuilder(160 * diags.Count);
+            sb.Append("; chain terminals: ");
+            for (int c = 0; c < diags.Count; c++)
+            {
+                LiftLoopCache.ChainDiag d = diags[c];
+                if (c > 0)
+                    sb.Append(" | ");
+                sb.Append(Inv($"chain {c} ({d.m_Links} lane(s)): start station {d.m_StartStation} owner {d.m_StartOwner} [{d.m_StartHow}] ")).Append(Pos(d.m_StartPos))
+                  .Append(Inv($" → end station {d.m_EndStation} owner {d.m_EndOwner} [{d.m_EndHow}] ")).Append(Pos(d.m_EndPos));
+            }
+            return sb.ToString();
+        }
+
+        private static string Pos(float3 p) => Inv($"at ({p.x:F0}, {p.y:F0}, {p.z:F0})");
 
         private static string PairPrefix(int i, int j)
         {

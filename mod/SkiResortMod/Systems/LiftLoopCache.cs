@@ -322,6 +322,9 @@ namespace SkiResortMod.Systems
                     DockB = DockWorld(transform, def != null ? def.DockLocalB : new float3(float.NaN)),
                 });
             }
+            // T02 (2026-10-16): the tram's terminal is its stub-tip track rope, 29-30 m from the station origin but ~12 m from its
+            // dock; Shuttle mode owns terminals by dock reach too (LiftLoopTopology.ClassifyShuttleTerminal). Loop mode is untouched.
+            m_Topology.ShuttleDockReach = true;
             m_Topology.Build(m_TopoLanes, m_TopoStations, stationByOwnerIndex, LiftLoopTopology.Mode.Shuttle);
             CopyTopologyChains();
 

@@ -51,7 +51,8 @@
 //
 //   per member run v = band × size × type × served × open; counted ⇔ v > 0 (I1)
 //   S = (Σ counted v, ascending + λ × 6 × complete-and-powered lifts) × variety × vertical
-//   A = N ≥ 1 ? clamp(round((lodgeBase(N) × μ + K × √S) × sign efficiency), 0, 200) : 0
+//   A = N ≥ 1 ? clamp(round((lodgeBase(N) × μ + K × √S) × staffing factor), 0, 200) : 0
+//   staffing factor = the sign's efficiency, smoothed (T08, AreaState.StaffingFactor); see the Tuning constants
 //   summer (no counted run, I2): μ 0.5, λ 0.25
 //   Catalog Phase B: the lift term is per type (value and λ from the row), the lodge term is the ladder's applied value,
 //   S also gains the school and a patrolled run's factors (header CATALOG PHASE B; SkiResortScore's header).
@@ -72,7 +73,7 @@
 //     Pending), Geometry.m_SurfaceArea (plan m²), the snow chapter's GetRunSnow(run, kind, node bottom, node
 //     top) — Geometry.m_Bounds' y range is the node height range (GeometrySystem.cs:499-576; e1-spec R13) —
 //     with Multiplier as the open factor (R3; Source None → 0, counted as "open unknown"), and the served
-//     rule (R2): CopyServeLifts + LiftServedRule.Assign over every run's RunFacts.TopNode, once per
+//     rule (R2): CopyServeLifts + LiftServedRule.AssignLinked (T06: Assign + run-to-run links) over every run's RunFacts.TopNode, once per
 //     recompute; census not armed → every run served (fail open, one line per load).
 //   * Lift = a census row (CopyRows; the same row order as CopyServeLifts) whose base AND top stations exist
 //     and are not Deleted (State Complete, or Open = a section missing). Its area = SkiResortIndex.TryResolve(
@@ -218,6 +219,19 @@ namespace SkiResortMod.Systems
             // by this much, or when the area wrote no line for EfficiencyLineQuietS of wall clock.
             public const int EfficiencyLineMinDeltaA = 2;
             public const float EfficiencyLineQuietS = 60f;
+            // T08 (field 2026-10-15 item 95): the score uses the sign's efficiency averaged over about one game day
+            // (262,144 frames / 16 = 16,384 ticks), each sample capped at 1.0, the result held to [0.25, 1.0].
+            // WHY CAPPED AT 1.0: a factor above 1 is a bonus the game gives for something else, not a reason to
+            // amplify an attraction score. It comes from the EmployeeHappiness factor, which is
+            // currentWorkforce / averageWorkforce + workConditions × 0.01 and so passes 1 when the workforce is
+            // above its average or the work conditions are good (Game.Simulation/WorkProviderSystem.cs:269-270,
+            // 1.6.2); the ServiceBudget curve (CityServiceEfficiencySystem.cs:59) may also pass 1 above 100 % budget:
+            // UNVERIFIED which one gave the 1.16 in the field log. WHY 0.25: a sign swinging down to 44 % must not
+            // take the score to nothing in one sample; a staffing collapse still costs three quarters of it.
+            // Efficiency 0 (a Destroyed / Disabled sign, D9: A = 0) is NOT smoothed or floored.
+            public const double StaffingTauTicks = 16384.0;
+            public const double StaffingFloor = 0.25;
+            public const double StaffingCap = 1.0;
         }
 
         // Recompute reasons (§10.1 table, exact texts). The watcher's three live in the watch system.
@@ -262,13 +276,16 @@ namespace SkiResortMod.Systems
             public Entity Sign;
             public readonly List<SkiResortScore.RunInput> Runs = new List<SkiResortScore.RunInput>(16);
             public readonly List<Entity> RunEntities = new List<Entity>(16);
+            public readonly List<Entity> ServedVia = new List<Entity>(16);   // T06: parallel to Runs; the run this one is served through (Entity.Null = directly served, or unserved)
             public readonly List<SkiResortScore.RunPart> Parts = new List<SkiResortScore.RunPart>(16);
             public readonly List<SkiResortScore.LiftInput> Lifts = new List<SkiResortScore.LiftInput>(8);
             public readonly List<Entity> Active = new List<Entity>(4);
             public readonly List<Entity> Inactive = new List<Entity>(2);
             public readonly List<Efficiency> Factors = new List<Efficiency>(8);   // < 1, worst first
-            public float EfficiencyValue;
+            public float EfficiencyValue;   // the sign's live efficiency (raw; the problem row and the DUMP read it)
             public int EfficiencyPct;
+            public double StaffingUsed;     // T08: the smoothed factor the score used (Result.Efficiency)
+            public int StaffingUsedPct;
             public int OpenUnknown;
             public SkiResortScore.Result Result;
             public bool Held;
@@ -287,6 +304,7 @@ namespace SkiResortMod.Systems
                 Sign = sign;
                 Runs.Clear();
                 RunEntities.Clear();
+                ServedVia.Clear();
                 Parts.Clear();
                 Lifts.Clear();
                 Active.Clear();
@@ -294,6 +312,8 @@ namespace SkiResortMod.Systems
                 Factors.Clear();
                 EfficiencyValue = 1f;
                 EfficiencyPct = 100;
+                StaffingUsed = 1.0;
+                StaffingUsedPct = 100;
                 OpenUnknown = 0;
                 Result = default;
                 Held = false;
@@ -391,6 +411,40 @@ namespace SkiResortMod.Systems
             public bool FirstWriteDone;
             public int HoldTicks;
             public bool HoldWarned;
+
+            // T08: the smoothed staffing factor of this sign. Not serialized: a missing state (a load, a new sign) starts
+            // from the live value, so the first score after a load is the unsmoothed one. The dictionary is cleared per load.
+            private bool m_StaffingValid;
+            private double m_StaffingEma, m_StaffingLastSample;
+            private int m_StaffingLastTick;
+
+            /// <summary>Advances the average over the ticks since the last call (the previous sample held over that
+            /// time: the efficiency only changes between two recomputes, so this is exact for a step signal) and
+            /// returns the factor for the score: the EMA held to [floor, cap] and rounded to 0.01 (the game's own
+            /// precision, so the score does not move on noise). raw ≤ 0 returns 0 and forgets the average.</summary>
+            public double StaffingFactor(float raw, int tick)
+            {
+                if (!(raw > 0f))
+                {
+                    m_StaffingValid = false;
+                    return 0.0;
+                }
+                double sample = Math.Min((double)raw, Tuning.StaffingCap);
+                if (!m_StaffingValid)
+                {
+                    m_StaffingEma = sample;
+                    m_StaffingValid = true;
+                }
+                else if (tick > m_StaffingLastTick)
+                {
+                    double a = 1.0 - Math.Exp(-(tick - m_StaffingLastTick) / Tuning.StaffingTauTicks);
+                    m_StaffingEma += a * (m_StaffingLastSample - m_StaffingEma);
+                }
+                m_StaffingLastTick = tick;
+                m_StaffingLastSample = sample;
+                double used = Math.Max(Tuning.StaffingFloor, Math.Min(Tuning.StaffingCap, m_StaffingEma));
+                return Math.Round(used * 100.0) / 100.0;
+            }
         }
 
         private struct LastRating
@@ -455,6 +509,14 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_LiveLodges = new HashSet<Entity>();
         private readonly HashSet<Entity> m_LodgeClaimed = new HashSet<Entity>();
         private readonly List<float3> m_RunTops = new List<float3>(32);
+        // T06 (LiftServedRule.AssignLinked): per run the outline xz (the catalog row's array, by reference), its area slot, and the
+        // link graph (self-validating: rebuilt only when an outline array, a slot or the run set changed). ServedRoot / ServedVia:
+        // the directly served run a run is served through, and the neighbour it was reached through (-1 none).
+        private readonly List<float2[]> m_RunOutlines = new List<float2[]>(32);
+        private readonly List<int> m_RunAreas = new List<int>(32);
+        private readonly LiftServedRule.RunLinks m_RunLinks = new LiftServedRule.RunLinks();
+        private readonly List<int> m_ServedRoot = new List<int>(32);
+        private readonly List<int> m_ServedVia = new List<int>(32);
         private readonly List<RunRef> m_RunRefs = new List<RunRef>(32);
         private readonly List<LiftServedRule.Lift> m_ServeLifts = new List<LiftServedRule.Lift>(8);
         private readonly List<LiftServedRule.Chord> m_Chords = new List<LiftServedRule.Chord>(64);
@@ -581,7 +643,8 @@ namespace SkiResortMod.Systems
             public SkiResortScore.Result Result;
             public bool WriteHeld;          // the first write after a load still waits for run ratings (§9)
             public int HoldTicks;           // ticks held so far (0 once written)
-            public int EfficiencyPct;       // round(100 × Result.Efficiency)
+            public int EfficiencyPct;       // the sign's live efficiency, round(100 × raw): the problem row reads this
+            public int EfficiencyUsedPct;   // T08: round(100 × Result.Efficiency), the smoothed factor the score used (the receipt and tile read this)
             public int OpenUnknown;         // member runs the snow chapter had no open state for (RunSnow.Source == None)
         }
 
@@ -608,6 +671,7 @@ namespace SkiResortMod.Systems
                 WriteHeld = slot.Held,
                 HoldTicks = slot.Held && m_AreaStates.TryGetValue(slot.Sign, out AreaState state) ? state.HoldTicks : 0,
                 EfficiencyPct = slot.EfficiencyPct,
+                EfficiencyUsedPct = slot.StaffingUsedPct,
                 OpenUnknown = slot.OpenUnknown,
             };
             return true;
@@ -895,7 +959,7 @@ namespace SkiResortMod.Systems
             // lodge (max +12)", "lift 6 (complete and powered)", "summer … mu 0.5 lambda 0.25"): the ladder, the per-type
             // lift values, the school and the patrol, every number from SkiCatalog.
             Mod.Log.Info(
-                "Attractiveness [arm]: model v2 (E1) + Catalog Phase B — one score per ski area: A = clamp(round((lodge applied + K × sqrt(S)) × sign efficiency), 0, 200), " +
+                "Attractiveness [arm]: model v2 (E1) + Catalog Phase B — one score per ski area: A = clamp(round((lodge applied + K × sqrt(S)) × staffing factor), 0, 200), staffing factor = sign efficiency averaged over one game day, 25-100 %, " +
                 "S = (runs + lifts (summer: × each type's share) + school) × variety × vertical; " + ArmModelText() + "; band 0/6/12/20/28, unrateable 3; " +
                 "size 1 + 0.3 ln(area / 20000 m²) in [0.25, 2] from 10000 m², proportional below (0.792 per ha); night ×1.25; natural ×0.5/0.75/1/1; " +
                 "variety ×1.15; vertical / 600 m (max ×2); summer = no run worth more than 0; " +
@@ -1138,7 +1202,12 @@ namespace SkiResortMod.Systems
             if (censusArmed)
             {
                 m_Census.CopyServeLifts(m_ServeLifts, m_Chords);
-                LiftServedRule.Assign(m_RunTops, m_ServeLifts, m_Chords, m_ServingLift, m_ServingDistance, m_ServedCount);
+                // T06: THE served rule with run links (a run connected to a served run is served). Links are rebuilt only when an
+                // outline array, a slot or the run set changed (RunLinks.Build keeps its graph otherwise), so the pair pass
+                // does not run on every soft recompute; the lift part (Assign) is the same cost as before.
+                m_RunLinks.Build(m_RunOutlines, m_RunAreas);
+                LiftServedRule.AssignLinked(m_RunTops, m_RunLinks, m_ServeLifts, m_Chords, m_ServingLift, m_ServingDistance,
+                                            m_ServedCount, m_ServedRoot, m_ServedVia);
             }
             else if (!m_CensusOpenLogged && m_RunRefs.Count > 0)
             {
@@ -1151,7 +1220,12 @@ namespace SkiResortMod.Systems
                 RunRef rr = m_RunRefs[i];
                 AreaSlot slot = next.Slots[rr.Slot];
                 SkiResortScore.RunInput input = slot.Runs[rr.Index];
-                input.Served = !censusArmed || m_ServingLift[i] >= 0;
+                input.Served = !censusArmed || m_ServedRoot[i] >= 0;   // T06: directly served OR linked to a served run
+                if (censusArmed && m_ServedVia[i] >= 0)
+                {
+                    RunRef via = m_RunRefs[m_ServedVia[i]];   // same slot by construction (links never cross areas)
+                    slot.ServedVia[rr.Index] = next.Slots[via.Slot].RunEntities[via.Index];
+                }
                 // Catalog Phase B (R13, D12): patrolled = the run's top node within PatrolRule.RadiusM of an active patrol
                 // hut of its own area (the served rule's test point; NaN without facts → not patrolled).
                 if (slot.PatrolXz.Count > 0)
@@ -1446,6 +1520,8 @@ namespace SkiResortMod.Systems
         private void CollectRuns(Snapshot next)
         {
             m_RunTops.Clear();
+            m_RunOutlines.Clear();   // T06
+            m_RunAreas.Clear();
             m_RunRefs.Clear();
             if (next.SlotCount == 0 || m_RunQuery.IsEmptyIgnoreFilter)
                 return;
@@ -1519,12 +1595,19 @@ namespace SkiResortMod.Systems
 
             // The served-rule test point (R2): the highest outline node.
             float3 top = new float3(float.NaN);
+            float2[] outline = null;   // T06: the run's outline xz for the run links (null without facts: never linked)
             if (m_Catalog.TryGetRunFacts(run, out SkiRunCatalogSystem.RunFacts facts))
+            {
                 top = facts.TopNode;
+                outline = facts.OutlineXZ;
+            }
 
             slot.Runs.Add(input);
             slot.RunEntities.Add(run);
+            slot.ServedVia.Add(Entity.Null);
             m_RunTops.Add(top);
+            m_RunOutlines.Add(outline);
+            m_RunAreas.Add(slotIndex);
             m_RunRefs.Add(new RunRef { Slot = slotIndex, Index = slot.Runs.Count - 1 });
         }
 
@@ -1639,11 +1722,19 @@ namespace SkiResortMod.Systems
             {
                 AreaSlot slot = next.Slots[s];
                 BuildLodgeInputs(slot);   // Catalog Phase B: tiers + SummitServed (D11)
+                if (!m_AreaStates.TryGetValue(slot.Sign, out AreaState state))
+                {
+                    state = new AreaState();
+                    m_AreaStates[slot.Sign] = state;
+                }
+                // T08: the score takes the smoothed staffing factor; slot.EfficiencyValue / EfficiencyPct stay the live value.
+                slot.StaffingUsed = state.StaffingFactor(slot.EfficiencyValue, m_Tick);
+                slot.StaffingUsedPct = (int)Math.Round(100.0 * slot.StaffingUsed);
                 var input = new SkiResortScore.AreaInput
                 {
                     ActiveLodges = slot.Active.Count,
                     InactiveLodges = slot.Inactive.Count,
-                    Efficiency = slot.EfficiencyValue,
+                    Efficiency = slot.StaffingUsed,
                     Settings = settings,
                     Lodges = slot.Lodges,               // Catalog Phase B (R11): the ladder (Count == ActiveLodges)
                     SchoolActive = slot.SchoolActive,   // Catalog Phase B (R13)
@@ -1651,11 +1742,6 @@ namespace SkiResortMod.Systems
                 slot.Result = SkiResortScore.Compute(input, slot.Runs, slot.Lifts, slot.Parts);
 
                 // §9: the first write of this load waits for ratings and snow (R4), at most 1,024 ticks (M1).
-                if (!m_AreaStates.TryGetValue(slot.Sign, out AreaState state))
-                {
-                    state = new AreaState();
-                    m_AreaStates[slot.Sign] = state;
-                }
                 bool firstWrite = false, expired = false;
                 if (!state.FirstWriteDone)
                 {
@@ -1869,7 +1955,7 @@ namespace SkiResortMod.Systems
                             (r.RunsPatrolled > 0 ? Invariant($"; patrolled {r.RunsPatrolled}") : "");
             string text =
                 Invariant($"Attractiveness: area {slot.Sign.Index}:{slot.Sign.Version} A {r.Attraction} = round(({r.LodgeBase:0.##} × {r.LodgeShare:0.##} + ") +
-                Invariant($"{r.K} × sqrt({r.S:F1})) × {r.Efficiency:F2}) — lodges {r.ActiveLodges} active (+{r.InactiveLodges} off) × {r.PerLodge}") +
+                Invariant($"{r.K} × sqrt({r.S:F1})) × {r.Efficiency:F2} staffing (sign now {slot.EfficiencyPct} %)) — lodges {r.ActiveLodges} active (+{r.InactiveLodges} off) × {r.PerLodge}") +
                 lodgeTier + "; " +
                 Invariant($"runs {r.RunsCounted}/{r.Runs} counted = {r.RunsValue:F1} pts ({r.RunsOpen} open, {r.RunsUnserved} without a lift, ") +
                 Invariant($"{r.RunsPending} unrated, {slot.OpenUnknown} open unknown") +
@@ -2215,6 +2301,7 @@ namespace SkiResortMod.Systems
                     sb.Append("    area ").Append(IdOf(slot.Sign)).Append(": A ").Append(r.Attraction)
                       .Append(" (full ").Append(r.AttractionFullEfficiency).Append("), held ").Append(slot.Held)
                       .Append(" (").Append(holdTicks).Append(" ticks), efficiency ").Append(slot.EfficiencyPct)
+                      .Append(" % now, staffing factor used ").Append(slot.StaffingUsedPct)
                       .Append(" %, lodges ").Append(r.ActiveLodges).Append('+').Append(r.InactiveLodges).Append(" × ").Append(r.PerLodge)
                       .Append(", runs ").Append(r.RunsCounted).Append('/').Append(r.Runs).Append(" (").Append(r.RunsOpen)
                       .Append(" open, ").Append(r.RunsPending).Append(" unrated), lifts ").Append(r.LiftsCounted).Append('/')
@@ -2237,7 +2324,7 @@ namespace SkiResortMod.Systems
                     AppendLadder(sb, slot);   // Catalog Phase B
 
                     for (int i = 0; i < slot.RunEntities.Count && i < slot.Parts.Count; i++)
-                        AppendRun(sb, slot.RunEntities[i], slot.Runs[i], slot.Parts[i]);
+                        AppendRun(sb, slot.RunEntities[i], slot.Runs[i], slot.Parts[i], ServedViaText(slot, i));
                 }
             }
             catch (Exception e)
@@ -2273,7 +2360,19 @@ namespace SkiResortMod.Systems
               .Append(r.LiftsApplied.ToString("0.##", ic)).Append('\n');
         }
 
-        private static void AppendRun(StringBuilder sb, Entity run, SkiResortScore.RunInput input, SkiResortScore.RunPart part)
+        /// <summary>T06: the DUMP text of the run a run is served through ("Run name" or "run index:version"), or null when the run is served
+        /// directly or not at all. The name is the catalog row's (the hub's run name).</summary>
+        private string ServedViaText(AreaSlot slot, int i)
+        {
+            if (i >= slot.ServedVia.Count || slot.ServedVia[i] == Entity.Null)
+                return null;
+            Entity via = slot.ServedVia[i];
+            return m_Catalog.TryGetRow(via, out SkiRunCatalogSystem.RunRow row) && !string.IsNullOrEmpty(row.Name)
+                ? row.Name + " (" + via.Index + ":" + via.Version + ")"
+                : via.Index + ":" + via.Version;
+        }
+
+        private static void AppendRun(StringBuilder sb, Entity run, SkiResortScore.RunInput input, SkiResortScore.RunPart part, string servedVia = null)
         {
             string kind = input.Kind == SkiResortScore.KindSnowmaking ? "snowmaking"
                         : input.Kind == SkiResortScore.KindNight ? "night"
@@ -2288,7 +2387,8 @@ namespace SkiResortMod.Systems
                       Invariant($"type {part.TypeFactor:0.##} × served {part.ServedFactor:0.##} × open {part.OpenFactor:F2}") +
                       (input.OpenEstimated ? " (estimated)" : "") +
                       Invariant($" = {part.Value:F3}") + (part.Counted ? "" : " (not counted)") +
-                      (input.Patrolled ? " (patrolled)" : "") + "\n");   // Catalog Phase B (R13)
+                      (input.Patrolled ? " (patrolled)" : "") +   // Catalog Phase B (R13)
+                      (servedVia != null ? " (served via " + servedVia + ")" : "") + "\n");   // T06: served through a linked run
         }
 
         /// <summary>Round M2 (D8): "YYYY-MM HH:MM" from a SkiMoneyRules month key and a SkiDayTiming.MinuteOfDay

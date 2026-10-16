@@ -2309,7 +2309,7 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info($"{nameof(ChairPinSystem)} [hold] power gate armed: a complete lift without power stops its chairs " +
                              $"where they stand and resumes from there (poll every {HoldPollFrames} frames and at each rebuild; " +
                              $"LiftServedRule.Carries; PowerGatesService={(LiftServedRule.PowerGatesService ? "true" : "false")}; " +
-                             "closed: not wired)");
+                             "closed: its ski area has no open run, held one game hour — T13)");
             }
 
             // The census rows by station pair (either order), rebuilt on a census Revision change. A row's Base is the
@@ -2477,14 +2477,20 @@ namespace SkiResortMod.Systems
             return changed;
         }
 
-        /// <summary>D7 (round-4-contract §3.5): "closed" (hours / season) is not wired this round — always false, like the
-        /// tram's IsClosed (TramShuttleSystem.cs:1061-1064; :1042-1045 in the pre-Phase-D copy 1ef32dc7). The pre-beta item
-        /// "chairs stop when closed / unpowered" (lift-network.md F10) computes it per lift and returns it here:
-        /// LiftLoopHold.GateOf and the [state] lines already take it.</summary>
-        private static bool IsLoopClosed(LoopHold hold)
+        /// <summary>T13 (report item 78; was D7, "closed" not wired, always false): the loop's lift is closed when its ski area has
+        /// no open run — SkiLiftChargeSystem.IsLiftClosed (LiftClosedRule: the state the 25 % billing reads, held one game hour
+        /// before it flips). A loop with no census row is never closed (fail open, like GateOf); neither is a lift with no ski
+        /// area. LiftLoopHold.GateOf and the [state] lines take it from here.</summary>
+        private bool IsLoopClosed(LoopHold hold)
         {
-            return false;
+            if (!hold.RowKnown)
+                return false;
+            if (m_HoldCharge == null)
+                m_HoldCharge = World.GetExistingSystemManaged<SkiLiftChargeSystem>();
+            return m_HoldCharge != null && m_HoldCharge.IsLiftClosed(hold.Base, hold.Top);
         }
+
+        private SkiLiftChargeSystem m_HoldCharge;   // T13: resolved lazily (GetExistingSystemManaged, never created here)
 
         /// <summary>Phase D: a station pair's key, the two stations ordered by (Index, Version) — the same key either way
         /// round (a loop's order is geometry, a census row's is role).</summary>

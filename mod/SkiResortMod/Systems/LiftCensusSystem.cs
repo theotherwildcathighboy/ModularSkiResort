@@ -1541,6 +1541,10 @@ namespace SkiResortMod.Systems
         /// (a watchdog build of an unchanged odd lift stays silent).</summary>
         private void LogNotesIfChanged()
         {
+            // T05: one INFO line per load per node where two lift types share a node and are counted apart.
+            for (int n = 0; n < m_Census.NewSplits.Count; n++)
+                Mod.Log.Info("[census] " + m_Census.NewSplits[n]);
+            m_Census.NewSplits.Clear();   // announced: the DUMP path calls this again without a build
             string sig = m_Census.Notes.Count == 0 ? null : string.Join("\n", m_Census.Notes);
             if (sig == m_LastNotes)
                 return;
@@ -1998,12 +2002,15 @@ namespace SkiResortMod.Systems
                 sb.AppendLine($"  row {r}: {Describe(row)} id {Fmt(row.Id)} {row.State} " +
                               $"[{(rowDef != null ? rowDef.Id : "untyped")}{(row.Mixed ? ", MIXES lift types" : string.Empty)}]; " +
                               $"{row.Sections} section(s), {row.Towers} tower(s) " +
+                              (row.SplitNodes > 0 ? $"[touches {row.SplitNodes} split node(s)] " : string.Empty) +
                               $"({row.TowersRemoved} missing), {row.Chairs} chair(s), {row.Gaps} gap(s){(row.HasGap ? $" at ({row.GapAt.x:F0},{row.GapAt.z:F0})" : string.Empty)}; " +
                               $"{row.LengthM:F0} m, rise {row.RiseM:F0} m, horizontal {row.HorizontalM:F0} m" +
                               (row.AlignKnown ? $", offset {row.AlignOffsetM:F2} m, yaw {row.AlignYawDeg:F2}°" : string.Empty));
             }
             for (int n = 0; n < m_Census.Notes.Count; n++)
                 sb.AppendLine("  note: " + m_Census.Notes[n]);
+            for (int n = 0; n < m_Census.SplitNotes.Count; n++)
+                sb.AppendLine("  note: " + m_Census.SplitNotes[n]);
             // Phase D (round-4-contract §4.3): every base station inside the flicker guard (a Powered streak running while
             // the effective value is NoPower), else "none"; then the stations whose effective power is NoPower.
             uint dumpNow = m_Simulation != null ? m_Simulation.frameIndex : 0u;

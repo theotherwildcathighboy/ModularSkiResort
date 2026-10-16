@@ -9,7 +9,8 @@
 // frameTime) / 60 in double (:1373-1376). Lines as of the round-4 fixer pass; in the pre-Phase-D copy eb26ac3a they were
 // :1072-1076, :1140-1143 and :1132-1135.
 //   * GateOf — D5: Run when no census row is known for the loop's station pair, the row is not Complete, or the lift
-//     carries (LiftServedRule.Carries: complete, powered at its BASE station, not closed); Hold otherwise. Fail open: a
+//     carries (LiftServedRule.Carries: complete, powered at its BASE station, not closed — T13: closed = its ski area has no
+//     open run, LiftClosedRule in LiftServedRule.cs, one game hour of hysteresis); Hold otherwise. Fail open: a
 //     loop the census cannot explain keeps running, as before Phase D.
 //   * FrozenPhase — a held loop stands at s_i = (offset_i + FrozenPhase(speed, FrozenTimeS)) % L: PhaseOf's product at the
 //     frozen clock, bit for bit, so the hold-entry frame writes the pose a running pass would write on that frame.

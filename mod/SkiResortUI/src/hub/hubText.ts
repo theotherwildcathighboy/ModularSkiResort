@@ -165,7 +165,7 @@ export const HUB_LOC = {
   problemTipNoParkingNearLodge: ["SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m of the lodge. Guests who drive need a parking lot or a street with parking."],
   problemTipLodgeNotSlopeside: ["SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations."],
   // Contract 6: codes 23-25 (D18, D11, D13).
-  problemTipMixedLiftTypes: ["SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and its stations must be one kind of lift. Redraw the line with the stations' kind."],
+  problemTipMixedLiftTypes: ["SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and the stations it joins must be one kind of lift. Redraw the line as the stations' kind, or move its end off the other lift's station."],
   problemTipSummitLodgeNotLiftServed: ["SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "In summer a summit lodge counts more only within 300 m of a working lift's top station."],
   problemTipSchoolNoGreenRun: ["SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The school adds to the score only while a green run counts."],
   problemMoreTip: ["SkiResort.Hub.PROBLEM_MORE_TIP", "Also needs attention:"],
@@ -210,7 +210,7 @@ export const HUB_LOC = {
   receiptTipVariety: ["SkiResort.Hub.RECEIPT_TIP[Variety]", "Variety: 15 % more while a green, a blue and a black (or harder) run all count."],
   receiptOpenNone: ["SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –"],
   receiptEfficiency: ["SkiResort.Hub.RECEIPT[Efficiency]", "Welcome Sign efficiency"],
-  receiptTipEfficiency: ["SkiResort.Hub.RECEIPT_TIP[Efficiency]", "The game's efficiency of the Welcome Sign: staff, power, water, sewage, garbage, budget and more, as on its info panel. The score is multiplied by it."],
+  receiptTipEfficiency: ["SkiResort.Hub.RECEIPT_TIP[Efficiency]", "The game's efficiency of the Welcome Sign: staff, power, water, sewage, garbage, budget and more, as on its info panel. The score uses its average over one day, at most 100 %."],
   receiptResult: ["SkiResort.Hub.RECEIPT[Result]", "Attraction"],
   receiptResultNoLodge: ["SkiResort.Hub.RECEIPT[ResultNoLodge]", "Attraction (no lodge: 0)"],
   receiptTipResult: ["SkiResort.Hub.RECEIPT_TIP[Result]", "(Lodge base + runs and lifts) × efficiency, at most 200. Each active lodge carries an equal part, so the game counts the ski area once. The game's own panel of a lodge shows Attractiveness 0; the ski area's score is this one, carried by its lodges."],
@@ -275,7 +275,7 @@ export const HUB_LOC = {
   // of the Lifts view sums several types, so it takes this plain tip. Catalog Phase C minors fix (contract review note):
   // reworded like LIFT_CAPACITY_TIP (no "spaced"; "a tram counts its station stops"), identical in LocaleEN.cs (R4), CG-T7.
   // Phase D (round-4-contract section 4.4 with skeptic MUST-3, 25 words; CG-T8): the total sums only the lifts that carry.
-  liftsTotalCapacityTip: ["SkiResort.Hub.LIFTS_TOTAL_CAPACITY_TIP", "The sum over the powered complete lifts, at their own seats and speed; a tram counts its station stops. The game does not simulate riders."],
+  liftsTotalCapacityTip: ["SkiResort.Hub.LIFTS_TOTAL_CAPACITY_TIP", "The sum over the powered, open complete lifts, at their own seats and speed; a tram counts its station stops. Riders are not simulated."],
   liftRuns: ["SkiResort.Hub.LIFT_RUNS", "Runs it serves"],
   liftCost: ["SkiResort.Hub.LIFT_COST", "Running cost"],
   // Phase D (DECISIONS 171 ruling 2, skeptic MUST-1, build-rules.md section 3.2; was "Billed at 25 %: no power"): power no
@@ -307,7 +307,12 @@ export const HUB_LOC = {
   guestsMonthLastPartial: ["SkiResort.Hub.GUESTS_MONTH[LastPartial]", "Last month (partial)"],
   /** Round S1 D27: the ski-day row (first in the table) and its tooltip body. */
   guestsRowSkiDays: ["SkiResort.Hub.GUESTS_ROW[SkiDays]", "Ski days"],
-  guestsTipSkiDays: ["SkiResort.Hub.GUESTS_TIP[SkiDays]", "Residents and hotel guests sent here to ski, counted when they reach a lodge. Most also count as residents or tourists."],
+  guestsTipSkiDays: ["SkiResort.Hub.GUESTS_TIP[SkiDays]", "Skiers the resort sent here, counted when they reach a lodge. Counting starts when the lift ticket gate first opens in a season, so it is 0 before that. They also count as residents or tourists."],
+  /** T07: the three group headers of the Guests table and the dim note under the first. */
+  guestsGroupLodges: ["SkiResort.Hub.GUESTS_GROUP[Lodges]", "At the lodges"],
+  guestsGroupSent: ["SkiResort.Hub.GUESTS_GROUP[Sent]", "Sent to ski by the resort"],
+  guestsGroupTickets: ["SkiResort.Hub.GUESTS_GROUP[Tickets]", "Lift tickets"],
+  guestsNoteNeverSki: ["SkiResort.Hub.GUESTS_NOTE[NeverSki]", "Includes visitors who never ski"],
   guestsRowTourists: ["SkiResort.Hub.GUESTS_ROW[Tourists]", "Tourists"],
   guestsRowGroups: ["SkiResort.Hub.GUESTS_ROW[Groups]", "Tourist groups"],
   guestsRowResidents: ["SkiResort.Hub.GUESTS_ROW[Residents]", "Residents"],
@@ -388,13 +393,13 @@ export const HUB_LOC = {
   buildActive: ["SkiResort.Hub.BUILD_ACTIVE", "In use: click again to stop"],
   locked: ["SkiResort.Hub.LOCKED", "Not available yet"],
   buildHintSign: ["SkiResort.Hub.BUILD_HINT_SIGN", "The sign is the ski area: runs and lifts within 5 km belong to it."],
-  buildHintLodge: ["SkiResort.Hub.BUILD_HINT_LODGE", "Goes on this ski area's Welcome Sign. The camera flies there first."],
+  buildHintLodge: ["SkiResort.Hub.BUILD_HINT_LODGE", "Goes on this ski area's Welcome Sign."],
   buildHintLodgeSelected: ["SkiResort.Hub.BUILD_HINT_LODGE_SELECTED", "Goes on the selected Welcome Sign, or the nearest one."],
   buildHintBase: ["SkiResort.Hub.BUILD_HINT_BASE", "Place at the bottom of the lift."],
   buildHintTop: ["SkiResort.Hub.BUILD_HINT_TOP", "Place at the top, facing the base station. A guide shows when it is straight."],
   buildHintLift: ["SkiResort.Hub.BUILD_HINT_LIFT", "Draw from station to station. On steep ground, redraw one section at a time."],
   buildHintLiftSign: ["SkiResort.Hub.BUILD_HINT_LIFT_SIGN", "Lifts join the nearest Welcome Sign within 5 km of their base station."],
-  buildShortLodge: ["SkiResort.Hub.BUILD_SHORT[Lodge]", "Goes on this ski area's Welcome Sign; the camera flies there."],
+  buildShortLodge: ["SkiResort.Hub.BUILD_SHORT[Lodge]", "Goes on this ski area's Welcome Sign."],
   buildShortTop: ["SkiResort.Hub.BUILD_SHORT[Top]", "Place at the top, facing the base station."],
   buildShortLift: ["SkiResort.Hub.BUILD_SHORT[Lift]", "Draw from station to station, one section at a time."],
   // Contract 6: the school and patrol tiles (upgrades of the sign, launched like the lodge) and the pickers.
@@ -465,6 +470,7 @@ export const HUB_FMT = {
   staffLine: ["SkiResort.Hub.STAFF_LINE", "Staff: {FILLED} of {JOBS}"],
   // tiles (6.4)
   tileTipFull: ["SkiResort.Hub.TILE_TIP_FULL", "At full efficiency: {N}"],
+  tileTipStaffing: ["SkiResort.Hub.TILE_TIP_STAFFING", "× efficiency {PCT}"],
   tileTipPartly: ["SkiResort.Hub.TILE_TIP_PARTLY", "Patchy: {N}"],
   tileTipUnfinished: ["SkiResort.Hub.TILE_TIP_UNFINISHED", "Not complete (a section missing, unfinished, or stations only): {N}"],
   tileTipLast: ["SkiResort.Hub.TILE_TIP_LAST", "Last month: {N}"],
@@ -503,7 +509,7 @@ export const HUB_FMT = {
   // Catalog Phase C (round-3-contract C15, CG-T7): both texts reworded to hold for the tram too (identical in LocaleEN.cs, R4).
   liftRideTip: ["SkiResort.Hub.LIFT_RIDE_TIP", "Base to top at {SPEED} m/s line speed, at 1× game speed."],
   // Phase D (round-4-contract section 4.4 with skeptic MUST-3, 24 words; CG-T2 / T7 / T8): an unpowered lift counts none.
-  liftCapacityTip: ["SkiResort.Hub.LIFT_CAPACITY_TIP", "{SEATS} seats a carrier at {SPEED} m/s, as built; a tram counts its station stops; without power, none. The game does not simulate riders."],
+  liftCapacityTip: ["SkiResort.Hub.LIFT_CAPACITY_TIP", "{SEATS} seats a carrier at {SPEED} m/s; a tram counts its station stops; none unpowered or with no open run. Riders are not simulated."],
   capacityValue: ["SkiResort.Hub.CAPACITY_VALUE", "{CAP} riders/h"],
   // guests view (6.8)
   guestsTipPaid: ["SkiResort.Hub.GUESTS_TIP[Paid]", "{GUESTS} guests this month: {PAID} paid, {UNPAID} could not pay, {FREE} came in free (lift tickets off or the ski area closed)."],

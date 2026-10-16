@@ -144,6 +144,7 @@ namespace SkiResortMod.Systems
             public SkiMoneyRules.LiftBilling Billing;
             public float LengthM, RatePerMonth;
             public byte Type;                                            // Catalog Phase B: SkiCatalog.Lifts index billed (logs, DUMP)
+            public bool Closed;                                          // T13: its ski area has no open run (LiftClosedRule, with the one-game-hour hysteresis); false when Not linked
         }
 
         /// <summary>One ski area's lift totals (Entity.Null = Not linked).</summary>
@@ -193,6 +194,23 @@ namespace SkiResortMod.Systems
             return m_Lifts.TryGetValue(new LiftKey(id, top), out charge);
         }
 
+        /// <summary>T13 (report item 78): the lift between stations <paramref name="stationA"/> and <paramref name="stationB"/> (either
+        /// order; a census row's {Base, Top}) is closed — its ski area has no open run (LiftClosedRule, the same area state
+        /// the 25 % billing reads, with the one-game-hour hysteresis). False for an unknown pair, a lift with no ski area
+        /// and while no snapshot exists. Read by ChairPinSystem.IsLoopClosed and TramShuttleSystem.IsClosed (main thread;
+        /// the set is empty unless an area is closed, so the common call is one empty-set test).</summary>
+        internal bool IsLiftClosed(Entity stationA, Entity stationB)
+        {
+            return m_ClosedPairs.Count > 0 && m_ClosedPairs.Contains(PairKey(stationA, stationB));
+        }
+
+        /// <summary>The station pair, ordered by (Index, Version): one key either way round (ChairPinSystem.HoldKey's order).</summary>
+        private static (Entity, Entity) PairKey(Entity a, Entity b)
+        {
+            bool aFirst = a.Index < b.Index || (a.Index == b.Index && a.Version <= b.Version);
+            return aFirst ? (a, b) : (b, a);
+        }
+
         /// <summary>The lift totals of <paramref name="signOrNull"/> (Entity.Null = Not linked).</summary>
         internal bool TryGetResort(Entity signOrNull, out ResortLiftCharge charge)
         {
@@ -221,6 +239,12 @@ namespace SkiResortMod.Systems
         private Dictionary<Entity, ResortLiftCharge> m_ResortsNext = new Dictionary<Entity, ResortLiftCharge>();
         private readonly List<Entity> m_ResortOrder = new List<Entity>();        // signs by Index / Version, Not linked last
         private readonly List<LiftCensus.Row> m_Rows = new List<LiftCensus.Row>();
+        // T13: the per-area closed state with its hysteresis (carried snapshot to snapshot; an area with no lift row is dropped),
+        // and the published set of closed lifts' station pairs (PairKey order), swapped with its Next like the tables above.
+        private Dictionary<Entity, AreaClosedState> m_AreaClosed = new Dictionary<Entity, AreaClosedState>();
+        private Dictionary<Entity, AreaClosedState> m_AreaClosedNext = new Dictionary<Entity, AreaClosedState>();
+        private HashSet<(Entity, Entity)> m_ClosedPairs = new HashSet<(Entity, Entity)>();
+        private HashSet<(Entity, Entity)> m_ClosedPairsNext = new HashSet<(Entity, Entity)>();
         private readonly SkiResortIndex m_Index = new SkiResortIndex();
         private float m_TotalRate, m_TotalFullKm, m_TotalReducedKm;
         private int m_TotalFull, m_TotalReduced;
@@ -463,6 +487,8 @@ namespace SkiResortMod.Systems
             m_LiftListNext.Clear();
             m_LiftBasesNext.Clear();
             m_ResortsNext.Clear();
+            m_AreaClosedNext.Clear();
+            m_ClosedPairsNext.Clear();
             float total = 0f, fullKm = 0f, reducedKm = 0f;
             int full = 0, reduced = 0, noOpenRun = 0;
 
@@ -487,7 +513,9 @@ namespace SkiResortMod.Systems
                 // Round M2 T2 (R3): the area's run state, read only where it can matter (complete; the rule ignores it
                 // otherwise, so the short cut changes no result). Phase D (skeptic MUST-1; was `!complete || !powered ||
                 // AreaRunOpen(sign)`, :483): an unpowered complete lift is billed like a powered one, so its area is read too.
-                bool areaOpen = !complete || AreaRunOpen(sign);
+                // T13: the same read (AreaRunState) also steps the area's closed state, once per area per snapshot.
+                bool areaRunOpen = AreaRunState(sign, frame, out bool areaClosed);
+                bool areaOpen = !complete || areaRunOpen;
                 // Phase D (skeptic MUST-1, DECISIONS 171 sub-ruling: upkeep regardless of power; was
                 // SkiMoneyRules.LiftBillingOf(complete, powered, areaOpen), :484): no power input. `powered` still feeds
                 // LiftCharge.Powered, the Operating count and the state line.
@@ -508,7 +536,10 @@ namespace SkiResortMod.Systems
                     LengthM = r.LengthM,
                     RatePerMonth = rate,
                     Type = (byte)def.Index,
+                    Closed = areaClosed,
                 };
+                if (areaClosed && !r.Base.IsNull && !r.Top.IsNull)
+                    m_ClosedPairsNext.Add(PairKey(baseStation, top));
                 m_LiftsNext[new LiftKey(id, top)] = lc;
                 m_LiftListNext.Add(lc);
                 m_LiftBasesNext.Add(baseStation);
@@ -563,6 +594,8 @@ namespace SkiResortMod.Systems
             Swap(ref m_LiftList, ref m_LiftListNext);
             Swap(ref m_LiftBases, ref m_LiftBasesNext);
             Swap(ref m_Resorts, ref m_ResortsNext);
+            Swap(ref m_AreaClosed, ref m_AreaClosedNext);   // T13
+            Swap(ref m_ClosedPairs, ref m_ClosedPairsNext);
             m_TotalRate = total;
             m_TotalFull = full;
             m_TotalReduced = reduced;
@@ -598,7 +631,7 @@ namespace SkiResortMod.Systems
             {
                 LiftCharge next = m_LiftListNext[i];
                 if (m_Lifts.TryGetValue(new LiftKey(next.Id, next.Top), out LiftCharge old) &&
-                    old.State == next.State && old.Powered == next.Powered && old.Billing == next.Billing &&
+                    old.State == next.State && old.Powered == next.Powered && old.Billing == next.Billing && old.Closed == next.Closed &&
                     old.Sign == next.Sign && math.round(old.RatePerMonth) == math.round(next.RatePerMonth))
                     continue;
                 if (float.IsNaN(now))
@@ -642,7 +675,9 @@ namespace SkiResortMod.Systems
             LiftTypeDef def = SkiCatalog.LiftByIndex(c.Type);
             return $"lift base {Fmt(baseStation)} top {Fmt(c.Top)} ({LiftName(baseStation, c.Top)}, {(def != null ? def.Id : "fixedGrip")}) " +
                    $"→ ski area {(c.Sign == Entity.Null ? "not linked" : Fmt(c.Sign))}: {state}, {power}, " +
-                   $"{c.LengthM:F0} m — billed {billed} {c.RatePerMonth:F2}/month";
+                   $"{c.LengthM:F0} m — billed {billed} {c.RatePerMonth:F2}/month" +
+                   // T13: the chairs / cabins stand while the area has no open run (held one game hour, LiftClosedRule)
+                   (c.Closed ? $" — closed: no open run in {Fmt(c.Sign)}" : string.Empty);
         }
 
         private void WriteStateSummary(float now)
@@ -656,7 +691,7 @@ namespace SkiResortMod.Systems
         {
             return a.Id == b.Id && a.Top == b.Top && a.Sign == b.Sign && a.State == b.State && a.Powered == b.Powered &&
                    a.Billing == b.Billing && a.LengthM.Equals(b.LengthM) && a.RatePerMonth.Equals(b.RatePerMonth) &&
-                   a.Type == b.Type;   // Catalog Phase B
+                   a.Type == b.Type && a.Closed == b.Closed;   // Catalog Phase B; T13 Closed
         }
 
         private static void Swap<T>(ref T a, ref T b)
@@ -676,6 +711,10 @@ namespace SkiResortMod.Systems
             m_LiftBasesNext.Clear();
             m_Resorts.Clear();
             m_ResortsNext.Clear();
+            m_AreaClosed.Clear();   // T13
+            m_AreaClosedNext.Clear();
+            m_ClosedPairs.Clear();
+            m_ClosedPairsNext.Clear();
             m_ResortOrder.Clear();
             m_Rows.Clear();
             m_TotalRate = m_TotalFullKm = m_TotalReducedKm = 0f;
@@ -723,12 +762,35 @@ namespace SkiResortMod.Systems
         /// billing — the released score's RunsCounted from the attraction snapshot (a plain main-thread read, as the
         /// ticket gate's). Unknown reads true (full): not linked, no score yet, or the area's first score after a load
         /// still held (SkiMoneyRules.LiftAreaRunOpen).</summary>
-        private bool AreaRunOpen(Entity sign)
+        private bool AreaRunOpen(Entity sign, out bool settled)
         {
             SkiResortAttractivenessSystem.AreaScoreView v = default;
             bool linked = sign != Entity.Null;
             bool known = linked && m_Attractiveness.TryGetAreaScore(sign, out v);
+            settled = known && !v.WriteHeld;   // a released score: the run count is the truth (else LiftAreaRunOpen reads "open")
             return SkiMoneyRules.LiftAreaRunOpen(linked, known, known && v.WriteHeld, known ? v.Result.RunsCounted : 0);
+        }
+
+        /// <summary>T13: THE area read of one snapshot. Returns the billing's area state (<see cref="AreaRunOpen"/>, unchanged)
+        /// and <paramref name="closed"/> = the lift's closed flag: LiftClosedRule's published state of the area, stepped
+        /// ONCE per area per snapshot with that same state (the first row of the area does the step; the rest read it). Not
+        /// linked: never closed. An area whose score is not released yet (unknown / first write held) is not stepped:
+        /// it stays open until the first real observation, which is then taken at once.</summary>
+        private bool AreaRunState(Entity sign, uint frame, out bool closed)
+        {
+            bool open = AreaRunOpen(sign, out bool settled);
+            closed = false;
+            if (sign == Entity.Null)
+                return open;
+            if (!m_AreaClosedNext.TryGetValue(sign, out AreaClosedState st))
+            {
+                m_AreaClosed.TryGetValue(sign, out st);
+                if (settled)
+                    LiftClosedRule.Step(ref st, open, frame);
+                m_AreaClosedNext[sign] = st;
+            }
+            closed = LiftClosedRule.ClosedFor(true, st);
+            return open;
         }
 
         /// <summary>ch4 §2.2 lift rule (header SKI AREA).</summary>

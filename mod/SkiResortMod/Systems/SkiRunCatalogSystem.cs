@@ -344,6 +344,7 @@ namespace SkiResortMod.Systems
             internal float NodeLengthM, NodeDropM, NodeTopM, NodeBottomM;
             internal ulong Key, YKey;
             internal float3 NodeTopPos;   // E1: the highest outline node (first one on a tie), x/y/z — the lift-served test point
+            internal float2[] OutlineXZ;  // T06: every outline node (x, z), one array per run, REUSED across rebuilds while Key is unchanged (the link graph keeps by reference); null = no Node buffer
         }
 
         /// <summary>One cached rating (hub-u2-spec.md §3.5 "Cache").</summary>
@@ -576,6 +577,7 @@ namespace SkiResortMod.Systems
             public float TopM;        // rated: SlopeResult.MaxHeight; else the highest node's y
             public float BottomM;     // rated: SlopeResult.MinHeight; else the lowest node's y
             public float3 TopNode;    // the highest outline node (x, y, z), always valid: the lift-served test point (ch2 §3)
+            public float2[] OutlineXZ; // T06: every outline node (x, z) in ring order; READ ONLY (shared with the catalog row, same object until the outline moves); null = none
             public bool Approx;       // LengthM / DropM / TopM / BottomM are node estimates (not rated yet)
         }
 
@@ -609,6 +611,7 @@ namespace SkiResortMod.Systems
                 TopM = row.TopM,
                 BottomM = row.BottomM,
                 TopNode = row.NodeTopPos,
+                OutlineXZ = row.OutlineXZ,
                 Approx = row.Approx,
             };
             return true;
@@ -1184,6 +1187,8 @@ namespace SkiResortMod.Systems
                 hash = SkiRunRatingRules.Mix(hash, math.asuint(row.NodeTopPos.x));
                 hash = SkiRunRatingRules.Mix(hash, math.asuint(row.NodeTopPos.y));
                 hash = SkiRunRatingRules.Mix(hash, math.asuint(row.NodeTopPos.z));
+                hash = SkiRunRatingRules.Mix(hash, (uint)row.Key);          // T06: Key/YKey cover every outline node x,z / y
+                hash = SkiRunRatingRules.Mix(hash, (uint)(row.Key >> 32));
             }
             return SkiRunRatingRules.Mix(hash, (uint)rows.Count);
         }
@@ -1293,6 +1298,22 @@ namespace SkiResortMod.Systems
                         EntityManager.GetBuffer<Game.Areas.Node>(row.Entity, isReadOnly: true);
                     RingMetrics(nodes, out row.NodeLengthM, out row.NodeDropM, out row.NodeTopM, out row.NodeBottomM,
                         out row.Key, out row.YKey, out row.NodeTopPos);
+                    // T06: the outline's xz for the served rule's run links. Same x/z Key and node count as this run's row of the
+                    // last rebuild = the same outline, so its array is kept (allocation only when an outline moved, and the
+                    // link graph's reference test then sees "unchanged"). m_RowIndex / m_Rows still hold the LAST rebuild here.
+                    if (m_RowIndex.TryGetValue(row.Entity, out int prevIndex) && prevIndex >= 0 && prevIndex < m_Rows.Count &&
+                        m_Rows[prevIndex].Entity == row.Entity && m_Rows[prevIndex].OutlineXZ != null &&
+                        m_Rows[prevIndex].OutlineXZ.Length == nodes.Length && m_Rows[prevIndex].Key == row.Key)
+                    {
+                        row.OutlineXZ = m_Rows[prevIndex].OutlineXZ;
+                    }
+                    else
+                    {
+                        var xz = new float2[nodes.Length];
+                        for (int k = 0; k < xz.Length; k++)
+                            xz[k] = nodes[k].m_Position.xz;
+                        row.OutlineXZ = xz;
+                    }
                 }
                 // THE bound test, returning the sign (U2: the run's resort, §3.1).
                 row.Bound = m_Ownership.TryGetBoundGate(row.Entity, out row.Gate);

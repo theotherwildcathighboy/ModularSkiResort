@@ -100,6 +100,7 @@ function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boo
   switch (v) {
     case "overview":
       return <TipLines lines={[t(HUB_LOC.tileAttraction), t(HUB_LOC.tileTipAttraction),
+        l && l.efficiencyPct >= 0 && <LocText key="s" entry={HUB_FMT.tileTipStaffing} args={{ PCT: numArg(l.efficiencyPct, Unit.Percentage) }} />,
         l && l.attractionFull >= 0 && <LocText key="f" entry={HUB_FMT.tileTipFull} args={{ N: numArg(l.attractionFull, Unit.Integer) }} />,
         l && l.attractionHeld && t(HUB_LOC.tileTipHeld), open]} />;
     // E1 fixer (e1-spec 8.9 F15): the Not linked tiles show totals (row.runs, row.liftRows), so their

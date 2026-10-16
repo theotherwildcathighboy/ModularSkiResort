@@ -102,6 +102,16 @@
 // live base station's type, else the live top's, else the lowest-index edge's; StationsOnly rows: their station's.
 // The row hash (Revision) covers Type and Mixed; the topology hash covers the edges' types.
 //
+// T05 (2026-10-16, docs/research/field/2026-10-15/build/T05-mixed-types.md) — SPLIT AT A SHARED NODE. Two lines of
+// DIFFERENT lift types that share a non-station node (the net tool snapped a new node onto another lift's tower node;
+// field 2026-10-15 item 70: a tram redrawn onto the gondola read "mixes lift types" and left BOTH Unfinished) no longer
+// union: LinkEndpoint keys the first-edge-at-node map by (node, type), so each type keeps its own component and the node
+// is a split point. A component's TypeMask therefore carries at most ONE bit from its edges; code 23 (Mixed) still fires
+// when a component's edge type differs from a station it touches, or it touches stations of two types (a DQ line drawn
+// between a gondola base and a DQ top). A split is recorded as Row.SplitNodes (this row's components touch N split
+// nodes; hashed, NOT bound to the hub), SplitNotes (the note text with the node position; DUMP only) and NewSplits (the
+// splits not yet announced since Reset: the system logs one "[census] split at node N: types A|B" INFO line each).
+//
 // PURE FILE: `using System;` + `using System.Collections.Generic;` + `using Unity.Mathematics;` only
 // (the test-host rule of tests/SlopeBatch; EntityRef.cs is the pure stand-in for Entity), + SkiCatalog (pure, linked
 // wherever this file is) for the type ids in the "mixes lift types" note.
@@ -163,6 +173,9 @@ namespace SkiResortMod.Systems
             // nothing typed it) and whether its component spans two or more of our lift types (then State Unfinished).
             public byte Type;
             public bool Mixed;
+            // T05: how many split nodes (a node shared with a line of another lift type, counted apart) this row's
+            // components touch. Census/DUMP only, hashed; never bound to the hub.
+            public int SplitNodes;
         }
 
         public enum EventKind : byte { SectionsDeleted, Opened, Closed, NewLine, Removed }
@@ -199,6 +212,17 @@ namespace SkiResortMod.Systems
             public bool HasPair => !Base.IsNull && !Top.IsNull;
         }
 
+        /// <summary>T05: (node, lift type) - the union key; edges of different types at one node do not union.</summary>
+        private struct NodeType : IEquatable<NodeType>
+        {
+            public EntityRef Node;
+            public byte Type;
+
+            public bool Equals(NodeType o) => Node == o.Node && Type == o.Type;
+            public override bool Equals(object obj) => obj is NodeType k && Equals(k);
+            public override int GetHashCode() => Node.GetHashCode() * 31 + Type;
+        }
+
         /// <summary>One connected component of line edges (pooled between builds).</summary>
         private sealed class Comp
         {
@@ -210,6 +234,7 @@ namespace SkiResortMod.Systems
             public bool Complex;
             public uint TypeMask;        // Catalog Phase B: bit Type of every typed edge and touched station
             public bool Mixed;           // Catalog Phase B: popcount(TypeMask) > 1 (D18)
+            public int SplitNodes;       // T05: distinct split nodes (shared with another lift type) its edges end at
 
             public void Reset()
             {
@@ -221,6 +246,7 @@ namespace SkiResortMod.Systems
                 Complex = false;
                 TypeMask = 0u;
                 Mixed = false;
+                SplitNodes = 0;
             }
         }
 
@@ -242,7 +268,12 @@ namespace SkiResortMod.Systems
         // ── scratch (reused) ───────────────────────────────────────────────────────────────────
         private readonly Dictionary<EntityRef, int> m_NodeIndex = new Dictionary<EntityRef, int>();
         private readonly Dictionary<EntityRef, int> m_StationIndex = new Dictionary<EntityRef, int>();
-        private readonly Dictionary<EntityRef, int> m_FirstEdgeAtNode = new Dictionary<EntityRef, int>();
+        private readonly Dictionary<NodeType, int> m_FirstEdgeAtNode = new Dictionary<NodeType, int>();   // T05: per (node, type)
+        private readonly Dictionary<EntityRef, uint> m_NodeTypeMask = new Dictionary<EntityRef, uint>();  // T05: edge-type bits per non-station node
+        private readonly List<EntityRef> m_SplitNodeList = new List<EntityRef>();                         // T05: nodes with > 1 edge type, sorted
+        private readonly HashSet<EntityRef> m_SplitNodeSet = new HashSet<EntityRef>();
+        private readonly HashSet<EntityRef> m_LoggedSplits = new HashSet<EntityRef>();                    // T05: announced since Reset
+        private readonly HashSet<EntityRef> m_CompSplitScratch = new HashSet<EntityRef>();
         private readonly Dictionary<EntityRef, int> m_Degree = new Dictionary<EntityRef, int>();
         private readonly List<int> m_Parent = new List<int>();
         private readonly List<int> m_CompOfRoot = new List<int>();
@@ -286,6 +317,15 @@ namespace SkiResortMod.Systems
         /// <summary>ADDITIVE: build notes of the last Build (odd topologies; dev tab / dump only).</summary>
         public readonly List<string> Notes = new List<string>();
 
+        /// <summary>T05 ADDITIVE: one note per split node of the last Build ("lift line joined to another lift's node at
+        /// (x, z): the lines render as one chain but are counted apart"). DUMP only; not part of Notes so it is not
+        /// re-logged as a build note.</summary>
+        public readonly List<string> SplitNotes = new List<string>();
+
+        /// <summary>T05 ADDITIVE: "split at node N: types A|B" for each split node not yet announced since Reset (the
+        /// system logs each once per load, [census] INFO). Cleared at the start of every Build.</summary>
+        public readonly List<string> NewSplits = new List<string>();
+
         /// <summary>ADDITIVE: forgets all history (per game load). The next Build is a silent baseline.
         /// Revision keeps counting so consumers see a change.</summary>
         public void Reset()
@@ -302,6 +342,9 @@ namespace SkiResortMod.Systems
             m_PrevEdgeKey.Clear();
             m_PrevEdgeLength.Clear();
             Notes.Clear();
+            SplitNotes.Clear();
+            NewSplits.Clear();
+            m_LoggedSplits.Clear();
             m_HasBaseline = false;
             m_HashValid = false;
             LastBuildChangedTopology = false;
@@ -338,6 +381,8 @@ namespace SkiResortMod.Systems
         {
             events.Clear();
             Notes.Clear();
+            SplitNotes.Clear();
+            NewSplits.Clear();
             bool baseline = m_HasBaseline;
             SwapToPrevious();
 
@@ -363,12 +408,37 @@ namespace SkiResortMod.Systems
                 m_Parent.Add(i);
             m_FirstEdgeAtNode.Clear();
             m_Degree.Clear();
+            m_NodeTypeMask.Clear();
             for (int i = 0; i < edges.Count; i++)
             {
                 if (edges[i].Type == NoType)
                     continue;
-                LinkEndpoint(i, edges[i].Start, nodes, stations.Count);
-                LinkEndpoint(i, edges[i].End, nodes, stations.Count);
+                LinkEndpoint(i, edges[i].Start, edges[i].Type, nodes, stations.Count);
+                LinkEndpoint(i, edges[i].End, edges[i].Type, nodes, stations.Count);
+            }
+
+            // T05: a non-station node carrying edges of two or more lift types is a SPLIT point (LinkEndpoint kept the
+            // types apart). Sorted by entity so notes and logs are deterministic.
+            m_SplitNodeList.Clear();
+            m_SplitNodeSet.Clear();
+            foreach (KeyValuePair<EntityRef, uint> kv in m_NodeTypeMask)
+            {
+                if (math.countbits(kv.Value) > 1)
+                    m_SplitNodeList.Add(kv.Key);
+            }
+            m_SplitNodeList.Sort();
+            for (int i = 0; i < m_SplitNodeList.Count; i++)
+            {
+                EntityRef sn = m_SplitNodeList[i];
+                m_SplitNodeSet.Add(sn);
+                string pos = "";
+                if (m_NodeIndex.TryGetValue(sn, out int sni))
+                    pos = " at (" + nodes[sni].Position.x.ToString("F0") + ", " + nodes[sni].Position.z.ToString("F0") + ")";
+                string types = TypeIds(m_NodeTypeMask[sn], "|");
+                SplitNotes.Add("lift line joined to another lift's node " + sn + pos + " (" + types.Replace("|", " and ") +
+                               "): the lines render as one chain but are counted apart");
+                if (m_LoggedSplits.Add(sn))
+                    NewSplits.Add("split at node " + sn + ": types " + types);
             }
 
             // ── 3. components ──────────────────────────────────────────────────────────────────
@@ -405,8 +475,26 @@ namespace SkiResortMod.Systems
                 TouchStation(comp, StationOf(edges[i].End, nodes, stations.Count), stations);
             }
 
+            // T05: per component, the distinct split nodes its edges end at (Row.SplitNodes).
+            if (m_SplitNodeSet.Count > 0)
+            {
+                for (int c = 0; c < m_Comps.Count; c++)
+                {
+                    Comp comp = m_Comps[c];
+                    m_CompSplitScratch.Clear();
+                    for (int k = 0; k < comp.Edges.Count; k++)
+                    {
+                        Edge e = edges[comp.Edges[k]];
+                        if (m_SplitNodeSet.Contains(e.Start)) m_CompSplitScratch.Add(e.Start);
+                        if (m_SplitNodeSet.Contains(e.End)) m_CompSplitScratch.Add(e.End);
+                    }
+                    comp.SplitNodes = m_CompSplitScratch.Count;
+                }
+            }
+
             // ── 3b. Catalog Phase B (D18): a component whose edges and touched stations span two or more of our lift
-            //        types is MIXED — Complex (→ Unfinished in MakeRow), one note, every row built from it Mixed. ──
+            //        types is MIXED. T05: its EDGES are now one type (split nodes), so this fires only when a touched
+            //        station's type differs from the edges' type or from another touched station's — Complex (→ Unfinished in MakeRow), one note, every row built from it Mixed. ──
             for (int c = 0; c < m_Comps.Count; c++)
             {
                 Comp comp = m_Comps[c];
@@ -578,16 +666,20 @@ namespace SkiResortMod.Systems
                 m_Parent[math.max(ra, rb)] = math.min(ra, rb);
         }
 
-        private void LinkEndpoint(int edge, EntityRef node, List<Node> nodes, int stationCount)
+        private void LinkEndpoint(int edge, EntityRef node, byte type, List<Node> nodes, int stationCount)
         {
             m_Degree.TryGetValue(node, out int deg);
             m_Degree[node] = deg + 1;
             if (StationOf(node, nodes, stationCount) >= 0)
                 return;   // a station connection node is a terminal, never a connector
-            if (m_FirstEdgeAtNode.TryGetValue(node, out int first))
+            // T05: only edges of the SAME type union at a node; another type's edges there are a separate chain.
+            m_NodeTypeMask.TryGetValue(node, out uint mask);
+            m_NodeTypeMask[node] = mask | TypeBit(type);
+            var key = new NodeType { Node = node, Type = type };
+            if (m_FirstEdgeAtNode.TryGetValue(key, out int first))
                 Union(edge, first);
             else
-                m_FirstEdgeAtNode[node] = edge;
+                m_FirstEdgeAtNode[key] = edge;
         }
 
         private int StationOf(EntityRef node, List<Node> nodes, int stationCount)
@@ -619,7 +711,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Catalog Phase B: "fixedGrip+detachable" — the type ids of a mask in index order (SkiCatalog
         /// LiftTypeDef.Id; "type N" for an index the catalog does not know). Allocates: build notes only.</summary>
-        private static string TypeIds(uint mask)
+        private static string TypeIds(uint mask, string sep = "+")
         {
             string ids = "";
             for (int t = 0; t < 32; t++)
@@ -627,7 +719,7 @@ namespace SkiResortMod.Systems
                 if ((mask & (1u << t)) == 0)
                     continue;
                 LiftTypeDef def = SkiCatalog.LiftByIndex(t);
-                ids += (ids.Length > 0 ? "+" : "") + (def != null ? def.Id : "type " + t);
+                ids += (ids.Length > 0 ? sep : "") + (def != null ? def.Id : "type " + t);
             }
             return ids;
         }
@@ -738,7 +830,7 @@ namespace SkiResortMod.Systems
             bool hasTop = !key.Top.IsNull && m_StationIndex.TryGetValue(key.Top, out topIdx);
 
             bool complex = false, touchedBase = false, touchedTop = false, mixed = false;
-            int bothTouching = 0;
+            int bothTouching = 0, splitNodes = 0;
             EntityRef lowest = default;
             byte lowestType = NoType;   // Catalog Phase B: the lowest-index edge's type (Row.Type's last fallback)
             float3 bmin = new float3(float.MaxValue), bmax = new float3(float.MinValue);
@@ -750,6 +842,7 @@ namespace SkiResortMod.Systems
                 Comp comp = comps[c];
                 complex |= comp.Complex;
                 mixed |= comp.Mixed;
+                splitNodes += comp.SplitNodes;
                 bool tb = hasBase && comp.Stations.Contains(baseIdx);
                 bool tt = hasTop && comp.Stations.Contains(topIdx);
                 touchedBase |= tb;
@@ -809,6 +902,7 @@ namespace SkiResortMod.Systems
             // type, else the live top's, else the lowest-index edge's; Mixed when any of its components is.
             row.Type = hasBase ? stations[baseIdx].Type : hasTop ? stations[topIdx].Type : lowestType;
             row.Mixed = mixed;
+            row.SplitNodes = splitNodes;   // T05
 
             // Focus
             if (bmin.x <= bmax.x)
@@ -1045,6 +1139,7 @@ namespace SkiResortMod.Systems
                 h = Mix(h, r.HasGap ? 1u : 0u); h = Mix(h, r.AlignKnown ? 1u : 0u);
                 h = Mix(h, Bits(r.AlignOffsetM)); h = Mix(h, Bits(r.AlignYawDeg));
                 h = Mix(h, r.Type); h = Mix(h, r.Mixed ? 1u : 0u);   // Catalog Phase B (§4.1)
+                h = Mix(h, (uint)r.SplitNodes);   // T05
             }
             return (int)h;
         }

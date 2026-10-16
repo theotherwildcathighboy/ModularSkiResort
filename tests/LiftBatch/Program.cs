@@ -114,6 +114,8 @@ namespace LiftBatch
             // Phase D (code-round-4/round-4-contract.md §7.1): the power gate and the loop hold.
             PowerGateTests.Run(Check);
             LoopHoldTests.Run(Check);
+            // Round T06 (docs/research/field/2026-10-15/build/T06-served-links.md): run-to-run links in the served rule.
+            ServedLinkTests.Run(Check);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  LiftBatch checks={0} failures={1}", s_Checks, s_Failures));

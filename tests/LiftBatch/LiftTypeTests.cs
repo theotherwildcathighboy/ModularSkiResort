@@ -2,8 +2,12 @@
 // lift rows. SKELETON written by the core group (§12.1, §12.2 step 1) so LiftBatch builds and runs before the lift group
 // lands; the BODY is the lift group's (LT-1 to LT-11, 2026-10-11). Where-tags `lifttype-…`.
 //   LT-1  two lifts of different types, apart: two Complete rows, Type 0 and 1, Mixed false, no note.
-//   LT-2  FG stations + FG edges + one DQ edge sharing a node: one Unfinished row, Mixed true, "mixes lift types
-//         (fixedGrip+detachable)"; Revision moves when the DQ edge is removed and the row returns to Complete.
+//   LT-2  FG stations + FG edges + one DQ edge sharing a node. CHANGED by T05 (2026-10-16): the DQ spur is its own
+//         Unfinished row (not Mixed), the FG lift stays Complete, one split note; removing the spur drops that row.
+//   LT-13 (T05) a gondola base->top chain and a tram chain sharing one mid node: two Complete rows, no mix; split note,
+//         one "split at node" announcement per load (again after Reset); a same-type spur still unions.
+//   LT-14 (T05) a DQ line between a gondola base and a DQ top still raises Mixed (23); so does a tram line between
+//         gondola stations.
 //   LT-3  DQ edges between FG base and FG top: Unfinished, Mixed (stations count, D18).
 //   LT-4  vanilla feeder: an edge typed NoType never unions, the row stays Complete, note "has no lift type — ignored".
 //   LT-5  shared FG base used by an FG lift and a DQ line: FG row Complete; DQ component Unfinished + Mixed.
@@ -58,6 +62,8 @@ namespace LiftBatch
             Lt9StubTip();
             Lt11UpLane();
             Lt12Tram();
+            Lt13SplitAtSharedNode();
+            Lt14MixedStationsStillRaise();
             s_Check = null;
         }
 
@@ -165,15 +171,25 @@ namespace LiftBatch
             w.Edge(106, 202, 210);                           // a DQ spur off FG tower 202
             Stamp(w, Types(106, DQ), null);
             w.Build();
+            // T05 (2026-10-16): this oracle changed. Before, the DQ spur unioned with the FG component through tower node
+            // 202 (one Unfinished Mixed row, "mixes lift types (fixedGrip+detachable)"). Edges of different types no longer
+            // union at a shared node: the node is a split, the FG lift stays Complete and the spur is its own row.
             var rows = w.Census.Rows;
-            Eq(1, rows.Count, W, "one row (the spur joins the FG component through a tower node)");
-            if (rows.Count != 1) return;
-            Eq(LiftCensus.State.Unfinished, rows[0].State, W, "mixed → Unfinished");
-            Check(rows[0].Mixed, W, "Mixed");
-            Eq(FG, rows[0].Type, W, "type = the base station's");
-            Eq(Program.R(1), rows[0].Base, W, "the pair's key is kept (base 1)");
-            Eq(6, rows[0].Sections, W, "sections incl. the spur");
-            Check(NoteContains(w, "mixes lift types (fixedGrip+detachable)"), W, "note: " + Notes(w));
+            Eq(2, rows.Count, W, "two rows (T05: the spur is counted apart at the shared tower node)");
+            if (rows.Count != 2) return;
+            Eq(Program.R(1), rows[0].Base, W, "row 0 = the FG lift (base 1)");
+            Eq(LiftCensus.State.Complete, rows[0].State, W, "FG lift stays Complete");
+            Check(!rows[0].Mixed, W, "FG row not mixed");
+            Eq(FG, rows[0].Type, W, "FG type");
+            Eq(5, rows[0].Sections, W, "FG sections exclude the spur");
+            Eq(1, rows[0].SplitNodes, W, "FG row touches one split node");
+            Eq(LiftCensus.State.Unfinished, rows[1].State, W, "the spur is Unfinished (no stations)");
+            Check(!rows[1].Mixed, W, "the spur row is not mixed");
+            Eq(DQ, rows[1].Type, W, "spur type = its lowest edge's");
+            Eq(1, rows[1].Sections, W, "spur sections");
+            Eq(1, rows[1].SplitNodes, W, "spur row touches the same split node");
+            Check(!NoteContains(w, "mixes lift types"), W, "no mixed note: " + Notes(w));
+            Eq(1, w.Census.SplitNotes.Count, W, "one split note");
             int rev = w.Census.Revision;
 
             w.RemoveEdge(106);   // the node 210 stays in the World but no edge references it, so it is not harvested
@@ -181,11 +197,11 @@ namespace LiftBatch
             rows = w.Census.Rows;
             Eq(1, rows.Count, W, "rows after the spur is removed");
             if (rows.Count != 1) return;
-            Eq(LiftCensus.State.Complete, rows[0].State, W, "back to Complete");
-            Check(!rows[0].Mixed, W, "no longer mixed");
+            Eq(LiftCensus.State.Complete, rows[0].State, W, "still Complete");
+            Check(!rows[0].Mixed, W, "not mixed");
+            Eq(0, rows[0].SplitNodes, W, "no split node left");
             Check(w.Census.Revision != rev, W, "Revision moved");
-            Check(!NoteContains(w, "mixes lift types"), W, "no mixed note any more: " + Notes(w));
-            Eq(1, w.CountEvents(LiftCensus.EventKind.Closed), W, "a Closed event (Unfinished → Complete)");
+            Eq(0, w.Census.SplitNotes.Count, W, "no split note any more");
         }
 
         private static void Lt3LineBetweenOtherStations()
@@ -290,12 +306,25 @@ namespace LiftBatch
             w2.Build();
             Check(w2.Census.Rows.Count == 1 && w2.Census.Rows[0].Type == GD && !w2.Census.Rows[0].Mixed, W,
                   "a gondola line with no station: Type 2, not mixed");
-            Stamp(w2, Types(105, TR, 107, DQ), null);
-            w2.Build();
-            Check(w2.Census.Rows.Count == 1 && w2.Census.Rows[0].Type == TR && w2.Census.Rows[0].Mixed &&
-                  w2.Census.Rows[0].State == LiftCensus.State.Unfinished, W,
-                  "edges tram (105) + detachable (107), no station: Type = the lowest edge's (3), Mixed, Unfinished");
-            Check(NoteContains(w2, "mixes lift types (detachable+tram)"), W, "note in index order: " + Notes(w2));
+            // T05 (2026-10-16): CHANGED. Edges of two types sharing node 202 no longer union: two Unfinished rows, one
+            // per type (before: one Mixed row, "mixes lift types (detachable+tram)"). A FRESH world: restamping w2 would
+            // keep the old single key for both fragments (attribution rule b), which is not what a new drawing does.
+            var w2b = new Program.World();
+            w2b.Node(201, new float3(0f, 0f, 0f));
+            w2b.Node(202, new float3(0f, 0f, 100f));
+            w2b.Node(203, new float3(0f, 0f, 200f));
+            w2b.Edge(107, 202, 203);
+            w2b.Edge(105, 201, 202);
+            Stamp(w2b, Types(105, TR, 107, DQ), null);
+            w2b.Build();
+            var rows2b = w2b.Census.Rows;
+            Check(rows2b.Count == 2 && !rows2b[0].Mixed && !rows2b[1].Mixed &&
+                  rows2b[0].State == LiftCensus.State.Unfinished && rows2b[1].State == LiftCensus.State.Unfinished, W,
+                  "edges tram (105) + detachable (107) sharing a node, no station: split into two Unfinished rows, neither Mixed");
+            if (rows2b.Count == 2)
+                Check(rows2b[0].Type == TR && rows2b[1].Type == DQ, W,
+                      "split rows: each carries its own edge's type (tram 105, detachable 107)");
+            Check(!NoteContains(w2b, "mixes lift types"), W, "no mixed note: " + Notes(w2b));
 
             // A Mixed row with stations: the base station's type (LT-3 checks FG; here a DQ base with FG edges).
             var w3 = Program.StraightLift();
@@ -581,6 +610,98 @@ namespace LiftBatch
             LiftServedRule.Lift ml = ServeLiftOf(mrows[0], topTip, 0, 3, LiftPower.Powered);
             Check(!ml.Serves && !LiftServedRule.Reaches(new float3(0f, 380f, 988f), ml, chords, out dist), W,
                   "mixed: not Complete, serves nothing (not even at the top tip)");
+        }
+
+        // ================================================================== LT-13 / LT-14: T05 split at a shared node
+
+        private static void Lt13SplitAtSharedNode()
+        {
+            const string W = "lifttype-13 split at a shared node";
+            var w = Program.StraightLift();                  // gondola: stations 1 (base), 2 (top); nodes 200-205; sections 101-105
+            // A tram chain: base 3 (node 300) -> 301 -> shared gondola tower 202 -> 303 -> top 4 (node 305).
+            w.Station(3, true, new float3(500f, 0f, 0f), 180f);
+            w.Station(4, false, new float3(500f, 100f, 600f), 0f);
+            w.Node(300, w.Tip(3), station: 3);
+            w.Node(301, new float3(250f, 30f, 150f));
+            w.Node(303, new float3(250f, 60f, 450f));
+            w.Node(305, w.Tip(4), station: 4);
+            w.Edge(111, 300, 301, chairs: 0);
+            w.Edge(112, 301, 202, chairs: 0);                // snapped onto the gondola's tower node 202
+            w.Edge(113, 202, 303, chairs: 0);
+            w.Edge(114, 303, 305, chairs: 0);
+            Stamp(w, Types(101, GD, 102, GD, 103, GD, 104, GD, 105, GD, 111, TR, 112, TR, 113, TR, 114, TR),
+                  Types(1, GD, 2, GD, 3, TR, 4, TR));
+            w.Build();
+            var rows = w.Census.Rows;
+            Eq(2, rows.Count, W, "two rows");
+            if (rows.Count != 2) return;
+            Eq(LiftCensus.State.Complete, rows[0].State, W, "gondola row Complete");
+            Eq(LiftCensus.State.Complete, rows[1].State, W, "tram row Complete");
+            Eq(GD, rows[0].Type, W, "row 0 type");
+            Eq(TR, rows[1].Type, W, "row 1 type");
+            Eq(5, rows[0].Sections, W, "gondola sections");
+            Eq(4, rows[1].Sections, W, "tram sections");
+            Check(!rows[0].Mixed && !rows[1].Mixed, W, "neither row is Mixed (no problem 23)");
+            Eq(1, rows[0].SplitNodes, W, "gondola row split nodes");
+            Eq(1, rows[1].SplitNodes, W, "tram row split nodes");
+            Check(!NoteContains(w, "mixes lift types"), W, "no mixed note: " + Notes(w));
+            Eq(1, w.Census.SplitNotes.Count, W, "one split note");
+            Check(w.Census.SplitNotes.Count == 1 && w.Census.SplitNotes[0].Contains("joined to another lift's node") &&
+                  w.Census.SplitNotes[0].Contains("counted apart"), W, "split note text: " + string.Join("|", w.Census.SplitNotes));
+            Eq(1, w.Census.NewSplits.Count, W, "one new split announced");
+            Check(w.Census.NewSplits.Count == 1 && w.Census.NewSplits[0].Contains("split at node 202:1") &&
+                  w.Census.NewSplits[0].Contains("gondola|tram"), W, "split line: " + string.Join("|", w.Census.NewSplits));
+            Eq(0, w.Census.Rows[0].Gaps + w.Census.Rows[1].Gaps, W, "no gaps");
+
+            // Per load, once: a second build of the same graph announces nothing new; a Reset announces it again.
+            w.Build();
+            Eq(0, w.Census.NewSplits.Count, W, "no second announcement");
+            Eq(1, w.Census.SplitNotes.Count, W, "the split note is still there");
+            w.Census.Reset();
+            w.Build();
+            Eq(1, w.Census.NewSplits.Count, W, "announced again after Reset (new load)");
+
+            // Same type at a shared node still unions: a second gondola line snapped on is ONE component (Open/Complex
+            // rules unchanged) - the pre-T05 behaviour for same-type edges.
+            var w2 = Program.StraightLift();
+            w2.Node(210, new float3(40f, 20f, 240f));
+            w2.Edge(106, 202, 210);                          // a fixed-grip spur (same type 0)
+            w2.Build();
+            Eq(1, w2.Census.Rows.Count, W, "same-type spur: still one row");
+            Eq(6, w2.Census.Rows.Count == 1 ? w2.Census.Rows[0].Sections : -1, W, "same-type spur: joined");
+            Eq(0, w2.Census.SplitNotes.Count, W, "same-type spur: no split");
+        }
+
+        private static void Lt14MixedStationsStillRaise()
+        {
+            const string W = "lifttype-14 mixed stations still mix";
+            // A DQ line between a gondola base and a DQ top: one component touching two station types -> Mixed (23).
+            var w = Program.StraightLift();
+            Stamp(w, Types(101, DQ, 102, DQ, 103, DQ, 104, DQ, 105, DQ), Types(1, GD, 2, DQ));
+            w.Build();
+            var rows = w.Census.Rows;
+            Eq(1, rows.Count, W, "one row");
+            if (rows.Count != 1) return;
+            Eq(LiftCensus.State.Unfinished, rows[0].State, W, "Unfinished");
+            Check(rows[0].Mixed, W, "Mixed (problem 23)");
+            Eq(GD, rows[0].Type, W, "type = the base station's (gondola)");
+            Eq(0, rows[0].SplitNodes, W, "no split node involved");
+            Check(NoteContains(w, "mixes lift types (detachable+gondola)"), W, "note: " + Notes(w));
+            Eq(0, w.Census.SplitNotes.Count, W, "no split note");
+
+            // A line of one type touching stations of another type (edge type != station type) is still Mixed, even with
+            // a split node on it: a tram line between gondola stations, plus a fixed-grip spur at one of its towers.
+            var w2 = Program.StraightLift();
+            w2.Node(210, new float3(40f, 20f, 240f));
+            w2.Edge(106, 202, 210);                          // FG spur at tower 202 ...
+            Stamp(w2, Types(101, TR, 102, TR, 103, TR, 104, TR, 105, TR), Types(1, GD, 2, GD));   // ... tram line, gondola stations
+            w2.Build();
+            var rows2 = w2.Census.Rows;
+            bool anyMixed = false;
+            for (int i = 0; i < rows2.Count; i++)
+                anyMixed |= rows2[i].Mixed;
+            Check(anyMixed, W, "tram line between gondola stations is still Mixed");
+            Eq(2, rows2.Count, W, "the FG spur (type 0) splits off as its own row");
         }
 
         // ================================================================== LT-11: the up lane (orchestrator addendum 1)

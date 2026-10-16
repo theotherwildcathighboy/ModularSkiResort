@@ -40,6 +40,8 @@
 //   * Docks (C2): at each station with two finite docks, the two chains take the two docks by the smaller summed
 //     distance (tie → A to DockA); a run longer than MaxDockRunM leaves that chain undocked (−1, run 0; the would-be run
 //     in the *RefusedM field for the caller's note).
+//   * T02 (2026-10-16, ShuttleDockReach, off by default): a terminal within MaxDockRunM of a station's dock is that
+//     station's (the tram's stub-tip rope is 29-30 m from the origin, past StationTerminalRadius).
 // Chain A is the up lane (right looking uphill, StationAlign.UpLaneIsSecond) in both modes.
 
 using System;
@@ -58,6 +60,11 @@ namespace SkiResortMod.Systems
         /// node is not station-owned (entry 102). Terminals only — the walk-stop rule stays owner-based.
         /// Catalog Phase C (round-3-contract §2.1; was LiftLoopCache.cs:130, private, value unchanged).</summary>
         public const float StationTerminalRadius = 20f;
+
+        /// <summary>T02 (2026-10-16). When true, Shuttle mode also owns a chain terminal within MaxDockRunM of a station's
+        /// dock (ClassifyShuttleTerminal). Loop mode, and Shuttle mode with this false, are the transcription bit for bit
+        /// (LC-REF). Default false; LiftLoopCache.BuildShuttles sets it true (the only Shuttle-mode caller).</summary>
+        public bool ShuttleDockReach;
 
         /// <summary>Shuttle gap window, metres (inclusive): two track ropes 2 × GaugeHalfM apart (tram 11 m, R28).</summary>
         public const float ShuttleGapMinM = 4f, ShuttleGapMaxM = 24f;
@@ -234,9 +241,9 @@ namespace SkiResortMod.Systems
                 Endpoint(lanes, chain, atEnd: false, out float3 startPos, out _);
                 Endpoint(lanes, chain, atEnd: true, out float3 endPos, out _);
                 chain.StartStation = ClassifyTerminal(chain.StartOwner, startPos, stations, stationByOwnerIndex,
-                    out string startHow);
+                    mode == Mode.Shuttle && ShuttleDockReach, out string startHow);
                 chain.EndStation = ClassifyTerminal(chain.EndOwner, endPos, stations, stationByOwnerIndex,
-                    out string endHow);
+                    mode == Mode.Shuttle && ShuttleDockReach, out string endHow);
                 Chains.Add(chain);
                 Diags.Add(new ChainDiag
                 {
@@ -402,15 +409,18 @@ namespace SkiResortMod.Systems
 
         /// <summary>Which station a chain terminal belongs to: the owner is the station or one of its children, else
         /// the nearest station within StationTerminalRadius of the terminal's world position, else -1
-        /// (= LiftLoopCache.cs:347-377).</summary>
+        /// (= LiftLoopCache.cs:347-377). Shuttle mode with ShuttleDockReach adds the dock reach (T02): a station with finite docks
+        /// also owns a terminal within MaxDockRunM of one of them. Loop mode is the transcription, untouched.</summary>
         private static int ClassifyTerminal(int ownerIndex, float3 position, List<Station> stations,
-            Dictionary<int, int> stationByOwnerIndex, out string how)
+            Dictionary<int, int> stationByOwnerIndex, bool dockReach, out string how)
         {
             if (stationByOwnerIndex.TryGetValue(ownerIndex, out int byOwner))
             {
                 how = ownerIndex == stations[byOwner].OwnerIndex ? "owner" : "child";
                 return byOwner;
             }
+            if (dockReach)
+                return ClassifyShuttleTerminal(ownerIndex, position, stations, out how);
             int best = -1;
             float bestDist = float.MaxValue;
             for (int i = 0; i < stations.Count; i++)
@@ -429,6 +439,68 @@ namespace SkiResortMod.Systems
             }
             how = best >= 0 ? $"none (owner {ownerIndex}, nearest station {bestDist:F0}m)" : "none (no stations)";
             return -1;
+        }
+
+        /// <summary>T02 (2026-10-16, docs/research/field/2026-10-15/build/T02-tram-shuttle.md). Shuttle position fallback.
+        /// The tram's line terminal is the HV stub tip's track rope: lateral ± GaugeHalfM off the line axis, at rope height
+        /// (AxleM 26.25 m on the tower stubs), 12 m out - 28.9 / 30.4 m from the station ORIGIN, past the 20 m
+        /// StationTerminalRadius that fits a chair stub (field 2026-10-15: "nearest station 30m"/"29m"), though it is a few
+        /// metres from the station's own docks. A terminal belongs to a station when it is within StationTerminalRadius of
+        /// the origin (as before) OR within MaxDockRunM of either finite dock: the same distance the dock step already
+        /// tolerates (a longer run is refused there), and the docks come from the catalog row, so the reach follows the
+        /// prefab (T14's x mirror moves stub and docks together). The nearest station by that reach wins; ties keep the
+        /// lower index. A station without finite docks keeps the origin radius alone.</summary>
+        private static int ClassifyShuttleTerminal(int ownerIndex, float3 position, List<Station> stations, out string how)
+        {
+            int best = -1;
+            bool bestViaDock = false;
+            float bestScore = float.MaxValue, bestDist = float.MaxValue, bestOriginDist = float.MaxValue;
+            for (int i = 0; i < stations.Count; i++)
+            {
+                float dOrigin = math.distance(position, stations[i].Position);
+                float dDock = DockReachM(stations[i], position);
+                // Score 1 = exactly at the edge of the reach; the smaller of the two normalised distances.
+                float scoreOrigin = dOrigin / StationTerminalRadius;
+                float scoreDock = float.IsNaN(dDock) ? float.MaxValue : dDock / MaxDockRunM;
+                bool viaDock = scoreDock < scoreOrigin;
+                float score = viaDock ? scoreDock : scoreOrigin;
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    best = i;
+                    bestViaDock = viaDock;
+                    bestDist = viaDock ? dDock : dOrigin;
+                    bestOriginDist = dOrigin;
+                }
+            }
+            if (best >= 0 && bestScore <= 1f)
+            {
+                how = bestViaDock ? $"dock {bestDist:F1}m" : $"pos {bestDist:F1}m";
+                return best;
+            }
+            if (best < 0)
+            {
+                how = "none (no stations)";
+                return -1;
+            }
+            float nearDock = DockReachM(stations[best], position);
+            how = $"none (owner {ownerIndex}, nearest station {bestOriginDist:F0}m" +
+                  (float.IsNaN(nearDock) ? ")" : $", nearest dock {nearDock:F0}m)");
+            return -1;
+        }
+
+        /// <summary>Distance from a point to the nearer finite dock of a station; NaN when it has none.</summary>
+        private static float DockReachM(Station station, float3 position)
+        {
+            float d = float.NaN;
+            if (math.all(math.isfinite(station.DockA)))
+                d = math.distance(position, station.DockA);
+            if (math.all(math.isfinite(station.DockB)))
+            {
+                float db = math.distance(position, station.DockB);
+                d = float.IsNaN(d) || db < d ? db : d;
+            }
+            return d;
         }
 
         private static void AddEndpoint(Dictionary<int, List<int>> nodeMap, int node, int laneIndex)

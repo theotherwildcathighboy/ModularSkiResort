@@ -232,10 +232,10 @@ namespace LiftBatch
                 }
             }
 
-            public LiftLoopTopology Build(LiftLoopTopology.Mode mode, out Dictionary<int, int> map)
+            public LiftLoopTopology Build(LiftLoopTopology.Mode mode, out Dictionary<int, int> map, bool dockReach = false)
             {
                 map = new Dictionary<int, int>(Children);
-                var t = new LiftLoopTopology();
+                var t = new LiftLoopTopology { ShuttleDockReach = dockReach };
                 t.Build(Lanes, Stations, map, mode);
                 return t;
             }
@@ -721,7 +721,7 @@ namespace LiftBatch
         {
             const string W = "loopcache/LC-REF";
             int differ = 0, ok = 0, gap = 0, notTwo = 0, unclosed = 0, swapped = 0, undecided = 0, mixed = 0, empty = 0;
-            int howOwner = 0, howChild = 0, howPos = 0, howNone = 0, ties = 0, shuttleOk = 0, docked = 0, refused = 0, byRole = 0;
+            int howOwner = 0, howChild = 0, howPos = 0, howNone = 0, ties = 0, shuttleOk = 0, docked = 0, refused = 0, byRole = 0, reclassified = 0;
             for (int seed = 1; seed <= RefGraphs; seed++)
             {
                 Graph g = RandomGraph(new Random(seed), out bool tie);
@@ -787,6 +787,12 @@ namespace LiftBatch
                 string sdiff = ShuttleInvariants(g, t, s, topoMap, shuttleMap, ref shuttleOk, ref docked, ref refused, ref byRole);
                 if (!Check(sdiff == null, W, "seed " + seed + " (Shuttle mode): " + sdiff))
                     differ++;
+
+                // T02: the same graph with ShuttleDockReach on = the flag-off chain pass, except terminals the dock reach newly owns.
+                LiftLoopTopology sr = g.Build(LiftLoopTopology.Mode.Shuttle, out Dictionary<int, int> reachMap, dockReach: true);
+                string rdiff = ReachInvariants(g, s, sr, shuttleMap, reachMap, ref reclassified);
+                if (!Check(rdiff == null, W, "seed " + seed + " (Shuttle mode, dock reach): " + rdiff))
+                    differ++;
             }
             Eq(0, differ, W, "graphs that differ from the reference / break a shuttle invariant");
             // Coverage floors: a generator change that stops exercising a branch fails here.
@@ -796,6 +802,7 @@ namespace LiftBatch
                   " / child " + howChild + " / pos " + howPos + " / none " + howNone);
             Check(swapped >= 100 && undecided >= 5 && mixed >= 10 && empty >= 10 && ties >= 50, W, "coverage: swapped " + swapped +
                   ", undecided " + undecided + ", mixed " + mixed + ", nothing to chain " + empty + ", height ties " + ties);
+            Check(reclassified >= 5, W, "coverage (dock reach): terminals reclassified " + reclassified);
             Check(shuttleOk >= 50 && docked >= 50 && refused >= 5 && byRole >= 50, W, "coverage (Shuttle): Ok " + shuttleOk +
                   ", docked ends " + docked + ", refused docks " + refused + ", base by role " + byRole);
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
@@ -942,11 +949,18 @@ namespace LiftBatch
             }
             if (s.Pairs.Count != loop.Pairs.Count || shuttleMap.Count != loopMap.Count)
                 return "pair count / station map differs from Loop mode";
+            return ShuttlePairInvariants(g, s, loop, ref ok, ref docked, ref refused, ref byRole);
+        }
+
+        /// <summary>The per-pair shuttle rules (roles, orientation, gap window, docks); loop = the Loop build of the same graph for the
+        /// key / roleless-base comparisons, null when the chain pass moved (dock reach).</summary>
+        private static string ShuttlePairInvariants(Graph g, LiftLoopTopology s, LiftLoopTopology loop, ref int ok, ref int docked, ref int refused, ref int byRole)
+        {
             for (int p = 0; p < s.Pairs.Count; p++)
             {
-                LiftLoopTopology.Pair sp = s.Pairs[p], lp = loop.Pairs[p];
+                LiftLoopTopology.Pair sp = s.Pairs[p], lp = loop != null ? loop.Pairs[p] : null;
                 string at = "pair " + p + " ";
-                if (sp.StationLo != lp.StationLo || sp.StationHi != lp.StationHi || sp.ChainIndices.Count != lp.ChainIndices.Count)
+                if (lp != null && (sp.StationLo != lp.StationLo || sp.StationHi != lp.StationHi || sp.ChainIndices.Count != lp.ChainIndices.Count))
                     return at + "key differs from Loop mode";
                 if (sp.Status == LiftLoopTopology.PairStatus.NotTwoChains)
                     continue;
@@ -956,7 +970,7 @@ namespace LiftBatch
                     return at + "BaseByRole " + sp.BaseByRole + " with roles " + loRole + "/" + hiRole;
                 if (oneBase && g.Stations[sp.Base].Role != 0)
                     return at + "base is not the Role-0 station";
-                if (!oneBase && sp.Base != lp.Base)
+                if (lp != null && !oneBase && sp.Base != lp.Base)
                     return at + "roleless base differs from the Loop rule";
                 if (sp.A.StartStation != sp.Base || sp.B.StartStation != sp.Base || sp.A.EndStation != sp.Top || sp.B.EndStation != sp.Top)
                     return at + "chains not oriented base → top";
@@ -977,6 +991,64 @@ namespace LiftBatch
             }
             return null;
         }
+
+        /// <summary>T02: Shuttle with ShuttleDockReach (on) against the same build without it (off): identical lanes, owners and
+        /// positions; a terminal either keeps its classification bit for bit, or off had none / a position station and on has a
+        /// "dock" station within MaxDockRunM of one of its docks (an owner / child terminal never moves). With no terminal moved
+        /// the pairs, notes and counts are identical; with some moved, the shuttle's own invariants still hold on the new pairs.</summary>
+        private static string ReachInvariants(Graph g, LiftLoopTopology off, LiftLoopTopology on, Dictionary<int, int> offMap,
+                                              Dictionary<int, int> onMap, ref int reclassified)
+        {
+            if (on.Diags.Count != off.Diags.Count || on.Chains.Count != off.Chains.Count || onMap.Count != offMap.Count)
+                return "chain count / map differs with dock reach";
+            int moved = 0;
+            for (int c = 0; c < on.Diags.Count; c++)
+            {
+                LiftLoopTopology.ChainDiag a = on.Diags[c], b = off.Diags[c];
+                if (a.Links != b.Links || a.StartOwner != b.StartOwner || a.EndOwner != b.EndOwner || !SameBits(a.StartPos, b.StartPos) ||
+                    !SameBits(a.EndPos, b.EndPos))
+                    return "chain " + c + " walk differs with dock reach";
+                for (int end = 0; end < 2; end++)
+                {
+                    string how = end == 0 ? a.StartHow : a.EndHow, howOff = end == 0 ? b.StartHow : b.EndHow;
+                    int st = end == 0 ? a.StartStation : a.EndStation, stOff = end == 0 ? b.StartStation : b.EndStation;
+                    float3 pos = end == 0 ? a.StartPos : a.EndPos;
+                    if (st == stOff && (how == howOff || st < 0))   // both unclassified: only the "none (...)" text may differ
+                        continue;
+                    if (howOff == "owner" || howOff == "child" || !how.StartsWith("dock ") || st < 0)
+                        return "chain " + c + " terminal " + end + " moved from '" + howOff + "' to '" + how + "'";
+                    LiftLoopTopology.Station s = g.Stations[st];
+                    float d = float.MaxValue;
+                    if (math.all(math.isfinite(s.DockA)))
+                        d = math.min(d, math.distance(pos, s.DockA));
+                    if (math.all(math.isfinite(s.DockB)))
+                        d = math.min(d, math.distance(pos, s.DockB));
+                    if (!(d <= LiftLoopTopology.MaxDockRunM + 0.01f))
+                        return "chain " + c + " terminal " + end + " dock station " + st + " is " + d + " m from its docks";
+                    moved++;
+                }
+            }
+            reclassified += moved;
+            if (moved == 0)
+            {
+                if (on.UnclosedChainCount != off.UnclosedChainCount || on.Notes.Count != off.Notes.Count || on.Pairs.Count != off.Pairs.Count)
+                    return "nothing moved but counts differ";
+                for (int n = 0; n < on.Notes.Count; n++)
+                    if (NormNone(on.Notes[n]) != NormNone(off.Notes[n]))
+                        return "nothing moved but note " + n + " differs: " + on.Notes[n] + " | " + off.Notes[n];
+                for (int p = 0; p < on.Pairs.Count; p++)
+                    if (on.Pairs[p].Status != off.Pairs[p].Status || on.Pairs[p].StationLo != off.Pairs[p].StationLo ||
+                        on.Pairs[p].StationHi != off.Pairs[p].StationHi || on.Pairs[p].Base != off.Pairs[p].Base)
+                        return "nothing moved but pair " + p + " differs";
+                return null;
+            }
+            int ok = 0, docked = 0, refused = 0, byRole = 0;
+            return ShuttlePairInvariants(g, on, null, ref ok, ref docked, ref refused, ref byRole);
+        }
+
+        /// <summary>A note with the diagnostic tail of every unclassified terminal cut (dock reach adds ", nearest dock Ym" and may pick another nearest station).</summary>
+        private static string NormNone(string note) =>
+            System.Text.RegularExpressions.Regex.Replace(note, @"none [(]owner ([0-9]+), nearest station [0-9]+m(, nearest dock [0-9]+m)?[)]", "none (owner $1)");
 
         private static string DockInvariant(LiftLoopTopology.Station st, sbyte a, sbyte b, float ra, float rb, float xa, float xb,
                                             ref int docked, ref int refused)

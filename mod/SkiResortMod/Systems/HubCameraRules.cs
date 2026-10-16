@@ -44,6 +44,10 @@ namespace SkiResortMod.Systems
         /// <summary>Above this zoom (m) the camera is never "already on" *(tunable, unmeasured)*.</summary>
         public const float KeepMaxZoomM = 1500f;
 
+        /// <summary>The game's upgrade placement range from the owner (ValidationHelpers.cs:2065-2107,
+        /// m_MaxPlacementDistance 5000). T12: only named in the launch line, never a reason to fly.</summary>
+        public const float PlacementRangeM = 5000f;
+
         /// <summary>The keep radius (m) at <paramref name="zoom"/>: KeepZoomFraction × zoom.</summary>
         public static float KeepRadiusM(float zoom)
         {

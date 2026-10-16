@@ -18,10 +18,18 @@
 //   SH-9  invalid inputs (L, v, a ≤ 0 or NaN, dwell < 0, t NaN / ∞) → u 0, DwellBase (FractionA and HoldFractionA).
 //   SH-10 (skeptic F4, additive) QuantizeLengthM rounds to 1 cm; two lengths within one centimetre bucket give the same
 //         period bit for bit; the catalog's float tram row (0.8f) stays within 1e-5 s of the double oracle.
+//   SH-11 (T02, 2026-10-16, field 2026-10-15 item 80) the tram's terminal reach, on LiftLoopTopology (a Shuttle station
+//         owns a terminal within MaxDockRunM of a dock, not only within 20 m of its origin): rope tips ~29 / 30 m from the
+//         origin (catalog numbers) close both chains, also mirrored in x; a tip 29 m from its dock closes, 31 m and a
+//         terminal ~60 m out stay unclosed with the per-terminal diagnostic; Loop mode (FG / DQ / gondola) and a Shuttle
+//         station without docks keep the 20 m origin radius and their "pos" / "none" strings.
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using SkiResortMod.Systems;
+using Unity.Mathematics;
+using Random = System.Random;
 
 namespace LiftBatch
 {
@@ -44,6 +52,7 @@ namespace LiftBatch
             Sh8Capacity();
             Sh9Invalid();
             Sh10Quantum();
+            Sh11TerminalReach();
             s_Check = null;
         }
 
@@ -328,6 +337,222 @@ namespace LiftBatch
                 Near(345.0, ShuttleProfile.PeriodS(1000, tram.SpeedMps, tram.AccelMps2, tram.DwellS), 1e-5, W, "catalog tram PeriodS(1000)");
                 Near(112.5, ShuttleProfile.TripTimeS(1000, tram.SpeedMps, tram.AccelMps2), 1e-5, W, "catalog tram TripTimeS(1000)");
                 Check(ShuttleProfile.Valid(1000, tram.SpeedMps, tram.AccelMps2, tram.DwellS), W, "the catalog tram row is not a valid profile");
+            }
+        }
+
+        // ================================================================== SH-11 (T02)
+
+        /// <summary>One synthetic two-rope line in the topology's stand-ins. Station i has owner index 100 + i; the two rope
+        /// anchors at each end belong to the line's own nodes (owner 7000 +), NOT to a station: the "line-first" case where
+        /// the census sees the stub tip through the stub edge's ConnectedEdge while the chain's PathNode owner is the line's.</summary>
+        private sealed class Rig
+        {
+            public readonly List<LiftLoopTopology.Lane> Lanes = new List<LiftLoopTopology.Lane>();
+            public readonly List<LiftLoopTopology.Station> Stations = new List<LiftLoopTopology.Station>();
+            public readonly float3[] BaseTip = new float3[2], TopTip = new float3[2];
+            /// <summary>LiftLoopTopology.ShuttleDockReach for this build (LiftLoopCache.BuildShuttles sets it true).</summary>
+            public bool DockReach = true;
+
+            public LiftLoopTopology Build(LiftLoopTopology.Mode mode)
+            {
+                var map = new Dictionary<int, int>();
+                var t = new LiftLoopTopology { ShuttleDockReach = DockReach };
+                t.Build(Lanes, Stations, map, mode);
+                return t;
+            }
+
+            public void Mirror()
+            {
+                for (int i = 0; i < Lanes.Count; i++)
+                {
+                    LiftLoopTopology.Lane l = Lanes[i];
+                    l.P0.x = -l.P0.x;
+                    l.P1.x = -l.P1.x;
+                    l.T0.x = -l.T0.x;
+                    l.T1.x = -l.T1.x;
+                    Lanes[i] = l;
+                }
+                for (int i = 0; i < Stations.Count; i++)
+                {
+                    LiftLoopTopology.Station st = Stations[i];
+                    st.Position.x = -st.Position.x;
+                    st.DockA.x = -st.DockA.x;
+                    st.DockB.x = -st.DockB.x;
+                    Stations[i] = st;
+                }
+            }
+        }
+
+        private static float3 ToWorld(float3 origin, float yawDeg, float3 local) =>
+            origin + math.mul(quaternion.RotateY(math.radians(yawDeg)), local);
+
+        private static void AddLane(Rig rig, int nodeA, int ownerA, float3 a, int nodeB, int ownerB, float3 b)
+        {
+            float3 t = b - a;
+            rig.Lanes.Add(new LiftLoopTopology.Lane
+            {
+                StartNode = nodeA, EndNode = nodeB, StartOwner = ownerA, EndOwner = ownerB,
+                P0 = a, P1 = b, T0 = t, T1 = t, TypeIndex = 3,
+            });
+        }
+
+        /// <summary>The catalog tram: base (role Base, yaw 180, axis at its StubTipLocalX) at y 0, top at (0, 400, 1000) yaw 0;
+        /// two rope lanes per end at lateral +- GaugeHalfM of each station's axis, at rope height AxleM, StubTipLocalZ out.
+        /// baseShiftZ moves both base rope anchors along world z (toward the top): the line starts that far past the stub tip.
+        /// baseTipFromDock (>= 0) overrides it: both base anchors then sit this far along z from a dock, at dock height.</summary>
+        private static Rig TramRig(float baseShiftZ = 0f, float baseTipFromDock = -1f)
+        {
+            LiftTypeDef tram = SkiCatalog.LiftById("tram");
+            StationDef tb = SkiCatalog.StationOf(tram.Index, StationRole.Base), tt = SkiCatalog.StationOf(tram.Index, StationRole.Top);
+            var rig = new Rig();
+            float3 bPos = new float3(tb.StubTipLocalX, 0f, 0f), tPos = new float3(0f, 400f, 1000f);
+            rig.Stations.Add(new LiftLoopTopology.Station
+            {
+                OwnerIndex = 100, Position = bPos, Role = 0,
+                DockA = ToWorld(bPos, 180f, tb.DockLocalA), DockB = ToWorld(bPos, 180f, tb.DockLocalB),
+            });
+            rig.Stations.Add(new LiftLoopTopology.Station
+            {
+                OwnerIndex = 101, Position = tPos, Role = 1,
+                DockA = ToWorld(tPos, 0f, tt.DockLocalA), DockB = ToWorld(tPos, 0f, tt.DockLocalB),
+            });
+            for (int k = 0; k < 2; k++)
+            {
+                float side = k == 0 ? -1f : 1f;
+                float3 bTip = ToWorld(bPos, 180f, new float3(tb.StubTipLocalX - side * tram.GaugeHalfM, tram.AxleM, tb.StubTipLocalZ)) + new float3(0f, 0f, baseShiftZ);
+                if (baseTipFromDock >= 0f)
+                    bTip = (k == 0 ? rig.Stations[0].DockB : rig.Stations[0].DockA) + new float3(0f, 0f, baseTipFromDock);
+                float3 tTip = ToWorld(tPos, 0f, new float3(tt.StubTipLocalX + side * tram.GaugeHalfM, tram.AxleM, tt.StubTipLocalZ));
+                rig.BaseTip[k] = bTip;
+                rig.TopTip[k] = tTip;
+                float3 mid = (bTip + tTip) * 0.5f + new float3(0f, 8f, 0f);
+                int n0 = 10 * k + 1, n1 = 10 * k + 2, n2 = 10 * k + 3;
+                AddLane(rig, n0, 7000 + k, bTip, n1, 8000 + k, mid);
+                AddLane(rig, n1, 8000 + k, mid, n2, 7100 + k, tTip);
+            }
+            return rig;
+        }
+
+        private static void Sh11TerminalReach()
+        {
+            // Flag OFF (a bare topology, LoopCacheTests' default): the tram's 29 / 30 m rope tips stay unclassified.
+            Rig offRig = TramRig();
+            offRig.DockReach = false;
+            LiftLoopTopology off = offRig.Build(LiftLoopTopology.Mode.Shuttle);
+            Check(off.UnclosedChainCount == 2 && off.Pairs.Count == 0, "shuttle/SH-11",
+                  "(0) flag off: the rope tips close (" + off.UnclosedChainCount + " unclosed)");
+            Sh11Body();
+        }
+
+        private static void Sh11Body()
+        {
+            const string W = "shuttle/SH-11";
+            LiftTypeDef tram = SkiCatalog.LiftById("tram");
+            if (!Check(tram != null && tram.Mover == MoverKind.Shuttle, W, "no tram row"))
+                return;
+
+            // (a) The field case: both base rope tips more than 20 m from the origin (the catalog numbers give 30.4 / 28.9 m,
+            //     the log's "nearest station 30m" / "29m"), 12 m out and ~12 m from their docks. Both chains close, base 0 -> top 1.
+            Rig rig = TramRig();
+            for (int k = 0; k < 2; k++)
+                Check(math.distance(rig.BaseTip[k], rig.Stations[0].Position) > LiftLoopTopology.StationTerminalRadius, W,
+                      "(a) precondition: tip " + k + " is " + math.distance(rig.BaseTip[k], rig.Stations[0].Position) + " m from the origin (want > 20)");
+            LiftLoopTopology t = rig.Build(LiftLoopTopology.Mode.Shuttle);
+            Eq(2, t.Chains.Count, W, "(a) chains");
+            Eq(0, t.UnclosedChainCount, W, "(a) unclosed chains (" + string.Join(" | ", t.Notes) + ")");
+            if (Check(t.Pairs.Count == 1 && t.Pairs[0].Status == LiftLoopTopology.PairStatus.Ok, W, "(a) no Ok pair"))
+            {
+                LiftLoopTopology.Pair p = t.Pairs[0];
+                Check(p.Base == 0 && p.Top == 1 && p.A.StartStation == 0 && p.A.EndStation == 1 && p.B.StartStation == 0 && p.B.EndStation == 1,
+                      W, "(a) not base 0 -> top 1");
+                Check(p.ABaseDock >= 0 && p.BBaseDock >= 0 && p.ATopDock >= 0 && p.BTopDock >= 0, W, "(a) a dock was refused");
+                Check(p.ABaseRunM > 5f && p.ABaseRunM < 20f, W, "(a) base dock run " + p.ABaseRunM + " m (want the 12 m stub-to-dock run)");
+            }
+            Check(t.Diags.Count == 2 && t.Diags[0].StartHow.StartsWith("dock ") && t.Diags[1].StartHow.StartsWith("dock "), W,
+                  "(a) the how strings: " + (t.Diags.Count > 0 ? t.Diags[0].StartHow : "none"));
+
+            // (b) The same graph as a Loop (FG / DQ / gondola rules): the 20 m radius is untouched, the text is the original.
+            LiftLoopTopology loop = rig.Build(LiftLoopTopology.Mode.Loop);
+            Eq(2, loop.UnclosedChainCount, W, "(b) Loop mode: chains still unclosed");
+            bool loopText = loop.Diags.Count == 2;
+            for (int c = 0; c < loop.Diags.Count; c++)
+                loopText &= loop.Diags[c].StartHow.StartsWith("none (owner 700") && loop.Diags[c].StartHow.EndsWith("m)") &&
+                            !loop.Diags[c].StartHow.Contains("dock");
+            Check(loopText, W, "(b) Loop mode text: " + (loop.Diags.Count > 0 ? loop.Diags[0].StartHow : "none"));
+
+            // (c) x mirrored (the T14 sign fix moves stub rows, docks and station together): the reach follows the docks.
+            Rig mirrored = TramRig();
+            mirrored.Mirror();
+            LiftLoopTopology tm = mirrored.Build(LiftLoopTopology.Mode.Shuttle);
+            Check(tm.UnclosedChainCount == 0 && tm.Pairs.Count == 1 && tm.Pairs[0].Status == LiftLoopTopology.PairStatus.Ok, W,
+                  "(c) mirrored tram: unclosed " + tm.UnclosedChainCount + ", pairs " + tm.Pairs.Count);
+
+            // (d) A terminal ~60 m from the base origin (the line's first node 48 m past the stub tip): over both reaches.
+            Rig far = TramRig(baseShiftZ: 48f);
+            Check(math.distance(far.BaseTip[0], far.Stations[0].Position) > 55f, W, "(d) precondition: " + math.distance(far.BaseTip[0], far.Stations[0].Position));
+            LiftLoopTopology tf = far.Build(LiftLoopTopology.Mode.Shuttle);
+            Eq(2, tf.UnclosedChainCount, W, "(d) 60 m: chains unclosed");
+            Check(tf.Pairs.Count == 0, W, "(d) 60 m: no pair");
+            bool noted = tf.Diags.Count == 2;
+            for (int c = 0; c < tf.Diags.Count; c++)
+                noted &= tf.Diags[c].StartStation == -1 && tf.Diags[c].StartHow.StartsWith("none (owner 700") && tf.Diags[c].StartHow.Contains("nearest dock");
+            Check(noted, W, "(d) 60 m: per-terminal diagnostic missing: " + (tf.Diags.Count > 0 ? tf.Diags[0].StartHow : "none"));
+
+            // (e) The reach is MaxDockRunM from a dock: 29 m closes, 31 m does not.
+            LiftLoopTopology t29 = TramRig(baseTipFromDock: 29f).Build(LiftLoopTopology.Mode.Shuttle);
+            Check(t29.UnclosedChainCount == 0 && t29.Pairs.Count == 1 && t29.Pairs[0].Status == LiftLoopTopology.PairStatus.Ok, W,
+                  "(e) 29 m from the dock: unclosed " + t29.UnclosedChainCount + " (" + string.Join(" | ", t29.Notes) + ")");
+            LiftLoopTopology t31 = TramRig(baseTipFromDock: 31f).Build(LiftLoopTopology.Mode.Shuttle);
+            Eq(2, t31.UnclosedChainCount, W, "(e) 31 m from the dock: unclosed");
+
+            // (f) FG / DQ / gondola: Loop mode, their catalog stub tips, unowned anchors: classified by the 20 m origin radius
+            //     as before ("pos N.Nm"), the pair closes; 25 m out stays unclassified. One docks-less Shuttle probe (fixedGrip) too.
+            foreach (string id in new[] { "fixedGrip", "detachable", "gondola" })
+            {
+                LiftTypeDef def = SkiCatalog.LiftById(id);
+                if (!Check(def != null, W, "(f) no " + id + " row"))
+                    continue;
+                StationDef sb = SkiCatalog.StationOf(def.Index, StationRole.Base), st = SkiCatalog.StationOf(def.Index, StationRole.Top);
+                foreach (LiftLoopTopology.Mode mode in new[] { LiftLoopTopology.Mode.Loop, LiftLoopTopology.Mode.Shuttle })
+                {
+                    if (mode == LiftLoopTopology.Mode.Shuttle && id != "fixedGrip")
+                        continue;
+                    var g = new Rig();
+                    float3 bPos = new float3(0f, 0f, 0f), tPos = new float3(0f, 100f, 600f);
+                    for (int i = 0; i < 2; i++)
+                        g.Stations.Add(new LiftLoopTopology.Station
+                        {
+                            OwnerIndex = 100 + i, Position = i == 0 ? bPos : tPos, Role = -1,
+                            DockA = new float3(float.NaN), DockB = new float3(float.NaN),
+                        });
+                    for (int k = 0; k < 2; k++)
+                    {
+                        float side = k == 0 ? -1f : 1f;
+                        float3 bTip = ToWorld(bPos, 180f, new float3(side * def.GaugeHalfM, sb.WheelLocal.y, sb.StubTipLocalZ));
+                        float3 tTip = ToWorld(tPos, 0f, new float3(-side * def.GaugeHalfM, st.WheelLocal.y, st.StubTipLocalZ));
+                        float3 mid = (bTip + tTip) * 0.5f;
+                        AddLane(g, 10 * k + 1, 7000 + k, bTip, 10 * k + 2, 8000 + k, mid);
+                        AddLane(g, 10 * k + 2, 8000 + k, mid, 10 * k + 3, 7100 + k, tTip);
+                    }
+                    LiftLoopTopology lt = g.Build(mode);
+                    Check(lt.Diags.Count == 2 && lt.Diags[0].StartHow.StartsWith("pos ") && lt.Diags[0].EndHow.StartsWith("pos "), W,
+                          "(f) " + id + " " + mode + ": terminals " + (lt.Diags.Count > 0 ? lt.Diags[0].StartHow + " / " + lt.Diags[0].EndHow : "none"));
+                    Check(lt.UnclosedChainCount == 0, W, "(f) " + id + " " + mode + ": unclosed chains " + lt.UnclosedChainCount);
+
+                    // The same line with the base anchors 25 m further out along the line: over the 20 m radius, no docks to reach with.
+                    var far25 = new Rig();
+                    far25.Stations.AddRange(g.Stations);
+                    for (int i = 0; i < g.Lanes.Count; i++)
+                    {
+                        LiftLoopTopology.Lane l = g.Lanes[i];
+                        if (l.StartOwner == 7000 || l.StartOwner == 7001)
+                            l.P0 += new float3(0f, 0f, 25f);
+                        far25.Lanes.Add(l);
+                    }
+                    LiftLoopTopology lf = far25.Build(mode);
+                    Check(lf.UnclosedChainCount == 2 && lf.Diags.Count == 2 && lf.Diags[0].StartHow.StartsWith("none (owner 700") && !lf.Diags[0].StartHow.Contains("dock"),
+                          W, "(f) " + id + " " + mode + " 25 m out: unclosed " + lf.UnclosedChainCount + " / " + (lf.Diags.Count > 0 ? lf.Diags[0].StartHow : "none"));
+                }
             }
         }
     }

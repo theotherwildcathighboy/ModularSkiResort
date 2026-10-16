@@ -183,7 +183,8 @@
 //     sign; else the selected entity if it is a live Welcome Sign; else the sign nearest the camera pivot
 //     at ANY distance (SkiRunOwnershipSystem.TryNearestGateEntity returns it beyond the tether too,
 //     SkiRunOwnershipSystem.cs:570-606); none → refused with a line (the tile is locked by REASON[NoSign]).
-//     (1b) Round F6 (A2): unless the camera is already on that sign (HubCameraRules.AlreadyOn), fly there
+//     (1b) T12 (2026-10-16) SUPERSEDES the next sentence: the launch never moves the camera ("camera kept" in the
+//     launch line; the fly was removed). Historic Round F6 (A2): unless the camera is already on that sign (HubCameraRules.AlreadyOn), fly there
 //     FIRST with the focusBuilding path, then put the lodge on the cursor — the lodge may go only within
 //     about 5 km of its sign (m_MaxPlacementDistance 5000, ValidationHelpers.cs:2065-2107), so launched
 //     from far away it showed the game's red range error with no hint why, and launched near another
@@ -1683,6 +1684,24 @@ namespace SkiResortMod.Systems
             return ApplyFocusBuilding(sign, "switcher: fly — " + view) ? "fly" : "fly failed";
         }
 
+        /// <summary>T12: the numbers for a launch's "camera kept" line - the pivot's horizontal distance to
+        /// <paramref name="sign"/> and the zoom, with a note beyond the game's placement range
+        /// (HubCameraRules.PlacementRangeM). Never moves the camera. Event time only.</summary>
+        private string CameraKeptNote(Entity sign)
+        {
+            if (!TryCameraView(out float3 pivot, out float zoom))
+                return "camera state unknown";
+            int element = -1;
+            if (!SelectedInfoUISystem.TryGetPosition(sign, EntityManager, ref element, out Entity _, out float3 at,
+                    out Bounds3 _, out quaternion _))
+                return $"zoom {zoom:F0}; the sign has no position";
+            float d = math.distance(pivot.xz, at.xz);
+            string range = d > HubCameraRules.PlacementRangeM
+                ? $"; BEYOND the game's {HubCameraRules.PlacementRangeM:F0} m placement range - expect its red range error"
+                : "";
+            return $"pivot {d:F0} m from the sign at zoom {zoom:F0}{range}";
+        }
+
         /// <summary>HubCameraRules.AlreadyOn for <paramref name="sign"/> (header FOCUS, SWITCHER; LODGE 1b): the
         /// active controller's pivot and zoom against the point the fly follows (SelectedInfoUISystem
         /// .TryGetPosition, as ApplyFocusBuilding reads it). <paramref name="view"/> = the numbers for the
@@ -2407,16 +2426,12 @@ namespace SkiResortMod.Systems
                 return;
             }
 
-            // (1b) Round F6 (A2, header LODGE): the camera goes to the sign first unless it is already on it.
-            //      A fly writes its own "Hub [focus]" line (or ApplyFocusBuilding's WARN); the launch goes on
-            //      either way — a failed fly leaves the camera where it is, as before this round.
-            string camera;
-            if (CameraAlreadyOn(sign, out string view))
-                camera = "camera already on it (" + view + ")";
-            else
-                camera = ApplyFocusBuilding(sign, $"{id} launch: fly — " + view)
-                    ? "camera flew there"
-                    : "camera not moved (the fly was refused, see the Hub [focus] line)";
+            // (1b) T12 (field 2026-10-15, item 97): a build-tile launch NEVER moves the camera - the player is already
+            //      looking where they want to build (replaces Round F6's fly-first, A2). The vanilla upgrade tool does
+            //      not move it either (ObjectToolSystem / UpgradeMenuUISystem reference no camera), so the launch line
+            //      says "camera kept". Beyond the game's placement range the game shows its own red range error
+            //      (ValidationHelpers.cs:2065-2107, m_MaxPlacementDistance 5000); the line names the distance.
+            string camera = "camera kept (" + CameraKeptNote(sign) + ")";
 
             // (2) Default tool first (clears a selected upgrade synchronously, header LODGE).
             if (m_ToolSystem.activeTool != m_DefaultTool)
