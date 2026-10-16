@@ -1041,8 +1041,9 @@ def face_record(obj, yaw_deg=0.0):
     """Nitpick C: a single-quad label face as a Write Everywhere target (another fleet lays the WE layout out):
     centre, outward normal, right / up (as seen from outside: right = -n x up, the DisplayPainter frame) in the
     prefab-local GAME frame through the SAME chain as build_sign_set (the host's yaw, orient_for_net's -90 deg
-    about Z, export_fbx (x, y, z) -> (x, z, -y)): game x = +authoring y (fine_detail.X_CONVENTION; probe X2
-    decides the sign, branch N negates x and the x of every vector), and the face size (m)."""
+    about Z, export_fbx (x, y, z) -> (x, z, -y), then the game's x negation): game x = -authoring y (fine_detail.
+    X_CONVENTION; gx NEGATED, x-sign gate settled N 2026-10-15; the x of every vector is negated too), and the
+    face size (m)."""
     P, n, R, U, s, t = _face_frame(obj)
     a, b = math.radians(-90.0), math.radians(float(yaw_deg))
     Rz = lambda th: np.array([[math.cos(th), -math.sin(th), 0.0], [math.sin(th), math.cos(th), 0.0],   # noqa: E731
@@ -1051,7 +1052,7 @@ def face_record(obj, yaw_deg=0.0):
 
     def g(v):
         w = M @ np.asarray(v, np.float64)
-        return [round(float(w[0]), 4), round(float(w[2]), 4), round(float(-w[1]), 4)]
+        return [round(float(-w[0]) + 0.0, 4), round(float(w[2]), 4), round(float(-w[1]), 4)]
 
     C = P.mean(axis=0)
     return {"centre": g(C), "normal": g(n), "right": g(R), "up": g(U),
@@ -1059,11 +1060,12 @@ def face_record(obj, yaw_deg=0.0):
 
 
 def game_coords(obj):
-    """(N, 3) vertex coordinates in the prefab-local game frame (export_fbx: (x, y, z) -> (x, z, -y))."""
+    """(N, 3) vertex coordinates in the prefab-local game frame (export_fbx: (x, y, z) -> (x, z, -y), then the
+    game negates x on import: x-sign gate N)."""
     co = np.array([tuple(v.co) for v in obj.data.vertices], np.float64)
     mw = np.array(obj.matrix_world, np.float64)
     co = co @ mw[:3, :3].T + mw[:3, 3]
-    return np.stack([co[:, 0], co[:, 2], -co[:, 1]], axis=1)
+    return np.stack([-co[:, 0], co[:, 2], -co[:, 1]], axis=1)
 
 
 def bounds_game(obj):

@@ -20,13 +20,15 @@ rows, frame-agnostic:
     probe_object(t, rows, game_to_world)      the same as a temporary part-tagged object (contracts that read
                                  an object), removed again by remove_probe()
 
-FRAMES. The generators disagree on the sign of game x (STATE section 0, probe X2 decides; nothing here unifies
-them): the tram writes game = (y, z, x) of its authoring frame (cs2_liftdress.blender_to_game; tram prefab
-(X, Y, Z) IS game), the Pali M stations game = (-y, z, x) (lift_terminal.m_to_game). Every check here runs in
-the generator's z-up HOST frame (x travel, y lateral, z up); the caller passes `to_host(G)` mapping game-local
-(N, 3) arrays into it: tram (gz, gx, gy), Pali M (gz, -gx, gy). A row is always game local, so the kit prop
-stands in game exactly as authored whichever convention X2 confirms; in the Pali host frame the placed mesh
-reads mirrored along its long axis (the M map is a reflection), which no contract here depends on.
+FRAMES. Every generator now writes game x = -authoring y (x-sign gate settled N, 2026-10-15 playtest; S1b-N / T14
+2026-10-16): the DQ / gondola stations (cs2_liftdress.blender_to_game) and the Pali M stations (lift_terminal.
+m_to_game) hand this module GAME rows. The tram still checks its rows in its DESIGN frame (prefab-numbers, X = FBX-raw
+x, tram_station._fd_host = (Z, X, Y), not game) and only check_subobjects writes them through rule T
+(fine_detail.design_row_to_game) into the manifest. Every check here runs in the generator's z-up HOST frame
+(x travel, y lateral, z up); the caller passes `to_host(G)` mapping the rows' own frame (N, 3) arrays into it:
+tram (design) (gz, gx, gy), Pali M (game) (gz, -gx, gy). A row is always in the caller's own frame, so the kit prop
+stands exactly as authored; the Pali host frame reads the placed mesh mirrored along its long axis (the M map is
+a reflection), which no contract here depends on.
 
 lift_terminal_detach.py (step 3b) keeps its own copy of these helpers until its owner moves it here (its F1
 must stay byte-identical; build/fine-detail-step3b-stations.md section 13 item 1).

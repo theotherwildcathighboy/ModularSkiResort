@@ -5,13 +5,15 @@ Doc: docs/research/art/assets-2026-10/build/writable-signs-we.md (mechanism, tab
   powershell -File assets\we\gen_layouts.ps1 [-PaintedOn]
 
 Output (repo only, nothing is deployed):
-  assets\we\K45_WE\layouts\<Prefab>.wedefault.xml        the shipped set, manifest frame ("variant P": gx as exported)
-  assets\we\xneg\K45_WE\layouts\<Prefab>.wedefault.xml   the same with every x negated and every yaw mirrored
-                                                          ("variant N": the game negates FBX x; swap in at S1b if probe X2 says N)
+  assets\we\K45_WE\layouts\<Prefab>.wedefault.xml        the SHIPPED set = variant N: every x negated and every yaw mirrored
+                                                          (the game negates FBX x; x-sign gate settled N by the 2026-10-15 playtest,
+                                                          swapped in 2026-10-16 / T14)
+  assets\we\xpos\K45_WE\layouts\<Prefab>.wedefault.xml   the retired variant P (old manifest frame, gx as exported): a record only
+  (assets\we\xneg\... is the pre-swap copy of the N set, byte-equal to the shipped set; no longer written)
   assets\we\optional\SkiResortGate.header-overlay.xml    opt-in patch + text over the baked "SKI AREA" header (not shipped)
 
 SkiResortGate.wedefault.xml (the plank name) is hand-kept and asserted by tests\test_civic_sign.py: this script never
-writes it, it only copies it into the xneg set (every x in it is 0).
+writes it, it only copies it into the xpos record set (every x in it is 0).
 
 -PaintedOn : the cover patch + text of the PAINTED boards (GRAND LODGE, SKI SCHOOL) start drawn (Show when = Always);
              default is off, so a WE player sees the painted board until they switch the node on.
@@ -35,7 +37,8 @@ function Esc([string]$s) { return $s.Replace('&', '&amp;').Replace('<', '&lt;').
 $STANDOFF = 0.004                       # patch / text stand 4 mm in front of the painted face (the child text adds 1 mm itself)
 $on = if ($PaintedOn) { 1 } else { 0 }
 
-# ---- the boards: prefab -> nodes (frame = host prefab local, game metres as in the manifests' we_boards) -------------
+# ---- the boards: prefab -> nodes (frame = host prefab local, the OLD +x frame of the pre-2026-10-16 manifests' we_boards;
+#      NodeXml negates x and mirrors the yaw for the shipped N set; the regenerated manifests' we_boards are already N) ---
 # Kind: painted = cover patch (board ground colour) + text child, opt-in; blank = text node only, empty default.
 $sets = [ordered]@{
   'SkiLodgeGrand' = @(
@@ -182,13 +185,13 @@ function WriteFile([string]$path, [string]$text) {
 
 $root = $PSScriptRoot
 foreach ($p in $sets.Keys) {
-  WriteFile (Join-Path $root "K45_WE\layouts\$p.wedefault.xml") (FileXml $p $sets[$p] $false)
-  WriteFile (Join-Path $root "xneg\K45_WE\layouts\$p.wedefault.xml") (FileXml $p $sets[$p] $true)
+  WriteFile (Join-Path $root "K45_WE\layouts\$p.wedefault.xml") (FileXml $p $sets[$p] $true)
+  WriteFile (Join-Path $root "xpos\K45_WE\layouts\$p.wedefault.xml") (FileXml $p $sets[$p] $false)
 }
-# the welcome sign plank layout is hand-kept; every x in it is 0, so the N set takes it verbatim
+# the welcome sign plank layout is hand-kept; every x in it is 0, so the P record takes it verbatim
 $gate = Join-Path $root 'K45_WE\layouts\SkiResortGate.wedefault.xml'
 if (Test-Path $gate) {
-  $dst = Join-Path $root 'xneg\K45_WE\layouts\SkiResortGate.wedefault.xml'
+  $dst = Join-Path $root 'xpos\K45_WE\layouts\SkiResortGate.wedefault.xml'
   New-Item -ItemType Directory -Force -Path (Split-Path $dst) | Out-Null
   Copy-Item $gate $dst -Force; Write-Host ("copied " + $dst)
 }

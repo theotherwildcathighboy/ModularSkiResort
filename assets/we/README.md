@@ -23,7 +23,7 @@ sign's manifest `"we"` block:
 | `K45_WE/layouts/SkiResortGate.wedefault.xml` | the plank name above (hand-kept, asserted by `tests/test_civic_sign.py`; one textMesh, do not add nodes here) |
 | `K45_WE/layouts/{SkiLodgeGrand,SkiSchool}.wedefault.xml` | painted boards of the Swanky Grand Lodge and the Ski School (GRAND LODGE, SKI SCHOOL): a board-coloured cover patch (node `<board>: patch`) + text (`<board>: text`), OFF until the player sets the patch's Show when to Always |
 | `K45_WE/layouts/{SkiLodgeMid,SkiLodgeSummit,SkiLodgeHut}.wedefault.xml` | the blank boards (Chalet Lodge x 3, Swanky Summit Lodge x 1, Mountain Hut x 1; in-game names from `mod/SkiResortMod/LocaleEN.cs`): one empty text node each |
-| `xneg/K45_WE/layouts/*` | the same set with x negated and yaw mirrored (branch N of probe X2): swap in at S1b if the game negates FBX x |
+| `xpos/K45_WE/layouts/*` | the retired P set (x as in the pre-2026-10-16 manifests): a record only. `K45_WE/layouts` is now the N set (x negated, yaw mirrored: the game negates FBX x; x-sign gate settled N by the 2026-10-15 playtest, swapped in 2026-10-16 / T14); `xneg/` is its pre-swap duplicate (byte-equal, no longer written) |
 | `optional/SkiResortGate.header-overlay.xml` | opt-in patch + text over the baked "SKI AREA" header (not shipped) |
 | `gen_layouts.ps1` | writes all of the above except SkiResortGate (`-PaintedOn` starts the painted-board patches drawn) |
 
@@ -37,8 +37,8 @@ sign's manifest `"we"` block:
   `*.xml` (contract §4.6 step 9, not done in this build).
 - **Release**: `K45_WE\layouts\*.wedefault.xml`, six files (SkiResortGate, SkiLodgeGrand,
   SkiLodgeHut, SkiLodgeMid, SkiLodgeSummit, SkiSchool), at the listing root beside the `.cok`
-  (WE changelog 1.0.0.6). If probe X2 says branch N, ship `xneg\K45_WE\layouts\` instead
-  (S1b-N, a hard dependency for 5 of the 7 board faces). `optional\` is not shipped. The `.cok`
+  (WE changelog 1.0.0.6). Branch N is settled (2026-10-15 playtest) and `K45_WE\layouts\` is the N set since
+  2026-10-16. `xpos\`, `xneg\` and `optional\` are not shipped. The `.cok`
   packaging route is itself an open check.
 - **Proof it loaded**: `Loading data for asset: …` (WEAssetsSettingsLoaderUtility.cs:40) in
   `Logs\Mods_K45_WE.log`.

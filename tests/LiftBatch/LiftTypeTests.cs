@@ -477,8 +477,9 @@ namespace LiftBatch
             Near(4f, math.distance(tb, fg), 1e-4f, W, "the tram base's tip lies 4 m off the origin axis, abeam");
             Check(math.all(StationAlign.StubTip(pos, rot, -12f, float.NaN) == fg), W, "a NaN axis x counts as 0");
             StationDef tramBase = SkiCatalog.StationOf(3, StationRole.Base);
-            Check(tramBase != null && tramBase.StubTipLocalX == -4f && tramBase.StubTipLocalZ == -12f, W,
-                  "the tram base row's line axis is x −4.00 (its 6 x 3 lot), its stub tip z −12");
+            // T14 x-sign N (2026-10-16): +4.00 in the game frame (the prefab rows were mirrored; was −4.00)
+            Check(tramBase != null && tramBase.StubTipLocalX == 4f && tramBase.StubTipLocalZ == -12f, W,
+                  "the tram base row's line axis is x +4.00 (its 6 x 3 lot, game frame), its stub tip z −12");
         }
 
         // ================================================================== LT-12: the tram (Catalog Phase C)

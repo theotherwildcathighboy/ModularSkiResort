@@ -29,7 +29,8 @@ clearance contract (C8) is checked at both heights.
 
 FRAMES (MUST-CHANGE 8). Authoring: metres, origin = lot centre on the ground, -X = nose / line
 side, +X = back end, Y lateral, Z up. orient_for_net maps (x, y, z) -> (y, -x, z) and the export
-bake then gives prefab-local (y, z, x). Contracts C1-C3, C6-C10 and C13 run on the joined mesh in
+bake then gives FBX-raw (y, z, x); the game negates x on import, so prefab-local game = (-y, z, x)
+(cs2_liftdress.blender_to_game; x-sign gate N, 2026-10-15). Contracts C1-C3, C6-C10 and C13 run on the joined mesh in
 the AUTHORING frame, before orient_for_net; C4, C5, C11, C12 run after it.
 
 Library reuse (never copied): lift_terminal.clear_scene, apply_finish_bevels, split_windows and
@@ -155,8 +156,9 @@ and 6-seg rods, and the control cabinets lose their finish bevel strips for a 2 
 benchmark 2.2); (3) the DQ box lamps go vanilla: the soffit lenses lamp_s0-3 -> RoofLightRandom01 rows, the door
 lamps lamp_cab / lamp_eng -> the two existing WallLightShortRangeRandom01 rows MOVE onto them (FS15). The weather
 mast stays (FS1: frozen bounds); the LIFT BOARDS stay in the host atlas at 400 px/m (FS5: no station sign set).
-Rows are written in this generator's frame (game = blender_to_game(authoring), gx not negated); a kit row's yaw
-turns its +Z to the removed part's facing (facing_quat): identity only where that is authoring +X. F1
+Rows are written in the game frame (game = blender_to_game(authoring) = (-y, z, x), gx NEGATED: x-sign gate N,
+applied 2026-10-16 / T14); a kit row's yaw turns its +Z to the removed part's facing (facing_quat): identity only
+where that is authoring +X, and an authoring +Y facing is game -X. F1
 (assert_kit_rows) box- and mesh-tests every kit row: the real kit mesh vs the station faces, its mount (deck /
 grade under the foot, the whole back on the wall, the lean props' rest plane on the wall), the C8 chair / rider
 envelope at both pins, the hosted ETDQ / ETGDO, the gondola nose ladder zone, every vanilla and kit row, the lot.
@@ -2671,7 +2673,7 @@ def dq_subobjects(p):
     """Vanilla sub-objects of detail pass 1 (design 3.3 / 4.3; GUIDs = cs2_liftdress.SUBOBJ,
     verified against the dump). Rows (prefab, authoring position, facing in the authoring frame or
     None, mount): the surgery round adds them to the station's ObjectSubObjects (parent 0, game
-    local = (y, z, x)). MC10 moves: the ParkInfosign (variant-union bounds 2.42 x 2.79 x 1.70 m)
+    local = (-y, z, x), gx negated). MC10 moves: the ParkInfosign (variant-union bounds 2.42 x 2.79 x 1.70 m)
     off the bullwheel turn's chair envelope to the -Y back corner, the second bin out of its way. DQ
     follow-up: + the four LightpoleParkRandom01 lamp posts of D1_LAMPS on the deck top (the flood masts'
     replacement; appended, so the earlier rows keep their order)."""
@@ -3806,7 +3808,7 @@ def gd_subobjects(p):
     portal-face corner; at each entry a RoofLight under the canopy, a LightpolePark beside the ramp, a
     bin and a bench; three RoofLights over each platform on the hall ceiling; a WallLight at the
     operator door; the base adds a park info sign by the +Y entry. The surgery round adds them to the
-    station's ObjectSubObjects (parent 0, game local = (y, z, x))."""
+    station's ObjectSubObjects (parent 0, game local = (-y, z, x), gx negated)."""
     if not (p.gondola and GD_REV1):
         return []
     L = gd_hall_layout(p)
@@ -5503,7 +5505,7 @@ def kit_to_authoring(V, row):
     gx = V[:, 0] * c + V[:, 2] * s + px
     gz = -V[:, 0] * s + V[:, 2] * c + pz
     gy = V[:, 1] + py
-    return np.stack([gz, gx, gy], axis=1)
+    return np.stack([gz, -gx, gy], axis=1)       # game_to_blender: authoring y = -gx (x-sign gate N)
 
 
 def fd_kit_boxes(p):
@@ -6962,8 +6964,8 @@ def assert_orientation_dq(me, table, fparts, co, p):
     nums = {"up_lane_y_authoring": L, "rider_travel_x": tv["dir"],
             "measured_centre_y": {k: round(v, 3) for k, v in sorted(got.items())},
             "cab": {k: v for k, v in cab_layout(p).items() if k in ("x0", "x1", "y0", "y1", "zf")},
-            "frame": "authoring (x travel, -X = line; y lateral); A rows are written game x = +y (cs2_liftdress."
-                     "blender_to_game); probe X2 decides whether the game shows x = +y (branch P) or -y (branch N)",
+            "frame": "authoring (x travel, -X = line; y lateral); A rows are written game x = -y (cs2_liftdress."
+                     "blender_to_game; x-sign gate settled N, 2026-10-15 playtest, S1b-N applied 2026-10-16)",
             "spin": "the up lane is the RIGHT one looking uphill in this frame (base +Y loads, top -Y unloads); "
                     "StationAlign.UpLaneIsSecond puts chain A on the right looking uphill IN GAME: the same lane "
                     "under branch N, the mirror under branch P (S1b then flips the rule's sign, not the meshes)"}
@@ -7030,8 +7032,8 @@ def assert_orientation_gd(me, table, fparts, co, p):
             "rows_y": {k: round(v, 3) for k, v in sorted(rows.items())},
             "wait_here": {"loading_side_y": wl, "centre_y": {k: round(v, 3) for k, v in sorted(wait.items())},
                           "label_normal_y": round(ny, 3)},
-            "frame": "authoring (x travel, -X = line; y lateral); gondola rows are written game x = +y "
-                     "(cs2_liftdress.blender_to_game); probe X2 decides P / N (S1b)",
+            "frame": "authoring (x travel, -X = line; y lateral); gondola rows are written game x = -y "
+                     "(cs2_liftdress.blender_to_game; x-sign gate settled N, 2026-10-15, S1b-N applied 2026-10-16)",
             "spin": "the up lane is the RIGHT one looking uphill in this frame (the base departs on +Y, the top's "
                     "cabins arrive on -Y), the DQ stations' O1 rule; nitpick A2 moved the top's room from +Y"}
     msg = (f"operator room, LIFT OPS, door light + hose reel rows on the up lane y {L:+.0f} "
@@ -8443,7 +8445,10 @@ def _r(v, n=4):
 
 def prefab_numbers(p, bounds_authoring):
     """Everything the prefab surgery reads, prefab-local (x lateral, y up, z travel; line
-    at -z). Authoring (x, y, z) -> prefab (y, z, x)."""
+    at -z). Authoring (x, y, z) -> prefab (y, z, x) = the FBX-raw frame: the x components below (stubs, lanes,
+    bounds, wheel, hosted tower) are NOT game x - the game negates FBX x on import (x_frame key; the sub-object
+    rows are already written in game frame, cs2_liftdress.blender_to_game). UNVERIFIED which surgery steps read
+    these numbers un-negated: apply rule T (x -> -x, bounds min / max swapped) when pasting them."""
     def stub(x, y, z_centre):
         return {"a": _r((x, y, z_centre - 0.125)), "b": _r((x, y + 0.01, z_centre - 0.04)),
                 "c": _r((x, y + 0.02, z_centre + 0.04)), "d": _r((x, y + 0.03, z_centre + 0.125))}
@@ -8454,6 +8459,8 @@ def prefab_numbers(p, bounds_authoring):
     seat_today = round(p.z_rope - p.hang + p.seat_top - DECK_H, 3)
     nums = {
         "variant": p.variant,
+        "x_frame": "FBX-raw x (= authoring y); game x = -x (x-sign gate settled N 2026-10-15): negate every x here "
+                   "(bounds_prefab min / max swap) when writing prefab rows; sub_objects rows are already game",
         "carrier": {"row": p.carrier_key, "source": p.carrier_src, "hang_m": p.hang,
                     "grip_top_above_rope_m": gtar, "seat_top_above_lowest_m": p.seat_top},
         "gauge_m": round(2 * p.lane_y, 3), "wheel_radius_m": p.rim_r,

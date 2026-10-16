@@ -982,7 +982,20 @@ def k7_subobj():
           f"K7 bench yawed 90 deg: {hi - lo}")
     blo, bhi = LD.subobj_box("TrashbinRandom01", (4.05, 0.30, 13.75), frame="blender")
     check(abs(blo[0] - (13.75 - 0.246)) < 1e-3 and abs(blo[2] - 0.30) < 1e-3, f"K7 blender frame {blo}")
-    check(LD.facing_quat("+Y", frame="blender") == LD.FACING_QUAT["+X"], "K7 facing_quat frames")
+    # x-sign gate N (2026-10-15 playtest, S1b-N / T14 2026-10-16): game x = -authoring y, a +Y facing is game -X
+    check(LD.facing_quat("+Y", frame="blender") == LD.FACING_QUAT["-X"]
+          and LD.facing_quat("-Y", frame="blender") == LD.FACING_QUAT["+X"]
+          and LD.facing_quat("+X", frame="blender") == LD.FACING_QUAT["+Z"], "K7 facing_quat frames (game x = -y)")
+    check(LD.blender_to_game((1.0, 2.0, 3.0)) == (-2.0, 3.0, 1.0)
+          and LD.game_to_blender(LD.blender_to_game((1.0, 2.0, 3.0))) == (1.0, 2.0, 3.0)
+          and LD.tram_to_game((5.0, 6.0, 7.0)) == (-5.0, 6.0, 7.0)
+          and LD.tram_to_game((5.0, 6.0, 7.0)) == LD.blender_to_game(LD.tram_point(5.0, 6.0, 7.0))
+          and LD.rule_t_rot(LD.FACING_QUAT["+X"]) == LD.FACING_QUAT["-X"]
+          and str(LD.blender_to_game((0.0, 0.0, 0.0))[0]) == "0.0", "K7 frames: gx = -y, tram design (X) -> game -X")
+    ba, bb = LD.subobj_box("TrashbinRandom01", (-3.0, 0.30, 13.75), frame="blender")
+    ga, gb = LD.subobj_box("TrashbinRandom01", (-3.0, 0.30, 13.75))
+    check(abs(ba[1] + gb[0]) < 1e-9 and abs(bb[1] + ga[0]) < 1e-9 and ba[1] < bb[1],
+          f"K7 blender box lo / hi swap on y (lo {ba[1]:.3f} hi {bb[1]:.3f} from game x {ga[0]:.3f}..{gb[0]:.3f})")
     # the cafe table set under the L1 umbrellas: a verified SUBOBJ placeholder, and it is the GUID
     # the L1 rows and the L2 hut place (a table with its two chairs: ActivityLocation seats)
     import bldg_recipes as BR

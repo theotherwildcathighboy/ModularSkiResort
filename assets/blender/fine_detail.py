@@ -40,12 +40,14 @@ ROW KINDS in a host manifest's `sub_objects.objects` block (lodge.sub_objects_bl
     its row names the colour VARIANT's object-prefab CID and adds "colour_set" / "variant"
     (build/kit-colour-variants.md; the Parent-coloured base prefabs do not ship).
 
-FRAMES. Rows are prefab-local "game" metres in the SAME convention every shipped building row
-uses: (gx, gy, gz) = authoring (y, z, x) = FBX-raw (x, z, -y) of the net-oriented export, i.e.
-game x = +authoring y, NOT negated (build/probes-b.md section 2: the deployed bounds say the
-game negates FBX x; probe X2 decides; if X2 reads branch N, S1b negates gx of every row with
-gx != 0 and mirrors the yaw, q.y -> -q.y). An identity row (the sign set) is frame-free: host
-and set flip together.
+FRAMES. Rows are prefab-local "game" metres: (gx, gy, gz) = (-y, z, x) of authoring; FBX-raw is
+(x, z, -y) of the net-oriented export (= authoring (y, z, x)) and the game NEGATES FBX x on import
+(build/probes-b.md section 2), so game x = -authoring y: gx NEGATED. Settled N by the 2026-10-15
+playtest (DECISIONS 201 S1b-N, applied 2026-10-16 / T14; analysis-assets.md section 3).
+The recipes still DESIGN their rows in the old frame (gx = +authoring y, the frame the box / mesh
+contracts test in); lodge.sub_objects_block / _mod_row_block apply rule T at the manifest boundary
+(x -> -x, quaternion (qx, qy, qz, qw) -> (qx, -qy, -qz, qw), lean wall_point / wall_normal x -> -x):
+design_row_to_game() below. An identity row (the sign set) is frame-free: host and set flip together.
 """
 
 import math
@@ -64,11 +66,35 @@ STAGING_ROOT = os.path.join(REPO, "assets", "staging", "prefabs")
 _HEX32 = re.compile(r"^[0-9a-f]{32}$")
 
 #: the convention string every opted-in manifest carries (and the build report quotes)
-X_CONVENTION = ("game (gx, gy, gz) = authoring (y, z, x) = FBX-raw (x, z, -y); gx NOT negated "
-                "(the school's / every shipped building row's convention). build/probes-b.md "
-                "section 2: the game appears to negate FBX x; probe X2 decides; branch N = "
-                "S1b negates gx of every row with gx != 0 and mirrors yaw (q.y -> -q.y). "
+X_CONVENTION = ("game (gx, gy, gz) = (-y, z, x) of authoring; gx NEGATED (x-sign gate settled N, 2026-10-15 "
+                "playtest; FBX-raw = authoring (y, z, x) and the game negates FBX x on import). Rows are designed "
+                "in the old +y frame and written through rule T (x -> -x, q -> (qx, -qy, -qz, qw)). "
                 "Identity rows (role signset) are frame-free.")
+
+
+def rule_t_pos(p):
+    """Rule T on a position: a design-frame row (gx = +authoring y) -> game, x -> -x (-0.0 normalised)."""
+    return (-float(p[0]) + 0.0, float(p[1]), float(p[2]))
+
+
+def rule_t_rot(q):
+    """Rule T on a quaternion (qx, qy, qz, qw) -> (qx, -qy, -qz, qw); a yaw about +Y mirrors."""
+    return (float(q[0]) + 0.0, -float(q[1]) + 0.0, -float(q[2]) + 0.0, float(q[3]) + 0.0)
+
+
+def design_row_to_game(row):
+    """A "kind": "mod" row dict (kit_row / kit_lean_row / sign_set_row, design frame) -> its game-frame copy:
+    position and rotation through rule T, and a lean row's wall_point / wall_normal (both [x, z]) x -> -x.
+    Every other key is carried over unchanged."""
+    r = dict(row)
+    r["position"] = rule_t_pos(row["position"])
+    r["rotation"] = rule_t_rot(row["rotation"])
+    if row.get("lean"):
+        lean = dict(row["lean"])
+        lean["wall_point"] = [-float(lean["wall_point"][0]) + 0.0, float(lean["wall_point"][1])]
+        lean["wall_normal"] = [-float(lean["wall_normal"][0]) + 0.0, float(lean["wall_normal"][1])]
+        r["lean"] = lean
+    return r
 
 
 # ======================================================================================

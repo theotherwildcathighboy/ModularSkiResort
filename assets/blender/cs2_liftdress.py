@@ -23,7 +23,8 @@ What is here (and what is NOT)
                  sub_object_rows, subobj_box, facing_quat
     tables       DRESS_LOD1_DELETE / DRESS_LOD1_KEEP / DRESS_LOD2_DELETE, DRESS_DENSITY,
                  DRESS_CONTACTS (tram C14 kind pairs inside each builder)
-    frames       game_to_blender, blender_to_game, tram_point, tram_facing
+    frames       game_to_blender, blender_to_game, tram_point, tram_facing, tram_to_game, rule_t_pos,
+                 rule_t_rot
     NOT HERE     no reachability checker (skeptic MC3: one rule = the shipped C15 in
                  tram_station.py and climb_room in lift_terminal_detach.py, house numbers);
                  fixed_ladder only NAMES its parts so those two parsers see them.
@@ -32,10 +33,13 @@ Frames
 ------
 Every builder takes points in the BLENDER AUTHORING frame (z up), the frame both lift
 generators build in before cs2_asset.orient_for_net: the DQ authoring frame as is
-(x travel, y lateral, z up), the tram prefab frame through tram_point(X, Y, Z) = (Z, X, Y)
+(x travel, y lateral, z up), the tram DESIGN (FBX-raw) frame through tram_point(X, Y, Z) = (Z, X, Y)
 (tram_station.P). Facings are "+X" "-X" "+Y" "-Y" (or a plan vector) in that frame;
-tram_facing maps a prefab facing ("+X" -> "+Y", "+Z" -> "+X"). The game local frame of a
-sub-object is (gx, gy, gz) = (y, z, x) of the authoring point on BOTH generators.
+tram_facing maps a design facing ("+X" -> "+Y", "+Z" -> "+X"). The game local frame of a
+sub-object is (gx, gy, gz) = (-y, z, x) of the authoring point on EVERY generator: gx is NEGATED (the game
+negates FBX x on import; x-sign gate settled N by the 2026-10-15 playtest, DECISIONS 201 S1b-N, applied
+2026-10-16 / T14; analysis-assets.md section 3). The tram's design frame is NOT game: game = tram_to_game(
+design) = (-X, Y, Z) (rule_t_pos / rule_t_rot for the rows).
 
 Rules every builder keeps
 -------------------------
@@ -87,18 +91,36 @@ SRC_MAT_PREFIX = "CS2SRC_"  # = cs2_bake.SRC_MAT_PREFIX (material_sources placeh
 # ======================================================================================
 
 def game_to_blender(p):
-    """Game local (gx, gy, gz) -> Blender authoring (x, y, z) = (gz, gx, gy)."""
-    return (float(p[2]), float(p[0]), float(p[1]))
+    """Game local (gx, gy, gz) -> Blender authoring (x, y, z) = (gz, -gx, gy) (gx NEGATED, x-sign gate N)."""
+    return (float(p[2]), -float(p[0]) + 0.0, float(p[1]))
 
 
 def blender_to_game(p):
-    """Blender authoring (x, y, z) -> game local (gx, gy, gz) = (y, z, x)."""
-    return (float(p[1]), float(p[2]), float(p[0]))
+    """Blender authoring (x, y, z) -> game local (gx, gy, gz) = (-y, z, x) (gx NEGATED: the game negates FBX
+    x on import; x-sign gate settled N, 2026-10-15 playtest). Same map as lift_terminal.m_to_game."""
+    return (-float(p[1]) + 0.0, float(p[2]), float(p[0]))
 
 
 def tram_point(X, Y, Z):
-    """tram_station.P: a tram prefab point -> the Blender authoring point (Z, X, Y)."""
+    """tram_station.P: a tram DESIGN-frame point (X lateral, Y up, Z travel = the FBX-raw frame, NOT game) ->
+    the Blender authoring point (Z, X, Y). Game = blender_to_game(tram_point(X, Y, Z)) = (-X, Y, Z): see
+    tram_to_game."""
     return (float(Z), float(X), float(Y))
+
+
+def tram_to_game(p):
+    """A tram design-frame point (X, Y, Z) -> game local (-X, Y, Z) = blender_to_game(tram_point(*p))."""
+    return (-float(p[0]) + 0.0, float(p[1]), float(p[2]))
+
+
+def rule_t_pos(p):
+    """Rule T (x-sign gate N): a point written in the OLD +x frame -> game, x -> -x."""
+    return (-float(p[0]) + 0.0, float(p[1]), float(p[2]))
+
+
+def rule_t_rot(q):
+    """Rule T on a quaternion (qx, qy, qz, qw) -> (qx, -qy, -qz, qw): the mirror image of a yaw about +Y."""
+    return (float(q[0]) + 0.0, -float(q[1]) + 0.0, -float(q[2]) + 0.0, float(q[3]) + 0.0)
 
 
 _TRAM_FACING = {"+X": "+Y", "-X": "-Y", "+Z": "+X", "-Z": "-X", "+Y": "+Z", "-Y": "-Z"}
@@ -2536,9 +2558,10 @@ FACING_QUAT = {"+Z": (0.0, 0.0, 0.0, 1.0), "-Z": (0.0, 1.0, 0.0, 0.0),
 def facing_quat(facing, frame="game"):
     """Yaw quaternion (x, y, z, w) turning a vanilla prop's local +Z (its front, unverified
     until placement: design 1.6) to `facing`, given in the game frame ("+X" "-X" "+Z" "-Z")
-    or the Blender authoring frame (frame="blender": "+X" travel -> game +Z, "+Y" -> game +X)."""
+    or the Blender authoring frame (frame="blender": "+X" travel -> game +Z, "+Y" -> game -X, "-Y" -> game +X:
+    game x = -authoring y, x-sign gate N; the same table as lift_terminal.M_FACING_TO_GAME)."""
     if frame == "blender":
-        facing = {"+X": "+Z", "-X": "-Z", "+Y": "+X", "-Y": "-X"}[facing]
+        facing = {"+X": "+Z", "-X": "-Z", "+Y": "-X", "-Y": "+X"}[facing]
     return FACING_QUAT[facing]
 
 
@@ -2565,15 +2588,16 @@ def subobj_box(prefab, pos, rot=(0.0, 0.0, 0.0, 1.0), frame="game", pad=0.0):
     P = np.stack([rx, corners[:, 1], rz], axis=1) + np.asarray(pos, dtype=np.float64)
     blo, bhi = P.min(axis=0) - pad, P.max(axis=0) + pad
     if frame == "blender":
-        blo, bhi = (np.array(game_to_blender(blo)), np.array(game_to_blender(bhi)))
+        # game_to_blender negates gx (authoring y = -gx), so the lo / hi corners swap on that axis
+        a, b = np.array(game_to_blender(blo)), np.array(game_to_blender(bhi))
+        blo, bhi = np.minimum(a, b), np.maximum(a, b)
     return blo, bhi
 
 
 #: the station rows' frame (lift_terminal_detach / tram_station: blender_to_game), written into a fine block
-STATION_X_CONVENTION = ("game (gx, gy, gz) = authoring (y, z, x) (cs2_liftdress.blender_to_game); gx NOT "
-                        "negated - the DQ / gondola / tram rows' convention (the Pali M rows use -y); probe X2 "
-                        "decides, branch N = S1b negates gx of every row with gx != 0 and mirrors the yaw "
-                        "(q.y -> -q.y)")
+STATION_X_CONVENTION = ("game (gx, gy, gz) = (-y, z, x) of authoring; gx NEGATED (x-sign gate settled N, "
+                        "2026-10-15 playtest; cs2_liftdress.blender_to_game = lift_terminal.m_to_game; the tram's "
+                        "design frame goes through tram_to_game = (-X, Y, Z)); a +Y facing is game -X")
 
 
 def sub_object_rows(target_prefab, rows, *, fine=False, x_convention=None):
@@ -2717,7 +2741,7 @@ __all__ = [
     "mat_keys_of", "station_weather_spec", "label_protect_px", "weather_budget_ok",
     "highest_clean_step", "verify_subobj", "sub_object_rows", "subobj_box", "facing_quat",
     "REJECTED_GUIDS",
-    "merge_materials", "part_keys", "game_to_blender", "blender_to_game", "tram_point",
+    "merge_materials", "part_keys", "game_to_blender", "blender_to_game", "tram_point", "tram_to_game", "rule_t_pos", "rule_t_rot",
     "tram_facing", "DRESS_MATERIALS", "BOARDS", "PICTOS", "SUBOBJ", "DQ_MAT_ROLES",
     "TRAM_MAT_ROLES", "NEW_ROLES", "DRESS_LOD1_DELETE", "DRESS_LOD1_KEEP", "DRESS_LOD2_DELETE",
     "DRESS_DENSITY", "DRESS_CONTACTS", "DRESS_WEATHER_OVERRIDES", "DQ_SHARE_WHITELIST",

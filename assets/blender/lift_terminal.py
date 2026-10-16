@@ -1223,16 +1223,16 @@ M_BADGE_EMB = 0.36                             # the badge's emblem square (X11:
 # B / D as cut by its skeptic FS1 / FS5 / FS6 / FS7). FINE_DETAIL_M False (CLI --no-fine; main_m sets it from its
 # args every run) = the approved generation-M stations byte for byte. True: the e-stops, extinguishers, the
 # scraper + shovel and the base's ski rack leave the mesh as dressing-kit "mod" rows (fd_kit_specs_m) in M's OWN
-# frame (game x = -authoring y, M_X_CONVENTION; probe X2 decides, nothing unified here); the maze, swing gate and
+# frame (game x = -authoring y, M_X_CONVENTION; x-sign gate settled N 2026-10-15: the A family now matches); the maze, swing gate and
 # post boards take the kit builders' fine geometry; the base cabinet loses its finish bevel and gains a lid lip.
 # Contract F1 (cs2_kitrows.check_kit_rows) tests every kit row on the REAL kit mesh; M3 (the chair sweep), M7
 # (crossings) and M18 (bay routes) count the kit meshes as dressing / obstacles. Stays modelled: the LIFT boards,
 # the painted 1-16 tension scale, the badge and the sign (FS5: the host atlas), the top's weather mast (FS1), the
 # tension gauge, the maze / gate / stakes, the propane tank, the stop arm. Every lamp is already a vanilla row.
 FINE_DETAIL_M = True
-M_X_CONVENTION = ("game (gx, gy, gz) = authoring (-y, z, x) (lift_terminal.m_to_game, S1): gx = -authoring y, the "
-                  "generation-M rows' convention (the DQ / gondola / tram rows use +y); probe X2 decides, S1b then "
-                  "un-negates the M rows (branch P) or the other families' (branch N)")
+M_X_CONVENTION = ("game (gx, gy, gz) = authoring (-y, z, x) (lift_terminal.m_to_game, S1): gx = -authoring y; gx "
+                  "NEGATED (x-sign gate settled N, 2026-10-15 playtest; the DQ / gondola / tram / building rows "
+                  "follow it since S1b-N, 2026-10-16: cs2_liftdress.blender_to_game is the same map)")
 #: kit colour variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the colour set
 #: (fine_detail.COLOUR_SETS) of the coloured kit rows per kind - yellow, the Yan black / yellow (the stations' safety
 #: yellow, the yellow / black placards); the return station has no coloured row
@@ -2605,18 +2605,12 @@ def check_kit_rows_m(co, tris, names, table, kind, cloud=None):
 
 
 def review_rows_m(block):
-    """The review pack's DISPLAY copy of M's row block (fine-detail step 3c): cs2_subobj draws rows with
-    game_to_pack, which assumes game x = +authoring y (the DQ / gondola / tram convention); M writes -y, so the
-    copy negates gx and mirrors the yaw (q.y -> -q.y) and the stand-ins (kit rows cyan) land on the mesh where the
-    generator put them. Display only: the manifest keeps M_X_CONVENTION (probe X2 decides the game's sign)."""
-    objs = []
-    for o in block["objects"]:
-        o2 = dict(o)
-        p, q = o["pos"], o["rot"]
-        o2["pos"] = [-float(p[0]) + 0.0, float(p[1]), float(p[2])]
-        o2["rot"] = [float(q[0]), -float(q[1]) + 0.0, float(q[2]), float(q[3])]
-        objs.append(o2)
-    return {"sub_objects": dict(block, objects=objs)}
+    """The review pack's copy of M's row block (fine-detail step 3c). Until 2026-10-16 this negated gx and mirrored
+    the yaw, because cs2_subobj.game_to_pack assumed game x = +authoring y; since the x-sign gate settled N
+    (2026-10-15 playtest, S1b-N / T14) game_to_pack is (-gx, -gz, gy) for every family and M's rows (m_to_game,
+    gx = -authoring y) draw straight: no display copy is needed any more (kept as the identity wrapper so the
+    manifest-shaped dict the pack reader takes is unchanged)."""
+    return {"sub_objects": dict(block, objects=[dict(o) for o in block["objects"]])}
 
 
 def fine_detail_block_m(kind, contracts):

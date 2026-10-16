@@ -741,7 +741,10 @@ def k6_k7_blockout():
         assert so["target_prefab"] == "SkiDemoHut" and len(so["objects"]) == 2
         a, b = so["objects"]
         assert set(a) == {"m_Object", "prefab", "position", "rotation", "m_ParentMesh"}
-        assert a["m_ParentMesh"] == -1 and b["m_ParentMesh"] == 0 and b["position"] == [-3.5, 3.02, 4.0]
+        # x-sign gate N (2026-10-16): the recipe rows are DESIGN frame, the manifest block is rule T (x -> -x,
+        # q -> (qx, -qy, -qz, qw)): the design (-3.5, 3.02, 4.0) / (0, 1, 0, 0) is game (3.5, 3.02, 4.0) / (0, -1, 0, 0)
+        assert a["m_ParentMesh"] == -1 and b["m_ParentMesh"] == 0 and b["position"] == [3.5, 3.02, 4.0]
+        assert a["position"] == [-6.5, 0.0, 4.8] and b["rotation"] == [0.0, -1.0, 0.0, 0.0]             and a["rotation"] == [0.0, 0.0, 0.0, 1.0], (a, b)
         for bad in ((("X", "zz", (0, 0, 0), (0, 0, 0, 1), -1),),
                     (("X", "8df0703be09426948b5bc3262d86bc04", (0, 0, 0), (0, 0, 0, 2), -1),)):
             try:

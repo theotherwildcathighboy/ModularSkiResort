@@ -740,7 +740,8 @@ namespace LiftBatch
                 new object[] { "SkiGondolaBaseStationBuilding", N, N, N, N, N, N, false },
                 new object[] { "SkiGondolaTopStationBuilding", N, N, N, N, N, N, false },
                 // nitpick B2 (2026-10-13): the base's 6 x 3 lot moved its building 4.00 m toward -X (axis x -4.00)
-                new object[] { "SkiTramBaseStationBuilding", -9.50f, 16.00f, -5.50f, 1.50f, 16.00f, -5.50f, true },
+                // T14 x-sign N (2026-10-16): the game negates FBX x, the prefab rows were mirrored: axis +4.00, A = +X bay, B = -X bay
+                new object[] { "SkiTramBaseStationBuilding", 9.50f, 16.00f, -5.50f, -1.50f, 16.00f, -5.50f, true },
                 new object[] { "SkiTramTopStationBuilding", -5.50f, 16.00f, -5.50f, 5.50f, 16.00f, -5.50f, false },
             };
             Eq(docks.Length, SkiCatalog.Stations.Count, W, "Stations.Count (dock oracle)");
@@ -773,13 +774,15 @@ namespace LiftBatch
             for (int i = 0; i < SkiCatalog.Stations.Count; i++)
             {
                 StationDef s = SkiCatalog.Stations[i];
-                float want = s.Prefab == "SkiTramBaseStationBuilding" ? -4.00f : 0f;
+                // T14 x-sign N (2026-10-16): +4.00 on the tram base in the game frame (was -4.00, authoring frame)
+                float want = s.Prefab == "SkiTramBaseStationBuilding" ? 4.00f : 0f;
                 Eq(want, s.StubTipLocalX, W, "station '" + s.Prefab + "' StubTipLocalX (the line axis)");
                 if (math.all(math.isfinite(s.DockLocalA)) && math.all(math.isfinite(s.DockLocalB)))
                 {
                     Near(s.StubTipLocalX, (s.DockLocalA.x + s.DockLocalB.x) * 0.5, 1e-5, W,
                          "station '" + s.Prefab + "' docks centred on its line axis");
-                    Near(11.0, s.DockLocalB.x - s.DockLocalA.x, 1e-5, W,
+                    // T14 x-sign N (2026-10-16): the tram base's A is the +X bay now, so B.x - A.x = -11 there (+11 on the top)
+                    Near(s.Prefab == "SkiTramBaseStationBuilding" ? -11.0 : 11.0, s.DockLocalB.x - s.DockLocalA.x, 1e-5, W,
                          "station '" + s.Prefab + "' docks 2 x 5.50 apart (the lane gauge, unchanged by the shift)");
                 }
             }

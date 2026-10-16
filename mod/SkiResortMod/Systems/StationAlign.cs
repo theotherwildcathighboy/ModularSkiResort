@@ -15,10 +15,11 @@
 //   * Both station prefabs carry their high-voltage connection stub as an ObjectSubNet of the
 //     SkiLiftMarker net (CID 996ee501…) from station-local (0,0,−9) to (0,0,−12), node indices
 //     {0,1}: SkiTopStationBuilding.Prefab:58-106 (tip z at :86), SkiBaseStationBuilding.Prefab
-//     :65-112 (net :67, tip z at :92). The base's SECOND stub at x = 6 (from :115, net 877654d1…
+//     :65-112 (net :67, tip z at :92). The base's SECOND stub at x = 6 (x = −6 since T14 x-sign N, 2026-10-16; from :115, net 877654d1…
 //     at :116) is the low-voltage feed, NOT the lift axis. The lift line leaves the station along local −Z
 //     through x = 0 (nitpick B2, 2026-10-13: through x = StationDef.StubTipLocalX - 0 on every station but the
-//     tram base, whose 6 x 3 lot put its line axis at prefab x −4.00; the 4-argument StubTip), so:
+//     tram base, whose 6 x 3 lot put its line axis at prefab x +4.00 in the game frame (−4.00 before T14 x-sign N,
+//     2026-10-16); the 4-argument StubTip), so:
 //       tip  P = LocalToWorld(T, (0,0,StubTipLocalZ))   — ObjectUtils.LocalToWorld(Transform, float3)
 //                                                         is position + mul(rotation, local)
 //                                                         (Game.Objects/ObjectUtils.cs:208-211)
@@ -190,8 +191,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Nitpick B2 (2026-10-13, build/nitpick-b2-tram-ramps.md): the same with the lift line axis at
-        /// prefab-local x <paramref name="stubTipLocalX"/> (StationDef.StubTipLocalX: −4.00 on the tram base, whose 6 x 3
-        /// lot moved its building 4 m toward −X; 0 elsewhere): position + mul(rotation, (x, 0, z)). A non-finite x
+        /// prefab-local x <paramref name="stubTipLocalX"/> (StationDef.StubTipLocalX: +4.00 on the tram base (T14 x-sign N, 2026-10-16;
+        /// −4.00 before the mirror), whose 6 x 3 lot moved its building 4 m off the origin; 0 elsewhere): position + mul(rotation, (x, 0, z)). A non-finite x
         /// counts as 0, a non-finite z falls back to StubTipLocalZ.</summary>
         public static float3 StubTip(float3 position, quaternion rotation, float stubTipLocalZ, float stubTipLocalX)
         {

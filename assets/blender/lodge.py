@@ -935,14 +935,20 @@ def sub_objects_block(recipe):
             raise ValueError(f"{recipe.key}: sub-object {prefab!r} rotation |q| = {nq:.4f}")
         if int(parent) < -1:
             raise ValueError(f"{recipe.key}: sub-object {prefab!r} m_ParentMesh {parent}")
+        # x-sign gate N (2026-10-15 playtest; S1b-N 2026-10-16): the recipes DESIGN their rows in the old frame
+        # (gx = +authoring y, the frame their box / mesh contracts test in); the manifest gets rule T (x -> -x,
+        # q -> (qx, -qy, -qz, qw)), the game frame
+        gpos, gq = FD.rule_t_pos(pos), FD.rule_t_rot(q)
         objs.append({"m_Object": guid, "prefab": str(prefab),
-                     "position": [round(float(v), 4) for v in pos],
-                     "rotation": [round(float(v), 7) for v in q],
+                     "position": [round(float(v), 4) + 0.0 for v in gpos],
+                     "rotation": [round(float(v), 7) + 0.0 for v in gq],
                      "m_ParentMesh": int(parent)})
     if isinstance(recipe, FD.FineRecipe):
         FD.check_kit_colours(recipe)        # one colour set per building (kit colour variants), after the row checks
     block = {"target_prefab": recipe.prefab,
-             "frame": "game local (gx, gy, gz) = authoring (y, z, x); rotation (x, y, z, w)",
+             "frame": "game local (gx, gy, gz) = (-y, z, x) of authoring, gx NEGATED (x-sign gate N, 2026-10-15); "
+                      "rotation (x, y, z, w); recipes design rows in the old +y frame, written through rule T "
+                      "(fine_detail.design_row_to_game)",
              "notes": SUB_OBJECT_NOTE, "objects": objs}
     if isinstance(recipe, FD.FineRecipe):
         block["x_convention"] = FD.X_CONVENTION
@@ -970,12 +976,13 @@ def _mod_row_block(recipe, e):
     nq = math.sqrt(sum(float(c) ** 2 for c in q))
     if abs(nq - 1.0) > 1e-3 or parent not in (-1, 0):
         raise ValueError(f"{recipe.key}: mod row {e.get('prefab')!r} |q| {nq:.4f} parent {parent}")
+    g = FD.design_row_to_game(e)          # rule T (x-sign gate N): position, rotation and a lean row's wall x / normal x
     out = {"kind": "mod", "ref": "CID", "m_Object": cid, "prefab": str(e["prefab"]),
-           "mesh": str(e.get("mesh")), "position": [round(float(v), 4) for v in pos],
-           "rotation": [round(float(v), 7) for v in q], "m_ParentMesh": parent}
+           "mesh": str(e.get("mesh")), "position": [round(float(v), 4) + 0.0 for v in g["position"]],
+           "rotation": [round(float(v), 7) + 0.0 for v in g["rotation"]], "m_ParentMesh": parent}
     for k in ("role", "note", "lean", "bounds", "colour_set", "variant"):
         if e.get(k) is not None:
-            out[k] = e[k]
+            out[k] = g[k] if k == "lean" else e[k]
     return out
 
 

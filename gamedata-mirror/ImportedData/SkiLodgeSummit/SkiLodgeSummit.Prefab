@@ -152,7 +152,7 @@
                             "m_Object": $fstrref:"UnityGUID:fc058a3d03b337e4794c432a84170316",
                             "m_Position": {
                                 "$type": "15|Unity.Mathematics.float3, Unity.Mathematics",
-                                "x": 6,
+                                "x": -6,
                                 "y": -2.55,
                                 "z": -12
                             },
@@ -161,7 +161,7 @@
                                 "value": {
                                     "$type": "17|Unity.Mathematics.float4, Unity.Mathematics",
                                     "x": 0,
-                                    "y": 0.7071068,
+                                    "y": -0.7071068,
                                     "z": 0,
                                     "w": 0.7071068
                                 }
@@ -176,7 +176,7 @@
                             "m_Object": $fstrref:"UnityGUID:fc058a3d03b337e4794c432a84170316",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 6,
+                                "x": -6,
                                 "y": -2.55,
                                 "z": -6
                             },
@@ -185,7 +185,7 @@
                                 "value": {
                                     "$type": 17,
                                     "x": 0,
-                                    "y": 0.7071068,
+                                    "y": -0.7071068,
                                     "z": 0,
                                     "w": 0.7071068
                                 }
@@ -200,7 +200,7 @@
                             "m_Object": $fstrref:"UnityGUID:fc058a3d03b337e4794c432a84170316",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 15,
+                                "x": -15,
                                 "y": -2.55,
                                 "z": -12
                             },
@@ -209,7 +209,7 @@
                                 "value": {
                                     "$type": 17,
                                     "x": 0,
-                                    "y": 0.7071068,
+                                    "y": -0.7071068,
                                     "z": 0,
                                     "w": 0.7071068
                                 }
@@ -224,7 +224,7 @@
                             "m_Object": $fstrref:"UnityGUID:fc058a3d03b337e4794c432a84170316",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 15,
+                                "x": -15,
                                 "y": -2.55,
                                 "z": -6
                             },
@@ -233,7 +233,7 @@
                                 "value": {
                                     "$type": 17,
                                     "x": 0,
-                                    "y": 0.7071068,
+                                    "y": -0.7071068,
                                     "z": 0,
                                     "w": 0.7071068
                                 }
@@ -248,7 +248,7 @@
                             "m_Object": $fstrref:"UnityGUID:b7e2343fd7ff9f642b77084a04738e43",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 4.63,
+                                "x": -4.63,
                                 "y": -2.55,
                                 "z": -12
                             },
@@ -257,7 +257,7 @@
                                 "value": {
                                     "$type": 17,
                                     "x": 0,
-                                    "y": 0.7071068,
+                                    "y": -0.7071068,
                                     "z": 0,
                                     "w": 0.7071068
                                 }
@@ -272,7 +272,7 @@
                             "m_Object": $fstrref:"UnityGUID:b7e2343fd7ff9f642b77084a04738e43",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 4.63,
+                                "x": -4.63,
                                 "y": -2.55,
                                 "z": -6
                             },
@@ -281,7 +281,7 @@
                                 "value": {
                                     "$type": 17,
                                     "x": 0,
-                                    "y": 0.7071068,
+                                    "y": -0.7071068,
                                     "z": 0,
                                     "w": 0.7071068
                                 }
@@ -296,7 +296,7 @@
                             "m_Object": $fstrref:"UnityGUID:b7e2343fd7ff9f642b77084a04738e43",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 13.63,
+                                "x": -13.63,
                                 "y": -2.55,
                                 "z": -12
                             },
@@ -305,7 +305,7 @@
                                 "value": {
                                     "$type": 17,
                                     "x": 0,
-                                    "y": 0.7071068,
+                                    "y": -0.7071068,
                                     "z": 0,
                                     "w": 0.7071068
                                 }
@@ -320,7 +320,7 @@
                             "m_Object": $fstrref:"UnityGUID:b7e2343fd7ff9f642b77084a04738e43",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 13.63,
+                                "x": -13.63,
                                 "y": -2.55,
                                 "z": -6
                             },
@@ -329,7 +329,7 @@
                                 "value": {
                                     "$type": 17,
                                     "x": 0,
-                                    "y": 0.7071068,
+                                    "y": -0.7071068,
                                     "z": 0,
                                     "w": 0.7071068
                                 }
@@ -344,7 +344,7 @@
                             "m_Object": $fstrref:"UnityGUID:0bbcb0620e01694448cb78385580351b",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 10.5,
+                                "x": -10.5,
                                 "y": -2.55,
                                 "z": -9
                             },
@@ -368,7 +368,7 @@
                             "m_Object": $fstrref:"UnityGUID:0bbcb0620e01694448cb78385580351b",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 19.5,
+                                "x": -19.5,
                                 "y": -2.55,
                                 "z": -9
                             },
@@ -392,7 +392,7 @@
                             "m_Object": $fstrref:"UnityGUID:8df0703be09426948b5bc3262d86bc04",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 22.1,
+                                "x": -22.1,
                                 "y": -2.55,
                                 "z": -11.7
                             },
@@ -401,7 +401,7 @@
                                 "value": {
                                     "$type": 17,
                                     "x": 0,
-                                    "y": -0.7071068,
+                                    "y": 0.7071068,
                                     "z": 0,
                                     "w": 0.7071068
                                 }
@@ -416,7 +416,7 @@
                             "m_Object": $fstrref:"UnityGUID:8df0703be09426948b5bc3262d86bc04",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 22.1,
+                                "x": -22.1,
                                 "y": -2.55,
                                 "z": -4.5
                             },
@@ -425,7 +425,7 @@
                                 "value": {
                                     "$type": 17,
                                     "x": 0,
-                                    "y": -0.7071068,
+                                    "y": 0.7071068,
                                     "z": 0,
                                     "w": 0.7071068
                                 }
@@ -440,7 +440,7 @@
                             "m_Object": $fstrref:"UnityGUID:41e3c9ba6e1d6b948a6b1bc3499a5397",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 12,
+                                "x": -12,
                                 "y": -2.55,
                                 "z": 0.9
                             },
@@ -464,7 +464,7 @@
                             "m_Object": $fstrref:"UnityGUID:8d8722db083c3564291e3778cceeb1ae",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 1.1,
+                                "x": -1.1,
                                 "y": -2.55,
                                 "z": -13.3
                             },
@@ -488,7 +488,7 @@
                             "m_Object": $fstrref:"UnityGUID:8d8722db083c3564291e3778cceeb1ae",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 1.1,
+                                "x": -1.1,
                                 "y": -2.55,
                                 "z": 0.9
                             },
@@ -512,7 +512,7 @@
                             "m_Object": $fstrref:"UnityGUID:8d8722db083c3564291e3778cceeb1ae",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 21.9,
+                                "x": -21.9,
                                 "y": -2.55,
                                 "z": 0.9
                             },
@@ -536,7 +536,7 @@
                             "m_Object": $fstrref:"UnityGUID:8d8722db083c3564291e3778cceeb1ae",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 21.9,
+                                "x": -21.9,
                                 "y": -2.55,
                                 "z": -8.1
                             },
@@ -560,7 +560,7 @@
                             "m_Object": $fstrref:"UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 0.75,
+                                "x": -0.75,
                                 "y": -2.55,
                                 "z": -18.9
                             },
@@ -584,7 +584,7 @@
                             "m_Object": $fstrref:"UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 13.1,
+                                "x": -13.1,
                                 "y": -2.55,
                                 "z": -18.9
                             },
@@ -608,7 +608,7 @@
                             "m_Object": $fstrref:"UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 22.25,
+                                "x": -22.25,
                                 "y": -2.55,
                                 "z": -18.9
                             },
@@ -632,7 +632,7 @@
                             "m_Object": $fstrref:"UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 22.25,
+                                "x": -22.25,
                                 "y": -2.55,
                                 "z": -0.9
                             },
@@ -641,7 +641,7 @@
                                 "value": {
                                     "$type": 17,
                                     "x": 0,
-                                    "y": -0.7071068,
+                                    "y": 0.7071068,
                                     "z": 0,
                                     "w": 0.7071068
                                 }
@@ -656,7 +656,7 @@
                             "m_Object": $fstrref:"UnityGUID:63c46490ab59afd4dae01ee442f1e462",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 2.5,
+                                "x": -2.5,
                                 "y": -2.55,
                                 "z": -17.4
                             },
@@ -680,7 +680,7 @@
                             "m_Object": $fstrref:"UnityGUID:63c46490ab59afd4dae01ee442f1e462",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 4.3,
+                                "x": -4.3,
                                 "y": -2.55,
                                 "z": -17.4
                             },
@@ -704,7 +704,7 @@
                             "m_Object": $fstrref:"UnityGUID:63c46490ab59afd4dae01ee442f1e462",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 6.1,
+                                "x": -6.1,
                                 "y": -2.55,
                                 "z": -17.4
                             },
@@ -728,7 +728,7 @@
                             "m_Object": $fstrref:"UnityGUID:63c46490ab59afd4dae01ee442f1e462",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 16.9,
+                                "x": -16.9,
                                 "y": -2.55,
                                 "z": -17.4
                             },
@@ -752,7 +752,7 @@
                             "m_Object": $fstrref:"UnityGUID:63c46490ab59afd4dae01ee442f1e462",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 18.7,
+                                "x": -18.7,
                                 "y": -2.55,
                                 "z": -17.4
                             },
@@ -776,7 +776,7 @@
                             "m_Object": $fstrref:"UnityGUID:63c46490ab59afd4dae01ee442f1e462",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 20.5,
+                                "x": -20.5,
                                 "y": -2.55,
                                 "z": -17.4
                             },
@@ -800,7 +800,7 @@
                             "m_Object": $fstrref:"UnityGUID:b7e2343fd7ff9f642b77084a04738e43",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 4.3,
+                                "x": -4.3,
                                 "y": -2.55,
                                 "z": -15.5
                             },
@@ -824,7 +824,7 @@
                             "m_Object": $fstrref:"UnityGUID:b7e2343fd7ff9f642b77084a04738e43",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 18.7,
+                                "x": -18.7,
                                 "y": -2.55,
                                 "z": -15.5
                             },
@@ -848,7 +848,7 @@
                             "m_Object": $fstrref:"UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
                             "m_Position": {
                                 "$type": 15,
-                                "x": -7.5,
+                                "x": 7.5,
                                 "y": 0.15,
                                 "z": 16.5
                             },
@@ -872,7 +872,7 @@
                             "m_Object": $fstrref:"UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 2.5,
+                                "x": -2.5,
                                 "y": 0.15,
                                 "z": 16.5
                             },
@@ -896,7 +896,7 @@
                             "m_Object": $fstrref:"UnityGUID:8df0703be09426948b5bc3262d86bc04",
                             "m_Position": {
                                 "$type": 15,
-                                "x": -5.4,
+                                "x": 5.4,
                                 "y": 0.15,
                                 "z": 18.6
                             },
@@ -920,7 +920,7 @@
                             "m_Object": $fstrref:"UnityGUID:41e3c9ba6e1d6b948a6b1bc3499a5397",
                             "m_Position": {
                                 "$type": 15,
-                                "x": -7.4,
+                                "x": 7.4,
                                 "y": 0.15,
                                 "z": 18.9
                             },
@@ -944,7 +944,7 @@
                             "m_Object": $fstrref:"UnityGUID:8d8722db083c3564291e3778cceeb1ae",
                             "m_Position": {
                                 "$type": 15,
-                                "x": -5.4,
+                                "x": 5.4,
                                 "y": 0.15,
                                 "z": 16.4
                             },
@@ -968,7 +968,7 @@
                             "m_Object": $fstrref:"UnityGUID:8d8722db083c3564291e3778cceeb1ae",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 0.4,
+                                "x": -0.4,
                                 "y": 0.15,
                                 "z": 16.4
                             },
@@ -992,7 +992,7 @@
                             "m_Object": $fstrref:"UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
                             "m_Position": {
                                 "$type": 15,
-                                "x": -5.1,
+                                "x": 5.1,
                                 "y": 2.35,
                                 "z": 14
                             },
@@ -1016,7 +1016,7 @@
                             "m_Object": $fstrref:"UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
                             "m_Position": {
                                 "$type": 15,
-                                "x": 0.1,
+                                "x": -0.1,
                                 "y": 2.35,
                                 "z": 14
                             },

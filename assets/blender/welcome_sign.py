@@ -176,7 +176,7 @@ BAND_SMOOTH = 0.45
 WE_MARGIN = 0.45
 WE_STANDOFF = 0.004
 PLANK_CENTRE_AUTH = (PLANK_FRONT_X, 0.0, 0.5 * (PLANK_Z[0] + PLANK_Z[1]))
-PLANK_CENTRE_GAME = (PLANK_CENTRE_AUTH[1], PLANK_CENTRE_AUTH[2], PLANK_CENTRE_AUTH[0])
+PLANK_CENTRE_GAME = (-PLANK_CENTRE_AUTH[1] + 0.0, PLANK_CENTRE_AUTH[2], PLANK_CENTRE_AUTH[0])   # gx = -y (x-sign gate N)
 WE_MAX_WIDTH = round(PLANK_W - 2 * WE_MARGIN, 3)
 WE_OFFSET = (PLANK_CENTRE_GAME[0], PLANK_CENTRE_GAME[1], round(PLANK_CENTRE_GAME[2] + WE_STANDOFF, 4))
 WE_LAYOUT = "assets/we/K45_WE/layouts/SkiResortGate.wedefault.xml"
@@ -225,7 +225,8 @@ SUB_OBJECT_NOTE = ("ObjectSubObjects on SkiResortGate (the deployed prefab: keep
 
 
 def fine_rows():
-    """The fine build's rows (game local (gx, gy, gz) = authoring (y, z, x), gx NOT negated): the two post
+    """The fine build's rows (DESIGN frame (gx, gy, gz) = authoring (y, z, x); lodge.sub_objects_block writes
+    them through rule T into the game frame, gx negated): the two post
     lanterns as short-range wall lights on the post fronts (the old lens height), facing the road (+Z)."""
     lx, lz = LANTERN_AT
     return tuple(WALL_LIGHT + ((sy * PIER_Y, lz, lx), (0.0, 0.0, 0.0, 1.0), 0) for sy in (-1.0, 1.0))
@@ -817,13 +818,13 @@ def contracts_authoring(obj, table, args):
 
 def contracts_oriented(obj, table):
     """G4 after orient_for_net (plank normal Blender -Y) and S6 (game-frame plank centre
-    = PLANK_CENTRE_GAME via the export map (x, y, z) -> (x, z, -y))."""
+    = PLANK_CENTRE_GAME via the export map (x, y, z) -> (-x, z, -y): the game negates FBX x)."""
     f = _faces_of(obj, table, FRONT_PROBE)[0]
     n = obj.matrix_world.to_3x3() @ f.normal
     if (n - Vector((0, -1, 0))).length > 1e-4:
         raise RuntimeError(f"G4: oriented plank normal {tuple(n)} != (0, -1, 0)")
     co = np.array([tuple(obj.matrix_world @ obj.data.vertices[v].co) for v in f.vertices]).mean(0)
-    game = (float(co[0]), float(co[2]), float(-co[1]))
+    game = (float(-co[0]) + 0.0, float(co[2]), float(-co[1]))      # FBX-raw (x, z, -y), then the game negates x
     if max(abs(a - b) for a, b in zip(game, PLANK_CENTRE_GAME)) > 1e-4:
         raise RuntimeError(f"S6: game plank centre {game} != {PLANK_CENTRE_GAME}")
     return dict(plank_centre_game=[round(x, 4) for x in game], normal_game=(0, 0, 1))

@@ -9,7 +9,7 @@ sub-objects, never modelled, so the review shows them as labelled boxes).
      night_subobjects (lattice towers). Every GUID has known bounds (cs2_liftdress.SUBOBJ or the
      assets/blender/subobj_bounds.json cache), and the cache agrees with SUBOBJ.
   B. FRAMES: every shipped row's stand-in box equals cs2_liftdress.subobj_box(...) (the generators'
-     own box test) mapped to the net-oriented pack frame (gx, -gz, gy); the tram rows' recorded
+     own box test) mapped to the net-oriented pack frame (-gx, -gz, gy) (x-sign gate N, 2026-10-16: was (gx, -gz, gy)); the tram rows' recorded
      `box` too.
   C. PACK: a synthetic asset with N rows in three block shapes (+ one unknown prop) is written with
      cs2_review.write_pack: N boxes + N text labels in SUB with the right bounds, positions,
@@ -65,8 +65,8 @@ def near(a, b, tol=TOL):
 
 
 def pack_aabb_from_game(lo, hi):
-    """A game-frame AABB -> the pack frame (gx, -gz, gy)."""
-    return ([lo[0], -hi[2], lo[1]], [hi[0], -lo[2], hi[1]])
+    """A game-frame AABB -> the pack frame (-gx, -gz, gy): the game negates FBX x (x-sign gate N)."""
+    return ([-hi[0], -hi[2], lo[1]], [-lo[0], -lo[2], hi[1]])
 
 
 # --------------------------------------------------------------------------------------
@@ -293,7 +293,7 @@ def test_synthetic_pack(work):
             lo, hi = S.aabb(xs)
             if bsrc == "unknown":
                 # a 0.5 m cube standing on its position
-                check(near(lo, (pos[0] - 0.25, -pos[2] - 0.25, pos[1])) and near(hi, (pos[0] + 0.25, -pos[2] + 0.25, pos[1] + 0.5)),
+                check(near(lo, (-pos[0] - 0.25, -pos[2] - 0.25, pos[1])) and near(hi, (-pos[0] + 0.25, -pos[2] + 0.25, pos[1] + 0.5)),
                       f"{tag}: unknown-bounds cube {lo} {hi}")
             else:
                 glo, ghi = LD.subobj_box(pf, pos, rot, frame="game") if pf in LD.SUBOBJ else \

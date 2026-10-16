@@ -3303,8 +3303,8 @@ def fd_kit_specs(role):
 
 
 def fd_kit_rows(role, colour_set=None):
-    """fine_detail.kit_row / kit_lean_row dicts (game local = prefab; yaw = the prop's +Z to `facing`) of
-    fd_kit_specs. Coloured props (the rack) name the role's colour set (`colour_set` or FD_KIT_COLOUR[role])."""
+    """fine_detail.kit_row / kit_lean_row dicts (DESIGN = prefab-numbers frame, X = FBX-raw x, NOT game: check_subobjects
+    writes them through rule T; yaw = the prop's +Z to `facing`) of fd_kit_specs. Coloured props (the rack) name the role's colour set (`colour_set` or FD_KIT_COLOUR[role])."""
     import fine_detail as FD
     rows = []
     cset = colour_set or FD_KIT_COLOUR[role]
@@ -3322,7 +3322,8 @@ def fd_kit_rows(role, colour_set=None):
 
 
 def _fd_host(P):
-    """Tram prefab (= game) (X, Y, Z) -> the z-up host frame of cs2_kitrows (Z, X, Y) (= tram_point)."""
+    """Tram design (prefab-numbers, FBX-raw x) frame (X, Y, Z) -> the z-up host frame of cs2_kitrows (Z, X, Y)
+    (= tram_point). The design frame is NOT game: game = (-X, Y, Z) (cs2_liftdress.tram_to_game)."""
     P = np.asarray(P, dtype=np.float64)
     return P[..., [2, 0, 1]]
 
@@ -3413,8 +3414,8 @@ def fine_detail_block(role, report):
         return None
     msg, nums = report.get("F1") or ({}, None)
     blk = (report.get("C16") or {}).get("block") or {}
-    lamps = ([{"part": "lamp_annexdoor", "row": FD_ANNEX_LIGHT[0], "pos": [round(v, 4) for v in pf(role, FD_ANNEX_LIGHT[1])],
-               "facing": FD_ANNEX_LIGHT[2], "why": "design A.2 (the tram base's wall lamps -> short-range wall "
+    lamps = ([{"part": "lamp_annexdoor", "row": FD_ANNEX_LIGHT[0], "pos": [round(v, 4) + 0.0 for v in _LD().rule_t_pos(pf(role, FD_ANNEX_LIGHT[1]))],
+               "facing": FD_ANNEX_LIGHT[2] + " (design frame; pos is game: rule T)", "why": "design A.2 (the tram base's wall lamps -> short-range wall "
                                                   "lights); the bar's lens centre"}] if role == "base" else [])
     kept = {"labels / LIFT boards": "FS5: the host atlas (TICKETS, LIFT OPS, departure board, station name, "
                                     "tension, the three trail boards)",
@@ -5965,11 +5966,17 @@ def check_subobjects(obj, role):
         rows.append(r)
     if msgs:
         _fail("C16", "; ".join(msgs))
-    vrows = [(r["prefab"], r["pos"], r["rot"], r["parent"]) for r in rows]
+    # x-sign gate N (2026-10-15 playtest; T14 / S1b-N 2026-10-16): everything above is the DESIGN (prefab-numbers)
+    # frame, X = FBX-raw x, which the game negates on import. The manifest block is the GAME frame: rule T
+    # (x -> -x, q -> (qx, -qy, -qz, qw); cs2_liftdress.rule_t_pos / rule_t_rot, fine_detail.design_row_to_game).
+    # r["pos"] / r["rot"] in the report rows stay design-frame (the box tests above run in it).
+    vrows = [(r["prefab"], LD.rule_t_pos(r["pos"]), LD.rule_t_rot(r["rot"]), r["parent"]) for r in rows]
     kit = fd_kit_rows(role)
     if FINE_DETAIL and DETAIL1:
+        import fine_detail as FD
+        kit = [FD.design_row_to_game(k) for k in kit]
         # fine-detail step 3c: + the dressing kit's "mod" rows (cs2_liftdress.sub_object_rows fine=True: kinds,
-        # x_convention = this generator's frame: tram prefab = game, game x = +authoring y, the default string)
+        # x_convention = the default STATION_X_CONVENTION: game x = -authoring y = -(design X))
         block = LD.sub_object_rows(PREFAB_NAMES[role], vrows + kit, fine=True)
     else:
         block = LD.sub_object_rows(PREFAB_NAMES[role], vrows)
@@ -6475,6 +6482,9 @@ def prefab_contract(role, report, atlas_rule, base_report, switch):
     if role == "top":
         wheels["anchor_drums"] = report.get("drums")
     out = {
+        "x_frame": "design / FBX-raw x; game x = -x (x-sign gate settled N 2026-10-15): every x below (stubs, docks, "
+                   "hosted, wheel centres, bounds, axis_x) is NOT game - negate it when writing prefab rows; the "
+                   "sub_objects block is already written through rule T (game frame)",
         "prefab": PREFAB_NAMES[role], "lot": [W, D], "stub_tip_z": STUB_Z, "face_z": FACE_Z,
         "deck_y": DECK_Y, "pivot_y": PIVOT_Y, "track_y": TRACK_Y, "haul_y": HAUL_Y,
         "carriage_top_y": CARRIAGE_TOP_Y, "hang_m": HANG_M,

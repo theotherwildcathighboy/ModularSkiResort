@@ -262,7 +262,7 @@ namespace LiftBatch
         /// <summary>The tram (LC-2): base 0 (Role Base) yaw 180 with its LINE AXIS on world x 0, top 1 (Role Top) at
         /// (0, 400, 1000) yaw 0, track ropes ±halfGauge about each station's axis at y 16, stub tips local z −12, docks
         /// from the SkiCatalog tram rows, `spans` spans, lift type 3. Nitpick B2 (2026-10-13): the base's 6 x 3 lot put its
-        /// axis at prefab x StubTipLocalX −4.00 (docks (−9.50 / 1.50, 16, −5.50)), so the base origin stands at world
+        /// axis at prefab x StubTipLocalX −4.00 (docks (−9.50 / 1.50, 16, −5.50); since T14 x-sign N, 2026-10-16: +4.00 and (9.50 / −1.50)), so the base origin stands at world
         /// x = StubTipLocalX (yaw 180 maps local x a to world origin.x − a): every world rope end, dock and run is the
         /// one the axis-0 rows gave (base docks world (±5.5, 16, 5.5)).</summary>
         private static Graph Tram(float halfGauge = 5.5f, int spans = 3, float baseY = 0f, float topY = 400f, bool roles = true)
@@ -373,8 +373,9 @@ namespace LiftBatch
             Eq(1, SideOf(g, p.A), W, "chain A world side (+x, right looking uphill)");
             Eq(-1, SideOf(g, p.B), W, "chain B world side");
             Eq(true, p.UpLaneDecided && p.UpLaneSwapped, W, "up lane decided and swapped (the −x rope is found first)");
-            Eq(0, (int)p.ABaseDock, W, "ABaseDock (base local −X = world +x under yaw 180)");
-            Eq(1, (int)p.BBaseDock, W, "BBaseDock");
+            // T14 x-sign N (2026-10-16): dock A is the +X bay now (local 9.5), B the −X bay (−1.5): chain A (world +x) takes dock 1
+            Eq(1, (int)p.ABaseDock, W, "ABaseDock (base local −X = world +x under yaw 180 = dock B, index 1)");
+            Eq(0, (int)p.BBaseDock, W, "BBaseDock");
             Eq(1, (int)p.ATopDock, W, "ATopDock (top yaw 0: world +x = local +X — the dock index is per station)");
             Eq(0, (int)p.BTopDock, W, "BTopDock");
             Near(6.5, p.ABaseRunM, 1e-4, W, "ABaseRunM");
@@ -385,8 +386,9 @@ namespace LiftBatch
             Near(11.0, p.BaseGapM, 1e-4, W, "BaseGapM");
             Near(11.0, p.TopGapM, 1e-4, W, "TopGapM");
             Eq(3, p.TypeIndex, W, "TypeIndex (tram)");
-            // The docks themselves: world (5.5, 16, 5.5) / (−5.5, 16, 5.5) at the base, (−5.5, 416, 994.5) / (5.5, …) at the top.
-            Check(math.distance(g.Stations[0].DockA, new float3(5.5f, 16f, 5.5f)) < 1e-4f, W, "base DockA world " + g.Stations[0].DockA);
+            // The docks themselves: world (−5.5, 16, 5.5) / (5.5, 16, 5.5) at the base (T14 x-sign N, 2026-10-16: A is the +X
+            // bay, local 9.5, which yaw 180 about x 4 puts at world −5.5; was (5.5, …) / (−5.5, …)), (−5.5, 416, 994.5) / (5.5, …) at the top.
+            Check(math.distance(g.Stations[0].DockA, new float3(-5.5f, 16f, 5.5f)) < 1e-4f, W, "base DockA world " + g.Stations[0].DockA);
             Check(math.distance(g.Stations[1].DockA, new float3(-5.5f, 416f, 994.5f)) < 1e-4f, W, "top DockA world " + g.Stations[1].DockA);
 
             // The same ropes as a loop: 11 m is no bullwheel (ArcSane wants 1-10) — the tram can never close as a loop.
@@ -635,9 +637,9 @@ namespace LiftBatch
                 Eq(true, p.BaseByRole, W, "BaseByRole");
                 Check(p.A.StartStation == 0 && p.B.StartStation == 0, W, "chains not oriented from the role base");
                 Eq(1, SideOf(g, p.A), W, "A = right looking from the base toward the top (+z: +x)");
-                Eq(0, (int)p.ABaseDock, W, "ABaseDock");
+                Eq(1, (int)p.ABaseDock, W, "ABaseDock (T14 x-sign N, 2026-10-16: chain A takes the −X bay = dock B, index 1)");
             }
-            LiftLoopTopology l = g.Build(LiftLoopTopology.Mode.Loop);
+            LiftLoopTopology l =g.Build(LiftLoopTopology.Mode.Loop);
             if (Check(l.Pairs.Count == 1, W, "loop pairs"))
             {
                 Eq(1, l.Pairs[0].Base, W, "Loop base = the lower station");
@@ -667,7 +669,7 @@ namespace LiftBatch
             }
 
             Graph far = Tram();
-            float bx = SkiCatalog.StationOf(3, StationRole.Base).StubTipLocalX;   // nitpick B2: the base's line axis (−4.00)
+            float bx = SkiCatalog.StationOf(3, StationRole.Base).StubTipLocalX;   // nitpick B2: the base's line axis (+4.00 since T14 x-sign N)
             far.Docks(0, new float3(bx - 5.5f, 16f, 29f), new float3(bx + 5.5f, 16f, -5.5f));   // DockA 41 m from rope A's end
             LiftLoopTopology f = far.Build(LiftLoopTopology.Mode.Shuttle);
             if (Check(f.Pairs.Count == 1 && f.Pairs[0].Status == LiftLoopTopology.PairStatus.Ok, W, "(b) pair not Ok"))
@@ -689,7 +691,7 @@ namespace LiftBatch
                 LiftLoopTopology.Pair p = n.Pairs[0];
                 Check(p.ATopDock == -1 && p.BTopDock == -1 && p.ATopRunM == 0f && p.BTopRunM == 0f && p.ATopRefusedM == 0f, W,
                       "(c) NaN docks assigned something");
-                Eq(0, (int)p.ABaseDock, W, "(c) the base docks as usual");
+                Eq(1, (int)p.ABaseDock, W, "(c) the base docks as usual (T14 x-sign N, 2026-10-16: A takes dock index 1)");
             }
 
             Check(LiftLoopTopology.ShuttleGapSane(4f) && LiftLoopTopology.ShuttleGapSane(24f), W, "(d) the window bounds are inclusive");

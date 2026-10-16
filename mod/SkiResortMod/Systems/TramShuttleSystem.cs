@@ -5,11 +5,11 @@
 // by the loopcache group (C18); this is the body. The dev-tab foldout is TramShuttleSystem.Debug.cs (C17).
 //
 // WHAT IT MOVES. The Shuttle carriers (a SkiCatalog lift type whose Mover is Shuttle: the tram and its cabin prefab)
-// HOSTED on a Shuttle Base station: R29 — the base prefab's ObjectSubObjects list the two cabins at (-5.50 / +5.50, 6.00,
-// -5.50), identity, m_ParentMesh 0; the top station hosts none. Cabin A rides chain A (the up lane, right looking
+// HOSTED on a Shuttle Base station: R29 — the base prefab's ObjectSubObjects list the two cabins at (9.50 / -1.50, 6.00,
+// -5.50; T14 x-sign N, 2026-10-16, game frame, was -9.50 / 1.50 before the mirror), identity, m_ParentMesh 0; the top station hosts none. Cabin A rides chain A (the up lane, right looking
 // uphill, StationAlign.UpLaneIsSecond), cabin B rides chain B; both paths run base dock -> top dock
 // (LiftLoopCache.BuildShuttles, the open-chain mode: the two chains UNCLOSED, each extended by a straight run from / to
-// the station's track-rope dock, StationDef.DockLocalA / B = (-5.50 / +5.50, 16.00, -5.50)). Lanes: the track ropes are
+// the station's track-rope dock, StationDef.DockLocalA / B = (9.50 / -1.50, 16.00, -5.50) on the base, (-5.50 / +5.50, ...) on the top). Lanes: the track ropes are
 // the line's ONLY high-voltage lanes (R28: the haul ropes are low-voltage, UtilityType 8, skipped by the HV flag; a third
 // HV lane per side would give "3 chain(s), need exactly 2" and no path). ChairPinSystem never touches a Shuttle carrier
 // (IsPinnable) and never harvests a Shuttle line's lanes (its LogPrefabState writes the hand-off line once per load).

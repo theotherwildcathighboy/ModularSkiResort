@@ -304,8 +304,8 @@ namespace SkiResortMod.Systems
             return def != null ? def.StubTipLocalZ : StationAlign.StubTipLocalZ;
         }
 
-        /// <summary>Nitpick B2 (2026-10-13): the row's line axis x (StationDef.StubTipLocalX: −4.00 on the tram base's 6 x 3
-        /// lot), 0 without a row.</summary>
+        /// <summary>Nitpick B2 (2026-10-13): the row's line axis x (StationDef.StubTipLocalX: +4.00 on the tram base's 6 x 3
+        /// lot since T14 x-sign N, 2026-10-16; was −4.00), 0 without a row.</summary>
         private static float StubX(StationDef def)
         {
             return def != null ? def.StubTipLocalX : 0f;

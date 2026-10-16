@@ -3702,11 +3702,13 @@ def row_spec(spec, pr, staging):
                       "+Z to game +Z = authoring +X; leaning props may add a pitch about the prop's x axis "
                       "(the foot line) to change the lean",
           # fine-detail step 3a (2026-10-12): the frame the rotation is read in (step-2 report section 4)
-          "frame": "hosts' row frame (fine_detail.X_CONVENTION, every shipped building manifest): game "
-                   "(gx, gy, gz) = authoring (y, z, x), gx NOT negated (probe X2 decides; branch N mirrors "
-                   "every row in S1b). In it the IDENTITY rotation puts the prop's +Z (front / out of the "
-                   "wall) on game +Z = authoring +X and its long axis (prefab x) on game x = authoring y "
-                   "(fine-detail step 2 D11: the kit frame = the removed rack vertex for vertex at identity)"}
+          "frame": "hosts' row frame (fine_detail.X_CONVENTION, every building manifest): game "
+                   "(gx, gy, gz) = (-y, z, x) of authoring, gx NEGATED (x-sign gate settled N, 2026-10-15 "
+                   "playtest; rows are designed in the old +y frame and written through rule T, "
+                   "fine_detail.design_row_to_game). IDENTITY rotation = the prop's +Z (front / out of the "
+                   "wall) on game +Z = authoring +X; its long axis (prefab x) lies on authoring y, "
+                   "mirrored by the game's x negation (fine-detail step 2 D11: the kit frame = the removed "
+                   "rack vertex for vertex at identity IN THE DESIGN FRAME)"}
     k = spec["kind"]
     if k == "wall":
         rs["pivot"] = "wall plane (prop back at prefab z 0), bottom of the prop at y 0, centred on x"

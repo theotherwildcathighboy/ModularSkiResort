@@ -57,9 +57,11 @@ Block shapes read (tests/test_review_subobjects.py reads every shipped manifest)
 FRAMES (verified by ray-casting every shipped row onto its pack's LOD0, 2026-10-12)
 -----------------------------------------------------------------------------------
 Rows are game-local (x lateral, y up, z travel). The packs hold the generators' NET-ORIENTED
-objects (cs2_asset.orient_for_net runs before write_pack in every generator), and export_fbx
-bakes (x, y, z) -> (x, z, -y), so game (gx, gy, gz) = pack (bx, bz, -by) and
-    pack = (gx, -gz, gy)                     game_to_pack()
+objects (cs2_asset.orient_for_net runs before write_pack in every generator), export_fbx
+bakes (x, y, z) -> (x, z, -y) and the game negates FBX x on import (x-sign gate settled N,
+2026-10-15 playtest; 2026-10-16 / T14: before that this module drew pack = (gx, -gz, gy), the
+old +x frame), so game (gx, gy, gz) = pack (-bx, bz, -by) and
+    pack = (-gx, -gz, gy)                    game_to_pack()
 (tram_station._Q, lift_terminal_detach._post(blender_to_game(...)) are the same map). A yaw
 quaternion turns the prop's local +Z towards +X (cs2_liftdress.facing_quat); the corner transform
 below is cs2_liftdress.subobj_box's, so a stand-in's world AABB equals subobj_box(...) mapped to
@@ -154,12 +156,13 @@ LABEL_FACING = (1.0, -1.2)
 # --------------------------------------------------------------------------------------
 
 def game_to_pack(p):
-    """Prefab-local (gx, gy, gz) -> the net-oriented pack frame (bx, by, bz) = (gx, -gz, gy)."""
-    return (float(p[0]), -float(p[2]), float(p[1]))
+    """Prefab-local (gx, gy, gz) -> the net-oriented pack frame (bx, by, bz) = (-gx, -gz, gy) (gx NEGATED:
+    the game negates FBX x on import; x-sign gate N)."""
+    return (-float(p[0]) + 0.0, -float(p[2]), float(p[1]))
 
 
 def pack_to_game(p):
-    return (float(p[0]), float(p[2]), -float(p[1]))
+    return (-float(p[0]) + 0.0, float(p[2]), -float(p[1]))
 
 
 def quat_matrix(q):

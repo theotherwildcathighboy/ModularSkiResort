@@ -40,7 +40,7 @@
 //   * LiftTypeSpec / LiftTypeDef .AccelMps2, .DwellS: the shuttle profile (ShuttleProfile.cs). Tram 0.8 m/s² (the brief's
 //     "0.8 m/s² or similar"; real jig-back trams are quoted around 0.5-1.0 m/s² — unverified, no source read this round)
 //     and 60 s (ROUND-SPEC §5 "dwell 60 s"; carriers.json tram dwell_s 60, CT-11). Loop types 0 / 0 (unused).
-//   * StationDef .DockLocalA / .DockLocalB: the track-rope point at the −X / +X bay, prefab-local (C16: at the ROPE,
+//   * StationDef .DockLocalA / .DockLocalB: the track-rope point at bay 0 / 1 (tram top −X / +X; the tram base +X / −X since T14 x-sign N, 2026-10-16), prefab-local (C16: at the ROPE,
 //     y 16.00 = track y, not the carriage top 16.50 of R27); NaN on Loop stations. .HostsCarriers: the prefab's
 //     ObjectSubObjects host this type's carriers (the tram base, R29). Source: SkiTram{Base,Top}StationA.manifest.json
 //     prefab_contract.docks[0..1].rope (−5.50 / 5.50, 16.00, −5.50) on both stations (gondola-tram-integration §10.4).
@@ -54,6 +54,9 @@
 // side for the 1:8 ramp, a CS2 lot is centred on the prefab origin, so the building moved 4.00 m toward -X - axis -4.00,
 // docks (-9.50 / 1.50, 16.00, -5.50) (SkiTramBaseStationA.manifest.json prefab_contract.axis_x / docks). Sanity: a
 // Shuttle station's docks are centred on its axis.
+// T14 / S1b-N (2026-10-16): the game negates FBX x on import; the prefab rows are mirrored (x -> -x), so in the GAME
+// frame the tram base's axis is +4.00 and its docks A / B (9.50 / -1.50, 16.00, -5.50); the manifest numbers quoted above
+// are the authoring frame (-x). The tram top (axis 0, docks -5.50 / 5.50) maps onto itself and is unchanged.
 
 using System;
 using System.Collections.Generic;
@@ -284,10 +287,10 @@ namespace SkiResortMod.Systems
         public readonly int BuildCost;         // informational mirror of PlaceableObject.m_ConstructionCost (the hub reads the prefab)
         public readonly string BuildItemId;    // "baseStation", "topStationDetachable", …
         public readonly bool Expected;         // this NAME's flag
-        /// <summary>Catalog Phase C (round-3-contract §1.1, C16): the track-rope point at the −X bay, prefab-local (the
-        /// tram: (−5.50, 16.00, −5.50)); NaN = no dock (Loop stations).</summary>
+        /// <summary>Catalog Phase C (round-3-contract §1.1, C16): the track-rope point at the hosted-entry-0 bay, prefab-local
+        /// (T14 x-sign N, 2026-10-16: the tram base's A is the +X bay (9.50, 16.00, −5.50), the tram top's A the −X bay (−5.50, 16.00, −5.50)); NaN = no dock (Loop stations).</summary>
         public readonly float3 DockLocalA;
-        /// <summary>Catalog Phase C: the +X bay's track-rope point; NaN = no dock.</summary>
+        /// <summary>Catalog Phase C: the other bay's track-rope point (T14: the tram base's B is the −X bay (−1.50, 16.00, −5.50), the top's the +X bay); NaN = no dock.</summary>
         public readonly float3 DockLocalB;
         /// <summary>Catalog Phase C: the prefab's ObjectSubObjects host this type's carriers (the tram base, R29).</summary>
         public readonly bool HostsCarriers;
@@ -846,7 +849,8 @@ namespace SkiResortMod.Systems
                 //    SkiTram{Base,Top}StationA.manifest.json prefab_contract.stub_tip_z / docks / axis_x. S1 re-read
                 //    (2026-10-13, before the station surgery): DQ (0, 3.70, 9.60) / (0, 3.70, 5.60) −16, gondola
                 //    (0, 4.85, 9.40) / (0, 4.85, 5.40) −16, tram base docks (−9.50 / 1.50, 16.00, −5.50) axis −4.00 −12,
-                //    tram top (−5.50 / 5.50, 16.00, −5.50) axis 0 −12: every row below equals its manifest.
+                //    tram top (−5.50 / 5.50, 16.00, −5.50) axis 0 −12: every row below equals its manifest (S1 time; since T14 the
+                //    tram base row is in the GAME frame: docks (9.50 / −1.50) axis +4.00, the manifest x negated).
                 //    BuildCost = the type's StationCost{Base,Top} (Sanity checks it). ──
                 float nan = float.NaN;
                 stations = new[]
@@ -866,8 +870,11 @@ namespace SkiResortMod.Systems
                     // Nitpick B2 (2026-10-13, build/nitpick-b2-tram-ramps.md): the base's lot 5 x 3 -> 6 x 3 (the new cell on the
                     // clock-tower side) moved its building 4.00 m toward -X: the line axis at prefab x -4.00 (manifest
                     // prefab_contract.axis_x), the docks (-5.50 / 5.50) -> (-9.50 / 1.50); the top is unchanged.
+                    // T14 / S1b-N (2026-10-16): the game negates FBX x on import, so the base's prefab rows were mirrored (rule T,
+                    // x -> -x): the line axis is at prefab x +4.00 and the docks A / B are (9.50 / -1.50) = hosted cabin entries 0 / 1
+                    // (docks A = the +X bay now, B = the -X bay; the manifest numbers above are the authoring frame, game x = -x).
                     Station(lifts, Names.StationTramBase, StationRole.Base, "tram", new float3(nan, nan, nan), -12f, 300000, "baseStationTram", true,
-                            new float3(-9.50f, 16.00f, -5.50f), new float3(1.50f, 16.00f, -5.50f), true, -4.00f),
+                            new float3(9.50f, 16.00f, -5.50f), new float3(-1.50f, 16.00f, -5.50f), true, 4.00f),
                     Station(lifts, Names.StationTramTop, StationRole.Top, "tram", new float3(nan, nan, nan), -12f, 190000, "topStationTram", true,
                             new float3(-5.50f, 16.00f, -5.50f), new float3(5.50f, 16.00f, -5.50f), false),
                 };
@@ -1219,7 +1226,7 @@ namespace SkiResortMod.Systems
                         problems.Add("station '" + s.Prefab + "' of Shuttle type '" + l.Id + "' has DockLocalA " + s.DockLocalA +
                                      " / DockLocalB " + s.DockLocalB + " (want both finite: the track-rope point at each bay)");
                     else if (!(math.abs((s.DockLocalA.x + s.DockLocalB.x) * 0.5f - s.StubTipLocalX) <= 1e-3f))
-                        // nitpick B2: the two bays sit either side of the line axis (the tram base: -9.50 / 1.50 about -4.00)
+                        // nitpick B2: the two bays sit either side of the line axis (the tram base: 9.50 / -1.50 about +4.00 since T14 x-sign N, 2026-10-16)
                         problems.Add("station '" + s.Prefab + "' of Shuttle type '" + l.Id + "' has its docks centred on x " +
                                      ((s.DockLocalA.x + s.DockLocalB.x) * 0.5f) + ", not on its line axis StubTipLocalX " +
                                      s.StubTipLocalX);
