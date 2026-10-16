@@ -157,6 +157,18 @@ def parse_args(argv=None):
     ap.add_argument("--signset-out", default=None,
                     help="letter folder for the sign set (default: assets/import/signs/<letter> "
                          "with --export, else <out>/../signs/<letter>)")
+    # T16 texture-parity probe (2026-10-16, docs/research/art/texture-parity-2026-10-16.md):
+    # recipe.tiled (or this flag) = LOD0 on the shared tile sheet (cs2_tilesheet), LOD1/LOD2 on
+    # an own "far" unique bake. Off = every build byte-identical to before.
+    ap.add_argument("--tiled", action="store_true",
+                    help="T16 probe: LOD0 tiled on the family sheet (sets recipe.tiled)")
+    ap.add_argument("--sheet-tex", type=int, default=4096, choices=(2048, 4096),
+                    help="tiled: family sheet size (4 x 4 swatches)")
+    ap.add_argument("--far-tex", type=int, default=1024, choices=(512, 1024, 2048),
+                    help="tiled: LOD1/LOD2 own unique set (the --tex auto size in tiled mode)")
+    ap.add_argument("--ppm-report", action="store_true",
+                    help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
+                         "no effect on the maps)")
     return ap.parse_args(argv)
 
 
@@ -1154,6 +1166,9 @@ def run(recipe, args):
     # fine-detail pass (opt-in): a plain Recipe passes through unchanged
     recipe = FD.effective(recipe, fine=not getattr(args, "no_fine", False),
                           signset=not getattr(args, "no_signset", False))
+    if getattr(args, "tiled", False):
+        recipe = replace(recipe, tiled=True)
+    tiled = bool(getattr(recipe, "tiled", False)) and args.finish and not args.blockout
     if getattr(args, "signset", False) and FD.sign_set_of(recipe) is None:
         raise RuntimeError(f"{recipe.key}: --signset but the recipe declares no sign set "
                            f"(or --no-signset / --no-fine dropped it)")
@@ -1236,6 +1251,8 @@ def run(recipe, args):
     n0 = K.assert_budget(obj, recipe.budget, 0)
     area = area_report(obj, recipe)
     A = recipe.tex if args.tex == "auto" else int(args.tex)
+    if tiled and args.tex == "auto":
+        A = int(getattr(args, "far_tex", 1024))
     base_ppm = area["predicted_ppm_w1"].get(A) or (0.48 * A / math.sqrt(max(area["sum_w2a"], 1)))
     print(f"[lodge] {name}: LOD0 {n0} tris, kept {area['kept_m2']} m2, sum w2a "
           f"{area['sum_w2a']}, predicted w=1 px/m {area['predicted_ppm_w1']}")
@@ -1259,12 +1276,26 @@ def run(recipe, args):
     finished = False
     hook = None
     mat_info = None
+    lod0_tiled = None
+    mat_idx0 = None
+    if args.finish and (tiled or getattr(args, "ppm_report", False)):
+        mat_idx0 = np.zeros(len(obj.data.polygons), np.int32)
+        obj.data.polygons.foreach_get("material_index", mat_idx0)
+    if tiled:
+        # T16: the unsliced, un-aligned copy (world-anchored UVTile, material slots) becomes
+        # LOD0; `obj` goes on through the unchanged bake as the LOD1/LOD2 "far" set
+        lod0_tiled = obj.copy()
+        lod0_tiled.data = obj.data.copy()
+        lod0_tiled.name = name + "Tiled"
+        bpy.context.scene.collection.objects.link(lod0_tiled)
+        if recipe.allow_4096:
+            print("[lodge] tiled: R18 4096 escalation off (the far set is a LOD1/LOD2 set)")
     if args.finish:
         # pack-friendly UVTile islands (cs2_uv packs axis-aligned boxes, no rotation)
         result["aligned"] = K.align_islands(obj)
         result["split_islands"] = K.split_poor_islands(obj)
         prebake = None
-        if recipe.allow_4096 and args.tex == "auto":
+        if recipe.allow_4096 and args.tex == "auto" and not tiled:
             prebake = obj.copy()
             prebake.data = obj.data.copy()
             prebake.name = name + "Prebake"
@@ -1336,6 +1367,14 @@ def run(recipe, args):
             result["bake"]["stale_maps_removed"] = stale
         result["density"] = hook.density
         result["materials"] = mat_info
+        if mat_idx0 is not None:
+            import cs2_tilesheet as TS
+            result["ppm_by_material"] = TS.face_ppm(obj, A, keys, mat_index=mat_idx0)
+            result["smooth_by_material"] = TS.mask_stats(
+                obj, os.path.join(asset_dir, f"{name}_MaskMap.png"), keys, mat_index=mat_idx0)
+        if tiled:
+            obj, far = _tiled_lod0(obj, lod0_tiled, recipe, args, name, asset_dir, keys, rep,
+                                   result, A)
     else:
         obj.data.materials.clear()
     T["bake"] = time.perf_counter() - t0
@@ -1349,9 +1388,10 @@ def run(recipe, args):
     # 18-19 LOD chain + checks
     lods = []
     if args.lods:
-        (t1, t2), plan = plan_lod_targets(obj, table, recipe)
+        src = far if tiled else obj
+        (t1, t2), plan = plan_lod_targets(src, table, recipe)
         d1, d2 = delete_lists(recipe, table)
-        lods, infos = K.lod_chain(obj, name, (t1, t2), (d1, d2), recipe.ground_prefixes)
+        lods, infos = K.lod_chain(src, name, (t1, t2), (d1, d2), recipe.ground_prefixes)
         result["lod_plan"] = plan
         result["lod_info"] = infos
         for lvl, lod in enumerate(lods, start=1):
@@ -1369,7 +1409,10 @@ def run(recipe, args):
         result["sign_set"].update(_export_sign_set(signset, recipe, args, name, obj, lods, result,
                                                    area))
     # 20 settings
-    cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)))
+    if tiled:
+        _tiled_settings(asset_dir, name, len(lods))
+    else:
+        cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)))
     # 21 previews / review
     tint = {"RGB"[k - 1]: tuple(v) for k, v in recipe.slots.items()}
     if args.preview is not None and finished:
@@ -1378,7 +1421,7 @@ def run(recipe, args):
         if args.ab is None and recipe.key in AB_DEFAULT:
             cand = os.path.join(IMPORT_ROOT, AB_DEFAULT[recipe.key])
             args.ab = cand if os.path.isdir(cand) else None
-        modes = ["pbr", "dusk", "normals", "density"] + (["lod"] if lods else []) + \
+        modes = ["pbr", "dusk", "normals", "density"] + (["lod"] if lods and not tiled else []) + \
             (["ab"] if args.ab else [])
         files = cs2_preview.preview(obj, asset_dir, name, prev, modes=tuple(modes),
                                     views=list(VIEWS) + list(recipe.views), lods=lods or None,
@@ -1421,6 +1464,98 @@ def run(recipe, args):
     print(f"PASS lodge: {name} LOD0 {result['tris'][0]}, chain {chain}, rooms {len(cells)}, "
           f"engine base {base0['verdict']}, tex {A}, px/m med {med}")
     return result
+
+
+def _tiled_lod0(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far):
+    """T16 probe (docs/research/art/texture-parity-2026-10-16.md): rename the far bake's maps
+    to <name>_LOD1_* (emissive dropped: LOD0-only engine-side, DECISIONS 77), build the family
+    sheet into the asset folder as the LOD0 maps, re-mesh `lod0` onto it
+    (cs2_tilesheet.tile_mesh), paint the recipe labels into the sheet's label swatch, measure.
+    Returns (lod0 renamed to `name`, far)."""
+    import cs2_tilesheet as TS
+    t0 = time.perf_counter()
+    renamed = []
+    for f in rep["files"]:
+        if f.endswith("_Emissive.png"):
+            os.remove(os.path.join(asset_dir, f))
+            continue
+        dst = f.replace(f"{name}_", f"{name}_LOD1_", 1)
+        os.replace(os.path.join(asset_dir, f), os.path.join(asset_dir, dst))
+        renamed.append(dst)
+    far.name = name + "Far"
+    far.data.name = name + "Far"
+    lod0.name = name
+    lod0.data.name = name
+    SA = int(getattr(args, "sheet_tex", 4096))
+    layout = TS.build_sheet(asset_dir, name, A=SA, swatch=SA // 4, pad=max(16, SA // 128))
+    uvt = cs2_uv.loop_uvs(lod0.data.uv_layers[cs2_bake.TILE_LAYER])
+    tm = TS.tile_mesh(lod0, uvt, sorted(keys), layout,
+                      label_prefixes=tuple(p for p, _pa, _kw in recipe.labels),
+                      ground_prefixes=tuple(recipe.ground_prefixes) if recipe.base_mode == "engine" else (),
+                      label_ppm=TS.LABEL_PPM * (SA // 4) / 1024.0)
+    table = json.loads(lod0.data[cs2_asset.PART_TABLE_PROP])
+    TS.fill_label_backgrounds(layout, tm["label_rects"])
+    base, ctl = layout["maps"]["base"], layout["maps"]["ctl"]
+    # oriented painters (recipes/_civic.find_baking_mesh) want ONE mesh with a UVUnique layer:
+    # hide the far mesh's layer name while the sheet's labels are painted
+    far_uv = far.data.uv_layers.get(cs2_uv.UNIQUE_LAYER)
+    if far_uv is not None:
+        far_uv.name = "UVUniqueFarSet"
+    try:
+        for prefix, painter, kw in recipe.labels:
+            p = K.make_painter(painter, kw, face=prefix)
+            cs2_compose.stamp_on_face(base, ctl, lod0.data, table, prefix, p)
+    finally:
+        if far_uv is not None:
+            far.data.uv_layers["UVUniqueFarSet"].name = cs2_uv.UNIQUE_LAYER
+    emis = any(n.startswith("lamp_") for n in table)
+    files = TS.write_sheet(layout, emissive=emis)
+    ppm = TS.face_ppm(lod0, SA, sorted(keys))
+    tm["uv_outside_region"] = TS.check_uv_cells(lod0, layout, sorted(keys))
+    print(f"[lodge] tiled: faces sampling outside their sheet region {tm['uv_outside_region']}")
+    smooth = TS.mask_stats(lod0, os.path.join(asset_dir, f"{name}_MaskMap.png"), sorted(keys))
+    attr = lod0.data.attributes.get("cs2ts_mat")
+    if attr is not None:
+        lod0.data.attributes.remove(attr)
+    lod0.data.materials.clear()
+    for lay in [l.name for l in lod0.data.uv_layers if l.name != cs2_uv.UNIQUE_LAYER]:
+        lod0.data.uv_layers.remove(lod0.data.uv_layers[lay])
+    tris0 = cs2_asset.tri_count(lod0)
+    result["tris"][0] = tris0
+    result["base"][0] = K.check_base_mode(lod0, table, recipe.base_mode, recipe.ground_prefixes,
+                                          recipe.plinth)
+    result["tiled"] = {
+        "sheet": {"A": SA, "swatch": SA // 4, "pad": layout["pad"], "content": layout["C"],
+                  "files": files, "mb_raw_bc7": TS.bc7_mb(SA, len(files)),
+                  "tiles": layout["tiles"], "palette": layout["palette"],
+                  "label_rect": layout["label_rect"]},
+        "far": {"A": A_far, "files": renamed, "mb_raw_bc7": TS.bc7_mb(A_far, len(renamed))},
+        "tile_mesh": tm, "ppm_by_material": ppm, "smooth_by_material": smooth,
+        "lod0_tris": tris0, "seconds": round(time.perf_counter() - t0, 1),
+    }
+    print(f"[lodge] tiled: LOD0 {tris0} tris on the {SA} sheet ({tm['sliced_tris']} tris sliced into "
+          f"{tm['pieces']} pieces, {tm['tjunction_inserts']} T-junction inserts); far set {A_far}")
+    for k, v in ppm.items():
+        print(f"[lodge] tiled px/m {k:14s} p10 {v['p10']:7.1f} p50 {v['p50']:7.1f} "
+              f"p90 {v['p90']:7.1f} ({v['area_m2']} m2)")
+    K.assert_budget(lod0, recipe.budget, 0)
+    return lod0, far
+
+
+def _tiled_settings(asset_dir, name, n_lods):
+    """T16 probe settings.json: LOD0 = the sheet maps in this folder (a production build points
+    them at the family owner with sharedAssets, cs2_asset.write_settings(shared_from=...)); LOD1
+    ships its own maps (they bind by the LOD1 name); LOD2 shares LOD1's."""
+    shared = {}
+    if n_lods >= 2:
+        for m in ("BaseColor", "Normal", "MaskMap", "ControlMask"):
+            shared[f"{name}_LOD2_{m}.png"] = f"{name}_LOD1_{m}.png"
+    settings = {"sharedAssets": shared} if shared else {}
+    for lvl in range(1, n_lods + 1):
+        settings[f"LOD{lvl}"] = {"mode": "Skip"}
+    with open(os.path.join(asset_dir, "settings.json"), "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(settings, fh, indent=2)
+        fh.write("\n")
 
 
 def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
@@ -1474,6 +1609,10 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
             "boards": result["we_boards"]}
     if recipe.sub_objects:
         data["sub_objects"] = sub_objects_block(recipe)
+    # T16 probe keys (only when asked: --ppm-report / --tiled; other manifests keep their key set)
+    for k in ("ppm_by_material", "smooth_by_material", "tiled"):
+        if result.get(k) is not None:
+            data[k] = result[k]
     if isinstance(recipe, FD.FineRecipe):
         ss = {k: v for k, v in (result.get("sign_set") or {}).items() if k not in ("obj", "texture")}
         data["fine_detail"] = {"fine_detail": bool(recipe.fine_detail), "x_convention": FD.X_CONVENTION,

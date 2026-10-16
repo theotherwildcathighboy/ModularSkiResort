@@ -149,6 +149,10 @@ class Recipe:
     sub_objects: tuple = ()     # vanilla props on the hand-made prefab: ((prefab name, GUID,
     #                             (gx, gy, gz) game local, (x, y, z, w) rotation, m_ParentMesh),
     #                             ...) -> manifest "sub_objects" block (lodge.sub_objects_block)
+    # ---- T16 texture-parity probe (2026-10-16, docs/research/art/texture-parity-2026-10-16.md):
+    # True = LOD0 on the shared tile sheet (cs2_tilesheet), LOD1/LOD2 on an own far set.
+    # False (every recipe) = the unique-atlas path, byte-identical. lodge.py --tiled sets it.
+    tiled: bool = False
 
 
 # ======================================================================================
