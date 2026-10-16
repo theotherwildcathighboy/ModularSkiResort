@@ -802,7 +802,7 @@ namespace SkiResortMod.Systems
                         GaugeHalfM = 3.0f, HangM = 4.5f, GripTopAboveRopeM = 0.08f,      // R4, R5; carriers.json gd8 (cabin lens)
                         AxleM = 10.0f,                                                  // R6
                         AimHeightM = 11.0f,                                             // axle 10 / comm 11.2
-                        SpacingM = 45f, DesignSpacingM = 60f,                           // D1 / §3.1 (rides ≈ 60 m); RS §5 60 m
+                        SpacingM = 40f, DesignSpacingM = 60f,                           // D1 / §3.1 (rides ≈ 60 m); RS §5 60 m. T43 2026-10-16: SpacingM 45 -> 40 (mirrors SkiGondolaHV m_Spacing; 140 m edges spawn 3 cabins, not 2: ~1,984 -> ~3,200/h)
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
                         FixedPerMonth = 8000f, PerKmPerMonth = 3000f, LineBuildPer8m = 175, ElevationCostPer10m = 15,
                         StationCostBase = 190000, StationCostTop = 110000, ScoreValue = 25.0, SummerShare = 0.75,

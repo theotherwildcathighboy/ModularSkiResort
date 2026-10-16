@@ -477,6 +477,7 @@ namespace SlopeBatch
             TopHeadwallReport();            // R2-e (+ the drop-ins over 21 frames), re-pointed to R2b's depth cap
             EndZoneTests();                 // R2b §9.8: asserted end-zone fixtures, report rows, curved runs under both keys
             TooltipLineTests();             // §9.6 item 4 display rule (SteepestPatchShown) (fixer round)
+            SlopeReadoutTests();            // T35 / T44: SkiRunRater.SlopeReadout + the 20 % mean / 35 % pitch worked example
             DisconnectedTests();            // R2-h
             FieldFixture();                 // DECISIONS 116 meadow: R1 rule vs R2
             ScenarioTables();               // scenario table + R2-j sensitivity
@@ -4377,6 +4378,77 @@ namespace SlopeBatch
                         Check(zr.BLo == SlopeBand.Green && zr.BHi == SlopeBand.Green, "rotated poke/" + sc.Name, "the field-size poke must read Green, got " + Ab(zr.BLo) + ".." +
                                                                                                                   Ab(zr.BHi) + " [" + P(zr.Lo) + ", " + P(zr.Hi) + "]");
                 }
+            }
+        }
+
+        /// <summary>T35 / T44 (2026-10-16): SkiRunRater.SlopeReadout, the drawing tooltip's "Avg N ° (P %) · steepest N ° (P %)"
+        /// numbers. (a) unit cases (rounding, the steepest = max of window / crux / mean rule, bad input); (b) the worked
+        /// example of the T44 note: a 300 x 60 m run at 12.5 % with a full-width 100 m pitch of 35 % at s 100-200 (mean 20 %,
+        /// steepest 35 %), 2 angles x 2 step multiples: the classifier's MeanGrade is the run's mean grade (+/- 1 %), the
+        /// rating is the pitch (crux 35 %, Blue: 35 % is under the 40 % Black threshold), and the readout is avg 11 deg (20 %),
+        /// steepest 19 deg (35 %); (c) a uniform 20 % plane rates Green with avg == rating == steepest.</summary>
+        private static void SlopeReadoutTests()
+        {
+            const string u = "slope-readout/unit";
+            bool ok = SkiRunRater.SlopeReadout(0.32f, 0.54f, 0.62f, out int ad, out int ap, out int sd, out int sp);
+            Check(ok && ap == 32 && sp == 62 && ad == 18 && sd == 32, u, "0.32 / 0.54 / 0.62 -> " + ad + " deg " + ap + " % / " + sd + " deg " + sp + " %");
+            // steepest window below the crux (field log "Blue 26.2 % (steepest 21.2 %)"): the line shows the crux.
+            ok = SkiRunRater.SlopeReadout(0.08f, 0.262f, 0.212f, out ad, out ap, out sd, out sp);
+            Check(ok && ap == 8 && sp == 26 && sd == 15, u, "steepest below crux -> " + sd + " deg " + sp + " %");
+            // both below the mean: the line never reads below its own average.
+            ok = SkiRunRater.SlopeReadout(0.30f, 0.10f, 0.12f, out ad, out ap, out sd, out sp);
+            Check(ok && sp == 30 && sd == ad, u, "steepest below mean -> " + sd + " deg " + sp + " % vs avg " + ad + " deg");
+            ok = SkiRunRater.SlopeReadout(1.0f, 1.0f, 1.0f, out ad, out ap, out sd, out sp);
+            Check(ok && ad == 45 && ap == 100 && sd == 45 && sp == 100, u, "100 % = 45 deg (got " + ad + ")");
+            ok = SkiRunRater.SlopeReadout(0f, 0f, 0f, out ad, out ap, out sd, out sp);
+            Check(ok && ad == 0 && ap == 0 && sd == 0 && sp == 0, u, "flat");
+            Check(!SkiRunRater.SlopeReadout(float.NaN, 0.1f, 0.1f, out ad, out ap, out sd, out sp) && ad == 0 && sp == 0, u, "NaN mean");
+            Check(!SkiRunRater.SlopeReadout(0.1f, float.PositiveInfinity, 0.1f, out ad, out ap, out sd, out sp), u, "inf crux");
+            Check(!SkiRunRater.SlopeReadout(0.1f, 0.1f, -0.01f, out ad, out ap, out sd, out sp), u, "negative steepest");
+
+            double[] angs = { 0, 45 };
+            foreach (double ang in angs)
+            {
+                double rad = ang * Math.PI / 180.0;
+                Frame fr = Frame.Make(-150 * Math.Cos(rad), -150 * Math.Sin(rad), ang);
+                HeightFn f = (x, z) =>
+                {
+                    double a = fr.Along(x, z), drop;
+                    if (a < 100) drop = 0.125 * a;
+                    else if (a < 200) drop = 12.5 + 0.35 * (a - 100);
+                    else drop = 12.5 + 35.0 + 0.125 * (a - 200);
+                    return 1000.0 - drop;
+                };
+                double2[] ring = Rect(300, 60, fr);
+                Terrain t = Terrain.For(f, ring, 60);
+                float3[] pts = Pts(ring, false);
+                for (int m = 1; m <= 2; m++)
+                {
+                    string w = "slope-readout/pitch a" + ang + " m" + m;
+                    SlopeStatus st = RateWith(t, pts, m, s_Grid, s_Result, Zp.Shipped, w);
+                    SlopeResult r = s_Result;
+                    if (!Check(st == SlopeStatus.Ok, w, "status " + st))
+                        continue;
+                    Check(Math.Abs(r.MeanGrade - 0.20) <= 0.01, w, "mean " + P(r.MeanGrade) + " (want 20 % +/- 1)");
+                    Check(Math.Abs(r.RatingGrade - 0.35) <= 0.01, w, "crux " + P(r.RatingGrade) + " (want 35 % +/- 1)");
+                    Check(r.Band == SlopeBand.Blue, w, "band " + r.Band + " (20 % mean / 35 % pitch must be Blue)");
+                    ok = SkiRunRater.SlopeReadout(r.MeanGrade, r.RatingGrade, r.SteepestGrade, out ad, out ap, out sd, out sp);
+                    Check(ok && ap >= 19 && ap <= 21 && sp >= 34 && sp <= 36 && ad >= 11 && ad <= 12 && sd >= 19 && sd <= 20, w,
+                          "readout avg " + ad + " deg " + ap + " %, steepest " + sd + " deg " + sp + " %");
+                }
+            }
+
+            {
+                Frame fr = Frame.Make(-150, 0, 0);
+                HeightFn f = (x, z) => 1000.0 - 0.20 * fr.Along(x, z);
+                double2[] ring = Rect(300, 60, fr);
+                Terrain t = Terrain.For(f, ring, 60);
+                SlopeStatus st = RateWith(t, Pts(ring, false), 1, s_Grid, s_Result, Zp.Shipped, "slope-readout/plane20");
+                SlopeResult r = s_Result;
+                Check(st == SlopeStatus.Ok && r.Band == SlopeBand.Green, "slope-readout/plane20", "20 % plane: band " + r.Band + " status " + st);
+                ok = SkiRunRater.SlopeReadout(r.MeanGrade, r.RatingGrade, r.SteepestGrade, out ad, out ap, out sd, out sp);
+                Check(ok && ap >= 19 && ap <= 21 && sp >= 19 && sp <= 21 && ad == sd, "slope-readout/plane20",
+                      "avg " + ad + " deg " + ap + " %, steepest " + sd + " deg " + sp + " %");
             }
         }
 

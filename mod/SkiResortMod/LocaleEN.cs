@@ -505,6 +505,8 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.APPROX_PITCH", "Typical steep pitch (run outline broken, rating approximate)" },
                 { "SkiResort.Tooltip.VERTICAL_DROP", "Vertical drop" },
                 { "SkiResort.Tooltip.STEEPEST_PATCH", "Steepest patch (avoidable)" },
+                // T35 / T44 (2026-10-16): the drawing tooltip's live grade; AD / AP = average in degrees / percent, SD / SP = steepest.
+                { "SkiResort.Tooltip.SLOPE_AVG_MAX", "Avg {AD} ({AP}) · steepest {SD} ({SP})" },
                 { "SkiResort.Tooltip.RUN_FEE", "Run fee (one-time)" },
                 {
                     "SkiResort.Tooltip.NO_GATE_IN_RANGE",
@@ -1184,6 +1186,10 @@ namespace SkiResortMod
                 { "SkiResort.LiftTooltip.BULLDOZE_STUB", "Also removes the station's connection stub" },
                 { "SkiResort.LiftTooltip.BULLDOZE_COUNT", "Sections removed" },
                 { "SkiResort.LiftTooltip.BULLDOZE_LENGTH", "Length removed" },
+                // T32 (2026-10-16): SkiSnowLineTooltipSystem, the one line under the cursor while a run or the Welcome Sign is
+                // placed. {SNOW_LINE} and {GUN_LINE} are integer elevations in world metres (LocalizedNumber<int>, unit "integer");
+                // "≈" and "·" are on the research §2.F.2 safe-glyph list.
+                { "SkiResort.Tooltip.SNOW_LINE", "Winter snow line ≈ {SNOW_LINE} m · guns work above ≈ {GUN_LINE} m" },
             };
         }
 

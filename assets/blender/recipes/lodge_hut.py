@@ -220,7 +220,7 @@ SUB_OBJECTS = (
     ("TableSetCommercialRandom01", _TABLE, (-6.5, 0.43, -6.6), _yaw_q(0), 0),
     ("TableSetCommercialRandom01", _TABLE, (-2.0, 0.43, -6.6), _yaw_q(0), 0),
     ("TableSetCommercialRandom01", _TABLE, (2.5, 0.43, -6.6), _yaw_q(0), 0),
-    ("ParasolRandom01", _PARASOL, (-2.0, 0.43, -6.6), _yaw_q(180), 0),
+    # T26 2026-10-16: parasols dropped (random yellow)
     ("DeckChairRandom01", _CHAIR, (-7.2, 0.43, 0.0), _yaw_q(-90), 0),
     ("DeckChairRandom01", _CHAIR, (-4.25, 0.43, -6.6), _yaw_q(180), 0),
     ("FirewoodPileRandom01", _FIREWOOD, (-6.45, 0.43, 4.2), _yaw_q(90), 0),

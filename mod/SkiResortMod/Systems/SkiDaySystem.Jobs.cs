@@ -1635,6 +1635,11 @@ namespace SkiResortMod.Systems
             private bool StepA(int areaCount)
             {
                 int lodges = math.min(Lodges.Length, LodgeReject.Length);
+                // RF2-17 (T51, ch2-system.md RF2-17; was rejected as latent while no lodge had hang-around spots): a lodge whose ONLY
+                // failing check is NoLeisureTag (Tourism Overhaul removed its LeisureProvider: the park gate at max(6, cells) people) stays in
+                // TargetLodges and Capacity and is skipped only as a claim target (LodgeReject keeps NoLeisureTag, so NearestTarget and the
+                // presale copy still skip it). Without this a busy gated lodge would flap the area to NoLodge every 512 frames.
+                var gated = new NativeArray<byte>(lodges, Allocator.Temp);
                 for (int li = 0; li < lodges; li++)
                 {
                     Entity l = Lodges[li].Lodge;
@@ -1651,7 +1656,13 @@ namespace SkiResortMod.Systems
                         NearestRunOrStationM = hasSite ? Sites[li].NearestRunOrStationM : float.PositiveInfinity,
                         NoRoadNeeded = Lodges[li].NoRoadNeeded != 0,   // Catalog Phase B (R9): a mountain lodge needs no road
                     };
-                    LodgeReject[li] = (byte)SkiDayRules.CheckLodge(facts);
+                    SkiDayRules.LodgeReject verdict = SkiDayRules.CheckLodge(facts);
+                    LodgeReject[li] = (byte)verdict;
+                    if (verdict == SkiDayRules.LodgeReject.NoLeisureTag)
+                    {
+                        facts.LeisureTagged = true;   // RF2-17: would every OTHER check pass? (NoRoad, NotSlopeside still reject)
+                        gated[li] = (byte)(SkiDayRules.CheckLodge(facts) == SkiDayRules.LodgeReject.None ? 1 : 0);
+                    }
                 }
 
                 bool anyOpen = false;
@@ -1660,18 +1671,24 @@ namespace SkiResortMod.Systems
                     AreaJob aj = Areas[a];
                     // Catalog Phase B (header CATALOG PHASE B; was `target++` per passing lodge and Capacity(runs, target, …)):
                     // targets = passing Base-road lodges; capacity and tolerance = passing lodges (every one holds skiers).
-                    int target = 0, tolerance = 0;
+                    int target = 0, tolerance = 0, claimable = 0;
                     long lodgeCapacity = 0;
                     int end = math.min(aj.LodgeStart + aj.LodgeCount, lodges);
                     for (int li = math.max(0, aj.LodgeStart); li < end; li++)
                     {
-                        if (LodgeReject[li] != (byte)SkiDayRules.LodgeReject.None)
+                        bool isGated = gated[li] != 0;   // RF2-17: NoLeisureTag only; counted, never claimed
+                        if (LodgeReject[li] != (byte)SkiDayRules.LodgeReject.None && !isGated)
                             continue;
                         LodgeJob lj = Lodges[li];
                         if (lj.NoRoadNeeded == 0)
+                        {
                             target++;
+                            if (!isGated)
+                                claimable++;
+                        }
                         lodgeCapacity += math.max(0, lj.Capacity);
-                        tolerance = math.max(tolerance, lj.PriceTolerance);
+                        if (!isGated)
+                            tolerance = math.max(tolerance, lj.PriceTolerance);   // = TryCopyPresaleInputs (passing lodges only)
                     }
                     bool night = aj.NightRunOpen != 0;
                     double capacity = SkiDayRules.Capacity(aj.RunsCapacity, (double)lodgeCapacity, target, aj.Powder, out SkiDayLimit limit);
@@ -1688,6 +1705,8 @@ namespace SkiResortMod.Systems
                         SkiDayLodges = target,
                     };
                     SkiDayRules.AreaState state = SkiDayRules.AreaStateOf(facts, TimeOfDay, night, act, capacityPeople);
+                    if (state == SkiDayRules.AreaState.Open && target > 0 && claimable == 0)
+                        state = SkiDayRules.AreaState.Full;   // RF2-17: every target lodge is gated: no room to send a guest (not NoLodge)
                     Out[a] = new ClaimOut
                     {
                         CapacityPeople = capacityPeople,
@@ -1702,6 +1721,7 @@ namespace SkiResortMod.Systems
                     if (state == SkiDayRules.AreaState.Open)
                         anyOpen = true;
                 }
+                gated.Dispose();
                 return anyOpen;
             }
 

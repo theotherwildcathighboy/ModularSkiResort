@@ -1702,8 +1702,7 @@ SUB_OBJECT_ROWS = (
     # on the wing gable ends, bins, pots at the podium steps and the slope edge, lamp posts
     # along the slope edge, a tree at each outer corner
     *((_T, x, y, _ST, 90.0, 0, "slope plaza") for x in (-36.8, -33.2) for y in (-12.0, -6.5, 6.5, 12.0)),
-    _parasol(-36.8, 6.5, _ST, 180.0, "slope plaza"), _parasol(-36.8, -6.5, _ST, 180.0, "slope plaza"),
-    _parasol(-33.2, 12.0, _ST, 0.0, "slope plaza"), _parasol(-33.2, -12.0, _ST, 0.0, "slope plaza"),
+    # T26 2026-10-16: parasols dropped (random yellow): the 4 plaza, 4 pool-terrace and 1 tower-deck rows
     (_H, -31.4, -9.25, _ST, 0.0, 0, "slope plaza"), (_H, -31.4, 9.25, _ST, 0.0, 0, "slope plaza"),
     (_B, PZ_FIREPIT[0] - 2.4, PZ_FIREPIT[1], _ST, 0.0, 0, "slope plaza"),
     (_B, PZ_FIREPIT[0], PZ_FIREPIT[1] - 2.4, _ST, 90.0, 0, "slope plaza"),
@@ -1721,15 +1720,13 @@ SUB_OBJECT_ROWS = (
     # flight (`stairblk_e2`, y +-E2_HALF): loungers at |y| >= 2.4, the parasols between them
     *((_C, -14.85, y, _PD, 0.0, 0, "pool terrace") for y in (-6.0, -4.2, -2.4, 2.4, 4.2, 6.0)),
     *((_C, -27.25, y, _PD, 180.0, 0, "pool terrace") for y in (-8.5, -6.5, -4.5, 4.5)),
-    (_P, -14.5, -3.3, _PD, 180.0, 0, "pool terrace"), (_P, -14.5, 3.3, _PD, 180.0, 0, "pool terrace"),
-    (_P, -27.6, -10.5, _PD, 0.0, 0, "pool terrace"), (_P, -27.6, 5.5, _PD, 0.0, 0, "pool terrace"),
     (_L, -28.25, -16.25, _PD, 0.0, 0, "pool terrace"), (_L, -28.25, 16.25, _PD, 0.0, 0, "pool terrace"),
     (_L, -28.25, 8.0, _PD, 0.0, 0, "pool terrace"), (_L, -13.75, -16.25, _PD, 180.0, 0, "pool terrace"),
     (_L, -13.75, 16.25, _PD, 180.0, 0, "pool terrace"), (_L, -13.75, 7.0, _PD, 180.0, 0, "pool terrace"),
     # --- the tower deck (DK_Z): three table sets at the revision-2 bistro spots, a parasol, a
     # heater, three lamp posts (two on the front edge, one at the stair head)
     (_T, 17.6, 11.45, _DK, 90.0, 0, "tower deck"), (_T, 17.6, 18.3, _DK, 90.0, 0, "tower deck"),
-    (_T, 9.4, 11.45, _DK, 90.0, 0, "tower deck"), _parasol(17.6, 11.45, _DK, 0.0, "tower deck"),
+    (_T, 9.4, 11.45, _DK, 90.0, 0, "tower deck"),
     (_H, 13.4, 11.2, _DK, 0.0, 0, "tower deck"),
     (_L, 20.45, 10.9, _DK, 180.0, 0, "tower deck"), (_L, 20.45, 15.2, _DK, 180.0, 0, "tower deck"),
     (_L, 17.0, 20.45, _DK, 180.0, 0, "tower deck"),

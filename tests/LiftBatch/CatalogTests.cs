@@ -456,7 +456,7 @@ namespace LiftBatch
                 MaxPylon = 90f, Slope = 0.9f, NetH = 0f, LaneH = 0.004f, HMin = 5.8f, ElevMax = 10f, Expected = true },
             new LiftOracle { Id = "gondola", Line = "SkiGondolaHV", Piece = "SkiGondolaPiece", Item = "liftGondola", Carrier = "SkiGondolaCabin8",
                 Mover = MoverKind.Loop, Seats = 8, Speed = 5.5f, Gauge = 3.0f, Hang = 4.5f, Grip = 0.08f, Axle = 10.0f, Aim = 11.0f,
-                Spacing = 45f, Design = 60f, Rule = ServeRuleKind.AlongLine, Radius = 150f, Margin = 15f, Fixed = 8000f, PerKm = 3000f,
+                Spacing = 40f /* T43 2026-10-16: was 45f */, Design = 60f, Rule = ServeRuleKind.AlongLine, Radius = 150f, Margin = 15f, Fixed = 8000f, PerKm = 3000f,
                 Build8 = 175, Elev10 = 15, StBase = 190000, StTop = 110000, LinePerKm = 21875, Ceiling = 6.0, Value = 25, Summer = 0.75,
                 MaxPylon = 250f, Slope = 1.2f, NetH = 0f, LaneH = 0.004f, HMin = 6f, ElevMax = 28f, Expected = true },
             new LiftOracle { Id = "tram", Line = "SkiTramHV", Piece = "SkiTramPiece", Item = "liftTram", Carrier = "SkiTramCabin",

@@ -556,6 +556,20 @@ namespace SkiResortMod
             // written at UIUpdate earlier in the same MainLoop frame (SystemOrder.cs:67-68). Rendering runs paused included.
             updateSystem.UpdateBefore<SkiPisteMapSystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
 
+            // Winter snow line while placing (T32, 2026-10-16; docs/research/field/2026-10-15/build/T32-snowline.md). Anchor is
+            // load-bearing for the reason of SkiPisteMapSystem above: OverlayRenderSystem (Rendering, SystemOrder.cs:687, 1.6.2
+            // :688) uploads and clears the overlay lists each frame (OverlayRenderSystem.cs:738-741, 781, 790), so our main-thread
+            // DrawLine writes must land BEFORE it in the same phase. ONE anchor only (each UpdateBefore call adds an entry,
+            // UpdateSystem.cs:173-176). Rendering runs paused included. Gated by ShowSnowLineWhilePlacing inside the system.
+            updateSystem.UpdateBefore<SkiSnowLineOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
+
+            // Its tooltip line. Anchor is load-bearing like SkiRunTooltipSystem's: UITooltip runs only from TooltipUISystem, which
+            // clears the mouse group first (TooltipUISystem.cs:48-55); anchored after the run tooltip (itself after
+            // AreaToolTooltipSystem, SystemOrder.cs:916) so the line follows the run's own rows instead of sorting after every
+            // vanilla UITooltip system (UpdateSystem.cs:39-47). Reads SkiSnowLineOverlaySystem.Showing, written at Rendering
+            // of the previous frame (one frame of lag, as the run tooltip's readout).
+            updateSystem.UpdateAfter<SkiSnowLineTooltipSystem, SkiRunTooltipSystem>(SystemUpdatePhase.UITooltip);
+
             // Alignment readout + bulldozer warning (§5.5, §5.7). Anchor is load-bearing: UITooltip runs
             // only from TooltipUISystem, which clears the mouse group first (TooltipUISystem.cs:48-55);
             // anchoring after the vanilla TempCostTooltipSystem (SystemOrder.cs:911, 1.6.2 :912) keeps
@@ -603,6 +617,14 @@ namespace SkiResortMod
             // load-bearing (BuildingInitializeSystem runs only on Created prefab entities, PrefabUpdate,
             // SystemOrder.cs:1018, 1.6.2 :1019, long before a city load).
             updateSystem.UpdateAt<LodgeRoadSystem>(SystemUpdatePhase.GameSimulation);
+
+            // T51 step 0 (docs/research/field/2026-10-15/build/T51-markers-step1.md): READ-ONLY lodge spawn-spot diagnostic
+            // ("Lodge [spots]": the Game.Buildings.SpawnLocationElement buffer of each lodge as the engine registered it, one INFO
+            // line per load and per change, the per-spot lines on the hub DUMP). Phase and order are NOT load-bearing: it only
+            // reads, and the producers (Game.Buildings.ReferencesSystem at Modification4B, SystemOrder.cs:176;
+            // SpawnLocationConnectionSystem at Modification5, :210; the load-time rebuild SpawnLocationElementSystem at Deserialize,
+            // :818) all run before GameSimulation in a frame or before OnGameLoadingComplete.
+            updateSystem.UpdateAt<SkiLodgeSpotDiag>(SystemUpdatePhase.GameSimulation);
         }
 
         /// <summary>Round U1 (research §2.A.3 item 12): one line per load of the mod —

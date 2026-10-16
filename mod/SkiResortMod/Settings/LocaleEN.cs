@@ -312,6 +312,17 @@ namespace SkiResortMod.Settings
                     "in the area tool and turn off again afterwards. If you already had them " +
                     "on, they stay on."
                 },
+                // T32 (2026-10-16): the winter snow line while placing.
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ShowSnowLineWhilePlacing)),
+                    "Show the winter snow line while placing"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowSnowLineWhilePlacing)),
+                    "When enabled, drawing a ski run or placing a Ski Area Welcome Sign draws two lines on the terrain: the " +
+                    "average winter snow line (where the December-February average climate reaches freezing, even in " +
+                    "summer) and a fainter one below it where snow guns start to work. The tooltip gives both heights."
+                },
                 // Label: Round E1 addendum A1. Description: Round F7 C1 (docs/research/field-test-7-fixes.md),
                 // verbatim — the setting is thickness only since F7 (no corner rule, no snapping).
                 {

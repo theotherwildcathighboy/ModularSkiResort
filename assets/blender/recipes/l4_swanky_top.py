@@ -178,7 +178,7 @@ L4_ROWS = (
     # benches on the north kerb, a bin by the stair walkway, pots in the corners, lamp posts on
     # the west and north edges
     *((_T, x, y, Z_DECK, 90.0, 0, "terrace") for x, y in L4_TABLES),
-    *(_parasol(x, y, Z_DECK, 90.0, "terrace") for x, y in L4_TABLES),
+    # T26 2026-10-16: parasols dropped (random yellow): the 4 terrace + 2 cantilever rows
     (_H, -9.0, 10.5, Z_DECK, 0.0, 0, "terrace"), (_H, -9.0, 19.5, Z_DECK, 0.0, 0, "terrace"),
     (_B, -11.7, 22.1, Z_DECK, -90.0, 0, "terrace"), (_B, -4.5, 22.1, Z_DECK, -90.0, 0, "terrace"),
     (_BIN, 0.9, 12.0, Z_DECK, 0.0, 0, "terrace"),
@@ -189,7 +189,6 @@ L4_ROWS = (
     # --- the cantilever: deck chairs facing the view (-X) in two groups of three, a parasol
     # behind each group (canopy over the chairs; ForbidSnow, accepted)
     *((_C, -17.4, y, Z_DECK, 180.0, 0, "cantilever") for y in (2.5, 4.3, 6.1, 16.9, 18.7, 20.5)),
-    (_P, -15.5, 4.3, Z_DECK, 180.0, 0, "cantilever"), (_P, -15.5, 18.7, Z_DECK, 180.0, 0, "cantilever"),
     # --- the forecourt: lamp posts at the revision-0 lantern spots, a bench and a bin, pots
     # either side of the porch; the entry's two wall lanterns -> vanilla short-range wall lights
     # (Richard H4) on the U front wall beside the door surround

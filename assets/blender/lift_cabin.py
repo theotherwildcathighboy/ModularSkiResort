@@ -400,11 +400,10 @@ G_DENSITY = {
 }
 
 #: VariationSets (surgery; ColorProperties channels 0/1/2 = slot 1 body / 2 roof / 3 trim).
+#: ONE set since 2026-10-16 (T29, field item 51: four random sets made the line read as colour groups):
+#: station accent body, station galvanized roof, dark trim; jitter 0 (m_VariationRanges below).
 G_SETS = (
-    ("Red (default)", (0.70, 0.07, 0.06), (0.70, 0.07, 0.06), (0.07, 0.07, 0.08)),
-    ("Black",         (0.08, 0.08, 0.09), (0.08, 0.08, 0.09), (0.30, 0.31, 0.32)),
-    ("Yellow",        (0.95, 0.62, 0.08), (0.30, 0.31, 0.32), (0.07, 0.07, 0.08)),
-    ("Blue",          (0.10, 0.25, 0.60), (0.90, 0.90, 0.90), (0.07, 0.07, 0.08)),
+    ("Station livery", (0.85, 0.25, 0.10), (0.25, 0.26, 0.275), (0.07, 0.07, 0.08)),
 )
 
 
@@ -3823,7 +3822,7 @@ def prefab_numbers(kind, name, bounds, dims=None, outboard="+Y"):
                                      "AnchorTop (SkiChairliftHV.Prefab:102 y 7.15, :117 spacing, "
                                      ":118 AnchorTop)"},
             "station_rope_above_deck_m": 4.55,
-            "ColorProperties": {"on": "LOD0 RenderPrefab only", "m_VariationRanges": [0, 0, 3],
+            "ColorProperties": {"on": "LOD0 RenderPrefab only", "m_VariationRanges": [0, 0, 0],
                                 "sets": [{"name": s[0], "slot1": s[1], "slot2": s[2], "slot3": s[3]}
                                          for s in G_SETS]},
             # prefab frame (review F7): authoring +Y = prefab +X on the +x row

@@ -144,7 +144,7 @@
                 "m_SubObjects": {
                     "$id": 12,
                     "$type": "13|Game.Prefabs.ObjectSubObjectInfo[], Game",
-                    "$rlength": 25,
+                    "$rlength": 24,
                     "$rcontent": [
                         {
                             "$id": 13,
@@ -212,30 +212,6 @@
                                     "y": 0,
                                     "z": 0,
                                     "w": 1
-                                }
-                            },
-                            "m_ParentMesh": 0,
-                            "m_GroupIndex": 0,
-                            "m_Probability": 100
-                        },
-                        {
-                            "$id": 16,
-                            "$type": 14,
-                            "m_Object": $fstrref:"UnityGUID:b7e2343fd7ff9f642b77084a04738e43",
-                            "m_Position": {
-                                "$type": 15,
-                                "x": 2,
-                                "y": 0.43,
-                                "z": -6.6
-                            },
-                            "m_Rotation": {
-                                "$type": 16,
-                                "value": {
-                                    "$type": 17,
-                                    "x": 0,
-                                    "y": 1,
-                                    "z": 0,
-                                    "w": 0
                                 }
                             },
                             "m_ParentMesh": 0,

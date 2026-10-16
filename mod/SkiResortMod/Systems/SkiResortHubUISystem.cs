@@ -4054,6 +4054,9 @@ namespace SkiResortMod.Systems
             // T03 step 1 (docs/research/field/2026-10-15/build/T03-tower-diag.md): the "Towers [nodes]" blocks, one per lift
             // line, read-only, DUMP only. Resolved at DUMP time like m_PisteMap; DumpAll never throws.
             World.GetExistingSystemManaged<LiftTowerDiagSystem>()?.DumpAll("hub dump " + source);
+            // T51 step 0 (docs/research/field/2026-10-15/build/T51-markers-step1.md): the "Lodge [spots]" block, read-only, DUMP
+            // only: every lodge's registered spawn spots (SpawnLocationElement buffer). Resolved at DUMP time; DumpAll never throws.
+            World.GetExistingSystemManaged<SkiLodgeSpotDiag>()?.DumpAll("hub dump " + source);
             LastTriggerText = $"dumpHub ({source})";
         }
 

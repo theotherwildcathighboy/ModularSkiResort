@@ -156,8 +156,7 @@ _TABLE_AT = ((-4.5, 3.45, -11.5), (-4.5, 3.45, -8.0), (-4.5, 3.45, -4.5), (-4.5,
 # (table, parasol yaw): the A-wall row's pair faces +X / -X (poles outside the pair, canopies
 # across y, clear of the A wall at y -7.0), the north table +X, the middle one -Y (its canopy fits
 # between the rows' canopies; along x it would touch them)
-_PARASOL_TABLES = (((-4.5, 3.45, -8.0), 0), ((-4.5, 3.45, -4.5), 180), ((3.0, 3.45, -4.5), 0),
-                   ((-1.0, 3.45, -4.5), -90))
+_PARASOL_TABLES = ()   # T26 2026-10-16: parasols dropped (random yellow); was 4 tables, PROPS emits no parasol entry
 
 
 def _parasol_at(table, yaw):

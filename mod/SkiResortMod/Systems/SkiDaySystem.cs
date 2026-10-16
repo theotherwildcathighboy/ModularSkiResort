@@ -3969,6 +3969,8 @@ namespace SkiResortMod.Systems
                 if (dl.Reject == (byte)SkiDayRules.LodgeReject.None)
                     continue;
                 sb.Append("; lodge ").Append(Fmt(dl.Lodge)).Append(' ').Append((SkiDayRules.LodgeReject)dl.Reject);
+                if (dl.Reject == (byte)SkiDayRules.LodgeReject.NoLeisureTag)   // RF2-17 (T51): counted in capacity, never claimed
+                    sb.Append(" (leisure tag removed, e.g. a Tourism Overhaul gate; still counted in capacity if nothing else fails)");
                 if (dl.Reject == (byte)SkiDayRules.LodgeReject.NotSlopeside)
                     sb.Append(" (").Append(MetresText(dl.NearestM)).Append(" m)");
             }
@@ -4179,6 +4181,7 @@ namespace SkiResortMod.Systems
                         continue;
                     m_CarFailsByLodge.TryGetValue(dl.Lodge, out int fails);
                     sb.Append("      lodge ").Append(Fmt(dl.Lodge)).Append(": ").Append((SkiDayRules.LodgeReject)dl.Reject)
+                      .Append(dl.Reject == (byte)SkiDayRules.LodgeReject.NoLeisureTag ? " (gated by Tourism Overhaul? leisure tag removed)" : "")   // RF2-17 (T51)
                       // Catalog Phase B: the tier, its capacity, mountain (not a target).
                       .Append(", ").Append(TierOf(dl.LodgeIndex)).Append(' ').Append(dl.Capacity).Append(" a day")
                       .Append(dl.NoRoadNeeded ? ", mountain (not a ski-day target)" : "")

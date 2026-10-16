@@ -397,6 +397,13 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool ContourLinesWhileDrawingRuns { get; set; }
 
+        /// <summary>T32 (2026-10-16): while the area tool holds one of our run prefabs or the object tool places the Ski Area
+        /// Welcome Sign, draw the WINTER snow line (mean December-February climate temperature, lapsed with elevation, crosses
+        /// 0 C) and a fainter snowmaking line on the terrain, with one tooltip line — SkiSnowLineOverlaySystem +
+        /// SkiSnowLineTooltipSystem. Read live every frame. Default on. Persisted under this property name — never rename.</summary>
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public bool ShowSnowLineWhilePlacing { get; set; }
+
         /// <summary>Round F7 C1 (was E1 addendum A1): the thickness of SkiRunOutlineSystem's overlay — line
         /// width and corner-dot diameter 0.3 × this many metres — on the run areas the game outlines while
         /// the area tool or the bulldozer works on them; 0 = none (the game's thin outline only). Read every
@@ -484,6 +491,7 @@ namespace SkiResortMod.Settings
             EnableBindOnDraw = true;              // run-feedback-spec §2
             ShowRunGradeWhileDrawing = true;      // run-feedback-spec §2
             ContourLinesWhileDrawingRuns = true;  // run-feedback-spec §2
+            ShowSnowLineWhilePlacing = true;      // T32 (default on)
             RunOutlineSize = DefaultRunOutlineSize;   // E1 addendum A1 (thickness only since F7 C1)
             SnowGunDensityPct = RunPropDensityRules.PctDefault;      // M2 density (look only)
             FloodlightDensityPct = RunPropDensityRules.PctDefault;   // M2 density (look only)

@@ -16,6 +16,15 @@
 //                                              (SkiSlopeClassifier header "RUN LENGTH")
 //   4. "Vertical drop: 140 m"                  IntTooltip, unit "length" (metres in; the UI
 //                                              converts to m/km or yd/mi)
+//   4b. "Avg 18 ° (32 %) · steepest 31 ° (60 %)"  StringTooltip, path skiRunSlope (T35 / T44, 2026-10-16: the
+//                                              live grade, so the player sees why the run will rate as it does
+//                                              BEFORE placing it). LocalizedString.Id(SLOPE_AVG_MAX) with four
+//                                              LocalizedNumber<int> args (units "angle" / "percentage"); rebuilt
+//                                              only when a rounded number changes. Numbers: SkiRunRater.SlopeReadout
+//                                              (average = MeanGrade, mean |g| over the run's cells; steepest = max of
+//                                              the steepest 20 m window, the crux and the average). Rendering of a
+//                                              LocalizedNumber arg with these units: UNVERIFIED in game (vanilla
+//                                              passes units this way, ModManager.cs:341, GraphicsSettings.cs:654).
 //   5. "Steepest patch (avoidable): 45 %"      IntTooltip, unit "percentage" — only when
 //                                              SkiSlopeClassifier.SteepestPatchShown (below);
 //                                              explains red cells on a run rated easier
@@ -67,7 +76,7 @@
 // TooltipUISystem in OnCreate (:14-18); AddMouseTooltip appends to mouseGroup.children and
 // drops a duplicate non-empty path with a LogError (:32-42), so our paths are mod-unique
 // ("skiRunGrade", "skiRunPitch", "skiRunPitchApprox", "skiRunLength", "skiRunDrop",
-// "skiRunSteepest", "skiRunNoGate", E1 "skiRunFee"; at most one of the two pitch lines per frame). TooltipUISystem clears
+// "skiRunSlope", "skiRunSteepest", "skiRunNoGate", E1 "skiRunFee"; at most one of the two pitch lines per frame). TooltipUISystem clears
 // mouseGroup.children and THEN runs the whole UITooltip phase, only while the "tooltip.groups"
 // binding is active, the mouse is not over UI and tooltips are not hidden
 // (TooltipUISystem.cs:48-55) — so this OnUpdate re-adds its lines every frame they should show,
@@ -140,6 +149,7 @@ namespace SkiResortMod.Systems
         public const string KeyDrop = "SkiResort.Tooltip.VERTICAL_DROP";
         public const string KeyLength = "SkiResort.Tooltip.RUN_LENGTH";       // R3 (run-binding-glade-spec.md §5.1)
         public const string KeySteepest = "SkiResort.Tooltip.STEEPEST_PATCH";
+        public const string KeySlope = "SkiResort.Tooltip.SLOPE_AVG_MAX";     // T35 / T44: "Avg {AD} ({AP}) · steepest {SD} ({SP})"
         public const string KeyNoGate = "SkiResort.Tooltip.NO_GATE_IN_RANGE";
         public const string KeyFee = "SkiResort.Tooltip.RUN_FEE";             // E1 (D21, ch2 §4.6 / §6.4): "Run fee (one-time)"
 
@@ -163,6 +173,8 @@ namespace SkiResortMod.Systems
         private IntTooltip m_PitchApprox; // P90 fallback when the Mask is not connected (Warning)
         private IntTooltip m_Length;      // R3: horizontal run length (m)
         private IntTooltip m_Drop;
+        private StringTooltip m_Slope;    // T35 / T44: "Avg 18 ° (32 %) · steepest 31 ° (60 %)", rebuilt only when a rounded number changes
+        private int m_SlopeAd = -1, m_SlopeAp = -1, m_SlopeSd = -1, m_SlopeSp = -1;
         private IntTooltip m_Steepest;    // steepest avoidable patch (R2 line 4)
         private IntTooltip m_Fee;         // E1: one-time run fee (new runs only), money unit
         private StringTooltip m_NoGate;
@@ -217,6 +229,11 @@ namespace SkiResortMod.Systems
                                      // NetCourseTooltipSystem.cs:59 — both FloatTooltip; the
                                      // unit is JS-side, IntTooltip + "length" unverified in-game)
             };
+            m_Slope = new StringTooltip
+            {
+                path = "skiRunSlope",
+                color = TooltipColor.Info,
+            };
             m_Steepest = new IntTooltip
             {
                 path = "skiRunSteepest",
@@ -261,12 +278,12 @@ namespace SkiResortMod.Systems
                          "'typical steep pitch, approximate' line instead when the run outline is " +
                          "broken and the rating is the P90 fallback), run length (R3: horizontal m, " +
                          "max of equivalent rectangle and fall-line extent; arc for a line), " +
-                         "vertical drop (m), steepest " +
+                         "vertical drop (m), the average / steepest slope line (T35 / T44: degrees and percent, path skiRunSlope), steepest " +
                          "avoidable patch (%) only when SkiSlopeClassifier.SteepestPatchShown " +
                          "(connected, >= rating + DisplayHysteresis, a different rounded %, a higher " +
                          "band than the shown band), and a warning on NEW runs with " +
                          "no Ski Area Welcome Sign in range; paths skiRunGrade/skiRunPitch/" +
-                         "skiRunPitchApprox/skiRunLength/skiRunDrop/skiRunSteepest/skiRunNoGate; " +
+                         "skiRunPitchApprox/skiRunLength/skiRunDrop/skiRunSlope/skiRunSteepest/skiRunNoGate; " +
                          "UITooltip after AreaToolTooltipSystem" +
                          ", the one-time run fee (new runs only, SkiRunFees.Fee by plan area, red when the city " +
                          "cannot pay) on path skiRunFee");
@@ -330,6 +347,29 @@ namespace SkiResortMod.Systems
                     {
                         m_Drop.value = (int)math.round(r.Drop);
                         AddMouseTooltip(m_Drop);
+                    }
+
+                    // 4b. T35 / T44 (2026-10-16): the live grade — "Avg 18 ° (32 %) · steepest 31 ° (60 %)", so the
+                    //     player sees why the run will rate as it does before placing it. Numbers: SkiRunRater.SlopeReadout
+                    //     (MeanGrade; max of steepest window / crux / mean). The LocalizedString (a Dictionary of
+                    //     LocalizedNumber args, the vanilla pattern: ModManager.cs:341, GraphicsSettings.cs:654) is rebuilt
+                    //     ONLY when one of the four rounded numbers changes, never per frame (header ZERO ALLOCATION).
+                    if (SkiRunRater.SlopeReadout(r.MeanGrade, r.RatingGrade, r.SteepestGrade,
+                            out int avgDeg, out int avgPct, out int maxDeg, out int maxPct))
+                    {
+                        if (avgDeg != m_SlopeAd || avgPct != m_SlopeAp || maxDeg != m_SlopeSd || maxPct != m_SlopeSp)
+                        {
+                            m_Slope.value = LocalizedString.Id(KeySlope,
+                                ("AD", new LocalizedNumber<int>(avgDeg, "angle")),
+                                ("AP", new LocalizedNumber<int>(avgPct, "percentage")),
+                                ("SD", new LocalizedNumber<int>(maxDeg, "angle")),
+                                ("SP", new LocalizedNumber<int>(maxPct, "percentage")));
+                            m_SlopeAd = avgDeg;
+                            m_SlopeAp = avgPct;
+                            m_SlopeSd = maxDeg;
+                            m_SlopeSp = maxPct;
+                        }
+                        AddMouseTooltip(m_Slope);
                     }
 
                     // 5. Steepest patch (avoidable) — spec §9.6 item 4 as amended in the R2 fixer

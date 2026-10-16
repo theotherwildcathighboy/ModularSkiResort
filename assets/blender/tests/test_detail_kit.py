@@ -905,28 +905,22 @@ def k9_l1_tables():
     # those), then the 2 porch wall lights (K10) and the 6 kit racks (boxed here too, on the lot)
     rec = R.get_recipe("L1")
     ums = R.AFRAME_L1["UMBRELLAS"]
-    rows = tuple(rec.sub_objects[:22])
+    # T26 2026-10-16: parasols dropped (random yellow): the deck / porch rows are 10 tables + 2 porch = 12
+    rows = tuple(rec.sub_objects[:12])
     kit = tuple((e["prefab"], e["m_Object"], tuple(e["position"]), tuple(e["rotation"]), e["m_ParentMesh"])
                 for e in rec.sub_objects if isinstance(e, dict) and e.get("kind") == "mod")
     assert R.AFRAME_L1.get("PARASOLS_VANILLA") is True
-    assert rows == R.L1_TABLES + R.L1_PARASOLS + R.L1_PORCH and tuple(R.L1.sub_objects) == rows, len(rows)
+    assert rows == R.L1_TABLES + R.L1_PORCH and tuple(R.L1.sub_objects) == rows, len(rows)
+    assert not any(r[0] == "ParasolRandom01" for r in rec.sub_objects if not isinstance(r, dict)), "parasol row back"
     assert len(kit) == 6, kit
-    assert len(R.L1_TABLES) == len(R.L1_PARASOLS) == len(ums) == 10
+    assert len(R.L1_TABLES) == len(ums) == 10
     tbl = LD.SUBOBJ["TableSetCommercialRandom01"]
     for r in R.L1_TABLES:
         name, guid, pos, q, parent = r
         assert name == "TableSetCommercialRandom01" and guid == tbl["guid"], r
         assert parent == 0 and q == (0.0, 0.0, 0.0, 1.0) and abs(pos[1] - 4.66) < 1e-9, r
-    for (ux, uy), t, p in zip(ums, R.L1_TABLES, R.L1_PARASOLS):
+    for (ux, uy), t in zip(ums, R.L1_TABLES):
         assert t[2] == (round(-uy, 4), 4.66, round(-ux, 4)), (t, ux, uy)
-        name, guid, pos, q, parent = p
-        assert name == "ParasolRandom01" and guid == "b7e2343fd7ff9f642b77084a04738e43", p
-        assert parent == 0 and abs(pos[1] - 4.66) < 1e-9 and q in ((0.0, 1.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0)), p
-        a = 2.0 * math.atan2(q[1], q[3])
-        f = (math.sin(a), 0.0, math.cos(a))                 # local +Z in game local
-        d = [t[2][i] - pos[i] for i in range(3)]
-        assert all(abs(d[i] - R.PARASOL_OFFSET * f[i]) < 1e-6 for i in range(3)), \
-            f"parasol {pos} does not face its table {t[2]} at {R.PARASOL_OFFSET} m"
     porch = {r[0]: r for r in R.L1_PORCH}
     assert set(porch) == {"GardenBenchRandom01", "TrashbinRandom01"}
     assert porch["GardenBenchRandom01"][1] == LD.SUBOBJ["GardenBenchRandom01"]["guid"]
@@ -934,7 +928,7 @@ def k9_l1_tables():
     assert all(r[4] == -1 and r[2][1] == 0.0 and r[3] == (0.0, 0.0, 0.0, 1.0) for r in R.L1_PORCH)
     blk = lodge.sub_objects_block(rec)
     assert blk["target_prefab"] == "SkiAFrameDayLodge" and len(blk["objects"]) == len(rec.sub_objects)
-    assert [o["m_ParentMesh"] for o in blk["objects"][:22]] == [0] * 20 + [-1, -1]
+    assert [o["m_ParentMesh"] for o in blk["objects"][:12]] == [0] * 10 + [-1, -1]    # T26 2026-10-16: was 22 / 20
     # bounds: the cache (subobj_bounds.json), re-derived from the dump when it is present
     bounds, src = {}, "cache"
     idx = SO._dump()
@@ -1005,9 +999,9 @@ def k9_l1_tables():
                     near = min(near, gap)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    ok(f"K9b L1 vanilla deck: 10 TableSetCommercialRandom01 + 10 ParasolRandom01 (each "
-       f"{R.PARASOL_OFFSET} m beside its table, facing it) + GardenBench + Trashbin (lot), verified GUIDs "
-       f"({src} bounds), the manifest block (22 + the step-3a rows), no modelled umbrella / bench / bin / "
+    ok(f"K9b L1 vanilla deck (T26 2026-10-16: no parasols): 10 TableSetCommercialRandom01 "
+       f"+ GardenBench + Trashbin (lot), verified GUIDs "
+       f"({src} bounds), the manifest block (12 + the step-3a rows), no modelled umbrella / bench / bin / "
        f"rack / porch lantern left, no lodge triangle inside any prop box (+ the 6 kit racks), no box "
        f"overlap but a pole in its own table (closest {near:.3f} m)")
 

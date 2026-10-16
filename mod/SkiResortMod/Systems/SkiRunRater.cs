@@ -290,6 +290,30 @@ namespace SkiResortMod.Systems
             return ToRateStatus(detail.PlanStatus, status);
         }
 
+        /// <summary>T35 / T44 (2026-10-16): the drawing tooltip's "avg N° (P %) · steepest N° (P %)" numbers. Average = the
+        /// classifier's MeanGrade (the mean of |g| over the run's inside cells, |g| = the 5×5 box central-difference
+        /// gradient magnitude, SkiSlopeClassifier "MeanGrade"; polyline: the length-weighted mean segment grade);
+        /// steepest = the largest of SteepestGrade (the k-th largest 20 m window), RatingGrade (the crux) and the average
+        /// itself, so the line never reads below the "Hardest unavoidable pitch" row or below its own average (the
+        /// window statistic can sit under the crux when the crux came from a shorter fallback window; field log
+        /// 2026-10-15: "Blue 26.2 % (steepest 21.2 %)"). Percent = grade × 100 rounded; degrees = atan(grade) in degrees
+        /// rounded (atan of the mean grade, not the mean of the angles). False (all zero) when an input is not finite or
+        /// negative.</summary>
+        public static bool SlopeReadout(float meanGrade, float ratingGrade, float steepestGrade,
+            out int avgDeg, out int avgPct, out int maxDeg, out int maxPct)
+        {
+            avgDeg = avgPct = maxDeg = maxPct = 0;
+            if (!(meanGrade >= 0f) || !(ratingGrade >= 0f) || !(steepestGrade >= 0f) ||
+                float.IsInfinity(meanGrade) || float.IsInfinity(ratingGrade) || float.IsInfinity(steepestGrade))
+                return false;
+            float steep = Math.Max(steepestGrade, Math.Max(ratingGrade, meanGrade));
+            avgPct = (int)Math.Round(100.0 * meanGrade, MidpointRounding.AwayFromZero);
+            maxPct = (int)Math.Round(100.0 * steep, MidpointRounding.AwayFromZero);
+            avgDeg = (int)Math.Round(Math.Atan(meanGrade) * (180.0 / Math.PI), MidpointRounding.AwayFromZero);
+            maxDeg = (int)Math.Round(Math.Atan(steep) * (180.0 / Math.PI), MidpointRounding.AwayFromZero);
+            return true;
+        }
+
         /// <summary>The RateStatus of a (plan, final) status pair (see RateStatus).</summary>
         public static RateStatus ToRateStatus(SlopeStatus planStatus, SlopeStatus status)
         {
