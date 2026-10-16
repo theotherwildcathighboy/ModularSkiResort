@@ -328,11 +328,11 @@ namespace SkiResortMod.Settings
                 // R8 re-stamps only on a settled slider change, never at a load.
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SnowGunDensityPct)),
-                    "Snow guns and hydrants"
+                    "Snow lances, fan guns and hydrants"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowGunDensityPct)),
-                    "How many corners of snowmaking and night runs get a snow gun or hydrant, in percent of the " +
+                    "How many corners of snowmaking and night runs get a snow lance, fan gun or hydrant, in percent of the " +
                     "full look. Look only: snow and upkeep follow the run type. Runs already built change when " +
                     "you move the slider in a city; saved runs keep their look until edited. Default 100 %."
                 },

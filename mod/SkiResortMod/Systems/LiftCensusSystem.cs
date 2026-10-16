@@ -243,6 +243,7 @@ namespace SkiResortMod.Systems
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private ChairPinSystem m_ChairPin;
         private Game.UI.NameSystem m_NameSystem;
+        private LiftTowerDiagSystem m_TowerDiag;   // T03 step 1: read-only tower log; fed after each build, printed on DumpCensus
 
         // ── queries ───────────────────────────────────────────────────────────────────────────────
         private EntityQuery m_EdgeProbe, m_NodeProbe, m_StationProbe, m_DeletedObjectProbe, m_DeletedLaneProbe;
@@ -754,6 +755,7 @@ namespace SkiResortMod.Systems
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();   // Catalog Phase A
             m_ChairPin = World.GetOrCreateSystemManaged<ChairPinSystem>();
             m_NameSystem = World.GetOrCreateSystemManaged<Game.UI.NameSystem>();
+            m_TowerDiag = World.GetOrCreateSystemManaged<LiftTowerDiagSystem>();
             // Phase D (round-4-contract §1.3): the guard's clock, the simulation frame (SimulationSystem.cs:68; the mod's
             // precedent: SkiLiftChargeSystem, SkiDaySystem, SkiResortStatsSystem).
             m_Simulation = World.GetOrCreateSystemManaged<Game.Simulation.SimulationSystem>();
@@ -1257,6 +1259,9 @@ namespace SkiResortMod.Systems
             }
             PruneParked();
             StoreRowCounts();
+            // T03 step 1 (read-only diagnostic, LiftTowerDiagSystem header): hand it this build's line edges; it queues lines whose
+            // signature is new and prints them after the census has been quiet. No ECS read here.
+            m_TowerDiag?.OnCensusBuilt(m_Edges);
         }
 
         private void Harvest()
@@ -1302,7 +1307,7 @@ namespace SkiResortMod.Systems
                             IsBase = isBase,
                             Position = t.m_Position,
                             // Catalog Phase B (§4.2): the row's own stub tip (−16 on DQ / gondola stations) and type;
-                            // nitpick B2: on its own line axis (StubTipLocalX −4.00 on the tram base's 6 x 3 lot).
+                            // nitpick B2: on its own line axis (StubTipLocalX +4.00 on the tram base's 6 x 3 lot since T14 x-sign N, 2026-10-16; was −4.00).
                             StubTip = StationAlign.StubTip(t.m_Position, t.m_Rotation, stationDef.StubTipLocalZ,
                                                            stationDef.StubTipLocalX),
                             Axis = StationAlign.Axis(t.m_Rotation),
@@ -2041,6 +2046,7 @@ namespace SkiResortMod.Systems
             if (m_LastError != null)
                 sb.AppendLine("  last error: " + m_LastError);
             Mod.Log.Info(sb.ToString().TrimEnd());
+            m_TowerDiag?.DumpAll("census dump: " + reason);   // T03 step 1: every line, per node
         }
 
         // ── tiny helpers ──────────────────────────────────────────────────────────────────────────

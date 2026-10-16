@@ -521,6 +521,14 @@ namespace SkiResortMod
             // ChairPinSystem. The phase must stay Modification4B or the anchor is skipped and the system silently never runs.
             updateSystem.UpdateAfter<TramShuttleSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
 
+            // T03 step 1 (docs/research/field/2026-10-15/build/T03-tower-diag.md): READ-ONLY tower diagnostic ("Towers [nodes]"
+            // blocks: node y / terrain / Elevation, chord clearance, the tower the engine spawned, placeholder scores). Fed by
+            // LiftCensusSystem.BuildCensus (OnCensusBuilt) and printed from here after the census has been quiet; DumpAll on
+            // DUMP. Anchor is load-bearing like TramShuttleSystem's: AFTER LiftCensusSystem at Modification4B, so a line's
+            // towers (created at 2B, in the node SubObject buffers by Modification3, SystemOrder.cs:131, :136) are readable.
+            // The phase must stay Modification4B or the anchor is skipped and the system silently never prints.
+            updateSystem.UpdateAfter<LiftTowerDiagSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
+
             // Lift park emitter (§5.3 OD-6 (a); I-2's fix of a spec error, registration added by the
             // integrator 2026-10-03). The census (4B) only QUEUES the surviving sections of an opened lift:
             // EndFrameBarrier.CreateCommandBuffer throws at Modification4B (Game/SafeCommandBufferSystem.cs

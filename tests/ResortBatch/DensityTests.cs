@@ -46,6 +46,7 @@ namespace ResortBatch
             SectionD6();   // NextStable (4) + ApplyDue (6)
             SectionD7();   // ExpectedTenths (7) + ClassOf (6)
             SectionD8();   // engine mirror (24)
+            SectionD9();   // T22 mast aim (MastAimRules)
             s_Check = null;
         }
 
@@ -54,6 +55,76 @@ namespace ResortBatch
         private static bool Near(double a, double b, double eps)
         {
             return Math.Abs(a - b) <= eps;
+        }
+
+        // ================================================================== D9. T22 mast aim (MastAimRules)
+        // Hand oracles (2026-10-16): a 20 m square, x right / z up. (0,0)->(0,20)->(20,20)->(20,0) is CLOCKWISE
+        // (shoelace -800), interior on the RIGHT of travel; the reverse order is counter-clockwise (interior left).
+        // At the corner (0,20) the two inward normals are (1,0) and (0,-1): aim (0.7071,-0.7071). At the mid-edge node
+        // (10,20) of the top side both edges run +x, inward (0,-1). Fall 1.5 m over the 10 m out-edge = 0.15 m/m,
+        // averaged with a flat in-edge = 0.075, so k 0.5, bias 0.5 x tan 25 deg = 0.23315, aim (0.22707,-0.97389);
+        // a 3 m drop clamps k to 1 and gives exactly 25 deg (0.42262,-0.90631); a rise mirrors the sign.
+
+        private static void SectionD9()
+        {
+            const string w = "density D9";
+            Check(MastAimRules.BiasMaxDeg == 25f && MastAimRules.SlopeFull == 0.15f && MastAimRules.MatchRadiusM == 0.6f &&
+                  MastAimRules.WriteToleranceDeg == 1.5f, w, "constants 25 / 0.15 / 0.6 / 1.5");
+
+            float[] cx = { 0f, 0f, 20f, 20f }, cz = { 0f, 20f, 20f, 0f }, cy = { 0f, 0f, 0f, 0f };
+            Check(Near(MastAimRules.SignedArea2(cx, cz, 4), -800.0, 1e-3), w, "CW square shoelace x2 = -800");
+            float[] rx = { 0f, 20f, 20f, 0f }, rz = { 0f, 0f, 20f, 20f }, ry = { 0f, 0f, 0f, 0f };
+            Check(Near(MastAimRules.SignedArea2(rx, rz, 4), 800.0, 1e-3), w, "CCW square shoelace x2 = +800");
+
+            const double s2 = 0.70710678;
+            float ax, az;
+            Check(MastAimRules.Aim(cx, cy, cz, 4, 1, out ax, out az) && Near(ax, s2, 1e-4) && Near(az, -s2, 1e-4), w,
+                  $"CW corner (0,20) aims ({ax:F4},{az:F4}), want (0.7071,-0.7071)");
+            Check(MastAimRules.Aim(rx, ry, rz, 4, 3, out ax, out az) && Near(ax, s2, 1e-4) && Near(az, -s2, 1e-4), w,
+                  $"CCW corner (0,20) aims ({ax:F4},{az:F4}), want (0.7071,-0.7071) (winding-proof)");
+            // Every corner of both windings aims toward the centre (10,10).
+            bool allIn = true;
+            for (int k = 0; k < 4; k++)
+            {
+                if (!MastAimRules.Aim(cx, cy, cz, 4, k, out ax, out az) || ax * (10f - cx[k]) + az * (10f - cz[k]) <= 0f) allIn = false;
+                if (!MastAimRules.Aim(rx, ry, rz, 4, k, out ax, out az) || ax * (10f - rx[k]) + az * (10f - rz[k]) <= 0f) allIn = false;
+            }
+            Check(allIn, w, "every corner of both windings aims toward the centre");
+
+            // Mid-edge node on the top side (CW ring with a fifth node).
+            float[] mx = { 0f, 0f, 10f, 20f, 20f }, mz = { 0f, 20f, 20f, 20f, 0f }, my = { 0f, 0f, 0f, 0f, 0f };
+            Check(MastAimRules.Aim(mx, my, mz, 5, 2, out ax, out az) && Near(ax, 0.0, 1e-5) && Near(az, -1.0, 1e-5), w,
+                  $"flat mid-edge aims ({ax:F4},{az:F4}), want (0,-1)");
+            my[3] = -1.5f;   // 0.15 m/m over the out-edge, flat in-edge
+            Check(MastAimRules.Aim(mx, my, mz, 5, 2, out ax, out az) && Near(ax, 0.22707, 1e-3) && Near(az, -0.97389, 1e-3), w,
+                  $"downhill along travel aims ({ax:F4},{az:F4}), want (0.2271,-0.9739)");
+            my[3] = 1.5f;
+            Check(MastAimRules.Aim(mx, my, mz, 5, 2, out ax, out az) && Near(ax, -0.22707, 1e-3) && Near(az, -0.97389, 1e-3), w,
+                  $"uphill along travel aims ({ax:F4},{az:F4}), want (-0.2271,-0.9739)");
+            my[3] = -3f;
+            Check(MastAimRules.Aim(mx, my, mz, 5, 2, out ax, out az) && Near(ax, 0.42262, 1e-3) && Near(az, -0.90631, 1e-3), w,
+                  $"steep downhill clamps to 25 deg: ({ax:F4},{az:F4}), want (0.4226,-0.9063)");
+            Check(Near(MastAimRules.AngleDeg(0f, -1f, ax, az), 25.0, 0.01), w, "the clamp is exactly 25 deg off the inward normal");
+
+            // NearestNode: the prop sits on the node; 0.6 m radius.
+            Check(MastAimRules.NearestNode(mx, mz, 5, 10.3f, 20.2f) == 2, w, "mast 0.36 m from node 2 matches it");
+            Check(MastAimRules.NearestNode(mx, mz, 5, 5f, 20f) == -1, w, "mast 5 m from every node: no match");
+
+            // Degenerate rings.
+            float[] two = { 0f, 5f }, z2 = { 0f, 0f }, y2 = { 0f, 0f };
+            Check(!MastAimRules.Aim(two, y2, z2, 2, 0, out ax, out az), w, "2 nodes: false");
+            float[] lx = { 0f, 5f, 10f }, lz = { 0f, 0f, 0f }, ly = { 0f, 0f, 0f };
+            Check(!MastAimRules.Aim(lx, ly, lz, 3, 1, out ax, out az), w, "collinear (zero area): false");
+            Check(!MastAimRules.Aim(cx, cy, cz, 4, 9, out ax, out az), w, "node index out of range: false");
+
+            // AngleDeg.
+            Check(Near(MastAimRules.AngleDeg(0f, 1f, 1f, 0f), 90.0, 1e-4) && Near(MastAimRules.AngleDeg(1f, 0f, 1f, 0f), 0.0, 1e-4) &&
+                  Near(MastAimRules.AngleDeg(0f, -1f, 0f, 1f), 180.0, 1e-4), w, "AngleDeg 90 / 0 / 180");
+
+            // Determinism: the same ring twice gives bit-identical aims.
+            MastAimRules.Aim(mx, my, mz, 5, 2, out float bx, out float bz);
+            MastAimRules.Aim(mx, my, mz, 5, 2, out float dx, out float dz);
+            Check(bx == dx && bz == dz, w, "same ring, same aim");
         }
 
         // ================================================================== D1. constants

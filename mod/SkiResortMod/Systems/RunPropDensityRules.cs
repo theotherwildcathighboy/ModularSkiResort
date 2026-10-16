@@ -177,4 +177,134 @@ namespace SkiResortMod.Systems
             return v < 0 ? 0 : v > ChanceMax ? ChanceMax : (int)v;
         }
     }
+
+    /// <summary>T22 (field test 2026-10-15, item 87): the yaw a night-run floodlight mast must have so its lamps aim INTO the
+    /// run and slightly downhill. PURE, plain floats (System only), x/z in the game's xz plane, y = height.
+    ///
+    /// WHY CODE. The game places an area-border prop with local +Z along the outgoing border segment
+    /// (Game.Objects/SecondaryObjectSystem.cs:2984-2992, quaternion.LookRotationSafe) and never consults the winding
+    /// (AreaFlags.CounterClockwise), so the lamps (prefab EffectSource rotation, pitch 25 deg about X, yaw 0 = +Z) shine
+    /// ALONG the border and a prefab yaw cannot fix it: the two sides of a run mirror (DECISIONS 82(3)). We turn the
+    /// placed mast ourselves (SkiNightLightSystem.AimMasts) to look along the vector returned here.
+    ///
+    /// RULES. Interior side from the shoelace sign (CCW in x,z = interior on the LEFT of travel, the glade planner's
+    /// convention): inward(d) = ccw ? (-d.z, d.x) : (d.z, -d.x). At a corner the two edges' inward normals are summed
+    /// (the miter direction; a cusp, sum shorter than CuspMinLen, falls back to the outgoing edge's normal). Downhill
+    /// bias: s = mean of the two edges' fall rate along travel (positive = travelling along the border loses height);
+    /// the aim is inward + clamp(s / SlopeFull, -1, 1) × tan(BiasMaxDeg) × tangent, normalised, so on a border along the
+    /// fall line the lamps lean up to BiasMaxDeg toward downhill and across a contour line they aim straight in. The
+    /// 25 deg downward pitch stays the prefab's (EffectSource rotation x 0.21644 w 0.976296 on all three masts).
+    /// Deterministic: a function of the node ring only.</summary>
+    public static class MastAimRules
+    {
+        /// <summary>Largest sideways lean toward downhill (degrees) and the fall rate (m/m) that earns all of it.</summary>
+        public const float BiasMaxDeg = 25f;
+        public const float SlopeFull = 0.15f;
+        /// <summary>Mast to node match radius (m): the prop sits exactly on the node (sub-object offset 0).</summary>
+        public const float MatchRadiusM = 0.6f;
+        /// <summary>Rotation difference (degrees) below which the mast counts as already aimed (no write).</summary>
+        public const float WriteToleranceDeg = 1.5f;
+        private const float CuspMinLen = 0.25f;
+        private const float MinEdgeM = 0.05f;
+
+        /// <summary>Twice the shoelace area of the ring in x,z (positive = counter-clockwise in x,z).</summary>
+        public static float SignedArea2(float[] x, float[] z, int n)
+        {
+            double sum = 0.0;
+            for (int i = 0; i < n; i++)
+            {
+                int j = i + 1 == n ? 0 : i + 1;
+                sum += (double)x[i] * z[j] - (double)x[j] * z[i];
+            }
+            return (float)sum;
+        }
+
+        /// <summary>The ring node nearest (px, pz) in xz within <see cref="MatchRadiusM"/>; -1 when none.</summary>
+        public static int NearestNode(float[] x, float[] z, int n, float px, float pz)
+        {
+            int best = -1;
+            float bestD2 = MatchRadiusM * MatchRadiusM;
+            for (int i = 0; i < n; i++)
+            {
+                float dx = x[i] - px, dz = z[i] - pz;
+                float d2 = dx * dx + dz * dz;
+                if (d2 <= bestD2)
+                {
+                    bestD2 = d2;
+                    best = i;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>The horizontal direction (unit, ax, az) the mast at node j must face; false when the ring is degenerate
+        /// (fewer than 3 nodes, zero area, or both edges at j shorter than 5 cm).</summary>
+        public static bool Aim(float[] x, float[] y, float[] z, int n, int j, out float ax, out float az)
+        {
+            ax = 0f;
+            az = 0f;
+            if (n < 3 || j < 0 || j >= n)
+                return false;
+            float area2 = SignedArea2(x, z, n);
+            if (!(Math.Abs(area2) > 1e-3f))
+                return false;
+            bool ccw = area2 > 0f;
+            int p = j == 0 ? n - 1 : j - 1;
+            int q = j + 1 == n ? 0 : j + 1;
+            float outX = x[q] - x[j], outZ = z[q] - z[j];
+            float inX = x[j] - x[p], inZ = z[j] - z[p];
+            float lenOut = (float)Math.Sqrt(outX * outX + outZ * outZ);
+            float lenIn = (float)Math.Sqrt(inX * inX + inZ * inZ);
+            bool haveOut = lenOut >= MinEdgeM, haveIn = lenIn >= MinEdgeM;
+            if (!haveOut && !haveIn)
+                return false;
+            float oX = haveOut ? outX / lenOut : inX / lenIn, oZ = haveOut ? outZ / lenOut : inZ / lenIn;
+            float iX = haveIn ? inX / lenIn : oX, iZ = haveIn ? inZ / lenIn : oZ;
+            // Inward normals of the two edges, summed (miter); a cusp falls back to the outgoing edge's.
+            float nOutX = ccw ? -oZ : oZ, nOutZ = ccw ? oX : -oX;
+            float nInX = ccw ? -iZ : iZ, nInZ = ccw ? iX : -iX;
+            float nX = nOutX + nInX, nZ = nOutZ + nInZ;
+            float nLen = (float)Math.Sqrt(nX * nX + nZ * nZ);
+            if (nLen < CuspMinLen)
+            {
+                nX = nOutX;
+                nZ = nOutZ;
+                nLen = 1f;
+            }
+            nX /= nLen;
+            nZ /= nLen;
+            // Fall rate along travel (positive: going along the border loses height), averaged over the two edges.
+            float sOut = haveOut ? (y[j] - y[q]) / lenOut : 0f;
+            float sIn = haveIn ? (y[p] - y[j]) / lenIn : 0f;
+            float s = haveOut && haveIn ? 0.5f * (sOut + sIn) : haveOut ? sOut : sIn;
+            float k = s / SlopeFull;
+            k = k < -1f ? -1f : k > 1f ? 1f : k;
+            float bias = k * (float)Math.Tan(BiasMaxDeg * Math.PI / 180.0);
+            float tX = oX + iX, tZ = oZ + iZ;
+            float tLen = (float)Math.Sqrt(tX * tX + tZ * tZ);
+            if (tLen < CuspMinLen)
+            {
+                tX = oX;
+                tZ = oZ;
+                tLen = 1f;
+            }
+            tX /= tLen;
+            tZ /= tLen;
+            float rX = nX + bias * tX, rZ = nZ + bias * tZ;
+            float rLen = (float)Math.Sqrt(rX * rX + rZ * rZ);
+            if (!(rLen > 1e-6f))
+                return false;
+            ax = rX / rLen;
+            az = rZ / rLen;
+            return true;
+        }
+
+        /// <summary>The angle in degrees between two horizontal directions (0..180).</summary>
+        public static float AngleDeg(float ax, float az, float bx, float bz)
+        {
+            double dot = (double)ax * bx + (double)az * bz;
+            double cross = (double)ax * bz - (double)az * bx;
+            return (float)(Math.Abs(Math.Atan2(cross, dot)) * 180.0 / Math.PI);
+        }
+    }
 }

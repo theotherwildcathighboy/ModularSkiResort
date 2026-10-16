@@ -712,6 +712,18 @@ namespace SkiResortMod.Systems
         private float m_CandidateNextRefresh;
         private UnityEngine.Color m_HoverColor = new UnityEngine.Color(0.5f, 0.5f, 1f, 0.5f);
         private UnityEngine.Color m_CandidateColor = new UnityEngine.Color(0.5f, 0.5f, 1f, 0.2f);
+        // T30: glade outline colours come from RunOutlineRules.GladeOutlineColour (the one place); dashed candidate pieces are
+        // cut on the CPU at each candidate refresh (PisteMapRules.DashRing, the piste map's cutter).
+        private static readonly UnityEngine.Color s_GladeColor = new UnityEngine.Color(
+            RunOutlineRules.GladeOutlineColour.x, RunOutlineRules.GladeOutlineColour.y, RunOutlineRules.GladeOutlineColour.z,
+            RunOutlineRules.GladeOutlineColour.w);
+        private static readonly UnityEngine.Color s_GladeCandidateColor = new UnityEngine.Color(
+            RunOutlineRules.GladeOutlineColour.x, RunOutlineRules.GladeOutlineColour.y, RunOutlineRules.GladeOutlineColour.z,
+            RunOutlineRules.GladeOutlineColour.w * RunOutlineRules.GladeCandidateAlphaFactor);
+        private const int MaxCandidateDashes = 8192;
+        private readonly List<float3> m_CandidateDashA = new List<float3>(256);
+        private readonly List<float3> m_CandidateDashB = new List<float3>(256);
+        private readonly List<float3> m_CandidateRing = new List<float3>(64);
         private static readonly UnityEngine.Color s_FellFill = new UnityEngine.Color(0.95f, 0.20f, 0.15f, 0f);
         private static readonly UnityEngine.Color s_ReplaceFill = new UnityEngine.Color(1.00f, 0.55f, 0.10f, 0f);
 
@@ -3518,6 +3530,21 @@ namespace SkiResortMod.Systems
                     }
                 }
             }
+            // T30: the dashed pieces of every candidate ring (cut along the whole perimeter, not per edge).
+            m_CandidateDashA.Clear();
+            m_CandidateDashB.Clear();
+            for (int r = 0; r < runs; r++)
+            {
+                int room = MaxCandidateDashes - m_CandidateDashA.Count;
+                if (room <= 0)
+                    break;
+                m_CandidateRing.Clear();
+                int s0 = m_CandidateStarts[r];
+                for (int k = 0; k < m_CandidateCounts[r]; k++)
+                    m_CandidateRing.Add(m_CandidatePoints[s0 + k]);
+                PisteMapRules.DashRing(m_CandidateRing, RunOutlineRules.GladeDashM, RunOutlineRules.GladeGapM, room,
+                    m_CandidateDashA, m_CandidateDashB);
+            }
             m_CandidateRunCount = runs;
             m_CandidatePointCount = points;
             m_CityBoundRuns = bound;
@@ -3540,19 +3567,15 @@ namespace SkiResortMod.Systems
             var flags = OverlayRenderSystem.StyleFlags.Projected;
             var roundness = new float2(1f, 1f);
 
+            // T30 (item 46): a glade's run outline is violet-magenta (RunOutlineRules.GladeOutlineColour, the one place),
+            // DASHED for candidate runs (pieces cut at the candidate refresh), SOLID for the hovered / pending run.
             if (candidates)
             {
-                for (int r = 0; r < m_CandidateRunCount; r++)
+                int pieces = m_CandidateDashA.Count;
+                for (int i = 0; i < pieces; i++)
                 {
-                    int start = m_CandidateStarts[r];
-                    int count = m_CandidateCounts[r];
-                    for (int i = 0; i < count; i++)
-                    {
-                        float3 a = m_CandidatePoints[start + i];
-                        float3 b = m_CandidatePoints[start + (i + 1) % count];   // closing edge included
-                        buffer.DrawLine(m_CandidateColor, m_CandidateColor, 0f, flags, new Line3.Segment(a, b),
-                            Tuning.OutlineWidth, roundness);
-                    }
+                    buffer.DrawLine(s_GladeCandidateColor, s_GladeCandidateColor, 0f, flags,
+                        new Line3.Segment(m_CandidateDashA[i], m_CandidateDashB[i]), RunOutlineRules.GladeLineWidthM, roundness);
                 }
             }
 
@@ -3560,8 +3583,8 @@ namespace SkiResortMod.Systems
             {
                 float3 a = m_OutlineRing[i];
                 float3 b = m_OutlineRing[(i + 1) % m_OutlineCount];   // closing edge included
-                buffer.DrawLine(m_HoverColor, m_HoverColor, 0f, flags, new Line3.Segment(a, b),
-                    Tuning.OutlineWidth, roundness);
+                buffer.DrawLine(s_GladeColor, s_GladeColor, 0f, flags, new Line3.Segment(a, b),
+                    RunOutlineRules.GladeLineWidthM, roundness);
             }
 
             if (m_PlannedTreeLine && m_BeltCount >= 2)

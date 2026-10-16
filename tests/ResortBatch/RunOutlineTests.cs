@@ -46,6 +46,7 @@ namespace ResortBatch
             SectionF();
             SectionG();
             SectionH();
+            SectionI();
             s_Check = null;
         }
 
@@ -387,6 +388,44 @@ namespace ResortBatch
                 }
             }
             Check(string.Join(" ", lines) == "8->14", w, "slider drag: lines " + string.Join(" ", lines) + ", want one 8->14");
+        }
+
+        // ================================================================== I. T30 / T36 run-visual constants (2026-10-16)
+
+        private static void SectionI()
+        {
+            const string w = "outline I";
+            float4 g = RunOutlineRules.GladeOutlineColour;
+            Check(Near(g.x, 0.86, 1e-6) && Near(g.y, 0.30, 1e-6) && Near(g.z, 1.00, 1e-6) && Near(g.w, 0.95, 1e-6), w,
+                  "glade outline colour (0.86, 0.30, 1.00, 0.95)");
+            // Distinct from the game's hovered blue, owner green, warning yellow and error red.
+            float4[] game = { new float4(0.5f, 0.5f, 1f, 0.5f), new float4(0.5f, 1f, 0.5f, 0.5f), new float4(1f, 1f, 0.25f, 0.5f), new float4(1f, 0.25f, 0.25f, 0.5f) };
+            bool distinct = true;
+            foreach (float4 c in game)
+                if (math.distance(c.xyz, g.xyz) < 0.3f) distinct = false;
+            Check(distinct, w, "glade colour is at least 0.3 (rgb distance) from every game outline colour");
+            Check(RunOutlineRules.GladeCandidateAlphaFactor == 0.8f && RunOutlineRules.GladeLineWidthM == 2.2f &&
+                  RunOutlineRules.GladeDashM == 9f && RunOutlineRules.GladeGapM == 5f, w, "glade width 2.2 m, dash 9 / gap 5, candidate alpha x0.8");
+            Check(RunOutlineRules.NodeDotFill.Equals(new float4(1f, 1f, 1f, 1f)), w, "node dot fill is opaque white");
+            float4 rim = RunOutlineRules.NodeDotRim;
+            Check(rim.x < 0.1f && rim.y < 0.1f && rim.z < 0.1f && rim.w >= 0.9f, w, "node dot rim is dark and nearly opaque");
+            Check(Near(RunOutlineRules.NodeRimWidth(8), 0.24, 1e-5), w, "rim at size 8 (2.4 m dot) = 0.24 m");
+            Check(Near(RunOutlineRules.NodeRimWidth(16), 0.48, 1e-5), w, "rim at size 16 (4.8 m dot) = 0.48 m");
+            Check(Near(RunOutlineRules.NodeRimWidth(1), 0.12, 1e-5), w, "rim at size 1 floors at 0.12 m");
+            Check(Near(RunOutlineRules.NodeRimWidth(99), 0.48, 1e-5), w, "rim at a clamped size 99 = size 16's");
+
+            // Neighbour dots (item 41): window = drawn bounds grown by 150 m, edges inclusive, xz only.
+            float4 none = RunOutlineRules.EmptyBounds();
+            Check(!RunOutlineRules.HasBounds(none) && !RunOutlineRules.InWindow(none, new float3(0f, 0f, 0f), 150f), w, "empty bounds: no window");
+            float4 b = RunOutlineRules.Extend(RunOutlineRules.Extend(none, new float3(100f, 7f, 200f)), new float3(140f, -3f, 260f));
+            Check(RunOutlineRules.HasBounds(b) && b.x == 100f && b.y == 200f && b.z == 140f && b.w == 260f, w, "bounds (100,200)-(140,260), y ignored");
+            Check(RunOutlineRules.NeighbourMarginM == 150f, w, "margin 150 m");
+            Check(RunOutlineRules.InWindow(b, new float3(-50f, 99f, 50f), 150f), w, "corner (-50,50) is on the window edge: in");
+            Check(!RunOutlineRules.InWindow(b, new float3(-50.01f, 0f, 50f), 150f), w, "x 0.01 m past the edge: out");
+            Check(!RunOutlineRules.InWindow(b, new float3(120f, 0f, 410.5f), 150f), w, "z past the far edge: out");
+            Check(RunOutlineRules.InWindow(b, new float3(120f, 0f, 410f), 150f), w, "z on the far edge: in");
+            float4 one = RunOutlineRules.Extend(none, new float3(5f, 0f, 5f));
+            Check(RunOutlineRules.InWindow(one, new float3(155f, 0f, -145f), 150f) && !RunOutlineRules.InWindow(one, new float3(155.1f, 0f, 5f), 150f), w, "a 1-node cursor gives a 150 m square");
         }
     }
 }

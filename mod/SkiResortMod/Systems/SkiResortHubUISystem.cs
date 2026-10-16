@@ -4051,6 +4051,9 @@ namespace SkiResortMod.Systems
             AppendRoadAndUtilities(sb);
             m_Catalog.AppendDump(sb);
             Mod.Log.Info(sb.ToString().TrimEnd('\n'));
+            // T03 step 1 (docs/research/field/2026-10-15/build/T03-tower-diag.md): the "Towers [nodes]" blocks, one per lift
+            // line, read-only, DUMP only. Resolved at DUMP time like m_PisteMap; DumpAll never throws.
+            World.GetExistingSystemManaged<LiftTowerDiagSystem>()?.DumpAll("hub dump " + source);
             LastTriggerText = $"dumpHub ({source})";
         }
 

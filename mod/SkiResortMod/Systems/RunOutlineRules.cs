@@ -35,6 +35,9 @@
 // test host links it alone), so SkiRunOutlineSystem.OnCreate compares each constant with the game's enum and
 // refuses to arm (one WARN) if a patch changed one.
 //
+// T30 / T36 (2026-10-16): the glade outline colour + dash and the run node dot colours / rim live at the "run visuals"
+// constants block below (one place); SkiGladeToolSystem and SkiRunOutlineSystem read them.
+//
 // PURE FILE: `using Unity.Mathematics;` only (the ResortBatch host links it with UnityMathematics.NoDeps). The walks
 // are generic over two small interfaces so the Burst job passes its DynamicBuffer and native hash sets, and the
 // tests pass managed ones; no allocation here.
@@ -87,6 +90,52 @@ namespace SkiResortMod.Systems
         public const byte AreaComplete = 1;
         public const byte AreaCounterClockwise = 2;
         public const byte AreaSlave = 8;
+
+        // ── T22-T36 run visuals: the colours and sizes live HERE and nowhere else ───────────────────────────────────
+        // T30 (field test 2026-10-15, item 46): the tree (glade) tool's outlines. A violet-magenta no band colour, no game
+        // outline colour (hovered blue, owner green, warning yellow, error red) and no glade ring colour (red / orange)
+        // uses; opaque enough to read on snow, grass and forest floor. SkiGladeToolSystem.DrawOverlay reads these.
+        // Candidate runs (every bound run, while nothing is hovered) are DASHED, the hovered / pending run is SOLID.
+        public static readonly float4 GladeOutlineColour = new float4(0.86f, 0.30f, 1.00f, 0.95f);   // sRGB, as Overlay takes it
+        public const float GladeCandidateAlphaFactor = 0.8f;   // dashed candidates: GladeOutlineColour.w × this
+        public const float GladeLineWidthM = 2.2f;             // was the game-blue 1.5 m
+        public const float GladeDashM = 9f, GladeGapM = 5f;    // cut on the CPU (PisteMapRules.DashRing)
+
+        // T36 (item 41): the corner dots of a run being drawn or edited — white with a thin dark rim, so the node to
+        // connect to is found on any ground. SkiRunOutlineSystem draws them (the game's own dots are 50 % white and stay
+        // underneath).
+        public static readonly float4 NodeDotFill = new float4(1f, 1f, 1f, 1f);
+        public static readonly float4 NodeDotRim = new float4(0.04f, 0.04f, 0.06f, 0.95f);
+        public const float NodeRimFraction = 0.10f;            // rim width = this × the dot diameter ...
+        public const float NodeRimMinM = 0.12f;                // ... but at least this (metres)
+
+        // T36 follow-up (item 41): while a run is drawn / edited (Temp Create or Modify), the nodes of EXISTING run areas of ours
+        // within NeighbourMarginM (xz) of the drawn area's bounds get the same dots, so the corner to connect to is found.
+        public const float NeighbourMarginM = 150f;
+
+        /// <summary>Empty xz bounds (minX, minZ, maxX, maxZ) that HasBounds rejects until a point is added.</summary>
+        public static float4 EmptyBounds() => new float4(float.MaxValue, float.MaxValue, float.MinValue, float.MinValue);
+
+        /// <summary>The bounds grown to hold p (xz).</summary>
+        public static float4 Extend(float4 b, float3 p)
+        {
+            return new float4(math.min(b.x, p.x), math.min(b.y, p.z), math.max(b.z, p.x), math.max(b.w, p.z));
+        }
+
+        public static bool HasBounds(float4 b) => b.x <= b.z && b.y <= b.w;
+
+        /// <summary>p (xz) lies within the bounds grown by marginM on every side (edges inclusive); false for empty bounds.</summary>
+        public static bool InWindow(float4 b, float3 p, float marginM)
+        {
+            return HasBounds(b) && p.x >= b.x - marginM && p.x <= b.z + marginM && p.z >= b.y - marginM && p.z <= b.w + marginM;
+        }
+
+        /// <summary>Rim width (m) of a corner dot at the given Options size: max(NodeRimMinM, NodeRimFraction × diameter).</summary>
+        public static float NodeRimWidth(int size)
+        {
+            float w = NodeRimFraction * DotDiameter(size);
+            return w < NodeRimMinM ? NodeRimMinM : w;
+        }
 
         /// <summary>The setting clamped to 0..MaxSize.</summary>
         public static int ClampSize(int size)

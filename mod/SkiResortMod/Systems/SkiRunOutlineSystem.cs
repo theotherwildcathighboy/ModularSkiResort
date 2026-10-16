@@ -22,8 +22,11 @@
 //     side our run shares with another outlined area is dropped by us exactly when the game drops it; the DOT set
 //     (nodeMap) holds our own dots, one per corner position per frame (Verification fact 16: mirrored, not waived);
 //   * only areas whose PrefabRef is one of our four run prefab entities are DRAWN;
-//   * colours: the RenderingSettingsData singleton with the game's fallbacks (:666-680), dots white at alpha 0.5
-//     (:408); line width and dot diameter both 0.3 × RunOutlineSize m (8 → 2.4 m, 16 → 4.8 m);
+//   * colours: the RenderingSettingsData singleton with the game's fallbacks (:666-680), dots white at alpha 0.5 in the game
+//     (:408) UNDER ours; T36 (2026-10-16): OUR dots are opaque white with a thin dark rim (RunOutlineRules.NodeDot*), so the
+//     corner to connect to is found on snow, grass and forest; line width and dot diameter both 0.3 × RunOutlineSize m
+//     (8 → 2.4 m, 16 → 4.8 m); while a run is drawn / edited the same dots also mark the nodes of our EXISTING run
+//     areas within RunOutlineRules.NeighbourMarginM (150 m) of the drawn bounds (item 41: the corner to connect to);
 //     StyleFlags.Projected (the piste-map choice) so a long side lies on the terrain instead of cutting through a
 //     ridge, where the game draws surfaces as straight 3D lines (styleFlags 0, :363). The game's own thin line and
 //     dots still draw underneath in the same colour; which one is on top is unverified (cosmetic).
@@ -131,7 +134,8 @@ namespace SkiResortMod.Systems
             public NativeParallelHashSet<float3> Dots;
             public OverlayRenderSystem.Buffer Overlay;
             public UnityEngine.Color LineColour;
-            public UnityEngine.Color DotColour;
+            public UnityEngine.Color DotFill, DotRim;
+            public float RimWidth;
             public float Width;
             public float Diameter;
 
@@ -160,7 +164,7 @@ namespace SkiResortMod.Systems
             public void Dot(float3 position)
             {
                 // OverlayRenderSystem.cs:138 (the last argument is a diameter); direction (0, 1) as :517.
-                Overlay.DrawCircle(DotColour, DotColour, 0f, OverlayRenderSystem.StyleFlags.Projected,
+                Overlay.DrawCircle(DotRim, DotFill, RimWidth, OverlayRenderSystem.StyleFlags.Projected,
                     new float2(0f, 1f), position, Diameter);
             }
         }
@@ -178,9 +182,11 @@ namespace SkiResortMod.Systems
             [ReadOnly] public BufferTypeHandle<Game.Areas.Node> NodeType;
             [ReadOnly] public ComponentLookup<AreaGeometryData> GeometryData;
             [ReadOnly] public NativeList<ArchetypeChunk> Chunks;
+            [ReadOnly] public NativeList<ArchetypeChunk> RunChunks;   // T36: our existing (non-Temp) run areas
             public Entity Run0, Run1, Run2, Run3;
             public float Width, Diameter;
-            public UnityEngine.Color HoveredColour, OwnerColour, WarningColour, ErrorColour, DotColour;
+            public UnityEngine.Color HoveredColour, OwnerColour, WarningColour, ErrorColour, DotFill, DotRim;
+            public float RimWidth;
             public OverlayRenderSystem.Buffer Overlay;
 
             public void Execute()
@@ -205,13 +211,20 @@ namespace SkiResortMod.Systems
                 }
                 if (!ours)
                     return;
+                // T36 follow-up: the drawn areas' bounds (Temp Create / Modify of ours), and the room for the neighbour dots.
+                float4 bounds = DrawnBounds();
+                bool neighbours = RunOutlineRules.HasBounds(bounds);
+                if (neighbours)
+                    nodes += CountRunNodes();
 
                 var sink = new OverlaySink
                 {
                     Borders = new NativeParallelHashSet<Border>(math.max(nodes, 1), Allocator.Temp),
                     Dots = new NativeParallelHashSet<float3>(math.max(nodes, 1), Allocator.Temp),
                     Overlay = Overlay,
-                    DotColour = DotColour,
+                    DotFill = DotFill,
+                    DotRim = DotRim,
+                    RimWidth = RimWidth,
                     Width = Width,
                     Diameter = Diameter,
                 };
@@ -219,8 +232,78 @@ namespace SkiResortMod.Systems
                     FileBorders(Chunks[c], ref sink);   // :129-132
                 for (int c = 0; c < Chunks.Length; c++)
                     DrawOurs(Chunks[c], ref sink);      // :133-136
+                if (neighbours)
+                    DrawNeighbourDots(bounds, ref sink);
                 sink.Borders.Dispose();
                 sink.Dots.Dispose();
+            }
+
+            /// <summary>xz bounds of every node of our areas that get dots this frame (Temp Create / Modify), empty when none.</summary>
+            private float4 DrawnBounds()
+            {
+                float4 b = RunOutlineRules.EmptyBounds();
+                for (int c = 0; c < Chunks.Length; c++)
+                {
+                    ArchetypeChunk chunk = Chunks[c];
+                    NativeArray<Temp> temps = chunk.GetNativeArray(ref TempType);
+                    if (temps.Length == 0)
+                        continue;
+                    bool error = chunk.Has(ref ErrorType);
+                    bool warning = chunk.Has(ref WarningType);
+                    NativeArray<Area> areas = chunk.GetNativeArray(ref AreaType);
+                    NativeArray<PrefabRef> prefabs = chunk.GetNativeArray(ref PrefabRefType);
+                    BufferAccessor<Game.Areas.Node> buffers = chunk.GetBufferAccessor(ref NodeType);
+                    for (int i = 0; i < areas.Length; i++)
+                    {
+                        Entity prefab = prefabs[i].m_Prefab;
+                        uint tempFlags = (uint)temps[i].m_Flags;
+                        if (!IsOurs(prefab) || !RunOutlineRules.Dots(true, tempFlags) ||
+                            !RunOutlineRules.Outlined(error, warning, true, tempFlags, (byte)areas[i].m_Flags) || HiddenIngame(prefab))
+                            continue;
+                        DynamicBuffer<Game.Areas.Node> nodes = buffers[i];
+                        for (int k = 0; k < nodes.Length; k++)
+                            b = RunOutlineRules.Extend(b, nodes[k].m_Position);
+                    }
+                }
+                return b;
+            }
+
+            private int CountRunNodes()
+            {
+                int n = 0;
+                for (int c = 0; c < RunChunks.Length; c++)
+                {
+                    BufferAccessor<Game.Areas.Node> buffers = RunChunks[c].GetBufferAccessor(ref NodeType);
+                    for (int i = 0; i < buffers.Length; i++)
+                        n += buffers[i].Length;
+                }
+                return n;
+            }
+
+            /// <summary>T36 follow-up (item 41): the same white dots at the nodes of our existing run areas within
+            /// NeighbourMarginM of the drawn bounds; one dot per position per frame (the shared dot set).</summary>
+            private void DrawNeighbourDots(float4 bounds, ref OverlaySink sink)
+            {
+                for (int c = 0; c < RunChunks.Length; c++)
+                {
+                    ArchetypeChunk chunk = RunChunks[c];
+                    NativeArray<Area> areas = chunk.GetNativeArray(ref AreaType);
+                    NativeArray<PrefabRef> prefabs = chunk.GetNativeArray(ref PrefabRefType);
+                    BufferAccessor<Game.Areas.Node> buffers = chunk.GetBufferAccessor(ref NodeType);
+                    for (int i = 0; i < areas.Length; i++)
+                    {
+                        Entity prefab = prefabs[i].m_Prefab;
+                        if (((byte)areas[i].m_Flags & RunOutlineRules.AreaSlave) != 0 || !IsOurs(prefab) || HiddenIngame(prefab))
+                            continue;
+                        DynamicBuffer<Game.Areas.Node> nodes = buffers[i];
+                        for (int k = 0; k < nodes.Length; k++)
+                        {
+                            float3 p = nodes[k].m_Position;
+                            if (RunOutlineRules.InWindow(bounds, p, RunOutlineRules.NeighbourMarginM) && sink.AddDot(p))
+                                sink.Dot(p);
+                        }
+                    }
+                }
             }
 
             private bool IsOurs(Entity prefab)
@@ -297,6 +380,7 @@ namespace SkiResortMod.Systems
         private OverlayRenderSystem m_Overlay;
         private PrefabSystem m_PrefabSystem;
         private EntityQuery m_PrefabScanQuery;
+        private EntityQuery m_RunAreaQuery;           // T36: our existing run areas (neighbour dots)
         private EntityQuery m_BorderQuery;            // the game's (header WHAT IT DRAWS)
         private EntityQuery m_SurfaceQuery;           // THE GUARD
         private EntityQuery m_RenderingSettingsQuery;
@@ -346,6 +430,22 @@ namespace SkiResortMod.Systems
                 },
                 None = new[]
                 {
+                    ComponentType.ReadOnly<Hidden>(),
+                    ComponentType.ReadOnly<Deleted>(),
+                },
+            });
+            m_RunAreaQuery = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadOnly<Area>(),
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),
+                    ComponentType.ReadOnly<Game.Areas.Node>(),
+                    ComponentType.ReadOnly<PrefabRef>(),
+                },
+                None = new[]
+                {
+                    ComponentType.ReadOnly<Temp>(),
                     ComponentType.ReadOnly<Hidden>(),
                     ComponentType.ReadOnly<Deleted>(),
                 },
@@ -419,6 +519,8 @@ namespace SkiResortMod.Systems
                     ?? Differs("AreaFlags.Slave", (byte)AreaFlags.Slave, RunOutlineRules.AreaSlave);
             return mismatch == null;
         }
+
+        private static UnityEngine.Color ToColor(float4 c) => new UnityEngine.Color(c.x, c.y, c.z, c.w);
 
         private static string Differs(string name, uint game, uint ours)
         {
@@ -501,7 +603,7 @@ namespace SkiResortMod.Systems
                 : lo.ToString("0.###", CultureInfo.InvariantCulture) + "-" + hi.ToString("0.###", CultureInfo.InvariantCulture);
             string halfSnap = m_RunCount == 0 || float.IsInfinity(lo) ? "-" : (lo * 0.5f).ToString("0.###", CultureInfo.InvariantCulture);
             string ours = RunOutlineRules.IsOn(size)
-                ? $"our outline at size {size}: line {RunOutlineRules.LineWidth(size):0.0#} m, dots {RunOutlineRules.DotDiameter(size):0.0#} m"
+                ? $"our outline at size {size}: line {RunOutlineRules.LineWidth(size):0.0#} m, dots {RunOutlineRules.DotDiameter(size):0.0#} m white with a {RunOutlineRules.NodeRimWidth(size):0.0#} m dark rim"
                 : "our outline off at size 0 (the game's thin outline only)";
             Mod.Log.Info($"RunOutline: ARMED — {ours}; run prefabs keep the game's snap distance {snap} (snapping {snap} m, " +
                          $"corners {halfSnap} m apart); {m_RunCount} of {RunSurfaceNames.Length} run prefab(s); the game's " +
@@ -578,6 +680,7 @@ namespace SkiResortMod.Systems
             m_NodeType.Update(this);
             m_GeometryData.Update(this);
             NativeList<ArchetypeChunk> chunks = m_BorderQuery.ToArchetypeChunkListAsync(Allocator.TempJob, out JobHandle chunksHandle);
+            NativeList<ArchetypeChunk> runChunks = m_RunAreaQuery.ToArchetypeChunkListAsync(Allocator.TempJob, out JobHandle runChunksHandle);
             OverlayRenderSystem.Buffer buffer = m_Overlay.GetBuffer(out JobHandle overlayDeps);   // OverlayRenderSystem.cs:603-634
             var job = new RunOutlineJob
             {
@@ -589,6 +692,7 @@ namespace SkiResortMod.Systems
                 NodeType = m_NodeType,
                 GeometryData = m_GeometryData,
                 Chunks = chunks,
+                RunChunks = runChunks,
                 Run0 = m_Runs[0],
                 Run1 = m_Runs[1],
                 Run2 = m_Runs[2],
@@ -599,13 +703,17 @@ namespace SkiResortMod.Systems
                 OwnerColour = owner,
                 WarningColour = warning,
                 ErrorColour = error,
-                DotColour = new UnityEngine.Color(1f, 1f, 1f, 0.5f),   // AreaBorderRenderSystem.cs:408
+                // T36: white with a thin dark rim, opaque (the game's dots, :408, are 50 % white and stay underneath).
+                DotFill = ToColor(RunOutlineRules.NodeDotFill),
+                DotRim = ToColor(RunOutlineRules.NodeDotRim),
+                RimWidth = RunOutlineRules.NodeRimWidth(size),
                 Overlay = buffer,
             };
             // AreaBorderRenderSystem.cs:705-708: after the ECS writers of what it reads, the chunk list and every
             // earlier overlay writer; registered with the overlay; handed back as this system's dependency.
-            JobHandle handle = job.Schedule(JobHandle.CombineDependencies(Dependency, chunksHandle, overlayDeps));
+            JobHandle handle = job.Schedule(JobHandle.CombineDependencies(Dependency, JobHandle.CombineDependencies(chunksHandle, runChunksHandle), overlayDeps));
             chunks.Dispose(handle);
+            runChunks.Dispose(handle);
             m_Overlay.AddBufferWriter(handle);   // OverlayRenderSystem.cs:636-639; completed at :738-741
             Dependency = handle;
             m_DrawHandle = handle;
