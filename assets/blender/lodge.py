@@ -1294,7 +1294,8 @@ def run(recipe, args):
     door2 = None
     if dk:                                  # door kit v2: the registry of its parts (exact names)
         door2 = {"flat": K.door2_flat(), "protect": K.door2_protect(),
-                 "glass_d": sorted(K.DOOR2_GLASS_D), "leaf_d": dict(K.DOOR2_LEAF)}
+                 "glass_d": sorted(K.DOOR2_GLASS_D), "leaf_d": dict(K.DOOR2_LEAF),
+                 "hardware": dict(K.DOOR2_HARDWARE)}
         opts["door2"] = door2
     spec = FD.sign_set_of(recipe)
     # nitpick C (2026-10-13): the Write Everywhere targets (blank boards, lit name boards), read off the faces
@@ -1378,7 +1379,8 @@ def run(recipe, args):
         result["door_kit"] = {"family": dk["family"], "holes": dk["holes"], "mode": dk["mode"],
                               "parts": len(door2["flat"]), "flat": list(door2["flat"]),
                               "glass_depths": door2["glass_d"],
-                              "leaf_depths": {k: round(v, 4) for k, v in sorted(door2["leaf_d"].items())}}
+                              "leaf_depths": {k: round(v, 4) for k, v in sorted(door2["leaf_d"].items())},
+                              "hardware": {k: v for k, v in sorted(door2["hardware"].items())}}
     if signset is not None:
         result["sign_set"] = {"obj": signset["obj"], "cid": signset["cid"], "faces": signset["faces"],
                               "mesh": signset["spec"].mesh}

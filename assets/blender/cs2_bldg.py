@@ -1900,9 +1900,10 @@ def unrecess_panes(win, far, depth=REVEAL_M, offset=PANE_OFFSET, tol=0.01):
 #            threshold plate, galvanised pull bars (L1, L4, L5)
 #   chalet   half-glazed painted timber door (stiles + rails, a raised panel below the lock
 #            rail) in a 12 cm timber casing, a sloped timber threshold, a lever (L2, L3)
-#   utility  flat steel leaf, optional vision panel, kick plate, 6 cm casing posts + a header
-#            board, a flat concrete threshold plate (school, P1, P2); the kick plate concrete-grey too:
-#            galv is metallic and the previews draw it navy (sky reflection), unverified in game
+#   utility  flat steel leaf, optional vision panel, a dark (ski_black) kick plate, a lever at
+#            0.95 m (the EU house door's lever), 6 cm casing posts + a header board, a flat
+#            concrete threshold plate (school, P1, P2); galv is metallic and the previews draw it
+#            navy (sky reflection), so plates are flat non-metal keys, unverified in game
 # Recessed (default): the leaf face sits `reveal` behind the wall face in a REAL hole cut on
 # the tiled LOD0 only (punch_openings reads the `reveal_d<name>` liner: two jamb sides out
 # to the casing face + the head soffit, NO stool: the threshold plate closes the bottom, so
@@ -1928,7 +1929,8 @@ DOOR_FAMILIES = {
                     header_h=0.12, header_p=0.035, header_ear=0.03, leaf="steel",
                     vision=(-0.10, 0.10, 1.25, 1.85), bead=0.015, kick_h=0.25,
                     transom_min=None, leaf_h=None, transom_bar=0.07, sl_mull=0.10, sl_rail=0.22,
-                    handle=None, sill="plate", sill_p=0.04, sill_t=0.010, double_min=1.5),
+                    handle="lever", lever_z=0.95, sill="plate", sill_p=0.04, sill_t=0.010,
+                    double_min=1.5, kick_key="ski_black"),
 }
 DOOR_GLASS_LEAN = 0.006      # lean mode / no bead: the glass this far behind the leaf face ...
 DOOR_GLASS_OVER = 0.015      # ... and this much larger than its hole each side (hidden behind the leaf)
@@ -1938,6 +1940,8 @@ DOOR_KIT = {"version": 1, "family": "base", "holes": "all", "mode": "full", "arr
 DOOR2_BUILT = {}             # part name -> role ("kit"), filled by door_unit inside door_kit()
 DOOR2_LEAF = {}              # door name -> leaf face depth d (school placards follow the leaf)
 DOOR2_GLASS_D = set()        # glass depths behind the wall face (unrecess_panes, far `_Win`)
+DOOR2_HARDWARE = {}          # door name -> its hardware part names, or the "none:<reason>" opt-out
+DOOR_HARDWARE_KINDS = ("pull", "lever", "knob")   # the gate: one of these per leaf
 
 
 class door_kit:
@@ -1960,6 +1964,7 @@ class door_kit:
         DOOR2_BUILT.clear()
         DOOR2_LEAF.clear()
         DOOR2_GLASS_D.clear()
+        DOOR2_HARDWARE.clear()
         return DOOR_KIT
 
     def __exit__(self, *exc):
@@ -1979,7 +1984,7 @@ def door2_protect():
 
 
 def door_tris(family, leaves=1, mode="full", sidelights=0, transom=False, glass=True,
-              vision=True, casing=None, handle=True):
+              vision=True, casing=None, hardware="auto"):
     """Main-mesh tris of one v2 door BEFORE the wall hole (+ ~8-12 after the ring merge)."""
     p = DOOR_FAMILIES[family]
     full = mode == "full"
@@ -1993,19 +1998,17 @@ def door_tris(family, leaves=1, mode="full", sidelights=0, transom=False, glass=
     else:
         per = (8 + (8 if full else 0) if vision else 2) + 2   # + kick plate
     t += leaves * per
-    if handle and p["handle"] == "pull":
+    if hardware == "auto":                   # one pull bar / lever per leaf (door_unit's gate)
         t += 6 * leaves
-    elif handle and p["handle"] == "lever":
-        t += 6
     t += 4 if p["sill"] == "plate" else (8 if full else 4)
-    t += sidelights * 10 + (4 if transom else 0)
+    t += sidelights * 8 + ((4 + (2 if sidelights else 0)) if transom else 0)
     return t
 
 
 def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=None, sidelights=0,
               sidelight_w=0.9, leaf_key="trim", casing_key=None, liner_key=None, frame_key="trim",
               sill_key=None, casing=None, casing_name=None, glass=True, vision=True,
-              vision_rect=None, vision_name=None, handle=True, ds=0.02, recessed=None,
+              vision_rect=None, vision_name=None, hardware="auto", ds=0.02, recessed=None,
               lean=None):
     """One door kit v2 opening (module notes above): opening [u - w/2, u + w/2] (+ sidelights)
     x [zf, zf + h] on `wall`; returns the parts. casing_name defaults to `door_<name>_cas`
@@ -2016,6 +2019,19 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
     p = DOOR_FAMILIES[DOOR_KIT["family"]]
     n, _t = _SIDES[wall.side]
     full = (DOOR_KIT["mode"] == "full") if lean is None else not lean
+    # HARDWARE GATE (Richard 2026-10-17: "It's good to render levers or doorknobs. Vanilla
+    # buildings tend to have them"): every leaf ends with a pull / lever / knob part; the only
+    # way out is an explicit, reasoned opt-out hardware="none:<reason>" (no silent off switch)
+    if hardware == "auto":
+        handle = True
+    elif isinstance(hardware, str) and hardware.startswith("none:") and hardware[5:].strip():
+        handle = False
+    else:
+        raise ValueError(f"door {name}: hardware={hardware!r}: use 'auto' or 'none:<reason>' "
+                         f"(the opt-out needs a reason)")
+    if handle and p["handle"] not in DOOR_HARDWARE_KINDS:
+        raise RuntimeError(f"door {name}: family {DOOR_KIT['family']!r} has no hardware kind "
+                           f"({p['handle']!r}); every door leaf needs a pull / lever / knob")
     if recessed is None:
         hz = DOOR_KIT["holes"]
         arr = DOOR_KIT["arrival"]
@@ -2070,10 +2086,14 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
             DOOR2_GLASS_D.add(round(-dg, 4))
 
     # -- liner: two jamb sides out to the casing face + head soffit (no stool) ------------
+    # The liner runs back past the glass plane (Dg): a sidelight / transom light meets the jamb
+    # or the head directly, and a liner stopping at the leaf face left a slit to the sky between
+    # it and the recessed glass (follow-up 2026-10-17, L1 left sidelight). Same tris.
+    Dg = dg - 0.005
     g = _Geo()
-    _wpoly(g, wall, [(aL, zf, Dl), (aL, zt, Dl), (aL, zt, Dc), (aL, zf, Dc)], (1, 0, 0))
-    _wpoly(g, wall, [(aR, zf, Dl), (aR, zf, Dc), (aR, zt, Dc), (aR, zt, Dl)], (-1, 0, 0))
-    _wpoly(g, wall, [(aL, zt, Dl), (aR, zt, Dl), (aR, zt, Dw), (aL, zt, Dw)], (0, -1, 0))
+    _wpoly(g, wall, [(aL, zf, Dg), (aL, zt, Dg), (aL, zt, Dc), (aL, zf, Dc)], (1, 0, 0))
+    _wpoly(g, wall, [(aR, zf, Dg), (aR, zf, Dc), (aR, zt, Dc), (aR, zt, Dg)], (-1, 0, 0))
+    _wpoly(g, wall, [(aL, zt, Dg), (aR, zt, Dg), (aR, zt, Dw), (aL, zt, Dw)], (0, -1, 0))
     add([(g.finish(f"reveal_d{name}" if recessed else f"door_{name}_lin"), lkey)])
     # -- casing ---------------------------------------------------------------------------
     cn = casing_name or f"door_{name}_cas"
@@ -2189,7 +2209,7 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
         add([(g.finish(f"door_{tag}_leaf"), leaf_key)])
         if p["leaf"] == "steel":                               # kick plate 3 mm proud
             add(pane_quad(f"door_{tag}_kick", wall, la + 0.03, lb - 0.03, zl0 + 0.02,
-                          zl0 + 0.02 + p["kick_h"], d=Dl + 0.003, mat="concrete"))
+                          zl0 + 0.02 + p["kick_h"], d=Dl + 0.003, mat=p.get("kick_key", "concrete")))
         # handles
         if handle and p["handle"] == "pull":
             bw, bl, bz, so, bd = DOOR_PULL
@@ -2203,10 +2223,17 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
             _wpoly(g, wall, [(ua, z0_, db), (ua, z0_, df), (ua, z1_, df), (ua, z1_, db)], (-1, 0, 0))
             _wpoly(g, wall, [(ub, z0_, db), (ub, z1_, db), (ub, z1_, df), (ub, z0_, df)], (1, 0, 0))
             add([(g.finish(f"door_{tag}_pull"), "galv")])
-        elif handle and p["handle"] == "lever" and k == 0:
+        elif handle and p["handle"] == "lever":
             ll, lh, lz, so, ldp = DOOR_LEVER
-            sgn = -1.0                                          # latch at the leaf's high-u edge
-            ue = lb - p["stile"] / 2 if L == 1 else lb - 0.06
+            lz = p.get("lever_z", lz)
+            # latch edge: a single leaf's high-u edge; a pair's meeting edge (each leaf its own
+            # lever, pointing back toward its hinge side)
+            if L == 1:
+                ue, sgn = lb - p.get("stile", 0.16) / 2, -1.0
+            elif k == 0:
+                ue, sgn = lb - 0.06, -1.0
+            else:
+                ue, sgn = la + 0.06, 1.0
             ua, ub = sorted((ue, ue + sgn * ll))
             z0_, z1_ = zf + lz, zf + lz + lh
             df, db = Dl + so + ldp, Dl + so
@@ -2216,6 +2243,15 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
             _wpoly(g, wall, [(ua, z0_, db), (ub, z0_, db), (ub, z0_, df), (ua, z0_, df)], (0, -1, 0))
             add([(g.finish(f"door_{tag}_lever"), "ski_black")])
     DOOR2_LEAF[name] = Dl
+    hw_parts = []
+    for k in range(L):
+        tag = f"{name}{k}" if L > 1 else name
+        got = [f"door_{tag}_{kind}" for kind in DOOR_HARDWARE_KINDS if f"door_{tag}_{kind}" in names]
+        if handle and not got:
+            raise RuntimeError(f"door {name}: leaf {tag} has no hardware part (door_{tag}_pull / _lever "
+                               f"/ _knob); pass hardware='none:<reason>' to opt out")
+        hw_parts += got
+    DOOR2_HARDWARE[name] = hw_parts if handle else hardware
     # -- sidelights: mullion + bottom panel (+ top rail without a transom), glass -----------
     sl_top = zf + leaf_h
     if sl:
@@ -2249,6 +2285,9 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
                (0, 0, 1))
         _wpoly(g, wall, [(aL, sl_top + tb, dg), (aL, sl_top + tb, Dl), (aR, sl_top + tb, Dl),
                          (aR, sl_top + tb, dg)], (0, 1, 0))
+        if sl:                                 # under the bar: closes the sidelights' top edge
+            _wpoly(g, wall, [(aL, sl_top, dg), (aR, sl_top, dg), (aR, sl_top, Dl), (aL, sl_top, Dl)],
+                   (0, -1, 0))
         add([(g.finish(f"door_{name}_tr"), frame_key)])
         glass_pane(f"{name}t", aL, aR, sl_top + tb, zt)
     # -- threshold ---------------------------------------------------------------------------
