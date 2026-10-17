@@ -30,6 +30,9 @@ from (Desktop/ski resort assets reference images/ski snowmakers/):
   T5 paint wear       chips to primer at convex edges (+ rare field chips), heavier on the
                       fan-gun bell and the lance jacket; dirt streaks on the housing
                                                                       (shop close-up: TR8 / TR10 bodies)
+                      rev 2: every overlay is RESOLUTION-GATED (_res): painted only where its
+                      feature spans >= 1.5-3 texels. B's painted shells sit at 12-40 px/m, so
+                      chips effectively vanish there instead of smearing (write-up section 4).
   T6 soot / oil       compressor intakes and oil spots under them    (lance photo, shop floor)
   T7 guard rust       the fan guard mesh a little rusty              ("fan gun in foreground" guard)
   T8 relief           a shallow normal-map relief for chips and rust, renormalised
@@ -124,6 +127,7 @@ STREAK_PREFIXES = ("Mast", "Column", "Lance", "Riser", "Stile", "Pipe", "Pedesta
                    "Chassis", "Cross", "DrawbarL", "DrawbarR", "Rail", "CageBar", "Jack",
                    "HeadForkArm", "GunForkArm", "Body", "Outlet")
 HEAVY_WEAR = ("GunBell", "HeadBell", "BaseJacket")
+CHIP_FEATURE_M = 0.025       # a chip is ~2.5 cm: painted only where that spans >= 1.5-3 texels (60-120 px/m)
 # = snow_props.BEVEL_PREFIXES (copied: this module must not import the generator)
 CHAMFER_PREFIXES = ("Pad", "BasePlate", "Cabinet", "Platform", "Body", "Lid", "Compressor",
                     "DriveHousing", "PushPlate", "HeadCompressor")
@@ -410,6 +414,14 @@ def _n01(F, cells, name, effect, octaves=3, coords=None):
     return uniform(fbm(c, cells, F.ppm, _seed(name, effect), octaves=octaves))
 
 
+def _res(F, feature_m):
+    """Resolution gate (rev 2): weight 0 -> 1 as a feature of `feature_m` metres spans 1.5 -> 3
+    texels of its face. Detail the texels cannot carry is not painted (it would only blur into
+    a smear). B's finished layout gives the painted shells 12-40 px/m and the nuts 200-1400 px/m
+    (results/texel_density_by_part.json), so this decides where chips can exist at all."""
+    return smoothstep(1.5, 3.0, feature_m * F.ppm)
+
+
 def _axis_coords(F, sel):
     """Per texel (across1, across2, along) in its part's principal frame (streak coordinates)."""
     out = np.zeros((int(sel.sum()), 3))
@@ -429,8 +441,11 @@ def _axis_coords(F, sel):
     return out
 
 
-def weather(base, nrm, msk, ctl, ao, F, name):
-    """All treatments on covered texels. Arrays are (A, A, 4) linear; returns new arrays + stats."""
+def weather(base, nrm, msk, ctl, ao, F, name, skip=()):
+    """All treatments on covered texels. Arrays are (A, A, 4) linear; returns new arrays + stats.
+    `skip`: effect ids to leave out (T1, T2, T3, T4, T5c chips, T5d paint dirt, T6, T7, T8) - for
+    diagnosing which overlay makes a look; the shipping path skips nothing."""
+    skip = set(skip)
     A = F.A
     flat = lambda arr: arr.reshape(-1, 4)[F.idx].astype(np.float64)
     B = flat(base); Nm = flat(nrm); Mk = flat(msk); C = flat(ctl)
@@ -473,21 +488,24 @@ def weather(base, nrm, msk, ctl, ao, F, name):
 
     # ---- T1 galvanised mottle + white rust (shop close-up A-frame; "50" hydrant) --------
     sel = galv & ~exempt
-    if sel.any():
-        big = _n01(F, 0.20, name, "galv_mottle")[sel]
-        fine = _n01(F, 0.05, name, "galv_fine")[sel]
-        wr = smoothstep(0.60, 0.86, big)                       # ~20-25 % white-rust patches
-        B[sel, :3] = (B[sel, :3] * (1 - 0.30 * wr[:, None]) + ZINC_WHITE_LIN * occ[sel, None] * 0.30 * wr[:, None])
-        B[sel, :3] *= (1.0 - 0.10 * fine)[:, None]
-        Mk[sel, 0] = 1.0 - 0.75 * wr
-        Mk[sel, 3] = Mk[sel, 3] * (1 - wr) + 0.28 * wr - 0.05 * fine
+    if sel.any() and "T1" not in skip:
+        # rev 2 (coordinator review 2026-10-17: the 0.20 m blobs read as camouflage): spangle-scale
+        # cells (5 cm haze, 1.2 cm spangle), half the contrast, white rust only LIGHTENS (chalky haze)
+        big = _n01(F, 0.05, name, "galv_mottle")[sel]
+        fine = _n01(F, 0.012, name, "galv_fine")[sel]
+        wr = smoothstep(0.60, 0.86, big) * _res(F, 0.05)[sel]  # chalky haze
+        fine = fine * _res(F, 0.012)[sel]
+        B[sel, :3] = (B[sel, :3] * (1 - 0.15 * wr[:, None]) + ZINC_WHITE_LIN * occ[sel, None] * 0.15 * wr[:, None])
+        B[sel, :3] *= (1.0 - 0.05 * fine)[:, None]
+        Mk[sel, 0] = 1.0 - 0.40 * wr
+        Mk[sel, 3] = Mk[sel, 3] * (1 - 0.6 * wr) + 0.30 * 0.6 * wr - 0.025 * fine
         stats["T1_white_rust_share_galv"] = share(_put(n, sel, wr), galv)
 
     # ---- T2 salt / water streaks along masts, columns, lance tubes -------------------
     elong = _startswith(F, STREAK_PREFIXES) & galv & ~exempt
     vert = galv & ~exempt & ~elong & (np.abs(Nz) < 0.75)
     sel = elong | vert
-    if sel.any():
+    if sel.any() and "T2" not in skip:
         Q = _axis_coords(F, sel)
         s1 = uniform(fbm(Q, (0.022, 0.022, 0.9), F.ppm[sel], _seed(name, "salt"), octaves=3))
         s2 = uniform(fbm(Q, (0.030, 0.030, 0.7), F.ppm[sel], _seed(name, "water"), octaves=3))
@@ -509,7 +527,7 @@ def weather(base, nrm, msk, ctl, ao, F, name):
     rn2 = _n01(F, 0.012, name, "rust_fine")
     for prefixes, cov, run in RUST_SOURCES:
         src = _startswith(F, prefixes) & galv & ~exempt
-        if not src.any():
+        if not src.any() or "T3" in skip:
             continue
         # on the part: noise coverage, more at its bottom and edges
         pids = np.unique(F.part_id[src])
@@ -556,7 +574,7 @@ def weather(base, nrm, msk, ctl, ao, F, name):
 
     # ---- T7 guard mesh a little rusty ("fan gun in foreground": the guard) -------------
     gsel = _startswith(F, GUARD_PREFIXES)
-    if gsel.any():
+    if gsel.any() and "T7" not in skip:
         gl = _n01(F, 0.05, name, "guard")[gsel]
         pids = F.part_id[gsel]
         zl = np.array([F.parts[int(k)]["lo"][2] for k in pids])
@@ -571,16 +589,19 @@ def weather(base, nrm, msk, ctl, ao, F, name):
     chip = np.zeros(n)
     if paint.any():
         heavy = _startswith(F, HEAVY_WEAR)
-        wpart = np.where(heavy, 0.030, 0.018)
-        wedge = np.maximum(wpart, 2.5 / np.maximum(F.ppm, 1e-3))
-        e = 1.0 - smoothstep(0.3 * wedge, wedge, F.ED)
-        c1 = _n01(F, 0.045, name, "chip_edge")
-        c2 = _n01(F, 0.022, name, "chip_field")
-        thr = np.where(heavy, 0.55, 0.76)
-        ce = smoothstep(thr, thr + 0.06, e * (0.35 + 0.65 * c1))
-        fthr = np.where(heavy, 0.982, 0.994)
-        cf = smoothstep(fthr, fthr + 0.012, c2) * (1.0 - 0.5 * smoothstep(0.3, 0.9, Nz))
-        chip = np.where(paint & ~exempt, np.maximum(ce, cf), 0.0)
+        # rev 2 (coordinator review 2026-10-17: soft 10-20 cm smears on the bell and the tower
+        # cabinet): a HARD edge band of ~1.5-2 texels, small chip cells (1.5 cm), a near-step
+        # threshold, fewer chips. At 86-186 px/m a chip is still only 2-4 texels.
+        wedge = np.maximum(np.where(heavy, 0.014, 0.010), np.where(heavy, 2.2, 1.6) / np.maximum(F.ppm, 1e-3))
+        e = (F.ED < wedge).astype(np.float64)
+        c1 = _n01(F, 0.015, name, "chip_edge")
+        c2 = _n01(F, 0.012, name, "chip_field")
+        thr = np.where(heavy, 0.60, 0.72)
+        gate = _res(F, CHIP_FEATURE_M)
+        ce = e * smoothstep(thr, thr + 0.015, c1) * gate
+        fthr = np.where(heavy, 0.990, 0.997)
+        cf = smoothstep(fthr, fthr + 0.003, c2) * (1.0 - 0.5 * smoothstep(0.3, 0.9, Nz)) * gate
+        chip = np.where(paint & ~exempt & ("T5c" not in skip), np.maximum(ce, cf), 0.0)
         for zn, ch in SLOT_ZONES.items():
             s = zone == zn
             C[s, ch] *= (1.0 - chip[s])
@@ -593,18 +614,23 @@ def weather(base, nrm, msk, ctl, ao, F, name):
             stats["T5_chip_share_bell_jacket"] = share(chip, hv)
         # dirt streaks on the housing (vertical faces) + dust on the tops
         ps = paint & ~exempt
-        st = uniform(fbm(F.P[ps], (0.035, 0.035, 0.6), F.ppm[ps], _seed(name, "paint_streak"), octaves=3))
+        st = uniform(fbm(F.P[ps], (0.02, 0.02, 0.45), F.ppm[ps], _seed(name, "paint_streak"), octaves=3))
         sk = smoothstep(0.66, 0.82, st) * (1.0 - smoothstep(0.5, 0.9, np.abs(Nz[ps])))
-        top = smoothstep(0.45, 0.9, Nz[ps]) * smoothstep(0.50, 0.70, _n01(F, 0.12, name, "paint_dust")[ps])
-        dm = (1.0 - 0.14 * sk) * (1.0 - 0.14 * top)
+        top = smoothstep(0.45, 0.9, Nz[ps]) * smoothstep(0.50, 0.70, _n01(F, 0.04, name, "paint_dust")[ps])
+        rg = _res(F, 0.06)[ps]
+        sk = sk * rg; top = top * rg
+        if "T5d" in skip:
+            sk = sk * 0.0; top = top * 0.0
+        dm = (1.0 - 0.10 * sk) * (1.0 - 0.10 * top)
         dirt_mul[ps] *= dm
         Mk[ps, 3] -= 0.06 * sk + 0.08 * top
         stats["T5_dirt_share_paint"] = share(_put(n, ps, np.maximum(sk, top)), paint)
 
     # ---- T6 soot / oil at compressor intakes ------------------------------------------
     srcm = _startswith(F, COMPRESSOR_SOURCES)
-    if srcm.any():
+    if srcm.any() and "T6" not in skip:
         sn = _n01(F, 0.05, name, "soot")
+        comp_body = _startswith(F, ("Comp", "LouvreCompressor", "HeadCompressor"))
         soot = np.zeros(n)
         oil = np.zeros(n)
         on = _n01(F, 0.05, name, "oil")
@@ -612,10 +638,14 @@ def weather(base, nrm, msk, ctl, ao, F, name):
             pp = F.parts[int(k)]
             lo, hi = pp["lo"], pp["hi"]
             d = np.linalg.norm(np.maximum(np.maximum(lo - F.P, F.P - hi), 0.0), axis=1)
-            near = np.clip(1.0 - d / 0.14, 0, 1)
+            # rev 2: soot stays on the compressor body (intake + a 4 cm halo on the same machine
+            # part), never on the housing / bell next to it; the tower's HeadCompressor is a box
+            # whose intake is its underside, so only that face takes soot
+            near = np.clip(1.0 - d / 0.04, 0, 1) * comp_body
             own = (F.part_id == k)
             under = smoothstep(0.2, -0.6, Nz)
-            s = np.where(own, 0.55 + 0.45 * under, near * 0.8) * smoothstep(0.30, 0.65, sn)
+            own_s = under if F.table[int(k)].startswith("HeadCompressor") else 0.55 + 0.45 * under
+            s = np.where(own, own_s, near * 0.8) * smoothstep(0.30, 0.65, sn)
             soot = np.maximum(soot, s)
             # oil spots on up-facing surfaces under the compressor footprint
             foot = ((F.P[:, 0] > lo[0] - 0.12) & (F.P[:, 0] < hi[0] + 0.12) &
@@ -651,13 +681,15 @@ def weather(base, nrm, msk, ctl, ao, F, name):
         g[pad_top] = np.maximum(g[pad_top], smoothstep(0.40, 0.70, pn) * 0.6 + 0.30 * ring + 0.25 * edgeg)
     lid = _startswith(F, ("Lid",)) & up
     if lid.any():
-        ln = _n01(F, 0.07, name, "lid_boot")[lid]
-        g[lid] = np.maximum(g[lid], smoothstep(0.50, 0.72, ln) * 0.9)
+        ln = _n01(F, 0.06, name, "lid_boot")[lid]          # rev 2: lower contrast, density-gated
+        g[lid] = np.maximum(g[lid], smoothstep(0.55, 0.66, ln) * 0.5 * _res(F, 0.06)[lid])
     floor = _startswith(F, ("Floor", "Deck", "PushPlate")) & up
     if floor.any():
         fnz = _n01(F, 0.12, name, "floor_foot")[floor]
         g[floor] = np.maximum(g[floor], smoothstep(0.45, 0.70, fnz) * 0.8)
     g = np.clip(g, 0, 1)
+    if "T4" in skip:
+        g = g * 0.0
     ns = ~slot_zone
     B[ns, :3] *= (1.0 - g[ns, None] * (1.0 - GRIME_MUL) * 0.9)
     dirt_mul[slot_zone] *= (1.0 - 0.30 * g[slot_zone])
@@ -669,7 +701,7 @@ def weather(base, nrm, msk, ctl, ao, F, name):
     if lid.any():
         stats["T4_grime_share_lid_top"] = share(g, lid)
     tyre = _startswith(F, ("Wheel", "Castor")) & (zone == "rubber")
-    if tyre.any():
+    if tyre.any() and "T4" not in skip:
         pids = F.part_id[tyre]
         zc = np.array([0.5 * (F.parts[int(k)]["lo"][2] + F.parts[int(k)]["hi"][2]) for k in pids])
         zl = np.array([F.parts[int(k)]["lo"][2] for k in pids])
@@ -679,7 +711,7 @@ def weather(base, nrm, msk, ctl, ao, F, name):
         Mk[tyre, 3] = Mk[tyre, 3] * (1 - mud) + 0.12 * mud
         stats["T4_mud_share_tyres"] = share(_put(n, tyre, mud / 0.75), tyre)
     hose = _startswith(F, ("Hose", "Coil", "Feed", "HoseLead", "Conduit")) & (zone == "rubber") & (z < 0.25)
-    if hose.any():
+    if hose.any() and "T4" not in skip:
         dust = 0.35 * smoothstep(0.4, 0.7, _n01(F, 0.06, name, "hose_dust")[hose])
         B[hose, :3] = B[hose, :3] * (1 - dust[:, None]) + MUD_LIN * 1.6 * occ[hose, None] * dust[:, None]
 
@@ -691,6 +723,8 @@ def weather(base, nrm, msk, ctl, ao, F, name):
 
     # ---- T8 relief: rust bumps raised, chips recessed, then renormalise all covered -------
     h = 0.35 * rust_all * (rn2 - 0.5) + 0.25 * rust_all - 0.45 * chip
+    if "T8" in skip:
+        h = h * 0.0
     H = _scatter(F, h)
     cov = F.cov
     gy, gx = np.gradient(H)
@@ -772,7 +806,8 @@ def _dilate(arrays, cov, steps=10):
 class WeatherHook:
     """post_compose(base, nrm, msk, ctl, ao, mesh, A) -> (base, nrm, msk, ctl)."""
 
-    def __init__(self, obj, name, compare_dir=None):
+    def __init__(self, obj, name, compare_dir=None, skip=()):
+        self.skip = tuple(skip)
         self.obj = obj
         self.name = name
         self.compare_dir = compare_dir      # optional: an exported folder to diff "before" against
@@ -791,7 +826,7 @@ class WeatherHook:
         bb = enc(base).copy(); bb[..., 3] = 1.0
         self.before = {"BaseColor": bb, "Normal": nrm.copy(), "MaskMap": msk.copy(),
                        "ControlMask": ctl.copy()}
-        b2, n2, m2, c2, stats = weather(base, nrm, msk, ctl, ao, F, self.name)
+        b2, n2, m2, c2, stats = weather(base, nrm, msk, ctl, ao, F, self.name, skip=self.skip)
         after = measure(enc(b2), m2, c2, F)
         # guards
         if np.any(m2[..., 1] > 1e-6) or np.any(m2[..., 2] > 1e-6):
@@ -813,5 +848,5 @@ class WeatherHook:
         return b2, n2, m2, c2
 
 
-def make_hook(obj, name):
-    return WeatherHook(obj, name)
+def make_hook(obj, name, skip=()):
+    return WeatherHook(obj, name, skip=skip)
