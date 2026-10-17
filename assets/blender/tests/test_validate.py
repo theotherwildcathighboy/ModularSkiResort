@@ -3,12 +3,13 @@ test_validate.py - exercises cs2_validate against a tiny generated asset folder.
 
     blender --background --factory-startup --python tests\\test_validate.py
 
-1. A valid folder (LOD0 cylinder + LOD1 box, 128 px maps from make_texture_set,
+1. A valid folder (LOD0 cylinder + LOD1 box, 512 px maps from make_texture_set,
    settings.json with LOD1 Skip, a manifest) validates with zero ERRORs.
 2. Four corruptions are each caught with the expected code: underscore in the name,
    a BaseColor alpha 0.3 patch, MaskMap B non-zero, LOD1 FBX declared but missing.
    Per-part texel density (props): LOD0 UVs shrunk to 1/10 -> texel-density ERROR,
-   not on kind building.
+   not on kind building. Texture floor (wiki 512): a 256 px set -> texture-size ERROR on a prop
+   AND a building (REDO 2026-10-17).
 3. validate_mesh(kind="building"): a closed box on z=0 reports engine base BLOCKED,
    an open-bottom box reports OK (ground_ring_report verdicts likewise).
 Prints one PASS line and exits 0; any failure prints FAIL and exits 1.
@@ -30,6 +31,7 @@ import cs2_asset      # noqa: E402
 import cs2_validate   # noqa: E402
 
 NAME = "SkiValTestA"
+TEX = 512            # the wiki floor (cs2_validate DEFAULT_SPEC min_texture)
 CHECKS = 0
 
 
@@ -68,7 +70,7 @@ def box(name, size=(1.0, 1.0, 1.0), open_bottom=False):
 
 
 def build_folder(root):
-    """LOD0 = 12-seg cylinder (44 tris), LOD1 = box (12 tris); 128 px maps; settings."""
+    """LOD0 = 12-seg cylinder (44 tris), LOD1 = box (12 tris); 512 px maps; settings."""
     clear_scene()
     os.makedirs(root, exist_ok=True)
     bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.4, depth=1.2, location=(0, 0, 0.6))
@@ -81,7 +83,7 @@ def build_folder(root):
     cs2_asset.shade_by_angle(lod1, 60.0, weighted=False)
     cs2_asset.export_fbx(lod0, os.path.join(root, f"{NAME}.fbx"))
     cs2_asset.export_fbx(lod1, os.path.join(root, f"{NAME}_LOD1.fbx"))
-    cs2_asset.make_texture_set(root, NAME, size=128, control_rgb=(1.0, 0.0, 0.0))
+    cs2_asset.make_texture_set(root, NAME, size=TEX, control_rgb=(1.0, 0.0, 0.0))
     cs2_asset.write_settings(root, NAME, supplied_lods=(1,))
     return lod0, lod1
 
@@ -136,7 +138,7 @@ def run():
         # cutout spec accepts it
         findings = cs2_validate.validate_asset_folder(root, NAME, {"kind": "prop", "cutout": True})
         check(not codes(findings), "cutout spec still errored on alpha")
-        cs2_asset.make_texture_set(root, NAME, size=128, control_rgb=(1.0, 0.0, 0.0))
+        cs2_asset.make_texture_set(root, NAME, size=TEX, control_rgb=(1.0, 0.0, 0.0))
         print("[test] BaseColor alpha patch caught")
 
         # -- 2c. MaskMap B non-zero ----------------------------------------------------
@@ -148,7 +150,7 @@ def run():
             check(False, "MaskMap B did not raise")
         except cs2_validate.AssetValidationError as e:
             check(codes(e.findings) == {"maskmap-b"}, f"MaskMap B: codes {codes(e.findings)}")
-        cs2_asset.make_texture_set(root, NAME, size=128, control_rgb=(1.0, 0.0, 0.0))
+        cs2_asset.make_texture_set(root, NAME, size=TEX, control_rgb=(1.0, 0.0, 0.0))
         print("[test] MaskMap B caught")
 
         # -- 2d. declared LOD1 FBX missing ---------------------------------------------
@@ -179,7 +181,7 @@ def run():
             check({"folder", "controlmask-a"} <= c, f"stray/ctl: codes {c}")
         os.remove(stray)
         os.remove(os.path.join(root, f"{NAME}_Foo.fbx"))
-        cs2_asset.make_texture_set(root, NAME, size=128, control_rgb=(1.0, 0.0, 0.0))
+        cs2_asset.make_texture_set(root, NAME, size=TEX, control_rgb=(1.0, 0.0, 0.0))
         print("[test] stray PNG / unknown FBX / ControlMask alpha caught")
 
         # -- 2f. per-part texel density (2026-10-17, snow props B: shells at 12-22 px/m) ----
@@ -203,6 +205,16 @@ def run():
         findings = cs2_validate.validate_asset_folder(root, NAME, {"kind": "prop"})
         check(not codes(findings), "restored UVs still error")
         print("[test] per-part texel density floor caught")
+
+        # -- 2g. texture floor (REDO 2026-10-17: the wiki's 512 minimum, an ERROR for every kind) ----
+        cs2_asset.make_texture_set(root, NAME, size=256, control_rgb=(1.0, 0.0, 0.0))
+        for kind in ("prop", "building"):
+            f_small = cs2_validate.validate_asset_folder_ex(root, NAME, {"kind": kind})[0]
+            check("texture-size" in codes(f_small), f"256 px set on a {kind}: codes {codes(f_small)}")
+        cs2_asset.make_texture_set(root, NAME, size=TEX, control_rgb=(1.0, 0.0, 0.0))
+        findings = cs2_validate.validate_asset_folder(root, NAME, {"kind": "prop"})
+        check(not codes(findings), "512 px set still errors")
+        print("[test] texture floor 512 caught (prop + building)")
 
         # -- 3. engine-base rule -------------------------------------------------------
         clear_scene()

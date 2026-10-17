@@ -31,7 +31,8 @@ and only after every check has run, so one run reports everything that is wrong.
         rows (same orientation as Image.pixels), used for overlap and covered-texel rules.
 
 `spec` (all keys optional): kind ("prop" | "building" | "hanging"), cutout (bool),
-min_texture (128), max_texture (4096), hero (bool: WARN below 512), lod0_cap,
+min_texture (512: the wiki floor, ERROR below for every kind), max_texture (4096), hero (legacy,
+now covered by the floor), lod0_cap,
 lod1_ratio (0.5), lod2_cap (500), extent_m ((x, y, z) Blender metres, 2 % tolerance),
 expected_lods (tuple), expected_submeshes (tuple of suffixes).
 
@@ -76,7 +77,7 @@ PATH_FORBIDDEN = ("Tree", "Bushes")
 GROUND_BAND_M = 0.01          # BatchMeshHelpers.AddBaseLines: y = 0 +- 0.01
 RAW_UNITS_PER_M = cs2_asset.CS2_UNIT_SCALE
 DEFAULT_SPEC = {
-    "kind": None, "cutout": False, "min_texture": 128, "max_texture": 4096, "hero": False,
+    "kind": None, "cutout": False, "min_texture": 512, "max_texture": 4096, "hero": False,
     "lod0_cap": None, "lod1_ratio": 0.5, "lod2_cap": 500, "extent_m": None,
     "expected_lods": None, "expected_submeshes": None,
 }
@@ -88,7 +89,13 @@ _EMISSIVE_RE = re.compile(r"^Emissive(?:ID)?\d*$")
 # compression). A "part" here is a connected mesh component of the re-imported LOD0 (the FBX
 # carries no part names); parts smaller than DENSITY_PART_MIN_M2 are reported, not gated.
 DENSITY_PART_MIN_M2 = 0.05
-DENSITY_FLOOR_PX_M = {"prop": (30.0, 60.0)}   # kind -> (ERROR below, WARN below)
+# REDO (wiki style, 2026-10-17, snow-props-weather-2026-10-17.md "Redo"): WARN raised 60 -> 120 px/m
+# so the gate keeps asserting vanilla-class intent at the new sizes (vanilla props 158-2,520 px/m;
+# the repacked snow set reads min part 80+); ERROR stays 30 for now.
+DENSITY_FLOOR_PX_M = {"prop": (30.0, 120.0)}   # kind -> (ERROR below, WARN below)
+# Texture floor (REDO, 2026-10-17): the wiki's "minimum 512x512 ... anything smaller is unsupported"
+# (Asset Creation Guide; docs/research/wiki/asset-creation-guide.md). DEFAULT_SPEC min_texture = 512,
+# an ERROR for every kind (it was 128, with only a hero WARN below 512).
 
 
 class AssetValidationError(RuntimeError):

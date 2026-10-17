@@ -1,58 +1,67 @@
 """
-snow_weather.py - texture-side weathering + smoothness parity for the generation-B snowmaking
-props (2026-10-17). Write-up: docs/research/art/snow-props-weather-2026-10-17.md.
+snow_weather.py - the CLEAN-STYLE texture pass for the generation-B snowmaking props
+(REDO, wiki style, 2026-10-17). Write-up: docs/research/art/snow-props-weather-2026-10-17.md,
+section "Redo (wiki style)"; brief: docs/research/art/wiki-best-practices-gap-2026-10-17.md
+sections 0, 2a, 2b, 3.
 
-Why texture-side: every B class sits 1-8 tris under its HARD cap (snow-props-detail-2026-10-16.md
-section 10.3, DECISIONS 254), so weathering is texture work, never triangles. This module
-changes PIXELS ONLY: it runs inside lift_tower.apply_finish_textures' `post_compose` slot
-(linear light, AO already multiplied, stamped strips already restored, before the sRGB
-encode) and returns new base / normal / mask / control arrays. The mesh, its UVs, its part
-table, the LOD chain and every file name and size are untouched - the FBX is byte-for-byte
-the same geometry with or without it (proved per class in the write-up, section 6).
+History: rev 1-4 of this module painted texel-scale weathering (galvanised spangle and haze, salt
+streaks, rust bloom, chips to primer, water runs, soot / oil, a rusty guard, relief) on 9-26 mm
+texels with a resolution gate that admitted 1.5-3 texel features. Richard rejected it (DECISIONS
+264 VERDICT FAIL): "too much weathering or the wrong style ... looked better before ... too
+pixelated". The wiki's only style rule is "clean, minimal grunge, no repetitive patterns", detail
+under ~5 cm belongs in the NORMAL map, and vanilla props have near-flat albedo. Every texel-scale
+overlay is RETIRED here, not tuned (the rev 4 code is in git, commit 0f7a4cf).
 
-Inputs per texel come from rasterising the finished mesh into its own UVUnique layout:
-face id, world position, interpolated normal, the atlas ZONE of the face (from the face's
-UVAtlas centroid, cs2_asset.snow_prop_zones - so the material class is exact, not guessed
-from colour), the PART name (the "part" face attribute + cs2_part_table), the distance to
-the face's own feature edges (convex dihedral > 25 deg or open rim) and texels per metre.
+It runs inside lift_tower.apply_finish_textures' `post_compose` slot (linear light, AO already
+multiplied, stamped strips already restored, before the sRGB encode) and changes PIXELS ONLY:
+mesh, UVs, part table, LOD chain and file names are untouched.
 
-Treatments, each a PARTIAL overlay driven by world-metre value noise (cs2_weather.fbm, the
-buildings' vocabulary: never a uniform tone shift), each with the reference photo it came
-from (Desktop/ski resort assets reference images/ski snowmakers/):
-  T0 class parity     smoothness / metal per zone onto the measured vanilla bands; galvanised
-                      albedo lifted to the vanilla metal band (write-up section 2)
-  T1 galv mottle      dull zinc mottle + white-rust patches          (shop close-up, "50" hydrant)
-  T2 salt/water       streaks along masts, columns, lance tubes      (shop A-frame, lance photo)
-  T3 rust bloom       welds, flanges, nuts, cast feet, clamps + short rust runs below them
-                                                                      (shop ring nuts, "fan gun in foreground")
-  T4 ground grime     dirt band at grade, foot grime on pads, lid and floor plate, mud on tyres
-                                                                      (shop floor, "fan gun in foreground")
-  T5 paint wear       chips to primer at convex edges (+ rare field chips), heavier on the
-                      fan-gun bell and the lance jacket; dirt streaks on the housing
-                                                                      (shop close-up: TR8 / TR10 bodies)
-                      rev 2: every overlay is RESOLUTION-GATED (_res): painted only where its
-                      feature spans >= 1.5-3 texels. B's painted shells sit at 12-40 px/m, so
-                      chips effectively vanish there instead of smearing (write-up section 4).
-  T6 soot / oil       compressor intakes and oil spots under them    (lance photo, shop floor)
-  T7 guard rust       the fan guard mesh a little rusty              ("fan gun in foreground" guard)
-  T8 relief           a shallow normal-map relief for chips and rust, renormalised
+STEP 1 (`step=1`, Richard's "one variable at a time"): resolution + repack + parity, no soiling.
+  N0 re-orient    every reprojected atlas normal is turned by its face's atlas -> unique UV rotation
+                  (reorient_normals): the REDO packer unfolds and rotates islands, the EMIT bake
+                  copies tangent-space normals verbatim.
+  T0 parity       MaskMap smoothness / metal per zone onto the measured vanilla bands (constant per
+                  zone: the atlas photo roughness was stretched by the atlas squeeze); metal only on
+                  the bare galvanised zone; galvanised albedo lifted toward sRGB luma 0.64.
+  T0f flat base   every zone except the stamped strip and concrete takes a per-PART flat albedo and a
+                  flat normal: the atlas photo / procedural grain was projected through smart-project
+                  islands squeezed into small atlas rects (median 1.4 : 1, p90 3.5 : 1, lance tube
+                  28 : 1), so its scale and direction were accidents; at the REDO densities it would
+                  read as stripes and noise. Concrete keeps its photo at CONCRETE_DETAIL contrast.
+  N1 normal detail  panel seams, bolt heads, weld beads, moulded ribs, a lid panel and a world-
+                  anchored grating, drawn as height by cs2_compose.detail_height (the existing
+                  height -> normal path) ONLY where the feature spans >= 3 texels
+                  (NORMAL_TEXEL_FLOOR); per class in NORMAL_DETAIL_CLASSES / normal_detail_specs.
+  AO              the finish bake's gentle occ = ao * 0.92 + 0.08 is kept, DENOISED with a 5 x 5
+                  binomial over covered texels (AO_DENOISE: the 24-sample bake's per-texel noise was
+                  the largest high-frequency term left once the flat base removed the atlas grain;
+                  islands sit >= 8 texels apart, so nothing mixes across islands).
+STEP 2 (`step=2`): step 1 + LOW-FREQUENCY soiling only (soil_overlays):
+  S1 grade        smooth darkening from grade to 0.5 m (<= 12 % sRGB luma), broken by 0.6 m noise
+  S2 pad top      broad soft dirt on the concrete pad tops (<= 12 %)
+  S3 lid top      broad soft dirt on hydrant lid tops (<= 10 %, a recolourable slot: bounded)
+  S4 collar run   at most ONE soft run >= 10 cm wide below a collar (tower mast, lance column; 8 %)
+  The grade ramp is a tonal gradient, capped by its own luma limit; the STAINS (S2-S4) carry the
+  coverage budget (a 0.5 m ramp alone covers most of a 0.35 m hydrant box or a 0.45 m fan chassis,
+  so a total budget would have faded the whole step to nothing; both coverages are reported).
+  Every overlay declares its feature size and soft edge; overlay_gate() RAISES on a feature under
+  MIN_FEATURE_M (5 cm) or a soft edge under MIN_SOFT_M and weights texels by
+  smoothstep(6, 10, feature x px/m) (>= 8 texels); an overlay whose mean gate is below 0.5 is
+  SKIPPED, never shrunk; the hook re-checks that nothing was painted where the feature spans
+  < 6 texels.
 
-Contract rules kept in code (guards raise):
-  * recolourable texels (ControlMask slot > 0.5) keep a LIGHT albedo: the dirt factor on them
-    is clamped (DIRT_FLOOR) so the picker tint still multiplies correctly (RECOLOR_ALBEDO);
-    paint chips REMOVE the slot (ctl -> 0) instead of darkening it, so a chip reads as primer
-    under any livery;
-  * BaseColor alpha stays 1.0 (apply_finish_textures writes it after the hook; asserted);
-  * MaskMap G and B stay 0, ControlMask alpha stays 0, ControlMask channels stay exclusive
-    (only ever multiplied down);
-  * metal only on real metal: galvanised / aluminium zone (and never under rust, white rust,
-    chips or dirt).
+Contract rules kept in code (guards raise): recolourable texels keep a LIGHT albedo (slot mean
+>= SLOT_KEEP of the bake's, dirt clamped at DIRT_FLOOR); BaseColor alpha 1; MaskMap G = B = 0;
+ControlMask alpha 0 and channels exclusive (only ever copied); metal only on galvanised.
 
 Public API:
-    make_hook(obj, name) -> WeatherHook   (callable with the post_compose signature)
-    hook.fields, hook.report               (after the bake ran)
-    measure(base, msk, ctl, fields)        per-zone stats (used for before / after tables)
-    build_fields(mesh, A, matrix)          the raster (also used to measure exported maps)
+    make_hook(obj, name, step=2, key=None) -> WeatherHook (post_compose signature)
+    ReorientHook(obj, inner=None)            the N0 fix alone (the packer runs without --weather)
+    hook.fields, hook.report                 after the bake ran
+    measure(base, msk, ctl, fields)          per-zone stats (before / after tables)
+    albedo_hf(base_srgb, fields)             per-zone high-frequency luma rms (vanilla EU house 0.010)
+    build_fields(mesh, A, matrix)            the raster (also used to measure exported maps)
+    overlay_gate(F, sel, name, feature_m, soft_m)   the overlay-scale gate (raises)
 Determinism: seeds are zlib.crc32(f"{name}:{effect}"); no RNG state, no clock.
 """
 
@@ -68,71 +77,63 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 import cs2_asset  # noqa: E402
-from cs2_weather import fbm, uniform, smoothstep, hash01, vnoise3  # noqa: E402  (read-only reuse)
+from cs2_weather import fbm, uniform, smoothstep, hash01  # noqa: E402,F401  (read-only reuse)
 
 LUMA = np.array((0.2126, 0.7152, 0.0722), dtype=np.float32)
 
 # ---------------------------------------------------------------------------------------
-# T0: class parity. Targets from the measured vanilla bands (write-up section 2):
-#   vanilla metal (R = 1.0) on utility props: smoothness 0.47-0.62 (fence 0.51, antenna 0.47,
-#   oil pump 0.51, generator 0.59, substation 0.62), albedo sRGB luma 0.51-0.84 (fence 0.72);
-#   vanilla painted / dielectric utility props 0.18-0.73, median ~0.44 (electrical box 0.18,
-#   hydrant 0.38, substation 0.38, oil pump 0.44); building walls 0.25-0.38, glass 0.69.
-# (smooth target, gain on the existing variation, metal)
+# T0 parity. Targets from the measured vanilla bands (write-up section 2): vanilla metal
+# (R = 1.0) on utility props 0.47-0.62 at a LIGHT albedo (sRGB luma 0.51-0.84, the galvanised
+# fence 0.51 / 0.72); painted / dielectric utility props 0.18-0.73 (median ~0.44: hydrant 0.38,
+# substation 0.38); building walls 0.25-0.41; glass 0.69. Constant per zone (the atlas
+# roughness variation was stretched like its albedo). (smoothness, metal)
 # ---------------------------------------------------------------------------------------
 ZONE_TARGET = {
-    "concrete":  (0.38, 0.60, 0.0),
-    "galv":      (0.54, 0.50, 1.0),
-    "livery":    (0.42, 0.50, 0.0),
-    "accent":    (0.38, 0.50, 0.0),
-    "plastic":   (0.40, 0.50, 0.0),
-    "rubber":    (0.18, 1.00, 0.0),
-    "grate":     (0.30, 1.00, 0.0),
-    "amber":     (0.70, 1.00, 0.0),
-    "plate":     (0.40, 1.00, 0.0),
-    "reflect":   (0.55, 1.00, 0.0),
-    "chevron":   (0.38, 1.00, 0.0),
-    "label":     (0.38, 1.00, 0.0),
+    "concrete":  (0.33, 0.0),
+    "galv":      (0.49, 1.0),
+    "livery":    (0.40, 0.0),
+    "accent":    (0.36, 0.0),
+    "plastic":   (0.38, 0.0),
+    "rubber":    (0.18, 0.0),
+    "grate":     (0.30, 0.0),
+    "amber":     (0.70, 0.0),
+    "floodlens": (0.70, 0.0),
+    "plate":     (0.40, 0.0),
+    "reflect":   (0.55, 0.0),
+    "chevron":   (0.38, 0.0),
+    "label":     (0.38, 0.0),
 }
+CONCRETE_DETAIL = 0.5        # concrete keeps half its photo contrast (albedo, smoothness, normal)
 GALV_LUMA_SRGB = 0.64        # clean galvanised albedo (vanilla metal band 0.51-0.84, fence 0.72)
 GALV_DESAT = 0.80            # pull Metal032's blue cast toward neutral
 SLOT_ZONES = {"livery": 0, "plastic": 1, "accent": 2}    # zone -> ControlMask channel
-SLOT_KEEP = 0.90             # guard: slot-texel albedo mean (sRGB) stays >= 90 % of the B value
-DIRT_FLOOR = 0.78            # slot texels: weathering may darken to 78 % at most (chips excepted)
-
-# Linear-light colours
-RUST_LIN = np.array((0.205, 0.072, 0.024), np.float32)       # = cs2_weather.RUST_LIN
-RUST_BLOOM_LIN = np.array((0.30, 0.115, 0.035), np.float32)  # fresh orange bloom
-ZINC_WHITE_LIN = np.array((0.42, 0.42, 0.40), np.float32)    # white rust / salt (sRGB ~0.68)
-GRIME_MUL = np.array((0.60, 0.56, 0.50), np.float32)         # = cs2_weather.GRIME_MUL
-MUD_LIN = np.array((0.075, 0.058, 0.040), np.float32)
-PRIMER_LIN = np.array((0.16, 0.16, 0.15), np.float32)        # grey primer (sRGB ~0.44)
-SOOT_LIN = np.array((0.018, 0.017, 0.016), np.float32)
-OIL_LIN = np.array((0.012, 0.011, 0.010), np.float32)
+SLOT_KEEP = 0.90             # guard: slot-texel albedo mean (sRGB) stays >= 90 % of the bake's
+DIRT_FLOOR = 0.78            # slot texels: soiling may darken to 78 % (linear) at most
 
 STRIP_ZONES = ("amber", "plate", "chevron", "reflect", "label", "floodlens")
 NO_WEATHER_PREFIXES = ("HeadBlades", "GunBlades", "HeadSpinner", "GunSpinner", "HeadFan",
                        "GunFan", "HeadBore", "GunBore", "Beacon", "Marker")
-
-# T3 rust sources: prefix -> (coverage on the part, run length below it in m)
-RUST_SOURCES = (
-    (("FootNut", "HeadBolt", "GunBolt", "HeadStud", "GunStud"), 0.45, 0.14),
-    (("Flange", "RiserFlange", "MastCollar", "WeldCollar"), 0.28, 0.55),
-    (("MastFoot", "ColFoot", "PipeFoot", "JackFoot", "BasePlate"), 0.24, 0.0),
-    (("Clamp", "HoseClamp", "Gland", "Coupling", "Hinge", "Pin", "HubCap", "Elbow"), 0.30, 0.25),
-    (("Standoff", "Knee", "Cheek", "Stub", "RiserStub", "Axle"), 0.20, 0.30),
-    (("HeadCollar", "GunCollar"), 0.12, 0.10),
-)
-STREAK_PREFIXES = ("Mast", "Column", "Lance", "Riser", "Stile", "Pipe", "Pedestal", "Brace",
-                   "Chassis", "Cross", "DrawbarL", "DrawbarR", "Rail", "CageBar", "Jack",
-                   "HeadForkArm", "GunForkArm", "Body", "Outlet")
-HEAVY_WEAR = ("GunBell", "HeadBell", "BaseJacket")
-CHIP_FEATURE_M = 0.025       # a chip is ~2.5 cm: painted only where that spans >= 1.5-3 texels (60-120 px/m)
-# = snow_props.BEVEL_PREFIXES (copied: this module must not import the generator)
+# = snow_props.BEVEL_PREFIXES (copied: this module must not import the generator); used by
+# build_fields' feature-edge test
 CHAMFER_PREFIXES = ("Pad", "BasePlate", "Cabinet", "Platform", "Body", "Lid", "Compressor",
                     "DriveHousing", "PushPlate", "HeadCompressor")
-COMPRESSOR_SOURCES = ("CompIntake", "LouvreCompressor", "HeadCompressor")
-GUARD_PREFIXES = ("HeadGuard", "GunGuard")
+
+# ---------------------------------------------------------------------------------------
+# N1 normal detail and the overlay-scale gate
+# ---------------------------------------------------------------------------------------
+NORMAL_TEXEL_FLOOR = 3.0     # a normal-map feature is drawn only where it spans >= 3 texels
+MIN_FEATURE_M = 0.05         # no overlay feature under 5 cm in the world ...
+MIN_SOFT_M = 0.05            # ... nor a soft edge under 5 cm
+GATE_TEXELS = (6.0, 10.0)    # ... and none under 8 texels: weight smoothstep(6, 10, f x px/m)
+GATE_SKIP_MEAN = 0.5         # an overlay whose mean gate weight is below this is skipped whole
+COVERAGE_MAX = 0.10          # area-weighted mean STAIN weight (S2-S4) per class
+AO_DENOISE = True            # 5 x 5 binomial blur of the baked occlusion over covered texels
+# per-channel weight of the sRGB darkening (luma-normalised: the luma drop is exactly k x w): warm, dusty
+GRIME_TINT = np.array((0.90, 1.0, 1.15), np.float64) / float(np.dot(LUMA, (0.90, 1.0, 1.15)))
+
+
+class OverlayScaleError(ValueError):
+    """An overlay below the minimum feature size or soft edge (the rejected pass's failure)."""
 
 
 def _seed(name, effect):
@@ -350,7 +351,9 @@ def build_fields(me, A, matrix=None, uv_layer="UVUnique", atlas_layer="UVAtlas")
         proj = (X - c) @ axis
         parts[k] = dict(lo=lo, hi=hi, c=c, axis=axis, elong=elong,
                         length=float(proj.max() - proj.min()),
-                        rh=float(np.max(np.linalg.norm((X - c)[:, :2], axis=1))))
+                        rh=float(np.max(np.linalg.norm((X - c)[:, :2], axis=1))),
+                        evals=(ev_ if len(X) >= 3 else np.ones(3)),
+                        evecs=(evec if len(X) >= 3 else np.eye(3)))
     F.parts = parts
     F.zmin = float(co[:, 2].min())
     return F
@@ -406,445 +409,6 @@ def measure(base_srgb, msk, ctl, F):
     return out
 
 
-# ---------------------------------------------------------------------------------------
-# The weathering itself
-# ---------------------------------------------------------------------------------------
-
-def _n01(F, cells, name, effect, octaves=3, coords=None):
-    c = F.P if coords is None else coords
-    return uniform(fbm(c, cells, F.ppm, _seed(name, effect), octaves=octaves))
-
-
-def _res(F, feature_m):
-    """Resolution gate (rev 2): weight 0 -> 1 as a feature of `feature_m` metres spans 1.5 -> 3
-    texels of its face. Detail the texels cannot carry is not painted (it would only blur into
-    a smear). B's finished layout gives the painted shells 12-40 px/m and the nuts 200-1400 px/m
-    (results/texel_density_by_part.json), so this decides where chips can exist at all."""
-    return smoothstep(1.5, 3.0, feature_m * F.ppm)
-
-
-CAST_FEET = ("MastFoot", "ColFoot", "PipeFoot")
-RUN_CELL_M = 0.05          # one candidate run per 5 cm of circumference
-RUN_PRESENT = 0.30         # share of candidates that carry a run
-
-
-def _runs(F, sel, name, effect, cell=RUN_CELL_M, present=RUN_PRESENT):
-    """
-    Irregular water runs down the vertical faces of each part in `sel` (rev 4, coordinator
-    review: the fbm streaks read as evenly spaced stripes on the lance jacket). Around each
-    part's vertical axis the circumference is cut into ~`cell` candidates; a hash per
-    (part, candidate) decides whether it carries a run and its width (25-75 % of the cell),
-    lateral position, length (30-90 % of the part height), start (0-15 % below the part's
-    top, i.e. where water arrives from the collar / nuts above) and strength (0.5-1); the
-    edge wobbles with a low-frequency noise along z. Every run fades out over the lowest
-    18 % of the part (before the pad). Returns a (n_sel,) mask in [0, 1].
-    """
-    out = np.zeros(int(sel.sum()))
-    P = F.P[sel]
-    pids = F.part_id[sel]
-    seed = zlib.crc32(f"{name}:{effect}".encode()) & 0xFFFFFFFF
-    wob = vnoise3(np.stack([P[:, 0] * 3.0, P[:, 1] * 3.0, P[:, 2] / 0.08], 1), seed ^ 0x5bd1) - 0.5
-    for k in np.unique(pids):
-        pp = F.parts[int(k)]
-        m = pids == k
-        X = P[m]
-        lo, hi = float(pp["lo"][2]), float(pp["hi"][2])
-        h = max(hi - lo, 1e-3)
-        R = max(float(pp["rh"]), 0.02)
-        ncell = max(3, int(round(2.0 * math.pi * R / cell)))
-        th = np.arctan2(X[:, 1] - pp["c"][1], X[:, 0] - pp["c"][0])
-        t = (th + math.pi) / (2.0 * math.pi) * ncell
-        i = np.floor(t).astype(np.int64) % ncell
-        u = t - np.floor(t)
-        kk = np.full(len(i), int(k), np.int64)
-        r = [hash01(i, kk, np.full(len(i), j, np.int64), seed) for j in range(6)]
-        on = r[0] < present
-        width = 0.25 + 0.5 * r[1]
-        centre = 0.25 + 0.5 * r[2]
-        length = (0.30 + 0.60 * r[3]) * h
-        start = hi - 0.15 * h * r[4]
-        strength = 0.5 + 0.5 * r[5]
-        hw = 0.5 * width
-        d = np.abs(u - centre + 0.25 * width * wob[m])
-        prof = 1.0 - smoothstep(0.35 * hw, hw, d)
-        dz = start - X[:, 2]
-        along = (dz > 0) * smoothstep(0.0, 0.03, dz) * (1.0 - smoothstep(0.55 * length, length, dz))
-        fade = smoothstep(lo, lo + 0.18 * h, X[:, 2])
-        out[m] = on * prof * along * fade * strength
-    return out
-
-
-def _axis_coords(F, sel):
-    """Per texel (across1, across2, along) in its part's principal frame (streak coordinates)."""
-    out = np.zeros((int(sel.sum()), 3))
-    pids = F.part_id[sel]
-    Psel = F.P[sel]
-    for k in np.unique(pids):
-        pp = F.parts[int(k)]
-        a = pp["axis"] / max(np.linalg.norm(pp["axis"]), 1e-9)
-        if pp["elong"] < 3.0 or pp["length"] < 0.6:
-            a = np.array((0.0, 0.0, 1.0))
-        t = np.array((1.0, 0.0, 0.0)) if abs(a[0]) < 0.9 else np.array((0.0, 1.0, 0.0))
-        e1 = np.cross(a, t); e1 /= np.linalg.norm(e1)
-        e2 = np.cross(a, e1)
-        s = pids == k
-        X = Psel[s]
-        out[s] = np.stack([X @ e1, X @ e2, X @ a], 1)
-    return out
-
-
-def weather(base, nrm, msk, ctl, ao, F, name, skip=()):
-    """All treatments on covered texels. Arrays are (A, A, 4) linear; returns new arrays + stats.
-    `skip`: effect ids to leave out (T0g paint grain, T1, T2, T3, T4, T5c chips, T5d paint dirt,
-    T6, T7, T8) - for
-    diagnosing which overlay makes a look; the shipping path skips nothing."""
-    skip = set(skip)
-    A = F.A
-    flat = lambda arr: arr.reshape(-1, 4)[F.idx].astype(np.float64)
-    B = flat(base); Nm = flat(nrm); Mk = flat(msk); C = flat(ctl)
-    occ = (ao.reshape(-1, 4)[F.idx, 0].astype(np.float64) * 0.92 + 0.08) if ao is not None \
-        else np.ones(len(F.idx))
-    n = len(F.idx)
-    z = F.P[:, 2] - F.zmin
-    Nz = F.N[:, 2]
-    zone = F.zone
-    stats = {}
-    w = F.w
-
-    def share(mask, sel=None):
-        sel = np.ones(n, bool) if sel is None else sel
-        return round(float((np.clip(mask, 0, 1)[sel] * w[sel]).sum() / max(w[sel].sum(), 1e-12)), 3)
-
-    exempt = _startswith(F, NO_WEATHER_PREFIXES)
-    is_strip = np.isin(zone, STRIP_ZONES)
-    galv = (zone == "galv")
-    paint = np.isin(zone, ("livery", "accent")) | ((zone == "plastic") & _startswith(F, ("BaseJacket",)))
-    slot_zone = np.isin(zone, tuple(SLOT_ZONES))
-    dirt_mul = np.ones(n)                       # tracked on slot texels for the RECOLOR guard
-
-    # ---- T0 class parity -------------------------------------------------------------
-    for zn, (tgt, gain, metal) in ZONE_TARGET.items():
-        sel = zone == zn
-        if not sel.any():
-            continue
-        mean = float((Mk[sel, 3] * w[sel]).sum() / w[sel].sum())
-        Mk[sel, 3] = np.clip(tgt + (Mk[sel, 3] - mean) * gain, 0.05, 0.95)
-        Mk[sel, 0] = metal
-    if galv.any():
-        raw = B[galv, :3] / occ[galv, None]
-        lum = raw @ LUMA
-        grey = lum[:, None] * np.ones(3)
-        raw = raw * (1.0 - GALV_DESAT) + grey * GALV_DESAT
-        k = float(srgb_to_lin(GALV_LUMA_SRGB)) / max(float((raw @ LUMA * w[galv]).sum() / w[galv].sum()), 1e-6)
-        B[galv, :3] = np.clip(raw * k, 0, 1) * occ[galv, None]
-        stats["galv_albedo_scale"] = round(k, 3)
-
-    # ---- T0g isotropic paint grain (rev 4) -----------------------------------------------
-    # The family atlas paints its paint / plastic zones with a pebble normal + moulded ribs +
-    # albedo grain; smart-project squeezed each part's island into those small rects, so the
-    # bake reprojects that grain STRETCHED (the lance jacket showed even vertical stripes with
-    # every weathering effect off, once the repack gave it 101 px/m). On the recolourable zones
-    # the stretched grain is replaced by a per-part flat base x a fine WORLD-space grain and a
-    # flat normal (T8 relief still applies on top).
-    gsel = slot_zone & ~exempt & ~is_strip
-    if gsel.any() and "T0g" not in skip:
-        raw = B[gsel, :3] / occ[gsel, None]
-        pids = F.part_id[gsel]
-        flat = np.zeros_like(raw)
-        for k in np.unique(pids):
-            m = pids == k
-            flat[m] = (raw[m] * w[gsel][m, None]).sum(0) / max(w[gsel][m].sum(), 1e-12)
-        grain = (uniform(fbm(F.P[gsel], 0.012, F.ppm[gsel], _seed(name, "paint_grain"), octaves=2)) - 0.5)
-        grain = grain * _res(F, 0.012)[gsel]
-        B[gsel, :3] = flat * (1.0 + 0.03 * grain)[:, None] * occ[gsel, None]
-        Nm[gsel, 0] = 0.5
-        Nm[gsel, 1] = 0.5
-        Nm[gsel, 2] = 1.0
-
-    # ---- T1 galvanised mottle + white rust (shop close-up A-frame; "50" hydrant) --------
-    sel = galv & ~exempt
-    if sel.any() and "T1" not in skip:
-        # rev 2 (coordinator review 2026-10-17: the 0.20 m blobs read as camouflage): spangle-scale
-        # cells (5 cm haze, 1.2 cm spangle), half the contrast, white rust only LIGHTENS (chalky haze)
-        big = _n01(F, 0.05, name, "galv_mottle")[sel]
-        fine = _n01(F, 0.012, name, "galv_fine")[sel]
-        wr = smoothstep(0.60, 0.86, big) * _res(F, 0.05)[sel]  # chalky haze
-        fine = fine * _res(F, 0.012)[sel]
-        B[sel, :3] = (B[sel, :3] * (1 - 0.15 * wr[:, None]) + ZINC_WHITE_LIN * occ[sel, None] * 0.15 * wr[:, None])
-        B[sel, :3] *= (1.0 - 0.05 * fine)[:, None]
-        Mk[sel, 0] = 1.0 - 0.40 * wr
-        Mk[sel, 3] = Mk[sel, 3] * (1 - 0.6 * wr) + 0.30 * 0.6 * wr - 0.025 * fine
-        stats["T1_white_rust_share_galv"] = share(_put(n, sel, wr), galv)
-
-    # ---- T2 salt / water streaks along masts, columns, lance tubes -------------------
-    elong = _startswith(F, STREAK_PREFIXES) & galv & ~exempt
-    feet = _startswith(F, CAST_FEET) & galv & ~exempt
-    vert = galv & ~exempt & ~elong & ~feet & (np.abs(Nz) < 0.75)
-    sel = elong | vert
-    if sel.any() and "T2" not in skip:
-        Q = _axis_coords(F, sel)
-        s1 = uniform(fbm(Q, (0.022, 0.022, 0.9), F.ppm[sel], _seed(name, "salt"), octaves=3))
-        s2 = uniform(fbm(Q, (0.030, 0.030, 0.7), F.ppm[sel], _seed(name, "water"), octaves=3))
-        salt = smoothstep(0.70, 0.84, s1)
-        water = smoothstep(0.68, 0.82, s2)
-        B[sel, :3] = B[sel, :3] * (1 - 0.22 * salt[:, None]) + ZINC_WHITE_LIN * occ[sel, None] * 0.22 * salt[:, None]
-        B[sel, :3] *= (1.0 - 0.18 * water)[:, None]
-        Mk[sel, 0] *= (1.0 - 0.5 * salt)
-        Mk[sel, 3] -= 0.07 * water + 0.05 * salt
-        # underside grime line on leaning tubes (lance): water runs along the bottom
-        under = smoothstep(-0.25, -0.85, Nz[sel]) * _startswith(F, ("Lance", "Riser", "Brace"))[sel]
-        B[sel, :3] *= (1.0 - 0.22 * under * (0.6 + 0.4 * s2))[:, None]
-        stats["T2_streak_share_galv"] = share(_put(n, sel, np.maximum(salt, water)), galv)
-    fs = feet & (np.abs(Nz) < 0.85)
-    if fs.any() and "T2" not in skip:
-        run = _runs(F, fs, name, "foot_runs") * _res(F, 0.03)[fs]
-        B[fs, :3] *= (1.0 - 0.20 * run)[:, None]
-        Mk[fs, 3] -= 0.07 * run
-        stats["T2_foot_run_share"] = share(_put(n, fs, run), feet)
-
-    # ---- T3 rust bloom at welds / flanges / nuts / feet + runs below them -------------
-    rust_all = np.zeros(n)
-    rust_runs = np.zeros(n)
-    rn = _n01(F, 0.028, name, "rust")
-    rn2 = _n01(F, 0.012, name, "rust_fine")
-    for prefixes, cov, run in RUST_SOURCES:
-        src = _startswith(F, prefixes) & galv & ~exempt
-        if not src.any() or "T3" in skip:
-            continue
-        # on the part: noise coverage, more at its bottom and edges
-        pids = np.unique(F.part_id[src])
-        lo = np.array([F.parts[int(k)]["lo"][2] for k in pids])
-        hi = np.array([F.parts[int(k)]["hi"][2] for k in pids])
-        lut_lo = dict(zip(pids.tolist(), lo)); lut_hi = dict(zip(pids.tolist(), hi))
-        zl = np.array([lut_lo[int(k)] for k in F.part_id[src]])
-        zh = np.array([lut_hi[int(k)] for k in F.part_id[src]])
-        low = 1.0 - np.clip((F.P[src, 2] - zl) / np.maximum(zh - zl, 1e-3), 0, 1)
-        edge = 1.0 - smoothstep(0.004, 0.02, F.ED[src])
-        score = rn[src] * 0.65 + 0.20 * rn2[src] + 0.30 * low * low + 0.12 * edge - 0.08
-        r = smoothstep(1.0 - cov, 1.0 - cov + 0.12, score)
-        rust_all[src] = np.maximum(rust_all[src], r)
-        # runs below each source part, on galvanised texels (not the source itself)
-        if run > 0:
-            tgt = galv & ~exempt & ~src
-            if tgt.any():
-                Pt = F.P[tgt]
-                col = uniform(fbm(Pt * np.array((1, 1, 1)), (0.012, 0.012, 0.35), F.ppm[tgt],
-                                  _seed(name, "rustrun"), octaves=2))
-                acc = np.zeros(int(tgt.sum()))
-                for k in pids:
-                    pp = F.parts[int(k)]
-                    dz = pp["lo"][2] - Pt[:, 2]
-                    dh = np.linalg.norm(Pt[:, :2] - pp["c"][:2], axis=1)
-                    inside = (dz > -0.005) & (dz < run) & (dh <= pp["rh"] + 0.012)
-                    if not inside.any():
-                        continue
-                    fade = np.clip(1.0 - dz / run, 0, 1) ** 1.5
-                    acc = np.maximum(acc, inside * fade)
-                rr = acc * smoothstep(0.62, 0.78, col)
-                rust_runs[tgt] = np.maximum(rust_runs[tgt], rr)
-    if rust_all.any() or rust_runs.any():
-        r = np.clip(rust_all, 0, 1)
-        rcol = RUST_LIN * (1 - rn2[:, None] * 0.3) + RUST_BLOOM_LIN * (rn2[:, None] * 0.3)
-        B[:, :3] = B[:, :3] * (1 - 0.72 * r[:, None]) + rcol * occ[:, None] * 0.72 * r[:, None]
-        Mk[:, 0] *= (1.0 - r)
-        Mk[:, 3] = Mk[:, 3] * (1 - r) + 0.15 * r
-        q = np.clip(rust_runs, 0, 1) * 0.45
-        B[:, :3] = B[:, :3] * (1 - q[:, None]) + RUST_BLOOM_LIN * occ[:, None] * q[:, None]
-        Mk[:, 0] *= (1.0 - 0.8 * q)
-        Mk[:, 3] -= 0.10 * q
-        stats["T3_rust_share_galv"] = share(np.maximum(r, q), galv)
-
-    # ---- T7 guard mesh a little rusty ("fan gun in foreground": the guard) -------------
-    gsel = _startswith(F, GUARD_PREFIXES)
-    if gsel.any() and "T7" not in skip:
-        gl = _n01(F, 0.05, name, "guard")[gsel]
-        pids = F.part_id[gsel]
-        zl = np.array([F.parts[int(k)]["lo"][2] for k in pids])
-        zh = np.array([F.parts[int(k)]["hi"][2] for k in pids])
-        low = 1.0 - np.clip((F.P[gsel, 2] - zl) / np.maximum(zh - zl, 1e-3), 0, 1)
-        g = smoothstep(0.62, 0.80, gl + 0.12 * low) * 0.7
-        B[gsel, :3] = B[gsel, :3] * (1 - g[:, None]) + RUST_LIN * occ[gsel, None] * g[:, None]
-        Mk[gsel, 3] = Mk[gsel, 3] * (1 - g) + 0.18 * g
-        stats["T7_guard_rust_share"] = share(_put(n, gsel, g / 0.7), gsel)
-
-    # ---- T5 paint wear: chips to primer at edges, heavier on bell + jacket --------------
-    chip = np.zeros(n)
-    if paint.any():
-        heavy = _startswith(F, HEAVY_WEAR)
-        # rev 2 (coordinator review 2026-10-17: soft 10-20 cm smears on the bell and the tower
-        # cabinet): a HARD edge band of ~1.5-2 texels, small chip cells (1.5 cm), a near-step
-        # threshold, fewer chips. At 86-186 px/m a chip is still only 2-4 texels.
-        wedge = np.maximum(np.where(heavy, 0.014, 0.010), np.where(heavy, 2.2, 1.6) / np.maximum(F.ppm, 1e-3))
-        e = (F.ED < wedge).astype(np.float64)
-        c1 = _n01(F, 0.015, name, "chip_edge")
-        c2 = _n01(F, 0.012, name, "chip_field")
-        thr = np.where(heavy, 0.60, 0.72)
-        gate = _res(F, CHIP_FEATURE_M)
-        ce = e * smoothstep(thr, thr + 0.015, c1) * gate
-        fthr = np.where(heavy, 0.990, 0.997)
-        cf = smoothstep(fthr, fthr + 0.003, c2) * (1.0 - 0.5 * smoothstep(0.3, 0.9, Nz)) * gate
-        chip = np.where(paint & ~exempt & ("T5c" not in skip), np.maximum(ce, cf), 0.0)
-        for zn, ch in SLOT_ZONES.items():
-            s = zone == zn
-            C[s, ch] *= (1.0 - chip[s])
-        B[:, :3] = B[:, :3] * (1 - chip[:, None]) + PRIMER_LIN * occ[:, None] * chip[:, None]
-        Mk[:, 0] *= (1.0 - chip)
-        Mk[:, 3] = Mk[:, 3] * (1 - chip) + 0.30 * chip
-        stats["T5_chip_share_paint"] = share(chip, paint)
-        hv = paint & heavy
-        if hv.any():
-            stats["T5_chip_share_bell_jacket"] = share(chip, hv)
-        # dirt streaks on the housing (vertical faces) + dust on the tops
-        ps = paint & ~exempt
-        # rev 4: irregular runs from the part's top (fewer, varied width / length, fade before
-        # the pad) instead of an fbm streak field that read as even stripes on the lance jacket
-        sk = _runs(F, ps, name, "paint_runs") * (1.0 - smoothstep(0.5, 0.9, np.abs(Nz[ps])))
-        top = smoothstep(0.45, 0.9, Nz[ps]) * smoothstep(0.50, 0.70, _n01(F, 0.04, name, "paint_dust")[ps])
-        rg = _res(F, 0.06)[ps]
-        sk = sk * rg; top = top * rg
-        if "T5d" in skip:
-            sk = sk * 0.0; top = top * 0.0
-        dm = (1.0 - 0.10 * sk) * (1.0 - 0.10 * top)
-        dirt_mul[ps] *= dm
-        Mk[ps, 3] -= 0.06 * sk + 0.08 * top
-        stats["T5_dirt_share_paint"] = share(_put(n, ps, np.maximum(sk, top)), paint)
-        stats["T5_run_share_paint"] = share(_put(n, ps, sk), paint)
-
-    # ---- T6 soot / oil at compressor intakes ------------------------------------------
-    srcm = _startswith(F, COMPRESSOR_SOURCES)
-    if srcm.any() and "T6" not in skip:
-        sn = _n01(F, 0.05, name, "soot")
-        comp_body = _startswith(F, ("Comp", "LouvreCompressor", "HeadCompressor"))
-        soot = np.zeros(n)
-        oil = np.zeros(n)
-        on = _n01(F, 0.05, name, "oil")
-        for k in np.unique(F.part_id[srcm]):
-            pp = F.parts[int(k)]
-            lo, hi = pp["lo"], pp["hi"]
-            d = np.linalg.norm(np.maximum(np.maximum(lo - F.P, F.P - hi), 0.0), axis=1)
-            # rev 2: soot stays on the compressor body (intake + a 4 cm halo on the same machine
-            # part), never on the housing / bell next to it; the tower's HeadCompressor is a box
-            # whose intake is its underside, so only that face takes soot
-            near = np.clip(1.0 - d / 0.04, 0, 1) * comp_body
-            own = (F.part_id == k)
-            under = smoothstep(0.2, -0.6, Nz)
-            own_s = under if F.table[int(k)].startswith("HeadCompressor") else 0.55 + 0.45 * under
-            s = np.where(own, own_s, near * 0.8) * smoothstep(0.30, 0.65, sn)
-            soot = np.maximum(soot, s)
-            # oil spots on up-facing surfaces under the compressor footprint
-            foot = ((F.P[:, 0] > lo[0] - 0.12) & (F.P[:, 0] < hi[0] + 0.12) &
-                    (F.P[:, 1] > lo[1] - 0.12) & (F.P[:, 1] < hi[1] + 0.12) &
-                    (F.P[:, 2] < lo[2] + 0.01) & (F.P[:, 2] > lo[2] - 1.0) & (Nz > 0.6))
-            oil = np.maximum(oil, foot * smoothstep(0.62, 0.74, on))
-        soot = np.where(exempt | is_strip, 0.0, soot)
-        oil = np.where(exempt | is_strip, 0.0, oil)
-        slot_t = slot_zone & (chip < 0.5)
-        # on slot texels soot is a bounded dirt factor (the tint must still multiply)
-        dirt_mul[slot_t] *= (1.0 - 0.55 * soot[slot_t])
-        ns = ~slot_t
-        B[ns, :3] = B[ns, :3] * (1 - 0.75 * soot[ns, None]) + SOOT_LIN * 0.75 * soot[ns, None]
-        B[:, :3] = B[:, :3] * (1 - 0.8 * oil[:, None]) + OIL_LIN * 0.8 * oil[:, None]
-        Mk[:, 0] *= (1.0 - soot) * (1.0 - oil)
-        Mk[:, 3] = Mk[:, 3] * (1 - soot) + 0.16 * soot
-        Mk[:, 3] = np.minimum(Mk[:, 3] * (1 - oil) + 0.42 * oil, np.maximum(Mk[:, 3], 0.42))
-        stats["T6_soot_area_m2"] = round(float((soot * w).sum()), 3)
-        stats["T6_oil_area_m2"] = round(float((oil * w).sum()), 3)
-
-    # ---- T4 ground grime, foot grime on pads / lid / floor, mud on tyres --------------
-    gn = _n01(F, 0.10, name, "grime")
-    band = (1.0 - np.clip(z / 0.45, 0, 1)) ** 1.2
-    g = band * (0.45 + 0.55 * gn)
-    g = np.where(exempt | is_strip, 0.0, g)
-    up = Nz > 0.65
-    pad_top = (zone == "concrete") & up
-    if pad_top.any():
-        pn = _n01(F, 0.22, name, "pad_foot")[pad_top]
-        r = np.linalg.norm(F.P[pad_top, :2], axis=1)
-        ring = 1.0 - smoothstep(0.25, 0.65, r)
-        edgeg = 1.0 - smoothstep(0.01, 0.06, F.ED[pad_top])
-        g[pad_top] = np.maximum(g[pad_top], smoothstep(0.40, 0.70, pn) * 0.6 + 0.30 * ring + 0.25 * edgeg)
-    lid = _startswith(F, ("Lid",)) & up
-    if lid.any():
-        ln = _n01(F, 0.06, name, "lid_boot")[lid]          # rev 2: lower contrast, density-gated
-        g[lid] = np.maximum(g[lid], smoothstep(0.55, 0.66, ln) * 0.5 * _res(F, 0.06)[lid])
-    floor = _startswith(F, ("Floor", "Deck", "PushPlate")) & up
-    if floor.any():
-        fnz = _n01(F, 0.12, name, "floor_foot")[floor]
-        g[floor] = np.maximum(g[floor], smoothstep(0.45, 0.70, fnz) * 0.8)
-    g = np.clip(g, 0, 1)
-    if "T4" in skip:
-        g = g * 0.0
-    ns = ~slot_zone
-    B[ns, :3] *= (1.0 - g[ns, None] * (1.0 - GRIME_MUL) * 0.9)
-    dirt_mul[slot_zone] *= (1.0 - 0.30 * g[slot_zone])
-    Mk[:, 0] *= (1.0 - 0.6 * g)
-    Mk[:, 3] -= 0.08 * g
-    stats["T4_grime_share_all"] = share(g)
-    if pad_top.any():
-        stats["T4_grime_share_pad_top"] = share(g, pad_top)
-    if lid.any():
-        stats["T4_grime_share_lid_top"] = share(g, lid)
-    tyre = _startswith(F, ("Wheel", "Castor")) & (zone == "rubber")
-    if tyre.any() and "T4" not in skip:
-        pids = F.part_id[tyre]
-        zc = np.array([0.5 * (F.parts[int(k)]["lo"][2] + F.parts[int(k)]["hi"][2]) for k in pids])
-        zl = np.array([F.parts[int(k)]["lo"][2] for k in pids])
-        lowt = 1.0 - np.clip((F.P[tyre, 2] - zl) / np.maximum(zc - zl, 1e-3), 0, 1)
-        mud = np.clip(lowt * 0.6 + 0.4 * smoothstep(0.45, 0.75, _n01(F, 0.05, name, "mud")[tyre]), 0, 1) * 0.75
-        B[tyre, :3] = B[tyre, :3] * (1 - mud[:, None]) + MUD_LIN * occ[tyre, None] * mud[:, None]
-        Mk[tyre, 3] = Mk[tyre, 3] * (1 - mud) + 0.12 * mud
-        stats["T4_mud_share_tyres"] = share(_put(n, tyre, mud / 0.75), tyre)
-    hose = _startswith(F, ("Hose", "Coil", "Feed", "HoseLead", "Conduit")) & (zone == "rubber") & (z < 0.25)
-    if hose.any() and "T4" not in skip:
-        dust = 0.35 * smoothstep(0.4, 0.7, _n01(F, 0.06, name, "hose_dust")[hose])
-        B[hose, :3] = B[hose, :3] * (1 - dust[:, None]) + MUD_LIN * 1.6 * occ[hose, None] * dust[:, None]
-
-    # ---- RECOLOR guard: slot texels keep a light albedo; apply the bounded dirt -----------
-    dm = np.clip(dirt_mul, DIRT_FLOOR, 1.0)
-    on_slot = slot_zone & (chip < 0.5)
-    B[on_slot, :3] *= dm[on_slot, None]
-    stats["slot_dirt_min"] = round(float(dm[on_slot].min()) if on_slot.any() else 1.0, 3)
-
-    # ---- T8 relief: rust bumps raised, chips recessed, then renormalise all covered -------
-    h = 0.35 * rust_all * (rn2 - 0.5) + 0.25 * rust_all - 0.45 * chip
-    if "T8" in skip:
-        h = h * 0.0
-    H = _scatter(F, h)
-    cov = F.cov
-    gy, gx = np.gradient(H)
-    okx = cov & np.roll(cov, 1, 1) & np.roll(cov, -1, 1)
-    oky = cov & np.roll(cov, 1, 0) & np.roll(cov, -1, 0)
-    gx = np.where(okx, gx, 0.0).ravel()[F.idx]
-    gy = np.where(oky, gy, 0.0).ravel()[F.idx]
-    v = Nm[:, :3] * 2.0 - 1.0
-    v[:, 0] -= gx * 2.0
-    v[:, 1] -= gy * 2.0
-    v[:, 2] = np.maximum(v[:, 2], 0.05)
-    v /= np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
-    Nm[:, :3] = v * 0.5 + 0.5
-    Nm[:, 3] = 1.0
-
-    # ---- clamp + invariants ---------------------------------------------------------------
-    B[:, :3] = np.clip(B[:, :3], 0.0, 1.0)
-    Mk[:, 0] = np.clip(Mk[:, 0], 0.0, 1.0)
-    Mk[:, 3] = np.clip(Mk[:, 3], 0.05, 0.95)
-    Mk[:, 1] = 0.0
-    Mk[:, 2] = 0.0
-    C[:, :3] = np.clip(C[:, :3], 0.0, 1.0)
-    # metal only on real metal: nothing outside the galvanised zone carries metal
-    Mk[~galv, 0] = 0.0
-
-    out = []
-    for src_arr, vals in ((base, B), (nrm, Nm), (msk, Mk), (ctl, C)):
-        a = src_arr.reshape(-1, 4).copy()
-        a[F.idx] = vals.astype(np.float32)
-        out.append(a.reshape(A, A, 4))
-    base2, nrm2, msk2, ctl2 = out
-    ctl2[..., 3] = ctl[..., 3]
-    base2, nrm2, msk2, ctl2 = _dilate((base2, nrm2, msk2, ctl2), F.cov, steps=10)
-    return base2, nrm2, msk2, ctl2, stats
-
-
 def _put(n, sel, vals):
     out = np.zeros(n)
     out[sel] = vals
@@ -887,14 +451,517 @@ def _dilate(arrays, cov, steps=10):
     return arrays
 
 
+def albedo_hf(base_srgb, F):
+    """Per zone: area-weighted RMS of (sRGB luma - its 3x3 box mean) over texels whose whole 3x3
+    neighbourhood lies on the SAME face (island edges and face seams do not count). The vanilla
+    EU house measures 0.010 (vanilla-detail-benchmark section 2.2)."""
+    A = F.A
+    lum = (np.asarray(base_srgb)[..., :3].reshape(A, A, 3) @ LUMA).astype(np.float64)
+    fid = np.full(A * A, -1, np.int64)
+    fid[F.idx] = F.fid
+    fid = fid.reshape(A, A)
+    acc = np.zeros((A, A))
+    same = fid >= 0
+    for dr in (-1, 0, 1):
+        for dc in (-1, 0, 1):
+            acc += np.roll(lum, (dr, dc), (0, 1))
+            same &= np.roll(fid, (dr, dc), (0, 1)) == fid
+    hf = (lum - acc / 9.0).ravel()[F.idx]
+    ok = same.ravel()[F.idx]
+    out = {}
+    for zn in sorted(set(F.zone.tolist())):
+        sel = ok & (F.zone == zn)
+        if sel.sum() < 16:
+            continue
+        out[zn] = round(float(np.sqrt((hf[sel] ** 2 * F.w[sel]).sum() / F.w[sel].sum())), 4)
+    sel = ok & ~np.isin(F.zone, STRIP_ZONES)
+    out["_all"] = round(float(np.sqrt((hf[sel] ** 2 * F.w[sel]).sum() / max(F.w[sel].sum(), 1e-12))), 4)
+    return out
+
+
+def _denoise_occ(F, occ):
+    """5 x 5 binomial normalised convolution of the per-texel occlusion over covered texels."""
+    img = _scatter(F, occ.astype(np.float32)).astype(np.float64)
+    m = F.cov.astype(np.float64)
+    k = (1.0, 4.0, 6.0, 4.0, 1.0)
+
+    def blur(x):
+        y = sum(k[i] * np.roll(x, i - 2, 0) for i in range(5))
+        return sum(k[i] * np.roll(y, i - 2, 1) for i in range(5))
+    return (blur(img * m) / np.maximum(blur(m), 1e-9)).ravel()[F.idx]
+
+
+# ---------------------------------------------------------------------------------------
+# N0: re-orient the reprojected tangent-space normals
+# ---------------------------------------------------------------------------------------
+
+def face_rotations(mesh, uv_from="UVAtlas", uv_to="UVUnique"):
+    """(npoly, 2, 2): per face the orthogonal factor R of M = U_to @ inv(U_from), the linear map
+    from the face's atlas UVs to its unique UVs (first three corners). A tangent-space normal's
+    (x, y) baked in the atlas frame becomes R @ (x, y) in the unique frame (both maps near-
+    conformal: R is the polar factor, so a squash along an island's axis does not tilt normals).
+    Identity where either triangle is degenerate."""
+    n = len(mesh.polygons)
+    ls = np.empty(n, np.int64)
+    mesh.polygons.foreach_get("loop_start", ls)
+    nl = len(mesh.loops)
+    ua = np.empty(nl * 2, np.float32)
+    mesh.uv_layers[uv_from].data.foreach_get("uv", ua)
+    uu = np.empty(nl * 2, np.float32)
+    mesh.uv_layers[uv_to].data.foreach_get("uv", uu)
+    ua = ua.reshape(-1, 2).astype(np.float64)
+    uu = uu.reshape(-1, 2).astype(np.float64)
+    Ua = np.stack([ua[ls + 1] - ua[ls], ua[ls + 2] - ua[ls]], axis=-1)       # (n, 2, 2) columns
+    Uu = np.stack([uu[ls + 1] - uu[ls], uu[ls + 2] - uu[ls]], axis=-1)
+    det = np.linalg.det(Ua)
+    ok = (np.abs(det) > 1e-14) & (np.abs(np.linalg.det(Uu)) > 1e-14)
+    R = np.tile(np.eye(2), (n, 1, 1))
+    if ok.any():
+        M = Uu[ok] @ np.linalg.inv(Ua[ok])
+        U, _S, Vt = np.linalg.svd(M)
+        R[ok] = U @ Vt
+    return R
+
+
+def reorient_normals(Nm, mesh, F):
+    """Nm: (k, 4) encoded normals of the covered texels (order F.idx). Returns (new Nm, stats)."""
+    R = face_rotations(mesh)[F.fid]
+    v = Nm[:, :3] * 2.0 - 1.0
+    v[:, :2] = np.einsum("kij,kj->ki", R, v[:, :2])
+    v /= np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
+    out = Nm.copy()
+    out[:, :3] = v * 0.5 + 0.5
+    ang = np.degrees(np.abs(np.arctan2(R[:, 1, 0], R[:, 0, 0])))
+    return out, {"N0_rotation_deg_p50": round(float(np.median(ang)), 1),
+                 "N0_rotation_deg_p90": round(float(np.percentile(ang, 90)), 1),
+                 "N0_mirrored_share": round(float((np.linalg.det(R) < 0).mean()), 4)}
+
+
+# ---------------------------------------------------------------------------------------
+# N1: geometry-keyed normal detail (>= 3 texels)
+# ---------------------------------------------------------------------------------------
+
+def _pid(F, name):
+    """Part index (0-based, F.parts key) of the part named exactly `name`, else None."""
+    try:
+        return F.table.index(name)
+    except ValueError:
+        return None
+
+
+def _lathe_axis(pp):
+    """The symmetry axis of a lathe part: the eigenvector whose eigenvalue is most isolated."""
+    e, V = np.asarray(pp["evals"]), np.asarray(pp["evecs"])
+    i = 0 if (e[1] - e[0]) > (e[2] - e[1]) else 2
+    a = V[:, i]
+    return a / max(np.linalg.norm(a), 1e-12)
+
+
+def _door_bolts(F, door, body, inset=0.04, r=0.011, h=0.004):
+    """Two rows of two bolt heads at the four corners of a thin door / lid part (Marks)."""
+    import cs2_compose as C
+    pd, pb = _pid(F, door), _pid(F, body)
+    if pd is None:
+        return ()
+    d = F.parts[pd]
+    lo, hi = np.asarray(d["lo"]), np.asarray(d["hi"])
+    ext = hi - lo
+    thin = int(np.argmin(ext))
+    out = np.zeros(3)
+    ref = np.asarray(F.parts[pb]["c"]) if pb is not None else np.asarray(d["c"]) - np.eye(3)[thin]
+    sgn = 1.0 if (np.asarray(d["c"]) - ref)[thin] >= 0 else -1.0
+    out[thin] = sgn
+    others = [i for i in range(3) if i != thin]
+    iu, iv = sorted(others, key=lambda i: -ext[i])           # u = the longer in-plane axis
+    u, v = np.eye(3)[iu], np.eye(3)[iv]
+    if float(np.cross(u, v) @ out) < 0:
+        v = -v
+    c = 0.5 * (lo + hi)
+    c[thin] = hi[thin] if sgn > 0 else lo[thin]
+    hu, hv = 0.5 * ext[iu] - inset, 0.5 * ext[iv] - inset
+    if hu <= 0 or hv <= 0:
+        return ()
+    pitch = 2.0 * hu
+    return tuple(C.Mark("bolts", tuple(c + s * hv * v), u=tuple(u), v=tuple(v), half_u=pitch, half_v=0.0,
+                        pitch=pitch, bolt_r=r, h=h, reach_m=0.02, ang_deg=20.0) for s in (-1.0, 1.0))
+
+
+def _band(F, part, centre, axis, half_w, h, r_max=0.0):
+    import cs2_compose as C
+    if _pid(F, part) is None:
+        return ()
+    return (C.Mark("band", tuple(float(x) for x in centre), n=tuple(float(x) for x in axis),
+                   half_w=half_w, h=h, r_max=r_max),)
+
+
+NORMAL_DETAIL_CLASSES = {
+    "tower":   "HeadHousing seam ring (groove 2.4 cm / 1.5 mm); cabinet door: 4 corner bolt heads "
+               "(2.2 cm); mast-foot fillet weld bead (3.2 cm / 2.5 mm)",
+    "fan":     "GunHousing seam ring; galvanised cabinet door: 4 corner bolt heads; tank: two end "
+               "weld beads (2 cm); compressor lid: 4 corner bolt heads",
+    "lance":   "BaseJacket: two moulded ribs (2.4 cm / 2 mm); compressor drum: two end seams "
+               "(groove 2 cm); column-foot fillet weld bead (2.8 cm)",
+    "hydrant": "lid: a raised moulded panel (1.5 mm, 6 cm in from the edge); standpipe-foot fillet "
+               "weld bead (3 cm)",
+}
+
+
+def normal_detail_specs(F, key):
+    """{part name: DetailSpec} for the class (NORMAL_DETAIL_CLASSES). Names are exact parts;
+    a longer name that would inherit a spec by prefix gets an inactive spec."""
+    import cs2_compose as C
+    D = C.DetailSpec
+    specs = {}
+    z = np.array((0.0, 0.0, 1.0))
+
+    def put(part, marks):
+        if marks and _pid(F, part) is not None:
+            specs[part] = D(marks=tuple(specs[part].marks if part in specs else ()) + tuple(marks))
+
+    def foot_bead(part, foot, half_w, h):
+        pp, pf = _pid(F, part), _pid(F, foot)
+        if pp is None or pf is None:
+            return
+        c = np.asarray(F.parts[pp]["c"]).copy()
+        c[2] = float(F.parts[pf]["hi"][2]) + half_w
+        put(part, _band(F, part, c, z, half_w, h, r_max=float(F.parts[pp]["rh"]) * 1.5 + 0.02))
+
+    def housing_seam(part):
+        pp = _pid(F, part)
+        if pp is None:
+            return
+        put(part, _band(F, part, F.parts[pp]["c"], _lathe_axis(F.parts[pp]), 0.012, -0.0015))
+
+    if key == "tower":
+        housing_seam("HeadHousing")
+        put("CabDoorCabinet", _door_bolts(F, "CabDoorCabinet", "Cabinet"))
+        foot_bead("Mast", "MastFoot", 0.016, 0.0025)
+        for nm in ("MastFoot", "MastCollar"):
+            specs.setdefault(nm, D())
+    elif key == "fan":
+        housing_seam("GunHousing")
+        put("CabDoorCabinet", _door_bolts(F, "CabDoorCabinet", "Cabinet"))
+        put("CabLidCompressor", _door_bolts(F, "CabLidCompressor", "Compressor", inset=0.035))
+        pt = _pid(F, "Tank")
+        if pt is not None:
+            a = np.asarray(F.parts[pt]["axis"])
+            L = float(F.parts[pt]["length"])
+            c = np.asarray(F.parts[pt]["c"])
+            for s in (-1.0, 1.0):
+                put("Tank", _band(F, "Tank", c + s * (0.5 * L - 0.03) * a, a, 0.010, 0.002))
+    elif key == "lance":
+        pj = _pid(F, "BaseJacket")
+        if pj is not None:
+            lo, hi = float(F.parts[pj]["lo"][2]), float(F.parts[pj]["hi"][2])
+            for t in (0.35, 0.70):
+                c = np.asarray(F.parts[pj]["c"]).copy()
+                c[2] = lo + t * (hi - lo)
+                put("BaseJacket", _band(F, "BaseJacket", c, z, 0.012, 0.002))
+        pe, pi = _pid(F, "CompEnd"), _pid(F, "CompIntake")
+        if pe is not None and pi is not None and _pid(F, "CompDrum") is not None:
+            ce, ci = np.asarray(F.parts[pe]["c"]), np.asarray(F.parts[pi]["c"])
+            a = (ci - ce) / max(np.linalg.norm(ci - ce), 1e-9)
+            for c in (ce + 0.04 * a, ci - 0.04 * a):
+                put("CompDrum", _band(F, "CompDrum", c, a, 0.010, -0.0015))
+        foot_bead("Column", "ColFoot", 0.014, 0.0025)
+        specs.setdefault("ColumnTop", D())
+    elif key == "hydrant":
+        pl = _pid(F, "Lid")
+        if pl is not None:
+            lo, hi = np.asarray(F.parts[pl]["lo"]), np.asarray(F.parts[pl]["hi"])
+            half = 0.5 * float(min(hi[0] - lo[0], hi[1] - lo[1])) - 0.06
+            if half > 0.05:
+                c = (0.5 * (lo[0] + hi[0]), 0.5 * (lo[1] + hi[1]), float(hi[2]))
+                put("Lid", (C.Mark("plate", c, u=(1.0, 0.0, 0.0), v=(0.0, 1.0, 0.0), half_u=half,
+                                   half_v=half, h=0.0015, reach_m=0.02, ang_deg=20.0),))
+        foot_bead("Pipe", "PipeFoot", 0.015, 0.0025)
+        specs.setdefault("PipeFoot", D())
+    return specs
+
+
+def normal_detail(mesh, F, key, matrix):
+    """Height field (metres) of the class's N1 features at >= NORMAL_TEXEL_FLOOR texels, the
+    encoded detail normal over the covered texels, and the drawn / skipped counts."""
+    import cs2_compose as C
+    specs = normal_detail_specs(F, key)
+    if not any(s.active() for s in specs.values()):
+        return None, None, {}
+    floor0 = C.TEXEL_FLOOR
+    try:
+        C.TEXEL_FLOOR = NORMAL_TEXEL_FLOOR             # the >= 3 texel rule (restored below)
+        h = C.detail_height(mesh, F.A, specs, uv_layer="UVUnique", matrix=matrix, verbose=False)
+        stats = {"drawn": dict(C.LAST_DETAIL_STATS.get("drawn", {})),
+                 "skipped": dict(C.LAST_DETAIL_STATS.get("skipped", {}))}
+    finally:
+        C.TEXEL_FLOOR = floor0
+    ppm = _scatter(F, F.ppm.astype(np.float32))
+    nd = C.height_to_normal(h, ppm)
+    return h, nd.reshape(-1, 3)[F.idx].astype(np.float64), stats
+
+
+# ---------------------------------------------------------------------------------------
+# Step 2: low-frequency soiling, every overlay through overlay_gate
+# ---------------------------------------------------------------------------------------
+
+def overlay_gate(F, sel, name, feature_m, soft_m):
+    """The overlay-scale gate (the lesson of the rejected pass). RAISES OverlayScaleError for a
+    feature under MIN_FEATURE_M or a soft edge under MIN_SOFT_M; returns the per-texel weight
+    smoothstep(GATE_TEXELS, feature x px/m) on `sel` (0 elsewhere), or None when the overlay's
+    area-weighted mean gate is below GATE_SKIP_MEAN (skipped whole, never shrunk)."""
+    if feature_m < MIN_FEATURE_M - 1e-12:
+        raise OverlayScaleError(f"{name}: feature {feature_m * 100:.1f} cm < {MIN_FEATURE_M * 100:.0f} cm")
+    if soft_m < MIN_SOFT_M - 1e-12:
+        raise OverlayScaleError(f"{name}: soft edge {soft_m * 100:.1f} cm < {MIN_SOFT_M * 100:.0f} cm")
+    g = np.where(sel, smoothstep(GATE_TEXELS[0], GATE_TEXELS[1], feature_m * F.ppm), 0.0)
+    if not sel.any():
+        return None
+    mean = float((g[sel] * F.w[sel]).sum() / max(F.w[sel].sum(), 1e-12))
+    return g if mean >= GATE_SKIP_MEAN else None
+
+
+def _n01(F, cells, name, effect):
+    """Single-octave world-metre value noise in [0, 1]: cells >= 0.3 m, no texel-scale octave."""
+    return uniform(fbm(F.P, cells, F.ppm, _seed(name, effect), octaves=1))
+
+
+def soil_overlays(F, name, key, exempt, is_strip):
+    """[(tag, weight (n,), k (sRGB luma drop at weight 1), feature_m)] - S1..S4 (module doc)."""
+    n = len(F.idx)
+    z = F.P[:, 2] - F.zmin
+    Nz = F.N[:, 2]
+    live = ~exempt & ~is_strip
+    out, skipped = [], []
+
+    def add(tag, sel, shape, k, feature_m, soft_m):
+        g = overlay_gate(F, sel, tag, feature_m, soft_m)
+        if g is None:
+            skipped.append(tag)
+            return
+        out.append((tag, np.clip(g * shape, 0.0, 1.0), k, feature_m))
+
+    # S1 grade: grade -> 0.5 m, broken by 0.6 m noise (feature 0.5 m, soft = the whole ramp)
+    ramp = 1.0 - smoothstep(0.0, 0.5, z)
+    add("S1_grade", live & (z < 0.5), ramp * (0.75 + 0.25 * _n01(F, 0.6, name, "grade")), 0.12, 0.5, 0.5)
+    up = Nz > 0.65
+    # S2 pad tops: a soft ring about the pad's own centre + broad 0.5 m patches (>= 30 cm, soft 0.15)
+    pad = (F.zone == "concrete") & up & live
+    if pad.any():
+        shape = np.zeros(n)
+        for k_ in np.unique(F.part_id[pad]):
+            m = pad & (F.part_id == k_)
+            c = np.asarray(F.parts[int(k_)]["c"])
+            r = np.linalg.norm(F.P[m, :2] - c[:2], axis=1)
+            rad = 0.5 * float(min(np.ptp(F.P[m, 0]), np.ptp(F.P[m, 1])))
+            ring = 1.0 - smoothstep(0.35 * rad, 0.95 * rad, r)
+            patch = smoothstep(0.50, 0.80, _n01(F, 0.5, name, "pad")[m])
+            shape[m] = np.clip(0.55 * ring + 0.6 * patch, 0.0, 1.0)
+        add("S2_pad_top", pad, shape, 0.12, 0.30, 0.15)
+    # S3 hydrant lid top: broad soft patch (0.35 m cells on a 0.53 m lid)
+    lid = _startswith(F, ("Lid",)) & up & live
+    if lid.any():
+        # dirt gathers toward the rim (a 0.53 m lid holds at most one 0.35 m noise cell, so the noise
+        # alone left the Bare variant clean): a soft rim ramp + one broad patch
+        shape = np.zeros(n)
+        for k_ in np.unique(F.part_id[lid]):
+            m = lid & (F.part_id == k_)
+            c = np.asarray(F.parts[int(k_)]["c"])
+            half = 0.5 * float(min(np.ptp(F.P[m, 0]), np.ptp(F.P[m, 1])))
+            r = np.max(np.abs(F.P[m, :2] - c[:2]), axis=1) / max(half, 1e-6)
+            shape[m] = np.clip(0.7 * smoothstep(0.35, 1.0, r)
+                               + 0.5 * smoothstep(0.5, 0.8, _n01(F, 0.35, name, "lid")[m]), 0.0, 1.0)
+        add("S3_lid_top", lid, shape, 0.10, 0.17, 0.17)
+    # S4 one soft run under a collar: tower mast below MastCollar, lance column below WeldCollar
+    run_src = {"tower": ("Mast", "MastCollar", 0.9), "lance": ("Column", "WeldCollar", 0.5)}.get(key)
+    if run_src is not None:
+        pt, pc = _pid(F, run_src[0]), _pid(F, run_src[1])
+        if pt is not None and pc is not None:
+            sel = (F.part_id == pt) & live & (np.abs(Nz) < 0.75)
+            pp = F.parts[pt]
+            zc = float(F.parts[pc]["lo"][2])
+            th0 = 2.0 * math.pi * hash01(np.array([pt]), np.array([1]), np.array([2]), _seed(name, "run"))[0]
+            th = np.arctan2(F.P[:, 1] - pp["c"][1], F.P[:, 0] - pp["c"][0])
+            rad = np.linalg.norm(F.P[:, :2] - np.asarray(pp["c"])[:2], axis=1)
+            dth = np.abs((th - th0 + math.pi) % (2.0 * math.pi) - math.pi)
+            arc = dth * rad
+            across = 1.0 - smoothstep(0.05, 0.10, arc)              # 10 cm core, 5 cm soft edges
+            dz = zc - F.P[:, 2]
+            L = run_src[2]
+            along = smoothstep(0.0, 0.05, dz) * (1.0 - smoothstep(0.4 * L, L, dz))
+            add("S4_collar_run", sel & (dz > 0) & (dz < L), across * along, 0.08, 0.10, 0.05)
+    return out, skipped
+
+
+# ---------------------------------------------------------------------------------------
+# The pass
+# ---------------------------------------------------------------------------------------
+
+def weather(base, nrm, msk, ctl, ao, F, name, mesh=None, matrix=None, step=2, key=None, skip=()):
+    """Arrays are (A, A, 4) linear; returns new arrays + stats. `skip`: ids to leave out for
+    diagnosis (N0, T0f, N1, S1_grade, S2_pad_top, S3_lid_top, S4_collar_run); the shipping path
+    skips nothing."""
+    skip = set(skip)
+    A = F.A
+    flat = lambda arr: arr.reshape(-1, 4)[F.idx].astype(np.float64)
+    B = flat(base); Nm = flat(nrm); Mk = flat(msk); C = flat(ctl)
+    occ = (ao.reshape(-1, 4)[F.idx, 0].astype(np.float64) * 0.92 + 0.08) if ao is not None \
+        else np.ones(len(F.idx))
+    n = len(F.idx)
+    zone = F.zone
+    w = F.w
+    stats = {"step": int(step)}
+
+    def share(mask, sel=None):
+        sel = np.ones(n, bool) if sel is None else sel
+        return round(float((np.clip(mask, 0, 1)[sel] * w[sel]).sum() / max(w[sel].sum(), 1e-12)), 4)
+
+    exempt = _startswith(F, NO_WEATHER_PREFIXES)
+    is_strip = np.isin(zone, STRIP_ZONES)
+    galv = zone == "galv"
+    slot_zone = np.isin(zone, tuple(SLOT_ZONES))
+
+    # ---- N0 re-orient the reprojected normals ---------------------------------------------
+    if mesh is not None and "N0" not in skip and "UVAtlas" in mesh.uv_layers:
+        Nm, st = reorient_normals(Nm, mesh, F)
+        stats.update(st)
+
+    # ---- T0 parity + T0f flat base ----------------------------------------------------------
+    raw = B[:, :3] / occ[:, None]
+    for zn, (tgt, metal) in ZONE_TARGET.items():
+        sel = zone == zn
+        if not sel.any():
+            continue
+        if zn == "concrete":
+            mean = float((Mk[sel, 3] * w[sel]).sum() / w[sel].sum())
+            Mk[sel, 3] = np.clip(tgt + (Mk[sel, 3] - mean) * CONCRETE_DETAIL, 0.05, 0.95)
+        else:
+            Mk[sel, 3] = tgt
+        Mk[sel, 0] = metal
+    if "T0f" not in skip:
+        zmap = {z_: i for i, z_ in enumerate(sorted(ZONE_TARGET))}
+        zid = np.array([zmap.get(z_, 63) for z_ in zone], np.int64)
+        flatten = ~is_strip
+        _u, inv = np.unique(F.part_id.astype(np.int64) * 64 + zid, return_inverse=True)
+        ws = np.bincount(inv, weights=w, minlength=len(_u))
+        mean = np.stack([np.bincount(inv, weights=w * raw[:, c], minlength=len(_u)) for c in range(3)], 1)
+        mean = (mean / np.maximum(ws, 1e-12)[:, None])[inv]
+        conc = zone == "concrete"
+        f2 = flatten & conc
+        raw[f2] = mean[f2] + (raw[f2] - mean[f2]) * CONCRETE_DETAIL
+        f1 = flatten & ~conc
+        raw[f1] = mean[f1]
+        v = Nm[:, :3] * 2.0 - 1.0
+        v[conc, :2] *= CONCRETE_DETAIL
+        v[flatten & ~conc] = (0.0, 0.0, 1.0)
+        v /= np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
+        Nm[:, :3] = v * 0.5 + 0.5
+    if AO_DENOISE and "AO" not in skip:
+        occ_s = _denoise_occ(F, occ)
+        stats["ao_noise_rms"] = round(float(np.sqrt(((occ - occ_s) ** 2 * w).sum() / w.sum())), 4)
+        occ = np.where(is_strip, occ, occ_s)
+    if galv.any():
+        lum = raw[galv] @ LUMA
+        raw[galv] = raw[galv] * (1.0 - GALV_DESAT) + lum[:, None] * GALV_DESAT
+        k = float(srgb_to_lin(GALV_LUMA_SRGB)) / max(float((raw[galv] @ LUMA * w[galv]).sum() / w[galv].sum()), 1e-6)
+        raw[galv] = np.clip(raw[galv] * k, 0, 1)
+        stats["galv_albedo_scale"] = round(k, 3)
+    B[:, :3] = raw * occ[:, None]
+
+    # ---- N1 geometry-keyed normal detail ------------------------------------------------------
+    if mesh is not None and key and "N1" not in skip:
+        import cs2_compose
+        _h, nd, st = normal_detail(mesh, F, key, matrix)
+        if nd is not None:
+            Nm[:, :3] = cs2_compose.blend_rnm(Nm[None, :, :3].astype(np.float32),
+                                              nd[None].astype(np.float32))[0]
+        stats["N1"] = st
+        stats["N1_classes"] = NORMAL_DETAIL_CLASSES.get(key, "")
+
+    # ---- step 2: low-frequency soiling ----------------------------------------------------------
+    dirt_mul = np.ones(n)
+    if int(step) >= 2:
+        overlays, skipped = soil_overlays(F, name, key, exempt, is_strip)
+        overlays = [o for o in overlays if o[0] not in skip]
+        live = ~exempt & ~is_strip
+        Ws = np.zeros(n)                                   # the stains (S2-S4) carry the budget
+        for tag, wt, _k, _f in overlays:
+            if not tag.startswith("S1"):
+                Ws = np.maximum(Ws, wt)
+        cov = share(Ws, live)
+        scale = min(1.0, COVERAGE_MAX / cov) if cov > 0 else 1.0
+        overlays = [(t, wt if t.startswith("S1") else wt * scale, k, f) for t, wt, k, f in overlays]
+        W = np.zeros(n)
+        for _tag, wt, _k, _f in overlays:
+            W = np.maximum(W, wt)
+        lum0 = lin_to_srgb(B[:, :3]) @ LUMA
+        drop_k = np.zeros(n)                     # overlays combine by MAX, never stack past one k
+        per = {}
+        for tag, wt, k, feat in overlays:
+            # the overlay-scale assertion: nothing painted where the feature spans < 6 texels
+            bad = (wt > 0) & (feat * F.ppm < GATE_TEXELS[0])
+            if bad.any():
+                raise OverlayScaleError(f"{name}: {tag} painted {int(bad.sum())} texels below "
+                                        f"{GATE_TEXELS[0]:.0f} texels")
+            drop_k = np.maximum(drop_k, k * wt)
+            per[tag] = {"coverage_mean": share(wt, live), "touched_share": share(wt >= 0.25, live),
+                        "feature_m": feat, "k_luma": k}
+        Wd = W
+        # the darkening is applied in sRGB (display) terms, so the luma limit holds on dark and light
+        # texels alike (a linear factor f^2.2 doubles the drop on the near-black rubber / grate)
+        old = B[:, :3].copy()
+        new = srgb_to_lin(lin_to_srgb(old) * (1.0 - drop_k[:, None] * GRIME_TINT[None, :]))
+        ns = ~slot_zone
+        B[ns, :3] = new[ns]
+        ratio = (new @ LUMA) / np.maximum(old @ LUMA, 1e-9)
+        dirt_mul[slot_zone] *= ratio[slot_zone]
+        Mk[:, 3] -= 0.05 * Wd
+        Mk[galv, 0] *= 1.0 - 0.3 * Wd[galv]
+        lum1 = lin_to_srgb(np.where(slot_zone[:, None], B[:, :3] * np.clip(dirt_mul, DIRT_FLOOR, 1.0)[:, None],
+                                    B[:, :3])) @ LUMA
+        drop = 1.0 - lum1 / np.maximum(lum0, 1e-6)
+        for tag, wt, _k, _f in overlays:
+            sel = wt > 0.01
+            per[tag]["luma_drop_srgb_p99"] = round(float(np.percentile(drop[sel], 99)), 4) if sel.any() else 0.0
+            per[tag]["luma_drop_srgb_max"] = round(float(drop[sel].max()), 4) if sel.any() else 0.0
+        stats["soil"] = {"overlays": per, "skipped": skipped,
+                         "coverage_stains_mean": share(Ws * scale, live),
+                         "coverage_stains_touched": share(Ws * scale >= 0.25, live),
+                         "coverage_total_mean": share(Wd, live), "coverage_total_touched": share(Wd >= 0.25, live),
+                         "stain_budget_scale": round(scale, 3), "coverage_stains_unbudgeted": cov}
+
+    # ---- RECOLOR guard: slot texels keep a light albedo ------------------------------------------
+    dm = np.clip(dirt_mul, DIRT_FLOOR, 1.0)
+    B[slot_zone, :3] *= dm[slot_zone, None]
+    stats["slot_dirt_min"] = round(float(dm[slot_zone].min()) if slot_zone.any() else 1.0, 3)
+
+    # ---- clamp + invariants -----------------------------------------------------------------------
+    B[:, :3] = np.clip(B[:, :3], 0.0, 1.0)
+    Mk[:, 0] = np.clip(Mk[:, 0], 0.0, 1.0)
+    Mk[:, 3] = np.clip(Mk[:, 3], 0.05, 0.95)
+    Mk[:, 1] = 0.0
+    Mk[:, 2] = 0.0
+    Mk[~galv, 0] = 0.0                       # metal only on the bare galvanised zone
+    Nm[:, 3] = 1.0
+
+    out = []
+    for src_arr, vals in ((base, B), (nrm, Nm), (msk, Mk), (ctl, C)):
+        a = src_arr.reshape(-1, 4).copy()
+        a[F.idx] = vals.astype(np.float32)
+        out.append(a.reshape(A, A, 4))
+    base2, nrm2, msk2, ctl2 = out
+    ctl2[..., 3] = ctl[..., 3]
+    base2, nrm2, msk2, ctl2 = _dilate((base2, nrm2, msk2, ctl2), F.cov, steps=10)
+    return base2, nrm2, msk2, ctl2, stats
+
+
 class WeatherHook:
     """post_compose(base, nrm, msk, ctl, ao, mesh, A) -> (base, nrm, msk, ctl)."""
 
-    def __init__(self, obj, name, compare_dir=None, skip=()):
-        self.skip = tuple(skip)
+    def __init__(self, obj, name, step=2, key=None, skip=()):
         self.obj = obj
         self.name = name
-        self.compare_dir = compare_dir      # optional: an exported folder to diff "before" against
+        self.step = int(step)
+        self.key = key
+        self.skip = tuple(skip)
         self.fields = None
         self.report = {}
         self.before = None
@@ -905,13 +972,14 @@ class WeatherHook:
         self.fields = F
         enc = lambda b: np.concatenate([lin_to_srgb(b[..., :3]), b[..., 3:]], -1)
         before = measure(enc(base), msk, ctl, F)
-        # the maps exactly as the un-weathered export would write them (alpha forced 1, as
-        # apply_finish_textures does after the hook) - for the before == exported-B diff
+        hf0 = albedo_hf(enc(base), F)
         bb = enc(base).copy(); bb[..., 3] = 1.0
         self.before = {"BaseColor": bb, "Normal": nrm.copy(), "MaskMap": msk.copy(),
                        "ControlMask": ctl.copy()}
-        b2, n2, m2, c2, stats = weather(base, nrm, msk, ctl, ao, F, self.name, skip=self.skip)
+        b2, n2, m2, c2, stats = weather(base, nrm, msk, ctl, ao, F, self.name, mesh=mesh, matrix=M,
+                                        step=self.step, key=self.key, skip=self.skip)
         after = measure(enc(b2), m2, c2, F)
+        hf1 = albedo_hf(enc(b2), F)
         # guards
         if np.any(m2[..., 1] > 1e-6) or np.any(m2[..., 2] > 1e-6):
             raise RuntimeError(f"{self.name}: MaskMap G/B must stay 0")
@@ -927,10 +995,34 @@ class WeatherHook:
                                    f"{SLOT_KEEP} x {s0['mean']} (RECOLOR_ALBEDO rule: the picker "
                                    f"tint must multiply a light base)")
         self.report = {"before_hook": before, "after": after, "stats": stats,
-                       "covered_texels": int(F.cov.sum()), "A": A}
-        print(f"[weather] {self.name}: " + ", ".join(f"{k} {v}" for k, v in stats.items()))
+                       "albedo_hf": {"before_hook": hf0, "after": hf1},
+                       "covered_texels": int(F.cov.sum()), "A": A, "step": self.step}
+        soil = stats.get("soil", {})
+        print(f"[weather] {self.name} step {self.step}: N1 {stats.get('N1', {}).get('drawn', {})}, "
+              f"soil stains {soil.get('coverage_stains_mean', '-')} total {soil.get('coverage_total_mean', '-')}, "
+              f"hf {hf0.get('_all')} -> {hf1.get('_all')}")
         return b2, n2, m2, c2
 
 
-def make_hook(obj, name, skip=()):
-    return WeatherHook(obj, name, skip=skip)
+class ReorientHook:
+    """N0 alone, for --repack without --weather (the packer rotates islands): post_compose."""
+
+    def __init__(self, obj, inner=None):
+        self.obj = obj
+        self.inner = inner
+        self.report = {}
+
+    def __call__(self, base, nrm, msk, ctl, ao, mesh, A):
+        F = build_fields(mesh, A, [list(r) for r in self.obj.matrix_world])
+        Nm, st = reorient_normals(nrm.reshape(-1, 4)[F.idx].astype(np.float64), mesh, F)
+        n2 = nrm.reshape(-1, 4).copy()
+        n2[F.idx] = Nm.astype(np.float32)
+        base, n2, msk, ctl = _dilate((base, n2.reshape(A, A, 4), msk, ctl), F.cov, steps=10)
+        self.report = st
+        if self.inner is not None:
+            return self.inner(base, n2, msk, ctl, ao, mesh, A)
+        return base, n2, msk, ctl
+
+
+def make_hook(obj, name, step=2, key=None, skip=()):
+    return WeatherHook(obj, name, step=step, key=key, skip=skip)

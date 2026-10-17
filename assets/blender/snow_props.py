@@ -49,6 +49,10 @@ physical size, targeting 60-150 px/m; copying the towers' 1024 default would cos
 for this family instead of ~9 MB, on a project already overspending an order of magnitude.
 atlas_size is ALWAYS derived as 2 x quad_size, never written as a literal — a mismatch
 silently corrupts the AO rebake and only shows up in game.
+REDO (wiki style, 2026-10-17): the 60-150 px/m band above is SUPERSEDED for the snowmaking four.
+With --repack the sizes are TEX_REDO (towers / fans 1024, lances / hydrants 512: the wiki's 512
+floor; `--tex B` restores the B sizes) and density_packer unfolds, weights and shelf-packs the
+islands with mip-safe margins (docs/research/art/snow-props-weather-2026-10-17.md "Redo").
 """
 
 import argparse
@@ -1599,17 +1603,54 @@ def mesh_area(obj):
 # WeatherHook run, so a driver can read its report / fields. Texture-only: see snow_weather.py.
 LAST_WEATHER = None
 
-# -- Density repack (2026-10-17, pre-import; snow-props-weather-2026-10-17.md section 4) --------
-# The B finish pass kept each part's atlas-time UV scale: the painted shells shipped at 12-40
-# px/m while nuts got 200-1,450 px/m (results/texel_density_by_part.json). `--repack` replaces
-# the finish bake's pack step (lift_tower.apply_finish_textures packer=) with cs2_uv's packer:
-# islands equalised to 3D area, translation-identical copies stacked (cs2_liftdress.share_identical),
-# weighted per TIER, one concave pack with a 2 px margin. The weights are FIT (<= 5 passes from
-# the same start UVs): masts / columns and the rest hold floors at B's own level, the shells take
-# the remainder up to DENSITY_TARGET_PX_M and the small hardware rides at 0.8 x the shells
-# (B gave nuts 200-1,450 px/m). Texture sizes stay as exported. LODs are decimated from the
-# finished mesh, so LOD1/LOD2 keep sharing this layout. The arithmetic per class is in the
-# write-up section 4 (a 512 tower cannot carry 100 px/m shells without starving its masts).
+# -- Texture size (REDO, wiki style, 2026-10-17; snow-props-weather-2026-10-17.md "Redo") ---------
+# The wiki floor is 512^2 ("anything smaller is unsupported", Asset Creation Guide; the B lance /
+# hydrant sets were 256^2) and B's props were under-textured 3-20x against vanilla props
+# (wiki-best-practices-gap-2026-10-17.md section 2a). With --repack these sizes are the DEFAULTS
+# (coordinator decision, reversible: `--tex B` restores the exported B sizes). quad_size stays
+# DERIVED as tex // 2 everywhere (finish(), build_maps(), the AO rebake).
+TEX_REDO = {"tower": 1024, "fan": 1024, "lance": 512, "hydrant": 512}
+TEX_FLOOR = 512                # wiki minimum; cs2_validate texture-size ERROR below it
+TEX_CEIL_UNDER_10M = 1024      # snow-prop-materials section 5: never 2048 for anything under 10 m
+
+
+def texture_size(key, quad_size, repack=False, override=None):
+    """Texture / atlas size of one variant. `override`: None = TEX_REDO with --repack, the B size
+    (2 x the VARIANTS quad_size) without; "B" = the B size; an int = every class;
+    "tower=1024,lance=512,..." = per class (unlisted classes fall back to the default)."""
+    b = int(quad_size) * 2
+    default = TEX_REDO.get(key, b) if repack else b
+    if override is None or str(override).strip() == "":
+        return default
+    s = str(override).strip()
+    if s.upper() == "B":
+        return b
+    if "=" in s:
+        table = dict(kv.strip().split("=") for kv in s.split(",") if kv.strip())
+        return int(table[key]) if key in table else default
+    return int(s)
+
+
+# -- Density repack -------------------------------------------------------------------------------
+# rev 3 (2026-10-17, snow-props-weather-2026-10-17.md section 4): the B finish pass kept each
+# part's atlas-time UV scale, so the painted shells shipped at 12-40 px/m while nuts got
+# 200-1,450 px/m. `--repack` replaces the finish bake's pack step (lift_tower.apply_finish_textures
+# packer=): islands equalised to 3D area, translation-identical copies stacked
+# (cs2_liftdress.share_identical), weighted per TIER, packed concave. LODs are decimated from the
+# finished mesh, so LOD1/LOD2 keep sharing this layout.
+# REDO (wiki style, 2026-10-17, the "Redo" section of the same doc), four changes:
+#   1. fixed RELATIVE tier weights (DENSITY_REL) instead of rev 3's absolute floors and 105 px/m
+#      cap, so the density follows the texture size (wiki: "similar texel density" across islands,
+#      priority to the most visible parts; the hardware and masts ride below the shells);
+#   2. MIP-SAFE island margins (repack_margin_px; rev 3 kept B's 2 px, below the wiki's "spacing
+#      large enough to avoid issues with mipmapping"), held EXACTLY by our own shelf packer
+#      (_shelf_layout: Blender's pack_islands could not hold them, see there);
+#   3. DARK islands (the rubber and grate zones) fill the shelves from the bottom of the band and
+#      the light ones start an extra empty gap above them (wiki: "cluster similarly colored
+#      materials ... to prevent bleeding between very dark and very light materials"), at ONE
+#      shared scale;
+#   4. the atlas-time one-island-per-face slivers are UNFOLDED into strips / nets first
+#      (_unfold_islands), and islands may rotate (the reprojected normals are re-oriented per face).
 DENSITY_SMALL = ("FootNut", "HeadBolt", "GunBolt", "HeadStud", "GunStud", "Hinge", "Handle", "Clamp",
                  "HoseClamp", "Gland", "Coupling", "Pin", "HubCap", "HubIn", "Stub", "RiserStub",
                  "Outlet", "Valve", "GunValve", "Louvre", "Elbow", "WeldCollar", "MastCollar",
@@ -1622,54 +1663,460 @@ DENSITY_SHELL = ("HeadHousing", "HeadBell", "GunHousing", "GunBell", "Cabinet", 
                  "Compressor", "Body")
 DENSITY_MAST = ("Mast", "Column", "ColFoot", "Lance", "Pipe", "Riser", "Pedestal", "Chassis", "Cross",
                 "DrawbarL", "DrawbarR", "Turntable", "HeadFork", "GunFork")
-DENSITY_TARGET_PX_M = 105.0     # shells >= 100 px/m with a little headroom
-DENSITY_SMALL_REL = 0.8         # small hardware at 0.8 x the shells (~80-85 px/m; B gave it 200-1,450)
-DENSITY_MAST_MIN_PX_M = 45.0    # floors ~ B's own levels (masts 33-58, rest 43-49 px/m): the shells
-DENSITY_REST_MIN_PX_M = 40.0    # are paid for by the hardware, never by the masts and ladders
-REPACK_MARGIN_PX = 2            # = B's inline pack (margin 0.004 @ 512); cs2_uv's default 16 px
-                                # wastes most of a 512 atlas on hundreds of small islands
-REPACK_SHAPE = "CONCAVE"        # cs2_uv packs AABB; ring / lathe islands waste their holes there
+# shells 1 : hardware 0.8 : masts 0.65 : rest 0.6 - the gap doc's 1024 tower estimate
+# (~150 / ~120 / ~95 px/m) as ratios; scale-free, so a bigger texture lifts every tier.
+DENSITY_REL = {"shell": 1.0, "small": 0.8, "mast": 0.65, "rest": 0.6}
+REPACK_MARGIN_PX = None         # None = repack_margin_px(A); a driver may pin an int to compare
+DARK_ZONES = ("rubber", "grate")
+DARK_GAP_MARGINS = 2.0          # extra empty band between the dark and the light shelves, in margins
+                                # (each side also keeps margin / 2: dark <-> light >= 3 margins)
+# Long single faces cap the scale: the lance tube is ONE 6 m quad per side, so at 512 its strip
+# cannot carry the shell density along its length and, uncapped, it pulls every island of the
+# asset down with it (one scale for all). An island longer than REPACK_MAX_LEN of the width at the
+# tested scale is compressed ALONG its long axis only, never below REPACK_MIN_SQUASH (full density
+# across, less along a uniform tube; the reprojected normals follow through reorient_normals).
+REPACK_MAX_LEN = 0.85
+REPACK_MIN_SQUASH = 0.35        # the 10 m LanceTall tube: ~2.9 : 1 across : along (B shipped it 28 : 1)
 LAST_REPACK = None
 
 
-def _pack_once(obj, mesh, A, reserved, density_layer, share=None):
-    """cs2_uv._pack_layout's steps 1-6 with this family's margin and pack shape (cs2_uv is
-    left untouched: the buildings share it). rotate=False as there (tangent-space texels).
+def repack_margin_px(A):
+    """Island margin in texels: A // 64 = 8 @ 512, 16 @ 1024 - clean down to the 64^2 mip at both
+    sizes (mip 3 / mip 4); equals cs2_uv.default_margin_px (the buildings' rule) at 1024 and is
+    twice the A // 128 floor at 512 (write-up "Redo", margin study)."""
+    if REPACK_MARGIN_PX is not None:
+        return int(REPACK_MARGIN_PX)
+    return max(8, int(A) // 64)
+
+
+def _face_zones(mesh, A):
+    """Atlas zone name per face (UVAtlas centroid, the rule snow_weather uses)."""
+    import numpy as np
+    import cs2_uv
+    import snow_weather
+    zones = cs2_asset.snow_prop_zones(A)
+    uva = cs2_uv.loop_uvs(mesh.uv_layers["UVAtlas"])
+    start, total = cs2_uv.face_loop_table(mesh)
+    return [snow_weather._zone_of(tuple(uva[s:s + t].mean(0)), zones) for s, t in zip(start, total)]
+
+
+# -- Unfold (REDO): one island per developable strip instead of one per face -------------------
+# The atlas-time smart project gives most parts ONE ISLAND PER FACE (tower 577 islands: every
+# stile, rail, cage bar, conduit and riser facet is its own 1-6 cm x 0.3-6 m sliver). With a
+# mip-safe margin each sliver pays 2 x margin across its whole length: at 16 px the tower's fill
+# fell to 0.07 (margin study in the write-up). `_unfold_islands` rebuilds the UVUnique start layout
+# by UNFOLDING each part's faces across shared edges whose dihedral is <= UNFOLD_MAX_DEG: every
+# face is placed exactly (rotated about the shared edge into its neighbour's plane: isometric, no
+# stretch), a face that would overlap the island already laid out starts a new island. Prism
+# sides become one strip, boxes become nets, cones / cylinder bands unroll; a face is never
+# mirrored (the 2-D frame keeps the face's own winding). Pinned (stamp strip) faces are untouched.
+# The tangent-space normals the bake reprojects from the atlas are re-oriented per face to the new
+# layout (snow_weather.reorient_normals), so nothing in the Normal map depends on the island angle.
+UNFOLD = True
+UNFOLD_MAX_DEG = 92.0           # merge across edges up to a box corner (90 deg) plus bevel slack
+UNFOLD_EPS = 1e-7               # SAT shrink: faces touching along an edge are not "overlapping"
+UNFOLD_MIN_FILL = 0.6           # a face joins only while island area / its PCA bounding box >= this:
+                                # a hinged or bent tube would otherwise unroll into an L / V whose
+                                # bounding box is mostly empty (the lance tube did: 0.53 x 0.75 UV)
+
+
+UNFOLD_MAX_LEN_M = 2.0          # a chain of faces never unrolls longer than this (or than its longest
+                                # single face): the lance tube unrolled side-cap-side into a 13.9 m
+                                # strip and capped the whole asset's scale
+
+
+def _obb(points, area):
+    """(face area / PCA-oriented bounding box area, long side) of the 2-D `points`."""
+    import numpy as np
+    c = points - points.mean(0)
+    w, v = np.linalg.eigh(c.T @ c)
+    q = c @ v
+    ext = q.max(0) - q.min(0)
+    box = float(np.prod(ext))
+    return (area / box if box > 1e-15 else 1.0), float(ext.max())
+
+
+def _sat_overlap(p, q, eps=UNFOLD_EPS):
+    """Convex 2-D polygons (k, 2) overlap with positive area (separating-axis test)."""
+    import numpy as np
+    for poly in (p, q):
+        e = np.roll(poly, -1, axis=0) - poly
+        axes = np.stack([-e[:, 1], e[:, 0]], 1)
+        for ax in axes:
+            n = np.hypot(ax[0], ax[1])
+            if n < 1e-15:
+                continue
+            ax = ax / n
+            a, b = p @ ax, q @ ax
+            if a.max() <= b.min() + eps or b.max() <= a.min() + eps:
+                return False
+    return True
+
+
+def _unfold_islands(mesh, pinned):
+    """Write an unfolded start layout (metres) into the active UVUnique layer (see the block
+    comment above). Returns {"islands": n, "faces": n_placed}. Deterministic: faces are visited
+    in index order, roots are each part's largest unplaced face (ties -> lowest index)."""
+    import math
+    import numpy as np
+    import cs2_uv
+    n = len(mesh.polygons)
+    co = np.empty(len(mesh.vertices) * 3, np.float64)
+    mesh.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    lv = np.empty(len(mesh.loops), np.int64)
+    mesh.loops.foreach_get("vertex_index", lv)
+    le = np.empty(len(mesh.loops), np.int64)
+    mesh.loops.foreach_get("edge_index", le)
+    start, total = cs2_uv.face_loop_table(mesh)
+    part = np.empty(n, np.int32)
+    mesh.attributes["part"].data.foreach_get("value", part)
+    layer = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
+    uv = cs2_uv.loop_uvs(layer)
+    atl = cs2_uv.loop_uvs(mesh.uv_layers["UVAtlas"])
+    fv = [lv[start[f]:start[f] + total[f]] for f in range(n)]
+    fn = np.zeros((n, 3))
+    farea = np.zeros(n)
+    for f in range(n):
+        P = co[fv[f]]
+        c = np.zeros(3)
+        for i in range(len(P)):
+            c += np.cross(P[i], P[(i + 1) % len(P)])
+        a = np.linalg.norm(c)
+        farea[f] = 0.5 * a
+        fn[f] = c / a if a > 1e-15 else (0.0, 0.0, 1.0)
+    edge_faces = {}
+    for f in range(n):
+        if f in pinned:
+            continue
+        for li in range(start[f], start[f] + total[f]):
+            edge_faces.setdefault(int(le[li]), []).append(f)
+    cos_max = math.cos(math.radians(UNFOLD_MAX_DEG))
+    nbr = [[] for _ in range(n)]
+    for e, fs in edge_faces.items():
+        if len(fs) != 2:
+            continue
+        a, b = fs
+        if part[a] != part[b] or float(fn[a] @ fn[b]) < cos_max:
+            continue
+        nbr[a].append(b)
+        nbr[b].append(a)
+    pos = {}                                   # face -> {vertex: (x, y)}
+    placed = np.zeros(n, bool)
+    for f in pinned:
+        placed[f] = True
+    island_of = np.full(n, -1, np.int64)
+    n_isl = 0
+    # roots: per part, largest unplaced face first
+    order = sorted((f for f in range(n) if not placed[f]), key=lambda f: (int(part[f]), -farea[f], f))
+    cursor_x = 0.0
+    for root in order:
+        if placed[root]:
+            continue
+        # 2-D frame of the root: e1 along the root's atlas-u direction projected into the face
+        # plane (keeps the unique island roughly in the atlas orientation), e2 = n x e1 (no mirror)
+        P = co[fv[root]]
+        A2 = atl[start[root]:start[root] + total[root]]
+        d3, d2 = P[1] - P[0], A2[1] - A2[0]
+        d3b, d2b = P[2] - P[0], A2[2] - A2[0]
+        J = np.array([d2, d2b]).T              # atlas uv deltas (2 x 2)
+        if abs(np.linalg.det(J)) > 1e-14:
+            Tu = (np.array([d3, d3b]).T @ np.linalg.inv(J))[:, 0]   # dP/du_atlas
+        else:
+            Tu = d3
+        nr = fn[root]
+        e1 = Tu - (Tu @ nr) * nr
+        if np.linalg.norm(e1) < 1e-12:
+            e1 = d3 - (d3 @ nr) * nr
+        e1 /= np.linalg.norm(e1)
+        e2 = np.cross(nr, e1)
+        pos[root] = {int(v): (float((co[v] - P[0]) @ e1), float((co[v] - P[0]) @ e2)) for v in fv[root]}
+        placed[root] = True
+        island_of[root] = n_isl
+        members = [root]
+        isl_area = farea[root]
+        polys = {root: np.array([pos[root][int(v)] for v in fv[root]])}
+        isl_len = _obb(polys[root], farea[root])[1]
+        queue = [root]
+        while queue:
+            f = queue.pop(0)
+            for g in sorted(nbr[f]):
+                if placed[g]:
+                    continue
+                shared = [int(v) for v in fv[g] if int(v) in pos[f]]
+                if len(shared) != 2:
+                    continue
+                va, vb = shared
+                a3, b3 = co[va], co[vb]
+                a2, b2 = np.array(pos[f][va]), np.array(pos[f][vb])
+                ed3 = b3 - a3
+                L3 = np.linalg.norm(ed3)
+                if L3 < 1e-12:
+                    continue
+                eh3 = ed3 / L3
+                ed2 = b2 - a2
+                eh2 = ed2 / max(np.linalg.norm(ed2), 1e-15)
+                perp = np.array((-eh2[1], eh2[0]))
+                fc = polys[f].mean(0)
+                if (fc - a2) @ perp > 0:           # f lies on +perp: g goes to -perp
+                    perp = -perp
+                pg = {}
+                for v in fv[g]:
+                    v = int(v)
+                    if v == va or v == vb:
+                        pg[v] = tuple(pos[f][v])
+                        continue
+                    r = co[v] - a3
+                    t = r @ eh3
+                    h = np.linalg.norm(r - t * eh3)
+                    pg[v] = tuple(a2 + t * eh2 + h * perp)
+                poly = np.array([pg[int(v)] for v in fv[g]])
+                lo, hi = poly.min(0), poly.max(0)
+                clash = False
+                for m in members:
+                    q = polys[m]
+                    if (q.min(0) > hi).any() or (q.max(0) < lo).any():
+                        continue
+                    if _sat_overlap(poly, q):
+                        clash = True
+                        break
+                if clash:
+                    continue
+                fill_new, len_new = _obb(np.concatenate([polys[m] for m in members] + [poly]),
+                                         isl_area + farea[g])
+                if len(members) >= 2 and fill_new < UNFOLD_MIN_FILL:
+                    continue
+                if len_new > max(isl_len, _obb(poly, farea[g])[1], UNFOLD_MAX_LEN_M) + 1e-9:
+                    continue
+                pos[g] = pg
+                isl_area += farea[g]
+                isl_len = len_new
+                polys[g] = poly
+                placed[g] = True
+                island_of[g] = n_isl
+                members.append(g)
+                queue.append(g)
+        # lay islands side by side (the packer moves them anyway; no overlap at the start)
+        allp = np.concatenate([polys[m] for m in members])
+        lo = allp.min(0)
+        for m in members:
+            for li, v in zip(range(start[m], start[m] + total[m]), fv[m]):
+                x, y = pos[m][int(v)]
+                uv[li] = (x - lo[0] + cursor_x, y - lo[1])
+        cursor_x += float(allp[:, 0].max() - lo[0]) + 0.05
+        n_isl += 1
+    cs2_uv.set_loop_uvs(layer, uv)
+    return {"islands": n_isl, "faces": int((island_of >= 0).sum())}
+
+
+# -- The pack itself (REDO): our own shelf packer with EXACT margins -------------------------------
+# Blender's pack_islands could not hold a mip-safe margin on these layouts: FRACTION / ADD left
+# 2-4 x the asked gap and collapsed the tower's fill to 0.07-0.22 at 16 px (the margin is applied
+# at the islands' pre-pack scale), SCALED ignored it (2 px gaps); margin study in the write-up.
+# `_shelf_layout` packs each island's minimum-area bounding rectangle (rotating calipers on its
+# hull, long side horizontal) first-fit-decreasing-height into full-width shelves: every island
+# keeps exactly `margin` texels to its neighbours and margin / 2 to the band edges, the DARK
+# islands fill the shelves from the bottom of the band, the light ones start DARK_GAP_MARGINS
+# margins above the last dark shelf, and ONE scale (binary search, the largest that fits) is
+# shared by both, so the tier weights hold exactly. Rotation is safe because
+# snow_weather.reorient_normals turns every reprojected tangent-space normal by its face's
+# atlas -> unique rotation. An island longer than REPACK_MAX_LEN of the width at the tested scale
+# is compressed along its long axis down to REPACK_MIN_SQUASH (block comment at REPACK_MAX_LEN).
+
+
+def _hull(pts):
+    """Convex hull (monotone chain), counter-clockwise, no repeated end point."""
+    import numpy as np
+    p = np.unique(np.round(pts, 12), axis=0)
+    if len(p) < 3:
+        return p
+    p = p[np.lexsort((p[:, 1], p[:, 0]))]
+
+    def half(seq):
+        out = []
+        for q in seq:
+            while len(out) >= 2 and ((out[-1][0] - out[-2][0]) * (q[1] - out[-2][1])
+                                     - (out[-1][1] - out[-2][1]) * (q[0] - out[-2][0])) <= 0:
+                out.pop()
+            out.append(tuple(q))
+        return out
+    lower, upper = half(p), half(p[::-1])
+    return np.array(lower[:-1] + upper[:-1])
+
+
+def _min_rect_angle(pts):
+    """Rotation (radians) that puts the minimum-area bounding rectangle of `pts` axis-aligned with
+    its LONG side along +u (rotating calipers; ties -> the smallest angle)."""
+    import math
+    import numpy as np
+    h = _hull(pts)
+    if len(h) < 3:
+        d = h[-1] - h[0] if len(h) == 2 else np.array((1.0, 0.0))
+        return -math.atan2(d[1], d[0])
+    best = None
+    e = np.roll(h, -1, axis=0) - h
+    for a in sorted(set(round(math.atan2(y, x) % (math.pi / 2), 12) for x, y in e)):
+        c, s = math.cos(-a), math.sin(-a)
+        q = h @ np.array(((c, s), (-s, c)))
+        w, ht = np.ptp(q[:, 0]), np.ptp(q[:, 1])
+        if best is None or w * ht < best[0] - 1e-15:
+            best = (w * ht, -a, w, ht)
+    _area, ang, w, ht = best
+    if ht > w:
+        ang += math.pi / 2
+    return ang
+
+
+def _ffdh(sizes, width):
+    """First-fit decreasing height shelves. sizes = [(w, h)] incl. margin. -> ([(x, y)], height)
+    or None when an item is wider than the shelf."""
+    order = sorted(range(len(sizes)), key=lambda i: (-sizes[i][1], -sizes[i][0], i))
+    shelves = []
+    pos = [None] * len(sizes)
+    top = 0.0
+    for i in order:
+        w, h = sizes[i]
+        if w > width + 1e-9:
+            return None
+        for sh in shelves:
+            if sh[2] + w <= width + 1e-9 and h <= sh[1] + 1e-9:
+                pos[i] = (sh[2], sh[0])
+                sh[2] += w
+                break
+        else:
+            shelves.append([top, h, w])
+            pos[i] = (0.0, top)
+            top += h
+    return pos, top
+
+
+def _shelf_layout(rects, dark, A, band_px, margin_px, gap_px):
+    """Largest scale s (texels per UV-unit) at which every rect (w, h), padded by margin_px, fits:
+    dark shelves from 0, light shelves from (dark height + gap_px). Long rects squash along u.
+    -> dict(s, pos [(x, y) px of the padded footprint], squash [factor per rect], heights)."""
+    width = float(A)
+
+    def attempt(s):
+        squash = []
+        sizes = []
+        for (w, h) in rects:
+            k = 1.0
+            if w * s > REPACK_MAX_LEN * width:
+                k = REPACK_MAX_LEN * width / (w * s)
+                if k < REPACK_MIN_SQUASH:
+                    return None
+            squash.append(k)
+            sizes.append((w * s * k + margin_px, h * s + margin_px))
+        di = [i for i in range(len(rects)) if dark[i]]
+        li = [i for i in range(len(rects)) if not dark[i]]
+        pos = [None] * len(rects)
+        hd = 0.0
+        if di:
+            r = _ffdh([sizes[i] for i in di], width)
+            if r is None:
+                return None
+            for j, i in enumerate(di):
+                pos[i] = r[0][j]
+            hd = r[1]
+        y0 = hd + (gap_px if di and li else 0.0)
+        hl = 0.0
+        if li:
+            r = _ffdh([sizes[i] for i in li], width)
+            if r is None:
+                return None
+            for j, i in enumerate(li):
+                pos[i] = (r[0][j][0], r[0][j][1] + y0)
+            hl = r[1]
+        if y0 + hl > band_px + 1e-9:
+            return None
+        return {"s": s, "pos": pos, "squash": squash, "dark_px": hd, "light_px": hl}
+
+    lo, hi = 0.0, None
+    s = 64.0
+    while attempt(s) is not None:            # bracket
+        lo, s = s, s * 2.0
+        if s > 1e7:
+            break
+    hi = s
+    for _ in range(40):
+        mid = 0.5 * (lo + hi)
+        if attempt(mid) is not None:
+            lo = mid
+        else:
+            hi = mid
+    res = attempt(lo)
+    if res is None:
+        raise RuntimeError("shelf pack: nothing fits (an island wider than the atlas at any scale?)")
+    return res
+
+
+def _pack_once(obj, mesh, A, reserved, density_layer, share=None, dark_face=None):
+    """The REDO pack (block comment above): weights, rotate, shelf-pack, place, share copies.
     `share` = cs2_liftdress.share_identical list: translation-identical copies (rungs, nuts,
-    studs, cage hoops...) are held back and take their canonical island's UVs afterwards."""
-    import bpy
+    studs, cage hoops...) are held back and take their canonical island's UVs afterwards.
+    Returns the layout facts."""
+    import math
+    import numpy as np
     import cs2_uv
     layer = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
     mesh.uv_layers.active = layer
     pinned = cs2_uv.pinned_faces(mesh, layer, reserved)
     hold = set(pinned)
+    src = dst = None
     if share:
         dup, src, dst = cs2_uv._share_loops(mesh, share, pinned)
         hold |= dup
-    cs2_uv._select_unpinned(obj, mesh, hold)
-    bpy.ops.uv.average_islands_scale()
-    bpy.ops.object.mode_set(mode="OBJECT")
+    if not UNFOLD:                           # unfolded islands are already true metres
+        cs2_uv._select_unpinned(obj, mesh, hold)
+        bpy.ops.uv.average_islands_scale()
+        bpy.ops.object.mode_set(mode="OBJECT")
     layer = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
     weights = cs2_uv.face_density_weights(mesh, density_layer)
     cs2_uv._scale_islands_by_weight(mesh, layer, hold, weights)
-    cs2_uv._select_unpinned(obj, mesh, hold)
-    bpy.ops.uv.pack_islands(rotate=False, scale=True, margin_method="FRACTION",
-                            margin=REPACK_MARGIN_PX / float(A), shape_method=REPACK_SHAPE)
-    bpy.ops.object.mode_set(mode="OBJECT")
-    layer = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
-    if reserved:
-        lo, hi = cs2_uv.free_v_band(reserved)
-        cs2_uv._squeeze_into_band(mesh, layer, hold, lo, hi)
+    free = [i for i in range(len(mesh.polygons)) if i not in hold]
+    islands = cs2_uv.uv_islands(mesh, layer, faces=free)
+    start, total = cs2_uv.face_loop_table(mesh)
+    uv = cs2_uv.loop_uvs(layer)
+    loops, rects, angles, dark = [], [], [], []
+    for isl in islands:
+        li = np.concatenate([np.arange(start[f], start[f] + total[f]) for f in isl])
+        q = uv[li]
+        a = _min_rect_angle(q)
+        c, s = math.cos(a), math.sin(a)
+        r = q @ np.array(((c, s), (-s, c)))
+        r -= r.min(0)
+        uv[li] = r
+        loops.append(li)
+        rects.append((float(r[:, 0].max()), float(r[:, 1].max())))
+        angles.append(a)
+        dark.append(bool(dark_face is not None and np.mean(dark_face[isl]) >= 0.5))
+    lo, hi = cs2_uv.free_v_band(reserved)
+    mpx = float(repack_margin_px(A))
+    band_px = (hi - lo) * A
+    res = _shelf_layout(rects, dark, A, band_px, mpx, DARK_GAP_MARGINS * mpx)
+    s = res["s"]
+    for k, li in enumerate(loops):
+        x, y = res["pos"][k]
+        q = uv[li] * s
+        q[:, 0] *= res["squash"][k]
+        uv[li] = (q + np.array((x + 0.5 * mpx, y + 0.5 * mpx))) / A + np.array((0.0, lo))
+    cs2_uv.set_loop_uvs(layer, uv)
     if share and len(dst):
         uv = cs2_uv.loop_uvs(layer)
         uv[dst] = uv[src]
         cs2_uv.set_loop_uvs(layer, uv)
     cs2_uv.check_layout(mesh, layer, reserved, pinned)
+    sq = [round(k, 3) for k in res["squash"] if k < 1.0]
+    return {"band": (round(lo, 4), round(hi, 4)), "scale_px_per_unit": round(s, 3),
+            "islands": len(islands), "dark_islands": int(sum(dark)), "light_islands": len(dark) - int(sum(dark)),
+            "dark_px": round(res["dark_px"], 1), "light_px": round(res["light_px"], 1),
+            "squashed": sq}
 
 
 REPACK_SHARE = True             # stack translation-identical copies on one island
 REPACK_SHARE_CAP_M2 = 0.5       # only small parts stack (rungs, nuts, studs, hoops, clamps)
-REPACK_GROUND_BAND = (0.0, 0.45)  # = snow_weather's grade band: grade copies stack only together
+REPACK_GROUND_BAND = (0.0, 0.45)  # grade copies stack only together (a grade-soiled rung never
+                                  # lends its UVs to a clean one)
 
 
 def _share_list(obj, mesh, names, reserved):
@@ -1693,12 +2140,12 @@ def density_tier(name):
 def density_packer(obj, mesh, A, reserved):
     """
     Packer hook for lift_tower.apply_finish_textures(packer=): "UVUnique" exists (a copy of
-    UVAtlas) and is active. Fits per-tier weights (up to 4 passes, each from the same start
-    UVs) so the area-weighted shell density hits DENSITY_TARGET_PX_M; records LAST_REPACK.
-    Leaves no attribute behind (the weights live in a temporary FACE attribute).
+    UVAtlas) and is active. Unfolds the islands (UNFOLD), weights them per tier (DENSITY_REL),
+    shelf-packs dark and light islands at ONE scale with exact mip-safe margins (_pack_once) and
+    records LAST_REPACK: per-tier px/m, pack fill, margin, squashed islands. Leaves no attribute
+    behind (the weights live in a temporary FACE attribute).
     """
     import json
-    import math
     import numpy as np
     import cs2_uv
     global LAST_REPACK
@@ -1707,78 +2154,67 @@ def density_packer(obj, mesh, A, reserved):
     part = np.empty(n, np.int32)
     mesh.attributes["part"].data.foreach_get("value", part)
     tiers = np.array([density_tier(names[i - 1]) for i in part])
+    rel_face = np.array([DENSITY_REL[t] for t in tiers])
+    zone = _face_zones(mesh, A)
+    dark_face = np.array([z in DARK_ZONES for z in zone])
     lay = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
-    start_uv = cs2_uv.loop_uvs(lay).copy()
     pinned = cs2_uv.pinned_faces(mesh, lay, reserved)
     free = np.ones(n, bool)
     free[list(pinned)] = False
     wa = cs2_uv.face_world_areas(mesh)
     tmp = "snow_density_w"
     share = _share_list(obj, mesh, names, reserved) if REPACK_SHARE else None
+    unfold = _unfold_islands(mesh, pinned) if UNFOLD else None
     canon = free.copy()             # area that costs texels: stacked copies are free
     if share:
         for _c, dps in share:
             for dp in dps:
                 canon[dp] = False
     area = {t: float(wa[(tiers == t) & canon].sum()) for t in ("shell", "small", "mast", "rest")}
-    passes = []
-    shell_d, mast_d, rest_d = DENSITY_TARGET_PX_M, DENSITY_MAST_MIN_PX_M, DENSITY_REST_MIN_PX_M
-    for _it in range(5):
-        rel = {"shell": 1.0, "small": DENSITY_SMALL_REL, "mast": mast_d / shell_d,
-               "rest": rest_d / shell_d}
-        attr = mesh.attributes.get(tmp) or mesh.attributes.new(tmp, "FLOAT", "FACE")
-        attr.data.foreach_set("value", [rel[t] for t in tiers])
-        lay = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
-        cs2_uv.set_loop_uvs(lay, start_uv)
-        _pack_once(obj, mesh, A, reserved, tmp, share=share)
-        lay = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
-        d = cs2_uv.face_px_per_m(mesh, lay, A)
-        ok = free & np.isfinite(d)
-        got = {}
-        for t in area:
-            sel = ok & (tiers == t)
-            got[t] = float(np.sqrt((d[sel] ** 2 * wa[sel]).sum() / max(wa[sel].sum(), 1e-12)))
-        uniq = ok & canon
-        E = float((d[uniq] ** 2 * wa[uniq]).sum())          # texel area the layout carries
-        passes.append({"weights": {t: round(v, 3) for t, v in rel.items()},
-                       "px_per_m": {t: round(v, 1) for t, v in got.items()},
-                       "texels_used": round(E)})
-        # Next densities from this pass's texel budget E (fill varies little between passes):
-        # floors first, the shells (and the hardware riding at DENSITY_SMALL_REL) get the
-        # remainder up to the target; any surplus lifts masts / rest toward the shells.
-        floors = DENSITY_MAST_MIN_PX_M ** 2 * area["mast"] + DENSITY_REST_MIN_PX_M ** 2 * area["rest"]
-        top = area["shell"] + DENSITY_SMALL_REL ** 2 * area["small"]
-        s_new = math.sqrt(max(E - floors, 1.0) / max(top, 1e-9))
-        if s_new >= DENSITY_TARGET_PX_M:
-            s_new = DENSITY_TARGET_PX_M
-            spare = E - DENSITY_TARGET_PX_M ** 2 * top
-            k = math.sqrt(max(spare, 0.0) / max(floors, 1e-9))
-            m_new = min(DENSITY_TARGET_PX_M, DENSITY_MAST_MIN_PX_M * max(k, 1.0))
-            r_new = min(DENSITY_TARGET_PX_M, DENSITY_REST_MIN_PX_M * max(k, 1.0))
-        else:
-            m_new, r_new = DENSITY_MAST_MIN_PX_M, DENSITY_REST_MIN_PX_M
-        if (abs(got["shell"] - s_new) / s_new < 0.03 and abs(got["mast"] - m_new) / m_new < 0.08
-                and abs(got["rest"] - r_new) / r_new < 0.08):
-            break
-        shell_d, mast_d, rest_d = s_new, m_new, r_new
+    attr = mesh.attributes.get(tmp) or mesh.attributes.new(tmp, "FLOAT", "FACE")
+    attr.data.foreach_set("value", rel_face.tolist())
+    info = _pack_once(obj, mesh, A, reserved, tmp, share=share, dark_face=dark_face)
     mesh.attributes.remove(mesh.attributes[tmp])
-    LAST_REPACK = {"A": int(A), "area_m2": {t: round(v, 2) for t, v in area.items()},
+    lay = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
+    d = cs2_uv.face_px_per_m(mesh, lay, A)
+    ok = free & np.isfinite(d)
+
+    def rms(sel, x=d):
+        return float(np.sqrt((x[sel] ** 2 * wa[sel]).sum() / max(wa[sel].sum(), 1e-12)))             if sel.any() else None
+    got = {t: rms(ok & (tiers == t)) for t in area}
+    k = d / rel_face                                   # density per unit weight
+    uva = cs2_uv.face_uv_areas(mesh, cs2_uv.loop_uvs(lay))
+    used = float(uva[ok & canon].sum())
+    lo, hi = info["band"]
+    final = {"weights": dict(DENSITY_REL),
+             "px_per_m": {t: (round(v, 1) if v is not None else None) for t, v in got.items()},
+             "k_dark": (round(rms(ok & dark_face, k), 1) if (ok & dark_face).any() else None),
+             "k_light": round(rms(ok & ~dark_face, k), 1),
+             "fill_band": round(used / max(hi - lo, 1e-9), 4), "fill_atlas": round(used, 4),
+             "texels_used": round(used * A * A), "layout": info}
+    LAST_REPACK = {"A": int(A), "margin_px": repack_margin_px(A), "dark_gap_margins": DARK_GAP_MARGINS,
+                   "unfold": unfold, "area_m2": {t: round(v, 2) for t, v in area.items()},
+                   "dark_area_m2": round(float(wa[dark_face & canon].sum()), 2),
                    "shared": (share.report if share else None),
-                   "passes": passes, "final": passes[-1]}
-    print(f"[repack] {obj.name}: {len(passes)} pass(es), px/m {passes[-1]['px_per_m']}")
+                   "passes": [final], "final": final}
+    print(f"[repack] {obj.name} @ {A}: margin {repack_margin_px(A)} px, islands {info['islands']} "
+          f"({info['dark_islands']} dark), fill {final['fill_band']:.3f}, px/m {final['px_per_m']}, "
+          f"squashed {info['squashed']}")
     return None
 
 
 def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=False,
-               repack=False, post_hook=None):
+               repack=False, post_hook=None, weather_step=2):
     """
     The texture half of export_one: atlas maps (+ emissive) into `asset_dir`, then the
     finish rebake. Split out (T20) so the preview build can make the same maps WITHOUT
     writing an FBX or settings.json.
 
-    `weather` (2026-10-17, opt-in until Richard's verdict): run snow_weather's texture-side
-    weathering + smoothness parity inside the finish bake (post_compose). Pixels only: the
-    mesh, UVs, LODs and every file name / size are unchanged. Needs do_finish.
+    `weather` (2026-10-17, opt-in until Richard's verdict): run snow_weather's clean-style
+    texture pass inside the finish bake (post_compose). Pixels only: the mesh, UVs, LODs and
+    every file name are unchanged. Needs do_finish. `weather_step` (REDO, wiki style): 1 =
+    smoothness / metal parity + flat clean base + normal-map detail, 2 = step 1 + the
+    low-frequency soiling (snow_weather module docstring).
 
     `repack` (2026-10-17, opt-in): density_packer replaces the finish pass's UV pack (new
     UVUnique layout, same geometry / tris / file set). `post_hook`: a caller's own
@@ -1810,8 +2246,13 @@ def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=Fa
         hook = post_hook
         if weather:
             import snow_weather
-            hook = snow_weather.make_hook(obj, name)
+            hook = snow_weather.make_hook(obj, name, step=weather_step, key=key)
             LAST_WEATHER = hook
+        elif repack:
+            # the REDO packer rotates islands: re-orient the reprojected normals (N0) even
+            # without the texture pass
+            import snow_weather
+            hook = snow_weather.ReorientHook(obj, inner=post_hook)
         ok = lift_tower.apply_finish_textures(obj, asset_dir, name, atlas_size=A,
                                               reserved_strips=[zones["strip"]],
                                               ao_samples=24, post_compose=hook,
@@ -1827,17 +2268,30 @@ def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=Fa
     area = mesh_area(obj)
     px_per_m = (quad_size * 2) / math.sqrt(max(area, 1e-3))
     print(f"[{key}]   atlas {quad_size * 2}px over {area:.1f} m^2 -> {px_per_m:.0f} px/m")
-    if px_per_m > 200:
+    if repack:
+        # REDO (wiki style, 2026-10-17): the 2026-08 60-150 px/m band and its 200 ceiling were a
+        # mesh-area metric + memory budget, not vanilla (vanilla props 158-2,520 px/m, median
+        # ~910; wiki-best-practices-gap-2026-10-17.md section 2a). With --repack the size rules
+        # are the wiki floor and the materials doc's no-2048-under-10-m ceiling; the per-PART
+        # density is gated by cs2_validate.
+        A = quad_size * 2
+        if A < TEX_FLOOR:
+            raise RuntimeError(f"{name}: {A} px texture is below the wiki floor {TEX_FLOOR} "
+                               f"(Asset Creation Guide: anything smaller is unsupported)")
+        if A > TEX_CEIL_UNDER_10M and max(obj.dimensions) < 10.0:
+            raise RuntimeError(f"{name}: {A} px on a {max(obj.dimensions):.1f} m prop - never "
+                               f"2048 for anything under 10 m (snow-prop-materials.md section 5)")
+    elif px_per_m > 200:
         raise RuntimeError(f"{name}: {px_per_m:.0f} px/m exceeds the 200 px/m ceiling — "
                            f"halve quad_size (snow-prop-materials.md section 5)")
     return px_per_m
 
 
 def export_one(key, obj, name, out_root, quad_size, do_finish=False, weather=False,
-               repack=False):
+               repack=False, weather_step=2):
     asset_dir = os.path.join(os.path.abspath(out_root), name)
     build_maps(key, obj, name, asset_dir, quad_size, do_finish=do_finish, weather=weather,
-               repack=repack)
+               repack=repack, weather_step=weather_step)
 
     cs2_asset.export_fbx(obj, os.path.join(asset_dir, f"{name}.fbx"))
 
@@ -2388,11 +2842,20 @@ def parse_args():
                     help="T20 preview gate: build every variant of --assets (maps, LODs, no FBX) "
                          "and render the 3-view + 150 m set, A/B pair and contact sheet here")
     ap.add_argument("--weather", action="store_true",
-                    help="with --finish: texture-side weathering + smoothness parity "
-                         "(snow_weather.py, 2026-10-17); pixels only, geometry unchanged")
+                    help="with --finish: clean-style texture pass (snow_weather.py, REDO wiki "
+                         "style 2026-10-17); pixels only, geometry unchanged")
+    ap.add_argument("--weather-step", type=int, default=2, choices=(1, 2),
+                    help="with --weather: 1 = parity + flat clean base + normal-map detail, "
+                         "2 = step 1 + low-frequency soiling (default)")
     ap.add_argument("--repack", action="store_true",
                     help="with --finish: per-tier texel-density repack of the unique UVs "
-                         "(density_packer, 2026-10-17); new UV layout, same geometry")
+                         "(density_packer; REDO: mip-safe margins, dark band) at the REDO texture "
+                         "sizes (TEX_REDO: tower / fan 1024, lance / hydrant 512); new UV layout, "
+                         "same geometry")
+    ap.add_argument("--tex", default=None,
+                    help="texture size override: B (the exported B sizes), an int, or "
+                         "tower=1024,fan=1024,lance=512,hydrant=512 (default: TEX_REDO with "
+                         "--repack, B without)")
     ap.add_argument("--review", action="store_true",
                     help="with --detail: also write assets/preview/review/<Name>.blend packs")
     return ap.parse_args(argv)
@@ -2466,13 +2929,15 @@ def main():
         jobs = VARIANTS[k] if args.variants else [(ASSETS[k][0], {}, ASSETS[k][2])]
         for name, kwargs, quad_size in jobs:
             clear_scene()
+            tex = texture_size(k, quad_size, repack=args.repack, override=args.tex)
             parts = BUILDER[k](PARAM_CLASS[k](**kwargs))
-            obj = finish(parts, name, quad_size * 2, bevel=args.finish,
+            obj = finish(parts, name, tex, bevel=args.finish,
                          smooth=k in SMOOTH_ASSETS)
             cs2_asset.validate_asset_name(name)
             total += report(k, obj)
-            export_one(k, obj, name, args.out, quad_size, do_finish=args.finish,
-                       weather=args.weather, repack=args.repack)
+            export_one(k, obj, name, args.out, tex // 2, do_finish=args.finish,
+                       weather=args.weather, repack=args.repack,
+                       weather_step=args.weather_step)
             count += 1
     print(f"[snow_props] family total: {total} tris across {count} asset(s)")
 
