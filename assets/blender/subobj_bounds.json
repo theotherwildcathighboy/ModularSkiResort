@@ -169,6 +169,46 @@
     "Trashbin04"
    ]
   },
+  "57d3607bc6f3c79408a27d4990e38565": {
+   "bounds": [
+    [
+     -0.427,
+     -0.411,
+     -0.47
+    ],
+    [
+     0.427,
+     1.546,
+     0.47
+    ]
+   ],
+   "guid": "57d3607bc6f3c79408a27d4990e38565",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "CommercialACVentRoofRandom01 Mesh",
+    "CommercialACVentRoof01 Mesh",
+    "CommercialACVentRoof02 Mesh",
+    "CommercialACVentRoof03 Mesh",
+    "CommercialACVentRoof04 Mesh",
+    "CommercialACVentRoof05 Mesh",
+    "CommercialACVentRoof06 Mesh"
+   ],
+   "note": "added 2026-10-17 (fittings v1: roof vents / kitchen flues), derived as cs2_subobj.DumpIndex.derive",
+   "prefab": "CommercialACVentRoofRandom01",
+   "prefabs": [
+    "CommercialACVentRoofRandom01"
+   ],
+   "source": "dump",
+   "tris": 1072,
+   "variants": [
+    "CommercialACVentRoof01",
+    "CommercialACVentRoof02",
+    "CommercialACVentRoof03",
+    "CommercialACVentRoof04",
+    "CommercialACVentRoof05",
+    "CommercialACVentRoof06"
+   ]
+  },
   "63c46490ab59afd4dae01ee442f1e462": {
    "bounds": [
     [
@@ -971,6 +1011,44 @@
     "SafetyCone02",
     "SafetyCone03",
     "SafetyCone04"
+   ]
+  },
+  "e334c9885e132684488e4fa21e06d975": {
+   "bounds": [
+    [
+     -0.216,
+     -0.332,
+     -0.216
+    ],
+    [
+     0.216,
+     0.595,
+     0.216
+    ]
+   ],
+   "guid": "e334c9885e132684488e4fa21e06d975",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "ACVentRoofRandom01 Mesh",
+    "ACVentRoof01 Mesh",
+    "ACVentRoof02 Mesh",
+    "ACVentRoof03 Mesh",
+    "ACVentRoof04 Mesh",
+    "ACVentRoof05 Mesh"
+   ],
+   "note": "added 2026-10-17 (fittings v1: roof vents / kitchen flues), derived as cs2_subobj.DumpIndex.derive",
+   "prefab": "ACVentRoofRandom01",
+   "prefabs": [
+    "ACVentRoofRandom01"
+   ],
+   "source": "dump",
+   "tris": 424,
+   "variants": [
+    "ACVentRoof01",
+    "ACVentRoof02",
+    "ACVentRoof03",
+    "ACVentRoof04",
+    "ACVentRoof05"
    ]
   },
   "ed041afbdfcc3db4188ce264b34304a2": {

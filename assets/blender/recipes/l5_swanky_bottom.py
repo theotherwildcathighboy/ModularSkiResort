@@ -1702,7 +1702,10 @@ SUB_OBJECT_ROWS = (
     # on the wing gable ends, bins, pots at the podium steps and the slope edge, lamp posts
     # along the slope edge, a tree at each outer corner
     *((_T, x, y, _ST, 90.0, 0, "slope plaza") for x in (-36.8, -33.2) for y in (-12.0, -6.5, 6.5, 12.0)),
-    # T26 2026-10-16: parasols dropped (random yellow): the 4 plaza, 4 pool-terrace and 1 tower-deck rows
+    # T26 2026-10-16 dropped the 4 plaza, 4 pool-terrace and 1 tower-deck parasols (random yellow);
+    # restored 2026-10-17 (Richard: vanilla props, random colours accepted)
+    _parasol(-36.8, 6.5, _ST, 180.0, "slope plaza"), _parasol(-36.8, -6.5, _ST, 180.0, "slope plaza"),
+    _parasol(-33.2, 12.0, _ST, 0.0, "slope plaza"), _parasol(-33.2, -12.0, _ST, 0.0, "slope plaza"),
     (_H, -31.4, -9.25, _ST, 0.0, 0, "slope plaza"), (_H, -31.4, 9.25, _ST, 0.0, 0, "slope plaza"),
     (_B, PZ_FIREPIT[0] - 2.4, PZ_FIREPIT[1], _ST, 0.0, 0, "slope plaza"),
     (_B, PZ_FIREPIT[0], PZ_FIREPIT[1] - 2.4, _ST, 90.0, 0, "slope plaza"),
@@ -1720,13 +1723,15 @@ SUB_OBJECT_ROWS = (
     # flight (`stairblk_e2`, y +-E2_HALF): loungers at |y| >= 2.4, the parasols between them
     *((_C, -14.85, y, _PD, 0.0, 0, "pool terrace") for y in (-6.0, -4.2, -2.4, 2.4, 4.2, 6.0)),
     *((_C, -27.25, y, _PD, 180.0, 0, "pool terrace") for y in (-8.5, -6.5, -4.5, 4.5)),
+    (_P, -14.5, -3.3, _PD, 180.0, 0, "pool terrace"), (_P, -14.5, 3.3, _PD, 180.0, 0, "pool terrace"),
+    (_P, -27.6, -10.5, _PD, 0.0, 0, "pool terrace"), (_P, -27.6, 5.5, _PD, 0.0, 0, "pool terrace"),
     (_L, -28.25, -16.25, _PD, 0.0, 0, "pool terrace"), (_L, -28.25, 16.25, _PD, 0.0, 0, "pool terrace"),
     (_L, -28.25, 8.0, _PD, 0.0, 0, "pool terrace"), (_L, -13.75, -16.25, _PD, 180.0, 0, "pool terrace"),
     (_L, -13.75, 16.25, _PD, 180.0, 0, "pool terrace"), (_L, -13.75, 7.0, _PD, 180.0, 0, "pool terrace"),
     # --- the tower deck (DK_Z): three table sets at the revision-2 bistro spots, a parasol, a
     # heater, three lamp posts (two on the front edge, one at the stair head)
     (_T, 17.6, 11.45, _DK, 90.0, 0, "tower deck"), (_T, 17.6, 18.3, _DK, 90.0, 0, "tower deck"),
-    (_T, 9.4, 11.45, _DK, 90.0, 0, "tower deck"),
+    (_T, 9.4, 11.45, _DK, 90.0, 0, "tower deck"), _parasol(17.6, 11.45, _DK, 0.0, "tower deck"),
     (_H, 13.4, 11.2, _DK, 0.0, 0, "tower deck"),
     (_L, 20.45, 10.9, _DK, 180.0, 0, "tower deck"), (_L, 20.45, 15.2, _DK, 180.0, 0, "tower deck"),
     (_L, 17.0, 20.45, _DK, 180.0, 0, "tower deck"),
@@ -2936,6 +2941,41 @@ def shift_x(parts, dx):
     return len(parts)
 
 
+# fittings v1 (2026-10-17): every L5 gutter ran with no downpipe; Peak 7 (L5's source) carries rail snow fences
+# above its walks. Revision-1 frame (before shift_x). Gutter tops: M / wings 13.82, hall 7.82 (gable_roof:
+# gz = eave tip - 0.18); gutter lines 1.2 m outside the walls (overhang 1.0 + 0.2).
+FIT_GZ_M, FIT_GZ_H = 13.82, 7.82
+FIT_FENCE_SPANS = ((-20.0, -10.0), (10.0, 20.0))   # M road eave between the hall and the road bays
+FIT_FENCE_EVERY = 1.8                               # brackets (1.2 on the other buildings): the L5 budget
+
+
+def fittings_l5(K, mspec):
+    """L5 downpipes (one per gutter run but the courtyard mA: 7) + two rail snow-fence spans on M's road
+    slope. Each pipe stands on a wall clear of the piers, balconies and doors (E1 clear boxes still apply)."""
+    P = []
+    gap = 1.2 - 0.06
+    # the elbows end 6 cm under the gutter top: at the gutter top they reached the slab's eave-tip underside
+    # (13.79) and the cull's contact rule then dropped the whole 29 m eave edge face of the wing roof (8.7 m2)
+    zt_m, zt_h = FIT_GZ_M - 0.06, FIT_GZ_H - 0.06
+    # M road eave (mB): offset leaders from the gutter end round the corner onto the gable-end walls, behind
+    # the road-face corner piers (pm_mount y +-35, 0.6 proud)
+    for tag, sg in (("mBs", -1.0), ("mBn", 1.0)):
+        P += K.downspout(tag, M_X1 + 1.2, sg * (M_Y1 + 0.55), FIT_GZ_M, "+X", z_bottom=LIFT,
+                         leader=(M_X1 - 0.4, sg * (M_Y1 + 0.06)))
+    # wings: both long walls at the outer gable end
+    for tag, y0, y1 in WINGS:
+        P += K.downspout(f"w{tag}0", W_X0 + 0.4, y0 - 0.06, zt_m, "-Y", wall_gap=gap, z_bottom=LIFT)
+        P += K.downspout(f"w{tag}1", W_X0 + 0.4, y1 + 0.06, zt_m, "+Y", wall_gap=gap, z_bottom=LIFT)
+    # hall: both side walls 0.3 m from M's road wall (the side walls carry two window bays each, the hx chimney
+    # stands on -Y and the piers h0 / h1 at the front corners): -Y down onto the 1.2 m stone ring (the pipe enters
+    # the stone, no shoe), +Y down onto the tower deck (top DK_Z, shoe)
+    P += K.downspout("hs", M_X1 + 0.3, -(H_Y + 0.06), zt_h, "-Y", wall_gap=gap, z_bottom=1.2, shoe=False)
+    P += K.downspout("hn", M_X1 + 0.3, H_Y + 0.06, zt_h, "+Y", wall_gap=gap, z_bottom=DK_Z + 0.05)
+    # rail snow fence over the road walk (Peak 7: rail fences above the entries and walks)
+    P += K.snow_guard("mF", mspec, "+X", offset=0.6, bracket_every=FIT_FENCE_EVERY, spans=FIT_FENCE_SPANS)
+    return P
+
+
 def build_l5(recipe, opts):
     """Parts of L5 revision 1 (custom massing). Order is fixed (determinism); every name
     unique; no set is ever iterated unsorted. Fine-detail step 3e: `recipe.fine_detail` (module
@@ -3314,6 +3354,15 @@ def build_l5(recipe, opts):
     # ---------------- revision 2: the tower deck (asymmetric front) ----------------------------
     ps, deck = tower_deck(tower)
     P += ps
+
+    # ---------------- fittings v1 (2026-10-17, docs/research/art/fittings-2026-10-17.md) ------
+    if K.FITTINGS.get("version", 0) >= 1:
+        P += fittings_l5(K, mspec)
+        # paid for on L5 itself: the five chimney crowns (20-25 m up) lose their 2 cm edge bevel (44 -> 12 tris
+        # each, 1.3 px at 20 m): the over-detail the downpipes and fences are bought with
+        for o, _m in P:
+            if o.name in CHIM_CAPS:
+                o["no_bevel"] = 1
 
     # ---------------- UV-island hygiene (see unbevelled) ----------------------------------
     unbevelled(P, "truss_xg", "trim_trussxg")

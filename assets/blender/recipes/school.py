@@ -924,7 +924,8 @@ def build(recipe, opts):
     # ---- downspouts (front only: the back is the HIGH side of the monopitch), HVAC on the slope
     for nm, x, y, zt, nrm in (("fs", gx1 + 0.10, gy0 + 0.30, ROOF_GF_Z, "-X"),
                               ("fn", gx1 + 0.10, gy1 - 0.30, ROOF_GF_Z, "-X")):
-        P += K.downspout(nm, x, y, zt, nrm, size=0.08, wall_gap=0.06, z_bottom=0.20)
+        P += K.downspout(nm, x, y, zt, nrm, size=0.08, wall_gap=0.06, z_bottom=0.20,
+                         shoe_dir="+X")      # fittings v1: the shoe kicks out (nrm points at the wall)
     for k, (x, y) in enumerate(HVAC):
         P += K.box_part(f"hvac_{'ab'[k]}", (x - 0.75, y - 0.5, roof_top(x + 0.75) - 0.05),
                         (x + 0.75, y + 0.5, roof_top(x - 0.75) + 0.75), "galv", drop=("-Z",))

@@ -237,6 +237,9 @@ LOD1_DELETE = ("tail_", "bracket_", "brace_", "snowguard_", "gutter_", "downspou
                # wall face; only the LOD0 copy gets the wall holes (punch_openings), so the
                # far set (LOD1 / LOD2) drops them. No v1 part carries either prefix.
                "reveal_", "sash_",
+               # fittings v1 (2026-10-17): the modelled fittings (chimney hoods, ...) are LOD0 dressing;
+               # no pre-fittings part carries the prefix
+               "fit_",
                # detail pass 1 (school / L2 / patrol, design/detail-pass-1.md 6.1 + skeptic
                # M1): maze fence, toboggan rack, rescue gear, hose reel, fuel drum, log stack,
                # safety stripes. NOT bench_ (L1 keeps its bench through lod1_extra; a global
@@ -3637,9 +3640,132 @@ def snow_guard(name, spec, side, offset=0.6, bracket_every=1.2, spans=None):
             c.y = a
         else:
             c.x = a
-        bg.obb(c + n * 0.045, (along, up, n), (0.02, 0.02, 0.045), drop=("-Z",))
+        if FITTINGS.get("version", 0) >= 1:
+            # fittings v1: the bracket stops at the rail centre line (0.08 off the slab, was 0.09) and is
+            # 0.034 across the slope (was 0.04), inside the 6-seg rail's 0.0346 inscribed circle, so its top
+            # face is wholly inside the rail: dropped, 2 tris per bracket, nothing visible changes
+            bg.obb(c + n * 0.04, (along, up, n), (0.02, 0.017, 0.04), drop=("-Z", "+Z"))
+        else:
+            bg.obb(c + n * 0.045, (along, up, n), (0.02, 0.02, 0.045), drop=("-Z",))
     parts.append((bg.finish(f"snowguard_{name}b"), "galv"))
     return parts
+
+
+PAD = (0.12, 0.10, 0.06)    # snow pad: width along the eave, depth up-slope, height of its downslope face
+
+
+def snow_pads(name, spec, side, offsets=(1.4, 2.0), every=0.75, spans=None, inset=0.4):
+    """fittings v1: pad-style snow guards (the slate-roof kind, Courchevel) as `snowguard_<name>p`: staggered
+    rows at `offsets` m up-slope of the eave tip, one pad every `every` m along the eave (the second row shifted
+    half a step). A pad is a wedge on the slab top: a vertical-ish face toward the eave, a top sloping back onto
+    the slab, two end triangles, no bottom: 6 tris. `spans` ((a0, a1), ...) along the ridge axis; default the
+    whole slab inset `inset` from the rakes."""
+    g = _roof_geometry(spec)
+    n, up, along = roof_frame(spec, side)
+    s0 = side.startswith("-")
+    et, zt = _eave_tip(spec, g, 0 if s0 else 1)
+    t = g["t0"] if s0 else g["t1"]
+    top_off = 0.5 * spec.thick * math.sqrt(1 + t * t) + 0.004
+    base = Vector((et, 0.0, zt + top_off)) if g["ax"] == "Y" else Vector((0.0, et, zt + top_off))
+    if spans is None:
+        spans = ((g["a0"] + inset, g["a1"] - inset),)
+    w, d, h = PAD
+    gg = _Geo()
+    count = 0
+    for r, off in enumerate(offsets):
+        for a0, a1 in spans:
+            k = 0
+            while True:
+                a = a0 + (k + (0.5 if r % 2 else 0.0)) * every
+                if a > a1 + 1e-6:
+                    break
+                k += 1
+                c = Vector(base) + up * off
+                if g["ax"] == "Y":
+                    c.y = a
+                else:
+                    c.x = a
+                f0, f1 = c - along * (w / 2), c + along * (w / 2)          # eave-side foot corners
+                b0, b1 = f0 + up * d, f1 + up * d                          # up-slope foot corners
+                t0, t1 = f0 + n * h, f1 + n * h                            # top of the eave-side face
+                v = [gg.v(p) for p in (f0, f1, b0, b1, t0, t1)]
+                gg.face([v[0], v[1], v[5], v[4]], -up)                     # face toward the eave
+                gg.face([v[4], v[5], v[3], v[2]], n + up)                  # sloping top
+                gg.face([v[0], v[4], v[2]], -along)
+                gg.face([v[1], v[3], v[5]], along)
+                count += 1
+    if not count:
+        raise ValueError(f"snow_pads {name}: no pad in {spans}")
+    return [(gg.finish(f"snowguard_{name}p"), "galv")]
+
+
+SHROUD = (0.25, 0.05, 0.05, 0.30)   # chimney shroud: leg height, leg size, plate thickness, pyramid rise (a hood)
+
+
+def chimney_shroud(name, lo, hi):
+    """fittings v1: a raised metal hood over a chimney crown (Courchevel's hooded stack, Peak 7's capped flues) as
+    `fit_shroud<name>`: four corner legs from the crown top, a plate 5 cm past the stack each side, a low pyramid
+    on it. lo / hi = the crown slab (`chimcap_<name>`) bounds in the authoring frame; the plate covers the stack
+    (crown minus its 0.2 m drip each side). 4 x 8 (legs, no ends) + 12 (plate) + 4 (pyramid) = 48 tris."""
+    leg_h, leg, th, rise = SHROUD
+    x0, y0, x1, y1 = lo[0] + 0.15, lo[1] + 0.15, hi[0] - 0.15, hi[1] - 0.15
+    z0 = hi[2]
+    g = _Geo()
+    for x, y in ((x0 + 0.08, y0 + 0.08), (x1 - 0.08, y0 + 0.08), (x0 + 0.08, y1 - 0.08), (x1 - 0.08, y1 - 0.08)):
+        g.aabb((x - leg / 2, y - leg / 2, z0), (x + leg / 2, y + leg / 2, z0 + leg_h), drop=("-Z", "+Z"))
+    zp = z0 + leg_h
+    g.aabb((x0, y0, zp), (x1, y1, zp + th))
+    apex = g.v(((x0 + x1) / 2, (y0 + y1) / 2, zp + th + rise))
+    c = [g.v(p) for p in ((x0, y0, zp + th), (x1, y0, zp + th), (x1, y1, zp + th), (x0, y1, zp + th))]
+    cen = Vector(((x0 + x1) / 2, (y0 + y1) / 2, zp + th))
+    for i in range(4):
+        a, b = c[i], c[(i + 1) % 4]
+        mid = (a.co + b.co) / 2
+        g.face([a, b, apex], (mid - cen) + Vector((0, 0, 0.5)))
+    return [(g.finish(f"fit_shroud{name}"), "galv")]
+
+
+# fittings v1 (2026-10-17, docs/research/art/fittings-2026-10-17.md): the shoe at the foot of every downspout
+FITTINGS = {"version": 0}
+FIT_SHOES = []                  # (downspout part name, outlet point, direction) built inside fittings()
+SHOE = (0.20, 0.26, 0.04)       # shoe: run out along the normal, top of the bend above the pipe foot, outlet height
+
+
+class fittings:
+    """Context manager (lodge.build_parts, --fittings v1): downspout() adds the shoe (a 45-degree kick-out at
+    the pipe foot, the vanilla / real-world outlet) and the recipes add their gated fittings
+    (`FITTINGS["version"] >= 1`)."""
+
+    def __init__(self, version=1):
+        self.cfg = {"version": int(version)}
+        self._saved = None
+
+    def __enter__(self):
+        self._saved = dict(FITTINGS)
+        FITTINGS.update(self.cfg)
+        FIT_SHOES.clear()
+        return FITTINGS
+
+    def __exit__(self, *exc):
+        FITTINGS.clear()
+        FITTINGS.update(self._saved)
+        return False
+
+
+def _shoe_into(g, x, y, zb, n, size):
+    """The shoe: an obb from inside the pipe foot (zb + SHOE[1]) out SHOE[0] along n to the outlet at
+    zb + SHOE[2], its start face dropped (inside the pipe): 10 tris; the pipe itself loses its bottom face."""
+    run, top, out_z = SHOE
+    P0 = Vector((x, y, zb + top))
+    P1 = Vector((x, y, zb + out_z)) + Vector((n.x, n.y, 0.0)).normalized() * run
+    ax = (P1 - P0)
+    L = ax.length
+    ax /= L
+    side = ax.cross(Vector((0, 0, 1)))
+    side.normalize()
+    upv = side.cross(ax).normalized()
+    g.obb((P0 + P1) * 0.5, (ax, side, upv), (0.5 * L, 0.5 * size, 0.5 * size), drop=("-X",))
+    return P1
 
 
 def gutter(name, p0, p1, z, size=(0.12, 0.10)):
@@ -3650,7 +3776,7 @@ def gutter(name, p0, p1, z, size=(0.12, 0.10)):
 
 
 def downspout(name, x, y, z_top, normal, size=0.08, wall_gap=0.10, z_bottom=0.05,
-              leader=None):
+              leader=None, shoe=None, shoe_dir=None):
     """`downspout_<name>` square 0.08 pipe from the gutter (z_top) down to z_bottom (0.05
     above grade: outside the ground band; or onto a deck / cap) with an elbow to the
     gutter line `wall_gap` m out along `normal`.
@@ -3660,6 +3786,11 @@ def downspout(name, x, y, z_top, normal, size=0.08, wall_gap=0.10, z_bottom=0.05
     n = _SIDES[normal][0] if isinstance(normal, str) else Vector(normal)
     g = _Geo()
     s = size / 2
+    # fittings v1: the shoe, unless the caller says the pipe runs on into a drain / another run (shoe=False);
+    # it kicks out along `shoe_dir` (default `normal`: the recipes that pass the elbow's direction TOWARD the
+    # wall, the school's, pass the outward one here)
+    shoe = FITTINGS.get("version", 0) >= 1 and shoe is not False
+    sd = n if shoe_dir is None else (_SIDES[shoe_dir][0] if isinstance(shoe_dir, str) else Vector(shoe_dir))
     if leader is not None:
         lx, ly = float(leader[0]), float(leader[1])
         za = z_top - 0.08
@@ -3667,9 +3798,19 @@ def downspout(name, x, y, z_top, normal, size=0.08, wall_gap=0.10, z_bottom=0.05
         zc = zb - max(0.40, 0.8 * math.hypot(lx - x, ly - y))
         _beam_into(g, Vector((x, y, za)), Vector((x, y, zb)), size, size)
         _beam_into(g, Vector((x, y, zb)), Vector((lx, ly, zc)), size, size)
-        g.aabb((lx - s, ly - s, max(z_bottom, 0.05)), (lx + s, ly + s, zc + s))
+        zb = max(z_bottom, 0.05)
+        if shoe:
+            g.aabb((lx - s, ly - s, zb + SHOE[1] - s), (lx + s, ly + s, zc + s), drop=("-Z",))
+            FIT_SHOES.append((f"downspout_{name}", tuple(_shoe_into(g, lx, ly, zb, sd, size)), tuple(sd)))
+        else:
+            g.aabb((lx - s, ly - s, zb), (lx + s, ly + s, zc + s))
         return [(g.finish(f"downspout_{name}"), "galv")]
-    g.aabb((x - s, y - s, max(z_bottom, 0.05)), (x + s, y + s, z_top - 0.25))
+    zb = max(z_bottom, 0.05)
+    if shoe:
+        g.aabb((x - s, y - s, zb + SHOE[1] - s), (x + s, y + s, z_top - 0.25), drop=("-Z",))
+        FIT_SHOES.append((f"downspout_{name}", tuple(_shoe_into(g, x, y, zb, sd, size)), tuple(sd)))
+    else:
+        g.aabb((x - s, y - s, zb), (x + s, y + s, z_top - 0.25))
     _beam_into(g, Vector((x, y, z_top - 0.25)), Vector((x, y, z_top - 0.25)) + n * wall_gap
                + Vector((0, 0, 0.18)), size, size)
     return [(g.finish(f"downspout_{name}"), "galv")]
@@ -4079,6 +4220,8 @@ def bevel_parts(parts, prefixes=BEVEL_PREFIXES, width=0.02, heavy_width=0.03, se
     n = 0
     for obj, _m in parts:
         if not obj.name.startswith(tuple(prefixes)):
+            continue
+        if obj.get("no_bevel"):       # fittings v1: a recipe opts a part out (L5's chimney crowns)
             continue
         co = np.empty(len(obj.data.vertices) * 3, np.float32)
         obj.data.vertices.foreach_get("co", co)

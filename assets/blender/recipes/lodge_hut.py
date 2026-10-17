@@ -220,7 +220,11 @@ SUB_OBJECTS = (
     ("TableSetCommercialRandom01", _TABLE, (-6.5, 0.43, -6.6), _yaw_q(0), 0),
     ("TableSetCommercialRandom01", _TABLE, (-2.0, 0.43, -6.6), _yaw_q(0), 0),
     ("TableSetCommercialRandom01", _TABLE, (2.5, 0.43, -6.6), _yaw_q(0), 0),
-    # T26 2026-10-16: parasols dropped (random yellow)
+    # T26 dropped it; restored 2026-10-17; fittings round (2026-10-17): 1.37 m (PARASOL_OFFSET, the vanilla
+    # table-set convention) behind its table at y -2.0 along +Y, local +Z at the table: the 3 m W deck leaves no
+    # room across x (the canopy would enter the wall or the pole the rail), and on the -Y side the pole stands
+    # clear of the deck chair (y -4.25) and of the W deck door (y -0.7 .. 0.7)
+    ("ParasolRandom01", _PARASOL, (-3.37, 0.43, -6.6), _yaw_q(90), 0),
     ("DeckChairRandom01", _CHAIR, (-7.2, 0.43, 0.0), _yaw_q(-90), 0),
     ("DeckChairRandom01", _CHAIR, (-4.25, 0.43, -6.6), _yaw_q(180), 0),
     ("FirewoodPileRandom01", _FIREWOOD, (-6.45, 0.43, 4.2), _yaw_q(90), 0),
@@ -438,7 +442,7 @@ def _detail1(K, fine=False):
     g_y = FL_Y + EAVE_OVER + 0.20
     for tag, x, zb in (("SW", FL_X0 + 0.10, DECK_TOP + 0.05), ("SE", FL_X1 - 0.10, 0.05)):
         P += K.downspout(f"hut{tag}", x, DS_S_Y, 3.80, "-Y", wall_gap=g_y + DS_S_Y,
-                         z_bottom=zb)
+                         z_bottom=zb, shoe=(tag == "SW"))      # fittings v1: SE runs on down the plinth
     xe = FL_X1 - 0.10
     P += K.box_part("downspout_hutSEext", (xe - 0.04, DS_S_Y - 0.04, -PL_DEPTH),
                     (xe + 0.04, DS_S_Y + 0.04, 0.06), "galv")
@@ -493,7 +497,8 @@ def build_hut(recipe, opts):
     # downspouts on +Y only: down the timber wall, past the cap, down the plinth face to -6.0
     ds_y = PL_Y + CAP_PROUD + 0.07            # 5.80: clear of the cap ring
     for tag, x in (("NW", FL_X0 + 0.10), ("NE", FL_X1 - 0.10)):
-        P += K.downspout(f"hut{tag}", x, ds_y, 3.80, "+Y", wall_gap=g_y - ds_y, z_bottom=0.05)
+        P += K.downspout(f"hut{tag}", x, ds_y, 3.80, "+Y", wall_gap=g_y - ds_y, z_bottom=0.05,
+                         shoe=False)          # fittings v1: no shoe, the pipe runs on down the plinth
         P += K.box_part(f"downspout_hut{tag}ext", (x - 0.04, ds_y - 0.04, -PL_DEPTH),
                         (x + 0.04, ds_y + 0.04, 0.06), "galv")
     # purlin ends (3 per gable) + knee brackets (4 per gable) under the rakes

@@ -193,6 +193,10 @@ def parse_args(argv=None):
                     help="door kit v2: wall holes (auto = DOOR_HOLES per recipe)")
     ap.add_argument("--door-mode", default="auto", choices=("auto", "full", "lean"),
                     help="door kit v2: full = glazing beads / wedge end caps; lean = without")
+    # fittings v1 (2026-10-17, docs/research/art/fittings-2026-10-17.md): downpipe shoes, snow fences,
+    # roof vents / kitchen flues / entry lamps (vanilla sub-object rows), chimney caps. Needs the door kit.
+    ap.add_argument("--fittings", default="off", choices=("off", "v1"),
+                    help="v1 = the fittings pass (with --door-kit v2; off = every build byte-identical)")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -691,12 +695,30 @@ def door_kit_cfg(recipe, args):
             "mode": mode, "arrival": (math.cos(a), math.sin(a))}
 
 
+# fittings v1: modelled fitting parts named fit_* draw their material's flat colour (no tile cuts);
+# the shoes ride inside downspout_ and the new snow fences are snowguard_ (both flat already)
+FITTINGS_FLAT = ("fit_",)
+
+
+def fittings_cfg(recipe, args):
+    """kwargs for cs2_bldg.fittings, or None (fittings off)."""
+    if getattr(args, "fittings", "off") != "v1":
+        return None
+    if getattr(args, "door_kit", "v1") != "v2":
+        raise RuntimeError("--fittings v1 builds on --door-kit v2 (entry lamps sit beside the kit doors)")
+    return {"version": 1}
+
+
 def build_parts(recipe, opts):
     """Kit calls in recipe order; asserts unique part names (no Blender .001 renames).
     opts["window_kit"] (window_kit_cfg) builds the windows with kit v2, opts["door_kit"]
     (door_kit_cfg) the doors with door kit v2 (its part registry is read by run())."""
     wk = opts.get("window_kit")
     dk = opts.get("door_kit")
+    fk = opts.get("fittings")
+    if wk and dk and fk:
+        with K.window_kit(**wk), K.door_kit(**dk), K.fittings(**fk):
+            return _build_parts(recipe, opts)
     if wk and dk:
         with K.window_kit(**wk), K.door_kit(**dk):
             return _build_parts(recipe, opts)
@@ -1287,6 +1309,9 @@ def run(recipe, args):
     dk = door_kit_cfg(recipe, args)
     if dk:
         opts["door_kit"] = dk
+    fk = fittings_cfg(recipe, args)
+    if fk:
+        opts["fittings"] = fk
     W_, D_ = recipe.lot
     # 1-2 clean + parts
     clear_scene()
@@ -1297,6 +1322,13 @@ def run(recipe, args):
                  "glass_d": sorted(K.DOOR2_GLASS_D), "leaf_d": dict(K.DOOR2_LEAF),
                  "hardware": dict(K.DOOR2_HARDWARE)}
         opts["door2"] = door2
+    fit = None
+    if fk:                                  # fittings v1: recipe-independent parts + vanilla rows
+        import cs2_fittings
+        fparts, frows, fit = cs2_fittings.build(recipe, parts, opts)
+        parts = list(parts) + list(fparts)
+        if frows:
+            recipe = replace(recipe, sub_objects=tuple(recipe.sub_objects) + tuple(frows))
     spec = FD.sign_set_of(recipe)
     # nitpick C (2026-10-13): the Write Everywhere targets (blank boards, lit name boards), read off the faces
     # before a sign set takes them; the manifest's `we_boards` block (absent when there are none)
@@ -1381,6 +1413,8 @@ def run(recipe, args):
                               "glass_depths": door2["glass_d"],
                               "leaf_depths": {k: round(v, 4) for k, v in sorted(door2["leaf_d"].items())},
                               "hardware": {k: v for k, v in sorted(door2["hardware"].items())}}
+    if fit is not None:
+        result["fittings"] = fit
     if signset is not None:
         result["sign_set"] = {"obj": signset["obj"], "cid": signset["cid"], "faces": signset["faces"],
                               "mesh": signset["spec"].mesh}
@@ -1768,7 +1802,9 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
                           + ((K.KIT2_PARTS + WINDOW_FLAT_EXTRA.get(recipe.key, ()))
                              if getattr(args, "window_kit", "v1") == "v2" else ())
                           # door kit v2: its parts (exact names) draw flat too
-                          + (tuple(result.get("door_kit", {}).get("flat", ()))),
+                          + (tuple(result.get("door_kit", {}).get("flat", ())))
+                          # fittings v1: fit_* parts flat
+                          + (FITTINGS_FLAT if "fittings" in result else ()),
                           grid_offset=0.5 if recipe.base_mode == "plinth" else 0.0)
         if getattr(args, "window_kit", "v1") == "v2":
             # window kit v2: the wall holes, cut AFTER the tile slicing so only the tile pieces
@@ -2002,6 +2038,8 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
         data["window_kit"] = result["window_kit"]
     if result.get("door_kit"):             # door kit v2 builds only
         data["door_kit"] = {k: v for k, v in result["door_kit"].items() if k != "flat"}
+    if "fittings" in result:
+        data["fittings"] = result["fittings"]
     # art pass, detail pass 1: keys only for recipes that use the features (older manifests
     # keep their key set)
     rep = getattr(hook, "report", None) if hook is not None else None
