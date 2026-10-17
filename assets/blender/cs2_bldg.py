@@ -1281,8 +1281,14 @@ def stovepipe(name, spec, x, y, r=0.15, rise=1.2):
                     lambda g: g.cyl((x, y, z0), (x, y, z0 + 0.1 + rise), r, 8, cap0=False,
                                     cap1=False), "galv")
     zt = z0 + 0.1 + rise
-    parts += _single(f"stovepipe_{name}cap",
-                     lambda g: g.cyl((x, y, zt + 0.12), (x, y, zt + 0.20), r * 2.0, 8), "galv")
+
+    def cap(g):
+        g.cyl((x, y, zt + 0.12), (x, y, zt + 0.20), r * 2.0, 8)
+        if FITTINGS.get("version", 0) >= 1:
+            # close look (2026-10-17): the rain cap floated 12 cm over the open pipe (Richard: "floating"); it now
+            # stands on a collar from inside the pipe top into the cap disc (16 tris)
+            g.cyl((x, y, zt - 0.03), (x, y, zt + 0.125), r * 0.97, 8, cap0=False, cap1=False)
+    parts += _single(f"stovepipe_{name}cap", cap, "galv")
     return parts
 
 
@@ -3706,13 +3712,16 @@ def chimney_shroud(name, lo, hi):
     """fittings v1: a raised metal hood over a chimney crown (Courchevel's hooded stack, Peak 7's capped flues) as
     `fit_shroud<name>`: four corner legs from the crown top, a plate 5 cm past the stack each side, a low pyramid
     on it. lo / hi = the crown slab (`chimcap_<name>`) bounds in the authoring frame; the plate covers the stack
-    (crown minus its 0.2 m drip each side). 4 x 8 (legs, no ends) + 12 (plate) + 4 (pyramid) = 48 tris."""
+    (crown minus its 0.2 m drip each side). Close look: a screen band (8, no ends) + 12 (plate) + 4 (pyramid) =
+    24 tris (v1's four legs were 32 of 48)."""
     leg_h, leg, th, rise = SHROUD
     x0, y0, x1, y1 = lo[0] + 0.15, lo[1] + 0.15, hi[0] - 0.15, hi[1] - 0.15
     z0 = hi[2]
     g = _Geo()
-    for x, y in ((x0 + 0.08, y0 + 0.08), (x1 - 0.08, y0 + 0.08), (x0 + 0.08, y1 - 0.08), (x1 - 0.08, y1 - 0.08)):
-        g.aabb((x - leg / 2, y - leg / 2, z0), (x + leg / 2, y + leg / 2, z0 + leg_h), drop=("-Z", "+Z"))
+    # close look (2026-10-17): a screen band (four walls, 1 cm into the crown and the plate) replaces the four
+    # 5 cm legs, which vanished at 6-20 m and left the hood reading as floating over the crown (8 tris, was 32)
+    g.aabb((x0 + 0.08 - leg / 2, y0 + 0.08 - leg / 2, z0 - 0.01),
+           (x1 - 0.08 + leg / 2, y1 - 0.08 + leg / 2, z0 + leg_h + 0.01), drop=("-Z", "+Z"))
     zp = z0 + leg_h
     g.aabb((x0, y0, zp), (x1, y1, zp + th))
     apex = g.v(((x0 + x1) / 2, (y0 + y1) / 2, zp + th + rise))
@@ -3728,6 +3737,7 @@ def chimney_shroud(name, lo, hi):
 # fittings v1 (2026-10-17, docs/research/art/fittings-2026-10-17.md): the shoe at the foot of every downspout
 FITTINGS = {"version": 0}
 FIT_SHOES = []                  # (downspout part name, outlet point, direction) built inside fittings()
+FIT_PIPES = []                  # close look (2026-10-17): every downspout() call's parameters; cs2_fittings re-routes
 SHOE = (0.20, 0.26, 0.04)       # shoe: run out along the normal, top of the bend above the pipe foot, outlet height
 
 
@@ -3744,6 +3754,7 @@ class fittings:
         self._saved = dict(FITTINGS)
         FITTINGS.update(self.cfg)
         FIT_SHOES.clear()
+        FIT_PIPES.clear()
         return FITTINGS
 
     def __exit__(self, *exc):
@@ -3766,6 +3777,15 @@ def _shoe_into(g, x, y, zb, n, size):
     upv = side.cross(ax).normalized()
     g.obb((P0 + P1) * 0.5, (ax, side, upv), (0.5 * L, 0.5 * size, 0.5 * size), drop=("-X",))
     return P1
+
+
+def _pipe_lo0(parts):
+    """Close look: remember the as-built corner of a registered downspout, so the router can follow a recipe that
+    moves its parts afterwards (the school shifts the whole building +12 m in x)."""
+    if FITTINGS.get("version", 0) >= 1 and FIT_PIPES and FIT_PIPES[-1]["name"] == parts[0][0].name:
+        co = [v.co for v in parts[0][0].data.vertices]
+        FIT_PIPES[-1]["lo0"] = tuple(min(c[i] for c in co) for i in range(3))
+    return parts
 
 
 def gutter(name, p0, p1, z, size=(0.12, 0.10)):
@@ -3791,6 +3811,14 @@ def downspout(name, x, y, z_top, normal, size=0.08, wall_gap=0.10, z_bottom=0.05
     # wall, the school's, pass the outward one here)
     shoe = FITTINGS.get("version", 0) >= 1 and shoe is not False
     sd = n if shoe_dir is None else (_SIDES[shoe_dir][0] if isinstance(shoe_dir, str) else Vector(shoe_dir))
+    if FITTINGS.get("version", 0) >= 1:
+        # close look (2026-10-17): cs2_fittings.route_downspouts rebuilds this part from these numbers with the
+        # whole building in view (outlet drop into the gutter, a neck under the soffit, the pipe clear of trims,
+        # clips, the shoe on its support)
+        FIT_PIPES.append({"name": f"downspout_{name}", "x": float(x), "y": float(y), "z_top": float(z_top),
+                          "n": tuple(n), "size": float(size), "wall_gap": float(wall_gap),
+                          "z_bottom": float(z_bottom), "shoe": bool(shoe), "shoe_dir": tuple(sd),
+                          "leader": None if leader is None else (float(leader[0]), float(leader[1]))})
     if leader is not None:
         lx, ly = float(leader[0]), float(leader[1])
         za = z_top - 0.08
@@ -3804,7 +3832,7 @@ def downspout(name, x, y, z_top, normal, size=0.08, wall_gap=0.10, z_bottom=0.05
             FIT_SHOES.append((f"downspout_{name}", tuple(_shoe_into(g, lx, ly, zb, sd, size)), tuple(sd)))
         else:
             g.aabb((lx - s, ly - s, zb), (lx + s, ly + s, zc + s))
-        return [(g.finish(f"downspout_{name}"), "galv")]
+        return _pipe_lo0([(g.finish(f"downspout_{name}"), "galv")])
     zb = max(z_bottom, 0.05)
     if shoe:
         g.aabb((x - s, y - s, zb + SHOE[1] - s), (x + s, y + s, z_top - 0.25), drop=("-Z",))
@@ -3813,7 +3841,7 @@ def downspout(name, x, y, z_top, normal, size=0.08, wall_gap=0.10, z_bottom=0.05
         g.aabb((x - s, y - s, zb), (x + s, y + s, z_top - 0.25))
     _beam_into(g, Vector((x, y, z_top - 0.25)), Vector((x, y, z_top - 0.25)) + n * wall_gap
                + Vector((0, 0, 0.18)), size, size)
-    return [(g.finish(f"downspout_{name}"), "galv")]
+    return _pipe_lo0([(g.finish(f"downspout_{name}"), "galv")])
 
 
 # --------------------------------------------------------------------------------------
@@ -4918,7 +4946,8 @@ def _basis(n):
 
 def cull_hidden(obj, protect=(), rays=24, samples=9, contact_m=0.02, horizon_z=None,
                 d_min=25.0, ring=8, ring_z=-0.10, wall_rule="contact", arrival=(0.0, -1.0),
-                table=None, cull_ok=(), min_keep=0.20, max_dist=200.0, ground_prefixes=None):
+                table=None, cull_ok=(), min_keep=0.20, max_dist=200.0, ground_prefixes=None,
+                thin_occluders=()):
     """
     Delete faces nobody can see (section 6.2, skeptic MUST-CHANGE 5). Per face of the
     joined, pane-free mesh: up to 9 samples (centre + 15 %-inset vertices / edge mids).
@@ -4938,6 +4967,10 @@ def cull_hidden(obj, protect=(), rays=24, samples=9, contact_m=0.02, horizon_z=N
         bottom part, so a ray leaving under its walls is blocked); `horizon_z` (fixed, the
         pre-skeptic rule) is used
         only when d_min is None.
+    thin_occluders (close look, 2026-10-17; default none = the old behaviour byte for byte): parts of these
+    prefixes (thin fittings: gutters, downpipes, snow rails, hoods) never hide a face of ANOTHER part, by
+    contact or by ray: an 8 cm pipe on a facade cannot take a sill's underside or a 29 m eave face with it (the
+    fittings-v1 lesson); their own faces are culled as before.
     A face goes when ALL samples are hidden; faces of `protect` prefixes never go. Asserts
     every part keeps >= min_keep of its faces unless matched by `cull_ok`. Returns the
     report (areas, faces per part, wall area deleted by rays - 0 under "contact").
@@ -4952,6 +4985,15 @@ def cull_hidden(obj, protect=(), rays=24, samples=9, contact_m=0.02, horizon_z=N
     bm.faces.ensure_lookup_table()
     layer = bm.faces.layers.int.get("part")
     bvh = BVHTree.FromBMesh(bm)
+    thin_ids = {i + 1 for i, n in enumerate(table) if n.startswith(tuple(thin_occluders))} \
+        if thin_occluders and layer is not None else set()
+    occ_map = None
+    if thin_ids:                       # the BVH a non-thin face is tested against: everything but thin parts
+        keep = [f.index for f in bm.faces if f[layer] not in thin_ids]
+        bvh_occ = BVHTree.FromPolygons([v.co.copy() for v in bm.verts],
+                                       [[v.index for v in bm.faces[i].verts] for i in keep],
+                                       all_triangles=False)
+        occ_map = keep
     hemi = _hemisphere_dirs(rays)
     ring_dirs = []
     for k in range(int(ring)):
@@ -4999,6 +5041,10 @@ def cull_hidden(obj, protect=(), rays=24, samples=9, contact_m=0.02, horizon_z=N
             m = (v + vs[(i + 1) % len(vs)]) * 0.5
             pts.append(m + (c - m) * 0.15)
         pts = pts[:max(1, samples)]
+        if occ_map is not None and pid not in thin_ids:
+            tbvh, tmap = bvh_occ, occ_map
+        else:
+            tbvh, tmap = bvh, None
         is_wall = abs(n.z) < 0.5
         ray_test = True
         no_ground = False
@@ -5017,7 +5063,9 @@ def cull_hidden(obj, protect=(), rays=24, samples=9, contact_m=0.02, horizon_z=N
         contact_only = True
         for p in pts:
             hidden = False
-            for (loc, nrm, idx, dist) in bvh.find_nearest_range(p, contact_m + eps):
+            for (loc, nrm, idx, dist) in tbvh.find_nearest_range(p, contact_m + eps):
+                if idx is not None and tmap is not None:
+                    idx = tmap[idx]
                 if idx is None or idx == f.index:
                     continue
                 ng = normals[idx]
@@ -5029,8 +5077,8 @@ def cull_hidden(obj, protect=(), rays=24, samples=9, contact_m=0.02, horizon_z=N
                     hidden = True
                     break
             if not hidden:
-                hit = bvh.ray_cast(p + n * 1e-4, n, contact_m)
-                if hit[0] is not None and hit[2] != f.index:
+                hit = tbvh.ray_cast(p + n * 1e-4, n, contact_m)
+                if hit[0] is not None and (hit[2] if tmap is None else tmap[hit[2]]) != f.index:
                     hidden = True
             if hidden:
                 continue
@@ -5047,7 +5095,7 @@ def cull_hidden(obj, protect=(), rays=24, samples=9, contact_m=0.02, horizon_z=N
                             continue
                     elif z_s <= 0.0 or -w.z * d_min > z_s or under_ground_part(p, w):
                         continue
-                if bvh.ray_cast(o + w * 1e-3, w, max_dist)[0] is None:
+                if tbvh.ray_cast(o + w * 1e-3, w, max_dist)[0] is None:
                     visible = True
                     break
             if visible:

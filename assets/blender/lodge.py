@@ -698,6 +698,8 @@ def door_kit_cfg(recipe, args):
 # fittings v1: modelled fitting parts named fit_* draw their material's flat colour (no tile cuts);
 # the shoes ride inside downspout_ and the new snow fences are snowguard_ (both flat already)
 FITTINGS_FLAT = ("fit_",)
+# close look (2026-10-17): thin fittings never hide another part's face in cull_hidden (thin_occluders)
+FITTINGS_THIN = ("gutter_", "downspout_", "snowguard_", "fit_", "vent_", "stovepipe_", "flue_")
 
 
 def fittings_cfg(recipe, args):
@@ -1392,7 +1394,8 @@ def run(recipe, args):
     cull = K.cull_hidden(obj, protect=tuple(recipe.ground_prefixes) + K.LABEL_PREFIXES
                          + (K.KIT2_RECESSED if wk else ()) + (door2["protect"] if door2 else ()),
                          table=table, cull_ok=recipe.cull_ok, wall_rule=recipe.wall_rule,
-                         arrival=(0.0, -1.0), ground_prefixes=recipe.ground_prefixes)
+                         arrival=(0.0, -1.0), ground_prefixes=recipe.ground_prefixes,
+                         thin_occluders=FITTINGS_THIN if fk else ())
     T["cull"] = time.perf_counter() - t0
     # 13 budget, 14 area report
     n0 = K.assert_budget(obj, recipe.budget, 0)

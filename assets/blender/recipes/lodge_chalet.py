@@ -414,8 +414,12 @@ def build_chalet(recipe, opts):
     P += K.gable_roof("A", specA, tails=None, snow_guard=1, gutters=True, walls=True,
                       wall_mat="timber_shake")
     gzA = L2_TOP - T27 * EAVE_OVER - 0.18
+    # close look (2026-10-17): v1's pipes stood at the jettied L2 corner and hung 6.5 m in front of the arcade
+    # with nothing behind them; with fittings they come down the L2 side wall just inside the stone corner and
+    # jog in under the jetty onto the stone (cs2_fittings.route_downspouts)
+    ax = A_X0 + 0.35 if K.FITTINGS.get("version", 0) >= 1 else A2_X0 - 0.10
     for nm, y, n in (("AS", A2_Y0 - 0.10, "-Y"), ("AN", A2_Y1 + 0.10, "+Y")):
-        P += K.downspout(nm, A2_X0 - 0.10, y, gzA, n, wall_gap=EAVE_OVER + 0.20 - 0.10,
+        P += K.downspout(nm, ax, y, gzA, n, wall_gap=EAVE_OVER + 0.20 - 0.10,
                          z_bottom=0.05)
     # ---- podium + terrace + opaque balustrade + terrace stair ------------------------------
     P += K.storey("pod", POD_X0, B_X0, A_Y1, POD_Y1, 0.0, POD_TOP, "stone_rubble", ground=True,

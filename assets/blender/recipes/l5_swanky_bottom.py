@@ -2949,6 +2949,14 @@ FIT_FENCE_SPANS = ((-20.0, -10.0), (10.0, 20.0))   # M road eave between the hal
 FIT_FENCE_EVERY = 1.8                               # brackets (1.2 on the other buildings): the L5 budget
 
 
+def CHIM_FOOT():
+    """Foot of the three exterior stacks' shoulders. Close look (2026-10-17): at LIFT (0.05) they stood 3 cm over the
+    lifted grade beside walls that meet the ground (cs2_fittings chimney gate); with fittings on they start at
+    cs2_bldg.GROUND_LIFT like every closed part at grade (fittings off: LIFT, byte-identical)."""
+    import cs2_bldg as KK
+    return KK.GROUND_LIFT if KK.FITTINGS.get("version", 0) >= 1 else LIFT
+
+
 def fittings_l5(K, mspec):
     """L5 downpipes (one per gutter run but the courtyard mA: 7) + two rail snow-fence spans on M's road
     slope. Each pipe stands on a wall clear of the piers, balconies and doors (E1 clear boxes still apply)."""
@@ -3128,7 +3136,7 @@ def build_l5(recipe, opts):
         for j, x in enumerate((-27.0, -23.0, -15.0, -11.0)):
             P += window_column(f"wo{tag}{j}", oside, oplane, x, UPPER, gf=True)
         sy = -1.0 if y1 < 0 else 1.0
-        P += K.chimney(f"w{tag}", -19.0, oplane + sy * 0.8, 2.4, 1.6, W_CHIM_TOP, base_z=LIFT,
+        P += K.chimney(f"w{tag}", -19.0, oplane + sy * 0.8, 2.4, 1.6, W_CHIM_TOP, base_z=CHIM_FOOT(),
                        shoulder=(3.4, 2.0, Z_F[1]), mat=STN)
         yc = 0.5 * (y0 + y1)
         for j, d in enumerate((-3.6, 3.6)):
@@ -3176,7 +3184,8 @@ def build_l5(recipe, opts):
         for j, dy in enumerate((-0.6, 0.6)):
             P += K._single(f"flue_m{k}{j}", lambda g, y=y, dy=dy: g.cyl(
                 (M_RIDGE_X, y + dy, CHIM_TOP - 0.02), (M_RIDGE_X, y + dy, FLUE_TOP), 0.17,
-                12 if fine else 8, cap0=False), "plaster")      # step 3e: 12-seg flue pots
+                8 if (not fine or K.FITTINGS.get("version", 0) >= 1) else 12, cap0=False),
+                "plaster")      # step 3e: 12-seg flue pots; close look: 8 (25 m up; pays for the downpipe clips)
 
     # ---------------- H great hall (revision 0, moved with M's road face) --------------
     P += K.storey("gh", H_X0, H_X1, -H_Y, H_Y, 0.0, H_EAVE, SID_LO, ground=True,
@@ -3271,7 +3280,7 @@ def build_l5(recipe, opts):
         else:
             lo, hi = (H_X1 - 0.5, y + 1.0, 0.9), (H_X1 + 0.5, y + 1.04, 3.9)
         P += K.box_part(f"banner_h{k}", lo, hi, "accent")
-    P += K.chimney("hx", H_X0 + 6.2, -H_Y - 0.8, 2.4, 1.6, 21.5, base_z=LIFT,
+    P += K.chimney("hx", H_X0 + 6.2, -H_Y - 0.8, 2.4, 1.6, 21.5, base_z=CHIM_FOOT(),
                    shoulder=(3.4, 2.0, 4.5), mat=STN)
 
     # ---------------- P porte-cochere (+X, in front of the hall) ---------------------------
@@ -3360,8 +3369,10 @@ def build_l5(recipe, opts):
         P += fittings_l5(K, mspec)
         # paid for on L5 itself: the five chimney crowns (20-25 m up) lose their 2 cm edge bevel (44 -> 12 tris
         # each, 1.3 px at 20 m): the over-detail the downpipes and fences are bought with
+        # close look (2026-10-17): the downpipe necks, jogs and clips and the K-style gutters are paid for by the
+        # 16 cross-gable bay rake boards (14-20 m up) losing their 2 cm edge bevel too (~42 -> ~14 tris each)
         for o, _m in P:
-            if o.name in CHIM_CAPS:
+            if o.name in CHIM_CAPS or o.name.startswith("rake_xg"):
                 o["no_bevel"] = 1
 
     # ---------------- UV-island hygiene (see unbevelled) ----------------------------------
