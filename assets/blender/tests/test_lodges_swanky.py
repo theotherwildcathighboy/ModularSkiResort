@@ -1083,7 +1083,7 @@ def pass1(tmp):
             assert float(W[:, 2].min()) > -1e-4
         else:
             assert b["ok_edges"] == 0, b
-            assert abs(float(W[:, 2].min()) + 12.0) <= 0.01, W[:, 2].min()
+            assert abs(float(W[:, 2].min()) + recipe.plinth[0]) <= 0.01, W[:, 2].min()
             assert not (np.abs(W[:, 2]) <= 0.01).any(), "C3 vertex in the 0 band"
         hidden, crep = check_c10(obj, recipe)
         assert hidden <= C10_MAX, f"C10 {name}: {hidden:.1%} hidden > {C10_MAX:.0%}"

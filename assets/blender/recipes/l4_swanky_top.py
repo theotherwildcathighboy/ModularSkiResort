@@ -54,7 +54,7 @@ pictogram (PICTO_LABELS, legacy). The roof: lore, unchanged. Geometry unchanged:
 
 Frame: +X = arrival (the lot front, game +Z); z 0 = terrain at the lot-front centre (RoadSide
 pivot, contract 0.1); the lodge steps down toward -X. Lot 6 x 5 cells -> |Y| <= 24, |X| <= 20.
-Plinth mode (bldg-kit.md section 3): no vertex in |z| <= 0.01 anywhere, min z = -12.00, no
+Plinth mode (bldg-kit.md section 3): no vertex in |z| <= 0.01 anywhere, min z = Z_PLINTH (-16.00 since T24; was -12.00), no
 engine-base edges (check_base_mode "plinth" on LOD0/1/2 in lodge.py).
 
 Design terrain t_S(X) = -S (20 - X), S_D = 0.20; supported S in [0.17, 0.30].
@@ -92,7 +92,13 @@ Z_LOUNGE = 3.60                                     # U first floor
 Z_DINING = -2.70                                    # D floor
 Z_DSLAB = -3.10                                     # D slab bottom
 Z_DECK = -2.55                                      # terrace deck top
-Z_PLINTH = -12.00                                   # plinth bottom (C2)
+# T24 (2026-10-17, playtest item 72: "maybe the foundation could go a tad deeper"): plinth mode draws NO engine
+# skirt (ok_edges 0) and the prefab does not flatten, so the modelled plinth bottom is the only foundation.
+# -12.00 (revision 1 .. fittings close look) is flat on every wall and only 1.7 m under t30 at W1 (-10.3);
+# a cliff steeper than ~35 % leaves the wall bottoms hanging in the air. DEEP_PLINTH False = the old -12.00.
+Z_PLINTH_OLD, Z_PLINTH_DEEP = -12.00, -16.00
+DEEP_PLINTH = True
+Z_PLINTH = Z_PLINTH_DEEP if DEEP_PLINTH else Z_PLINTH_OLD   # plinth bottom (C2); was -12.00 before T24
 
 U_X0, U_X1, U_Y0, U_Y1 = 2.0, 14.0, -15.0, 9.0
 U_BOTTOM, U_EAVE, U_RIDGE_X = -6.0, 7.0, 8.0
