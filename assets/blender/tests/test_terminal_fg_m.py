@@ -785,14 +785,28 @@ def nitpick_a_m():
         check(n_maze == 0 and post and abs(pz - LT.M_BASE["pad_h"]) < 1e-3 and d >= LADDER_CLEAR,
               f"drive ({'fine' if fine else '--no-fine'}): S-3 no maze / gate part, WAIT HERE on its own post (foot z "
               f"{pz}), dressing >= {LADDER_CLEAR} m from the main ladder (nearest {d:.3f} m, {who})")
-    saved = LT.M_BASE_CORRAL
-    LT.M_BASE_CORRAL = True
+    # the corral's maze sits where it stood before T17 (x 3.2-5.2 behind the old ramp), beside the pre-T17 main ladder
+    # (x 5.48); T17 (M_BASE_LOADROOM) moved the ladder to 8.28, so the negative runs on the pre-T17 rear end
+    saved, saved_lr = LT.M_BASE_CORRAL, LT.M_BASE_LOADROOM
+    LT.M_BASE_CORRAL, LT.M_BASE_LOADROOM = True, False
     try:
         _t, _tb, co, tris, names = build("drive", finish=False)
     finally:
-        LT.M_BASE_CORRAL = saved
+        LT.M_BASE_CORRAL, LT.M_BASE_LOADROOM = saved, saved_lr
     d, who = _ladder_clear_m(co, tris, names)
     check(d < LADDER_CLEAR, f"drive: S-3 negative - the corral put back stands {d:.3f} m from the main ladder ({who})")
+    # T17 (M_BASE_LOADROOM, build/T17-fg-loadroom.md): the loading bay between the front and rear leg faces, measured on
+    # the built legs, is >= 1.5 m longer than the pre-T17 6.60 m; off = the pre-T17 bay
+    for lr, want in ((True, lambda b: b >= 6.60 + 1.50 - 1e-6), (False, lambda b: abs(b - 6.60) < 1e-3)):
+        saved_lr = LT.M_BASE_LOADROOM
+        LT.M_BASE_LOADROOM = lr
+        try:
+            _t, _tb, co, tris, names = build("drive", finish=False)
+        finally:
+            LT.M_BASE_LOADROOM = saved_lr
+        xf = co[np.unique(tris[[n == "leg_f_p" for n in names]].ravel())][:, 0].max()
+        xb = co[np.unique(tris[[n == "leg_b_p" for n in names]].ravel())][:, 0].min()
+        check(want(float(xb - xf)), f"drive: T17 loading bay between the leg faces {xb - xf:.2f} m (M_BASE_LOADROOM {lr})")
     for kind, name in (("drive", "SkiLiftBaseStationM"), ("return", "SkiLiftTopStationM")):
         with open(os.path.join(LT.IMPORT_M, "stations", "fixedgrip", "M", name, f"{name}.manifest.json"),
                   encoding="utf-8") as fh:

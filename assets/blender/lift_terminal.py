@@ -1432,8 +1432,9 @@ M_CONTACTS = {
         "house:rail house:wheeldisc rail:wheeldisc door:house hatch:house house:signband "
         "house:winframe house:houseroof drip:houseroof exhaust:houseroof antenna:houseroof "
         "antenna:antwhip exhaust:exhaust doorlite:door house:scale",
-    "catwalk grating on its brackets from the rail, railing on the grating":
-        "catbrk:rail catbrk:grate grate:post grate:kick grate:rail house:grate",
+    "catwalk grating on its brackets from the rail, railing on the grating; T17: the platform deck on the rail tops "
+    "and the rear rail caps, edge to edge with the catwalk":
+        "catbrk:rail catbrk:grate grate:post grate:kick grate:rail house:grate grate:railcap grate:grate",
     "ladders: rails on the pad / catwalk, standoffs to the rail cap and the house":
         "ladder:pad ladder:grate ladder:railcap ladder:house ladder:houseroof ladder:rail "
         "lrung:ladder",
@@ -1752,7 +1753,35 @@ M_BASE = dict(
     deck=(-1.00, 1.40, 0.60, 3.00, 0.80), ramp_x=2.90,
     cwfoot=(6.40, 9.60, 1.20, 0.25), mast_foot=(6.80, 0.25), mast_head=(8.30, 5.60),
     pot_x=8.66, pot_r=0.70, pot_z=(0.75, 1.95),
+    # the rear-end numbers the builder used to hard-code (T17 made them keys; these are the pre-T17 values)
+    endmember_x=4.60, ladder_x=5.48, catbrk_x=(-0.80, 1.60, 4.10), defl_x=5.00, cwbrk_x=(4.62, 5.06),
+    slow=(5.60, -2.20, 2.20), rear_lugs=True, platform=None,
 )
+
+# -- T17 loading room (Ash Flat 2026-10-15 item 16, shot 17.44.53.17; build/T17-fg-loadroom.md) -----------------
+# Richard: "The entire rear support posts need to be moved back (and thus the weight and such; we can have a bigger
+# empty platform up top) so that there is more room for the skiers to get into the lift load spot." The rear portal
+# (legs, beam, saddles), the rail ends + end member, the counterweight (deflection sheave, brackets, mast, pot,
+# footing) and the main ladder move back 2.80 m inside the SAME 2 x 3 lot; the house does NOT move (its door, wall
+# light and extinguisher are frozen sub-object rows); the catwalk runs on to the new rail end and a grating deck
+# (the empty platform) fills the rail top behind the house, railed round. 6.80 is the nearest leg x whose 0.46 flange
+# clears the frozen SkiPisteFloodlightLow row at (5.60, -3.40) (its 0.90 m base plate) by >= 0.2 m. The counterweight
+# leans 1.00 m (was 1.50) so pot + footing end inside the lot (11.75). False = the pre-T17 base byte for byte.
+M_BASE_LOADROOM = True
+M_LOADROOM = dict(
+    pad=(-5.50, 8.60, 3.85), back_x=6.80, beam_back=(6.55, 7.05, 4.15, 4.55), rail_x=(-5.00, 7.80),
+    endmember_x=7.40, catwalk=(-1.80, 8.10, 1.36, 2.20), ladder_x=8.28, catbrk_x=(-0.80, 1.60, 4.10, 5.90, 7.70),
+    defl_x=7.80, cwbrk_x=(7.42, 7.86), cwfoot=(8.95, 11.55, 1.20, 0.25), mast_foot=(9.30, 0.25),
+    mast_head=(10.30, 5.60), pot_x=10.66, slow=(8.40, -2.40, 2.20), rear_lugs=False,
+    # the empty platform: grating x0, x1, y0, y1, top z, thickness (on the rail tops 5.35, 0.04 over the catwalk:
+    # one walking level, C15 level 0.05); y0 flush with the house's -y wall
+    platform=(4.50, 8.10, -1.25, 1.36, 5.39, 0.04),
+)
+
+
+def m_base():
+    """The base station's numbers: M_BASE, with the T17 loading-room rear end (M_LOADROOM) when M_BASE_LOADROOM."""
+    return dict(M_BASE, **M_LOADROOM) if M_BASE_LOADROOM else M_BASE
 
 
 # -- Nitpick A (2026-10-13; Richard's twenty-fifth look; build/nitpick-a-stations.md) ---------------------------
@@ -1886,7 +1915,7 @@ def build_base_m():
     and pot behind, a timber load deck with the carpet, the glazed operator hut at grade.
     Returns [(obj, material key)] in a fixed order."""
     import cs2_liftdress as LD
-    B = M_BASE
+    B = m_base()
     spec = M_SPECS["drive"]
     wx, _wy, wz = spec.wheel
     ph = B["pad_h"]
@@ -1932,6 +1961,8 @@ def build_base_m():
             # MC2: flush end caps (r <= the tube's 0.40)
             parts.append((_mcyl(f"railcap_{side}_{end}", (ex - d * 0.01, y, rz), (ex + d * 0.06, y, rz),
                                 rr, 16, "both"), "paint1"))
+            if end == "b" and not B["rear_lugs"]:
+                continue        # T17: the rear lifting lugs would pierce the platform deck
             parts.append((_mbox(f"raillug_{side}_{end}", ex - d * 0.40 - 0.05, ex - d * 0.40 + 0.05,
                                 y - 0.025, y + 0.025, rz + rr - 0.02, rz + rr + 0.14), "paint1"))
         for k, sx in enumerate(B["ring_x"]):
@@ -1942,7 +1973,7 @@ def build_base_m():
                             rz + 0.22, bf[2] + 0.05), "paint1"))
         parts.append((_mbox(f"saddle_b_{side}", bb[0] - 0.05, bb[1] + 0.05, y - 0.30, y + 0.30,
                             bb[3] - 0.05, rz - 0.22), "paint1"))
-    for tag, ex in (("f", -4.60), ("b", 4.60)):
+    for tag, ex in (("f", -4.60), ("b", B["endmember_x"])):
         parts.append((_mbox(f"endmember_{tag}", ex - 0.175, ex + 0.175, -(ry + 0.15), ry + 0.15,
                             rz - 0.175, rz + 0.175), "paint1"))
 
@@ -2030,12 +2061,12 @@ def build_base_m():
                                                  (cx0 + 0.04, cy0 + 0.06, hz0)],
                                      h=1.10, knee=0.55, kick=0.10, post_every=1.5, segs=6,
                                      radius=0.028), "galv")
-    for k, bx in enumerate((-0.80, 1.60, 4.10)):
+    for k, bx in enumerate(B["catbrk_x"]):
         parts.append((_mbox(f"catbrk_{k}", bx - 0.04, bx + 0.04, ry, cy1 - 0.05, hz0 - 0.20,
                             hz0 - 0.06), "galv"))
-    # main ladder: pad -> catwalk at the back end (rung line x 5.48, climber on +x)
+    # main ladder: pad -> catwalk at the back end (rung line x ladder_x: 5.48, T17 8.28; climber on +x)
     rungs = [round(0.60 + 0.30 * k, 2) for k in range(16)]
-    parts += LD.fixed_ladder("main", line=(5.48, 1.75), climb=(1.0, 0.0), rung_z=rungs,
+    parts += LD.fixed_ladder("main", line=(B["ladder_x"], 1.75), climb=(1.0, 0.0), rung_z=rungs,
                              rail_z=(ph, hz0 + 1.07), width=0.48, style="tram",
                              standoffs=[(rz, 0.40)])
     # roof ladder: catwalk -> house roof on the +y wall (climber over the catwalk, +y)
@@ -2043,6 +2074,16 @@ def build_base_m():
     parts += LD.fixed_ladder("roof", line=(4.15, 1.43), climb=(0.0, 1.0), rung_z=roof_rungs,
                              rail_z=(hz0, zr + 1.04), width=0.48, style="tram",
                              standoffs=[(6.00, 0.15), (7.20, 0.15)])
+    if B["platform"]:
+        # T17 (M_BASE_LOADROOM): the empty platform on the rail tops behind the house, one level with the catwalk
+        # (0.04 over it), railed on its rear end (open at the ladder's head, y > 1.20) and its -y side to the house
+        px0, px1, py0, py1, ptop, pt = B["platform"]
+        parts += _kit_m(cs2_kit.grating("catwalkdeck", px1 - px0, py1 - py0, t=pt,
+                                        loc=((px0 + px1) / 2.0, (py0 + py1) / 2.0, ptop - pt / 2.0)), "galv")
+        parts += _kit_m(cs2_kit.handrail("catwalkdeck", [(px1 - 0.04, 1.20, ptop), (px1 - 0.04, py0 + 0.04, ptop),
+                                                         (px0 + 0.04, py0 + 0.04, ptop)],
+                                         h=1.10, knee=0.55, kick=0.10, post_every=1.5, segs=6,
+                                         radius=0.028), "galv")
 
     # -- tension scale plates on the rails' outboard faces (vector 1..16, one shared rect) ----
     for side, s in (("n", -1.0), ("p", 1.0)):
@@ -2073,18 +2114,19 @@ def build_base_m():
             # wheels (cs2_sheaves.lite_sheave_parts: V-groove discs + rubber liner, 12 segments), same centres / radii
             # (the counterweight ropes keep their tangent points), w 0.10
             parts += _cw_sheave_m(f"sheave_cwhead_{side}", 0.35, (mhx, y, hz))
-            parts += _cw_sheave_m(f"sheave_cwdefl_{side}", 0.20, (5.00, y, 4.45))
+            parts += _cw_sheave_m(f"sheave_cwdefl_{side}", 0.20, (B["defl_x"], y, 4.45))
         else:
             parts.append((_mcyl(f"sheave_cwhead_{side}", (mhx, y - 0.05, hz), (mhx, y + 0.05, hz), 0.35, 12),
                           "galv"))
-            parts.append((_mcyl(f"sheave_cwdefl_{side}", (5.00, y - 0.05, 4.45), (5.00, y + 0.05, 4.45),
-                                0.20, 10), "galv"))
+            parts.append((_mcyl(f"sheave_cwdefl_{side}", (B["defl_x"], y - 0.05, 4.45),
+                                (B["defl_x"], y + 0.05, 4.45), 0.20, 10), "galv"))
         yb = y + 0.05 if s > 0 else y - 0.08
-        parts.append((_mbox(f"cwbrk_{side}", 4.62, 5.06, yb, yb + 0.03, 4.40, 4.80), "paint1"))
+        parts.append((_mbox(f"cwbrk_{side}", B["cwbrk_x"][0], B["cwbrk_x"][1], yb, yb + 0.03, 4.40, 4.80),
+                      "paint1"))
         # rope: carriage yoke -> over the deflection sheave -> up over the head sheave -> pot
-        pts = [(wx + 0.30, y, 4.65), (5.00, y, 4.65)]
+        pts = [(wx + 0.30, y, 4.65), (B["defl_x"], y, 4.65)]
         parts.append((_mcyl(f"cwrope_{side}_0", pts[0], pts[1], 0.025, 6, "none"), "rope"))
-        a1 = (5.00 + 0.20 * math.sin(math.radians(30)), y, 4.45 + 0.20 * math.cos(math.radians(30)))
+        a1 = (B["defl_x"] + 0.20 * math.sin(math.radians(30)), y, 4.45 + 0.20 * math.cos(math.radians(30)))
         b1 = (mhx - 0.35 * 0.40, y, hz + 0.35 * 0.92)
         parts.append((_mcyl(f"cwrope_{side}_1", a1, b1, 0.025, 6, "none"), "rope"))
         parts.append((_mcyl(f"cwcable_{side}", (mhx + 0.35, y, hz), (B["pot_x"] - 0.35 * 0.0 + 0.0, y,
@@ -2181,7 +2223,7 @@ def _dress_base_m():
     """Base dressing (cs2_liftdress; positions are the design's starting points moved per the
     skeptic: no flood masts (MC1, vanilla lamp post rows instead), SLOW on its own post)."""
     import cs2_liftdress as LD
-    B = M_BASE
+    B = m_base()
     ph = B["pad_h"]
     out = []
     up = (0.0, 0.0, 1.0)
@@ -2218,7 +2260,7 @@ def _dress_base_m():
     hx0, hx1, hy0, hy1 = B["hut"]
     out += board("ops", (-1.20, hy0 - 0.023, 0.15 + 2.18), "-Y", 1.20, 0.35, mount="wall", fine=fine)
     # SLOW on its own post for skiers coming in from the back (MC1: not on a flood mast)
-    out += board("slow", (5.60, -2.20, 2.20), "+X", 1.20, 0.35, mount="post", post_z0=ph, fine=fine)
+    out += board("slow", B["slow"], "+X", 1.20, 0.35, mount="post", post_z0=ph, fine=fine)
     # tension gauge + extinguisher on the house's catwalk wall, extinguisher + tools at the hut
     hw, hz0 = B["house"][2], B["house"][3]
     out += _tag_label_m(LD.gauge("tension", (1.95, hw), "+Y", z=6.55), wall_right("+Y"), up, "tension")
@@ -2437,7 +2479,7 @@ def subobjects_m(kind):
     authoring position, authoring facing or None, mount). MC1: the lamp posts replace the
     modelled flood masts; X14: wall lights instead of modelled lamps (no modelled lamp left)."""
     if kind == "drive":
-        B = M_BASE
+        B = m_base()
         hw, hz1 = B["house"][2], B["house"][4]
         return [("LightpoleParkRandom01", (5.60, -3.40, B["pad_h"]), "-X", "pad"),
                 ("TrashbinRandom01", (5.60, 2.70, B["pad_h"]), None, "pad"),
@@ -2492,7 +2534,7 @@ def fd_kit_specs_m(kind):
     if not FINE_DETAIL_M:
         return []
     if kind == "drive":
-        B = M_BASE
+        B = m_base()
         ph = B["pad_h"]
         hw, hz0 = B["house"][2], B["house"][3]
         hx1 = B["hut"][1]
@@ -2833,7 +2875,7 @@ def sheave_trains_m(co, tris, names, kind):
     bf = M_BASE["beam_front"]
     if front > bf[0] - 0.01:
         _m_fail("M21", f"the hold-down train reaches x {front:.3f}, past the portal beam's front face {bf[0]} - 0.01")
-    for nm, r, c in (("sheave_cwhead_", 0.35, None), ("sheave_cwdefl_", 0.20, (5.00, 4.45))):
+    for nm, r, c in (("sheave_cwhead_", 0.35, None), ("sheave_cwdefl_", 0.20, (m_base()["defl_x"], 4.45))):
         for s in ("n", "p"):
             cc, _ = _part_centre_m(co, tris, names, f"{nm}{s}")
             if c is not None and (abs(cc[0] - c[0]) > 1e-3 or abs(cc[2] - c[1]) > 1e-3):
