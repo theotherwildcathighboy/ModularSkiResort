@@ -1595,12 +1595,22 @@ def mesh_area(obj):
     return a
 
 
-def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False):
+# Weathering pass (2026-10-17, docs/research/art/snow-props-weather-2026-10-17.md): the last
+# WeatherHook run, so a driver can read its report / fields. Texture-only: see snow_weather.py.
+LAST_WEATHER = None
+
+
+def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=False):
     """
     The texture half of export_one: atlas maps (+ emissive) into `asset_dir`, then the
     finish rebake. Split out (T20) so the preview build can make the same maps WITHOUT
     writing an FBX or settings.json.
+
+    `weather` (2026-10-17, opt-in until Richard's verdict): run snow_weather's texture-side
+    weathering + smoothness parity inside the finish bake (post_compose). Pixels only: the
+    mesh, UVs, LODs and every file name / size are unchanged. Needs do_finish.
     """
+    global LAST_WEATHER
     os.makedirs(asset_dir, exist_ok=True)
     tex_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "textures")
     quad_sets, control_quads = cs2_asset.snow_prop_atlas_quads(tex_root)
@@ -1619,11 +1629,20 @@ def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False):
     # would carry the old atlas coordinates. The stamped detail strip is passed as a
     # reserved rect so its texels keep their authored density through the repack.
     # ao_samples 24 rather than lift_tower's 48: our atlases are 256-512 px, not 2048.
+    if weather and not do_finish:
+        raise RuntimeError("--weather runs inside the finish bake: pass --finish")
     if do_finish:
         zones = cs2_asset.snow_prop_zones(A)
+        hook = None
+        if weather:
+            import snow_weather
+            hook = snow_weather.make_hook(obj, name)
+            LAST_WEATHER = hook
         ok = lift_tower.apply_finish_textures(obj, asset_dir, name, atlas_size=A,
                                               reserved_strips=[zones["strip"]],
-                                              ao_samples=24)
+                                              ao_samples=24, post_compose=hook)
+        if weather and not ok:
+            raise RuntimeError(f"{name}: finish bake failed, the weathering pass did not run")
         print(f"[{key}]   finish: AO rebake {'ok' if ok else 'FAILED (shipping bevels only)'}")
 
     # TEXTURE BUDGET GUARD. The first version divided quad_size by the LONGEST DIMENSION,
@@ -1639,9 +1658,9 @@ def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False):
     return px_per_m
 
 
-def export_one(key, obj, name, out_root, quad_size, do_finish=False):
+def export_one(key, obj, name, out_root, quad_size, do_finish=False, weather=False):
     asset_dir = os.path.join(os.path.abspath(out_root), name)
-    build_maps(key, obj, name, asset_dir, quad_size, do_finish=do_finish)
+    build_maps(key, obj, name, asset_dir, quad_size, do_finish=do_finish, weather=weather)
 
     cs2_asset.export_fbx(obj, os.path.join(asset_dir, f"{name}.fbx"))
 
@@ -2191,6 +2210,9 @@ def parse_args():
     ap.add_argument("--detail", default=None,
                     help="T20 preview gate: build every variant of --assets (maps, LODs, no FBX) "
                          "and render the 3-view + 150 m set, A/B pair and contact sheet here")
+    ap.add_argument("--weather", action="store_true",
+                    help="with --finish: texture-side weathering + smoothness parity "
+                         "(snow_weather.py, 2026-10-17); pixels only, geometry unchanged")
     ap.add_argument("--review", action="store_true",
                     help="with --detail: also write assets/preview/review/<Name>.blend packs")
     return ap.parse_args(argv)
@@ -2269,7 +2291,8 @@ def main():
                          smooth=k in SMOOTH_ASSETS)
             cs2_asset.validate_asset_name(name)
             total += report(k, obj)
-            export_one(k, obj, name, args.out, quad_size, do_finish=args.finish)
+            export_one(k, obj, name, args.out, quad_size, do_finish=args.finish,
+                       weather=args.weather)
             count += 1
     print(f"[snow_props] family total: {total} tris across {count} asset(s)")
 
