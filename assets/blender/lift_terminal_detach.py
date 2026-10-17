@@ -929,7 +929,8 @@ MATERIALS = {
     "pad2": _MS(albedo=GREY80, metal=0.0, rough=0.75, slot=2, recolor_albedo=True),
     "paint1": _MS(albedo=GREY80, metal=0.10, rough=0.55, slot=1, recolor_albedo=True,
                   projection="planar"),
-    "rope": _MS(albedo=(0.30, 0.30, 0.32), metal=0.9, rough=0.65),
+    # T27: the vanilla line cable (cs2_asset.ROPE_MATERIAL; was albedo (0.30, 0.30, 0.32) metal 0.9 rough 0.65)
+    "rope": _MS(**cs2_asset.ROPE_MATERIAL),
     "rubber": _MS(albedo=(0.04, 0.04, 0.045), metal=0.0, rough=0.70),
     # Revision 1 (e): the sign-band quads, pinned in the reserved strip (one rect, one
     # material: cs2_bake._restore_reserved); slot 3 like the band, the emblem / plate are
@@ -1750,7 +1751,8 @@ def build_machine(p):
     torus.data.name = "wheelrope"
     out.append((torus, "rope"))
     for s, tag in ((-1.0, "n"), (1.0, "p")):
-        out.append((_cyl_pts(f"haulrope_{tag}", (p.anchor_x, s * R, Zr), (X, s * R, Zr), ROPE_R,
+        # T27: from the anchor (anchor_z = Zr unless ROPE_ON_CROWN) to the wheel tangent
+        out.append((_cyl_pts(f"haulrope_{tag}", (p.anchor_x, s * R, anchor_z(p)), (X, s * R, Zr), ROPE_R,
                              6), "rope"))
     # detach rails: straights + a U-turn tube (MUST-CHANGE 13: kit tube_along, bend_rings 2)
     zr, rr = z_rail(p), R - 0.20
@@ -1849,6 +1851,60 @@ def nose_axle_on_lane(family):
     return bool(NOSE_AXLE_ON_LANE[family]) and not NOSE_AXLE_LEGACY
 
 
+# T27 ROPE ON THE CROWN (2026-10-17, docs/research/field/2026-10-15/build/T27-rope-path.md; lift_tower.ROPE_ON_CROWN).
+# False (default) = the shipped stations byte for byte (the HV sub-lane anchors at z_rope: base = the hosted ETDQ / ETGD
+# compression AXLE, DQ top = the nose train's axle (rope through the sheaves, nitpick A3 D1), gondola top = on its rim
+# tops for the 0.055 modelled rope). True (CLI --rope-on-crown): the rope rides every train it meets, and z_rope (the
+# loading height: deck + clearance + hang) never moves - a first try that moved the anchors instead failed C8 (the DQ /
+# gondola base chairs drag on the deck when the anchor drops under the compression train, the DQ top's chairs hit the
+# RAISE BAR / UNLOAD boards when it rises onto the support crowns). So: base = the hosted compression tower's train
+# rises (lift_tower.set_rope_on_crown: ETDQ / ETGD axle + crown_seat; a tower re-export, no station change); DQ top = the
+# nose train turns hold-down (compression, NOSE "hold_down": axle = z_rope + seat, the rope under the sheaves - the line
+# dives into the station, so a hold-down is also the right side); gondola top = unchanged train, the anchor on the rim
+# tops for the VANILLA cable (axle + r + h = z_rope + 0.032; the modelled rope is 0.055, the vanilla 0.0866 high).
+ROPE_ON_CROWN = False
+
+
+def anchor_z(p):
+    """The HV sub-lane anchor height of station `p` (z_rope unless ROPE_ON_CROWN on the gondola top)."""
+    if not ROPE_ON_CROWN or not (p.kind == "top" and p.gondola):
+        return p.z_rope
+    import lift_tower as LTw
+    T = nose_train_layout(p)
+    groove = max(0.02, 0.18 * T["r"]) if T["groove"] is None else T["groove"]
+    return round(T["axle"] + LTw.rope_seat(T["r"], T["w"], groove), 4)
+
+
+def rope_z_at(p, x):
+    """The in-station rope / code-chord height at authoring x: anchor_z at anchor_x, z_rope at the wheel (and round it)."""
+    za = anchor_z(p)
+    if x >= p.x_wheel or abs(za - p.z_rope) < 1e-9:
+        return p.z_rope
+    t = max(0.0, (x - p.anchor_x) / (p.x_wheel - p.anchor_x))
+    return za + (p.z_rope - za) * t
+
+
+def rope_on_crown_block(p):
+    """Manifest block (ROPE_ON_CROWN only): what T27 changes on this station (prefab frame: game (x, y, z) = (-y, z, x))."""
+    za = anchor_z(p)
+    d = round(za - p.z_rope, 4)
+    if p.kind == "base":
+        import lift_tower as LTw
+        host = "ETGD" if p.gondola else "ETDQ"
+        seat = LTw.crown_seat((LTw.VARIANTS_SHIPPED or LTw.VARIANTS)[host])
+        how = (f"hosted {host} compression train rises {seat} (lift_tower.set_rope_on_crown: a tower re-export + its "
+               f"prefab's m_Mesh); this station's prefab and mesh do not change")
+    elif not p.gondola:
+        how = f"the nose train turns hold-down: axle {nose_train_layout(p)['axle']} (was {p.z_rope}), rope under the rims"
+    else:
+        how = "the nose train is unchanged; the anchor sits on its rim tops for the vanilla cable (h 0.0866)"
+    return {"anchor_z_old": p.z_rope, "anchor_z_new": za, "delta": d, "how": how,
+            "rows": [{"field": f"ObjectSubLanes HV x {s * p.lane_y:+.1f} m_BezierCurve.{k}.y", "old": round(p.z_rope + o, 4),
+                      "new": round(za + o, 4)} for s in (1, -1) for k, o in (("a", 0.0), ("b", 0.01), ("c", 0.02),
+                                                                                  ("d", 0.03))] if d else [],
+            "unchanged": "WheelLocal (the wheel stays at z_rope), StubTipLocalZ, the LV comm sub-lane, the hosted tower pose"}
+
+
 # Nitpick A4 (2026-10-13; orchestrator ruling on build/nitpick-a3-check.md items 1c / 1d and N3). A BVH part-pair scan of
 # the joined DQ top LOD0, A3 vs A2 (NOSE_AXLE_LEGACY), found 16 nose pairs the +0.278 rise created: 12 are the intended
 # rope-through-the-sheave-centres ones (haulrope x liner / sub pin, declared in C14 below), 4 are real:
@@ -1920,6 +1976,12 @@ def nose_train_layout(p):
     n, r, w, pitch = NOSE_TRAIN_N, float(sh["r"]), float(sh["w"]), float(sh["pitch"])
     on_lane = nose_axle_on_lane(fam)
     axle = round(p.z_rope if on_lane else p.z_rope - ROPE_R - r, 6)
+    hold = bool(ROPE_ON_CROWN and on_lane)          # T27: the DQ head goes OVER the rope (hold-down, rim bottoms on it)
+    if hold:
+        import lift_tower as LTw
+        g = max(0.02, 0.18 * r) if sh.get("groove") is None else sh["groove"]
+        axle = round(p.z_rope + LTw.rope_seat(r, w, g), 6)
+        on_lane = False
     x_out = round(p.anchor_x - 0.10, 6)
     x0 = round(x_out + r + (n - 1) / 2.0 * pitch, 6)
     cdy = S.GD_CAR_DY if gd else 0.0
@@ -1929,7 +1991,7 @@ def nose_train_layout(p):
     yf = p.lane_y - (NOSE_BEAM_IN_A3 if NOSE_A4_LEGACY else NOSE_BEAM_IN)[fam]
     z0, z1 = round(axle + hb["z0"], 6), round(axle + hb["z1"], 6)
     at_yoke = nose_hanger_at_yoke(fam)
-    return dict(family=fam, n=n, r=r, w=w, pitch=pitch, segs=int(sh.get("segs", 12)), groove=sh.get("groove"),
+    out = dict(family=fam, n=n, r=r, w=w, pitch=pitch, segs=int(sh.get("segs", 12)), groove=sh.get("groove"),
                 axle=axle, axle_on_lane=on_lane, x_out=x_out, x0=x0, x_in=round(x0 + (n - 1) / 2.0 * pitch + r, 6),
                 hanger_at_yoke=at_yoke, hanger_x=x0 if at_yoke else 0.0,
                 sub_y=round(S.DQ_SUB_Y + cdy, 6), main_y=round(S.DQ_MAIN_Y + cdy, 6),
@@ -1937,6 +1999,9 @@ def nose_train_layout(p):
                 beam=dict(x0=x_out, x1=p.x_nose + 0.05, y0=yf - 0.06, y1=yf + 0.06, z0=z0, z1=z1),
                 girder=dict(x0=round(x0 - NOSE_GIRDER_X / 2.0, 6), x1=round(x0 + NOSE_GIRDER_X / 2.0, 6),
                             y0=yf + 0.06, y1=hb["y0"], z0=z0, z1=z1))
+    if hold:
+        out["hold_down"] = True
+    return out
 
 
 def build_nose_train(p):
@@ -4289,9 +4354,10 @@ def envelope_boxes(p, inflate=0.0):
         boxes = []
         for dz in dzs:
             for c, ex, ey in places:
+                dzr = rope_z_at(p, c[0]) - p.z_rope if ROPE_ON_CROWN else 0.0     # T27: the sloped chord
                 for label, tr, la, z0, z1 in p.env:
                     boxes.append((label, dz, c, ex, ey, tr / 2.0, la / 2.0,
-                                  p.lowest_abs + dz + z0, p.lowest_abs + dz + z1))
+                                  p.lowest_abs + dz + z0 + dzr, p.lowest_abs + dz + z1 + dzr))
         return boxes
     dzs = [0.0] + ([float(p.grip_above_rope)] if p.grip_above_rope else [])
     places = []                     # (centre, travel axis, lateral axis, outboard sign)
@@ -4308,10 +4374,11 @@ def envelope_boxes(p, inflate=0.0):
     boxes = []
     for dz in dzs:
         for c, ex, ey, so in places:
+            dzr = rope_z_at(p, c[0]) - p.z_rope if ROPE_ON_CROWN else 0.0          # T27: the sloped chord
             for label, tr, la, z0, z1, dy in p.env:
                 cc = (c[0] + so * dy * ey[0], c[1] + so * dy * ey[1])
                 boxes.append((label, dz, cc, ex, ey, tr / 2.0 + inflate, la / 2.0 + inflate,
-                              z_under + dz + z0 - inflate, z_under + dz + z1 + inflate))
+                              z_under + dz + z0 - inflate + dzr, z_under + dz + z1 + inflate + dzr))
     return boxes
 
 
@@ -6775,6 +6842,12 @@ def assert_nose_train(me, table, fparts, co, p):
                 if abs(zc - p.z_rope) > 1e-3 or dt > 0.002:
                     raise ContractError(f"ST1: {nm} centre z {zc:.4f} / top {v[:, 2].max():.4f} vs the lane "
                                         f"{p.z_rope:.4f} / {rim_top:.4f} (axle not on the lane)")
+            elif T.get("hold_down"):            # T27: the rim bottom on the vanilla rope's top (axle - r)
+                dt = abs(float(v[:, 2].min()) - (T["axle"] - T["r"]))
+                worst_t = max(worst_t, dt)
+                if dt > 0.002:
+                    raise ContractError(f"ST1: {nm} bottom {v[:, 2].min():.4f} vs the hold-down datum "
+                                        f"{T['axle'] - T['r']:.4f} (rim not on the rope)")
             elif dt > 0.002:
                 raise ContractError(f"ST1: {nm} top {v[:, 2].max():.4f} vs the rope underside {rope_bot:.4f} "
                                     f"(rope not tangent)")
@@ -7117,7 +7190,11 @@ def assert_contracts(t, table, p):
     for s, tag in ((-1.0, "n"), (1.0, "p")):
         r = _pv(me, table, fparts, co, f"haulrope_{tag}")
         _near(float(r[:, 1].mean()), s * p.lane_y, 1e-3, f"C2 haulrope_{tag} y")
-        _near(float(r[:, 2].mean()), p.z_rope, 1e-3, f"C2 haulrope_{tag} z")
+        if ROPE_ON_CROWN:      # T27: the rope runs from anchor_z at the anchor to z_rope at the wheel
+            _near(float(r[r[:, 0].argmin(), 2]), anchor_z(p), ROPE_R + 1e-3, f"C2 haulrope_{tag} anchor z")
+            _near(float(r[r[:, 0].argmax(), 2]), p.z_rope, ROPE_R + 1e-3, f"C2 haulrope_{tag} wheel z")
+        else:
+            _near(float(r[:, 2].mean()), p.z_rope, 1e-3, f"C2 haulrope_{tag} z")
         _near(float(r[:, 0].min()), p.anchor_x, 0.01, f"C2 haulrope_{tag} anchor end")
         _near(float(r[:, 0].max()), p.x_wheel, 0.01, f"C2 haulrope_{tag} wheel end")
     res["C2"] = f"lanes +-{p.lane_y} at z {p.z_rope}, x {p.anchor_x} -> {p.x_wheel}"
@@ -8528,7 +8605,7 @@ def prefab_numbers(p, bounds_authoring):
                                                                 if gtar else None)},
         "wheel_local_prefab": _r((0.0, p.z_rope, p.x_wheel)),
         "wheel_centre_authoring": _r((p.x_wheel, 0.0, p.z_wheel)),
-        "anchors_hv": [stub(-p.lane_y, p.z_rope, p.anchor_x), stub(p.lane_y, p.z_rope, p.anchor_x)],
+        "anchors_hv": [stub(-p.lane_y, anchor_z(p), p.anchor_x), stub(p.lane_y, anchor_z(p), p.anchor_x)],
         "anchor_comm": stub(0.0, bx[2], bx[0]),
         "hosted_tower": ({"position": [0.0, 0.0, p.anchor_x], "rotation_quat": [0, 1, 0, 0],
                           "rope_y_required": p.z_rope,
@@ -8554,6 +8631,8 @@ def prefab_numbers(p, bounds_authoring):
                                "owner": "line lens (pre-pin fallback only)"}),
         "emissive": {"purpose": 72, "intensity": 0.6},
     }
+    if ROPE_ON_CROWN:
+        nums["rope_on_crown"] = rope_on_crown_block(p)
     if p.gondola:
         # gondola draft 1: what the surgery sheet needs beyond the DQ columns
         k = GD_TOWER_KEEPOUT
@@ -8637,6 +8716,9 @@ def parse_args(argv=None):
     ap = argparse.ArgumentParser(description="detachable / gondola terminal generator")
     ap.add_argument("--kind", default="base", choices=("base", "top", "drive", "return"))
     ap.add_argument("--gondola", action="store_true")
+    ap.add_argument("--rope-on-crown", action="store_true", dest="rope_on_crown",
+                    help="T27 preview flag (ROPE_ON_CROWN): the HV anchor where the vanilla cable rides the hosted / "
+                         "nose train, the haul rope sloped to the wheel; off = the shipped station byte for byte")
     ap.add_argument("--out", default=None, help="letter folder; the asset lands in <out>/<Name>/")
     ap.add_argument("--export", action="store_true",
                     help="write into the contract folder assets/import/<folder> (+ previews)")
@@ -8776,6 +8858,8 @@ def main(argv=None):
     args = parse_args(argv)
     global FINE_DETAIL
     FINE_DETAIL = not args.no_fine          # fine-detail step 3b: every run follows its own args
+    global ROPE_ON_CROWN
+    ROPE_ON_CROWN = bool(args.rope_on_crown)     # T27: every run follows its own args (tests call main() in-process)
     carrier = load_carrier("gd8" if args.gondola else "dq", args.carriers)
     p = params_for(args.kind, args.gondola, carrier)
     name = cs2_asset.validate_asset_name(args.name or (p.stem + args.letter))

@@ -786,7 +786,8 @@ def material_table(role, finish=True):
         "rock": dict(texture_set="Rock030", metres_per_tile=4.0),
         "timber": dict(texture_set="WoodSiding013", metres_per_tile=2.0),
         "glass": dict(albedo=(0.07, 0.09, 0.11), metal=0.0, rough=0.08),
-        "rope": dict(albedo=(0.30, 0.30, 0.32), metal=0.9, rough=0.65),
+        # T27: the vanilla line cable (cs2_asset.ROPE_MATERIAL; was albedo (0.30, 0.30, 0.32) metal 0.9 rough 0.65)
+        "rope": dict(cs2_asset.ROPE_MATERIAL),
         "safety": dict(albedo=(0.85, 0.70, 0.10), metal=0.0, rough=0.70),
         "lamp": dict(albedo=(0.85, 0.82, 0.75), metal=0.0, rough=0.40,
                      emissive=(0.95, 0.85, 0.65)),

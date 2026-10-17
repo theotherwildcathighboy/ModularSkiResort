@@ -2456,6 +2456,93 @@ def sheave_groove(spec):
     return GD_SHEAVE["groove"] if spec.family == "GD" else None
 
 
+# -- T27 ROPE ON THE CROWN (2026-10-17, docs/research/field/2026-10-15/build/T27-rope-path.md) -------------------------
+# Richard (playtest items 25 / 27): "the cable passes straight through pulleys/rollers". The shipped contract (D6) puts
+# the LANE on the sheave AXLE, so the vanilla rope drawn on the lane runs through the wheel centres. ROPE_ON_CROWN True =
+# the lane rides the train: a SUPPORT head (rope above the sheaves: every line tower, ET62 / ET68) lane = axle + seat, a
+# COMPRESSION head (ETDQ / ETGD, rope under) lane = axle - seat, seat = rope_seat() (the vanilla HV cable hexagon resting
+# in the groove). The tower MESH does not change with the flag: only the lane numbers the manifest hands to the surgery
+# (piece m_Lanes y, station HV sub-lane anchors, chair / cabin NetSubObjects y) and the rope height the carrier contracts
+# (C18 hanger column, C20 gondola carrier) sweep at. False (default) = every shipped tower build, byte for byte.
+ROPE_ON_CROWN = False
+VANILLA_HV_ROPE = dict(r=0.100, h=0.0866)   # High-voltage Cable Lane Mesh m_Bounds x +-0.100, y +-0.0866 (hexagon, flats
+VANILLA_LV_ROPE = dict(r=0.060, h=0.0520)
+# the FG / ET (Yan) carrier tree hangs IN the lane plane (cs2_sheaves.fg_train_side): sub rocker axle + 0.20..0.32,
+# sheave arms from the axle up to it, so a rope on the crown (axle + 0.19..0.37) would run through them; under T27 the
+# tree moves inboard by the rope half-width 0.10 + the main rocker half-width 0.077 + 0.023 clear = 0.20 and each sheave
+# hangs on an axle stub (the hanger stays under the 3.6 m crossarm: lane 1.8 - 0.20 = 1.60)
+FG_CROWN_INBOARD = 0.20   # top / bottom); Low-voltage Cable Lane Mesh x +-0.060, y +-0.0520 (%TEMP%\pltar dump)
+
+
+def rope_seat(sheave_r, sheave_w, groove, rope=VANILLA_HV_ROPE):
+    """Rope AXIS above the sheave axle when the vanilla cable (a hexagon, circumradius R, flats top / bottom at +-h,
+    bottom flat +-R/2 wide) rests on a lite_sheave of radius r, width w and V-groove depth `groove` (0 = flat rim; the
+    groove profile radius at lateral y is r - groove (1 - |y| / (w/2))). The larger of: the bottom flat's corners on the
+    groove flanks (|y| = min(R/2, w/2)) and the slanted faces on the flange tips (|y| = w/2 when R/2 < w/2 < R)."""
+    R, h, hw = rope["r"], rope["h"], sheave_w / 2.0
+    yb = min(R / 2.0, hw)
+    prof = sheave_r - groove * (1.0 - yb / hw) if groove > 0.0 else sheave_r
+    seat = prof + h
+    if R / 2.0 < hw < R:
+        seat = max(seat, sheave_r + h * (R - hw) / (R / 2.0))
+    elif hw <= R / 2.0:
+        seat = max(seat, sheave_r + h)
+    return seat
+
+
+def spec_groove(spec):
+    """The groove depth lite_sheave actually builds for this head (None -> max(0.02, 0.18 r))."""
+    g = sheave_groove(spec)
+    return max(0.02, 0.18 * spec.sheave_r) if g is None else g
+
+
+def crown_seat(spec):
+    """rope_seat for this tower's head, mm-rounded (FG 0.278, DQ 0.310, GD 0.337)."""
+    return round(rope_seat(spec.sheave_r, spec.sheave_w, spec_groove(spec)), 4)
+
+
+def lane_y(spec, on=None):
+    """The lane / rope height this tower carries: the axle (shipped, ROPE_ON_CROWN False) or the crown (axle +- seat,
+    by the head's kind). `on` overrides the module flag (tests, renders)."""
+    on = ROPE_ON_CROWN if on is None else on
+    if not on:
+        return spec.axle
+    s = crown_seat(spec)
+    return round(spec.axle - s if spec.kind == "compression" else spec.axle + s, 4)
+
+
+import dataclasses as _dataclasses  # noqa: E402
+VARIANTS_SHIPPED = None     # filled by set_rope_on_crown (the VARIANTS table as shipped)
+
+
+def set_rope_on_crown(on):
+    """Set ROPE_ON_CROWN and swap the COMPRESSION terminal heads (ETDQ, ETGD): their rope is the station's loading rope
+    (DQ_ENTRY_ROPE_Y 3.70 / GD_ENTRY_ROPE_Y 4.85, frozen by the deck and the chair hang), so under T27 the TRAIN moves
+    up by crown_seat (axle = rope + seat, tube top / bounds top with it) and lane_y = the rope again. Every support head
+    keeps its mesh (the lane rises instead). Idempotent; off restores the shipped table."""
+    global ROPE_ON_CROWN, VARIANTS_SHIPPED
+    if VARIANTS_SHIPPED is None:
+        VARIANTS_SHIPPED = dict(VARIANTS)
+    ROPE_ON_CROWN = bool(on)
+    for k, s in VARIANTS_SHIPPED.items():
+        if on and s.role == "terminal" and s.kind == "compression":
+            d = crown_seat(s)
+            VARIANTS[k] = _dataclasses.replace(s, axle=round(s.axle + d, 6), tube_top=round(s.tube_top + d, 6),
+                                              top=round(s.top + d, 6))
+        else:
+            VARIANTS[k] = s
+
+
+def rope_on_crown_block(spec):
+    """Manifest block (ROPE_ON_CROWN only): the numbers the surgery needs for this tower."""
+    return {"rule": "lane on the sheave crown (T27): support lane = axle + seat, compression lane = axle - seat",
+            "kind": spec.kind, "axle": spec.axle, "sheave_r": spec.sheave_r, "sheave_w": spec.sheave_w,
+            "groove": round(spec_groove(spec), 4), "seat": crown_seat(spec), "lane_y_old": spec.axle,
+            "lane_y_new": lane_y(spec, True), "delta": round(lane_y(spec, True) - spec.axle, 4),
+            "rope": "vanilla HV cable mesh hexagon r 0.100 / h 0.0866",
+            "mesh_changes": False}
+
+
 def flange_top(spec):
     """Top of the mast-base flange plate (FG 0.19, DQ / GD 0.20)."""
     if spec.family == "FG":
@@ -2615,7 +2702,8 @@ def fg_parts(spec):
         y = s * spec.gauge / 2.0
         # the Yan rocker tree of this lane: cs2_sheaves.fg_train_side (this loop's body, moved verbatim)
         P += S.fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span,
-                             spec.sheave_r, spec.sheave_w, arm_t=FG_ARM_T, hanger=FG_HANGER, ins=ins)
+                             spec.sheave_r, spec.sheave_w, arm_t=FG_ARM_T, hanger=FG_HANGER, ins=ins,
+                             **({"inboard": FG_CROWN_INBOARD} if ROPE_ON_CROWN else {}))
 
     # head details (legacy build_head_details numbers)
     lf_h, lf_y = 0.62, 1.15
@@ -3297,7 +3385,7 @@ def check_hanger_column(obj, table, spec, frame="authoring"):
     assert_tower_contracts and tests/test_tower_contracts.py."""
     from mathutils.bvhtree import BVHTree
     ti, _ts, gi = _frame_axes(frame)
-    lane, A, sag = spec.gauge / 2.0, spec.axle, abs(spec.sag)
+    lane, A, sag = spec.gauge / 2.0, lane_y(spec), abs(spec.sag)      # T27: the rope height (= axle unless ROPE_ON_CROWN)
     cols = hanger_columns(spec)
     deckish = ("grate_", "post_", "rail_", "kick_")
     bvh, names, _v = _part_bvh(obj, table, lambda n: n.startswith(deckish))
@@ -3442,13 +3530,14 @@ def check_gd_clearances(obj, table, spec):
         out["comm_window"] = (round(dn[0].z - A, 4) if dn[0] is not None else float("nan"),
                               round(up[0].z - A, 4) if up[0] is not None else float("nan"))
     zones = [(n, dy, dz, al) for n, _x, dy, dz, al in GD_CARRIER] + list(GD_HEAD_RULE)
+    Ar = lane_y(spec)                            # T27: the carrier rides the rope (= the axle unless ROPE_ON_CROWN)
     for s in (-1.0, 1.0):
         for nm, (dy0, dy1), (dz0, dz1), allowed in zones:
             # detail pass 1: a sheave's rope liner is part of the sheave (lite_sheave_parts)
             allowed = tuple(allowed) + (("liner_",) if "sheave_" in allowed else ())
             ys = sorted((s * (lane + dy0), s * (lane + dy1)))
-            lo = (-xt, ys[0] + tol, A + dz0 + tol)
-            hi = (xt, ys[1] - tol, A + dz1 - tol)
+            lo = (-xt, ys[0] + tol, Ar + dz0 + tol)
+            hi = (xt, ys[1] - tol, Ar + dz1 - tol)
             out["carrier"] += [(int(s), nm, h) for h in _zone_hits(bvh, names, pv, lo, hi, allowed)]
     return out
 
@@ -3611,7 +3700,10 @@ def assert_tower_contracts(obj, spec, frame, head):
         lr = np.concatenate([v for n, v in pv.items() if n.startswith("ladder_rail_")])
         _check(np.abs(lr[:, gi]).max() <= 0.245 + 1e-6, f"{tag} C7 ladder rails |y| <= 0.245",
                f"({np.abs(lr[:, gi]).max():.4f})")
-        _check(abs(res["lateral"] - 1.91) <= 0.01 and abs(res["travel"] - 0.97) <= 0.01,
+        # T27: with the tree inboard (FG_CROWN_INBOARD) the pivot pins' outer ends (lane + 0.11 = 1.91) move in and the
+        # outboard axle caps (lane + 0.065 + 0.02 = 1.885) set the lateral extent
+        lat_ship = 1.885 if ROPE_ON_CROWN else 1.91
+        _check(abs(res["lateral"] - lat_ship) <= 0.01 and abs(res["travel"] - 0.97) <= 0.01,
                f"{tag} FG lateral / travel extents +-1.91 / +-0.97 (shipped N)",
                f"({res['lateral']:.4f} / {res['travel']:.4f})")
     # C8 crash pad clearance
@@ -3733,7 +3825,8 @@ def assert_tower_contracts(obj, spec, frame, head):
             # gondola base station's keep-out (lift_terminal_detach.GD_TOWER_KEEPOUT)
             rope, lim, nm = ((GD_ENTRY_ROPE_Y, GD_STATION_INBOARD_MAX, "ETGD") if spec.family == "GD"
                              else (DQ_ENTRY_ROPE_Y, DQ_STATION_INBOARD_MAX, "ETDQ"))
-            _check(abs(A - rope) < 1e-9,
+            # T27: the ROPE (lane_y: the axle, or the hold-down crown under ROPE_ON_CROWN) is the station's loading rope
+            _check(abs(lane_y(spec) - rope) < 1e-9,
                    f"{tag} C13 {nm} axle {rope} (dq-terminal Z_ROPE)", f"({A})")
             _check(spec.sheaves == 8, f"{tag} C13 {nm} 8 sheaves per side")
             inboard = spec.hosted_z + res["travel"]
@@ -4864,6 +4957,9 @@ def parse_args_v2(argv):
     ap.add_argument("--weather-probe", action="store_true",
                     help="also evaluate WEATHER_PROBE intensities on the same composed maps "
                          "(manifest weather_probe; the family constant's evidence)")
+    ap.add_argument("--rope-on-crown", dest="rope_on_crown", action="store_true",
+                    help="T27 preview flag (ROPE_ON_CROWN): the manifest hands the lane on the sheave crown to the "
+                         "surgery and the carrier contracts sweep there; the mesh is unchanged")
     return ap.parse_args(argv)
 
 
@@ -4871,6 +4967,8 @@ def main_v2(argv):
     import time
     t0 = time.perf_counter()
     args = parse_args_v2(argv)
+    if args.rope_on_crown:
+        set_rope_on_crown(True)        # T27: lanes on the crowns; the compression terminal heads (ETDQ / ETGD) rise
     spec = VARIANTS[args.variant]
     if args.head is not None and spec.family == "FG":
         raise SystemExit(f"--head applies to DQ variants only ({spec.key} is FG)")
@@ -5014,6 +5112,8 @@ def main_v2(argv):
                           "(ObjectInitializeSystem.cs:1293); pick it on purpose (FG/ET use the mast height)",
         },
     }
+    if ROPE_ON_CROWN:
+        manifest["rope_on_crown"] = rope_on_crown_block(spec)
     if spec.family == "DQ" and spec.role == "line":
         manifest["catalog_handoff"] = {"AimHeightM": DQ_AIM_HEIGHT_M, "piece_lanes": [2.6, 8.0],
                                        "piece_comm_lv_y": 9.2,

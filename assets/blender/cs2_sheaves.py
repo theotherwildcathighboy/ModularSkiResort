@@ -211,7 +211,7 @@ def _kit(parts_q, key_of):
 # --------------------------------------------------------------------------------------
 
 def fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span, sheave_r, sheave_w,
-                  arm_t=FG_ARM_T, hanger=FG_HANGER, ins=FG_HANGER_INSET, prefix=""):
+                  arm_t=FG_ARM_T, hanger=FG_HANGER, ins=FG_HANGER_INSET, prefix="", inboard=0.0):
     """
     The Yan (FG / ET) rocker tree of ONE lane (`tag` "n" / "p", `s` -1 / +1, the lane at `y`), hanging
     below its carrier (lift_tower: the crossarm; its centre = main_z + hanger): the hanger (its top `ins`
@@ -219,8 +219,15 @@ def fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span, 
     sub_z and two sheave arms down to the sheaves on axle_z (lite_sheave_parts: discs + liner) with an
     outboard axle cap each. lift_tower.fg_parts' loop body verbatim (the same expressions, the same part
     order). Returns [(obj, tower material key)].
+    T27 (2026-10-17, build/T27-rope-path.md; lift_tower.ROPE_ON_CROWN): `inboard` > 0 moves the whole carrier tree
+    (hanger, rockers, pins, sheave arms) that far INBOARD of the lane (to y - s * inboard) and hangs each sheave on an
+    axle stub `<prefix>axlecap_stub_<tag>_<si>_<m|p>` (the axlecap_ LOD class) from its arm to the sheave's inboard face, so a rope riding the sheave
+    crowns clears the tree (in-plane, the rope on the crown runs through the sub rockers and the arms). 0 = the shipped
+    tree, expression for expression.
     """
     P = []
+    yl = y
+    y = y - s * inboard if inboard else y
     P.append((K.add_box(f"{prefix}hanger_{tag}", (0.16, 0.15, hanger + arm_t - ins),
                         (0.0, y, main_z + hanger / 2.0 - ins / 2.0)), "paint"))
     P.append((K.add_box(f"{prefix}rocker_main_{tag}", (main_span + 0.40, arm_t * 0.7, 0.15),
@@ -237,9 +244,14 @@ def fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span, 
             P.append((K.add_box(f"{prefix}sheave_arm_{tag}_{si}_{wtag}", (0.09, 0.10, 0.26),
                                 (wx, y, (sub_z + axle_z) / 2.0)), "paint"))
             P += lite_sheave_parts(f"{prefix}sheave_{tag}_{si}_{wtag}_rim", f"{prefix}liner_{tag}_{si}_{wtag}",
-                                   sheave_r, sheave_w, (wx, y, axle_z))
+                                   sheave_r, sheave_w, (wx, yl, axle_z))
+            if inboard:
+                y0, y1 = y, yl - s * sheave_w / 2.0
+                P.append((K.add_cyl(f"{prefix}axlecap_stub_{tag}_{si}_{wtag}", 0.035, abs(y1 - y0),
+                                    (wx, (y0 + y1) / 2.0, axle_z), (math.radians(90.0), 0.0, 0.0),
+                                    segments=6, caps="both"), "galv"))
             caps = _kit(K.axle_cap(f"{tag}_{si}_{wtag}", 0.09,
-                                   (wx, y + s * sheave_w / 2.0, axle_z),
+                                   (wx, yl + s * sheave_w / 2.0, axle_z),
                                    "+Y" if s > 0 else "-Y", studs_geo=False, segs=8),
                         lambda n: "galv")
             if prefix:      # a station's train: the cap joins the prefix's name space (cs2_kit names it axlecap_<n>)

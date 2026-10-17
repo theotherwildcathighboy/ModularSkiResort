@@ -1178,6 +1178,49 @@ M_SPECS = {
                     "SkiLiftTowerET62O", "SkiLiftTerminalTowerTop", "SkiTopStationBuilding",
                     "SkiLiftTopStationK", (5.90, 5.93)),
 }
+# T27 ROPE ON THE CROWN (2026-10-17, docs/research/field/2026-10-15/build/T27-rope-path.md; lift_tower.ROPE_ON_CROWN).
+# False (default) = the deployed K anchors: the HV sub-lane on the hosted ET68 / ET62 sheave AXLE (5.84 / 5.24), so the
+# line rope runs through the end tower's wheels. True (set_m_rope_on_crown, CLI --rope-on-crown) = both anchor ends on
+# the ET train's CROWN (axle + lift_tower.crown_seat = + 0.278: the vanilla HV cable resting in the FG V-groove); the
+# code chord (chord_z), the modelled ropechord_, the hold-down train and every sweep follow spec.anchor_in; the bullwheel
+# (WheelLocal) does not move. M1 then checks the deployed prefab against M_SPECS_SHIPPED and reports the surgery rows.
+M_ROPE_ON_CROWN = False
+M_SPECS_SHIPPED = dict(M_SPECS)
+M_HOSTED_VARIANT = {"drive": "ET68", "return": "ET62"}
+
+
+def m_rope_seat(kind):
+    """The anchor lift (m) of station `kind` under T27: lift_tower.crown_seat of its hosted end tower (support head)."""
+    return lift_tower.crown_seat(lift_tower.VARIANTS[M_HOSTED_VARIANT[kind]])
+
+
+def set_m_rope_on_crown(on):
+    """Swap M_SPECS between the shipped anchors and the crown anchors (T27); idempotent."""
+    global M_ROPE_ON_CROWN
+    M_ROPE_ON_CROWN = bool(on)
+    for k, s in M_SPECS_SHIPPED.items():
+        if on:
+            d = m_rope_seat(k)
+            M_SPECS[k] = _dc.replace(s, anchor_in=(s.anchor_in[0], round(s.anchor_in[1] + d, 4)),
+                                     anchor_out=(s.anchor_out[0], round(s.anchor_out[1] + d, 4)))
+        else:
+            M_SPECS[k] = s
+
+
+def m_rope_surgery(kind):
+    """T27 surgery rows of station `kind` (game frame, the deployed prefab's HV ObjectSubLanes)."""
+    s0, d = M_SPECS_SHIPPED[kind], m_rope_seat(kind)
+    rows = []
+    for side in (-1, 1):
+        for pt, (x, z) in (("a", s0.anchor_out), ("d", s0.anchor_in)):
+            rows.append({"field": f"{s0.building} ObjectSubLanes HV x {side * FG_LANE:+.1f} m_BezierCurve.{pt}.y",
+                         "old": z, "new": round(z + d, 4)})
+        rows.append({"field": f"{s0.building} ObjectSubLanes HV x {side * FG_LANE:+.1f} m_BezierCurve.b.y / .c.y",
+                     "old": "a + 0.01 / a + 0.02", "new": "a + 0.01 / a + 0.02 (shift by the same +%.4f)" % d})
+    return {"seat": d, "hosted": M_HOSTED_VARIANT[kind], "rows": rows,
+            "unchanged": "WheelLocal, StubTipLocalZ (ObjectSubNets), the LV comm sub-lane, the hosted tower pose"}
+
+
 # up lane = chain A = right looking uphill (StationAlign.UpLaneIsSecond; skeptic claim 6,
 # conditional on S1): the base loads on authoring +y, the top unloads on authoring -y. ONE
 # constant per station, so a field read can flip it (design section 7, S2).
@@ -1337,7 +1380,8 @@ def materials_m():
         "darksteel": MS(albedo=cs2_asset.STEEL_DEFAULT_RGB, metal=0.2, rough=0.60),
         "galv": MS(texture_set="Metal032", metres_per_tile=2.0, metal=1.0, rough=0.65),
         "glass": MS(albedo=(0.07, 0.09, 0.11), metal=0.0, rough=0.08),
-        "rope": MS(albedo=(0.30, 0.30, 0.32), metal=0.9, rough=0.65),
+        # T27: the vanilla line cable (cs2_asset.ROPE_MATERIAL; was albedo (0.30, 0.30, 0.32) metal 0.9 rough 0.65)
+        "rope": MS(**cs2_asset.ROPE_MATERIAL),
         "rubber": MS(albedo=(0.04, 0.04, 0.045), metal=0.0, rough=0.70),
         # weathered pine: the load-deck crib, the knoll stakes (PAL-03 / PAL-10)
         "timber": MS(albedo=_lin_m((0.50, 0.40, 0.29)), metal=0.0, rough=0.78),
@@ -3360,12 +3404,13 @@ def m1_frozen(kind):
     # the deployed prefab: HV sub-lane ends, stub tip, hosted tower pose
     lanes = _comp(frozen, "ObjectSubLanes")["m_SubLanes"]["$rcontent"]
     hv = [l for l in lanes if "5d88ac45" in l["m_LanePrefab"]]
+    s0 = M_SPECS_SHIPPED[kind]          # T27: the deployed anchors (= spec unless M_ROPE_ON_CROWN)
     for l in hv:
         a, d_ = l["m_BezierCurve"]["a"], l["m_BezierCurve"]["d"]
-        if abs(abs(a["x"]) - FG_LANE) > 1e-6 or abs(a["y"] - spec.anchor_out[1]) > 1e-6 or \
-                abs(a["z"] - spec.anchor_out[0]) > 1e-6 or abs(d_["y"] - spec.anchor_in[1]) > 1e-6 or \
-                abs(d_["z"] - spec.anchor_in[0]) > 1e-6:
-            bad.append(f"HV sub-lane {a} -> {d_} != generator anchors {spec.anchor_out} / {spec.anchor_in}")
+        if abs(abs(a["x"]) - FG_LANE) > 1e-6 or abs(a["y"] - s0.anchor_out[1]) > 1e-6 or \
+                abs(a["z"] - s0.anchor_out[0]) > 1e-6 or abs(d_["y"] - s0.anchor_in[1]) > 1e-6 or \
+                abs(d_["z"] - s0.anchor_in[0]) > 1e-6:
+            bad.append(f"HV sub-lane {a} -> {d_} != generator anchors {s0.anchor_out} / {s0.anchor_in}")
     nets = _comp(frozen, "ObjectSubNets")["m_SubNets"]["$rcontent"]
     hv_stub = [n for n in nets if n["m_BezierCurve"]["a"]["x"] == 0]
     if not hv_stub or abs(hv_stub[0]["m_BezierCurve"]["d"]["z"] - tip) > 1e-6:
@@ -3377,7 +3422,7 @@ def m1_frozen(kind):
         bad.append(f"hosted tower pose {pos} / {rot} != generator (0, 0, {spec.tower_x}) rot 180")
     if bad:
         _m_fail("M1", "; ".join(bad))
-    return {
+    out = {
         "source": os.path.relpath(path, REPO_M).replace("\\", "/"),
         "source_sha256": sha,
         "repoint": {"m_Meshes[0].m_Mesh_from": old_mesh, "m_Meshes[0].m_Mesh_to": "<the M mesh's CID, "
@@ -3393,6 +3438,9 @@ def m1_frozen(kind):
         "utility_object": None,
         "colour_slots_lod0": [[0.25, 0.26, 0.275, 1.0], [0.85, 0.25, 0.10, 1.0], [1.0, 1.0, 1.0, 1.0]],
     }
+    if M_ROPE_ON_CROWN:
+        out["rope_on_crown_surgery"] = m_rope_surgery(kind)
+    return out
 
 
 def m2_rope(co, tris, names, spec):
@@ -4596,6 +4644,8 @@ def main_m(args):
     LTD = _LTD()
     if not bpy.app.background:
         raise RuntimeError("lift_terminal generation M runs headless only (ROUND-SPEC R10)")
+    if getattr(args, "rope_on_crown", False):
+        set_m_rope_on_crown(True)          # T27 preview flag: the anchors on the ET crown (surgery in M1)
     FINE_DETAIL_M = not bool(getattr(args, "no_fine", False))     # fine-detail step 3c: every run follows its args
     kind = args.kind
     spec = M_SPECS[kind]
@@ -4825,6 +4875,9 @@ def parse_args():
                     help="M, debugging only: skip the M3 chair sweep (the manifest then has no M3).")
     ap.add_argument("--no-fine", action="store_true", dest="no_fine",
                     help="M: fine-detail step 3c off (FINE_DETAIL_M) = the approved generation-M station byte for byte.")
+    ap.add_argument("--rope-on-crown", action="store_true", dest="rope_on_crown",
+                    help="M, T27 preview flag (M_ROPE_ON_CROWN): the HV anchors on the hosted end tower's sheave "
+                         "crown; M1 reports the prefab surgery. Off = the shipped station byte for byte.")
     ap.add_argument("--kind", choices=["drive", "return"], default="drive")
     ap.add_argument("--name", default=None)
     ap.add_argument("--preview", default=None)

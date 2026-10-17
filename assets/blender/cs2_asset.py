@@ -445,6 +445,23 @@ def paint_panel_detail(base_sl, nrm_sl, msk_sl, S, rng,
 STEEL_DEFAULT_RGB = (0.20, 0.21, 0.22)   # the dark Pali steel paint - slot 1 prefab default
 RECOLOR_ALBEDO = 0.80                    # light neutral gray under every recolour mask
 
+# T27 (2026-10-17, docs/research/field/2026-10-15/build/T27-rope-path.md section 1): the station rope = the LINE rope.
+# Every lift line draws the vanilla HV / LV cable lane mesh (463c051d... / bbb9724d..., DECISIONS 243); both use ONE
+# material, "Powerline Cables" (Game/Blob.cok entry Powerline Cables_207901033b5d7c049b968f36a8a91ad9.Material, CID
+# 106cc56e9f15a135bb6ea7b99d675c2d, template id 30 = CurvedTransparent), no textures, one override:
+# _BaseColor = (0.018868, 0.018868, 0.018868, 1). A Unity Color is stored gamma-encoded (SurfaceAsset.SyncToUnityMaterial
+# -> Material.SetColor, 1.6.2f1-colossal SurfaceAsset.cs:594), so the linear albedo is 0.00146 (sRGB 4.8/255; if the game
+# fed it linear it would be 0.0189 = sRGB 37/255: UNVERIFIED, field line in T27). Smoothness / metal are the template's
+# (resources.assets Material "CurvedTransparent": _Smoothness 0.5, _Metallic 0.0). Our MaterialSpec albedo is LINEAR and
+# rough = 1 - smoothness. Before T27 every station's "rope" was albedo (0.30, 0.30, 0.32) metal 0.9 rough 0.65.
+VANILLA_CABLE_BASECOLOR = 0.018868       # the stored _BaseColor (gamma-encoded Unity Color)
+VANILLA_CABLE_ALBEDO_LIN = 0.00146       # its linear value
+VANILLA_CABLE_SMOOTHNESS = 0.5
+VANILLA_CABLE_METAL = 0.0
+ROPE_MATERIAL = dict(albedo=(VANILLA_CABLE_ALBEDO_LIN,) * 3, metal=VANILLA_CABLE_METAL,
+                     rough=round(1.0 - VANILLA_CABLE_SMOOTHNESS, 6))
+ROPE_MATERIAL_PRE_T27 = dict(albedo=(0.30, 0.30, 0.32), metal=0.9, rough=0.65)
+
 
 def lift_atlas_quads(tex_root):
     """
