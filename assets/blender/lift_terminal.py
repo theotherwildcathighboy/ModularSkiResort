@@ -1279,6 +1279,44 @@ def m_subobj_box(prefab, pos_auth, facing, pad=0.0):
     return c.min(axis=0), c.max(axis=0)
 
 
+# T17 lamp part (DECISIONS 247, 2026-10-16; build/T17-T23-T25-dressing.md): both FG station prefabs carry OUR
+# SkiPisteFloodlightLow (8 m, 3 heads, 25-degree down-tilt baked in) where the generator used to emit the vanilla
+# LightpoleParkRandom01: same position, yaw 190 (beam toward the line, 10 degrees across the platform), parent 0
+# (gamedata-mirror SkiBaseStationBuilding (3.4, 0.3, 5.6) / SkiTopStationBuilding (4.77, 0, 2.6), quat below). A "mod"
+# row (CID, no SUBOBJ placeholder: the DQ precedent lift_terminal_detach.d1_flood_rows). Its footprint for M12 / F1 is
+# three prefab-local boxes (x, y up, z) measured on the shipped props/A FBX (T17 loading-room round, 2026-10-17): the
+# 0.90 m square base plate (0.20 thick), the pole (r 0.094, + the 0.124 junction box) and the head bar (+-0.775).
+M_FLOOD = dict(prefab="SkiPisteFloodlightLow", cid="6827e281427c087a3b7ef19c824ca28b",
+               mesh="SkiPisteFloodlightLowA Mesh", rot=(0.0, 0.9961947, 0.0, -0.0871557),
+               boxes=(((-0.45, 0.0, -0.45), (0.45, 0.20, 0.45)),
+                      ((-0.094, 0.20, -0.094), (0.094, 8.00, 0.124)),
+                      ((-0.775, 7.947, -0.312), (0.775, 8.373, 0.333))))
+# M12 declared embed (per kind: the station part, the allowed depth, why): the DEPLOYED top row (game (4.77, 0, 2.6),
+# frozen by M1) puts one corner of the floodlight's 0.90 m base plate (yaw 190: corner reach 0.521 m) 0.021 m into
+# liftiebay's +x wall (x 2.10) at grade; the plate box alone is re-tested at this depth. The real fix is a row nudge at
+# surgery (game z 2.6 -> 2.64), outside the m_Mesh-only repoint.
+M_FLOOD_EMBED = {"return": ("liftiebay", 0.03, "deployed row: the base plate's corner 0.021 m into the bay's +x wall at "
+                                                 "grade (fix at surgery: game z 2.6 -> 2.64)")}
+
+
+def m_row_boxes(prefab, pos_auth, facing):
+    """[(lo, hi)] AUTHORING boxes of one subobjects_m row: a vanilla prop's union box (m_subobj_box), or the
+    M_FLOOD floodlight's three boxes at its deployed yaw (cs2_liftdress.subobj_box's rotation about game +Y)."""
+    if prefab != M_FLOOD["prefab"]:
+        return [m_subobj_box(prefab, pos_auth, facing)]
+    x, y, z, w = M_FLOOD["rot"]
+    a = 2.0 * math.atan2(y, w)
+    c, s = math.cos(a), math.sin(a)
+    g = np.array(m_to_game(pos_auth), dtype=np.float64)
+    out = []
+    for lo, hi in M_FLOOD["boxes"]:
+        P = np.array([[px, py, pz] for px in (lo[0], hi[0]) for py in (lo[1], hi[1]) for pz in (lo[2], hi[2])])
+        G = np.stack([P[:, 0] * c + P[:, 2] * s, P[:, 1], -P[:, 0] * s + P[:, 2] * c], axis=1) + g
+        A = np.array([m_from_game(v) for v in G])
+        out.append((A.min(axis=0), A.max(axis=0)))
+    return out
+
+
 # ---------------------------------------------------------------- materials ---------------
 
 def _lin_m(rgb):
@@ -2477,17 +2515,18 @@ def _dress_top_m():
 def subobjects_m(kind):
     """Vanilla sub-objects (cs2_liftdress.SUBOBJ, GUIDs verified against the dump): (prefab,
     authoring position, authoring facing or None, mount). MC1: the lamp posts replace the
-    modelled flood masts; X14: wall lights instead of modelled lamps (no modelled lamp left)."""
+    modelled flood masts; X14: wall lights instead of modelled lamps (no modelled lamp left). T17 lamp part
+    (DECISIONS 247): the lamp post row is our SkiPisteFloodlightLow (M_FLOOD, a "mod" row at yaw 190, facing None)."""
     if kind == "drive":
         B = m_base()
         hw, hz1 = B["house"][2], B["house"][4]
-        return [("LightpoleParkRandom01", (5.60, -3.40, B["pad_h"]), "-X", "pad"),
+        return [(M_FLOOD["prefab"], (5.60, -3.40, B["pad_h"]), None, "pad"),      # T17 lamp part: was LightpolePark -X
                 ("TrashbinRandom01", (5.60, 2.70, B["pad_h"]), None, "pad"),
                 ("WallLightShortRangeRandom01", (1.175, hw, 7.42), "+Y", "wall"),
                 ("WallLightShortRangeRandom01", (B["hut"][1], 5.15, 2.40), "+X", "wall")]
     T = M_TOP
     yd = (T["hut"][2] + T["hut"][3]) / 2.0          # the booth door's y (the door sits on the +x wall)
-    return [("LightpoleParkRandom01", (T["bay"][1] + 0.50, yd, 0.0), "-Y", "grade"),
+    return [(M_FLOOD["prefab"], (T["bay"][1] + 0.50, yd, 0.0), None, "grade"),     # T17 lamp part: was LightpolePark -Y
             ("WallLightShortRangeRandom01", (T["hut"][1], yd, 3.30), "+X", "wall")]
 
 
@@ -2497,6 +2536,13 @@ def subobject_rows_m(kind):
     import cs2_liftdress as LD
     rows = []
     for pf, pos, facing, _mount in subobjects_m(kind):
+        if pf == M_FLOOD["prefab"]:
+            # T17 lamp part (DECISIONS 247): the deployed floodlight row, a "mod" row in the vanilla rows' slot
+            rows.append({"kind": "mod", "ref": "CID", "m_Object": M_FLOOD["cid"], "prefab": pf,
+                         "mesh": M_FLOOD["mesh"],
+                         "position": m_to_game(pos), "rotation": M_FLOOD["rot"], "m_ParentMesh": 0,
+                         "note": "replaces LightpoleParkRandom01 (DECISIONS 247); yaw 190, beam to the line"})
+            continue
         rot = m_facing_quat(facing) if facing else (0.0, 0.0, 0.0, 1.0)
         rows.append((pf, m_to_game(pos), rot, 0))
     if FINE_DETAIL_M:
@@ -2504,7 +2550,8 @@ def subobject_rows_m(kind):
         # default string, which claims +y)
         return LD.sub_object_rows(M_SPECS[kind].building, rows + fd_kit_rows_m(kind), fine=True,
                                   x_convention=M_X_CONVENTION)
-    return LD.sub_object_rows(M_SPECS[kind].building, rows)
+    # the floodlight is a mod row, so --no-fine writes the fine block format too (the DQ precedent, fine=bool(flood))
+    return LD.sub_object_rows(M_SPECS[kind].building, rows, fine=True, x_convention=M_X_CONVENTION)
 
 
 # ---------------------------------------------------------------- fine-detail step 3c: kit rows
@@ -2609,18 +2656,18 @@ def fd_vanilla_boxes_m(kind):
     0.01 off."""
     out = []
     for pf, pos, facing, mount in subobjects_m(kind):
-        lo, hi = m_subobj_box(pf, pos, facing)
-        lo, hi = np.array(lo, dtype=np.float64), np.array(hi, dtype=np.float64)
-        if mount in ("pad", "grade", "deck"):
-            lo[2] += 0.01
-        elif mount == "wall" and facing:
-            nx, ny = _M_NORMAL[facing]
-            ax = 0 if nx else 1
-            if (nx or ny) > 0:
-                lo[ax] += 0.01
-            else:
-                hi[ax] -= 0.01
-        out.append((f"{pf}@{pos[0]:.2f},{pos[1]:.2f}", lo, hi))
+        for k, (lo, hi) in enumerate(m_row_boxes(pf, pos, facing)):
+            lo, hi = np.array(lo, dtype=np.float64), np.array(hi, dtype=np.float64)
+            if mount in ("pad", "grade", "deck") and lo[2] <= pos[2] + 1e-6:
+                lo[2] += 0.01
+            elif mount == "wall" and facing:
+                nx, ny = _M_NORMAL[facing]
+                ax = 0 if nx else 1
+                if (nx or ny) > 0:
+                    lo[ax] += 0.01
+                else:
+                    hi[ax] -= 0.01
+            out.append((f"{pf}@{pos[0]:.2f},{pos[1]:.2f}" + (f"#{k}" if k else ""), lo, hi))
     return out
 
 
@@ -2677,7 +2724,8 @@ def fine_detail_block_m(kind, contracts):
             "x_convention": blk.get("x_convention"), "rows": blk.get("kinds"), "F1": msg.get("F1"),
             "kit_rows": (nums or {}).get("rows"),
             "removed": [{"prop": s["prop"], "removed": list(s["removed"]), "was": s["was"]} for s in fd_kit_specs_m(kind)],
-            "lamps_to_vanilla": "none left: every light was already a vanilla row (MC1 / X14)",
+            "lamps_to_vanilla": "none left: the wall lights are vanilla rows (X14); the lamp post row is our "
+                                "SkiPisteFloodlightLow mod row (T17 lamp part, DECISIONS 247)",
             "kept_modelled": {k: v for k, v in kept.items() if v}}
 
 
@@ -3473,17 +3521,28 @@ def subobj_check_m(co, tris, names, kind, cloud=None):
     T = co[tris]
     out = []
     for pf, pos, facing, mount in subobjects_m(kind):
-        lo, hi = m_subobj_box(pf, pos, facing)
-        s_lo, s_hi = lo + 0.01, hi - 0.01
-        hit = TS._tri_box_overlap(T, s_lo, s_hi)
+        # T17 lamp part: the floodlight row is three boxes (plate, pole, heads; m_row_boxes), a vanilla row one
+        bx = m_row_boxes(pf, pos, facing)
+        lo, hi = np.min([b[0] for b in bx], axis=0), np.max([b[1] for b in bx], axis=0)
+        hit = np.zeros(len(T), dtype=bool)
+        emb = M_FLOOD_EMBED.get(kind) if pf == M_FLOOD["prefab"] else None
+        for k, (blo, bhi) in enumerate(bx):
+            h = TS._tri_box_overlap(T, blo + 0.01, bhi - 0.01)
+            if emb and k == 0 and h.any() and {names[i] for i in np.nonzero(h)[0]} == {emb[0]}:
+                # the declared plate embed: re-test that part at the allowed depth (still a hit = a real failure)
+                h = TS._tri_box_overlap(T, blo + emb[1], bhi - emb[1])
+            hit |= h
         hits = sorted({names[i] for i in np.nonzero(hit)[0]})
         row = {"prefab": pf, "pos_authoring": [round(v, 3) for v in pos], "facing": facing,
                "box_lo": [round(float(v), 3) for v in lo], "box_hi": [round(float(v), 3) for v in hi],
                "hits": hits}
+        if emb:
+            row["declared_embed"] = {"part": emb[0], "max_m": emb[1], "why": emb[2]}
         if hits:
             _m_fail("M12", f"{pf} at {pos} (box {row['box_lo']}..{row['box_hi']}) holds {hits[:6]}")
         if cloud is not None and len(cloud):
-            dd = np.linalg.norm(np.maximum(np.maximum(lo - cloud, 0.0), cloud - hi), axis=1).min()
+            dd = min(np.linalg.norm(np.maximum(np.maximum(blo - cloud, 0.0), cloud - bhi), axis=1).min()
+                     for blo, bhi in bx)
             row["chair_m"] = round(float(dd), 3)
             if dd < M_CLEAR_DRESS:
                 _m_fail("M12", f"{pf} at {pos}: {dd:.3f} m from the swept chair")

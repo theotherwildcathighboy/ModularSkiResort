@@ -350,7 +350,7 @@ def m18_shipped():
     with open(mf, encoding="utf-8") as fh:
         blk = json.load(fh).get("sub_objects") or {}
     kit = [{"mesh": o["mesh"], "position": o["pos"], "rotation": o["rot"], "prefab": o["prefab"]}
-           for o in blk.get("objects", []) if o.get("kind") == "mod"]
+           for o in blk.get("objects", []) if o.get("kind") == "mod" and o.get("prefab") != LT.M_FLOOD["prefab"]]
     for r_ in kit:
         A, kt, _km = KR.host_mesh(r_, lambda G: np.stack([G[:, 2], -G[:, 0], G[:, 1]], axis=1))
         tris = np.concatenate([tris, np.asarray(kt, dtype=np.int64) + len(co)])
@@ -437,7 +437,11 @@ def m18_shipped():
 # --------------------------------------------------------------------------------------
 FD_GONE_M = {"drive": ("estop_ld_", "ext_house", "ext_hut", "tool_cab_", "skirack_b_", "ski_b_"),
              "return": ("estop_ul_", "ext_booth", "tool_bay_")}
-FD_ROWS_M = {"drive": (4, 5), "return": (2, 3)}
+FD_ROWS_M = {"drive": (4, 5), "return": (2, 3)}           # the SHIPPED M manifests (vanilla, mod) rows
+# T17 lamp part (DECISIONS 247): the generator emits the deployed SkiPisteFloodlightLow as a mod row where it emitted the
+# vanilla LightpoleParkRandom01, so a fresh build has one vanilla row fewer and one mod row more; the kit rows are unchanged
+FD_ROWS_GEN_M = {"drive": (3, 6), "return": (1, 4)}
+FD_KIT_M = {"drive": 5, "return": 3}
 FINE_FAMS = ("maze_post_", "maze_rope_", "gate_", "board_tipsup_post", "board_slow_post", "board_unload_post",
              "cabinet",
              # nitpick A (2026-10-13): WAIT HERE on its own post (the base's corral is gone): the fine 12-seg post
@@ -554,7 +558,7 @@ def f1_m():
         cloud = rep.pop("_cloud")
         try:
             msg, nums = LT.check_kit_rows_m(co, tris, names, table, kind, cloud=cloud)
-            check(len(nums["rows"]) == FD_ROWS_M[kind][1], f"{kind}: F1 passes on {len(nums['rows'])} kit rows",
+            check(len(nums["rows"]) == FD_KIT_M[kind], f"{kind}: F1 passes on {len(nums['rows'])} kit rows",
                   f"({msg['F1'][:90]}...)")
         except LT.MContractError as e:
             check(False, f"{kind}: F1 raised on the shipping layout", f"({e})")
@@ -654,7 +658,11 @@ def f4_m():
         fd = m.get("fine_detail") or {}
         blk = m.get("sub_objects") or {}
         mods = [o for o in blk.get("objects", []) if o.get("kind") == "mod"]
-        nv, nk = FD_ROWS_M[kind]
+        # T17 lamp part: the shipped manifests predate the floodlight mod row (FD_ROWS_M); a re-export carries it
+        # (FD_ROWS_GEN_M). Either way the F1 kit rows = the block's mod rows other than the floodlight
+        okrows = [{"vanilla": v[0], "mod": v[1]} for v in (FD_ROWS_M[kind], FD_ROWS_GEN_M[kind])]
+        mods = [o for o in mods if o.get("prefab") != LT.M_FLOOD["prefab"]]
+        nk = FD_KIT_M[kind]
         kr = fd.get("kit_rows") or []
         # T14 x-sign N (2026-10-16), DECISIONS 245 / T53: the shipped M manifests still carry the pre-T14 frame string
         # ("probe X2 decides") until the next export regenerates them: only that conjunct is SKIPPED (loud); once the
@@ -663,11 +671,25 @@ def f4_m():
         xc_stale = xc != LT.M_X_CONVENTION and "probe X2 decides" in (xc or "")
         if xc_stale:
             print(f"SKIP {kind}: F4 shipped x_convention is the pre-T14 string (stale until the next export, DECISIONS 245 / T53)")
-        ok = (fd.get("rows") == {"vanilla": nv, "mod": nk} == blk.get("kinds") and len(kr) == nk
+        ok = (fd.get("rows") in okrows and fd.get("rows") == blk.get("kinds") and len(kr) == nk == len(mods)
               and np.allclose([r_["row_pos"] for r_ in kr], [o["pos"] for o in mods], atol=1e-4)
               and (xc == LT.M_X_CONVENTION or xc_stale) and "F1" in (m.get("contracts") or {}))
         check(ok, f"{kind}: F4 shipped fine block {fd.get('rows')}, {len(kr)} F1 rows = the mod rows, M's frame string",
               f"({blk.get('x_convention', '')[:50]}...)")
+        # T17 lamp part (DECISIONS 247): the generator's floodlight row = the DEPLOYED prefab's row (CID, position,
+        # rotation, parent; gamedata-mirror) and no LightpoleParkRandom01 row is emitted any more
+        fz, _old, _sha, _p = LT.frozen_block_m(kind)
+        dep = [s_ for s_ in LT._comp(fz, "ObjectSubObjects")["m_SubObjects"]["$rcontent"]
+               if LT.M_FLOOD["cid"] in str(s_["m_Object"])]
+        gen = LT.subobject_rows_m(kind)["objects"]
+        fl = [o for o in gen if o.get("prefab") == LT.M_FLOOD["prefab"]]
+        same = len(dep) == 1 and len(fl) == 1 and fl[0]["guid"] == "CID:" + LT.M_FLOOD["cid"] and np.allclose(
+            fl[0]["pos"], [dep[0]["m_Position"][a] for a in "xyz"], atol=1e-4) and np.allclose(
+            fl[0]["rot"], [dep[0]["m_Rotation"]["value"][a] for a in "xyzw"], atol=1e-6) and \
+            fl[0]["parent"] == dep[0]["m_ParentMesh"]
+        lamp = [o["prefab"] for o in gen if o.get("prefab") == "LightpoleParkRandom01"]
+        check(same and not lamp, f"{kind}: T17 the generator's floodlight row = the deployed prefab's, no lamp post row",
+              f"({fl[0]['pos'] if fl else None} / {dep[0]['m_Position'] if dep else None}; lamp rows {lamp})")
 
 
 def m19_forbid():
@@ -872,7 +894,8 @@ def bake_smoke():
             fz, _old, _sha, _p = LT.frozen_block_m(kind)
             check(json.dumps(m["prefab_contract"]["frozen"], sort_keys=True) == json.dumps(fz, sort_keys=True),
                   f"{kind}: M1 manifest frozen block == the deployed K prefab (json, sorted keys)")
-            check((m.get("fine_detail") or {}).get("rows") == {"vanilla": FD_ROWS_M[kind][0], "mod": FD_ROWS_M[kind][1]},
+            want_rows = {"vanilla": FD_ROWS_GEN_M[kind][0], "mod": FD_ROWS_GEN_M[kind][1]}
+            check((m.get("fine_detail") or {}).get("rows") == want_rows,
                   f"{kind}: the smoke manifest carries the fine-detail block (step 3c on by default)",
                   f"({(m.get('fine_detail') or {}).get('rows')})")
             check(m["validation"]["errors"] == 0, f"{kind}: validate_asset_folder 0 errors",
