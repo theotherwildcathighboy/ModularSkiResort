@@ -1282,7 +1282,8 @@ def m_subobj_box(prefab, pos_auth, facing, pad=0.0):
 # T17 lamp part (DECISIONS 247, 2026-10-16; build/T17-T23-T25-dressing.md): both FG station prefabs carry OUR
 # SkiPisteFloodlightLow (8 m, 3 heads, 25-degree down-tilt baked in) where the generator used to emit the vanilla
 # LightpoleParkRandom01: same position, yaw 190 (beam toward the line, 10 degrees across the platform), parent 0
-# (gamedata-mirror SkiBaseStationBuilding (3.4, 0.3, 5.6) / SkiTopStationBuilding (4.77, 0, 2.6), quat below). A "mod"
+# (gamedata-mirror SkiBaseStationBuilding (3.4, 0.3, 5.6) / SkiTopStationBuilding (4.77, 0, 2.64: nudged 2026-10-17),
+# quat below). A "mod"
 # row (CID, no SUBOBJ placeholder: the DQ precedent lift_terminal_detach.d1_flood_rows). Its footprint for M12 / F1 is
 # three prefab-local boxes (x, y up, z) measured on the shipped props/A FBX (T17 loading-room round, 2026-10-17): the
 # 0.90 m square base plate (0.20 thick), the pole (r 0.094, + the 0.124 junction box) and the head bar (+-0.775).
@@ -1291,12 +1292,6 @@ M_FLOOD = dict(prefab="SkiPisteFloodlightLow", cid="6827e281427c087a3b7ef19c824c
                boxes=(((-0.45, 0.0, -0.45), (0.45, 0.20, 0.45)),
                       ((-0.094, 0.20, -0.094), (0.094, 8.00, 0.124)),
                       ((-0.775, 7.947, -0.312), (0.775, 8.373, 0.333))))
-# M12 declared embed (per kind: the station part, the allowed depth, why): the DEPLOYED top row (game (4.77, 0, 2.6),
-# frozen by M1) puts one corner of the floodlight's 0.90 m base plate (yaw 190: corner reach 0.521 m) 0.021 m into
-# liftiebay's +x wall (x 2.10) at grade; the plate box alone is re-tested at this depth. The real fix is a row nudge at
-# surgery (game z 2.6 -> 2.64), outside the m_Mesh-only repoint.
-M_FLOOD_EMBED = {"return": ("liftiebay", 0.03, "deployed row: the base plate's corner 0.021 m into the bay's +x wall at "
-                                                 "grade (fix at surgery: game z 2.6 -> 2.64)")}
 
 
 def m_row_boxes(prefab, pos_auth, facing):
@@ -2526,7 +2521,9 @@ def subobjects_m(kind):
                 ("WallLightShortRangeRandom01", (B["hut"][1], 5.15, 2.40), "+X", "wall")]
     T = M_TOP
     yd = (T["hut"][2] + T["hut"][3]) / 2.0          # the booth door's y (the door sits on the +x wall)
-    return [(M_FLOOD["prefab"], (T["bay"][1] + 0.50, yd, 0.0), None, "grade"),     # T17 lamp part: was LightpolePark -Y
+    # T17 lamp part: was LightpolePark -Y at bay x1 + 0.50; the deployed floodlight row was nudged to game z 2.64 (Richard,
+    # 2026-10-17: its 0.90 m base plate corner sat 0.021 m inside liftiebay's +x wall at 2.60)
+    return [(M_FLOOD["prefab"], (T["bay"][1] + 0.54, yd, 0.0), None, "grade"),
             ("WallLightShortRangeRandom01", (T["hut"][1], yd, 3.30), "+X", "wall")]
 
 
@@ -3525,19 +3522,12 @@ def subobj_check_m(co, tris, names, kind, cloud=None):
         bx = m_row_boxes(pf, pos, facing)
         lo, hi = np.min([b[0] for b in bx], axis=0), np.max([b[1] for b in bx], axis=0)
         hit = np.zeros(len(T), dtype=bool)
-        emb = M_FLOOD_EMBED.get(kind) if pf == M_FLOOD["prefab"] else None
-        for k, (blo, bhi) in enumerate(bx):
-            h = TS._tri_box_overlap(T, blo + 0.01, bhi - 0.01)
-            if emb and k == 0 and h.any() and {names[i] for i in np.nonzero(h)[0]} == {emb[0]}:
-                # the declared plate embed: re-test that part at the allowed depth (still a hit = a real failure)
-                h = TS._tri_box_overlap(T, blo + emb[1], bhi - emb[1])
-            hit |= h
+        for blo, bhi in bx:
+            hit |= TS._tri_box_overlap(T, blo + 0.01, bhi - 0.01)
         hits = sorted({names[i] for i in np.nonzero(hit)[0]})
         row = {"prefab": pf, "pos_authoring": [round(v, 3) for v in pos], "facing": facing,
                "box_lo": [round(float(v), 3) for v in lo], "box_hi": [round(float(v), 3) for v in hi],
                "hits": hits}
-        if emb:
-            row["declared_embed"] = {"part": emb[0], "max_m": emb[1], "why": emb[2]}
         if hits:
             _m_fail("M12", f"{pf} at {pos} (box {row['box_lo']}..{row['box_hi']}) holds {hits[:6]}")
         if cloud is not None and len(cloud):
