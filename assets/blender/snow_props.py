@@ -1599,8 +1599,178 @@ def mesh_area(obj):
 # WeatherHook run, so a driver can read its report / fields. Texture-only: see snow_weather.py.
 LAST_WEATHER = None
 
+# -- Density repack (2026-10-17, pre-import; snow-props-weather-2026-10-17.md section 4) --------
+# The B finish pass kept each part's atlas-time UV scale: the painted shells shipped at 12-40
+# px/m while nuts got 200-1,450 px/m (results/texel_density_by_part.json). `--repack` replaces
+# the finish bake's pack step (lift_tower.apply_finish_textures packer=) with cs2_uv's packer:
+# islands equalised to 3D area, translation-identical copies stacked (cs2_liftdress.share_identical),
+# weighted per TIER, one concave pack with a 2 px margin. The weights are FIT (<= 5 passes from
+# the same start UVs): masts / columns and the rest hold floors at B's own level, the shells take
+# the remainder up to DENSITY_TARGET_PX_M and the small hardware rides at 0.8 x the shells
+# (B gave nuts 200-1,450 px/m). Texture sizes stay as exported. LODs are decimated from the
+# finished mesh, so LOD1/LOD2 keep sharing this layout. The arithmetic per class is in the
+# write-up section 4 (a 512 tower cannot carry 100 px/m shells without starving its masts).
+DENSITY_SMALL = ("FootNut", "HeadBolt", "GunBolt", "HeadStud", "GunStud", "Hinge", "Handle", "Clamp",
+                 "HoseClamp", "Gland", "Coupling", "Pin", "HubCap", "HubIn", "Stub", "RiserStub",
+                 "Outlet", "Valve", "GunValve", "Louvre", "Elbow", "WeldCollar", "MastCollar",
+                 "Flange", "RiserFlange", "Standoff", "Knee", "Cheek", "NumberPlate", "Marker",
+                 "Beacon", "SensorBox", "HeadCap", "NucHead", "CompEnd", "CompIntake", "Axle",
+                 "CastorFork", "JackFoot", "HeadTrunnion", "GunTrunnion", "HeadSpinner",
+                 "GunSpinner", "HeadBlades", "GunBlades", "Kick", "HeadCollar", "GunCollar")
+DENSITY_SHELL = ("HeadHousing", "HeadBell", "GunHousing", "GunBell", "Cabinet", "CabDoor", "CabLid",
+                 "HeadCompressor", "SlewDrive", "Tank", "BaseJacket", "Lid", "CompDrum",
+                 "Compressor", "Body")
+DENSITY_MAST = ("Mast", "Column", "ColFoot", "Lance", "Pipe", "Riser", "Pedestal", "Chassis", "Cross",
+                "DrawbarL", "DrawbarR", "Turntable", "HeadFork", "GunFork")
+DENSITY_TARGET_PX_M = 105.0     # shells >= 100 px/m with a little headroom
+DENSITY_SMALL_REL = 0.8         # small hardware at 0.8 x the shells (~80-85 px/m; B gave it 200-1,450)
+DENSITY_MAST_MIN_PX_M = 45.0    # floors ~ B's own levels (masts 33-58, rest 43-49 px/m): the shells
+DENSITY_REST_MIN_PX_M = 40.0    # are paid for by the hardware, never by the masts and ladders
+REPACK_MARGIN_PX = 2            # = B's inline pack (margin 0.004 @ 512); cs2_uv's default 16 px
+                                # wastes most of a 512 atlas on hundreds of small islands
+REPACK_SHAPE = "CONCAVE"        # cs2_uv packs AABB; ring / lathe islands waste their holes there
+LAST_REPACK = None
 
-def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=False):
+
+def _pack_once(obj, mesh, A, reserved, density_layer, share=None):
+    """cs2_uv._pack_layout's steps 1-6 with this family's margin and pack shape (cs2_uv is
+    left untouched: the buildings share it). rotate=False as there (tangent-space texels).
+    `share` = cs2_liftdress.share_identical list: translation-identical copies (rungs, nuts,
+    studs, cage hoops...) are held back and take their canonical island's UVs afterwards."""
+    import bpy
+    import cs2_uv
+    layer = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
+    mesh.uv_layers.active = layer
+    pinned = cs2_uv.pinned_faces(mesh, layer, reserved)
+    hold = set(pinned)
+    if share:
+        dup, src, dst = cs2_uv._share_loops(mesh, share, pinned)
+        hold |= dup
+    cs2_uv._select_unpinned(obj, mesh, hold)
+    bpy.ops.uv.average_islands_scale()
+    bpy.ops.object.mode_set(mode="OBJECT")
+    layer = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
+    weights = cs2_uv.face_density_weights(mesh, density_layer)
+    cs2_uv._scale_islands_by_weight(mesh, layer, hold, weights)
+    cs2_uv._select_unpinned(obj, mesh, hold)
+    bpy.ops.uv.pack_islands(rotate=False, scale=True, margin_method="FRACTION",
+                            margin=REPACK_MARGIN_PX / float(A), shape_method=REPACK_SHAPE)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    layer = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
+    if reserved:
+        lo, hi = cs2_uv.free_v_band(reserved)
+        cs2_uv._squeeze_into_band(mesh, layer, hold, lo, hi)
+    if share and len(dst):
+        uv = cs2_uv.loop_uvs(layer)
+        uv[dst] = uv[src]
+        cs2_uv.set_loop_uvs(layer, uv)
+    cs2_uv.check_layout(mesh, layer, reserved, pinned)
+
+
+REPACK_SHARE = True             # stack translation-identical copies on one island
+REPACK_SHARE_CAP_M2 = 0.5       # only small parts stack (rungs, nuts, studs, hoops, clamps)
+REPACK_GROUND_BAND = (0.0, 0.45)  # = snow_weather's grade band: grade copies stack only together
+
+
+def _share_list(obj, mesh, names, reserved):
+    import cs2_liftdress
+    return cs2_liftdress.share_identical(obj, names, (), cap_m2=REPACK_SHARE_CAP_M2,
+                                         reserved=reserved, uv_layer="UVUnique",
+                                         ground_band=REPACK_GROUND_BAND)
+
+
+def density_tier(name):
+    """'small' | 'shell' | 'mast' | 'rest' for a part name (small first: CompEnd before Comp*)."""
+    if name.startswith(DENSITY_SMALL):
+        return "small"
+    if name.startswith(DENSITY_SHELL):
+        return "shell"
+    if name.startswith(DENSITY_MAST):
+        return "mast"
+    return "rest"
+
+
+def density_packer(obj, mesh, A, reserved):
+    """
+    Packer hook for lift_tower.apply_finish_textures(packer=): "UVUnique" exists (a copy of
+    UVAtlas) and is active. Fits per-tier weights (up to 4 passes, each from the same start
+    UVs) so the area-weighted shell density hits DENSITY_TARGET_PX_M; records LAST_REPACK.
+    Leaves no attribute behind (the weights live in a temporary FACE attribute).
+    """
+    import json
+    import math
+    import numpy as np
+    import cs2_uv
+    global LAST_REPACK
+    names = json.loads(mesh[cs2_asset.PART_TABLE_PROP])
+    n = len(mesh.polygons)
+    part = np.empty(n, np.int32)
+    mesh.attributes["part"].data.foreach_get("value", part)
+    tiers = np.array([density_tier(names[i - 1]) for i in part])
+    lay = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
+    start_uv = cs2_uv.loop_uvs(lay).copy()
+    pinned = cs2_uv.pinned_faces(mesh, lay, reserved)
+    free = np.ones(n, bool)
+    free[list(pinned)] = False
+    wa = cs2_uv.face_world_areas(mesh)
+    tmp = "snow_density_w"
+    share = _share_list(obj, mesh, names, reserved) if REPACK_SHARE else None
+    canon = free.copy()             # area that costs texels: stacked copies are free
+    if share:
+        for _c, dps in share:
+            for dp in dps:
+                canon[dp] = False
+    area = {t: float(wa[(tiers == t) & canon].sum()) for t in ("shell", "small", "mast", "rest")}
+    passes = []
+    shell_d, mast_d, rest_d = DENSITY_TARGET_PX_M, DENSITY_MAST_MIN_PX_M, DENSITY_REST_MIN_PX_M
+    for _it in range(5):
+        rel = {"shell": 1.0, "small": DENSITY_SMALL_REL, "mast": mast_d / shell_d,
+               "rest": rest_d / shell_d}
+        attr = mesh.attributes.get(tmp) or mesh.attributes.new(tmp, "FLOAT", "FACE")
+        attr.data.foreach_set("value", [rel[t] for t in tiers])
+        lay = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
+        cs2_uv.set_loop_uvs(lay, start_uv)
+        _pack_once(obj, mesh, A, reserved, tmp, share=share)
+        lay = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
+        d = cs2_uv.face_px_per_m(mesh, lay, A)
+        ok = free & np.isfinite(d)
+        got = {}
+        for t in area:
+            sel = ok & (tiers == t)
+            got[t] = float(np.sqrt((d[sel] ** 2 * wa[sel]).sum() / max(wa[sel].sum(), 1e-12)))
+        uniq = ok & canon
+        E = float((d[uniq] ** 2 * wa[uniq]).sum())          # texel area the layout carries
+        passes.append({"weights": {t: round(v, 3) for t, v in rel.items()},
+                       "px_per_m": {t: round(v, 1) for t, v in got.items()},
+                       "texels_used": round(E)})
+        # Next densities from this pass's texel budget E (fill varies little between passes):
+        # floors first, the shells (and the hardware riding at DENSITY_SMALL_REL) get the
+        # remainder up to the target; any surplus lifts masts / rest toward the shells.
+        floors = DENSITY_MAST_MIN_PX_M ** 2 * area["mast"] + DENSITY_REST_MIN_PX_M ** 2 * area["rest"]
+        top = area["shell"] + DENSITY_SMALL_REL ** 2 * area["small"]
+        s_new = math.sqrt(max(E - floors, 1.0) / max(top, 1e-9))
+        if s_new >= DENSITY_TARGET_PX_M:
+            s_new = DENSITY_TARGET_PX_M
+            spare = E - DENSITY_TARGET_PX_M ** 2 * top
+            k = math.sqrt(max(spare, 0.0) / max(floors, 1e-9))
+            m_new = min(DENSITY_TARGET_PX_M, DENSITY_MAST_MIN_PX_M * max(k, 1.0))
+            r_new = min(DENSITY_TARGET_PX_M, DENSITY_REST_MIN_PX_M * max(k, 1.0))
+        else:
+            m_new, r_new = DENSITY_MAST_MIN_PX_M, DENSITY_REST_MIN_PX_M
+        if (abs(got["shell"] - s_new) / s_new < 0.03 and abs(got["mast"] - m_new) / m_new < 0.08
+                and abs(got["rest"] - r_new) / r_new < 0.08):
+            break
+        shell_d, mast_d, rest_d = s_new, m_new, r_new
+    mesh.attributes.remove(mesh.attributes[tmp])
+    LAST_REPACK = {"A": int(A), "area_m2": {t: round(v, 2) for t, v in area.items()},
+                   "shared": (share.report if share else None),
+                   "passes": passes, "final": passes[-1]}
+    print(f"[repack] {obj.name}: {len(passes)} pass(es), px/m {passes[-1]['px_per_m']}")
+    return None
+
+
+def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=False,
+               repack=False, post_hook=None):
     """
     The texture half of export_one: atlas maps (+ emissive) into `asset_dir`, then the
     finish rebake. Split out (T20) so the preview build can make the same maps WITHOUT
@@ -1609,6 +1779,10 @@ def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=Fa
     `weather` (2026-10-17, opt-in until Richard's verdict): run snow_weather's texture-side
     weathering + smoothness parity inside the finish bake (post_compose). Pixels only: the
     mesh, UVs, LODs and every file name / size are unchanged. Needs do_finish.
+
+    `repack` (2026-10-17, opt-in): density_packer replaces the finish pass's UV pack (new
+    UVUnique layout, same geometry / tris / file set). `post_hook`: a caller's own
+    post_compose (measurement drivers); ignored when `weather` is set.
     """
     global LAST_WEATHER
     os.makedirs(asset_dir, exist_ok=True)
@@ -1629,20 +1803,21 @@ def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=Fa
     # would carry the old atlas coordinates. The stamped detail strip is passed as a
     # reserved rect so its texels keep their authored density through the repack.
     # ao_samples 24 rather than lift_tower's 48: our atlases are 256-512 px, not 2048.
-    if weather and not do_finish:
-        raise RuntimeError("--weather runs inside the finish bake: pass --finish")
+    if (weather or repack) and not do_finish:
+        raise RuntimeError("--weather / --repack run inside the finish bake: pass --finish")
     if do_finish:
         zones = cs2_asset.snow_prop_zones(A)
-        hook = None
+        hook = post_hook
         if weather:
             import snow_weather
             hook = snow_weather.make_hook(obj, name)
             LAST_WEATHER = hook
         ok = lift_tower.apply_finish_textures(obj, asset_dir, name, atlas_size=A,
                                               reserved_strips=[zones["strip"]],
-                                              ao_samples=24, post_compose=hook)
-        if weather and not ok:
-            raise RuntimeError(f"{name}: finish bake failed, the weathering pass did not run")
+                                              ao_samples=24, post_compose=hook,
+                                              packer=density_packer if repack else None)
+        if (weather or repack) and not ok:
+            raise RuntimeError(f"{name}: finish bake failed, the weathering / repack pass did not run")
         print(f"[{key}]   finish: AO rebake {'ok' if ok else 'FAILED (shipping bevels only)'}")
 
     # TEXTURE BUDGET GUARD. The first version divided quad_size by the LONGEST DIMENSION,
@@ -1658,9 +1833,11 @@ def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=Fa
     return px_per_m
 
 
-def export_one(key, obj, name, out_root, quad_size, do_finish=False, weather=False):
+def export_one(key, obj, name, out_root, quad_size, do_finish=False, weather=False,
+               repack=False):
     asset_dir = os.path.join(os.path.abspath(out_root), name)
-    build_maps(key, obj, name, asset_dir, quad_size, do_finish=do_finish, weather=weather)
+    build_maps(key, obj, name, asset_dir, quad_size, do_finish=do_finish, weather=weather,
+               repack=repack)
 
     cs2_asset.export_fbx(obj, os.path.join(asset_dir, f"{name}.fbx"))
 
@@ -2213,6 +2390,9 @@ def parse_args():
     ap.add_argument("--weather", action="store_true",
                     help="with --finish: texture-side weathering + smoothness parity "
                          "(snow_weather.py, 2026-10-17); pixels only, geometry unchanged")
+    ap.add_argument("--repack", action="store_true",
+                    help="with --finish: per-tier texel-density repack of the unique UVs "
+                         "(density_packer, 2026-10-17); new UV layout, same geometry")
     ap.add_argument("--review", action="store_true",
                     help="with --detail: also write assets/preview/review/<Name>.blend packs")
     return ap.parse_args(argv)
@@ -2292,7 +2472,7 @@ def main():
             cs2_asset.validate_asset_name(name)
             total += report(k, obj)
             export_one(k, obj, name, args.out, quad_size, do_finish=args.finish,
-                       weather=args.weather)
+                       weather=args.weather, repack=args.repack)
             count += 1
     print(f"[snow_props] family total: {total} tris across {count} asset(s)")
 

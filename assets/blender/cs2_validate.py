@@ -82,6 +82,14 @@ DEFAULT_SPEC = {
 }
 _EMISSIVE_RE = re.compile(r"^Emissive(?:ID)?\d*$")
 
+# Per-PART texel density (2026-10-17; docs/research/art/snow-props-weather-2026-10-17.md section 4,
+# PIPELINE "Gates"): a whole-asset px/m average hid snow props B whose painted shells shipped at
+# 12-22 px/m while nuts got 200-1,450 px/m (the buildings' T16 lesson again: density, not
+# compression). A "part" here is a connected mesh component of the re-imported LOD0 (the FBX
+# carries no part names); parts smaller than DENSITY_PART_MIN_M2 are reported, not gated.
+DENSITY_PART_MIN_M2 = 0.05
+DENSITY_FLOOR_PX_M = {"prop": (30.0, 60.0)}   # kind -> (ERROR below, WARN below)
+
 
 class AssetValidationError(RuntimeError):
     """Raised by validate_asset_folder when at least one ERROR finding exists."""
@@ -501,6 +509,96 @@ def ground_ring_report(obj, band=GROUND_BAND_M, table=None, matrix=None):
         "offending_parts": dict(sorted(offending.items(), key=lambda kv: -kv[1])),
         "ok_parts": dict(sorted(ok_parts.items(), key=lambda kv: -kv[1])),
     }
+
+
+def part_density(me, A, units_per_m=RAW_UNITS_PER_M):
+    """
+    Texel density per connected component of `me` (raw FBX units, cm): list of dicts
+    {area_m2, px_per_m, tris, centre_m (raw axes, metres)} sorted by px/m, density =
+    sqrt(sum UV area * A^2 / sum 3D area). Stacked (shared) islands count for every copy.
+    """
+    nv = len(me.vertices)
+    parent = list(range(nv))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for poly in me.polygons:
+        vs = poly.vertices
+        r0 = find(vs[0])
+        for v in vs[1:]:
+            r = find(v)
+            if r != r0:
+                parent[r] = r0
+    co = np.empty(nv * 3, dtype=np.float64)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3) / float(units_per_m)
+    uv_layer = me.uv_layers.active
+    if uv_layer is None:
+        return []
+    uv = np.empty(len(me.loops) * 2, dtype=np.float64)
+    uv_layer.data.foreach_get("uv", uv)
+    uv = uv.reshape(-1, 2)
+    me.calc_loop_triangles()
+    acc = {}
+    for lt in me.loop_triangles:
+        v = lt.vertices
+        a3 = 0.5 * float(np.linalg.norm(np.cross(co[v[1]] - co[v[0]], co[v[2]] - co[v[0]])))
+        l0, l1, l2 = lt.loops
+        au = 0.5 * abs(float((uv[l1, 0] - uv[l0, 0]) * (uv[l2, 1] - uv[l0, 1])
+                             - (uv[l2, 0] - uv[l0, 0]) * (uv[l1, 1] - uv[l0, 1])))
+        c = find(v[0])
+        r = acc.setdefault(c, [0.0, 0.0, 0, np.zeros(3)])
+        r[0] += a3
+        r[1] += au
+        r[2] += 1
+        r[3] += a3 * (co[v[0]] + co[v[1]] + co[v[2]]) / 3.0
+    rows = []
+    for c, (a3, au, n, cs) in acc.items():
+        if a3 <= 0.0:
+            continue
+        rows.append({"area_m2": a3, "px_per_m": math.sqrt(au * A * A / a3), "tris": n,
+                     "centre_m": tuple(float(x) for x in cs / a3)})
+    rows.sort(key=lambda r: r["px_per_m"])
+    return rows
+
+
+def _report_part_density(obj, A, rep, kind, label):
+    """The per-part density gate (props only); returns the rows (for the summary)."""
+    rows = part_density(obj.data, A)
+    if not rows:
+        return rows
+    big = [r for r in rows if r["area_m2"] >= DENSITY_PART_MIN_M2]
+    small = [r for r in rows if r["area_m2"] < DENSITY_PART_MIN_M2]
+    if big:
+        d = sorted(r["px_per_m"] for r in big)
+        rep.info("texel-density", f"{label}: {len(big)} part(s) >= {DENSITY_PART_MIN_M2} m2 at "
+                                  f"px/m min {d[0]:.0f} / median {d[len(d) // 2]:.0f} / max {d[-1]:.0f}; "
+                                  f"{len(small)} smaller part(s) max "
+                                  f"{max((r['px_per_m'] for r in small), default=0):.0f} px/m (@ {A})")
+    floors = DENSITY_FLOOR_PX_M.get(kind)
+    if not floors or not big:
+        return rows
+
+    def fmt(rs):
+        return ", ".join(f"{r['px_per_m']:.0f} px/m ({r['area_m2']:.2f} m2 at "
+                         f"({r['centre_m'][0]:.2f}, {r['centre_m'][1]:.2f}, {r['centre_m'][2]:.2f}) m)"
+                         for r in rs[:5]) + (f" (+{len(rs) - 5} more)" if len(rs) > 5 else "")
+
+    err_below, warn_below = floors
+    bad = [r for r in big if r["px_per_m"] < err_below]
+    low = [r for r in big if err_below <= r["px_per_m"] < warn_below]
+    if bad:
+        rep.error("texel-density", f"{label}: {len(bad)} part(s) >= {DENSITY_PART_MIN_M2} m2 below "
+                                   f"{err_below:.0f} px/m (per-part floor, not the asset average): "
+                                   f"{fmt(bad)}")
+    if low:
+        rep.warn("texel-density", f"{label}: {len(low)} part(s) >= {DENSITY_PART_MIN_M2} m2 below "
+                                  f"{warn_below:.0f} px/m: {fmt(low)}")
+    return rows
 
 
 def _report_ground_ring(obj, rep, table=None, matrix=None):
@@ -1047,6 +1145,11 @@ def validate_asset_folder_ex(asset_dir, name, spec=None):
             except (OSError, ValueError):
                 pass
             if src is not None and len(src["obj"].data.uv_layers) == 1:
+                if lvl == 0 and kind == "prop":
+                    drows = _report_part_density(src["obj"], A_hint, rep, kind,
+                                                 lod_fbx.get(lvl, prefix))
+                    big = [r["px_per_m"] for r in drows if r["area_m2"] >= DENSITY_PART_MIN_M2]
+                    summary["density_min"] = round(min(big), 1) if big else None
                 cov = uv_coverage(src["obj"].data, min(A_hint, 1024))
                 covered = int(np.count_nonzero(cov))
                 over = int(np.count_nonzero(cov > 1))
@@ -1175,7 +1278,7 @@ def main(argv=None):
         name = os.path.basename(os.path.normpath(d))
         kind = guess_kind(name) if args.kind == "auto" else args.kind
         row = {"name": name, "dir": d, "kind": kind, "errors": 0, "warnings": 0,
-               "tris": "-", "tex": "-", "engine_base": "-", "first_error": ""}
+               "tris": "-", "tex": "-", "engine_base": "-", "density_min": "-", "first_error": ""}
         try:
             findings, summary = validate_asset_folder_ex(d, name, {"kind": kind})
         except Exception as e:  # noqa: BLE001 - a crash in the validator is an ERROR row
@@ -1189,12 +1292,15 @@ def main(argv=None):
             row["tex"] = "/".join(str(s) for s in sorted(summary["tex"]))
         if summary["engine_base"]:
             row["engine_base"] = summary["engine_base"]
+        if summary.get("density_min") is not None:
+            row["density_min"] = summary["density_min"]
         errs = [f"{c}: {m}" for l, c, m in findings if l == "ERROR"]
         row["first_error"] = errs[0][:120] if errs else ""
         results.append(row)
         any_error = any_error or row["errors"] > 0
         print(f"[assets-check] {name} kind={kind} errors={row['errors']} warnings={row['warnings']} "
-              f"tris={row['tris'] or '-'} tex={row['tex']} base={row['engine_base']}"
+              f"tris={row['tris'] or '-'} tex={row['tex']} base={row['engine_base']} "
+              f"minpxm={row['density_min']}"
               + (f" first={row['first_error']}" if row['first_error'] else ""))
     if args.json:
         with open(args.json, "w", encoding="utf-8") as fh:

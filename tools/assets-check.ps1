@@ -6,7 +6,8 @@
 #
 # An asset folder is a direct child of -Root that holds settings.json or <folder>.fbx.
 # One Blender process validates all of them (FBX round-trip, texture rules, LOD budgets,
-# sub-mesh transforms, engine-base ring on buildings) and writes a JSON result the table
+# sub-mesh transforms, engine-base ring on buildings, per-part texel density on props:
+# MinPxM = the lowest px/m of any part >= 0.05 m2) and writes a JSON result the table
 # below is built from. The full Blender log is kept next to the JSON in %TEMP%.
 # Exit code: 1 when any folder reports an ERROR (or Blender fails), else 0.
 # Companion of preflight.ps1 (prefabs) and validate_prefab.ps1 (single prefab).
@@ -79,6 +80,7 @@ $table = foreach ($r in @($rows)) {
         Tris   = $r.tris
         Tex    = $r.tex
         Base   = $r.engine_base
+        MinPxM = $r.density_min
         First  = $r.first_error
     }
 }

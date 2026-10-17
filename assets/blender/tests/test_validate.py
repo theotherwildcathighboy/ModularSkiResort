@@ -7,6 +7,8 @@ test_validate.py - exercises cs2_validate against a tiny generated asset folder.
    settings.json with LOD1 Skip, a manifest) validates with zero ERRORs.
 2. Four corruptions are each caught with the expected code: underscore in the name,
    a BaseColor alpha 0.3 patch, MaskMap B non-zero, LOD1 FBX declared but missing.
+   Per-part texel density (props): LOD0 UVs shrunk to 1/10 -> texel-density ERROR,
+   not on kind building.
 3. validate_mesh(kind="building"): a closed box on z=0 reports engine base BLOCKED,
    an open-bottom box reports OK (ground_ring_report verdicts likewise).
 Prints one PASS line and exits 0; any failure prints FAIL and exits 1.
@@ -179,6 +181,28 @@ def run():
         os.remove(os.path.join(root, f"{NAME}_Foo.fbx"))
         cs2_asset.make_texture_set(root, NAME, size=128, control_rgb=(1.0, 0.0, 0.0))
         print("[test] stray PNG / unknown FBX / ControlMask alpha caught")
+
+        # -- 2f. per-part texel density (2026-10-17, snow props B: shells at 12-22 px/m) ----
+        info = [m for l, c, m in findings if c == "texel-density"]
+        check(info, "no texel-density finding on a prop folder")
+        uvl = lod0.data.uv_layers.active
+        saved = [tuple(d.uv) for d in uvl.data]
+        for d in uvl.data:
+            d.uv = (d.uv[0] * 0.1, d.uv[1] * 0.1)          # 1/10 of the UV area per axis
+        cs2_asset.export_fbx(lod0, os.path.join(root, f"{NAME}.fbx"))
+        try:
+            cs2_validate.validate_asset_folder(root, NAME, {"kind": "prop"})
+            check(False, "a 4 m2 part at ~4 px/m did not raise")
+        except cs2_validate.AssetValidationError as e:
+            check("texel-density" in codes(e.findings), f"density: codes {codes(e.findings)}")
+        f_bld = cs2_validate.validate_asset_folder_ex(root, NAME, {"kind": "building"})[0]
+        check("texel-density" not in codes(f_bld), "density gate fired on a building (props only)")
+        for d, uv in zip(uvl.data, saved):
+            d.uv = uv
+        cs2_asset.export_fbx(lod0, os.path.join(root, f"{NAME}.fbx"))
+        findings = cs2_validate.validate_asset_folder(root, NAME, {"kind": "prop"})
+        check(not codes(findings), "restored UVs still error")
+        print("[test] per-part texel density floor caught")
 
         # -- 3. engine-base rule -------------------------------------------------------
         clear_scene()

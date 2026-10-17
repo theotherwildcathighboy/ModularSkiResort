@@ -329,6 +329,7 @@ def build_fields(me, A, matrix=None, uv_layer="UVUnique", atlas_layer="UVAtlas")
     F.table = table
     F.part = np.array(table, dtype=object)[F.part_id] if table else np.array(["?"] * len(F.fid))
     F.npoly = npoly
+    F.pid_poly = pid
     F.farea = farea
     # per-part geometry: bbox, centroid, principal axis, elongation
     parts = {}
