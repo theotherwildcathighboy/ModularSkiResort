@@ -239,6 +239,17 @@ namespace SkiResortMod.Systems
         // note in Tuning ("raise only with a melt-rate measurement") is answered by the measured 1.9 m pack that the game
         // melted in five wall minutes (analysis-sim-and-hub.md 92-94): melt is not the limit, the open bar is.
         public const float GunTargetDepthM = 0.35f;
+        // T46 (2026-10-17, Richard: "if there's lots of snow (like mid season) no reason to run the guns" / "snow piles up
+        // fast, maybe raise that limit just for the snow guns"; docs/research/snow-gun-plume-2026-10-17.md §8): the guns of
+        // a snowmaking or night run build the pack to GunStopDepthM and then STOP (the injection's gun ramp ceiling since
+        // T46); they start again only when the run's pack falls below GunStopDepthM - GunRestartBandM, and never run on a
+        // pack that is already that deep (natural snow included). GunTargetDepthM stays the base the guns GUARANTEE within a
+        // night (the S26 oracles: the ramp passes 0.35 m at the same time it did before). The predicate is
+        // SnowGunPlumeRules.NextGunState; the band is the 0.05 m the PackedSkipMinRunDepthM derivation below gives one
+        // forced interval of the worst measured melt (field test 10: 0.046 m per 1,264 frames), so the guns cannot cycle
+        // faster than one forced interval even under that melt.
+        public const float GunStopDepthM = 0.60f;
+        public const float GunRestartBandM = 0.05f;
         public const float GroomedTargetDepthM = 0.25f;
         public const float RampPerTopupM = 0.004f;     // metres per top-up window at rate 1 and gun output 1
         public const float RampRateMin = 0.25f;        // per-texel noise rate range: Min .. Min + Span

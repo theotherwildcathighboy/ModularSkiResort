@@ -53,6 +53,7 @@ $KnownVanilla = @{
     "8ba97fa363a0af1479f01031029da963" = "LargeSportsParks UI category"
     "5c1f656a5ea20284197a71e4997b4187" = "Parks&Rec service"
     "a1b9ab64e2f648a4da17231062c1e066" = "shared RenderedArea material"
+    "0f7db8761506813468a9bb7b91f145be" = "WaterVaporFactorySmall VisualEffectAsset (UnityObjectsMap; T46 2026-10-17: SkiSnowGunPlume's VFX graph; read from the installed 1.6.2 resources.assets UnityObjectsMap, the a1b9ab64 material resolving in the same table as the check; dump-verified: vanilla WaterVaporFactorySmallVFX carries a VFX component with a redacted UnityObjectsMap ref)"
     "a534d6be94fb0cb4eb683f62412d0b1a" = "Electricity service (vanilla HV Line ServiceObject)"
     "c92b9810143a9ba4ca5e004fc709d92f" = "vanilla HV Line unlock milestone 1"
     "9af2c85bf8f3400438a82523ed61b8a4" = "vanilla HV Line unlock milestone 2"
@@ -466,6 +467,11 @@ foreach ($p in $ownedPrefabs) {
     if (($rootName -match '^Ski(SnowGun|PisteFloodlight|HydrantBox|Beacon)') -and ($text -match '"\$type":\s*"0\|Game\.Prefabs\.StaticObjectPrefab, Game"')) {
         $forbidden = [regex]::Matches($text, 'Game\.Prefabs\.(UtilityObject|PillarObject|ObjectSubLanes|ObjectSubNets|PlaceableObject|UIObject|Unlockable|ServiceObject|CityServiceBuilding|ServiceUpkeepItem|Workplace|ServiceConsumption|Attraction|LeisureProvider|ServiceCoverage|BuildingTerraformOverride|StreetLightObject|WeatherObject|PlaceholderObject)\b') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
         if ($forbidden) { $rows.Add("FAIL  PROP       ${rel}: scenery prop carries $($forbidden -join ', ') (prop-integration-plan.md section 4; PIPELINE section 6)"); $failures++ }
+        # T46 (2026-10-17, snow-gun-plume-2026-10-17.md section 3): a prop VFX is gated by OUR EffectPrefab (Disaster + a lease),
+        # never by a vanilla Operational-gated VFX: on a prop that one is always on, and the only per-instance switch for
+        # Operational (Game.Buildings.Extension) is a Burst crash class on props (BuildingLotRenderSystem).
+        $opVfx = [regex]::Matches($text, 'UnityGUID:(9c2a3524858d71648877eb2e25375199|1c3a42b06b7d07a478704b8ad0ad7a4e|99d95c6abfdb5114180ed7f75837c364|30b9f1f56fc96274bb7c0c76ca80df30|cd4b962b7ecd94a4a860b6686b251ba2|02a8e7da8dbccc04fb2dc98d62260cc2)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+        if ($opVfx) { $rows.Add("FAIL  PROP       ${rel}: scenery prop references a vanilla Operational-gated VFX ($($opVfx -join ', ')): always on, use SkiSnowGunPlume (PIPELINE section 6 Plumes)"); $failures++ }
     }
     if ($text -match 'Game\.Prefabs\.ServiceUpgrade, Game') {
         foreach ($g in $spawnGuids) {

@@ -226,6 +226,16 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<SkiNightLightSystem, Game.Effects.EffectFlagSystem>(
                 SystemUpdatePhase.GameSimulation);
 
+            // Snow-gun plumes (T46, docs/research/snow-gun-plume-2026-10-17.md). Sets each gun's plume lease
+            // (EarlyDisasterWarningDuration, read by the Disaster condition of our SkiSnowGunPlume EffectPrefab) from the
+            // injection's per-run "guns running" flag and the gun's own elevation, and stamps EffectsUpdated on a flip.
+            // Phase is load-bearing: GameSimulation (LateUpdate) lets the tag live into the NEXT frame's PreCulling, where
+            // EffectControlSystem consumes it, before Cleanup strips it (the SkiNightLightSystem precedent); pause freezes
+            // the plumes with the snow. The anchor after the injection is NOT load-bearing (it reads flags the injection
+            // published, at most one 64-frame window old; intervals differ, so no offset is inherited). Game mode only.
+            updateSystem.UpdateAfter<SkiSnowGunPlumeSystem, SkiSnowInjectionSystem>(
+                SystemUpdatePhase.GameSimulation);
+
             // Prop snow sync (DECISIONS 79 / research/surface-snow-sync.md). SurfacePrefab
             // adds Game.Areas.Surface — an EMPTY TAG — not the Game.Objects.Surface weather
             // struct the renderer's owner-walk looks for, so props parented to our runs

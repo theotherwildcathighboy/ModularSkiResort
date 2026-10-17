@@ -6,7 +6,7 @@
     "components": {
         "$id": 1,
         "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
-        "$rlength": 3,
+        "$rlength": 4,
         "$rcontent": [
             {
                 "$id": 2,
@@ -50,17 +50,67 @@
                     "y": 0
                 },
                 "m_CircularLeg": false
+            },
+            {
+                "$id": 6,
+                "$type": "8|Game.Prefabs.EffectSource, Game",
+                "name": "EffectSource",
+                "active": true,
+                "m_Effects": {
+                    "$id": 7,
+                    "$type": "9|System.Collections.Generic.List`1[[Game.Prefabs.EffectSource+EffectSettings, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 8,
+                            "$type": "10|Game.Prefabs.EffectSource+EffectSettings, Game",
+                            "m_Effect": $fstrref:"CID:a0afa86df55b43b1b0641622fe60db0c",
+                            "m_PositionOffset": {
+                                "$type": 6,
+                                "x": 0,
+                                "y": 10.1,
+                                "z": 5.43
+                            },
+                            "m_Rotation": {
+                                "$type": "11|Unity.Mathematics.quaternion, Unity.Mathematics",
+                                "value": {
+                                    "$type": "12|Unity.Mathematics.float4, Unity.Mathematics",
+                                    "x": 0,
+                                    "y": 0,
+                                    "z": 0,
+                                    "w": 1
+                                }
+                            },
+                            "m_Scale": {
+                                "$type": 6,
+                                "x": 0.35,
+                                "y": 0.35,
+                                "z": 0.35
+                            },
+                            "m_Intensity": 1,
+                            "m_ParentMesh": 0,
+                            "m_AnimationIndex": -1
+                        }
+                    ]
+                },
+                "m_AnimationCurves": {
+                    "$id": 9,
+                    "$type": "13|System.Collections.Generic.List`1[[Game.Prefabs.EffectSource+AnimationProperties, Game]], mscorlib",
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                }
             }
         ]
     },
     "m_Meshes": {
-        "$id": 6,
-        "$type": "8|Game.Prefabs.ObjectMeshInfo[], Game",
+        "$id": 10,
+        "$type": "14|Game.Prefabs.ObjectMeshInfo[], Game",
         "$rlength": 1,
         "$rcontent": [
             {
-                "$id": 7,
-                "$type": "9|Game.Prefabs.ObjectMeshInfo, Game",
+                "$id": 11,
+                "$type": "15|Game.Prefabs.ObjectMeshInfo, Game",
                 "m_Mesh": $fstrref:"CID:03047ac95827cc17d99be547fc957501",
                 "m_Position": {
                     "$type": 6,
@@ -69,9 +119,9 @@
                     "z": 0
                 },
                 "m_Rotation": {
-                    "$type": "10|Unity.Mathematics.quaternion, Unity.Mathematics",
+                    "$type": 11,
                     "value": {
-                        "$type": "11|Unity.Mathematics.float4, Unity.Mathematics",
+                        "$type": 12,
                         "x": 0,
                         "y": 0,
                         "z": 0,

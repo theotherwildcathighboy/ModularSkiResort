@@ -102,6 +102,12 @@
   <ItemGroup>
     <Compile Include="CatTrackTests.cs" />
   </ItemGroup>
+  <!-- T46 (2026-10-17, docs/research/field/2026-10-15/build/T46-snow-gun-plume.md): the guns-running predicate shared by the
+       snow injection and the plume system (GP-1 to GP-6). -->
+  <ItemGroup>
+    <Compile Include="SnowGunPlumeTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SnowGunPlumeRules.cs" Link="SnowGunPlumeRules.cs" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />
   </ItemGroup>

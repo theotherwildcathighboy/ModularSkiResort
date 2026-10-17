@@ -369,6 +369,17 @@ namespace SkiResortMod.Settings
                     "already built change when you move the slider in a city; saved runs keep their look until " +
                     "edited. Default 100 %."
                 },
+                // T46 (2026-10-17): look only; the guns' start / stop rule is not a setting.
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SnowGunPlumes)),
+                    "Snow-gun plumes"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowGunPlumes)),
+                    "Snow guns on snowmaking and night runs show a vapour plume while they make snow: cold enough at " +
+                    "the gun and the run's snow below the depth where the guns stop. Look only: snow and upkeep do not " +
+                    "change. Default on."
+                },
 
                 // --- Lifts (Round L1, docs/research/hub-u2-spec.md §2.4; texts are the spec's) -------
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupLifts), "Lifts" },

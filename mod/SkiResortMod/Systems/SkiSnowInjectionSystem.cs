@@ -163,6 +163,20 @@
 //     D16c: the top-up line counts night runs below the line and names the pack guard with the map mean the merge
 //     READ (captured where the guard is read: by log time the field holds this pass's mean, check G3).
 //   * No save field, no hub contract change, no vanilla write added or removed, no Harmony, no reflection.
+//
+// T46 (2026-10-17; docs/research/snow-gun-plume-2026-10-17.md, build note field/2026-10-15/build/T46-snow-gun-plume.md):
+//   * GUNS STOP AND RESTART. A snowmaking or night run's cold texels are raised only while its guns RUN
+//     (SnowGunPlumeRules.NextGunState: stop when the run's pack reaches RunSnowRules.GunStopDepthM 0.60 m, natural snow that
+//     deep included; restart below 0.55 m). The gun ramp's ceiling is GunStopDepthM (Tuning.SnowmakingTargetDepthM).
+//   * The pack is measured in the fold (FoldRowsJob, Measure only) over the run's cold texels with a target: Σ min(depth,
+//     own target) / Σ own target. The state steps after the reduction (StepGuns) and gates the NEXT pass's fold
+//     (FoldRowsJob.GunGate): a stopped run writes no mask target (no raise, no active texel, so no bill — the upkeep bills
+//     the mask) and marks its cold texels StoppedMark (-1) on the ramp plane instead, which the merge counts as run texels
+//     (the dress depth is unchanged) and the natural measurement excludes; a pass with stopped texels is never idle (the
+//     snapshot the restart reads stays fresh: one readback per window, as a cold pass had before T46).
+//   * TryGetRunGunsRunning (state Running in this pass's fold AND a cold texel) is THE read for SkiSnowGunPlumeSystem.
+//   * Unknown (no measurement yet this load) does not raise: a load in deep winter never flashes the guns on. Groomed runs
+//     have no guns and keep the old routing bit for bit. Warm-spell protection is untouched (warm texels, never "running").
 
 using System;
 using System.Collections.Generic;
@@ -206,7 +220,10 @@ namespace SkiResortMod.Systems
             // timescale. Raise only with a melt-rate measurement in hand.
             // T09 (2026-10-16): 0.12 -> 0.35 and 0.08 -> 0.25 (RunSnowRules.GunTargetDepthM / GroomedTargetDepthM, with the
             // reasons): the open bar is now 0.15 m, so a gun run must be able to build past it by itself.
-            public const float SnowmakingTargetDepthM = RunSnowRules.GunTargetDepthM;
+            // T46 (2026-10-17): the gun ramp's ceiling is now RunSnowRules.GunStopDepthM (0.60 m), where the guns stop
+            // (SnowGunPlumeRules); GunTargetDepthM (0.35 m) stays the base they guarantee within a night. Summer clears it:
+            // managed decay takes 0.60 m off in 150 windows (0.9 game h) once the protection budget is spent.
+            public const float SnowmakingTargetDepthM = RunSnowRules.GunStopDepthM;
             public const float GroomedTargetDepthM = RunSnowRules.GroomedTargetDepthM;
 
             // Edge raggedness (field-calibrated same day: polygon-crisp isolines + visible
@@ -349,6 +366,9 @@ namespace SkiResortMod.Systems
         private const int TexelCount = TexSize * TexSize;
         private const float SnowHeightScaleM = 8f;
         private const float HalfQuantum = 0.5f / 65535f; // R16_UNorm rounding tolerance
+        // T46: the ramp-plane value a stopped gun run writes on its cold texels (FoldRowsJob.GunGate). Negative, so no chill
+        // (0..1) is ever mistaken for it and every running run's chill overwrites it; the merge reads it as "a run texel".
+        private const float StoppedMark = -1f;
         private const string LoadKernelName = "LoadR16G16_UNorm";
 
         // Run surfaces — same tolerant name resolution as the other run-aware systems.
@@ -382,6 +402,7 @@ namespace SkiResortMod.Systems
             public int MaskTexels;
             public int DecayTexels;
             public int ProtectedTexels;   // T09: warm texels held by an Active protection spell (a pass with any is never idle)
+            public int StoppedTexels;     // T46: cold texels of gun runs whose guns are stopped (a pass with any is never idle)
             // Per-type ACTIVE texel split (upkeep round): a texel claimed by two
             // overlapping runs counts once, for whichever run claimed it first —
             // no double-charging by construction.
@@ -480,6 +501,10 @@ namespace SkiResortMod.Systems
             public int Cold;              // contained texels with localT <= ThermalThresholdC (injected runs)
             public ulong FootprintHash;   // wrapping Σ RunSnowRules.Mix64((ulong)idx) over contained texels
             public float FootprintW, WhiteW, DepthW, ExcludedW;
+            // T46 (SnowGunPlumeRules header): the pack measure over this run's cold texels with a target (Measure only), in
+            // normalized units — Σ own target and Σ min(depth, own target) — and the cold texels a stopped gun run held off.
+            public float GunTargetW, GunPackW;
+            public int Stopped;
         }
 
         private struct MergeRowPartial
@@ -596,6 +621,10 @@ namespace SkiResortMod.Systems
             public bool Spring;
             public float HoursUsed;     // game hours of the run's current protection spell
             public float NorthSign;     // 1, or -1 for a southern latitude
+            // T46 (SnowGunPlumeRules): true = this gun run's guns do not raise this pass (state Stopped or Unknown). Its cold
+            // texels then write NO mask target (no raise, no bill) and mark the ramp plane with StoppedMark instead, so the
+            // merge still counts them as run texels (the dress depth) and the natural measurement still excludes them.
+            public bool GunGate;
 
             public void Execute(int r)
             {
@@ -619,6 +648,12 @@ namespace SkiResortMod.Systems
                         partial.DepthW += w * dn;
                         if (RunSnowRules.IsSkiable(dn, ownValue, BarNorm))
                             partial.WhiteW += w;
+                        // T46: the pack measure over the texels the guns would raise (cold, with a target).
+                        if (cold && ownValue > 0f)
+                        {
+                            partial.GunTargetW += w * ownValue;
+                            partial.GunPackW += w * SnowGunPlumeRules.PackTerm(dn, ownValue);
+                        }
                     }
                 }
                 Partials[r] = partial;
@@ -700,6 +735,15 @@ namespace SkiResortMod.Systems
                     float value = EdgeValue(blurred, sumFine, tx, ty);
                     if (value <= 0f)
                         return 0f;
+                    // T46: guns stopped (pack at the stop depth, or not measured yet): no mask target, no raise, no bill.
+                    // The stopped mark only on a texel no other run claimed (a running run's chill, >= 0, overwrites it).
+                    if (GunGate)
+                    {
+                        if (Mask[idx] == 0f && RampMask[idx] == 0f)
+                            RampMask[idx] = StoppedMark;
+                        partial.Stopped++;
+                        return value;
+                    }
                     if (value > Mask[idx])
                     {
                         if (Mask[idx] == 0f)
@@ -763,6 +807,7 @@ namespace SkiResortMod.Systems
             [ReadOnly] public NativeArray<float> Mask;
             [ReadOnly] public NativeArray<float> DecayMask;
             [ReadOnly] public NativeArray<float> ProtectMask;   // T09: protected warm texels are managed snow too
+            [ReadOnly] public NativeArray<float> RampMask;      // T46: a stopped gun run's cold texels (StoppedMark) too
             [ReadOnly] public NativeArray<Ushort2> Snapshot;
             public NativeArray<FoldRowPartial> Partials;
             public int RunY0, RunX0, RunX1;
@@ -781,7 +826,7 @@ namespace SkiResortMod.Systems
                         continue;
                     p.Contained++;
                     float w = math.min(coverage, 1f);
-                    if (Mask[idx] > 0f || DecayMask[idx] > 0f || ProtectMask[idx] > 0f)
+                    if (Mask[idx] > 0f || DecayMask[idx] > 0f || ProtectMask[idx] > 0f || RampMask[idx] < 0f)
                     {
                         p.ExcludedW += w;
                         continue;
@@ -843,7 +888,8 @@ namespace SkiResortMod.Systems
                     p.GlobalDepthSum += depth;
                     float target = Mask[i];
                     float hold = ProtectMask[i];
-                    bool onRun = target > 0f || DecayMask[i] > 0f || hold > 0f;
+                    // T46: a stopped gun run's cold texel (RampMask StoppedMark, no target) is still a run texel.
+                    bool onRun = target > 0f || DecayMask[i] > 0f || hold > 0f || RampMask[i] < 0f;
                     if (onRun)
                     {
                         p.RunDepthSum += depth;
@@ -1140,6 +1186,98 @@ namespace SkiResortMod.Systems
 
         /// <summary>U2: ++ only when the per-run active-texel map's content changed.</summary>
         internal int RunTexelGeneration => m_RunTexelGeneration;
+
+        // ── T46 (docs/research/snow-gun-plume-2026-10-17.md; SnowGunPlumeRules): the guns of each gun run ─────────────────
+        // m_GunState: the hysteresis state per bound, scheduled snowmaking / night run, stepped after every mask pass from
+        // the pack that pass measured (SnowGunPlumeRules.NextGunState) and used by the NEXT pass's fold (FoldRowsJob.GunGate).
+        // m_GunRunning: "the guns of this run ran this pass" (the state the fold used AND a cold texel), THE read for the
+        // plume system. Two dictionaries each, swapped (runs that left the schedule drop out); cleared at a load and when the
+        // injection disables. Main thread.
+        private Dictionary<Entity, SnowGunPlumeRules.GunState> m_GunState = new Dictionary<Entity, SnowGunPlumeRules.GunState>();
+        private Dictionary<Entity, SnowGunPlumeRules.GunState> m_GunStateNext = new Dictionary<Entity, SnowGunPlumeRules.GunState>();
+        private Dictionary<Entity, bool> m_GunRunning = new Dictionary<Entity, bool>();
+        private Dictionary<Entity, bool> m_GunRunningNext = new Dictionary<Entity, bool>();
+        private readonly Dictionary<Entity, float> m_GunPackM = new Dictionary<Entity, float>();   // last measured pack (logs, dump)
+        private int m_GunGeneration;
+
+        /// <summary>T46: ++ whenever any run's guns-running flag changes or a run enters or leaves the map.</summary>
+        internal int GunGeneration => m_GunGeneration;
+
+        /// <summary>T46: whether the guns of <paramref name="run"/> ran in the last mask pass (SnowGunPlumeRules.GunsRunning).
+        /// False when the run was not scheduled (unbound, off the map, not a gun run, injection idle or disabled).</summary>
+        internal bool TryGetRunGunsRunning(Entity run, out bool running)
+        {
+            return m_GunRunning.TryGetValue(run, out running);
+        }
+
+        /// <summary>T46: the run's hysteresis state and last measured pack (m; NaN before the first measurement).</summary>
+        internal bool TryGetRunGunState(Entity run, out SnowGunPlumeRules.GunState state, out float packM)
+        {
+            if (!m_GunPackM.TryGetValue(run, out packM))
+                packM = float.NaN;
+            return m_GunState.TryGetValue(run, out state);
+        }
+
+        /// <summary>T46: one gun run after the reduction — record the flag the fold used this pass, step the state from the
+        /// pack this pass measured (NaN: kept), and write one line per start / stop (the hysteresis bounds how often).</summary>
+        private void StepGuns(PendingRun run, int cold, float packM)
+        {
+            SnowGunPlumeRules.GunState before = run.GunState;
+            SnowGunPlumeRules.GunState next = SnowGunPlumeRules.NextGunState(before, packM);
+            m_GunStateNext[run.Run] = next;
+            m_GunRunningNext[run.Run] = SnowGunPlumeRules.GunsRunning(before, cold);
+            if (!float.IsNaN(packM))
+                m_GunPackM[run.Run] = packM;
+            if (next == before)
+                return;
+            string why = next == SnowGunPlumeRules.GunState.Running
+                ? $"pack {packM:F2} m < {SnowGunPlumeRules.RestartBelowM:F2} m (stop {RunSnowRules.GunStopDepthM:F2} m - band " +
+                  $"{RunSnowRules.GunRestartBandM:F2} m)"
+                : $"pack {packM:F2} m" + (packM >= SnowGunPlumeRules.StopAtM
+                    ? $" at the stop depth {RunSnowRules.GunStopDepthM:F2} m (built, or natural snow that deep)"
+                    : $" inside the band (first measurement of the load): waiting for < {SnowGunPlumeRules.RestartBelowM:F2} m");
+            Mod.Log.Info($"Snow [guns] run {run.Run.Index}:{run.Run.Version} ({run.PublicKind}) " +
+                         $"{(next == SnowGunPlumeRules.GunState.Running ? "START" : "STOP")} from {before}: {why}; " +
+                         $"{cold} cold texel(s) now (the guns raise, bill and plume only while running and cold)");
+        }
+
+        /// <summary>T46: swap the stepped maps in; ++GunGeneration when the running flags changed.</summary>
+        private void PublishGuns()
+        {
+            bool changed = m_GunRunningNext.Count != m_GunRunning.Count;
+            if (!changed)
+            {
+                foreach (var pair in m_GunRunningNext)
+                {
+                    if (!m_GunRunning.TryGetValue(pair.Key, out bool old) || old != pair.Value)
+                    {
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            var swapState = m_GunState;
+            m_GunState = m_GunStateNext;
+            m_GunStateNext = swapState;
+            var swapRun = m_GunRunning;
+            m_GunRunning = m_GunRunningNext;
+            m_GunRunningNext = swapRun;
+            if (changed)
+                m_GunGeneration++;
+        }
+
+        /// <summary>T46: forget every run's guns (a load, or the injection disabling: no run then reads running).</summary>
+        private void ClearGuns()
+        {
+            bool had = m_GunRunning.Count > 0;
+            m_GunState.Clear();
+            m_GunStateNext.Clear();
+            m_GunRunning.Clear();
+            m_GunRunningNext.Clear();
+            m_GunPackM.Clear();
+            if (had)
+                m_GunGeneration++;
+        }
 
         /// <summary>U2: the active (thermally on) mask texels <paramref name="run"/> claimed first in
         /// the last mask pass. False when the run was not scheduled (unbound, off the playable area,
@@ -1500,6 +1638,7 @@ namespace SkiResortMod.Systems
             m_TopupLog.Reset();           // F6 D3: flushed in OnGamePreload; nothing carries over
             m_RunTexels.Clear();          // U2: the previous city's runs are gone
             m_RunTexelsNext.Clear();
+            ClearGuns();                  // T46: likewise their guns (Unknown again: no raise or plume before a measurement)
             m_RunTexelGeneration++;
 
             // E1 ch3 §7.6: every per-load field of §4.2, §5, §6, §7. A measure-only request that is somehow
@@ -1646,7 +1785,11 @@ namespace SkiResortMod.Systems
                              $"x{RunSnowRules.ProtectNorthFactor:F1} north faces, x{RunSnowRules.ProtectSouthFactor:F1} south faces), none above " +
                              $"{RunSnowRules.ProtectMaxLocalC:F0} C at the run, +{RunSnowRules.ProtectRaisePerTopupM:F3} m/top-up toward the " +
                              $"pre-spell depth, budget refills after {RunSnowRules.ProtectRearmColdHours:F0} game h of cold; natural runs none; " +
-                             "snow made / held ledger per run (Snow [made] once per game day, catalog DUMP row; not saved)");
+                             "snow made / held ledger per run (Snow [made] once per game day, catalog DUMP row; not saved); " +
+                             // T46 (2026-10-17): the guns stop and restart (SnowGunPlumeRules).
+                             $"T46: the guns of a snowmaking or night run build to {RunSnowRules.GunStopDepthM:F2} m and STOP there " +
+                             $"(natural snow that deep included), restart below {SnowGunPlumeRules.RestartBelowM:F2} m; only " +
+                             "running guns raise, bill and plume; a run's guns wait for the first measurement of the load");
             }
             catch (Exception e)
             {
@@ -1820,7 +1963,9 @@ namespace SkiResortMod.Systems
             // were off — which is EXACTLY when managed decay must run. Idle only when there
             // is neither anything to inject NOR anything to decay; a gates-off pass with
             // decay coverage proceeds to the merge (0 raised, N lowered).
-            if (stats.MaskTexels == 0 && stats.DecayTexels == 0 && stats.ProtectedTexels == 0)
+            // T46: a stopped gun run's cold texels keep the pass real (a readback every window, as before T46 when they
+            // were mask texels): the guns restart from the pack this snapshot measures, so it must stay fresh.
+            if (stats.MaskTexels == 0 && stats.DecayTexels == 0 && stats.ProtectedTexels == 0 && stats.StoppedTexels == 0)
             {
                 EndSkipIfOpen(stats, now);
                 MaybeRequestMeasure(frame, "no managed texel to top up", stats.NaturalScheduled, now);   // E1 §7.1 step 8
@@ -2937,6 +3082,7 @@ namespace SkiResortMod.Systems
                 m_RunSnowNext.Clear();
                 m_RunSnowInputs.Clear();
                 m_OpenChanges.Clear();
+                ClearGuns();                 // T46: a disabled injection runs no guns, so no plume reads running
                 m_RunSnowGeneration++;
                 m_NaturalDressValid = false;
                 m_TableAllMeasured = false;
@@ -3157,6 +3303,8 @@ namespace SkiResortMod.Systems
             public ushort Slot;             // T09: 1..N in schedule order (the Owner plane value; 0 for a natural run)
             public int X0, Y0, X1, Y1;      // T09: the run's texel bounds (the ledger job's box)
             public bool Protecting;         // T09: this pass's fold held warm texels of the run
+            public bool GunRun;             // T46: a snowmaking or night run (its guns follow SnowGunPlumeRules)
+            public SnowGunPlumeRules.GunState GunState;   // T46: the state this pass's fold used
         }
 
         /// <summary>E1 ch3 §4: margin = THE snowmaking margin (D14), snap = the snapshot this pass measures
@@ -3326,12 +3474,18 @@ namespace SkiResortMod.Systems
                             protecting = true;
                             hoursUsed = spell.HoursUsed;
                         }
+                        // T46: a gun run raises its cold texels only while its guns run (SnowGunPlumeRules; Unknown until the
+                        // first measurement of the load = no raise). Groomed runs have no guns and keep the old routing.
+                        bool gunRun = publicKind == RunKind.Snowmaking || publicKind == RunKind.Night;
+                        SnowGunPlumeRules.GunState gunState = SnowGunPlumeRules.GunState.Unknown;
+                        if (gunRun)
+                            m_GunState.TryGetValue(entities[i], out gunState);
                         ScheduleRun(entities[i], triangleAccessor[i], nodeAccessor[i],
                             playOffset, texelSize, targetM / SnowHeightScaleM,
                             thermalThresholdC, heightData, lapseAmbient,
                             lapseBaseHeight, lapseScale, kind, ref chain, pending,
                             ref stats, publicKind, geometry.m_Bounds.min.y, geometry.m_Bounds.max.y,
-                            snapshot, snap.Usable, protecting, hoursUsed);
+                            snapshot, snap.Usable, protecting, hoursUsed, gunRun, gunState);
                     }
                 }
             }
@@ -3363,13 +3517,16 @@ namespace SkiResortMod.Systems
             // E1 ch3 §4.1 / §7.2: plus each run's own measurement (float per row, double per run) and the
             // footprint count, cold count and hash over all bound injected runs.
             m_RunTexelsNext.Clear();
+            m_GunStateNext.Clear();      // T46
+            m_GunRunningNext.Clear();
             for (int p = 0; p < pending.Count; p++)
             {
                 PendingRun run = pending[p];
                 int newTexels = 0, newDecay = 0;
-                int contained = 0, cold = 0, held = 0;
+                int contained = 0, cold = 0, held = 0, stopped = 0;
                 ulong footprintHash = 0;
                 double footprintW = 0.0, whiteW = 0.0, depthW = 0.0;
+                double gunTargetW = 0.0, gunPackW = 0.0;
                 for (int r = 0; r < run.Partials.Length; r++)
                 {
                     FoldRowPartial part = run.Partials[r];
@@ -3378,11 +3535,17 @@ namespace SkiResortMod.Systems
                     contained += part.Contained;
                     cold += part.Cold;
                     held += part.Protected;
+                    stopped += part.Stopped;
                     footprintHash = unchecked(footprintHash + part.FootprintHash);
                     footprintW += part.FootprintW;
                     whiteW += part.WhiteW;
                     depthW += part.DepthW;
+                    gunTargetW += part.GunTargetW;
+                    gunPackW += part.GunPackW;
                 }
+                stats.StoppedTexels += stopped;
+                if (run.GunRun)
+                    StepGuns(run, cold, snap.Usable ? SnowGunPlumeRules.PackDepthM(gunTargetW, gunPackW) : float.NaN);
                 stats.ContainedTexels += contained;
                 stats.ColdTexels += cold;
                 stats.FootprintHash = unchecked(stats.FootprintHash + footprintHash);
@@ -3438,6 +3601,7 @@ namespace SkiResortMod.Systems
                 run.Tris.Dispose();
             }
             PublishRunTexels();
+            PublishGuns();   // T46
 
             // E1 ch3 §4.5: natural runs, AFTER the injected chain is complete (Mask and DecayMask now hold
             // this pass's whole managed footprint, which the natural measurement excludes).
@@ -3533,6 +3697,7 @@ namespace SkiResortMod.Systems
                         Mask = m_Mask,
                         DecayMask = m_DecayMask,
                         ProtectMask = m_ProtectMask,
+                        RampMask = m_RampMask,   // T46: stopped gun texels are managed too
                         Snapshot = snapshot,
                         Partials = partials,
                         RunY0 = runY0,
@@ -3664,7 +3829,8 @@ namespace SkiResortMod.Systems
             TerrainHeightData heightData, float lapseAmbient, float lapseBaseHeight,
             float lapseScale, int kind, ref JobHandle chain, List<PendingRun> pending,
             ref MaskStats stats, RunKind publicKind, float bottomY, float topY,
-            NativeArray<Ushort2> snapshot, bool measure, bool protecting, float hoursUsed)
+            NativeArray<Ushort2> snapshot, bool measure, bool protecting, float hoursUsed,
+            bool gunRun, SnowGunPlumeRules.GunState gunState)
         {
             NativeList<TriData> tris = PreClip(triangles, nodes, playOffset, texelSize, ref stats.Triangles,
                 out int runX0, out int runY0, out int runX1, out int runY1);
@@ -3694,6 +3860,8 @@ namespace SkiResortMod.Systems
                 Slot = slot,
                 X0 = runX0, Y0 = runY0, X1 = runX1, Y1 = runY1,
                 Protecting = protecting,
+                GunRun = gunRun,
+                GunState = gunState,
             });
 
             chain = new RasterizeRowsJob
@@ -3733,6 +3901,7 @@ namespace SkiResortMod.Systems
                 Spring = m_PassSpring,
                 HoursUsed = hoursUsed,
                 NorthSign = m_PassNorthSign,
+                GunGate = gunRun && !SnowGunPlumeRules.RaisesThisPass(gunState),   // T46
             }.ScheduleParallel(rowCount, RowBatch, chain);
 
             chain = new ClearScratchRowsJob

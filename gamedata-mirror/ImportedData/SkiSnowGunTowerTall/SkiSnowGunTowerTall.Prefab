@@ -59,7 +59,7 @@
                 "m_Effects": {
                     "$id": 7,
                     "$type": "9|System.Collections.Generic.List`1[[Game.Prefabs.EffectSource+EffectSettings, Game]], mscorlib",
-                    "$rlength": 1,
+                    "$rlength": 2,
                     "$rcontent": [
                         {
                             "$id": 8,
@@ -90,11 +90,41 @@
                             "m_Intensity": 1,
                             "m_ParentMesh": 0,
                             "m_AnimationIndex": -1
+                        },
+                        {
+                            "$id": 9,
+                            "$type": 10,
+                            "m_Effect": $fstrref:"CID:a0afa86df55b43b1b0641622fe60db0c",
+                            "m_PositionOffset": {
+                                "$type": 6,
+                                "x": -0.3,
+                                "y": 8.75,
+                                "z": 0.9
+                            },
+                            "m_Rotation": {
+                                "$type": 11,
+                                "value": {
+                                    "$type": 12,
+                                    "x": 0,
+                                    "y": 0,
+                                    "z": 0,
+                                    "w": 1
+                                }
+                            },
+                            "m_Scale": {
+                                "$type": 6,
+                                "x": 0.6,
+                                "y": 0.6,
+                                "z": 0.6
+                            },
+                            "m_Intensity": 1,
+                            "m_ParentMesh": 0,
+                            "m_AnimationIndex": -1
                         }
                     ]
                 },
                 "m_AnimationCurves": {
-                    "$id": 9,
+                    "$id": 10,
                     "$type": "13|System.Collections.Generic.List`1[[Game.Prefabs.EffectSource+AnimationProperties, Game]], mscorlib",
                     "$rlength": 0,
                     "$rcontent": [
@@ -104,12 +134,12 @@
         ]
     },
     "m_Meshes": {
-        "$id": 10,
+        "$id": 11,
         "$type": "14|Game.Prefabs.ObjectMeshInfo[], Game",
         "$rlength": 1,
         "$rcontent": [
             {
-                "$id": 11,
+                "$id": 12,
                 "$type": "15|Game.Prefabs.ObjectMeshInfo, Game",
                 "m_Mesh": $fstrref:"CID:ff682812f9503ac3751ab2adb584f288",
                 "m_Position": {

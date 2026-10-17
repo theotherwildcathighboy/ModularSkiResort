@@ -2013,6 +2013,14 @@ namespace SkiResortMod.Systems
             if (snow.TryGetRunProtection(row.Entity, out RunSnowRules.ProtectRun spell) &&
                 spell.State != RunSnowRules.ProtectState.Idle)
                 text += ", protection " + spell.State + " (" + spell.HoursUsed.ToString("F1", ci) + " game h used)";
+            // T46: the guns (SnowGunPlumeRules): state, last measured pack, and whether they ran in the last pass (= plume).
+            if (snow.TryGetRunGunState(row.Entity, out SnowGunPlumeRules.GunState guns, out float packM))
+            {
+                snow.TryGetRunGunsRunning(row.Entity, out bool running);
+                text += ", guns " + guns + " (pack " + (float.IsNaN(packM) ? "not measured" : packM.ToString("F2", ci) + " m") +
+                        ", stop " + RunSnowRules.GunStopDepthM.ToString("F2", ci) + " m), " +
+                        (running ? "running now (plumes on above the snow line)" : "not running now (no plume)");
+            }
             return text;
         }
 

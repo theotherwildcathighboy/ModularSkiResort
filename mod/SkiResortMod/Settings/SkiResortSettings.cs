@@ -190,6 +190,7 @@ namespace SkiResortMod.Settings
         public const int DefaultAttractivenessScaleK = 4;
         public const int DefaultBackcountryValuePercent = 40;
         public const bool DefaultEnableSnowGating = true;
+        public const bool DefaultSnowGunPlumes = true;       // T46: vapour plumes on running snow guns
         public const bool DefaultBookTicketsAsFees = true;   // DECISIONS 239
         public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;             // 50 % (0 = passes off); DECISIONS 240
         public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;   // 4 lift tickets
@@ -436,6 +437,13 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public int FloodlightDensityPct { get; set; }
 
+        /// <summary>T46 (look only): snow guns show a vapour plume while their run's guns are running
+        /// (SnowGunPlumeRules). Read every pass (64 sim frames) by SkiSnowGunPlumeSystem only; off cuts every plume
+        /// within one pass. Snow, upkeep and the guns' own start / stop never read it. Persisted under this property
+        /// name — never rename.</summary>
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public bool SnowGunPlumes { get; set; }
+
         // --- Lifts (Round L1, hub-u2-spec.md §2.1 / §2.4) ------------------------------------
         // Persisted under this property name — never rename.
 
@@ -504,6 +512,7 @@ namespace SkiResortMod.Settings
             RunOutlineSize = DefaultRunOutlineSize;   // E1 addendum A1 (thickness only since F7 C1)
             SnowGunDensityPct = RunPropDensityRules.PctDefault;      // M2 density (look only)
             FloodlightDensityPct = RunPropDensityRules.PctDefault;   // M2 density (look only)
+            SnowGunPlumes = DefaultSnowGunPlumes;                    // T46 (look only, default on)
             ShowHubButton = true;                 // resort-hub-understand.md §5.1 OD2 (default on)
             OpenHubOnSignSelect = true;           // §5.1 / §5.2 item 2 (default on)
             LiftBuildAids = true;                 // hub-u2-spec.md §2.4 (default on)
