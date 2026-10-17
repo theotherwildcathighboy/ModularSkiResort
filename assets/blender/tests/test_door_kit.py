@@ -8,7 +8,8 @@ Asserts:
   1. one door per family and leaf count (glazing double + 2 sidelights + transom, glazing solid double,
      chalet single + double, utility flush + with a vision panel, utility without a casing): every leaf
      carries a hardware part (door_<tag>_pull / _lever / _knob), DOOR2_HARDWARE lists them, and the main-
-     mesh tri count equals door_tris() for the same arguments;
+     mesh tri count equals door_tris() for the same arguments; every lever reaches the leaf face (its
+     return leg / rose: no floating bar) and has DOOR_LEVER_TRIS tris;
   2. hardware="none:<reason>" builds without hardware and records the reason; "none:", "none", False,
      None and any other value RAISE; a family whose handle kind is not a hardware kind raises;
   3. door_unit outside door_kit() raises; entry() inside door_kit() returns the v2 door (gate applies);
@@ -71,6 +72,7 @@ def build(family, name, kw, hardware="auto"):
     wall = WallRef("+X", 5.0)
     with K.door_kit(family=family, holes="all", mode="full", arrival=(1.0, 0.0)):
         parts = K.door_unit(name, wall, 0.0, kw.pop("w"), kw.pop("h"), 0.15, hardware=hardware, **kw)
+        K.DOOR2_LEAF_TEST = dict(K.DOOR2_LEAF)
         return parts, dict(K.DOOR2_HARDWARE), K.door2_flat(), K.door2_protect()
 
 
@@ -95,7 +97,15 @@ def check_hardware_present():
         assert len(liner.data.polygons) == 3, f"{name}: liner faces {len(liner.data.polygons)}"
         liner.data.update()
         assert all(p.normal.z < 0.5 for p in liner.data.polygons), f"{name}: liner has a stool"
-        ok(f"{family} {name}: {L} leaf/leaves, hardware {hw[name]}, {got_t} tris = door_tris")
+        for hn in hw[name]:                       # levers attach: no floating bar (follow-up 2)
+            if not hn.endswith("_lever"):
+                continue
+            o = next(o for o, _k in parts if o.name == hn)
+            d = [v.co.x - 5.0 for v in o.data.vertices]          # wall +X at x 5: depth = x - 5
+            leaf_d = K.DOOR2_LEAF_TEST[name]
+            assert min(d) - leaf_d <= 0.003, f"{hn}: nearest point {min(d) - leaf_d:.4f} m off the leaf"
+            assert sum(len(p_.vertices) - 2 for p_ in o.data.polygons) == K.DOOR_LEVER_TRIS, hn
+        ok(f"{family} {name}: {L} leaf/leaves, hardware {hw[name]}, {got_t} tris = door_tris, levers on the leaf")
 
 
 def check_opt_out():

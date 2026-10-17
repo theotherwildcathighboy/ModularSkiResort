@@ -1936,6 +1936,9 @@ DOOR_GLASS_LEAN = 0.006      # lean mode / no bead: the glass this far behind th
 DOOR_GLASS_OVER = 0.015      # ... and this much larger than its hole each side (hidden behind the leaf)
 DOOR_PULL = (0.03, 0.90, 0.75, 0.04, 0.025)    # pull bar: width, length, bottom above floor, stand-off, depth
 DOOR_LEVER = (0.13, 0.025, 1.00, 0.045, 0.02)  # lever: length, height, z above floor, stand-off, depth
+DOOR_LEVER_NECK = 0.02       # the lever's return leg back to the leaf (along u), at the latch end
+DOOR_ROSE = (0.05, 0.11, 0.002)              # rose / escutcheon plate: width, height, off the leaf
+DOOR_LEVER_TRIS = 18         # bar 3 faces + free-end cap + latch-end face + leg (top, bottom, inner) + rose
 DOOR_KIT = {"version": 1, "family": "base", "holes": "all", "mode": "full", "arrival": None}
 DOOR2_BUILT = {}             # part name -> role ("kit"), filled by door_unit inside door_kit()
 DOOR2_LEAF = {}              # door name -> leaf face depth d (school placards follow the leaf)
@@ -1999,7 +2002,7 @@ def door_tris(family, leaves=1, mode="full", sidelights=0, transom=False, glass=
         per = (8 + (8 if full else 0) if vision else 2) + 2   # + kick plate
     t += leaves * per
     if hardware == "auto":                   # one pull bar / lever per leaf (door_unit's gate)
-        t += 6 * leaves
+        t += (6 if p["handle"] == "pull" else DOOR_LEVER_TRIS) * leaves
     t += 4 if p["sill"] == "plate" else (8 if full else 4)
     t += sidelights * 8 + ((4 + (2 if sidelights else 0)) if transom else 0)
     return t
@@ -2234,13 +2237,29 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
                 ue, sgn = lb - 0.06, -1.0
             else:
                 ue, sgn = la + 0.06, 1.0
-            ua, ub = sorted((ue, ue + sgn * ll))
+            # An L-shaped lever on a rose (follow-up 2, Richard: "School door handle looks like it
+            # is floating"): the bar (front, top, bottom, free-end cap) runs from the latch end
+            # `ue` toward the hinge; at the latch end a return leg (DOOR_LEVER_NECK wide) runs
+            # back to the leaf face, so no gap; a rose plate (DOOR_ROSE, the EU house door's
+            # 11 cm plate) sits on the leaf under it. 18 tris (DOOR_LEVER_TRIS), one part.
+            uf = ue + sgn * ll                              # free end
+            un = ue + sgn * DOOR_LEVER_NECK                 # inner face of the return leg
             z0_, z1_ = zf + lz, zf + lz + lh
             df, db = Dl + so + ldp, Dl + so
+            dl_ = Dl + 0.001                                # the return leg's foot, on the leaf
             g = _Geo()
-            _wpoly(g, wall, [(ua, z0_, df), (ub, z0_, df), (ub, z1_, df), (ua, z1_, df)], (0, 0, 1))
-            _wpoly(g, wall, [(ua, z1_, db), (ua, z1_, df), (ub, z1_, df), (ub, z1_, db)], (0, 1, 0))
-            _wpoly(g, wall, [(ua, z0_, db), (ub, z0_, db), (ub, z0_, df), (ua, z0_, df)], (0, -1, 0))
+            _wpoly(g, wall, [(ue, z0_, df), (uf, z0_, df), (uf, z1_, df), (ue, z1_, df)], (0, 0, 1))
+            for zz, out in ((z1_, (0, 1, 0)), (z0_, (0, -1, 0))):     # top / bottom: bar + leg
+                _wpoly(g, wall, [(ue, zz, db), (uf, zz, db), (uf, zz, df), (ue, zz, df)], out)
+                _wpoly(g, wall, [(ue, zz, dl_), (un, zz, dl_), (un, zz, db), (ue, zz, db)], out)
+            _wpoly(g, wall, [(uf, z0_, db), (uf, z0_, df), (uf, z1_, df), (uf, z1_, db)], (sgn, 0, 0))
+            _wpoly(g, wall, [(ue, z0_, dl_), (ue, z0_, df), (ue, z1_, df), (ue, z1_, dl_)], (-sgn, 0, 0))
+            _wpoly(g, wall, [(un, z0_, dl_), (un, z0_, db), (un, z1_, db), (un, z1_, dl_)], (sgn, 0, 0))
+            rw, rh, rd = DOOR_ROSE
+            zc = 0.5 * (z0_ + z1_)
+            ra, rb_ = ue - sgn * 0.3 * rw, ue + sgn * 0.7 * rw
+            _wpoly(g, wall, [(ra, zc - rh / 2, Dl + rd), (rb_, zc - rh / 2, Dl + rd),
+                             (rb_, zc + rh / 2, Dl + rd), (ra, zc + rh / 2, Dl + rd)], (0, 0, 1))
             add([(g.finish(f"door_{tag}_lever"), "ski_black")])
     DOOR2_LEAF[name] = Dl
     hw_parts = []
