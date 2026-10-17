@@ -124,7 +124,7 @@ export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   runGroomed: "assetdb://global/092ca9d440ccbca7cf9783c4da1790f5", // SkiRunGroomedA.Prefab:65
   runSnowmaking: "assetdb://global/bc121f42eed0fd6829eacccc5b69b4f8", // SkiRunSnowmakingA.Prefab:65
   runNight: "assetdb://global/a239eef8d124c3ec467a5d8afaa7e447", // SkiRunNightA.Prefab:65 (D20: own icon; was snowmaking's)
-  runCatTrack: "assetdb://global/092ca9d440ccbca7cf9783c4da1790f5", // SkiRunCatTrackA.Prefab:65 (T54 probe 1: the groomed icon until it gets its own art)
+  runCatTrack: "assetdb://global/746a4b7f2c2ea595edf43d1ecc8a8520", // SkiRunCatTrackA.Prefab:65 (T38: SkiRunCatTrackA.png, own icon; was the groomed icon in T54 probe 1)
 };
 
 /** Four groups in build order (gate R16 checks every id appears exactly once). Group 1's lodge tiers and group 3's
