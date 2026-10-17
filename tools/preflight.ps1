@@ -106,6 +106,9 @@ $KnownVanilla = @{
     "96d63256a8b9f4942b1949c7067e6613" = "WallLightRandom01 placeholder (inferred: variants WallLight01/WallLight02/WallLight03/WallLight04 back-ref it; dump-verified subobj_bounds.json)"
     "cfc12fde01d9da24b86ddedd657eaae1" = "WallLightShortRangeRandom01 placeholder (inferred: variants WallLightShortRange01/WallLightShortRange02/WallLightShortRange03 back-ref it; dump-verified cs2_liftdress.SUBOBJ + subobj_bounds.json)"
     "6b6861547d4e1964aa977434af734126" = "WarningLightRandom01 placeholder (inferred: variants WarningLight01/WarningLight02 back-ref it; dump-verified cs2_liftdress.SUBOBJ + subobj_bounds.json)"
+    # Fittings v1 (2026-10-17, DECISIONS 263, docs/research/art/fittings-2026-10-17.md): roof vents / kitchen exhausts as rows on the lodges at the next import.
+    "e334c9885e132684488e4fa21e06d975" = "ACVentRoofRandom01 placeholder (plumbing vents; dump-verified subobj_bounds.json)"
+    "57d3607bc6f3c79408a27d4990e38565" = "CommercialACVentRoofRandom01 placeholder (kitchen exhausts; variants CommercialACVentRoof01-06; dump-verified subobj_bounds.json)"
     # T51 step 1 (2026-10-16, docs/research/field/2026-10-15/build/T51-markers-step1.md): the two vanilla rows on the A-frame's apron.
     # Both read from the vanilla dump (%TEMP%\pltar\00_BaseGame\...\WaterTower01 Viewing Deck.Prefab: ObjectSubAreas row 0 and the
     # ObjectSubObjects row at (0, 0, 15.5)) and name2guid.json; each is used by hundreds of vanilla prefabs (Hangaround Area: 1963 files).
