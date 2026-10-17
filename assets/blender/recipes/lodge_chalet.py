@@ -156,7 +156,8 @@ _TABLE_AT = ((-4.5, 3.45, -11.5), (-4.5, 3.45, -8.0), (-4.5, 3.45, -4.5), (-4.5,
 # (table, parasol yaw): the A-wall row's pair faces +X / -X (poles outside the pair, canopies
 # across y, clear of the A wall at y -7.0), the north table +X, the middle one -Y (its canopy fits
 # between the rows' canopies; along x it would touch them)
-_PARASOL_TABLES = ()   # T26 2026-10-16: parasols dropped (random yellow); was 4 tables, PROPS emits no parasol entry
+_PARASOL_TABLES = (((-4.5, 3.45, -8.0), 0), ((-4.5, 3.45, -4.5), 180), ((3.0, 3.45, -4.5), 0),
+                   ((-1.0, 3.45, -4.5), -90))   # T26 2026-10-16 emptied this; restored 2026-10-17 (random colours accepted)
 
 
 def _parasol_at(table, yaw):
@@ -307,6 +308,10 @@ def _roof_b(K):
     spec = K.RoofSpec("gable", B_X0, B_X1, B_Y0, B_Y1, L1_TOP, PITCH_DEG, axis="Y",
                       overhang=ov, rake_over=ro, thick=ROOF_T, mat="slate")
     P += K.snow_guard("BB", spec, "+X", offset=0.6)
+    if K.FITTINGS.get("version", 0) >= 1:
+        # fittings v1 (2026-10-17): pad snow guards on the slate field above the arrival entry, two staggered
+        # rows behind the eave rail (Courchevel, L3's source: rows of pads on the slate)
+        P += K.snow_pads("BB", spec, "+X", offsets=(1.4, 2.0), every=0.75)
     P += K.snow_guard("BAn", spec, "-X", offset=0.6, spans=((a_cut, B_Y1),))
     gz = 5.95
     P += K.gutter("BE", (tip_e[0] + 0.20, a_lo), (tip_e[0] + 0.20, a_hi), gz)

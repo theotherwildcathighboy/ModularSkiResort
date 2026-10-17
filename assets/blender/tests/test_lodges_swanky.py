@@ -1310,19 +1310,16 @@ def pass3():
         # rows (vanilla + kit) + the sign set's identity row (L5)
         so = (m.get("sub_objects") or {}).get("objects") or []
         want = _want_rows(recipe)
-        # T53: the shipped export predates two later changes, so it is stale until the next export: the T14 x-sign N
-        # rule-T mirror (2026-10-16, DECISIONS 245: _want_rows is the game frame, the shipped rows still have x
-        # un-negated) and the removed parasols (DECISIONS 248: the shipped manifest still lists ParasolRandom01).
-        # Normalise the shipped rows by dropping the parasols; if they then equal the recipe rows, or the recipe rows with
-        # x negated, SKIP (loud). Any other difference still fails.
-        so_np = [o for o in so if o["prefab"] != "ParasolRandom01"]
+        # T53: the shipped export predates the T14 x-sign N rule-T mirror (2026-10-16, DECISIONS 245: _want_rows is the
+        # game frame, the shipped rows still have x un-negated), so it is stale until the next export. If the shipped
+        # rows equal the recipe rows with x negated, SKIP (loud). Any other difference still fails. (T26's parasol
+        # normalisation is gone: the parasols are back in the recipes and in the shipped manifest, 2026-10-17.)
+        so_np = so
         got_rows = _got_rows(so_np)[:len(want)]
         pre_t14 = [(p, g, _t14_pos(pos), par) for p, g, pos, par in want]
-        if len(so_np) != len(so) or (got_rows != want and got_rows == pre_t14):
-            assert got_rows in (want, pre_t14), f"{name}: manifest sub_objects stale beyond T14 / parasols"
+        if got_rows != want and got_rows == pre_t14:
             print(f"SKIP {name} shipped manifest sub_objects == recipe rows: stale until the next export "
-                  f"({len(so) - len(so_np)} parasol rows, DECISIONS 248; "
-                  f"{'pre-T14 un-mirrored rows' if got_rows == pre_t14 else 'rows mirrored'}, DECISIONS 245) / T53")
+                  f"(pre-T14 un-mirrored rows, DECISIONS 245) / T53")
         else:
             assert got_rows == want, f"{name}: manifest sub_objects stale"
         extra = so_np[len(want):]

@@ -454,8 +454,9 @@ L1 = Recipe(
     labels=L1_LABELS,
     # detail pass 1b: a vanilla table set at each umbrella spot; fifteenth look: a vanilla parasol
     # beside each (no modelled umbrella), the porch bench + bin vanilla (22 rows)
-    # T26 2026-10-16: parasols dropped (random yellow): L1_PARASOLS stays defined, not used here
-    sub_objects=L1_TABLES + L1_PORCH,
+    # T26 2026-10-16 dropped the parasols (random yellow); Richard 2026-10-17 ("bring the umbrellas
+    # back ... vanilla props, worst case people delete them") restored them: random colours accepted
+    sub_objects=L1_TABLES + L1_PARASOLS + L1_PORCH,
     cull_ok=("ridge_main", "ridge_prow", "soffit_mainE"),   # caps inside the slab X; the E
     # soffit faces the wall over the deck (no camera position sees it)
     views=(("prow", (0.55, 1.0, 0.30)), ("entry", (0.35, -1.0, 0.22)),

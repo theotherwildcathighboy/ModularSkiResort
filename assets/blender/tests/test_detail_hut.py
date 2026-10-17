@@ -158,8 +158,8 @@ PROP_BOUNDS = {
 # props this pass added or moved (index into the recipe's sub_objects): the detail-pass second deck
 # chair, firewood, heaters, wall lights, vents; step 3a: rows 16-22 (2 benches, barrel, 2 entry
 # wall lights, 2 kit racks); nitpick C: rows 16-23 (2 benches, 2 ground barrels, 2 entry lights, 2 kit racks)
-# T26 2026-10-16: the parasol row (index 3) is gone, every later index is one lower (23 rows, was 24)
-NEW_OR_MOVED = (4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22)
+# T26 2026-10-16 dropped the parasol row (index 3); restored 2026-10-17, so the indices are the original (24 rows)
+NEW_OR_MOVED = (5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23)
 BOX_SKIP = ("ParasolRandom01",)      # an offset canopy: its AABB is mostly air over the rail
 # a row standing on a modelled part other than a deck: prefab -> (part, top z) (nitpick C: none left; the barrels
 # are ground rows)
@@ -370,9 +370,9 @@ def d1_parts(recipe, mod, me, M, label):
             inward += p.area
     assert inward < 0.01, f"D1 H11: {inward:.2f} m2 of gable faces look inward"
     rows = rows_of(recipe)
-    # T26 2026-10-16: parasols dropped (random yellow): 24 -> 23 rows, the detail-pass rows 16 -> 15
-    assert len(rows) == 23, len(rows)
-    assert [r[:5] for r in rows[:15]] == [tuple(s) for s in mod["SUB_OBJECTS"]], "D1: the 15 detail-pass rows moved"
+    # T26 2026-10-16 dropped the parasol (23 rows); restored 2026-10-17: 24 rows, the detail-pass rows 16
+    assert len(rows) == 24, len(rows)
+    assert [r[:5] for r in rows[:16]] == [tuple(s) for s in mod["SUB_OBJECTS"]], "D1: the 16 detail-pass rows moved"
     van = [r for r in rows if r[5] == "vanilla"]
     kit = [r for r in rows if r[5] == "mod"]
     bad = [r[0] for r in van if r[1] not in KNOWN_GUIDS]
@@ -630,7 +630,7 @@ def d10_props(recipe, mod, me, M, label):
 
 def d11_fine(recipe, mod, lp, lot):
     """H1 (every step-3a row at the part it replaced, on the pre-pass builder parts) and H9."""
-    rows = rows_of(recipe)[15:]                              # T26 2026-10-16: was [16:] (parasol row dropped)
+    rows = rows_of(recipe)[16:]
     benches = [r for r in rows if r[0] == "GardenBenchRandom01"]
     for (tag, _x), r in zip(mod["GBENCH_X"], benches):
         P = np.vstack([lp[f"bench_{tag}"], lp[f"bench_{tag}legs"]])

@@ -230,9 +230,10 @@ def l2_contracts(recipe, mod, r, obj, win, table):
              (mod["WING_X0"], mod["BRIDGE_X1"], mod["BRIDGE_Y"], mod["WING_Y"]),
              (mod["WING_X0"], mod["BRIDGE_X1"], -mod["WING_Y"], -mod["BRIDGE_Y"]))
     subs = mod["SUB_OBJECTS"]
-    # T26 2026-10-16: parasols dropped (random yellow): 16 -> 15 rows
-    assert len(subs) == 15 and all(s[4] == 0 for s in subs), [(s[0], s[4]) for s in subs]
-    assert not any(s[0] == "ParasolRandom01" for s in subs), "parasol row back"
+    # T26 2026-10-16 dropped the parasol (15 rows); restored 2026-10-17 (Richard: vanilla props, random colours
+    # accepted): 16 rows again, one ParasolRandom01
+    assert len(subs) == 16 and all(s[4] == 0 for s in subs), [(s[0], s[4]) for s in subs]
+    assert sum(1 for s in subs if s[0] == "ParasolRandom01") == 1, "hut parasol row missing"
     n_wall = 0
     for nm, _g, (gx, gy, gz), q, _parent in subs:
         x, y = gz, gx
@@ -346,9 +347,10 @@ def l3_contracts(recipe, mod, r, obj, win, table):
     subs = recipe.sub_objects
     base = tuple(mod["SUB_OBJECTS"])
     fine_rows = tuple(mod["FINE_SUB_OBJECTS"]) + tuple(mod["KIT_ROWS"])
-    # T26 2026-10-16: parasols dropped (random yellow): 29 -> 25 rows
-    assert tuple(subs) == base + fine_rows and len(base) == n == 25, (len(subs), n)
-    assert not any(s[0] == "ParasolRandom01" for s in base), "parasol row back"
+    # T26 2026-10-16 dropped the 4 parasols (25 rows); restored 2026-10-17 (Richard: vanilla props, random colours
+    # accepted): 29 rows again, four ParasolRandom01
+    assert tuple(subs) == base + fine_rows and len(base) == n == 29, (len(subs), n)
+    assert sum(1 for s in base if s[0] == "ParasolRandom01") == 4, "chalet parasol rows missing"
     assert all((s[4] == -1) == (s[2][1] == 0.0) for s in base), [(s[0], s[2], s[4]) for s in base]
     blk = lodge.sub_objects_block(recipe)
     assert blk["target_prefab"] == recipe.prefab and len(blk["objects"]) == len(subs), blk["target_prefab"]
