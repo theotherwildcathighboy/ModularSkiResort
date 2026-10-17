@@ -50,7 +50,7 @@ for this family instead of ~9 MB, on a project already overspending an order of 
 atlas_size is ALWAYS derived as 2 x quad_size, never written as a literal — a mismatch
 silently corrupts the AO rebake and only shows up in game.
 REDO (wiki style, 2026-10-17): the 60-150 px/m band above is SUPERSEDED for the snowmaking four.
-With --repack the sizes are TEX_REDO (towers / fans 1024, lances / hydrants 512: the wiki's 512
+With --repack the sizes are TEX_REDO (towers / fans / lances 1024, hydrants 512: the wiki's 512
 floor; `--tex B` restores the B sizes) and density_packer unfolds, weights and shelf-packs the
 islands with mip-safe margins (docs/research/art/snow-props-weather-2026-10-17.md "Redo").
 """
@@ -1609,7 +1609,9 @@ LAST_WEATHER = None
 # (wiki-best-practices-gap-2026-10-17.md section 2a). With --repack these sizes are the DEFAULTS
 # (coordinator decision, reversible: `--tex B` restores the exported B sizes). quad_size stays
 # DERIVED as tex // 2 everywhere (finish(), build_maps(), the AO rebake).
-TEX_REDO = {"tower": 1024, "fan": 1024, "lance": 512, "hydrant": 512}
+# Lances 512 -> 1024 (Richard 2026-10-17, after the street-light comparison, weather doc section 12: the 6.9 / 11 m
+# single-quad tube is capped along its length by the atlas width; vanilla poles sit on 4096 maps).
+TEX_REDO = {"tower": 1024, "fan": 1024, "lance": 1024, "hydrant": 512}
 TEX_FLOOR = 512                # wiki minimum; cs2_validate texture-size ERROR below it
 TEX_CEIL_UNDER_10M = 1024      # snow-prop-materials section 5: never 2048 for anything under 10 m
 
@@ -2850,7 +2852,7 @@ def parse_args():
     ap.add_argument("--repack", action="store_true",
                     help="with --finish: per-tier texel-density repack of the unique UVs "
                          "(density_packer; REDO: mip-safe margins, dark band) at the REDO texture "
-                         "sizes (TEX_REDO: tower / fan 1024, lance / hydrant 512); new UV layout, "
+                         "sizes (TEX_REDO: tower / fan / lance 1024, hydrant 512); new UV layout, "
                          "same geometry")
     ap.add_argument("--tex", default=None,
                     help="texture size override: B (the exported B sizes), an int, or "

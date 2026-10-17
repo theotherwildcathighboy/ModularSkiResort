@@ -22,7 +22,7 @@ STEP 1 (`step=1`, Richard's "one variable at a time"): resolution + repack + par
                   copies tangent-space normals verbatim.
   T0 parity       MaskMap smoothness / metal per zone onto the measured vanilla bands (constant per
                   zone: the atlas photo roughness was stretched by the atlas squeeze); metal only on
-                  the bare galvanised zone; galvanised albedo lifted toward sRGB luma 0.64.
+                  the bare galvanised zone; galvanised albedo lifted toward sRGB luma 0.72 (was 0.64).
   T0f flat base   every zone except the stamped strip and concrete takes a per-PART flat albedo and a
                   flat normal: the atlas photo / procedural grain was projected through smart-project
                   islands squeezed into small atlas rects (median 1.4 : 1, p90 3.5 : 1, lance tube
@@ -104,7 +104,8 @@ ZONE_TARGET = {
     "label":     (0.38, 0.0),
 }
 CONCRETE_DETAIL = 0.5        # concrete keeps half its photo contrast (albedo, smoothness, normal)
-GALV_LUMA_SRGB = 0.64        # clean galvanised albedo (vanilla metal band 0.51-0.84, fence 0.72)
+GALV_LUMA_SRGB = 0.72        # clean galvanised albedo (vanilla metal band 0.51-0.84, fence 0.72, industrial
+                             # light pole 0.74; Richard 2026-10-17 after the street-light comparison: was 0.64)
 GALV_DESAT = 0.80            # pull Metal032's blue cast toward neutral
 SLOT_ZONES = {"livery": 0, "plastic": 1, "accent": 2}    # zone -> ControlMask channel
 SLOT_KEEP = 0.90             # guard: slot-texel albedo mean (sRGB) stays >= 90 % of the bake's
