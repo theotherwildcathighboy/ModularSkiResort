@@ -1,11 +1,11 @@
-# Validate a hand-edited CS2 prefab JSON against the three known hard-crash rules:
+# Validate a hand-edited CS2 prefab JSON against the known hard-crash rules:
 #   1. Positional type table: "$type": N may only appear AFTER "N|Full.Type" is declared
 #      earlier in the file ("Missing type id" crash otherwise).
 #   2. An index must not be declared twice with different type names.
-#   3. Declarations must appear in INCREASING index order through the file. Gaps are fine
-#      (vanilla files skip indices), but a declaration with a lower index after a higher one
-#      breaks Odin deserialization ("Entry ... missing a name" / "Missing type ID" spam) -
-#      learned 2026-08-05 when a 21/22 block was inserted ahead of the 17-20 mesh section.
+#   3. Declaration ORDER is NOT checked: it is unconstrained (SkiChairliftHV declares 11 after
+#      17 and loads fine; gaps are fine too). The 2026-08-05 "Entry ... missing a name" /
+#      "Missing type ID" spam came from mangled newlines (see the suspicious-line check below),
+#      not from ordering. See the NOTE in the loop and PIPELINE section 6.
 param([Parameter(Mandatory = $true)][string]$Path)
 
 $lines = Get-Content $Path

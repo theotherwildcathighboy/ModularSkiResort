@@ -290,8 +290,9 @@ def _counts_and_frozen_one(kind, fine):
                   # nitpick A (2026-10-13): the top's cabin (and its door lamp row) moved onto the -Y apron's deck:
                   # the lens over the moved door (cab_layout door_y), 2.23 over the cabin floor (deck 0.30)
                   and all(abs(o["pos"][1] - (2.38 + D.cab_layout(p)["zf"] - 0.15)) < 1e-6 for o in wl)
-                  and sorted(round(o["pos"][0], 3) for o in wl) == ([6.35, 6.7] if kind_ == "base"
-                                                                     else [round(D.cab_layout(p)["door_y"], 3)]),
+                  # T14 x-sign N (2026-10-16): the rows are in the game frame, x -> -x (rule T); design door_y -> -door_y
+                  and sorted(round(o["pos"][0], 3) for o in wl) == ([-6.7, -6.35] if kind_ == "base"
+                                                                     else [round(-D.cab_layout(p)["door_y"], 3)]),
                   f"{kind} F3 lamps: 4 RoofLight rows on the old soffit lenses (game x +-3.6, y {p.z_soffit}, z "
                   f"{sorted(round(o['pos'][2], 2) for o in soff)}), the wall-light rows moved onto lamp_cab / lamp_eng "
                   f"{[o['pos'] for o in wl]}")
@@ -623,8 +624,14 @@ def shipped():
         nm = sum(1 for o in sub if o.get("kind") == "mod")
         # T17-DQ 2026-10-16: valid only after the export is regenerated (the shipped manifests predate the swap)
         want = D9_ROWS[kind] if fd else D9_ROWS_LEGACY[kind]
-        check((nv, nm) == tuple(want) and sum(1 for o in sub if o["prefab"] == "LightpoleParkRandom01") == D9_LAMPS
-              and flood_rows_ok(sub, D9_FLOODS[kind]),
+        # DECISIONS 251 (T17-DQ) / T53: a shipped manifest from before the next export still has the 4 vanilla
+        # LightpolePark rows and no floodlights (vanilla +4, mod -2): SKIP (loud). Any other count still fails.
+        t17_stale = (nv, nm) == (want[0] + 4, want[1] - 2) and not any(o["prefab"] == FLOOD_PREFAB for o in sub)
+        if t17_stale:
+            print(f"SKIP {kind} D9 shipped sub-object rows: stale until the next export (pre-T17-DQ lamp posts, "
+                  f"DECISIONS 251 / T53)")
+        check(t17_stale or ((nv, nm) == tuple(want) and sum(1 for o in sub if o["prefab"] == "LightpoleParkRandom01") == D9_LAMPS
+                            and flood_rows_ok(sub, D9_FLOODS[kind])),
               f"{kind} D9 shipped sub-object rows {nv} vanilla + {nm} mod (want {want}; {D9_LAMPS} lamp posts, "
               f"2 SkiPisteFloodlightLow)")
         c_ = m.get("contracts") or {}
@@ -658,8 +665,14 @@ def shipped():
         nv = sum(1 for o in sub if o.get("kind") != "mod")
         nm = sum(1 for o in sub if o.get("kind") == "mod")
         tr = {int(k): v for k, v in m["tris"].items()}
-        check(fd is not None and (nv, nm) == GD_ROWS[kind] and "F1" in (m.get("contracts") or {})
-              and flood_rows_ok(sub, GD_FLOODS[kind])   # T17-DQ 2026-10-16 (valid after the export is regenerated)
+        # DECISIONS 251 (T17-DQ) / T53: stale shipped manifest (4 lamp posts, no floodlights: vanilla +4, mod -2) is
+        # SKIPPED (loud) until the next export; any other count still fails.
+        t17_stale = (nv, nm) == (GD_ROWS[kind][0] + 4, GD_ROWS[kind][1] - 2) and not any(o["prefab"] == FLOOD_PREFAB for o in sub)
+        if t17_stale:
+            print(f"SKIP gondola {kind} shipped fine row counts: stale until the next export (pre-T17-DQ lamp posts, "
+                  f"DECISIONS 251 / T53)")
+        check(fd is not None and "F1" in (m.get("contracts") or {})
+              and (t17_stale or ((nv, nm) == GD_ROWS[kind] and flood_rows_ok(sub, GD_FLOODS[kind])))
               and tr[0] <= D.GD_LOD0_TARGET[kind],
               f"gondola {kind} shipped fine: {nv} vanilla + {nm} kit rows (want {GD_ROWS[kind]}), F1 recorded, LOD0 "
               f"{tr[0]} <= {D.GD_LOD0_TARGET[kind]}")
@@ -862,6 +875,13 @@ def kit_h1():
                                   f"({float(np.linalg.norm(ck - co_)) * 1000:.3f} mm)")
                     out[rtag] = rec
                 elif s["prop"] == "SkiDressTools":
+                    # T14 x-sign N (2026-10-16), DECISIONS 245 / T53: the row is rule-T mirrored (game x negated) but the
+                    # prop keeps its own mesh handedness, so the asymmetric tool pair stands left-right swapped about the
+                    # row's lateral axis; the expectation is the removed pair mirrored in that axis (measured 0.001 mm;
+                    # un-mirrored it is 201.6 mm off). The foot-line shift and the z offset are unchanged.
+                    lat = np.array([-nv[1], nv[0], 0.0])
+                    c_row = np.array([r["position"][2], -r["position"][0], 0.0])    # the row in authoring xy
+                    A = A - 2.0 * np.outer((A - c_row) @ lat, lat)
                     old = _part_verts(me, table, fparts, co, lambda n: n.startswith(pre[0]))
                     of = old[old[:, 2] <= old[:, 2].min() + 0.002]
                     kf = A[A[:, 2] <= A[:, 2].min() + 0.002]

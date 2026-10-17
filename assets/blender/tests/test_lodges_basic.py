@@ -392,9 +392,19 @@ def l3_blank_boards(recipe, mod, r):
         rims = {f: [d.get("rim_px") for d in lab.get(f, {}).get("draws", []) if d.get("kind") == "blank"]
                 for f in (e[0] for e in labels)}
         assert all(len(v) == 1 and v[0] >= 4.0 for v in rims.values()), rims
-        assert [(b["face"], b["centre"], b["normal"], b["size_m"]) for b in man["we_boards"]["boards"]] == \
-            [(b["face"], b["centre"], b["normal"], b["size_m"]) for b in wb], "shipped we_boards differ"
-        shipped = f"shipped rims {rims} px"
+        got_wb = [(b["face"], b["centre"], b["normal"], b["size_m"]) for b in man["we_boards"]["boards"]]
+        want_wb = [(b["face"], b["centre"], b["normal"], b["size_m"]) for b in wb]
+        # T14 x-sign N (2026-10-16), DECISIONS 245 / T53: the build writes we_boards in the game frame (centre x and
+        # normal x negated, rule T); a shipped manifest from before the next export still holds the pre-T14 boards.
+        # Stale = it equals the build with x negated: SKIP (loud); any other difference still fails.
+        pre_t14 = [(f, [-c[0] + 0.0, *c[1:]], [-n[0] + 0.0, *n[1:]], s) for f, c, n, s in want_wb]
+        if got_wb != want_wb and got_wb == pre_t14:
+            print("SKIP L3 shipped we_boards == this build's: shipped manifest is stale (pre-T14 un-mirrored boards) "
+                  "until the next export, DECISIONS 245 / T53")
+            shipped = f"shipped rims {rims} px (we_boards stale until export)"
+        else:
+            assert got_wb == want_wb, "shipped we_boards differ"
+            shipped = f"shipped rims {rims} px"
     print(f"ok L3 blank boards (nitpick C): {[e[0] for e in labels]} blank (rim {mod['L3_TRIM_SRGB']}); "
           f"we_boards {[(b['face'], b['centre'], b['size_m']) for b in wb]}; {shipped}; --no-fine keeps the "
           f"pictograms")

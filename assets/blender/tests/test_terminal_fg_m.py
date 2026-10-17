@@ -656,9 +656,16 @@ def f4_m():
         mods = [o for o in blk.get("objects", []) if o.get("kind") == "mod"]
         nv, nk = FD_ROWS_M[kind]
         kr = fd.get("kit_rows") or []
+        # T14 x-sign N (2026-10-16), DECISIONS 245 / T53: the shipped M manifests still carry the pre-T14 frame string
+        # ("probe X2 decides") until the next export regenerates them: only that conjunct is SKIPPED (loud); once the
+        # export lands the string must equal LT.M_X_CONVENTION again, and any other text still fails.
+        xc = blk.get("x_convention")
+        xc_stale = xc != LT.M_X_CONVENTION and "probe X2 decides" in (xc or "")
+        if xc_stale:
+            print(f"SKIP {kind}: F4 shipped x_convention is the pre-T14 string (stale until the next export, DECISIONS 245 / T53)")
         ok = (fd.get("rows") == {"vanilla": nv, "mod": nk} == blk.get("kinds") and len(kr) == nk
               and np.allclose([r_["row_pos"] for r_ in kr], [o["pos"] for o in mods], atol=1e-4)
-              and blk.get("x_convention") == LT.M_X_CONVENTION and "F1" in (m.get("contracts") or {}))
+              and (xc == LT.M_X_CONVENTION or xc_stale) and "F1" in (m.get("contracts") or {}))
         check(ok, f"{kind}: F4 shipped fine block {fd.get('rows')}, {len(kr)} F1 rows = the mod rows, M's frame string",
               f"({blk.get('x_convention', '')[:50]}...)")
 

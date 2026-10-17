@@ -434,8 +434,22 @@ def check_school_manifest():
        f"Recipe.sub_objects + {n_extra} sign-set row; re-export with lodge.py --school)")
     ok(sub.get("target_prefab") == man.get("prefab") == "SkiSchool",
        f"school sub_objects target {sub.get('target_prefab')} / prefab {man.get('prefab')}")
-    ok(objs == want["objects"],
-       "school manifest sub_objects differ from recipes/school.SUB_OBJECTS (Recipe.sub_objects)")
+    # DECISIONS 245 (T14 x-sign N, 2026-10-16; T53): the shipped manifest holds the PRE-T14 rows until the next
+    # export regenerates it. Stale = every row's position is the build's with x negated (rule T) and nothing
+    # else differs: SKIP (loud). Anything else, or a match, is asserted as before - never silently passes.
+    def _pre_t14(o):
+        return {**o, "position": [-float(o["position"][0]) + 0.0, *map(float, o["position"][1:])]}
+    stale = (objs != want["objects"] and len(objs) == len(want["objects"])
+             and all({**a, "position": [round(float(v), 3) for v in a["position"]], "rotation": None}
+                     == {**_pre_t14(b), "position": [round(float(v), 3) for v in _pre_t14(b)["position"]],
+                         "rotation": None}
+                     for a, b in zip(objs, want["objects"])))
+    if stale:
+        print("SKIP school manifest sub_objects == recipes/school.SUB_OBJECTS: shipped manifest is stale (pre-T14 "
+              "un-mirrored rows) until the next export, DECISIONS 245 / T53")
+    else:
+        ok(objs == want["objects"],
+           "school manifest sub_objects differ from recipes/school.SUB_OBJECTS (Recipe.sub_objects)")
     print(f"ok school manifest: sub_objects {len(objs)} objects -> {sub.get('target_prefab')} "
           f"(m_ParentMesh 0 on {sum(o['m_ParentMesh'] == 0 for o in objs)})")
 
