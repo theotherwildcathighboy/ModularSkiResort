@@ -412,7 +412,11 @@ def build_p1(recipe, opts):
     sx0, sx1, sy0, sy1, sz = P1_STEP
     P += K.box_part("step_p1", (sx0, sy0, 0.0), (sx1, sy1, sz), "concrete", ground=True,
                     drop=("-X",))
-    for o, _q in cs2_kit.door("p1", w=dw, h=dh, loc=(x1, dy, sz), facing="+X"):
+    if K.DOOR_KIT["version"] == 2:      # door kit v2 (utility): the log frame + plate are the casing
+        P += K.door_unit("p1", front, dy, dw, dh, sz, room="hut", casing="none", leaf_key="trim",
+                         liner_key="timber_heavy")
+    for o, _q in (() if K.DOOR_KIT["version"] == 2 else
+                  cs2_kit.door("p1", w=dw, h=dh, loc=(x1, dy, sz), facing="+X")):
         if o.name.endswith("_head"):
             bpy_remove(o)
             continue
@@ -735,10 +739,14 @@ def build_p2(recipe, opts):
     P += K.window_bay("hqu", front, uu0, uu1, WinSpec(uu1 - uu0, uh, us, lights=2), room="hq",
                       sill_board=False)
     dy, dw, dh = P2_DOOR
-    for o, _q in cs2_kit.door("hq", w=dw, h=dh, loc=(x1, dy, f1), facing="+X"):
-        P.append((o, "trim_white"))
-    P += K.pane_quad("win_hq_doorlite", front, dy - 0.28, dy + 0.28, f1 + 1.00, f1 + 1.85,
-                     d=0.035)
+    if K.DOOR_KIT["version"] == 2:      # door kit v2 (utility): the lite becomes the vision panel
+        P += K.door_unit("hq", front, dy, dw, dh, f1, room="hq", vision_rect=(-0.28, 0.28, 1.00, 1.85),
+                         vision_name="win_hq_doorlite", leaf_key="trim_white", casing_key="trim")
+    else:
+        for o, _q in cs2_kit.door("hq", w=dw, h=dh, loc=(x1, dy, f1), facing="+X"):
+            P.append((o, "trim_white"))
+        P += K.pane_quad("win_hq_doorlite", front, dy - 0.28, dy + 0.28, f1 + 1.00, f1 + 1.85,
+                         d=0.035)
     cy_, cz, cd, ct = P2_DISC
     P += K.emblem_disc("hq", front, cy_, cz, cd, t=ct, segs=16)
     xb = x1 + 0.05

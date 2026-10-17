@@ -466,8 +466,9 @@ def marking_parts(K, C):
         _n, side, xw, y, _w, _hh = doors[dn]
         zc = s1 + 0.02 + MARK_CZ                    # kit door: leaf bottom = loc z + 0.02
         u = y if side == "+X" else -y
+        leaf_d = K.DOOR2_LEAF.get(dn, LEAF_PROUD) if K.DOOR_KIT["version"] == 2 else LEAF_PROUD
         P += K.pane_quad(f"sign_{tag}_face", WallRef(side, xw), u - w / 2, u + w / 2,
-                         zc - h / 2, zc + h / 2, d=LEAF_PROUD + MARK_PROUD, mat="label")
+                         zc - h / 2, zc + h / 2, d=leaf_d + MARK_PROUD, mat="label")
     _n, side, xw, y, _w, _hh = doors["svc"]
     w, h = MARK_NOSLED
     u = y if side == "+X" else -y
@@ -903,6 +904,14 @@ def build(recipe, opts):
         P += K.box_part(f"step_{nm}", (xs[0], y - w / 2 - STEP_SIDE, s0),
                         (xs[1], y + w / 2 + STEP_SIDE, s1), "concrete",
                         drop=("-X",) if side == "+X" else ("+X",))
+        if K.DOOR_KIT["version"] == 2:  # door kit v2 (utility): recessed steel leaf, posts + header;
+            # the photo's two STAFF ONLY doors (MARK_DOORS) are flush, the others get a vision panel
+            u = y if side == "+X" else -y
+            P += K.door_unit(nm, WallRef(side, xw), u, w, hh, s1,
+                             room="store" if side == "+X" else "back",
+                             vision=nm not in {d for _t, d in MARK_DOORS},
+                             leaf_key="trim_white", casing_key="trim_paint", liner_key="trim_paint")
+            continue
         for o, _q in cs2_kit.door(nm, w=w, h=hh, loc=(xw, y, s1), facing=side):
             P.append((o, "trim_white"))
 
@@ -942,7 +951,8 @@ def build(recipe, opts):
     # ---- contracts on the parts (lot frame) -------------------------------------------
     C.assert_lot_margin(P, HALF_X, HALF_Y, 0.25, "school")
     C.check_coplanar(P, exempt=KIT_INTERNAL)
-    C.check_inside(P, massing_volumes(), exempt=INSIDE_EXEMPT)
+    C.check_inside(P, massing_volumes(), exempt=INSIDE_EXEMPT + ((tuple(f"sign_{t}_face" for t, _d in MARK_DOORS)
+                                                               if K.DOOR_KIT["version"] == 2 else ())))   # door kit v2: placards on the recessed leaves
     return P
 
 

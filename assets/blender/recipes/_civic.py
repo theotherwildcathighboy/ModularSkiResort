@@ -351,6 +351,8 @@ def check_inside(parts, volumes, shrink=0.01, exempt=()):
     import cs2_bldg as _K
     if _K.WINDOW_KIT["version"] == 2:       # window kit v2: liners, sash, bars, panes sit in the reveal
         exempt = tuple(exempt) + _K.KIT2_RECESSED + ("win_",)
+    if _K.DOOR_KIT["version"] == 2:         # door kit v2: recessed leaves, liners, thresholds
+        exempt = tuple(exempt) + _K.door2_protect() + ("win_",)
     for idx, _n, pts in _world_polys(parts):
         if names[idx].startswith(tuple(exempt)) if exempt else False:
             continue

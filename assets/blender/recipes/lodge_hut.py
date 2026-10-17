@@ -541,11 +541,15 @@ def build_hut(recipe, opts):
     for k, y in enumerate((-3.0, 3.0)):
         P += _window(K, f"bW{k}", bW, -y, bas, "basW")
     # basement door (recipe-local: entry() lifts to GROUND_LIFT): surround + kit door
-    P += K.wall_box("entry_bas", bW, -0.7, 0.7, BAS_DOOR_Z0, BAS_DOOR_Z0 + BAS_DOOR_H + 0.30,
-                    -0.08, 0.18, "timber_heavy")
-    loc = K.wall_point(bW, 0.0, BAS_DOOR_Z0, 0.18)
-    P += [(o, m if isinstance(m, str) else "trim")
-          for o, m in cs2_kit.door("bas", w=1.0, h=BAS_DOOR_H, loc=tuple(loc), facing="-X", quad=0)]
+    if K.DOOR_KIT["version"] == 2:      # door kit v2 (chalet): recessed half-glazed leaf
+        P += K.door_unit("bas", bW, 0.0, 1.0, BAS_DOOR_H, BAS_DOOR_Z0, room="basW",
+                         casing_name="entry_bas", casing_key="timber_heavy", leaf_key="trim")
+    else:
+        P += K.wall_box("entry_bas", bW, -0.7, 0.7, BAS_DOOR_Z0, BAS_DOOR_Z0 + BAS_DOOR_H + 0.30,
+                        -0.08, 0.18, "timber_heavy")
+        loc = K.wall_point(bW, 0.0, BAS_DOOR_Z0, 0.18)
+        P += [(o, m if isinstance(m, str) else "trim")
+              for o, m in cs2_kit.door("bas", w=1.0, h=BAS_DOOR_H, loc=tuple(loc), facing="-X", quad=0)]
     P += _basement_stair(K)
     # -Y (deck side): windows x -2.5, 1.5, 5.0 + glazed door x -0.5; basement x -1.5, 3.5
     for k, x in enumerate((-2.5, 1.5, 5.0)):

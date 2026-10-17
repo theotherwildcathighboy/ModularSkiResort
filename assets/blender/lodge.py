@@ -185,6 +185,14 @@ def parse_args(argv=None):
     ap.add_argument("--window-family", default="auto",
                     choices=("auto", "base", "glazing", "chalet", "utility"),
                     help="kit v2 family preset (auto = WINDOW_FAMILY per recipe)")
+    # door kit v2 (2026-10-17, docs/research/art/door-kit-2026-10-17.md): recessed leaves in a wall
+    # hole (LOD0 only), thin casings, thresholds, `_Win` door glass; three families. Needs kit v2.
+    ap.add_argument("--door-kit", default="v1", choices=("v1", "v2"),
+                    help="v2 = door kit v2 (with --window-kit v2, tiled; v1 = every build byte-identical)")
+    ap.add_argument("--door-holes", default="auto", choices=("auto", "all", "arrival", "none"),
+                    help="door kit v2: wall holes (auto = DOOR_HOLES per recipe)")
+    ap.add_argument("--door-mode", default="auto", choices=("auto", "full", "lean"),
+                    help="door kit v2: full = glazing beads / wedge end caps; lean = without")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -659,10 +667,39 @@ def window_kit_cfg(recipe, args):
             "lintel": WINDOW_LINTEL.get(recipe.key, "family"), "holes": WINDOW_HOLES.get(recipe.key, "all")}
 
 
+# door kit v2 per recipe (door-kit doc section 3): the family follows the window family; holes
+# everywhere unless the cap says otherwise; "lean" drops the glazing beads / wedge end caps
+DOOR_FAMILY = dict(WINDOW_FAMILY)
+DOOR_HOLES = {}
+DOOR_MODE = {}
+
+
+def door_kit_cfg(recipe, args):
+    """kwargs for cs2_bldg.door_kit, or None for the v1 doors."""
+    if getattr(args, "door_kit", "v1") != "v2":
+        return None
+    if getattr(args, "window_kit", "v1") != "v2":
+        raise RuntimeError("--door-kit v2 needs --window-kit v2 (the holes ride its punch)")
+    holes = getattr(args, "door_holes", "auto")
+    if holes == "auto":
+        holes = DOOR_HOLES.get(recipe.key, "all")
+    mode = getattr(args, "door_mode", "auto")
+    if mode == "auto":
+        mode = DOOR_MODE.get(recipe.key, "full")
+    a = math.radians(-recipe.yaw_deg)
+    return {"version": 2, "family": DOOR_FAMILY.get(recipe.key, "glazing"), "holes": holes,
+            "mode": mode, "arrival": (math.cos(a), math.sin(a))}
+
+
 def build_parts(recipe, opts):
     """Kit calls in recipe order; asserts unique part names (no Blender .001 renames).
-    opts["window_kit"] (window_kit_cfg) builds the windows with kit v2."""
+    opts["window_kit"] (window_kit_cfg) builds the windows with kit v2, opts["door_kit"]
+    (door_kit_cfg) the doors with door kit v2 (its part registry is read by run())."""
     wk = opts.get("window_kit")
+    dk = opts.get("door_kit")
+    if wk and dk:
+        with K.window_kit(**wk), K.door_kit(**dk):
+            return _build_parts(recipe, opts)
     if wk:
         with K.window_kit(**wk):
             return _build_parts(recipe, opts)
@@ -1247,10 +1284,18 @@ def run(recipe, args):
             raise RuntimeError("--window-kit v2 needs a tiled build (the wall holes are cut on the "
                                "tiled LOD0 copy only; the far set keeps whole walls)")
         opts["window_kit"] = wk
+    dk = door_kit_cfg(recipe, args)
+    if dk:
+        opts["door_kit"] = dk
     W_, D_ = recipe.lot
     # 1-2 clean + parts
     clear_scene()
     parts = build_parts(recipe, opts)
+    door2 = None
+    if dk:                                  # door kit v2: the registry of its parts (exact names)
+        door2 = {"flat": K.door2_flat(), "protect": K.door2_protect(),
+                 "glass_d": sorted(K.DOOR2_GLASS_D), "leaf_d": dict(K.DOOR2_LEAF)}
+        opts["door2"] = door2
     spec = FD.sign_set_of(recipe)
     # nitpick C (2026-10-13): the Write Everywhere targets (blank boards, lit name boards), read off the faces
     # before a sign set takes them; the manifest's `we_boards` block (absent when there are none)
@@ -1312,7 +1357,7 @@ def run(recipe, args):
     win, cells = K.split_rooms(obj, table, recipe.rooms, name=name)
     # 12 cull (after the rooms so panes are not occluders)
     cull = K.cull_hidden(obj, protect=tuple(recipe.ground_prefixes) + K.LABEL_PREFIXES
-                         + (K.KIT2_RECESSED if wk else ()),
+                         + (K.KIT2_RECESSED if wk else ()) + (door2["protect"] if door2 else ()),
                          table=table, cull_ok=recipe.cull_ok, wall_rule=recipe.wall_rule,
                          arrival=(0.0, -1.0), ground_prefixes=recipe.ground_prefixes)
     T["cull"] = time.perf_counter() - t0
@@ -1329,6 +1374,11 @@ def run(recipe, args):
                   hashes={"LOD0_prebake": mesh_hash(obj), "Win": mesh_hash(win) if win else None},
                   lot=lot, facing=facing, base={0: base0}, cull=cull, area=area, bevelled=n_bev,
                   retiled=len(retiled), keys=keys, parts=len(table))
+    if door2:
+        result["door_kit"] = {"family": dk["family"], "holes": dk["holes"], "mode": dk["mode"],
+                              "parts": len(door2["flat"]), "flat": list(door2["flat"]),
+                              "glass_depths": door2["glass_d"],
+                              "leaf_depths": {k: round(v, 4) for k, v in sorted(door2["leaf_d"].items())}}
     if signset is not None:
         result["sign_set"] = {"obj": signset["obj"], "cid": signset["cid"], "faces": signset["faces"],
                               "mesh": signset["spec"].mesh}
@@ -1471,7 +1521,10 @@ def run(recipe, args):
     win_far = None
     if win is not None and wk and tiled:
         # kit v2: LOD1 / LOD2 have no wall holes, so their `_Win` panes go back to the v1 depth
-        win_far, moved = K.unrecess_panes(win, far, depth=K.FAMILIES[wk["family"]]["reveal"])
+        depth = K.FAMILIES[wk["family"]]["reveal"]
+        if door2 and door2["glass_d"]:     # door kit v2: the door glass depths too
+            depth = (depth,) + tuple(door2["glass_d"])
+        win_far, moved = K.unrecess_panes(win, far, depth=depth)
         result["window_kit"]["panes_unrecessed_far"] = moved
         result["window_kit"]["panes"] = len(win.data.polygons)
         result["hashes"]["WinFar"] = mesh_hash(win_far)
@@ -1711,7 +1764,9 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
                           flat_prefixes=TS.FLAT_DETAIL_PREFIXES + tuple(getattr(recipe, "tiled_flat", ()) or ())
                           # kit v2: the window parts draw their material's mean colour (no tile cuts)
                           + ((K.KIT2_PARTS + WINDOW_FLAT_EXTRA.get(recipe.key, ()))
-                             if getattr(args, "window_kit", "v1") == "v2" else ()),
+                             if getattr(args, "window_kit", "v1") == "v2" else ())
+                          # door kit v2: its parts (exact names) draw flat too
+                          + (tuple(result.get("door_kit", {}).get("flat", ()))),
                           grid_offset=0.5 if recipe.base_mode == "plinth" else 0.0)
         if getattr(args, "window_kit", "v1") == "v2":
             # window kit v2: the wall holes, cut AFTER the tile slicing so only the tile pieces
@@ -1943,6 +1998,8 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
     }
     if result.get("window_kit"):           # kit v2 builds only (older manifests keep their keys)
         data["window_kit"] = result["window_kit"]
+    if result.get("door_kit"):             # door kit v2 builds only
+        data["door_kit"] = {k: v for k, v in result["door_kit"].items() if k != "flat"}
     # art pass, detail pass 1: keys only for recipes that use the features (older manifests
     # keep their key set)
     rep = getattr(hook, "report", None) if hook is not None else None

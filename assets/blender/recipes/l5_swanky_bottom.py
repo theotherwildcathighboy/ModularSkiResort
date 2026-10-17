@@ -1347,7 +1347,7 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
         plane = {"+X": cx + hb, "-X": cx - hb, "+Y": cy + hb, "-Y": cy - hb}[side]
         uc = {"+X": cy, "-X": -cy, "+Y": -cx, "-Y": cx}[side]
         P += K.entry(f"{name}{side[1].lower()}{'p' if side[0] == '+' else 'n'}",
-                     WallRef(side, plane), uc, w=1.6, h=2.6, sidelights=0, lamps=0,
+                     WallRef(side, plane), uc, w=1.6, h=2.6, sidelights=0, lamps=0, glass=False,
                      z=max(z0, 0.0) + 0.14, surround_mat="lux_glulam" if "lux_glulam" in
                      K.BLDG_MATERIALS else "timber_heavy")
     split_double_doors(P)               # L5 r1 coplanar hygiene (the leaves' meeting jambs)
@@ -2519,7 +2519,7 @@ def tower_deck(tower=True):
                  stringer_mat=GLU)
     if tower:                                   # a door from the deck into the tower base
         P += K.entry("ctdk", WallRef("+X", tx1), CT_C[1], w=1.6, h=2.4, sidelights=0, lamps=0,
-                     z=zt + 0.01, surround_mat=GLU)
+                     z=zt + 0.01, surround_mat=GLU, glass=False)
     info = dict(top=zt, slab=(zb, zt), x=(x0, x1), y=(y0, y1), tower=(tx0, tx1, ty0, ty1),
                 stair=(DK_STAIR_FOOT_Y, s0, s1))
     return P, info
@@ -3164,7 +3164,7 @@ def build_l5(recipe, opts):
     P += K.curtain_wall("hup", hf, -7.0, 7.0, 4.5, 8.6, grid_u=1.75, transom_at=4.1,
                         room="hup", per_storey_rooms=False)
     P += K.entry("h", hf, 0.0, w=2.4, h=2.7, sidelights=0, lamps=0, z=SLAB_T + 0.01,
-                 room="hdoor", surround_mat=GLU)
+                 room="hdoor", surround_mat=GLU, glass_room="hlo")
     P += K.pane_quad("win_hlo_hdoortr", hf, -1.4, 1.4, 3.32, 4.44)
     steps = ((-4.4, -2.2), (-2.2, 0.0), (0.0, 2.2), (2.2, 4.4))
     tops = [H_APEX - max(abs(ya), abs(yb)) - 0.95 for ya, yb in steps]
