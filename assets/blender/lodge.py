@@ -175,6 +175,16 @@ def parse_args(argv=None):
     ap.add_argument("--weather-level", default="auto",
                     help="tiled rollout: LOD0 weathering ladder level 0..5 or auto (highest detail "
                          "under the LOD0 cap); recipe.tiled_weather overrides")
+    # window kit v2 (2026-10-17, docs/research/art/window-kit-2026-10-17.md): recessed glass in a
+    # wall hole (LOD0 only), thin casing, sloped sill, sash + bead step, thin bars. Tiled builds only.
+    ap.add_argument("--window-kit", default="v1", choices=("v1", "v2"),
+                    help="v2 = window kit v2 (tiled builds only; v1 = every build byte-identical)")
+    ap.add_argument("--window-mode", default="auto", choices=("auto", "full", "lean"),
+                    help="kit v2: full = sash ring with the bead step; lean = no sash ring; auto = "
+                         "WINDOW_MODE per recipe (the no-headroom buildings go lean)")
+    ap.add_argument("--window-family", default="auto",
+                    choices=("auto", "base", "glazing", "chalet", "utility"),
+                    help="kit v2 family preset (auto = WINDOW_FAMILY per recipe)")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -615,8 +625,51 @@ def aframe_parts(c, opts):
     return P
 
 
+# window kit v2 mode per recipe key (window-kit doc section 5): "lean" drops the sash ring where
+# the LOD0 cap leaves no headroom; anything not listed is "full"
+WINDOW_MODE = {"L2": "lean", "L5": "lean"}
+# head-board rule override per recipe ("family" = the family's own): L2 has 208 tris of LOD0
+# headroom, so only its arrival facade gets the head board (the rest the U casing)
+WINDOW_LINTEL = {"L2": "none"}
+# extra flat-detail prefixes (cs2_tilesheet flat_prefixes: the material's mean colour, no tile
+# cuts) that pay for kit v2 where the cap is tight: L2's timber guard rails (604 tris tiled)
+WINDOW_FLAT_EXTRA = {}
+# wall holes per recipe: "all" | "arrival" (the other facades get SURFACE openings: glass just
+# proud of the wall inside a built-out casing). L5's 245 holes cost ~8.6 tris each tiled: over cap
+WINDOW_HOLES = {"L5": "arrival"}
+# window family per recipe (cs2_bldg.FAMILIES; window-kit doc section 3): big-lodge glazing,
+# chalet / hut timber casings, utilitarian frames
+WINDOW_FAMILY = {"L1": "glazing", "L4": "glazing", "L5": "glazing", "L2": "chalet", "L3": "chalet",
+                 "school": "utility", "P1": "utility", "P2": "utility"}
+
+
+def window_kit_cfg(recipe, args):
+    """kwargs for cs2_bldg.window_kit, or None for kit v1. The arrival direction in the
+    authoring frame BEFORE yaw: check_facing wants arrival = +X after apply_yaw(yaw)."""
+    if getattr(args, "window_kit", "v1") != "v2":
+        return None
+    mode = getattr(args, "window_mode", "auto")
+    if mode == "auto":
+        mode = WINDOW_MODE.get(recipe.key, "full")
+    a = math.radians(-recipe.yaw_deg)
+    fam = getattr(args, "window_family", "auto")
+    if fam == "auto":
+        fam = WINDOW_FAMILY.get(recipe.key, "base")
+    return {"version": 2, "mode": mode, "arrival": (math.cos(a), math.sin(a)), "family": fam,
+            "lintel": WINDOW_LINTEL.get(recipe.key, "family"), "holes": WINDOW_HOLES.get(recipe.key, "all")}
+
+
 def build_parts(recipe, opts):
-    """Kit calls in recipe order; asserts unique part names (no Blender .001 renames)."""
+    """Kit calls in recipe order; asserts unique part names (no Blender .001 renames).
+    opts["window_kit"] (window_kit_cfg) builds the windows with kit v2."""
+    wk = opts.get("window_kit")
+    if wk:
+        with K.window_kit(**wk):
+            return _build_parts(recipe, opts)
+    return _build_parts(recipe, opts)
+
+
+def _build_parts(recipe, opts):
     if recipe.massing == "aframe":
         parts = aframe_parts(recipe.params or R.AFRAME, opts)
     elif recipe.massing == "custom":
@@ -1188,6 +1241,12 @@ def run(recipe, args):
     out = _out_dir(recipe, args, letter)
     asset_dir = os.path.join(out, name)
     opts = {"tower": args.tower, "roof_windows": args.roof_windows}
+    wk = window_kit_cfg(recipe, args)
+    if wk:
+        if not tiled and not args.blockout:
+            raise RuntimeError("--window-kit v2 needs a tiled build (the wall holes are cut on the "
+                               "tiled LOD0 copy only; the far set keeps whole walls)")
+        opts["window_kit"] = wk
     W_, D_ = recipe.lot
     # 1-2 clean + parts
     clear_scene()
@@ -1252,7 +1311,8 @@ def run(recipe, args):
     # 11 rooms (before the bake: no pane texels)
     win, cells = K.split_rooms(obj, table, recipe.rooms, name=name)
     # 12 cull (after the rooms so panes are not occluders)
-    cull = K.cull_hidden(obj, protect=tuple(recipe.ground_prefixes) + K.LABEL_PREFIXES,
+    cull = K.cull_hidden(obj, protect=tuple(recipe.ground_prefixes) + K.LABEL_PREFIXES
+                         + (K.KIT2_RECESSED if wk else ()),
                          table=table, cull_ok=recipe.cull_ok, wall_rule=recipe.wall_rule,
                          arrival=(0.0, -1.0), ground_prefixes=recipe.ground_prefixes)
     T["cull"] = time.perf_counter() - t0
@@ -1297,6 +1357,7 @@ def run(recipe, args):
         lod0_tiled.data = obj.data.copy()
         lod0_tiled.name = name + "Tiled"
         bpy.context.scene.collection.objects.link(lod0_tiled)
+
         if recipe.allow_4096:
             print("[lodge] tiled: R18 4096 escalation off (the far set is a LOD1/LOD2 set)")
     if args.finish:
@@ -1390,6 +1451,15 @@ def run(recipe, args):
         if tiled:
             obj, far = _tiled_lod0(obj, lod0_tiled, recipe, args, name, asset_dir, keys, rep,
                                    result, A)
+            if wk:
+                # window kit v2: the holes were cut on the tiled LOD0 (_tiled_lod0_rollout);
+                # every recessed pane must now see out of its hole
+                blocked = K.check_panes_clear(obj, win) if win is not None else []
+                if blocked:
+                    raise RuntimeError(f"{name}: {len(blocked)} recessed panes look at a wall: "
+                                       f"{blocked[:8]}")
+                result["window_kit"].update(panes_blocked=0, mode=wk["mode"], family=wk.get("family"),
+                                            arrival_authoring=[round(v, 3) for v in wk["arrival"]])
     else:
         obj.data.materials.clear()
     T["bake"] = time.perf_counter() - t0
@@ -1398,7 +1468,22 @@ def run(recipe, args):
     result["hashes"]["LOD0"] = mesh_hash(obj)
     # 17 export LOD0 + rooms
     cs2_asset.export_fbx(obj, os.path.join(asset_dir, f"{name}.fbx"))
-    if win is not None:
+    win_far = None
+    if win is not None and wk and tiled:
+        # kit v2: LOD1 / LOD2 have no wall holes, so their `_Win` panes go back to the v1 depth
+        win_far, moved = K.unrecess_panes(win, far, depth=K.FAMILIES[wk["family"]]["reveal"])
+        result["window_kit"]["panes_unrecessed_far"] = moved
+        result["window_kit"]["panes"] = len(win.data.polygons)
+        result["hashes"]["WinFar"] = mesh_hash(win_far)
+        if args.lods:                     # the export takes each file stem as the object name
+            keep = win.name
+            win.name = keep + "Near"
+            try:
+                cs2_submesh.export_submeshes(win_far, name, "Win", asset_dir, lods=(1, 2))
+            finally:
+                win.name = keep
+        cs2_submesh.export_submeshes(win, name, "Win", asset_dir, lods=())
+    elif win is not None:
         cs2_submesh.export_submeshes(win, name, "Win", asset_dir, lods=(1, 2) if args.lods else ())
     # 18-19 LOD chain + checks
     lods = []
@@ -1416,7 +1501,8 @@ def run(recipe, args):
             if lvl == 2:
                 K.assert_budget(lod, recipe.budget, 2)
             if win is not None:
-                result.setdefault("panes_off", {})[lvl] = K.panes_on_surface(lod, win, 0.30)
+                result.setdefault("panes_off", {})[lvl] = K.panes_on_surface(
+                    lod, win_far if win_far is not None else win, 0.30)
             result["hashes"][f"LOD{lvl}"] = mesh_hash(lod)
             cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{name}_LOD{lvl}.fbx"))
     T["lods"] = time.perf_counter() - t0
@@ -1622,8 +1708,23 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
                           label_prefixes=tuple(p for p, _pa, _kw in recipe.labels),
                           ground_prefixes=tuple(recipe.ground_prefixes) if recipe.base_mode == "engine" else (),
                           label_ppm=TS.LABEL_PPM * SA / 4096.0, weather=W,
-                          flat_prefixes=TS.FLAT_DETAIL_PREFIXES + tuple(getattr(recipe, "tiled_flat", ()) or ()),
+                          flat_prefixes=TS.FLAT_DETAIL_PREFIXES + tuple(getattr(recipe, "tiled_flat", ()) or ())
+                          # kit v2: the window parts draw their material's mean colour (no tile cuts)
+                          + ((K.KIT2_PARTS + WINDOW_FLAT_EXTRA.get(recipe.key, ()))
+                             if getattr(args, "window_kit", "v1") == "v2" else ()),
                           grid_offset=0.5 if recipe.base_mode == "plinth" else 0.0)
+        if getattr(args, "window_kit", "v1") == "v2":
+            # window kit v2: the wall holes, cut AFTER the tile slicing so only the tile pieces
+            # under an opening are split (cut before, a hole's lines crossed every tile row)
+            kit2 = K.punch_openings(lod0, json.loads(lod0.data[cs2_asset.PART_TABLE_PROP]))
+            # "missing" = no wall face in the opening's plane (a glass wall such as L1's prow):
+            # nothing to cut, the check_panes_clear gate in run() still proves the glass is seen
+            if kit2["partial"]:
+                raise RuntimeError(f"{name}: window kit v2 openings with a partial wall hole: "
+                                   f"{kit2['partial'][:8]}")
+            tm["tris_after"] = cs2_asset.tri_count(lod0)
+            tm["window_kit_holes"] = kit2["holes"]
+            result["window_kit"] = kit2
         tried.append({"level": None if W is None else W.level, "tris": tm["tris_after"]})
         print(f"[lodge] tiled: weather level {None if W is None else W.level} -> LOD0 {tm['tris_after']} "
               f"(cap {cap})")
@@ -1840,6 +1941,8 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
         "stage_seconds": {k: round(v, 1) for k, v in T.items()},
         "total_seconds": round(time.perf_counter() - t0, 1),
     }
+    if result.get("window_kit"):           # kit v2 builds only (older manifests keep their keys)
+        data["window_kit"] = result["window_kit"]
     # art pass, detail pass 1: keys only for recipes that use the features (older manifests
     # keep their key set)
     rep = getattr(hook, "report", None) if hook is not None else None

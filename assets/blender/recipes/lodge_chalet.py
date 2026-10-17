@@ -553,7 +553,7 @@ def build_chalet(recipe, opts):
     P += K.boxes_part("trim_corners", [((x - 0.09, y - 0.09, z0), (x + 0.09, y + 0.09, z1))
                                        for x, y, z0, z1 in cb], "trim")
     # ---- C11 -----------------------------------------------------------------------------------------
-    bad = sorted(o.name for o, _m in P if not o.name.startswith(PREFIXES))
+    bad = sorted(o.name for o, _m in P if not o.name.startswith(PREFIXES + K.KIT2_PARTS))  # + window kit v2
     if bad:
         raise RuntimeError(f"L3: parts outside the prefix table: {bad[:8]}")
     return P

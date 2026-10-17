@@ -928,9 +928,14 @@ def build(recipe, opts):
     P += yard_parts(K, C, fine)
 
     # ---- material remap (kit hard-codes "trim" = slot 1 = barn red here) --------------
-    P = C.remat(P, (("sill_", "trim_white"), ("head_", "trim_white"), ("jamb_", "trim_white"),
-                    ("mull_", "trim_white"), ("ctran_", "trim_white"), ("lamp_main", "galv"),
-                    ("lamp_sign", "galv")))
+    if K.WINDOW_KIT["version"] == 2:     # window kit v2: warm off-white paint, weathered sills
+        P = C.remat(P, (("sill_", "trim_paint_w"), ("head_", "trim_paint"), ("jamb_", "trim_paint"),
+                        ("mull_", "trim_paint"), ("ctran_", "trim_paint"), ("reveal_", "trim_paint"),
+                        ("sash_", "trim_paint"), ("lamp_main", "galv"), ("lamp_sign", "galv")))
+    else:
+        P = C.remat(P, (("sill_", "trim_white"), ("head_", "trim_white"), ("jamb_", "trim_white"),
+                        ("mull_", "trim_white"), ("ctran_", "trim_white"), ("lamp_main", "galv"),
+                        ("lamp_sign", "galv")))
     lenses = ("lamp_mainL", "lamp_mainR") + tuple(f"lamp_sign{k}" for k in range(len(SIGN_LAMPS)))
     P = [(o, "lamp" if o.name in lenses else k) for o, k in P]
 

@@ -448,8 +448,9 @@ def build_p1(recipe, opts):
     if not fine:                         # fine: the kit akja row on the same wall (P1_ROWS_FINE)
         P += K.akja("p1", (0.5, y1 + 0.57, 0.02), "+Y", lean_deg=75.0, length=2.2, width=0.65)
     P += p1_detail(K, spec, fine)
-    P = C.remat(P, (("sill_", "timber_heavy"), ("jamb_", "timber_heavy"), ("mull_", "timber_heavy"),
-                    ("emblem_p1_rim", "trim_white")))
+    v2 = (("head_", "timber_heavy"), ("reveal_", "timber_heavy"), ("sash_", "timber_heavy"))         if K.WINDOW_KIT["version"] == 2 else ()      # window kit v2: the whole frame in timber
+    P = C.remat(P, (("sill_", "timber_heavy"), ("jamb_", "timber_heavy"), ("mull_", "timber_heavy"))
+                + v2 + (("emblem_p1_rim", "trim_white"),))
     C.assert_lot_margin(P, 4.0 * P1_LOT[1], 4.0 * P1_LOT[0], 0.25, "P1")    # M1
     C.check_coplanar(P, exempt=KIT_INTERNAL)
     # corner posts / plates are half-embedded in the wall corners by design (photo)

@@ -233,6 +233,10 @@ LOD1_DELETE = ("tail_", "bracket_", "brace_", "snowguard_", "gutter_", "downspou
                "sill_", "jamb_", "mull_", "rwin_", "door_", "post_", "rail_", "kick_",
                "trail_", "bar_", "lamp_", "flag_", "umbstand_", "umbpole_", "skirack_",
                "akja_",
+               # window kit v2 (2026-10-17): the reveal liners and sash rings sit BEHIND the
+               # wall face; only the LOD0 copy gets the wall holes (punch_openings), so the
+               # far set (LOD1 / LOD2) drops them. No v1 part carries either prefix.
+               "reveal_", "sash_",
                # detail pass 1 (school / L2 / patrol, design/detail-pass-1.md 6.1 + skeptic
                # M1): maze fence, toboggan rack, rescue gear, hose reel, fuel drum, log stack,
                # safety stripes. NOT bench_ (L1 keeps its bench through lod1_extra; a global
@@ -288,6 +292,13 @@ BLDG_MATERIALS = {
                              proj="inplane"),
     "trim": BldgMat(None, None, (0.80, 0.80, 0.80), smooth=0.45, slot=1, recolor=True),
     "trim_white": BldgMat(None, None, (0.85, 0.85, 0.85), smooth=0.40),
+    # window kit v2 (2026-10-17): the painted-trim pair. trim_w = the slot-1 trim's weathered
+    # sill (same recolour slot, darker base: dirt reads in whatever colour the variation
+    # picks); trim_paint / trim_paint_w = a fixed warm off-white for buildings that want
+    # light frames whatever their slot 1 is (the school: was trim_white, a pure 0.85 grey)
+    "trim_w": BldgMat(None, None, (0.62, 0.61, 0.59), smooth=0.35, slot=1, recolor=True),
+    "trim_paint": BldgMat(None, None, (0.80, 0.78, 0.72), smooth=0.40),
+    "trim_paint_w": BldgMat(None, None, (0.66, 0.63, 0.57), smooth=0.35),
     "accent": BldgMat(None, None, (0.80, 0.80, 0.80), smooth=0.25, slot=2, recolor=True,
                       density_w=0.5),
     "glass_dark": BldgMat(None, None, (0.07, 0.09, 0.11), smooth=0.92, density_w=0.5),
@@ -315,7 +326,8 @@ BLDG_MATERIALS = {
 # (detail1-check-aframe F4): left unweathered.
 WEATHER_ROLES_EXTRA = {"rubber": "pad", "safety_yellow": "paint", "fire_red": "paint",
                        "lamp_red": "none", "ski_black": "none", "ski_blue": "none",
-                       "ski_red": "none"}
+                       "ski_red": "none", "trim_w": "paint", "trim_paint": "paint",
+                       "trim_paint_w": "paint"}
 
 # Exact-name weight overrides (section 7.3): first matching rule wins.
 WEIGHT_RULES = (("suffix", "_face", 3.0), ("prefix", "entry_", 1.5), ("prefix", "door_", 1.5),
@@ -1279,10 +1291,14 @@ def window_bay(name, wall, u0, u1, win, room=None, sill_board=True, head_board=T
     """Framed window centred in [u0, u1] (width win.w): panes = ONE quad per light per row
     `win_<room>_<k>` at wall + 0.05 (a transom splits each light in two); frame members
     `sill_` 0.30 x 0.16, `head_` 0.26 x 0.20, `jamb_` 0.22 x 0.16, `mull_` 0.20 x 0.12 with
-    their outer face at pane + reveal (base_lodge.py:589-608); `ctran_<name>` transom bar."""
+    their outer face at pane + reveal (base_lodge.py:589-608); `ctran_<name>` transom bar.
+    With the window kit v2 active (window_kit(), lodge.py --window-kit v2) this is
+    window_bay_v2: same signature, same panes (rect, names, rooms), recessed REVEAL_M."""
     room = room or name
     if "_" in room or not room.isalnum():
         raise ValueError(f"room tag {room!r} must be alphanumeric (no underscore)")
+    if WINDOW_KIT["version"] == 2 and win.frame:
+        return window_bay_v2(name, wall, u0, u1, win, room, sill_board, head_board)
     uc = 0.5 * (u0 + u1)
     if win.w > (u1 - u0) + 1e-6:
         raise ValueError(f"window_bay {name}: window {win.w} m wider than its bay {u1 - u0:.2f}")
@@ -1336,6 +1352,533 @@ def window_bay(name, wall, u0, u1, win, room=None, sill_board=True, head_board=T
         parts += wall_box(f"ctran_{name}", wall, a0, a1, win.transom - 0.06,
                           win.transom + 0.06, face - 0.22, face, "trim")
     return parts
+
+
+# --------------------------------------------------------------------------------------
+# Window kit v2 (2026-10-17, docs/research/art/window-kit-2026-10-17.md). Richard on the
+# rollout previews: "the vanilla school's window frames next to ours is, uh, rough. Ours need
+# to be a bit more detailed and fine." Dimensions from the vanilla meshes (window-kit doc
+# section 1: EU_ResidentialLow01 glass 12 cm behind the wall, casing 10.5 cm wide / 3 cm
+# proud, sash bar 4 cm, sill 10.5 cm out / 3 cm thick and sloped; NA_ResidentialLow01 7.7 cm
+# reveal, 4.6 cm casing 2 cm proud; ElementarySchool01 15.5 cm splayed reveal; the hotel 7 cm
+# frames). One opening = a HOLE in the wall face (punch_openings, LOD0 copy only), a jamb-board
+# liner `reveal_` round the tunnel, a thin casing (`head_` = the U-shaped casing, or `jamb_`
+# posts + a `head_` lintel board on the arrival facade), a sloped `sill_` with a drip nose
+# (weathered trim key), a sash ring `sash_` with a glazing-bead step (mode "full"), thin
+# glazing bars `mull_`, panes `win_` REVEAL_M behind the wall face. Tris per opening: section 4
+# of the doc (kit_tris()). The far set (LOD1 / LOD2) never gets holes: reveal_ / sash_ / mull_
+# are LOD1 deletes and the LOD1 / LOD2 `_Win` panes move back to PANE_OFFSET (unrecess_panes).
+# --------------------------------------------------------------------------------------
+
+REVEAL_M = 0.10         # glass behind the wall face (vanilla 7.7-15.5 cm; houses 7.7 / 12)
+CASING_W = 0.07         # casing board width (vanilla 4.6-10.5 cm)
+CASING_P = 0.025        # casing proud of the wall (vanilla 2-3 cm)
+LINTEL_H = 0.13         # arrival-facade head board: height, proud, ears past the casing
+LINTEL_P = 0.04
+LINTEL_EAR = 0.03
+SILL_P = 0.06           # sill nose beyond the wall face
+SILL_DROP = 0.025       # slope of the sill top over SILL_P (~23 deg)
+SILL_NOSE = 0.045       # nose (front face) height
+SILL_KERF = 0.010       # the underside rises this much toward the wall: the drip edge
+SILL_HORN = 0.03        # sill run past the casing each side
+SASH_W = 0.045          # sash stiles / head rail on the glass
+SASH_WB = 0.06          # sash bottom rail
+SASH_STEP = 0.035       # glazing-bead step: sash face in front of the glass
+BAR_W = 0.035           # glazing bar between lights (vanilla EU house 4 cm)
+BAR_ROW_W = 0.04        # meeting rail between rows
+BAR_TRANSOM_W = 0.06    # transom
+BAR_D = 0.025           # glazing bars stand this far in front of the glass
+SURF_GLASS = PANE_OFFSET  # surface openings (no hole): glass at the v1 pane depth (LOD1 / 2 `_Win` = v1) ...
+SURF_CASING_P = 0.10    # ... and the casing face 5 cm in front of it
+BAR_D_LEAN = 0.012      # lean mode: a flat bar (front quad only, 2 tris) this far off the glass
+KIT2_RECESSED = ("reveal_", "sash_", "mull_")       # behind the (unholed) wall face: cull-protect
+KIT2_PARTS = ("reveal_", "sash_", "mull_", "jamb_", "head_", "sill_")
+PUNCH_ORDER = "v"       # punch_openings: "h" = sill / head lines first (shared along a row), "v"
+
+# FAMILIES (Richard's lodge window references, 2026-10-16: Snowbasin Needles / John Paul, the
+# glazed BC lodge, A-Basin's 6th Alley, a residential ski lodge, a European timber casement):
+#   glazing  big-lodge window walls: thin dark / timber frames, no sash ring, aluminium-width
+#            mullions (5 cm), a slim sill flashing, a header on the arrival facade (L1, L4, L5)
+#   chalet   divided-light sashes in WIDE timber casings (12 cm, the building's heavy timber),
+#            painted sash + bars + deep sill, a head board on every window (L2, L3)
+#   utility  plain frames, a thin frame ring, a header board on every window (school, P1, P2;
+#            the school's own photo, Palisades "Squaw Kids", keeps 2-row divided lights in
+#            light casings, so the rows stay)
+FAMILIES = {
+    "glazing": dict(reveal=0.08, casing_w=0.05, casing_p=0.02, casing_key=None, sash=False,
+                    sash_w=0.04, sash_wb=0.04, sash_step=0.02, bar_w=0.05, row_w=0.05,
+                    transom_w=0.06, bar_d=0.04, sill_p=0.03, sill_drop=0.012, sill_nose=0.025,
+                    lintel="arrival", lintel_h=0.13, lintel_p=0.04, rows=True),
+    "chalet": dict(reveal=0.10, casing_w=0.12, casing_p=0.025, casing_key="timber_heavy",
+                   sash=True, sash_w=0.05, sash_wb=0.065, sash_step=0.035, bar_w=0.035,
+                   row_w=0.04, transom_w=0.06, bar_d=0.025, sill_p=0.08, sill_drop=0.03,
+                   sill_nose=0.05, lintel="all", lintel_h=0.15, lintel_p=0.045, rows=True),
+    "utility": dict(reveal=0.10, casing_w=0.06, casing_p=0.02, casing_key=None, sash=True,
+                    sash_w=0.04, sash_wb=0.045, sash_step=0.02, bar_w=0.05, row_w=0.05,
+                    transom_w=0.06, bar_d=0.03, sill_p=0.05, sill_drop=0.02, sill_nose=0.04,
+                    lintel="all", lintel_h=0.12, lintel_p=0.035, rows=True),
+    # the first cut (no family): the module constants above
+    "base": dict(reveal=REVEAL_M, casing_w=CASING_W, casing_p=CASING_P, casing_key=None,
+                 sash=True, sash_w=SASH_W, sash_wb=SASH_WB, sash_step=SASH_STEP, bar_w=BAR_W,
+                 row_w=BAR_ROW_W, transom_w=BAR_TRANSOM_W, bar_d=BAR_D, sill_p=SILL_P,
+                 sill_drop=SILL_DROP, sill_nose=SILL_NOSE, lintel="arrival", lintel_h=LINTEL_H,
+                 lintel_p=LINTEL_P, rows=True),
+}
+
+WINDOW_KIT = {"version": 1, "mode": "full", "arrival": None, "lintel": "family",
+              "trim": "trim", "trim_w": "trim_w", "family": "base", "holes": "all"}
+
+
+def kit_params():
+    return FAMILIES[WINDOW_KIT.get("family") or "base"]
+
+
+class window_kit:
+    """Context manager: window_bay builds kit v2 inside it (lodge.build_parts).
+    mode "full" (sash ring) | "lean" (no sash ring: the no-headroom buildings);
+    arrival = authoring-frame (x, y) of the arrival direction (lintel boards on the wall that
+    faces it); lintel "arrival" | "all" | "none"; trim / trim_w = casing and sill keys."""
+
+    def __init__(self, version=2, mode="full", arrival=None, lintel="family", trim="trim",
+                 trim_w="trim_w", family="base", holes="all"):
+        if mode not in ("full", "lean") or lintel not in ("family", "arrival", "all", "none")                 or family not in FAMILIES or holes not in ("all", "arrival"):
+            raise ValueError(f"window_kit: mode {mode!r} / lintel {lintel!r} / family {family!r}")
+        self.cfg = {"version": int(version), "mode": mode, "lintel": lintel, "trim": trim,
+                    "trim_w": trim_w, "family": family, "holes": holes,
+                    "arrival": None if arrival is None else (float(arrival[0]), float(arrival[1]))}
+        self._saved = None
+
+    def __enter__(self):
+        self._saved = dict(WINDOW_KIT)
+        WINDOW_KIT.update(self.cfg)
+        return WINDOW_KIT
+
+    def __exit__(self, *exc):
+        WINDOW_KIT.clear()
+        WINDOW_KIT.update(self._saved)
+        return False
+
+
+def jamb_width():
+    """Width of the frame member beside the glass (shutters hang outside it)."""
+    return kit_params()["casing_w"] if WINDOW_KIT["version"] == 2 else 0.16
+
+
+def kit_tris(lights=1, rows=1, transom=False, mode="full", lintel=False, sill=True):
+    """Main-mesh tris of one v2 opening BEFORE the wall hole (+ ~7 after the ring merge):
+    reveal 8, casing 12 (U) or 18 (posts + lintel), sill 10, sash 16 (full), bars 6 each
+    (lean: no sash, flat 2-tri bars)."""
+    bars = (lights - 1) + (rows - 1) + (1 if transom else 0)
+    return (8 + (18 if lintel else 12) + (10 if sill else 4) + (16 if mode == "full" else 0)
+            + (6 if mode == "full" else 2) * bars)
+
+
+def _wpoly(g, wall, pts, out):
+    """Polygon from wall-local (u, z, d) points, outward hint in local (du, dz, dd)."""
+    n, t = _SIDES[wall.side]
+    o = t * out[0] + Vector((0.0, 0.0, out[1])) + n * out[2]
+    return g.poly([wall_point(wall, u, z, d) for (u, z, d) in pts], o)
+
+
+def window_bay_v2(name, wall, u0, u1, win, room, sill_board=True, head_board=True):
+    """Kit v2 opening centred in [u0, u1] (module notes above). The panes keep the v1 rects
+    and names (rooms unchanged); only their depth moves to -REVEAL_M."""
+    cfg = WINDOW_KIT
+    p = kit_params()
+    full = cfg["mode"] == "full" and p["sash"]
+    trim, trim_w = cfg["trim"], cfg["trim_w"]
+    ckey = p["casing_key"] or trim                      # casing + jamb board (chalet: timber)
+    R, CW, CP = p["reveal"], p["casing_w"], p["casing_p"]
+    SILL_P, SILL_DROP, SILL_NOSE = p["sill_p"], p["sill_drop"], p["sill_nose"]
+    SASH_W, SASH_WB, SASH_STEP = p["sash_w"], p["sash_wb"], p["sash_step"]
+    BAR_W, BAR_ROW_W, BAR_TRANSOM_W, BAR_D = p["bar_w"], p["row_w"], p["transom_w"], p["bar_d"]
+    LINTEL_H, LINTEL_P = p["lintel_h"], p["lintel_p"]
+    nrows = win.rows if p["rows"] else 1
+    uc = 0.5 * (u0 + u1)
+    if win.w > (u1 - u0) + 1e-6:
+        raise ValueError(f"window_bay {name}: window {win.w} m wider than its bay {u1 - u0:.2f}")
+    a0, a1 = uc - win.w / 2, uc + win.w / 2
+    z0, z1 = win.sill, win.sill + win.h
+    n, _t = _SIDES[wall.side]
+    lin = cfg["lintel"] if cfg["lintel"] != "family" else p["lintel"]
+    if not sill_board:
+        lintel = False                                    # the ring casing (school slits)
+    elif lin == "all":
+        lintel = head_board
+    elif lin == "arrival" and cfg["arrival"] is not None:
+        lintel = head_board and (n.x * cfg["arrival"][0] + n.y * cfg["arrival"][1]) > 0.7
+    else:
+        lintel = False
+    faces_arrival = cfg["arrival"] is not None and         (n.x * cfg["arrival"][0] + n.y * cfg["arrival"][1]) > 0.7
+    holes = cfg.get("holes", "all")
+    recessed = holes == "all" or (holes == "arrival" and faces_arrival)
+    if not recessed:
+        # SURFACE opening (no wall hole; the budget-bound buildings off their arrival facade):
+        # glass SURF_GLASS proud of the wall, the casing built out to SURF_CASING_P round it,
+        # so the glass still sits 5 cm behind the frame face
+        R, CP = -SURF_GLASS, SURF_CASING_P
+        LINTEL_P = max(LINTEL_P, CP + 0.02)
+        SILL_P = max(SILL_P, CP + 0.03)
+    parts = []
+    # -- panes (v1 rects, recessed) -------------------------------------------------------
+    rows = [(z0 + (z1 - z0) * r / nrows, z0 + (z1 - z0) * (r + 1) / nrows)
+            for r in range(nrows)]
+    has_tr = win.transom is not None and z0 < win.transom < z1
+    if has_tr:
+        rows = [(rz0, rz1) for (rz0, rz1) in
+                sum(([(a, min(b, win.transom)), (max(a, win.transom), b)]
+                     if a < win.transom < b else [(a, b)] for a, b in rows), [])]
+    k = 0
+    for rz0, rz1 in rows:
+        for li in range(win.lights):
+            la = a0 + (a1 - a0) * li / win.lights
+            lb = a0 + (a1 - a0) * (li + 1) / win.lights
+            parts += pane_quad(f"win_{room}_{name}{k}", wall, la, lb, rz0, rz1, d=-R)
+            k += 1
+    # -- reveal: jamb-board liner round the tunnel (sides run out to the casing face) -----
+    lz = 0.015 if sill_board else 0.0
+    g = _Geo()
+    _wpoly(g, wall, [(a0, z0 - lz, -R), (a0, z1, -R), (a0, z1, CP), (a0, z0 - lz, CP)], (1, 0, 0))
+    _wpoly(g, wall, [(a1, z0 - lz, -R), (a1, z0 - lz, CP), (a1, z1, CP), (a1, z1, -R)], (-1, 0, 0))
+    if recessed:
+        dt = 0.0 if lintel else CP       # under a U casing the head soffit runs out to its face
+        _wpoly(g, wall, [(a0, z1, -R), (a1, z1, -R), (a1, z1, dt), (a0, z1, dt)], (0, -1, 0))
+        _wpoly(g, wall, [(a0, z0, -R), (a0, z0, 0.0), (a1, z0, 0.0), (a1, z0, -R)], (0, 1, 0))
+        parts.append((g.finish(f"reveal_{name}"), ckey))
+    else:                                # no tunnel: sides (+ the head soffit under a U casing)
+        if not lintel:
+            _wpoly(g, wall, [(a0, z1, -R), (a1, z1, -R), (a1, z1, CP), (a0, z1, CP)], (0, -1, 0))
+        parts.append((g.finish(f"jamb_{name}i"), ckey))
+    # -- casing ---------------------------------------------------------------------------
+    zc = z0 - 0.03 if sill_board else z0 - CW            # posts end inside the sill / a ring
+    hc = CW
+    g = _Geo()
+    if lintel:
+        for (ua, ub, sg) in ((a0 - CW, a0, -1), (a1, a1 + CW, 1)):
+            _wpoly(g, wall, [(ua, zc, CP), (ub, zc, CP), (ub, z1, CP), (ua, z1, CP)], (0, 0, 1))
+            uo = ua if sg < 0 else ub
+            _wpoly(g, wall, [(uo, zc, 0.0), (uo, z1, 0.0), (uo, z1, CP), (uo, zc, CP)], (sg, 0, 0))
+        if not sill_board:
+            _wpoly(g, wall, [(a0 - CW, zc, 0.0), (a1 + CW, zc, 0.0), (a1 + CW, zc, CP),
+                             (a0 - CW, zc, CP)], (0, -1, 0))
+        parts.append((g.finish(f"jamb_{name}"), ckey))
+        parts += wall_box(f"head_{name}", wall, a0 - CW - LINTEL_EAR, a1 + CW + LINTEL_EAR,
+                          z1, z1 + LINTEL_H, 0.0, LINTEL_P, ckey, drop=("back",))
+    else:
+        zb = z0 if not sill_board else zc
+        _wpoly(g, wall, [(a0 - CW, zb, CP), (a0, zb, CP), (a0, z1, CP), (a1, z1, CP), (a1, zb, CP),
+                         (a1 + CW, zb, CP), (a1 + CW, z1 + hc, CP), (a0 - CW, z1 + hc, CP)], (0, 0, 1))
+        _wpoly(g, wall, [(a0 - CW, zc, 0.0), (a0 - CW, z1 + hc, 0.0), (a0 - CW, z1 + hc, CP),
+                         (a0 - CW, zc, CP)], (-1, 0, 0))
+        _wpoly(g, wall, [(a1 + CW, zc, 0.0), (a1 + CW, zc, CP), (a1 + CW, z1 + hc, CP),
+                         (a1 + CW, z1 + hc, 0.0)], (1, 0, 0))
+        _wpoly(g, wall, [(a0 - CW, z1 + hc, 0.0), (a1 + CW, z1 + hc, 0.0), (a1 + CW, z1 + hc, CP),
+                         (a0 - CW, z1 + hc, CP)], (0, 1, 0))
+        if not sill_board:                               # close the ring under the glass
+            _wpoly(g, wall, [(a0 - CW, zc, CP), (a1 + CW, zc, CP), (a1 + CW, z0, CP), (a1, z0, CP),
+                             (a0, z0, CP), (a0 - CW, z0, CP)], (0, 0, 1))
+            _wpoly(g, wall, [(a0 - CW, zc, 0.0), (a0 - CW, zc, CP), (a1 + CW, zc, CP),
+                             (a1 + CW, zc, 0.0)], (0, -1, 0))
+            _wpoly(g, wall, [(a0, z0, 0.0), (a1, z0, 0.0), (a1, z0, CP), (a0, z0, CP)], (0, 1, 0))
+        parts.append((g.finish(f"head_{name}"), ckey))
+    # -- sill: sloped top, nose, drip underside (weathered trim) --------------------------
+    if sill_board:
+        uL, uR = a0 - CW - SILL_HORN, a1 + CW + SILL_HORN
+        prof = [(0.0, z0), (SILL_P, z0 - SILL_DROP), (SILL_P, z0 - SILL_DROP - SILL_NOSE),
+                (0.0, z0 - SILL_DROP - SILL_NOSE + SILL_KERF)]
+        g = _Geo()
+        outs = [(0, SILL_P, SILL_DROP), (0, 0, 1), (0, -1, 0)]
+        for i in range(3):
+            (d0_, zz0), (d1_, zz1) = prof[i], prof[i + 1]
+            _wpoly(g, wall, [(uL, zz0, d0_), (uR, zz0, d0_), (uR, zz1, d1_), (uL, zz1, d1_)], outs[i])
+        _wpoly(g, wall, [(uL, zz, dd) for dd, zz in prof], (-1, 0, 0))
+        _wpoly(g, wall, [(uR, zz, dd) for dd, zz in prof], (1, 0, 0))
+        parts.append((g.finish(f"sill_{name}"), trim_w))
+    # -- sash ring with the glazing-bead step (full) ----------------------------------------
+    if full:
+        ds = -R + SASH_STEP
+        ia0, ia1, iz0, iz1 = a0 + SASH_W, a1 - SASH_W, z0 + SASH_WB, z1 - SASH_W
+        O = [(a0, z0), (a1, z0), (a1, z1), (a0, z1)]
+        In = [(ia0, iz0), (ia1, iz0), (ia1, iz1), (ia0, iz1)]
+        g = _Geo()
+        for i in range(4):
+            j = (i + 1) % 4
+            _wpoly(g, wall, [(O[i][0], O[i][1], ds), (O[j][0], O[j][1], ds),
+                             (In[j][0], In[j][1], ds), (In[i][0], In[i][1], ds)], (0, 0, 1))
+        steps = (((ia0, iz0), (ia1, iz0), (0, 1, 0)), ((ia1, iz0), (ia1, iz1), (-1, 0, 0)),
+                 ((ia1, iz1), (ia0, iz1), (0, -1, 0)), ((ia0, iz1), (ia0, iz0), (1, 0, 0)))
+        for (pa, pb, out) in steps:
+            _wpoly(g, wall, [(pa[0], pa[1], -R), (pb[0], pb[1], -R), (pb[0], pb[1], ds),
+                             (pa[0], pa[1], ds)], out)
+        parts.append((g.finish(f"sash_{name}"), trim))
+        bu0, bu1, bz0, bz1 = ia0, ia1, iz0, iz1
+    else:
+        bu0, bu1, bz0, bz1 = a0, a1, z0, z1
+    # -- glazing bars / meeting rails / transom (front + two sides each) -------------------
+    g = _Geo()
+    nb = 0
+    lean = cfg["mode"] == "lean"
+    df = -R + (BAR_D_LEAN if lean else BAR_D)              # lean: a flat bar 12 mm off the glass
+    for li in range(1, win.lights):
+        um = a0 + (a1 - a0) * li / win.lights
+        ua, ub = um - BAR_W / 2, um + BAR_W / 2
+        _wpoly(g, wall, [(ua, bz0, df), (ub, bz0, df), (ub, bz1, df), (ua, bz1, df)], (0, 0, 1))
+        if not lean:
+            _wpoly(g, wall, [(ua, bz0, -R), (ua, bz0, df), (ua, bz1, df), (ua, bz1, -R)], (-1, 0, 0))
+            _wpoly(g, wall, [(ub, bz0, -R), (ub, bz1, -R), (ub, bz1, df), (ub, bz0, df)], (1, 0, 0))
+        nb += 1
+    hz = [(z0 + (z1 - z0) * r / nrows, BAR_ROW_W) for r in range(1, nrows)]
+    if has_tr:
+        hz.append((win.transom, BAR_TRANSOM_W))
+    dh = df - 0.005                                       # under the vertical bars' faces
+    for zr, bw in hz:
+        za, zb_ = zr - bw / 2, zr + bw / 2
+        _wpoly(g, wall, [(bu0, za, dh), (bu1, za, dh), (bu1, zb_, dh), (bu0, zb_, dh)], (0, 0, 1))
+        if not lean:
+            _wpoly(g, wall, [(bu0, zb_, -R), (bu0, zb_, dh), (bu1, zb_, dh), (bu1, zb_, -R)], (0, 1, 0))
+            _wpoly(g, wall, [(bu0, za, -R), (bu1, za, -R), (bu1, za, dh), (bu0, za, dh)], (0, -1, 0))
+        nb += 1
+    if nb:
+        parts.append((g.finish(f"mull_{name}"), trim))
+    else:
+        g.bm.free()
+    return parts
+
+
+def _kit2_name(nm):
+    return nm.startswith(KIT2_PARTS)
+
+
+def _over_ring(f, t, ua, ub, za, zb, m=0.6):
+    us = [v.co.dot(t) for v in f.verts]
+    zs = [v.co.z for v in f.verts]
+    return not (max(us) < ua - m or min(us) > ub + m or max(zs) < za - m or min(zs) > zb + m)
+
+
+def punch_openings(obj, table, tol=2e-3, triangulate=True, merge=True):
+    """LOD0 copy only (lodge.run, kit v2): cut a hole in the wall face behind every `reveal_`
+    liner. The hole rect is read back from the liner itself (its side quads run out to the
+    casing face, its top / bottom quads stop at the wall plane: that tells outward and the
+    plane), so recipe transforms after the kit never matter. Faces of ANY non-kit part that
+    lie in the wall plane, face outward and overlap the rect are cut LOCALLY: the two
+    vertical lines through the faces that overlap the opening's height, then the two
+    horizontal lines through the middle column only, and the pieces inside the rect are
+    deleted. bmesh splits shared edges for both faces: no T-junction. lodge runs it on the
+    tiled LOD0 AFTER cs2_tilesheet.tile_mesh (only the tile pieces under an opening split;
+    run before it, every hole line crossed every tile row: +31 tris / hole on the school),
+    then re-triangulates the cut pieces and re-shades. Returns the report."""
+    me = obj.data
+    M = obj.matrix_world
+    if any(abs(M[i][j] - (1.0 if i == j else 0.0)) > 1e-9 for i in range(4) for j in range(4)):
+        raise RuntimeError(f"punch_openings: {obj.name} has a non-identity transform")
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.normal_update()
+    layer = bm.faces.layers.int.get("part")
+    names = list(table)
+
+    def pname(f):
+        k = f[layer]
+        return names[k - 1] if 0 < k <= len(names) else ""
+
+    liners = {}
+    for f in bm.faces:
+        nm = pname(f)
+        if nm.startswith("reveal_"):
+            liners.setdefault(nm, []).append(f)
+    Z = Vector((0.0, 0.0, 1.0))
+    ops = []
+    for nm in sorted(liners):
+        fs = liners[nm]
+        side = [f for f in fs if abs(f.normal.z) < 0.5]
+        hor = [f for f in fs if abs(f.normal.z) >= 0.5]
+        if not side or not hor:                     # quads, or their triangles after tile_mesh
+            raise RuntimeError(f"punch_openings: {nm} has {len(side)} side / {len(hor)} "
+                               f"horizontal faces (culled or edited?)")
+        t = side[0].normal.copy()
+        t.z = 0.0
+        t.normalize()
+        nax = Z.cross(t)
+        sv = [v.co.copy() for f in side for v in f.verts]
+        hv = [v.co.copy() for f in hor for v in f.verts]
+        bv = [v.co.copy() for f in hor if f.normal.z > 0.5 for v in f.verts]   # the stool: d <= 0
+        s = [p.dot(nax) for p in sv]
+        h = [p.dot(nax) for p in (bv or hv)]
+        if max(s) > max(h) + 1e-4:
+            n, plane = nax, max(h)
+        elif min(s) < min(h) - 1e-4:
+            n, plane = -nax, -min(h)
+        else:
+            raise RuntimeError(f"punch_openings: {nm}: cannot tell the outward side")
+        uu = [p.dot(t) for p in sv]
+        zz = [p.z for p in hv]
+        ops.append((nm, n, t, plane, min(uu), max(uu), min(zz), max(zz)))
+    # faces per wall plane (one scan per plane, then kept up to date as cuts split them)
+    groups = {}
+    for op in ops:
+        key = (round(op[1].x, 3), round(op[1].y, 3), int(round(op[3] / tol)))
+        groups.setdefault(key, []).append(op)
+    report = {"openings": len(ops), "holes": 0, "faces_cut": 0, "missing": [], "partial": []}
+    touched = []
+    created = []                 # every face a cut or the merge produced: the only ones re-triangulated
+    for key in sorted(groups):
+        n0, plane0 = groups[key][0][1], groups[key][0][3]
+        pool = [f for f in bm.faces if f.normal.dot(n0) > 0.999
+                and abs(f.calc_center_median().dot(n0) - plane0) < tol and not _kit2_name(pname(f))]
+        for (nm, n, t, plane, ua, ub, za, zb) in groups[key]:
+            def over(f, u_lo=ua, u_hi=ub):
+                us = [v.co.dot(t) for v in f.verts]
+                zs = [v.co.z for v in f.verts]
+                return not (max(us) <= u_lo + tol or min(us) >= u_hi - tol
+                            or max(zs) <= za + tol or min(zs) >= zb - tol)
+
+            def cut(faces, co, no):
+                faces = list(dict.fromkeys(faces))
+                if not faces:
+                    return []
+                geom = list(dict.fromkeys(x for f in faces for x in list(f.edges) + list(f.verts)))
+                geom += faces
+                ret = bmesh.ops.bisect_plane(bm, geom=geom, dist=1e-5, plane_co=co, plane_no=no,
+                                             use_snap_center=False, clear_outer=False,
+                                             clear_inner=False)
+                out = [e for e in ret["geom"] if isinstance(e, bmesh.types.BMFace)]
+                created.extend(out)
+                return out
+
+            pool = [f for f in pool if f.is_valid]
+            hit = [f for f in pool if over(f)]
+            if not hit:
+                report["missing"].append(nm)
+                continue
+            if PUNCH_ORDER == "h":
+                # horizontal lines first (shared by every opening of the row on this face),
+                # then the two verticals inside the opening's band only
+                first, second = ((Z * za, Z), (Z * zb, Z)), ((t * ua, t), (t * ub, t))
+
+                def inband(f):
+                    zs = [v.co.z for v in f.verts]
+                    return min(zs) >= za - tol and max(zs) <= zb + tol
+            else:
+                first, second = ((t * ua, t), (t * ub, t)), ((Z * za, Z), (Z * zb, Z))
+
+                def inband(f):
+                    us = [v.co.dot(t) for v in f.verts]
+                    return min(us) >= ua - tol and max(us) <= ub + tol
+            for co, no in first:
+                new = cut([f for f in pool if f.is_valid and over(f)], co, no)
+                pool = list(dict.fromkeys([f for f in pool if f.is_valid] + new))
+            col = [f for f in pool if f.is_valid and over(f) and inband(f)]
+            for co, no in second:
+                new = cut([f for f in col if f.is_valid and over(f)], co, no)
+                col = list(dict.fromkeys([f for f in col if f.is_valid] + new))
+                pool = list(dict.fromkeys([f for f in pool if f.is_valid] + new))
+            hole = []
+            for f in pool:
+                if not f.is_valid:
+                    continue
+                us = [v.co.dot(t) for v in f.verts]
+                zs = [v.co.z for v in f.verts]
+                if (min(us) >= ua - tol and max(us) <= ub + tol and min(zs) >= za - tol
+                        and max(zs) <= zb + tol):
+                    hole.append(f)
+            area = sum(f.calc_area() for f in hole)
+            want = (ub - ua) * (zb - za)
+            if area < 0.99 * want:
+                report["partial"].append((nm, round(area / want, 3)))
+            ring = [f for f in pool if f.is_valid and f not in set(hole) and _over_ring(f, t, ua, ub, za, zb)]
+            bmesh.ops.delete(bm, geom=hole, context="FACES")
+            pool = [f for f in pool if f.is_valid]
+            touched.extend(f for f in ring if f.is_valid)
+            report["holes"] += 1
+            report["faces_cut"] += len(hole)
+    if merge and touched:
+        # re-merge the pieces round each hole where they share one swatch mapping (delimit UV:
+        # a tile-cell or weather boundary stays), then triangulate: the hole costs its outline,
+        # not every tile triangle its lines crossed
+        faces = list(dict.fromkeys(f for f in touched if f.is_valid))
+        n0 = sum(len(f.verts) - 2 for f in faces)
+        bm.verts.index_update()
+        bm.edges.index_update()
+        fs = set(faces)
+        edges = sorted({e for f in faces for e in f.edges
+                        if len(e.link_faces) == 2 and all(lf in fs for lf in e.link_faces)},
+                       key=lambda e: e.index)
+        verts = sorted({v for e in edges for v in e.verts}, key=lambda v: v.index)
+        ret = bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(0.5), use_dissolve_boundaries=False,
+                                       verts=verts, edges=edges, delimit={"UV", "NORMAL", "SHARP"})
+        merged = [f for f in ret.get("region", []) if isinstance(f, bmesh.types.BMFace)]
+        created.extend(merged)
+        report["ring_tris_before_merge"] = n0
+        report["ring_faces_after_merge"] = len(merged)
+    ngons = [f for f in dict.fromkeys(created) if f.is_valid and len(f.verts) > 3]
+    if ngons and triangulate:
+        bmesh.ops.triangulate(bm, faces=ngons)
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    if triangulate:
+        cs2_asset.shade_by_angle(obj, 66.0, weighted=True)
+    print(f"[kit2] punch_openings {obj.name}: {report['holes']} holes / {report['openings']} "
+          f"openings, {report['faces_cut']} wall faces removed, missing {report['missing'][:6]}, "
+          f"partial {report['partial'][:6]}")
+    return report
+
+
+def check_panes_clear(lod0, win, reach=REVEAL_M + 0.03):
+    """Every recessed pane must see out of its hole: a ray from the pane centre along its
+    normal may not hit the LOD0 mesh within REVEAL_M + 3 cm (that would be an unholed wall).
+    Returns [(pane index, distance)] of blocked panes."""
+    bm = bmesh.new()
+    bm.from_mesh(lod0.data)
+    bm.transform(lod0.matrix_world)
+    bvh = BVHTree.FromBMesh(bm)
+    bm.free()
+    M = win.matrix_world
+    R3 = M.to_3x3()
+    out = []
+    for p in win.data.polygons:
+        c = M @ p.center
+        nn = (R3 @ p.normal).normalized()
+        loc, _n, _i, dist = bvh.ray_cast(c + nn * 0.002, nn, reach)
+        if loc is not None:
+            out.append((p.index, round(dist + 0.002, 4)))
+    return out
+
+
+def unrecess_panes(win, far, depth=REVEAL_M, offset=PANE_OFFSET, tol=0.01):
+    """The LOD1 / LOD2 `_Win`: a copy of `win` whose recessed panes (an unholed wall face of
+    the far set `depth` in front of the pane centre) move back out to `offset` in front of
+    that face: the v1 pane positions, so the far set needs no holes. Same faces, UVs and
+    room cells. Returns (copy, panes moved)."""
+    bm = bmesh.new()
+    bm.from_mesh(far.data)
+    bm.transform(far.matrix_world)
+    bvh = BVHTree.FromBMesh(bm)
+    bm.free()
+    cp = win.copy()
+    cp.data = win.data.copy()
+    cp.name = win.name + "Far"
+    cp.data.name = cp.name
+    bpy.context.scene.collection.objects.link(cp)
+    M = cp.matrix_world
+    Mi = M.inverted()
+    R3 = M.to_3x3()
+    moved = {}
+    n_moved = 0
+    for p in cp.data.polygons:
+        c = M @ p.center
+        nn = (R3 @ p.normal).normalized()
+        loc, _n, _i, dist = bvh.ray_cast(c + nn * 0.002, nn, depth + 0.05)
+        if loc is None or abs(dist + 0.002 - depth) > tol:
+            continue
+        n_moved += 1
+        for vi in p.vertices:
+            moved[vi] = nn * (depth + offset)
+    for vi, dv in moved.items():
+        v = cp.data.vertices[vi]
+        v.co = Mi @ ((M @ v.co) + dv)
+    cp.data.update()
+    return cp, n_moved
 
 
 def curtain_wall(name, wall, u0, u1, z0, z1, grid_u=1.6, transom_at=3.0, mullion=0.08,

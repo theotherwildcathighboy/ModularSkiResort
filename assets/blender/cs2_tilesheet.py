@@ -177,6 +177,10 @@ SMOOTH_TARGET = {
     "lux_slate": 0.30, "lux_paver": 0.25, "lux_drive": 0.30, "lux_trim": 0.35,
     "lux_water": 0.85, "lux_pooltile": 0.50, "lux_ember": 0.30, "lux_hedge": 0.10,
 }
+SMOOTH_TARGET.update({"trim_w": 0.30, "trim_paint": 0.35, "trim_paint_w": 0.30})
+# flat keys registered after the rollout (window kit v2, 2026-10-17): appended to the palette
+# after every rollout key, so the rollout keys keep their cells (and the v1 builds their UVs)
+PALETTE_APPENDED = ("trim_w", "trim_paint", "trim_paint_w")
 SMOOTH_GAIN = 0.5
 # Metal (MaskMap R) only where vanilla has it: Barn01's metal roof is metal 1.0 / smooth 0.35
 # (texture-parity section 3); bare galvanised steel stays 1.0 (BldgMat). Every other key 0.
@@ -277,10 +281,13 @@ def sheet_layout(A=SHEET_A, layout="rollout", repeats=None):
     out["label_rect"] = list(out["label_region"])
     # flat keys -> palette cells (sorted, deterministic)
     flat = sorted(k for k, m in K.BLDG_MATERIALS.items()
-                  if not m.set and k not in spec["tiles"] and k not in out["alias"])
+                  if not m.set and k not in spec["tiles"] and k not in out["alias"]
+                  and k not in PALETTE_APPENDED)
     flat += [k for k in spec["palette_extra"] if k not in flat]
     if layout == "rollout":
         flat += sorted(k + F_SUFFIX for k in spec["tiles"] if not k.endswith(W_SUFFIX))
+    # keys added after the rollout go LAST, so every earlier key keeps its palette cell
+    flat += [k for k in PALETTE_APPENDED if k in K.BLDG_MATERIALS and k not in flat]
     pg = out["palette_grid"]
     pcell = (ps * cell) // pg
     if len(flat) > pg * pg:

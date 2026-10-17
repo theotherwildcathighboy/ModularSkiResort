@@ -314,7 +314,7 @@ def _roof_spec(K):
 
 def _shutters(K, name, wall, a0, a1, z0, h):
     """`trim_sh<name>`: one shutter each side of a framed window (outside the jambs)."""
-    j = 0.16                                   # jamb width (cs2_bldg.window_bay)
+    j = K.jamb_width()                         # jamb width (cs2_bldg.window_bay; v2 casing 0.07)
     boxes = [(a0 - j - SHUTTER_W, a0 - j, z0, z0 + h, 0.0, SHUTTER_T),
              (a1 + j, a1 + j + SHUTTER_W, z0, z0 + h, 0.0, SHUTTER_T)]
     return K.wall_boxes(f"trim_sh{name}", wall, boxes, "trim")
@@ -604,7 +604,7 @@ def build_hut(recipe, opts):
     # ---- detail pass 1 dressing (design 3.2) ---------------------------------------------
     P += _detail1(K, fine)
     # ---- contract C11: every part carries a kit prefix -------------------------------------
-    bad = sorted(o.name for o, _m in P if not o.name.startswith(PREFIXES))
+    bad = sorted(o.name for o, _m in P if not o.name.startswith(PREFIXES + K.KIT2_PARTS))  # + window kit v2
     if bad:
         raise RuntimeError(f"L2: parts outside the prefix table: {bad[:8]}")
     return P

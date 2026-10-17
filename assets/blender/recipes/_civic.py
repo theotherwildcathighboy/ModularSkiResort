@@ -348,6 +348,9 @@ def check_inside(parts, volumes, shrink=0.01, exempt=()):
     ((lo, hi) boxes shrunk by `shrink`); parts whose name starts with `exempt` skipped."""
     names = [o.name for o, _k in parts]
     bad = []
+    import cs2_bldg as _K
+    if _K.WINDOW_KIT["version"] == 2:       # window kit v2: liners, sash, bars, panes sit in the reveal
+        exempt = tuple(exempt) + _K.KIT2_RECESSED + ("win_",)
     for idx, _n, pts in _world_polys(parts):
         if names[idx].startswith(tuple(exempt)) if exempt else False:
             continue
