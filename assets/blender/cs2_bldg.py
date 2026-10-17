@@ -3796,7 +3796,7 @@ def gutter(name, p0, p1, z, size=(0.12, 0.10)):
 
 
 def downspout(name, x, y, z_top, normal, size=0.08, wall_gap=0.10, z_bottom=0.05,
-              leader=None, shoe=None, shoe_dir=None):
+              leader=None, shoe=None, shoe_dir=None, ledge_drain=False):
     """`downspout_<name>` square 0.08 pipe from the gutter (z_top) down to z_bottom (0.05
     above grade: outside the ground band; or onto a deck / cap) with an elbow to the
     gutter line `wall_gap` m out along `normal`.
@@ -3818,7 +3818,10 @@ def downspout(name, x, y, z_top, normal, size=0.08, wall_gap=0.10, z_bottom=0.05
         FIT_PIPES.append({"name": f"downspout_{name}", "x": float(x), "y": float(y), "z_top": float(z_top),
                           "n": tuple(n), "size": float(size), "wall_gap": float(wall_gap),
                           "z_bottom": float(z_bottom), "shoe": bool(shoe), "shoe_dir": tuple(sd),
-                          "leader": None if leader is None else (float(leader[0]), float(leader[1]))})
+                          "leader": None if leader is None else (float(leader[0]), float(leader[1])),
+                          # a pipe that lands on a flat roof / ledge (L1 park side): the router gives the ledge a
+                          # scupper and a pipe of its own down to grade
+                          "ledge_drain": bool(ledge_drain)})
     if leader is not None:
         lx, ly = float(leader[0]), float(leader[1])
         za = z_top - 0.08

@@ -609,11 +609,19 @@ def aframe_parts(c, opts):
     P += K.gutter("prowS", (S2X1 + OVER + 0.3, PY0 - 1.25), (PX1 + 1.1, PY0 - 1.25), gz)
     P += K.gutter("prowN", (S2X1 + OVER + 0.3, PY1 + 1.25), (PX1 + 1.1, PY1 + 1.25), gz)
     wsx = BX0 - 0.30 if KH > 0.0 else BX0 - 0.06    # rev. 1: outside the cap ring (-13.2)
+    fit = K.FITTINGS.get("version", 0) >= 1
+    # close look (2026-10-17, coordinator's choices): the slope-side pipes no longer drop from the eave in front of
+    # the side rail; they run on the main wall 0.4 m inside the rail line (y +-20.6, behind it, beside its wall
+    # post) and stand on the deck. The park-side pipes land on the base storey's flat top (A-Basin's lower storey is
+    # a flat-roofed deck, the A-frame sheds onto it) and that ledge gets a scupper and a pipe of its own to grade.
+    ex, ey = (S2X1 + 0.06, 20.6) if fit else (S2X1 + OVER + 0.25, 20.9)
     for nm, x, y, nrm, zb in (("WS", wsx, -20.8, "-X", 0.05), ("WN", wsx, 20.8, "-X", 0.05),
-                              ("ES", S2X1 + OVER + 0.25, -20.9, "+X", S1_Z + 0.22),
-                              ("EN", S2X1 + OVER + 0.25, 20.9, "+X", S1_Z + 0.22)):
+                              ("ES", ex, -ey, "+X", S1_Z + 0.22),
+                              ("EN", ex, ey, "+X", S1_Z + 0.22)):
         gap_w = 0.0 if nm.startswith("E") else (S2X0 - OVER - 0.25) - x
-        P += K.downspout(nm, x, y, gz, nrm, wall_gap=abs(gap_w) if gap_w else 0.02, z_bottom=zb)
+        gap_e = (S2X1 + OVER + 0.25) - ex if fit and nm.startswith("E") else 0.02
+        P += K.downspout(nm, x, y, gz, nrm, wall_gap=abs(gap_w) if gap_w else gap_e, z_bottom=zb,
+                         ledge_drain=fit and nm.startswith("W"))
     # detail pass 1 (Richard's second verdict 2026-10-11, DETAIL1 in the params; L1 only):
     # snow guards on the two prow slopes (the main slopes have them), and the prow gutters'
     # downspouts: outlet at the gutter end, an offset leader to the prow corner, down to the deck
@@ -700,6 +708,20 @@ def door_kit_cfg(recipe, args):
 FITTINGS_FLAT = ("fit_",)
 # close look (2026-10-17): thin fittings never hide another part's face in cull_hidden (thin_occluders)
 FITTINGS_THIN = ("gutter_", "downspout_", "snowguard_", "fit_", "vent_", "stovepipe_", "flue_")
+
+
+def snap_ground_band(obj):
+    """Close look (2026-10-17): L5's grade parts now start at cs2_bldg.GROUND_LIFT (0.02) instead of its LIFT 0.05,
+    and the LOD1 / LOD2 collapse moved a few pier bottoms to 0.014, inside the forbidden 0.011..0.02 band. Put any
+    vertex in that band back on GROUND_LIFT (<= 9 mm); returns how many moved."""
+    n = 0
+    for v in obj.data.vertices:
+        if K.GROUND_BAND < v.co.z < K.GROUND_LIFT - 1e-6:
+            v.co.z = K.GROUND_LIFT
+            n += 1
+    if n:
+        obj.data.update()
+    return n
 
 
 def fittings_cfg(recipe, args):
@@ -1587,6 +1609,10 @@ def run(recipe, args):
         result["lod_plan"] = plan
         result["lod_info"] = infos
         for lvl, lod in enumerate(lods, start=1):
+            if fk:          # close look: decimation must not pull a grade bottom (GROUND_LIFT) into the ground band
+                n_snap = snap_ground_band(lod)
+                if n_snap:
+                    result.setdefault("lod_grade_snap", {})[lvl] = n_snap
             result["base"][lvl] = K.check_base_mode(lod, table, recipe.base_mode,
                                                     recipe.ground_prefixes, recipe.plinth)
             result["tris"][lvl] = cs2_asset.tri_count(lod)

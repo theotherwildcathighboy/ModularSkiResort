@@ -922,8 +922,11 @@ def build(recipe, opts):
             P += lp
 
     # ---- downspouts (front only: the back is the HIGH side of the monopitch), HVAC on the slope
-    for nm, x, y, zt, nrm in (("fs", gx1 + 0.10, gy0 + 0.30, ROOF_GF_Z, "-X"),
-                              ("fn", gx1 + 0.10, gy1 - 0.30, ROOF_GF_Z, "-X")):
+    # close look (2026-10-17, coordinator): with fittings the two downpipes go: the school has no gutter (Palisades
+    # photos), and a pipe that starts in a drip-edge fascia reads as an error at 1.5 m
+    for nm, x, y, zt, nrm in (() if K.FITTINGS.get("version", 0) >= 1 else
+                              (("fs", gx1 + 0.10, gy0 + 0.30, ROOF_GF_Z, "-X"),
+                               ("fn", gx1 + 0.10, gy1 - 0.30, ROOF_GF_Z, "-X"))):
         P += K.downspout(nm, x, y, zt, nrm, size=0.08, wall_gap=0.06, z_bottom=0.20,
                          shoe_dir="+X")      # fittings v1: the shoe kicks out (nrm points at the wall)
     for k, (x, y) in enumerate(HVAC):

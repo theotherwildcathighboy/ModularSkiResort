@@ -2949,6 +2949,25 @@ FIT_FENCE_SPANS = ((-20.0, -10.0), (10.0, 20.0))   # M road eave between the hal
 FIT_FENCE_EVERY = 1.8                               # brackets (1.2 on the other buildings): the L5 budget
 
 
+def lower_lift_bottoms(P, lift, ground_lift):
+    """Close look: move the bottom vertices (z == lift) of every part whose lowest point is `lift` down to
+    `ground_lift`; returns how many parts moved. Tops and everything above are untouched."""
+    n = 0
+    for o, _m in P:
+        vs = o.data.vertices
+        if not len(vs):
+            continue
+        zmin = min(v.co.z for v in vs)
+        if abs(zmin - lift) > 1e-4:
+            continue
+        for v in vs:
+            if abs(v.co.z - lift) <= 1e-4:
+                v.co.z = ground_lift
+        o.data.update()
+        n += 1
+    return n
+
+
 def CHIM_FOOT():
     """Foot of the three exterior stacks' shoulders. Close look (2026-10-17): at LIFT (0.05) they stood 3 cm over the
     lifted grade beside walls that meet the ground (cs2_fittings chimney gate); with fittings on they start at
@@ -3374,6 +3393,11 @@ def build_l5(recipe, opts):
         for o, _m in P:
             if o.name in CHIM_CAPS or o.name.startswith("rake_xg"):
                 o["no_bevel"] = 1
+        # close look (2026-10-17, coordinator): nothing floats, consistently: every closed part that started at
+        # LIFT (0.05: 3 cm over the lifted grade - piers, the hall's stone ring, the terrace and walk slabs, the
+        # drive) now starts at cs2_bldg.GROUND_LIFT like every other building's
+        n_low = lower_lift_bottoms(P, LIFT, K.GROUND_LIFT)
+        check(n_low > 0, "close look: no part started at LIFT")
 
     # ---------------- UV-island hygiene (see unbevelled) ----------------------------------
     unbevelled(P, "truss_xg", "trim_trussxg")

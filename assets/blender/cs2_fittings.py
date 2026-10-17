@@ -1305,7 +1305,7 @@ def route_downspouts(recipe, parts, W, runs, grade, report):
         nw = None if wd is None else wd[0]
         z_lo, z_hi = R["z_bottom"], zt - 0.3
         W_lo = W_up = Vector(W0)
-        z_split, jog_mode = None, None
+        z_split, jog_mode, ledge_z = None, None, None
         if nw is not None and R["shoe"]:
             tw = nw.cross(Vector((0, 0, 1)))
             prof = []
@@ -1331,7 +1331,7 @@ def route_downspouts(recipe, parts, W, runs, grade, report):
                     # wall and discharges onto the ledge (its shoe on the ledge top), as real upper pipes do
                     W_lo = W_up = W0 + nw * (max(upper) + 0.5 * s + 0.003)
                     R["z_bottom"] = z_feat + 0.05
-                    jog_mode = "onto"
+                    jog_mode, ledge_z = "onto", z_feat
                 elif upper and z_feat < z_hi - 0.4 and max(upper) < p_all - 0.04:
                     # a setback above the proudest feature on the line (a ledge, a plinth cap, a belt): the pipe
                     # runs on the upper wall and jogs out over the feature (a swan neck), then on down in front of it
@@ -1460,12 +1460,62 @@ def route_downspouts(recipe, parts, W, runs, grade, report):
             foot = {"z": round(z_pb, 3), "on": "runs on (no shoe)"}
         if nw is not None:
             _clips(g, W, Vector((Gx.x, Gx.y, 0.0)), nw, s, z_pb + 0.05, z_lt - 0.05, [], clips)
+        drain = None
+        if jog_mode == "onto" and R.get("ledge_drain"):
+            drain = _ledge_drain(g, W, recipe, grade, Vector((W_up.x, W_up.y, 0.0)), nw, ledge_z, s, clips)
         _write(o, g)
         if jog_mode == "onto":
             jog = ["onto", round(R["z_bottom"] - 0.05, 2)]
+        if drain is not None:
+            jog = jog + ["drain to " + drain] if jog else ["drain to " + drain]
         report.append({"pipe": R["name"], "moved_mm": round(moved * 1000, 1), "neck": neck is not None,
                        "nw": None if nw is None else [round(v, 3) for v in nw], "W_lo": [round(W_lo.x, 3),
                        round(W_lo.y, 3)], "W_up": [round(W_up.x, 3), round(W_up.y, 3)], "jog_over_z": jog, "foot": foot, "clips": clips, "gutter": gut[0]["name"] if gut else None})
+
+
+def _ledge_drain(g, W, recipe, grade, Wu, nw, zl, s, clips):
+    """The ledge an upper pipe lands on is a flat roof (L1: the base storey's top; A-Basin's lower storey is a
+    flat-roofed deck the A-frame sheds onto): a scupper through its outer edge, a drop under it, a 45-degree neck
+    back to the wall below, and a pipe of its own down to grade with clips and a shoe. Returns where it stands."""
+    Z = Vector((0.0, 0.0, 1.0))
+    zs = zl - 0.06                                         # scupper axis, just under the ledge top
+    h = W.cast(Vector((Wu.x, Wu.y, zs)) + nw * 3.0, -nw, 3.0)
+    if h is None:
+        raise RuntimeError(f"fittings {recipe.key}: no ledge edge in front of the pipe at {tuple(Wu)}")
+    E = Vector((h[0].x, h[0].y, 0.0))                      # the ledge's outer face on the pipe's line
+    # the spout seats 12 mm into the ledge's face (a declared embed) and stands 12 cm out
+    K._beam_into(g, Vector((E.x, E.y, zs)) - nw * 0.012, Vector((E.x, E.y, zs)) + nw * 0.12, s, 0.75 * s)
+    Gd = E + nw * (0.12 - 0.5 * s)                         # the drop under the spout's end
+    hu = W.cast(Vector((Gd.x, Gd.y, zl - 1.5)), Z, 1.6)
+    z_under = hu[0].z if hu is not None else zl - 0.3      # the ledge underside / cap bottom over the drop
+    prof = []
+    z = grade(Gd.x, Gd.y) + 0.1
+    while z <= z_under - 0.15:
+        q_ = None
+        for t_ in (-0.5 * s, 0.0, 0.5 * s):
+            hh = _proud_hit(W, Vector((Gd.x, Gd.y, z)) + nw * 0.8 + nw.cross(Z) * t_, -nw, 2.4)
+            if hh is not None:
+                q_ = (0.8 - hh) if q_ is None else max(q_, 0.8 - hh)
+        if q_ is not None:
+            prof.append(q_)
+        z += 0.05
+    if not prof:
+        raise RuntimeError(f"fittings {recipe.key}: no wall under the ledge at {tuple(E)}")
+    Wl = Gd + nw * (max(prof) + 0.5 * s + 0.003)
+    d = Vector((Wl.x - Gd.x, Wl.y - Gd.y, 0.0)).length
+    z_n0 = z_under - 0.5 * s - 0.03
+    g.aabb((Gd.x - 0.5 * s, Gd.y - 0.5 * s, z_n0 - 0.5 * s), (Gd.x + 0.5 * s, Gd.y + 0.5 * s, zs),
+           drop=("+Z",))
+    z_n1 = z_n0 - max(0.10, d)
+    K._beam_into(g, Vector((Gd.x, Gd.y, z_n0)), Vector((Wl.x, Wl.y, z_n1)), s, s)
+    z_s, kind = _support_below(W, recipe, Vector((Wl.x, Wl.y, z_n1 - 0.2)), grade, 60.0)
+    zb = z_s - _shoe_low(nw, s)
+    z_pb = zb + K.SHOE[1] - 0.5 * s
+    g.aabb((Wl.x - 0.5 * s, Wl.y - 0.5 * s, z_pb), (Wl.x + 0.5 * s, Wl.y + 0.5 * s, z_n1 + 0.5 * s),
+           drop=("-Z",))
+    K._shoe_into(g, Wl.x, Wl.y, zb, nw, s)
+    _clips(g, W, Vector((Wl.x, Wl.y, 0.0)), nw, s, z_pb + 0.05, z_n1 + 0.5 * s - 0.05, [], clips)
+    return f"{kind} at {z_s:.2f} m via a scupper"
 
 
 def clip_runs(recipe, parts, W, report):
