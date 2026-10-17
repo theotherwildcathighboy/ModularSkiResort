@@ -68,7 +68,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 import cs2_asset  # noqa: E402
-from cs2_weather import fbm, uniform, smoothstep  # noqa: E402  (read-only reuse of the noise)
+from cs2_weather import fbm, uniform, smoothstep, hash01, vnoise3  # noqa: E402  (read-only reuse)
 
 LUMA = np.array((0.2126, 0.7152, 0.0722), dtype=np.float32)
 
@@ -423,6 +423,57 @@ def _res(F, feature_m):
     return smoothstep(1.5, 3.0, feature_m * F.ppm)
 
 
+CAST_FEET = ("MastFoot", "ColFoot", "PipeFoot")
+RUN_CELL_M = 0.05          # one candidate run per 5 cm of circumference
+RUN_PRESENT = 0.30         # share of candidates that carry a run
+
+
+def _runs(F, sel, name, effect, cell=RUN_CELL_M, present=RUN_PRESENT):
+    """
+    Irregular water runs down the vertical faces of each part in `sel` (rev 4, coordinator
+    review: the fbm streaks read as evenly spaced stripes on the lance jacket). Around each
+    part's vertical axis the circumference is cut into ~`cell` candidates; a hash per
+    (part, candidate) decides whether it carries a run and its width (25-75 % of the cell),
+    lateral position, length (30-90 % of the part height), start (0-15 % below the part's
+    top, i.e. where water arrives from the collar / nuts above) and strength (0.5-1); the
+    edge wobbles with a low-frequency noise along z. Every run fades out over the lowest
+    18 % of the part (before the pad). Returns a (n_sel,) mask in [0, 1].
+    """
+    out = np.zeros(int(sel.sum()))
+    P = F.P[sel]
+    pids = F.part_id[sel]
+    seed = zlib.crc32(f"{name}:{effect}".encode()) & 0xFFFFFFFF
+    wob = vnoise3(np.stack([P[:, 0] * 3.0, P[:, 1] * 3.0, P[:, 2] / 0.08], 1), seed ^ 0x5bd1) - 0.5
+    for k in np.unique(pids):
+        pp = F.parts[int(k)]
+        m = pids == k
+        X = P[m]
+        lo, hi = float(pp["lo"][2]), float(pp["hi"][2])
+        h = max(hi - lo, 1e-3)
+        R = max(float(pp["rh"]), 0.02)
+        ncell = max(3, int(round(2.0 * math.pi * R / cell)))
+        th = np.arctan2(X[:, 1] - pp["c"][1], X[:, 0] - pp["c"][0])
+        t = (th + math.pi) / (2.0 * math.pi) * ncell
+        i = np.floor(t).astype(np.int64) % ncell
+        u = t - np.floor(t)
+        kk = np.full(len(i), int(k), np.int64)
+        r = [hash01(i, kk, np.full(len(i), j, np.int64), seed) for j in range(6)]
+        on = r[0] < present
+        width = 0.25 + 0.5 * r[1]
+        centre = 0.25 + 0.5 * r[2]
+        length = (0.30 + 0.60 * r[3]) * h
+        start = hi - 0.15 * h * r[4]
+        strength = 0.5 + 0.5 * r[5]
+        hw = 0.5 * width
+        d = np.abs(u - centre + 0.25 * width * wob[m])
+        prof = 1.0 - smoothstep(0.35 * hw, hw, d)
+        dz = start - X[:, 2]
+        along = (dz > 0) * smoothstep(0.0, 0.03, dz) * (1.0 - smoothstep(0.55 * length, length, dz))
+        fade = smoothstep(lo, lo + 0.18 * h, X[:, 2])
+        out[m] = on * prof * along * fade * strength
+    return out
+
+
 def _axis_coords(F, sel):
     """Per texel (across1, across2, along) in its part's principal frame (streak coordinates)."""
     out = np.zeros((int(sel.sum()), 3))
@@ -444,7 +495,8 @@ def _axis_coords(F, sel):
 
 def weather(base, nrm, msk, ctl, ao, F, name, skip=()):
     """All treatments on covered texels. Arrays are (A, A, 4) linear; returns new arrays + stats.
-    `skip`: effect ids to leave out (T1, T2, T3, T4, T5c chips, T5d paint dirt, T6, T7, T8) - for
+    `skip`: effect ids to leave out (T0g paint grain, T1, T2, T3, T4, T5c chips, T5d paint dirt,
+    T6, T7, T8) - for
     diagnosing which overlay makes a look; the shipping path skips nothing."""
     skip = set(skip)
     A = F.A
@@ -487,6 +539,28 @@ def weather(base, nrm, msk, ctl, ao, F, name, skip=()):
         B[galv, :3] = np.clip(raw * k, 0, 1) * occ[galv, None]
         stats["galv_albedo_scale"] = round(k, 3)
 
+    # ---- T0g isotropic paint grain (rev 4) -----------------------------------------------
+    # The family atlas paints its paint / plastic zones with a pebble normal + moulded ribs +
+    # albedo grain; smart-project squeezed each part's island into those small rects, so the
+    # bake reprojects that grain STRETCHED (the lance jacket showed even vertical stripes with
+    # every weathering effect off, once the repack gave it 101 px/m). On the recolourable zones
+    # the stretched grain is replaced by a per-part flat base x a fine WORLD-space grain and a
+    # flat normal (T8 relief still applies on top).
+    gsel = slot_zone & ~exempt & ~is_strip
+    if gsel.any() and "T0g" not in skip:
+        raw = B[gsel, :3] / occ[gsel, None]
+        pids = F.part_id[gsel]
+        flat = np.zeros_like(raw)
+        for k in np.unique(pids):
+            m = pids == k
+            flat[m] = (raw[m] * w[gsel][m, None]).sum(0) / max(w[gsel][m].sum(), 1e-12)
+        grain = (uniform(fbm(F.P[gsel], 0.012, F.ppm[gsel], _seed(name, "paint_grain"), octaves=2)) - 0.5)
+        grain = grain * _res(F, 0.012)[gsel]
+        B[gsel, :3] = flat * (1.0 + 0.03 * grain)[:, None] * occ[gsel, None]
+        Nm[gsel, 0] = 0.5
+        Nm[gsel, 1] = 0.5
+        Nm[gsel, 2] = 1.0
+
     # ---- T1 galvanised mottle + white rust (shop close-up A-frame; "50" hydrant) --------
     sel = galv & ~exempt
     if sel.any() and "T1" not in skip:
@@ -504,7 +578,8 @@ def weather(base, nrm, msk, ctl, ao, F, name, skip=()):
 
     # ---- T2 salt / water streaks along masts, columns, lance tubes -------------------
     elong = _startswith(F, STREAK_PREFIXES) & galv & ~exempt
-    vert = galv & ~exempt & ~elong & (np.abs(Nz) < 0.75)
+    feet = _startswith(F, CAST_FEET) & galv & ~exempt
+    vert = galv & ~exempt & ~elong & ~feet & (np.abs(Nz) < 0.75)
     sel = elong | vert
     if sel.any() and "T2" not in skip:
         Q = _axis_coords(F, sel)
@@ -520,6 +595,12 @@ def weather(base, nrm, msk, ctl, ao, F, name, skip=()):
         under = smoothstep(-0.25, -0.85, Nz[sel]) * _startswith(F, ("Lance", "Riser", "Brace"))[sel]
         B[sel, :3] *= (1.0 - 0.22 * under * (0.6 + 0.4 * s2))[:, None]
         stats["T2_streak_share_galv"] = share(_put(n, sel, np.maximum(salt, water)), galv)
+    fs = feet & (np.abs(Nz) < 0.85)
+    if fs.any() and "T2" not in skip:
+        run = _runs(F, fs, name, "foot_runs") * _res(F, 0.03)[fs]
+        B[fs, :3] *= (1.0 - 0.20 * run)[:, None]
+        Mk[fs, 3] -= 0.07 * run
+        stats["T2_foot_run_share"] = share(_put(n, fs, run), feet)
 
     # ---- T3 rust bloom at welds / flanges / nuts / feet + runs below them -------------
     rust_all = np.zeros(n)
@@ -615,8 +696,9 @@ def weather(base, nrm, msk, ctl, ao, F, name, skip=()):
             stats["T5_chip_share_bell_jacket"] = share(chip, hv)
         # dirt streaks on the housing (vertical faces) + dust on the tops
         ps = paint & ~exempt
-        st = uniform(fbm(F.P[ps], (0.02, 0.02, 0.45), F.ppm[ps], _seed(name, "paint_streak"), octaves=3))
-        sk = smoothstep(0.66, 0.82, st) * (1.0 - smoothstep(0.5, 0.9, np.abs(Nz[ps])))
+        # rev 4: irregular runs from the part's top (fewer, varied width / length, fade before
+        # the pad) instead of an fbm streak field that read as even stripes on the lance jacket
+        sk = _runs(F, ps, name, "paint_runs") * (1.0 - smoothstep(0.5, 0.9, np.abs(Nz[ps])))
         top = smoothstep(0.45, 0.9, Nz[ps]) * smoothstep(0.50, 0.70, _n01(F, 0.04, name, "paint_dust")[ps])
         rg = _res(F, 0.06)[ps]
         sk = sk * rg; top = top * rg
@@ -626,6 +708,7 @@ def weather(base, nrm, msk, ctl, ao, F, name, skip=()):
         dirt_mul[ps] *= dm
         Mk[ps, 3] -= 0.06 * sk + 0.08 * top
         stats["T5_dirt_share_paint"] = share(_put(n, ps, np.maximum(sk, top)), paint)
+        stats["T5_run_share_paint"] = share(_put(n, ps, sk), paint)
 
     # ---- T6 soot / oil at compressor intakes ------------------------------------------
     srcm = _startswith(F, COMPRESSOR_SOURCES)
