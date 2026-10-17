@@ -60,6 +60,17 @@ record docs/research/art/assets-2026-10/build/icons-round-2.md; each after its a
                              the face-on bullwheel, ropes from a lattice tower, the cabin
     SkiTramLine              the big cabin and its four-wheel carriage on the two track ropes
                              between two lattice towers
+T38 (2026-10-17; playtest item 84, docs/research/field/2026-10-15/build/T38-run-type-icons.md): the four run
+tiles are redrawn as four different pictures on four colour fields (same file names and cids), and
+SkiRunCatTrackA is new (a cat track used to borrow the groomed tile's icon):
+    SkiRunNaturalA           three big pines on bare snow under a blue sky (the one green tile)
+    SkiRunGroomedA           full-bleed diagonal corduroy bands, no sky, no marks (the one striped tile)
+    SkiRunSnowmakingA        a big orange fan gun and its white plume over a cyan sky (the hub's snowmaking cyan)
+    SkiRunNightA             navy sky, big cream crescent, three stars, one floodlight mast with two amber lamps
+    SkiRunCatTrackA          slate road with white centre dashes across a green field (the hub's cat track green)
+The other 21 tiles are byte-identical to the installed set. Preview: assets/preview/hub-icons-2026-10-17/
+(make_sheet.py: old vs new at 28 px and 56 px).
+
 Launcher (not a Build-strip tile; added 2026-10-04 night, Round F7 item E1,
 docs/research/field-test-7-fixes.md):
     SkiResortTab             was the hub launcher's icon (HubLauncher.tsx HUB_ICON, the floating
@@ -850,23 +861,55 @@ def ski_track(rp, col, d=46.0, w=9.0, wavelength=60.0, amp=13.0, trim0=6.0, trim
 NAT_PINES = ((122.0, 84.0, 27.0, PINE2_LIT, PINE2_SHADE), (182.0, 120.0, 37.0, PINE_LIT, PINE_SHADE))
 
 
+# T38 (2026-10-17, playtest item 84 "the run-type icons are not obviously different"): the four run
+# tiles used to share ONE scene (the same blue sky and white slope; only a thin mark told them apart
+# at the strip's 28 px). Each run tile is now its own silhouette on its own colour field, drawn for
+# 28 px first: natural = a big pine grove on bare snow (the only green tile), groomed = diagonal
+# corduroy bands (the only full-bleed striped tile, no sky), snowmaking = a big orange gun and a
+# thick white plume on cyan (the hub's snowmaking colour), night = a navy plate with a big crescent
+# and an amber lamp (the only dark tile), cat track = a slate road with white centre dashes across
+# a green field (the hub's cat track green). The old shared scene (RunScene, corduroy, ski_track) is
+# kept for the lift / launcher tiles that still use their pieces.
+NAT_SKY_TOP, NAT_SKY_BOT = (74, 150, 214), (156, 206, 244)
+NAT_PINES = ((64.0, 98.0, 32.0, PINE2_LIT, PINE2_SHADE), (172.0, 122.0, 40.0, PINE2_LIT, PINE2_SHADE),
+             (118.0, 152.0, 50.0, PINE_LIT, PINE_SHADE))
+
+
+def _nat_ground(x):
+    return 188.0 + 6.0 * np.sin((x + 20.0) / 21.0)
+
+
 def icon_run_natural():
-    sc = RunScene(bumps=4.0)
-    ly = list(sc.layers)
-    ly += ski_track(sc.rp, TRACK)
-    for x, h, hw, lit, shade in NAT_PINES:
-        ly.append(shadow(x + 4, ry(x) + 6, hw * 0.85, 5))
-    for x, h, hw, lit, shade in NAT_PINES:
-        ly += pine(x, ry(x) + 4, h, hw, lit, shade)
+    ly = [L(plate_sdf(), vgrad(NAT_SKY_TOP, NAT_SKY_BOT, 10, 190), mark=False)]
+    _, g = ground(_nat_ground, 150)
+    ly.append(g)
+    for x, h, hw, lit, shade in NAT_PINES[:2]:
+        ly.append(shadow(x + 6, _nat_ground(x) + 9, hw * 0.9, 6))
+    ly.append(shadow(124, _nat_ground(118) + 11, 46, 7))
+    for x, h, hw, lit, shade in NAT_PINES[:2]:
+        ly += pine(x, _nat_ground(x) + 6, h, hw, lit, shade)
+    x, h, hw, lit, shade = NAT_PINES[2]
+    ly += pine(x, _nat_ground(x) + 8, h, hw, lit, shade)
     return ly
 
 
-GROOMED_OFFSETS = (24.0, 50.0, 76.0, 102.0)
+GROOMED_ANGLE = 33.0                 # bands run down the fall line (top-left to bottom-right)
+GROOMED_BAND = (84, 138, 206)        # the mown corduroy band
+GROOMED_PITCH, GROOMED_W = 46.0, 24.0
 
 
 def icon_run_groomed():
-    sc = RunScene()
-    return sc.layers + corduroy(sc.rp, GROOVE, offsets=GROOMED_OFFSETS, stagger=0.0, w=14.0)
+    a = np.radians(GROOMED_ANGLE)
+    p = -X * np.sin(a) + Y * np.cos(a)          # across-the-bands coordinate
+    c0 = -0.5 * GROOMED_PITCH
+    ly = [L(plate_sdf(), vgrad((244, 249, 255), (216, 230, 248), 10, 245), mark=False)]
+    bands = union(*[np.abs(p - (c0 + k * GROOMED_PITCH)) - GROOMED_W / 2.0 for k in range(-2, 9)])
+    ly.append(L(bands, GROOMED_BAND, mark=False))
+    # a lighter lit edge on each band's upper side keeps the bands from reading as flat bars
+    lit = union(*[np.abs(p - (c0 + k * GROOMED_PITCH - GROOMED_W / 2.0 + 3.0)) - 3.0
+                  for k in range(-2, 9)])
+    ly.append(L(inter(bands, lit), (140, 182, 228), 0.9, mark=False))
+    return ly
 
 
 def snow_gun(gx, gy, aim_deg, scale=1.0):
@@ -981,12 +1024,19 @@ def plume(mx, my, aim_deg, spread, v0, g, k, wind, r0, grow, cone, fade):
     return out, paths, jet, flakes
 
 
+SNOW_SKY_TOP, SNOW_SKY_BOT = (16, 104, 160), (96, 200, 250)    # T38: the hub's snowmaking cyan, saturated
+# T38: the gun and its plume bigger than PLUME_SPEC's (28 px tile: the gun reads as an orange blob, the
+# plume as one thick white arc)
+PLUME_SPEC_T38 = dict(gx=74.0, below=72.0, gun=1.75, aim=58.0, spread=5.0, v0=4.4, g=0.090,
+                      k=0.030, wind=0.9, r0=10.0, grow=0.22, cone=0.95, fade=0.90)
+
+
 def icon_run_snowmaking():
     sc = RunScene()
-    ly = list(sc.layers)
+    ly = [L(plate_sdf(), vgrad(SNOW_SKY_TOP, SNOW_SKY_BOT, 10, 210), mark=False)] + sc.layers[1:]
     # the gun stands on the run and throws its plume up and away over the open sky in a high
     # arc; the snow drifts down onto the run below the far end of the arc
-    p = PLUME_SPEC
+    p = PLUME_SPEC_T38
     gx, aim = p["gx"], p["aim"]
     gun, (mx, my), _ = snow_gun(gx, ry(gx) + p["below"], aim, p["gun"])
     pl, paths, jet, flakes = plume(mx, my, aim, p["spread"], p["v0"], p["g"], p["k"], p["wind"],
@@ -1024,20 +1074,70 @@ def twinkle(cx, cy, r):
                        (cx, cy + r), (cx - q, cy + q), (cx - r, cy), (cx - q, cy - q)])
 
 
+NIGHT_T38_SKY = ((6, 12, 38), (30, 46, 96))
+NIGHT_T38_SNOW = ((74, 90, 140), (44, 56, 98))
+NIGHT_MOON = (156.0, 92.0, 46.0)       # T38: the crescent is the tile's big shape (outer disk r, bite offset below)
+NIGHT_STARS = ((196.0, 56.0, 12.0), (112.0, 54.0, 9.0), (206.0, 140.0, 8.0))
+NIGHT_LAMP = dict(px=84.0, top=96.0, ground=196.0)
+
+
 def icon_run_night():
-    sc = RunScene(night=True)
-    ly = list(sc.layers)
-    ly += corduroy(sc.rp, NGROOVE)
-    # the moon sits low over the run, below the hub's lock / hint-dot corner (top right)
+    """T38: the dark tile. A navy sky, a big cream crescent, three stars and ONE floodlight mast with a big
+    amber double lamp throwing a pool of light on dark snow. No corduroy (the groomed tile owns stripes)."""
+    ly = [L(plate_sdf(), vgrad(*NIGHT_T38_SKY, 10, 200), mark=False)]
+    ly.append(L(sd_polygon([(x, 192.0 + 4.0 * np.sin((x + 20.0) / 26.0)) for x in np.linspace(-14, 270, 40)]
+                           + [(270.0, 300.0), (-14.0, 300.0)]),
+                vgrad(*NIGHT_T38_SNOW, 160, 245), mark=False))
     mx, my, mr = NIGHT_MOON
-    ly.append(L(minus(sd_disk(mx, my, mr), sd_disk(mx + 11, my - 9, mr * 0.84)), MOON))
+    ly.append(L(minus(sd_disk(mx, my, mr), sd_disk(mx - 20, my - 14, mr * 0.86)), MOON))
     ly.append(L(union(*[twinkle(*t) for t in NIGHT_STARS]), MOON, 0.95))
-    ly += floodlight(sc.snow, 100.0, 54.0)
+    # the lamp: a pool of light on the snow, a tapered steel mast, a cross-arm, two big amber lamps
+    px, top, gy = NIGHT_LAMP["px"], NIGHT_LAMP["top"], NIGHT_LAMP["ground"]
+    pool = np.clip(1.0 - np.hypot((X - (px + 20)) / 1.5, Y - (gy + 6)) / 70.0, 0.0, 1.0) ** 0.8
+    ly.append(L(sd_ellipse(px + 20, gy + 6, 105, 70), LAMPLIGHT, 0.85 * pool, mark=False))
+    halo = np.clip(1.0 - np.hypot(X - px, Y - (top - 2)) / 58.0, 0.0, 1.0) ** 1.4
+    ly.append(L(sd_disk(px, top - 2, 58), HUB_AMBER, 0.55 * halo, mark=False))
+    mast = sd_polygon([(px - 6, top + 8), (px + 6, top + 8), (px + 8.5, gy + 5), (px - 8.5, gy + 5)])
+    ly += two_tone(mast, left_of(px), STEEL_LIT, STEEL_SHADE)
+    ly.append(L(sd_round_rect(px - 36, top + 2, px + 36, top + 14, 4), STEEL_SHADE))
+    for dx in (-24.0, 24.0):
+        ly.append(L(sd_round_rect(px + dx - 15, top - 14, px + dx + 15, top + 12, 6.0), HUB_AMBER))
+        ly.append(L(sd_round_rect(px + dx - 9, top - 7, px + dx + 9, top + 5, 3.0), (255, 248, 226)))
     return ly
 
 
-NIGHT_MOON = (178.0, 104.0, 25.0)
-NIGHT_STARS = ((150.0, 42.0, 8.0), (212.0, 68.0, 7.0))
+# T38: cat track = a slate road across a green field, white dashes down its centre (the hub's cat track
+# green); the road is FIELD (it runs off both edges), the dashes are marks (>= 22 px from the plate edge).
+CAT_FIELD_TOP, CAT_FIELD_BOT = (86, 168, 100), (150, 212, 156)
+CAT_ROAD, CAT_ROAD_EDGE = (62, 74, 98), (232, 240, 248)
+CAT_ROAD_W = 52.0
+
+
+def _cat_y(x):
+    return 138.0 + 46.0 * np.sin((x - 10.0) / 235.0 * 2.0 * np.pi + 0.35)
+
+
+def icon_run_cattrack():
+    ly = [L(plate_sdf(), vgrad(CAT_FIELD_TOP, CAT_FIELD_BOT, 10, 245), mark=False)]
+    xs = np.linspace(-20.0, 276.0, 120)
+    road = [(float(x), float(_cat_y(x))) for x in xs]
+    ly.append(L(sd_polyline(road, CAT_ROAD_W + 8.0), CAT_ROAD_EDGE, mark=False))
+    ly.append(L(sd_polyline(road, CAT_ROAD_W), CAT_ROAD, mark=False))
+    # centre dashes: walk the curve, a dash every 44 px of arc, 24 px long
+    pts = np.asarray(road)
+    seg = np.hypot(*np.diff(pts, axis=0).T)
+    s = np.concatenate([[0.0], np.cumsum(seg)])
+    dashes = []
+    d0 = 14.0
+    while d0 + 24.0 < s[-1]:
+        a = np.linspace(d0, d0 + 24.0, 6)
+        dp = list(zip(np.interp(a, s, pts[:, 0]).tolist(), np.interp(a, s, pts[:, 1]).tolist()))
+        if all(mark_safe(px, py) <= -5.0 for px, py in dp):
+            dashes.append(sd_polyline(dp, 9.0))
+        d0 += 44.0
+    if dashes:
+        ly.append(L(union(*dashes), (250, 252, 255)))
+    return ly
 
 
 # ---------------------------------------------------------------------------------------------
@@ -2088,14 +2188,18 @@ ICONS = {
     "SkiRunGroomedA": icon_run_groomed,                 # runGroomed
     "SkiRunSnowmakingA": icon_run_snowmaking,           # runSnowmaking
     "SkiRunNightA": icon_run_night,                     # runNight
+    "SkiRunCatTrackA": icon_run_cattrack,               # runCatTrack     (T38; was the groomed tile's icon)
 }
-STRIP_ORDER = list(ICONS.keys())
+# T38 (2026-10-17): the cat track tile is new (it had borrowed the groomed tile's icon); the 25-tile review
+# sheets and ROUND2 keep their meaning, so it is listed apart.
+T38_NEW = ["SkiRunCatTrackA"]
+STRIP_ORDER = [n for n in ICONS if n not in T38_NEW]
 # the nine tiles of the 2026-10-04 style-E round (reproduced byte for byte; ski_icons_sheet.py's
 # default sheet shows these)
 E1_NINE = ["SkiResortGate", "SkiAFrameDayLodge", "SkiBaseStationBuilding", "SkiTopStationBuilding",
            "SkiChairliftLine", "SkiRunNaturalA", "SkiRunGroomedA", "SkiRunSnowmakingA",
            "SkiRunNightA"]
-ROUND2 = [n for n in STRIP_ORDER if n not in E1_NINE]
+ROUND2 = [n for n in STRIP_ORDER if n not in E1_NINE]   # (STRIP_ORDER excludes T38_NEW)
 STEP = {"SkiBaseStationBuilding": "1", "SkiTopStationBuilding": "2", "SkiChairliftLine": "3",
         "SkiDQBaseStationBuilding": "1", "SkiDQTopStationBuilding": "2", "SkiDetachableLine": "3",
         "SkiGondolaBaseStationBuilding": "1", "SkiGondolaTopStationBuilding": "2",
@@ -2119,6 +2223,8 @@ def measure(rgba, mk, name):
     tiles, the largest mark coverage inside the top-left keep-out box."""
     m = mk > 0.02
     ys, xs = np.nonzero(m)
+    if not len(xs):        # T38: a tile that is all field (the groomed bands) has no marks to measure
+        return dict(bbox=(0, 0, 0, 0), clear=float("inf"), keepout=None)
     x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
     c = np.arange(CANVAS) + 0.5
     gx, gy = np.meshgrid(c, c)
