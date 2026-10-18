@@ -291,11 +291,19 @@ def inspect_pack(path, asset_dir):
                       f"Slot{slot}Attr instancer node")
         imgs = [i for i in bpy.data.images if i.library == lib]
         check(len(imgs) == 4, f"{len(imgs)} images linked, expected 4 maps")
+        # T63 (DECISIONS 270): images are staged under <out_dir>/_tex/<Name>/ and referenced
+        # as //_tex/<Name>/<file>.png, never the build folder (which may be a temp dir).
+        tex_dir = os.path.normcase(os.path.join(os.path.dirname(os.path.abspath(path)), "_tex",
+                                                CHAIR_NAME))
         for img in imgs:
-            check(img.filepath.startswith("//"), f"{img.name} path not relative: {img.filepath}")
+            check(img.filepath.startswith("//_tex/") or img.filepath.startswith("//_tex\\"),
+                  f"{img.name} path not under //_tex: {img.filepath}")
             real = os.path.normcase(os.path.abspath(bpy.path.abspath(img.filepath, library=lib)))
-            check(os.path.isfile(real) and os.path.dirname(real) == os.path.normcase(asset_dir),
-                  f"{img.name} -> {real} is not in the asset folder")
+            check(os.path.isfile(real) and os.path.dirname(real) == tex_dir,
+                  f"{img.name} -> {real} is not in the pack's _tex folder")
+            src_png = os.path.join(asset_dir, os.path.basename(real))
+            check(os.path.isfile(src_png) and os.path.getsize(src_png) == os.path.getsize(real),
+                  f"{img.name}: staged copy differs from the asset folder's PNG")
         print(f"[review-test] pack props: tris {p.get('tris_LOD0')}/{p.get('tris_LOD1')}/"
               f"{p.get('tris_LOD2')}, switch {s1}/{s2} m, density median "
               f"{p.get('density_px_per_m_median')} min {p.get('density_px_per_m_min')} "

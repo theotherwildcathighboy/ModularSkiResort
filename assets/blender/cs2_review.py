@@ -69,9 +69,11 @@ Glass BSDF; `_Win`-family subs dark glass plus a warm emission whose strength is
 max(node "WinEmission", instancer "cs2r_win_emit") x WIN_EMIT_STRENGTH - a mock, the game's
 parallax interior cannot be reproduced.
 
-Images are loaded from `asset_dir` and written with path_remap="RELATIVE_ALL", so the pack
-references the asset folder's PNGs by RELATIVE path and a rebuild + Library.reload()
-refreshes them.
+Images are COPIED from `asset_dir` to `<out_dir>/_tex/<Name>/` and loaded from there, then
+written with path_remap="RELATIVE_ALL", so the pack references `//_tex/<Name>/<file>.png`:
+valid wherever the review folder lives and independent of the build folder (T63, DECISIONS
+270: packs built into the scratchpad lost every texture in the live scene). A rebuild +
+Library.reload() refreshes them.
 
 Collection custom props (flat, UI-readable; everything again as JSON in "cs2r_meta_json"):
 tris_LOD<k> / tris_<suffix>, cap_LOD<k> (meta["caps"]), lod_switch_m_LOD<k> / lod_cull_m /
@@ -102,6 +104,7 @@ import io
 import json
 import math
 import os
+import shutil
 import struct
 import subprocess
 import sys
@@ -333,10 +336,22 @@ def _mix(nt, factor, a, b, blend="MIX", loc=(0, 0)):
     return _sock(m.outputs, "Result")
 
 
+_STAGE_DIR = None   # set by write_pack: <out_dir>/_tex/<Name>; images are copied there first (T63)
+
+
 def _image(name, asset_dir, suffix, colorspace, packed=False):
     path = os.path.join(asset_dir, f"{name}_{suffix}.png")
     if not os.path.isfile(path):
         return None
+    if _STAGE_DIR:
+        # T63 (DECISIONS 270): a pack must not reference its build folder (usually a temp dir
+        # that moves or vanishes, and whose 8.3 short-name path Blender's relative resolver
+        # fails on). Copy the PNG beside the packs and load THAT, so RELATIVE_ALL writes
+        # //_tex/<Name>/<file>.png - valid wherever the review folder lives.
+        os.makedirs(_STAGE_DIR, exist_ok=True)
+        staged = os.path.join(_STAGE_DIR, os.path.basename(path))
+        shutil.copyfile(path, staged)
+        path = staged
     img = bpy.data.images.load(path, check_existing=False)
     img.name = f"{PACK_PREFIX}{name}_{suffix}"
     img.colorspace_settings.name = colorspace
@@ -536,6 +551,8 @@ def write_pack(name, asset_dir, lod_objs, submeshes=None, *, meta=None, out_dir=
     out_dir = os.path.abspath(out_dir or DEFAULT_OUT_DIR)
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, f"{name}.blend")
+    global _STAGE_DIR
+    _STAGE_DIR = os.path.join(out_dir, "_tex", name)     # T63: textures live beside the pack
 
     slot_defaults = dict(SLOT_DEFAULTS)
     for k, rgb in (meta.get("tint") or {}).items():
@@ -681,6 +698,7 @@ def write_pack(name, asset_dir, lod_objs, submeshes=None, *, meta=None, out_dir=
         bpy.data.libraries.write(path, {root}, path_remap="RELATIVE_ALL", fake_user=True,
                                  compress=True)
     finally:
+        _STAGE_DIR = None
         removed = _purge_new(before)
     sw_txt = ", ".join(f"LOD{levels[k]} {d:.0f} m" for k, d in sw["switch"].items()) or "none"
     print(f"[review] {name}: pack -> {path} ({os.path.getsize(path)} bytes, "
