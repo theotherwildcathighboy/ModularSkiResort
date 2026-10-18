@@ -128,6 +128,14 @@ def check_band_math():
     print("ok band rects: integral at 128..4096, square emblem, header aspect within 1 px, v <= 0.125")
 
 
+def check_tex_flag():
+    """T72: the sign bakes at --tex 2048 (about 2x the stone / roof px/m); the DEFAULT stays 1024 (the shipped export)."""
+    ok(WS.TEX == 1024 and WS.parse_args([]).tex == 1024, f"sign default --tex {WS.parse_args([]).tex} != 1024")
+    ok(WS.parse_args(["--finish", "--tex", "2048"]).tex == 2048 and WS.parse_args(["--closeups"]).closeups == "",
+       "sign --tex 2048 / --closeups parse")
+    print("ok sign --tex: default 1024, 2048 accepted, --closeups parses")
+
+
 def check_display_frames():
     right = np.array((0.0, 1.0, 0.0))     # a +X-facing wall (authoring): viewer right = +Y
     up = np.array((0.0, 0.0, 1.0))
@@ -459,6 +467,7 @@ def main():
     check_school_manifest()
     check_we_layout()
     check_band_math()
+    check_tex_flag()
     check_display_frames()
     tmp = tempfile.mkdtemp(prefix="civic_sign_")
     try:

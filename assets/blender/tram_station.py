@@ -1652,7 +1652,7 @@ def build_base(k, opts):
     for n, z in enumerate((-5.0, 0.0, 5.0)):
         k.box(f"girderroof_{n}", -HALL_X, HALL_X, roof_under(z) - 0.80, roof_under(z) + 0.02,
               z - 0.20, z + 0.20, "steel")
-    # deep-eave roof (JH-07: roof ~1.5 x the hall width), outriggers, purlins, corner fins
+    # deep-eave roof (JH-07: roof ~1.5 x the hall width), outriggers, purlins (T71: the corner fins were removed)
     rx = EAVE_X
     bot = [(-rx, roof_under(-ROOF_Z), FACE_Z), (rx, roof_under(-ROOF_Z), FACE_Z),
            (rx, roof_under(ROOF_Z1), ROOF_Z1), (-rx, roof_under(ROOF_Z1), ROOF_Z1)]
@@ -1682,8 +1682,8 @@ def build_base(k, opts):
             za, zb = FACE_Z + 0.05, ROOF_Z1 - 0.05
             k.member(f"purlin_{tag}{j}", (sx * xp, roof_under(za) - 0.11, za),
                      (sx * xp, roof_under(zb) - 0.11, zb), 0.12, 0.20, "steel", up=(0, 1, 0))
-        x0, x1 = sorted((sx * 12.55, sx * 12.75))
-        k.box(f"timberfin_{tag}", x0, x1, 9.50, 19.80, -10.35, -9.55, "timber")
+        # T71 (review 8, Richard 2026-10-18 "it didn't add anything"): the timber corner fins (timberfin_L/R: 0.20 x
+        # 0.80 m, y 9.50..19.80, hung 4.3 m over the plinth) are gone; the steel face columns are the corner
 
     # glazing (painted) and transoms; the two side-wall door bays leave their openings at the
     # boarding level (-X: the stair-landing door, +X: the annex door, revision 1)
@@ -3635,7 +3635,7 @@ BEVEL = {
              "girderface", "girderroof_", "deck_", "roof", "annexroof", "drivehouse",
              "cwshaft_", "opcab", "pictowall", "ctbase", "ctshaft", "ctstage", "stairstr_",
              "landing_", "trenchcap", "sgirder_", "sportal_", "mplatbase", "mplattop",
-             "timberfin_", "vpier_"),
+             "vpier_"),
     "top": ("plinth", "footing_", "strut_", "headbeam_", "headgirder_", "hut", "hutroof",
             "dplate_", "stairstr_", "landing_", "sgirder_", "goalbeam", "goalpost_", "dwbeam",
             "bullframe_"),
@@ -3666,7 +3666,7 @@ DENSITY_WEIGHTS = {
     # they are scaled down (rope_ 1.0 -> 0.35, rail_ 0.7 -> 0.45, bwrim 0.8 -> 0.6).
     "rope_": 0.35, "sgirder_": 1.0, "bullrim": 0.6, "bullspoke_": 0.6, "dwrim_": 0.6,
     "dwspoke_": 0.6, "drumrim_": 0.8, "drumspoke_": 0.8, "goalbeam": 1.0, "goalpost_": 1.0,
-    "fin_": 0.35, "mullion_": 0.35, "outrigger_": 0.5, "purlin_": 0.4, "timberfin_": 1.0,
+    "fin_": 0.35, "mullion_": 0.35, "outrigger_": 0.5, "purlin_": 0.4,
     "horn_": 0.55, "hornstrut_": 0.45, "mplat": 0.8, "trackrail_": 0.4, "trenchwall_": 0.6,
     "sfront": 1.2, "door_annex": 1.2, "door_stairin": 1.2, "doorlite_": 1.0, "spandrel_": 1.0,
     # revision 1c: the catwalk ladder (thin, like the rails)
@@ -3753,7 +3753,7 @@ def density_weights(role):
 # LOD1 drops sub-pixel hardware; LOD2 keeps the masses (MC4: opcab / hut stay, so the
 # shared `_LOD2_Win` panes never float). Prefix hygiene: girderface vs girderroof_,
 # bw* vs brace_ / bull*, hut / hutroof, deck_ vs deckbeam_ / deckstrut_, leg_ vs legbrace_,
-# fin_ vs timberfin_, sgirder_ vs sghanger_ / sgpost_ / sgtie, drumrim_ vs drumspoke_.
+# sgirder_ vs sghanger_ / sgpost_ / sgtie, drumrim_ vs drumspoke_.
 LOD1_DELETE = ("bolt_", "clamp_", "drip_", "kick_", "post_", "tread_", "lrung_", "ladder_",
                "lamp_", "gate_", "gatepost_", "gusset_", "flange_", "stiff_", "axlecap_",
                "bwspoke_", "rope_", "downspout_", "door_", "hatch_",
@@ -3801,7 +3801,7 @@ LOD2_COMMON = LOD1_DELETE + (
 # crane beam that carry the Jackson Hole silhouette. On the base the saddle girders, outriggers
 # and the open-end dressing go at LOD2 (the roof hides them from above).
 LOD2_DELETE = {"base": LOD2_COMMON + ("brace_", "grate_", "sgirder_", "sportal_", "outrigger_",
-                                      "timberfin_", "vstrut_", "vpier_", "trenchwall_",
+                                      "vstrut_", "vpier_", "trenchwall_",
                                       "pictoplinth", "mplat",
                                       # nitpick B: the front canopy under the roof eave (0.75 m of it seen from
                                       # above) and its V's
@@ -7168,7 +7168,11 @@ CLOSEUP_SHOTS = {
               ("noon",)),
              ("drive_wheel", (0.0, 15.40, 0.80), (-2.60, 8.20, -7.80), ("noon",)),
              ("medallions", (-9.80, 7.00, -8.35), (-9.00, 7.90, -4.80), ("noon",)),
-             ("hall_lamps", (0.0, 14.30, -5.20), (-3.50, 8.20, 1.60), ("noon", "dusk")))
+             ("hall_lamps", (0.0, 14.30, -5.20), (-3.50, 8.20, 1.60), ("noon", "dusk")),
+             # T71 (review 8 / 18.webp): the +X glass-wall corner at the open end, from outside (before / after the
+             # timber corner fins were removed): three-quarter from the line side, and head-on along the line
+             ("t71_corner_3q", (12.60, 13.00, -10.00), (24.00, 8.00, -22.00), ("noon",)),
+             ("t71_corner_front", (12.60, 12.00, -10.00), (6.00, 8.00, -27.00), ("noon",)))
             # nitpick B (JH_DETAILS): the canopy on its V-struts from the plaza, a V on its pier, LIFT TICKETS on the
             # clock-tower side (from a neighbour's lot), ENTRANCE, the chalkboard - each at 10 m (CLOSEUP_SHOTS_NB)
             + (() if not JH_DETAILS else tuple(CLOSEUP_SHOTS_NB))

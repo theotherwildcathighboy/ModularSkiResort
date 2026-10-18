@@ -253,6 +253,8 @@ def parse_args(argv=None):
     ap.add_argument("--we-mock", nargs="?", const="Ski area 1", default=None, metavar="TEXT")
     ap.add_argument("--review", nargs="?", const="", default=None, metavar="DIR")
     ap.add_argument("--tex", type=int, default=TEX, choices=(512, 1024, 2048))
+    ap.add_argument("--closeups", nargs="?", const="", default=None, metavar="DIR",
+                    help="T72: render the CLOSEUP_SHOTS (stone pier, roof) with the shipped textures into DIR (default: the preview dir)")
     ap.add_argument("--ao-samples", type=int, default=AO_SAMPLES)
     ap.add_argument("--no-validate", action="store_true")
     # fine-detail step 3d (module docstring)
@@ -965,6 +967,43 @@ def _we_mock_object(obj, text, A):
     return mock
 
 
+# T72 (review 9): close-ups for the stone / roof density check. (name, part prefixes the camera centres on, camera
+# direction in the ORIENTED Blender frame (-y = the road side, as the "front" view), distance m)
+CLOSEUP_SHOTS = (("stone", ("pier_r", "piercap_r", "tpost_r"), (0.50, -1.0, 0.30), 5.0),
+                 ("roof", ("roof_signR",), (0.55, -1.0, 0.85), 6.5))
+
+
+def render_closeups(obj, table, asset_dir, name, out_dir, tint):
+    """PBR close-ups (cs2_preview rig, the shipped textures) of CLOSEUP_SHOTS at noon; written as
+    `<name>_closeup_<shot>.png`."""
+    import cs2_preview
+    os.makedirs(out_dir, exist_ok=True)
+    rig = cs2_preview._Rig(obj, None)
+    written = []
+    try:
+        cam = cs2_preview._make_camera(rig)
+        cs2_preview._assign(obj, cs2_preview._pbr_material(rig, asset_dir, name, tint))
+        sc = rig.scene
+        sc.render.resolution_x, sc.render.resolution_y = 1300, 1000
+        _world, sun = cs2_preview._make_world(rig, **cs2_preview.NOON)
+        gnd = cs2_preview._make_ground(rig)
+        for vname, prefixes, vdir, dist in CLOSEUP_SHOTS:
+            pts = [tuple(obj.matrix_world @ obj.data.vertices[v].co)
+                   for pre in prefixes for p in _faces_of(obj, table, pre) for v in p.vertices]
+            if not pts:
+                raise RuntimeError(f"closeup {vname}: no faces for {prefixes}")
+            cs2_preview._aim(cam, Vector(np.mean(pts, axis=0)), vdir, dist)
+            written.append(cs2_preview._render(rig, os.path.join(out_dir, f"{name}_closeup_{vname}.png"),
+                                               engine="EEVEE"))
+        for o in (gnd, sun):
+            rig.objects.remove(o)
+            bpy.data.objects.remove(o, do_unlink=True)
+        sc.world = None
+    finally:
+        rig.restore()
+    return written
+
+
 def run(args):
     if not bpy.app.background:
         raise RuntimeError("welcome_sign.py runs headless only (ROUND-SPEC R10)")
@@ -1126,6 +1165,9 @@ def run(args):
             size, [result["tris"][i] for i in sorted(result["tris"])], area=area["kept_m2"])
     if signset is not None:
         result["sign_set"].update(_export_sign_set(signset, args, name, result, size, area))
+    if args.closeups is not None:
+        for f in render_closeups(obj, table, asset_dir, name, os.path.abspath(args.closeups or PREVIEW_DIR), tint):
+            print(f"[sign] closeup -> {f}")
     if args.preview is not None:
         import cs2_preview
         prev = args.preview or PREVIEW_DIR

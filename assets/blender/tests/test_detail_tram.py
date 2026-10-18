@@ -88,7 +88,9 @@ import cs2_liftdress as LD  # noqa: E402
 import cs2_validate  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(LIB))
-SHIPPED = os.path.join(REPO, "assets", "import", "stations", "tram", "A")
+SHIPPED = os.environ.get("TRAM_SHIPPED_DIR") or os.path.join(REPO, "assets", "import", "stations", "tram", "A")
+# (TRAM_SHIPPED_DIR: read the manifests / textures of a scratch export instead of the imported letter folder, to
+# verify an unimported round before Richard's export; unset = the shipped folder as before)
 FAILS = []
 
 
@@ -769,6 +771,7 @@ def nb_checks():
     # nitpick B2: the blockout is in the PREFAB frame (the RAMPS base x - 4.00); NB2 measures in the design frame
     dx = ts.frame_dx("base")
     P = {n: np.array(v).reshape(-1, 3) - np.array([dx, 0.0, 0.0]) for n, v in b.items()}
+    check(not any(n.startswith("timberfin_") for n in P), "T71: the floating timber corner fins are gone from the base")
     front = [n for n in P if n.startswith("brace_") and P[n][:, 2].min() > 9.0]      # the village wall's X-braces
     braces_z = max(float(P[n][:, 2].max()) for n in front)
     braces_y = min(float(P[n][:, 1].min()) for n in front)
