@@ -50,6 +50,9 @@ semi-transparent boxes cs2_review.write_pack puts in a pack's SUB collection, on
 sub-object row (benches, bins, lamps, tables ...; pack only, never exported). SUB's other contents
 (`_Win` glass) stay: the SUB instance swaps between the pack's SUB and SUB_NOPROPS collections.
 load() / status() / stand_ins() report the stand-in count per pack ("props").
+labels() puts an upright "<cell>  <name>" sign in front of every loaded pack (CS2R_Labels);
+people() stands a 1.8 m mannequin beside each (CS2R_People, one shared CS2R_Mannequin180 mesh)
+(Richard 2026-10-17: a person for scale, a sign to tell the cell).
 stand_ins() adds a 3 m storey ruler (the `_Win` slice height) and the shipped
 SkiLiftTowerFG8N into Review_Scale as a COLLECTION instance of its own review pack
 (<review_dir>/SkiLiftTowerFG8N.blend, LOD0), built HEADLESS by
@@ -996,6 +999,97 @@ def cams(name, active=None):
             "scene_camera": sc.camera.name if sc.camera else None}
 
 
+LABEL_COLL = "CS2R_Labels"
+PEOPLE_COLL = "CS2R_People"
+MANNEQUIN_MESH = "CS2R_Mannequin180"
+MANNEQUIN_H = 1.8                     # Richard: a 1.8 m person beside every asset (2026-10-17)
+LABEL_SIZE_M = 2.5
+LABEL_POS = (0.0, -16.0, 0.0)         # upright text on the ground in front of the cell
+PEOPLE_POS = (5.0, -5.0, 0.0)         # the mannequin stands front-right of the asset
+
+
+def _mannequin_mesh():
+    """One shared 1.8 m mannequin mesh (cylinder body + sphere head), built with bmesh."""
+    me = bpy.data.meshes.get(MANNEQUIN_MESH)
+    if me is not None:
+        return me
+    import bmesh
+    bm = bmesh.new()
+    body_h = MANNEQUIN_H - 0.30
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=12, radius1=0.20, radius2=0.16,
+                          depth=body_h, matrix=mathutils.Matrix.Translation((0, 0, body_h / 2)))
+    bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=0.14,
+                              matrix=mathutils.Matrix.Translation((0, 0, MANNEQUIN_H - 0.14)))
+    me = bpy.data.meshes.new(MANNEQUIN_MESH)
+    bm.to_mesh(me)
+    bm.free()
+    mat = bpy.data.materials.get("CS2R_MannequinMat")
+    if mat is None:
+        mat = bpy.data.materials.new("CS2R_MannequinMat")
+        mat.diffuse_color = (0.9, 0.35, 0.1, 1.0)
+        mat.use_nodes = True
+        bsdf = mat.node_tree.nodes.get("Principled BSDF")
+        if bsdf:
+            bsdf.inputs["Base Color"].default_value = (0.9, 0.35, 0.1, 1.0)
+    me.materials.append(mat)
+    return me
+
+
+def labels(size=LABEL_SIZE_M):
+    """One upright TEXT object CS2R_Label_<name> per loaded pack ("<cell>  <name>") in
+    the CS2R_Labels collection; re-run after loading more packs (existing labels are
+    refreshed in place). Reads as a cell sign from the three_quarter / front views."""
+    review, _scale = _review_colls()
+    coll = _ensure_coll(LABEL_COLL, review, [])
+    _show_layer_chain(coll)
+    made = []
+    for root in [o for o in bpy.data.objects if o.get("cs2r_root")]:
+        name = root["cs2r_name"]
+        oname = f"{PACK_PREFIX}Label_{name}"
+        obj = bpy.data.objects.get(oname)
+        if obj is None:
+            cu = bpy.data.curves.new(oname, "FONT")
+            obj = bpy.data.objects.new(oname, cu)
+            coll.objects.link(obj)
+            made.append(oname)
+        cu = obj.data
+        cu.body = f"{int(root['cs2r_cell'])}  {name}"
+        cu.size = size
+        cu.align_x = "CENTER"
+        cu.extrude = 0.02
+        obj.location = (root.location.x + LABEL_POS[0], root.location.y + LABEL_POS[1],
+                        root.location.z + LABEL_POS[2])
+        obj.rotation_euler = (math.radians(90.0), 0.0, 0.0)
+        obj["cs2r_label"] = name
+    return {"ok": True, "labels": len(coll.objects),
+            "created": made}
+
+
+def people(name=None, on=True):
+    """A 1.8 m mannequin CS2R_People_<name> beside every loaded pack (or  only) in the
+    CS2R_People collection, sharing the CS2R_Mannequin180 mesh; on=False hides them."""
+    review, _scale = _review_colls()
+    coll = _ensure_coll(PEOPLE_COLL, review, [])
+    _show_layer_chain(coll)
+    me = _mannequin_mesh()
+    roots = [o for o in bpy.data.objects if o.get("cs2r_root")
+             and (name is None or o["cs2r_name"] == _clean(name))]
+    made = []
+    for root in roots:
+        oname = f"{PACK_PREFIX}People_{root['cs2r_name']}"
+        obj = bpy.data.objects.get(oname)
+        if obj is None:
+            obj = bpy.data.objects.new(oname, me)
+            coll.objects.link(obj)
+            made.append(oname)
+        obj.location = (root.location.x + PEOPLE_POS[0], root.location.y + PEOPLE_POS[1],
+                        root.location.z + PEOPLE_POS[2])
+        obj.hide_viewport = not on
+        obj.hide_render = not on
+        obj["cs2r_person"] = root["cs2r_name"]
+    return {"ok": True, "people": len(roots), "created": made, "height_m": MANNEQUIN_H}
+
+
 def status():
     """Loaded packs: name, cell, LOD state, library path."""
     out = {}
@@ -1016,7 +1110,8 @@ def install():
     import types
     api = types.SimpleNamespace(ensure_scene=ensure_scene, load=load, reload=reload,
                                 unload=unload, lod=lod, tint=tint, night=night,
-                                stand_ins=stand_ins, cams=cams, status=status, props=props)
+                                stand_ins=stand_ins, cams=cams, status=status, props=props,
+                                labels=labels, people=people)
     bpy.app.driver_namespace["cs2r_review"] = api
     return {"ok": True, "namespace": 'bpy.app.driver_namespace["cs2r_review"]',
             "functions": sorted(vars(api))}
