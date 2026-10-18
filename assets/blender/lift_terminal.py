@@ -1959,18 +1959,27 @@ def hold_train_numbers_m(spec):
     xs = [(-T["main_span"] / 2.0 + i * (T["main_span"] / max(1, T["n_sub"] - 1)) if T["n_sub"] > 1 else 0.0) + d
           for i in range(T["n_sub"]) for d in (-T["sub_span"] / 2.0, T["sub_span"] / 2.0)]
     cents = [tuple(round(v, 4) for v in (M @ _V((a, 0.0, T["axle_z"]))).xz) for a in xs]
-    return {"builder": "cs2_sheaves.fg_train_side (lift_tower's Yan rocker tree) + finish_train",
-            "head": "FG (FG8: r 0.20, w 0.13, pitch 0.52)", "per_lane": T["n"], "lanes_y": [-FG_LANE, FG_LANE],
-            "gauge_m": round(2.0 * FG_LANE, 3), "frame": "the code chord (x along the rope, z its normal)",
-            "chord_slope_deg": round(math.degrees(math.atan2(-u.z, u.x)), 3), "centre_x": M_HOLD["xc"],
-            "sheave_centres_xz": cents, "contact": "sheave bottom on the rope's top (hold-down)",
-            "counterweight": "head r 0.35 + deflection r 0.20 per rope: lite_sheave_parts (w 0.10, 12 segments)"}
+    import cs2_sheaves as S
+    out = {"builder": "cs2_sheaves.fg_train_side (lift_tower's Yan rocker tree) + finish_train",
+           "head": "FG (FG8: r 0.20, w 0.13, pitch 0.52)", "per_lane": T["n"], "lanes_y": [-FG_LANE, FG_LANE],
+           "gauge_m": round(2.0 * FG_LANE, 3), "frame": "the code chord (x along the rope, z its normal)",
+           "chord_slope_deg": round(math.degrees(math.atan2(-u.z, u.x)), 3), "centre_x": M_HOLD["xc"],
+           "sheave_centres_xz": cents, "contact": "sheave bottom on the rope's top (hold-down)",
+           "counterweight": "head r 0.35 + deflection r 0.20 per rope: lite_sheave_parts (w 0.10, 12 segments)"}
+    if S.wheels_v2():   # T62: the manifest of a v1 build stays as it was
+        out["wheels"] = {"generation": "v2 (T62: cs2_sheaves.wheel = the DQ20O wheel)", "builder": S.WHEEL_ID,
+                         "hold_down": "r 0.20 / w 0.13 / 12 segments, no axle caps",
+                         "counterweight": "head r 0.35 + deflection r 0.20, w 0.10, 12 segments (unchanged geometry)"}
+    return out
 
 
 def _cw_sheave_m(name, r, loc):
     """A counterweight sheave as the towers' wheel (cs2_sheaves.lite_sheave_parts: V-groove discs `name` + rubber
-    liner `name`_liner, 12 segments, about the y axle) - same centre / radius as the plain cylinder it replaces."""
+    liner `name`_liner, 12 segments, about the y axle) - same centre / radius as the plain cylinder it replaces.
+    T62 v2: cs2_sheaves.wheel (the same geometry: the 12-segment V wheel at r / M_CW_SHEAVE_W, stamped)."""
     import cs2_sheaves as S
+    if S.wheels_v2():
+        return [(o, M_HOLD_MAT[k]) for o, k in S.wheel(name, f"{name}_liner", r, M_CW_SHEAVE_W, loc)]
     return [(o, M_HOLD_MAT[k]) for o, k in S.lite_sheave_parts(name, f"{name}_liner", r, M_CW_SHEAVE_W, loc)]
 
 
@@ -4644,6 +4653,8 @@ def main_m(args):
     LTD = _LTD()
     if not bpy.app.background:
         raise RuntimeError("lift_terminal generation M runs headless only (ROUND-SPEC R10)")
+    import cs2_sheaves as S
+    S.set_wheels(getattr(args, "wheels", "v2"))   # T62: before any part is built
     if getattr(args, "rope_on_crown", False):
         set_m_rope_on_crown(True)          # T27 preview flag: the anchors on the ET crown (surgery in M1)
     FINE_DETAIL_M = not bool(getattr(args, "no_fine", False))     # fine-detail step 3c: every run follows its args
@@ -4878,6 +4889,9 @@ def parse_args():
     ap.add_argument("--rope-on-crown", action="store_true", dest="rope_on_crown",
                     help="M, T27 preview flag (M_ROPE_ON_CROWN): the HV anchors on the hosted end tower's sheave "
                          "crown; M1 reports the prefab surgery. Off = the shipped station byte for byte.")
+    ap.add_argument("--wheels", choices=["v1", "v2"], default="v2",
+                    help="M, T62: sheave wheel generation (v2 default = cs2_sheaves.wheel on the hold-down train and the "
+                         "counterweight sheaves, no axle caps; v1 = the pre-T62 wheels byte for byte).")
     ap.add_argument("--kind", choices=["drive", "return"], default="drive")
     ap.add_argument("--name", default=None)
     ap.add_argument("--preview", default=None)

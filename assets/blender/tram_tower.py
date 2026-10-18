@@ -160,6 +160,7 @@ import cs2_kit       # noqa: E402
 import cs2_uv        # noqa: E402
 import cs2_compose   # noqa: E402
 import cs2_validate  # noqa: E402
+import cs2_sheaves   # noqa: E402  (T62: the one sheave wheel, cs2_sheaves.wheel)
 
 REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
 CATALOG = os.path.join(REPO, "catalog", "carriers.json")
@@ -925,6 +926,34 @@ def sheave_lite(name, r, w, centre, segs, groove=None, liner=None):
     lb.normal_update()
     bm.normal_update()
     return _link(name, bm), _link(liner, lb)
+
+
+def _haul_wheel(name, liner, centre):
+    """T62: a tram haul roller. v2 (cs2_sheaves.WHEELS, default) = cs2_sheaves.wheel at the ROLLER radius / width, 12
+    segments (the DQ20O wheel: V groove 0.18 r, centre-fan discs), the developed UV map (DT-C5); v1 = sheave_lite at
+    ROLLER segs 8 / groove 0.025 (the pre-T62 roller, byte for byte). Returns (discs, liner)."""
+    R = ROLLER
+    if cs2_sheaves.wheels_v2():
+        W = cs2_sheaves.wheel_spec("TRAM")
+        if abs(W["r"] - R["r"]) > 1e-9 or abs(W["w"] - R["w"]) > 1e-9:
+            raise ContractError(f"T62: cs2_sheaves TRAM wheel {W} != ROLLER r / w {R['r']} / {R['w']}")
+        (d, _a), (l, _b) = cs2_sheaves.wheel(name, liner, R["r"], R["w"], centre, segs=W["segs"], ngon=W["ngon"],
+                                             uv="developed")
+        return d, l
+    return sheave_lite(name, R["r"], R["w"], centre, R["segs"], groove=R["groove"], liner=liner)
+
+
+def _gd_wheel(name, liner, centre):
+    """T62: a lattice GD-head sheave. v2 = cs2_sheaves.wheel at the GD family's numbers (r 0.25 / w 0.10, 8 segments,
+    n-gon discs: the 4,500 cap of Lattice40), developed UVs; v1 = sheave_lite flat 12-gon (pre-T62). (discs, liner)."""
+    if cs2_sheaves.wheels_v2():
+        W = cs2_sheaves.wheel_spec("GD")
+        if abs(W["r"] - SHEAVE["r"]) > 1e-9 or abs(W["w"] - SHEAVE["w"]) > 1e-9:
+            raise ContractError(f"T62: cs2_sheaves GD wheel {W} != SHEAVE r / w {SHEAVE['r']} / {SHEAVE['w']}")
+        (d, _a), (l, _b) = cs2_sheaves.wheel(name, liner, SHEAVE["r"], SHEAVE["w"], centre, segs=W["segs"],
+                                             ngon=W["ngon"], uv="developed")
+        return d, l
+    return sheave_lite(name, SHEAVE["r"], SHEAVE["w"], centre, SHEAVE["segs"], groove=SHEAVE["groove"], liner=liner)
 
 
 # --------------------------------------------------------------------------------------
@@ -1832,8 +1861,7 @@ def build_haul_row(P, spec, s, tag):
         return spec.z0 + TRAM["haul_dz"] - TRAM["rope_r_lv"] - spec.s0 * abs(x) - R["r"]
     for kk, x in enumerate(R["x"]):
         # detail pass 1 (design 5.1): the V flanks (the rope faces) split off as rubber liners
-        sh, ln = sheave_lite(f"haulroll_{tag}_{kk}", R["r"], R["w"], (x, yh, axle(x)), R["segs"],
-                             groove=R["groove"], liner=f"haulroll_liner_{tag}_{kk}")
+        sh, ln = _haul_wheel(f"haulroll_{tag}_{kk}", f"haulroll_liner_{tag}_{kk}", (x, yh, axle(x)))
         P.add(sh, "galv")
         P.add(ln, "rubber")
     yb = s * (TRAM["haul_y"] - R["bar_dy"])
@@ -2058,8 +2086,7 @@ def build_gd_top(P, spec, lay, z_tube0):
                   (xc, s * (GD["lane_y"] - 0.16), A), drop=("-Y",) if s > 0 else ("+Y",))
         for kk, x in enumerate(xs):
             # detail pass 1: the flat rim band (the rope face) split off as a rubber liner
-            sh, ln = sheave_lite(f"sheave_{tag}_{kk}", SHEAVE["r"], SHEAVE["w"], (x, ly, A), SHEAVE["segs"],
-                                 groove=SHEAVE["groove"], liner=f"sheave_liner_{tag}_{kk}")
+            sh, ln = _gd_wheel(f"sheave_{tag}_{kk}", f"sheave_liner_{tag}_{kk}", (x, ly, A))
             P.add(sh, "galv")
             P.add(ln, "rubber")
         # V8c lesson (JH-15): the gantry-beam tip over each lane carries a lifting lug (rope /
@@ -4730,6 +4757,9 @@ def parse_args(argv=None):
                     help="gondola: omit the ground-to-platform ladder system (on by default since Revision 1)")
     ap.add_argument("--lattice-ladder", action="store_true", help="deprecated no-op (the ladder is the default)")
     ap.add_argument("--no-validate", action="store_true")
+    ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
+                    help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel on the haul rollers and the "
+                         "lattice GD head; v1 = the pre-T62 sheave_lite wheels byte for byte")
     ap.add_argument("--lineup", action="store_true",
                     help="only re-render the family lineup from the exported asset folders")
     a = ap.parse_args(argv)
@@ -4742,6 +4772,7 @@ def parse_args(argv=None):
 
 def main():
     args = parse_args()
+    cs2_sheaves.set_wheels(args.wheels)      # T62: before any part is built
     _rows, drift = load_catalog()
     if args.lineup:
         clear_scene()

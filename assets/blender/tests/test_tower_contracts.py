@@ -147,6 +147,20 @@ LEDGER = {"FG8": 2762, "FG12": 2946, "FG16": 3170, "FG20": 3258, "ET62": 2722, "
 DESIGN_LEDGER = {"FG8": 2762, "FG12": 2946, "FG16": 3170, "FG20": 3258, "ET62": 2722, "ET68": 2730,
                  "DQ10": 3148, "DQ12": 3300, "DQ14": 3356, "DQ16": 3404, "ETDQ": 3034,
                  "GD12": 3154, "GD16": 3258, "GD20": 3466}
+# T62 (2026-10-18, build/T62-sheave-wheels.md): with cs2_sheaves.WHEELS "v2" (the default) the FG / ET wheels are the
+# DQ20O wheel - no outboard kit axle cap: 8 caps x 24 tris fewer per tower; every other family's count is unchanged (the
+# GD 8-segment n-gon wheel = the flat 12-gon's 44 tris). `--wheels v1` (set_wheels("v1")) keeps the ledgers above.
+T62_DELTA = {k: -192 for k in ("FG8", "FG12", "FG16", "FG20", "ET62", "ET68")}
+
+
+def _t62(table):
+    import cs2_sheaves
+    if not cs2_sheaves.wheels_v2():
+        return table
+    return {k: v + T62_DELTA.get(k, 0) for k, v in table.items()}
+
+
+LEDGER, DESIGN_LEDGER = _t62(LEDGER), _t62(DESIGN_LEDGER)
 # the gondola placeholder group's lattice members (tram_tower.py, shipped in towers/O)
 GD_LATTICE_TOPS = {"Lattice25": 25.0, "Lattice32": 32.0, "Lattice40": 40.0}
 NAMES = {k: f"SkiLiftTower{k}O" for k in TOPS}

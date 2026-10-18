@@ -1974,12 +1974,16 @@ def nose_train_layout(p):
     if abs(p.lane_y - lane_tower) > 1e-9:
         raise ContractError(f"ST1: the {fam} head's carriers are placed for lane {lane_tower}, station lane {p.lane_y}")
     n, r, w, pitch = NOSE_TRAIN_N, float(sh["r"]), float(sh["w"]), float(sh["pitch"])
+    # T62 v2: the family's cs2_sheaves.wheel (V groove; GD 8 segments with n-gon discs); v1: the head's own wheel
+    wv2 = S.wheel_spec(fam) if S.wheels_v2() else None
+    segs = int(wv2["segs"]) if wv2 else int(sh.get("segs", 12))
+    groove = None if wv2 else sh.get("groove")
     on_lane = nose_axle_on_lane(fam)
     axle = round(p.z_rope if on_lane else p.z_rope - ROPE_R - r, 6)
     hold = bool(ROPE_ON_CROWN and on_lane)          # T27: the DQ head goes OVER the rope (hold-down, rim bottoms on it)
     if hold:
         import lift_tower as LTw
-        g = max(0.02, 0.18 * r) if sh.get("groove") is None else sh["groove"]
+        g = max(0.02, 0.18 * r) if groove is None else groove
         axle = round(p.z_rope + LTw.rope_seat(r, w, g), 6)
         on_lane = False
     x_out = round(p.anchor_x - 0.10, 6)
@@ -1991,7 +1995,7 @@ def nose_train_layout(p):
     yf = p.lane_y - (NOSE_BEAM_IN_A3 if NOSE_A4_LEGACY else NOSE_BEAM_IN)[fam]
     z0, z1 = round(axle + hb["z0"], 6), round(axle + hb["z1"], 6)
     at_yoke = nose_hanger_at_yoke(fam)
-    out = dict(family=fam, n=n, r=r, w=w, pitch=pitch, segs=int(sh.get("segs", 12)), groove=sh.get("groove"),
+    out = dict(family=fam, n=n, r=r, w=w, pitch=pitch, segs=segs, groove=groove, ngon=bool(wv2 and wv2["ngon"]),
                 axle=axle, axle_on_lane=on_lane, x_out=x_out, x0=x0, x_in=round(x0 + (n - 1) / 2.0 * pitch + r, 6),
                 hanger_at_yoke=at_yoke, hanger_x=x0 if at_yoke else 0.0,
                 sub_y=round(S.DQ_SUB_Y + cdy, 6), main_y=round(S.DQ_MAIN_Y + cdy, 6),
@@ -2014,7 +2018,7 @@ def build_nose_train(p):
     def cents(s):
         return S.dq_centres(T["n"], T["pitch"], T["axle"], 0.0, 2.0 * p.lane_y, s, x0=T["x0"])
     raw = S.dq_train(cents, T["n"], T["axle"], T["r"], T["w"], T["segs"], T["groove"], T["sub_y"], T["main_y"],
-                     T["pin_s"], T["hanger"], T["hz"], link=T["link"], prefix=pre)
+                     T["pin_s"], T["hanger"], T["hz"], link=T["link"], prefix=pre, ngon=T["ngon"])
     for o, _k in raw:
         # nitpick A4 (b): dq_train puts the hanger boxes at x 0 (the tower's centre); the station's yokes stand at x0
         if o.name in (f"{pre}hanger_n", f"{pre}hanger_p"):
@@ -2037,6 +2041,7 @@ def build_nose_train(p):
 def nose_train_numbers(p):
     """Manifest block `sheave_trains` (top stations): the head copied, counts / gauge / pitch / r, the axle and the
     rope tangent, the train's x extent and the carriers' |y|."""
+    import cs2_sheaves as S
     T = nose_train_layout(p)
     rule = ("axle on the lane: the code lane / modelled rope through the sheave centres (the towers' convention, "
             "F10; nitpick A3 D1)" if T["axle_on_lane"] else "rope tangent on the rim tops (nitpick A)")
@@ -2049,7 +2054,9 @@ def nose_train_numbers(p):
             "rope_on_sheave_top": None if T["axle_on_lane"] else round(T["axle"] + T["r"] + ROPE_R, 6),
             "x_extent": [T["x_out"], T["x_in"]], "x_nose": p.x_nose,
             "carriers_abs_y": {"sub": T["sub_y"], "main_yoke": T["main_y"],
-                               "hanger": [T["hanger"]["y0"], T["hanger"]["y1"]]}}
+                               "hanger": [T["hanger"]["y0"], T["hanger"]["y1"]]},
+            **({"wheels": {"generation": "v2 (T62: cs2_sheaves.wheel = the DQ20O wheel)", "builder": S.WHEEL_ID,
+                           "discs": "n-gon" if T["ngon"] else "centre fan"}} if S.wheels_v2() else {})}
 
 
 def build_nose_guides(p):
@@ -8744,6 +8751,9 @@ def parse_args(argv=None):
                     help="fine-detail step 3b OFF: the approved pre-pass station byte for byte (modelled "
                          "dressing + box lamps, no kit rows; the DQ TOP alone differs - it has no STAY SEATED "
                          "board since 2026-10-12); default = the fine-detail pass (FINE_DETAIL)")
+    ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
+                    help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel on the top's nose train (the GD "
+                         "head: 8-segment V wheels); v1 = the pre-T62 wheels byte for byte")
     args = ap.parse_args(argv)
     args.kind = {"drive": "base", "return": "top"}.get(args.kind, args.kind)
     return args
@@ -8860,6 +8870,8 @@ def main(argv=None):
     FINE_DETAIL = not args.no_fine          # fine-detail step 3b: every run follows its own args
     global ROPE_ON_CROWN
     ROPE_ON_CROWN = bool(args.rope_on_crown)     # T27: every run follows its own args (tests call main() in-process)
+    import cs2_sheaves as S
+    S.set_wheels(args.wheels)                    # T62: every run follows its own args, before any part is built
     carrier = load_carrier("gd8" if args.gondola else "dq", args.carriers)
     p = params_for(args.kind, args.gondola, carrier)
     name = cs2_asset.validate_asset_name(args.name or (p.stem + args.letter))

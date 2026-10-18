@@ -65,6 +65,53 @@ GD_PIN_S = 0.14
 TRAIN_BEVEL = {"FG": {"hanger_": 1, "rocker_main_": 2}, "DQ": {"rocker_main_": 1, "rocker_link_": 1}}
 TRAIN_CHAMFER = {"FG": (("rocker_sub_", (1.0, 0.0, 0.0)), ("sheave_arm_", (0.0, 0.0, 1.0))), "DQ": ()}
 
+# -- T62 (2026-10-18): ONE sheave WHEEL on every tower and station ----------------------------------------
+# Richard 2026-10-17: "the gondola station bottom used the simpler roller wheel; let's be consistent. The ones on
+# CS2R_SkiLiftTowerDQ20O_LOD0 seem to look the best" + "it's more just the pulley wheels themselves should be
+# consistent on every tower. Different pulley housings make sense." Build note:
+# docs/research/field/2026-10-15/build/T62-sheave-wheels.md.
+# The DQ20O wheel (census, section 1 there) = lite_sheave_parts with the default V-groove (depth max(0.02, 0.18 r),
+# a 5-point axis-closed profile), 12 segments, side discs (galv) closed by a centre vertex, the groove flanks as a rubber
+# liner, NO axle cap, no hub bolts (its hub is the towers' normal-map ring, lift_tower.detail_marks). `wheel` builds
+# exactly that; a family keeps its radius / width (WHEEL_FAMILY). WHEELS "v2" (default) routes every tower head, every
+# station train and the tram haul rollers through `wheel`; "v1" rebuilds the pre-T62 wheels byte for byte (FG axle
+# caps, the GD / lattice flat 12-gon rims, the tram's 8-gon sheave_lite rollers). Set with set_wheels(); the
+# generators' CLI is --wheels v1|v2.
+WHEELS = "v2"
+WHEEL_ID = "cs2_sheaves.wheel"         # the stamp every wheel part carries (obj["cs2_wheel"]); tests/test_sheaves.py
+# Per family (LOD0): r / w kept from the family's v1 wheel; segs 12 = the DQ20O wheel unless the HARD cap forces fewer
+# (DECISIONS 254): GD (GD12-20, ETGD, the lattice 25/32/40, the gondola top's nose train) 8 with n-gon discs (44
+# tris, = the v1 flat 12-gon): 12 segments put GD12 at 3,710 / GD20 at 4,022 (cap 3,500) and Lattice40 at 5,166 (cap
+# 4,500); 8 is the next count that keeps a vertex on the rim top / bottom (rope tangent contracts: ST1, C4); fan discs
+# (48 tris) still put GD20 at 3,542 and Lattice40 at 4,590. n-gon discs = the same planar disc, 4 tris fewer.
+WHEEL_FAMILY = {
+    "FG": dict(r=FG_SHEAVE["r"], w=FG_SHEAVE["w"], segs=12, ngon=False),    # FG8-20, ET62 / ET68, FG M hold-down
+    "DQ": dict(r=DQ_SHEAVE["r"], w=DQ_SHEAVE["w"], segs=12, ngon=False),    # DQ10-20, ETDQ, DQ top nose (the target)
+    "GD": dict(r=GD_SHEAVE["r"], w=GD_SHEAVE["w"], segs=8, ngon=True),      # GD12-20, ETGD, lattice, gondola top nose
+    "TRAM": dict(r=0.16, w=0.08, segs=12, ngon=False),                      # tram_tower.ROLLER haul rollers
+    "CWHEAD": dict(r=0.35, w=0.10, segs=12, ngon=False),                    # FG M counterweight head sheave
+    "CWDEFL": dict(r=0.20, w=0.10, segs=12, ngon=False),                    # FG M counterweight deflection sheave
+}
+WHEEL_LOG = []                         # [(discs name, liner name, r, w, segs, ngon)] built this process (tests)
+
+
+def set_wheels(mode):
+    """Select the wheel generation for this process ("v1" | "v2"); returns the previous mode."""
+    global WHEELS
+    if mode not in ("v1", "v2"):
+        raise ValueError(f"wheels {mode!r}: want v1 | v2")
+    old, WHEELS = WHEELS, mode
+    return old
+
+
+def wheels_v2():
+    return WHEELS == "v2"
+
+
+def wheel_spec(family):
+    """The T62 wheel of `family` (WHEEL_FAMILY row, a copy): r, w, segs, ngon."""
+    return dict(WHEEL_FAMILY[family])
+
 
 # --------------------------------------------------------------------------------------
 # Part helpers (bmesh-built, deterministic; every part carries exactly one "UVMap")
@@ -196,6 +243,113 @@ def lite_sheave_parts(name, liner, r, w, loc, segs=12, groove=None):
     return [(discs, "galv"), (lin, LINER_KEY)]
 
 
+def wheel(name, liner, r, w, loc, segs=12, ngon=False, uv="box"):
+    """
+    T62: THE sheave wheel (every tower head, every station train, the tram haul rollers) = the DQ20O wheel: a
+    V-groove (depth max(0.02, 0.18 r)) axis-closed profile about a Y axle, `segs` segments, split into the side discs
+    `name` (galv) and the groove flanks `liner` (LINER_KEY rubber, prop dp_root_r = the groove root radius); no axle
+    cap, no hub geometry. ngon=False: discs closed by a centre vertex = lite_sheave_parts(name, liner, r, w, loc, segs)
+    vertex for vertex (6 x segs tris; the DQ wheel stays byte-identical); ngon=True: each disc one n-gon (4 x segs +
+    2 (segs - 2) tris, the cap-bound GD family). uv "box" = lite_sheave_parts' box projection (the towers / stations
+    re-UV at finish); "developed" = tram_tower.sheave_lite's isometric map (cone-developed flanks, planar discs /
+    circumference), for the generators that keep the part UVs (tram_tower, DT-C5). Every part is stamped
+    obj["cs2_wheel"] = WHEEL_ID, cs2_wheel_r / _w / _segs, and logged in WHEEL_LOG.
+    Returns [(discs, "galv"), (liner, LINER_KEY)].
+    """
+    if not ngon and uv == "box":
+        parts = lite_sheave_parts(name, liner, r, w, loc, segs=segs, groove=None)
+    else:
+        parts = _wheel_parts(name, liner, r, w, loc, segs, ngon, uv)
+    for o, _k in parts:
+        o["cs2_wheel"] = WHEEL_ID
+        o["cs2_wheel_r"] = float(r)
+        o["cs2_wheel_w"] = float(w)
+        o["cs2_wheel_segs"] = int(segs)
+    WHEEL_LOG.append((parts[0][0].name, parts[1][0].name, float(r), float(w), int(segs), bool(ngon)))
+    return parts
+
+
+def _wheel_parts(name, liner, r, w, loc, segs, ngon, uv):
+    """wheel() for n-gon discs and / or the developed UV map (same V profile and ring vertices as lite_sheave_parts)."""
+    gd = max(0.02, 0.18 * r)
+    hw = w / 2.0
+    cx, cy, cz = loc
+    ang = [2.0 * math.pi * k / segs for k in range(segs)]
+    circ = 2.0 * math.pi * r
+
+    def ring(bm, rad, yy):
+        return [bm.verts.new((cx + rad * math.cos(a), cy + yy, cz + rad * math.sin(a))) for a in ang]
+
+    bm = bmesh.new()
+    layer = bm.loops.layers.uv.new("UVMap")
+    r0, r2 = ring(bm, r, -hw), ring(bm, r, hw)
+    if ngon:
+        bm.faces.new(r0)
+        bm.faces.new(list(reversed(r2)))
+    else:
+        ca = bm.verts.new((cx, cy - hw, cz))
+        cb = bm.verts.new((cx, cy + hw, cz))
+        for k in range(segs):
+            k1 = (k + 1) % segs
+            bm.faces.new((ca, r0[k], r0[k1]))
+            bm.faces.new((cb, r2[k1], r2[k]))
+    bm.normal_update()
+    for f in bm.faces:                                   # the -Y disc faces -Y, the +Y disc +Y (both windings above)
+        want = -1.0 if f.calc_center_median().y < cy else 1.0
+        if f.normal.y * want < 0.0:
+            f.normal_flip()
+    cs2_asset.canonical_order_bmesh(bm)
+    if uv == "developed":
+        for f in bm.faces:
+            neg = f.calc_center_median().y < cy
+            for lp in f.loops:
+                dx, dz = lp.vert.co.x - cx, lp.vert.co.z - cz
+                lp[layer].uv = ((dx / circ + 2.0, dz / circ) if neg else (dz / circ + 4.0, dx / circ))
+    else:
+        _box_uv_bm(bm, layer)
+    discs = _new_part(name, bm)
+
+    bm = bmesh.new()
+    layer = bm.loops.layers.uv.new("UVMap")
+    rg = [ring(bm, r, -hw), ring(bm, r - gd, 0.0), ring(bm, r, hw)]
+    faces = []
+    for band in (0, 1):
+        A, B = rg[band], rg[band + 1]
+        for k in range(segs):
+            k1 = (k + 1) % segs
+            faces.append((bm.faces.new((A[k], B[k], B[k1], A[k1])), band, k))
+    if uv == "developed":
+        # tram_tower.sheave_lite (DT-C5): each V flank band is a polygonal cone frustum developed isometrically
+        side = math.hypot(hw, gd)
+        for f, band, k in faces:
+            rA, rB = (r, r - gd) if band == 0 else (r - gd, r)
+            D = side * rA / abs(rA - rB)
+            alpha = 2.0 * math.asin(rA * math.sin(math.pi / segs) / D)
+            if rA < rB:
+                alpha = -alpha
+
+            def pol(dist, j, b=band, al=alpha):
+                return (dist * math.cos(j * al) / circ, dist * math.sin(j * al) / circ + 2.0 * b)
+            q4 = (pol(D, k), pol(D * rB / rA, k), pol(D * rB / rA, k + 1), pol(D, k + 1))
+            for lp, q in zip(f.loops, q4):
+                lp[layer].uv = q
+        cs2_asset.canonical_order_bmesh(bm)
+    else:
+        cs2_asset.canonical_order_bmesh(bm)
+        _box_uv_bm(bm, layer)
+    lin = _new_part(liner, bm)
+    lin["dp_root_r"] = float(r - gd)
+    return [(discs, "galv"), (lin, LINER_KEY)]
+
+
+def train_wheel(name, liner, r, w, loc, segs=12, groove=None, ngon=False):
+    """A train's wheel by the active generation: v2 = wheel(r, w, loc, segs, ngon) (`groove` ignored: always the V
+    profile), v1 = lite_sheave_parts(segs, groove) (the pre-T62 per-family wheel)."""
+    if wheels_v2():
+        return wheel(name, liner, r, w, loc, segs=segs, ngon=ngon)
+    return lite_sheave_parts(name, liner, r, w, loc, segs=segs, groove=groove)
+
+
 def _unit(v):
     v = mathutils.Vector(v)
     return v / max(v.length, 1e-12)
@@ -219,6 +373,8 @@ def fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span, 
     sub_z and two sheave arms down to the sheaves on axle_z (lite_sheave_parts: discs + liner) with an
     outboard axle cap each. lift_tower.fg_parts' loop body verbatim (the same expressions, the same part
     order). Returns [(obj, tower material key)].
+    T62 (2026-10-18): the sheaves come from train_wheel (v2 = wheel(), the DQ20O wheel, and NO outboard axle cap;
+    v1 = lite_sheave_parts + the kit axle cap, the pre-T62 tree).
     T27 (2026-10-17, build/T27-rope-path.md; lift_tower.ROPE_ON_CROWN): `inboard` > 0 moves the whole carrier tree
     (hanger, rockers, pins, sheave arms) that far INBOARD of the lane (to y - s * inboard) and hangs each sheave on an
     axle stub `<prefix>axlecap_stub_<tag>_<si>_<m|p>` (the axlecap_ LOD class) from its arm to the sheave's inboard face, so a rope riding the sheave
@@ -243,13 +399,16 @@ def fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span, 
             wx = sx + wv * sub_span / 2.0
             P.append((K.add_box(f"{prefix}sheave_arm_{tag}_{si}_{wtag}", (0.09, 0.10, 0.26),
                                 (wx, y, (sub_z + axle_z) / 2.0)), "paint"))
-            P += lite_sheave_parts(f"{prefix}sheave_{tag}_{si}_{wtag}_rim", f"{prefix}liner_{tag}_{si}_{wtag}",
-                                   sheave_r, sheave_w, (wx, yl, axle_z))
+            # T62: the wheel (v2 = cs2_sheaves.wheel, the DQ20O wheel at the FG radius / width; v1 = lite_sheave_parts)
+            P += train_wheel(f"{prefix}sheave_{tag}_{si}_{wtag}_rim", f"{prefix}liner_{tag}_{si}_{wtag}",
+                             sheave_r, sheave_w, (wx, yl, axle_z))
             if inboard:
                 y0, y1 = y, yl - s * sheave_w / 2.0
                 P.append((K.add_cyl(f"{prefix}axlecap_stub_{tag}_{si}_{wtag}", 0.035, abs(y1 - y0),
                                     (wx, (y0 + y1) / 2.0, axle_z), (math.radians(90.0), 0.0, 0.0),
                                     segments=6, caps="both"), "galv"))
+            if wheels_v2():
+                continue        # T62: the DQ20O wheel has no outboard axle cap (v1 below: the FG kit cap)
             caps = _kit(K.axle_cap(f"{tag}_{si}_{wtag}", 0.09,
                                    (wx, yl + s * sheave_w / 2.0, axle_z),
                                    "+Y" if s > 0 else "-Y", studs_geo=False, segs=8),
@@ -299,7 +458,7 @@ def _sub_pairs(n_subs):
 
 
 def dq_train(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y, main_y, pin_s, hanger_box,
-             hz, link=DQ_LINK, prefix=""):
+             hz, link=DQ_LINK, prefix="", ngon=False):
     """
     The gantry sheave trains of both lanes with every carrier INBOARD of the sheaves (towers-v2 4.2, F9):
     lift_tower._dq_train's body verbatim. `centres_of(s)` = the [(x, y, z)] sheave centres of the side s
@@ -313,8 +472,9 @@ def dq_train(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y, main_
     for tag, s in (("n", -1.0), ("p", 1.0)):
         cents = centres_of(s)
         for k, (xk, yk, zk) in enumerate(cents):
-            P += lite_sheave_parts(f"{prefix}sheave_{tag}_{k}_rim", f"{prefix}liner_{tag}_{k}", sheave_r,
-                                   sheave_w, (xk, yk, zk), segs=segs, groove=groove)
+            # T62: v2 = cs2_sheaves.wheel (`groove` ignored, `ngon` the cap-bound GD discs); v1 = lite_sheave_parts
+            P += train_wheel(f"{prefix}sheave_{tag}_{k}_rim", f"{prefix}liner_{tag}_{k}", sheave_r,
+                             sheave_w, (xk, yk, zk), segs=segs, groove=groove, ngon=ngon)
         subs = [((cents[2 * j][0] + cents[2 * j + 1][0]) / 2.0,
                  (cents[2 * j][2] + cents[2 * j + 1][2]) / 2.0) for j in range(n // 2)]
         for j, (xs, zs) in enumerate(subs):

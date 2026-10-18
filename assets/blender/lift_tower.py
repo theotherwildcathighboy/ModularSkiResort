@@ -2448,12 +2448,22 @@ def pad_radius(spec):
 
 
 def sheave_segs(spec):
+    """T62: v2 = the family's cs2_sheaves.WHEEL_FAMILY segment count (GD 8: the cap); v1 = GD 12 flat / 12."""
+    if S.wheels_v2():
+        return S.wheel_spec(spec.family)["segs"]
     return GD_SHEAVE["segs"] if spec.family == "GD" else 12
 
 
 def sheave_groove(spec):
-    """None = lite_sheave's default V-groove (FG / DQ); GD 0.0 = the flat rim."""
+    """None = lite_sheave's default V-groove (FG / DQ; every family under T62 v2); GD 0.0 = the v1 flat rim."""
+    if S.wheels_v2():
+        return None
     return GD_SHEAVE["groove"] if spec.family == "GD" else None
+
+
+def sheave_ngon(spec):
+    """T62 v2: n-gon side discs (the cap-bound GD family, 4 tris per wheel fewer); v1: never."""
+    return bool(S.wheels_v2() and S.wheel_spec(spec.family)["ngon"])
 
 
 # -- T27 ROPE ON THE CROWN (2026-10-17, docs/research/field/2026-10-15/build/T27-rope-path.md) -------------------------
@@ -2907,7 +2917,7 @@ def _dq_train(spec):
     # DP1_INSET, head_kit / hanger_box) are passed at call time, so the tests' constant patches still apply
     return S.dq_train(lambda s: dq_sheave_centres(spec, s), n, spec.axle, spec.sheave_r, spec.sheave_w,
                       sheave_segs(spec), sheave_groove(spec), sub_y, main_y, kit["pin_s"], hanger_box(spec),
-                      DP1_INSET["dq_hanger_z"], link=DQ_LINK)
+                      DP1_INSET["dq_hanger_z"], link=DQ_LINK, ngon=sheave_ngon(spec))
 
 
 def dq_parts(spec, head, kagelok=None):
@@ -3701,8 +3711,9 @@ def assert_tower_contracts(obj, spec, frame, head):
         _check(np.abs(lr[:, gi]).max() <= 0.245 + 1e-6, f"{tag} C7 ladder rails |y| <= 0.245",
                f"({np.abs(lr[:, gi]).max():.4f})")
         # T27: with the tree inboard (FG_CROWN_INBOARD) the pivot pins' outer ends (lane + 0.11 = 1.91) move in and the
-        # outboard axle caps (lane + 0.065 + 0.02 = 1.885) set the lateral extent
-        lat_ship = 1.885 if ROPE_ON_CROWN else 1.91
+        # outboard axle caps (lane + 0.065 + 0.02 = 1.885) set the lateral extent; T62 v2 (no axle caps): the wheels'
+        # outboard discs (lane + w / 2 = 1.865)
+        lat_ship = (1.865 if S.wheels_v2() else 1.885) if ROPE_ON_CROWN else 1.91
         _check(abs(res["lateral"] - lat_ship) <= 0.01 and abs(res["travel"] - 0.97) <= 0.01,
                f"{tag} FG lateral / travel extents +-1.91 / +-0.97 (shipped N)",
                f"({res['lateral']:.4f} / {res['travel']:.4f})")
@@ -4960,6 +4971,9 @@ def parse_args_v2(argv):
     ap.add_argument("--rope-on-crown", dest="rope_on_crown", action="store_true",
                     help="T27 preview flag (ROPE_ON_CROWN): the manifest hands the lane on the sheave crown to the "
                          "surgery and the carrier contracts sweep there; the mesh is unchanged")
+    ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
+                    help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel, the DQ20O wheel on every "
+                         "head; v1 = the pre-T62 per-family wheels, byte-identical")
     return ap.parse_args(argv)
 
 
@@ -4967,6 +4981,7 @@ def main_v2(argv):
     import time
     t0 = time.perf_counter()
     args = parse_args_v2(argv)
+    S.set_wheels(args.wheels)          # T62: before any part is built
     if args.rope_on_crown:
         set_rope_on_crown(True)        # T27: lanes on the crowns; the compression terminal heads (ETDQ / ETGD) rise
     spec = VARIANTS[args.variant]
@@ -5098,6 +5113,10 @@ def main_v2(argv):
         "top_anchor_y": spec.top, "pier": spec.pier, "comm_lv_y": spec.comm_y,
         "atlas": args.atlas, "ao_samples": args.ao_samples, "pack_margin_px": PACK_MARGIN_V2,
         "sheave_profile": "lite (lift_tower.lite_sheave, 6 x segs tris)",
+        **({"wheels": {"generation": "v2 (T62: cs2_sheaves.wheel = the DQ20O wheel)", "builder": S.WHEEL_ID,
+                       "r": spec.sheave_r, "w": spec.sheave_w, "segs": sheave_segs(spec),
+                       "discs": "n-gon" if sheave_ngon(spec) else "centre fan", "groove": "V (max(0.02, 0.18 r))",
+                       "axle_cap": False}} if S.wheels_v2() else {}),
         "sheaves_per_side": spec.sheaves, "train_sag_m": spec.sag,
         "density_worst": [{"part": table[p - 1] if 0 < p <= len(table) else p,
                            "source_px_per_m": round(s, 1), "shipped_px_per_m": round(d, 1)}

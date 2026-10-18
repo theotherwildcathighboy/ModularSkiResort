@@ -201,6 +201,20 @@ FROZEN_REPR = {"HEIGHTS": "ce12d43af54f", "TRAM": "361080e8b49c", "GD": "35d6b1f
 # M8 option 1 drops them); +-1 %
 DP1_LEDGER = {("gondola", 25): 3316, ("gondola", 32): 3986, ("gondola", 40): 4490,
               ("tram", 30): 4606, ("tram", 45): 5666, ("tram", 60): 6402}
+# T62 (2026-10-18, build/T62-sheave-wheels.md): cs2_sheaves.WHEELS "v2" (default) builds the tram haul rollers as the
+# DQ20O wheel at 12 segments (72 tris) instead of sheave_lite's 8-gon (44): 16 rollers x 28 = +448 on every tram tower;
+# the lattice GD wheels keep 44 tris (8 segments, n-gon discs). `--wheels v1` keeps the ledger above.
+T62_TRAM_DELTA = 448
+
+
+def _t62_ledger(table):
+    import cs2_sheaves
+    if not cs2_sheaves.wheels_v2():
+        return table
+    return {k: v + (T62_TRAM_DELTA if k[0] == "tram" else 0) for k, v in table.items()}
+
+
+DP1_LEDGER = _t62_ledger(DP1_LEDGER)
 PRE_LOD12 = {("gondola", 25): (938, 302), ("gondola", 32): (1058, 334), ("gondola", 40): (1114, 334),
              ("tram", 30): (1748, 456), ("tram", 45): (2228, 456), ("tram", 60): (2516, 488)}
 # hidden-contact reclaim on parts that LOD1 keeps (trans_ ends 16, rocksub inner faces 2 per sub,
