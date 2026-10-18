@@ -24,7 +24,8 @@ without it, and cs2_review.write_pack leaves the build session exactly as it fou
   3. The pack: CS2R_SkiLiftChair6M with LOD0 / LOD1 / LOD2 / SUB, the custom props
      (tris = lift_chair.STYLES["tr"] tallies, caps, LOD switch, density, generator, args,
      git sha, letter M), the slot nodes and RELATIVE image paths that resolve to the
-     asset folder.
+     asset folder. T63-tiled: a NON-tiled asset keeps one material on every LOD (props tiled 0,
+     tex_LOD1 == tex_LOD2 == tex_LOD0, n_images 4); the tiled branch is tests/test_review_tiled.py.
   4. review_live.py smoke run on a temporary COPY of review-2026-10-10.blend: exec only
      defines; ensure_scene / load / lod / tint / night / stand_ins / cams / reload / unload
      all return ok, the reference collections and stand-ins survive, unload leaves nothing.
@@ -291,6 +292,10 @@ def inspect_pack(path, asset_dir):
                       f"Slot{slot}Attr instancer node")
         imgs = [i for i in bpy.data.images if i.library == lib]
         check(len(imgs) == 4, f"{len(imgs)} images linked, expected 4 maps")
+        # T63-tiled: the non-tiled path is unchanged (one material, own maps, on every LOD)
+        check(p.get("tiled") == 0 and p.get("n_images") == 4, f"tiled {p.get('tiled')} / n_images {p.get('n_images')}")
+        check(bool(p.get("tex_LOD0")) and p.get("tex_LOD1") == p.get("tex_LOD0") == p.get("tex_LOD2"),
+              f"non-tiled LOD textures differ: {p.get('tex_LOD0')} / {p.get('tex_LOD1')} / {p.get('tex_LOD2')}")
         # T63 (DECISIONS 270): images are staged under <out_dir>/_tex/<Name>/ and referenced
         # as //_tex/<Name>/<file>.png, never the build folder (which may be a temp dir).
         tex_dir = os.path.normcase(os.path.join(os.path.dirname(os.path.abspath(path)), "_tex",

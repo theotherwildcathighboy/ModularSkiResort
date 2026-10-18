@@ -20,6 +20,11 @@ Contract
         SkiLiftTowerFG8N.blend): cs2_preview.import_generation + the Y-up fix for a
         below-grade pier run here, headless, never in the live session (R10). CLI:
         blender --background --factory-startup --python cs2_review.py -- --stand-in [FBX]
+    write_folder_pack(asset_dir, out_dir=None, name=None) -> path
+        An EXPORTED asset folder (FBX LOD0/1/2 + subs + maps + manifest + settings.json) as a
+        full pack, no generator run. CLI:
+        blender --background --factory-startup --python cs2_review.py -- --from-folder DIR [DIR ...]
+    texture_sets(name, asset_dir, manifest=None) -> {"tiled", "LOD0", "LOD1", "LOD2", "sheet", ...}
 
 `lod_objs` = {0: LOD0 obj, 1: LOD1 obj, 2: LOD2 obj} (levels may be missing except 0),
 `submeshes` = {suffix: obj} (e.g. {"Win": obj}); all are the generator's already-built,
@@ -73,7 +78,28 @@ Images are COPIED from `asset_dir` to `<out_dir>/_tex/<Name>/` and loaded from t
 written with path_remap="RELATIVE_ALL", so the pack references `//_tex/<Name>/<file>.png`:
 valid wherever the review folder lives and independent of the build folder (T63, DECISIONS
 270: packs built into the scratchpad lost every texture in the live scene). A rebuild +
-Library.reload() refreshes them.
+Library.reload() refreshes them. Files in `_tex/<Name>/` that the new pack no longer uses are
+deleted after a successful write.
+
+TILED buildings (texture-parity rollout, T63-tiled; texture_sets()): a build whose folder holds
+the far set `<Name>_LOD1_<Map>.png` AND whose LOD0 maps are the family sheet gets TWO texture
+sets, exactly as the importer binds them (rollout doc section 7, settings.json sharedAssets):
+    LOD0          the sheet: `<asset_dir>/<tiled.sheet.workspace>/<sheet>_<Map>.png` (manifest), else
+                  `<asset_dir>/../_SkiTileSheet<L>/SkiTileSheet<L>_<Map>.png`, else the settings.json
+                  cross-asset target / the owner's own `<Name>_<Map>.png`; Emissive only when the
+                  import binds it (settings key for a sharer, the file for the owner). Material
+                  CS2R_<Name>_PBR, staged under the sheet's own file names.
+    LOD1 / LOD2   `<Name>_LOD1_<Map>.png` (LOD2: its settings target, i.e. the same files); material
+                  CS2R_<Name>_PBR_LOD1, no emissive (DECISIONS 77). The far UVs address the far set.
+`_Win` subs keep the window mock. A non-tiled asset is unchanged (one material, own maps).
+Gate: a pack of an EXPORTED folder (settings.json or an FBX in `asset_dir`) whose LOD materials
+end up with ZERO images raises (no pack is written), stand-ins excepted.
+
+From an exported folder (no generator run; write_folder_pack, CLI --from-folder): the folder's
+FBXs (LOD0 / LOD1 / LOD2 / `<Name>_<suffix>.fbx` subs, the manifest's sign set as the SignSet extra)
+are imported headless, the export's (x, y, z) -> (x, z, -y) x 100 is undone on the mesh data (5.x
+wm.fbx_import keeps raw vertices; checked against the manifest's extent_game_m), and write_pack
+runs with the folder's manifest, so the pack is built from exactly what Richard imports.
 
 Collection custom props (flat, UI-readable; everything again as JSON in "cs2r_meta_json"):
 tris_LOD<k> / tris_<suffix>, cap_LOD<k> (meta["caps"]), lod_switch_m_LOD<k> / lod_cull_m /
@@ -159,6 +185,18 @@ WIN_WARM_RGB = (1.0, 0.70, 0.42)     # ~3000 K interior light (mock)
 WIN_EMIT_STRENGTH = 3.0
 
 LOD_FACTOR = 652.0                   # cs2_preview.lod_switch_table default (unverified)
+
+#: texture maps (the CS2 import naming, cs2_asset.write_settings); the far set has no emissive
+MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal", "Emissive")
+FAR_MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal")
+#: the family sheet workspace beside a tiled building (lodge.py: <out root>/_SkiTileSheet<L>)
+SHEET_DIR_PREFIX = "_SkiTileSheet"
+#: export_fbx bakes (x, y, z) -> (x, z, -y) x CS2_UNIT_SCALE into the vertices; this undoes it
+FBX_TO_BLENDER = (mathutils.Matrix(((1.0, 0.0, 0.0, 0.0), (0.0, 0.0, -1.0, 0.0),
+                                    (0.0, 1.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0)))
+                  @ mathutils.Matrix.Scale(1.0 / cs2_asset.CS2_UNIT_SCALE, 4))
+#: manifest extent_game_m vs the re-imported LOD0 (m): an axis or scale slip is metres off
+EXTENT_TOL_M = 0.05
 
 #: ID collections snapshotted before and diffed after write_pack (anything new is removed)
 _ID_COLLECTIONS = ("objects", "meshes", "materials", "images", "collections", "node_groups",
@@ -337,32 +375,196 @@ def _mix(nt, factor, a, b, blend="MIX", loc=(0, 0)):
 
 
 _STAGE_DIR = None   # set by write_pack: <out_dir>/_tex/<Name>; images are copied there first (T63)
+_STAGED = {}        # basename -> source path, of what this write_pack call staged
 
 
-def _image(name, asset_dir, suffix, colorspace, packed=False):
-    path = os.path.join(asset_dir, f"{name}_{suffix}.png")
-    if not os.path.isfile(path):
-        return None
+def _load_image(path, img_name, colorspace, packed=False):
+    """Stage `path` under _STAGE_DIR (T63) and load the staged copy as `img_name`."""
     if _STAGE_DIR:
         # T63 (DECISIONS 270): a pack must not reference its build folder (usually a temp dir
         # that moves or vanishes, and whose 8.3 short-name path Blender's relative resolver
         # fails on). Copy the PNG beside the packs and load THAT, so RELATIVE_ALL writes
         # //_tex/<Name>/<file>.png - valid wherever the review folder lives.
+        base = os.path.basename(path)
+        prev = _STAGED.get(base)
+        if prev is not None and os.path.normcase(os.path.abspath(prev)) != \
+                os.path.normcase(os.path.abspath(path)):
+            raise ValueError(f"write_pack: two textures stage as {base}: {prev} and {path}")
         os.makedirs(_STAGE_DIR, exist_ok=True)
-        staged = os.path.join(_STAGE_DIR, os.path.basename(path))
-        shutil.copyfile(path, staged)
+        staged = os.path.join(_STAGE_DIR, base)
+        if prev is None:
+            shutil.copyfile(path, staged)
+            _STAGED[base] = path
         path = staged
     img = bpy.data.images.load(path, check_existing=False)
-    img.name = f"{PACK_PREFIX}{name}_{suffix}"
+    img.name = img_name
     img.colorspace_settings.name = colorspace
     if packed:
         img.alpha_mode = "CHANNEL_PACKED"     # MaskMap A is smoothness, not coverage
     return img
 
 
-def pbr_material(name, asset_dir, uv_name, slot_defaults):
-    """The recolour material described in the module docstring (one per pack)."""
-    mat = bpy.data.materials.new(f"{PACK_PREFIX}{name}_PBR")
+def _image(name, asset_dir, suffix, colorspace, packed=False):
+    path = os.path.join(asset_dir, f"{name}_{suffix}.png")
+    if not os.path.isfile(path):
+        return None
+    return _load_image(path, f"{PACK_PREFIX}{name}_{suffix}", colorspace, packed)
+
+
+# --------------------------------------------------------------------------------------
+# Texture sets (what the importer binds per LOD; T63-tiled)
+# --------------------------------------------------------------------------------------
+
+def _read_json(path):
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def _shared_assets(asset_dir):
+    """settings.json sharedAssets of the folder ({} when absent)."""
+    s = _read_json(os.path.join(asset_dir, "settings.json"))
+    return dict((s or {}).get("sharedAssets") or {}) if isinstance(s, dict) else {}
+
+
+def _tiled_block(name, asset_dir, manifest):
+    """The manifest's `tiled` block: from the `manifest` argument when it carries one, else the
+    folder's <name>.manifest.json (a generator hands write_pack only {"sub_objects": ...}, and
+    writes the manifest after the pack; a previous build's manifest still names the sheet)."""
+    if isinstance(manifest, str):
+        manifest = _read_json(manifest)
+    if isinstance(manifest, dict) and isinstance(manifest.get("tiled"), dict):
+        return manifest["tiled"]
+    disk = _read_json(os.path.join(asset_dir, f"{name}.manifest.json"))
+    if isinstance(disk, dict) and isinstance(disk.get("tiled"), dict):
+        return disk["tiled"]
+    return None
+
+
+def _maps_in(folder, prefix, maps):
+    out = {}
+    for m in maps:
+        p = os.path.join(folder, f"{prefix}_{m}.png")
+        if os.path.isfile(p):
+            out[m] = os.path.normpath(p)
+    return out
+
+
+def _sheet_candidates(name, asset_dir, tiled):
+    """[(source label, folder, file prefix)] for the family sheet, best first."""
+    out = []
+    sheet = (tiled or {}).get("sheet") or {}
+    if sheet.get("workspace") and sheet.get("name"):
+        out.append(("manifest", os.path.normpath(os.path.join(asset_dir, sheet["workspace"])),
+                    sheet["name"]))
+    parent = os.path.dirname(asset_dir)
+    letter = letter_of(name, asset_dir)
+    if letter:
+        sname = SHEET_DIR_PREFIX[1:] + letter
+        out.append(("letter", os.path.join(parent, SHEET_DIR_PREFIX + letter), sname))
+    try:
+        dirs = sorted(d for d in os.listdir(parent) if d.startswith(SHEET_DIR_PREFIX)
+                      and not d.endswith(".aux") and os.path.isdir(os.path.join(parent, d)))
+    except OSError:
+        dirs = []
+    if len(dirs) == 1:
+        out.append(("sibling", os.path.join(parent, dirs[0]), dirs[0][1:]))
+    return out
+
+
+def texture_sets(name, asset_dir, manifest=None):
+    """
+    The texture files each LOD material uses, as the importer binds them.
+
+    Non-tiled (the default): {"tiled": False, "LOD0": <asset_dir>/<name>_<Map>.png that exist,
+    "LOD1": None, "LOD2": None} - one material on every LOD (the importer maps LOD textures to
+    LOD0, cs2_asset.write_settings).
+    Tiled (far set <name>_LOD1_<Map>.png present AND the LOD0 maps resolve to the family sheet):
+    "LOD0" = the sheet maps (module docstring), "LOD1" = the far set, "LOD2" = its settings.json
+    target (the far set); plus "sheet" (file prefix), "sheet_source" (manifest | letter | sibling |
+    settings | owner), "bound" (the import-bound LOD0 files, for the cross-check) and "notes".
+    """
+    asset_dir = os.path.abspath(asset_dir)
+    own = _maps_in(asset_dir, name, MAPS)
+    far = _maps_in(asset_dir, f"{name}_LOD1", FAR_MAPS)
+    plain = {"tiled": False, "LOD0": own, "LOD1": None, "LOD2": None, "sheet": None,
+             "sheet_source": None, "bound": own, "notes": []}
+    if "BaseColor" not in far:
+        return plain
+    shared = _shared_assets(asset_dir)
+    tiled = _tiled_block(name, asset_dir, manifest)
+    notes = []
+
+    # what the import binds for LOD0: the settings key (a sharer) else the own file (the owner)
+    bound = {}
+    for m in MAPS:
+        tgt = shared.get(f"{name}_{m}.png")
+        if tgt:
+            p = os.path.normpath(os.path.join(asset_dir, tgt))
+            if os.path.isfile(p):
+                bound[m] = p
+            else:
+                notes.append(f"settings binds {name}_{m}.png -> {tgt} (not on disk)")
+        elif m in own:
+            bound[m] = own[m]
+    has_keys = any(f"{name}_{m}.png" in shared for m in MAPS)
+    if has_keys:                    # a sharer: bound exactly when settings.json carries the key
+        emissive = f"{name}_Emissive.png" in shared
+    elif own:                       # the owner: the importer picks <name>_Emissive.png by name
+        emissive = "Emissive" in own
+    else:
+        emissive = bool(((tiled or {}).get("sheet") or {}).get("emissive_bound", True))
+
+    sheet = src = None
+    lod0 = {}
+    for label, folder, prefix in _sheet_candidates(name, asset_dir, tiled):
+        found = _maps_in(folder, prefix, MAPS)
+        if "BaseColor" in found:
+            sheet, src, lod0 = prefix, label, found
+            break
+    if not lod0 and "BaseColor" in bound and (has_keys or tiled is not None):
+        # no sheet workspace beside the folder: the bound copies ARE the sheet (owner / sharer)
+        src = "settings" if has_keys else "owner"
+        lod0 = dict(bound)
+        sheet = os.path.basename(bound["BaseColor"])[:-len("_BaseColor.png")]
+    if not lod0:
+        if tiled is not None:
+            notes.append("manifest says tiled but no sheet map was found")
+        plain["notes"] = notes
+        return plain
+    if not emissive:
+        lod0.pop("Emissive", None)
+    for m, p in bound.items():                 # the workspace must be what the import binds
+        if m in lod0 and os.path.getsize(p) != os.path.getsize(lod0[m]):
+            notes.append(f"{m}: sheet {lod0[m]} differs from the bound {p}; using the bound copy")
+            lod0[m] = p
+
+    lod2 = {}
+    for m in FAR_MAPS:
+        tgt = shared.get(f"{name}_LOD2_{m}.png")
+        p = os.path.normpath(os.path.join(asset_dir, tgt)) if tgt else None
+        lod2[m] = p if p and os.path.isfile(p) else far.get(m)
+    lod2 = {m: p for m, p in lod2.items() if p}
+    return {"tiled": True, "LOD0": lod0, "LOD1": far, "LOD2": lod2, "sheet": sheet,
+            "sheet_source": src, "bound": bound, "notes": notes}
+
+
+def pbr_material(name, asset_dir, uv_name, slot_defaults, *, maps=None, mat_name=None,
+                 img_tag=None):
+    """The recolour material described in the module docstring. `maps` ({Map: path}; default
+    <asset_dir>/<name>_<Map>.png) and `mat_name` (default CS2R_<name>_PBR) select the set; images
+    are named CS2R_<name>_<img_tag_><Map>."""
+    mat = bpy.data.materials.new(mat_name or f"{PACK_PREFIX}{name}_PBR")
+    if maps is None:
+        maps = _maps_in(asset_dir, name, MAPS)
+    tag = f"{img_tag}_" if img_tag else ""
+
+    def _img(suffix, colorspace, packed=False):
+        p = maps.get(suffix)
+        return _load_image(p, f"{PACK_PREFIX}{name}_{tag}{suffix}", colorspace, packed) if p else None
+
     nt, out = _fresh_tree(mat)
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.location = (300, 0)
@@ -380,11 +582,11 @@ def pbr_material(name, asset_dir, uv_name, slot_defaults):
         nt.links.new(uvn.outputs["UV"], node.inputs["Vector"])
         return node
 
-    base_img = _image(name, asset_dir, "BaseColor", "sRGB")
+    base_img = _img("BaseColor", "sRGB")
     acc = tex(base_img, 500, "BaseColor").outputs["Color"] if base_img else None
     if acc is None:
         bsdf.inputs["Base Color"].default_value = (0.8, 0.8, 0.8, 1.0)
-    ctl_img = _image(name, asset_dir, "ControlMask", "Non-Color")
+    ctl_img = _img("ControlMask", "Non-Color")
     if acc is not None and ctl_img is not None:
         sep = nt.nodes.new("ShaderNodeSeparateColor")
         sep.location = (-950, 300)
@@ -408,7 +610,7 @@ def pbr_material(name, asset_dir, uv_name, slot_defaults):
     if acc is not None:
         nt.links.new(acc, bsdf.inputs["Base Color"])
 
-    nrm_img = _image(name, asset_dir, "Normal", "Non-Color")
+    nrm_img = _img("Normal", "Non-Color")
     if nrm_img is not None:
         nmap = nt.nodes.new("ShaderNodeNormalMap")
         nmap.location = (-150, -350)
@@ -417,7 +619,7 @@ def pbr_material(name, asset_dir, uv_name, slot_defaults):
         nt.links.new(tex(nrm_img, -350, "Normal").outputs["Color"], nmap.inputs["Color"])
         nt.links.new(nmap.outputs["Normal"], bsdf.inputs["Normal"])
 
-    msk_img = _image(name, asset_dir, "MaskMap", "Non-Color", packed=True)
+    msk_img = _img("MaskMap", "Non-Color", packed=True)
     if msk_img is not None:
         msk = tex(msk_img, -650, "MaskMap")
         sep = nt.nodes.new("ShaderNodeSeparateColor")
@@ -434,7 +636,7 @@ def pbr_material(name, asset_dir, uv_name, slot_defaults):
     else:
         bsdf.inputs["Roughness"].default_value = 0.7
 
-    emi_img = _image(name, asset_dir, "Emissive", "sRGB")
+    emi_img = _img("Emissive", "sRGB")
     if emi_img is not None:
         nt.links.new(tex(emi_img, -1000, "Emissive").outputs["Color"],
                      bsdf.inputs["Emission Color"])
@@ -528,6 +730,29 @@ def _collection_props(coll, props):
         coll[key] = val
 
 
+def _mat_files(mat):
+    """Sorted file names of the images a material's texture nodes use."""
+    if mat is None or mat.node_tree is None:
+        return []
+    return sorted({os.path.basename(bpy.path.abspath(n.image.filepath))
+                   for n in mat.node_tree.nodes if n.type == "TEX_IMAGE" and n.image is not None})
+
+
+def _prune_stage(stage_dir, keep):
+    """Delete PNGs in <out_dir>/_tex/<Name>/ the pack just written does not use (a renamed or
+    re-sourced set must not leave a stale copy that looks current)."""
+    if not stage_dir or not os.path.isdir(stage_dir) \
+            or os.path.basename(os.path.dirname(stage_dir)) != "_tex":
+        return 0
+    n = 0
+    for f in os.listdir(stage_dir):
+        p = os.path.join(stage_dir, f)
+        if f.lower().endswith(".png") and f not in keep and os.path.isfile(p):
+            os.remove(p)
+            n += 1
+    return n
+
+
 def write_pack(name, asset_dir, lod_objs, submeshes=None, *, meta=None, out_dir=None,
                manifest=None, extra_meshes=None):
     """
@@ -559,10 +784,28 @@ def write_pack(name, asset_dir, lod_objs, submeshes=None, *, meta=None, out_dir=
         slot = {"R": 1, "G": 2, "B": 3}.get(str(k).upper(), None) or int(k)
         slot_defaults[slot] = tuple(float(c) for c in rgb)
 
+    tex = texture_sets(name, asset_dir, manifest)
+    for note in tex["notes"]:
+        print(f"[review] WARN {name}: {note}")
+    _STAGED.clear()
     before = _snapshot()
     try:
         uv_name = _shipped_uv(lods[0].data)
-        pbr = pbr_material(name, asset_dir, uv_name, slot_defaults)
+        pbr = pbr_material(name, asset_dir, uv_name, slot_defaults, maps=tex["LOD0"])
+        lod_mat = {0: pbr}
+        if tex["tiled"]:
+            # LOD1 / LOD2 wear the far set through their own UVs (one material per distinct
+            # map set + UV layer: LOD2's settings target is LOD1's files, so normally one)
+            far_mats = {}
+            for level in sorted(k for k in lods if k > 0):
+                maps = tex.get(f"LOD{level}") or tex["LOD1"]
+                uv = _shipped_uv(lods[level].data)
+                key = (tuple(sorted(maps.items())), uv)
+                if key not in far_mats:
+                    far_mats[key] = pbr_material(
+                        name, asset_dir, uv, slot_defaults, maps=maps,
+                        mat_name=f"{PACK_PREFIX}{name}_PBR_LOD{level}", img_tag=f"LOD{level}")
+                lod_mat[level] = far_mats[key]
         glass = window = None
 
         root = bpy.data.collections.new(f"{PACK_PREFIX}{name}")
@@ -578,7 +821,8 @@ def write_pack(name, asset_dir, lod_objs, submeshes=None, *, meta=None, out_dir=
             role = f"LOD{level}"
             if role not in children:
                 raise ValueError(f"write_pack: LOD level {level} is outside {ROLES[:3]}")
-            dup = _duplicate(lods[level], f"{PACK_PREFIX}{name}_{role}", pbr, role)
+            dup = _duplicate(lods[level], f"{PACK_PREFIX}{name}_{role}",
+                             lod_mat.get(level, pbr), role)
             children[role].objects.link(dup)
             dups[role] = dup
         for suffix in sorted(subs):
@@ -629,8 +873,22 @@ def write_pack(name, asset_dir, lod_objs, submeshes=None, *, meta=None, out_dir=
         tris = {k: int(d["tris"]) for k, d in dups.items()}
         levels = sorted(int(k[3:]) for k in tris if k.startswith("LOD"))
         sw, sw_noarea = switch_tables(size, [tris[f"LOD{k}"] for k in levels], area)
-        base_png = os.path.join(asset_dir, f"{name}_BaseColor.png")
-        A = png_size(base_png)[0] if os.path.isfile(base_png) else 0
+        base_png = tex["LOD0"].get("BaseColor")
+        A = png_size(base_png)[0] if base_png else 0
+        far_png = (tex["LOD1"] or {}).get("BaseColor")
+        lod_tex = {f"LOD{k}": _mat_files(lod_mat.get(k, pbr)) for k in sorted(lods)}
+        n_images = sum(1 for i in bpy.data.images if i not in before["images"])
+        exported = os.path.isfile(os.path.join(asset_dir, "settings.json")) or any(
+            f.lower().endswith(".fbx") for f in (os.listdir(asset_dir) if os.path.isdir(asset_dir) else []))
+        bare = sorted(r for r, files in lod_tex.items() if not files)
+        if bare and exported and meta.get("kind") != "stand-in":
+            # T63-tiled gate: an exported asset never gets a silently untextured pack (the W
+            # lodges reviewed on 2026-10-17 were flat meshes because nothing matched)
+            raise ValueError(
+                f"write_pack {name}: {', '.join(bare)} material(s) have NO image (asset folder "
+                f"{asset_dir}: own maps {sorted(tex['LOD0'])}, far set "
+                f"{sorted(tex['LOD1'] or {})}, tiled {tex['tiled']}, notes {tex['notes']}); "
+                f"no pack written")
         dens = density_stats(dups["LOD0"], A) if A else None
         caps = _caps(meta)
         letter = meta.get("letter") or letter_of(name, asset_dir)
@@ -659,7 +917,18 @@ def write_pack(name, asset_dir, lod_objs, submeshes=None, *, meta=None, out_dir=
             "lod_bias": round(sw["bias"], 4),
             "lod_cull_m": round(sw["cull"], 2),
             "uv_layer": uv_name or "",
+            "tiled": int(bool(tex["tiled"])),
+            "n_images": n_images,
+            "pack_from": meta.get("pack_from") or "generator",
         }
+        for role, files in lod_tex.items():
+            props[f"tex_{role}"] = ",".join(files)
+        if tex["tiled"]:
+            props["sheet"] = tex["sheet"]
+            props["sheet_source"] = tex["sheet_source"]
+            props["far_px"] = png_size(far_png)[0] if far_png else 0
+        if tex["notes"]:
+            props["tex_notes"] = "; ".join(tex["notes"])
         for k, n in tris.items():
             props[f"tris_{k}"] = n
         for k, cap in caps.items():
@@ -697,8 +966,10 @@ def write_pack(name, asset_dir, lod_objs, submeshes=None, *, meta=None, out_dir=
 
         bpy.data.libraries.write(path, {root}, path_remap="RELATIVE_ALL", fake_user=True,
                                  compress=True)
+        pruned = _prune_stage(_STAGE_DIR, set(_STAGED))
     finally:
         _STAGE_DIR = None
+        _STAGED.clear()
         removed = _purge_new(before)
     sw_txt = ", ".join(f"LOD{levels[k]} {d:.0f} m" for k, d in sw["switch"].items()) or "none"
     print(f"[review] {name}: pack -> {path} ({os.path.getsize(path)} bytes, "
@@ -707,7 +978,11 @@ def write_pack(name, asset_dir, lod_objs, submeshes=None, *, meta=None, out_dir=
           + (f"{standin['n']} prop stand-ins {standin['families']}"
              f"{' (%d unknown bounds)' % standin['unknown'] if standin['unknown'] else ''}; "
              if standin["n"] else "")
-          + f"{removed} temporary datablocks removed")
+          + (f"tiled: LOD0 on {props.get('sheet')} ({props.get('sheet_source')}), far set "
+             f"{props.get('far_px')} px; " if tex["tiled"] else "")
+          + f"{n_images} images ({'; '.join(f'{r} {len(f)}' for r, f in lod_tex.items())})"
+          + (f", {pruned} stale _tex files removed" if pruned else "")
+          + f"; {removed} temporary datablocks removed")
     return path
 
 
@@ -761,6 +1036,228 @@ def write_standin_pack(fbx_path=STANDIN_FBX, name=None, out_dir=None):
             vl.objects.active = None
 
 
+# --------------------------------------------------------------------------------------
+# From an exported folder (no generator run)
+# --------------------------------------------------------------------------------------
+
+def _is_identity(m, eps=1e-6):
+    return all(abs(m[i][j] - (1.0 if i == j else 0.0)) <= eps for i in range(4) for j in range(4))
+
+
+def import_exported_fbx(path):
+    """
+    Import one FBX written by cs2_asset.export_fbx and return it in metres, Z-up, identity
+    transform, named after the file stem. Blender 5.x wm.fbx_import keeps the raw vertices
+    (cm, Y-up: export baked (x, y, z) -> (x, z, -y) x 100, cs2_asset.py:1300-1302) and an
+    identity object matrix (probed on 5.2.2: SkiLodgeHutCommercialLowW raw y -720..880 = the
+    manifest's 16.0 m height, min_y -7.2); FBX_TO_BLENDER undoes it on the mesh data. Custom
+    split normals are re-set rotated so shading survives. Uses the operator: headless only.
+    """
+    import numpy as np
+    if not bpy.app.background:
+        raise RuntimeError("import_exported_fbx runs headless only (ROUND-SPEC.md R10)")
+    if not hasattr(bpy.ops.wm, "fbx_import"):
+        raise RuntimeError("import_exported_fbx needs Blender's wm.fbx_import (5.x); the legacy "
+                           "importer moves the axis fix onto the object and is not supported")
+    before = set(bpy.data.objects)
+    bpy.ops.wm.fbx_import(filepath=path)
+    new = [o for o in bpy.data.objects if o not in before]
+    meshes = [o for o in new if o.type == "MESH"]
+    if len(meshes) != 1:
+        raise RuntimeError(f"{path}: expected one mesh, the import made "
+                           f"{[(o.name, o.type) for o in new]}")
+    obj = meshes[0]
+    if obj.parent is not None or not _is_identity(obj.matrix_world):
+        raise RuntimeError(f"{path}: the importer applied a transform {list(map(tuple, obj.matrix_world))}"
+                           f" (parent {obj.parent}); expected raw data with an identity matrix")
+    me = obj.data
+    custom = bool(getattr(me, "has_custom_normals", False))
+    if custom:
+        cn = np.empty(len(me.loops) * 3, dtype=np.float64)
+        me.corner_normals.foreach_get("vector", cn)
+        rot = np.array(FBX_TO_BLENDER.to_3x3().normalized(), dtype=np.float64)
+        cn = (cn.reshape(-1, 3) @ rot.T)
+    me.transform(FBX_TO_BLENDER)
+    if custom:
+        me.normals_split_custom_set([tuple(v) for v in cn])
+    me.update()
+    stem = os.path.splitext(os.path.basename(path))[0]
+    obj.name = stem
+    me.name = stem
+    return obj
+
+
+def _check_extent(obj, manifest, label):
+    """The re-imported LOD0 against the manifest's extent_game_m (game axes: y up, z = -Blender
+    y). An axis or unit slip is metres off; returns a note or raises."""
+    ext = (manifest or {}).get("extent_game_m")
+    if not isinstance(ext, dict):
+        return "no extent_game_m in the manifest: orientation not cross-checked"
+    import numpy as np
+    co = np.empty(len(obj.data.vertices) * 3, dtype=np.float64)
+    obj.data.vertices.foreach_get("co", co)      # identity matrix: data = world
+    co = co.reshape(-1, 3)
+    lo, hi = co.min(axis=0), co.max(axis=0)
+    got = {"x": hi[0] - lo[0], "y": hi[2] - lo[2], "z": hi[1] - lo[1], "min_y": lo[2]}
+    bad = {k: (round(got[k], 3), ext[k]) for k in ("x", "y", "z", "min_y")
+           if k in ext and abs(got[k] - float(ext[k])) > EXTENT_TOL_M}
+    if bad:
+        raise RuntimeError(f"{label}: re-imported extent {bad} (got, manifest) is off by more than "
+                           f"{EXTENT_TOL_M} m: the FBX axis / unit fix is wrong for this file")
+    return None
+
+
+def _sha1(path):
+    import hashlib
+    h = hashlib.sha1()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _folder_vs_manifest(asset_dir, manifest):
+    """Files the manifest lists whose bytes differ (or are missing) in the folder."""
+    out = []
+    for fn, rec in sorted(((manifest or {}).get("files") or {}).items()):
+        p = os.path.join(asset_dir, fn)
+        if not os.path.isfile(p):
+            out.append(f"{fn}: missing")
+        elif isinstance(rec, dict) and rec.get("sha1") and _sha1(p) != rec["sha1"]:
+            out.append(f"{fn}: sha1 differs from the manifest")
+    return out
+
+
+def _signset_extra(manifest, letter):
+    """(fbx path, texture name, texture dir) of the manifest's sign set, or (None, reason)."""
+    ss = ((manifest or {}).get("fine_detail") or {}).get("sign_set")
+    if not isinstance(ss, dict) or not ss.get("mesh"):
+        return None, None, None
+    mesh = ss["mesh"]
+    cands = []
+    if ss.get("asset_dir"):
+        cands.append(ss["asset_dir"])
+    cands.append(os.path.join(REPO_ROOT, "assets", "import", "signs", mesh[-1:] or letter, mesh))
+    for d in cands:
+        fbx = os.path.join(d, f"{mesh}.fbx")
+        if not os.path.isfile(fbx):
+            continue
+        tgt = _shared_assets(d).get(f"{mesh}_BaseColor.png")
+        if tgt:
+            p = os.path.normpath(os.path.join(d, tgt))
+            if os.path.isfile(p):
+                return fbx, os.path.basename(p)[:-len("_BaseColor.png")], os.path.dirname(p)
+        if os.path.isfile(os.path.join(d, f"{mesh}_BaseColor.png")):
+            return fbx, mesh, d
+    return None, mesh, None
+
+
+def _recipe_meta(manifest):
+    """tint / lot_cells / caps the generator would have passed (lodge.py:1652-1658)."""
+    out = {}
+    budget = (manifest or {}).get("budget") or {}
+    tris = (manifest or {}).get("tris") or {}
+    caps = {0: budget.get("lod0_cap"), 1: tris.get("1"), 2: budget.get("lod2_cap")}
+    out["caps"] = {k: v for k, v in caps.items() if v is not None}
+    key = (manifest or {}).get("recipe")
+    if key and (manifest or {}).get("generator") == "lodge.py":
+        try:
+            import bldg_recipes
+            rc = bldg_recipes.get_recipe(key)
+            out["tint"] = {"RGB"[k - 1]: tuple(v) for k, v in rc.slots.items()}
+            out["lot_cells"] = list(rc.lot)
+        except Exception as exc:  # noqa: BLE001 - a recipe problem keeps the default tint
+            out["tint_error"] = f"{type(exc).__name__}: {exc}"
+    return out
+
+
+def write_folder_pack(asset_dir, out_dir=None, name=None):
+    """
+    Write the review pack of an EXPORTED asset folder (module docstring): no generator run, so a
+    pack is minutes, not a 20-minute bake, and shows exactly the files Richard imports. LOD0 =
+    <name>.fbx, LOD1 / LOD2 = <name>_LOD<k>.fbx, subs = every other <name>_<suffix>.fbx whose
+    suffix does not start with LOD (the generator hands write_pack the LOD0 subs only), the
+    manifest's sign set as the SignSet extra (its texture via its own settings.json). The
+    manifest (rows, tiled block, recipe) goes to write_pack whole. Headless only; the session is
+    left as found (everything imported is removed again).
+    """
+    if not bpy.app.background:
+        raise RuntimeError("write_folder_pack runs headless only (ROUND-SPEC.md R10)")
+    asset_dir = os.path.abspath(asset_dir)
+    name = cs2_asset.validate_asset_name(name or os.path.basename(asset_dir.rstrip("\\/")))
+    lod0_fbx = os.path.join(asset_dir, f"{name}.fbx")
+    if not os.path.isfile(lod0_fbx):
+        raise FileNotFoundError(f"write_folder_pack: no {name}.fbx in {asset_dir}")
+    man_path = os.path.join(asset_dir, f"{name}.manifest.json")
+    manifest = _read_json(man_path) if os.path.isfile(man_path) else None
+    letter = letter_of(name, asset_dir)
+    before = _snapshot()
+    vl = bpy.context.view_layer
+    active = vl.objects.active
+    selected = [o for o in vl.objects if o is not None and o.select_get()]
+    try:
+        lods = {0: import_exported_fbx(lod0_fbx)}
+        notes = [n for n in [_check_extent(lods[0], manifest, name)] if n]
+        for k in (1, 2):
+            p = os.path.join(asset_dir, f"{name}_LOD{k}.fbx")
+            if os.path.isfile(p):
+                lods[k] = import_exported_fbx(p)
+        for k, o in lods.items():          # the importer may drop degenerate triangles
+            want = ((manifest or {}).get("tris") or {}).get(str(k))
+            got = cs2_asset.tri_count(o)
+            if want is not None and int(want) != got:
+                notes.append(f"LOD{k}: {got} tris re-imported vs {want} in the manifest")
+        subs = {}
+        for f in sorted(os.listdir(asset_dir)):
+            if not (f.lower().endswith(".fbx") and f.startswith(name + "_")):
+                continue
+            suffix = f[len(name) + 1:-4]
+            if suffix.upper().startswith("LOD"):
+                continue
+            subs[suffix] = import_exported_fbx(os.path.join(asset_dir, f))
+        extra = {}
+        ss_fbx, ss_tex, ss_dir = _signset_extra(manifest, letter)
+        if ss_fbx:
+            extra["SignSet"] = (import_exported_fbx(ss_fbx), ss_tex, ss_dir)
+        elif ss_tex:
+            notes.append(f"sign set {ss_tex}: folder not found, not shown")
+        mism = _folder_vs_manifest(asset_dir, manifest)
+        for n in notes + mism:
+            print(f"[review] WARN {name}: {n}")
+        try:
+            rel = os.path.relpath(asset_dir, REPO_ROOT).replace("\\", "/")
+        except ValueError:
+            rel = asset_dir
+        meta = {"generator": (manifest or {}).get("generator") or "unknown",
+                "kind": "building" if (manifest or {}).get("generator") == "lodge.py"
+                else (manifest or {}).get("kind") or "asset",
+                "letter": letter, "pack_from": "folder",
+                "args": {"from_folder": rel, "manifest_written_utc": (manifest or {}).get("written_utc"),
+                         "source_git_sha": (manifest or {}).get("git_sha"),
+                         "recipe": (manifest or {}).get("recipe"),
+                         "sign_set": f"{ss_tex} <- {ss_fbx}" if ss_fbx else None,
+                         "notes": notes, "folder_vs_manifest": mism}}
+        meta.update(_recipe_meta(manifest))
+        vl.update()
+        return write_pack(name, asset_dir, lods, subs, meta=meta, out_dir=out_dir,
+                          manifest=manifest if manifest is not None else {},
+                          extra_meshes=extra or None)
+    finally:
+        _purge_new(before)
+        for o in list(vl.objects):
+            if o is not None and o.select_get():
+                o.select_set(False)
+        for o in selected:
+            try:
+                o.select_set(True)
+            except (ReferenceError, RuntimeError):
+                pass
+        try:
+            vl.objects.active = active
+        except (ReferenceError, RuntimeError):
+            vl.objects.active = None
+
+
 def _main(argv):
     import argparse
     import traceback
@@ -768,15 +1265,28 @@ def _main(argv):
                                  description="headless review packs (ROUND-SPEC R10)")
     ap.add_argument("--stand-in", nargs="?", const=STANDIN_FBX, default=None, metavar="FBX",
                     help=f"write a shipped FBX as a stand-in pack (default {STANDIN_FBX})")
+    ap.add_argument("--from-folder", nargs="+", default=None, metavar="DIR",
+                    help="write the pack of each EXPORTED asset folder (no generator run)")
     ap.add_argument("--out", default=None, metavar="DIR",
                     help=f"pack folder (default {DEFAULT_OUT_DIR})")
     args = ap.parse_args(argv)
-    if args.stand_in is None:
-        ap.error("nothing to do: pass --stand-in [FBX]")
-    try:
-        print(f"[review] stand-in pack: {write_standin_pack(args.stand_in, out_dir=args.out)}")
-    except Exception:  # noqa: BLE001 - make the exit status unambiguous for the harness
-        traceback.print_exc()
+    if args.stand_in is None and not args.from_folder:
+        ap.error("nothing to do: pass --stand-in [FBX] or --from-folder DIR [DIR ...]")
+    failed = []
+    if args.stand_in is not None:
+        try:
+            print(f"[review] stand-in pack: {write_standin_pack(args.stand_in, out_dir=args.out)}")
+        except Exception:  # noqa: BLE001 - make the exit status unambiguous for the harness
+            traceback.print_exc()
+            failed.append(args.stand_in)
+    for d in args.from_folder or []:
+        try:
+            print(f"[review] folder pack: {write_folder_pack(d, out_dir=args.out)}")
+        except Exception:  # noqa: BLE001 - one bad folder must not hide the others' result
+            traceback.print_exc()
+            failed.append(d)
+    if failed:
+        print(f"[review] FAILED: {failed}")
         sys.exit(1)
 
 
