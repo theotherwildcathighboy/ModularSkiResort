@@ -17,6 +17,9 @@ hashes identical; LOD contracts on the LOD meshes captured from cs2_bldg.lod_cha
 Nitpick C (2026-10-13, build/nitpick-c-lodges.md): L2's fuel-station barrels are ground rows (parent -1, no
 drum_ part left in the host); L3's three boards are blank (l3_blank_boards: blank draws, we_boards, the shipped
 rims >= 4 texels, --no-fine keeps the pictograms).
+T60 (2026-10-18, build/T59-T60-chalet-summit.md): l3_t60: the kiosk door and the patio double door (bW1 replaced) on
+the blockout and on a door kit v2 parts build (leaves, a lever per leaf, glass in the existing rooms kiosk / bF1W, no
+bW1 pane left), the two T60 wall-light rows on a non-glass wall face beside their door's casing, facing out.
 Exit 1 on any failure; WARN lines are printed, never fatal.
 """
 
@@ -346,7 +349,7 @@ def l3_contracts(recipe, mod, r, obj, win, table):
     # SKI_RACK_SPOTS); no lantern lens left (no lamp_ part at all: no _Emissive map)
     subs = recipe.sub_objects
     base = tuple(mod["SUB_OBJECTS"])
-    fine_rows = tuple(mod["FINE_SUB_OBJECTS"]) + tuple(mod["KIT_ROWS"])
+    fine_rows = tuple(mod["FINE_SUB_OBJECTS"]) + tuple(mod["KIT_ROWS"]) + tuple(mod["T60_SUB_OBJECTS"])
     # T26 2026-10-16 dropped the 4 parasols (25 rows); restored 2026-10-17 (Richard: vanilla props, random colours
     # accepted): 29 rows again, four ParasolRandom01
     assert tuple(subs) == base + fine_rows and len(base) == n == 29, (len(subs), n)
@@ -366,6 +369,7 @@ def l3_contracts(recipe, mod, r, obj, win, table):
           f"{len(fine_rows)} fine-detail rows = {len(subs)} sub_objects rows, no lodge triangle in a "
           f"prop box (wall / ceiling props off their mount by 5 mm), closest boxes {near:.3f} m")
     l3_fine_h1(recipe, mod, r["lot"])
+    l3_t60(recipe, mod, table)
     l3_blank_boards(recipe, mod, r)
 
 
@@ -410,6 +414,77 @@ def l3_blank_boards(recipe, mod, r):
     print(f"ok L3 blank boards (nitpick C): {[e[0] for e in labels]} blank (rim {mod['L3_TRIM_SRGB']}); "
           f"we_boards {[(b['face'], b['centre'], b['size_m']) for b in wb]}; {shipped}; --no-fine keeps the "
           f"pictograms")
+
+
+def l3_t60(recipe, mod, table):
+    """T60 (2026-10-18; Richard: "the small building has no door ... we also need a door on the patio itself. Probably
+    turn one of the tall windows into a door."): on the blockout (door kit v1) the two entries exist and bW1 is gone;
+    on a door kit v2 parts build (lodge.build_parts with the --tiled --window-kit v2 --door-kit v2 configs) the kiosk
+    door is one chalet leaf, the patio door two, each leaf with its lever, the leaf glass in the EXISTING rooms kiosk /
+    bF1W (no new room, no bW1 pane); the two T60_SUB_OBJECTS wall lights sit on a non-glass wall face (a ray from
+    0.3 m out along the row's facing meets a wall_ face at 0.3 +- 0.005 m), clear of their door's casing."""
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    assert mod["T60_DOORS"], "T60_DOORS is off"
+    rows = mod["T60_SUB_OBJECTS"]
+    assert len(rows) == 2 and all(r[0] == "WallLightShortRangeRandom01" and r[4] == 0 for r in rows), rows
+    ent = sorted(t for t in table if t.startswith(("entry_kio", "entry_bWd")))
+    assert ent == ["entry_bWd", "entry_kio"], [t for t in table if t.startswith("entry_")]
+    assert not [t for t in table if t.startswith("win_bF1W_bW1")], "bW1 pane left on the blockout"
+    args = lodge.parse_args(["--recipe", "L3", "--tiled", "--window-kit", "v2", "--door-kit", "v2"])
+    opts = {"tower": True, "roof_windows": "win", "window_kit": lodge.window_kit_cfg(recipe, args),
+            "door_kit": lodge.door_kit_cfg(recipe, args)}
+    ps = lodge.build_parts(recipe, opts)
+    bpy.context.view_layer.update()
+    names = [o.name for o, _k in ps]
+    try:
+        for leaf in ("door_kio_leaf", "door_bWd0_leaf", "door_bWd1_leaf"):
+            assert leaf in names and leaf.replace("_leaf", "_lever") in names, (leaf, sorted(
+                n for n in names if n.startswith("door_")))
+        assert "door_kio0_leaf" not in names and "door_bWd2_leaf" not in names, "leaf count"
+        glass = sorted(n for n in names if n.startswith(("win_kiosk_kio", "win_bF1W_bWd")))
+        assert glass == ["win_bF1W_bWdg0", "win_bF1W_bWdg1", "win_kiosk_kiog0"], glass
+        assert not [n for n in names if n.startswith("win_bF1W_bW1")], "bW1 pane left (kit v2)"
+        assert [n for n in names if n.startswith("win_bF1W_bW0")] and [n for n in names if n.startswith("win_bF1W_bW2")]
+        # the lamp rows on their wall
+        verts, polys, own = [], [], []
+        for o, _k in ps:
+            W = [o.matrix_world @ v.co for v in o.data.vertices]
+            b = len(verts)
+            verts += W
+            for p in o.data.polygons:
+                polys.append([b + i for i in p.vertices])
+                own.append(o.name)
+        bvh = BVHTree.FromPolygons(verts, polys)
+        cas = {}
+        for o, _k in ps:
+            if o.name in ("entry_kio", "entry_bWd"):
+                W = np.array([tuple(o.matrix_world @ v.co) for v in o.data.vertices])
+                cas[o.name] = (W.min(0), W.max(0))
+        out = []
+        for (tag, _p, _yaw), row in zip(mod["T60_LAMPS"], rows):
+            gx, gy, gz = row[2]
+            x, y, z = gz, gx, gy                                    # game (gx, gy, gz) = authoring (y, z, x)
+            th = 2.0 * math.atan2(row[3][1], row[3][3])
+            n = Vector((math.cos(th), math.sin(th), 0.0))
+            hit, nrm, idx, d = bvh.ray_cast(Vector((x, y, z)) + n * 0.3, -n, 0.6)
+            assert hit is not None and abs(d - 0.3) <= 0.005 and own[idx].startswith("wall_") \
+                and nrm.dot(n) > 0.95, (tag, None if hit is None else (round(d, 4), own[idx], tuple(nrm)))
+            lo, hi = cas[f"entry_{tag}"]
+            # the lamp's 0.142 m half width clears the casing along the wall
+            u = abs(y - 0.5 * (lo[1] + hi[1])) if abs(n.x) > 0.5 else abs(x - 0.5 * (lo[0] + hi[0]))
+            half = 0.5 * ((hi[1] - lo[1]) if abs(n.x) > 0.5 else (hi[0] - lo[0]))
+            assert u - 0.142 > half, (tag, u, half)
+            out.append((tag, own[idx], round(u - 0.142 - half, 3)))
+    finally:
+        for o, _k in ps:
+            me_ = o.data
+            bpy.data.objects.remove(o, do_unlink=True)
+            if me_ is not None and me_.users == 0:
+                bpy.data.meshes.remove(me_)
+    print(f"ok L3 T60: kiosk door (1 chalet leaf + lever, glass in kiosk) + patio double door (2 leaves + 2 levers, "
+          f"glass in bF1W, bW1 gone) on the kit v2 parts; blockout entries {['entry_kio', 'entry_bWd']}; wall lights "
+          f"(tag, wall, clearance to the casing m) {out}")
 
 
 # the pre-pass chalet's lot bbox (manifest 2026-10-12 00:56); the fine flag masts' ball finials

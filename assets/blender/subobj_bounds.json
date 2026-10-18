@@ -410,6 +410,32 @@
     "WallLight04"
    ]
   },
+  "98c77a4f2885dd541a7a3700edefa21e": {
+   "bounds": [
+    [
+     -0.727,
+     -0.008,
+     -0.732
+    ],
+    [
+     0.727,
+     0.229,
+     0.732
+    ]
+   ],
+   "guid": "98c77a4f2885dd541a7a3700edefa21e",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "CampgroundFireplace02 Mesh"
+   ],
+   "prefab": "CampgroundFireplace02",
+   "prefabs": [
+    "CampgroundFireplace02"
+   ],
+   "source": "dump",
+   "tris": 304,
+   "variants": []
+  },
   "SkiDressAkja": {
    "bounds": [
     [

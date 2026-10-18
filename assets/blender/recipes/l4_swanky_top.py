@@ -58,6 +58,14 @@ Plinth mode (bldg-kit.md section 3): no vertex in |z| <= 0.01 anywhere, min z = 
 engine-base edges (check_base_mode "plinth" on LOD0/1/2 in lodge.py).
 
 Design terrain t_S(X) = -S (20 - X), S_D = 0.20; supported S in [0.17, 0.30].
+
+T59 (2026-10-18; Richard, Blender review 2026-10-17 item 4: "We seem to have lost the outdoor firepit props, would like
+some ... on the patio of [the summit lodge]. Chairs should surround both. Rearrange the other props as needed."; build note
+docs/research/field/2026-10-15/build/T59-T60-chalet-summit.md): T59_FIRE_PIT (False = the pre-T59 rows, L4_ROWS_PRE_T59,
+byte-identical). A vanilla CampgroundFireplace02 (the stone ring, DECISIONS 231; GUID from the harvest map, entry 230)
+on the terrace's north-west quarter over the plinth (FIRE_PIT, a 4 m clear circle 1.0 m inside the north kerb), four
+GardenBenchRandom01 round it at FIRE_PIT_R facing it (the west kerb bench, unmoved, is the north one), the second table
+row 0.5 m south and the second gas heater to the east side of the middle aisle. Rows only: the mesh is unchanged.
 """
 
 import math
@@ -72,9 +80,25 @@ from bldg_recipes import Budget, Recipe   # noqa: E402
 from fine_detail import FineRecipe, blank_board   # noqa: E402  (bpy-free)
 
 
+# T59 (2026-10-18, module docstring): the fire pit is a STANDALONE vanilla prefab (no placeholder, no variants), so the
+# dump yields its bounds but not its GUID: the GUID is the PrefabsMap harvest's (docs/research/field/2026-10-13/
+# guid-harvest.json, DECISIONS 230 / 231), bounds / tris from "CampgroundFireplace02 Mesh" (cs2_subobj.DumpIndex.derive,
+# 2026-10-18), no WeatherObject (snow None). l5_swanky_bottom.VANILLA (not this lane's file) has no entry for it; _sw()
+# adds this one with setdefault, so an entry the L5 lane adds wins (its GUID must match, else this raises).
+FIRE_PIT_VANILLA = {
+    "CampgroundFireplace02": dict(
+        guid="98c77a4f2885dd541a7a3700edefa21e", variants=(),
+        bounds=((-0.727, -0.008, -0.732), (0.727, 0.229, 0.732)), tris=304, snow=None, placeholder=False),
+}
+
+
 def _sw():
     """The shared swanky helpers (recipes/l5_swanky_bottom.py)."""
     from recipes import l5_swanky_bottom as SW
+    for pf, ent in FIRE_PIT_VANILLA.items():
+        have = SW.VANILLA.setdefault(pf, dict(ent))
+        if have["guid"] != ent["guid"]:
+            raise RuntimeError(f"T59: VANILLA[{pf!r}] GUID {have['guid']} != the harvest map's {ent['guid']}")
     return SW
 
 
@@ -178,7 +202,7 @@ def _parasol(tx, ty, z, yaw, zone):
     return _sw()._parasol(tx, ty, z, yaw, zone)
 
 
-L4_ROWS = (
+L4_ROWS_PRE_T59 = (
     # --- the terrace deck: four cafe tables at the revision-0 umbrella spots with their parasols
     # (poles on the aisle toward the dining room), winter gas heaters between the rows, two
     # benches on the north kerb, a bin by the stair walkway, pots in the corners, lamp posts on
@@ -206,6 +230,43 @@ L4_ROWS = (
     (_POT, 16.4, -5.4, Z_ARRIVAL, 0.0, 0, "forecourt"), (_POT, 16.4, 0.4, Z_ARRIVAL, 0.0, 0, "forecourt"),
     (_WL, U_X1, -5.10, Z_ARRIVAL + 2.2, 0.0, 0, "entry"), (_WL, U_X1, 0.10, Z_ARRIVAL + 2.2, 0.0, 0, "entry"),
 )
+
+# T59 (module docstring): the terrace with a fire pit. FIRE_PIT on the solid terrace (over the plinth, x > T_WALL), a 4 m
+# clear circle (r 2.0: y 17.7..21.7, x -13.7..-9.7) 1.0 m inside the north kerb, 0.3 m inside the W1 line and clear of
+# every table set and canopy; four benches round it at FIRE_PIT_R (L5's plaza fire pit spacing, the seat 1.9 m from the
+# centre, the ring's edge 0.73) each facing it: N = the old west kerb bench (-11.7, 22.1, yaw -90) where it was (the pit
+# is on its axis; the north kerb's deck LED pucks at x -13.5 / -9.9 leave a bench there no other x: S2 caught -10.5),
+# S / W / E new. The second table row moves 0.5 m south (y 15 -> 14.5; its
+# parasols follow, 1.37 m behind) so the S bench has 1.0 m behind it; the north gas heater (-9, 19.5, inside the circle)
+# moves to the east side of the middle aisle (-3, 10.5), mirroring the west one about the table pair. Everything else
+# as L4_ROWS_PRE_T59.
+T59_FIRE_PIT = True
+FIRE_PIT = (-11.7, 19.7)
+FIRE_PIT_R = 2.4
+FIRE_PIT_CLEAR_R = 2.0
+_FP = "CampgroundFireplace02"
+L4_TABLES_T59 = ((-12.0, 6.0), (-6.0, 6.0), (-12.0, 14.5), (-6.0, 14.5))
+_fx, _fy = FIRE_PIT
+L4_ROWS_T59 = (
+    *((_T, x, y, Z_DECK, 90.0, 0, "terrace") for x, y in L4_TABLES_T59),
+    *(_parasol(x, y, Z_DECK, 90.0, "terrace") for x, y in L4_TABLES_T59),
+    (_H, -9.0, 10.5, Z_DECK, 0.0, 0, "terrace"), (_H, -3.0, 10.5, Z_DECK, 0.0, 0, "terrace"),
+    (_B, -11.7, 22.1, Z_DECK, -90.0, 0, "terrace"), (_B, -4.5, 22.1, Z_DECK, -90.0, 0, "terrace"),
+    (_BIN, 0.9, 12.0, Z_DECK, 0.0, 0, "terrace"),
+    (_POT, -13.3, 1.1, Z_DECK, 0.0, 0, "terrace"), (_POT, 0.9, 1.1, Z_DECK, 0.0, 0, "terrace"),
+    (_POT, 0.9, 21.9, Z_DECK, 0.0, 0, "terrace"), (_POT, -8.1, 21.9, Z_DECK, 0.0, 0, "terrace"),
+    (_L, -18.9, 0.75, Z_DECK, 0.0, 0, "terrace"), (_L, -18.9, 13.1, Z_DECK, 0.0, 0, "terrace"),
+    (_L, -18.9, 22.25, Z_DECK, 0.0, 0, "terrace"), (_L, -0.9, 22.25, Z_DECK, -90.0, 0, "terrace"),
+    # --- T59: the fire pit (the west kerb bench above is its north seat) and three more benches facing the ring
+    (_FP, _fx, _fy, Z_DECK, 0.0, 0, "terrace"),
+    (_B, _fx, round(_fy - FIRE_PIT_R, 4), Z_DECK, 90.0, 0, "terrace"),
+    (_B, round(_fx - FIRE_PIT_R, 4), _fy, Z_DECK, 0.0, 0, "terrace"),
+    (_B, round(_fx + FIRE_PIT_R, 4), _fy, Z_DECK, 180.0, 0, "terrace"),
+    # --- the cantilever and the forecourt: as before T59
+    *(r for r in L4_ROWS_PRE_T59 if r[6] != "terrace"),
+)
+L4_ROWS = L4_ROWS_T59 if T59_FIRE_PIT else L4_ROWS_PRE_T59
+
 # FlagPole01_Clt (no harvestable GUID) stays a surgery proposal: two on the forecourt, one on
 # the deck's north-west corner (game (x, y, z) = authoring (y, z, x))
 FLAG_PROPOSALS = ((19.3, -10.0, Z_ARRIVAL), (19.0, 6.0, Z_ARRIVAL), (-19.0, 21.6, Z_DECK))
@@ -682,6 +743,8 @@ def build_l4(recipe, opts):
     door = SW.check_door(P, dd_door, "wall_dgl")      # (c) D1-D3
     SW.check_clear_boxes(P, entrance_boxes(dd_door))  # (d) E1 (+ D5 for the dining door)
     zones, _boxes = SW.check_sub_objects(P, rows=L4_ROWS, lot=(-HX, HX, -HY, HY))   # (a) S1-S4
+    if T59_FIRE_PIT:
+        fp = check_fire_pit(P)                        # T59: the 4 m clear circle, benches facing the ring
     left = sorted(o.name for o, _m in P if o.name.startswith(
         ("umbstand_", "umbpole_", "umbcanopy_", "plant_t", "col_t", "lamp_t", "col_fc", "lamp_fc",
          "lamp_u0", "lamp_u1")))
@@ -693,8 +756,54 @@ def build_l4(recipe, opts):
           f"z {lo[2]:.2f}..{hi[2]:.2f}; {npanes} panes in {len(rooms)} rooms; {len(P)} parts; "
           f"pane clearance {SW.PANE_CLEAR_M} m OK; r1: cantilever {cant}; dining door {door}; "
           f"entrance clear of gutters / downspouts; {len(L4_ROWS)} vanilla sub-objects {zones}; "
-          f"placeholders {ph}")
+          f"placeholders {ph}" + (f"; T59 fire pit {fp}" if T59_FIRE_PIT else ""))
     return P
+
+
+def check_fire_pit(parts):
+    """T59 contract (raises): the fire pit row stands on the terrace deck over the plinth (x >= T_WALL); a circle of
+    FIRE_PIT_CLEAR_R round it is on the deck (inside T_X0..T_X1 / T_Y0..T_Y1 with >= 0.5 m to the kerb line) and no
+    modelled part has a vertex inside its cylinder from the deck to 2.5 m above it; every other terrace row's box stays
+    out of the circle except the four benches, which each sit at FIRE_PIT_R with local +Z at the pit (+-1 deg); the
+    pit is under no parasol canopy. Returns a dict."""
+    import numpy as np
+    SW = _sw()
+    fx, fy = FIRE_PIT
+    R = FIRE_PIT_CLEAR_R
+    SW.check(fx - R >= T_WALL, f"T59 fire pit circle x {fx - R:.2f} off the solid terrace (T_WALL {T_WALL})")
+    SW.check(T_X0 + 0.5 <= fx - R and fx + R <= T_X1 - 0.5 and T_Y0 + 0.5 <= fy - R and fy + R <= T_Y1 - 0.5,
+             f"T59 fire pit circle {FIRE_PIT} r {R} within 0.5 m of the deck edge")
+    near = []
+    for o, _m in parts:
+        W = SW.world_coords(o)
+        d = np.hypot(W[:, 0] - fx, W[:, 1] - fy)
+        sel = (d < R) & (W[:, 2] > Z_DECK + 0.01) & (W[:, 2] < Z_DECK + 2.5)
+        if sel.any():
+            near.append(o.name)
+    SW.check(not near, f"T59 parts inside the fire pit circle: {near[:6]}")
+    rows = [r for r in L4_ROWS if r[6] == "terrace"]
+    pit = [r for r in rows if r[0] == _FP]
+    SW.check(len(pit) == 1 and abs(pit[0][1] - fx) < 1e-9 and abs(pit[0][2] - fy) < 1e-9
+             and abs(pit[0][3] - Z_DECK) < 1e-9, f"T59 fire pit row {pit}")
+    benches = []
+    for r in rows:
+        if r[0] == _FP:
+            continue
+        for kind, (lo, hi) in SW.vanilla_boxes(r):
+            cx, cy = min(max(fx, lo[0]), hi[0]), min(max(fy, lo[1]), hi[1])
+            dist = math.hypot(cx - fx, cy - fy)
+            if kind == "canopy":
+                SW.check(dist > 0.75, f"T59 fire pit under a parasol canopy {r[:3]}")
+                continue
+            if dist < R - 1e-6:
+                SW.check(r[0] == _B, f"T59 {r[0]} {r[1:3]} inside the fire pit circle ({dist:.2f} m)")
+                to = math.degrees(math.atan2(fy - r[2], fx - r[1]))
+                off = (r[4] - to + 180.0) % 360.0 - 180.0
+                SW.check(abs(math.hypot(r[1] - fx, r[2] - fy) - FIRE_PIT_R) < 1e-4 and abs(off) <= 1.0,
+                         f"T59 bench {r[1:3]} yaw {r[4]}: not facing the pit at {FIRE_PIT_R} m (off {off:.1f})")
+                benches.append((r[1], r[2], r[4]))
+    SW.check(len(benches) == 4, f"T59 benches round the pit: {benches}")
+    return dict(at=FIRE_PIT, clear_r=R, benches=len(benches), parts_in_circle=0)
 
 
 def check_cantilever(parts):

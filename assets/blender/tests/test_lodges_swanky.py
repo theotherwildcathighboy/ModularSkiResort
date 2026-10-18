@@ -88,7 +88,10 @@ without cut_recess fails D1 (with it passes); a wall light 0.10 m off its wall f
 verify_vanilla (when %TEMP%\\pltar\\dump.zip exists): every VANILLA entry re-derived from the
 dump - the variants naming the GUID, PlaceholderObject on the named prefab, union bounds
 (<= 1.5 mm), max tris, WeatherObject snow flags, base-game consumers > 0 - and the four GUIDs
-cs2_liftdress.SUBOBJ also holds agree with it.
+cs2_liftdress.SUBOBJ also holds agree with it. T59 (2026-10-18): a STANDALONE entry (no PlaceholderObject, no
+variants: L4's CampgroundFireplace02, added by l4_swanky_top._sw) is checked on its own mesh (bounds, tris), no
+WeatherObject, and its GUID = the PrefabsMap harvest's (docs/research/field/2026-10-13/guid-harvest.json); the L4
+recipe is loaded first so the entry is there. check_l4_r1 also runs l4_swanky_top.check_fire_pit's numbers (T59).
 Pane guards (buildings-review-geometry F1-F3): L5 with the old 1.0 m cross-gable bays must
 raise F1; check_pane_clearance must raise on a roof part 0.3 m in front of a pane.
 Pass 2 (skeptic MUST-CHANGE 6: Blender runs with hash randomisation on, so one process cannot
@@ -542,6 +545,11 @@ def check_l4_r1(r, obj, table, man):
                 hit.append((label, nm))
                 break
     assert not hit, f"E1 on the shipped mesh: {hit}"
+    if g4["T59_FIRE_PIT"]:                # T59: the fire pit row reached the manifest with the harvest GUID
+        fp = [o for o in so if o["prefab"] == "CampgroundFireplace02"]
+        assert len(fp) == 1 and fp[0]["m_Object"] == "98c77a4f2885dd541a7a3700edefa21e" and fp[0]["m_ParentMesh"] == 0, fp
+        nb = sum(1 for o in so if o["prefab"] == "GardenBenchRandom01")
+        assert nb == 6, f"T59 benches: {nb} (4 round the pit + the east kerb bench + the forecourt bench)"
     print(f"ok L4 r1: {len(so)} vanilla rows = L4_ROWS, parent-0 rows on their faces (2 on the wall); "
           f"cantilever soffits kept after the cull {({k: round(v, 1) for k, v in down.items()})} m2; deck "
           f"x {deck[:, 0].min():.2f}..{deck[:, 0].max():.2f} at {g4['Z_DECK']}; dining door real, nearest "
@@ -980,10 +988,13 @@ def verify_vanilla():
     import re
     import zipfile
     from recipes import l5_swanky_bottom as SW
+    R.get_recipe("L4", R.load_recipes())          # T59: l4_swanky_top._sw adds its standalone fire pit entry
     dump = os.path.join(os.environ.get("TEMP", ""), "pltar", "dump.zip")
     if not os.path.isfile(dump):
         print(f"SKIP verify_vanilla: no dump at {dump}")
         return None
+    harvest = os.path.join(REPO, "docs", "research", "field", "2026-10-13", "guid-harvest.json")
+    harvest = json.load(open(harvest, encoding="utf-8"))["targets"]
     z = zipfile.ZipFile(dump)
     names = z.namelist()
     static = {n.split("/")[2]: n for n in names
@@ -1014,7 +1025,23 @@ def verify_vanilla():
                 if g in t:
                     cons[g] = cons.get(g, 0) + 1
     out = {}
+    standalone = {}
     for pf, s in sorted(SW.VANILLA.items()):
+        st_txt = z.read(static[pf]).decode("utf-8", "replace") if pf in static else ""
+        if not s["variants"] and "Game.Prefabs.PlaceholderObject, Game" not in st_txt:
+            # T59: a standalone vanilla prefab (no placeholder): its own mesh, no WeatherObject, the harvest GUID
+            assert pf in static and pf + " Mesh" in render, f"{pf}: no StaticObjectPrefab / mesh in the dump"
+            assert not gtov.get(s["guid"]), f"{pf}: {s['guid']} names placeholder variants {gtov.get(s['guid'])}"
+            assert harvest.get(pf) == [s["guid"]], f"{pf}: GUID {s['guid']} != the harvest map's {harvest.get(pf)}"
+            t = z.read(render[pf + " Mesh"]).decode("utf-8", "replace")
+            b = [float(x) for x in b_re.search(t).groups()]
+            for got, exp in ((b[:3], s["bounds"][0]), (b[3:], s["bounds"][1])):
+                assert all(abs(a - c) <= 0.0015 for a, c in zip(got, exp)), f"{pf}: bounds {b}"
+            tris = int(re.search(r'"m_IndexCount":\s*(\d+)', t).group(1)) // 3
+            assert tris == s["tris"], f"{pf}: tris {tris} != {s['tris']}"
+            assert snow.get(pf) == s["snow"], f"{pf}: snow {snow.get(pf)} != {s['snow']}"
+            standalone[pf] = (s["guid"][:8], tris, cons.get(s["guid"], 0))
+            continue
         vs = tuple(sorted(gtov.get(s["guid"], [])))
         assert vs == tuple(sorted(s["variants"])), f"{pf}: variants {vs} != {s['variants']}"
         assert pf in static and "Game.Prefabs.PlaceholderObject, Game" in \
@@ -1055,8 +1082,9 @@ def verify_vanilla():
             wider.append(pf)
     print(f"ok verify_vanilla: {len(out)} placeholders re-derived from the dump "
           f"(variants, consumers) {out}; {len(shared)} share cs2_liftdress.SUBOBJ's GUID "
-          f"{shared}, envelope wider than SUBOBJ's (variant meshes it does not read): {wider}")
-    return len(out)
+          f"{shared}, envelope wider than SUBOBJ's (variant meshes it does not read): {wider}; standalone "
+          f"(guid, tris, base-game consumers) {standalone}")
+    return len(out) + len(standalone)
 
 
 def pass1(tmp):

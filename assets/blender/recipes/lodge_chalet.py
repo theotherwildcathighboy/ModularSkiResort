@@ -47,6 +47,17 @@ keep it simple, and people can paste their own labels on it?"; build/nitpick-c-l
 boards are BLANK boards (NC_LABELS: their own ground + a thin trim-colour rim, fine_detail.blank_board), listed in
 the manifest's `we_boards` block for an optional Write Everywhere layout; `--no-fine` keeps the pictograms
 (PICTO_LABELS, legacy). Geometry unchanged: only the three label rects of the atlas repaint.
+
+T60 (2026-10-18; Richard, Blender review 2026-10-17 item 5: "the small building has no door, so it just needs one. I
+think we also need a door on the patio itself. Probably turn one of the tall windows into a door."; build note
+docs/research/field/2026-10-15/build/T59-T60-chalet-summit.md): T60_DOORS (fine builds only; False = the chalet before
+T60, byte-identical). (a) the kiosk (the small building) gets a chalet-family door on its -Y gable, the end facing the
+terrace stair foot and the podium (the staff route; the -X face is the serving hatch, the +X face carries the board):
+1.0 x 2.1 m, one half-glazed leaf, its glass in the existing room `kiosk`; (b) the middle of the three tall glazed
+F1 openings on B's -X face onto the terrace (`bW1`, a 1.0 m window_bay at y -1.0) becomes a chalet DOUBLE door 1.6 x
+2.2 m (two leaves, a lever each) on the terrace deck, its glass in the existing room `bF1W` (that room's panes 3 -> 4:
+bW0 + bW2 + the two leaf lights). Each new door gets a WallLightShortRangeRandom01 row beside it (T60_LAMPS, the
+FINE_LAMPS form); the kiosk's trash bin row, which stood on the new door's axis 0.9 m out, moves 1.4 m east. With --door-kit v1 the two are v1 entries, as every other L3 door (same lamp rows).
 """
 
 import math
@@ -88,6 +99,10 @@ MAST_X, MAST_YS = 14.80, (8.0, 11.0, 14.0)
 
 WIN = (1.2, 1.4)                   # standard window w x h, sill floor + 0.9
 GDOOR = (1.0, 2.2)                 # glazed door w x h, sill floor + 0.10
+# T60 (2026-10-18, module docstring): the kiosk door + the patio double door. False = the pre-T60 chalet (byte-identical)
+T60_DOORS = True
+KIOSK_DOOR = (-13.70, 1.0, 2.1)    # (x centre on the -Y gable, w, h): the gable's centre, L3's single-door size
+PATIO_DOOR = (-1.0, 1.6, 2.2)      # (y centre on B -X, w, h): bW1's spot, 2 leaves (chalet double_min 1.5)
 
 ROOMS = {"bGE": (1, 0), "bGS": (2, 0), "bF1S": (3, 0), "bF1E": (4, 0), "bF1W": (0, 1),
          "bGN": (1, 1), "bF1N": (2, 1), "aW0": (3, 1), "aW1": (4, 1), "aGS": (0, 2),
@@ -181,8 +196,10 @@ PROPS = (
       (6.5, 0.0, 14.6), (15.5, 0.0, 14.6), (6.5, 0.0, -14.9)), 0),
     ("LightpoleParkRandom01", "c987b53e24a01e744b4a00ee5b1f8a08",
      ((-18.6, 0.0, 15.1), (17.0, 0.0, 15.1)), 0),
+    # T60: the kiosk bin stood 0.9 m in front of the new kiosk door on its axis (auth x -14.0, y 7.2): 1.4 m east,
+    # under the door's lamp, off the door line (T60_DOORS False keeps -14.0)
     ("TrashbinRandom01", "41e3c9ba6e1d6b948a6b1bc3499a5397",
-     ((-9.2, 0.0, 15.4), (7.2, 0.0, -14.0)), 0),
+     ((-9.2, 0.0, 15.4), (7.2, 0.0, -12.6 if T60_DOORS else -14.0)), 0),
     ("FirewoodShelterRandom01", "c1d98e3e6f5e1204cb071deaf0f74020", ((6.3, 0.0, 10.8),), 90),
 )
 SKI_RACK_SPOTS = ((-13.0, 0.0, -15.0), (-10.0, 0.0, -15.0), (-7.0, 0.0, -15.0))  # props
@@ -230,6 +247,16 @@ FINE_SUB_OBJECTS = tuple(
     ("RoofLightRandom01", _ROOF_LIGHT, (round(GZ_LAMP[1], 4), round(GZ_LAMP[2], 4), round(GZ_LAMP[0], 4)),
      _yaw_q(0), 0),
 )
+#: T60 (module docstring): an entry light beside each new door, the FINE_LAMPS form and the entry() lamp spot
+#: (u + (w / 2 + 0.2 + 0.35), floor + 2.2) on the wall face: the kiosk door's on the podium side of its -Y gable, the
+#: patio door's on its south side (between it and bW0)
+T60_LAMPS = (
+    ("kio", (KIOSK_DOOR[0] + (KIOSK_DOOR[1] / 2 + 0.2 + 0.35), KI_Y0, _LIFT + 2.2), -90),
+    ("bWd", (B_X0, PATIO_DOOR[0] - (PATIO_DOOR[1] / 2 + 0.2 + 0.35), TERR_TOP + 2.2), 180),
+)
+T60_SUB_OBJECTS = tuple(
+    ("WallLightShortRangeRandom01", _WALL_SHORT, (round(y, 4), round(z, 4), round(x, 4)), _yaw_q(yaw), 0)
+    for _tag, (x, y, z), yaw in T60_LAMPS) if T60_DOORS else ()
 #: the planned SKI_RACK_SPOTS (never placed: L3 had no racks) as kit rows on the flattened lot in front
 #: of Mass A's arcade, alternating the three loadouts (FS6), identity (long axis along authoring Y)
 #: kit colour variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the chalet's trim green (slot 1,
@@ -470,6 +497,10 @@ def build_chalet(recipe, opts):
         lp, _pt = K.lantern("kiosk", tuple(K.wall_point(wK, -10.75, 1.80, 0.0)), "-X", kind="wall")
         P += lp
     P += K.sign_board("kiosk", WallRef("+X", KI_X1), 9.75, 1.40, 1.6, 0.5, mat="timber_heavy")
+    t60 = T60_DOORS and fine
+    if t60:                                        # T60 (a): the kiosk's door, on its -Y gable (lamp: T60_LAMPS)
+        P += K.entry("kio", WallRef("-Y", KI_Y0), KIOSK_DOOR[0], w=KIOSK_DOOR[1], h=KIOSK_DOOR[2], sidelights=0,
+                     lamps=0, room="kiosk", z=0.0)
     # ---- entry porch on B's +X face ---------------------------------------------------------
     px0, px1, py0, py1 = PORCH
     P += K.box_part("step_porchB", (B_X1, -8.50, 0.0), (15.50, -4.50, 0.15), "concrete", ground=True)
@@ -516,7 +547,12 @@ def build_chalet(recipe, opts):
         P += lp
     # B -X (onto the terrace): 3 glazed F1 doors
     for k, y in enumerate((-5.0, -1.0, 3.0)):
+        if t60 and abs(y - PATIO_DOOR[0]) < 1e-9:
+            continue                               # T60 (b): bW1 is the patio double door below
         P += _win(K, f"bW{k}", wBW, -y, *GDOOR, TERR_TOP + 0.05, "bF1W", sill_board=False)
+    if t60:                                        # T60 (b): chalet double door on the terrace deck, glass in bF1W
+        P += K.entry("bWd", wBW, -PATIO_DOOR[0], w=PATIO_DOOR[1], h=PATIO_DOOR[2], sidelights=0, lamps=0,
+                     room="bF1W", z=TERR_TOP)
     # A -X arcade: curtain glazing between the piers (G + L1 rows, transom 3.40)
     wAW = WallRef("-X", A_X0)
     bays = ((pier_y[0][1], pier_y[1][0]), (pier_y[1][1], pier_y[2][0]), (pier_y[2][1], pier_y[3][0]))
@@ -589,7 +625,7 @@ RECIPE = FineRecipe(
     lod2_extra=("col_porchB", "stair_gz", "stair_terr_treads", "deck_tland", "deck_gz"),
     lod2_keep=("gazebocol_gz", "flagpanel_m0", "flagpanel_m1", "flagpanel_m2"),
     labels=NC_LABELS,                 # nitpick C (2026-10-13): blank boards (was PICTO_LABELS, kept in legacy)
-    sub_objects=SUB_OBJECTS + FINE_SUB_OBJECTS + KIT_ROWS,   # 29 PROPS rows + 9 vanilla + 3 kit
+    sub_objects=SUB_OBJECTS + FINE_SUB_OBJECTS + KIT_ROWS + T60_SUB_OBJECTS,   # 29 PROPS + 9 vanilla + 3 kit (+ 2 T60)
     # fine-detail pass step 3a (opt-in; lodge.py --no-fine restores `legacy` = the approved chalet)
     fine_detail=True,
     sign_set=None,
