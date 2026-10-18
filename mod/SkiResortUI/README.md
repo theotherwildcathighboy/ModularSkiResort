@@ -44,6 +44,12 @@ Normally you do not run npm yourself: `dotnet build` in `mod/SkiResortMod` (game
 deploys both. `dotnet build -p:SkipUi=true` builds the DLL without the UI. Without
 `node_modules` the DLL still builds and deploys, with one warning that the UI is absent.
 
+## Browser harness (no game)
+
+`node harness/serve.js` then http://localhost:5173/harness/ mounts `build/SkiResortMod.mjs` in a plain browser with
+stand-ins for the game modules and sample scenarios (wording / layout / view flow work without launching the game).
+See `harness/README.md` for what is faithful and what is not. Nothing in `harness/` ships or is read by the gate.
+
 ## Dependencies (pinned exactly; `package-lock.json` is committed)
 
 | Package | Version | Why |

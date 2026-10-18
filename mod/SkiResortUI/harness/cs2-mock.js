@@ -1,0 +1,287 @@
+/*
+ * harness/cs2-mock.js - browser stand-ins for the game's window modules, so build/SkiResortMod.mjs
+ * can mount in a plain browser (no game). Written for this repo (MIT), 2026-10-18.
+ *
+ * The bundle is an ES module with window externals (webpack.config.js): it reads window.React,
+ * window["cs2/api"], window["cs2/ui"], window["cs2/l10n"], window["cs2/input"]. This file defines
+ * those names BEFORE the bundle is imported (index.html loads it after the React UMD scripts).
+ *
+ * What is faithful: bindValue / useValue / bindLocalValue / trigger semantics (cs2/api typings in
+ * types/api.d.ts), LocalizedString placeholder substitution, LocalizedNumber unit formats as the
+ * hub expects them (src/hub/parts.tsx header), Panel / PanelFoldout / Button / FloatingButton /
+ * Tooltip props the hub uses. What is NOT: the game's own component styling (vanilla panel chrome,
+ * fonts, sounds, focus / gamepad), its full number localisation, and anything C# computes. The
+ * harness only answers the triggers a C# HubSystem would answer trivially (toggleHub, setHubOpen,
+ * selectResort, setPisteMap, glade*, rename); everything else is logged.
+ *
+ * Harness API (window.SkiHarness): bindings (name -> LocalValueBinding), set(name, value),
+ * get(name), log (trigger log array), onLog(fn), dict (locale id -> text; empty = fallbacks).
+ */
+(function () {
+  "use strict";
+  const React = window.React;
+  if (!React) throw new Error("cs2-mock.js: window.React must be loaded first");
+  const h = React.createElement;
+
+  // ---- cs2/api --------------------------------------------------------------------------------
+  class LocalValueBinding {
+    constructor(initialValue) {
+      this._value = initialValue;
+      this.listeners = new Set();
+      this.disposed = false;
+    }
+    get registered() { return true; }
+    get value() { return this._value; }
+    subscribe(listener) {
+      const self = this;
+      let current = listener;
+      if (current) self.listeners.add(current);
+      return {
+        get value() { return self._value; },
+        setChangeListener(next) {
+          if (current) self.listeners.delete(current);
+          current = next;
+          if (current) self.listeners.add(current);
+        },
+        dispose() { if (current) self.listeners.delete(current); current = undefined; },
+      };
+    }
+    dispose() { this.listeners.clear(); this.disposed = true; }
+    update(newValue) {
+      if (Object.is(newValue, this._value)) return;
+      this._value = newValue;
+      for (const l of Array.from(this.listeners)) { try { l(newValue); } catch (e) { console.error(e); } }
+    }
+  }
+
+  const bindings = new Map();        // "group.name" -> LocalValueBinding
+  const log = [];
+  const logListeners = new Set();
+  function pushLog(entry) {
+    log.push(entry);
+    if (log.length > 400) log.shift();
+    for (const f of logListeners) { try { f(entry); } catch (e) { console.error(e); } }
+  }
+  function key(group, name) { return group + "." + name; }
+  function bindValue(group, name, fallbackValue) {
+    const k = key(group, name);
+    let b = bindings.get(k);
+    if (!b) { b = new LocalValueBinding(fallbackValue); bindings.set(k, b); }
+    return b;
+  }
+  function bindLocalValue(initialValue) { return new LocalValueBinding(initialValue); }
+  function useValue(binding) {
+    const [v, setV] = React.useState(binding.value);
+    React.useEffect(() => {
+      const s = binding.subscribe(setV);
+      setV(binding.value);
+      return () => s.dispose();
+    }, [binding]);
+    return v;
+  }
+  function useValueRef(binding) {
+    const ref = React.useRef(binding.value);
+    React.useEffect(() => {
+      const s = binding.subscribe((v) => { ref.current = v; });
+      return () => s.dispose();
+    }, [binding]);
+    return ref;
+  }
+  function useValueOnChange(binding, onChange) {
+    const v = useValue(binding);
+    const prev = React.useRef(v);
+    React.useEffect(() => { if (!Object.is(prev.current, v)) { onChange(v, prev.current); prev.current = v; } }, [v, onChange]);
+    return v;
+  }
+  function get(name) { const b = bindings.get(key("skiResort", name)); return b ? b.value : undefined; }
+  function set(name, value) { bindValue("skiResort", name, value).update(value); }
+  function sameEntity(a, b) { return (a ? a.index : 0) === (b ? b.index : 0) && (a ? a.version : 0) === (b ? b.version : 0); }
+
+  // The C# HubSystem's trivial answers. Everything else is only logged.
+  const answers = {
+    toggleHub: () => set("hubOpen", !get("hubOpen")),
+    setHubOpen: (open) => set("hubOpen", !!open),
+    selectResort: (sign) => set("selectedResort", sign || { index: 0, version: 0 }),
+    setPisteMap: (on) => set("pisteMap", !!on),
+    gladeToggle: () => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { active: !g.active })); },
+    gladeSetLevel: (level) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { level })); },
+    gladeSetTreeLine: (treeLine) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { treeLine: !!treeLine })); },
+    launch: (id) => {
+      const items = get("build") || [];
+      set("build", items.map((it) => Object.assign({}, it, { active: it.id === id ? !it.active : false })));
+    },
+    rename: (entity, name) => {
+      const nm = String(name || "").trim().slice(0, 64);
+      for (const [list, field] of [["resorts", "sign"], ["runs", "entity"], ["lifts", "entity"]]) {
+        const rows = get(list) || [];
+        if (rows.some((r) => sameEntity(r[field], entity))) {
+          set(list, rows.map((r) => sameEntity(r[field], entity)
+            ? Object.assign({}, r, { name: nm || (r.defaultName || r.name), customName: !!nm }) : r));
+        }
+      }
+    },
+  };
+  function trigger(group, name, ...args) {
+    pushLog({ t: Date.now(), group, name, args });
+    const a = answers[name];
+    if (group === "skiResort" && a) { try { a(...args); } catch (e) { console.error("harness answer failed", name, e); } }
+  }
+  function call(group, name, ...args) { pushLog({ t: Date.now(), group, name: "call:" + name, args }); return Promise.resolve(undefined); }
+  function bindMap() { return { getValue: () => undefined, subscribe: () => ({ value: undefined, setChangeListener() {}, dispose() {} }), dispose() {} }; }
+  function bindEvent() { return { subscribe: () => ({ dispose() {} }), dispose() {} }; }
+  function bindTrigger(group, name) { return () => trigger(group, name); }
+  function bindTriggerWithArgs(group, name) { return (...args) => trigger(group, name, ...args); }
+
+  window["cs2/api"] = {
+    bindValue, bindLocalValue, bindMap, bindEvent, bindTrigger, bindTriggerWithArgs, trigger, call,
+    useValue, useValueRef, useValueOnChange, LocalValueBinding,
+    useReducedValue: (binding, reducer, initial) => { const v = useValue(binding); const [acc, setAcc] = React.useState(initial); React.useEffect(() => setAcc((c) => reducer(c, v)), [v]); return acc; },
+    useMapValue: () => undefined, useMapValues: () => [], useMapValueOnChange: () => undefined,
+  };
+
+  // ---- cs2/l10n -------------------------------------------------------------------------------
+  const Unit = {
+    Integer: "integer", IntegerRounded: "integerRounded", IntegerPerMonth: "integerPerMonth", IntegerPerHour: "integerPerHour",
+    FloatSingleFraction: "floatSingleFraction", FloatTwoFractions: "floatTwoFractions", FloatThreeFractions: "floatThreeFractions",
+    Percentage: "percentage", PercentageSingleFraction: "percentageSingleFraction", PercentagePrecise: "percentagePrecise",
+    Angle: "angle", Length: "length", Area: "area", Volume: "volume", VolumePerMonth: "volumePerMonth", Weight: "weight",
+    WeightPerCell: "weightPerCell", WeightPerMonth: "weightPerMonth", Power: "power", Energy: "energy", DataRate: "dataRate",
+    DataBytes: "dataBytes", DataMegabytes: "dataMegabytes", Money: "money", MoneyPerCell: "moneyPerCell",
+    MoneyPerMonth: "moneyPerMonth", MoneyPerHour: "moneyPerHour", MoneyPerDistance: "moneyPerDistance",
+    MoneyPerDistancePerMonth: "moneyPerDistancePerMonth", BodiesPerMonth: "bodiesPerMonth", XP: "xp", Temperature: "temperature",
+    NetElevation: "netElevation", ScreenFrequency: "screenFrequency", Height: "height", Custom: "custom",
+  };
+  const dict = {};
+  const thousands = (n) => Math.round(n).toLocaleString("en-US");
+  const dec1 = (n) => { const s = (Math.round(n * 10) / 10).toFixed(1); return s.endsWith(".0") ? s.slice(0, -2) : s; };
+  const nbsp = (s) => s.replace(/(\d) (\D)/, "$1 $2");
+  function renderNumber(loc, props) {
+    const v = Number(props.value);
+    const sign = props.signed && v > 0 ? "+" : "";
+    switch (props.unit) {
+      case Unit.Length: return nbsp(sign + (Math.abs(v) < 1000 ? thousands(v) + " m" : dec1(v / 1000) + " km"));
+      case Unit.Height: return nbsp(sign + thousands(v) + " m");
+      case Unit.Area: return nbsp(sign + (Math.abs(v) < 100000 ? thousands(v) + " m²" : dec1(v / 1e6) + " km²"));
+      case Unit.Percentage: return sign + thousands(v) + "%";
+      case Unit.PercentageSingleFraction: return sign + dec1(v) + "%";
+      case Unit.Money: return sign + "¢" + thousands(v);
+      case Unit.MoneyPerMonth: return sign + "¢" + thousands(v) + "/month";
+      case Unit.MoneyPerHour: return sign + "¢" + thousands(v) + "/h";
+      case Unit.IntegerPerMonth: return sign + thousands(v) + "/month";
+      case Unit.IntegerPerHour: return sign + thousands(v) + "/h";
+      case Unit.FloatSingleFraction: return sign + dec1(v);
+      case Unit.FloatTwoFractions: return sign + v.toFixed(2);
+      case Unit.Temperature: return sign + thousands(v) + "°C";
+      case Unit.Integer: case Unit.IntegerRounded: default: return sign + thousands(v);
+    }
+  }
+  const localization = {
+    translate: (id, fallback) => (id != null && Object.prototype.hasOwnProperty.call(dict, id)) ? dict[id] : (fallback === undefined ? null : fallback),
+    unitSettings: { timeFormat: 0, temperatureUnit: 0, unitSystem: 0 },
+  };
+  function useLocalization() { return localization; }
+  function locComponent(renderString) {
+    const C = React.memo(function Loc(props) { return h("span", null, renderString(localization, props)); });
+    C.renderString = renderString;
+    return C;
+  }
+  const LocalizedNumber = locComponent(renderNumber);
+  const LocalizedFraction = locComponent((loc, p) => renderNumber(loc, { value: p.value, unit: p.unit }) + " / " + renderNumber(loc, { value: p.total, unit: p.unit }));
+  const LocalizedBounds = locComponent((loc, p) => renderNumber(loc, { value: p.min, unit: p.unit }) + " – " + renderNumber(loc, { value: p.max, unit: p.unit }));
+  function renderArg(arg) {
+    if (arg == null) return "";
+    if (typeof arg === "string" || typeof arg === "number") return String(arg);
+    if (React.isValidElement(arg) && arg.type && typeof arg.type.renderString === "function") return arg.type.renderString(localization, arg.props);
+    return arg; // a React element: interleaved below
+  }
+  const LocalizedString = React.memo(function LocalizedString(props) {
+    const text = localization.translate(props.id, props.fallback == null ? (props.showIdOnFail ? props.id : "") : props.fallback) || "";
+    const args = props.args || {};
+    const parts = text.split(/(\{[A-Za-z0-9_]+(?::[A-Za-z]+)?\})/g);
+    const out = parts.map((p, i) => {
+      const m = /^\{([A-Za-z0-9_]+)(?::[A-Za-z]+)?\}$/.exec(p);
+      if (!m) return p;
+      const a = renderArg(args[m[1]]);
+      return typeof a === "string" ? a : h(React.Fragment, { key: i }, a);
+    });
+    return h("span", null, ...out);
+  });
+  LocalizedString.renderString = (loc, props) => {
+    const text = loc.translate(props.id, props.fallback) || "";
+    return text.replace(/\{([A-Za-z0-9_]+)(?::[A-Za-z]+)?\}/g, (_, k) => { const a = renderArg((props.args || {})[k]); return typeof a === "string" ? a : "?"; });
+  };
+  window["cs2/l10n"] = {
+    Unit, UnitSystem: { Metric: 0, Freedom: 1 }, useLocalization, useCachedLocalization: useLocalization,
+    LocalizedNumber, LocalizedString, LocalizedFraction, LocalizedBounds,
+    LocalizedPercentage: locComponent((loc, p) => thousands(100 * p.value / (p.max || 1)) + "%"),
+    LocalizedEntityName: locComponent((loc, p) => String(p.value && p.value.name || "")),
+    LocalizedNumber$1: LocalizedNumber, LocalizedString$1: LocalizedString, LocalizedFraction$1: LocalizedFraction, LocalizedBounds$1: LocalizedBounds,
+  };
+
+  // ---- cs2/input / cs2/utils / cs2/bindings / cs2/modding ------------------------------------
+  window["cs2/input"] = { FOCUS_DISABLED: "FOCUS_DISABLED", FOCUS_AUTO: "FOCUS_AUTO", useUniqueFocusKey: () => "focus" };
+  window["cs2/utils"] = { entityEquals: sameEntity, Entity: { Null: { index: 0, version: 0 } } };
+  window["cs2/bindings"] = {};
+  window["cs2/modding"] = {};
+
+  // ---- cs2/ui ---------------------------------------------------------------------------------
+  const cx = (...xs) => xs.filter(Boolean).join(" ");
+  const imgSrc = (src) => typeof src === "string" ? src.replace(/^coui:\/\/ui-mods\/SkiResortMod-img\//, "../build/SkiResortMod-img/") : src;
+  const DROP = new Set(["focusKey", "debugName", "sounds", "selectAction", "selectSound", "disableHint", "hintAction", "actionContext", "theme", "selected", "onSelect", "as", "tooltipLabel", "tinted", "draggable", "initialPosition", "transition", "transitionSounds", "allowFocusExit", "hintClassName", "showCloseHint", "unfocusedHintAction", "footerHintAsTooltip", "backActionOverride", "contentClassName", "header", "footer", "onClose", "initialExpanded", "onToggleExpanded", "disableFocus", "expandFromContent", "tooltip", "delayTime", "forceVisible", "hideOnInteraction", "direction", "alignment", "balloonUiTarget", "anchorElRef"]);
+  const rest = (props) => { const o = {}; for (const k in props) if (!DROP.has(k) && k !== "children" && k !== "className") o[k] = props[k]; return o; };
+
+  function Button(props) {
+    const Tag = props.as === "div" ? "div" : "button";
+    const theme = props.theme || {};
+    return h(Tag, Object.assign(rest(props), {
+      className: cx("h-btn", theme.button, props.selected && "h-selected", props.className),
+      onClick: (e) => { if (props.onSelect) props.onSelect(); if (props.onClick) props.onClick(e); },
+      title: typeof props.tooltipLabel === "string" ? props.tooltipLabel : undefined,
+    }), props.children);
+  }
+  function FloatingButton(props) {
+    return h("button", Object.assign(rest(props), {
+      className: cx("h-floating", props.selected && "h-selected", props.className),
+      onClick: () => { if (props.onSelect) props.onSelect(); },
+    }), props.src ? h("img", { src: imgSrc(props.src), alt: "", className: "h-floating-img" }) : props.children);
+  }
+  function Tooltip(props) {
+    const [show, setShow] = React.useState(false);
+    const tip = props.tooltip;
+    return h("span", { className: "h-tipwrap", onMouseEnter: () => setShow(true), onMouseLeave: () => setShow(false) },
+      props.children,
+      show && tip != null && !props.disabled ? h("span", { className: cx("h-tip", props.direction && "h-tip-" + props.direction) }, tip) : null);
+  }
+  function Panel(props) {
+    const theme = props.theme || {};
+    return h("div", Object.assign(rest(props), { className: cx("h-panel", theme.panel, props.className) }),
+      props.header != null || props.onClose ? h("div", { className: cx("h-panel-header", theme.header) },
+        h("div", { className: "h-panel-title" }, props.header),
+        props.onClose ? h("button", { className: "h-panel-close", onClick: props.onClose, title: "Close" }, "×") : null) : null,
+      h("div", { className: cx("h-panel-content", theme.content, props.contentClassName) }, props.children),
+      props.footer != null ? h("div", { className: cx("h-panel-footer", theme.footer) }, props.footer) : null);
+  }
+  function PanelFoldout(props) {
+    const [open, setOpen] = React.useState(props.initialExpanded !== false);
+    return h("div", Object.assign(rest(props), { className: cx("h-foldout", open && "h-open", props.className) }),
+      h("div", { className: "h-foldout-header", onClick: () => { const v = !open; setOpen(v); if (props.onToggleExpanded) props.onToggleExpanded(v); } },
+        h("span", { className: "h-foldout-arrow" }, open ? "▾" : "▸"), props.header),
+      open ? h("div", { className: "h-foldout-content" }, props.children) : null);
+  }
+  const simple = (tag, cls) => (props) => h(tag, Object.assign(rest(props), { className: cx(cls, props.className) }), props.children);
+  function DropdownItem(props) {
+    return h("div", { className: cx("h-dditem", props.selected && "h-selected", props.className), onClick: () => { if (props.onChange && !props.selected) props.onChange(props.value); else if (props.onToggleSelected && props.selected) props.onToggleSelected(props.value); } }, props.children);
+  }
+  function Dropdown(props) { return h("div", { className: cx("h-dropdown", props.className) }, props.children, props.content); }
+  window["cs2/ui"] = {
+    Button, FloatingButton, Tooltip, Panel, PanelFoldout, DropdownItem, Dropdown,
+    DropdownToggle: simple("button", "h-btn"), Icon: (props) => h("img", { src: imgSrc(props.src), className: cx("h-icon", props.className), alt: "" }),
+    MenuButton: Button, PanelSection: simple("div", "h-section"), PanelSectionRow: simple("div", "h-row"),
+    Scrollable: simple("div", "h-scrollable"), Portal: (props) => props.children,
+    FormattedText: simple("span", ""), FormattedParagraphs: simple("div", ""), MarkdownRenderer: simple("div", ""), MarkupRenderer: simple("div", ""),
+    ConfirmationDialog: simple("div", "h-panel"), DialogContext: React.createContext(null), DialogRenderer: () => null, DialogStack: simple("div", ""),
+  };
+
+  // ---- harness API ----------------------------------------------------------------------------
+  window.SkiHarness = { bindings, set, get, log, onLog: (f) => { logListeners.add(f); return () => logListeners.delete(f); }, dict, sameEntity };
+})();

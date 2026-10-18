@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ski Resort hub harness</title>
+<!-- The game's own stylesheet first: it carries the :root theme variables the hub's SCSS reads
+     (served by harness/serve.js from the installed game; a 404 here only loses the theme vars). -->
+<link rel="stylesheet" href="/game/index.css">
+<link rel="stylesheet" href="../build/SkiResortMod.css">
+<style>
+  /* The game sets html font-size so that 1rem = 1 px at 1080p (index.css: .0925926vh). Same here. */
+  html { font-size: .0925926vh; }
+  @media (max-aspect-ratio: 16/9) { html { font-size: .0520833vw; } }
+  :root {
+    /* fallbacks in case /game/index.css is missing; the game's values win when it loads */
+    --accentColorNormal: #4bc3f1; --normalTextColor: #F0FBFF; --fontScale: 1; --fontScaleChange: 0;
+    --warningColor: #ffa42d; --negativeColor: #e95f4a; --selectedColor: #1e83aa; --lockedColor: #d38f07;
+    --sectionBackgroundColor: rgba(38,49,71,0.5); --dividerColor: rgba(255,255,255,0.1);
+    --hoverColorNormal: rgba(255,255,255,0.1); --activeColorNormal: rgba(255,255,255,0.2);
+    --textColorDimmer: rgba(240,251,255,0.6); --panelColorNormal: rgba(42,55,83,0.94);
+    --fontSizeXS: calc(12rem * var(--fontScale)); --fontSizeS: calc(14rem * var(--fontScale)); --fontSizeM: calc(16rem * var(--fontScale));
+  }
+  /* The game renders with Noto Sans from its Fonts folder (gameface config, no @font-face in index.css). */
+  @font-face { font-family: "CS2 Noto Sans"; src: url("/game/Fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+  @font-face { font-family: "CS2 Noto Sans"; src: url("/game/Fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+  body { margin: 0; font-family: "CS2 Noto Sans", "Noto Sans", "Segoe UI", Arial, sans-serif; color: var(--normalTextColor); background: #1b2230; overflow: hidden; }
+  #stage { position: fixed; inset: 0 0 0 300px; background:
+    radial-gradient(1200px 600px at 60% 20%, #e8eef5 0%, #b8c7d8 45%, #6f8aa6 100%); }
+  #stage::after { content: "game viewport (the hub sits here)"; position: absolute; right: 16px; bottom: 12px; color: rgba(0,0,0,0.35); font-size: 14px; }
+  #topLeft { position: absolute; left: 12px; top: 12px; display: flex; gap: 8px; }
+  #game { position: absolute; inset: 0; }
+  #menu { position: absolute; right: 16px; top: 16px; width: 120px; height: 120px; border: 1px dashed rgba(0,0,0,0.3); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  #menu::before { content: "mod menu square"; position: absolute; top: -18px; left: 0; font-size: 11px; color: rgba(0,0,0,0.45); }
+  #side { position: fixed; left: 0; top: 0; bottom: 0; width: 300px; box-sizing: border-box; padding: 12px; background: #141a26; border-right: 1px solid #2a3449; font-size: 13px; display: flex; flex-direction: column; gap: 10px; }
+  #side h1 { font-size: 15px; margin: 0 0 4px; }
+  #side label { display: block; color: #9fb0c8; margin-top: 6px; }
+  #side select, #side input[type=text] { width: 100%; box-sizing: border-box; background: #0f141d; color: #e6eef8; border: 1px solid #2a3449; border-radius: 4px; padding: 5px; font-size: 13px; }
+  #side .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #side button { background: #243354; color: #e6eef8; border: 1px solid #3a4b73; border-radius: 4px; padding: 5px 9px; cursor: pointer; font-size: 12px; }
+  #side button:hover { background: #2f4270; }
+  #log { flex: 1; min-height: 0; overflow: auto; background: #0f141d; border: 1px solid #2a3449; border-radius: 4px; padding: 6px; font-family: Consolas, monospace; font-size: 11px; white-space: pre-wrap; }
+  #log .t { color: #7fb3ff; }
+  #status { color: #9fb0c8; font-size: 11px; }
+  #status.err { color: #ff8a80; }
+
+  /* --- stand-ins for cs2/ui components (the game's own chrome is not available) --- */
+  .h-btn { background: rgba(255,255,255,0.06); color: inherit; border: 1px solid rgba(255,255,255,0.12); border-radius: 4rem; padding: 4rem 8rem; cursor: pointer; font: inherit; }
+  .h-btn:hover { background: var(--hoverColorNormal); }
+  .h-btn.h-selected { background: var(--selectedColor); }
+  .h-floating { width: 48rem; height: 48rem; border-radius: 8rem; border: 1px solid rgba(255,255,255,0.2); background: var(--panelColorNormal); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .h-floating.h-selected { outline: 2px solid var(--accentColorNormal); }
+  .h-floating-img { width: 32rem; height: 32rem; filter: brightness(0) invert(1); }
+  .h-tipwrap { position: relative; display: inline-flex; }
+  .h-tip { position: absolute; left: 0; top: 100%; margin-top: 6rem; z-index: 50; background: rgba(20,26,38,0.96); color: var(--normalTextColor); border: 1px solid rgba(255,255,255,0.15); border-radius: 4rem; padding: 6rem 8rem; font-size: var(--fontSizeXS); white-space: nowrap; pointer-events: none; }
+  .h-panel { position: absolute; left: 50%; top: 80rem; transform: translateX(-50%); min-width: 420rem; max-height: calc(100% - 120rem); display: flex; flex-direction: column; background: var(--panelColorNormal); color: var(--normalTextColor); border-radius: 6rem; box-shadow: 0 8px 30px rgba(0,0,0,0.5); font-size: var(--fontSizeS); }
+  .h-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 8rem 12rem; border-bottom: 1px solid var(--dividerColor); font-size: var(--fontSizeM); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .h-panel-title { flex: 1; min-width: 0; }
+  .h-panel-close { background: none; border: 0; color: inherit; font-size: 22rem; cursor: pointer; line-height: 1; padding: 0 4rem; }
+  .h-panel-content { overflow: auto; padding: 8rem 12rem; flex: 1; min-height: 0; }
+  .h-panel-footer { border-top: 1px solid var(--dividerColor); padding: 8rem 12rem; }
+  .h-foldout { border: 1px solid var(--dividerColor); border-radius: 4rem; margin: 6rem 0; }
+  .h-foldout-header { display: flex; align-items: center; gap: 6rem; padding: 6rem 8rem; cursor: pointer; background: var(--sectionBackgroundColor); }
+  .h-foldout-content { padding: 6rem 8rem; }
+  .h-section { padding: 6rem 0; } .h-row { display: flex; justify-content: space-between; padding: 2rem 0; }
+  .h-dditem { padding: 4rem 8rem; cursor: pointer; } .h-dditem.h-selected { background: var(--selectedColor); }
+  .h-scrollable { overflow: auto; }
+</style>
+</head>
+<body>
+<aside id="side">
+  <h1>Ski Resort hub — browser harness</h1>
+  <div id="status">loading…</div>
+  <label>Scenario</label>
+  <select id="scenario"></select>
+  <div class="row">
+    <button id="toggleHub">Toggle hub</button>
+    <button id="reload">Reload bundle</button>
+  </div>
+  <label>UI scale (the game: 1rem = 1 px at 1080p)</label>
+  <select id="scale">
+    <option value="1px">1rem = 1 px (fixed)</option>
+    <option value="game">as the game (scales with window height)</option>
+    <option value="1.25px">1rem = 1.25 px</option>
+  </select>
+  <div class="row">
+    <label style="margin:0"><input type="checkbox" id="connected" checked> C# connected (contract 8)</label>
+  </div>
+  <div class="row">
+    <label style="margin:0"><input type="checkbox" id="stampDiffers"> DLL stamp differs</label>
+    <label style="margin:0"><input type="checkbox" id="showButton" checked> Top-left button</label>
+  </div>
+  <label>Set a binding (JSON): name = value</label>
+  <div class="row"><input type="text" id="setName" placeholder="pisteMap" style="flex:1"><input type="text" id="setValue" placeholder="false" style="flex:2"><button id="setBtn">Set</button></div>
+  <label>Triggers sent by the UI (what C# would receive)</label>
+  <div id="log"></div>
+</aside>
+<div id="stage">
+  <div id="game"></div>
+  <div id="topLeft"></div>
+  <div id="menu"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.development.js"></script>
+<script src="cs2-mock.js"></script>
+<script src="scenarios.js"></script>
+<script type="module">
+  const H = window.SkiHarness, S = window.SkiScenarios;
+  const status = document.getElementById("status");
+  const logEl = document.getElementById("log");
+  const scenarioSel = document.getElementById("scenario");
+  for (const name of Object.keys(S)) { const o = document.createElement("option"); o.value = o.textContent = name; scenarioSel.appendChild(o); }
+  scenarioSel.value = "Ash Flat (runs, lifts, problems)";
+
+  H.onLog((e) => {
+    const line = document.createElement("div");
+    const args = e.args.map((a) => JSON.stringify(a)).join(", ");
+    line.innerHTML = `<span class="t">${new Date(e.t).toLocaleTimeString()}</span> ${e.name}(${args})`;
+    logEl.appendChild(line); logEl.scrollTop = logEl.scrollHeight;
+  });
+
+  let bundleStamp = "";
+  function applyScenario() {
+    const sc = S[scenarioSel.value];
+    const connected = document.getElementById("connected").checked;
+    const differs = document.getElementById("stampDiffers").checked;
+    for (const [k, v] of Object.entries(sc)) {
+      if (k === "contract") H.set(k, connected ? v : 0);
+      else if (k === "buildStamp") H.set(k, connected ? (differs ? "dll-00000000-000000-deadbe" : bundleStamp) : "");
+      else if (k === "showHubButton") H.set(k, document.getElementById("showButton").checked);
+      else H.set(k, v);
+    }
+  }
+  scenarioSel.onchange = applyScenario;
+  for (const id of ["connected", "stampDiffers", "showButton"]) document.getElementById(id).onchange = applyScenario;
+  document.getElementById("toggleHub").onclick = () => H.set("hubOpen", !H.get("hubOpen"));
+  document.getElementById("setBtn").onclick = () => {
+    const n = document.getElementById("setName").value.trim(); const raw = document.getElementById("setValue").value;
+    try { H.set(n, JSON.parse(raw)); } catch (e) { H.set(n, raw); }
+  };
+  document.getElementById("reload").onclick = () => location.reload();
+  const scaleSel = document.getElementById("scale");
+  function applyScale() {
+    const v = scaleSel.value;
+    document.documentElement.style.fontSize = v === "game" ? "" : v;
+    try { localStorage.setItem("hubHarness.scale", v); } catch (e) { /* private window */ }
+  }
+  try { scaleSel.value = localStorage.getItem("hubHarness.scale") || "1px"; } catch (e) { scaleSel.value = "1px"; }
+  scaleSel.onchange = applyScale; applyScale();
+
+  const roots = [];
+  function mount(slotEl, comps) {
+    const root = ReactDOM.createRoot(slotEl);
+    roots.push(root);
+    root.render(React.createElement(React.Fragment, null, comps.map((C, i) => React.createElement(C, { key: i }))));
+  }
+  try {
+    const mod = await import("../build/SkiResortMod.mjs?v=" + Date.now());
+    const slots = { Game: [], GameTopLeft: [], UniversalModMenu: [], other: [] };
+    const registry = {
+      append(target, comp) { (slots[target] || slots.other).push(comp); },
+      extend() { throw new Error("harness: extend is not allowed (OD3)"); },
+      override() { throw new Error("harness: override is not allowed (OD3)"); },
+    };
+    mod.default(registry);
+    // The bundle's own stamp: read from its banner (also what BUNDLE_STAMP holds).
+    const txt = await (await fetch("../build/SkiResortMod.mjs")).text();
+    const m = /Build: (\S+)/.exec(txt); bundleStamp = m ? m[1] : "";
+    applyScenario();
+    mount(document.getElementById("game"), slots.Game);
+    mount(document.getElementById("topLeft"), slots.GameTopLeft);
+    mount(document.getElementById("menu"), slots.UniversalModMenu);
+    status.textContent = `bundle ${bundleStamp || "?"} · hasCSS ${mod.hasCSS} · Game ${slots.Game.length}, TopLeft ${slots.GameTopLeft.length}, Menu ${slots.UniversalModMenu.length}` + (slots.other.length ? ` · UNEXPECTED targets ${slots.other.length}` : "");
+  } catch (e) {
+    status.textContent = "failed: " + (e && e.message || e); status.className = "err"; console.error(e);
+  }
+</script>
+</body>
+</html>
