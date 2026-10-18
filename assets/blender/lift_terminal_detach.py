@@ -553,7 +553,8 @@ GD_REV1 = True                 # False = draft 1's timber barn (kept for nothing
 #                                builders; the switch only documents the gate)
 GD_LOT = (3, 4)                # m_LotWidth 3 = 24 m across (prefab x = authoring Y), m_LotDepth 4 =
 GD_LOT_HALF = (16.0, 12.0)     # 32 m along travel (prefab z = authoring X): authoring X / Y halves
-GD_LOD0_TARGET = {"base": 12000, "top": 9000}  # ROUND-SPEC section 4 budgets (caps 13,000 / 10,000)
+GD_LOD0_TARGET = {"base": 12000, "top": 9700}  # ROUND-SPEC section 4 budgets (caps 13,000 / 10,200)
+# T62 round 2: the top 9,000 -> 9,700 (8 nose wheels at the 16-segment capped wheel: 9,669) and its cap 10,000 -> 10,200
 GD_EAVE = 1.20                 # deep eaves: roof edge 1.20 m past the long walls' outer faces
 GD_ROOF_RISE = 0.95            # shallow segmental standing-seam roof: crown = eave + 0.95 (0 -> 14.5 deg)
 GD_RAKE_BACK = 0.60            # back gable overhang (the nose keeps ROOF_END 0.15: the nose ladder)
@@ -644,7 +645,8 @@ DQ_SIGN_SHARED = {"p": "n"}    # the +Y sign band reuses the -Y band's rect (one
 DQ_D1_DENSITY = {"deck": 0.6, "rampback": 0.6, "ped_": 1.3, "crosshead_": 1.3, "spine_": 1.3,
                  "lamp_": 1.0, "doorlite_": 0.8, "sill_": 0.6, "label_": 1.0}
 # the LOD0 budget targets of this pass (ROUND-SPEC section 4: 11,000 / 8,000; caps 12,000 / 10,000)
-DETAIL_LOD0_TARGET = {"base": 11000, "top": 8000}
+# T62 round 2: the top 8,000 -> 8,500 (8 nose wheels at the 16-segment capped wheel: 8,461; the cap 10,000 keeps 15 %)
+DETAIL_LOD0_TARGET = {"base": 11000, "top": 8500}
 # weathering (DECISIONS 171; design 3.6 corrected by MC7): hidden machinery role none, the deck top
 # is the ground line (the DQ lot does not level), the station's own overrides first
 DQ_HIDDEN = ("rooflining", "bandlining_", "ceil_", "detrail_", "railhang_", "tyre", "drive_",
@@ -900,7 +902,8 @@ def params_for(kind, gondola, carrier):
         x_wheel=x_wheel, ped_f=None, ped_r=None, anchor_x=anchor_x, slot_half=0.0,
         notch_top=None, lowest_abs=DECK_H + GONDOLA_STEP_IN,
         env=GD_ENV,
-        lod0_cap=13000 if base else 10000, lod1_max=None, lod2=500, hosted_tower=base,
+        # T62 round 2: the gondola top 10,000 -> 10,200 (8 nose wheels at the 16-segment capped wheel, 9,669: >= 5 % headroom)
+        lod0_cap=13000 if base else 10200, lod1_max=None, lod2=500, hosted_tower=base,
         engine_base=("wall_n", "wall_p", "wall_back", "wall_nose", "stonebase_n", "stonebase_p",
                      "stonebase_back", "stonebase_nose", "stepside_n", "stepside_p"),
         win_part="ctrlwin", folder="stations/gondola/A",
@@ -1833,7 +1836,8 @@ def build_machine(p):
 NOSE_TRAIN = True              # False = the pre-2026-10-13 3-sheave guides (A-B / negatives)
 NOSE_TRAIN_N = 4               # sheaves per lane (2 subs on 1 main: the towers' smallest even train)
 NOSE_TRAIN_PREFIX = "sheave_guide_"
-NOSE_TRAIN_MAT = {"paint": "darksteel", "galv": "galv", "rubber": "rubber"}   # tower key -> station key
+NOSE_TRAIN_MAT = {"paint": "darksteel", "galv": "galv", "rubber": "rubber",   # tower key -> station key
+                  "wheelsteel": "wheelsteel"}                                  # T62 round 2: cs2_sheaves.WHEEL_KEY
 NOSE_GIRDER_X = 0.186          # lift_tower.DQ_GIRDER x: the girder stub's width along travel
 NOSE_CARRIER_IN = 0.03         # ST1: every carrier vertex |y| <= lane - this (the towers' heads: 0.039 DQ / 0.064 GD)
 # Nitpick A3 (2026-10-13; orchestrator ruling D1 on build/nitpick-a2-hanger-gondola.md): the axle rule per head. True =
@@ -1872,7 +1876,7 @@ def anchor_z(p):
     import lift_tower as LTw
     T = nose_train_layout(p)
     groove = max(0.02, 0.18 * T["r"]) if T["groove"] is None else T["groove"]
-    return round(T["axle"] + LTw.rope_seat(T["r"], T["w"], groove), 4)
+    return round(T["axle"] + LTw.rope_seat(T["r"], T["w"], groove, chamfer=LTw.wheel_chamfer(T["r"], T["w"])), 4)
 
 
 def rope_z_at(p, x):
@@ -1974,7 +1978,7 @@ def nose_train_layout(p):
     if abs(p.lane_y - lane_tower) > 1e-9:
         raise ContractError(f"ST1: the {fam} head's carriers are placed for lane {lane_tower}, station lane {p.lane_y}")
     n, r, w, pitch = NOSE_TRAIN_N, float(sh["r"]), float(sh["w"]), float(sh["pitch"])
-    # T62 v2: the family's cs2_sheaves.wheel (V groove; GD 8 segments with n-gon discs); v1: the head's own wheel
+    # T62 v2: cs2_sheaves.wheel (round 2: the one 16-segment capped wheel at the family r / w); v1: the head's own wheel
     wv2 = S.wheel_spec(fam) if S.wheels_v2() else None
     segs = int(wv2["segs"]) if wv2 else int(sh.get("segs", 12))
     groove = None if wv2 else sh.get("groove")
@@ -1984,7 +1988,7 @@ def nose_train_layout(p):
     if hold:
         import lift_tower as LTw
         g = max(0.02, 0.18 * r) if groove is None else groove
-        axle = round(p.z_rope + LTw.rope_seat(r, w, g), 6)
+        axle = round(p.z_rope + LTw.rope_seat(r, w, g, chamfer=LTw.wheel_chamfer(r, w)), 6)
         on_lane = False
     x_out = round(p.anchor_x - 0.10, 6)
     x0 = round(x_out + r + (n - 1) / 2.0 * pitch, 6)
@@ -2055,8 +2059,9 @@ def nose_train_numbers(p):
             "x_extent": [T["x_out"], T["x_in"]], "x_nose": p.x_nose,
             "carriers_abs_y": {"sub": T["sub_y"], "main_yoke": T["main_y"],
                                "hanger": [T["hanger"]["y0"], T["hanger"]["y1"]]},
-            **({"wheels": {"generation": "v2 (T62: cs2_sheaves.wheel = the DQ20O wheel)", "builder": S.WHEEL_ID,
-                           "discs": "n-gon" if T["ngon"] else "centre fan"}} if S.wheels_v2() else {})}
+            **({"wheels": {"generation": "v2 (T62 round 2: cs2_sheaves.wheel, the 16-segment capped wheel)",
+                           "builder": S.WHEEL_ID, "tris_per_wheel": S.WHEEL_TRIS, "material": S.WHEEL_KEY,
+                           "lod": {str(k): v["form"] for k, v in S.WHEEL_LOD.items()}}} if S.wheels_v2() else {})}
 
 
 def build_nose_guides(p):
@@ -4100,13 +4105,15 @@ def materials_for(p, parts=None):
     """The material table of this station: MATERIALS; detail pass 1 (DQ) adds the dressing keys
     the parts use through cs2_liftdress.merge_materials (one key, one look on every station: the
     reused galv / darksteel / rubber must equal this table's)."""
+    import cs2_sheaves as S
+    wm = S.wheel_materials(_MS)              # T62 round 2: the one wheel material under v2 ({} under v1)
     if p.gondola and not GD_REV1:
-        return MATERIALS
+        return {**MATERIALS, **wm}
     if not p.gondola and not DETAIL1:
-        return MATERIALS
+        return {**MATERIALS, **wm}
     LD = _LD()
     keys = LD.part_keys(parts) if parts is not None else sorted(LD.DRESS_MATERIALS)
-    return LD.merge_materials(MATERIALS, [k for k in keys if k in LD.DRESS_MATERIALS])
+    return {**LD.merge_materials(MATERIALS, [k for k in keys if k in LD.DRESS_MATERIALS]), **wm}
 
 
 
@@ -6940,6 +6947,8 @@ NOSE_CONTACTS = (
      "the main pivot pin's top touches the hanger's underside, tangent (the towers' train)"),
     (r"sheave_guide_liner_[np]_\d+", r"sheave_guide_sheave_[np]_\d+_rim",
      "the rubber liner seats on its rim: touching faces, welded by the join (the towers' train)"),
+    (r"sheave_guide_rocker_sub_[np]_\d+", r"sheave_guide_sheave_[np]_\d+_rim",
+     "T62 round 2: the wheel's inboard hub boss (0.10 r proud) seats in its sub rocker plate - the axle bearing"),
     (r"haulrope_[np]", r"sheave_guide_(?:" + "|".join(NOSE_ROPE_PASS) + r")\w*",
      "F10: the drawn rope runs through the sheave centres, through the liners and the sub pins' ends"),
     (r"haulrope_[np]", r"wheelrope", "the rope tube ends inside the bullwheel's rope torus (C1 / C2)"),
@@ -7839,7 +7848,8 @@ def dq_weather_spec(name, intensity):
 def gd_mat_roles():
     """Gondola revision 1 weathering roles by material key: the DQ table (cs2_liftdress.DQ_MAT_ROLES,
     the dressing keys included) + the gondola's own safety stripe (paint)."""
-    return {**_LD().DQ_MAT_ROLES, "stripe": "paint"}
+    import cs2_sheaves as S
+    return {**_LD().DQ_MAT_ROLES, "stripe": "paint", **S.wheel_roles()}
 
 
 def gd_weather_spec(name, intensity):
@@ -8753,7 +8763,7 @@ def parse_args(argv=None):
                          "board since 2026-10-12); default = the fine-detail pass (FINE_DETAIL)")
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
                     help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel on the top's nose train (the GD "
-                         "head: 8-segment V wheels); v1 = the pre-T62 wheels byte for byte")
+                         "head too: the round-2 16-segment capped wheel); v1 = the pre-T62 wheels byte for byte")
     args = ap.parse_args(argv)
     args.kind = {"drive": "base", "return": "top"}.get(args.kind, args.kind)
     return args
@@ -8984,7 +8994,8 @@ def main(argv=None):
         if args.weather == "on":
             # MC7a: roles by material INDEX (the joined mesh's CS2SRC_<key> slots, read before the
             # bake); labels + sign live in reserved rects (restored 1:1); compose_contact off
-            roles = LD.lift_mat_roles(t.data, LD.DQ_MAT_ROLES)
+            import cs2_sheaves as S
+            roles = LD.lift_mat_roles(t.data, {**LD.DQ_MAT_ROLES, **S.wheel_roles()})
             hook = SteppedWeather(dq_hook, lambda s: dq_weather_spec(name, s), LD.INTENSITY_STEPS,
                                   mat_roles=roles, detail_specs=detail_specs_dq(), reserved=rects,
                                   compose_contact=False)
@@ -9022,9 +9033,10 @@ def main(argv=None):
     lods = []
     if args.lods:
         t1, t2 = lod_targets(t, table, n0, p)
+        import cs2_sheaves as S
         lods = cs2_asset.make_lod_chain(t, name, targets=(t1, t2),
                                         delete_prefixes=lod_lists(p),
-                                        shade_angle=SHADE_ANGLE)
+                                        shade_angle=SHADE_ANGLE, fixed=S.lod_fixed())   # T62 round 2: WHEEL_LOD
         for i, lod in enumerate(lods, start=1):
             cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{name}_LOD{i}.fbx"))
     # F11: LOD meshes inherit MeshFlags.Base (1.6.0f1 ObjectInitializeSystem.cs:1457) and draw

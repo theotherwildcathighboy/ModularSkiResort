@@ -370,7 +370,10 @@ LADDER_FAM = {"tram": {"face": "-X", "s": 0.40, "lines": (0.0, 1.0), "bskt_in": 
                           "flight_target": 10.5, "sink": 3.0, "sink_rung_lo": -2.15}}
 BASKET = {"rail_h": 1.0, "mid_h": 0.5, "rail_w": 0.05, "post_w": 0.05, "string_w": 0.08, "t": 0.03}
 LADDER_ASYM = ("rung_", "lrail_", "bskt_", "grate_bskt", "arrest_")   # C11 exemption: offset flights (V8a; dp1 arrest rails)
-TRAM_BUDGET = {30: (4000, 5500, 1900, 450), 45: (5200, 6800, 2400, 470), 60: (6500, 8000, 2800, 500)}
+# T62 round 2: LOD0 caps for the 16 haul rollers at the 16-segment capped wheel (+152 tris each): the smallest 100 above
+# LOD0 / 0.95 (>= 5 % headroom): 30A 5,500 -> 7,900 (7,504), 45A 6,800 -> 9,100 (8,564), 60A 8,000 -> 9,800 (9,300);
+# targets / LOD1 / LOD2 unchanged (the rollers leave at LOD1 with their bar: TRAM_LOD1 "haulroll_")
+TRAM_BUDGET = {30: (4000, 7900, 1900, 450), 45: (5200, 9100, 2400, 470), 60: (6500, 9800, 2800, 500)}
 TRAM_LOD2_CAP = 500        # RS section 4 far cap: raise (skeptic MC5); the per-variant value warns
 
 # --------------------------------------------------------------------------------------
@@ -387,7 +390,8 @@ SHEAVES = {25: 8, 32: 10, 40: 12}           # task: 8-12 per side
 SHEAVE = {"r": 0.25, "w": 0.10, "pitch": 0.62, "segs": 12, "groove": 0.0}
 GD_BEAM_Y = 3.32            # gantry-beam half length = the lattice's LOD-stable lateral bound
 GD_TRANS = {"gx": 2.6, "gy": 2.0, "rail_x": 1.3}   # transition platform grating (x by y), +-X rails
-GD_BUDGET = (4000, 4500, 1500, 400)         # RS section 4 (target, cap, LOD1, LOD2 cap)
+GD_BUDGET = (4000, 9300, 1500, 400)         # RS section 4 (target, cap, LOD1, LOD2 cap); T62 round 2: cap 4,500 -> 9,300
+                                            # (Lattice40 8,814 with 24 capped wheels / 0.95; the wheels leave at LOD1)
 GD_DECK = {"y0": 0.60, "y1": 1.75, "top_dA": -0.30, "rail_h": 0.85, "rail_knee": 0.45}
 
 # --------------------------------------------------------------------------------------
@@ -541,6 +545,7 @@ def material_specs(beacon, texture_root, family="gondola"):
         # Revision 1 (V8c): safety-yellow evacuation crane (fixed colour, not a recolour slot) so the
         # column / knee / jib read as equipment against the slot-1 grey frame
         "crane": M(albedo=(0.78, 0.56, 0.05), metal=0.15, rough=0.5, projection="box"),
+        **cs2_sheaves.wheel_materials(M),         # T62 round 2: the one wheel material under v2 ({} under v1)
     }
 
 
@@ -929,8 +934,8 @@ def sheave_lite(name, r, w, centre, segs, groove=None, liner=None):
 
 
 def _haul_wheel(name, liner, centre):
-    """T62: a tram haul roller. v2 (cs2_sheaves.WHEELS, default) = cs2_sheaves.wheel at the ROLLER radius / width, 12
-    segments (the DQ20O wheel: V groove 0.18 r, centre-fan discs), the developed UV map (DT-C5); v1 = sheave_lite at
+    """T62: a tram haul roller. v2 (cs2_sheaves.WHEELS, default) = cs2_sheaves.wheel at the ROLLER radius / width (round
+    2: the 16-segment capped wheel), the developed UV map (DT-C5); v1 = sheave_lite at
     ROLLER segs 8 / groove 0.025 (the pre-T62 roller, byte for byte). Returns (discs, liner)."""
     R = ROLLER
     if cs2_sheaves.wheels_v2():
@@ -944,8 +949,8 @@ def _haul_wheel(name, liner, centre):
 
 
 def _gd_wheel(name, liner, centre):
-    """T62: a lattice GD-head sheave. v2 = cs2_sheaves.wheel at the GD family's numbers (r 0.25 / w 0.10, 8 segments,
-    n-gon discs: the 4,500 cap of Lattice40), developed UVs; v1 = sheave_lite flat 12-gon (pre-T62). (discs, liner)."""
+    """T62: a lattice GD-head sheave. v2 = cs2_sheaves.wheel at the GD family's r 0.25 / w 0.10 (round 2: the 16-segment
+    capped wheel; GD_BUDGET cap 9,300), developed UVs; v1 = sheave_lite flat 12-gon (pre-T62). (discs, liner)."""
     if cs2_sheaves.wheels_v2():
         W = cs2_sheaves.wheel_spec("GD")
         if abs(W["r"] - SHEAVE["r"]) > 1e-9 or abs(W["w"] - SHEAVE["w"]) > 1e-9:
@@ -1862,7 +1867,7 @@ def build_haul_row(P, spec, s, tag):
     for kk, x in enumerate(R["x"]):
         # detail pass 1 (design 5.1): the V flanks (the rope faces) split off as rubber liners
         sh, ln = _haul_wheel(f"haulroll_{tag}_{kk}", f"haulroll_liner_{tag}_{kk}", (x, yh, axle(x)))
-        P.add(sh, "galv")
+        P.add(sh, cs2_sheaves.wheel_key("galv"))        # T62 round 2: the one wheel material under v2
         P.add(ln, "rubber")
     yb = s * (TRAM["haul_y"] - R["bar_dy"])
     xe = max(R["x"]) + R["r"]
@@ -2087,7 +2092,7 @@ def build_gd_top(P, spec, lay, z_tube0):
         for kk, x in enumerate(xs):
             # detail pass 1: the flat rim band (the rope face) split off as a rubber liner
             sh, ln = _gd_wheel(f"sheave_{tag}_{kk}", f"sheave_liner_{tag}_{kk}", (x, ly, A))
-            P.add(sh, "galv")
+            P.add(sh, cs2_sheaves.wheel_key("galv"))    # T62 round 2: the one wheel material under v2
             P.add(ln, "rubber")
         # V8c lesson (JH-15): the gantry-beam tip over each lane carries a lifting lug (rope /
         # sheave-train lifts); dz +1.46..+1.76 is far above the GD head rule band (dz <= 0.20)
@@ -2152,7 +2157,8 @@ def check_c10(parts, family):
         pre = prefix_of(obj.name)
         if pre is None:
             bad.append(f"{obj.name}: no PREFIX_TABLE entry")
-        elif pre[1] != mat:
+        elif (cs2_sheaves.wheel_key(pre[1]) if (obj.get("cs2_wheel") and pre[1] == "galv") else pre[1]) != mat:
+            # T62 round 2: a stamped wheel's discs take cs2_sheaves.WHEEL_KEY (the table's galv under v1)
             bad.append(f"{obj.name}: material {mat} != table {pre[1]}")
         if obj.name.startswith(l1) and obj.name.startswith(extra2):
             bad.append(f"{obj.name}: two LOD fates")
@@ -2276,7 +2282,7 @@ def make_lods(t, name, table, parts, family, n1, n2):
     re-shaded generator-locally so the smooth members stay smooth (the chain re-marks them sharp)."""
     l1p, l2p = lod_lists(family)
     lods = cs2_asset.make_lod_chain(t, name, targets=(n1, n2), delete_prefixes=(l1p, l2p), tol=0.02,
-                                    shade_angle=SHADE_ANGLE)
+                                    shade_angle=SHADE_ANGLE, fixed=cs2_sheaves.lod_fixed())   # T62 round 2: WHEEL_LOD
     for lod in lods:
         lod["dp1_smoothed"] = shade_lattice(lod, table, parts.axes, family, weighted=True, net=True)
     return lods
@@ -3594,7 +3600,8 @@ def relief_specs(spec, lay, parts, table):
                 for side in (1, -1):
                     hubs.append(Mk("ring", (x, s * GD["lane_y"] + side * SHEAVE["w"] / 2.0, A), u=(1, 0, 0),
                                    n=(0, side, 0), r_in=0.0, r_out=0.12, h=0.006))
-        out["sheave_"] = D(marks=tuple(hubs))
+        if not cs2_sheaves.wheels_v2():       # T62 round 2: the v2 wheel's hub is the geometric boss (no ring)
+            out["sheave_"] = D(marks=tuple(hubs))
         anchor = 0.15
     # base plates: 2 x 2 anchor nuts (tram pitch 0.50: clear of the 0.40 leg; gondola 0.30)
     pw = BPLATE_TR if tram else BPLATE_GD
@@ -3909,6 +3916,10 @@ def weather_spec(spec, name, intensity):
                ("haulroll_liner", PW(role="none", rust_source=False)), ("cranewinch_", PW(rust_source=True))]
     else:
         ov += [("flange_trans", PW(rust_source=True))]
+    if cs2_sheaves.wheels_v2():             # T62 round 2: one clean wheel on every family (no rust source on it)
+        extra += tuple(cs2_sheaves.wheel_roles().items())
+        if tram:
+            ov = [(n, PW(role="none", rust_source=False)) for n in ("haulroll_n_", "haulroll_p_")] + ov
     return CW.WeatherSpec.preset("tower", name, intensity=float(intensity), slot_wear="free", snow=0.0,
                                  mat_roles_extra=extra, overrides=tuple(ov))
 
@@ -4086,7 +4097,9 @@ def check_dp1_texture(spec, inner, whook, A, relief):
     sk = inner.relief.get("skipped") or {}
     drawn = inner.relief.get("drawn") or {}
     want = {"edge_round", "marks:plate", "marks:bolts", "grate"}
-    want |= ({"bolts", "marks:slot", "seams"} if spec.family == "tram" else {"marks:band", "marks:ring"})
+    # T62 round 2: the gondola's "marks:ring" was the sheave hub ring only (the v2 wheel's hub is a geometric boss)
+    want |= ({"bolts", "marks:slot", "seams"} if spec.family == "tram"
+             else ({"marks:band"} if cs2_sheaves.wheels_v2() else {"marks:band", "marks:ring"}))
     missing = sorted(want - set(drawn))
     if A >= ATLAS[spec.family]:
         if sk:
@@ -4758,8 +4771,8 @@ def parse_args(argv=None):
     ap.add_argument("--lattice-ladder", action="store_true", help="deprecated no-op (the ladder is the default)")
     ap.add_argument("--no-validate", action="store_true")
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
-                    help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel on the haul rollers and the "
-                         "lattice GD head; v1 = the pre-T62 sheave_lite wheels byte for byte")
+                    help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel (round 2: the 16-segment capped "
+                         "wheel) on the haul rollers and the lattice GD head; v1 = the pre-T62 sheave_lite wheels byte for byte")
     ap.add_argument("--lineup", action="store_true",
                     help="only re-render the family lineup from the exported asset folders")
     a = ap.parse_args(argv)

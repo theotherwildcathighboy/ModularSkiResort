@@ -1743,7 +1743,11 @@ LOD2_DRIFT_RAISE = 0.02                # beyond expected + this the build fails
 # to hold the cap on the towers" -> the DQ family (DQ10-DQ20 + ETDQ) is held at 3,600 so the
 # transfer audit's DQ20 (3,534 rebuild / 3,554 ingest after every reclaim) ships beside DQ18.
 # FG / ET and the GD family (GD12-20, ETGD) stay at 3,500; the lattice towers have their own caps.
-LOD0_CAP = {"FG": 3500, "DQ": 3600, "GD": 3500}
+# T62 round 2 (2026-10-18, Richard "probably raise the cap"): the 16-segment capped wheel (cs2_sheaves.WHEEL_TRIS 224 vs
+# 72 / 44) on 8 (FG) / 16 (DQ) / 16-20 (GD) wheels; each cap = the smallest 100 above the family's worst LOD0 / 0.95
+# (>= 5 % headroom): FG 3,500 -> 4,600 (FG20 4,282), DQ 3,600 -> 6,400 (DQ20 5,986), GD 3,500 -> 7,500 (GD20 7,062).
+# v1 builds sit under these too (a cap is a ceiling).
+LOD0_CAP = {"FG": 4600, "DQ": 6400, "GD": 7500}
 
 
 @dataclass(frozen=True)
@@ -2448,7 +2452,7 @@ def pad_radius(spec):
 
 
 def sheave_segs(spec):
-    """T62: v2 = the family's cs2_sheaves.WHEEL_FAMILY segment count (GD 8: the cap); v1 = GD 12 flat / 12."""
+    """T62: v2 = cs2_sheaves.WHEEL_SEGS (16, every family: round 2); v1 = GD 12 flat / 12."""
     if S.wheels_v2():
         return S.wheel_spec(spec.family)["segs"]
     return GD_SHEAVE["segs"] if spec.family == "GD" else 12
@@ -2462,7 +2466,7 @@ def sheave_groove(spec):
 
 
 def sheave_ngon(spec):
-    """T62 v2: n-gon side discs (the cap-bound GD family, 4 tris per wheel fewer); v1: never."""
+    """T62 v2: n-gon side discs (round 2: every family, under the hub bosses); v1: never."""
     return bool(S.wheels_v2() and S.wheel_spec(spec.family)["ngon"])
 
 
@@ -2484,12 +2488,14 @@ VANILLA_LV_ROPE = dict(r=0.060, h=0.0520)
 FG_CROWN_INBOARD = 0.20   # top / bottom); Low-voltage Cable Lane Mesh x +-0.060, y +-0.0520 (%TEMP%\pltar dump)
 
 
-def rope_seat(sheave_r, sheave_w, groove, rope=VANILLA_HV_ROPE):
+def rope_seat(sheave_r, sheave_w, groove, rope=VANILLA_HV_ROPE, chamfer=0.0):
     """Rope AXIS above the sheave axle when the vanilla cable (a hexagon, circumradius R, flats top / bottom at +-h,
     bottom flat +-R/2 wide) rests on a lite_sheave of radius r, width w and V-groove depth `groove` (0 = flat rim; the
     groove profile radius at lateral y is r - groove (1 - |y| / (w/2))). The larger of: the bottom flat's corners on the
-    groove flanks (|y| = min(R/2, w/2)) and the slanted faces on the flange tips (|y| = w/2 when R/2 < w/2 < R)."""
-    R, h, hw = rope["r"], rope["h"], sheave_w / 2.0
+    groove flanks (|y| = min(R/2, w/2)) and the slanted faces on the flange tips (|y| = w/2 when R/2 < w/2 < R).
+    T62 round 2: `chamfer` (cs2_sheaves.wheel_profile c, the v2 wheel's rim chamfer) puts the crests (the flange tips)
+    at |y| = w/2 - chamfer: the formula runs on that half width (0 = every v1 number unchanged)."""
+    R, h, hw = rope["r"], rope["h"], sheave_w / 2.0 - chamfer
     yb = min(R / 2.0, hw)
     prof = sheave_r - groove * (1.0 - yb / hw) if groove > 0.0 else sheave_r
     seat = prof + h
@@ -2506,9 +2512,16 @@ def spec_groove(spec):
     return max(0.02, 0.18 * spec.sheave_r) if g is None else g
 
 
+def wheel_chamfer(r, w):
+    """T62 round 2: the v2 wheel's rim chamfer (crests at w/2 - c) for rope_seat; 0 under v1."""
+    return S.wheel_profile(r, w)["c"] if S.wheels_v2() else 0.0
+
+
 def crown_seat(spec):
-    """rope_seat for this tower's head, mm-rounded (FG 0.278, DQ 0.310, GD 0.337)."""
-    return round(rope_seat(spec.sheave_r, spec.sheave_w, spec_groove(spec)), 4)
+    """rope_seat for this tower's head, mm-rounded (v1: FG 0.278, DQ 0.310, GD 0.337; T62 v2 chamfered crests: FG 0.2833,
+    DQ / GD unchanged - their crests stay outside the rope's 0.05 bottom half-flat)."""
+    return round(rope_seat(spec.sheave_r, spec.sheave_w, spec_groove(spec),
+                           chamfer=wheel_chamfer(spec.sheave_r, spec.sheave_w)), 4)
 
 
 def lane_y(spec, on=None):
@@ -3293,7 +3306,8 @@ def build_tower_v2(spec, head=None, finish=True, kagelok=None, name=None):
     if finish:
         import cs2_bake
         bpy.context.view_layer.update()
-        sources = cs2_bake.material_sources(TOWER_MATERIALS, parts)
+        # T62 round 2: + the one wheel material (cs2_sheaves.WHEEL_MATERIAL) under v2; v1 = TOWER_MATERIALS as it was
+        sources = cs2_bake.material_sources({**TOWER_MATERIALS, **S.wheel_materials(dict)}, parts)
     bpy.ops.object.select_all(action="DESELECT")
     for o, _k in parts:
         o.select_set(True)
@@ -3711,9 +3725,9 @@ def assert_tower_contracts(obj, spec, frame, head):
         _check(np.abs(lr[:, gi]).max() <= 0.245 + 1e-6, f"{tag} C7 ladder rails |y| <= 0.245",
                f"({np.abs(lr[:, gi]).max():.4f})")
         # T27: with the tree inboard (FG_CROWN_INBOARD) the pivot pins' outer ends (lane + 0.11 = 1.91) move in and the
-        # outboard axle caps (lane + 0.065 + 0.02 = 1.885) set the lateral extent; T62 v2 (no axle caps): the wheels'
-        # outboard discs (lane + w / 2 = 1.865)
-        lat_ship = (1.865 if S.wheels_v2() else 1.885) if ROPE_ON_CROWN else 1.91
+        # outboard axle caps (lane + 0.065 + 0.02 = 1.885) set the lateral extent; T62 round 2 v2: the wheels' outboard
+        # hub bosses (lane + w / 2 + 0.10 r = 1.885), the same number
+        lat_ship = 1.885 if ROPE_ON_CROWN else 1.91
         _check(abs(res["lateral"] - lat_ship) <= 0.01 and abs(res["travel"] - 0.97) <= 0.01,
                f"{tag} FG lateral / travel extents +-1.91 / +-0.97 (shipped N)",
                f"({res['lateral']:.4f} / {res['travel']:.4f})")
@@ -3976,9 +3990,10 @@ def tower_detail_specs(spec=None, pv=None, frame="net"):
         out["mast"] = D(marks=mk["mast"])
         if mk["stiff_"]:
             out["stiff_"] = D(marks=mk["stiff_"])
-        for nm in sorted(pv):
-            if nm.startswith("sheave_") and nm.endswith("_rim"):
-                out[nm] = D(marks=mk["sheave_rims"])
+        if not S.wheels_v2():       # T62 round 2: the v2 wheel's hub is the geometric boss (no normal-map ring)
+            for nm in sorted(pv):
+                if nm.startswith("sheave_") and nm.endswith("_rim"):
+                    out[nm] = D(marks=mk["sheave_rims"])
     return out
 
 
@@ -4142,10 +4157,11 @@ def plate_raster(spec, h, w):
     inner_h = h - 2.0 * bpx
     sq = int(math.floor(inner_h - 2.0))
     num = plate_numeral(spec)
-    glyph = G.render_alpha(G.cand_c(), sq, ss=8)[::-1]        # top-down -> bottom-up
     gx0 = int(round(bpx + 1.0)) if num else int(round((w - sq) / 2.0))
     gy0 = int(round((h - sq) / 2.0))
-    ink[gy0:gy0 + sq, gx0:gx0 + sq] = np.maximum(ink[gy0:gy0 + sq, gx0:gx0 + sq], glyph)
+    if sq >= 1:     # T62 round 2: a test atlas (256) can leave the plate < 3 px tall (sq 0: render_alpha divides by it)
+        glyph = G.render_alpha(G.cand_c(), sq, ss=8)[::-1]        # top-down -> bottom-up
+        ink[gy0:gy0 + sq, gx0:gx0 + sq] = np.maximum(ink[gy0:gy0 + sq, gx0:gx0 + sq], glyph)
     cap_px = 0.0
     if num:
         cap_px = float(math.floor(inner_h - 6.0))
@@ -4592,7 +4608,8 @@ def weather_spec(spec, name, intensity):
     PW = CW.PartWeather
     return CW.WeatherSpec.preset(
         "tower", name, intensity=intensity, slot_wear="free", snow=0.0,
-        mat_roles_extra=(("paint", "paint_steel"), ("pad", "pad"), (LINER_KEY, "none"), (PLATE_KEY, "none")),
+        mat_roles_extra=(("paint", "paint_steel"), ("pad", "pad"), (LINER_KEY, "none"), (PLATE_KEY, "none"))
+        + (((S.WHEEL_KEY, "none"),) if S.wheels_v2() else ()),     # T62 round 2: one clean wheel on every family
         overrides=(("pivot_", PW(role="galv", rust_source=True)),
                    ("axlecap_", PW(role="galv", rust_source=True)),
                    ("stiff_", PW(rust_source=True)),
@@ -4645,9 +4662,11 @@ def make_weather_post(inner, spec, name, keys, table, intensity, probe=()):
 
 def lod_chain_v2(t, name, spec):
     l1p, l2p = lod_prefixes(spec)
+    # T62 round 2: the wheels take their WHEEL_LOD forms (LOD1 8-segment flat, never decimated; LOD2 deleted by the
+    # family tables); spec.lod1 / lod2 are then the targets of the REST, the LOD1 wheels come on top (v1: fixed None)
     lods = cs2_asset.make_lod_chain(t, name, targets=(spec.lod1, spec.lod2),
                                     delete_prefixes=(l1p, l2p), tol=LOD_TOL,
-                                    shade_angle=SHADE_ANGLE_V2)
+                                    shade_angle=SHADE_ANGLE_V2, fixed=S.lod_fixed())
     return lods
 
 
@@ -4870,8 +4889,8 @@ def assert_detail_pass(spec, rep, strict_weather=True, shipping=True):
     _check(not sk, f"{tag} DT-C8 relief: 0 texel-floor skips",
            f"(skipped {sk}; parts {(rep['relief'] or {}).get('skipped_parts')})")
     dr = (rep["relief"] or {}).get("drawn") or {}
-    need = ["bolts", "edge_round", "marks:band", "marks:ring"] + (["marks:boltring"]
-                                                                  if _joint_zs(spec, spec.tube_top) else [])
+    # T62 round 2: "marks:ring" was the sheave hub ring only; the v2 wheel's hub is a geometric boss (v1 still needs it)
+    need = ["bolts", "edge_round", "marks:band"] + ([] if S.wheels_v2() else ["marks:ring"])         + (["marks:boltring"] if _joint_zs(spec, spec.tube_top) else [])
     miss = [k for k in need if not dr.get(k)]
     _check(not miss, f"{tag} DT-C8 relief kinds drawn {need}", f"(missing {miss}; drawn {dr})")
     _check(rep["tone_gate_ok"], f"{tag} DT-C9 (M7) MaskMap A std with tone >= 0.9 sqrt(s0^2 + (0.234 smooth)^2)",
@@ -4972,8 +4991,8 @@ def parse_args_v2(argv):
                     help="T27 preview flag (ROPE_ON_CROWN): the manifest hands the lane on the sheave crown to the "
                          "surgery and the carrier contracts sweep there; the mesh is unchanged")
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
-                    help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel, the DQ20O wheel on every "
-                         "head; v1 = the pre-T62 per-family wheels, byte-identical")
+                    help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel, the 16-segment capped wheel "
+                         "(round 2) on every head; v1 = the pre-T62 per-family wheels, byte-identical")
     return ap.parse_args(argv)
 
 
@@ -5113,10 +5132,12 @@ def main_v2(argv):
         "top_anchor_y": spec.top, "pier": spec.pier, "comm_lv_y": spec.comm_y,
         "atlas": args.atlas, "ao_samples": args.ao_samples, "pack_margin_px": PACK_MARGIN_V2,
         "sheave_profile": "lite (lift_tower.lite_sheave, 6 x segs tris)",
-        **({"wheels": {"generation": "v2 (T62: cs2_sheaves.wheel = the DQ20O wheel)", "builder": S.WHEEL_ID,
-                       "r": spec.sheave_r, "w": spec.sheave_w, "segs": sheave_segs(spec),
-                       "discs": "n-gon" if sheave_ngon(spec) else "centre fan", "groove": "V (max(0.02, 0.18 r))",
-                       "axle_cap": False}} if S.wheels_v2() else {}),
+        **({"wheels": {"generation": "v2 (T62 round 2: cs2_sheaves.wheel, the 16-segment capped wheel)",
+                       "builder": S.WHEEL_ID, "r": spec.sheave_r, "w": spec.sheave_w, "segs": sheave_segs(spec),
+                       "profile": dict(S.WHEEL_PROFILE), "tris_per_wheel": S.WHEEL_TRIS,
+                       "discs": "n-gon", "groove": "V (max(0.02, 0.18 r))", "hub_boss": "both faces",
+                       "material": S.WHEEL_KEY, "lod": {str(k): v["form"] for k, v in S.WHEEL_LOD.items()}}}
+           if S.wheels_v2() else {}),
         "sheaves_per_side": spec.sheaves, "train_sag_m": spec.sag,
         "density_worst": [{"part": table[p - 1] if 0 < p <= len(table) else p,
                            "source_px_per_m": round(s, 1), "shipped_px_per_m": round(d, 1)}

@@ -201,17 +201,19 @@ FROZEN_REPR = {"HEIGHTS": "ce12d43af54f", "TRAM": "361080e8b49c", "GD": "35d6b1f
 # M8 option 1 drops them); +-1 %
 DP1_LEDGER = {("gondola", 25): 3316, ("gondola", 32): 3986, ("gondola", 40): 4490,
               ("tram", 30): 4606, ("tram", 45): 5666, ("tram", 60): 6402}
-# T62 (2026-10-18, build/T62-sheave-wheels.md): cs2_sheaves.WHEELS "v2" (default) builds the tram haul rollers as the
-# DQ20O wheel at 12 segments (72 tris) instead of sheave_lite's 8-gon (44): 16 rollers x 28 = +448 on every tram tower;
-# the lattice GD wheels keep 44 tris (8 segments, n-gon discs). `--wheels v1` keeps the ledger above.
-T62_TRAM_DELTA = 448
+# T62 (2026-10-18, build/T62-sheave-wheels.md): cs2_sheaves.WHEELS "v2" (default) builds the tram haul rollers and the
+# lattice GD wheels as the round-2 16-segment capped wheel (cs2_sheaves.WHEEL_TRIS 224) instead of v1's 44-tri 8-gon
+# sheave_lite rollers / flat 12-gon sheaves: + (224 - 44) per wheel (tram 16 rollers +2,880; lattice 16 / 20 / 24 sheaves
+# +2,880 / +3,600 / +4,320). `--wheels v1` keeps the ledger above.
+T62_V1_WHEEL = 44
 
 
 def _t62_ledger(table):
     import cs2_sheaves
     if not cs2_sheaves.wheels_v2():
         return table
-    return {k: v + (T62_TRAM_DELTA if k[0] == "tram" else 0) for k, v in table.items()}
+    n = {"tram": lambda H: 2 * len(tt.ROLLER["x"]), "gondola": lambda H: 2 * tt.SHEAVES[H]}
+    return {k: v + n[k[0]](k[1]) * (cs2_sheaves.WHEEL_TRIS - T62_V1_WHEEL) for k, v in table.items()}
 
 
 DP1_LEDGER = _t62_ledger(DP1_LEDGER)
@@ -919,8 +921,10 @@ try:
     check(all(p["px_per_m"] >= 300 and p["glyph_px"] >= 56 and p["numeral_cap_px"] >= 48 and p["ctl_RGB_max"] == 0.0
               for p in dp["plates"].values()),
           f"DT-C7 plates {[(k, v['px_per_m'], v['glyph_px'], v['numeral_cap_px']) for k, v in dp['plates'].items()]}")
-    check(not dp["relief"]["skipped"] and {"edge_round", "marks:plate", "marks:band", "marks:ring", "marks:bolts",
-                                            "grate"} <= set(dp["relief"]["drawn"]),
+    # T62 round 2: "marks:ring" was the sheave hub ring (v1 only; the v2 hub is a geometric boss)
+    ring = set() if man.get("wheels") or tt.cs2_sheaves.wheels_v2() else {"marks:ring"}
+    check(not dp["relief"]["skipped"] and {"edge_round", "marks:plate", "marks:band", "marks:bolts",
+                                            "grate"} | ring <= set(dp["relief"]["drawn"]),
           f"DT-C8 relief drawn {dp['relief']['drawn']}, skipped {dp['relief']['skipped']}")
     check(not dp["tone"]["skipped"] and not dp["tone_low"], f"DT-C9 tone drawn {dp['tone']['drawn']}, low {dp['tone_low']}")
     check(w["vanilla"]["ok"] and abs(w["intensity"] - tt.WEATHER_I["gondola"]) < 1e-9 and w["slot_wear"] == "free"

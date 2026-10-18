@@ -1089,8 +1089,20 @@ def _delete_tagged_faces(obj, table, prefixes):
     return len(kill)
 
 
+def _keep_tagged_ids(obj, ids, keep):
+    """Keep only (keep=True) or delete (keep=False) the faces whose 'part' id is in `ids` (make_lod_chain `fixed`)."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    layer = bm.faces.layers.int.get("part")
+    kill = [f for f in bm.faces if (f[layer] in ids) != keep]
+    bmesh.ops.delete(bm, geom=kill, context="FACES")
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+
+
 def make_lod_chain(obj, name, targets, delete_prefixes, tol=0.25, min_tris=60,
-                   shade_angle=66.0):
+                   shade_angle=66.0, fixed=None):
     """
     Build LOD1..n as decimated copies of the finished `obj`. `targets` are ABSOLUTE
     triangle counts per level (wiki: LOD1 < 50 % of LOD0, LOD2 <= 500 for buildings);
@@ -1099,8 +1111,17 @@ def make_lod_chain(obj, name, targets, delete_prefixes, tol=0.25, min_tris=60,
     land within `tol` of its target. Returns the LOD objects; the caller exports and
     removes them. Bounds drift is reported because LOD prefabs carry their own m_Bounds
     (the top-anchor / chair-height contracts apply to every level).
+
+    `fixed` (T62 round 2, cs2_sheaves.lod_fixed(); None = every line below unchanged): parts that are NEVER
+    collapse-decimated. fixed.parts(table) names them (part ids); per level, after the prefix deletes, fixed.apply(lod,
+    table, level) rebuilds the surviving ones in that level's form (or deletes them) and returns (count, tris); the
+    rest of the mesh is split off, decimated alone to `target` (the targets are then CEILINGS of the REST: a rest
+    already at or under its target is not decimated and not tolerance-checked - a decimator cannot add tris; the
+    fixed tris come on top), and the fixed faces are joined back. Custom normals are cleared before the level is
+    re-shaded (sharp marks + angle, as a decimated level).
     """
     table = json.loads(obj.data[PART_TABLE_PROP])
+    fixed_ids = fixed.parts(table) if fixed is not None else set()
     bb0 = [obj.bound_box[0][:], obj.bound_box[6][:]]
     lods = []
     for level, (target, prefixes) in enumerate(zip(targets, delete_prefixes), start=1):
@@ -1110,6 +1131,16 @@ def make_lod_chain(obj, name, targets, delete_prefixes, tol=0.25, min_tris=60,
         lod.data.name = lod.name
         bpy.context.collection.objects.link(lod)
         removed = _delete_tagged_faces(lod, table, tuple(prefixes))
+        fixed_obj, fixed_tris = None, 0
+        if fixed is not None:
+            n_fixed, fixed_tris = fixed.apply(lod, table, level)
+            if fixed_tris:
+                fixed_obj = lod.copy()
+                fixed_obj.data = lod.data.copy()
+                fixed_obj.name = f"{name}_LOD{level}_fixed"
+                bpy.context.collection.objects.link(fixed_obj)
+                _keep_tagged_ids(fixed_obj, fixed_ids, keep=True)
+                _keep_tagged_ids(lod, fixed_ids, keep=False)
         before = tri_count(lod)
         ratio = min(1.0, max(min_tris, target) / max(before, 1))
         bpy.ops.object.select_all(action="DESELECT")
@@ -1135,13 +1166,36 @@ def make_lod_chain(obj, name, targets, delete_prefixes, tol=0.25, min_tris=60,
                 bmesh.ops.delete(bm, geom=slivers, context="FACES")
             bm.to_mesh(lod.data)
             bm.free()
+        rest_tris = None
+        if fixed is not None:
+            if fixed_obj is not None and ratio >= 0.999:
+                # the rest needed no collapse (already under its ceiling): triangulate it as the collapse would have,
+                # so a level carrying rebuilt fixed parts stays tri-only like every decimated level
+                bm = bmesh.new()
+                bm.from_mesh(lod.data)
+                bmesh.ops.triangulate(bm, faces=bm.faces[:])
+                bm.to_mesh(lod.data)
+                bm.free()
+            rest_tris = tri_count(lod)
+            if fixed_obj is not None:
+                bpy.ops.object.select_all(action="DESELECT")
+                lod.select_set(True)
+                fixed_obj.select_set(True)
+                bpy.context.view_layer.objects.active = lod
+                bpy.ops.object.join()
+            if lod.data.has_custom_normals:
+                bpy.ops.mesh.customdata_custom_splitnormals_clear()
         shade_by_angle(lod, shade_angle, weighted=False)
         tris = tri_count(lod)
         bb = [lod.bound_box[0][:], lod.bound_box[6][:]]
         drift = max(abs(a - b) for p, q in zip(bb0, bb) for a, b in zip(p, q))
         print(f"[lod] {lod.name}: deleted {removed} faces, {before} -> {tris} tris "
-              f"(target {target}, ratio {ratio:.3f}), bounds drift {drift:.3f} m")
-        if abs(tris - target) > tol * target:
+              f"(target {target}, ratio {ratio:.3f}), bounds drift {drift:.3f} m"
+              + (f"; fixed parts {fixed_tris} tris on top of the rest's {rest_tris}" if fixed is not None else ""))
+        if fixed is not None:
+            if before > target and abs(rest_tris - target) > tol * target:
+                raise RuntimeError(f"{lod.name}: rest {rest_tris} tris vs target {target} (+-{tol:.0%})")
+        elif abs(tris - target) > tol * target:
             raise RuntimeError(f"{lod.name}: {tris} tris vs target {target} (+-{tol:.0%})")
         if drift > 0.05:
             print(f"[lod] WARNING {lod.name}: bounds moved {drift:.3f} m - re-check the "

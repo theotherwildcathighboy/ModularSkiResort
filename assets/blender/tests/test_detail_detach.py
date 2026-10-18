@@ -1154,9 +1154,15 @@ def nitpick_a4():
     objs = [o for o, _k in st if o.name.startswith(pre) and not o.name.startswith(pre + "girder_")]
     station_pairs = {(a[len(pre):], b[len(pre):]) for a, b in _obj_pairs(objs)}
     import re
-    lanes = lambda pairs: {pr for pr in pairs if all(re.search(r"_n(?:_|$)", x) for x in pr)}   # noqa: E731
+    # T62 round 2: a liner touches its own wheel's chamfer only along the crest ring (a ~90 deg edge, no overlap): whether
+    # the BVH reports that edge contact is float noise (it differed between the tower and the station), so the liner /
+    # own-rim pairs (declared in NOSE_CONTACTS) are left out; the inboard hub boss in its sub rocker plate is a real joint
+    # (more pairs a lane than round 1's 8)
+    own = lambda pr: pr[0].startswith("liner_") and pr[1] == "sheave_" + pr[0][len("liner_"):] + "_rim"   # noqa: E731
+    lanes = lambda pairs: {pr for pr in pairs if all(re.search(r"_n(?:_|$)", x) for x in pr) and not own(pr)}   # noqa: E731
     only_t, only_s = sorted(lanes(tower_pairs) - lanes(station_pairs)), sorted(lanes(station_pairs) - lanes(tower_pairs))
-    check(len(lanes(station_pairs)) == 8 and not only_t and not only_s,
+    want_n = len(lanes(tower_pairs))
+    check(len(lanes(station_pairs)) == want_n and want_n > 0 and not only_t and not only_s,
           f"C14 the station train's internal joints (lane n: {len(lanes(station_pairs))} pairs) are the DQ12 tower's "
           f"own (tower-only {only_t[:3]}, station-only {only_s[:3]})")
     lift_terminal.clear_scene()

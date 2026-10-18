@@ -138,7 +138,7 @@ GROUNDED_DQ18 = 14.0
 SWITCH_DQ20 = [4 / 3, 10 / 3, 16 / 3, 22 / 3, 28 / 3]
 GROUNDED_DQ20 = 16.0
 # per-family LOD0 caps (lift_tower.LOD0_CAP): RS section 4 3,500; DQ raised to 3,600 for DQ20
-CAPS = {"FG": 3500, "DQ": 3600, "GD": 3500}
+CAPS = {"FG": 4600, "DQ": 6400, "GD": 7500}     # T62 round 2 (16-segment capped wheels): 3,500 / 3,600 / 3,500 before
 # LOD0 after detail pass 1 (shipped heads; deterministic) and the design ledger (section 3.2 + M1)
 LEDGER = {"FG8": 2762, "FG12": 2946, "FG16": 3170, "FG20": 3258, "ET62": 2722, "ET68": 2730,
           "DQ10": 3138, "DQ12": 3290, "DQ14": 3346, "DQ16": 3394, "DQ18": 3498, "ETDQ": 3010,
@@ -147,17 +147,19 @@ LEDGER = {"FG8": 2762, "FG12": 2946, "FG16": 3170, "FG20": 3258, "ET62": 2722, "
 DESIGN_LEDGER = {"FG8": 2762, "FG12": 2946, "FG16": 3170, "FG20": 3258, "ET62": 2722, "ET68": 2730,
                  "DQ10": 3148, "DQ12": 3300, "DQ14": 3356, "DQ16": 3404, "ETDQ": 3034,
                  "GD12": 3154, "GD16": 3258, "GD20": 3466}
-# T62 (2026-10-18, build/T62-sheave-wheels.md): with cs2_sheaves.WHEELS "v2" (the default) the FG / ET wheels are the
-# DQ20O wheel - no outboard kit axle cap: 8 caps x 24 tris fewer per tower; every other family's count is unchanged (the
-# GD 8-segment n-gon wheel = the flat 12-gon's 44 tris). `--wheels v1` (set_wheels("v1")) keeps the ledgers above.
-T62_DELTA = {k: -192 for k in ("FG8", "FG12", "FG16", "FG20", "ET62", "ET68")}
+# T62 (2026-10-18, build/T62-sheave-wheels.md): with cs2_sheaves.WHEELS "v2" (the default) every wheel is the round-2
+# 16-segment capped wheel (cs2_sheaves.WHEEL_TRIS 224) where v1 built FG 72 + a 24-tri kit axle cap, DQ 72, GD 44 (flat
+# 12-gon): + 2 x sheaves x (224 - v1) per tower (FG8 +1,024, DQ +2,432, GD12-20 +3,600, ETGD +2,880). `--wheels v1`
+# (set_wheels("v1")) keeps the ledgers above.
+T62_V1_WHEEL = {"FG": 96, "DQ": 72, "GD": 44}
 
 
 def _t62(table):
     import cs2_sheaves
     if not cs2_sheaves.wheels_v2():
         return table
-    return {k: v + T62_DELTA.get(k, 0) for k, v in table.items()}
+    return {k: v + 2 * LT.VARIANTS[k].sheaves * (cs2_sheaves.WHEEL_TRIS - T62_V1_WHEEL[LT.VARIANTS[k].family])
+            for k, v in table.items()}
 
 
 LEDGER, DESIGN_LEDGER = _t62(LEDGER), _t62(DESIGN_LEDGER)

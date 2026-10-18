@@ -1,25 +1,41 @@
 """
-T62 gate (2026-10-18; build note docs/research/field/2026-10-15/build/T27-rope-path.md's sibling
-docs/research/field/2026-10-15/build/T62-sheave-wheels.md): ONE sheave wheel on every tower and station.
+T62 gate (2026-10-18; build note docs/research/field/2026-10-15/build/T62-sheave-wheels.md, round 1 and "Round 2"):
+ONE sheave wheel on every tower and station - round 2: the 16-segment capped wheel (cs2_sheaves.WHEEL_PROFILE).
 
 Builds the PARTS (no finish) of every tower (lift_tower VARIANTS: FG8-20, ET62 / ET68, DQ10-20, ETDQ, GD12-20, ETGD),
 the lattice / tram towers (tram_tower: gondola 25 / 32 / 40, tram 30 / 45 / 60) and every station (FG M drive /
 return, DQ base / top, gondola base / top, tram base / top) with cs2_sheaves.WHEELS "v2" and RAISES unless:
 
   S1  every sheave part (identified by its part-name prefix, WHEEL_PARTS) carries the stamp obj["cs2_wheel"] ==
-      cs2_sheaves.WHEEL_ID, i.e. came from cs2_sheaves.wheel, with the family radius (FAMILY_R per asset) - and its
-      measured geometry agrees: max radius about the axle = r (1e-4), V groove root r - max(0.02, 0.18 r), the
-      triangle count of (segs, ngon) (6 segs fan / 4 segs + 2 (segs - 2) n-gon, discs + liner);
+      cs2_sheaves.WHEEL_ID with the family radius / width and 16 segments, and its measured geometry is THE wheel:
+      rim r (1e-4) at a crest ring of 16 vertices per side (segment count), V-groove root r - max(0.02, 0.18 r), crests
+      at |y| = w/2 - chamfer, a 45 deg chamfer ring (r - c at w/2 and r at w/2 - c: chamfer present), a raised hub boss
+      on BOTH faces (12-gon top ring 0.10 r proud, radius <= 0.45 r), the tris (discs + chamfers + bosses 160, liner
+      64 = WHEEL_TRIS 224) and the sharp ring loops marked (>= 112 discs / 48 liner edges); the discs part's material
+      key is cs2_sheaves.WHEEL_KEY and the liner's rubber;
   S2  no stamped part outside WHEEL_PARTS (an unknown wheel) and no FG kit axle cap left (axlecap_ but the T27
       axlecap_stub_ housing); the asset has its expected wheel count;
-  S3  wheel(r 0.223, w 0.10, 12) is lite_sheave_parts(r 0.223, w 0.10, 12) vertex for vertex (the DQ20O wheel IS the
-      builder: the DQ family stays byte-identical);
+  S3  the wheel itself: wheel() tris == WHEEL_TRIS for every family, both UV modes; no mirrored / zero-area UV face;
+      wheel() refuses another segment count;
   S4  v1 (set_wheels("v1")) builds no stamped part and the pre-T62 per-family wheels (the FG axle caps, the GD flat
       rims, the 8-gon tram rollers): the fallback really is the old code path;
-  S6  negatives: the S1 / S2 check RAISES on a v1 FG8 (kit axle caps, unstamped wheels), a v1 GD12 (unstamped flat
-      rims) and a v2 FG8 whose one liner lost its stamp (a hand-built wheel slipped in);
   S5  the stations with no sheave train (FG M return, DQ / gondola base: their trains are the hosted ET62 / ETDQ / ETGD
-      towers; the tram stations: bull / deflection / drum machinery wheels only) carry no wheel part.
+      towers; the tram stations: bull / deflection / drum machinery wheels only) carry no wheel part;
+  S6  negatives: the S1 / S2 check RAISES on a v1 FG8 (kit axle caps, unstamped wheels), a v1 GD12 (unstamped flat
+      rims), a v2 FG8 whose one liner lost its stamp, and a v2 FG8 wheel with one hub boss cut off;
+  M1  material: cs2_sheaves.WHEEL_MATERIAL is painted / galvanised steel, not chrome (metal <= 0.35, smoothness
+      <= 0.45, albedo sRGB luma 0.45-0.70: the snow-props galvanised-luma lesson) and EVERY generator's material table
+      resolves WHEEL_KEY to that one spec (lift_tower, lift_terminal M, lift_terminal_detach, tram_tower);
+  L1  LOD pattern, one rule for every family: a finished-style mesh carrying every family's wheel (r / w), in the
+      authoring, net-rotated and chord-tilted frames, through cs2_asset.make_lod_chain(fixed=cs2_sheaves.lod_fixed()):
+      LOD1 = every wheel exactly WHEEL_LOD[1] (8 crest vertices per side, 28 tris, no boss / chamfer, tri-only, every
+      corner UV one of that part's LOD0 corner UVs), LOD2 = no wheel face; and every generator's make_lod_chain call
+      passes fixed=...lod_fixed() (static check of the four sources);
+  N1  normals survive the export: a shaded wheel (shade_by_angle 66, weighted, as the generators) exported with
+      cs2_asset.export_fbx and re-imported: cap corners (discs, boss tops) exactly axial (flat caps, vanilla's hard
+      tread / cap split), the chamfer corners at the disc edge NOT axial (the split exists), the treads smooth around
+      (adjacent flank corners at a crest vertex within 1 deg). [The repo's .Geometry decoder (vlib.py) reads the
+      game's imported files; the FBX re-import is the check available before Richard imports.]
 
 The ingest DQ heads need the gitignored Kagelok .blend; when it is absent DQ10-DQ20 are built with the rebuild head (the
 train is the same code) and a line says so.
@@ -30,13 +46,19 @@ import math
 import os
 import re
 import sys
+import tempfile
 import time
 
+import bmesh
 import bpy
+import mathutils
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, HERE)
+import cs2_asset  # noqa: E402
 import cs2_sheaves as S  # noqa: E402
+import cs2_validate  # noqa: E402
 import lift_tower as LTw  # noqa: E402
 import lift_terminal as LT  # noqa: E402
 import lift_terminal_detach as LTD  # noqa: E402
@@ -64,6 +86,7 @@ WHEEL_PARTS = re.compile(
     r"|sheave_(?:liner_)?[np]_\d+)$")
 # family wheel per part (radius from cs2_sheaves.WHEEL_FAMILY: the family radius the gate holds every asset to)
 FAM = {k: S.wheel_spec(k) for k in S.WHEEL_FAMILY}
+TOL = 1e-4
 
 
 def _family_of(asset, name):
@@ -90,25 +113,91 @@ def _geom(o):
     return co
 
 
-def _axle_frame(discs):
-    """(centre, axle unit) of a wheel from its discs part: the discs are two planar rings (+ centres); the axle is the
-    direction of least extent of the vertex cloud (PCA), the centre the bbox mid."""
-    co = _geom(discs)
+def _axle_frame_co(co):
+    """(centre, axle unit) of a wheel from its discs' vertices: the bbox mid (the discs + chamfers + bosses are symmetric
+    about the centre) and the direction of least extent (PCA)."""
     c = (co.min(0) + co.max(0)) / 2.0
-    u, s, vt = np.linalg.svd(co - co.mean(0), full_matrices=False)
-    ax = vt[-1] / np.linalg.norm(vt[-1])
-    return c, ax
+    _u, _s, vt = np.linalg.svd(co - co.mean(0), full_matrices=False)
+    return c, vt[-1] / np.linalg.norm(vt[-1])
 
 
-def _radii(o, c, ax):
-    d = _geom(o) - c
+def _axle_frame(discs):
+    return _axle_frame_co(_geom(discs))
+
+
+def _radii_co(co, c, ax):
+    d = co - c
     along = d @ ax
     rad = np.linalg.norm(d - np.outer(along, ax), axis=1)
     return rad, along
 
 
+def _radii(o, c, ax):
+    return _radii_co(_geom(o), c, ax)
+
+
+def _n_sharp(o):
+    a = o.data.attributes.get("sharp_edge")
+    return sum(1 for x in a.data if x.value) if a is not None else 0
+
+
+def wheel_shape(label, dn, ln, discs, liner, W):
+    """S1 geometry of one wheel (discs part, liner part) against WHEEL_PROFILE at the family r / w."""
+    P = S.wheel_profile(W["r"], W["w"])
+    r, hw, hc, c, gd, rb, h = P["r"], P["hw"], P["hc"], P["c"], P["gd"], P["rb"], P["h"]
+    cen, ax = _axle_frame(liner)        # the liner (two crest rings + the root ring) is symmetric whatever the discs lost
+    rd, ad = _radii(discs, cen, ax)
+    rl, al = _radii(liner, cen, ax)
+    if abs(rd.max() - r) > TOL or abs(rl.max() - r) > TOL:
+        _fail("S1", f"{label}: {dn} radius {rd.max():.5f} / liner {rl.max():.5f}, family r {r}")
+    if abs(rl.min() - (r - gd)) > TOL:
+        _fail("S1", f"{label}: {ln} groove root {rl.min():.5f}, want r - max(0.02, 0.18 r) = {r - gd:.5f}")
+    if abs((al.max() - al.min()) - 2.0 * hc) > TOL:
+        _fail("S1", f"{label}: {ln} crest to crest {al.max() - al.min():.5f}, want w - 2 chamfer = {2 * hc:.5f}")
+    crest = np.abs(rl - r) < TOL
+    for sg in (-1.0, 1.0):
+        n = int(np.sum(crest & (sg * al > 0)))
+        if n != S.WHEEL_SEGS:
+            _fail("S1", f"{label}: {ln} {n} crest vertices on the {'+' if sg > 0 else '-'} side, want {S.WHEEL_SEGS} "
+                        f"(segment count)")
+    edge = (np.abs(rd - (r - c)) < TOL) & (np.abs(np.abs(ad) - hw) < TOL)
+    kd = (np.abs(rd - r) < TOL) & (np.abs(np.abs(ad) - hc) < TOL)
+    if int(edge.sum()) != 2 * S.WHEEL_SEGS or int(kd.sum()) != 2 * S.WHEEL_SEGS:
+        _fail("S1", f"{label}: {dn} chamfer rings {int(edge.sum())} / {int(kd.sum())} vertices, want "
+                    f"{2 * S.WHEEL_SEGS} each (45 deg chamfer {c:.4f} on both rim corners)")
+    for sg in (-1.0, 1.0):
+        top = (np.abs(sg * ad - (hw + h)) < TOL)
+        if int(top.sum()) != P["bs"] or rd[top].max() > P["rt"] + TOL:
+            _fail("S1", f"{label}: {dn} hub boss on the {'+' if sg > 0 else '-'} face: {int(top.sum())} top-ring "
+                        f"vertices {h:.4f} proud (want {P['bs']}, radius <= {P['rt']:.4f})")
+    proud = np.abs(ad) > hw + TOL
+    if proud.any() and rd[proud].max() > rb + TOL:
+        _fail("S1", f"{label}: {dn} geometry proud of the disc beyond the boss radius {rb:.4f}")
+    td, tl = _tris(discs), _tris(liner)
+    if td + tl != S.WHEEL_TRIS or tl != 4 * S.WHEEL_SEGS:
+        _fail("S1", f"{label}: {dn} / {ln} tris {td} / {tl}, want {S.WHEEL_TRIS - 4 * S.WHEEL_SEGS} / "
+                    f"{4 * S.WHEEL_SEGS} (WHEEL_TRIS {S.WHEEL_TRIS})")
+    if _n_sharp(discs) < 2 * (2 * S.WHEEL_SEGS + 2 * P["bs"]) or _n_sharp(liner) < 3 * S.WHEEL_SEGS:
+        _fail("S1", f"{label}: {dn} / {ln} sharp ring loops {_n_sharp(discs)} / {_n_sharp(liner)}, want >= "
+                    f"{2 * (2 * S.WHEEL_SEGS + 2 * P['bs'])} / {3 * S.WHEEL_SEGS}")
+
+
+def _liner_of(dn):
+    if dn.endswith("_rim"):
+        if dn.startswith(("sheave_hold_", "sheave_guide_")):
+            a, b = dn[:-len("_rim")].rsplit("sheave_", 1)
+            return a + "liner_" + b
+        return dn[:-len("_rim")].replace("sheave_", "liner_", 1)
+    if dn.startswith("sheave_cw"):
+        return dn + "_liner"
+    if dn.startswith("haulroll_"):
+        return dn.replace("haulroll_", "haulroll_liner_", 1)
+    return dn.replace("sheave_", "sheave_liner_", 1)
+
+
 def check_asset(label, asset, parts):
     names = {o.name: o for o, _m in parts}
+    keys = {o.name: m for o, m in parts}
     wheel_names = sorted(n for n in names if WHEEL_PARTS.match(n))
     stamped = sorted(n for n, o in names.items() if o.get("cs2_wheel"))
     # S2: unknown wheels, kit axle caps
@@ -117,22 +206,14 @@ def check_asset(label, asset, parts):
         _fail("S2", f"{label}: stamped wheel parts outside WHEEL_PARTS {unknown[:6]}")
     caps = sorted(n for n in names if re.search(r"(^|_)axlecap_(?!stub_)", n))
     if caps:
-        _fail("S2", f"{label}: kit axle caps on a v2 build {caps[:6]} (the DQ20O wheel has none)")
+        _fail("S2", f"{label}: kit axle caps on a v2 build {caps[:6]} (the v2 wheel's hub is its own boss)")
     want = asset["wheels"]
     if len(wheel_names) != 2 * want:
         _fail("S2", f"{label}: {len(wheel_names)} wheel parts, want {2 * want} (discs + liner x {want})")
-    # S1: every sheave part from cs2_sheaves.wheel with the family radius, geometry checked
+    # S1: every sheave part from cs2_sheaves.wheel with the family r / w, the profile measured
     discs = [n for n in wheel_names if not re.search(r"liner", n)]
     for dn in discs:
-        if dn.endswith("_rim"):
-            ln = dn[:-len("_rim")].replace("sheave_", "liner_", 1) if not dn.startswith(("sheave_hold_", "sheave_guide_")) \
-                else dn[:-len("_rim")].rsplit("sheave_", 1)[0] + "liner_" + dn[:-len("_rim")].rsplit("sheave_", 1)[1]
-        elif dn.startswith("sheave_cw"):
-            ln = dn + "_liner"
-        elif dn.startswith("haulroll_"):
-            ln = dn.replace("haulroll_", "haulroll_liner_", 1)
-        else:
-            ln = dn.replace("sheave_", "sheave_liner_", 1)
+        ln = _liner_of(dn)
         if ln not in names:
             _fail("S1", f"{label}: wheel {dn} has no liner {ln}")
         fam = _family_of(asset, dn)
@@ -142,27 +223,15 @@ def check_asset(label, asset, parts):
             if o.get("cs2_wheel") != S.WHEEL_ID:
                 _fail("S1", f"{label}: {n} did not come from cs2_sheaves.wheel (stamp {o.get('cs2_wheel')!r})")
             r = float(o.get("cs2_wheel_r", -1.0))
-            if abs(r - W["r"]) > 1e-9 or int(o.get("cs2_wheel_segs", -1)) != W["segs"] \
+            if abs(r - W["r"]) > 1e-9 or int(o.get("cs2_wheel_segs", -1)) != S.WHEEL_SEGS \
                     or abs(float(o.get("cs2_wheel_w", -1.0)) - W["w"]) > 1e-9:
                 _fail("S1", f"{label}: {n} stamped r {r} w {o.get('cs2_wheel_w')} segs {o.get('cs2_wheel_segs')}, "
-                            f"family {fam} wants {W}")
-        c, ax = _axle_frame(names[dn])
-        rd, _a = _radii(names[dn], c, ax)
-        rl, al = _radii(names[ln], c, ax)
-        g = max(0.02, 0.18 * W["r"])
-        if abs(rd.max() - W["r"]) > 1e-4 or abs(rl.max() - W["r"]) > 1e-4:
-            _fail("S1", f"{label}: {dn} radius {rd.max():.5f} / liner {rl.max():.5f}, family {fam} r {W['r']}")
-        if abs(rl.min() - (W["r"] - g)) > 1e-4:
-            _fail("S1", f"{label}: {ln} groove root {rl.min():.5f}, want r - max(0.02, 0.18 r) = {W['r'] - g:.5f}")
-        if abs((al.max() - al.min()) - W["w"]) > 1e-4:
-            _fail("S1", f"{label}: {ln} width {al.max() - al.min():.5f}, family {fam} w {W['w']}")
-        segs = W["segs"]
-        td = 2 * (segs - 2) if W["ngon"] else 2 * segs
-        if _tris(names[dn]) != td or _tris(names[ln]) != 4 * segs:
-            _fail("S1", f"{label}: {dn} / {ln} tris {_tris(names[dn])} / {_tris(names[ln])}, want {td} / {4 * segs} "
-                        f"({segs} segments, {'n-gon' if W['ngon'] else 'fan'} discs)")
-    _ok("S1", f"{label}: {len(discs)} wheels from cs2_sheaves.wheel, families "
-              f"{sorted({_family_of(asset, d) for d in discs})}")
+                            f"family {fam} wants {W} at {S.WHEEL_SEGS} segments")
+        if keys[dn] != S.WHEEL_KEY or keys[ln] != "rubber":
+            _fail("S1", f"{label}: {dn} / {ln} material keys {keys[dn]!r} / {keys[ln]!r}, want {S.WHEEL_KEY!r} / 'rubber'")
+        wheel_shape(label, dn, ln, names[dn], names[ln], W)
+    _ok("S1", f"{label}: {len(discs)} wheels = the 16-segment capped wheel (bosses both faces, chamfers, "
+              f"{S.WHEEL_TRIS} tris, {S.WHEEL_KEY}), families {sorted({_family_of(asset, d) for d in discs})}")
     return len(discs)
 
 
@@ -227,19 +296,234 @@ def assets():
     return out
 
 
-def s3_identity():
+def _uv_areas(o):
+    me = o.data
+    uvd = me.uv_layers["UVMap"].data
+    out = []
+    for p in me.polygons:
+        pts = [uvd[i].uv for i in p.loop_indices]
+        out.append(0.5 * sum(pts[i - 1].x * pts[i].y - pts[i].x * pts[i - 1].y for i in range(len(pts))))
+    return out
+
+
+def s3_wheel():
     _clear()
-    a = S.wheel("w_a", "w_a_liner", 0.223, 0.10, (0.3, -2.6, 8.0), segs=12)
-    b = S.lite_sheave_parts("l_b", "l_b_liner", 0.223, 0.10, (0.3, -2.6, 8.0), segs=12)
-    for (oa, ka), (ob, kb) in zip(a, b):
-        ca, cb = _geom(oa), _geom(ob)
-        fa = [tuple(p.vertices) for p in oa.data.polygons]
-        fb = [tuple(p.vertices) for p in ob.data.polygons]
-        ua = [tuple(round(x, 7) for x in l.uv) for l in oa.data.uv_layers["UVMap"].data]
-        ub = [tuple(round(x, 7) for x in l.uv) for l in ob.data.uv_layers["UVMap"].data]
-        if ka != kb or ca.shape != cb.shape or np.abs(ca - cb).max() > 0.0 or fa != fb or ua != ub:
-            _fail("S3", f"wheel() != lite_sheave_parts() for the DQ wheel ({oa.name} vs {ob.name})")
-    _ok("S3", "wheel(0.223, 0.10, 12) == lite_sheave_parts vertex / face / UV for vertex (the DQ20O wheel)")
+    for fam, W in sorted(FAM.items()):
+        for uv in ("box", "developed"):
+            (d, kd), (l, kl) = S.wheel(f"t_{fam}_{uv}", f"t_{fam}_{uv}_liner", W["r"], W["w"], (0.3, -2.6, 8.0), uv=uv)
+            if _tris(d) + _tris(l) != S.WHEEL_TRIS:
+                _fail("S3", f"{fam} {uv}: {_tris(d) + _tris(l)} tris != WHEEL_TRIS {S.WHEEL_TRIS}")
+            bad = [a for o in (d, l) for a in _uv_areas(o) if a <= 0.0]
+            if bad:
+                _fail("S3", f"{fam} {uv}: {len(bad)} mirrored / zero-area UV faces (a mirrored tangent frame)")
+            wheel_shape(f"S3 {fam} {uv}", d.name, l.name, d, l, W)
+    try:
+        S.wheel("t_bad", "t_bad_liner", 0.2, 0.1, (0, 0, 0), segs=12)
+    except ValueError:
+        pass
+    else:
+        _fail("S3", "wheel(segs=12) did not raise (one wheel, 16 segments)")
+    _ok("S3", f"wheel() = {S.WHEEL_TRIS} tris on every family (box + developed UVs, no mirrored UV face); "
+              f"segs != {S.WHEEL_SEGS} raises")
+
+
+def m1_material():
+    import cs2_bake
+    M = S.WHEEL_MATERIAL
+    lum = 0.2126 * M["albedo"][0] + 0.7152 * M["albedo"][1] + 0.0722 * M["albedo"][2]
+    srgb = 1.055 * lum ** (1 / 2.4) - 0.055
+    smooth = 1.0 - M["rough"]
+    if not (M["metal"] <= 0.35 and smooth <= 0.45 and 0.45 <= srgb <= 0.70):
+        _fail("M1", f"WHEEL_MATERIAL metal {M['metal']} / smoothness {smooth:.2f} / sRGB luma {srgb:.2f}: want <= 0.35 / "
+                    f"<= 0.45 / 0.45-0.70 (painted / galvanised, not chrome)")
+    want = cs2_bake.MaterialSpec(**M)
+    tables = {}
+    tables["lift_tower"] = {**LTw.TOWER_MATERIALS, **S.wheel_materials(dict)}
+    _clear()
+    tables["lift_terminal M"] = LT.materials_for_m(LT.build_station_m("drive"))
+    for g in (False, True):
+        _clear()
+        p = LTD.params_for("top", g, LTD.load_carrier("gd8" if g else "dq"))
+        tables[f"lift_terminal_detach {'gondola' if g else 'dq'} top"] = LTD.materials_for(p, LTD.build_station(p))
+    for fam in ("gondola", "tram"):
+        tables[f"tram_tower {fam}"] = TT.material_specs(False, os.path.join(HERE, "..", "textures"), fam)
+    for k, t in tables.items():
+        got = t.get(S.WHEEL_KEY)
+        got = cs2_bake.MaterialSpec(**got) if isinstance(got, dict) else got
+        if got != want:
+            _fail("M1", f"{k}: {S.WHEEL_KEY} = {got}, want {want}")
+    _ok("M1", f"WHEEL_MATERIAL metal {M['metal']}, smoothness {smooth:.2f}, sRGB luma {srgb:.2f}; one spec in "
+              f"{len(tables)} generator tables")
+
+
+def _wheel_set(frames):
+    """Every family's wheel in each frame (name, liner, parts); returns parts + [(discs, liner, family)]."""
+    parts, wheels = [], []
+    k = 0
+    for fr, M in frames:
+        for fam, W in sorted(FAM.items()):
+            loc = (1.2 * k, 0.0, 3.0)
+            dn, ln = f"sheave_n_{k}_rim", f"liner_n_{k}"
+            P = S.wheel(dn, ln, W["r"], W["w"], loc, uv="box")
+            for o, _key in P:
+                T = mathutils.Matrix.Translation(loc) @ M @ mathutils.Matrix.Translation(tuple(-x for x in loc))
+                o.data.transform(T)
+                o.data.update()
+            parts += P
+            wheels.append((P[0][0].name, P[1][0].name, fam, fr))
+            k += 1
+    return parts, wheels
+
+
+def l1_lod():
+    _clear()
+    S.WHEEL_LOG.clear()
+    frames = (("authoring", mathutils.Matrix.Identity(4)),
+              ("net", mathutils.Matrix.Rotation(math.radians(90.0), 4, "Z")),
+              ("chord", mathutils.Matrix.Rotation(math.radians(-17.0), 4, "Y")))
+    parts, wheels = _wheel_set(frames)
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=2.0)
+    bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=10, use_grid_fill=True)
+    me = bpy.data.meshes.new("filler")
+    bm.to_mesh(me)
+    bm.free()
+    fill = bpy.data.objects.new("filler", me)
+    bpy.context.collection.objects.link(fill)
+    fill.data.uv_layers.new(name="UVMap")
+    parts.append((fill, "paint"))
+    table = cs2_asset.tag_parts(parts)
+    uv0 = {}
+    for o, _k in parts:
+        uvd = o.data.uv_layers["UVMap"].data
+        uv0[o.name] = {(round(l.uv.x, 6), round(l.uv.y, 6)) for l in uvd}
+    bpy.ops.object.select_all(action="DESELECT")
+    for o, _k in parts:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = parts[0][0]
+    bpy.ops.object.join()
+    t = bpy.context.view_layer.objects.active
+    bm = bmesh.new()
+    bm.from_mesh(t.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-4)
+    bm.to_mesh(t.data)
+    bm.free()
+    cs2_asset.store_part_table(t, table)
+    cs2_asset.shade_by_angle(t, 66.0, weighted=True)
+    fx = S.lod_fixed()
+    lods = cs2_asset.make_lod_chain(t, "l1probe", targets=(400, 200), delete_prefixes=((), ()), fixed=fx)
+    idx = {n: i for i, n in enumerate(table, start=1)}
+    for level, lod in enumerate(lods, start=1):
+        me = lod.data
+        if not all(len(p.vertices) == 3 for p in me.polygons):
+            _fail("L1", f"LOD{level} not tri-only")
+        part = [a.value for a in me.attributes["part"].data]
+        co = np.array([tuple(v.co) for v in me.vertices])
+        uvd = me.uv_layers["UVMap"].data
+        for dn, ln, fam, fr in wheels:
+            ids = (idx[dn], idx[ln])
+            polys = [p for p in me.polygons if part[p.index] in ids]
+            if level == 2:
+                if polys:
+                    _fail("L1", f"LOD2 keeps {len(polys)} faces of the {fam} wheel ({fr}): LOD2 = no wheel")
+                continue
+            if len(polys) != S.WHEEL_LOD[1]["tris"]:
+                _fail("L1", f"LOD1 {fam} wheel ({fr}): {len(polys)} tris, want {S.WHEEL_LOD[1]['tris']}")
+            vi = sorted({v for p in polys for v in p.vertices})
+            W = FAM[fam]
+            P = S.wheel_profile(W["r"], W["w"])
+            dco = co[sorted({v for p in polys if part[p.index] == ids[0] for v in p.vertices})]
+            c, ax = _axle_frame_co(co[vi])
+            rad, al = _radii_co(co[vi], c, ax)
+            n_crest = int(np.sum(np.abs(rad - P["r"]) < TOL))
+            if n_crest != 2 * S.WHEEL_LOD[1]["segs"] or np.abs(al).max() > P["hc"] + TOL:
+                _fail("L1", f"LOD1 {fam} wheel ({fr}): {n_crest} crest vertices, |axial| max {np.abs(al).max():.4f}: "
+                            f"want {2 * S.WHEEL_LOD[1]['segs']} on the crest rings, no boss / chamfer")
+            del dco
+            for p in polys:
+                src = uv0[table[part[p.index] - 1]]
+                for li in p.loop_indices:
+                    if (round(uvd[li].uv.x, 6), round(uvd[li].uv.y, 6)) not in src:
+                        _fail("L1", f"LOD1 {fam} wheel ({fr}): a corner UV {tuple(uvd[li].uv)} that is no LOD0 corner "
+                                    f"of {table[part[p.index] - 1]}")
+    for lod in lods:
+        m = lod.data
+        bpy.data.objects.remove(lod, do_unlink=True)
+        bpy.data.meshes.remove(m)
+    # every generator's chain takes the hook
+    for mod in ("lift_tower", "lift_terminal", "lift_terminal_detach", "tram_tower"):
+        src = open(os.path.join(HERE, mod + ".py"), encoding="utf-8").read()
+        calls = [m.start() for m in re.finditer(r"cs2_asset\.make_lod_chain\(", src)]
+        tail = [src[i:src.index(")\n", i) + 1] for i in calls]
+        v2_calls = [s for s in tail if "lod_fixed()" in s]
+        if not v2_calls:
+            _fail("L1", f"{mod}: no make_lod_chain call passes fixed=...lod_fixed() (the wheels would be collapse-decimated)")
+    _ok("L1", f"LOD1 = {S.WHEEL_LOD[1]['form']} ({S.WHEEL_LOD[1]['tris']} tris) and LOD2 = no wheel on "
+              f"{len(wheels)} wheels ({len(FAM)} families x {len(frames)} frames), UVs from LOD0 corners; "
+              f"lift_tower / lift_terminal / lift_terminal_detach / tram_tower chains take lod_fixed()")
+
+
+def n1_normals():
+    _clear()
+    S.WHEEL_LOG.clear()
+    W = FAM["DQ"]
+    P = S.wheel("sheave_n_0_rim", "liner_n_0", W["r"], W["w"], (0.0, 0.0, 1.0))
+    table = cs2_asset.tag_parts(P)
+    bpy.ops.object.select_all(action="DESELECT")
+    for o, _k in P:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = P[0][0]
+    bpy.ops.object.join()
+    t = bpy.context.view_layer.objects.active
+    bm = bmesh.new()
+    bm.from_mesh(t.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-4)
+    bm.to_mesh(t.data)
+    bm.free()
+    cs2_asset.store_part_table(t, table)
+    cs2_asset.shade_by_angle(t, 66.0, weighted=True)
+    t.name = "SkiT62WheelProbe"
+    d = tempfile.mkdtemp(prefix="t62n1_")
+    path = os.path.join(d, "SkiT62WheelProbe.fbx")
+    cs2_asset.export_fbx(t, path)
+    objs = cs2_validate.import_fbx_temp(path)
+    o = [x for x in objs if x.type == "MESH"][0]
+    me = o.data
+    co = np.array([tuple(o.matrix_world @ v.co) for v in me.vertices])
+    c, ax = _axle_frame_co(co)
+    rad, al = _radii_co(co, c, ax)
+    Pr = S.wheel_profile(W["r"], W["w"])
+    sc = rad.max() / Pr["r"]                      # the export scale (cm), whatever the import does with it
+    R3 = np.asarray(o.matrix_world.to_3x3().inverted().transposed())
+    cn = me.corner_normals
+    caps, chamfer_edge, flank = [], [], {}
+    for p in me.polygons:
+        fn = np.asarray(R3 @ np.asarray(p.normal))
+        fn = fn / np.linalg.norm(fn)
+        for li, vi in zip(p.loop_indices, p.vertices):
+            n = np.asarray(R3 @ np.asarray(cn[li].vector))
+            n = n / np.linalg.norm(n)
+            if abs(fn @ ax) > 0.999:
+                caps.append(abs(n @ ax))
+            elif abs(rad[vi] - (Pr["r"] - Pr["c"]) * sc) < 1e-3 * sc and abs(abs(al[vi]) - Pr["hw"] * sc) < 1e-3 * sc:
+                chamfer_edge.append(abs(n @ ax))
+            elif abs(rad[vi] - Pr["r"] * sc) < 1e-3 * sc and (fn @ ax) * al[vi] > 0.0 and abs(fn @ ax) < 0.9:
+                flank.setdefault(vi, []).append(n)
+    cs2_validate.remove_objects(objs)
+    if not caps or min(caps) < 0.9999:
+        _fail("N1", f"cap corner normals not axial after the FBX round trip (min |n.axle| {min(caps) if caps else None})")
+    if not chamfer_edge or max(chamfer_edge) > 0.95:
+        _fail("N1", f"chamfer corners at the disc edge axial ({max(chamfer_edge) if chamfer_edge else None}): "
+                    f"no hard tread / cap split")
+    worst = 0.0
+    for vi, ns in flank.items():
+        for a in ns:
+            for b in ns:
+                worst = max(worst, math.degrees(math.acos(max(-1.0, min(1.0, float(a @ b))))))
+    if not flank or worst > 1.0:
+        _fail("N1", f"tread corners at a crest vertex differ by {worst:.2f} deg (want smooth around, <= 1 deg)")
+    _ok("N1", f"FBX round trip: {len(caps)} cap corners axial (min {min(caps):.5f}), {len(chamfer_edge)} chamfer corners "
+              f"split from the cap (max |n.axle| {max(chamfer_edge):.3f}), treads smooth around (worst {worst:.2f} deg)")
 
 
 def s4_v1():
@@ -255,6 +539,8 @@ def s4_v1():
             names = [o.name for o, _ in P]
             if any(o.get("cs2_wheel") for o, _ in P):
                 _fail("S4", f"v1 {label}: a stamped wheel part (the v1 path must not call cs2_sheaves.wheel)")
+            if any(k == S.WHEEL_KEY for _o, k in P):
+                _fail("S4", f"v1 {label}: a part on the v2 wheel material")
             if not check(names):
                 _fail("S4", f"v1 {label}: the pre-T62 wheel parts are missing (FG kit axle caps)")
             rims = [o for o, _ in P if re.match(r"^(sheave_[np]_\d+_rim|haulroll_[np]_\d+)$", o.name)]
@@ -262,7 +548,10 @@ def s4_v1():
                 _fail("S4", f"v1 {label}: rims are not the flat 12-gon (20-tri discs)")
             if label == "tram tower 30" and any(_tris(o) != 12 for o in rims):
                 _fail("S4", f"v1 {label}: rollers are not the 8-gon sheave_lite (12-tri discs)")
-        _ok("S4", "v1 builds the pre-T62 wheels (FG axle caps, GD flat 12-gon, tram 8-gon) with no stamp")
+        if S.lod_fixed() is not None or S.wheel_materials(dict):
+            _fail("S4", "v1: lod_fixed() / wheel_materials() not empty (a v1 chain / table must stay as it was)")
+        _ok("S4", "v1 builds the pre-T62 wheels (FG axle caps, GD flat 12-gon, tram 8-gon) with no stamp, no wheel "
+                  "material, no LOD hook")
     finally:
         S.set_wheels(old)
 
@@ -286,13 +575,30 @@ def s6_negatives():
         if o.name == "liner_n_0_m":
             del o["cs2_wheel"]
     expect_raise("v2 FG8, one liner unstamped", {"family": "FG", "wheels": 8}, P)
+    P = tower_parts("FG8")
+    for o, _m in P:
+        if o.name == "sheave_n_0_m_rim":
+            bm = bmesh.new()
+            bm.from_mesh(o.data)
+            hw = S.wheel_profile(S.FG_SHEAVE["r"], S.FG_SHEAVE["w"])["hw"]
+            cy = sum(v.co.y for v in bm.verts) / len(bm.verts)
+            kill = [v for v in bm.verts if v.co.y - cy > hw + 1e-4]
+            bmesh.ops.delete(bm, geom=kill, context="VERTS")
+            bm.to_mesh(o.data)
+            bm.free()
+    expect_raise("v2 FG8, one hub boss cut off", {"family": "FG", "wheels": 8}, P)
 
 
 def main():
     t0 = time.time()
     if S.WHEELS != "v2":
         _fail("S0", f"cs2_sheaves.WHEELS default {S.WHEELS!r}, want v2")
-    s3_identity()
+    if any(v["segs"] != S.WHEEL_SEGS for v in FAM.values()) or S.WHEEL_SEGS % 4 or S.WHEEL_SEGS < 16:
+        _fail("S0", f"WHEEL_FAMILY segments {[v['segs'] for v in FAM.values()]}, want {S.WHEEL_SEGS} (>= 16, x4) on all")
+    s3_wheel()
+    m1_material()
+    l1_lod()
+    n1_normals()
     total = 0
     for label, asset, fn in assets():
         P = fn()
@@ -302,7 +608,9 @@ def main():
         total += n
     s4_v1()
     s6_negatives()
-    print(f"PASS test_sheaves: {total} wheels on {len(assets())} assets from cs2_sheaves.wheel ({time.time() - t0:.0f} s)")
+    print(f"PASS test_sheaves: {total} wheels on {len(assets())} assets = the 16-segment capped wheel "
+          f"({S.WHEEL_TRIS} tris, {S.WHEEL_KEY}), LOD1 {S.WHEEL_LOD[1]['tris']} / LOD2 none, normals survive the FBX "
+          f"({time.time() - t0:.0f} s)")
 
 
 if __name__ == "__main__":
