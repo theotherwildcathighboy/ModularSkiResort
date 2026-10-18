@@ -23,6 +23,15 @@ Asserts:
   6. close look on a real building: P2 built with fittings v1 in RAISE mode passes the audit, its gutter is
      refit onto its fascia (back rim 2 mm in), its leader / pipe routed with a seated shoe, and the stovepipe
      cap stands on its collar.
+  7. STRUCTURE (T58, 2026-10-18, docs/research/art/structure-2026-10-18.md, the gate): cs2_fittings.audit_structure
+     on hand-built scenes flags a post standing 30 cm over grade, a post whose top carries nothing, a beam 3 cm short
+     of its wall, a kit bracket with structure off (its members start 2 cm off the wall) and a bracket with nothing
+     on its top (or 6 cm off its wall); it passes a post on grade under a beam into a wall and the kit bracket with
+     structure v1 (its arm 1 cm into the wall, 2 cm off it without); struct_role reads the declared
+     names (P2 log newels = rail posts, flagpanel_ skipped); the snap pass (structure_fix) closes a 10 mm beam gap
+     and a 5 cm post-foot gap and the audit is then clean;
+  8. structure on real buildings: P2 and L2 built with --structure v1 in RAISE mode (both audits clean; L2's
+     abutment, deep step blocks and footings present, its bridge / wing posts gone).
 Exit 1 on the first failure; one PASS line otherwise.
 """
 
@@ -241,6 +250,112 @@ def check_p2_build():
        f"fascia with {g['straps']} straps; the leader's shoe on grade + GROUND_LIFT; the stovepipe cap on its collar")
 
 
+def _sviol(parts, key="T"):
+    a = FIT.audit_structure(_R(90.0, key), parts)
+    return a["violations"], a
+
+
+def check_structure_gate():
+    """T58 gate on hand-built scenes (engine grade z 0, GROUND_LIFT 0.02; authoring = FINAL at yaw 90)."""
+    mode = FIT.STRUCT_AUDIT_MODE
+    FIT.STRUCT_AUDIT_MODE = "report"
+    try:
+        clear()
+        wall = _box("wall_s", (0.0, 0.0, 0.0), (0.3, 4.0, 3.0))
+        # a post on grade under a beam that runs into the wall: clean
+        good = _box("col_a", (-2.1, 1.9, 0.02), (-1.9, 2.1, 2.5)) + _box("beam_a", (-2.15, 1.9, 2.5), (0.05, 2.1, 2.7))
+        v, _a = _sviol(wall + good)
+        assert not v, v
+        # the same post standing 30 cm over grade: foot
+        clear()
+        wall = _box("wall_s", (0.0, 0.0, 0.0), (0.3, 4.0, 3.0))
+        v, _a = _sviol(wall + _box("col_b", (-2.1, 1.9, 0.32), (-1.9, 2.1, 2.5))
+                       + _box("beam_b", (-2.15, 1.9, 2.5), (0.05, 2.1, 2.7)))
+        assert any(r == "foot" and nm.startswith("col_b") for r, nm, _v, _d in v), v
+        # a post whose top carries nothing: top
+        v, _a = _sviol(wall + _box("col_c", (-3.1, 1.9, 0.02), (-2.9, 2.1, 2.2)))
+        assert any(r == "top" and nm.startswith("col_c") for r, nm, _v, _d in v), v
+        # a beam 3 cm short of its wall: end
+        v, _a = _sviol(wall + _box("col_d", (-2.1, 0.4, 0.02), (-1.9, 0.6, 2.5))
+                       + _box("beam_d", (-2.15, 0.4, 2.5), (-0.03, 0.6, 2.7)))
+        assert any(r == "end" and nm.startswith("beam_d") for r, nm, _v, _d in v), v
+        # kit brackets under a balcony slab: off = 2 cm in front of the wall (fails), structure v1 = 1 cm in (passes)
+        clear()
+        wall = _box("wall_s", (0.0, 0.0, 0.0), (0.3, 4.0, 3.0))
+        slab = _box("balc_s", (-1.2, 1.0, 2.0), (0.0, 3.0, 2.2))
+        # (a bracket set 6 cm off its wall touches only its load: fails)
+        off = K.bracket("off", (-0.06, 1.5, 2.0), "-X", span=1.0, drop=0.8, t=0.12)
+        v, _a = _sviol(wall + slab + off)
+        assert any(r == "bracket" and nm.startswith("bracket_off") for r, nm, _v, _d in v), v
+        old = K.bracket("old", (0.0, 1.2, 2.0), "-X", span=1.0, drop=0.8, t=0.12)
+        with K.structure(version=1):
+            on = K.bracket("on", (0.0, 2.5, 2.0), "-X", span=1.0, drop=0.8, t=0.12)
+        arm_x = lambda part: max((part[0][0].matrix_world @ v_.co).x for v_ in part[0][0].data.vertices
+                                 if abs((part[0][0].matrix_world @ v_.co).z - 2.06) < 1e-6)
+        assert arm_x(old) < -0.019 and arm_x(on) > 0.009, (arm_x(old), arm_x(on))   # arm back: 2 cm off -> 1 cm in
+        v, _a = _sviol(wall + slab + on)
+        assert not [x for x in v if x[1].startswith("bracket_on")], v
+        # a bracket on the wall with nothing on its top (20 cm under the slab): bracket
+        clear()
+        wall = _box("wall_s", (0.0, 0.0, 0.0), (0.3, 4.0, 3.0))
+        slab = _box("balc_s", (-1.2, 1.0, 2.2), (0.0, 3.0, 2.4))
+        with K.structure(version=1):
+            low = K.bracket("low", (0.0, 1.5, 2.0), "-X", span=1.0, drop=0.8, t=0.12)
+        v, _a = _sviol(wall + slab + low)
+        assert any(r == "bracket" and "carries nothing" in d for r, _nm, _v, d in v), v
+        # the snap pass: a 10 mm beam gap and a 5 cm post-foot gap close, the audit is then clean
+        clear()
+        wall = _box("wall_s", (0.0, 0.0, 0.0), (0.3, 4.0, 3.0))
+        parts = wall + _box("col_e", (-2.1, 1.9, 0.07), (-1.9, 2.1, 2.5)) \
+            + _box("beam_e", (-2.15, 1.9, 2.5), (-0.01, 2.1, 2.7))
+        moves = FIT.structure_fix(_R(90.0, "T"), parts)
+        kinds = sorted(m["fix"] for m in moves)
+        v, _a = _sviol(parts)
+        assert not v and "foot" in kinds and any(k.startswith("end") for k in kinds), (v, moves)
+        # roles: P2's log newels are rail posts, flag cloths are skipped, kit rail posts / stringers / slabs
+        assert FIT.struct_role("logpost_0", "P2") == "railpost" and FIT.struct_role("logpost_0", "P1") == "post"
+        assert FIT.struct_role("flagpanel_x") is None and FIT.struct_role("flag_x") == "post"
+        assert FIT.struct_role("trail_hutp") == "railpost" and FIT.struct_role("trail_hutr") == "member"
+        assert FIT.struct_role("stair_bas_str0") == "member" and FIT.struct_role("stair_bas_treads") == "held"
+        assert FIT.struct_role("balc_x") == "slab" and FIT.struct_role("balcwall_x") == "held"
+        assert FIT.struct_role("roof_hutcanopy0") == "slab" and FIT.struct_role("trim_trussxgr0") == "member"
+        assert FIT.struct_role("gutter_a") is None and FIT.struct_role("balcpost_x") == "post"
+    finally:
+        FIT.STRUCT_AUDIT_MODE = mode
+    ok("structure gate: a post 30 cm over grade, a post carrying nothing, a beam 3 cm short of its wall, a kit "
+       "bracket 6 cm off its wall and a bracket under nothing all fail; a post on grade under a "
+       "beam into its wall and the structure-v1 kit bracket pass; the snap pass closes a 10 mm end gap and a 5 cm "
+       "foot gap; the kit bracket's arm starts 1 cm in its wall with structure v1 (2 cm off without); struct_role "
+       "reads the declared names")
+
+
+def check_structure_builds():
+    """P2 and L2 through lodge.run with fittings v1 + structure v1, both audits in RAISE mode."""
+    import lodge
+    import tempfile
+    FIT.AUDIT_MODE = "raise"
+    FIT.STRUCT_AUDIT_MODE = "raise"
+    out = {}
+    for key in ("P2", "L2"):
+        args = lodge.parse_args(["--recipe", key, "--blockout", "--out", os.path.join(tempfile.gettempdir(),
+                                 f"test_fittings_s_{key}"), "--no-validate", "--window-kit", "v2", "--door-kit", "v2",
+                                 "--letter", "W", "--fittings", "v1", "--structure", "v1"])
+        lodge.clear_scene()
+        r = lodge.run(lodge.select_recipe(args), args)
+        s = r["structure"]
+        assert s["violations"] == 0 and s["shells"] > 20 and not FIT.LAST_AUDIT["violations"], (key, s)
+        out[key] = s
+        if key == "L2":
+            names = {s_["shell"].rsplit("#", 1)[0] for s_ in FIT.LAST_STRUCT["shells"]}   # the joined mesh has no parts
+            assert {"pier_hutentry", "footing_hut", "step_hut1", "step_hut2"} <= names, sorted(names)
+            assert not ({"col_bridge", "col_skiN", "col_skiS"} & names), names
+            st = [s_ for s_ in FIT.LAST_STRUCT["shells"] if s_["shell"].startswith("step_hut")]
+            assert st and all(s_["foot_mm"] == 0.0 for s_ in st), st
+    ok(f"structure v1 on P2 ({out['P2']['shells']} shells, {len(out['P2']['snaps'])} snaps) and L2 "
+       f"({out['L2']['shells']} shells): both audits clean in RAISE mode; L2's entry abutment, deep step blocks and "
+       f"footings present, its bridge / wing posts gone")
+
+
 def main():
     t0 = time.perf_counter()
     check_shoe()
@@ -248,6 +363,8 @@ def main():
     check_rows()
     check_audit_gate()
     check_p2_build()
+    check_structure_gate()
+    check_structure_builds()
     print(f"PASS test_fittings: {len(CHECKS)} checks ({time.perf_counter() - t0:.1f} s)")
 
 

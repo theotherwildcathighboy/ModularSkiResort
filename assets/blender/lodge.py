@@ -197,6 +197,10 @@ def parse_args(argv=None):
     # roof vents / kitchen flues / entry lamps (vanilla sub-object rows), chimney caps. Needs the door kit.
     ap.add_argument("--fittings", default="off", choices=("off", "v1"),
                     help="v1 = the fittings pass (with --door-kit v2; off = every build byte-identical)")
+    # structure v1 (T58, 2026-10-18, docs/research/art/structure-2026-10-18.md): the structural-realism pass
+    # (posts to grade, brackets on their walls, member ends landed) + the RAISING structure audit. Needs fittings v1.
+    ap.add_argument("--structure", default="off", choices=("off", "v1"),
+                    help="v1 = the structure pass + gate (with --fittings v1; off = every build byte-identical)")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -733,6 +737,15 @@ def fittings_cfg(recipe, args):
     return {"version": 1}
 
 
+def structure_cfg(recipe, args):
+    """kwargs for cs2_bldg.structure, or None (structure off)."""
+    if getattr(args, "structure", "off") != "v1":
+        return None
+    if getattr(args, "fittings", "off") != "v1":
+        raise RuntimeError("--structure v1 builds on --fittings v1 (the audit runs after the fittings pass)")
+    return {"version": 1}
+
+
 def build_parts(recipe, opts):
     """Kit calls in recipe order; asserts unique part names (no Blender .001 renames).
     opts["window_kit"] (window_kit_cfg) builds the windows with kit v2, opts["door_kit"]
@@ -740,6 +753,10 @@ def build_parts(recipe, opts):
     wk = opts.get("window_kit")
     dk = opts.get("door_kit")
     fk = opts.get("fittings")
+    sk = opts.get("structure")
+    if wk and dk and fk and sk:
+        with K.window_kit(**wk), K.door_kit(**dk), K.fittings(**fk), K.structure(**sk):
+            return _build_parts(recipe, opts)
     if wk and dk and fk:
         with K.window_kit(**wk), K.door_kit(**dk), K.fittings(**fk):
             return _build_parts(recipe, opts)
@@ -1336,6 +1353,9 @@ def run(recipe, args):
     fk = fittings_cfg(recipe, args)
     if fk:
         opts["fittings"] = fk
+    sk = structure_cfg(recipe, args)
+    if sk:
+        opts["structure"] = sk
     W_, D_ = recipe.lot
     # 1-2 clean + parts
     clear_scene()
@@ -1349,7 +1369,11 @@ def run(recipe, args):
     fit = None
     if fk:                                  # fittings v1: recipe-independent parts + vanilla rows
         import cs2_fittings
-        fparts, frows, fit = cs2_fittings.build(recipe, parts, opts)
+        if sk:                              # structure v1: built with the kit flag on (K.STRUCTURE)
+            with K.structure(**sk):
+                fparts, frows, fit = cs2_fittings.build(recipe, parts, opts)
+        else:
+            fparts, frows, fit = cs2_fittings.build(recipe, parts, opts)
         parts = list(parts) + list(fparts)
         if frows:
             recipe = replace(recipe, sub_objects=tuple(recipe.sub_objects) + tuple(frows))
@@ -1439,6 +1463,8 @@ def run(recipe, args):
                               "leaf_depths": {k: round(v, 4) for k, v in sorted(door2["leaf_d"].items())},
                               "hardware": {k: v for k, v in sorted(door2["hardware"].items())}}
     if fit is not None:
+        if "structure" in fit:
+            result["structure"] = fit.pop("structure")
         result["fittings"] = fit
     if signset is not None:
         result["sign_set"] = {"obj": signset["obj"], "cid": signset["cid"], "faces": signset["faces"],
@@ -2069,6 +2095,8 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
         data["door_kit"] = {k: v for k, v in result["door_kit"].items() if k != "flat"}
     if "fittings" in result:
         data["fittings"] = result["fittings"]
+    if "structure" in result:              # structure v1 builds only
+        data["structure"] = result["structure"]
     # art pass, detail pass 1: keys only for recipes that use the features (older manifests
     # keep their key set)
     rep = getattr(hook, "report", None) if hook is not None else None

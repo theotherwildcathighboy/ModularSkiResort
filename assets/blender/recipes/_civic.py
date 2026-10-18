@@ -353,12 +353,15 @@ def check_inside(parts, volumes, shrink=0.01, exempt=()):
         exempt = tuple(exempt) + _K.KIT2_RECESSED + ("win_",)
     if _K.DOOR_KIT["version"] == 2:         # door kit v2: recessed leaves, liners, thresholds
         exempt = tuple(exempt) + _K.door2_protect() + ("win_",)
+    # structure v1 (T58): a bracket's members start STRUCT_WALL_EMBED inside their wall (a declared embed)
+    seated = ("bracket_",) if _K.STRUCTURE["version"] >= 1 else ()
     for idx, _n, pts in _world_polys(parts):
         if names[idx].startswith(tuple(exempt)) if exempt else False:
             continue
         c = pts.mean(0)
+        sh = max(shrink, 2.0 * _K.STRUCT_WALL_EMBED) if seated and names[idx].startswith(seated) else shrink
         for vi, (lo, hi) in enumerate(volumes):
-            if all(lo[a] + shrink < c[a] < hi[a] - shrink for a in range(3)):
+            if all(lo[a] + sh < c[a] < hi[a] - sh for a in range(3)):
                 bad.append((names[idx], vi, tuple(round(float(x), 3) for x in c)))
                 break
     if bad:

@@ -2596,16 +2596,23 @@ def bracket(name, at, wall_normal, span=1.0, drop=1.0, t=0.15, curved=False,
         for p, q in zip(pts, pts[1:]):
             _beam_into(g, p, q, t, t)
     else:
-        _beam_into(g, A + n * 0.02, tip, t, t)
-        _beam_into(g, foot + n * 0.02, tip - n * 0.05, t, t)
+        # structure v1 (T58, 2026-10-18): both members start 1 cm INSIDE the wall (they began 2 cm in front of
+        # it: every kit bracket floated off its wall); off = the old 2 cm gap, byte for byte
+        back = -STRUCT_WALL_EMBED if STRUCTURE.get("version", 0) >= 1 else 0.02
+        _beam_into(g, A + n * back, tip, t, t)
+        _beam_into(g, foot + n * back, tip - n * 0.05, t, t)
     return [(g.finish(f"bracket_{name}"), mat)]
 
 
 def truss_kingpost(name, wall, span, eave_z, pitch_deg, member=0.35, braces="curved",
-                   d=0.25, mat="timber_heavy"):
+                   d=0.25, mat="timber_heavy", frame=None):
     """L5 king-post truss in front of a gable face: `truss_<name>` = tie beam at eave_z,
     two rafters, king post, two braces (curved arcs or straight), all `d` m proud.
-    The WallRef's (u0 + u1) / 2 is the truss centre."""
+    The WallRef's (u0 + u1) / 2 is the truss centre.
+    braces="frame" (T57, structure v1, 2026-10-18): each brace rises from the tie at uc +- frame[0] to the
+    rafter at uc +- frame[1], curved outward (away from the king post), so a gable window between the king post
+    and the brace is FRAMED by tie, king post, brace and rafter instead of crossed (Richard: "a decorative wood
+    piece going across the window in a weird way")."""
     uc = 0.5 * (wall.u0 + wall.u1)
     tp = math.tan(math.radians(pitch_deg))
     apex_z = eave_z + tp * span / 2
@@ -2619,6 +2626,15 @@ def truss_kingpost(name, wall, span, eave_z, pitch_deg, member=0.35, braces="cur
     _beam_into(g, P(uc + span / 2, eave_z), P(uc, apex_z), m, m, up=_SIDES[wall.side][0])
     _beam_into(g, P(uc, eave_z), P(uc, apex_z), m, m * 0.9, up=_SIDES[wall.side][0])
     for sg in (-1, 1):
+        if braces == "frame":
+            ua, ub = frame
+            a = Vector(P(uc + sg * ua, eave_z))                     # buried in the tie
+            b = Vector(P(uc + sg * ub, eave_z + tp * (span / 2 - ub)))   # on the rafter's centre line
+            out = (Vector(P(uc + sg, eave_z)) - Vector(P(uc, eave_z))).normalized()
+            mid = (a + b) * 0.5 + out * 0.10 + Vector((0, 0, -0.06))
+            _beam_into(g, a, mid, m * 0.7, m * 0.7, up=_SIDES[wall.side][0])
+            _beam_into(g, mid, b, m * 0.7, m * 0.7, up=_SIDES[wall.side][0])
+            continue
         a = P(uc, eave_z + 0.25 * (apex_z - eave_z))
         b = P(uc + sg * span / 4, eave_z + tp * span / 4 * 1.0)
         if braces == "curved":
@@ -3732,6 +3748,30 @@ def chimney_shroud(name, lo, hi):
         mid = (a.co + b.co) / 2
         g.face([a, b, apex], (mid - cen) + Vector((0, 0, 0.5)))
     return [(g.finish(f"fit_shroud{name}"), "galv")]
+
+
+# structure v1 (T58, 2026-10-18, docs/research/art/structure-2026-10-18.md): lodge.py --structure v1; kit and recipe
+# changes read STRUCTURE["version"] (0 = the old geometry, byte for byte); cs2_fittings.audit_structure is the gate
+STRUCTURE = {"version": 0}
+STRUCT_WALL_EMBED = 0.01        # a bracket / ledger starts this far inside its wall
+
+
+class structure:
+    """Context manager (lodge.build_parts, --structure v1): the kit and the recipes build their structural fixes."""
+
+    def __init__(self, version=1):
+        self.cfg = {"version": int(version)}
+        self._saved = None
+
+    def __enter__(self):
+        self._saved = dict(STRUCTURE)
+        STRUCTURE.update(self.cfg)
+        return STRUCTURE
+
+    def __exit__(self, *exc):
+        STRUCTURE.clear()
+        STRUCTURE.update(self._saved)
+        return False
 
 
 # fittings v1 (2026-10-17, docs/research/art/fittings-2026-10-17.md): the shoe at the foot of every downspout

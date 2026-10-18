@@ -1550,6 +1550,44 @@ PZ_RACKS = (                                       # (name, x, y, along, gear en
 # the plaza fire pit (modelled: a PLACEHOLDER, see PLACEHOLDERS) at the -Y end, the asymmetric
 # counterweight to the cafe terrace; vanilla benches face it (SUB_OBJECT_ROWS)
 PZ_FIREPIT = (-34.0, -31.0)
+
+# ---------------- T57 / T59 (2026-10-18, structure v1: cs2_bldg.STRUCTURE["version"] >= 1, lodge.py --structure v1;
+# off = revision 4 / the close look byte for byte; docs/research/art/structure-2026-10-18.md) --------------------
+# T57 (Richard, Blender review 2026-10-17 item 1: the F2 balcony supports "go almost into the windows below, except
+# that they don't connect so they float ... make it one long structural support pole from the top balcony on each
+# side ... all the way to the ground"): every balcony stack loses its per-balcony struts (`bracket_<n>`, 2 per
+# balcony) and gets two glulam posts `balcpost_<stack>` at the outer corners, from grade (cs2_bldg.GROUND_LIFT; on a
+# slab or the pool deck the foot is buried in it) through every balcony slab and parapet corner to BP_TOP over the
+# top parapet. LOD: kept at LOD1, dropped at LOD2 (lod2_extra).
+BP_W = 0.20                                        # post section (square)
+BP_IN = 0.03                                       # post centre on the parapet panels' centre line (t 0.06)
+BP_TOP = 0.0                                       # the post top is flush with the top parapet (it carries its corner)
+# T57 (item 3: "the roof gable has a decorative wood piece going across the window ... I like both the decoration
+# and the window"): the cross-gable trusses' curved braces crossed the two gable windows; with structure v1 each
+# brace rises from the tie at XG_BRACE_FRAME[0] to the rafter at [1] (cs2_bldg.truss_kingpost braces="frame"), so
+# the window sits framed between king post, tie, brace and rafter; the gate check_gable_braces raises on a truss
+# member inside any gable window's opening + casing.
+XG_BRACE_FRAME = (1.12, 1.75)
+BRACE_SLOPE = 1.43                                 # the framing brace rises 55 deg from the tie (M / wing end gables)
+
+
+def brace_frame(span, pitch_deg, ua=XG_BRACE_FRAME[0]):
+    """(ua, ub) of a framing brace (T57) on a king-post truss of `span` / pitch: from the tie at ua it rises at
+    BRACE_SLOPE until it meets the rafter's centre line at ub (the M and wing end gables; the cross gables use
+    XG_BRACE_FRAME)."""
+    tp = math.tan(math.radians(pitch_deg))
+    return (ua, round((tp * span / 2 + BRACE_SLOPE * ua) / (tp + BRACE_SLOPE), 3))
+GABLE_WIN_CASING = 0.07
+GABLE_WINS = []                                    # (side, plane, s, z0, w, h) of every gable_pair window (per build)
+# T59 (item 4: "We seem to have lost the outdoor firepit props ... Chairs should surround both"): the two S1-surgery
+# CampgroundFireplace02 rows (the stone ring, DECISIONS 231) become recipe rows at both pits, on the deck / plaza
+# surface (S1 had sat them 0.25 m up on the modelled ember disc); the modelled stone rings go (the vanilla ring IS the
+# pit) and the emissive ember disc shrinks to FP_EMBER_R inside the vanilla ring's stones (r 0.45 .. 0.73, logs to
+# 0.17 m, measured on "CampgroundFireplace02 Mesh"), FP_EMBER_Z over the surface: the pit still glows at night (the
+# vanilla prefab carries no effect). Seats: the plaza pit keeps its three GardenBenches at 2.4 m; the terrace pit
+# gets the seats of FIRE_ROWS.
+FP_EMBER_R = 0.38
+FP_EMBER_Z = 0.03
 # (2) revision 3: the road side is a forecourt with a VALET LOOP (verdict B1''): cars come in
 # on the left (-Y) leg, run on +Y under the porte-cochere between its pier rows and leave over
 # the open apron on the right (+Y) to the road. A raised island in front of the canopy holds
@@ -1655,6 +1693,12 @@ VANILLA = {
         variants=("BirchTree01", "EU_AlderTree01", "NA_HickoryTree01", "OakTree01", "PineTree01",
                   "SpruceTree01"),
         bounds=((-9.8, -0.035, -10.128), (9.637, 21.57, 10.128)), tris=30630, snow=None),
+    # T59 (2026-10-18): the stone-ring fire pit, a STANDALONE vanilla prefab (no placeholder, no variants): the GUID
+    # from the PrefabsMap harvest (guid-harvest.json, DECISIONS 230 / 231), bounds / tris from "CampgroundFireplace02
+    # Mesh" (= subobj_bounds.json, = l4_swanky_top.FIRE_PIT_VANILLA), no WeatherObject
+    "CampgroundFireplace02": dict(
+        guid="98c77a4f2885dd541a7a3700edefa21e", variants=(),
+        bounds=((-0.727, -0.008, -0.732), (0.727, 0.229, 0.732)), tris=304, snow=None, placeholder=False),
     # revision 4 (2026-10-12): the porte-cochere gable lights (and L4's entry lights, its
     # revision 1): the fine-detail default for a wall lantern (Richard H4, seventeenth look),
     # 138 tris; mount "wall" = the pivot on the wall face, local +Z out of it (0..0.115), y
@@ -1755,6 +1799,17 @@ SUB_OBJECT_ROWS = (
 # FlagPole01_Clt (no harvestable GUID: no placeholder, buildings-integration O3) stays a
 # proposal for the surgery round's Editor picker: two on the island ends, one on the pool deck
 FLAG_PROPOSALS = ((28.6, -10.6, ISLAND_T), (28.6, 5.6, ISLAND_T), (-28.0, -14.0, PD))
+# T59 (structure v1, the block above PZ_FIREPIT): the two fire pits as rows + the terrace pit's seats (local +Z at the
+# pit). The terrace pit sits 2.25 m inside the podium's east edge with the -Y kerb 2.0 m away: two GardenBenches on
+# its pool side and north side, a DeckChair along its east side (its long axis along y, beside the fire)
+_FP = "CampgroundFireplace02"
+FIRE_ROWS = (
+    (_FP, FIREPIT[0], FIREPIT[1], _PD, 0.0, 0, "pool terrace"),
+    (_B, FIREPIT[0] - 2.1, FIREPIT[1], _PD, 0.0, 0, "pool terrace"),
+    (_B, FIREPIT[0], FIREPIT[1] + 2.1, _PD, -90.0, 0, "pool terrace"),
+    (_C, FIREPIT[0] + 1.6, FIREPIT[1] + 0.6, _PD, 90.0, 0, "pool terrace"),
+    (_FP, PZ_FIREPIT[0], PZ_FIREPIT[1], _ST, 0.0, 0, "slope plaza"),
+)
 
 
 def _yaw_q(deg):
@@ -1773,6 +1828,9 @@ def to_game(x, y, z):
 # the manifest rows (lodge.sub_objects_block): (prefab, guid, game local position, yaw, parent)
 SUB_OBJECTS = tuple((pf, VANILLA[pf]["guid"], to_game(x, y, z), _yaw_q(yaw), int(parent))
                     for pf, x, y, z, yaw, parent, _zone in SUB_OBJECT_ROWS)
+# T59: the rows cs2_fittings.build appends on a structure-v1 build (flag off: the manifest rows are revision 4's)
+STRUCT_SUB_OBJECTS = tuple((pf, VANILLA[pf]["guid"], to_game(x, y, z), _yaw_q(yaw), int(parent))
+                           for pf, x, y, z, yaw, parent, _zone in FIRE_ROWS)
 
 # modelled parts that still stand in for a vanilla prop (verdict B1'': "let me know if they are
 # placeholders"); the builder prints their tris. (part-name prefixes, what, why)
@@ -2057,6 +2115,24 @@ def balcony_lite(name, wall, u0, u1, z, depth=1.4, h=1.05, t=0.06, struts=True):
     return P
 
 
+def _struct():
+    """T57 / T59 (2026-10-18): the structure-v1 changes are on (lodge.py --structure v1)."""
+    return _kit().STRUCTURE.get("version", 0) >= 1
+
+
+def balcony_posts(name, wall, u0, u1, floors, depth=1.4, h=1.05):
+    """T57 (structure v1): `balcpost_<name>` = two BP_W glulam posts at the outer corners of a balcony stack, from
+    grade (GROUND_LIFT; buried in a slab / deck where one is under it) through every balcony to BP_TOP over the top
+    parapet; centred on the parapet panels' centre lines (the corner the side and front panels share). 2 x 5 faces."""
+    K = _kit()
+    ua, ub = sorted((u0, u1))
+    z_top = floors[-1][1] + 0.10 + h + BP_TOP
+    d = depth - BP_IN
+    boxes = [(uc - BP_W / 2, uc + BP_W / 2, K.GROUND_LIFT, z_top, d - BP_W / 2, d + BP_W / 2)
+             for uc in (ua + BP_IN, ub - BP_IN)]
+    return K.wall_boxes(f"balcpost_{name}", wall, boxes, "lux_glulam", drop=("bottom",))
+
+
 def balcony_stack(name, side, plane, s, floors, win_off=2.6):
     """Peak 7 balcony column on a flat wall: per floor a 2-light balcony door 1.6 x 2.3 +
     a 3.4 x 1.4 balcony on the bay centre `s` and a 2-light window either side at
@@ -2064,13 +2140,17 @@ def balcony_stack(name, side, plane, s, floors, win_off=2.6):
     from cs2_bldg import WallRef, WinSpec
     wall = WallRef(side, plane)
     P = []
+    st = _struct()
     for fl, zf in floors:
         P += window_at(f"{name}d{fl}", side, plane, s, WinSpec(1.6, 2.3, zf + 0.12, lights=2))
         u0, u1 = _u(side, s - 1.7, s + 1.7)
-        P += balcony_lite(f"{name}{fl}", wall, u0, u1, zf + 0.10)
+        P += balcony_lite(f"{name}{fl}", wall, u0, u1, zf + 0.10, struts=not st)
         for j, d in enumerate((-win_off, win_off)):
             P += window_at(f"{name}w{fl}{j}", side, plane, s + d,
                            WinSpec(1.4, 1.8, zf + 0.8, lights=2))
+    if st and floors:                           # T57: one post per side, grade to the top balcony
+        u0, u1 = _u(side, s - 1.7, s + 1.7)
+        P += balcony_posts(name, wall, u0, u1, floors)
     return P
 
 
@@ -2093,7 +2173,41 @@ def gable_pair(name, side, plane, s, z=Z_WALL + 0.45):
     P = []
     for j, d in enumerate((-0.62, 0.62)):
         P += window_at(f"{name}{j}", side, plane, s + d, WinSpec(0.5, 1.1, z, lights=1))
+        GABLE_WINS.append((side, plane, s + d, z, 0.5, 1.1))
     return P
+
+
+def check_gable_braces(parts):
+    """T57 gate (structure v1): no truss_ / trim_truss member inside a gable window's opening grown by its casing
+    (GABLE_WIN_CASING), from the wall face out to 0.6 m. Returns the number of windows checked; raises naming the
+    window and the truss."""
+    import numpy as np
+    K = _kit()
+    trusses = []
+    for o, _m in parts:
+        if o.name.startswith(("truss_", "trim_truss")):      # the xg / pc trusses are unbevelled to trim_truss*
+            W = world_coords(o)
+            pts = [np.asarray(W)]
+            for p in o.data.polygons:                  # edge samples every 2 cm (members cross a window mid-edge)
+                vs = list(p.vertices)
+                for a, b in zip(vs, vs[1:] + vs[:1]):
+                    A, B = np.asarray(W[a]), np.asarray(W[b])
+                    n = max(1, int(np.linalg.norm(B - A) / 0.02))
+                    pts.append(A + (B - A) * (np.arange(1, n)[:, None] / n))
+            trusses.append((o.name, np.vstack(pts)))
+    c = GABLE_WIN_CASING
+    for side, plane, s, z0, w, h in GABLE_WINS:
+        n = K._SIDES[side][0]
+        ax = 0 if side[1] == "X" else 1
+        lo, hi = [0.0, 0.0, z0 - c], [0.0, 0.0, z0 + h + c]
+        a, b = sorted((plane, plane + n[ax] * 0.6))
+        lo[ax], hi[ax] = a, b
+        lo[1 - ax], hi[1 - ax] = s - w / 2 - c, s + w / 2 + c
+        for nm, P_ in trusses:
+            inside = np.all((P_ > np.array(lo)) & (P_ < np.array(hi)), axis=1)
+            check(not inside.any(), f"T57 gable brace: {nm} crosses the gable window at {side} {plane:.2f} "
+                                    f"s {s:.2f} z {z0:.2f} (opening + {c} m casing)")
+    return len(GABLE_WINS)
 
 
 def cross_gable(name, side, plane, c, z0, meet, *, wall_mat, glulam, gf_mat=None,
@@ -2147,18 +2261,23 @@ def cross_gable(name, side, plane, c, z0, meet, *, wall_mat, glulam, gf_mat=None
                        XG_RIDGE - 0.02, mat="timber_shake")
     uc = c if side in ("+X", "-Y") else -c
     wall = WallRef(side, front, uc - XG_HALF, uc + XG_HALF)
+    st = _struct()
     P += K.truss_kingpost(f"xg{name}", wall, 2 * XG_HALF - 0.4, Z_WALL, 45.0, member=0.30,
-                          braces="curved", d=0.22, mat=glulam)
+                          braces="frame" if st else "curved", d=0.22, mat=glulam,
+                          frame=XG_BRACE_FRAME if st else None)
     if gf_mat is not None:
         P += window_at(f"xg{name}gf", side, front, c, WinSpec(2.0, 2.4, 1.0, lights=2))
     for fl, zf in floors:
         P += window_at(f"xg{name}d{fl}", side, front, c, WinSpec(1.6, 2.3, zf + 0.12, lights=2))
         u0, u1 = _u(side, c - 1.7, c + 1.7)
-        P += balcony_lite(f"xg{name}{fl}", wall, u0, u1, zf + 0.10)
+        P += balcony_lite(f"xg{name}{fl}", wall, u0, u1, zf + 0.10, struts=not st)
         for j, d in enumerate((-2.35, 2.35)):
             P += window_at(f"xg{name}w{fl}{j}", side, front, c + d,
                            WinSpec(0.8, 1.8, zf + 0.8, lights=1))
     P += gable_pair(f"xg{name}g", side, front, c)
+    if st and floors:                           # T57: one post per side, grade to the top balcony
+        u0, u1 = _u(side, c - 1.7, c + 1.7)
+        P += balcony_posts(f"xg{name}", wall, u0, u1, floors)
     if brackets:
         for j, d in enumerate((-2.4, 2.4)):
             at = (plane, c + d, z0 - 0.05) if axn == "X" else (c + d, plane, z0 - 0.05)
@@ -2344,8 +2463,11 @@ def pool_terrace(stone):
     # revision 3: loungers, umbrellas and lamp posts are vanilla sub-objects (SUB_OBJECT_ROWS);
     # the fire pit stays modelled (a PLACEHOLDER)
     fx, fy = FIREPIT
-    P += ring_part("fp_ring", fx, fy, PD, PD + 0.45, 1.4, 1.0, stone)
-    P += disc_part("lamp_ember", fx, fy, PD + 0.25, 1.0, "lux_ember")
+    if _struct():                               # T59: the vanilla ring is the pit; our ember glows inside it
+        P += disc_part("lamp_ember", fx, fy, PD + FP_EMBER_Z, FP_EMBER_R, "lux_ember")
+    else:
+        P += ring_part("fp_ring", fx, fy, PD, PD + 0.45, 1.4, 1.0, stone)
+        P += disc_part("lamp_ember", fx, fy, PD + 0.25, 1.0, "lux_ember")
     P += pool_steps("e0", "+X", -11.0, -7.0)
     P += pool_steps("e1", "+X", 9.0, 13.0)
     # revision 4: the +-Y flights face the wing terrace doors (were x -23..-19), and a +X flight
@@ -2552,8 +2674,11 @@ def slope_plaza(fine=False):
         P += K.ski_rack_frame(nm, x, y, slots=8, mat="galv", along=along, skis=gear,
                               ski_mat="accent", gear=True, z0=SLAB_T)
     fx, fy = PZ_FIREPIT
-    P += ring_part("fp_pz", fx, fy, SLAB_T, SLAB_T + 0.45, 1.2, 0.85, "lux_stone_tan")
-    P += disc_part("lamp_pzember", fx, fy, SLAB_T + 0.25, 0.85, "lux_ember")
+    if _struct():                               # T59: as the terrace pit
+        P += disc_part("lamp_pzember", fx, fy, SLAB_T + FP_EMBER_Z, FP_EMBER_R, "lux_ember")
+    else:
+        P += ring_part("fp_pz", fx, fy, SLAB_T, SLAB_T + 0.45, 1.2, 0.85, "lux_stone_tan")
+        P += disc_part("lamp_pzember", fx, fy, SLAB_T + 0.25, 0.85, "lux_ember")
     info = dict(x=(PS_X0, POOL_X0), y=(-PS_Y, PS_Y), top=SLAB_T, racks=0 if fine else len(PZ_RACKS))
     return P, info
 
@@ -3012,7 +3137,8 @@ def build_l5(recipe, opts):
     from cs2_bldg import RoofSpec, WallRef, WinSpec
     register_materials()
     fine = bool(getattr(recipe, "fine_detail", False))
-    rows = SUB_OBJECT_ROWS + (FINE_ROWS if fine else ())
+    rows = SUB_OBJECT_ROWS + (FINE_ROWS if fine else ()) + (FIRE_ROWS if _struct() else ())
+    GABLE_WINS.clear()
     STN, GLU = "lux_stone_tan", "lux_glulam"
     SID_LO, SID_HI = "lux_siding_red", "lux_siding_walnut"   # Peak 7 two-tone siding
     P = []
@@ -3037,8 +3163,10 @@ def build_l5(recipe, opts):
     # M gable ends: king-post trusses 0.25 proud (Peak 7's log / timber gables)
     for k, (side, plane) in enumerate((("-Y", M_Y0), ("+Y", M_Y1))):
         u0, u1 = _u(side, M_X0 + 0.3, M_X1 - 0.3)
-        P += K.truss_kingpost(f"xgm{k}", WallRef(side, plane, u0, u1), (M_X1 - M_X0) - 0.6,
-                              Z_WALL, M_PITCH, member=0.36, braces="curved", d=0.25, mat=GLU)
+        sp = (M_X1 - M_X0) - 0.6                 # T57: framing braces beside the gable windows (structure v1)
+        P += K.truss_kingpost(f"xgm{k}", WallRef(side, plane, u0, u1), sp,
+                              Z_WALL, M_PITCH, member=0.36, braces="frame" if _struct() else "curved", d=0.25,
+                              mat=GLU, frame=brace_frame(sp, M_PITCH) if _struct() else None)
 
     # ---------------- WS / WN wings ---------------------------------------------------------
     wspecs = {}
@@ -3061,8 +3189,10 @@ def build_l5(recipe, opts):
         P += K.prism_gable(f"w{tag}end", "X", W_X0, W_X0 + 0.3, y0, y1, Z_WALL, W_RIDGE - 0.02,
                            mat="timber_shake")
         u0, u1 = _u("-X", y0 + 0.3, y1 - 0.3)
-        P += K.truss_kingpost(f"xgend{tag}", WallRef("-X", W_X0, u0, u1), (y1 - y0) - 0.6, Z_WALL,
-                              45.0, member=0.36, braces="curved", d=0.25, mat=GLU)
+        sp = (y1 - y0) - 0.6                     # T57: framing braces beside the gable windows (structure v1)
+        P += K.truss_kingpost(f"xgend{tag}", WallRef("-X", W_X0, u0, u1), sp, Z_WALL,
+                              45.0, member=0.36, braces="frame" if _struct() else "curved", d=0.25, mat=GLU,
+                              frame=brace_frame(sp, 45.0) if _struct() else None)
         wspecs[tag] = wspec
 
     # belt course between the stone GF and the timber floors, corner boards
@@ -3558,7 +3688,10 @@ def build_l5(recipe, opts):
         if o.name.startswith("skirack_pz"):
             z0 = float(world_coords(o)[:, 2].min())
             check(z0 >= SLAB_T - 1e-4, f"R3d {o.name} starts at z {z0:.3f} (inside the plaza)")
-    zones, sboxes = check_sub_objects(P, rows=rows)
+    # T59: the ember discs lie inside the vanilla fire pit's ring on purpose (the glow); the S1 / S2 contract judges
+    # every other part
+    embers = ("lamp_ember", "lamp_pzember") if _struct() else ()
+    zones, sboxes = check_sub_objects([(o, m) for o, m in P if o.name not in embers], rows=rows)
     walks = check_door_walks(P, doors, sboxes, rows=rows)   # revision 4 D4
     if fine:                            # step 3e: F1 on the kit rack rows, the name board
         kit = check_kit_rows_l5(P, sboxes, rows)
@@ -3595,6 +3728,9 @@ def build_l5(recipe, opts):
     else:
         clear = {}
     ph = placeholder_tris(P, FINE_PLACEHOLDERS if fine else PLACEHOLDERS)
+    if _struct():                               # T57 gate: no truss member across a gable window
+        n_gw = check_gable_braces(P)
+        print(f"[L5] T57 gable braces: {n_gw} gable windows clear of every truss member")
     # ---------------- the shift (lot 10 x 9: revision 3, the new cell is the slope side) -------
     shift_x(P, X_SHIFT)
     lo, hi = parts_bounds(P)
@@ -3677,7 +3813,7 @@ RECIPE = FineRecipe(
     # finial are sub-pixel at the 1.6 km switch. Measured on the shipped LOD0 (review pack):
     # 907 free tris -> 480 keeps every kept part's extent (roof rakes, deck_e, the tower cap
     # apex) at 470 / 480 / 490 targets, with or without the chimney caps
-    lod2_extra=("seatwall_", "soffit_pcceil", "plinth_hring", "balcwall_", "stairblk_",
+    lod2_extra=("seatwall_", "soffit_pcceil", "plinth_hring", "balcwall_", "stairblk_", "balcpost_",
                 "poolwall_", "poolcap_",
                 "trsplate_", "flue_", "fp_", "banner_",
                 "poolcope_", "clock_", "pier_", "col_", "soffit_", "deck_w", "tower_ctfin",

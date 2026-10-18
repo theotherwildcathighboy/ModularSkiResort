@@ -259,6 +259,7 @@ def build(recipe, parts, opts):
     """(new parts, design rows, manifest info) for recipe.key. Pure function of the parts and the tables."""
     key = recipe.key
     spec = ROWS.get(key, {})
+    sfix = structure_fix(recipe, parts) if opts.get("structure") else None    # T58 (2026-10-18): snap pass
     fix = closelook(recipe, parts, opts)          # close look (2026-10-17): gutters, downpipes, clips
     sc = _Scene(parts)
     rows, info, placed = [], [], []
@@ -314,8 +315,20 @@ def build(recipe, parts, opts):
     if a["violations"] and AUDIT_MODE == "raise":
         lines = "; ".join(f"{r} {nm} {v} mm: {d}" for r, nm, v, d in a["violations"][:12])
         raise RuntimeError(f"fittings {key}: close-look audit, {len(a['violations'])} violation(s): {lines}")
-    return new, rows, {"version": VERSION, "rows": len(rows), "items": info,
-                       "shoes": bool(opts.get("fittings"))}
+    if opts.get("structure"):                     # T59: a recipe's structure-v1 sub-object rows (L5 fire pits)
+        # the builder's own module globals (bldg_recipes loads recipes/*.py by file, outside sys.modules)
+        extra = tuple(getattr(getattr(recipe, "builder", None), "__globals__", {}).get("STRUCT_SUB_OBJECTS", ()))
+        rows = list(rows) + list(extra)
+        if extra:
+            info.append({"kind": "struct_rows", "n": len(extra), "prefabs": sorted({r[0] for r in extra})})
+    out = {"version": VERSION, "rows": len(rows), "items": info, "shoes": bool(opts.get("fittings"))}
+    if opts.get("structure"):                     # T58: the structure gate (raises in STRUCT_AUDIT_MODE "raise")
+        st = audit_structure(recipe, list(parts) + list(new))
+        out["structure"] = {"version": STRUCT_VERSION, "parts": st["parts"], "shells": st["n_shells"],
+                            "roles": st["roles"], "violations": len(st["violations"]),
+                            "snaps": [m for m in sfix if m["fix"] != "none"],
+                            "unsnapped": len([m for m in sfix if m["fix"] == "none"])}
+    return new, rows, out
 
 
 # =====================================================================================================================
@@ -1553,3 +1566,752 @@ def closelook(recipe, parts, opts):
     route_downspouts(recipe, parts, W, runs, _grade_fn(recipe), rep["pipes"])
     clip_runs(recipe, parts, W, rep["pipes"])
     return rep
+
+
+# =====================================================================================================================
+# STRUCTURE (T58, 2026-10-18; Richard's Blender review: "a pass on all buildings for what is structurally unrealistic";
+# docs/research/art/structure-2026-10-18.md): the fittings close look extended to every DECLARED STRUCTURAL PART.
+# Same frame and units as the fittings audit (authoring frame, before yaw; metres; 5 mm contact). A part is declared
+# by its name (`struct_role`: prefix / suffix rules, plus STRUCT_DECLARE per recipe for the exceptions, each with a
+# reason) and split into connected shells (a boxes_part of six posts = six posts). Per role:
+#   post   (post_, col_, logpost_, stilt_, gazebocol_, lanterncol_, logframe_, the kit rails' `trail_<n>p`; pier_ /
+#          footing_ / step_ / stairblk_ blocks): the FOOT is carried: the median foot point (the outline at the
+#          lowest 1 cm, every 2 cm) is <= 5 mm over the first surface straight below it, buried in another part, or
+#          on grade (the lifted grade plane / the plinth recipe's design terrain; below grade = buried); and the TOP
+#          (highest 1 cm) touches what it carries within 5 mm, unless the part is declared free-topped (a mast).
+#   member (beam_, strut_, truss_, joist_, logplate_, rail_, the kit rails' `trail_<n>r` / `cap`, stair stringers
+#          `stair_<n>_str`; a post that is not vertical): BOTH ENDS land (an end = the last 15 % of its length along
+#          its main axis, 5 cm .. 60 cm): some end point within 5 mm of another part or inside one, or on grade;
+#          a stringer's LOWER end like a post foot (carried from below). tail_ (rafter tails) are cantilevers: one end.
+#   bracket (bracket_): touches >= 2 distinct things (the wall and the load) within 5 mm.
+#   slab   (balc_, deck_, floor_, carpetdeck_, a canopy roof_*canopy*): touches a carrier within 5 mm (a post, a
+#          bracket, a beam, a wall it penetrates, a pier, grade) - its own railing / parapet does not count.
+#   held   (stair treads, glassrail_, balcwall_, kick_, mast_, the rest): touches anything structural within 5 mm.
+# Fittings never carry structure (they are not in the world). The gate RAISES (STRUCT_AUDIT_MODE "raise") on every
+# `lodge.py --structure v1` build; "report" only records (the before-table).
+# =====================================================================================================================
+STRUCT_VERSION = 1
+STRUCT_AUDIT_MODE = "raise"          # "raise" | "report"
+LAST_STRUCT = {}
+STRUCT_END = (0.15, 0.05, 0.60)      # end window: fraction of the length, min, max (m)
+STRUCT_BAND = 0.01                   # foot / top band (m)
+STRUCT_STEP = 0.02                   # edge sampling inside the bands / windows (m)
+LOAD_SEAT_M = 0.10                   # a bracket's top may be seated this deep into the load it carries
+STRUCT_RULES = (
+    # (role, prefixes, excluded prefixes)
+    ("slab", ("balc_", "deck_", "floor_", "carpetdeck_"), ("balcwall_", "deckfascia_")),
+    ("bracket", ("bracket_",), ()),
+    ("railpost", ("post_",), ()),
+    ("post", ("col_", "logpost_", "stilt_", "gazebocol_", "lanterncol_", "logframe_", "pier_",
+              "footing_", "step_", "stairblk_", "balcpost_"), ()),
+    ("member", ("beam_", "strut_", "truss_", "trim_truss", "joist_", "logplate_", "rail_", "tail_"), ()),
+    ("held", ("glassrail_", "balcwall_", "kick_", "mast_", "trsplate_", "galleryrib_"), ()),
+    ("post", ("flag_",), ()),
+)
+CANTILEVER = ("tail_",)              # rafter tails: one end in the eave, the other free by design
+FREE_TOP = ("mast_", "flag_", "step_", "stairblk_", "footing_")   # a mast's top is free; a step / footing top is walked on
+# a rail post may be bolted to the SIDE of what carries it (a stringer, a deck edge, a fascia, a cap): its lower
+# 40 % touches one of these within 5 mm (never a wall: a post hanging on a wall with its foot in air is the defect)
+BEARING = ("step_", "stairblk_", "pier_", "plinth_", "plinthcap_", "footing_")   # a stringer end may bear on these
+SIDE_MOUNT = ("stair_", "deck_", "deckfascia_", "balc_", "plinthcap_", "step_", "stairblk_", "beam_", "joist_",
+              "floor_", "carpet")
+# per recipe: {part name or prefix: (role | "skip", reason)} - the declared exceptions (and the tags a recipe adds)
+STRUCT_DECLARE = {
+    "P2": {"logpost_": ("railpost", "the deck rail's log newels: the steel bars run through them, the tops are free")},
+    "L4": {"trim_dposts": ("post", "the cantilever deck's glulam posts (unbevelled, so renamed trim_)")},
+    "L5": {"trim_twpost": ("railpost", "the tower deck parapet's posts (unbevelled, so renamed trim_)"),
+           "trim_twcap": ("member", "the tower deck parapet's cap rail")},
+}
+# never structure (dressing, signs, lamps, fittings); checked before the rules
+STRUCT_SKIP = ("deckfascia_", "lamp_", "sign_", "flagpanel_", "emblem_", "bench_", "skirack_", "tobrack_", "pole_", "bar_", "wood_")
+
+
+def struct_role(name, key=None):
+    """The structural role of part `name` (None = not structure)."""
+    if _is_fit(name):
+        return None
+    for pre, (role, _why) in sorted(STRUCT_DECLARE.get(key, {}).items(), key=lambda kv: -len(kv[0])):
+        if name == pre or name.startswith(pre):
+            return None if role == "skip" else role
+    if name.startswith(STRUCT_SKIP):
+        return None
+    if name.startswith("trail_"):
+        if name.endswith("cap") or name.endswith("r"):
+            return "member"
+        if name.endswith("p"):
+            return "railpost"
+        return "held"
+    if name.startswith("stair_"):
+        return "member" if "_str" in name else "held"
+    if name.startswith("roof_") and "canopy" in name:
+        return "slab"
+    for role, pres, excl in STRUCT_RULES:
+        if name.startswith(pres) and not name.startswith(excl):
+            return role
+    return None
+
+
+def _face_pts(co, polys, step):
+    """Points every `step` over every polygon's interior (fan triangles, barycentric grid): a wide face resting on a
+    thin support (a rail cap on its glass panel) touches it away from its edges."""
+    out = []
+    for p in polys:
+        for i in range(1, len(p) - 1):
+            A, B, C = co[p[0]], co[p[i]], co[p[i + 1]]
+            n = int(max(np.linalg.norm(B - A), np.linalg.norm(C - A), np.linalg.norm(C - B)) / step) + 1
+            if n < 2:
+                continue
+            ij = np.array([(a, b) for a in range(n + 1) for b in range(n + 1 - a)], dtype=float) / n
+            out.append(A + np.outer(ij[:, 0], B - A) + np.outer(ij[:, 1], C - A))
+    return np.vstack(out) if out else np.zeros((0, 3))
+
+
+def _edge_pts(co, polys, step):
+    """Vertices + points every `step` along every edge (numpy)."""
+    E = set()
+    for p in polys:
+        for i in range(len(p)):
+            a, b = p[i], p[(i + 1) % len(p)]
+            E.add((a, b) if a < b else (b, a))
+    out = [co]
+    if E:
+        A = np.array([co[a] for a, _b in E])
+        B = np.array([co[b] for _a, b in E])
+        L = np.linalg.norm(B - A, axis=1)
+        n = np.maximum(1, np.ceil(L / step)).astype(int)
+        for k in range(1, int(n.max())):
+            m = n > k
+            t = (k / n[m])[:, None]
+            out.append(A[m] + (B[m] - A[m]) * t)
+    return np.vstack(out)
+
+
+class _SWorld:
+    """Every non-fitting part as one BVH; polygon owner = (part, shell id)."""
+
+    def __init__(self, geo, shell_of):
+        verts, polys, self.owner = [], [], []
+        self.names, plo, phi, self.geo, self._pb = [], [], [], [], {}
+        for nm, (co, ps) in geo.items():
+            if _is_fit(nm):
+                continue
+            sid = shell_of.get(nm)
+            base = len(verts)
+            verts += [tuple(c) for c in co]
+            polys += [tuple(base + v for v in p) for p in ps]
+            self.owner += [(nm, sid[i] if sid is not None else 0) for i in range(len(ps))]
+            self.names.append(nm)
+            plo.append(co.min(0))
+            phi.append(co.max(0))
+            self.geo.append((co, ps))
+            self.sid = getattr(self, "sid", {})
+            self.sid[nm] = sid
+        self.bvh = BVHTree.FromPolygons(verts, polys, all_triangles=False)
+        self.plo, self.phi = np.array(plo), np.array(phi)
+
+    def near(self, p, me, r):
+        """[(dist, owner)] of the non-self polygons within r of p."""
+        out = []
+        for _loc, _n, idx, d in self.bvh.find_nearest_range(Vector(tuple(p)), r):
+            ow = self.owner[idx]
+            if ow != me:
+                out.append((d, ow))
+        return out
+
+    def seat(self, p, me):
+        """(gap, owner) of the nearest non-self UPWARD face at or under p within CONTACT_M (a foot resting on it), or
+        None (an open-bottom slab has no underside for the down ray to meet)."""
+        best = None
+        for loc, nrm, idx, d in self.bvh.find_nearest_range(Vector(tuple(p)), CONTACT_M):
+            ow = self.owner[idx]
+            if ow != me and nrm.z > 0.5 and loc.z <= float(p[2]) + 1e-4 and (best is None or d < best[0]):
+                best = (d, ow)
+        return best
+
+    def under(self, p, me):
+        """Owners of the non-self DOWNWARD faces at most CONTACT_M over p or LOAD_SEAT_M under it (what rests on p:
+        a bracket top seated into the slab it carries)."""
+        out = set()
+        for loc, nrm, idx, _d in self.bvh.find_nearest_range(Vector(tuple(p)), CONTACT_M + LOAD_SEAT_M):
+            ow = self.owner[idx]
+            # a downward face just over the point, or one the top is seated into (<= LOAD_SEAT_M)
+            if ow != me and nrm.z < -0.5 and float(p[2]) - LOAD_SEAT_M <= loc.z <= float(p[2]) + CONTACT_M:
+                out.add(ow[0])
+        return out
+
+    def inside_other(self, p, me_part, me_shell=None):
+        """The part p lies inside (not me_part; with me_shell, the OTHER shells of me_part count: a truss's brace
+        end buried in its own tie beam)."""
+        q = np.asarray(tuple(p))
+        for i in np.where(np.all(self.plo - 1e-4 <= q, 1) & np.all(q <= self.phi + 1e-4, 1))[0]:
+            key = i
+            if self.names[i] == me_part:
+                sid = self.sid.get(me_part)
+                if me_shell is None or sid is None:
+                    continue
+                key = ("shells", i)
+                if key not in self._pb:            # one BVH per OTHER shell (a combined one breaks the ray test)
+                    co, ps = self.geo[i]
+                    by = {}
+                    for p_, s_ in zip(ps, sid):
+                        by.setdefault(s_, []).append(p_)
+                    lst = []
+                    for s_, pl in sorted(by.items()):
+                        vv = co[sorted({v for p_ in pl for v in p_})]
+                        lst.append((s_, vv.min(0), vv.max(0),
+                                    BVHTree.FromPolygons([tuple(c) for c in co], pl, all_triangles=False)))
+                    self._pb[key] = lst
+                for s_, lo_, hi_, bv in self._pb[key]:
+                    if s_ == me_shell or np.any(q < lo_ - 1e-4) or np.any(q > hi_ + 1e-4):
+                        continue
+                    if _inside(Vector(tuple(p)), bv, 200.0):
+                        return self.names[i]
+                continue
+            if key not in self._pb:
+                co, ps = self.geo[i]
+                self._pb[key] = BVHTree.FromPolygons([tuple(c) for c in co], ps, all_triangles=False)
+            if _inside(Vector(tuple(p)), self._pb[key], 200.0):
+                return self.names[i]
+        return None
+
+    def embedded(self, p, me, reach=0.10):
+        """A part whose box holds p and two of whose faces p lies just BEHIND (two axis rays meet them from behind
+        within `reach`): an end seated in an open-shelled pier / wall (a part with dropped faces fails _inside)."""
+        q = np.asarray(tuple(p))
+        for i in np.where(np.all(self.plo - 1e-4 <= q, 1) & np.all(q <= self.phi + 1e-4, 1))[0]:
+            if self.names[i] == me[0]:
+                continue
+            if i not in self._pb:
+                co, ps = self.geo[i]
+                self._pb[i] = BVHTree.FromPolygons([tuple(c) for c in co], ps, all_triangles=False)
+            back = 0
+            for d in _DIRS6:
+                r = self._pb[i].ray_cast(Vector(tuple(p)), d, reach)
+                if r[0] is not None and r[1].dot(d) > 0.0:
+                    back += 1
+            if back >= 2:                          # one back face alone is a curved sheet's neighbour facet
+                return self.names[i]
+        return None
+
+    def down(self, p, me, reach=60.0):
+        """(gap, owner) of the first non-self surface straight below p."""
+        o = Vector((float(p[0]), float(p[1]), float(p[2]) - 1e-4))
+        d = Vector((0.0, 0.0, -1.0))
+        gone = 0.0
+        for _k in range(8):
+            loc, nrm, idx, t = self.bvh.ray_cast(o, d, reach - gone)
+            if loc is None:
+                return None
+            if self.owner[idx] != me:
+                if nrm.z < -0.5:                       # met an underside from behind: p is inside that part
+                    return 0.0, self.owner[idx]
+                return gone + t + 1e-4, self.owner[idx]
+            gone += t + 1e-4
+            o = loc + d * 1e-4
+        return None
+
+
+def _inset(pts, d=0.002):
+    """Foot points moved d toward their centroid in plan (off the outline a flush support shares)."""
+    c = pts[:, :2].mean(0)
+    v = c - pts[:, :2]
+    n = np.linalg.norm(v, axis=1)[:, None]
+    out = pts.copy()
+    out[:, :2] += v * np.minimum(1.0, d / np.maximum(n, 1e-9))
+    return out
+
+
+def _foot_gap(W, recipe, grade, p, me):
+    """Gap (m) under a foot point and what carries it: buried in another part / grade -> 0."""
+    g = _ground_gap(recipe, grade, p)
+    if g <= CONTACT_M:
+        return 0.0, "grade"
+    st = W.seat(p, me)
+    if st is not None:
+        return st[0], st[1][0]
+    q = (float(p[0]), float(p[1]), float(p[2]) - 0.002)
+    inn = W.inside_other(q, me[0], me[1])
+    if inn:
+        return 0.0, inn
+    h = W.down(p, me)
+    if h is not None and h[0] < g:
+        return h[0], h[1][0]
+    return g, "grade"
+
+
+def _landed(W, recipe, grade, pts, me):
+    """(gap m, by) of an end / top: the closest non-self surface over the points; inside another part or on grade
+    = 0."""
+    best, by = 9.0, None
+    for p in pts:
+        if _ground_gap(recipe, grade, p) <= CONTACT_M:
+            return 0.0, "grade"
+        nb = W.near(p, me, CONTACT_M)
+        if nb:
+            m = min(nb)
+            return m[0], m[1][0]
+    for p in pts[:: max(1, len(pts) // 24)]:
+        inn = W.inside_other(p, me[0], me[1])
+        if inn:
+            return 0.0, inn
+    for p in pts[:: max(1, len(pts) // 24)]:
+        emb = W.embedded(p, me)
+        if emb:
+            return 0.0, emb
+    for p in pts[:: max(1, len(pts) // 12)]:
+        nb = W.near(p, me, 2.0)
+        if nb and min(nb)[0] < best:
+            best, by = min(nb)[0], min(nb)[1][0]
+    return best, by
+
+
+def audit_structure(recipe, parts):
+    """The T58 structure audit (see the block comment). Returns {"shells": [...], "violations": [...], ...}."""
+    bpy.context.view_layer.update()            # kit rail posts carry an object transform (stale matrix_world)
+    key = recipe.key
+    geo = {o.name: _geo(o) for o, _m in parts if o.type == "MESH" and len(o.data.polygons)}
+    grade = _grade_fn(recipe)
+    roles, shell_of, shells = {}, {}, []
+    for nm in sorted(geo):
+        r = struct_role(nm, key)
+        if r is None:
+            continue
+        roles[nm] = r
+        co, ps = geo[nm]
+        groups = _shells(co, ps)
+        idx = {p: k for k, sp in enumerate(groups) for p in sp}
+        shell_of[nm] = [idx[p] for p in ps]
+        for k, sp in enumerate(groups):
+            vi = sorted({v for p in sp for v in p})
+            remap = {v: i for i, v in enumerate(vi)}
+            shells.append((nm, k, co[vi], [tuple(remap[v] for v in p) for p in sp]))
+    W = _SWorld(geo, shell_of)
+    viol, rec, brk = [], [], {}
+
+    def fin(p):
+        return [round(v, 3) for v in auth_to_final(recipe, tuple(float(x) for x in p))]
+    for nm, k, co, ps in shells:
+        role = roles[nm]
+        me = (nm, k)
+        if role in ("post", "railpost") and float(co[:, 2].min()) > float(geo[nm][0][:, 2].min()) + 0.5                 and float(np.ptp(co[:, 2])) < 0.5:
+            role = "held"                          # a finial / cap shell on top of its post
+        name = f"{nm}#{k}"
+        lo, hi = co.min(0), co.max(0)
+        ext = hi - lo
+        c = co.mean(0)
+        ev, evec = np.linalg.eigh(np.cov((co - c).T) + np.eye(3) * 1e-12)
+        ax = evec[:, int(np.argmax(ev))]
+        srt = np.sort(ev)[::-1]
+        elong = math.sqrt(max(srt[0], 1e-12) / max(srt[1], 1e-12))
+        vertical = abs(ax[2]) >= 0.9 or (elong < 3.0 and ext[2] >= max(ext[0], ext[1]))
+        pts = _edge_pts(co, ps, STRUCT_STEP)
+        if role in ("member", "post", "railpost"):     # ends / tops / feet also sample the faces' interiors
+            pts = np.vstack([pts, _face_pts(co, ps, 0.04)])
+        r = {"shell": name, "role": role, "final_c": fin((lo + hi) / 2), "size": [round(float(v), 3) for v in ext]}
+        bad = []
+        # every shell: touches something (or grade): a crossing first (BVH overlap), else the nearest surface
+        sb = BVHTree.FromPolygons([tuple(v) for v in co], ps, all_triangles=False)
+        ovo = {W.owner[i] for i, _j in W.bvh.overlap(sb) if W.owner[i] != me}
+        ov = sorted({o_[0] for o_ in ovo})
+        if ov:
+            held, hb = 0.0, ov[0]
+        else:
+            held, hb = _landed(W, recipe, grade, pts, me)          # every point: it returns at the first contact
+        r["held_mm"], r["held_by"] = round(held * 1000, 1), hb
+        if held > CONTACT_M:
+            bad.append(("contact", held, f"touches nothing: {held * 1000:.0f} mm from {hb or 'anything'}", c))
+        elif role in ("post", "railpost") and (vertical or elong < 3.0):
+            foot = _inset(pts[pts[:, 2] <= lo[2] + STRUCT_BAND])
+            gaps = sorted(_foot_gap(W, recipe, grade, p, me) for p in foot)
+            med = gaps[len(gaps) // 2]
+            r["foot_mm"], r["foot_on"] = round(med[0] * 1000, 1), med[1]
+            if med[0] > CONTACT_M and role in ("railpost", "post"):
+                low = pts[pts[:, 2] <= lo[2] + 0.4 * max(float(ext[2]), 0.05)]
+                for p in low[:: max(1, len(low) // 60)]:
+                    sm = [ow[0] for _d, ow in W.near(p, me, CONTACT_M) if ow[0].startswith(SIDE_MOUNT)]
+                    if sm:
+                        r["foot_mm"], r["foot_on"] = 0.0, "side:" + sm[0]
+                        med = (0.0, "side:" + sm[0])
+                        break
+            if med[0] > CONTACT_M:
+                bad.append(("foot", med[0], f"foot {med[0] * 1000:.0f} mm over {med[1]} (median of {len(foot)} "
+                                            f"foot points)", foot.mean(0)))
+            if role == "post" and not nm.startswith(FREE_TOP):
+                top = pts[pts[:, 2] >= hi[2] - STRUCT_BAND]
+                g, by = _landed(W, recipe, grade, top, me)
+                r["top_mm"], r["top_on"] = round(g * 1000, 1), by
+                if g > CONTACT_M:
+                    bad.append(("top", g, f"top ends in air: {g * 1000:.0f} mm from {by or 'anything'}",
+                                top.mean(0)))
+        elif role in ("member", "post", "railpost"):
+            t = (pts - c) @ ax
+            L = float(t.max() - t.min())
+            w = min(STRUCT_END[2], max(STRUCT_END[1], STRUCT_END[0] * L))
+            ends = [pts[t <= t.min() + w], pts[t >= t.max() - w]]
+            ends.sort(key=lambda e: round(float(e[:, 2].mean()), 2))   # level ends: t-min first (stable)
+            gs = []
+            for j, e in enumerate(ends):
+                if j == 0 and "_str" in nm and float(ext[2]) > 0.3:     # a stringer's lower end: carried from below
+                    foot = _inset(e[e[:, 2] <= e[:, 2].min() + STRUCT_BAND])
+                    gg = sorted(_foot_gap(W, recipe, grade, p, me) for p in foot)
+                    g0 = gg[len(gg) // 2]
+                    if g0[0] > CONTACT_M:              # or its end bears on a landing / slab edge (a hanger)
+                        for p in e[:: max(1, len(e) // 80)]:
+                            bear = [ow[0] for _d, ow in W.near(p, me, CONTACT_M)
+                                    if struct_role(ow[0], key) == "slab" or ow[0].startswith(BEARING)]
+                            if bear:
+                                g0 = (0.0, "edge:" + bear[0])
+                                break
+                    gs.append(g0)
+                else:
+                    gs.append(_landed(W, recipe, grade, e, me))
+            r["ends_mm"] = [round(g * 1000, 1) for g, _b in gs]
+            r["ends_on"] = [b for _g, b in gs]
+            n_bad = [j for j, (g, _b) in enumerate(gs) if g > CONTACT_M]
+            if nm.startswith(CANTILEVER):
+                n_bad = n_bad if len(n_bad) == 2 else []
+            for j in n_bad:
+                g, by = gs[j]
+                bad.append(("end", g, f"{'lower' if j == 0 else 'upper'} end in air: {g * 1000:.0f} mm from "
+                                      f"{by or 'anything'} (L {L:.2f} m)", ends[j].mean(0)))
+        elif role == "bracket":                    # judged per bracket UNIT (arm + strut ...) after the loop
+            sup = set(ovo)
+            for p in pts[:: max(1, len(pts) // 300)]:
+                for _d, ow in W.near(p, me, CONTACT_M):
+                    sup.add(ow)
+                if _ground_gap(recipe, grade, p) <= CONTACT_M:
+                    sup.add(("grade", 0))
+            load = set()
+            tb = pts[pts[:, 2] >= hi[2] - STRUCT_BAND]
+            for p in tb[:: max(1, len(tb) // 120)]:
+                load |= W.under(p, me)
+            r["load"] = sorted(load)
+            brk.setdefault(nm, []).append((k, sup, c, r, load))
+        elif role == "slab":
+            sup = {o_[0] for o_ in ovo if not (struct_role(o_[0], key) == "held" or o_[0].startswith(
+                ("trail_", "rail_", "post_", "kick_", "glassrail_", "balcwall_")))}
+            for p in pts[:: max(1, len(pts) // 300)]:
+                for _d, ow in W.near(p, me, CONTACT_M):
+                    if struct_role(ow[0], key) == "held" or ow[0].startswith(("trail_", "rail_", "post_", "kick_",
+                                                                              "glassrail_", "balcwall_")):
+                        continue
+                    sup.add(ow[0])
+                if _ground_gap(recipe, grade, p) <= CONTACT_M:
+                    sup.add("grade")
+            r["carried_by"] = sorted(sup)[:8]
+            if not sup:
+                bad.append(("slab", 0.0, "carried by nothing but its own railing", c))
+        r["violations"] = [(chk, round(g * 1000, 1), d, fin(at)) for chk, g, d, at in bad]
+        rec.append(r)
+        for chk, g, d, at in bad:
+            viol.append((chk, name, round(g * 1000, 1), f"{d} at {fin(at)}"))
+    # brackets: shells of one part that touch each other are one bracket; it touches >= 2 things outside itself
+    for nm, lst in sorted(brk.items()):
+        par = {k: k for k, _s, _c, _r, _l in lst}
+
+        def find(a):
+            while par[a] != a:
+                a = par[a]
+            return a
+        for k, sup, _c, _r, _l in lst:
+            for ow in sup:
+                if ow[0] == nm and ow[1] in par:
+                    par[find(ow[1])] = find(k)
+        units = {}
+        for k, sup, c, r, ld in lst:
+            units.setdefault(find(k), []).append((k, sup, c, r, ld))
+        for _u, mem in sorted(units.items()):
+            ext = sorted({ow[0] for _k, sup, _c, _r, _l in mem for ow in sup if ow[0] != nm})
+            load = sorted({x for _k, _s, _c, _r, ld in mem for x in ld if x != nm})
+            for _k, _s, _c, r, _l in mem:
+                r["carries"] = ext
+            if len(ext) < 2 or not load:
+                k0, _s, c0, r0, _l = mem[0]
+                d = (f"bracket ({len(mem)} member(s)) touches {len(ext)} thing(s) {ext}, carries "
+                     f"{load or 'nothing on its top'}: it needs the wall and its load")
+                r0["violations"].append(("bracket", 0.0, d, fin(c0)))
+                viol.append(("bracket", f"{nm}#{k0}", 0.0, f"{d} at {fin(c0)}"))
+    out = {"key": key, "version": STRUCT_VERSION, "n_shells": len(shells), "parts": len(roles),
+           "roles": {k: sum(1 for v in roles.values() if v == k) for k in sorted(set(roles.values()))},
+           "shells": rec, "violations": viol}
+    LAST_STRUCT.clear()
+    LAST_STRUCT.update(out)
+    if viol and STRUCT_AUDIT_MODE == "raise":
+        lines = "; ".join(f"{c_} {n_} {v_} mm: {d_}" for c_, n_, v_, d_ in viol[:12])
+        raise RuntimeError(f"structure {key}: {len(viol)} violation(s) (T58 gate, cs2_fittings.audit_structure): "
+                           f"{lines}")
+    return out
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# STRUCTURE FIX PASS (T58; run by build() before the fittings close look on every `--structure v1` build). The kit and
+# the owned recipes fix their own structure at the source (cs2_bldg.bracket into its wall, L2 / L5 recipe changes);
+# this pass closes the SMALL gaps the audit finds on any building, generically, and reports each move:
+#   end      a member end <= SNAP_END_M short of what it meets along its own axis: the end face runs on to it
+#            (+ STRUCT_SEAT_M); a stringer's lower end runs down onto the first surface below
+#   foot     a post / rail post foot <= SNAP_FOOT_M over the first surface straight below: the foot runs down to it
+#   contact  a shell <= SNAP_SEAT_M from everything (a strip, a rail cap piece): it moves onto the nearest surface
+#   bracket  a bracket with nothing on its top and a downward face <= SNAP_LOAD_M over it: it moves up under it
+# Anything larger is a design defect for the recipe and stays a violation (the gate then raises).
+# ---------------------------------------------------------------------------------------------------------------------
+SNAP_END_M = 0.08
+SNAP_FOOT_M = 0.60
+SNAP_SEAT_M = 0.03
+SNAP_LOAD_M = 0.40
+STRUCT_SEAT_M = 0.003
+LAST_STRUCT_FIX = {}
+
+
+def _move_verts(o, idx, d):
+    """Move mesh vertices `idx` of part o by the world vector d (the part may carry an object transform)."""
+    M = o.matrix_world
+    Mi = M.inverted()
+    D = Vector(tuple(float(x) for x in d))
+    for i in idx:
+        v = o.data.vertices[int(i)]
+        v.co = Mi @ (M @ v.co + D)
+    o.data.update()
+
+
+def _board_sides(o, quad_vi, d):
+    """Close a single quad into a board: four side faces from its edges to the copy of its verts moved by the world
+    vector d (the copy face itself is not built: it lies in the surface the board sits on)."""
+    M = o.matrix_world
+    Mi = M.inverted()
+    D = Vector(tuple(float(x) for x in d))
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    bm.verts.ensure_lookup_table()
+    top = [bm.verts[int(i)] for i in quad_vi]
+    low = [bm.verts.new(Mi @ (M @ v.co + D)) for v in top]
+    c = sum((v.co for v in top), Vector()) / 4.0
+    for i in range(4):
+        a, b = top[i], top[(i + 1) % 4]
+        f = bm.faces.new((a, b, low[(i + 1) % 4], low[i]))
+        mid = (a.co + b.co) * 0.5
+        f.normal_update()
+        if f.normal.dot(mid - c) < 0.0:                # sides face out of the board
+            f.normal_flip()
+    bm.to_mesh(o.data)
+    bm.free()
+    o.data.update()
+
+
+def _shell_verts(o, k):
+    """(world co of the part, the shell's vertex indices, the shell's polys remapped to those indices)."""
+    co, ps = _geo(o)
+    groups = _shells(co, ps)
+    vi = sorted({v for p in groups[k] for v in p})
+    remap = {v: i for i, v in enumerate(vi)}
+    return co, np.array(vi, dtype=int), [tuple(remap[v] for v in p) for p in groups[k]]
+
+
+def _ray_hit(W, me, org, d, reach):
+    """First non-self hit (distance) from org along d within reach (skipping the shell's own faces)."""
+    o = Vector(tuple(float(x) for x in org))
+    dv = Vector(tuple(float(x) for x in d)).normalized()
+    gone = 0.0
+    for _k in range(8):
+        loc, _n, idx, t = W.bvh.ray_cast(o, dv, reach - gone)
+        if loc is None:
+            return None
+        if W.owner[idx] != me:
+            return gone + t
+        gone += t + 1e-5
+        o = loc + dv * 1e-5
+    return None
+
+
+def structure_fix(recipe, parts):
+    """The generic snap pass (see the block comment). Returns the list of moves."""
+    global STRUCT_AUDIT_MODE
+    mode, STRUCT_AUDIT_MODE = STRUCT_AUDIT_MODE, "report"
+    try:
+        a = audit_structure(recipe, parts)
+    finally:
+        STRUCT_AUDIT_MODE = mode
+    by = {o.name: o for o, _m in parts}
+    geo = {o.name: _geo(o) for o, _m in parts if o.type == "MESH" and len(o.data.polygons)}
+    shell_of = {}
+    for nm in geo:
+        if struct_role(nm, recipe.key) is not None:
+            co, ps = geo[nm]
+            groups = _shells(co, ps)
+            idx = {p: k for k, sp in enumerate(groups) for p in sp}
+            shell_of[nm] = [idx[p] for p in ps]
+    W = _SWorld(geo, shell_of)
+    moves = []
+    done = set()
+    for chk, name, mm, detail in sorted(a["violations"]):
+        nm, k = name.rsplit("#", 1)
+        k = int(k)
+        if (nm, k, chk) in done or nm not in by:
+            continue
+        done.add((nm, k, chk))
+        o = by[nm]
+        co, vi, sps = _shell_verts(o, k)
+        sc = co[vi]
+        me = (nm, k)
+        if chk == "end":
+            c = sc.mean(0)
+            ev, evec = np.linalg.eigh(np.cov((sc - c).T) + np.eye(3) * 1e-12)
+            ax = evec[:, int(np.argmax(ev))]
+            t = (sc - c) @ ax
+            L = float(t.max() - t.min())
+            w = min(STRUCT_END[2], max(STRUCT_END[1], STRUCT_END[0] * L))
+            ends = [t <= t.min() + w, t >= t.max() - w]
+            ends.sort(key=lambda m: round(float(sc[m][:, 2].mean()), 2))   # as the audit
+            j = 0 if detail.startswith("lower") else 1
+            m = ends[j]
+            wv, wi = sc[m], vi[m]
+            # the end's own direction: the main axis of the end window's edge samples (an L-shaped rail turns; a
+            # box beam's window holds only its 4 end vertices, so the vertices alone would give the end face's axis)
+            cw = wv.mean(0)
+            ep = _edge_pts(sc, sps, STRUCT_STEP)
+            te = (ep - c) @ ax
+            ep = ep[(te <= t.min() + w) if t[m].mean() <= t.mean() else (te >= t.max() - w)]
+            if len(ep) >= 2 and np.ptp(ep, 0).max() > 1e-4:
+                e2, v2 = np.linalg.eigh(np.cov((ep - ep.mean(0)).T) + np.eye(3) * 1e-12)
+                d = v2[:, int(np.argmax(e2))]
+            else:
+                d = ax
+            far = sc[~m].mean(0) if (~m).any() else c
+            if float((cw - far) @ d) < 0:
+                d = -d
+            tt = (wv - cw) @ d
+            sel = tt >= tt.max() - 1e-3
+            ids, pts = wi[sel], wv[sel]
+            if j == 0 and "_str" in nm:
+                d = np.array((0.0, 0.0, -1.0))            # a stringer foot runs straight down
+            hits = [_ray_hit(W, me, p, d, SNAP_END_M + 0.02) for p in [pts.mean(0)] + list(pts)]
+            hits = [h for h in hits if h is not None]
+            if j == 0 and "_str" in nm and not hits:
+                g = _ground_gap(recipe, _grade_fn(recipe), pts[int(np.argmin(pts[:, 2]))])
+                hits = [g] if 0.0 < g <= SNAP_FOOT_M else []
+            if hits and min(hits) <= (SNAP_FOOT_M if (j == 0 and "_str" in nm) else SNAP_END_M):
+                s = min(hits) + STRUCT_SEAT_M
+                _move_verts(o, ids, np.asarray(d) * s)
+                moves.append({"fix": "end", "shell": name, "mm": round(s * 1000, 1), "was": detail})
+                continue
+            # the end runs on beside what it meets (a rail cap past a pier's corner): stretch it along its own
+            # direction until some end point lands (<= CONTACT_M or inside another part), at most SNAP_END_M
+            if not (j == 0 and "_str" in nm):
+                got = None
+                for s in np.arange(0.005, SNAP_END_M + 1e-9, 0.005):
+                    q = pts + np.asarray(d) * s
+                    if any(W.near(p, me, CONTACT_M) or W.inside_other(p, nm, k) for p in q):
+                        got = float(s)
+                        break
+                if got is not None:
+                    s = got + STRUCT_SEAT_M
+                    _move_verts(o, ids, np.asarray(d) * s)
+                    moves.append({"fix": "end-stretch", "shell": name, "mm": round(s * 1000, 1), "was": detail})
+                    continue
+            # nothing along the member: it stands off a face beside its end (a strut 1 cm proud of its gable):
+            # the whole member moves onto the nearest surface within SNAP_SEAT_M
+            best = None
+            for p in _edge_pts(sc, sps, STRUCT_STEP)[:: 3]:
+                for loc, _n, idx, dd in W.bvh.find_nearest_range(Vector(tuple(p)), SNAP_SEAT_M + 0.005):
+                    if W.owner[idx] != me and (best is None or dd < best[0]):
+                        best = (dd, np.array(loc) - p)
+            if best is not None and best[0] <= SNAP_SEAT_M:
+                v = best[1] / max(np.linalg.norm(best[1]), 1e-9)
+                s = best[0] + STRUCT_SEAT_M
+                _move_verts(o, vi, v * s)
+                moves.append({"fix": "end-seat", "shell": name, "mm": round(s * 1000, 1), "was": detail})
+                continue
+        elif chk == "foot":
+            low = sc[:, 2] <= sc[:, 2].min() + 1e-3
+            pts = _inset(sc[low])
+            gaps = [_foot_gap(W, recipe, _grade_fn(recipe), p, me)[0] for p in pts]
+            g = max(gaps)
+            if 0.0 < g <= SNAP_FOOT_M:
+                s = g + STRUCT_SEAT_M
+                _move_verts(o, vi[low], (0.0, 0.0, -s))
+                moves.append({"fix": "foot", "shell": name, "mm": round(s * 1000, 1), "was": detail})
+                continue
+            # its foot level touches the SIDE of a slab / rim / stringer (SIDE_MOUNT): the post runs down that side
+            # to the support's underside (at most SNAP_FOOT_M) and is bolted along it (the audit's side mount)
+            z0 = float(sc[:, 2].min())
+            sides = set()
+            for p in sc[low]:
+                for _d, ow in W.near(p, me, CONTACT_M):
+                    if ow[0].startswith(SIDE_MOUNT):
+                        sides.add(ow[0])
+            if sides:
+                zb = min(float(W.geo[W.names.index(nm2)][0][:, 2].min()) for nm2 in sides)
+                s = min(z0 - zb, SNAP_FOOT_M)
+                if s > 0.05:
+                    _move_verts(o, vi[low], (0.0, 0.0, -s))
+                    moves.append({"fix": "foot-side", "shell": name, "mm": round(s * 1000, 1),
+                                  "on": sorted(sides), "was": detail})
+                    continue
+        elif chk == "contact":
+            pts = _edge_pts(sc, sps, STRUCT_STEP)
+            best = None
+            for p in pts:
+                for loc, _n, idx, dd in W.bvh.find_nearest_range(Vector(tuple(p)), SNAP_SEAT_M + 0.005):
+                    if W.owner[idx] != me and W.owner[idx][0] != nm and (best is None or dd < best[0]):
+                        best = (dd, np.array(loc) - p)
+            if best is not None and best[0] <= SNAP_SEAT_M:
+                v = best[1] / max(np.linalg.norm(best[1]), 1e-9)
+                s = best[0] + STRUCT_SEAT_M
+                if len(sps) == 1 and len(sps[0]) == 4:
+                    # a single face standing off a parallel surface (a frame strip modelled as the board's front):
+                    # moving it would bury it, so it gets the board's four sides down onto the surface (+8 tris)
+                    A = sc[list(sps[0])]
+                    nrm = np.cross(A[1] - A[0], A[2] - A[0])
+                    nrm /= max(np.linalg.norm(nrm), 1e-12)
+                    if abs(float(nrm @ v)) > 0.85:
+                        _board_sides(o, vi[list(sps[0])], v * s)
+                        moves.append({"fix": "board", "shell": name, "mm": round(s * 1000, 1), "was": detail})
+                        continue
+                _move_verts(o, vi, v * s)
+                moves.append({"fix": "contact", "shell": name, "mm": round(s * 1000, 1), "was": detail})
+                continue
+        elif chk == "bracket":
+            # its top face (the arm's) rises to the nearest downward face over it: a deeper arm, the wall
+            # contact kept
+            co_all, _ps = _geo(o)
+            topm = co_all[:, 2] >= co_all[:, 2].max() - 0.005
+            hs = [_ray_hit(W, (nm, -1), p + np.array((0.0, 0.0, 1e-4)), (0, 0, 1), SNAP_LOAD_M)
+                  for p in co_all[topm]]
+            hs = [h for h in hs if h is not None and h > CONTACT_M]
+            touches = int(detail.split("touches ")[1].split(" ")[0]) if "touches " in detail else 2
+            if touches < 2:
+                # the wall-side ends (both members start at the wall plane) run back onto the wall
+                top_sh = co_all[topm]
+                c0 = top_sh.mean(0)
+                ev, evec = np.linalg.eigh(np.cov((co_all - co_all.mean(0)).T) + np.eye(3) * 1e-12)
+                ax = evec[:, int(np.argmax(ev))].copy()
+                ax[2] = 0.0
+                ax /= max(np.linalg.norm(ax), 1e-9)
+                t = (co_all - c0) @ ax
+                best = None
+                for sg in (-1.0, 1.0):
+                    m = (sg * t) >= (sg * t).max() - 0.02
+                    hh = [_ray_hit(W, (nm, -1), p + ax * sg * 1e-4, ax * sg, 0.15) for p in co_all[m]]
+                    hh = [h for h in hh if h is not None]
+                    if hh and (best is None or min(hh) < best[0]):
+                        best = (min(hh), sg, np.where(m)[0])
+                if best is not None:
+                    s = best[0] + K.STRUCT_WALL_EMBED
+                    _move_verts(o, best[2], ax * best[1] * s)
+                    moves.append({"fix": "bracket-wall", "shell": name, "mm": round(s * 1000, 1), "was": detail})
+                    co_all, _ps = _geo(o)
+                    topm = co_all[:, 2] >= co_all[:, 2].max() - 0.005
+                    hs = [_ray_hit(W, (nm, -1), p + np.array((0.0, 0.0, 1e-4)), (0, 0, 1), SNAP_LOAD_M)
+                          for p in co_all[topm]]
+                    hs = [h for h in hs if h is not None and h > CONTACT_M]
+                    if "carries nothing" not in detail:
+                        continue
+            if hs and "carries nothing" in detail:
+                s = min(hs) + STRUCT_SEAT_M
+                _move_verts(o, np.where(topm)[0], (0.0, 0.0, s))
+                moves.append({"fix": "bracket", "shell": name, "mm": round(s * 1000, 1), "was": detail})
+                continue
+        moves.append({"fix": "none", "shell": name, "mm": mm, "was": detail})
+    bpy.context.view_layer.update()
+    LAST_STRUCT_FIX.clear()
+    LAST_STRUCT_FIX.update({"key": recipe.key, "moves": moves})
+    return moves

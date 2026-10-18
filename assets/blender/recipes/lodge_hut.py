@@ -131,6 +131,25 @@ BAS_STAIR_FOOT_Z = round(-SLOPE * (ANCHOR_X - BAS_STAIR_X) - 0.05, 3)   # -6.315
 BAS_STAIR_N = math.ceil((BAS_DOOR_Z0 - BAS_STAIR_FOOT_Z) / BAS_STAIR_RISE - 1e-9)   # 21
 BAS_STAIR_FOOT_Y = -BAS_LAND_Y - BAS_STAIR_N * BAS_STAIR_RUN                       # -6.88
 BAS_RAIL_H = 1.00
+# ---- T58 / T61 (2026-10-18, structure v1: cs2_bldg.STRUCTURE["version"] >= 1, lodge.py --structure v1; off = the
+# close-look hut byte for byte; docs/research/art/structure-2026-10-18.md) ------------------------------------------
+# T61 (Richard, Blender review 2026-10-17 item 6: "I imagine a build this into a steep hillside ... the stairs might
+# leave some gaps ... extend the front steps down more"): the two stone step blocks stopped 0.60 m under the anchor
+# terrain, so on any hillside steeper than ~60 % their undersides hung in the air beside the bridge; with structure
+# v1 they run down to STEP_Z0_V1 (the old bridge / wing posts' depth): buried on the 35 % design slope, a stone stair
+# base on a steeper one (covered down to ~240 % at the bridge end); the bridge end and both ski-deck wings stand on
+# one stone ABUTMENT `pier_hutentry` (x WING_X0 .. BRIDGE_X1, |y| <= WING_Y, down to STEP_Z0_V1) instead of six thin
+# timber posts over the void (col_bridge, col_ski: the "gap" under the entry in his sketch), so the bridge spans only
+# plinth -> abutment (1.1 m). The wrap deck's six posts stand in concrete FOOTINGS (`footing_hut`): FOOT_W square
+# round each post foot, from FOOT_DOWN under the design grade to FOOT_UP over it at the post's highest corner (never
+# under SUPPORT_Z0: the plinth-mode contract's overall min z); the posts start 5 cm inside them.
+STEP_Z0_V1 = -2.50
+FOOT_W, FOOT_DOWN, FOOT_UP = 0.36, 0.30, 0.20
+# T58: the basement-stair rail posts stood 5 mm OFF the outer stringer with their feet hanging beside the flight
+# (0.35 .. 3.0 m over grade); with structure v1 the rail line moves onto the stringer's outer face so every post is
+# bolted to its side (cs2_fittings SIDE_MOUNT)
+BAS_RAIL_X_V1 = BAS_LAND_X0 + 0.09 - 0.035      # outer stringer face x -6.56, posts 0.07 square
+BAS_POST_DROP_V1 = 0.30                          # the posts run 0.30 m down the stringer's side
 SHUTTER_W, SHUTTER_T = 0.50, 0.04
 STOVE_XY, STOVE_TOP = (1.50, -3.20), 8.60
 
@@ -181,7 +200,7 @@ PREFIXES = ("plinth_", "plinthcap_", "wall_", "gable_", "roof_", "soffit_", "rak
             "fascia_", "ridge_", "tail_", "bracket_", "snowguard_", "gutter_", "downspout_",
             "stovepipe_", "win_", "sill_", "head_", "jamb_", "mull_", "trim_", "entry_",
             "door_", "lamp_", "sign_", "deck_", "deckfascia_", "trail_", "pier_", "col_",
-            "step_", "stair_",
+            "step_", "stair_", "footing_",
             # detail pass 1 (design 3.2 C11 row as corrected by skeptic M1: no festoon_, the
             # string lights are lamp_; no emblem_ on L2)
             "bench_", "skirack_", "drum_", "flag_", "flagpanel_", "stripe_")
@@ -311,6 +330,14 @@ def terrain_z(x):
     return -SLOPE * (ANCHOR_X - x)
 
 
+def _post_z0(K, x, z0):
+    """T61 (structure v1): a deck / bridge / wing post starts 5 cm inside its footing's top (the footing carries it;
+    the buried length it no longer has is the footings' tri budget). Off: the old foot z0."""
+    if K.STRUCTURE.get("version", 0) >= 1:
+        return terrain_z(x + FOOT_W / 2) + FOOT_UP - 0.05
+    return z0
+
+
 def _roof_spec(K):
     return K.RoofSpec("gable", FL_X0, FL_X1, -FL_Y, FL_Y, PLATE_Z, PITCH_DEG, axis="X",
                       overhang=EAVE_OVER, rake_over=RAKE_OVER, thick=ROOF_T, mat="slate")
@@ -332,11 +359,13 @@ def _window(K, name, wall, u, win, room, shutters=False, sill_board=True):
     return parts
 
 
-def _rail_low(K, name, path, h=BAS_RAIL_H, post_every=1.8):
+def _rail_low(K, name, path, h=BAS_RAIL_H, post_every=1.8, post_drop=0.0):
     """Timber guard rail along a 3D polyline that may run BELOW grade (plinth mode; the kit
     rail() lifts every point to GROUND_LIFT): posts 0.07 square (`trail_<name>p`) at every
     vertex and at most `post_every` apart, two rails 0.09 x 0.06 at h - 0.08 and h - 0.54
-    along each segment (`trail_<name>r`) - the kit's timber-rail dimensions."""
+    along each segment (`trail_<name>r`) - the kit's timber-rail dimensions. post_drop (T58, structure v1): the
+    posts of the FIRST segment (the flight) start this far under the path, bolted along the side of the
+    stringer they stand beside."""
     from mathutils import Vector
     pts = [Vector(p) for p in path]
     posts, rails = K._Geo(), K._Geo()
@@ -344,7 +373,7 @@ def _rail_low(K, name, path, h=BAS_RAIL_H, post_every=1.8):
         n = max(1, int(math.ceil((b - a).length / post_every - 1e-9)))
         for j in range(n + (1 if i == len(pts) - 2 else 0)):
             q = a + (b - a) * (j / n)
-            posts.aabb((q.x - 0.035, q.y - 0.035, q.z), (q.x + 0.035, q.y + 0.035, q.z + h))
+            posts.aabb((q.x - 0.035, q.y - 0.035, q.z - (post_drop if i == 0 else 0.0)), (q.x + 0.035, q.y + 0.035, q.z + h))
         for zz in (h - 0.08, h - 0.54):
             up = Vector((0.0, 0.0, zz))
             K._beam_into(rails, a + up, b + up, 0.09, 0.06)
@@ -370,9 +399,12 @@ def _basement_stair(K):
                        for y in (-0.45, BAS_LAND_Y - 0.10)], "timber_heavy")
     rise = (z_top - BAS_STAIR_FOOT_Z) / BAS_STAIR_N
     rx = BAS_LAND_X0 + 0.05                    # outside the outer stringer (x -6.56)
+    drop = 0.0
+    if K.STRUCTURE.get("version", 0) >= 1:     # T58: on the stringer's outer face (side-mounted posts)
+        rx, drop = BAS_RAIL_X_V1, BAS_POST_DROP_V1
     P += _rail_low(K, "bas", [(rx, BAS_STAIR_FOOT_Y + BAS_STAIR_RUN, BAS_STAIR_FOOT_Z + rise),
                               (rx, -BAS_LAND_Y, z_top), (rx, BAS_LAND_Y - 0.05, z_top),
-                              (PL_X0 - 0.05, BAS_LAND_Y - 0.05, z_top)])
+                              (PL_X0 - 0.05, BAS_LAND_Y - 0.05, z_top)], post_drop=drop)
     return P
 
 
@@ -398,8 +430,10 @@ def _wings(K):
                           [((WING_X0 - 0.04, yo0, zb), (BRIDGE_X1 + 0.04, yo1, zt)),
                            ((WING_X0 - 0.04, ya0, zb), (WING_X0, ya1, zt)),
                            ((BRIDGE_X1, ya0, zb), (BRIDGE_X1 + 0.04, ya1, zt))], "trim")
+        if K.STRUCTURE.get("version", 0) >= 1:     # T61: the wings stand on the stone entry abutment
+            continue
         yc = sg * (WING_Y - 0.10)
-        P += K.boxes_part(f"col_ski{tag}", [((x - 0.10, yc - 0.10, BRIDGE_POST_Z0),
+        P += K.boxes_part(f"col_ski{tag}", [((x - 0.10, yc - 0.10, _post_z0(K, x, BRIDGE_POST_Z0)),
                                              (x + 0.10, yc + 0.10, zu)) for x in WING_POSTS_X],
                           "timber_heavy")
     return P
@@ -579,7 +613,8 @@ def build_hut(recipe, opts):
         P += K.stone_pier(f"hut{k}", px, py, 0.8, 0.8, SUPPORT_Z0, z_under, cap=False, ground=False)
     posts = [(DECK_X0 + 0.1, y) for y in (-4.8, -1.5, 1.8)] + \
             [(x, DECK_Y0 + 0.1) for x in (-4.3, -1.0, 2.3)]
-    P += K.boxes_part("col_hutposts", [((x - 0.10, y - 0.10, SUPPORT_Z0), (x + 0.10, y + 0.10, z_under))
+    P += K.boxes_part("col_hutposts", [((x - 0.10, y - 0.10, _post_z0(K, x, SUPPORT_Z0)),
+                                        (x + 0.10, y + 0.10, z_under))
                                        for x, y in posts], "timber_heavy")
     inset = 0.05
     P += K.rail("hut", [(dx_in, FL_Y - inset, DECK_TOP), (DECK_X0 + inset, FL_Y - inset, DECK_TOP),
@@ -593,9 +628,13 @@ def build_hut(recipe, opts):
     # ---- entry bridge over the uphill gap + two step blocks to the anchor terrain ----------
     P += K.deck("bridge", BRIDGE_X0, BRIDGE_X1, -BRIDGE_Y, BRIDGE_Y, DECK_TOP, support="none",
                 fascia=0.30, board_dir="Y", thick=DECK_T)
-    P += K.boxes_part("col_bridge", [((10.70, sg * 1.2 - 0.10, BRIDGE_POST_Z0),
-                                      (10.90, sg * 1.2 + 0.10, z_under)) for sg in (-1, 1)],
-                      "timber_heavy")
+    if K.STRUCTURE.get("version", 0) >= 1:     # T61: a stone abutment under the bridge end and both wings
+        P += K.box_part("pier_hutentry", (WING_X0, -WING_Y, STEP_Z0_V1), (BRIDGE_X1, WING_Y, z_under),
+                        "stone_rubble", drop=("-Z", "+Z"))
+    else:
+        P += K.boxes_part("col_bridge", [((10.70, sg * 1.2 - 0.10, _post_z0(K, 10.80, BRIDGE_POST_Z0)),
+                                          (10.90, sg * 1.2 + 0.10, z_under)) for sg in (-1, 1)],
+                          "timber_heavy")
     # H3: the bridge rails stop at the wings (access) and run on round the wing's downhill
     # (x 9.35) and outer (|y| 3.75) edges as ONE rail per side (no doubled corner posts);
     # the wing's uphill end (x 10.96) stays open to the slope
@@ -606,10 +645,23 @@ def build_hut(recipe, opts):
                                      (xw, yw, DECK_TOP), (BRIDGE_X1 - INSET, yw, DECK_TOP)],
                     kind="timber")
     P += _wings(K)
+    st = K.STRUCTURE.get("version", 0) >= 1
     for k in range(2):
         top = round(DECK_TOP - (k + 1) * STEP_RISE, 4)
-        P += K.box_part(f"step_hut{k + 1}", (STEP_X[k], -BRIDGE_Y, STEP_Z0),
-                        (STEP_X[k + 1], BRIDGE_Y, top), "stone_rubble")
+        if st:                                 # T61: the stone stair base runs down to the post depth
+            P += K.box_part(f"step_hut{k + 1}", (STEP_X[k], -BRIDGE_Y, STEP_Z0_V1),
+                            (STEP_X[k + 1], BRIDGE_Y, top), "stone_rubble", drop=("-Z",))
+        else:
+            P += K.box_part(f"step_hut{k + 1}", (STEP_X[k], -BRIDGE_Y, STEP_Z0),
+                            (STEP_X[k + 1], BRIDGE_Y, top), "stone_rubble")
+    if st:                                     # T61: concrete footings round the wrap deck's post feet
+        boxes = []
+        for x, y in posts:
+            g0 = terrain_z(x - FOOT_W / 2)
+            g1 = terrain_z(x + FOOT_W / 2)
+            boxes.append(((x - FOOT_W / 2, y - FOOT_W / 2, max(g0 - FOOT_DOWN, SUPPORT_Z0)),
+                          (x + FOOT_W / 2, y + FOOT_W / 2, g1 + FOOT_UP), ("-Z",)))
+        P += K.boxes_part("footing_hut", boxes, "concrete")
     # ---- detail pass 1 dressing (design 3.2) ---------------------------------------------
     P += _detail1(K, fine)
     # ---- contract C11: every part carries a kit prefix -------------------------------------
