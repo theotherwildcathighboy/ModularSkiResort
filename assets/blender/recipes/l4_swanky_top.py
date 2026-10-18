@@ -419,7 +419,16 @@ def build_l4(recipe, opts):
                                          (6.5, 1.4, 1.5, Z_LOUNGE + 0.85))):
         P += K.window_bay(f"ubf{j}", uback, -y - w / 2 - 0.25, -y + w / 2 + 0.25,
                           WinSpec(w, h, sill, lights=1 if w < 1.2 else 2), room="ubf1")
-    P += K.balcony("ub", uback, -8.5, -0.5, Z_LOUNGE, depth=1.5, rail="timber", brackets=True)
+    if K.STRUCTURE.get("version", 0) >= 1:
+        # structure v1 round 2 (cs2_fittings.audit_glass, "nothing crosses glass"): the kit spaces the brackets every
+        # ~2.4 m and its third (y 3.23) hung its strut across the GF window ub0 (glass y 2.2..3.8, head 3.05). The
+        # brackets stand on the solid wall instead: either end and the pier between the GF windows (y 4..6)
+        P += K.balcony("ub", uback, -8.5, -0.5, Z_LOUNGE, depth=1.5, rail="timber", brackets=False)
+        for k, y in enumerate((0.7, 5.0, 8.3)):
+            P += K.bracket(f"balcub{k}", tuple(K.wall_point(uback, -y, Z_LOUNGE - 0.2, 0.0)), uback.side,
+                           span=1.5 - 0.15, drop=0.9)
+    else:
+        P += K.balcony("ub", uback, -8.5, -0.5, Z_LOUNGE, depth=1.5, rail="timber", brackets=True)
     # ends (Y -15 "-Y" u = x; Y +9 "+Y" u = -x): GF + F1, clear of the exterior chimney
     for side, plane, tag in (("-Y", U_Y0, "s"), ("+Y", U_Y1, "n")):
         wall = WallRef(side, plane)

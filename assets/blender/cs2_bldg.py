@@ -1068,6 +1068,88 @@ def _beam_into(g, p0, p1, w, h, up=Vector((0, 0, 1))):
     g.obb((P0 + P1) * 0.5, (ax, side, upv), (0.5 * L, 0.5 * w, 0.5 * h))
 
 
+# structure v1 round 2 (Richard 2026-10-18: "that break in brace frame ... I think it would need to be curved. You
+# can see there is a slight gap"): a curved member is ONE mitred beam (rings shared at every joint), never OBB
+# segments (two boxes meeting at an angle leave a notch on the outside of every joint).
+CURVE_SEGS = 6                  # segments of a curved brace / curved bracket (structure v1)
+BRACE_SAG = 0.10                # a framing brace's sagitta: this x its chord ...
+BRACE_SAG_MIN = 0.12            # ... and at least this (m)
+
+
+def arc_points(a, b, bulge, n=CURVE_SEGS):
+    """n + 1 points of the CIRCULAR arc from a to b whose sagitta is the component of `bulge` perpendicular to the
+    chord (the arc lies in the plane of the chord and that component; its mid point is the chord's mid point plus
+    it). A bulge parallel to the chord (or ~0) gives the straight line."""
+    A, B, S = Vector(a), Vector(b), Vector(bulge)
+    ch = B - A
+    c = ch.length
+    d = ch / c
+    sp = S - d * S.dot(d)
+    s = sp.length
+    if s < 1e-6:
+        return [A.lerp(B, k / n) for k in range(n + 1)]
+    nv = sp / s
+    R = (c * c / 4.0 + s * s) / (2.0 * s)
+    O = (A + B) * 0.5 + nv * (s - R)            # the circle's centre (on the far side of the chord when s < c / 2)
+    phi = math.asin(min(1.0, 0.5 * c / R))
+    if s > 0.5 * c:                             # more than a half circle: the long way round
+        phi = math.pi - phi
+    return [O + (nv * math.cos(t) + d * math.sin(t)) * R
+            for t in (-phi + 2.0 * phi * k / n for k in range(n + 1))]
+
+
+def _mitred_into(g, pts, w, h, up=Vector((0, 0, 1)), caps=(True, True), back=None):
+    """ONE continuous w x h beam along a polyline into geometry g: every segment uses _beam_into's frame (w along
+    side = axis x up, h along side x axis) and each interior ring is the segments' corner lines cut by the
+    joint's bisector plane, so the neighbours share it (an exact mitre: no notch, no overlap, the section stays
+    w x h square to the member in every segment). caps = (first, last) end faces; back = a direction whose
+    facing long faces are left out (a face against a wall nobody can see). Returns the rings (vert lists)."""
+    P = [Vector(p) for p in pts]
+    D = []
+    for p, q in zip(P, P[1:]):
+        L = (q - p).length
+        if L < 1e-6:
+            raise ValueError("_mitred_into: repeated point")
+        D.append((q - p) / L)
+    up = Vector(up)
+
+    def frame(ax):
+        side = ax.cross(up)
+        if side.length < 1e-6:
+            side = ax.cross(Vector((1, 0, 0)))
+        side.normalize()
+        return side, side.cross(ax).normalized()
+    corners = ((-1, -1), (1, -1), (1, 1), (-1, 1))
+    rings = []
+    for i, p in enumerate(P):
+        dk = D[max(0, i - 1)]                     # the incoming segment's frame (the first ring: segment 0)
+        side, upv = frame(dk)
+        if 0 < i < len(P) - 1:
+            t = (D[i - 1] + D[i]).normalized()
+        else:
+            t = dk
+        ring = []
+        for sa, sb in corners:
+            off = side * (sa * 0.5 * w) + upv * (sb * 0.5 * h)
+            lam = -off.dot(t) / dk.dot(t)
+            ring.append(g.v(p + off + dk * lam))
+        rings.append(ring)
+    for i in range(len(P) - 1):
+        mid = (P[i] + P[i + 1]) * 0.5
+        for k in range(4):
+            k1 = (k + 1) % 4
+            vs = [rings[i][k], rings[i][k1], rings[i + 1][k1], rings[i + 1][k]]
+            out = sum((v.co for v in vs), Vector()) / 4.0 - mid
+            if back is not None and out.normalized().dot(Vector(back).normalized()) > 0.9:
+                continue
+            g.face(vs, out)
+    if caps[0]:
+        g.face(list(rings[0]), -D[0])
+    if caps[1]:
+        g.face(list(rings[-1]), D[-1])
+    return rings
+
+
 def shed_roof(name, spec, low_side="-X", fascia=0.42, brackets=0):
     """One slab rising from the `low_side` wall line (centre plane at spec.eave_z there,
     pitch spec.pitch_deg), side cheeks `gable_<name>c0/c1` between the walls' top and the
@@ -2588,7 +2670,14 @@ def bracket(name, at, wall_normal, span=1.0, drop=1.0, t=0.15, curved=False,
     tip = A + n * span
     foot = A - Vector((0, 0, drop))
     g = _Geo()
-    if curved:
+    if curved and STRUCTURE.get("version", 0) >= 1:
+        # structure v1 round 2: one mitred glulam arc (CURVE_SEGS segments, rings shared: no notch at a joint)
+        pts = []
+        for k in range(CURVE_SEGS + 1):
+            a = 0.5 * math.pi * k / CURVE_SEGS
+            pts.append(foot + n * (span * (1 - math.cos(a))) + Vector((0, 0, drop * math.sin(a))))
+        _mitred_into(g, pts, t, t)
+    elif curved:
         pts = []
         for k in range(5):
             a = 0.5 * math.pi * k / 4
@@ -2612,7 +2701,14 @@ def truss_kingpost(name, wall, span, eave_z, pitch_deg, member=0.35, braces="cur
     braces="frame" (T57, structure v1, 2026-10-18): each brace rises from the tie at uc +- frame[0] to the
     rafter at uc +- frame[1], curved outward (away from the king post), so a gable window between the king post
     and the brace is FRAMED by tie, king post, brace and rafter instead of crossed (Richard: "a decorative wood
-    piece going across the window in a weird way")."""
+    piece going across the window in a weird way").
+    Structure v1 round 2 (Richard 2026-10-18: "that break in brace frame ... it would need to be curved"): both
+    "frame" and "curved" braces are ONE circular arc each (arc_points, CURVE_SEGS segments, _mitred_into: no notch
+    at any joint, 0.7 x member square to the member), each its own part `truss_<name>br<k>` (the kit "along"
+    projection runs along a part's principal axis: grain along the brace, not along the tie). A "frame" brace
+    bulges away from the king post (sagitta BRACE_SAG x its chord, >= BRACE_SAG_MIN); a "curved" brace keeps its
+    0.25 m droop. Both ends sit on the centre lines of what they meet (end faces buried). A "frame" brace has no
+    wall-facing side (d m in front of its gable: never seen; the L5 cap)."""
     uc = 0.5 * (wall.u0 + wall.u1)
     tp = math.tan(math.radians(pitch_deg))
     apex_z = eave_z + tp * span / 2
@@ -2625,6 +2721,30 @@ def truss_kingpost(name, wall, span, eave_z, pitch_deg, member=0.35, braces="cur
     _beam_into(g, P(uc - span / 2, eave_z), P(uc, apex_z), m, m, up=_SIDES[wall.side][0])
     _beam_into(g, P(uc + span / 2, eave_z), P(uc, apex_z), m, m, up=_SIDES[wall.side][0])
     _beam_into(g, P(uc, eave_z), P(uc, apex_z), m, m * 0.9, up=_SIDES[wall.side][0])
+    if STRUCTURE.get("version", 0) >= 1 and braces in ("frame", "curved"):
+        wn = _SIDES[wall.side][0]
+        parts = [(g.finish(f"truss_{name}"), mat)]
+        for k, sg in enumerate((-1, 1)):
+            if braces == "frame":
+                ua, ub = frame
+                a = Vector(P(uc + sg * ua, eave_z))                          # on the tie's centre line
+                b = Vector(P(uc + sg * ub, eave_z + tp * (span / 2 - ub)))   # on the rafter's centre line
+                out = (Vector(P(uc + sg, eave_z)) - Vector(P(uc, eave_z))).normalized()
+                c = (b - a).length
+                ch = (b - a) / c
+                perp = out - ch * out.dot(ch)                # in the wall plane, square to the chord, outward
+                perp = perp - wn * perp.dot(wn)
+                bulge = perp.normalized() * max(BRACE_SAG_MIN, BRACE_SAG * c)
+            else:
+                a = Vector(P(uc, eave_z + 0.25 * (apex_z - eave_z)))
+                b = Vector(P(uc + sg * span / 4, eave_z + tp * span / 4 * 1.0))
+                bulge = Vector((0, 0, -0.25))
+            bg = _Geo()
+            # a framing brace stands d m in front of its gable wall: its wall-facing side is never seen (L5 budget)
+            _mitred_into(bg, arc_points(a, b, bulge), m * 0.7, m * 0.7, up=wn,
+                         back=-wn if braces == "frame" else None)
+            parts.append((bg.finish(f"truss_{name}br{k}"), mat))
+        return parts
     for sg in (-1, 1):
         if braces == "frame":
             ua, ub = frame

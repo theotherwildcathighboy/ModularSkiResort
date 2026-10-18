@@ -757,8 +757,105 @@ def check_fine_builders():
        f"tris {FINE_TRIS}; same part names / matkeys; feet >= GROUND_LIFT")
 
 
+def _closed_one_shell(o):
+    """(shells, edges not shared by exactly two faces) of a mesh object."""
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    bad = sum(1 for e in bm.edges if len(e.link_faces) != 2)
+    seen, shells = set(), 0
+    for v in bm.verts:
+        if v.index in seen:
+            continue
+        shells += 1
+        stack = [v]
+        while stack:
+            w = stack.pop()
+            if w.index in seen:
+                continue
+            seen.add(w.index)
+            stack += [e.other_vert(w) for e in w.link_edges]
+    bm.free()
+    return shells, bad
+
+
+def check_curved_braces():
+    """Structure v1 round 2 (Richard 2026-10-18: "that break in brace frame ... it would need to be curved. You can
+    see there is a slight gap"): a framing / curved truss brace and a curved bracket are ONE mitred beam each - one
+    closed shell (every edge on exactly two faces: no gap or notch at any joint), CURVE_SEGS equal segments turning
+    by equal angles (a circular arc), the section 0.7 x member square to the member in every segment, every corner
+    edge parallel to its segment (exact mitre), the frame brace bulging away from the king post with both ends on the
+    tie / rafter centre lines; each brace its own part (grain along it). Flag off: the old one-part truss."""
+    clear()
+    n = K.CURVE_SEGS
+    m, span, eave, uc = 0.30, 5.6, 15.0, 0.0
+    wall = WallRef("-X", -9.6, -3.0, 3.0)
+    with K.structure(version=1):
+        fr = K.truss_kingpost("cbf", wall, span, eave, 45.0, member=m, braces="frame", d=0.22, frame=(1.12, 1.75))
+        cu = K.truss_kingpost("cbc", WallRef("+X", 5, -5, 5), 9, 6, 36, braces="curved")
+        kb = K.bracket("cbk", (0.0, 0.0, 3.0), "-X", span=1.4, drop=1.2, t=0.22, curved=True)
+    assert [o.name for o, _m in fr] == ["truss_cbf", "truss_cbfbr0", "truss_cbfbr1"], [o.name for o, _m in fr]
+    assert [o.name for o, _m in cu] == ["truss_cbc", "truss_cbcbr0", "truss_cbcbr1"], [o.name for o, _m in cu]
+    for o, _m in fr[1:] + cu[1:] + kb:
+        sh, bad = _closed_one_shell(o)
+        if "cbf" in o.name:       # the frame brace has no wall-facing side: open ONLY along that back plane
+            assert sh == 1 and bad == 2 * n + 2, f"{o.name}: {sh} shell(s), {bad} open edge(s) (want {2 * n + 2})"
+            assert len(o.data.polygons) == 3 * n + 2, (o.name, len(o.data.polygons))
+            assert all(p.normal.dot(Vector((1, 0, 0))) < 0.9 for p in o.data.polygons), o.name   # none faces +X
+            bm = bmesh.new()
+            bm.from_mesh(o.data)
+            back_x = -9.6 - 0.22 + 0.5 * 0.7 * m
+            assert all(abs((o.matrix_world @ v.co).x - back_x) < 1e-4
+                       for e in bm.edges if len(e.link_faces) == 1 for v in e.verts), o.name
+            bm.free()
+        else:
+            assert sh == 1 and bad == 0, f"{o.name}: {sh} shell(s), {bad} open / non-manifold edge(s)"
+            assert len(o.data.polygons) == 4 * n + 2, (o.name, len(o.data.polygons))
+        V = [o.matrix_world @ v.co for v in o.data.vertices]          # rings of 4, in build order
+        rings = [V[4 * i:4 * i + 4] for i in range(n + 1)]
+        C = [sum(r, Vector()) / 4.0 for r in rings]
+        D = [(q - p) for p, q in zip(C, C[1:])]
+        lens = [d.length for d in D]
+        turns = [math.degrees(a.angle(b)) for a, b in zip(D, D[1:])]
+        if o.name.startswith("bracket_"):         # the kit bracket is an elliptic quarter (span x drop): smooth only
+            assert all(0.5 < t_ < 20.0 for t_ in turns), (o.name, turns)
+        else:                                     # a brace is a circular arc: equal chords, equal turns
+            assert max(lens) - min(lens) < 1e-5, (o.name, lens)
+            assert max(turns) - min(turns) < 1e-3 and 0.5 < turns[0] < 20.0, (o.name, turns)
+        w = (0.22 if o.name.startswith("bracket_") else 0.7 * (m if "cbf" in o.name else 0.35))
+        for i, d in enumerate(D):
+            dn = d.normalized()
+            for k in range(4):
+                e = rings[i + 1][k] - rings[i][k]
+                assert e.cross(dn).length < 1e-5 * max(1.0, e.length), (o.name, i, k)   # exact mitre
+            for k in range(3):
+                s = rings[i][k + 1] - rings[i][k]
+                s = s - dn * s.dot(dn)
+                assert abs(s.length - w) < 1e-4, (o.name, i, k, s.length, w)        # w x w square to the member
+    # the frame brace: ends on the tie / rafter centre lines, the arc bulges away from the king post
+    tp = 1.0
+    for k, (o, _m) in enumerate(fr[1:]):
+        V = [o.matrix_world @ v.co for v in o.data.vertices]
+        a = sum(V[0:4], Vector()) / 4.0
+        b = sum(V[4 * n:4 * n + 4], Vector()) / 4.0
+        mid = sum(V[4 * (n // 2):4 * (n // 2) + 4], Vector()) / 4.0
+        sg = -1.0 if k == 0 else 1.0
+        ua, ub = sg * 1.12, sg * 1.75
+        ub_w = -b.y                                   # -X wall: u = -y
+        assert abs(a.z - eave) < 1e-6 and abs(-a.y - ua) < 1e-6 and abs(a.x - (-9.6 - 0.22)) < 1e-6, a
+        assert abs(ub_w - ub) < 1e-6 and abs(b.z - (eave + tp * (span / 2 - abs(ub)))) < 1e-6, b
+        chord_mid = (a + b) * 0.5
+        assert abs(-mid.y - uc) > abs(-chord_mid.y - uc) + 0.05 and mid.z < chord_mid.z, (mid, chord_mid)
+    # flag off: one part, the old kinked geometry (the builders' REF face count)
+    old = K.truss_kingpost("cbo", wall, span, eave, 45.0, member=m, braces="frame", d=0.22, frame=(1.12, 1.75))
+    assert len(old) == 1 and len(old[0][0].data.polygons) == 6 * 8, len(old[0][0].data.polygons)
+    ok(f"curved braces (structure v1): frame + curved truss braces and the curved bracket are one closed mitred "
+       f"shell each ({n} equal segments, equal turns, 0.7 x member square section, exact mitres), own parts; the "
+       f"frame brace bulges away from the king post, ends on the tie / rafter centre lines; flag off unchanged")
+
+
 def main():
     t0 = time.perf_counter()
+    check_curved_braces()
     built = check_builders()
     check_gear_bindings()
     check_fine_builders()

@@ -31,7 +31,11 @@ Asserts:
      names (P2 log newels = rail posts, flagpanel_ skipped); the snap pass (structure_fix) closes a 10 mm beam gap
      and a 5 cm post-foot gap and the audit is then clean;
   8. structure on real buildings: P2 and L2 built with --structure v1 in RAISE mode (both audits clean; L2's
-     abutment, deep step blocks and footings present, its bridge / wing posts gone).
+     abutment, deep step blocks and footings present, its bridge / wing posts gone; round 2: the glass gate clean).
+  9. NOTHING CROSSES GLASS (structure v1 round 2, 2026-10-18, the gate): cs2_fittings.audit_glass on hand-built
+     scenes flags a kit bracket (straight or curved) over a pane, a beam through the window head and a post against
+     the glass, and raises in RAISE mode; it passes the bracket on the solid wall beside the window, an outrigger
+     pocketed over the head, a free-standing post 1.4 m out and a guard rail.
 Exit 1 on the first failure; one PASS line otherwise.
 """
 
@@ -329,6 +333,61 @@ def check_structure_gate():
        "reads the declared names")
 
 
+def check_glass_gate():
+    """Round 2 (Richard 2026-10-18 "I still see some brackets going into the bottom window"): audit_glass on
+    hand-built scenes: a pane on a wall, then a bracket / beam / post / rail near it."""
+    mode = FIT.STRUCT_AUDIT_MODE
+    FIT.STRUCT_AUDIT_MODE = "report"
+    try:
+        def scene(*extra):
+            clear()
+            wall = _box("wall_g", (0.0, 0.0, 0.0), (0.3, 4.0, 3.0))
+            pane = K.pane_quad("win_t_g", K.WallRef("-X", 0.0), -2.5, -1.5, 0.8, 2.0)   # y 1.5..2.5, x -0.05
+            P = wall + pane
+            for fn in extra:
+                P += fn()
+            return FIT.audit_glass(_R(90.0, "T"), P)
+
+        def kb(nm, y):
+            with K.structure(version=1):
+                return K.bracket(nm, (0.0, y, 2.3), "-X", span=0.8, drop=1.0, t=0.12)
+        a = scene()
+        assert a["panes"] == 1 and not a["violations"], a
+        # a kit bracket on the wall over the glass (its strut foot at z 1.3): fails, named with its pane
+        a = scene(lambda: kb("over", 2.0))
+        assert [v for v in a["violations"] if v[0].startswith("bracket_over") and v[1] == "win_t_g"], a
+        # the same bracket on the solid wall beside the window: passes
+        assert not scene(lambda: kb("pier", 3.2))["violations"]
+        # a curved (mitred) bracket over the glass: fails too
+        with K.structure(version=1):
+            cb = K.bracket("arc", (0.0, 2.0, 2.3), "-X", span=0.8, drop=1.0, t=0.12, curved=True)
+        a = FIT.audit_glass(_R(90.0, "T"), [(o, m) for o, m in cb] + _box("wall_h", (0.0, 5.0, 0.0), (0.3, 6.0, 3.0))
+                            + K.pane_quad("win_t_h", K.WallRef("-X", 0.0), -2.5, -1.5, 0.8, 2.0))
+        assert [v for v in a["violations"] if v[0].startswith("bracket_arc")], a
+        # an outrigger pocketed into the wall over the window head (z 2.1..2.4): passes; 30 cm lower it crosses
+        assert not scene(lambda: _box("beam_ok", (-1.4, 1.9, 2.1), (0.10, 2.1, 2.4)))["violations"]
+        a = scene(lambda: _box("beam_low", (-1.4, 1.9, 1.8), (0.10, 2.1, 2.1)))
+        assert [v for v in a["violations"] if v[0].startswith("beam_low")], a
+        # a free-standing post 1.4 m out in front of the window and a guard rail 0.3 m out: not judged
+        assert not scene(lambda: _box("col_out", (-1.5, 1.9, 0.02), (-1.3, 2.1, 3.0)))["violations"]
+        assert not scene(lambda: _box("trail_gr", (-0.35, 1.0, 1.0), (-0.30, 3.0, 1.05)))["violations"]
+        # a post standing against the glass (10 cm out): fails
+        a = scene(lambda: _box("col_in", (-0.25, 1.9, 0.02), (-0.10, 2.1, 3.0)))
+        assert [v for v in a["violations"] if v[0].startswith("col_in")], a
+        # RAISE mode raises
+        FIT.STRUCT_AUDIT_MODE = "raise"
+        try:
+            scene(lambda: kb("raise", 2.0))
+            raise AssertionError("audit_glass did not raise on a bracket over glass")
+        except RuntimeError as e:
+            assert "over a window opening" in str(e), e
+    finally:
+        FIT.STRUCT_AUDIT_MODE = mode
+    ok("glass gate: a kit bracket (straight or curved), a beam through the window head and a post against the "
+       "glass over a pane fail (RAISE mode raises); the bracket on the pier beside it, an outrigger pocketed over "
+       "the head, a post 1.4 m out and a guard rail pass")
+
+
 def check_structure_builds():
     """P2 and L2 through lodge.run with fittings v1 + structure v1, both audits in RAISE mode."""
     import lodge
@@ -344,6 +403,7 @@ def check_structure_builds():
         r = lodge.run(lodge.select_recipe(args), args)
         s = r["structure"]
         assert s["violations"] == 0 and s["shells"] > 20 and not FIT.LAST_AUDIT["violations"], (key, s)
+        assert s["glass"]["violations"] == 0 and s["glass"]["panes"] > 10, (key, s["glass"])   # round 2
         out[key] = s
         if key == "L2":
             names = {s_["shell"].rsplit("#", 1)[0] for s_ in FIT.LAST_STRUCT["shells"]}   # the joined mesh has no parts
@@ -364,6 +424,7 @@ def main():
     check_audit_gate()
     check_p2_build()
     check_structure_gate()
+    check_glass_gate()
     check_structure_builds()
     print(f"PASS test_fittings: {len(CHECKS)} checks ({time.perf_counter() - t0:.1f} s)")
 

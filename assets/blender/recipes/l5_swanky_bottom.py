@@ -409,10 +409,14 @@ def member(name, p0, p1, w, h, mat="lux_glulam", up=(0.0, 0.0, 1.0)):
 
 
 def curved_member(name, pts, w, h, mat="lux_glulam", up=(0.0, 0.0, 1.0)):
-    """A curved brace as one part: OBB segments along a polyline (4-6 points)."""
+    """A curved brace as one part: OBB segments along a polyline (4-6 points); structure v1 round 2: ONE mitred
+    beam through the points (cs2_bldg._mitred_into: rings shared, no notch at a joint)."""
     K = _kit()
     from mathutils import Vector
     g = K._Geo()
+    if _struct():
+        K._mitred_into(g, pts, w, h, up=Vector(up))
+        return [(g.finish(name), mat)]
     for a, b in zip(pts, pts[1:]):
         K._beam_into(g, Vector(a), Vector(b), w, h, up=Vector(up))
     return [(g.finish(name), mat)]
@@ -1568,6 +1572,11 @@ BP_TOP = 0.0                                       # the post top is flush with 
 # the window sits framed between king post, tie, brace and rafter; the gate check_gable_braces raises on a truss
 # member inside any gable window's opening + casing.
 XG_BRACE_FRAME = (1.12, 1.75)
+# round 2 (Richard 2026-10-18 "I still see some brackets going into the bottom window"): the four courtyard bays
+# (xgc0/1, xgws/n) lose their curved wall brackets (they hung over the GF glass) for two outriggers each, host wall
+# -> balcony post, under the bay floor (cross_gable)
+XG_OUT = (0.18, 0.30)                              # outrigger section (w across, h): narrower than the 0.20 post
+XG_OUT_EMBED = 0.10                                # pocketed into the host wall's band over the glass head
 BRACE_SLOPE = 1.43                                 # the framing brace rises 55 deg from the tie (M / wing end gables)
 
 
@@ -2278,7 +2287,27 @@ def cross_gable(name, side, plane, c, z0, meet, *, wall_mat, glulam, gf_mat=None
     if st and floors:                           # T57: one post per side, grade to the top balcony
         u0, u1 = _u(side, c - 1.7, c + 1.7)
         P += balcony_posts(f"xg{name}", wall, u0, u1, floors)
-    if brackets:
+    if brackets and st and floors:
+        # structure v1 round 2 (Richard 2026-10-18: "I still see some brackets going into the bottom window"): the
+        # two curved brackets stood on the host wall at c +- 2.4, over the GF curtain / terrace-door glass below the
+        # bay. The T57 balcony posts now carry the bay: two glulam OUTRIGGERS `beam_xg<name>o<j>` run under the bay
+        # floor from the host wall's solid band over the glass head (pocketed XG_OUT_EMBED into it) out to each post,
+        # on the post lines (c +- (1.7 - BP_IN)), top flush with the bay floor (z0), XG_OUT section; nothing crosses
+        # glass (cs2_fittings.audit_glass).
+        sgn = -1.0 if side[0] == "-" else 1.0
+        w_o, h_o = XG_OUT
+        x_wall = plane - sgn * XG_OUT_EMBED
+        x_post = front + sgn * (1.4 - BP_IN)               # the post centre (balcony_posts: depth 1.4)
+        for j, uu in enumerate((c - 1.7 + BP_IN, c + 1.7 - BP_IN)):
+            if axn == "X":
+                lo = (min(x_wall, x_post), uu - w_o / 2, z0 - h_o)
+                hi = (max(x_wall, x_post), uu + w_o / 2, z0)
+            else:
+                lo = (uu - w_o / 2, min(x_wall, x_post), z0 - h_o)
+                hi = (uu + w_o / 2, max(x_wall, x_post), z0)
+            P += K.box_part(f"beam_xg{name}o{j}", lo, hi, glulam)
+            P[-1][0]["no_bevel"] = 1                     # the L5 tri budget (a bevel doubles a box)
+    elif brackets:
         for j, d in enumerate((-2.4, 2.4)):
             at = (plane, c + d, z0 - 0.05) if axn == "X" else (c + d, plane, z0 - 0.05)
             P += K.bracket(f"xg{name}k{j}", at, side, span=XG_PROJ - 0.1, drop=1.2, t=0.22,
@@ -3414,7 +3443,8 @@ def build_l5(recipe, opts):
         P += member(f"truss_hpost{j}", (H_TRUSS_X, sg * 8.0, 4.65), (H_TRUSS_X, sg * 8.0, z_ch - 0.3),
                     mw, mw, up=(1, 0, 0))
         a, b = (H_TRUSS_X, sg * 7.75, 6.5), (H_TRUSS_X, sg * 5.5, z_ch - 0.3)
-        P += curved_member(f"truss_hbrace{j}", arc_pts(a, b, (0.0, sg * 0.45, -0.45)), 0.40, 0.40,
+        P += curved_member(f"truss_hbrace{j}", arc_pts(a, b, (0.0, sg * 0.45, -0.45),
+                                                       n=K.CURVE_SEGS if _struct() else 4), 0.40, 0.40,
                            up=(1, 0, 0))
     plates = [(0.0, z_ch), (0.0, rz(0.0) - 0.25), (-8.0, z_ch), (8.0, z_ch), (0.0, z_ch + 1.6)]
     P += K.boxes_part("trsplate_h", [((H_TRUSS_X + 0.25, y - 0.36, z - 0.36),
@@ -3452,7 +3482,9 @@ def build_l5(recipe, opts):
         sy = 1.0 if y < 0 else -1.0
         P += K.bracket(f"pcx{k}", (x + sx * 0.25, y, P_TIE - 0.25), (sx, 0.0, 0.0), span=1.1,
                        drop=1.1, t=0.25, curved=True, mat=GLU)
-        P += K.bracket(f"pcy{k}", (x, y + sy * 0.25, P_TIE - 0.2), (0.0, sy, 0.0), span=1.1,
+        # structure v1 round 2: the one-piece (mitred) arc's top runs level into the tie: its tip 5 cm lower seats
+        # it 7.5 cm into the tie (<= the gate's 10 cm, like pcx); the old 4-box arc's tilted last box reached less
+        P += K.bracket(f"pcy{k}", (x, y + sy * 0.25, P_TIE - (0.25 if _struct() else 0.2)), (0.0, sy, 0.0), span=1.1,
                        drop=1.1, t=0.25, curved=True, mat=GLU)
     if PC_GABLE_INFILL:
         # revision 4 (a), eighteenth look "the front triangle above the valet area ... empty space

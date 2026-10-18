@@ -324,10 +324,14 @@ def build(recipe, parts, opts):
     out = {"version": VERSION, "rows": len(rows), "items": info, "shoes": bool(opts.get("fittings"))}
     if opts.get("structure"):                     # T58: the structure gate (raises in STRUCT_AUDIT_MODE "raise")
         st = audit_structure(recipe, list(parts) + list(new))
+        gl = audit_glass(recipe, list(parts) + list(new))     # round 2: nothing crosses glass (raises)
         out["structure"] = {"version": STRUCT_VERSION, "parts": st["parts"], "shells": st["n_shells"],
                             "roles": st["roles"], "violations": len(st["violations"]),
                             "snaps": [m for m in sfix if m["fix"] != "none"],
-                            "unsnapped": len([m for m in sfix if m["fix"] == "none"])}
+                            "unsnapped": len([m for m in sfix if m["fix"] == "none"]),
+                            "glass": {"panes": gl["panes"], "shells": gl["shells"],
+                                      "violations": len(gl["violations"]),
+                                      "declared": sorted({d[0].rsplit("#", 1)[0] for d in gl["declared"]})}}
     return new, rows, out
 
 
@@ -2040,6 +2044,104 @@ def audit_structure(recipe, parts):
         lines = "; ".join(f"{c_} {n_} {v_} mm: {d_}" for c_, n_, v_, d_ in viol[:12])
         raise RuntimeError(f"structure {key}: {len(viol)} violation(s) (T58 gate, cs2_fittings.audit_structure): "
                            f"{lines}")
+    return out
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# NOTHING CROSSES GLASS (structure v1 round 2, Richard 2026-10-18 on the L5 posts preview: "I still see some brackets
+# going into the bottom window"): no structural part (bracket, post, rail post, member: struts, beams, trusses,
+# braces) may overlap a window opening in the wall's plane. A window opening = a glass pane part (`win_`, one quad
+# 5 cm proud of its wall, facing out); "in the wall's plane" = from GLASS_BEHIND_M behind the pane (a member
+# pocketed into the wall over a window) to GLASS_REACH_M in front of it (a bracket / strut / brace on the wall face;
+# the L5 check_gable_braces / pane-ray reach). A sample of the part's edges and faces strictly inside the pane's
+# outline (GLASS_TOL_M) in that band is a violation. Free-standing posts further out (balcony posts 1.4 m out, deck
+# posts) and guard rails / stair stringers / rafter tails (GLASS_FREE) are not judged. Runs on every
+# `lodge.py --structure v1` build after audit_structure; RAISES in STRUCT_AUDIT_MODE "raise".
+# ---------------------------------------------------------------------------------------------------------------------
+GLASS_PANES = ("win_",)
+GLASS_REACH_M = 0.60
+GLASS_BEHIND_M = 0.10
+GLASS_TOL_M = 0.005
+GLASS_ROLES = ("bracket", "post", "railpost", "member")
+GLASS_FREE = ("rail_", "trail_", "stair_", "tail_")
+# per recipe: {part prefix: (pane prefix it may stand in front of, reason)} - DECLARED overlaps, reported under
+# "declared" (never silently passed); anything else over glass is a violation. Both are glass WALLS with their own
+# timber structure in front, not a bracket / strut hanging over a punched window.
+GLASS_DECLARE = {
+    "L4": {"trim_dposts": ("win_d", "the dining glass box's glulam posts stand on its curtain's mullion lines "
+                                    "(0.30 wide over a mullion: 11 cm of each neighbouring pane's edge); they are "
+                                    "the glass box's structure"),
+           "trim_trussd": ("win_dgab", "the dining gable's feature king-post truss 0.75 m in front of its glazed "
+                                       "gable (the L5 hall idiom)")},
+    "L5": {"truss_h": ("win_h", "the great hall's feature truss 0.75 m in front of its glazed gable / upper "
+                                "curtain (the hall's design idiom; recipe PANE_BLOCKERS note)")},
+}
+LAST_GLASS = {}
+
+
+def audit_glass(recipe, parts):
+    """The round-2 glass gate (see the block comment). Returns {"panes", "shells", "violations": [(part#shell,
+    pane, depth mm, final-frame centre of the overlap)]}."""
+    bpy.context.view_layer.update()
+    key = recipe.key
+    panes, shells = [], []
+    for o, _m in parts:
+        if o.type != "MESH" or not len(o.data.polygons):
+            continue
+        nm = o.name
+        if nm.startswith(GLASS_PANES):
+            co, ps = _geo(o)
+            p0 = co[list(ps[0])]
+            n = np.cross(p0[1] - p0[0], p0[2] - p0[0])
+            if np.linalg.norm(n) < 1e-12:
+                continue
+            n = n / np.linalg.norm(n)
+            M = np.array(o.matrix_world)[:3, :3]
+            ln = M @ np.array(o.data.polygons[0].normal, dtype=np.float64)   # the pane's own facing (outward)
+            if float(n @ ln) < 0.0:
+                n = -n
+            e1 = np.cross(n, (0.0, 0.0, 1.0))
+            e1 = e1 / np.linalg.norm(e1) if np.linalg.norm(e1) > 1e-6 else np.array((1.0, 0.0, 0.0))
+            e2 = np.cross(n, e1)
+            uv = np.stack([co @ e1, co @ e2], 1)
+            d0 = float((co @ n).mean())
+            band = np.vstack([co + n * GLASS_REACH_M, co - n * GLASS_BEHIND_M])
+            panes.append((nm, n, e1, e2, uv.min(0) + GLASS_TOL_M, uv.max(0) - GLASS_TOL_M, d0,
+                          band.min(0), band.max(0)))
+            continue
+        role = struct_role(nm, key)
+        if role not in GLASS_ROLES or nm.startswith(GLASS_FREE):
+            continue
+        co, ps = _geo(o)
+        for k, sp in enumerate(_shells(co, ps)):
+            vi = sorted({v for p in sp for v in p})
+            remap = {v: i for i, v in enumerate(vi)}
+            sc, sps = co[vi], [tuple(remap[v] for v in p) for p in sp]
+            pts = np.vstack([_edge_pts(sc, sps, STRUCT_STEP), _face_pts(sc, sps, 0.04)])
+            shells.append((f"{nm}#{k}", role, pts, pts.min(0), pts.max(0)))
+    viol, declared = [], []
+    decl = GLASS_DECLARE.get(key, {})
+    for sn, role, pts, lo, hi in shells:
+        for pn, n, e1, e2, uvlo, uvhi, d0, blo, bhi in panes:
+            if np.any(hi < blo) or np.any(lo > bhi):
+                continue
+            dep = pts @ n - d0
+            u, v = pts @ e1, pts @ e2
+            m = ((dep >= -GLASS_BEHIND_M) & (dep <= GLASS_REACH_M) & (u > uvlo[0]) & (u < uvhi[0])
+                 & (v > uvlo[1]) & (v < uvhi[1]))
+            if m.any():
+                at = pts[m].mean(0)
+                rec = (sn, pn, round(float(dep[m].min()) * 1000, 1),
+                       [round(x, 3) for x in auth_to_final(recipe, tuple(float(x) for x in at))])
+                d = [pre for pre, (pp, _why) in decl.items() if sn.startswith(pre) and pn.startswith(pp)]
+                (declared if d else viol).append(rec)
+    out = {"key": key, "panes": len(panes), "shells": len(shells), "violations": viol, "declared": declared}
+    LAST_GLASS.clear()
+    LAST_GLASS.update(out)
+    if viol and STRUCT_AUDIT_MODE == "raise":
+        lines = "; ".join(f"{s_} over {p_} ({d_} mm off the pane) at {a_}" for s_, p_, d_, a_ in viol[:12])
+        raise RuntimeError(f"glass {key}: {len(viol)} structural part(s) over a window opening (round-2 gate, "
+                           f"cs2_fittings.audit_glass): {lines}")
     return out
 
 
