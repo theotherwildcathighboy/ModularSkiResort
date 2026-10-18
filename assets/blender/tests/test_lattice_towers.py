@@ -202,9 +202,8 @@ FROZEN_REPR = {"HEIGHTS": "ce12d43af54f", "TRAM": "361080e8b49c", "GD": "35d6b1f
 DP1_LEDGER = {("gondola", 25): 3316, ("gondola", 32): 3986, ("gondola", 40): 4490,
               ("tram", 30): 4606, ("tram", 45): 5666, ("tram", 60): 6402}
 # T62 (2026-10-18, build/T62-sheave-wheels.md): cs2_sheaves.WHEELS "v2" (default) builds the tram haul rollers and the
-# lattice GD wheels as the round-2 16-segment capped wheel (cs2_sheaves.WHEEL_TRIS 224) instead of v1's 44-tri 8-gon
-# sheave_lite rollers / flat 12-gon sheaves: + (224 - 44) per wheel (tram 16 rollers +2,880; lattice 16 / 20 / 24 sheaves
-# +2,880 / +3,600 / +4,320). `--wheels v1` keeps the ledger above.
+# lattice GD wheels as the round-3 wheel (98 tris: the inboard hub boss is culled, cs2_sheaves.cull_hidden_bosses) instead
+# of v1's 44-tri 8-gon sheave_lite rollers / flat 12-gon sheaves: + 54 per wheel. `--wheels v1` keeps the ledger above.
 T62_V1_WHEEL = 44
 
 
@@ -213,7 +212,8 @@ def _t62_ledger(table):
     if not cs2_sheaves.wheels_v2():
         return table
     n = {"tram": lambda H: 2 * len(tt.ROLLER["x"]), "gondola": lambda H: 2 * tt.SHEAVES[H]}
-    return {k: v + n[k[0]](k[1]) * (cs2_sheaves.WHEEL_TRIS - T62_V1_WHEEL) for k, v in table.items()}
+    # round 3: every lattice / tram wheel hides its inboard boss (sub rocker / roller bar): 76 + 22 = 98 tris
+    return {k: v + n[k[0]](k[1]) * (cs2_sheaves.wheel_tris(1) - T62_V1_WHEEL) for k, v in table.items()}
 
 
 DP1_LEDGER = _t62_ledger(DP1_LEDGER)

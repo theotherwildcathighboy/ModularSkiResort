@@ -105,12 +105,29 @@ WHEEL_ID = "cs2_sheaves.wheel"         # the stamp every wheel part carries (obj
 # (vanilla car LOD2). Which assets still draw wheels at LOD1 is each generator's LOD table (unchanged: the towers and
 # the FG M counterweight sheaves; the lattice / tram rollers / station trains leave at LOD1 with their trains).
 # Implemented as the make_lod_chain `fixed` hook (lod_fixed / LodWheels below).
+# -- T62 round 3 (2026-10-18). Richard on round 2's 224 tris: "Ouch, 224 tris sounds like a lot compared to vanilla
+# wheels, which is our closest analogy... We need to reduce the tris on the wheels." Budget <= 120 tris per wheel at LOD0
+# (WHEEL_TRIS_BUDGET); keep, in order, the V groove, 16 segments, a hub boss. Round 3 cut (build note "Round 3"):
+#   * the 45 deg rim chamfer is gone (the sharp tread / cap split is the hard edge): the discs sit on the crest rings
+#     again (r, +-w/2), so every rope seat is round 1's (FG 0.2783 / DQ 0.3096 / GD 0.3366);
+#   * the groove ROOT ring has 8 vertices under the 16-vertex crests (3 tris per root segment and flank, 48 for the
+#     liner instead of 64): the rim silhouette and the rope-tangent vertices (every 4th crest vertex sits over a root
+#     vertex: the rim top / bottom included) keep 16 segments; the root is inside the groove;
+#   * the hub boss is an 8-gon frustum (0.45 r -> 0.35 r, 0.10 r proud) with a flat 8-gon top: 22 tris a face (a cone
+#     read flat at 1 m in the round-3 prototype, scratch t62r3/proto);
+#   * a boss is built only on a face that is SEEN: cull_hidden_bosses measures every boss after the asset is built (rays
+#     from the boss top along the axle: a face whose rays hit another part within BOSS_HIDDEN["dist"] on
+#     >= BOSS_HIDDEN["share"] of the samples is behind a housing / rocker) and deletes the hidden ones.
+#   Tris: liner 48 + discs 2 x 14 = 76 (WHEEL_TRIS_BASE) + 22 per seen boss (WHEEL_BOSS_TRIS): 76 / 98 / 120.
 WHEEL_SEGS = 16
-WHEEL_PROFILE = dict(groove=0.18, groove_min=0.02, chamfer=0.05, boss_r=0.45, boss_top=0.35, boss_h=0.10,
-                     boss_segs=12)
-WHEEL_TRIS = 4 * WHEEL_SEGS + 4 * WHEEL_SEGS + 2 * (WHEEL_SEGS - 2) \
-    + 2 * 2 * WHEEL_PROFILE["boss_segs"] + 2 * (WHEEL_PROFILE["boss_segs"] - 2)          # 224
-WHEEL_LOD = {1: dict(segs=8, form="flat band on the crest rings + 2 n-gon discs (no chamfer, no boss)",
+WHEEL_PROFILE = dict(groove=0.18, groove_min=0.02, chamfer=0.0, boss_r=0.45, boss_top=0.35, boss_h=0.10,
+                     boss_segs=8, root_segs=8)
+WHEEL_TRIS_BASE = 2 * 3 * WHEEL_PROFILE["root_segs"] + 2 * (WHEEL_SEGS - 2)                  # 76
+WHEEL_BOSS_TRIS = 2 * WHEEL_PROFILE["boss_segs"] + (WHEEL_PROFILE["boss_segs"] - 2)         # 22
+WHEEL_TRIS = WHEEL_TRIS_BASE + 2 * WHEEL_BOSS_TRIS                                           # 120 (both bosses)
+WHEEL_TRIS_BUDGET = 120                # Richard 2026-10-18 (round 3): <= 120 per wheel at LOD0; tests/test_sheaves
+BOSS_HIDDEN = dict(dist=0.10, share=0.75)
+WHEEL_LOD = {1: dict(segs=8, form="flat band on the crest rings + 2 n-gon discs (no boss)",
                      tris=2 * 8 + 2 * (8 - 2)),                                          # 28
              2: dict(segs=0, form="no wheel", tris=0)}
 WHEEL_KEY = "wheelsteel"
@@ -118,8 +135,8 @@ WHEEL_KEY = "wheelsteel"
 # and a wheel must read the same on every asset): sRGB ~0.58 neutral grey (linear 0.29; vanilla galvanised luma 0.51-0.84,
 # painted utility 0.18-0.73), metal 0.30, smoothness 0.40 (inside vanilla's painted band, under its 0.47-0.62 bare-metal one)
 WHEEL_MATERIAL = dict(albedo=(0.285, 0.290, 0.297), metal=0.30, rough=0.60, projection="box")
-# Per family (LOD0): r / w kept from the family's v1 wheel; every family the same 16-segment capped wheel (segs / ngon
-# kept as keys for the callers and the gate; the discs are always n-gons under the bosses).
+# Per family (LOD0): r / w kept from the family's v1 wheel; every family the same 16-segment wheel (segs / ngon kept as
+# keys for the callers and the gate; the discs are always n-gons).
 WHEEL_FAMILY = {
     "FG": dict(r=FG_SHEAVE["r"], w=FG_SHEAVE["w"], segs=WHEEL_SEGS, ngon=True),    # FG8-20, ET62 / ET68, FG M hold-down
     "DQ": dict(r=DQ_SHEAVE["r"], w=DQ_SHEAVE["w"], segs=WHEEL_SEGS, ngon=True),    # DQ10-20, ETDQ, DQ top nose
@@ -150,13 +167,19 @@ def wheel_spec(family):
 
 
 def wheel_profile(r, w):
-    """The v2 wheel's profile numbers (metres) for radius r, width w: groove root depth gd, chamfer c, half width hw,
-    crest |y| hc = hw - c, boss base / top radius rb / rt, boss height h, boss segments bs."""
+    """The v2 wheel's profile numbers (metres) for radius r, width w: groove root depth gd, rim chamfer c (0 since round
+    3), half width hw, crest |y| hc = hw - c, boss base / top radius rb / rt, boss height h, boss segments bs, groove
+    root segments rs."""
     P = WHEEL_PROFILE
     hw = w / 2.0
     c = P["chamfer"] * r
     return dict(r=r, w=w, hw=hw, gd=max(P["groove_min"], P["groove"] * r), c=c, hc=hw - c,
-                rb=P["boss_r"] * r, rt=P["boss_top"] * r, h=P["boss_h"] * r, bs=P["boss_segs"])
+                rb=P["boss_r"] * r, rt=P["boss_top"] * r, h=P["boss_h"] * r, bs=P["boss_segs"], rs=P["root_segs"])
+
+
+def wheel_tris(n_bosses):
+    """LOD0 tris of one v2 wheel with `n_bosses` (0..2) seen hub bosses."""
+    return WHEEL_TRIS_BASE + n_bosses * WHEEL_BOSS_TRIS
 
 
 def wheel_materials(factory=dict):
@@ -306,18 +329,21 @@ def lite_sheave_parts(name, liner, r, w, loc, segs=12, groove=None):
     return [(discs, "galv"), (lin, LINER_KEY)]
 
 
-def wheel(name, liner, r, w, loc, segs=None, ngon=None, uv="box"):
+def wheel(name, liner, r, w, loc, segs=None, ngon=None, uv="developed"):
     """
-    T62 (round 2): THE sheave wheel (every tower head, every station train, the counterweight sheaves, the tram haul
-    rollers): the 16-segment capped wheel of the WHEEL_PROFILE note above, about a Y axle through `loc`, split into
-    `name` (side discs + rim chamfers + both hub bosses, material WHEEL_KEY) and `liner` (the two V-groove flanks,
-    LINER_KEY rubber, prop dp_root_r = the groove root radius). `segs` / `ngon` are accepted for the callers' family
-    rows and must be WHEEL_SEGS / True (one wheel everywhere; anything else raises). uv "box" = the per-face box
-    projection (the towers / stations re-UV at finish); "developed" = an isometric map of every face (cone frusta
-    developed as tram_tower.sheave_lite's flanks, planar discs / boss tops; islands 2 units apart, / circumference),
-    for the generators that keep the part UVs (tram_tower, DT-C5). Ring loops are marked sharp (sharp_edge survives
-    bmesh, join and remove_doubles; shade_by_angle keeps it). Every part is stamped obj["cs2_wheel"] = WHEEL_ID,
-    cs2_wheel_r / _w / _segs, and logged in WHEEL_LOG. Returns [(discs, WHEEL_KEY), (liner, LINER_KEY)].
+    T62 (round 3): THE sheave wheel (every tower head, every station train, the counterweight sheaves, the tram haul
+    rollers): the WHEEL_PROFILE wheel about a Y axle through `loc`, split into `name` (the two n-gon side discs + both
+    hub bosses, material WHEEL_KEY) and `liner` (the V-groove flanks, 16 crest vertices a side over an 8-vertex root,
+    LINER_KEY rubber, prop dp_root_r = the groove root radius). Both bosses are built here; the generators drop the
+    hidden ones after the asset is assembled (cull_hidden_bosses). `segs` / `ngon` are accepted for the callers' family
+    rows and must be WHEEL_SEGS / True (one wheel everywhere; anything else raises). uv "developed" (the default since
+    round 3: the groove triangles and the boss frustum box-project at up to 1.41 anisotropy, lift_tower DT-C5) = an
+    isometric map of every face (the groove
+    triangles unfolded as one strip per flank, the boss frustum developed like tram_tower.sheave_lite's flanks, planar
+    discs / boss tops; islands 2 units apart, / circumference), kept by every generator (lift_tower's uv_rule leaves v2
+    wheel parts alone); "box" = the per-face box projection (tests). Ring loops are marked sharp (sharp_edge survives bmesh, join and remove_doubles; shade_by_angle keeps it).
+    Every part is stamped obj["cs2_wheel"] = WHEEL_ID, cs2_wheel_r / _w / _segs, the discs cs2_wheel_bosses "-+", and
+    logged in WHEEL_LOG. Returns [(discs, WHEEL_KEY), (liner, LINER_KEY)].
     """
     if segs is not None and int(segs) != WHEEL_SEGS:
         raise ValueError(f"wheel {name}: segs {segs} - every v2 wheel has {WHEEL_SEGS} segments (one wheel)")
@@ -331,6 +357,7 @@ def wheel(name, liner, r, w, loc, segs=None, ngon=None, uv="box"):
         o["cs2_wheel_r"] = float(r)
         o["cs2_wheel_w"] = float(w)
         o["cs2_wheel_segs"] = int(WHEEL_SEGS)
+    parts[0][0]["cs2_wheel_bosses"] = "-+"
     WHEEL_LOG.append((parts[0][0].name, parts[1][0].name, float(r), float(w), int(WHEEL_SEGS), True))
     return parts
 
@@ -369,10 +396,49 @@ def _unmirror(faces, layer, u0):
                 lp[layer].uv = (2.0 * u0 - lp[layer].uv.x, lp[layer].uv.y)
 
 
+def _unfold_strip(tris, layer, circ, off):
+    """Isometric UVs of a triangle strip (each triangle shares an edge with the one before): the first laid flat, each
+    next one's free vertex placed by its two edge lengths on the far side of the shared edge (exact for a developable
+    strip; a V flank's strip spans 2 pi gd / side < 2 pi, so it never overlaps itself), / circ + off."""
+    def put(f, xy):
+        for lp in f.loops:
+            x, y = xy[lp.vert]
+            lp[layer].uv = (x / circ + off[0], y / circ + off[1])
+    a, b, c = list(tris[0].verts)
+    ab = (b.co - a.co).length
+    ca, cb = (c.co - a.co).length, (c.co - b.co).length
+    cx = (ca * ca - cb * cb + ab * ab) / (2.0 * ab)
+    prev = {a: (0.0, 0.0), b: (ab, 0.0), c: (cx, math.sqrt(max(ca * ca - cx * cx, 0.0)))}
+    put(tris[0], prev)
+    for f in tris[1:]:
+        vs = list(f.verts)
+        shared = [v for v in vs if v in prev]
+        if len(shared) != 2:
+            raise RuntimeError("unfold: the strip broke (no shared edge)")
+        p, q = shared
+        n = [v for v in vs if v not in shared][0]
+        o = [v for v in prev if v not in shared][0]
+        P, Q, O = mathutils.Vector(prev[p]), mathutils.Vector(prev[q]), mathutils.Vector(prev[o])
+        dpq = (Q - P).length
+        dp, dq = (n.co - p.co).length, (n.co - q.co).length
+        t = (dp * dp - dq * dq + dpq * dpq) / (2.0 * dpq)
+        hgt = math.sqrt(max(dp * dp - t * t, 0.0))
+        u = (Q - P) / dpq
+        nrm = mathutils.Vector((-u.y, u.x))
+        if (O - P).dot(nrm) > 0.0:                       # the new vertex goes on the other side of the shared edge
+            nrm = -nrm
+        N = P + u * t + nrm * hgt
+        cur = {p: prev[p], q: prev[q], n: (N.x, N.y)}
+        put(f, cur)
+        prev = cur
+
+
 def _wheel_parts(name, liner, r, w, loc, segs, uv):
-    """wheel()'s geometry: (discs + chamfers + bosses, liner) bmesh parts, sharp ring loops, outward normals."""
+    """wheel()'s geometry: (discs + bosses, liner) bmesh parts, sharp ring loops, outward normals."""
     p = wheel_profile(r, w)
-    hw, hc, c, gd, rb, rt, h, bs = p["hw"], p["hc"], p["c"], p["gd"], p["rb"], p["rt"], p["h"], p["bs"]
+    hw, hc, gd, rb, rt, h, bs, rs = p["hw"], p["hc"], p["gd"], p["rb"], p["rt"], p["h"], p["bs"], p["rs"]
+    if p["c"] != 0.0 or segs != 2 * rs:
+        raise ValueError(f"wheel {name}: the round-3 profile wants no chamfer and a root ring of segs / 2")
     cx, cy, cz = loc
     C = mathutils.Vector(loc)
     circ = 2.0 * math.pi * r
@@ -399,7 +465,21 @@ def _wheel_parts(name, liner, r, w, loc, segs, uv):
                 if e is not None:
                     e.smooth = False
 
-    def develop(bm, layer, ngons, bands):
+    # ---- discs part: two n-gon side discs on the crest rings + a hub boss on each face (8-gon frustum, flat top)
+    bm = bmesh.new()
+    layer = bm.loops.layers.uv.new("UVMap")
+    ngons, bands, rings = [], [], []
+    for s in (-1.0, 1.0):
+        row = 0.0 if s < 0 else 2.0
+        K = ring(bm, r, s * hc, segs)                    # crest (shared with the liner after the weld)
+        Bb = ring(bm, rb, s * hw, bs)                    # boss base (on the disc plane, a separate shell)
+        Bt = ring(bm, rt, s * (hw + h), bs)              # boss top
+        ngons += [(bm.faces.new(K), s, 0.0, row), (bm.faces.new(Bt), s, 2.0, row)]
+        bands.append((quads(bm, Bb, Bt, bs), Bb, Bt, (rb, s * hw), (rt, s * (hw + h)), bs, 4.0, row))
+        rings += [K, Bb, Bt]
+    orient(bm)
+    sharp_rings(bm, rings)
+    if uv == "developed":
         for f, s, u0, v0 in ngons:                       # planar: (x, z) on the -Y face, (z, x) on +Y (u x v = normal)
             for lp in f.loops:
                 d = lp.vert.co - C
@@ -408,42 +488,35 @@ def _wheel_parts(name, liner, r, w, loc, segs, uv):
         for fq, A, B, ra, rbb, n, u0, v0 in bands:
             ring_of = {v: ("A", k) for k, v in enumerate(A)}
             ring_of.update({v: ("B", k) for k, v in enumerate(B)})
-            _develop_band(fq, ring_of, {"A": ra, "B": rbb}, n, circ, (u0, v0), layer)
-
-    # ---- discs part: side discs, rim chamfers, hub bosses (both faces); islands 2 units apart (columns x rows)
-    bm = bmesh.new()
-    layer = bm.loops.layers.uv.new("UVMap")
-    ngons, bands, rings = [], [], []
-    for s in (-1.0, 1.0):
-        row = 0.0 if s < 0 else 2.0
-        E = ring(bm, r - c, s * hw, segs)                # disc edge
-        K = ring(bm, r, s * hc, segs)                    # crest (shared with the liner after the weld)
-        Bb = ring(bm, rb, s * hw, bs)                    # boss base (on the disc plane, a separate shell)
-        Bt = ring(bm, rt, s * (hw + h), bs)              # boss top
-        ngons += [(bm.faces.new(E), s, 0.0, row), (bm.faces.new(Bt), s, 2.0, row)]
-        bands += [(quads(bm, E, K, segs), E, K, (r - c, s * hw), (r, s * hc), segs, 4.0, row),
-                  (quads(bm, Bb, Bt, bs), Bb, Bt, (rb, s * hw), (rt, s * (hw + h)), bs, 6.0, row)]
-        rings += [E, K, Bb, Bt]
-    orient(bm)
-    sharp_rings(bm, rings)
-    if uv == "developed":
-        develop(bm, layer, ngons, bands)
+            for q in range(0, len(fq), 2):          # the boss frustum in quarters (2 quads each): compact islands
+                _develop_band(fq[q:q + 2], ring_of, {"A": ra, "B": rbb}, n, circ, (u0 + 2.0 * (q // 2), v0 + 8.0), layer)
         cs2_asset.canonical_order_bmesh(bm)
     else:
         cs2_asset.canonical_order_bmesh(bm)
         _box_uv_bm(bm, layer)
     discs = _new_part(name, bm)
 
-    # ---- liner part: the two V flanks, crest -> root -> crest
+    # ---- liner part: the two V flanks, 16 crest vertices a side over the 8-vertex root (3 triangles per root segment)
     bm = bmesh.new()
     layer = bm.loops.layers.uv.new("UVMap")
-    K0, G, K1 = ring(bm, r, -hc, segs), ring(bm, r - gd, 0.0, segs), ring(bm, r, hc, segs)
-    fl0, fl1 = quads(bm, K0, G, segs), quads(bm, G, K1, segs)
+    K0, G, K1 = ring(bm, r, -hc, segs), ring(bm, r - gd, 0.0, rs), ring(bm, r, hc, segs)
+    strips = []
+    for K in (K0, K1):
+        st = []
+        for j in range(rs):
+            c0, c1, c2 = K[2 * j], K[2 * j + 1], K[(2 * j + 2) % segs]
+            g0, g1 = G[j], G[(j + 1) % rs]
+            st += [bm.faces.new((c0, c1, g0)), bm.faces.new((c1, g1, g0)), bm.faces.new((c1, c2, g1))]
+        strips.append(st)
     orient(bm)
     sharp_rings(bm, (K0, G, K1))
     if uv == "developed":
-        develop(bm, layer, [], [(fl0, K0, G, (r, -hc), (r - gd, 0.0), segs, 0.0, 0.0),
-                                (fl1, G, K1, (r - gd, 0.0), (r, hc), segs, 0.0, 2.0)])
+        for band, st in enumerate(strips):
+            # one island per 2 root segments (6 triangles, 45 deg of arc): a whole flank unfolds to a 200+ deg annular
+            # sector that packs badly (FG8 lost 9 % of its median px/m to it); the short pieces pack like quads
+            for q in range(0, len(st), 6):
+                _unfold_strip(st[q:q + 6], layer, circ, (2.0 * (q // 6), 2.0 * band))
+                _unmirror(st[q:q + 6], layer, 2.0 * (q // 6))
         cs2_asset.canonical_order_bmesh(bm)
     else:
         cs2_asset.canonical_order_bmesh(bm)
@@ -453,8 +526,165 @@ def _wheel_parts(name, liner, r, w, loc, segs, uv):
     return [(discs, WHEEL_KEY), (lin, LINER_KEY)]
 
 
+def _world_co(o):
+    M = o.matrix_world
+    return [M @ v.co for v in o.data.vertices]
+
+
+def boss_visibility(parts):
+    """
+    T62 round 3: how hidden each hub boss of the v2 wheels in `parts` is - {discs name: {-1: share, +1: share}}, the
+    share of 17 rays (the boss top's centre, 8 at rt / 2, 8 at rt) that hit another (non-wheel) part within
+    BOSS_HIDDEN["dist"] of the boss top, cast along the outward axle (-1 = the wheel's -Y face, +1 = +Y). A ray that
+    starts inside a part (a boss reaching into a rocker plate) hits that part's far side. The frame comes from the liner
+    (two crest rings + the root ring, symmetric), so a boss already removed does not move it.
+    """
+    from mathutils.bvhtree import BVHTree
+    import numpy as np
+    bpy.context.view_layer.update()
+    by_name = {o.name: o for o, _k in parts}
+    pairs = {}
+    for dn, ln, *_r in WHEEL_LOG:
+        if dn in by_name and ln in by_name and by_name[dn].get("cs2_wheel") == WHEEL_ID:
+            pairs[dn] = ln
+    wheel_names = set(pairs) | set(pairs.values()) | {o.name for o, _k in parts if o.get("cs2_wheel_hub")}
+    verts, polys = [], []
+    for o, _k in parts:
+        if o.name in wheel_names or o.type != "MESH":
+            continue
+        base = len(verts)
+        verts += _world_co(o)
+        polys += [[base + i for i in p.vertices] for p in o.data.polygons]
+    bvh = BVHTree.FromPolygons(verts, polys) if polys else None
+    out = {}
+    for dn, ln in sorted(pairs.items()):
+        d = by_name[dn]
+        r, w = float(d["cs2_wheel_r"]), float(d["cs2_wheel_w"])
+        P = wheel_profile(r, w)
+        co = np.array([tuple(v) for v in _world_co(by_name[ln])])
+        c = mathutils.Vector(tuple((co.min(0) + co.max(0)) / 2.0))
+        _u, _s, vt = np.linalg.svd(co - co.mean(0), full_matrices=False)
+        ax = mathutils.Vector(tuple(vt[-1])).normalized()
+        if ax.y < 0.0:
+            ax = -ax
+        wa = min(range(3), key=lambda i: abs(ax[i]))
+        e1 = mathutils.Vector(tuple(1.0 if i == wa else 0.0 for i in range(3)))
+        e1 = (e1 - ax * e1.dot(ax)).normalized()
+        e2 = ax.cross(e1)
+        samples = [(0.0, 0.0)] + [(rr * math.cos(a), rr * math.sin(a)) for rr in (P["rt"] / 2.0, P["rt"])
+                                  for a in (math.pi * k / 4.0 for k in range(8))]
+        res = {}
+        for s in (-1, 1):
+            hits = 0
+            for x, y in samples:
+                o = c + ax * (s * (P["hw"] + P["h"] + 1e-4)) + e1 * x + e2 * y
+                if bvh is not None and bvh.ray_cast(o, ax * s, BOSS_HIDDEN["dist"])[0] is not None:
+                    hits += 1
+            res[s] = hits / len(samples)
+        out[dn] = res
+    return out
+
+
+def hub_name(dn):
+    """The seen-boss part of wheel `dn`: "hub" glued to its side tag and no "_rim" (sheave_n_0_m_rim -> sheave_hubn_0_m,
+    sheave_guide_sheave_n_1_rim -> sheave_guide_sheave_hubn_1, sheave_cwhead_n -> sheave_cwhead_hubn, haulroll_p_3 ->
+    haulroll_hubp_3): it keeps the family prefix (LOD / density / material tables) but never matches a rim's own name, a
+    prefix of it, "sheave_[np]_" / "haulroll_[np]_" or "*_rim" - the contracts that select rims by name never see it."""
+    import re
+    base = dn[:-len("_rim")] if dn.endswith("_rim") else dn
+    m = list(re.finditer(r"_([np])(_|$)", base))
+    if not m:
+        raise ValueError(f"hub_name: no side tag in {dn!r}")
+    k = m[-1]
+    return base[:k.start()] + "_hub" + k.group(1) + k.group(2) + base[k.end():]
+
+
+
+
+def cull_hidden_bosses(parts, label=""):
+    """
+    T62 round 3: on an asset's full part list (every housing built), drop every hub boss that boss_visibility finds
+    hidden (>= BOSS_HIDDEN["share"] of its rays blocked within BOSS_HIDDEN["dist"]; 22 tris a face saved where a rocker
+    plate / bar covers it) and move the SEEN bosses out of the discs part into their own part hub_name(discs) (same
+    material key), appended to `parts`: the discs part stays symmetric about the wheel's mid-plane, so every contract
+    that reads a rim's bbox centre (C1 / C2, lattice C3, tram C4, the stations' ST1 / M21) reads the axle as before.
+    Stamps: discs and hub obj["cs2_wheel_bosses"] = the faces kept ("-+", "-", "+" or ""); hub obj["cs2_wheel_hub"] =
+    the discs name. v1: no-op. Returns {discs name: kept}.
+    """
+    if not wheels_v2():
+        return {}
+    import numpy as np
+    vis = boss_visibility(parts)
+    by_name = {o.name: o for o, _k in parts}
+    key_of = {o.name: k for o, k in parts}
+    kept_all = {}
+    for dn, res in sorted(vis.items()):
+        d = by_name[dn]
+        if d.get("cs2_wheel_bosses") is None:
+            continue
+        r, w = float(d["cs2_wheel_r"]), float(d["cs2_wheel_w"])
+        P = wheel_profile(r, w)
+        kept = "".join(t for t, s in (("-", -1), ("+", 1)) if t in d["cs2_wheel_bosses"] and res[s] < BOSS_HIDDEN["share"])
+        # the wheel frame from its liner (symmetric)
+        ln = [l for dn_, l, *_r in WHEEL_LOG if dn_ == dn][-1]
+        lco = np.array([tuple(v) for v in _world_co(by_name[ln])])
+        c = mathutils.Vector(tuple((lco.min(0) + lco.max(0)) / 2.0))
+        _u, _s, vt = np.linalg.svd(lco - lco.mean(0), full_matrices=False)
+        ax = mathutils.Vector(tuple(vt[-1])).normalized()
+        if ax.y < 0.0:
+            ax = -ax
+        M = d.matrix_world
+
+        def side(v):
+            # a boss vertex: inside 0.7 r (the boss base ring sits ON the disc plane at 0.45 r, the disc's own ring is at r)
+            # and on or proud of a face plane
+            d_ = M @ v.co - c
+            a = d_.dot(ax)
+            if (d_ - ax * a).length > 0.7 * r or abs(a) < P["hw"] - 1e-5:
+                return 0
+            return -1 if a < 0.0 else 1
+        # the hub part: a copy of the discs with only the kept bosses' vertices
+        if kept:
+            hub = d.copy()
+            hub.data = d.data.copy()
+            hub.name = hub_name(dn)
+            hub.data.name = hub.name
+            for k in [k for k in hub.keys() if k.startswith("cs2_wheel")]:
+                del hub[k]
+            bpy.context.collection.objects.link(hub)
+            bm = bmesh.new()
+            bm.from_mesh(hub.data)
+            want = {-1 if t == "-" else 1 for t in kept}
+            bmesh.ops.delete(bm, geom=[v for v in bm.verts if side(v) not in want], context="VERTS")
+            bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+            cs2_asset.canonical_order_bmesh(bm)
+            bm.to_mesh(hub.data)
+            bm.free()
+            hub.data.update()
+            hub["cs2_wheel_hub"] = dn
+            hub["cs2_wheel_bosses"] = kept
+            if hub.name != hub_name(dn):
+                raise RuntimeError(f"{label}: hub part name collided ({hub.name})")
+            parts.append((hub, key_of[dn]))
+        # the discs part: the discs only
+        bm = bmesh.new()
+        bm.from_mesh(d.data)
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if side(v) != 0], context="VERTS")
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+        bm.to_mesh(d.data)
+        bm.free()
+        d.data.update()
+        d["cs2_wheel_bosses"] = kept
+        kept_all[dn] = kept
+    n = {k: sum(1 for v in kept_all.values() if v == k) for k in ("-+", "-", "+", "")}
+    print(f"[sheaves] {label} hub bosses kept (seen): {n['-+']} wheels both faces, {n['-'] + n['+']} one face, "
+          f"{n['']} none; {sum(len(v) for v in kept_all.values())} bosses x {WHEEL_BOSS_TRIS} tris in the hub "
+          f"parts (hidden = >= {BOSS_HIDDEN['share']:.0%} of the rays blocked within {BOSS_HIDDEN['dist']} m)")
+    return kept_all
+
+
 def train_wheel(name, liner, r, w, loc, segs=12, groove=None, ngon=False):
-    """A train's wheel by the active generation: v2 = wheel(r, w, loc) (the one 16-segment capped wheel; `segs` /
+    """A train's wheel by the active generation: v2 = wheel(r, w, loc) (the one 16-segment wheel; `segs` /
     `groove` / `ngon` are the v1 family numbers and are ignored), v1 = lite_sheave_parts(segs, groove) (pre-T62)."""
     if wheels_v2():
         return wheel(name, liner, r, w, loc)
@@ -735,6 +965,7 @@ class LodWheels:
 
     def __init__(self):
         self.pairs = []
+        self.hubs = []
         self.report = {}
 
     def parts(self, table):
@@ -743,7 +974,9 @@ class LodWheels:
         for dn, ln, *_rest in WHEEL_LOG:
             lin[dn] = ln
         self.pairs = sorted((idx[d], idx[l]) for d, l in lin.items() if d in idx and l in idx)
-        return {i for p in self.pairs for i in p}
+        # round 3: the seen hub bosses live in hub_name(discs) parts: they never reach a LOD (LOD1 wheels carry no boss)
+        self.hubs = sorted(idx[hub_name(d)] for d in lin if d in idx and hub_name(d) in idx)
+        return {i for p in self.pairs for i in p} | set(self.hubs)
 
     def tris(self, level, n_wheels):
         return int(n_wheels * WHEEL_LOD[level]["tris"])
@@ -761,6 +994,8 @@ class LodWheels:
         for f in bm.faces:
             by.setdefault(f[lay], []).append(f)
         n_w, made, dead = 0, [], []
+        for hid in getattr(self, "hubs", []):
+            dead += by.get(hid, [])
         for did, lid in self.pairs:
             DF, LF = by.get(did, []), by.get(lid, [])
             if not DF and not LF:
@@ -796,7 +1031,8 @@ class LodWheels:
     @staticmethod
     def _rebuild(bm, DF, LF, segs1, uvls, cols, np, label):
         V = mathutils.Vector
-        dverts = list({v for f in DF for v in f.verts})
+        # the frame from the LINER (two crest rings + the root ring: symmetric even when a hub boss was culled)
+        dverts = list({v for f in LF for v in f.verts})
         co = np.array([tuple(v.co) for v in dverts])
         c = V(tuple((co.min(0) + co.max(0)) / 2.0))
         _u, _s, vt = np.linalg.svd(co - co.mean(0), full_matrices=False)
@@ -823,8 +1059,16 @@ class LodWheels:
         n = len(neg)
         if n == 0 or n % segs1 or len(crest) != 2 * n:
             raise RuntimeError(f"{label}: {len(crest)} crest vertices ({n} per side) do not reduce to {segs1}")
-        top = max(neg, key=lambda v: (round(v.co.z, 6), -round(v.co.x, 6), -round(v.co.y, 6)))
-        th0, step = F[top][2], 2.0 * math.pi / n
+        step = 2.0 * math.pi / n
+        # the phase: a crest vertex that sits over a groove-root vertex (round 3: the root ring has n / 2 vertices, the
+        # kept LOD1 crest vertices must be those), the top-most of them (deterministic in any frame)
+        roots = [F[v][2] for v in lverts if F[v][1] <= rcut]
+
+        def over_root(v):
+            return min(abs(math.remainder(F[v][2] - a, 2.0 * math.pi)) for a in roots) < step / 4.0 if roots else True
+        cand = [v for v in neg if over_root(v)] or neg
+        top = max(cand, key=lambda v: (round(v.co.z, 6), -round(v.co.x, 6), -round(v.co.y, 6)))
+        th0 = F[top][2]
 
         def kof(fv):
             return int(round((fv[2] - th0) / step)) % n
@@ -883,6 +1127,14 @@ class LodWheels:
             f0, src = flank[k]
             root = sorted((v for v in f0.verts if v not in (Cr[-1][k], Cr[-1][k1])),
                           key=lambda v: (Cr[-1][k].co - v.co).length)
-            put([Cr[-1][k], Cr[1][k], Cr[1][k2], Cr[-1][k2]],
-                [src[Cr[-1][k]], src[root[0]], src[root[1]], src[Cr[-1][k1]]], f0)
+            if len(root) == 1:
+                # round 3: the source is the flank TRIANGLE (crest k, crest k + 1, root); the band's 4th corner takes the
+                # midpoint of two of its corners - every corner stays inside that one triangle's UV island
+                g, b_ = src[root[0]], src[Cr[-1][k1]]
+                mid = ([tuple((x + y) / 2.0 for x, y in zip(u, v)) for u, v in zip(g[0], b_[0])],
+                       [tuple((x + y) / 2.0 for x, y in zip(u, v)) for u, v in zip(g[1], b_[1])])
+                corners = [src[Cr[-1][k]], g, mid, b_]
+            else:
+                corners = [src[Cr[-1][k]], src[root[0]], src[root[1]], src[Cr[-1][k1]]]
+            put([Cr[-1][k], Cr[1][k], Cr[1][k2], Cr[-1][k2]], corners, f0)
         return out

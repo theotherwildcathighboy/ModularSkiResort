@@ -1242,8 +1242,8 @@ M_LOT_HALF = (12.0, 8.0)         # lot 2 x 3 = 16 x 24 m: authoring x half 12, y
 M_LOT_MARGIN = 0.25
 M_SEAM_CLEAR = 0.10              # M5 hosted tower -> station face
 M_SEAM_ROPE_EXEMPT = 1.0         # ropechord_ within this of the sub-lane end (rope in sheave)
-LOD0_CAP_M = {"drive": 9800, "return": 3600}    # design 9,000 / skeptic: the top keeps 3,600
-# T62 round 2: drive 9,000 -> 9,800 (8 hold-down + 4 counterweight wheels at the 16-segment capped wheel: 9,242 / 0.95)
+LOD0_CAP_M = {"drive": 9000, "return": 3600}    # design 9,000 / skeptic: the top keeps 3,600
+# T62: drive 9,000 -> 9,800 (round 2, 224-tri wheels) -> 9,000 again (round 3: 7,950 with the <= 120-tri wheels fits)
 LOD1_RATIO_M = 0.45
 LOD2_TARGET_M = {"drive": 500, "return": 400}
 M_ATLAS = 2048
@@ -1974,8 +1974,8 @@ def hold_train_numbers_m(spec):
            "sheave_centres_xz": cents, "contact": "sheave bottom on the rope's top (hold-down)",
            "counterweight": "head r 0.35 + deflection r 0.20 per rope: lite_sheave_parts (w 0.10, 12 segments)"}
     if S.wheels_v2():   # T62: the manifest of a v1 build stays as it was
-        out["wheels"] = {"generation": "v2 (T62 round 2: cs2_sheaves.wheel, the 16-segment capped wheel)",
-                         "builder": S.WHEEL_ID, "tris_per_wheel": S.WHEEL_TRIS, "material": S.WHEEL_KEY,
+        out["wheels"] = {"generation": "v2 (T62 round 3: cs2_sheaves.wheel, 16 segments, groove, seen hub bosses)",
+                         "builder": S.WHEEL_ID, "tris_per_wheel_max": S.WHEEL_TRIS, "material": S.WHEEL_KEY,
                          "hold_down": "r 0.20 / w 0.13", "counterweight": "head r 0.35 + deflection r 0.20, w 0.10",
                          "lod": {str(k): v["form"] for k, v in S.WHEEL_LOD.items()}}
     return out
@@ -2804,6 +2804,8 @@ def build_station_m(kind):
         raise RuntimeError(f"M parts use undefined materials {missing}")
     if any("binding" in n for n in names):
         raise RuntimeError("M12: a part named *binding* (Richard: no bindings on rack gear)")
+    import cs2_sheaves as S
+    S.cull_hidden_bosses(parts, label=f"FG M {kind}")    # T62 round 3: hidden hub bosses dropped (measured; v1 no-op)
     return parts
 
 
@@ -4900,7 +4902,7 @@ def parse_args():
                          "crown; M1 reports the prefab surgery. Off = the shipped station byte for byte.")
     ap.add_argument("--wheels", choices=["v1", "v2"], default="v2",
                     help="M, T62: sheave wheel generation (v2 default = cs2_sheaves.wheel on the hold-down train and the "
-                         "counterweight sheaves: the round-2 16-segment capped wheel; v1 = the pre-T62 wheels byte for byte).")
+                         "counterweight sheaves: the round-3 wheel (16 segments, groove, seen hub bosses); v1 = the pre-T62 wheels byte for byte).")
     ap.add_argument("--kind", choices=["drive", "return"], default="drive")
     ap.add_argument("--name", default=None)
     ap.add_argument("--preview", default=None)

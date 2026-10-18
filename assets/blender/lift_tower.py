@@ -1705,6 +1705,9 @@ def density_table(spec):
     t["plate_"] = DENSITY_PLATE[spec.family]
     t["platerim_"] = 1.5              # 6 mm strips: the head's weight, not the plate's (margins)
     t["stiff_"] = DENSITY_STIFF[spec.family]
+    # T62 round 3: the seen hub bosses (cs2_sheaves.hub_name parts, 0.1 r tall) at the base weight, not the rims' 1.5:
+    # their developed islands (true area, round 3) otherwise took atlas from the galv hardware (FG8 DT-C9 0.0275 < 0.0276)
+    t["sheave_hub"] = 1.0
     return t
 
 
@@ -1747,7 +1750,11 @@ LOD2_DRIFT_RAISE = 0.02                # beyond expected + this the build fails
 # 72 / 44) on 8 (FG) / 16 (DQ) / 16-20 (GD) wheels; each cap = the smallest 100 above the family's worst LOD0 / 0.95
 # (>= 5 % headroom): FG 3,500 -> 4,600 (FG20 4,282), DQ 3,600 -> 6,400 (DQ20 5,986), GD 3,500 -> 7,500 (GD20 7,062).
 # v1 builds sit under these too (a cap is a ceiling).
-LOD0_CAP = {"FG": 4600, "DQ": 6400, "GD": 7500}
+# T62 round 3 (Richard: "Ouch, 224 tris ... we need to reduce the tris on the wheels"): the <= 120-tri wheel (76 + 22 per
+# seen hub boss: FG 120 both faces seen, DQ / GD 98 inboard face behind the sub rocker) -> every cap reset to
+# max(the round-1 cap, the smallest 100 with >= 5 % headroom): FG 4,600 -> 3,700 (FG20 3,450), DQ 6,400 -> 4,200 (DQ20
+# 3,970), GD 7,500 -> 4,800 (GD20 4,542). Round 1: 3,500 / 3,600 / 3,500.
+LOD0_CAP = {"FG": 3700, "DQ": 4200, "GD": 4800}
 
 
 @dataclass(frozen=True)
@@ -2333,6 +2340,8 @@ def uv_rule(name, spec, obj=None):
         return ("revolve", Z, False)
     if name.startswith(("ladder_rung_", "pivot_", "axlecap_")):
         return ("revolve", Y, False)
+    if obj is not None and (obj.get("cs2_wheel") or obj.get("cs2_wheel_hub")):
+        return None         # T62 round 3: the v2 wheel's own isometric (developed) UVs - uv_revolve shears its groove fan
     if name.startswith("liner_"):
         return ("liner", Y, False)
     if spec.family == "FG" and name.startswith("rocker_sub_"):
@@ -2772,6 +2781,7 @@ def fg_parts(spec):
     P += crashpad_parts(crashpad_z0(spec))
     info = {"arm_top": arm_top, "mast_cut": cut, "joints": joints}
     P += detail_parts_fg(spec, info, lx)
+    S.cull_hidden_bosses(P, label=spec.key)         # T62 round 3: hidden hub bosses dropped (measured; v1 no-op)
     return P, info
 
 
@@ -2971,6 +2981,7 @@ def dq_parts(spec, head, kagelok=None):
     P += _dq_ladder(spec)
     P += crashpad_parts(crashpad_z0(spec), radius=pad_radius(spec))
     P += detail_parts_dq(spec, head, info, P)
+    S.cull_hidden_bosses(P, label=spec.key)         # T62 round 3: hidden hub bosses dropped (measured; v1 no-op)
     return P, info
 
 
@@ -4163,7 +4174,8 @@ def plate_raster(spec, h, w):
         glyph = G.render_alpha(G.cand_c(), sq, ss=8)[::-1]        # top-down -> bottom-up
         ink[gy0:gy0 + sq, gx0:gx0 + sq] = np.maximum(ink[gy0:gy0 + sq, gx0:gx0 + sq], glyph)
     cap_px = 0.0
-    if num:
+    if num and sq >= 1 and int(w - bpx - 2) - (gx0 + sq + 2) >= 1 and inner_h - 6.0 >= 1.0:
+        # (T62 round 2/3 guard: a test atlas can leave no room for the numeral; the shipping atlas always has it)
         cap_px = float(math.floor(inner_h - 6.0))
         tris, _wm = WS.text_triangles(num, cap_px / ppm)
         rx0 = gx0 + sq + 2
@@ -4991,8 +5003,8 @@ def parse_args_v2(argv):
                     help="T27 preview flag (ROPE_ON_CROWN): the manifest hands the lane on the sheave crown to the "
                          "surgery and the carrier contracts sweep there; the mesh is unchanged")
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
-                    help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel, the 16-segment capped wheel "
-                         "(round 2) on every head; v1 = the pre-T62 per-family wheels, byte-identical")
+                    help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel, the 16-segment grooved wheel "
+                         "(round 3) on every head; v1 = the pre-T62 per-family wheels, byte-identical")
     return ap.parse_args(argv)
 
 
@@ -5132,10 +5144,10 @@ def main_v2(argv):
         "top_anchor_y": spec.top, "pier": spec.pier, "comm_lv_y": spec.comm_y,
         "atlas": args.atlas, "ao_samples": args.ao_samples, "pack_margin_px": PACK_MARGIN_V2,
         "sheave_profile": "lite (lift_tower.lite_sheave, 6 x segs tris)",
-        **({"wheels": {"generation": "v2 (T62 round 2: cs2_sheaves.wheel, the 16-segment capped wheel)",
+        **({"wheels": {"generation": "v2 (T62 round 3: cs2_sheaves.wheel, 16 segments, groove, seen hub bosses)",
                        "builder": S.WHEEL_ID, "r": spec.sheave_r, "w": spec.sheave_w, "segs": sheave_segs(spec),
-                       "profile": dict(S.WHEEL_PROFILE), "tris_per_wheel": S.WHEEL_TRIS,
-                       "discs": "n-gon", "groove": "V (max(0.02, 0.18 r))", "hub_boss": "both faces",
+                       "profile": dict(S.WHEEL_PROFILE), "tris_per_wheel_max": S.WHEEL_TRIS,
+                       "discs": "n-gon", "groove": "V (max(0.02, 0.18 r))", "hub_boss": "seen faces only",
                        "material": S.WHEEL_KEY, "lod": {str(k): v["form"] for k, v in S.WHEEL_LOD.items()}}}
            if S.wheels_v2() else {}),
         "sheaves_per_side": spec.sheaves, "train_sag_m": spec.sag,

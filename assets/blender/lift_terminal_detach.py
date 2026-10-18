@@ -553,8 +553,8 @@ GD_REV1 = True                 # False = draft 1's timber barn (kept for nothing
 #                                builders; the switch only documents the gate)
 GD_LOT = (3, 4)                # m_LotWidth 3 = 24 m across (prefab x = authoring Y), m_LotDepth 4 =
 GD_LOT_HALF = (16.0, 12.0)     # 32 m along travel (prefab z = authoring X): authoring X / Y halves
-GD_LOD0_TARGET = {"base": 12000, "top": 9700}  # ROUND-SPEC section 4 budgets (caps 13,000 / 10,200)
-# T62 round 2: the top 9,000 -> 9,700 (8 nose wheels at the 16-segment capped wheel: 9,669) and its cap 10,000 -> 10,200
+GD_LOD0_TARGET = {"base": 12000, "top": 9000}  # ROUND-SPEC section 4 budgets (caps 13,000 / 10,000)
+# T62: round 2 raised the top to 9,700 / cap 10,200 (224-tri wheels); round 3 (98-tri wheels: 8,661) restores 9,000 / 10,000
 GD_EAVE = 1.20                 # deep eaves: roof edge 1.20 m past the long walls' outer faces
 GD_ROOF_RISE = 0.95            # shallow segmental standing-seam roof: crown = eave + 0.95 (0 -> 14.5 deg)
 GD_RAKE_BACK = 0.60            # back gable overhang (the nose keeps ROOF_END 0.15: the nose ladder)
@@ -645,8 +645,8 @@ DQ_SIGN_SHARED = {"p": "n"}    # the +Y sign band reuses the -Y band's rect (one
 DQ_D1_DENSITY = {"deck": 0.6, "rampback": 0.6, "ped_": 1.3, "crosshead_": 1.3, "spine_": 1.3,
                  "lamp_": 1.0, "doorlite_": 0.8, "sill_": 0.6, "label_": 1.0}
 # the LOD0 budget targets of this pass (ROUND-SPEC section 4: 11,000 / 8,000; caps 12,000 / 10,000)
-# T62 round 2: the top 8,000 -> 8,500 (8 nose wheels at the 16-segment capped wheel: 8,461; the cap 10,000 keeps 15 %)
-DETAIL_LOD0_TARGET = {"base": 11000, "top": 8500}
+# T62: round 2 raised the top to 8,500 (224-tri wheels); round 3 (98-tri wheels: 7,453) restores 8,000
+DETAIL_LOD0_TARGET = {"base": 11000, "top": 8000}
 # weathering (DECISIONS 171; design 3.6 corrected by MC7): hidden machinery role none, the deck top
 # is the ground line (the DQ lot does not level), the station's own overrides first
 DQ_HIDDEN = ("rooflining", "bandlining_", "ceil_", "detrail_", "railhang_", "tyre", "drive_",
@@ -902,8 +902,7 @@ def params_for(kind, gondola, carrier):
         x_wheel=x_wheel, ped_f=None, ped_r=None, anchor_x=anchor_x, slot_half=0.0,
         notch_top=None, lowest_abs=DECK_H + GONDOLA_STEP_IN,
         env=GD_ENV,
-        # T62 round 2: the gondola top 10,000 -> 10,200 (8 nose wheels at the 16-segment capped wheel, 9,669: >= 5 % headroom)
-        lod0_cap=13000 if base else 10200, lod1_max=None, lod2=500, hosted_tower=base,
+        lod0_cap=13000 if base else 10000, lod1_max=None, lod2=500, hosted_tower=base,
         engine_base=("wall_n", "wall_p", "wall_back", "wall_nose", "stonebase_n", "stonebase_p",
                      "stonebase_back", "stonebase_nose", "stepside_n", "stepside_p"),
         win_part="ctrlwin", folder="stations/gondola/A",
@@ -1978,7 +1977,7 @@ def nose_train_layout(p):
     if abs(p.lane_y - lane_tower) > 1e-9:
         raise ContractError(f"ST1: the {fam} head's carriers are placed for lane {lane_tower}, station lane {p.lane_y}")
     n, r, w, pitch = NOSE_TRAIN_N, float(sh["r"]), float(sh["w"]), float(sh["pitch"])
-    # T62 v2: cs2_sheaves.wheel (round 2: the one 16-segment capped wheel at the family r / w); v1: the head's own wheel
+    # T62 v2: cs2_sheaves.wheel (round 3: the one 16-segment grooved wheel at the family r / w); v1: the head's own wheel
     wv2 = S.wheel_spec(fam) if S.wheels_v2() else None
     segs = int(wv2["segs"]) if wv2 else int(sh.get("segs", 12))
     groove = None if wv2 else sh.get("groove")
@@ -2059,8 +2058,8 @@ def nose_train_numbers(p):
             "x_extent": [T["x_out"], T["x_in"]], "x_nose": p.x_nose,
             "carriers_abs_y": {"sub": T["sub_y"], "main_yoke": T["main_y"],
                                "hanger": [T["hanger"]["y0"], T["hanger"]["y1"]]},
-            **({"wheels": {"generation": "v2 (T62 round 2: cs2_sheaves.wheel, the 16-segment capped wheel)",
-                           "builder": S.WHEEL_ID, "tris_per_wheel": S.WHEEL_TRIS, "material": S.WHEEL_KEY,
+            **({"wheels": {"generation": "v2 (T62 round 3: cs2_sheaves.wheel, 16 segments, groove, seen hub bosses)",
+                           "builder": S.WHEEL_ID, "tris_per_wheel_max": S.WHEEL_TRIS, "material": S.WHEEL_KEY,
                            "lod": {str(k): v["form"] for k, v in S.WHEEL_LOD.items()}}} if S.wheels_v2() else {})}
 
 
@@ -4052,6 +4051,8 @@ def build_station(p):
     missing = sorted({m for _o, m in parts} - set(materials_for(p, parts)))
     if missing:
         raise RuntimeError(f"parts use undefined materials {missing}")
+    import cs2_sheaves as S
+    S.cull_hidden_bosses(parts, label=p.stem)     # T62 round 3: hidden hub bosses dropped (measured; v1 no-op)
     return parts
 
 
@@ -6947,8 +6948,8 @@ NOSE_CONTACTS = (
      "the main pivot pin's top touches the hanger's underside, tangent (the towers' train)"),
     (r"sheave_guide_liner_[np]_\d+", r"sheave_guide_sheave_[np]_\d+_rim",
      "the rubber liner seats on its rim: touching faces, welded by the join (the towers' train)"),
-    (r"sheave_guide_rocker_sub_[np]_\d+", r"sheave_guide_sheave_[np]_\d+_rim",
-     "T62 round 2: the wheel's inboard hub boss (0.10 r proud) seats in its sub rocker plate - the axle bearing"),
+    (r"sheave_guide_sheave_hub[np]_\d+", r"sheave_guide_sheave_[np]_\d+_rim",
+     "T62 round 3: the seen hub boss (cs2_sheaves.hub_name part) stands on its own wheel's disc"),
     (r"haulrope_[np]", r"sheave_guide_(?:" + "|".join(NOSE_ROPE_PASS) + r")\w*",
      "F10: the drawn rope runs through the sheave centres, through the liners and the sub pins' ends"),
     (r"haulrope_[np]", r"wheelrope", "the rope tube ends inside the bullwheel's rope torus (C1 / C2)"),
@@ -8763,7 +8764,7 @@ def parse_args(argv=None):
                          "board since 2026-10-12); default = the fine-detail pass (FINE_DETAIL)")
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
                     help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel on the top's nose train (the GD "
-                         "head too: the round-2 16-segment capped wheel); v1 = the pre-T62 wheels byte for byte")
+                         "head too: the round-3 wheel); v1 = the pre-T62 wheels byte for byte")
     args = ap.parse_args(argv)
     args.kind = {"drive": "base", "return": "top"}.get(args.kind, args.kind)
     return args

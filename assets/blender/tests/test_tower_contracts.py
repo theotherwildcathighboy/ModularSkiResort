@@ -138,7 +138,7 @@ GROUNDED_DQ18 = 14.0
 SWITCH_DQ20 = [4 / 3, 10 / 3, 16 / 3, 22 / 3, 28 / 3]
 GROUNDED_DQ20 = 16.0
 # per-family LOD0 caps (lift_tower.LOD0_CAP): RS section 4 3,500; DQ raised to 3,600 for DQ20
-CAPS = {"FG": 4600, "DQ": 6400, "GD": 7500}     # T62 round 2 (16-segment capped wheels): 3,500 / 3,600 / 3,500 before
+CAPS = {"FG": 3700, "DQ": 4200, "GD": 4800}     # T62 round 3 (<= 120-tri wheels); round 2 4,600 / 6,400 / 7,500, round 1 3,500 / 3,600 / 3,500
 # LOD0 after detail pass 1 (shipped heads; deterministic) and the design ledger (section 3.2 + M1)
 LEDGER = {"FG8": 2762, "FG12": 2946, "FG16": 3170, "FG20": 3258, "ET62": 2722, "ET68": 2730,
           "DQ10": 3138, "DQ12": 3290, "DQ14": 3346, "DQ16": 3394, "DQ18": 3498, "ETDQ": 3010,
@@ -147,18 +147,20 @@ LEDGER = {"FG8": 2762, "FG12": 2946, "FG16": 3170, "FG20": 3258, "ET62": 2722, "
 DESIGN_LEDGER = {"FG8": 2762, "FG12": 2946, "FG16": 3170, "FG20": 3258, "ET62": 2722, "ET68": 2730,
                  "DQ10": 3148, "DQ12": 3300, "DQ14": 3356, "DQ16": 3404, "ETDQ": 3034,
                  "GD12": 3154, "GD16": 3258, "GD20": 3466}
-# T62 (2026-10-18, build/T62-sheave-wheels.md): with cs2_sheaves.WHEELS "v2" (the default) every wheel is the round-2
-# 16-segment capped wheel (cs2_sheaves.WHEEL_TRIS 224) where v1 built FG 72 + a 24-tri kit axle cap, DQ 72, GD 44 (flat
-# 12-gon): + 2 x sheaves x (224 - v1) per tower (FG8 +1,024, DQ +2,432, GD12-20 +3,600, ETGD +2,880). `--wheels v1`
-# (set_wheels("v1")) keeps the ledgers above.
+# T62 (2026-10-18, build/T62-sheave-wheels.md): with cs2_sheaves.WHEELS "v2" (the default) every wheel is the round-3
+# wheel: 76 tris + 22 per SEEN hub boss (cs2_sheaves.wheel_tris; measured by cull_hidden_bosses): the FG / ET wheels show
+# both faces (120), the DQ / GD gantry wheels hide the inboard face behind the sub rocker (98). v1 built FG 72 + a 24-tri
+# kit axle cap, DQ 72, GD 44: + 2 x sheaves x (new - v1) per tower. `--wheels v1` keeps the ledgers above.
 T62_V1_WHEEL = {"FG": 96, "DQ": 72, "GD": 44}
+T62_SEEN_BOSSES = {"FG": 2, "DQ": 1, "GD": 1}
 
 
 def _t62(table):
     import cs2_sheaves
     if not cs2_sheaves.wheels_v2():
         return table
-    return {k: v + 2 * LT.VARIANTS[k].sheaves * (cs2_sheaves.WHEEL_TRIS - T62_V1_WHEEL[LT.VARIANTS[k].family])
+    fam = lambda k: LT.VARIANTS[k].family   # noqa: E731
+    return {k: v + 2 * LT.VARIANTS[k].sheaves * (cs2_sheaves.wheel_tris(T62_SEEN_BOSSES[fam(k)]) - T62_V1_WHEEL[fam(k)])
             for k, v in table.items()}
 
 
@@ -1214,7 +1216,8 @@ def fbx_black_tris(asset_dir, name, lod=0):
 # 18:01-18:10 exports had black triangles on DQ18 (24 small + 2 slivers), GD16 (32 + 22), DQ20 (new,
 # 2 slivers after the F3 pass); FG8 has only the 16 platerim slivers (whose centres sit ON an edge, so the
 # part mean of its covered texels is black); ET68 has no defect at all and must stay untouched.
-F3_CASES = (("DQ18", True, True), ("GD16", True, True), ("DQ20", True, True), ("FG8", False, True),
+# T62 round 3: the round-3 wheel's UV layout moved DQ18's long slivers away (its F3b pass now has nothing to fill)
+F3_CASES = (("DQ18", True, False), ("GD16", True, True), ("DQ20", True, True), ("FG8", False, True),
             ("ET68", False, False))
 
 
