@@ -12,6 +12,9 @@
 //   H-7  ledger AddRunUpkeep: ignored ≤ 0, booked, rolls with the month, in Total.
 //   H-8  seed: same key → seeded and whole; other key / not started → nothing; ShouldSeed; pass-season merge; the roll after it.
 //   H-9  FromLedger mapping, money clamps and rounding, SnowByte.
+//   H-10 B1 (2026-10-19): for a closed month, the element's net (as historyRules.ts finish() derives it from the element's terms)
+//        == HubRules.NetMonth of the ledger's month (MonthMoneyOf with the same buildings / wages snapshot) == the literal oracle;
+//        the element's Money and MonthMoneyOf are the same eight integers; snapshot missing / one rate unknown agree too.
 // Oracles are literal hand values (comments show the arithmetic). The byte oracle is OUR reading of Colossal's BinaryWriter
 // (raw little-endian values in call order, BinaryWriter.cs 1.6.2f1); the in-game save is Richard's test.
 
@@ -38,6 +41,7 @@ namespace ResortBatch
             LedgerUpkeep();
             Seed();
             Mapping();
+            OneNet();
         }
 
         private static void C(bool ok, string where, string msg) => s_Check(ok, where, msg);
@@ -439,6 +443,67 @@ namespace ResortBatch
               "H-9 money", "RoundMoney / ClampInt");
             C(SkiResortHistoryMonth.SnowByte(79.5f) == 80 && SkiResortHistoryMonth.SnowByte(0f) == 0 && SkiResortHistoryMonth.SnowByte(120f) == 100 &&
               SkiResortHistoryMonth.SnowByte(-1f) == 255 && SkiResortHistoryMonth.SnowByte(float.NaN) == 255, "H-9 snow", "SnowByte");
+        }
+
+        // ── H-10 ───────────────────────────────────────────────────────────────────────────────────────────────────────
+
+        /// <summary>historyRules.ts finish() for one month, transcribed: income = ticket + lodge + pass + lesson; staff = max(0, b) +
+        /// max(0, w) when either is known, else −1; costs = max(0, lift) + max(0, run) + max(0, staff); net = income − costs.</summary>
+        private static long TsNet(in SkiResortHistoryMonth m)
+        {
+            long income = (long)m.m_TicketIncome + m.m_LodgeIncome + m.m_PassIncome + m.m_LessonIncome;
+            int b = m.m_BuildingsCost, w = m.m_WagesCost;
+            long staff = b >= 0 || w >= 0 ? (long)Math.Max(0, b) + Math.Max(0, w) : -1;
+            long costs = Math.Max(0, m.m_LiftCost) + (long)Math.Max(0, m.m_RunCost) + Math.Max(0L, staff);
+            return income - costs;
+        }
+
+        private static void OneNet()
+        {
+            var a = new EntityRef(7, 1);
+            var l = new SkiResortLedger();
+            l.Advance(700);
+            l.AddTickets(a, paid: 3, unpaid: 1, free: 0, income: 900);
+            l.AddLodgeSpend(a, 2, 150);
+            l.AddLessons(a, 2, 200);
+            l.AddPasses(a, 3, 600, 0, 2025, preSeason: true);   // the pre-season sale: in PassIncome once, as a subset
+            l.AddPasses(a, 2, 400, 5, 2025);
+            l.AddLiftCharge(a, 449.5);
+            l.AddRunUpkeep(a, 99);
+            C(l.Advance(701) == SkiResortLedger.AdvanceResult.Rolled && l.TryGet(a, out SkiResortLedger.Entry e), "H-10 setup", "no roll");
+            l.TryGet(a, out e);
+            SkiResortLedger.Month closed = e.Last;
+
+            // the element as SkiResortHistorySystem.Commit stores it: FromLedger + the rates at the roll
+            SkiResortHistoryMonth el = SkiResortHistoryMonth.FromLedger(closed, 700, 0);
+            el.m_BuildingsCost = 6000;
+            el.m_WagesCost = 15000;
+            HubMonthMoney fromLedger = HubRules.MonthMoneyOf(closed, 6000, 15000);
+            HubMonthMoney fromElement = el.Money;
+            C(fromLedger.TicketIncome == fromElement.TicketIncome && fromLedger.LodgeIncome == fromElement.LodgeIncome &&
+              fromLedger.LessonIncome == fromElement.LessonIncome && fromLedger.PassIncome == fromElement.PassIncome &&
+              fromLedger.LiftCost == fromElement.LiftCost && fromLedger.RunCost == fromElement.RunCost &&
+              fromLedger.BuildingsCost == fromElement.BuildingsCost && fromLedger.WagesCost == fromElement.WagesCost, "H-10 terms",
+              $"element pass {fromElement.PassIncome} / ledger {fromLedger.PassIncome}, lift {fromElement.LiftCost} / {fromLedger.LiftCost}");
+            // 900 + 150 + 200 + 1000 = 2,250 income; 450 + 99 + 6,000 + 15,000 = 21,549 costs → −19,299
+            int net = HubRules.NetMonth(fromLedger, out bool est);
+            C(net == -19299 && !est && HubRules.NetMonth(fromElement, out bool _) == net && TsNet(el) == net, "H-10 net",
+              $"ledger NetMonth {net} (est {est}), element {HubRules.NetMonth(fromElement, out bool _)}, TS {TsNet(el)}; want −19299");
+
+            // snapshot missing (both rates unknown) and one rate unknown: C# reads −1 as 0, TS leaves staff out — the same net
+            el.m_BuildingsCost = SkiResortHistoryMonth.Unknown;
+            el.m_WagesCost = SkiResortHistoryMonth.Unknown;
+            int netMissing = HubRules.NetMonth(el.Money, out bool estMissing);
+            C(netMissing == 2250 - 549 && estMissing && TsNet(el) == netMissing &&
+              HubRules.NetMonth(HubRules.MonthMoneyOf(closed, -1, -1), out bool _) == netMissing, "H-10 snapshot missing",
+              $"C# {netMissing} (est {estMissing}), TS {TsNet(el)}; want 1701 ≈");
+            el.m_BuildingsCost = 6000;
+            C(HubRules.NetMonth(el.Money, out bool _) == 2250 - 549 - 6000 && TsNet(el) == 2250 - 549 - 6000, "H-10 one rate",
+              $"C# {HubRules.NetMonth(el.Money, out bool _)}, TS {TsNet(el)}");
+
+            // a Gap marker nets 0 (nothing booked, bill unknown) in both
+            SkiResortHistoryMonth gap = SkiResortHistoryMonth.Gap(702);
+            C(HubRules.NetMonth(gap.Money, out bool _) == 0 && TsNet(gap) == 0, "H-10 gap", "a gap marker does not net 0");
         }
     }
 }

@@ -23,6 +23,12 @@
  * for all 25 ids, liftTypesOf, receiptPartsVariant, lodgeSpendShown).
  * T78 build 2 (contract 10): T20 checks the History view (six views, HISTORY keys in both files, four ranges, no chart.js, HISTORY_FLAG
  * parity with C#, history$ only in HistoryView, no snow without depth) and runs tools/test-history-rules.js (31 oracles): 208 checks.
+ * T82 UI round (2026-10-19): T4.15 (status hint with snow: snow / warn / powder / season), T20.2 50 HISTORY keys, T20.3 three ranges,
+ * T21.1-T21.6 source checks for B2 (two money series), B3 (linePoints, gap hatch, "0" gutter), B5a (STATUS_SNOW), B6 (operator cells,
+ * no SCORE_OF), B7a (no attraction in Whole city), B8 (HistoryGlyph.svg); test-history-rules 40 oracles: 224 checks.
+ * B1 UI half (contract 11): T22.1-T22.5 the Finances column = the Net's eight rows (netRows order, netRowsTotal = netMonth with -1 read as
+ * 0, netRowShown hides only a 0 income row, every harness live row adds up and equals its History month in progress, MoneyView
+ * draws the contract-11 fields): 229 checks.
  * A new rule in hubRules.ts adds its literal rows here (oracles are literals, never recomputed).
  */
 "use strict";
@@ -166,6 +172,12 @@ function run(srcDir) {
     R.statusHint(row(5), lv(3, false, { skiDaysPowderPct: -1 })), R.statusHint(row(5), lv(3)), R.statusHint(row(0), lv(0, false, { skiDaysPowderPct: 100 })),
     R.statusHint(row(2, 1), lv(3, false, { skiDaysPowderPct: 100 })), R.statusHint(row(5), null)],
     ["powder", "season", "season", "season", "none", "none", "none"]);
+  // T82 B5a: the slot shows the snow while it is known, except a warning hint (Thawing 3, Waiting for snow 4, Too warm 5) or powder.
+  const sn = (extra) => lv(3, false, Object.assign({ snowDepthCm: 64, snowPct: 88, seasonHint: 1 }, extra));
+  eq("T4.15 status hint with snow", [R.statusHint(row(5), sn({})), R.statusHint(row(5), sn({ seasonHint: 3 })), R.statusHint(row(5), sn({ seasonHint: 4 })),
+    R.statusHint(row(5), sn({ seasonHint: 5 })), R.statusHint(row(5), sn({ seasonHint: 6 })), R.statusHint(row(5), sn({ snowDepthCm: -1, snowPct: -1 })),
+    R.statusHint(row(5), sn({ snowDepthCm: -1 })), R.statusHint(row(5), sn({ seasonHint: 5, skiDaysPowderPct: 60 })), R.statusHint(row(0), sn({}))],
+    ["snow", "warn", "warn", "warn", "snow", "season", "snow", "powder", "none"]);
 
   // T5 footer
   eq("T5.1 next no sign", R.nextVariant(false, false, null), "sign");
@@ -425,13 +437,13 @@ function run(srcDir) {
   const csTuples = new Map();
   for (const m of locale.matchAll(/\{\s*"([^"]+)",\s*"((?:[^"\\]|\\.)*)"\s*\}/g)) csTuples.set(m[1], m[2]);
   const histKeys = [...tuples.keys()].filter((k) => /^SkiResort\.Hub\.(HISTORY|TILE\[History\]|TILE_TIP\[History\]|SECTION\[History\])/.test(k));
-  eq("T20.2 every HISTORY key of hubText.ts is in LocaleEN.cs with the same text (46 keys)",
-    [histKeys.length, histKeys.filter((k) => csTuples.get(k) !== tuples.get(k))], [46, []]);
+  eq("T20.2 every HISTORY key of hubText.ts is in LocaleEN.cs with the same text (50 keys)",
+    [histKeys.length, histKeys.filter((k) => csTuples.get(k) !== tuples.get(k))], [50, []]);
   const viewSrc = read(path.join("hub", "HistoryView.tsx"));
   const H = HR;
-  eq("T20.3 four range options (12 months, 2 seasons, 5 years, all), each with a label and a tooltip in HistoryView",
+  eq("T20.3 three range options (12 months, this season vs last, by season), each with a label and a tooltip in HistoryView",
     [H.HISTORY_RANGES, ["RANGE_LABEL", "RANGE_TIP"].map((m) => (viewSrc.match(new RegExp(`const ${m}[^=]*= \\{([^}]*)\\}`)) || [, ""])[1].split("\n").filter((l) => /:\s*HUB_LOC\./.test(l)).length),
-      viewSrc.includes("options={HISTORY_RANGES}")], [["months12", "seasons2", "years5", "all"], [4, 4], true]);
+      viewSrc.includes("options={HISTORY_RANGES}")], [["months12", "seasonVs", "bySeason"], [3, 3], true]);
   const allSrc = [];
   const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.(ts|tsx)$/.test(e.name)) allSrc.push([p, fs.readFileSync(p, "utf8")]); } };
   walk(srcDir);
@@ -446,6 +458,67 @@ function run(srcDir) {
   eq("T20.6 history$ is subscribed only by the History view (C# builds `history` only while it is observed)", historyUsers, ["hub/HistoryView.tsx"]);
   eq("T20.7 the History view draws no snow (the store has coverage but no depth; snow is never one number, T18)", /snowPct|snowDepth/.test(viewSrc), false);
   eq("T20.8 the History tile shows a glyph, not a number from `history` (ViewTiles never reads history$)", /history\$/.test(read(path.join("hub", "ViewTiles.tsx"))), false);
+  // T21 (T82 UI round, 2026-10-19; docs/research/ui/hub-design-review-2026-10-18.md B2-B8): source checks for what the pure rules
+  // cannot see. B2: two money series (income blue, costs red, the validated pair) and the legend Income / Costs / Net. B3: lines take
+  // linePoints, the chart hatches gaps and has a scale gutter with "0". B5a: the status line renders STATUS_SNOW with depth and coverage.
+  // B6: the receipt's six operator cells, no "of 200". B7a: no attraction control or strip in Whole city. B8: our own History glyph.
+  const chartSrc = read(path.join("hub", "HistoryChart.tsx"));
+  const statusSrc = read(path.join("hub", "StatusBlock.tsx"));
+  const tilesSrc = read(path.join("hub", "ViewTiles.tsx"));
+  eq("T21.1 B2: HISTORY_COLOR income #3987e5 / costs #e34948; one income and one cost series; legend Income, Costs, Net",
+    [/income: "#3987e5"/.test(chartSrc), /costs: "#e34948"/.test(chartSrc), (viewSrc.match(/const incomeUp: ChartSeries\[\] = \[([^\]]*)\]/) || [, ""])[1].split("key:").length - 1,
+      (viewSrc.match(/const costsDown: ChartSeries\[\] = \[([^\]]*)\]/) || [, ""])[1].split("key:").length - 1,
+      ["HUB_LOC.historyIncome) }", "HUB_LOC.historyCosts) }", "HUB_LOC.historyNet), line: true }"].every((x) => viewSrc.includes(x))], [true, true, 1, 1, true]);
+  eq("T21.2 B3: every line through linePoints; gap hatch; scale gutter with a \"0\" label",
+    [(viewSrc.match(/points: linePoints\(/g) || []).length, chartSrc.includes("gapMarks(slots"), chartSrc.includes("hatchPath("), chartSrc.includes('node: "0"'), /value: \(i\) => b\(i\)\.(skiDays|net|attraction)/.test(viewSrc)],
+    [5, true, true, true, false]);
+  eq("T21.3 B5a: the status line renders STATUS_SNOW from snowDepthCm and snowPct (snow is two numbers, T18)",
+    ["HUB_FMT.statusSnow", "l.snowDepthCm", "l.snowPct"].map((x) => statusSrc.includes(x)), [true, true, true]);
+  eq("T21.4 B6: operator cells + + + x x x on the receipt's term rows; no SCORE_OF key left",
+    [(overview.match(/op="([^"]*)"/g) || []).map((m) => m.slice(4, -1)), tuples.has("SkiResort.Hub.SCORE_OF"), overview.includes("scoreTickPark")],
+    [["+", "+", "+", "×", "×", "×"], false, true]);
+  eq("T21.5 B7a: the Attraction checkbox and strip only in area scope",
+    [/const attractionToggle = scope === "area" \? \(\s*<div className=\{styles\.histControls\}>\s*<Tip tip=\{t\(HUB_LOC\.historyTipAttraction\)\}/.test(viewSrc),viewSrc.includes('const attraction = attractionOn && scope === "area";')], [true, true]);
+  const glyphSvg = fs.readFileSync(path.join(srcDir, "hub", "HistoryGlyph.svg"), "utf8");
+  eq("T21.6 B8: the History tile uses our HistoryGlyph.svg (three bars + a baseline), not the game's CityStatistics.svg",
+    [tilesSrc.includes('from "./HistoryGlyph.svg"'), tilesSrc.includes('"Media/Game/Icons/CityStatistics.svg"'), (glyphSvg.match(/<rect /g) || []).length], [true, false, 4]);
+  // T22 (B1 "one Net" UI half, contract 11; docs/research/ui/hub-one-net-b1-2026-10-19.md section 2): the Finances column holds the
+  // Net's eight rows in order and they add up to netMonth (C#'s invariant: Σ max(0, income) − Σ max(0, cost); -1 reads 0); an income
+  // row is hidden only while it is 0; the harness rows satisfy the invariant and equal their area's month in progress in History.
+  const N8 = { ticketsThisMonth: 1000, lodgeIncomeMonth: 200, lessonIncomeMonth: 50, passIncomeMonth: 3000, liftChargedMonth: 300, runCostMonth: 100,
+    buildingsSoFar: 400, wagesSoFar: 600 };
+  eq("T22.1 netRows: the eight rows in the column's order, income +, costs -", [R.NET_ROW_IDS, R.netRows(lv(3, false, N8)).map((r) => r.sign)],
+    [["tickets", "lodge", "lessons", "passes", "lifts", "runs", "buildings", "wages"], [1, 1, 1, 1, -1, -1, -1, -1]]);
+  eq("T22.2 netRowsTotal: 4250 - 1400 = 2850; an unknown row (-1) reads 0; all unknown = 0",
+    [R.netRowsTotal(lv(3, false, N8)), R.netRowsTotal(lv(3, false, Object.assign({}, N8, { lodgeIncomeMonth: -1, wagesSoFar: -1 }))),
+      R.netRowsTotal(lv(3, false, Object.fromEntries(Object.keys(N8).map((k) => [k, -1]))))], [2850, 3250, 0]);
+  const C0 = { passShare: 0 }, C50 = { passShare: 50 };
+  eq("T22.3 netRowShown: lodge / lessons / passes hidden only while they hold no money; costs and tickets always",
+    [R.netRowShown("lodge", lv(3, false, { lodgeSpendMonth: 0, lodgeIncomeMonth: 0 }), C0), R.netRowShown("lodge", lv(3, false, { lodgeSpendMonth: 0, lodgeIncomeMonth: 5 }), C0),
+      R.netRowShown("lessons", lv(3, false, { lessonsThisMonth: 0, lessonsLastMonth: 0, lessonIncomeMonth: 0 }), C0),
+      R.netRowShown("lessons", lv(3, false, { lessonsThisMonth: 0, lessonsLastMonth: 0, lessonIncomeMonth: 80 }), C0),
+      R.netRowShown("passes", lv(3, false, { passesSoldSeason: 0, passHoldersThisMonth: 0, passHoldersLastMonth: 0, passIncomeMonth: 0 }), C0),
+      R.netRowShown("passes", lv(3, false, { passesSoldSeason: 0, passHoldersThisMonth: 0, passHoldersLastMonth: 0, passIncomeMonth: 0 }), C50),
+      R.netRowShown("passes", lv(3, false, { passesSoldSeason: 0, passHoldersThisMonth: 0, passHoldersLastMonth: 0, passIncomeMonth: 9 }), C0),
+      R.netRowShown("tickets", lv(3), C0), R.netRowShown("wages", lv(3), C0)],
+    [false, true, false, true, false, true, true, true, true]);
+  const harnessWin = {};
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "..", "harness", "scenarios.js"), "utf8"), { window: harnessWin, Math, Object, JSON });
+  const harnessRows = [];
+  for (const [name, sc] of Object.entries(harnessWin.SkiScenarios)) {
+    for (const l of sc.resortLive || []) {
+      const h = (sc.history || []).find((x) => x.sign.index === l.sign.index && x.sign.version === l.sign.version);
+      const last = h ? HR.lastKeyOf(h) : 0;
+      harnessRows.push([name, l.sign.index, R.netRowsTotal(l) === l.netMonth, h ? HR.sumRange(h, "month", last, last, last).net === l.netMonth : true]);
+    }
+  }
+  eq("T22.4 harness: every live row's eight rows add up to its netMonth, and its area's month in progress in History nets to the same",
+    harnessRows.filter((r) => !r[2] || !r[3]), []);
+  const moneySrc = read(path.join("hub", "MoneyView.tsx"));
+  eq("T22.5 MoneyView draws the eight Net rows from their contract-11 fields; the season pass total sits in the Also block",
+    [["l.ticketsThisMonth", "l.lodgeIncomeMonth", "l.lessonIncomeMonth", "l.passIncomeMonth", "l.liftChargedMonth", "l.runCostMonth", "l.buildingsSoFar", "l.wagesSoFar",
+      "<AlsoBlock"].map((x) => moneySrc.includes(x)), /function AlsoBlock[\s\S]*<PassRows/.test(moneySrc), (moneySrc.match(/<PassRows /g) || []).length],
+    [[true, true, true, true, true, true, true, true, true], true, 1]);
   const hr = require("./test-history-rules").run(srcDir);
   checks += hr.checks;
   for (const f of hr.failures) failures.push(`test-history-rules ${f}`);

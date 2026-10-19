@@ -68,6 +68,16 @@
  *     so the view stays today's); the lifts row's tooltip lists each offered lift type's rates
  *     (MONEY_TIP[LiftsTypes] + MONEY_TIP_LIFT_RATE per line item C# sent) when two or more line items are sent, else
  *     today's MONEY_TIP[Lifts] with the fixed-grip line's rates. The net is still C#'s (tickets + lodge spend).
+ *   - B1 "one Net" UI half (contract 11, 2026-10-19; docs/research/ui/hub-one-net-b1-2026-10-19.md sections 2 and 4; T82 review F1/F2;
+ *     supersedes the rows above where they differ): the money column is "Month of <name> so far" ("(partial)" while thisMonthSinceLoad)
+ *     and holds ONLY the Net's eight rows, which add up to netMonth (C#'s invariant; hubRules.netRows, test-hub-rules T22): income
+ *     Lift tickets (ticketsThisMonth), Lodge spend (lodgeIncomeMonth), Lessons (lessonIncomeMonth), Season passes sold (passIncomeMonth,
+ *     its pre-season part in the tooltip); RUNNING COSTS Lifts (liftChargedMonth; today's rate in the tooltip), Runs (runCostMonth; the
+ *     per-kind rates in the tooltip: the per-kind rows left the column), Building upkeep (buildingsSoFar) and Staff wages (wagesSoFar),
+ *     each "rate per month at today's budget; N % of the month so far"; then the Net ("≈" only while netEstimated). An income row is
+ *     hidden only while it holds no money (hubRules.netRowShown), so the drawn rows still add up. Under the Net an "Also, not in the
+ *     net" block: last month's tickets (when a whole month was counted), the season's pass sales + the pre-season part + pass holders
+ *     skiing, the city-income estimate. Not linked: Lifts, Runs while it holds money, the Net. Every number is C#'s; the UI adds nothing.
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
@@ -77,10 +87,10 @@ import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import { BUILD_ITEMS, findBuildItem } from "./buildItems";
 import {
-  PRICE_EXAMPLES, PRICE_NO_EFFECT_MAX, buildingsAndWages, cityIncomeShown, hubPrice, incomeNote, lessonsShown, liveOf, lodgeSpendShown,
-  passesShown, presaleShown, priceFactorPct, priceFullWith, schoolState, ticketsRow,
+  PRICE_EXAMPLES, PRICE_NO_EFFECT_MAX, cityIncomeShown, hubPrice, liveOf, netRowShown, passesShown, presaleShown, priceFactorPct,
+  priceFullWith, schoolState, ticketsRow,
 } from "./hubRules";
-import type { IncomeNote, SchoolState } from "./hubRules";
+import type { SchoolState } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, monthName } from "./hubText";
 import { Divider, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, TipLines, numArg, useNumberSamples } from "./parts";
 import type { NumberSamples } from "./parts";
@@ -101,27 +111,36 @@ function Cell({ samples, children }: { samples: NumberSamples; children: JSX.Ele
   return <StableWidth samples={samples.money} align="end">{children}</StableWidth>;
 }
 
-/** A cost a month, shown negated; unknown (negative) -> "–". */
+/** A cost, shown negated; unknown (negative) -> "–". */
 function costValue(v: number): JSX.Element | string {
   return Number.isFinite(v) && v >= 0 ? <SignedNum value={-v} unit={Unit.Money} /> : DASH;
 }
 
-/** Round F7 D2: the run kinds this area has at least one run of (Money shows only their rows). */
+/** An income row's value as sent; unknown (negative) -> "–". */
+function incomeValue(v: number): JSX.Element | string {
+  return Number.isFinite(v) && v >= 0 ? <SignedNum value={v} unit={Unit.Money} /> : DASH;
+}
+
+/** Round F7 D2: the run kinds this area has at least one run of (the Runs tooltip lists only their rates). */
 function kindsOf(runs: readonly RunRow[]): ReadonlySet<number> {
   const s = new Set<number>();
   for (const r of runs) if (r) s.add(r.kind);
   return s;
 }
 
-/** Round F7 D2: the MONEY header with its Info glyph; the moved notes are its tooltip. */
-function MoneyHeader({ note, samples, t }: { note: IncomeNote; samples: NumberSamples; t: Translate }): JSX.Element {
+/** The FINANCES header with its Info glyph: the column is "Month of <name> so far" (B1), "(partial)" while counted since a load. */
+function MoneyHeader({ l, month, samples, t }: { l: ResortLive | null; month: string; samples: NumberSamples; t: Translate }): JSX.Element {
   return (
     <InfoLine
       header
       info
       label={t(HUB_LOC.sectionMoney)}
-      value={<Cell samples={samples}>{t(HUB_LOC.moneyCol)}</Cell>}
-      tip={<TipLines lines={[t(HUB_LOC.sectionMoney), t(HUB_LOC.moneyNotePanel), note === "est" && t(HUB_LOC.moneyNoteEst)]} />}
+      value={<Cell samples={samples}>
+        {l && l.thisMonthSinceLoad
+          ? <LocText entry={HUB_FMT.moneyColMonthPartial} args={{ MONTH: month }} />
+          : <LocText entry={HUB_FMT.moneyColMonth} args={{ MONTH: month }} />}
+      </Cell>}
+      tip={<TipLines lines={[t(HUB_LOC.sectionMoney), t(HUB_LOC.moneyNotePanel), l && l.netEstimated && t(HUB_LOC.moneyNoteEst)]} />}
     />
   );
 }
@@ -133,6 +152,7 @@ function sentLines(build: readonly BuildItem[]): Array<{ id: BuildItemId; liftTy
   return out;
 }
 
+/** The lifts row: the lift charge booked this month (B1); its tooltip has today's rate and the per-type rates. */
 function LiftsRow({ row, l, build, samples, t }: {
   row: ResortRow; l: ResortLive | null; build: readonly BuildItem[]; samples: NumberSamples; t: Translate;
 }): JSX.Element {
@@ -141,9 +161,11 @@ function LiftsRow({ row, l, build, samples, t }: {
   const FULL = billed >= 0 && reduced >= 0 ? numArg(billed - reduced, Unit.Integer) : DASH;
   const REDUCED = numArg(reduced, Unit.Integer);
   const lines = sentLines(build);
+  const booked = <LocText key="r" entry={HUB_FMT.moneyTipLiftsRate} args={{ RATE: numArg(l ? l.liftCostMonth : -1, Unit.Money) }} />;
   // Contract 6: one type -> today's text with its rates; two or more -> the per-type lines.
   const tip = lines.length >= 2
     ? <TipLines lines={[
+      booked,
       <LocText key="l" entry={HUB_FMT.moneyTipLiftsTypes} args={{ FULL, REDUCED }} />,
       ...lines.map((x) => (
         <LocText key={x.id} entry={HUB_FMT.moneyTipLiftRate} args={{
@@ -153,6 +175,7 @@ function LiftsRow({ row, l, build, samples, t }: {
       )),
     ]} />
     : <TipLines lines={[
+      booked,
       <LocText key="l" entry={HUB_FMT.moneyTipLifts} args={{
         BASE: rate(build, lines.length === 1 ? lines[0].id : "lift", "monthly"),
         PERKM: rate(build, lines.length === 1 ? lines[0].id : "lift", "monthlyPerKm"),
@@ -163,25 +186,82 @@ function LiftsRow({ row, l, build, samples, t }: {
     <InfoLine
       sub
       label={<LocText entry={HUB_FMT.moneyRowLifts} args={{ N: numArg(billed, Unit.Integer), LEN: numArg(row.liftLengthM, Unit.Length) }} />}
-      value={<Cell samples={samples}>{costValue(l ? l.liftCostMonth : -1)}</Cell>}
+      value={<Cell samples={samples}>{costValue(l ? l.liftChargedMonth : -1)}</Cell>}
       tip={tip}
     />
   );
 }
 
-/** Contract 6 (D15): the lodge-spend income row, only while lodge spend earned money this month (lodgeSpendShown). */
-function LodgeSpendRow({ l, samples, t }: { l: ResortLive | null; samples: NumberSamples; t: Translate }): JSX.Element | null {
-  if (!l || !lodgeSpendShown(l)) return null;
+/** B1: run upkeep booked this month; the tooltip lists today's rate per month for each run kind the area has. */
+function RunsRow({ l, kinds, samples, t }: { l: ResortLive | null; kinds: ReadonlySet<number>; samples: NumberSamples; t: Translate }): JSX.Element {
+  const ha = (v: number | undefined): JSX.Element | string => numArg(v ?? -1, Unit.FloatSingleFraction);
+  return (
+    <InfoLine
+      sub
+      label={t(HUB_LOC.moneyRowRuns)}
+      value={<Cell samples={samples}>{costValue(l ? l.runCostMonth : -1)}</Cell>}
+      tip={<TipLines lines={[
+        t(HUB_LOC.moneyTipRunsBooked),
+        kinds.has(RUN_KIND.Natural) && { label: <LocText entry={HUB_FMT.moneyRowNatural} args={{ HA: ha(l?.haNatural) }} />, value: <Num value={0} unit={Unit.Money} /> },
+        kinds.has(RUN_KIND.Groomed) && { label: <LocText entry={HUB_FMT.moneyRowGroomed} args={{ HA: ha(l?.haGroomed) }} />, value: costValue(l ? l.costGroomedMonth : -1) },
+        kinds.has(RUN_KIND.Snowmaking) && { label: <LocText entry={HUB_FMT.moneyRowSnowmaking} args={{ HA: ha(l?.haSnowmaking) }} />, value: costValue(l ? l.costSnowmakingMonth : -1) },
+        kinds.has(RUN_KIND.Night) && { label: <LocText entry={HUB_FMT.moneyRowNight} args={{ HA: ha(l?.haNight) }} />, value: costValue(l ? l.costNightMonth : -1) },
+      ]} />}
+    />
+  );
+}
+
+/** B1: buildings / wages so far = today's rate × the share of the month simulated (C#'s rows; nothing multiplied here). */
+function SoFarRow({ label, value, rateNow, l, rwh, samples, t }: {
+  label: string; value: number; rateNow: number; l: ResortLive | null; rwh: boolean; samples: NumberSamples; t: Translate;
+}): JSX.Element {
+  return (
+    <InfoLine
+      sub
+      label={label}
+      mark={value < 0 ? "≈" : null}
+      value={<Cell samples={samples}>{costValue(value)}</Cell>}
+      tip={<TipLines lines={[
+        label,
+        <LocText key="s" entry={HUB_FMT.moneyTipSoFar} args={{
+          RATE: numArg(rateNow, Unit.Money), SHARE: l && l.monthShare >= 0 ? numArg(Math.round(l.monthShare * 100), Unit.Percentage) : DASH,
+        }} />,
+        <LocText key="b" entry={HUB_FMT.moneyTipBuildings} args={{
+          UPKEEP: numArg(l ? l.buildingsMonth : -1, Unit.Money), WAGES: numArg(l ? l.wagesMonth : -1, Unit.Money),
+          FILLED: numArg(l ? l.jobsFilled : -1, Unit.Integer), JOBS: numArg(l ? l.jobs : -1, Unit.Integer),
+        }} />,
+        rwh && t(HUB_LOC.moneyTipRwh),
+      ]} />}
+    />
+  );
+}
+
+/** Contract 6 (D15) / B1: lodge spend booked this month (netRowShown: the setting is on or it holds money). */
+function LodgeSpendRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
+  if (!l || !netRowShown("lodge", l, city)) return null;
   return (
     <InfoLine
       label={t(HUB_LOC.moneyRowLodgeSpend)}
-      value={<Cell samples={samples}><SignedNum value={l.lodgeSpendMonth} unit={Unit.Money} /></Cell>}
+      value={<Cell samples={samples}>{incomeValue(l.lodgeIncomeMonth)}</Cell>}
       tip={t(HUB_LOC.moneyTipLodgeSpend)}
     />
   );
 }
 
-/** Contract 7 (season passes v1): the season's pass sales with their income, and the pass holders who skied this month. */
+/** B1: season passes sold this month (pre-season sales land in their sale month); the pre-season part in the tooltip. */
+function PassesMonthRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
+  if (!l || !netRowShown("passes", l, city)) return null;
+  return (
+    <InfoLine
+      label={t(HUB_LOC.moneyRowPassesMonth)}
+      value={<Cell samples={samples}>{incomeValue(l.passIncomeMonth)}</Cell>}
+      tip={<TipLines lines={[t(HUB_LOC.moneyRowPassesMonth),
+        <LocText key="p" entry={HUB_FMT.moneyTipPassesMonth} args={{ PRE: numArg(l.passIncomePreMonth, Unit.Money) }} />]} />}
+    />
+  );
+}
+
+/** Contract 7 (season passes v1), now in the "Also" block (B1): the season's pass sales, the pre-season part, the pass holders skiing. */
 function PassRows({ l, month, samples, t }: { l: ResortLive | null; month: string; samples: NumberSamples; t: Translate }): JSX.Element {
   const sold = l ? l.passesSoldSeason : -1;
   const holders = l ? l.passHoldersThisMonth : -1;
@@ -189,14 +269,14 @@ function PassRows({ l, month, samples, t }: { l: ResortLive | null; month: strin
     <>
       <InfoLine
         label={<LocText entry={HUB_FMT.moneyRowPasses} args={{ N: numArg(sold, Unit.Integer) }} />}
-        value={<Cell samples={samples}>{l && l.passIncomeSeason >= 0 ? <SignedNum value={l.passIncomeSeason} unit={Unit.Money} /> : DASH}</Cell>}
+        value={<Cell samples={samples}>{incomeValue(l ? l.passIncomeSeason : -1)}</Cell>}
         tip={t(HUB_LOC.moneyTipPasses)}
       />
       {presaleShown(l) && l && (
         <InfoLine
           sub
           label={<LocText entry={HUB_FMT.moneyRowPassesPre} args={{ N: numArg(l.passesPreSeason, Unit.Integer) }} />}
-          value={<Cell samples={samples}>{l.passIncomePreSeason >= 0 ? <SignedNum value={l.passIncomePreSeason} unit={Unit.Money} /> : DASH}</Cell>}
+          value={<Cell samples={samples}>{incomeValue(l.passIncomePreSeason)}</Cell>}
           tip={t(HUB_LOC.moneyTipPassesPre)}
         />
       )}
@@ -210,25 +290,23 @@ function PassRows({ l, month, samples, t }: { l: ResortLive | null; month: strin
   );
 }
 
-/** Contract 8 (econ-2 round 2): the lessons this month with what they paid, drawn once a lesson was taken (lessonsShown). */
-function LessonRow({ l, school, month, samples, t }: {
-  l: ResortLive | null; school: SchoolState; month: string; samples: NumberSamples; t: Translate;
+/** Contract 8 / B1: the lessons booked this month, drawn once a lesson was taken or while there is no ski school (T80, 0 + flag). */
+function LessonRow({ l, city, school, month, samples, t }: {
+  l: ResortLive | null; city: CityStats; school: SchoolState; month: string; samples: NumberSamples; t: Translate;
 }): JSX.Element | null {
-  // T80 (Richard item 3): drawn once a lesson was taken, or while there is no ski school, as 0 with the Warning glyph and "No ski school"
-  // (the row says why it is 0; the tooltip no longer does). A school with no lessons yet keeps the contract-8 behaviour (no row).
-  if (!l || (!lessonsShown(l) && school !== "none")) return null;
+  if (!l || (!netRowShown("lessons", l, city) && school !== "none")) return null;
   return (
     <InfoLine
       flag={school === "none" ? t(HUB_LOC.noSchool) : undefined}
       label={<LocText entry={HUB_FMT.moneyRowLessons} args={{ MONTH: month, N: numArg(Math.max(0, l.lessonsThisMonth), Unit.Integer) }} />}
-      value={<Cell samples={samples}>{l.lessonIncomeMonth >= 0 ? <SignedNum value={l.lessonIncomeMonth} unit={Unit.Money} /> : DASH}</Cell>}
+      value={<Cell samples={samples}>{incomeValue(l.lessonIncomeMonth)}</Cell>}
       tip={t(HUB_LOC.moneyTipLessons)}
     />
   );
 }
 
-/** Contract 8: the resort's share of the city's tourist draw x the game's TouristIncome statistic, labelled an estimate and kept out of the
- *  net; under Tourism Overhaul the row is replaced by the same Detected note as the tourist estimate (EST_TO_NOTE / EST_TO_TIP). */
+/** Contract 8: the resort's share of the city's tourist draw x the game's TouristIncome statistic, an estimate, in the "Also" block (not
+ *  resort income, not in the net); under Tourism Overhaul the row is replaced by the same Detected note as the tourist estimate. */
 function CityIncomeRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
   if (city.tourismOverhaul) return <SubLine tip={t(HUB_LOC.estToTip)}>{t(HUB_LOC.estToNote)}</SubLine>;
   if (!l || !cityIncomeShown(l, city)) return null;
@@ -253,25 +331,13 @@ function NetRow({ l, samples, t }: { l: ResortLive | null; samples: NumberSample
   );
 }
 
-function TicketsRow({ l, price, month, samples, t }: {
-  l: ResortLive | null; price: number; month: number; samples: NumberSamples; t: Translate;
-}): JSX.Element {
-  const r = l ? ticketsRow(l, price) : "unknown";
-  const N = numArg(l ? l.ticketPaidMonth : -1, Unit.Integer);
-  let label: string | JSX.Element;
-  // T77: "last" is the month before (a whole month counted), "est" this month projected (the "≈" mark says so).
-  switch (r) {
-    case "off": label = t(HUB_LOC.moneyTicketsOff); break;
-    case "last": label = <LocText entry={HUB_FMT.moneyTicketsLast} args={{ MONTH: monthName(month, t, 1), N }} />; break;
-    case "est": label = <LocText entry={HUB_FMT.moneyTicketsEst} args={{ MONTH: monthName(month, t), N }} />; break;
-    default: label = t(HUB_LOC.moneyTicketsUnknown); break;
-  }
-  const value = r === "off" || r === "unknown" || !l ? DASH : <SignedNum value={l.ticketIncomeMonth} unit={Unit.Money} />;
+/** B1: the lift tickets booked this month (ticketsThisMonth, the Net's first row); "off" keeps its label. */
+function TicketsRow({ l, price, samples, t }: { l: ResortLive | null; price: number; samples: NumberSamples; t: Translate }): JSX.Element {
+  const off = l ? ticketsRow(l, price) === "off" : false;
   return (
     <InfoLine
-      label={label}
-      mark={r === "est" || r === "unknown" ? "≈" : null}
-      value={<Cell samples={samples}>{value}</Cell>}
+      label={off ? t(HUB_LOC.moneyTicketsOff) : t(HUB_LOC.moneyRowTickets)}
+      value={<Cell samples={samples}>{incomeValue(l ? l.ticketsThisMonth : -1)}</Cell>}
       tip={<TipLines lines={[
         t(HUB_LOC.moneyTicketsTip),
         <LocText key="p" entry={HUB_FMT.moneyTicketsPrice} args={{ PRICE: numArg(price, Unit.Money) }} />,
@@ -306,82 +372,65 @@ function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; 
   );
 }
 
-function SignMoney({ row, l, city, build, kinds, problems, samples, t }: {
-  row: ResortRow; l: ResortLive | null; city: CityStats; build: readonly BuildItem[]; kinds: ReadonlySet<number>;
-  problems: readonly ProblemRow[]; samples: NumberSamples; t: Translate;
-}): JSX.Element {
-  const bw = l ? buildingsAndWages(l) : -1;
-  const note = l ? incomeNote(l, city.ticketPrice) : null;
-  const ha = (v: number | undefined): JSX.Element | string => numArg(v ?? -1, Unit.FloatSingleFraction);
+/** B1: the "Also" block under the Net (its own header): money that is not in this month's net. Nothing to show -> no block. */
+function AlsoBlock({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
+  const last = !!l && ticketsRow(l, city.ticketPrice) === "last";
+  const passes = passesShown(l, city);
+  const cityRow = city.tourismOverhaul || cityIncomeShown(l, city);
+  if (!last && !passes && !cityRow) return null;
   return (
     <>
-      <MoneyHeader note={note} samples={samples} t={t} />
-      <TicketsRow l={l} price={city.ticketPrice} month={city.month} samples={samples} t={t} />
-      <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} t={t} />
-      <LodgeSpendRow l={l} samples={samples} t={t} />
-      {passesShown(l, city) && <PassRows l={l} month={monthName(city.month, t)} samples={samples} t={t} />}
-      <LessonRow l={l} school={schoolState(l, problems, row.sign)} month={monthName(city.month, t)} samples={samples} t={t} />
+      <InfoLine header label={t(HUB_LOC.sectionAlso)} />
+      {last && l && (
+        <InfoLine
+          label={<LocText entry={HUB_FMT.moneyTicketsLast} args={{ MONTH: monthName(city.month, t, 1), N: numArg(l.ticketPaidMonth, Unit.Integer) }} />}
+          value={<Cell samples={samples}>{incomeValue(l.ticketIncomeMonth)}</Cell>}
+        />
+      )}
+      {passes && <PassRows l={l} month={monthName(city.month, t)} samples={samples} t={t} />}
       <CityIncomeRow l={l} city={city} samples={samples} t={t} />
-      <InfoLine header label={t(HUB_LOC.sectionCosts)} />
-      {kinds.has(RUN_KIND.Natural) && (
-        <InfoLine
-          sub
-          label={<LocText entry={HUB_FMT.moneyRowNatural} args={{ HA: ha(l?.haNatural) }} />}
-          value={<Cell samples={samples}><span className={styles.dimValue}><Num value={0} unit={Unit.Money} /></span></Cell>}
-        />
-      )}
-      {kinds.has(RUN_KIND.Groomed) && (
-        <InfoLine
-          sub
-          label={<LocText entry={HUB_FMT.moneyRowGroomed} args={{ HA: ha(l?.haGroomed) }} />}
-          value={<Cell samples={samples}>{costValue(l ? l.costGroomedMonth : -1)}</Cell>}
-          tip={<LocText entry={HUB_FMT.moneyTipRuns} args={{ RATE: rate(build, "runGroomed", "monthlyPerHa") }} />}
-        />
-      )}
-      {kinds.has(RUN_KIND.Snowmaking) && (
-        <InfoLine
-          sub
-          label={<LocText entry={HUB_FMT.moneyRowSnowmaking} args={{ HA: ha(l?.haSnowmaking) }} />}
-          value={<Cell samples={samples}>{costValue(l ? l.costSnowmakingMonth : -1)}</Cell>}
-          tip={<LocText entry={HUB_FMT.moneyTipRuns} args={{ RATE: rate(build, "runSnowmaking", "monthlyPerHa") }} />}
-        />
-      )}
-      {kinds.has(RUN_KIND.Night) && (
-        <InfoLine
-          sub
-          label={<LocText entry={HUB_FMT.moneyRowNight} args={{ HA: ha(l?.haNight) }} />}
-          value={<Cell samples={samples}>{costValue(l ? l.costNightMonth : -1)}</Cell>}
-          tip={<LocText entry={HUB_FMT.moneyTipRuns} args={{ RATE: rate(build, "runNight", "monthlyPerHa") }} />}
-        />
-      )}
-      <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />
-      <InfoLine
-        sub
-        label={t(HUB_LOC.moneyRowBuildings)}
-        mark={bw < 0 ? "≈" : null}
-        value={<Cell samples={samples}>{bw >= 0 ? <SignedNum value={-bw} unit={Unit.Money} /> : DASH}</Cell>}
-        tip={<TipLines lines={[
-          <LocText key="b" entry={HUB_FMT.moneyTipBuildings} args={{
-            UPKEEP: numArg(l ? l.buildingsMonth : -1, Unit.Money), WAGES: numArg(l ? l.wagesMonth : -1, Unit.Money),
-            FILLED: numArg(l ? l.jobsFilled : -1, Unit.Integer), JOBS: numArg(l ? l.jobs : -1, Unit.Integer),
-          }} />,
-          city.realisticWorkplaces && t(HUB_LOC.moneyTipRwh),
-        ]} />}
-      />
-      {city.realisticWorkplaces && <SubLine tip={t(HUB_LOC.moneyTipRwh)}>{t(HUB_LOC.moneyNoteRwh)}</SubLine>}
-      <Divider />
-      <NetRow l={l} samples={samples} t={t} />
     </>
   );
 }
 
-function UnlinkedMoney({ row, l, build, samples, t }: {
-  row: ResortRow; l: ResortLive | null; build: readonly BuildItem[]; samples: NumberSamples; t: Translate;
+function SignMoney({ row, l, city, build, kinds, problems, samples, t }: {
+  row: ResortRow; l: ResortLive | null; city: CityStats; build: readonly BuildItem[]; kinds: ReadonlySet<number>;
+  problems: readonly ProblemRow[]; samples: NumberSamples; t: Translate;
+}): JSX.Element {
+  const month = monthName(city.month, t);
+  return (
+    <>
+      <MoneyHeader l={l} month={month} samples={samples} t={t} />
+      <TicketsRow l={l} price={city.ticketPrice} samples={samples} t={t} />
+      <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} t={t} />
+      <LodgeSpendRow l={l} city={city} samples={samples} t={t} />
+      <LessonRow l={l} city={city} school={schoolState(l, problems, row.sign)} month={month} samples={samples} t={t} />
+      <PassesMonthRow l={l} city={city} samples={samples} t={t} />
+      <InfoLine header label={t(HUB_LOC.sectionCosts)} />
+      <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />
+      <RunsRow l={l} kinds={kinds} samples={samples} t={t} />
+      <SoFarRow label={t(HUB_LOC.moneyRowBuildings)} value={l ? l.buildingsSoFar : -1} rateNow={l ? l.buildingsMonth : -1} l={l}
+        rwh={city.realisticWorkplaces} samples={samples} t={t} />
+      <SoFarRow label={t(HUB_LOC.moneyRowWages)} value={l ? l.wagesSoFar : -1} rateNow={l ? l.wagesMonth : -1} l={l}
+        rwh={city.realisticWorkplaces} samples={samples} t={t} />
+      {city.realisticWorkplaces && <SubLine tip={t(HUB_LOC.moneyTipRwh)}>{t(HUB_LOC.moneyNoteRwh)}</SubLine>}
+      <Divider />
+      <NetRow l={l} samples={samples} t={t} />
+      <AlsoBlock l={l} city={city} samples={samples} t={t} />
+    </>
+  );
+}
+
+/** Not linked (B1): Net = -(lift charge + run upkeep booked for Not linked); the Runs row only while it holds money (so the rows
+ *  still add up to the Net). */
+function UnlinkedMoney({ row, l, city, build, samples, t }: {
+  row: ResortRow; l: ResortLive | null; city: CityStats; build: readonly BuildItem[]; samples: NumberSamples; t: Translate;
 }): JSX.Element {
   return (
     <>
-      <MoneyHeader note={null} samples={samples} t={t} />
+      <MoneyHeader l={l} month={monthName(city.month, t)} samples={samples} t={t} />
       <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />
+      {l && l.runCostMonth > 0 && <RunsRow l={l} kinds={new Set<number>()} samples={samples} t={t} />}
       <Divider />
       <NetRow l={l} samples={samples} t={t} />
       <Divider />
@@ -407,6 +456,6 @@ export function MoneyView(): JSX.Element {
   const row = cur.row;
   if (!row) return <div className={styles.dimLine}>{DASH}</div>;
   const l = liveOf(live, cur.isUnlinked ? null : row.sign);
-  if (cur.isUnlinked) return <UnlinkedMoney row={row} l={l} build={build} samples={samples} t={t} />;
+  if (cur.isUnlinked) return <UnlinkedMoney row={row} l={l} city={city} build={build} samples={samples} t={t} />;
   return <SignMoney row={row} l={l} city={city} build={build} kinds={kindsOf(runsOf(runs, row.sign))} problems={problems} samples={samples} t={t} />;
 }

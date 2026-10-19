@@ -103,16 +103,17 @@ export function Tip({ tip, children }: { tip?: ReactNode; children: JSX.Element 
   return <Tooltip tooltip={tip}>{children}</Tooltip>;
 }
 
-/** One tooltip line: a plain text, ONE element (a <LocText>: one text node), or a label with a value. */
-export type TipLine = string | JSX.Element | { label: string; value: ReactNode } | false | null | undefined;
+/** One tooltip line: a plain text, ONE element (a <LocText>: one text node), or a label with a value (the label a string or ONE
+ *  <LocText>, T82 B1: the Runs tooltip's per-kind lines). */
+export type TipLine = string | JSX.Element | { label: string | JSX.Element; value: ReactNode } | false | null | undefined;
 
-function isPair(l: string | JSX.Element | { label: string; value: ReactNode }): l is { label: string; value: ReactNode } {
+function isPair(l: string | JSX.Element | { label: string | JSX.Element; value: ReactNode }): l is { label: string | JSX.Element; value: ReactNode } {
   return typeof l === "object" && l !== null && !isValidElement(l) && "label" in l;
 }
 
 /** Multi-line tooltip body: the first line is the title; empty entries are skipped. */
 export function TipLines({ lines }: { lines: ReadonlyArray<TipLine> }): JSX.Element {
-  const shown = lines.filter((l) => !!l) as Array<string | JSX.Element | { label: string; value: ReactNode }>;
+  const shown = lines.filter((l) => !!l) as Array<string | JSX.Element | { label: string | JSX.Element; value: ReactNode }>;
   return (
     <div className={styles.tipLines}>
       {shown.map((line, i) => {
@@ -280,7 +281,7 @@ export function MarkSlot({ mark }: { mark: "≈" | "…" | null }): JSX.Element 
 }
 
 /** One label / value row with the vanilla InfoRow metrics (28.2 / 39.7 / 47.3 rem at 100 / 130 / 150 %). */
-export function InfoLine({ label, value, tip, mark, header, sub, info, flag }: {
+export function InfoLine({ label, value, tip, mark, header, sub, info, flag, op }: {
   label: string | JSX.Element;
   value?: ReactNode;
   tip?: ReactNode;
@@ -298,10 +299,14 @@ export function InfoLine({ label, value, tip, mark, header, sub, info, flag }: {
   /** T80 (Richard item 3): a row whose 0 has a cause says it after the label, the problem band's Warning glyph + a short
    *  warning-coloured word ("No ski school"), instead of a tooltip sentence. Same flex box as `info`. */
   flag?: string;
+  /** T82 B6 (F11): the receipt term's operator ("+", "×") in a fixed-width cell before the label, so the terms read as the
+   *  equation they are, not as a sum. Symbols only (no letters: nothing to translate, R14). */
+  op?: string;
 }): JSX.Element {
   return (
     <Tip tip={tip}>
       <div className={cx(styles.infoLine, header && styles.infoHeader, sub && styles.infoSub)}>
+        {op !== undefined && <div className={styles.infoOp}>{op}</div>}
         {flag ? (
           <div className={styles.infoLabelBox}>
             <div className={styles.infoLabelText}>{label}</div>

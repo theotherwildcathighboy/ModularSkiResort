@@ -48,7 +48,7 @@
  */
 import type { Entity } from "cs2/utils";
 import {
-  BUILD_ITEM_IDS, LIFT_STATE, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SKI_DAY_LIMIT, SKI_DAY_STATE,
+  BUILD_ITEM_IDS, LIFT_STATE, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SEASON_HINT, SKI_DAY_LIMIT, SKI_DAY_STATE,
   TICKET_GATE, TRIP_PLANNER_UNKNOWN, entityId, sameEntity,
 } from "../bindings";
 import type {
@@ -254,14 +254,23 @@ export function closedRuns(row: ResortRow, live: ResortLive): number {
  *  sixths, so the rounded percent never straddles the mark. */
 export const POWDER_MARK_PCT = 50;
 
-export type StatusHint = "powder" | "season" | "none";
+export type StatusHint = "powder" | "warn" | "snow" | "season" | "none";
+
+/** T82 B5a: the SEASON_HINT values that stay on the status line as a warning (runs closing or not opening); every other hint word
+ *  moves into the status tooltip and the slot shows the snow. */
+export const SEASON_HINT_WARN: readonly number[] = [SEASON_HINT.Thawing, SEASON_HINT.WaitingForSnow, SEASON_HINT.TooWarm];
 
 /** The status line's hint slot (Round S1 D29): "Powder day" at the mark, else the SEASON_HINT word; nothing
  *  for the Not linked row, a sign without runs or a missing live row (the slot then stays empty, as before).
- *  Total also for a live row without the field (undefined >= 50 is false: "season"). */
+ *  Total also for a live row without the field (undefined >= 50 is false: "season").
+ *  T82 B5a (2026-10-19): powder first, then a warning hint (SEASON_HINT_WARN: "warn", the word stays), else the snow ("snow":
+ *  depth cm · coverage %, the hint word in the tooltip) while either is known, else the hint word ("season"). */
 export function statusHint(row: ResortRow | null, live: ResortLive | null): StatusHint {
   if (!row || row.kind !== 0 || (row.runs | 0) <= 0 || !live) return "none";
-  return live.skiDaysPowderPct >= POWDER_MARK_PCT ? "powder" : "season";
+  if (live.skiDaysPowderPct >= POWDER_MARK_PCT) return "powder";
+  // T82 B5a (review F10a): snow on the top level, "64 cm · 88 %", in the slot that said "Snow season"; a warning hint keeps the slot.
+  if (SEASON_HINT_WARN.includes(live.seasonHint)) return "warn";
+  return live.snowDepthCm >= 0 || live.snowPct >= 0 ? "snow" : "season";
 }
 
 // ---- footer -------------------------------------------------------------------------------------
@@ -606,6 +615,43 @@ export function presaleShown(l: ResortLive | null): boolean {
  *  the TO note in its place, as for the tourist estimate). */
 export function cityIncomeShown(l: ResortLive | null, city: CityStats): boolean {
   return !!l && !city.tourismOverhaul && l.cityIncomeEst >= 0;
+}
+
+/** B1 "one Net" (contract 11; docs/research/ui/hub-one-net-b1-2026-10-19.md section 2): the Net's eight rows of the month so far, in the
+ *  Finances column's order, with their sign. C#'s invariant: Σ sign × max(0, value) over the eight = netMonth (an unknown row, -1, reads 0).
+ *  The view draws them as sent; netRowsTotal is that sum for the tests (the UI never shows it: the Net row is netMonth as sent). */
+export type NetRowId = "tickets" | "lodge" | "lessons" | "passes" | "lifts" | "runs" | "buildings" | "wages";
+export const NET_ROW_IDS: readonly NetRowId[] = ["tickets", "lodge", "lessons", "passes", "lifts", "runs", "buildings", "wages"];
+
+export function netRows(l: ResortLive): Array<{ id: NetRowId; value: number; sign: 1 | -1 }> {
+  return [
+    { id: "tickets", value: l.ticketsThisMonth, sign: 1 },
+    { id: "lodge", value: l.lodgeIncomeMonth, sign: 1 },
+    { id: "lessons", value: l.lessonIncomeMonth, sign: 1 },
+    { id: "passes", value: l.passIncomeMonth, sign: 1 },
+    { id: "lifts", value: l.liftChargedMonth, sign: -1 },
+    { id: "runs", value: l.runCostMonth, sign: -1 },
+    { id: "buildings", value: l.buildingsSoFar, sign: -1 },
+    { id: "wages", value: l.wagesSoFar, sign: -1 },
+  ];
+}
+
+export function netRowsTotal(l: ResortLive): number {
+  let s = 0;
+  for (const r of netRows(l)) s += r.sign * (Number.isFinite(r.value) && r.value > 0 ? r.value : 0);
+  return s;
+}
+
+/** Which of the Net's income rows the Finances view draws (B1): tickets always; lodge spend, lessons and passes sold under their
+ *  contract-6/7/8 conditions OR while the row holds money this month, so a hidden row is always 0 and the drawn rows still add up
+ *  to the Net. (Lessons also show at 0 while there is no ski school, T80; the view adds that.) */
+export function netRowShown(id: NetRowId, l: ResortLive, city: CityStats): boolean {
+  switch (id) {
+    case "lodge": return lodgeSpendShown(l) || l.lodgeIncomeMonth > 0;
+    case "lessons": return lessonsShown(l) || l.lessonIncomeMonth > 0;
+    case "passes": return passesShown(l, city) || l.passIncomeMonth > 0;
+    default: return true;
+  }
 }
 
 /** Buildings + wages a month, or -1 when either is unknown. */

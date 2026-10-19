@@ -13,6 +13,11 @@
  *     sign row with runs). Tooltip (sign with runs and a live row): STATUS_TIP_COUNTS, the open rule,
  *     gating off / estimated / measured, SEASON_TIP of the hint, STATUS_TIP_TEMP when known,
  *     STATUS_TIP_VISUALS when the game's snow visuals are off (ch3 E1-S3).
+ *   - T82 UI round (2026-10-19; docs/research/ui/hub-design-review-2026-10-18.md B5a, F10a): the hint slot shows the snow,
+ *     STATUS_SNOW "64 cm · 88 %" (ResortLive.snowDepthCm / snowPct, "–" for an unknown part; "≈" in a cell before it while
+ *     snowEstimated, normal colour), where it said "Snow season"; hubRules.statusHint "snow". The SEASON_HINT word moves into the tooltip (above its
+ *     SEASON_TIP) unless it is a warning (SEASON_HINT_WARN: Thawing, Waiting for snow, Too warm: "warn", the word stays, warning
+ *     colour) or "Powder day" holds the slot (D29); then the tooltip carries the snow pair (Snow depth, Run coverage).
  *   - Problems band `div.problems` (ref problemsRef): ALWAYS three `div.problemSlotRow` of 1.45 em,
  *     so a value or problem change never changes its height (D33). Slot i shows bandSlots(rows)
  *     .slots[i] (C# ranks and caps the rows; hubRules.bandRowsOf keeps every code the band knows,
@@ -118,6 +123,10 @@ function StatusMark({ row, live }: { row: ResortRow | null; live: ResortLive | n
 function statusTip(row: ResortRow | null, live: ResortLive | null, city: CityStats, t: Translate): JSX.Element | undefined {
   if (!row || row.kind === 1 || !live || (row.runs | 0) <= 0) return undefined;
   const seasonTip = SEASON_TIP_TEXT[live.seasonHint] ?? null;
+  // T82 B5a: the hint word one layer down when the slot shows the snow; the snow pair here when the slot shows a word instead.
+  const hint = statusHint(row, live);
+  const seasonWord = hint !== "warn" && hint !== "season" && seasonTip ? SEASON_HINT_TEXT[live.seasonHint] ?? null : null;
+  const snowHere = hint === "powder" || hint === "warn";
   return (
     <TipLines
       lines={[
@@ -127,7 +136,10 @@ function statusTip(row: ResortRow | null, live: ResortLive | null, city: CitySta
         }} />,
         t(HUB_LOC.statusTipRule),
         !city.snowGating ? t(HUB_LOC.statusTipGating) : live.snowEstimated ? t(HUB_LOC.statusTipEstimated) : t(HUB_LOC.statusTipMeasured),
+        seasonWord && t(seasonWord),
         seasonTip && t(seasonTip),
+        snowHere && live.snowDepthCm >= 0 && { label: t(HUB_LOC.mountainSnowDepth), value: <LocText entry={HUB_FMT.snowDepth} args={{ CM: numArg(live.snowDepthCm, Unit.Integer) }} /> },
+        snowHere && live.snowPct >= 0 && { label: t(HUB_LOC.mountainSnowCover), value: numArg(live.snowPct, Unit.Percentage) },
         // Round S1 D29: the powder now (0-100; -1 unknown, 0 none: no line).
         live.skiDaysPowderPct > 0 && <LocText key="p" entry={HUB_FMT.statusTipPowder} args={{ PCT: numArg(live.skiDaysPowderPct, Unit.Percentage) }} />,
         live.topTempKnown && <LocText key="t" entry={HUB_FMT.statusTipTemp} args={{ TEMP: numArg(live.topTempC, Unit.Temperature, false, false) }} />,
@@ -316,7 +328,10 @@ export function StatusBlock({ statusRef, problemsRef }: {
   // Round S1 D29: "Powder day" in the hint slot (normal colour), else the SEASON_HINT word; same slot, same height.
   const hintKind = statusHint(row, l);
   const powder = hintKind === "powder";
-  const seasonHint = hintKind === "season" && l ? SEASON_HINT_TEXT[l.seasonHint] ?? null : null;
+  const warn = hintKind === "warn";
+  const seasonHint = (hintKind === "season" || warn) && l ? SEASON_HINT_TEXT[l.seasonHint] ?? null : null;
+  // T82 B5a: the snow, depth cm · coverage % (PIPELINE section 0: always the two numbers), "≈" before it while estimated.
+  const snow = hintKind === "snow" && l;
 
   return (
     <>
@@ -325,8 +340,11 @@ export function StatusBlock({ statusRef, problemsRef }: {
           <StatusMark row={row} live={l} />
           <div className={styles.statusText}><StatusSentence row={row} live={l} t={t} /></div>
           <div className={styles.statusSpacer} />
-          <div className={cx(styles.statusHint, powder && styles.statusHintOn)}>
-            {powder ? t(HUB_LOC.powderDay) : seasonHint ? t(seasonHint) : ""}
+          {snow && l.snowEstimated && <div className={styles.statusSnowMark}>{"≈"}</div>}
+          <div className={cx(styles.statusHint, (powder || snow) && styles.statusHintOn, warn && styles.statusHintWarn)}>
+            {snow
+              ? <LocText entry={HUB_FMT.statusSnow} args={{ CM: numArg(l.snowDepthCm, Unit.Integer), PCT: numArg(l.snowPct, Unit.Percentage) }} />
+              : powder ? t(HUB_LOC.powderDay) : seasonHint ? t(seasonHint) : ""}
           </div>
         </div>
       </Tip>

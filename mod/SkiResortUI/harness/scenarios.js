@@ -133,20 +133,41 @@
     historyOf(SIGN, NOW_KEY - 29, 30, 1, { gap: [2026 * 12 + 2, 2026 * 12 + 3], partial: [2025 * 12 + 9] }),
     historyOf(SIGN2, 2026 * 12 + 4, 10, 0.2),
   ];
+  // B1 (contract 11): each live row's Net rows ARE its area's month in progress in `history` (C# HistoryAddProgress takes them from the
+  // ResortLive row), so the Finances tile = the Finances view's Net = History's last bar. Rates stay (buildingsMonth 9800, wagesMonth
+  // 31200 x monthShare 0.45 = 4410 / 14040, historyOf's rounding). netMonth = Σ income rows − Σ cost rows (the invariant; test-hub-rules T22).
+  function moneyFrom(l, h) {
+    const i = h.flags.length - 1;
+    const rows = { ticketsThisMonth: h.ticketIncome[i], lodgeIncomeMonth: h.lodgeIncome[i], lessonIncomeMonth: h.lessonIncome[i],
+      passIncomeMonth: h.passIncome[i], passIncomePreMonth: 0, liftChargedMonth: h.liftCost[i], runCostMonth: h.runCost[i],
+      buildingsSoFar: h.buildingsCost[i], wagesSoFar: h.wagesCost[i], monthShare: 0.45 };
+    rows.netMonth = rows.ticketsThisMonth + rows.lodgeIncomeMonth + rows.lessonIncomeMonth + rows.passIncomeMonth
+      - rows.liftChargedMonth - rows.runCostMonth - rows.buildingsSoFar - rows.wagesSoFar;
+    return Object.assign(l, rows, { netEstimated: false });
+  }
+  moneyFrom(live, history[0]);
+  moneyFrom(live2, history[1]);
+  const h8 = historyOf(SIGN, NOW_KEY - 95, 96, 1, { gap: [2026 * 12 + 2, 2026 * 12 + 3], partial: [2025 * 12 + 9] });   // 8 years (its own month in progress)
 
   const glade = { available: true, active: false, level: 4, treeLine: false, reason: "" };
 
-  const base = { hubOpen: false, contract: 10, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 11, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [] };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
-    "contract mismatch (DLL 9, UI 10)": Object.assign({}, base, { contract: 9, hubOpen: true }),
+    "contract mismatch (DLL 10, UI 11)": Object.assign({}, base, { contract: 10, hubOpen: true }),
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed" }) }),
     // T78: 8 years of history, so "All" draws July-June seasons (over 60 months).
-    "Ash Flat, 8 years of history": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
-      problems, history: [historyOf(SIGN, NOW_KEY - 95, 96, 1, { gap: [2026 * 12 + 2, 2026 * 12 + 3], partial: [2025 * 12 + 9] }), history[1]] }),
+    "Ash Flat, 8 years of history": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [moneyFrom(Object.assign({}, live), h8), live2], selectedResort: SIGN,
+      runs, runLive, lifts, problems, history: [h8, history[1]] }),
+    // T82 B5a: the status line's two other snow states - estimated snow ("≈ 41 cm · 72 %", the season word in the tooltip) and a
+    // warning hint that keeps the slot ("Thawing", the snow pair in the tooltip).
+    "Ash Flat, snow estimated": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { snowEstimated: true, snowDepthCm: 41, snowPct: 72 }), live2],
+      selectedResort: SIGN, runs, runLive, lifts, problems, history }),
+    "Ash Flat, thawing": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { seasonHint: 3, snowDepthCm: 22, snowPct: 54, topTempC: 3 }), live2],
+      selectedResort: SIGN, runs, runLive, lifts, problems, history }),
   };
 })();

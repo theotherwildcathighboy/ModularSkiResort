@@ -16,7 +16,8 @@
  *   - Values (a sign / Not linked): Attraction = "…" while the first write after a load is held
  *     (second pass: the game keeps the SAVED score then), else `attraction` / "–"; Runs = runsOpen /
  *     runs (LocalizedFraction) / `runs`; Lifts = liftsCounted / liftsComplete / `liftRows`; Guests =
- *     guestsThisMonth / "–"; Money = the signed netMonth (C# sends -liftCostMonth for Not linked).
+ *     guestsThisMonth / "–"; Money = the signed netMonth as sent (B1, contract 11: this month so far; Not linked: minus its booked
+ *     lift and run costs).
  *   - Tooltips: the tile's title and meaning, its state lines (full-efficiency score, held, partly
  *     open, unfinished lifts, since load, last month only when a whole month was counted, the "≈"
  *     reasons), then TILE_TIP_OPEN. Not linked (E1 fixer F15): the Runs and Lifts tiles show totals,
@@ -25,7 +26,8 @@
  *     (TILE[RunsOpen], XS 56.6 / 93.1 / 117.5 rem against the caption room 75 / 111 / 135 of design §2.3:
  *     fits, no shrink), so "2 / 3" says what it counts; the Not linked tile shows a total and keeps
  *     "Runs" (TILE[Runs]). The tooltip title follows the caption.
- *   - T78 (contract 10): a sixth tile, History, after Finances: its value is the City Statistics glyph (never a number: the
+ *   - T78 (contract 10): a sixth tile, History, after Finances: its value is a glyph (T82 B8: our HistoryGlyph.svg, three bars on
+ *     a baseline, replaced the game's City Statistics glyph) (never a number: the
  *     tile must not subscribe `history`, which only the History view observes), its tooltip TILE_TIP[History].
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, city$ (T77: the month's name in the Guests
  *     tooltip, "Month of <name>"); local view$.
@@ -45,6 +47,7 @@ import type { HubView } from "./hubState";
 import { HUB_FMT, HUB_LOC, monthName } from "./hubText";
 import { Glyph, LocText, SignedNum, Tip, TipLines, cx, numArg } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
+import historyGlyph from "./HistoryGlyph.svg";
 import styles from "./hub.module.scss";
 
 const CAPTION: Readonly<Record<HubView, LocEntry>> = {
@@ -56,8 +59,10 @@ const CAPTION: Readonly<Record<HubView, LocEntry>> = {
   history: HUB_LOC.tileHistory,
 };
 
-/** T78: the History tile's value (the game's City Statistics icon, drawn as a mask in the tile's text colour). */
-const HISTORY_GLYPH = "Media/Game/Icons/CityStatistics.svg";
+/** The History tile's value: our own flat glyph, three bars on a baseline (T82 B8: the game's CityStatistics.svg is isometric and
+ *  masked flat read as a blob at tile size), drawn as a mask in the tile's text colour. coui://ui-mods/SkiResortMod-img/HistoryGlyph.svg
+ *  (webpack asset/resource, like SkiLauncherGlyph.svg). */
+const HISTORY_GLYPH: string = historyGlyph;
 
 const DASH = <span>{"–"}</span>;
 const HELD = <span>{"…"}</span>;
@@ -134,7 +139,9 @@ function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boo
     case "history":
       return <TipLines lines={[t(HUB_LOC.tileHistory), t(HUB_LOC.tileTipHistory), open]} />;
     default:
-      return <TipLines lines={[t(HUB_LOC.tileMoney), t(HUB_LOC.tileTipMoney), l && l.ticketIncomeEstimated && t(HUB_LOC.tileTipEst),
+      // B1 (contract 11): the tile is the Finances view's Net, this month so far; "≈" only while a term is unknown (netEstimated).
+      return <TipLines lines={[t(HUB_LOC.tileMoney), t(HUB_LOC.tileTipMoney), l && l.thisMonthSinceLoad && t(HUB_LOC.tileTipSinceLoad),
+        l && l.netEstimated && buildingsAndWages(l) >= 0 && t(HUB_LOC.tileTipEst),
         l && buildingsAndWages(l) < 0 && t(HUB_LOC.tileTipEstBuildings), open]} />;
   }
 }

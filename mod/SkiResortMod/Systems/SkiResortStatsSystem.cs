@@ -67,8 +67,10 @@
 //     GetUpkeepWithUsageScale) split into the wage part and the rest, × the CURRENT service budget
 //     (GetServiceBudget, once per service per rebuild; it completes its temp arrays, :1060-1072) × daysPerYear
 //     / 12; −1 when the prefab has no service upkeep or the budget reads 0 (no entry yet).
-//   * net: HubRules.NetMonth(tickets, run + lift + buildings + wages); "≈" when the income is projected
-//     or unknown or the building bill is unknown.
+//   * net (B1, 2026-10-19, contract 11; HubRules header ONE NET): HubRules.NetMonth over the month in progress as the ledger
+//     booked it (tickets, lodge spend, lessons, passes sold, lift charge, run upkeep) and buildings / wages × the share of the
+//     month simulated (RateSoFar); the eight terms go out as rows (SetNetRows) that add up to it; "≈" when a term is unknown.
+//     Not linked: −(lift charge + run upkeep booked for EntityRef.Null).
 //   * share / estimate / jobs: as in contract 2 — ONE walk of AttractivenessProvider None {Temp, Deleted}
 //     (TourismSystem.cs:241): S_all, S_res over the area's providers, SkiResortTourism.Estimate (tourists
 //     only); jobs = the sign's WorkProvider.m_MaxWorkers and Employee count.
@@ -287,6 +289,23 @@ namespace SkiResortMod.Systems
         // 280 reads it the same way). -1 unknown, no share, or Tourism Overhaul detected (the UI hides the row then). An ESTIMATE: the
         // statistic's window (cumulative / daily) is prefab data, not in the decompile.
         public int LessonsThisMonth, LessonsLastMonth, LessonIncomeMonth, PassesPreSeason, PassIncomePreSeason, CityIncomeEst;
+        // Contract 11 (B1 "one Net", HubRules header ONE NET; docs/research/ui/hub-one-net-b1-2026-10-19.md), appended in this order:
+        // the rows of NetMonth for the month in progress that are not already sent (TicketsThisMonth and LessonIncomeMonth are the
+        // ticket and lesson rows). PassIncomeMonth = ₵ of passes SOLD at the area this month, pre-season sales included;
+        // PassIncomePreMonth = the pre-season part of it (a subset); LodgeIncomeMonth = lodge spend booked this month (LodgeSpendMonth
+        // keeps the old last-month / projected rule); LiftChargedMonth / RunCostMonth = the lift charge / run upkeep booked this month
+        // (LiftCostMonth / CostGroomedMonth … stay the RATES); BuildingsSoFar / WagesSoFar = BuildingsMonth / WagesMonth × MonthShare
+        // (HubRules.RateSoFar); MonthShare = the share of the month simulated (0..1, −1 unknown). −1 unknown, as the other numbers.
+        // Invariant (HubRulesTests A "B1"): Σ max(0, the four income rows) − Σ max(0, the four cost rows) == NetMonth.
+        public int PassIncomeMonth, PassIncomePreMonth, LodgeIncomeMonth, LiftChargedMonth, RunCostMonth, BuildingsSoFar, WagesSoFar;
+        public float MonthShare;
+
+        /// <summary>B1: the eight terms NetMonth was computed from (contract 11's rows; −1 unknown).</summary>
+        public HubMonthMoney NetTerms => new HubMonthMoney
+        {
+            TicketIncome = TicketsThisMonth, LodgeIncome = LodgeIncomeMonth, LessonIncome = LessonIncomeMonth, PassIncome = PassIncomeMonth,
+            LiftCost = LiftChargedMonth, RunCost = RunCostMonth, BuildingsCost = BuildingsSoFar, WagesCost = WagesSoFar,
+        };
     }
 
     /// <summary>bindings.ts RunRow (contract 3). Catalog row order.</summary>
@@ -2037,6 +2056,11 @@ namespace SkiResortMod.Systems
             uint countStart = m_GuestCounter.HasCountingSinceFrame ? m_GuestCounter.CountingSinceFrame : m_LoadFrameIndex;
             float countedFraction = HubRules.CountedFraction(sinceLoad, m_TimeSystem.normalizedDate,
                 unchecked(m_Simulation.frameIndex - countStart), m_TimeSystem.daysPerYear);
+            // B1 (HubRules header ONE NET): the share of the month in progress simulated, which scales the buildings / wages rates
+            // into the month's Net; the frames the ledger's month has booked (the counter's, as the History binding read it). −1 unknown.
+            double monthShare = counterArmed
+                ? HubRules.MonthShare(m_GuestCounter.MonthFramesSimulated, SkiMoneyRules.MonthFrames(m_TimeSystem.daysPerYear))
+                : -1.0;
             int price = city.TicketPrice;
 
             // Round S1 (ch4 §A.4): ski days are "off" when both settings are 0 (the clamped readers), once per rebuild;
@@ -2214,9 +2238,11 @@ namespace SkiResortMod.Systems
                 bool ticketEstimated;
                 int lodgeSpendMonth = -1;          // Catalog Phase B (seam S8): −1 unknown
                 bool lodgeSpendEstimated = true;
+                SkiResortLedger.Month booked = default;   // B1: the month in progress as booked (the Net's six booked terms)
                 if (counterArmed)
                 {
                     SkiResortLedger.Entry e = m_GuestCounter.TryGetMonth(sign, out SkiResortLedger.Entry entry) ? entry : default;
+                    booked = e.This;
                     // Catalog Phase B (round-2-contract §6.4, seam S8): the lodge spend per month by the tickets' month rule.
                     lodgeSpendMonth = HubRules.TicketIncomeMonth(lastMonthFull, e.Last.LodgeSpendIncome, e.Last.LodgeSpends,
                         e.This.LodgeSpendIncome, e.This.LodgeSpends, countedFraction, out int _, out lodgeSpendEstimated);
@@ -2338,15 +2364,24 @@ namespace SkiResortMod.Systems
                 }
                 live.BuildingsMonth = buildingsF >= 0f ? RoundToInt(buildingsF) : -1;
                 live.WagesMonth = wagesF >= 0f ? RoundToInt(wagesF) : -1;
-                float runCosts = work.CostGroomed + work.CostSnowmaking + work.CostNight;
-                // Catalog Phase B (round-2-contract §6.4, skeptic SHOULD "Money"): the income is max(0, tickets) +
-                // max(0, lodge spend), estimated when either is projected or unknown (< 0). With the setting 0 the lodge
-                // spend is 0 and not estimated, so the net is today's exactly (NetMonth's own max(0, …) and "< 0" test).
-                int incomeMonth = ClampToInt((long)Math.Max(0, live.TicketIncomeMonth) + Math.Max(0, lodgeSpendMonth));
-                bool incomeEstimated = live.TicketIncomeEstimated || live.TicketIncomeMonth < 0 ||
-                                       lodgeSpendEstimated || lodgeSpendMonth < 0;
-                live.NetMonth = HubRules.NetMonth(incomeMonth, incomeEstimated, runCosts, liftRate,
-                    buildingsF, wagesF, out bool netEstimated);
+                // B1 (HubRules header ONE NET; replaces Catalog Phase B's max(0, tickets) + max(0, lodge spend) − cost RATES): the
+                // Net of the month in progress = what the ledger booked this month (tickets, lodge spend, lessons, passes sold, lift
+                // charge, run upkeep) − buildings / wages × the share simulated. The rows go out as contract 11's fields, from the
+                // same HubMonthMoney, so the UI's rows add up to NetMonth exactly. Before the counter arms every term is unknown.
+                live.MonthShare = monthShare >= 0.0 ? (float)monthShare : -1f;
+                live.BuildingsSoFar = counterArmed ? HubRules.RateSoFar(live.BuildingsMonth, monthShare) : -1;
+                live.WagesSoFar = counterArmed ? HubRules.RateSoFar(live.WagesMonth, monthShare) : -1;
+                HubMonthMoney money = HubMonthMoney.Unknown;
+                if (counterArmed)
+                    money = HubRules.MonthMoneyOf(booked, live.BuildingsSoFar, live.WagesSoFar);
+                else
+                {
+                    money.BuildingsCost = live.BuildingsSoFar;
+                    money.WagesCost = live.WagesSoFar;
+                }
+                SetNetRows(ref live, in money);
+                live.PassIncomePreMonth = counterArmed ? ClampToInt(Math.Max(0L, booked.PassIncomePre)) : -1;
+                live.NetMonth = HubRules.NetMonth(money, out bool netEstimated);
                 live.NetEstimated = netEstimated;
                 m_ResortLiveNext.Add(live);
             }
@@ -2387,8 +2422,43 @@ namespace SkiResortMod.Systems
                 live.LiftsBilled = charge.Lifts;
                 live.LiftsBilledReduced = charge.Reduced;
             }
-            live.NetMonth = -live.LiftCostMonth;
+            // B1 (HubRules header ONE NET): Not linked has no income and no buildings; its Net is minus what the ledger booked this
+            // month for unlinked lifts and runs (EntityRef.Null), not estimated. The income rows stay −1 (no ski area), so the
+            // invariant Σ max(0, row) holds; before the counter arms the two cost rows are −1 and the Net reads 0, estimated.
+            SkiResortLedger ledger = m_GuestCounter.Ledger;
+            bool armed = m_GuestCounter.IsArmed && ledger != null;
+            SkiResortLedger.Month booked = armed && m_GuestCounter.TryGetMonth(Entity.Null, out SkiResortLedger.Entry e) ? e.This : default;
+            HubMonthMoney money = HubMonthMoney.Unknown;
+            if (armed)
+            {
+                HubMonthMoney m = HubRules.MonthMoneyOf(booked, 0, 0);
+                money.LiftCost = m.LiftCost;
+                money.RunCost = m.RunCost;
+            }
+            SetNetRows(ref live, in money);
+            live.PassIncomePreMonth = -1;
+            live.MonthShare = -1f;
+            // the income rows and the bill are not terms of Not linked (0, known), so only an unarmed ledger makes the Net "≈"
+            live.NetMonth = HubRules.NetMonth(new HubMonthMoney
+            {
+                LiftCost = money.LiftCost, RunCost = money.RunCost,
+            }, out bool _);
+            live.NetEstimated = !armed;
             return live;
+        }
+
+        /// <summary>B1: contract 11's Net rows (and the two contract-3/8 rows that are Net terms: TicketsThisMonth, LessonIncomeMonth)
+        /// from the terms NetMonth uses, so the UI's rows and the Net come from one HubMonthMoney.</summary>
+        private static void SetNetRows(ref ResortLiveStats live, in HubMonthMoney money)
+        {
+            live.TicketsThisMonth = money.TicketIncome;
+            live.LodgeIncomeMonth = money.LodgeIncome;
+            live.LessonIncomeMonth = money.LessonIncome;
+            live.PassIncomeMonth = money.PassIncome;
+            live.LiftChargedMonth = money.LiftCost;
+            live.RunCostMonth = money.RunCost;
+            live.BuildingsSoFar = money.BuildingsCost;
+            live.WagesSoFar = money.WagesCost;
         }
 
         private void AddJobs(Entity building, ref int jobs, ref int filled)
@@ -2982,6 +3052,14 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.PassesPreSeason);
                 h = Mix(h, (uint)r.PassIncomePreSeason);
                 h = Mix(h, (uint)r.CityIncomeEst);
+                h = Mix(h, (uint)r.PassIncomeMonth);   // Contract 11 (B1): every appended field is hashed
+                h = Mix(h, (uint)r.PassIncomePreMonth);
+                h = Mix(h, (uint)r.LodgeIncomeMonth);
+                h = Mix(h, (uint)r.LiftChargedMonth);
+                h = Mix(h, (uint)r.RunCostMonth);
+                h = Mix(h, (uint)r.BuildingsSoFar);
+                h = Mix(h, (uint)r.WagesSoFar);
+                h = MixF(h, r.MonthShare);
             }
             return Mix(h, (uint)rows.Count);
         }
@@ -3352,6 +3430,13 @@ namespace SkiResortMod.Systems
               .Append("; pre-season passes ").Append(l.PassesPreSeason).Append(" +").Append(l.PassIncomePreSeason)   // Contract 8
               .Append("; lessons this month ").Append(l.LessonsThisMonth).Append(" +").Append(l.LessonIncomeMonth).Append(" / last ").Append(l.LessonsLastMonth)
               .Append("; city income estimate ").Append(l.CityIncomeEst)
+              // Contract 11 (B1): the Net's rows of the month so far, in NetMonth's order
+              .Append("; net rows: tickets ").Append(l.TicketsThisMonth).Append(" + lodge ").Append(l.LodgeIncomeMonth)
+              .Append(" + lessons ").Append(l.LessonIncomeMonth).Append(" + passes ").Append(l.PassIncomeMonth)
+              .Append(" (pre-season ").Append(l.PassIncomePreMonth).Append(") − lifts ").Append(l.LiftChargedMonth)
+              .Append(" − runs ").Append(l.RunCostMonth).Append(" − buildings ").Append(l.BuildingsSoFar).Append(" − wages ")
+              .Append(l.WagesSoFar).Append(" (month share ").Append(F(l.MonthShare, "0.###")).Append(") = ").Append(l.NetMonth)
+              .Append(l.NetEstimated ? " ≈" : "")
               .Append("; summit lodges not lift-served ").Append(summitNotServed).Append('\n');
         }
 

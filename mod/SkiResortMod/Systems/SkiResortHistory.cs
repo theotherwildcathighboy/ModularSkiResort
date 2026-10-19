@@ -31,9 +31,11 @@
 // may have been placed partway through it).
 //
 // MONEY in whole ₵ as int32, clamped (ClampInt); the lift charge (double) is rounded. Unknown: skiDays / buildingsCost /
-// wagesCost / attraction −1, snowPct 255. Net is never stored (the UI derives it, so it cannot disagree with its parts).
+// wagesCost / attraction −1, snowPct 255. Net is never stored (the UI derives it, so it cannot disagree with its parts);
+// B1 (2026-10-19): HubRules.NetMonth(element.Money) is that same net, the one definition the Finances tile uses (HistoryTests H-10).
 //
-// PURE FILE: System, System.Collections.Generic, Unity.Mathematics (SkiMoneyRules), SkiResortLedger and EntityRef only.
+// PURE FILE: System, System.Collections.Generic, Unity.Mathematics (SkiMoneyRules), SkiResortLedger, HubRules (B1: HubMonthMoney)
+// and EntityRef only.
 // Created 2026-10-18 (T78 build round 1).
 
 using System;
@@ -109,6 +111,14 @@ namespace SkiResortMod.Systems
         public byte m_SnowPct;        // 0..100 at the roll; 255 unknown
 
         public bool IsGap => (m_Flags & HistoryFlags.Gap) != 0;
+
+        /// <summary>B1: the element's eight Net terms, as stored (buildings / wages −1 unknown). HubRules.NetMonth over them is the
+        /// month's Net: the number historyRules.ts finish() derives (income − lift − run − max(0, buildings) − max(0, wages)).</summary>
+        public HubMonthMoney Money => new HubMonthMoney
+        {
+            TicketIncome = m_TicketIncome, LodgeIncome = m_LodgeIncome, LessonIncome = m_LessonIncome, PassIncome = m_PassIncome,
+            LiftCost = m_LiftCost, RunCost = m_RunCost, BuildingsCost = m_BuildingsCost, WagesCost = m_WagesCost,
+        };
 
         /// <summary>The GAP marker at <paramref name="monthKey"/> (header FLAGS): every value unknown or 0.</summary>
         public static SkiResortHistoryMonth Gap(int monthKey)

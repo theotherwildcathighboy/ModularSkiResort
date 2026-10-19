@@ -45,9 +45,11 @@
 //                     capped by the frames simulated since the load); 0 for a non-finite date
 //   TicketIncomeMonth last month when it was counted in full; else this month projected from at least
 //                     MinCountedFraction of a month; else −1 (unknown)
-//   NetMonth          max(0, tickets) − round(run + lift + buildings + wages costs), each cost < 0 or
-//                     non-finite read as 0; estimated when the income is projected or unknown, or the
-//                     building bill is unknown (−1)
+//   NetMonth          (B1, 2026-10-19; was max(0, tickets + lodge spend) − cost rates) THE one Net of the hub, over the
+//                     eight terms of HubMonthMoney: tickets + lodge spend + lessons + passes sold − (lift charge + run
+//                     upkeep + buildings + wages), each term < 0 (unknown) read as 0; estimated when a term is unknown.
+//                     MonthMoneyOf maps a ledger Month to the terms with the history element's rounding; MonthShare is
+//                     the share of the month simulated that scales the two rate snapshots (header B1 below)
 //   AttractionWithLodges  the model's A with `lodges` active lodges at the same efficiency: swap the lodge
 //                     base, clamp to 0..MaxAttraction BEFORE rounding (ch1 §5 step 7), RoundToEven
 //   LiftNoPair        false when one row of the shown area has both stations live and a line to draw or
@@ -117,11 +119,31 @@
 //                     bit for bit (ResortBatch HK-1), so a powered lift's number and the area sum are unchanged. Status
 //                     (LiftStatusOf: "No power"), the chairs count and the ride time are not touched by it.
 //
+// B1 "ONE NET" (2026-10-19, Richard; docs/research/ui/hub-one-net-b1-2026-10-19.md, review hub-design-review-2026-10-18.md F1 / F2):
+// every Net the hub shows (the Finances tile, the Finances view, History's months and its month in progress) is NetMonth over
+// the SAME eight terms (HubMonthMoney), so they cannot disagree:
+//   income  TicketIncome   ledger TicketIncome            BOOKED this month (₵ paid at the gate)
+//           LodgeIncome    ledger LodgeSpendIncome        BOOKED this month
+//           LessonIncome   ledger LessonIncome            BOOKED this month
+//           PassIncome     ledger PassIncome              BOOKED this month = passes SOLD this month, pre-season sales included
+//                                                         (they land in the month they were sold: "a big September is honest")
+//   costs   LiftCost       ledger LiftCharged, rounded    BOOKED this month (SkiLiftChargeSystem's accrual)
+//           RunCost        ledger RunUpkeep               BOOKED this month, per area (T78 P3, SkiRunUpkeepSystem)
+//           BuildingsCost  the game's upkeep formula      RATE SNAPSHOT: ₵/month at the current service budget × MonthShare for
+//           WagesCost      for the sign + its lodges      the month in progress; the rate at the roll for a closed month
+//                                                         (the game bills these through the city budget; nothing books them per area)
+// Net = Σ income − Σ costs, every term < 0 (unknown) read as 0, so the rows the UI shows (max(0, term) each) add up to the Net
+// exactly (ResortBatch HubRulesTests A "B1" and HistoryTests H-10). Estimated (the "≈") = some term is unknown: the ledger not
+// counting yet, or the building bill unreadable. A month counted only since a load is PARTIAL, not estimated: ResortLive's
+// thisMonthSinceLoad carries that, as for the guests. Rounding = the history element's (SkiResortHistoryMonth.FromLedger:
+// ClampInt of the longs, LiftCharged half away from zero), so a closed month's element and MonthMoneyOf(its ledger Month) are
+// the same eight integers.
+//
 // PURE FILE: `using System;` and `using System.Collections.Generic;` only, plus SkiResortScore (pure,
 // ch1) and SkiCatalog consts (Catalog Phase A, 2026-10-11: ChairSpeedMps and LiftLinePerKm alias
 // SkiCatalog.FixedGrip — compile-time literals; SkiCatalog.cs is linked wherever this file is, tests/ResortBatch),
-// and (Catalog Phase C) the pure ShuttleProfile.cs, linked into tests/ResortBatch next to this file.
-// No Entities, no Game, no Unity.Mathematics. net48 traps: no Math.Clamp, MathF, double.IsFinite,
+// and (Catalog Phase C) the pure ShuttleProfile.cs, linked into tests/ResortBatch next to this file; (B1) the pure
+// SkiResortLedger.cs for MonthMoneyOf's Month. No Entities, no Game, no Unity.Mathematics. net48 traps: no Math.Clamp, MathF, double.IsFinite,
 // Span<T>; private Clamp and IsFinite below. No allocation once the caller's lists have grown.
 
 using System;
@@ -253,6 +275,27 @@ namespace SkiResortMod.Systems
                 return -1f;
             return (float)(100.0 * DepthWeighted / DepthArea);
         }
+    }
+
+    /// <summary>B1 (header "ONE NET"): the eight terms of one month's Net, whole ₵, each −1 when unknown. Booked: the six income /
+    /// lift / run terms; rate snapshots: BuildingsCost and WagesCost.</summary>
+    public struct HubMonthMoney
+    {
+        public int TicketIncome, LodgeIncome, LessonIncome, PassIncome;
+        public int LiftCost, RunCost, BuildingsCost, WagesCost;
+
+        /// <summary>Every term unknown (−1).</summary>
+        public static HubMonthMoney Unknown => new HubMonthMoney
+        {
+            TicketIncome = -1, LodgeIncome = -1, LessonIncome = -1, PassIncome = -1,
+            LiftCost = -1, RunCost = -1, BuildingsCost = -1, WagesCost = -1,
+        };
+
+        /// <summary>Σ max(0, income term).</summary>
+        public long Income => (long)Math.Max(0, TicketIncome) + Math.Max(0, LodgeIncome) + Math.Max(0, LessonIncome) + Math.Max(0, PassIncome);
+
+        /// <summary>Σ max(0, cost term).</summary>
+        public long Costs => (long)Math.Max(0, LiftCost) + Math.Max(0, RunCost) + Math.Max(0, BuildingsCost) + Math.Max(0, WagesCost);
     }
 
     /// <summary>The hub's pure rules (ch5 §6.1-6.2). Header RULES.</summary>
@@ -464,16 +507,53 @@ namespace SkiResortMod.Systems
             return -1;
         }
 
-        /// <summary>ch5 §6.2: max(0, tickets) − round(costs); estimated when the income is projected or
-        /// unknown, or buildings / wages are unknown (−1).</summary>
-        public static int NetMonth(int ticketIncomeMonth, bool incomeEstimated, float runCosts, float liftCosts,
-                                   float buildings, float wages, out bool estimated)
+        /// <summary>B1 (header "ONE NET"): THE month net = Σ max(0, income term) − Σ max(0, cost term) of <paramref name="m"/>,
+        /// clamped to int. Income: lift tickets, lodge spend, lessons, passes sold this month (all BOOKED). Costs: lift charge and
+        /// run upkeep (BOOKED), buildings and wages (RATE SNAPSHOTS: × MonthShare in the month in progress, the rate at the roll for
+        /// a closed month). <paramref name="estimated"/> = a term is unknown (&lt; 0, read as 0).</summary>
+        public static int NetMonth(in HubMonthMoney m, out bool estimated)
         {
-            estimated = incomeEstimated || ticketIncomeMonth < 0 || buildings < 0f || wages < 0f;
-            double costs = Cost(runCosts) + Cost(liftCosts) + Cost(buildings) + Cost(wages);
-            double rounded = Math.Round(costs, MidpointRounding.AwayFromZero);
-            long net = Math.Max(0, ticketIncomeMonth) - (long)Math.Min(rounded, int.MaxValue);
-            return ClampInt(net);
+            estimated = m.TicketIncome < 0 || m.LodgeIncome < 0 || m.LessonIncome < 0 || m.PassIncome < 0 ||
+                        m.LiftCost < 0 || m.RunCost < 0 || m.BuildingsCost < 0 || m.WagesCost < 0;
+            return ClampInt(m.Income - m.Costs);
+        }
+
+        /// <summary>B1: the terms of a ledger month with the history element's mapping (SkiResortHistoryMonth.FromLedger: ClampInt of
+        /// each long, LiftCharged rounded half away from zero, not finite → 0); <paramref name="buildings"/> / <paramref name="wages"/>
+        /// as given (−1 unknown).</summary>
+        public static HubMonthMoney MonthMoneyOf(in SkiResortLedger.Month m, int buildings, int wages)
+        {
+            return new HubMonthMoney
+            {
+                TicketIncome = ClampInt(m.TicketIncome),
+                LodgeIncome = ClampInt(m.LodgeSpendIncome),
+                LessonIncome = ClampInt(m.LessonIncome),
+                PassIncome = ClampInt(m.PassIncome),
+                LiftCost = IsFiniteD(m.LiftCharged) ? ClampInt(Math.Round(m.LiftCharged, MidpointRounding.AwayFromZero)) : 0,
+                RunCost = ClampInt(m.RunUpkeep),
+                BuildingsCost = buildings < 0 ? -1 : buildings,
+                WagesCost = wages < 0 ? -1 : wages,
+            };
+        }
+
+        /// <summary>B1: the share of the month simulated, framesSimulated / monthFrames clamped to 0..1 (0 when either is not
+        /// finite or monthFrames is not &gt; 0). The caller passes SkiGuestCounterSystem.MonthFramesSimulated and
+        /// SkiMoneyRules.MonthFrames(daysPerYear) — the frames the ledger's month in progress has booked.</summary>
+        public static double MonthShare(double framesSimulated, double monthFrames)
+        {
+            if (!IsFiniteD(framesSimulated) || !IsFiniteD(monthFrames) || !(monthFrames > 0.0))
+                return 0.0;
+            return ClampD(framesSimulated / monthFrames, 0.0, 1.0);
+        }
+
+        /// <summary>B1: a rate snapshot's part for the month so far: round(rate × share) half away from zero; −1 when the rate is
+        /// unknown (&lt; 0); a share that is not finite reads 0, else it is clamped to 0..1.</summary>
+        public static int RateSoFar(int ratePerMonth, double share)
+        {
+            if (ratePerMonth < 0)
+                return -1;
+            double s = IsFiniteD(share) ? ClampD(share, 0.0, 1.0) : 0.0;
+            return ClampInt(Math.Round(ratePerMonth * s, MidpointRounding.AwayFromZero));
         }
 
         /// <summary>The model's A with <paramref name="lodges"/> active A-frame lodges, everything else as in
@@ -626,8 +706,6 @@ namespace SkiResortMod.Systems
         internal static double ClampD(double x, double lo, double hi) => x < lo ? lo : x > hi ? hi : x;
 
         private static double FiniteOr0(double x) => IsFiniteD(x) ? x : 0.0;
-
-        private static double Cost(float x) => IsFiniteF(x) && x > 0f ? x : 0.0;
 
         private static int ClampInt(double x)
         {

@@ -7,9 +7,8 @@
  * Rules (the plan, docs/research/ui/hub-history-chart-plan-2026-10-18.md section 4.2, with Richard's answers):
  *   - Month keys are C# SkiMoneyRules.MonthKey: year x 12 + calendar month 0..11. A ski season is July-June, keyed by the year of its
  *     July (C# SkiMoneyRules.SeasonKeyOf, SeasonFirstMonth 7).
- *   - Ranges end at the area's last month (the month in progress): "months12" = 12 months; "seasons2" = from July of last season;
- *     "years5" = 60 months; "all" = every month when the data spans at most ALL_MONTHS_MAX (60) months, else one bucket per season.
- *     Months before the area existed or GAP months are empty buckets (`none`), never zeros.
+ *   - Ranges: see the T82 UI round below (the build-2 set "2 seasons" / "5 years" / "All" is gone). Months before the area existed
+ *     or GAP months are empty buckets (`none`), never zeros.
  *   - A season bucket SUMS the flows (guests, ski days, income, costs) of its months with data and AVERAGES the point values
  *     (attraction, snow coverage) over the months that know them. Unknown parts (-1) are left out of a sum; a bucket with none known
  *     is -1.
@@ -17,19 +16,28 @@
  *     or (a season) fewer months with data than the season has (the area started or the data ends partway). The chart draws it hollow.
  *   - Whole city = the areas sent (the live ones), month by month; attraction and snow are the mean over the areas that know them.
  *   - Year on year: the last whole month (the one before the month in progress) against the same month a year earlier.
+ * T82 UI round (2026-10-19; docs/research/ui/hub-design-review-2026-10-18.md B3 + B4, approved by Richard "all seven, go"):
+ *   - Ranges (B4, supersedes "2 seasons" / "5 years" / "All"): "months12" = the last 12 months (as before); "seasonVs" = the 12
+ *     months July-June of THIS season (months not reached yet are `future`, empty) with last season's same months beside them
+ *     (compareOf); "bySeason" = one bucket per July-June season drawn as the MONTHLY AVERAGE (seasonAverage) over its whole months
+ *     with data: the month in progress and GAP months are left out of both the average and the season total, so a season with
+ *     missing months or one still running is not drawn as a slump. totalGuests / totalNet = the sums over the same months (average
+ *     x perMonth). Both season ranges need data in an earlier season (rangeEnabled).
+ *   - B3: `gap` = an empty bucket with a GAP-flagged month inside the area's range (recorded nothing: the chart hatches it); months
+ *     before the area existed or not reached yet are empty without a hatch. linePoints ends every line at the last whole month
+ *     (the month in progress and empty buckets have no point); gapSlots lists the hatched buckets. netChange = the headline's
+ *     year-on-year change in money (a percentage of a net is unstable, F9).
  */
 import { HISTORY_FLAG } from "../bindings";
 import type { HistoryArea } from "../bindings";
 
-export type HistoryRange = "months12" | "seasons2" | "years5" | "all";
-export const HISTORY_RANGES: readonly HistoryRange[] = ["months12", "seasons2", "years5", "all"];
+export type HistoryRange = "months12" | "seasonVs" | "bySeason";
+export const HISTORY_RANGES: readonly HistoryRange[] = ["months12", "seasonVs", "bySeason"];
 
 /** Which charts the view draws. */
 export type HistoryCharts = "guests" | "money" | "both";
 export const HISTORY_CHARTS: readonly HistoryCharts[] = ["guests", "money", "both"];
 
-/** "all" draws months up to this many, seasons beyond (plan section 4.2: <= 60 points). */
-export const ALL_MONTHS_MAX = 60;
 /** July as a calendar month 0..11 (C# SkiMoneyRules.SeasonFirstMonth 7, 1-based). */
 export const SEASON_FIRST_MONTH0 = 6;
 
@@ -80,6 +88,15 @@ export interface HistoryBucket {
   months: number;
   /** No data at all (a gap, or before the area existed): drawn empty. */
   none: boolean;
+  /** Empty because a month inside the area's range recorded nothing (GAP): drawn as a hatched band (B3). */
+  gap: boolean;
+  /** Empty because it lies after the area's last month (the rest of this season, "seasonVs"). */
+  future: boolean;
+  /** 0 = the flows are sums; N > 0 = a season drawn as the monthly average over N whole months (B4 "bySeason"). */
+  perMonth: number;
+  /** Guests and net over the bucket's counted months (= guests / net for a sum; average x perMonth for a season average). */
+  totalGuests: number;
+  totalNet: number;
   /** Holds the month in progress. */
   current: boolean;
   /** Not a whole, measured month / season (header). */
@@ -131,10 +148,11 @@ function addMonth(a: Acc, area: HistoryArea, i: number): void {
   a.residents += Math.max(0, num(area.residents[i]));
   a.ticketsPaid += Math.max(0, num(area.ticketsPaid[i]));
   if (area.skiDays[i] >= 0) { a.skiDays += area.skiDays[i]; a.skiKnown++; }
-  a.ticketIncome += num(area.ticketIncome[i]);
-  a.lodgeIncome += num(area.lodgeIncome[i]);
-  a.passIncome += num(area.passIncome[i]);
-  a.lessonIncome += num(area.lessonIncome[i]);
+  // B1 (contract 11, hub-one-net-b1 section 1): a term below 0 is unknown and reads 0, as in C# HubRules.NetMonth (Σ max(0, term)).
+  a.ticketIncome += Math.max(0, num(area.ticketIncome[i]));
+  a.lodgeIncome += Math.max(0, num(area.lodgeIncome[i]));
+  a.passIncome += Math.max(0, num(area.passIncome[i]));
+  a.lessonIncome += Math.max(0, num(area.lessonIncome[i]));
   a.liftCost += Math.max(0, num(area.liftCost[i]));
   a.runCost += Math.max(0, num(area.runCost[i]));
   const b = area.buildingsCost[i], w = area.wagesCost[i];
@@ -148,28 +166,38 @@ function finish(kind: "month" | "season", key: number, firstKey: number, lastKey
   const income = a.ticketIncome + a.lodgeIncome + a.passIncome + a.lessonIncome;
   const staff = a.staffKnown > 0 ? a.staff : -1;
   const costs = a.liftCost + a.runCost + Math.max(0, staff);
+  const guests = a.tourists + a.residents;
   return {
-    kind, key, firstKey, lastKey, months: a.months, none: a.months === 0, current: a.current,
+    kind, key, firstKey, lastKey, months: a.months, none: a.months === 0, gap: false, future: false, perMonth: 0, current: a.current,
     partial: a.months > 0 && (a.partial || a.months < expected),
-    tourists: a.tourists, residents: a.residents, guests: a.tourists + a.residents, skiDays: a.skiKnown > 0 ? a.skiDays : -1,
+    tourists: a.tourists, residents: a.residents, guests, skiDays: a.skiKnown > 0 ? a.skiDays : -1,
     ticketsPaid: a.ticketsPaid, ticketIncome: a.ticketIncome, lodgeIncome: a.lodgeIncome, passIncome: a.passIncome, lessonIncome: a.lessonIncome,
     income, liftCost: a.liftCost, runCost: a.runCost, staffCost: staff, costs, net: income - costs,
     attraction: a.attrKnown > 0 ? a.attr / a.attrKnown : -1, snowPct: a.snowKnown > 0 ? a.snow / a.snowKnown : -1,
+    totalGuests: guests, totalNet: income - costs,
   };
 }
 
 /** Sums the area's months [firstKey, lastKey] into one bucket (GAP and absent months count nothing). `expected` = the months a
- *  whole bucket has (fewer with data = partial: a season the area entered or left partway is not whole). */
-export function sumRange(area: HistoryArea, kind: "month" | "season", key: number, firstKey: number, lastKey: number): HistoryBucket {
+ *  whole bucket has (fewer with data = partial: a season the area entered or left partway is not whole). `skipCurrent` leaves the
+ *  month in progress out (a season average counts whole months only). */
+export function sumRange(area: HistoryArea, kind: "month" | "season", key: number, firstKey: number, lastKey: number, skipCurrent = false): HistoryBucket {
   const a = acc();
   const n = lengthOf(area);
   const lo = Math.max(firstKey, area.firstMonthKey), hi = Math.min(lastKey, area.firstMonthKey + n - 1);
+  let gapSeen = false, currentSeen = false;
   for (let k = lo; k <= hi; k++) {
     const i = k - area.firstMonthKey;
-    if ((area.flags[i] | 0) & HISTORY_FLAG.Gap) continue;
+    const f = area.flags[i] | 0;
+    if (f & HISTORY_FLAG.Gap) { gapSeen = true; continue; }
+    if (skipCurrent && (f & HISTORY_FLAG.Current)) { currentSeen = true; continue; }
     addMonth(a, area, i);
   }
-  return finish(kind, key, firstKey, lastKey, a, lastKey - firstKey + 1);
+  const b = finish(kind, key, firstKey, lastKey, a, lastKey - firstKey + 1);
+  b.gap = b.none && gapSeen;
+  b.future = b.none && firstKey > area.firstMonthKey + n - 1;
+  if (currentSeen) b.current = true;
+  return b;
 }
 
 /** One bucket per month of [firstKey, lastKey]. */
@@ -186,13 +214,36 @@ export function seasonBuckets(area: HistoryArea, firstSeason: number, lastSeason
   return out;
 }
 
-/** Is the range worth offering for this area (it would show more than the one before it)? 12 months always. */
+/** One July-June season as the MONTHLY AVERAGE of its whole months with data (B4): the month in progress and GAP months are left
+ *  out; flows, costs and the net are the season's sums over those months divided by their count (perMonth), ski days over the
+ *  months that know them, attraction and snow the mean as before. totalGuests / totalNet keep the sums. No whole month: empty. */
+export function seasonAverage(area: HistoryArea, season: number): HistoryBucket {
+  const b = sumRange(area, "season", season, seasonFirstKey(season), seasonFirstKey(season) + 11, true);
+  if (b.none) return b;
+  const m = b.months;
+  let skiKnown = 0;
+  const n = lengthOf(area);
+  for (let k = Math.max(b.firstKey, area.firstMonthKey); k <= Math.min(b.lastKey, area.firstMonthKey + n - 1); k++) {
+    const i = k - area.firstMonthKey;
+    const f = area.flags[i] | 0;
+    if (!(f & (HISTORY_FLAG.Gap | HISTORY_FLAG.Current)) && area.skiDays[i] >= 0) skiKnown++;
+  }
+  const per = (v: number): number => v / m;
+  return {
+    ...b, perMonth: m,
+    tourists: per(b.tourists), residents: per(b.residents), guests: per(b.guests), skiDays: skiKnown > 0 ? b.skiDays / skiKnown : -1,
+    ticketsPaid: per(b.ticketsPaid), ticketIncome: per(b.ticketIncome), lodgeIncome: per(b.lodgeIncome), passIncome: per(b.passIncome),
+    lessonIncome: per(b.lessonIncome), income: per(b.income), liftCost: per(b.liftCost), runCost: per(b.runCost),
+    staffCost: b.staffCost >= 0 ? per(b.staffCost) : -1, costs: per(b.costs), net: per(b.net),
+  };
+}
+
+/** Is the range worth offering for this area? 12 months always; the two season ranges need data in an earlier season. */
 export function rangeEnabled(area: HistoryArea | null, range: HistoryRange): boolean {
   if (range === "months12") return true;
   const n = lengthOf(area);
   if (!area || n === 0) return false;
-  if (range === "seasons2") return area.firstMonthKey < seasonFirstKey(seasonOf(lastKeyOf(area)));
-  return n > 12;
+  return area.firstMonthKey < seasonFirstKey(seasonOf(lastKeyOf(area)));
 }
 
 /** The range drawn: the chosen one while enabled, else 12 months. */
@@ -206,12 +257,38 @@ export function windowOf(area: HistoryArea | null, range: HistoryRange): History
   if (!area || n === 0) return [];
   const last = lastKeyOf(area);
   switch (effectiveRange(area, range)) {
-    case "seasons2": return monthBuckets(area, seasonFirstKey(seasonOf(last) - 1), last);
-    case "years5": return monthBuckets(area, last - 59, last);
-    case "all":
-      return n <= ALL_MONTHS_MAX ? monthBuckets(area, area.firstMonthKey, last) : seasonBuckets(area, seasonOf(area.firstMonthKey), seasonOf(last));
+    case "seasonVs": return monthBuckets(area, seasonFirstKey(seasonOf(last)), seasonFirstKey(seasonOf(last)) + 11);
+    case "bySeason": {
+      const out: HistoryBucket[] = [];
+      for (let s = seasonOf(area.firstMonthKey); s <= seasonOf(last); s++) out.push(seasonAverage(area, s));
+      return out;
+    }
     default: return monthBuckets(area, last - 11, last);
   }
+}
+
+/** "seasonVs": last season's same 12 months (July-June), drawn grey behind this season's; null for the other ranges. */
+export function compareOf(area: HistoryArea | null, range: HistoryRange): HistoryBucket[] | null {
+  if (!area || lengthOf(area) === 0 || effectiveRange(area, range) !== "seasonVs") return null;
+  const s = seasonOf(lastKeyOf(area)) - 1;
+  return monthBuckets(area, seasonFirstKey(s), seasonFirstKey(s) + 11);
+}
+
+/** A line's points (B3): `pick` of each bucket, null where the line has no point - an empty bucket, the month in progress (the
+ *  line ends at the last whole month: no fake crash) or an unknown value (non-finite). */
+export function linePoints(buckets: readonly HistoryBucket[], pick: (b: HistoryBucket) => number): Array<number | null> {
+  return buckets.map((b) => {
+    if (b.none || (b.current && b.kind === "month")) return null;
+    const v = pick(b);
+    return typeof v === "number" && Number.isFinite(v) ? v : null;
+  });
+}
+
+/** The buckets drawn as a hatched "no data" band (B3): recorded nothing inside the area's range. */
+export function gapSlots(buckets: readonly HistoryBucket[]): number[] {
+  const out: number[] = [];
+  buckets.forEach((b, i) => { if (b.gap) out.push(i); });
+  return out;
 }
 
 /** Whole city: the areas summed month by month over the union of their ranges (null without data). Flags: the OR of the months
@@ -282,6 +359,11 @@ export function yearOnYear(area: HistoryArea | null): YearOnYear {
 export function pctChange(now: number | null | undefined, before: number | null | undefined): number | null {
   if (typeof now !== "number" || typeof before !== "number" || !Number.isFinite(now) || !Number.isFinite(before) || before <= 0) return null;
   return Math.round(((now - before) / before) * 100);
+}
+
+/** The headline's year-on-year change in money (B3, F9): now - before, or null without both months. */
+export function netChange(y: YearOnYear): number | null {
+  return y.now && y.before ? y.now.net - y.before.net : null;
 }
 
 /** A round axis top >= v: 1, 2, 2.5 or 5 x 10^n (v <= 0 -> 1). */

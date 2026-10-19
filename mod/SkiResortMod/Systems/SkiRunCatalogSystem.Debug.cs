@@ -115,7 +115,7 @@ namespace SkiResortMod.Systems
                 ResortLiveStats l = stats.GetResortLive(0);
                 return $"'{r.Name}' runs {r.Runs} (rated {r.Rated}), lift rows {r.LiftRows}, lodges {r.Lodges}; A {l.Attraction} " +
                        $"(full {l.AttractionFull}), efficiency {l.EfficiencyPct} %, status {l.Status} ({l.RunsOpen} open, " +
-                       $"{l.RunsPartly} partly), snow {l.SnowPct:F0} %, guests {l.GuestsThisMonth}, net {l.NetMonth}/month";
+                       $"{l.RunsPartly} partly), snow {l.SnowPct:F0} %, guests {l.GuestsThisMonth}, net {l.NetMonth} this month";
             }));
             list.Add(HubButton("Rebuild stats now", () => stats?.RequestRebuild("dev tab")));
             list.Add(HubVal("Note", () => "after a launch button, move the cursor onto the map"));

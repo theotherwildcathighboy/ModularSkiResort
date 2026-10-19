@@ -6,7 +6,8 @@
 //
 // ORACLES are literal hand values (ch5 §10.1 tables), never a second run of the same code:
 //   A  the small rules of HubRules (Status, OpenStateOf, Season, NextStep, LiftStatusOf, RideTimeS,
-//      OpenSharePct, FactorEffectPct, CountedFraction, TicketIncomeMonth, NetMonth, LiftNoPair);
+//      OpenSharePct, FactorEffectPct, CountedFraction, TicketIncomeMonth, NetMonth, LiftNoPair; B1 2026-10-19: NetMonth over
+//      HubMonthMoney, MonthMoneyOf, MonthShare, RateSoFar and the invariant "the Finances rows add up to the Net");
 //   B  AttractionWithLodges, the receipt parity LodgePart + Terrain = AOpen and RunValueFull on ch1 §3.1's
 //      compositions built HERE (literal runs; no dependency on ScoreTests' helpers). Needs ch1's
 //      SkiResortScore.Compute / LodgeBaseOf / RoundToEven (stream S1): with the stage-0 stubs it FAILS
@@ -181,11 +182,62 @@ namespace ResortBatch
             Ticket(false, -1, -1, 0, 0, 0.5f, 0, 0, true);
             Ticket(true, 0, 0, 500, 10, 0.9f, 0, 0, false);
 
-            // NetMonth
-            Net(8000, false, 3600f, 5091f, 6000f, 15000f, -21691, false);
-            Net(-1, true, 3600f, 5091f, 6000f, 15000f, -29691, true);
-            Net(8000, false, 3600f, 5091f, -1f, -1f, -691, true);
-            Net(0, false, 1793.5f, 0f, 0f, 0f, -1794, false);
+            // NetMonth (B1, 2026-10-19: the one Net over HubMonthMoney; was max(0, tickets) − cost rates). Terms in the order
+            // tickets, lodge, lessons, passes | lift, run, buildings, wages.
+            Net(Mm(8000, 1200, 500, 30000, 5091, 3600, 6000, 15000), 10009, false);       // 39,700 − 29,691
+            Net(Mm(0, 0, 0, 120000, 0, 0, 3000, 9000), 108000, false);                    // a pre-season September: passes land when sold
+            Net(Mm(8000, 0, 0, 0, 5091, 3600, -1, -1), -691, true);                       // the building bill unknown: read 0, "≈"
+            Net(Mm(-1, -1, -1, -1, -1, -1, 6000, 15000), -21000, true);                   // the ledger not counting yet
+            Net(Mm(0, 0, 0, 0, 450, 99, 0, 0), -549, false);                              // Not linked: minus the booked lift + run
+            Net(Mm(int.MaxValue, 0, 0, int.MaxValue, 0, 0, 0, 0), int.MaxValue, false);   // clamped up
+            Net(Mm(0, 0, 0, 0, int.MaxValue, int.MaxValue, 0, 0), int.MinValue, false);   // clamped down
+            Net(HubMonthMoney.Unknown, 0, true);
+
+            // MonthMoneyOf: the history element's mapping (ClampInt; LiftCharged half away from zero, NaN 0)
+            var lm = new SkiResortLedger.Month
+            {
+                TicketIncome = 3_000_000_000L, LodgeSpendIncome = 11, LessonIncome = 13, PassIncome = 12, PassIncomePre = 5,
+                LiftCharged = 449.5, RunUpkeep = 99,
+            };
+            HubMonthMoney mo = HubRules.MonthMoneyOf(lm, 70, -5);
+            Check(mo.TicketIncome == int.MaxValue && mo.LodgeIncome == 11 && mo.LessonIncome == 13 && mo.PassIncome == 12 &&
+                  mo.LiftCost == 450 && mo.RunCost == 99 && mo.BuildingsCost == 70 && mo.WagesCost == -1, "hub A B1",
+                  $"MonthMoneyOf: ticket {mo.TicketIncome}, pass {mo.PassIncome} (pre-season counted once), lift {mo.LiftCost}, wages {mo.WagesCost}");
+            lm.LiftCharged = double.NaN;
+            Check(HubRules.MonthMoneyOf(lm, 0, 0).LiftCost == 0, "hub A B1", "MonthMoneyOf: NaN lift charge not 0");
+            lm.LiftCharged = 2.5;
+            Check(HubRules.MonthMoneyOf(lm, 0, 0).LiftCost == 3, "hub A B1", "MonthMoneyOf: 2.5 not rounded away from zero");
+
+            // MonthShare / RateSoFar (the rate snapshots' part of the month so far)
+            Check(HubRules.MonthShare(0, 100) == 0.0 && HubRules.MonthShare(50, 200) == 0.25 && HubRules.MonthShare(300, 200) == 1.0 &&
+                  HubRules.MonthShare(10, 0) == 0.0 && HubRules.MonthShare(double.NaN, 100) == 0.0 && HubRules.MonthShare(-5, 100) == 0.0,
+                  "hub A B1", "MonthShare");
+            Check(HubRules.RateSoFar(1000, 0.25) == 250 && HubRules.RateSoFar(1001, 0.5) == 501 && HubRules.RateSoFar(-1, 0.5) == -1 &&
+                  HubRules.RateSoFar(1000, double.NaN) == 0 && HubRules.RateSoFar(1000, 2.0) == 1000 && HubRules.RateSoFar(0, 0.7) == 0,
+                  "hub A B1", "RateSoFar");
+
+            // B1 INVARIANT: the Finances rows add up to the Net. The UI sums the eight rows it shows (contract 11: ticketsThisMonth,
+            // lodgeIncomeMonth, lessonIncomeMonth, passIncomeMonth | liftChargedMonth, runCostMonth, buildingsSoFar, wagesSoFar), each
+            // max(0, row) since −1 shows "–"; written out here as the UI will, over a grid that includes unknowns and zeros.
+            int[] vals = { -1, 0, 1, 499, 120000 };
+            int bad = 0, cases = 0;
+            for (int a = 0; a < vals.Length; a++)
+                for (int b = 0; b < vals.Length; b++)
+                    for (int c = 0; c < vals.Length; c++)
+                    {
+                        HubMonthMoney t = Mm(vals[a], vals[(a + 1) % 5], vals[b], vals[(b + 2) % 5], vals[c], vals[(c + 3) % 5],
+                                             vals[(a + c) % 5], vals[(b + c) % 5]);
+                        long rows = Math.Max(0, t.TicketIncome) + (long)Math.Max(0, t.LodgeIncome) + Math.Max(0, t.LessonIncome) +
+                                    Math.Max(0, t.PassIncome) - Math.Max(0, t.LiftCost) - (long)Math.Max(0, t.RunCost) -
+                                    Math.Max(0, t.BuildingsCost) - Math.Max(0, t.WagesCost);
+                        int net = HubRules.NetMonth(t, out bool est);
+                        bool anyUnknown = t.TicketIncome < 0 || t.LodgeIncome < 0 || t.LessonIncome < 0 || t.PassIncome < 0 ||
+                                          t.LiftCost < 0 || t.RunCost < 0 || t.BuildingsCost < 0 || t.WagesCost < 0;
+                        cases++;
+                        if (net != rows || est != anyUnknown)
+                            bad++;
+                    }
+            Check(bad == 0 && cases == 125, "hub A B1 invariant", $"{bad} of {cases} cases: rows do not add up to NetMonth (or ≈ wrong)");
 
             // LiftNoPair
             Eq(HubRules.LiftNoPair(new List<HubLiftHintRow>()), true, w, "LiftNoPair([])");
@@ -213,11 +265,19 @@ namespace ResortBatch
                 $"want {wantIncome}, paid {wantPaid}, est {wantEst}");
         }
 
-        private static void Net(int income, bool incomeEst, float run, float lift, float buildings, float wages, int want, bool wantEst)
+        private static HubMonthMoney Mm(int tickets, int lodge, int lessons, int passes, int lift, int run, int buildings, int wages) =>
+            new HubMonthMoney
+            {
+                TicketIncome = tickets, LodgeIncome = lodge, LessonIncome = lessons, PassIncome = passes,
+                LiftCost = lift, RunCost = run, BuildingsCost = buildings, WagesCost = wages,
+            };
+
+        private static void Net(in HubMonthMoney m, int want, bool wantEst)
         {
-            int got = HubRules.NetMonth(income, incomeEst, run, lift, buildings, wages, out bool est);
+            int got = HubRules.NetMonth(m, out bool est);
             Check(got == want && est == wantEst, "hub A",
-                $"NetMonth({income},{incomeEst},{run},{lift},{buildings},{wages}) = {got} est {est}; want {want} est {wantEst}");
+                $"NetMonth({m.TicketIncome},{m.LodgeIncome},{m.LessonIncome},{m.PassIncome} | {m.LiftCost},{m.RunCost},{m.BuildingsCost}," +
+                $"{m.WagesCost}) = {got} est {est}; want {want} est {wantEst}");
         }
 
         private static HubLiftHintRow H(int state, bool hasBase, bool hasTop) =>

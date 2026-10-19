@@ -198,13 +198,14 @@ export const HUB_LOC = {
   // Phase D (round-4-contract section 4.4, R4, CG-T8; was "... Without power the chairs still move, ..."): carriers stop.
   tileTipLifts: ["SkiResort.Hub.TILE_TIP[Lifts]", "Complete lifts with power at the base station, out of all complete lifts. Without power a lift stops and adds nothing."],
   tileTipSinceLoad: ["SkiResort.Hub.TILE_TIP_SINCE_LOAD", "Counted since you loaded the city."],
-  tileTipMoney: ["SkiResort.Hub.TILE_TIP[Money]", "Net per month at today's rates: lift tickets and lodge spend minus running costs. Season passes and lessons are not in it."],
-  tileTipEst: ["SkiResort.Hub.TILE_TIP_EST", "≈ Less than a whole month of lift tickets has been counted."],
+  tileTipMoney: ["SkiResort.Hub.TILE_TIP[Money]", "Net of the month so far: all resort income booked, minus lifts, runs, buildings and wages. The Finances view's Net."],
+  tileTipEst: ["SkiResort.Hub.TILE_TIP_EST", "≈ Some income or costs are not counted yet; they read as 0."],
   tileTipEstBuildings: ["SkiResort.Hub.TILE_TIP_EST_BUILDINGS", "≈ The game's bill for buildings and wages is not known yet."],
   tileTipOpen: ["SkiResort.Hub.TILE_TIP_OPEN", "Click to show it below."],
 
   // ---- overview (6.5) ----
   sectionAttraction: ["SkiResort.Hub.SECTION[Attraction]", "Attraction"],
+  scoreTickPark: ["SkiResort.Hub.SCORE_TICK[Park]", "park 10"],
   scoreTickAttraction: ["SkiResort.Hub.SCORE_TICK[Attraction]", "tourist attraction 50"],
   scoreTickLandmark: ["SkiResort.Hub.SCORE_TICK[Landmark]", "landmark 120"],
   receiptLodgeBase: ["SkiResort.Hub.RECEIPT[LodgeBase]", "Lodge base"],
@@ -226,7 +227,7 @@ export const HUB_LOC = {
   receiptRowSchool: ["SkiResort.Hub.RECEIPT_ROW[School]", "Ski school"],
   receiptRowVariety: ["SkiResort.Hub.RECEIPT_ROW[Variety]", "Variety"],
   receiptRowVertical: ["SkiResort.Hub.RECEIPT_ROW[Vertical]", "Vertical"],
-  receiptRowScale: ["SkiResort.Hub.RECEIPT_ROW[Scale]", "Square root × scale"],
+  receiptRowScale: ["SkiResort.Hub.RECEIPT_ROW[Scale]", "Scale, after the square root"],
   receiptTipScale: ["SkiResort.Hub.RECEIPT_TIP[Scale]", "The section total is this scale × the square root of the terms above. Attractiveness scale in Options."],
   /** T80 (Richard item 3): a row whose 0 has a cause says it with the warning glyph instead of a tooltip sentence
    *  (hubRules.schoolState: no school at all, or a school but no green run counts). */
@@ -376,33 +377,37 @@ export const HUB_LOC = {
 
   // ---- money view (6.9) ----
   sectionMoney: ["SkiResort.Hub.SECTION[Money]", "Finances"],
-  moneyCol: ["SkiResort.Hub.MONEY_COL", "Per month"],
-  moneyTicketsUnknown: ["SkiResort.Hub.MONEY_TICKETS[Unknown]", "Lift tickets: counted after a quarter month"],
   moneyTicketsOff: ["SkiResort.Hub.MONEY_TICKETS[Off]", "Lift tickets: off"],
-  moneyTicketsTip: ["SkiResort.Hub.MONEY_TICKETS_TIP", "Guests who paid × the price when they arrived, for the last whole month. ≈ until one is counted: the month so far, scaled up."],
+  moneyRowTickets: ["SkiResort.Hub.MONEY_ROW[Tickets]", "Lift tickets"],
+  moneyTicketsTip: ["SkiResort.Hub.MONEY_TICKETS_TIP", "Booked this month so far: each guest who paid × the price when they arrived."],
   sectionCosts: ["SkiResort.Hub.SECTION[Costs]", "Running costs"],
-  moneyRowBuildings: ["SkiResort.Hub.MONEY_ROW[Buildings]", "Buildings and wages"],
-  moneyNet: ["SkiResort.Hub.MONEY_NET", "Net per month"],
-  moneyTipNet: ["SkiResort.Hub.MONEY_TIP[Net]", "Lift tickets and lodge spend minus running costs, at today's rates. Season passes and lessons are not in it."],
-  moneyNotePanel: ["SkiResort.Hub.MONEY_NOTE[Panel]", "Per month at today's rates. Season passes count per season."],
+  moneyRowRuns: ["SkiResort.Hub.MONEY_ROW[Runs]", "Runs"],
+  moneyTipRunsBooked: ["SkiResort.Hub.MONEY_TIP[RunsBooked]", "Run upkeep booked this month so far. Today's rate per month, by kind:"],
+  moneyRowBuildings: ["SkiResort.Hub.MONEY_ROW[Buildings]", "Building upkeep"],
+  moneyRowWages: ["SkiResort.Hub.MONEY_ROW[Wages]", "Staff wages"],
+  moneyNet: ["SkiResort.Hub.MONEY_NET", "Net so far this month"],
+  moneyTipNet: ["SkiResort.Hub.MONEY_TIP[Net]", "All income booked this month minus all costs: the rows above add up to it. Buildings and wages: today's rate × the month so far."],
+  sectionAlso: ["SkiResort.Hub.SECTION[Also]", "Also, not in the net"],
+  moneyNotePanel: ["SkiResort.Hub.MONEY_NOTE[Panel]", "This month so far: income, lift and run costs as booked; buildings and wages at today's rate for the share of the month gone."],
   moneyNoteRwh: ["SkiResort.Hub.MONEY_NOTE[Rwh]", "Detected: Realistic Workplaces. The real bill can differ."],
   moneyTipRwh: ["SkiResort.Hub.MONEY_TIP[Rwh]", "Realistic Workplaces And Households changes staff costs; the bill can differ."],
-  moneyNoteEst: ["SkiResort.Hub.MONEY_NOTE[Est]", "≈ Lift tickets are projected from the month so far until a whole month has been counted."],
+  moneyNoteEst: ["SkiResort.Hub.MONEY_NOTE[Est]", "≈ Some income or costs are not counted yet; they read as 0 in the net."],
   // Round M2 R7 (hub-price.md section 2 item 3): the Money view's price line, tooltip lines without a placeholder.
   moneyPriceTitle: ["SkiResort.Hub.MONEY_PRICE_TIP[Title]", "Lift ticket price"],
   moneyPriceTipWhere: ["SkiResort.Hub.MONEY_PRICE_TIP[Where]", "Options > Modular Ski Resort > Main > Ski area balance. One price for every ski area."],
   moneyPriceTipWho: ["SkiResort.Hub.MONEY_PRICE_TIP[Who]", "Only ski days react to it; other visitors and the attraction score ignore it."],
   // Contract 6 (D15): the lodge-spend income row (drawn only while lodgeSpendMonth > 0; hubRules.lodgeSpendShown).
   moneyRowLodgeSpend: ["SkiResort.Hub.MONEY_ROW[LodgeSpend]", "Lodge spend"],
-  moneyTipLodgeSpend: ["SkiResort.Hub.MONEY_TIP[LodgeSpend]", "Paying ski guests' spend at the lodges. Set per guest in Options > Modular Ski Resort > Main > Ski area balance."],
+  moneyRowPassesMonth: ["SkiResort.Hub.MONEY_ROW[PassesMonth]", "Season passes sold"],
+  moneyTipLodgeSpend: ["SkiResort.Hub.MONEY_TIP[LodgeSpend]", "Booked this month so far: paying ski guests' spend at the lodges. Set per guest in Options > Modular Ski Resort > Main > Ski area balance."],
   // Contract 7 (season passes v1): rows drawn while passes are on or used (hubRules.passesShown); the note while tickets are fees.
   moneyTipPasses: ["SkiResort.Hub.MONEY_TIP[Passes]", "Sold July to June. Holders ski free all season and come more often. Share and price: Options > Modular Ski Resort > Main > Ski area balance."],
   moneyTipPassHolders: ["SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a season pass: no lift ticket money now."],
   guestsRowPassHolders: ["SkiResort.Hub.GUESTS_ROW[PassHolders]", "Came in on a season pass"],
   guestsTipPassHolders: ["SkiResort.Hub.GUESTS_TIP[PassHolders]", "Residents who came in on a season pass. They paid once for the season and pay nothing at the gate. Tourists never hold one."],
   // Contract 8 (econ-2 round 2): lessons, the pre-season sale, the city-income estimate (hidden under Tourism Overhaul: EST_TO_NOTE / EST_TO_TIP).
-  moneyTipLessons: ["SkiResort.Hub.MONEY_TIP[Lessons]", "One lesson per guest. Share and price: Options > Modular Ski Resort > Main > Ski area balance."],
-  moneyTipPassesPre: ["SkiResort.Hub.MONEY_TIP[PassesPre]", "The one sale before the season opens. Counted in the row above too."],
+  moneyTipLessons: ["SkiResort.Hub.MONEY_TIP[Lessons]", "Booked this month so far, one lesson per guest. Share and price: Options > Modular Ski Resort > Main > Ski area balance."],
+  moneyTipPassesPre: ["SkiResort.Hub.MONEY_TIP[PassesPre]", "The one sale before the season opens. Part of the season's sales; in the net in the month it sold."],
   moneyRowCityIncome: ["SkiResort.Hub.MONEY_ROW[CityIncome]", "City income the resort brings"],
   moneyTipCityIncome: ["SkiResort.Hub.MONEY_TIP[CityIncome]", "Estimate: this ski area's share of the city's tourist draw × the game's tourist income. Not resort income, not in the net."],
   guestsRowLessons: ["SkiResort.Hub.GUESTS_ROW[Lessons]", "Took a lesson"],
@@ -448,15 +453,13 @@ export const HUB_LOC = {
   sectionHistory: ["SkiResort.Hub.SECTION[History]", "History"],
   historyScopeArea: ["SkiResort.Hub.HISTORY[ScopeArea]", "This ski area"],
   historyScopeCity: ["SkiResort.Hub.HISTORY[ScopeCity]", "Whole city"],
-  historyTipScope: ["SkiResort.Hub.HISTORY_TIP[Scope]", "Whole city adds up every ski area that exists now. A deleted ski area's history goes with it."],
+  historyTipScope: ["SkiResort.Hub.HISTORY_TIP[Scope]", "Whole city adds every ski area that exists now; a deleted one's history goes with it. No attraction line: each area has its own."],
   historyRange12: ["SkiResort.Hub.HISTORY[Range12]", "12 months"],
-  historyRangeSeasons: ["SkiResort.Hub.HISTORY[RangeSeasons]", "2 seasons"],
-  historyRangeYears: ["SkiResort.Hub.HISTORY[RangeYears]", "5 years"],
-  historyRangeAll: ["SkiResort.Hub.HISTORY[RangeAll]", "All"],
+  historyRangeSeasons: ["SkiResort.Hub.HISTORY[RangeSeasons]", "This season vs last"],
+  historyRangeBySeason: ["SkiResort.Hub.HISTORY[RangeBySeason]", "By season"],
   historyTipRange12: ["SkiResort.Hub.HISTORY_TIP[Range12]", "The last 12 months. The month in progress is the last bar."],
-  historyTipRangeSeasons: ["SkiResort.Hub.HISTORY_TIP[RangeSeasons]", "This ski season and the one before, July to June."],
-  historyTipRangeYears: ["SkiResort.Hub.HISTORY_TIP[RangeYears]", "The last 60 months."],
-  historyTipRangeAll: ["SkiResort.Hub.HISTORY_TIP[RangeAll]", "Every month recorded. Over 5 years, one bar per ski season, July to June."],
+  historyTipRangeSeasons: ["SkiResort.Hub.HISTORY_TIP[RangeSeasons]", "This ski season, July to June, in colour. Last season's same months in grey behind it."],
+  historyTipRangeBySeason: ["SkiResort.Hub.HISTORY_TIP[RangeBySeason]", "One bar per ski season, July to June: the average month, so a season with missing months compares fairly."],
   historyTipRangeOff: ["SkiResort.Hub.HISTORY_TIP[RangeOff]", "Not enough months recorded yet."],
   historyGuests: ["SkiResort.Hub.HISTORY[Guests]", "Guests"],
   historyFinances: ["SkiResort.Hub.HISTORY[Finances]", "Finances"],
@@ -474,6 +477,10 @@ export const HUB_LOC = {
   historyRuns: ["SkiResort.Hub.HISTORY[Runs]", "Runs"],
   historyStaff: ["SkiResort.Hub.HISTORY[Staff]", "Buildings and wages"],
   historyNet: ["SkiResort.Hub.HISTORY[Net]", "Net"],
+  historyIncome: ["SkiResort.Hub.HISTORY[Income]", "Income"],
+  historyCosts: ["SkiResort.Hub.HISTORY[Costs]", "Costs"],
+  historyLastSeason: ["SkiResort.Hub.HISTORY[LastSeason]", "Last season"],
+  historySeasonTotal: ["SkiResort.Hub.HISTORY[SeasonTotal]", "Season total"],
   historyEmpty: ["SkiResort.Hub.HISTORY[Empty]", "No month recorded yet. The first one closes at the end of this month."],
   historyUnlinked: ["SkiResort.Hub.HISTORY[Unlinked]", "Not linked keeps no history. Whole city shows every ski area."],
   historyPartial: ["SkiResort.Hub.HISTORY[Partial]", "Partial: counted for part of the month only"],
@@ -483,7 +490,7 @@ export const HUB_LOC = {
   historyGap: ["SkiResort.Hub.HISTORY[Gap]", "Nothing recorded"],
   historyTipYoy: ["SkiResort.Hub.HISTORY_TIP[Yoy]", "The last whole month against the same month a year earlier."],
   historyTipStaff: ["SkiResort.Hub.HISTORY_TIP[Staff]", "The game's bill for buildings and wages, at the rate when the month closed."],
-  historyTipChart: ["SkiResort.Hub.HISTORY_TIP[Chart]", "Point at a bar for its numbers. Faded bars are partial months."],
+  historyTipChart: ["SkiResort.Hub.HISTORY_TIP[Chart]", "Point at a bar for its numbers. Faded bars are partial months; hatched slots recorded nothing."],
 } as const;
 
 /** Placeholder entries: ONLY as <LocText entry={HUB_FMT.x} args={...} /> (gate R5, R13). */
@@ -503,6 +510,7 @@ export const HUB_FMT = {
   statusTipTemp: ["SkiResort.Hub.STATUS_TIP_TEMP", "Day average at the top of the highest run: {TEMP}"],
   /** Round S1 D29: the status tooltip line while powder > 0 ({PCT} = skiDaysPowderPct). */
   statusTipPowder: ["SkiResort.Hub.STATUS_TIP_POWDER", "Fresh snow at the top: powder {PCT}. More skiers come."],
+  statusSnow: ["SkiResort.Hub.STATUS_SNOW", "{CM} cm · {PCT}"],
   // problems (6.3)
   problemLodgesSomeOff: ["SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges switched off: {N}"],
   problemEfficiency: ["SkiResort.Hub.PROBLEM[Efficiency]", "Welcome Sign at {PCT}: {REASON}"],
@@ -540,8 +548,7 @@ export const HUB_FMT = {
   // T77 (contract 9): {MONTH} = the month's name (monthName(city.month)).
   tileTipGuests: ["SkiResort.Hub.TILE_TIP[Guests]", "Month of {MONTH}: tourists who arrived at the lodges or the Welcome Sign, and residents who visited a lodge."],
   // overview (6.5)
-  scoreOf: ["SkiResort.Hub.SCORE_OF", "{A} of 200"],
-  scoreBarTip: ["SkiResort.Hub.SCORE_BAR_TIP", "{NOW} now, {FULL} at full efficiency. Ticks: a tourist attraction scores about 50, a landmark about 120."],
+  scoreBarTip: ["SkiResort.Hub.SCORE_BAR_TIP", "{NOW} now, {FULL} at full efficiency, out of 200. Ticks: a park scores about 10, a tourist attraction 50, a landmark 120."],
   receiptTipLodges: ["SkiResort.Hub.RECEIPT_TIP_LODGES", "Lodges counted: {N}"],
   receiptTipTerrain: ["SkiResort.Hub.RECEIPT_TIP[Terrain]", "{K} is the Attractiveness scale in Options. Adding a run never lowers the total."],
   receiptParts: ["SkiResort.Hub.RECEIPT_PARTS", "(runs {RUNS} + lifts {LIFTS}) × variety {VARIETY} × vertical {VERTICAL}"],
@@ -604,7 +611,11 @@ export const HUB_FMT = {
   tripPlannerNoteOff: ["SkiResort.Hub.TRIP_PLANNER_NOTE[KnownOff]", "Ski days off: {NAME} replaced the game's leisure systems."],
   // money view (6.9)
   moneyTicketsLast: ["SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets, Month of {MONTH}: {N} paid"],
-  moneyTicketsEst: ["SkiResort.Hub.MONEY_TICKETS[Est]", "Lift tickets, Month of {MONTH}: {N} paid"],
+  moneyColMonth: ["SkiResort.Hub.MONEY_COL_MONTH", "Month of {MONTH} so far"],
+  moneyColMonthPartial: ["SkiResort.Hub.MONEY_COL_MONTH_PARTIAL", "Month of {MONTH} so far (partial)"],
+  moneyTipPassesMonth: ["SkiResort.Hub.MONEY_TIP[PassesMonth]", "Sold this month so far, in the net now. Of it, the pre-season sale: {PRE}."],
+  moneyTipLiftsRate: ["SkiResort.Hub.MONEY_TIP[LiftsRate]", "Booked this month so far. At today's rate: {RATE} per month."],
+  moneyTipSoFar: ["SkiResort.Hub.MONEY_TIP[SoFar]", "{RATE} per month at today's budget; {SHARE} of the month so far."],
   moneyRowPasses: ["SkiResort.Hub.MONEY_ROW[Passes]", "Season passes sold this season · {N}"],
   moneyRowPassHolders: ["SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holders skiing, Month of {MONTH}"],
   /** Contract 8 (econ-2 round 2): {N} = the pre-season sale's passes (Integer) / the lessons taken this month (Integer). */
@@ -622,7 +633,6 @@ export const HUB_FMT = {
   moneyRowSnowmaking: ["SkiResort.Hub.MONEY_ROW[Snowmaking]", "Snowmaking runs · {HA} ha with snow"],
   moneyRowNight: ["SkiResort.Hub.MONEY_ROW[Night]", "Night runs · {HA} ha with snow"],
   moneyRowLifts: ["SkiResort.Hub.MONEY_ROW[Lifts]", "Lifts · {N} · {LEN} of line"],
-  moneyTipRuns: ["SkiResort.Hub.MONEY_TIP[Runs]", "{RATE} per ha per month of managed snow."],
   // Phase D (DECISIONS 171 ruling 2, skeptic MUST-1; identical in LocaleEN.cs, R4, CG-T8): an unpowered lift still pays
   // in full; the two remaining reductions are unfinished and no open run (SkiMoneyRules.LiftUpkeepBillingOf).
   moneyTipLifts: ["SkiResort.Hub.MONEY_TIP[Lifts]", "{BASE} per month per lift + {PERKM} per km of line, in full even without power; a quarter while unfinished or with no open run. Now {FULL} in full, {REDUCED} at a quarter."],
@@ -643,9 +653,11 @@ export const HUB_FMT = {
   // history view (T78 build 2, contract 10): {MONTH} = monthName, {YEAR} = the game year as plain digits, {FROM}/{TO} = a season's years.
   historyMonthYear: ["SkiResort.Hub.HISTORY_MONTH", "Month of {MONTH} {YEAR}"],
   historySeason: ["SkiResort.Hub.HISTORY_SEASON", "Ski season {FROM}/{TO}"],
-  historyHeadGuests: ["SkiResort.Hub.HISTORY_HEAD[Guests]", "Guests, Month of {MONTH}"],
-  historyHeadNet: ["SkiResort.Hub.HISTORY_HEAD[Net]", "Net, Month of {MONTH}"],
+  historyHeadGuests: ["SkiResort.Hub.HISTORY_HEAD[Guests]", "Guests, {MONTH}"],
+  historyHeadNet: ["SkiResort.Hub.HISTORY_HEAD[Net]", "Net, {MONTH}"],
   historyTipBefore: ["SkiResort.Hub.HISTORY_TIP[Before]", "Month of {MONTH} {YEAR}: {N}"],
+  historySeasonMonths: ["SkiResort.Hub.HISTORY_SEASON_MONTHS", "{N} of 12 months · the average month"],
+  historyVs: ["SkiResort.Hub.HISTORY_VS", "vs {MONTH} {YEAR}"],
 } as const;
 
 /** STATUS_WORD by hubRules.statusWord (6.2). */

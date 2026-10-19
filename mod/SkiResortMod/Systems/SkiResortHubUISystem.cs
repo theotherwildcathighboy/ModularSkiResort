@@ -37,9 +37,11 @@
 // month firstMonthKey + i, oldest → newest. Built from the sign's DynamicBuffer<SkiResortHistoryMonth> DENSIFIED here (a Gap
 // marker covers its key .. the next element's key − 1: every month of it is sent with flags GAP, flows 0, unknowns −1), then
 // the ledger's month in progress appended LAST with flags CURRENT (128, binding only, never stored) | PARTIAL when the ledger
-// counts it since load; months between the last stored one and it are GAP. The month in progress: the ledger's This
-// (booked so far), SkiDaySystem's ArrivedThisMonth, buildings / wages = the ResortLive rate × the share of the month simulated
-// (the counter's MonthFramesSimulated / MonthFrames), attraction and snow % = the ResortLive point values now. snowPct −1 =
+// counts it since load; months between the last stored one and it are GAP. The month in progress: the guests from the ledger's
+// This (booked so far), SkiDaySystem's ArrivedThisMonth, and (B1, contract 11) its eight money terms = the ResortLive row's Net
+// rows (ResortLiveStats.NetTerms: booked so far, buildings / wages = the rate × the share of the month simulated), so its net IS
+// the Finances tile's netMonth; the ledger's This only when that row has no terms yet (−1, the counter not armed at the last
+// rebuild); attraction and snow % = the ResortLive point values now. snowPct −1 =
 // unknown (the stored 255). Pushed only while observed and only when SkiResortHistorySystem.Revision moved (a stored month),
 // the area set (stats ResortsRevision) moved, or ProgressRevision moved AND HistoryProgressPushS (5 s wall clock) passed since
 // the last push; re-sent once on (re)subscribe. Payload ≈ 15 numbers × months × areas (5 years × 5 areas ≈ 4,500 numbers).
@@ -413,7 +415,11 @@ namespace SkiResortMod.Systems
         public const string Group = "skiResort";
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a
-        /// binding, trigger, field or meaning changes. 10 = T78 build 2 (2026-10-18, docs/research/ui/hub-history-build-2-2026-10-18.md: the
+        /// binding, trigger, field or meaning changes. 11 = B1 "one Net" (2026-10-19, docs/research/ui/hub-one-net-b1-2026-10-19.md;
+        /// HubRules header ONE NET): netMonth / netEstimated change MEANING (all income booked this month incl. passes sold and lessons −
+        /// all costs, the same as History's months) and ResortLive appends passIncomeMonth, passIncomePreMonth, lodgeIncomeMonth,
+        /// liftChargedMonth, runCostMonth, buildingsSoFar, wagesSoFar, monthShare; the month in progress of `history` takes its money
+        /// from the same row. 10 = T78 build 2 (2026-10-18, docs/research/ui/hub-history-build-2-2026-10-18.md: the
         /// `history` binding, one HistoryArea row per live ski area, parallel monthly series oldest → newest with the month in progress last;
         /// header HISTORY). 9 = T77 hub wording round 1 (2026-10-18, docs/research/ui/hub-wording-round-1-2026-10-18.md:
         /// CityStats appends month, the calendar month 0..11 the guest ledger counts; nothing else). 8 = Econ-2 round 2 (2026-10-15, docs/research/econ-2/build/round-2.md: ResortLive
@@ -427,7 +433,7 @@ namespace SkiResortMod.Systems
         /// days, docs/research/ski-days/spec (ch4 §A: ten ResortLive fields appended; the six last-month guest fields
         /// also for a partial month); 3 was Round E1 (econ-round spec ch5 §4, design hub-v3-design.md §8); 2 was
         /// hub-u2-spec.md §2 (Rounds U2/M1).</summary>
-        public const int HubContract = 10;
+        public const int HubContract = 11;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed
         /// after the one-shot "!!!" until the next load (amended 2026-10-01, U1 fixer round, finding
@@ -3432,7 +3438,7 @@ namespace SkiResortMod.Systems
             writer.ArrayEnd();
         }
 
-        /// <summary>`resortLive` (bindings.ts ResortLive, 77 fields): the values that move, same order and
+        /// <summary>`resortLive` (bindings.ts ResortLive; contract 11 appends the eight B1 Net rows last): the values that move, same order and
         /// count as `resorts`, joined by sign (ch5 §4.4). Main thread. Contract 4 (Round S1, ski-days ch4 §A.1)
         /// appends the ten skiDays… fields after netEstimated.</summary>
         private void WriteResortLive(IJsonWriter writer)
@@ -3637,6 +3643,24 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.PassIncomePreSeason));
                 writer.PropertyName("cityIncomeEst");
                 writer.Write(Fin(r.CityIncomeEst));
+                // Contract 11 (B1 "one Net", HubRules header ONE NET): the Net's rows of the month in progress not sent above
+                // (ticketsThisMonth and lessonIncomeMonth are the other two); Σ max(0, income rows) − Σ max(0, cost rows) = netMonth.
+                writer.PropertyName("passIncomeMonth");
+                writer.Write(Fin(r.PassIncomeMonth));
+                writer.PropertyName("passIncomePreMonth");
+                writer.Write(Fin(r.PassIncomePreMonth));
+                writer.PropertyName("lodgeIncomeMonth");
+                writer.Write(Fin(r.LodgeIncomeMonth));
+                writer.PropertyName("liftChargedMonth");
+                writer.Write(Fin(r.LiftChargedMonth));
+                writer.PropertyName("runCostMonth");
+                writer.Write(Fin(r.RunCostMonth));
+                writer.PropertyName("buildingsSoFar");
+                writer.Write(Fin(r.BuildingsSoFar));
+                writer.PropertyName("wagesSoFar");
+                writer.Write(Fin(r.WagesSoFar));
+                writer.PropertyName("monthShare");
+                writer.Write(Fin(r.MonthShare));
                 writer.TypeEnd();
             }
             writer.ArrayEnd();
@@ -3926,12 +3950,6 @@ namespace SkiResortMod.Systems
             m_HistoryRowCount = 0;
             SkiResortLedger ledger = m_GuestCounter.Ledger;
             int progressKey = ledger != null && m_GuestCounter.IsArmed ? ledger.MonthKey : SkiResortLedger.NoMonth;
-            double share = 0d;
-            if (progressKey != SkiResortLedger.NoMonth)
-            {
-                double frames = SkiMoneyRules.MonthFrames(m_Time.daysPerYear);
-                share = frames > 0d ? math.clamp(m_GuestCounter.MonthFramesSimulated / frames, 0d, 1d) : 0d;
-            }
             EntityManager em = EntityManager;
             for (int i = 0; i < m_Stats.ResortCount; i++)
             {
@@ -3981,7 +3999,7 @@ namespace SkiResortMod.Systems
                         row.FirstKey = progressKey;
                     else
                         HistoryFillGap(row, next, progressKey);
-                    HistoryAddProgress(row, ledger, i, progressKey, share);
+                    HistoryAddProgress(row, ledger, i, progressKey);
                 }
                 if (row.Count > 0)
                     m_HistoryRowCount++;
@@ -4026,9 +4044,10 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The month in progress (header HISTORY): the ledger's This booked so far (the stored months' own mapping,
-        /// SkiResortHistoryMonth.FromLedger), ski days so far, buildings / wages = the rate × the share simulated, attraction and snow
-        /// now. Flags CURRENT | PARTIAL when the ledger counts it since load.</summary>
-        private void HistoryAddProgress(HistoryRow row, SkiResortLedger ledger, int resortIndex, int key, double share)
+        /// SkiResortHistoryMonth.FromLedger), ski days so far; B1: the eight money terms from the ResortLive row (its NetTerms, the
+        /// Finances tile's rows: History's last bar nets to netMonth exactly); attraction and snow now. Flags CURRENT | PARTIAL when the
+        /// ledger counts it since load.</summary>
+        private void HistoryAddProgress(HistoryRow row, SkiResortLedger ledger, int resortIndex, int key)
         {
             Entity sign = row.Sign;
             SkiResortLedger.Month month = ledger.TryGet(SkiResortStatsSystem.ToRef(sign), out SkiResortLedger.Entry e) ? e.This : default;
@@ -4039,8 +4058,19 @@ namespace SkiResortMod.Systems
             int snow = -1;
             if (TryLiveOf(sign, resortIndex, out ResortLiveStats live))
             {
-                m.m_BuildingsCost = live.BuildingsMonth >= 0 ? (int)math.round(live.BuildingsMonth * share) : SkiResortHistoryMonth.Unknown;
-                m.m_WagesCost = live.WagesMonth >= 0 ? (int)math.round(live.WagesMonth * share) : SkiResortHistoryMonth.Unknown;
+                HubMonthMoney t = live.NetTerms;
+                if (t.TicketIncome >= 0)
+                {
+                    // the six booked terms as the tile has them (one stats rebuild), not a fresher ledger read: one Net on screen
+                    m.m_TicketIncome = t.TicketIncome;
+                    m.m_LodgeIncome = t.LodgeIncome;
+                    m.m_LessonIncome = t.LessonIncome;
+                    m.m_PassIncome = t.PassIncome;
+                    m.m_LiftCost = t.LiftCost;
+                    m.m_RunCost = t.RunCost;
+                }
+                m.m_BuildingsCost = t.BuildingsCost >= 0 ? t.BuildingsCost : SkiResortHistoryMonth.Unknown;
+                m.m_WagesCost = t.WagesCost >= 0 ? t.WagesCost : SkiResortHistoryMonth.Unknown;
                 m.m_Attraction = live.Attraction >= 0 ? live.Attraction : SkiResortHistoryMonth.Unknown;
                 byte b = SkiResortHistoryMonth.SnowByte(live.SnowPct);
                 snow = b == SkiResortHistoryMonth.SnowUnknown ? -1 : b;

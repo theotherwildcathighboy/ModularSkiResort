@@ -92,6 +92,10 @@ export const GROUP = "skiResort";
  * ski area: parallel monthly series oldest -> newest, the month in progress last with HISTORY_FLAG.Current; the History view reads it).
  * Contract 9 (T77 hub wording round 1, 2026-10-18: docs/research/ui/hub-wording-round-1-2026-10-18.md - CityStats appends month, the
  * calendar month 0..11 that the guest ledger counts as this month; the views name it "Month of <name>" through vanilla Common.MONTH:<n>).
+ * Contract 11 (B1 "one Net", 2026-10-19: docs/research/ui/hub-one-net-b1-2026-10-19.md section 2 - ResortLive appends passIncomeMonth,
+ * passIncomePreMonth, lodgeIncomeMonth, liftChargedMonth, runCostMonth, buildingsSoFar, wagesSoFar, monthShare; netMonth / netEstimated
+ * change meaning (the one Net of this month so far; "some term unknown"); no binding, trigger or CityStats change; the history shape is
+ * unchanged). Contracts 9-10: T77 / T78 (CityStats.month; the history binding).
  * Contract 8 (econ-2 round 2, 2026-10-15: docs/research/econ-2/build/round-2.md - ResortLive appends lessonsThisMonth, lessonsLastMonth,
  * lessonIncomeMonth, passesPreSeason, passIncomePreSeason, cityIncomeEst; no CityStats, binding or trigger change).
  * Contract 7 (season passes v1, 2026-10-14: docs/research/econ-2/build/season-pass-v1.md - ResortLive appends passesSoldSeason,
@@ -106,7 +110,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree
  * controls (CORE only) and says why (spec 4.5).
  */
-export const HUB_CONTRACT = 10;
+export const HUB_CONTRACT = 11;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -416,8 +420,11 @@ export interface ResortLive {
   wagesMonth: number;
   jobs: number;
   jobsFilled: number;
-  /** The one net (ch5 HubRules.NetMonth); Not linked: -liftCostMonth. Used as sent. */
+  /** The one net (B1, contract 11): this month's booked income - costs, so far (C# HubRules.NetMonth); the eight rows that add up to
+   *  it: ticketsThisMonth + lodgeIncomeMonth + lessonIncomeMonth + passIncomeMonth - liftChargedMonth - runCostMonth - buildingsSoFar -
+   *  wagesSoFar (each max(0, row)). Not linked: -(lift charge + run upkeep booked for Not linked). Used as sent. */
   netMonth: number;
+  /** Some term of the net is unknown (read as 0). Contract 11; was "income projected". */
   netEstimated: boolean;
   // Contract 4 (Round S1, ski days; ch4 section A.1): appended in this order, as in C# ResortLiveStats.
   /** SKI_DAY_STATE (0 Unknown; also on the Not linked row). */
@@ -483,6 +490,24 @@ export interface ResortLive {
    *  kUpdatesPerDay = 32 times a game day, :363; BudgetSystem.cs:172-174, 280 reads it the same way). An ESTIMATE: whether that entry is a
    *  cumulative or a daily window is prefab data, not in the decompile. */
   cityIncomeEst: number;
+  // Contract 11 (B1 "one Net"; docs/research/ui/hub-one-net-b1-2026-10-19.md section 2): appended in this order, as in C# WriteResortLive.
+  // The Net's rows of the month in progress not sent above (ticketsThisMonth and lessonIncomeMonth are the other two). -1 unknown.
+  /** Season passes sold at this area this month, pre-season sales included (the Net's pass row). */
+  passIncomeMonth: number;
+  /** The pre-season-sale part of passIncomeMonth (a subset, for a tooltip; never add it again). */
+  passIncomePreMonth: number;
+  /** Lodge spend booked this month (the Net's lodge row); lodgeSpendMonth keeps the last-month / projected rule. */
+  lodgeIncomeMonth: number;
+  /** Lift charge booked this month (the Net's lift row); liftCostMonth stays the rate. */
+  liftChargedMonth: number;
+  /** Run upkeep booked this month for this area (the Net's run row); costGroomed/Snowmaking/NightMonth stay the rates per kind. */
+  runCostMonth: number;
+  /** buildingsMonth x monthShare, rounded (the Net's buildings row). */
+  buildingsSoFar: number;
+  /** wagesMonth x monthShare, rounded (the Net's wages row). */
+  wagesSoFar: number;
+  /** The share of the month simulated, 0..1; -1 unknown (Not linked, counter not armed). */
+  monthShare: number;
 }
 
 /** One run of ours: identity, rating, service, value parts. */

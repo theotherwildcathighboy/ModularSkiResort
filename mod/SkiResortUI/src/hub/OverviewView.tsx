@@ -43,6 +43,12 @@
  *     scale K); T77's two equation lines moved into the total's tooltip. The School row flags its 0 (hubRules.schoolState: "No ski
  *     school" / "No green run" with the Warning glyph). MOUNTAIN: snow is two rows, Snow depth (cm) and Run coverage (%), "≈" while
  *     estimated. Supersedes the T77 SubLines and the "Snow now" row above.
+ *   - T82 UI round (2026-10-19; docs/research/ui/hub-design-review-2026-10-18.md B6, F11): each term row carries its operator in a
+ *     fixed cell before the label ("+ Runs", "+ Lifts", "+ Ski school", "× Variety", "× Vertical", "× Scale, after the square root"; the review's "√" is not on
+ *     the Gameface font safe list, check-bundle research 2.F.2), so the rows read as
+ *     the equation the total's tooltip spells out, not as a sum that does not add; Variety and Vertical show the bare multiplier
+ *     (the "×" moved to the operator cell). The header shows the score alone ("44"; supersedes "A of 200" above), the cap 200 in
+ *     its tooltip (SCORE_BAR_TIP, also the bar's); the bar has a third tick, park 10. The UI still multiplies nothing (D10).
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
@@ -215,17 +221,21 @@ function Receipt({ row, l, city, problems, t }: {
   const K = numArg(city.scaleK, Unit.Integer);
   const noLodgeRow = variant === "noLodge" ? problemOf(problems, row.sign, PROBLEM.NoLodge) : null;
   const allOffRow = variant === "noLodge" && !noLodgeRow ? problemOf(problems, row.sign, PROBLEM.LodgesAllOff) : null;
+  const barTip = <LocText entry={HUB_FMT.scoreBarTip} args={{ NOW: held ? "…" : numArg(attraction, Unit.Integer), FULL: numArg(full, Unit.Integer) }} />;
 
   return (
     <>
+      {/* T82 B6 (F11b): the header shows the score alone ("44", not "44 of 200": that read as 22 %, a failing grade); the cap and the
+          ticks are in the tooltip, the bar's ticks (park 10, attraction 50, landmark 120) give the scale. */}
       <InfoLine
         header
         label={t(HUB_LOC.sectionAttraction)}
-        value={held ? "…" : <LocText entry={HUB_FMT.scoreOf} args={{ A: numArg(attraction, Unit.Integer) }} />}
+        value={held ? "…" : numArg(attraction, Unit.Integer)}
+        tip={barTip}
       />
       <FlexBar
         className={styles.scoreBar}
-        tip={<LocText entry={HUB_FMT.scoreBarTip} args={{ NOW: held ? "…" : numArg(attraction, Unit.Integer), FULL: numArg(full, Unit.Integer) }} />}
+        tip={barTip}
         parts={[
           { grow: fill, className: styles.scoreFill },
           { grow: ghost, className: styles.scoreGhost },
@@ -233,14 +243,17 @@ function Receipt({ row, l, city, problems, t }: {
         ]}
       />
       <div className={styles.scoreTicks}>
-        <div className={styles.tickSpace} style={{ flexGrow: 50 }} />
+        <div className={styles.tickSpace} style={{ flexGrow: 10 }} />
+        <div className={styles.tick} />
+        <div className={styles.tickSpace} style={{ flexGrow: 40 }} />
         <div className={styles.tick} />
         <div className={styles.tickSpace} style={{ flexGrow: 70 }} />
         <div className={styles.tick} />
         <div className={styles.tickSpace} style={{ flexGrow: 80 }} />
       </div>
       <div className={styles.scoreLabels}>
-        <div className={styles.scoreLabel} style={{ flexGrow: 50 }} />
+        <div className={styles.scoreLabel} style={{ flexGrow: 10 }} />
+        <div className={styles.scoreLabel} style={{ flexGrow: 40 }}>{t(HUB_LOC.scoreTickPark)}</div>
         <div className={styles.scoreLabel} style={{ flexGrow: 70 }}>{t(HUB_LOC.scoreTickAttraction)}</div>
         <div className={styles.scoreLabel} style={{ flexGrow: 80 }}>{t(HUB_LOC.scoreTickLandmark)}</div>
       </div>
@@ -267,28 +280,28 @@ function Receipt({ row, l, city, problems, t }: {
           <LocText key="k" entry={HUB_FMT.receiptTipTerrain} args={{ K }} />,
         ]} />}
       />
-      <InfoLine sub label={t(HUB_LOC.receiptRowRuns)} value={parts.RUNS}
+      <InfoLine sub op="+" label={t(HUB_LOC.receiptRowRuns)} value={parts.RUNS}
         tip={<TipLines lines={[t(HUB_LOC.receiptRowRuns), t(HUB_LOC.receiptTipRuns)]} />} />
       <SubLine tip={<LocText entry={HUB_FMT.receiptTipOpen} args={{ FULL: numArg(l ? l.runsValueFull : -1, Unit.FloatSingleFraction) }} />}>
         {l && l.openSharePct >= 0
           ? <LocText entry={HUB_FMT.receiptOpen} args={{ PCT: numArg(l.openSharePct, Unit.Percentage) }} />
           : t(HUB_LOC.receiptOpenNone)}
       </SubLine>
-      <InfoLine sub label={t(HUB_LOC.receiptRowLifts)} value={parts.LIFTS}
+      <InfoLine sub op="+" label={t(HUB_LOC.receiptRowLifts)} value={parts.LIFTS}
         tip={<TipLines lines={[t(HUB_LOC.receiptRowLifts), t(HUB_LOC.receiptTipLifts)]} />} />
       {/* Item 3: no school / no green run is a 0 with the warning glyph and the cause, not a tooltip sentence. */}
-      <InfoLine sub label={t(HUB_LOC.receiptRowSchool)}
+      <InfoLine sub op="+" label={t(HUB_LOC.receiptRowSchool)}
         flag={schoolNow === "none" ? t(HUB_LOC.noSchool) : schoolNow === "noGreen" ? t(HUB_LOC.schoolNoGreen) : undefined}
         value={l && l.schoolValue >= 0 ? numArg(l.schoolValue, Unit.FloatSingleFraction, false, false) : DASH}
         tip={<TipLines lines={[t(HUB_LOC.receiptRowSchool), t(HUB_LOC.receiptTipSchool)]} />} />
-      <InfoLine sub label={t(HUB_LOC.receiptRowVariety)}
-        value={<LocText entry={HUB_FMT.receiptTimes} args={{ PCT: parts.VARIETY }} />}
+      <InfoLine sub op="×" label={t(HUB_LOC.receiptRowVariety)}
+        value={parts.VARIETY}
         tip={<TipLines lines={[t(HUB_LOC.receiptRowVariety), t(HUB_LOC.receiptTipVariety)]} />} />
-      <InfoLine sub label={t(HUB_LOC.receiptRowVertical)}
-        value={<LocText entry={HUB_FMT.receiptTimes} args={{ PCT: parts.VERTICAL }} />}
+      <InfoLine sub op="×" label={t(HUB_LOC.receiptRowVertical)}
+        value={parts.VERTICAL}
         tip={<TipLines lines={[t(HUB_LOC.receiptRowVertical),
           <LocText key="v" entry={HUB_FMT.receiptTipVertical} args={{ M: numArg(l ? l.scoreVerticalM : -1, Unit.Height) }} />]} />} />
-      <InfoLine sub label={t(HUB_LOC.receiptRowScale)} value={K}
+      <InfoLine sub op="×" label={t(HUB_LOC.receiptRowScale)} value={K}
         tip={<TipLines lines={[t(HUB_LOC.receiptRowScale), t(HUB_LOC.receiptTipScale)]} />} />
       <InfoLine
         label={t(HUB_LOC.receiptEfficiency)}

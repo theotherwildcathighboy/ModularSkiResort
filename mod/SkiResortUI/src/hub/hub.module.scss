@@ -1250,6 +1250,20 @@
   color: var(--normalTextColor);
 }
 
+// T82 B5a: a warning season hint (Thawing, Waiting for snow, Too warm) keeps the slot in the warning colour; declared after .statusHintOn.
+.statusHintWarn {
+  color: var(--warningColor);
+}
+
+// T82 B5a: the "≈" before the snow while it is estimated (fixed cell, like the receipt mark slot).
+.statusSnowMark {
+  flex-shrink: 0;
+  margin-right: 3rem;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: rgba(240, 251, 255, 0.7);
+}
+
 // -- open marks (design 5.3): 0.6 em shapes (the status line's mark; Round F7: the run rows say a word) --
 .openMark {
   flex-grow: 0;
@@ -1529,6 +1543,15 @@
 
 .infoSub {
   padding-left: 22rem;
+}
+
+// T82 B6 (F11): the receipt term's operator ("+", "×"), a fixed-width dim cell before the label (every term row the same).
+.infoOp {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 1.6em;
+  color: rgba(240, 251, 255, 0.55);
+  white-space: nowrap;
 }
 
 .infoLabel {
@@ -2272,10 +2295,10 @@
 }
 
 // -- History view (T78 build 2, contract 10; src/hub/HistoryView.tsx, HistoryChart.tsx) ----------------------------------------
-// The tile's value: the City Statistics glyph (a mask in the tile's text colour), 1.25 em high like a tile number.
+// The tile's value: our HistoryGlyph.svg (T82 B8, three bars on a baseline; a mask in the tile's text colour), about a tile number's height.
 .tileGlyph {
-  width: 1.1em;
-  height: 1.1em;
+  width: 1.2em;
+  height: 1.2em;
 }
 
 .histView {
@@ -2335,15 +2358,85 @@
   margin-left: 10rem;
 }
 
-// The plot: the SVG fills the inner width; its top / bottom value sits over its left corner (HTML, never SVG text).
+// T82 B3 (F9): "vs Jan 2026" after the change, dim XS, the month the headline compares with.
+.histVs {
+  flex-shrink: 0;
+  margin-left: 6rem;
+  font-size: var(--fontSizeXS);
+  color: rgba(240, 251, 255, 0.7);
+  text-transform: none;
+  white-space: nowrap;
+}
+
+// T82 B3 (F7): a chart is a row [scale gutter | plot + axis]; the scale never sits over a mark (HTML, never SVG text).
+.histChart {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  flex-shrink: 0;
+  margin-left: 10rem;
+  margin-right: 10rem;
+  margin-top: 2rem;
+}
+
+.histChartMain {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
+// The gutter's width = its widest sizer (every scale label of the view, laid out with no height), so all gutters match.
+.histGutter {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  padding-right: 4rem;
+  font-size: var(--fontSizeXS);
+  line-height: 100%;
+  color: rgba(240, 251, 255, 0.55);
+}
+
+.histGutterSizer {
+  display: flex;
+  flex-direction: column;
+  height: 0rem;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.histGutterSize {
+  white-space: nowrap;
+}
+
+.histGutterPlot {
+  position: relative;
+}
+
+// One scale value at its y: top-aligned (the top value), centred on the zero line ("0"), bottom-aligned (the bottom value).
+.histScaleLabel {
+  position: absolute;
+  right: 0rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.histScaleMid {
+  transform: translateY(-50%);
+}
+
+.histScaleBottom {
+  transform: translateY(-100%);
+}
+
 .histPlot {
   position: relative;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  margin-left: 10rem;
-  margin-right: 10rem;
-  margin-top: 2rem;
 }
 
 .histStrip {
@@ -2354,32 +2447,11 @@
   width: 100%;
 }
 
-.histTopLabel,
-.histBottomLabel {
-  position: absolute;
-  left: 2rem;
-  font-size: var(--fontSizeXS);
-  line-height: 100%;
-  color: rgba(240, 251, 255, 0.55);
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.histTopLabel {
-  top: 2rem;
-}
-
-.histBottomLabel {
-  bottom: 2rem;
-}
-
 .histAxis {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
   flex-shrink: 0;
-  margin-left: 10rem;
-  margin-right: 10rem;
   height: 1.3em;
   font-size: var(--fontSizeXS);
   line-height: 130%;
