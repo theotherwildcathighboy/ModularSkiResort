@@ -18,7 +18,8 @@ hero:
       variant: minimal
 ---
 
-import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+import { CardGrid } from '@astrojs/starlight/components';
+import FeatureCard from '../../components/FeatureCard.astro';
 import Shot from '../../components/Shot.astro';
 
 <Shot label="Hero shot: a winter lift line up a bowl, lodge and Welcome Sign in the foreground, runs in difficulty colours." />
@@ -26,33 +27,36 @@ import Shot from '../../components/Shot.astro';
 ## Features
 
 <CardGrid>
-  <Card title="Lifts" icon="rocket">
+  <FeatureCard title="Lifts" icon="lift-detachable" alt="Detachable lift icon">
     Fixed-grip and detachable chairlifts, gondolas and an aerial tram. Tower height follows the terrain
     and the cable sags under the carriers.
-  </Card>
-  <Card title="Runs" icon="star">
+  </FeatureCard>
+  <FeatureCard title="Runs" icon="run-groomed" alt="Groomed run icon">
     Run outline rated green to double black from its slope. Snow comes from the game's own simulation;
     snow guns extend the season where it is cold enough.
-  </Card>
-  <Card title="Lodges, School, Patrol" icon="heart">
+  </FeatureCard>
+  <FeatureCard title="Lodges, School, Patrol" icon="lodge-grand" alt="Swanky Grand Lodge icon">
     **5** lodge tiers, a ski school and patrol huts, all upgrades of the Welcome Sign (the ski area).
     Guests and locals ski; the city's tourism responds.
-  </Card>
-  <Card title="Hub" icon="open-book">
+  </FeatureCard>
+  <FeatureCard title="Hub" icon="glyph-history" alt="Hub History tile glyph">
     One panel: score, runs, lifts, guests, finances, history and every building tool.
-  </Card>
+  </FeatureCard>
 </CardGrid>
 
 ## Install
 
 1. Subscribe to **Modular Ski Resort** on Paradox Mods. *(The link goes here at the first upload.)*
-2. **Dependencies:** none. Lifts, runs and the economy work on the base game.
+2. **Dependencies:**
+   - **Required mods:** none. Everything works on the base game.
+   - **Recommended:** Move It (moves and aligns buildings and lift stations), Anarchy (placement freedom on slopes).
+   - **Optional:** Tourism Overhaul, Realistic Workplaces and Households, Realistic Path Finding and other trip-planner mods. The mod detects them for labels and adjusts nothing. Those mods are maintained by others; the author does not control their updates or their compatibility.
 3. **Access:** **Ski Resort** tab under Parks & Recreation, or the Ski Resort button at the top left.
 
-<Aside type="note" title="Compatibility">
-Tourism Overhaul, Realistic Workplaces and Households and Write Everywhere are detected when present; none is required.
-See [Credits and Licences](/credits/).
-</Aside>
+## Compatibility
+
+- **Game version:** Cities: Skylines II 1.6.2. **(to confirm at release)**
+- **Tested with:** Move It, Anarchy, Tourism Overhaul, Realistic Workplaces and Households, Realistic Path Finding. **(to confirm)**
 
 ## Next
 
