@@ -30,6 +30,8 @@
  * 0, netRowShown hides only a 0 income row, every harness live row adds up and equals its History month in progress, MoneyView
  * draws the contract-11 fields): 229 checks.
  * T97 P1 header selector (2026-10-19, contract 11): T24.1-T24.3 (resortCountsVariant, resortListCounts, the selector's source facts): 239 checks.
+ * T100 hub school launch + review M12 (2026-10-19, contract 11): T25.1-T25.4 (code 26 variant / click, the school's hints and plain active
+ * line, the M12 root-mounted guard): 243 checks.
  * A new rule in hubRules.ts adds its literal rows here (oracles are literals, never recomputed).
  */
 "use strict";
@@ -478,6 +480,32 @@ function run(srcDir) {
         header.includes("onChange={() => hubTriggers.selectResort(entrySign(r))}"), header.includes("<div className={styles.selector} onMouseDown={noDrag}>"),
         header.includes("HUB_LOC.resortTip"), header.includes("HUB_LOC.resortMenuNote"), header.includes("HUB_LOC.resortCaption")],
       [true, true, true, true, true, true, true, true, true]);
+  }
+
+  // T25 (T100 hub school launch + review M12, 2026-10-19; docs/research/ui/hub-school-launch-2026-10-19.md): problem 26 (top-level
+  // schools on no sign) renders and flies to the school; the school's hints say "goes near the sign" and its active line is the plain
+  // one (it is no upgrade any more); a launcher click with no mounted HubRoot reports and still sends toggleHub.
+  eq("T25.1 code 26: variant schoolsNotLinked, click flies to the subject", [BIND.PROBLEM.SchoolsNotLinked, R.problemVariant(P(NUL, 26, 1, { count: 2 })), R.problemClick(P(NUL, 26, 1))],
+    [26, "schoolsNotLinked", "sign"]);
+  {
+    const strip = fs.readFileSync(path.join(srcDir, "hub", "BuildStrip.tsx"), "utf8");
+    const status = fs.readFileSync(path.join(srcDir, "hub", "StatusBlock.tsx"), "utf8");
+    eq("T25.2 school hints: never the selected-sign hint; active line plain; row 26 drawn with its FMT text and tip",
+      [strip.includes('case "school": return lodgeShown ? HUB_LOC.buildShortSchool : HUB_LOC.buildHintLodge;'), strip.includes('case "school": return HUB_LOC.buildHintLodge;'),
+        strip.includes('k === "lodge" || k === "school"'), status.includes("HUB_FMT.problemSchoolsNotLinked"), status.includes("HUB_LOC.problemTipSchoolsNotLinked")],
+      [true, true, false, true, true]);
+    const state = fs.readFileSync(path.join(srcDir, "hub", "hubState.ts"), "utf8");
+    const root = fs.readFileSync(path.join(srcDir, "hub", "HubRoot.tsx"), "utf8");
+    const toggleBody = (state.match(/export function toggleHub\(connected: boolean\): void \{([\s\S]*?)\n\}/) || [, ""])[1];
+    eq("T25.3 M12: toggleHub reports when no HubRoot is mounted, then still sends; HubRoot sets and clears the flag",
+      [toggleBody.indexOf("if (!rootMounted)") >= 0 && toggleBody.indexOf("reportUiError(\"launcher\"") > toggleBody.indexOf("if (!rootMounted)"),
+        toggleBody.indexOf("if (connected) hubTriggers.toggleHub();") > toggleBody.indexOf("reportUiError("),
+        root.includes("setRootMounted(true);") && root.includes("return () => setRootMounted(false);")], [true, true, true]);
+    const hubCsT = fs.readFileSync(path.resolve(__dirname, "..", "..", "SkiResortMod", "Systems", "SkiResortHubUISystem.cs"), "utf8");
+    eq("T25.4 C#: launch via LaunchUpgrade only when the prefab is an upgrade; one no-uiHello WARN per session",
+      [/if \(m_ItemViaUpgrade\[item\]\)\s*\{\s*LaunchUpgrade\(item, prefab, source\);/.test(hubCsT),
+        hubCsT.includes("m_ItemViaUpgrade[i] = item.IsUpgrade && m_PrefabCatalog.IsUpgradePrefab(entity);"),
+        hubCsT.includes("private static bool s_NoHelloWarned;")], [true, true, true]);
   }
 
   // T20 (T78 build 2, contract 10; docs/research/ui/hub-history-build-2-2026-10-18.md): the History view. Source checks plus the pure

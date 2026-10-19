@@ -88,6 +88,10 @@
 //                     StationItemOf; fixed-grip = today's "lift" / "baseStation" / "topStation"); NoLift keeps
 //                     "baseStation"; SummitLodgesNotServed > 0 → row 24 (severity 1, count); SchoolNoGreenRun → row 25
 //                     (severity 1);
+// T100 (2026-10-19, docs/research/ui/hub-school-launch-2026-10-19.md; contract 11 unchanged: codes are not in the lock):
+//   HubProblemCode    APPEND SchoolsNotLinked = 26 (Not linked entry: FreeSchools > 0 → severity 1, count);
+//   HubProblems.Build LodgeNoRoad counts min(LodgesNoRoad, Lodges) + SchoolsNoRoad (top-level schools with no road edge);
+//                     severity 3 only when every LODGE has no road, else 1 (a school alone: 1);
 //   HubLiftHintRow.Type — the hub calls LiftNoPair per lift type over the rows of that type (pure rule unchanged);
 //   LodgePart         = r.LodgeApplied (seam S4: the ladder's season value; for A-frames = LodgeBase × LodgeShare);
 //   AttractionWithLodges(r, n) (MUST 1) = r.AOpen − r.LodgeApplied + LodgeBaseOf(n) × (summer ? SummerLodgeShare : 1):
@@ -176,6 +180,7 @@ namespace SkiResortMod.Systems
         SignNoRoad = 18, LodgeNoRoad = 19,   // Round F7 D5 (field-test-7-fixes.md): appended (gate R17)
         SkiDaysCannotReach = 20, NoParkingNearLodge = 21, LodgeNotSlopeside = 22,   // Round S1 D28 (ski-days ch4 §C.1): appended
         MixedLiftTypes = 23, SummitLodgeNotLiftServed = 24, SchoolNoGreenRun = 25,   // Catalog Phase B (round-2-contract §6.1): appended
+        SchoolsNotLinked = 26,   // T100 (hub-school-launch-2026-10-19.md): top-level ski schools on no sign, Not linked entry only
     }
 
     /// <summary>bindings.ts SKI_DAY_STATE (gate R17): ResortLive.skiDaysState, the Guests view's state line (Round
@@ -224,6 +229,11 @@ namespace SkiResortMod.Systems
         // count but none of them is a counted green run (its +12 and its demand share need one, D13).
         public int SummitLodgesNotServed;
         public bool SchoolNoGreenRun;
+        // T100 (school-top-level-t100.md section 4 items 4-5): the area's top-level ski schools with no road edge (they join
+        // the LodgeNoRoad row's count, never its "every lodge" severity), and on the Not linked entry the top-level schools
+        // linked to no sign (row SchoolsNotLinked).
+        public int SchoolsNoRoad;
+        public int FreeSchools;
     }
 
     /// <summary>One problems row (band or Factor) before the stats system adds the area's entities.</summary>
@@ -736,6 +746,8 @@ namespace SkiResortMod.Systems
                     output.Add(Row(HubProblemCode.Unlinked, 3, buildItem: "sign"));
                 if (input.FreeLodges > 0)
                     output.Add(Row(HubProblemCode.FreeLodges, 1, count: input.FreeLodges));
+                if (input.FreeSchools > 0)   // T100: a top-level school beyond every sign's tether
+                    output.Add(Row(HubProblemCode.SchoolsNotLinked, 1, count: input.FreeSchools));
                 SortAndCut(output);
                 return;
             }
@@ -754,9 +766,13 @@ namespace SkiResortMod.Systems
             // mirrors LodgesAllOff / LodgesSomeOff: every lodge 3, some 1. Count = lodges with no road (≤ Lodges).
             if (input.SignNoRoad)
                 output.Add(Row(HubProblemCode.SignNoRoad, 3));
+            // T100: a top-level ski school with no road edge joins the count (severity 1 on its own: it is not a lodge, so it
+            // never makes "every lodge" true).
             int lodgesNoRoad = Math.Min(input.LodgesNoRoad, input.Lodges);
-            if (lodgesNoRoad > 0)
-                output.Add(Row(HubProblemCode.LodgeNoRoad, (byte)(lodgesNoRoad >= input.Lodges ? 3 : 1), count: lodgesNoRoad));
+            int buildingsNoRoad = lodgesNoRoad + Math.Max(0, input.SchoolsNoRoad);
+            if (buildingsNoRoad > 0)
+                output.Add(Row(HubProblemCode.LodgeNoRoad, (byte)(lodgesNoRoad > 0 && lodgesNoRoad >= input.Lodges ? 3 : 1),
+                    count: buildingsNoRoad));
 
             // 3. Efficiency (the worst factor named; the rest counted). Round S1 F1 (ch4 §C.3): shown at or below
             // EfficiencyProblemPct, and held while the band showed it on the area's previous build until the percent

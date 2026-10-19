@@ -757,6 +757,11 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Building>(),
+                    // M7 (code review 2026-10-19): the walk keeps only signs and lodges, and every one of them carries
+                    // Game.Buildings.Park (Game.Prefabs/Park.cs archetype; the attractiveness system finds both sets
+                    // through its Park query). Checked on the prefab JSON mirror for all 5 LodgeDefs prefabs + the sign
+                    // (docs/research/code-review-fixes-2026-10-19.md, "Park check"): 6 of 6 carry Game.Prefabs.Park.
+                    ComponentType.ReadOnly<Game.Buildings.Park>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                     ComponentType.ReadOnly<Game.Objects.Transform>(),
                 },
@@ -1476,6 +1481,33 @@ namespace SkiResortMod.Systems
                 }
             }
         }
+
+        /// <summary>T100: the top-level ski schools linked to <paramref name="sign"/> (Entity.Null = linked to none) in the last
+        /// CopySchoolLinks (m_TopSchools, this rebuild): live ones (exists, not Deleted / Temp), those whose Building.m_RoadEdge is
+        /// Null, and the lowest (Index, Version) of each (stable subjects). Main thread, a handful of entities.</summary>
+        private void SchoolFacts(Entity sign, out int count, out Entity first, out int noRoad, out Entity firstNoRoad)
+        {
+            count = noRoad = 0;
+            first = firstNoRoad = Entity.Null;
+            for (int t = 0; t < m_TopSchools.Count; t++)
+            {
+                Entity school = m_TopSchools[t];
+                if (m_TopSchoolSigns[t] != sign || school == Entity.Null || !EntityManager.Exists(school) ||
+                    EntityManager.HasComponent<Deleted>(school) || EntityManager.HasComponent<Temp>(school))
+                    continue;
+                count++;
+                if (first == Entity.Null || Lower(school, first))
+                    first = school;
+                if (EntityManager.TryGetComponent(school, out Building building) && building.m_RoadEdge == Entity.Null)
+                {
+                    noRoad++;
+                    if (firstNoRoad == Entity.Null || Lower(school, firstNoRoad))
+                        firstNoRoad = school;
+                }
+            }
+        }
+
+        private static bool Lower(Entity a, Entity b) => a.Index < b.Index || (a.Index == b.Index && a.Version < b.Version);
 
         // ── runs ────────────────────────────────────────────────────────────────────────────────
 
@@ -2696,6 +2728,10 @@ namespace SkiResortMod.Systems
                     CountSummitNotServed(sign, ref m_Work[s]);
                 work = m_Work[s];
                 int ifLodgesOn = hasResult && row.Lodges > 0 ? IfLodgesOnApplied(s, sign, in r) : -1;
+                // T100 (hub-school-launch-2026-10-19.md): this area's top-level schools (Not linked: those on no sign), the
+                // road-less ones and the first of each (lowest entity) for the rows' subjects.
+                SchoolFacts(notLinked ? Entity.Null : sign, out int schoolsHere, out Entity firstSchool,
+                            out int schoolsNoRoad, out Entity firstSchoolNoRoad);
                 var input = new HubProblemInput
                 {
                     Unlinked = notLinked,
@@ -2726,6 +2762,9 @@ namespace SkiResortMod.Systems
                     // Catalog Phase B (§6.4): rows 24 and 25. School: active, runs count, none of them a counted green.
                     SummitLodgesNotServed = notLinked ? 0 : work.SummitNotServed,
                     SchoolNoGreenRun = hasResult && r.SchoolActive && r.RunsCounted > 0 && !r.GreenCounted,
+                    // T100: road-less top-level schools join LodgeNoRoad; unlinked ones get their Not linked row.
+                    SchoolsNoRoad = notLinked ? 0 : schoolsNoRoad,
+                    FreeSchools = notLinked ? schoolsHere : 0,
                 };
                 HubProblems.Build(in input, m_POut);
                 for (int i = 0; i < m_POut.Count; i++)
@@ -2742,7 +2781,9 @@ namespace SkiResortMod.Systems
                     if ((code >= 1 && code <= 4) || p.Code == HubProblemCode.SignNoRoad)
                         subject = sign;
                     else if (p.Code == HubProblemCode.LodgeNoRoad)
-                        subject = work.LodgeNoRoad;
+                        subject = work.LodgesNoRoad > 0 ? work.LodgeNoRoad : firstSchoolNoRoad;   // T100: a school alone
+                    else if (p.Code == HubProblemCode.SchoolsNotLinked)
+                        subject = firstSchool;                 // T100: the first school on no sign (the click flies there)
                     else if (p.Code == HubProblemCode.SkiDaysCannotReach)
                         subject = d.ReachLodge != Entity.Null ? d.ReachLodge : sign;
                     else if (p.Code == HubProblemCode.NoParkingNearLodge)
@@ -2752,7 +2793,7 @@ namespace SkiResortMod.Systems
                     else if (p.Code == HubProblemCode.SummitLodgeNotLiftServed)
                         subject = work.SummitNotServedLodge;   // Catalog Phase B: the lowest such lodge
                     else if (p.Code == HubProblemCode.SchoolNoGreenRun)
-                        subject = sign;                        // Catalog Phase B: the school sits on the sign
+                        subject = firstSchool != Entity.Null ? firstSchool : sign;   // T100: the top-level school; a child: the sign
                     if (p.Code == HubProblemCode.Efficiency)
                         m_EffRowOnNext.Add(sign);   // F1: the band shows it on this build (Not linked never has one)
                     m_ProblemsNext.Add(new ProblemStats

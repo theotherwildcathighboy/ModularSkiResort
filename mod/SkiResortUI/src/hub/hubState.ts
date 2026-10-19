@@ -37,8 +37,13 @@
  *     WITHOUT sending, because C# resets its own hovered run at every load and a stale "last sent"
  *     would swallow the first hover after a load. The panel's unmount, an area switch, a view switch
  *     and leaving the run list send Entity.Null once.
+ *   - ROOT MOUNTED (review M12, 2026-10-19; docs/research/code-review-2026-10-19.md): a module-level flag HubRoot sets while it is
+ *     mounted. A launcher click while it is false (the "Game" hook moved, another mod's registrar threw before ours, the root
+ *     boundary tripped) reports one uiError / console line (reportUiError dedups) and still fires toggleHub, so C# logs the
+ *     click: silence is impossible. C# also WARNs once per session when no uiHello came 30 s after its first arm.
  */
 import { useEffect } from "react";
+import { reportUiError } from "./report";
 import { bindLocalValue, useValue } from "cs2/api";
 import type { Entity } from "cs2/utils";
 import {
@@ -138,8 +143,20 @@ export function useHubOpen(connected: boolean): boolean {
   return connected ? remote : local;
 }
 
-/** Launcher click. */
+/** Review M12: is HubRoot mounted (set by HubRoot's mount effect, cleared on unmount)? */
+let rootMounted = false;
+
+/** HubRoot's mount / unmount (review M12). */
+export function setRootMounted(mounted: boolean): void {
+  rootMounted = mounted;
+}
+
+/** Launcher click. Review M12: without a mounted HubRoot nothing can open, so the click is reported; toggleHub still fires. */
 export function toggleHub(connected: boolean): void {
+  if (!rootMounted) {
+    reportUiError("launcher", "the hub root (the Game hook's HubRoot) is not mounted, so the panel cannot open",
+      connected ? "toggleHub sent" : "C# not connected either");
+  }
   if (connected) hubTriggers.toggleHub();
   else localOpen$.update(!localOpen$.value);
 }

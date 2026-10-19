@@ -117,7 +117,7 @@ export type ProblemVariant =
   | "runsUnserved" | "runsUnrateable" | "runsRating" | "freeLodges" | "runsFlat"
   | "signNoRoad" | "lodgeNoRoad"
   | "skiDaysCannotReach" | "noParkingNearLodge" | "lodgeNotSlopeside"
-  | "mixedLiftTypes" | "summitLodgeNotLiftServed" | "schoolNoGreenRun";
+  | "mixedLiftTypes" | "summitLodgeNotLiftServed" | "schoolNoGreenRun" | "schoolsNotLinked";
 
 /** Which one string a band row renders; null = not a band row. */
 export function problemVariant(p: ProblemRow): ProblemVariant | null {
@@ -149,6 +149,7 @@ export function problemVariant(p: ProblemRow): ProblemVariant | null {
     case PROBLEM.MixedLiftTypes: return "mixedLiftTypes";
     case PROBLEM.SummitLodgeNotLiftServed: return "summitLodgeNotLiftServed";
     case PROBLEM.SchoolNoGreenRun: return "schoolNoGreenRun";
+    case PROBLEM.SchoolsNotLinked: return "schoolsNotLinked";   // T100
     default: return null;
   }
 }
@@ -188,14 +189,15 @@ export type ProblemClick = "sign" | "lift" | "liftsView" | "runsView" | null;
 
 /** What a click on a band row does (design 7.2). "sign" = fly to `subject` (a building: the sign, or for
  *  LodgeNoRoad the lodge; Round F7 D5; Round S1: the lodge C# names for 20-22, the sign for 20 without one;
- *  contract 6: the lowest summit lodge no lift reaches for 24, the subject C# names for 25). MixedLiftTypes (23)
+ *  contract 6: the lowest summit lodge no lift reaches for 24, the subject C# names for 25; T100: the top-level school for 25,
+ *  the first school on no sign for 26, a road-less school for 19 when no lodge is). MixedLiftTypes (23)
  *  is a lift row: its click flies to the lift (to its gap while a section is missing), like LiftUnfinished. */
 export function problemClick(p: ProblemRow): ProblemClick {
   switch (p.code) {
     case PROBLEM.NoLodge: case PROBLEM.LodgesAllOff: case PROBLEM.LodgesSomeOff: case PROBLEM.Efficiency:
     case PROBLEM.SignNoRoad: case PROBLEM.LodgeNoRoad:
     case PROBLEM.SkiDaysCannotReach: case PROBLEM.NoParkingNearLodge: case PROBLEM.LodgeNotSlopeside:
-    case PROBLEM.SummitLodgeNotLiftServed: case PROBLEM.SchoolNoGreenRun:
+    case PROBLEM.SummitLodgeNotLiftServed: case PROBLEM.SchoolNoGreenRun: case PROBLEM.SchoolsNotLinked:
       return "sign";
     case PROBLEM.LiftNoPower: case PROBLEM.LiftSectionMissing: case PROBLEM.LiftUnfinished:
     case PROBLEM.StationsOnly: case PROBLEM.LiftChairsStopped: case PROBLEM.MixedLiftTypes:

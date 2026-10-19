@@ -196,7 +196,8 @@ export const PROBLEM = {
   LodgeNotSlopeside: 22, // Round S1 D28 (D10): active lodges more than 800 m from the runs and stations (sev 1); count
   MixedLiftTypes: 23, // Contract 6 (D18): a lift's line and stations span two of our lift types (sev 2); counts 0
   SummitLodgeNotLiftServed: 24, // Contract 6 (D11): summit-bonus lodges no working lift's top reaches (sev 1); count
-  SchoolNoGreenRun: 25, // Contract 6 (D13): the ski school is on but no green run counts (sev 1)
+  SchoolNoGreenRun: 25, // Contract 6 (D13): the ski school is on but no green run counts (sev 1); T100: subject = the top-level school
+  SchoolsNotLinked: 26, // T100 (contract 11, codes are not in the lock): top-level ski schools on no sign, Not linked entry (sev 1); count; subject = the first
 } as const;
 
 /** ResortLive.skiDaysState. C# HubRules HubSkiDayState (Round S1, contract 4). */

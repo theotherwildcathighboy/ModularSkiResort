@@ -236,6 +236,13 @@
 //     :1144, :1184). There the player selected the building first; from the hub WE did, and the sign's vanilla panel that our
 //     selection opened stayed open after the lodge was placed (T97). A sign the player had selected before the launch stays
 //     selected, like vanilla; a selection the player moved elsewhere is never touched. One "Hub [upgrade]" line per deselect.
+//     (7) T100 (2026-10-19, DECISIONS 309; docs/research/field/2026-10-19/school-top-level-t100.md section 4; report
+//     docs/research/ui/hub-school-launch-2026-10-19.md): only an upgrade-kind row whose PREFAB carries ServiceUpgradeData
+//     takes this path (m_ItemViaUpgrade, SkiPrefabCatalogSystem.IsUpgradePrefab, resolved per load). The converted ski
+//     school is top-level: ActivatePrefabTool like a station (no Upgrade mode, no 5 km circle), after the hub's soft checks
+//     (TopLevelUpgradeLaunchAllowed: a sign exists; the shown sign has no linked school yet, TopLevelConflict over
+//     SkiResortAttractivenessSystem.CopySchoolLinks); the launch line names the sign nearest the camera and its distance.
+//     ActiveItemIndex / UpgradeItemOnCursor / LodgeOnCursor use the same predicate, so the strip highlights it as a tool.
 //
 // FOCUS (research §2.B.6, OD6: fly, never select). The DebugSystemSearch.FocusEntity recipe
 // (Game.Debug/DebugSystemSearch.cs:625-645, 1.6.2 :646-666) minus its selection, on the orbit camera
@@ -469,6 +476,9 @@ namespace SkiResortMod.Systems
 
         private static class Tuning
         {
+            /// <summary>Review M12 (2026-10-19): seconds after the session's first ARM with no uiHello before the one WARN
+            /// (the UI module loads at game start, so a working UI has said hello long before this).</summary>
+            public const float NoHelloWarnS = 30f;
             /// <summary>Wall-clock period (s) of the Locked re-check while the build section is open
             /// (an unlock raises no event we listen to).</summary>
             public const float LockRefreshS = 2f;
@@ -556,6 +566,14 @@ namespace SkiResortMod.Systems
 
         private readonly PrefabBase[] m_ItemPrefab = new PrefabBase[ItemCount];
         private readonly Entity[] m_ItemPrefabEntity = new Entity[ItemCount];
+        // T100 (school-top-level-t100.md section 4 item 1): the item goes through LaunchUpgrade (the sign's Upgrade mode) — its
+        // row is an upgrade kind AND the resolved prefab carries ServiceUpgradeData (SkiPrefabCatalogSystem.IsUpgradePrefab). A
+        // converted top-level building (SkiSchool) is false: placed like a station. Set in ResolveItems (prefab data is fixed
+        // for a load), read per frame by ActiveItemIndex / UpgradeItemOnCursor.
+        private readonly bool[] m_ItemViaUpgrade = new bool[ItemCount];
+        // T100: CopySchoolLinks scratch (event time: locks, launches, Not linked check).
+        private readonly List<Entity> m_SchoolScratch = new List<Entity>(2);
+        private readonly List<Entity> m_SchoolSignScratch = new List<Entity>(2);
         private readonly bool[] m_ItemLocked = new bool[ItemCount];
         private readonly byte[] m_ItemReason = new byte[ItemCount];
         private readonly int[] m_ItemPrice = new int[ItemCount];
@@ -940,6 +958,12 @@ namespace SkiResortMod.Systems
 
         // Dev tab / DUMP (plain fields written on events).
         public string HandshakeText { get; private set; } = "no uiHello yet";
+        // Review M12 (docs/research/code-review-2026-10-19.md): SESSION flags, never reset on load. The UI module loads once at
+        // game start and its HubRoot says uiHello once; none NoHelloWarnS after the session's first arm = the hub never mounted
+        // (a moved "Game" hook, another mod's registrar throwing, the root boundary tripped): one WARN, so silence is impossible.
+        private static bool s_HelloSeen;
+        private static bool s_NoHelloWarned;
+        private static float s_FirstArmAt = -1f;
         public string LastTriggerText { get; private set; } = "-";
         public string LodgeStateText { get; private set; } = "-";
         public string LastSelectText { get; private set; } = "-";
@@ -1205,6 +1229,8 @@ namespace SkiResortMod.Systems
                 m_NoticedRunsRevision = m_Stats.RunsRevision;
                 m_NoticedLiftsRevision = m_Stats.LiftsRevision;
                 m_Armed = true;
+                if (s_FirstArmAt < 0f)
+                    s_FirstArmAt = UnityEngine.Time.realtimeSinceStartup;   // M12: the session's first arm
                 Mod.Log.Info($"Hub: ARMED — group '{Group}', contract {HubContract}, DLL stamp {s_DllStamp} (UI " +
                              $"bundled at build: {BuildStamp.UiBundled}); bindings hubOpen, contract, buildStamp, " +
                              "showHubButton (always observed), build, glade, resorts, resortLive, selectedResort, runs, " +
@@ -1267,6 +1293,17 @@ namespace SkiResortMod.Systems
                     return;
                 }
 
+                // Review M12: one WARN per session when the UI never said hello (a float compare per frame until then).
+                if (!s_HelloSeen && !s_NoHelloWarned && s_FirstArmAt >= 0f &&
+                    UnityEngine.Time.realtimeSinceStartup - s_FirstArmAt > Tuning.NoHelloWarnS)
+                {
+                    s_NoHelloWarned = true;
+                    Mod.Log.Warn($"Hub: no uiHello from the UI module {Tuning.NoHelloWarnS:0} s after the first ARM this session — " +
+                                 "the hub panel (HubRoot) never mounted: the Ski Resort button and the sign selection open nothing. " +
+                                 "Check UI.log for an error in SkiResortMod.mjs or another mod's module (the game's registrar " +
+                                 "loop has no try/catch), and that SkiResortMod.mjs / .css sit beside the DLL");
+                }
+
                 // Setting → binding (a bool read; the binding pushes only on a change).
                 m_ShowHubButton.Update(Mod.Settings == null || Mod.Settings.ShowHubButton);
 
@@ -1305,8 +1342,11 @@ namespace SkiResortMod.Systems
         private void OnSetHubOpen(bool open) =>
             Trigger("setHubOpen", new Request { Kind = RequestKind.SetHubOpen, Bool = open });
 
-        private void OnUiHello(int contract, string bundleStamp) =>
+        private void OnUiHello(int contract, string bundleStamp)
+        {
+            s_HelloSeen = true;   // review M12: a field write at dispatch time (the queue may wait for the arm)
             Trigger("uiHello", new Request { Kind = RequestKind.Hello, Int = contract, Text = bundleStamp });
+        }
 
         private void OnUiError(string message) =>
             Trigger("uiError", new Request { Kind = RequestKind.UiError, Text = message });
@@ -1627,6 +1667,19 @@ namespace SkiResortMod.Systems
             if (m_Ownership.IsLiveGate(selected))
             {
                 Select(selected, $"world selection of the Welcome Sign {Ent(selected)}", true);
+                m_LastUserSelectAt = UnityEngine.Time.realtimeSinceStartup;
+                return;
+            }
+            // T100 (school-top-level-t100.md section 4 item 3): a top-level ski school has no Owner; its sign is the published
+            // link (nearest live sign within the tether). Not linked: the Not linked view, with the reason in the line.
+            if (m_Attractiveness.TryGetSchoolLink(selected, out Entity schoolSign))
+            {
+                if (schoolSign != Entity.Null && m_Ownership.IsLiveGate(schoolSign))
+                    Select(schoolSign, $"world selection of {PrefabNameOf(selected)} {Ent(selected)}, linked to the sign " +
+                                       $"{Ent(schoolSign)}", true);
+                else
+                    Select(Entity.Null, $"world selection of {PrefabNameOf(selected)} {Ent(selected)}: ski school not linked " +
+                                        $"(no Welcome Sign within {SkiRunOwnershipSystem.TetherMeters:F0} m)", true);
                 m_LastUserSelectAt = UnityEngine.Time.realtimeSinceStartup;
                 return;
             }
@@ -2112,10 +2165,25 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < count; i++)
             {
                 ResortStats r = m_Stats.GetResort(i);
-                if ((int)r.Kind == ResortKindNotLinked)
-                    return r.Runs > 0 || r.LiftRows > 0 || r.Lodges > 0;
+                if ((int)r.Kind == ResortKindNotLinked && (r.Runs > 0 || r.LiftRows > 0 || r.Lodges > 0))
+                    return true;
             }
-            return false;
+            return UnlinkedSchools() > 0;   // T100: a top-level school beyond every sign's tether belongs to Not linked
+        }
+
+        /// <summary>T100: live top-level schools linked to no sign (CopySchoolLinks, the last recompute). Event time only.</summary>
+        private int UnlinkedSchools()
+        {
+            m_Attractiveness.CopySchoolLinks(m_SchoolScratch, m_SchoolSignScratch);
+            int n = 0;
+            for (int k = 0; k < m_SchoolScratch.Count; k++)
+            {
+                Entity school = m_SchoolScratch[k];
+                if (m_SchoolSignScratch[k] == Entity.Null && school != Entity.Null && EntityManager.Exists(school) &&
+                    !EntityManager.HasComponent<Deleted>(school))
+                    n++;
+            }
+            return n;
         }
 
         /// <summary>"'Ski area 1' 124274:35", or "Not linked". Event time only (a linear scan of ≤ a
@@ -2425,15 +2493,23 @@ namespace SkiResortMod.Systems
                 LastTriggerText = $"launch {id}: locked";
                 return;
             }
-            if (Items[item].IsUpgrade)
+            if (m_ItemViaUpgrade[item])
             {
                 LaunchUpgrade(item, prefab, source);
                 return;
             }
+            // T100: an upgrade-kind row whose prefab is top-level (the ski school) is placed like a station; the hub keeps its
+            // soft locks (NoSign, one school per sign) and names the sign it will link to.
+            string link = "";
+            if (Items[item].IsUpgrade)
+            {
+                if (!TopLevelUpgradeLaunchAllowed(item, id, source, out link))
+                    return;
+            }
 
             bool ok = m_ToolSystem.ActivatePrefabTool(prefab);   // ToolSystem.cs:263-277
             ToolBaseSystem tool = m_ToolSystem.activeTool;
-            string line = $"Hub [launch] {id} -> {ToolId(tool)} mode {ModeText(tool)} locked=False ok={ok} ({source})";
+            string line = $"Hub [launch] {id} -> {ToolId(tool)} mode {ModeText(tool)} locked=False ok={ok}{link} ({source})";
             if (ok)
                 Mod.Log.Info(line);
             else
@@ -2543,6 +2619,8 @@ namespace SkiResortMod.Systems
             conflict = Entity.Null;
             if (sign == Entity.Null || item < 0 || item >= ItemCount || !Items[item].IsUpgrade)
                 return ReasonNone;
+            if (!m_ItemViaUpgrade[item])
+                return TopLevelConflict(sign, item, out conflict);   // T100: the school is no child of the sign
             Entity prefab = m_ItemPrefabEntity[item];
             if (!m_ItemForbidMultiple[item] || prefab == Entity.Null || !EntityManager.Exists(sign) ||
                 !EntityManager.TryGetBuffer(sign, isReadOnly: true, out DynamicBuffer<Game.Buildings.InstalledUpgrade> upgrades))
@@ -2562,6 +2640,69 @@ namespace SkiResortMod.Systems
             return ReasonNone;
         }
 
+        /// <summary>T100 (school-top-level-t100.md section 4 item 2): the hub's SOFT one-per-sign lock for an upgrade-kind row whose
+        /// prefab is top-level (the ski school): the engine no longer refuses a second one (no ServiceUpgradeData, so no
+        /// AlreadyUpgraded), and a second school adds nothing (SchoolActive is a flag). ReasonAlreadyBuilt when the row is
+        /// ForbidMultiple (m_ItemForbidMultiple: the row decides without ServiceUpgradeData, ReadItemValues) and a live school of
+        /// the same prefab is linked to <paramref name="sign"/> (SkiResortAttractivenessSystem.CopySchoolLinks, the last
+        /// recompute). Event time only (RefreshLocks cadence, launches).</summary>
+        private byte TopLevelConflict(Entity sign, int item, out Entity conflict)
+        {
+            conflict = Entity.Null;
+            Entity prefab = m_ItemPrefabEntity[item];
+            if (!m_ItemForbidMultiple[item] || prefab == Entity.Null)
+                return ReasonNone;
+            m_Attractiveness.CopySchoolLinks(m_SchoolScratch, m_SchoolSignScratch);
+            for (int k = 0; k < m_SchoolScratch.Count; k++)
+            {
+                Entity school = m_SchoolScratch[k];
+                if (m_SchoolSignScratch[k] != sign || school == Entity.Null || !EntityManager.Exists(school) ||
+                    EntityManager.HasComponent<Deleted>(school) || EntityManager.HasComponent<Temp>(school) ||
+                    !EntityManager.TryGetComponent(school, out PrefabRef prefabRef) || prefabRef.m_Prefab != prefab)
+                    continue;
+                conflict = school;
+                return ReasonAlreadyBuilt;
+            }
+            return ReasonNone;
+        }
+
+        /// <summary>T100: the hub's soft checks before a top-level upgrade-kind item (the ski school) goes on the cursor like a
+        /// station. The sign = the shown ski area's, else the one nearest the camera. Refused (one line, false): no Welcome Sign in
+        /// the city (REASON[NoSign]: it would count for no ski area), or that sign already has its school (TopLevelConflict). Else
+        /// <paramref name="link"/> = the launch line's tail naming the sign nearest the camera and its distance: the school links to
+        /// the nearest sign within the tether where it is PLACED (SchoolLinkRules.Resolve, SkiRunOwnershipSystem.TetherMeters).</summary>
+        private bool TopLevelUpgradeLaunchAllowed(int item, string id, string source, out string link)
+        {
+            link = "";
+            float3 at = CameraPoint();
+            bool anySign = m_Ownership.TryNearestGateEntity(at.xz, out Entity nearest, out float distance) && nearest != Entity.Null;
+            if (!anySign)
+            {
+                Mod.Log.Info($"Hub [launch] {id} refused — no Ski Area Welcome Sign in this city (place one first: a school links " +
+                             $"to the nearest sign within {SkiRunOwnershipSystem.TetherMeters:F0} m) ({source})");
+                LastTriggerText = $"launch {id}: no sign";
+                return false;
+            }
+            bool shownLive = m_SelectedResort != Entity.Null && m_Ownership.IsLiveGate(m_SelectedResort);
+            Entity sign = shownLive ? m_SelectedResort : nearest;
+            if (TopLevelConflict(sign, item, out Entity other) != ReasonNone)
+            {
+                Mod.Log.Info($"Hub [launch] {id} refused — {(shownLive ? "the shown ski area's" : "the nearest")} sign " +
+                             $"{Ent(sign)} already has {Ent(other)} {PrefabNameOf(other)} linked (one per sign, the hub's lock; a " +
+                             $"second adds nothing) ({source})");
+                LastTriggerText = $"launch {id} on {Ent(sign)}: refused, already built";
+                return false;
+            }
+            string fate = distance <= SkiRunOwnershipSystem.TetherMeters
+                ? "links to the nearest sign within " + SkiRunOwnershipSystem.TetherMeters.ToString("F0", CultureInfo.InvariantCulture) + " m where placed"
+                : "beyond the tether here: place it within " + SkiRunOwnershipSystem.TetherMeters.ToString("F0", CultureInfo.InvariantCulture) +
+                  " m of a sign or it counts for no ski area";
+            link = $" top-level (T100: ordinary placement, no Upgrade mode); nearest sign {ResortLabel(nearest)} " +
+                   $"{distance.ToString("F0", CultureInfo.InvariantCulture)} m from the camera, {fate}" +
+                   (shownLive && sign != nearest ? $"; the hub shows {ResortLabel(sign)}" : "");
+            return true;
+        }
+
         /// <summary>Header LODGE (5) and the watch. Per frame: an int compare; while a hub-launched
         /// upgrade is on the cursor, a few field reads.</summary>
         private void LodgeStep()
@@ -2579,7 +2720,7 @@ namespace SkiResortMod.Systems
         /// <summary>The hub-launched upgrade item (m_UpgradeItem) is the object tool's prefab.</summary>
         private bool LodgeOnCursor()
         {
-            return m_UpgradeItem >= 0 && m_ToolSystem.activeTool == m_ObjectTool &&
+            return m_UpgradeItem >= 0 && m_ItemViaUpgrade[m_UpgradeItem] && m_ToolSystem.activeTool == m_ObjectTool &&
                    ReferenceEquals(m_ObjectTool.prefab, m_ItemPrefab[m_UpgradeItem]);
         }
 
@@ -2595,7 +2736,7 @@ namespace SkiResortMod.Systems
                 return -1;
             for (int i = 0; i < ItemCount; i++)
             {
-                if (Items[i].IsUpgrade && m_ItemPrefab[i] != null && ReferenceEquals(held, m_ItemPrefab[i]))
+                if (m_ItemViaUpgrade[i] && m_ItemPrefab[i] != null && ReferenceEquals(held, m_ItemPrefab[i]))
                     return i;
             }
             return -1;
@@ -2754,7 +2895,7 @@ namespace SkiResortMod.Systems
                 return -1;
             for (int i = 0; i < ItemCount; i++)
             {
-                if (!Items[i].IsUpgrade && ReferenceEquals(active, m_ItemPrefab[i]))
+                if (!m_ItemViaUpgrade[i] && ReferenceEquals(active, m_ItemPrefab[i]))   // T100: the school is an ordinary tool
                     return i;
             }
             return -1;
@@ -4230,6 +4371,7 @@ namespace SkiResortMod.Systems
                 BuildItemDef item = Items[i];
                 m_ItemPrefab[i] = null;
                 m_ItemPrefabEntity[i] = Entity.Null;
+                m_ItemViaUpgrade[i] = false;
                 m_ItemPrice[i] = -1;
                 m_PrefabCatalog.TryGetPrefab(SkiCatalog.TypeNameOf(item.Kind), item.Prefab, out Entity entity, out PrefabBase prefab);
                 bool found = prefab != null && entity != Entity.Null;
@@ -4237,6 +4379,7 @@ namespace SkiResortMod.Systems
                 {
                     m_ItemPrefab[i] = prefab;
                     m_ItemPrefabEntity[i] = entity;
+                    m_ItemViaUpgrade[i] = item.IsUpgrade && m_PrefabCatalog.IsUpgradePrefab(entity);   // T100
                 }
                 bool expectedName = SkiCatalog.IsExpected(item.Prefab);
                 LiftTypeDef type = s_ItemTypeIndex[i] >= 0 ? SkiCatalog.LiftByIndex(s_ItemTypeIndex[i]) : null;

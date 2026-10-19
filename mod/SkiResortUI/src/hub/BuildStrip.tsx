@@ -169,7 +169,7 @@ function shortEntry(id: BuildItemId, lodgeShown: boolean): LocEntry {
   switch (kindOf(id)) {
     case "sign": return HUB_LOC.buildHintSign;
     case "lodge": return lodgeShown ? HUB_LOC.buildShortLodge : HUB_LOC.buildHintLodgeSelected;
-    case "school": return lodgeShown ? HUB_LOC.buildShortSchool : HUB_LOC.buildHintLodgeSelected;
+    case "school": return lodgeShown ? HUB_LOC.buildShortSchool : HUB_LOC.buildHintLodge;   // T100: top-level, never "on the selected sign"
     case "patrol": return lodgeShown ? HUB_LOC.buildShortPatrol : HUB_LOC.buildHintLodgeSelected;
     case "station": return stationRole(id) === "top" ? HUB_LOC.buildShortTop : HUB_LOC.buildHintBase;
     default: return HUB_LOC.buildShortLift;
@@ -190,7 +190,7 @@ function longEntry(id: BuildItemId, lodgeShown: boolean): LocEntry {
   switch (kindOf(id)) {
     case "sign": return HUB_LOC.buildHintSign;
     case "lodge": return lodgeShown ? HUB_LOC.buildHintLodge : HUB_LOC.buildHintLodgeSelected;
-    case "school": return lodgeShown ? HUB_LOC.buildShortSchool : HUB_LOC.buildHintLodgeSelected;
+    case "school": return HUB_LOC.buildHintLodge;   // T100: a top-level school goes near the sign, it does not join it
     case "patrol": return lodgeShown ? HUB_LOC.buildShortPatrol : HUB_LOC.buildHintLodgeSelected;
     case "station": return stationRole(id) === "top" ? HUB_LOC.buildHintTop : HUB_LOC.buildHintBase;
     default: return HUB_LOC.buildHintLift;
@@ -231,7 +231,7 @@ function tileTip(e: OrderedBuildItem, t: Translate, lodgeShown: boolean): JSX.El
         t(nameEntry(e.id)),
         { label: t(HUB_LOC.buildTipOnce), value: onceValue(e.id, e.item) },
         { label: t(HUB_LOC.buildTipMonth), value: monthValue(e.id, e.item, t) },
-        e.item.active ? t(k === "lodge" || k === "school" || k === "patrol" ? HUB_LOC.buildActiveUpgrade : HUB_LOC.buildActive) : t(longEntry(e.id, lodgeShown)),
+        e.item.active ? t(k === "lodge" || k === "patrol" ? HUB_LOC.buildActiveUpgrade : HUB_LOC.buildActive) : t(longEntry(e.id, lodgeShown)),   // T100: the school is a plain tool
         (k === "station" || k === "line") && t(HUB_LOC.buildHintLiftSign),
         run && t(HUB_LOC.buildTipLink),
         run && t(HUB_LOC.buildTipReshape),
@@ -438,7 +438,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     line1 = <Line1 id={activeEntry.id} item={activeEntry.item} t={t} />;
     // T97: an upgrade (lodge, school, patrol) selects the sign in the world while it is placed: line 2 says what it joins.
     const k = kindOf(activeEntry.id);
-    line2 = t(k === "lodge" || k === "school" || k === "patrol" ? HUB_LOC.buildActiveUpgrade : HUB_LOC.buildActive);
+    line2 = t(k === "lodge" || k === "patrol" ? HUB_LOC.buildActiveUpgrade : HUB_LOC.buildActive);   // T100: the school is a plain tool
   } else if (state === "locked" && lockedEntry) {
     line1 = <Line1 id={lockedEntry.id} item={lockedEntry.item} t={t} />;
     line2 = t(sentKeyEntry(lockedEntry.item.reason, HUB_LOC.locked)); line2Cls = styles.buildLineLocked;

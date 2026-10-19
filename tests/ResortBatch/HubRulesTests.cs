@@ -751,6 +751,37 @@ namespace ResortBatch
                 P(HubProblemCode.Unlinked, 3, build: "sign"),
                 P(HubProblemCode.FreeLodges, 1, count: 2));
 
+            // T100 (2026-10-19, docs/research/ui/hub-school-launch-2026-10-19.md): a road-less top-level ski school joins the
+            // LodgeNoRoad count but never its "every lodge" severity; unlinked schools get row 26 on the Not linked entry only.
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.SchoolsNoRoad = 1;
+            Expect("T100a a school alone off the road: severity 1, count 1", x, o, P(HubProblemCode.LodgeNoRoad, 1, count: 1));
+            x = In(2, 2, 100, 1, 3);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.LodgesNoRoad = 2;
+            x.SchoolsNoRoad = 1;
+            Expect("T100b every lodge and the school off the road: severity 3, count 3", x, o, P(HubProblemCode.LodgeNoRoad, 3, count: 3));
+            x = In(0, 0, 100, 1, 3);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.IfOneLodge = 10;
+            x.SchoolsNoRoad = 1;
+            Expect("T100c no lodge, a school off the road: NoLodge, then the road row (severity 1)", x, o,
+                P(HubProblemCode.NoLodge, 3, ifFixed: 10, build: "lodge"),
+                P(HubProblemCode.LodgeNoRoad, 1, count: 1));
+            x = new HubProblemInput
+            {
+                Unlinked = true, Runs = 0, LiftRows = 0, FreeLodges = 1, FreeSchools = 2, SchoolsNoRoad = 2, EfficiencyPct = -1,
+                AttractionFull = -1, IfOneLodge = -1, IfLodgesOn = -1,
+            };
+            Expect("T100d Not linked: free lodges, then the unlinked schools; road inputs ignored", x, o,
+                P(HubProblemCode.FreeLodges, 1, count: 1),
+                P(HubProblemCode.SchoolsNotLinked, 1, count: 2));
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.FreeSchools = 3;
+            Expect("T100e a sign's area ignores FreeSchools", x, o);
+
             // Round S1 (docs/research/ski-days/spec/ch4-hub.md §G.3): ski-day rows 20-22 (D28) and F1's Efficiency
             // hysteresis. P32-P41 add 2 + 8 + 3 + 2 + 2 + 3 + 3 + 2 + 3 + 1 = 29 checks. Every case keeps one powered,
             // complete lift unless given.
@@ -977,7 +1008,8 @@ namespace ResortBatch
             Eq((int)HubProblemCode.MixedLiftTypes, 23, w, "HubProblemCode.MixedLiftTypes");                     // Catalog Phase B
             Eq((int)HubProblemCode.SummitLodgeNotLiftServed, 24, w, "HubProblemCode.SummitLodgeNotLiftServed"); // Catalog Phase B
             Eq((int)HubProblemCode.SchoolNoGreenRun, 25, w, "HubProblemCode.SchoolNoGreenRun");                 // Catalog Phase B
-            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 26, w, "HubProblemCode has 26 values (append only)");
+            Eq((int)HubProblemCode.SchoolsNotLinked, 26, w, "HubProblemCode.SchoolsNotLinked");                 // T100
+            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 27, w, "HubProblemCode has 27 values (append only)");
             Eq((int)HubSkiDayState.Full, 7, w, "HubSkiDayState.Full");                                // Round S1 (contract 4)
             Eq(Enum.GetValues(typeof(HubSkiDayState)).Length, 8, w, "HubSkiDayState has 8 values");
             Eq((int)SeasonHint.GatingOff, 6, w, "SeasonHint.GatingOff");

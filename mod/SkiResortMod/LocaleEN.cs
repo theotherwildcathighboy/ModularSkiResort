@@ -123,6 +123,9 @@
 // BUILD_TAB_TIP[Buildings] changed in place.
 // T97 P1 header selector (2026-10-19, DECISIONS 308; HUB_CONTRACT 11 unchanged): new RESORT_CAPTION, RESORT_MENU_NOTE,
 // RESORT_COUNTS[Many|RunOne|LodgeOne|One]; RESORT_TIP changed in place (the one rule, now the selector's tooltip).
+// T100 hub school launch (2026-10-19, DECISIONS 309; HUB_CONTRACT 11 unchanged): new PROBLEM[SchoolsNotLinked] and its PROBLEM_TIP;
+// PROBLEM[LodgeNoRoad] / PROBLEM_TIP[LodgeNoRoad] changed in place (a road-less top-level school joins that row); removed
+// Assets.UPGRADE_NAME / UPGRADE_DESCRIPTION[SkiSchool] (the school is top-level: its panel reads Assets.NAME / DESCRIPTION).
 // Additional languages: further IDictionarySource implementations — see SPEC §13 Phase 6.
 
 using System.Collections.Generic;
@@ -176,8 +179,6 @@ namespace SkiResortMod
                 { "Assets.UPGRADE_DESCRIPTION[SkiLodgeGrand]", "The resort's flagship base lodge: great hall and dining pavilion." },
                 { "Assets.NAME[SkiSchool]", "Ski School" },
                 { "Assets.DESCRIPTION[SkiSchool]", "Teaches on the green runs: the ski area scores more and locals come more often. Terrain tip: level the ground at the top of the magic carpet bubble, then use the slope tool down to its base." },
-                { "Assets.UPGRADE_NAME[SkiSchool]", "Ski School" },
-                { "Assets.UPGRADE_DESCRIPTION[SkiSchool]", "Teaches on the green runs: the ski area scores more and locals come more often." },
                 { "Assets.NAME[SkiPatrolHut]", "Ski Patrol Hut" },
                 { "Assets.DESCRIPTION[SkiPatrolHut]", "Patrols the steep runs nearby. No road needed." },
                 { "Assets.UPGRADE_NAME[SkiPatrolHut]", "Ski Patrol Hut" },
@@ -766,7 +767,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[NoRuns]", "No runs yet" },
                 // Round F7 (D5): the two road rows (C# HubProblemCode SignNoRoad 18, LodgeNoRoad 19).
                 { "SkiResort.Hub.PROBLEM[SignNoRoad]", "Welcome Sign is not at a road" },
-                { "SkiResort.Hub.PROBLEM[LodgeNoRoad]", "Lodge is not at a road" },
+                { "SkiResort.Hub.PROBLEM[LodgeNoRoad]", "Lodge or school is not at a road" },
                 // Round S1 (D28): the ski-day rows (C# HubProblemCode SkiDaysCannotReach 20, NoParkingNearLodge 21,
                 // LodgeNotSlopeside 22). Round M1 (D1): SkiDaysCannotReach's row and tip reworded (header).
                 { "SkiResort.Hub.PROBLEM[SkiDaysCannotReach]", "Many ski-day guests with a car never arrive" },
@@ -799,7 +800,9 @@ namespace SkiResortMod
                 // findings/sign-utilities.md §5 and ped-access.md §2.4 / §4.2 (the deck side is the lot front;
                 // the game links a road within 8.4 m of the front point).
                 { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "Move it so its front touches a road. Power, water and sewage come from that road." },
-                { "SkiResort.Hub.PROBLEM_TIP[LodgeNoRoad]", "Move it so its deck side touches a road. Guests walk in from that road." },
+                { "SkiResort.Hub.PROBLEM_TIP[LodgeNoRoad]", "Move it so its entrance side touches a road. Guests walk in from that road." },
+                // T100: top-level ski schools on no Welcome Sign (C# HubProblemCode SchoolsNotLinked 26; its row text is FMT below).
+                { "SkiResort.Hub.PROBLEM_TIP[SchoolsNotLinked]", "More than 5 km from every Welcome Sign, so they teach nobody. Place a sign nearby or move the school." },
                 // Round S1 (D28): 300 m is D26's census radius, 800 m D10's slopeside distance.
                 { "SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReach]", "Many recent ski-day guests with a car did not reach the lodge in time. Fewer are sent until more arrive." },
                 { "SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m of the lodge. Guests who drive need a parking lot or a street with parking." },
@@ -1113,6 +1116,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[RunsRating]", "Runs being rated: {N}" },
                 { "SkiResort.Hub.PROBLEM[RunsFlat]", "Runs too flat to score: {N}" },
                 { "SkiResort.Hub.PROBLEM[FreeLodges]", "Lodges on no Welcome Sign: {N}" },
+                { "SkiResort.Hub.PROBLEM[SchoolsNotLinked]", "Ski schools on no Welcome Sign: {N}" },   // T100
                 { "SkiResort.Hub.PROBLEM_MORE", "+{N}" },
                 { "SkiResort.Hub.PROBLEM_TIP[NoLift]", "A run counts {PCT} until a running lift reaches its top: within 150 m of the line, at most 15 m above the top station." },
                 { "SkiResort.Hub.PROBLEM_TIP[RunsUnserved]", "Each counts {PCT} until a running lift reaches its top: within 150 m of the line, at most 15 m above the top station." },

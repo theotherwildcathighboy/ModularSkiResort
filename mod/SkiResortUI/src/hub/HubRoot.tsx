@@ -35,7 +35,7 @@ import { LOC, useT } from "../l10n";
 import base from "../base.module.scss";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { HubPanel } from "./HubPanel";
-import { closeHub, useHubConnectedRoot, useHubOpen } from "./hubState";
+import { closeHub, setRootMounted, useHubConnectedRoot, useHubOpen } from "./hubState";
 import { flushRegistrarErrors } from "./report";
 
 /** How long the crash notice stays after the crashed panel closed (ms). */
@@ -57,6 +57,12 @@ export function HubRoot(): JSX.Element | null {
     setPrevOpen(open);
     if (open) setCrashed(false);
   }
+
+  // Review M12: the launchers report a click while no HubRoot is mounted (hubState.ts ROOT MOUNTED).
+  useEffect(() => {
+    setRootMounted(true);
+    return () => setRootMounted(false);
+  }, []);
 
   useEffect(() => {
     if (!connected || helloSent.current) return;
