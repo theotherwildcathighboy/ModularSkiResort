@@ -93,7 +93,7 @@ function axisLabels(buckets: readonly HistoryBucket[], t: Translate): string[] {
   if (n === 0) return [];
   const step = labelStep(n, buckets[0].kind);
   return buckets.map((b, i) => {
-    if ((n - 1 - i) % step !== 0) return "";
+    if (b.kind === "season" ? (n - 1 - i) % step !== 0 : monthOfKey(b.key) % step !== 0) return "";
     if (b.kind === "season") return `${pad2(b.key)}/${pad2(b.key + 1)}`;
     const m = monthOfKey(b.key);
     return n > 12 && m === 0 ? String(yearOfKey(b.key)) : monthShortName(m, t);
@@ -103,7 +103,7 @@ function axisLabels(buckets: readonly HistoryBucket[], t: Translate): string[] {
 /** The bucket's state line for its tooltip (null for a whole bucket). */
 function stateLine(b: HistoryBucket, t: Translate): string | null {
   if (b.none) return t(HUB_LOC.historyGap);
-  if (b.current) return t(HUB_LOC.historyCurrent);
+  if (b.current) return t(b.kind === "season" ? HUB_LOC.historyCurrentSeason : HUB_LOC.historyCurrent);
   if (b.partial) return t(b.kind === "season" ? HUB_LOC.historyPartialSeason : HUB_LOC.historyPartial);
   return null;
 }
@@ -253,6 +253,7 @@ export function HistoryView(): JSX.Element {
   const gTop = niceMax(gMax);
   const guestTip = hovered
     ? head([bucketTitle(hovered, t), stateLine(hovered, t),
+      !hovered.none && { label: t(HUB_LOC.historyGuests), value: <Num value={hovered.guests} unit={Unit.Integer} /> },
       !hovered.none && { label: t(HUB_LOC.historyTourists), value: <Num value={hovered.tourists} unit={Unit.Integer} /> },
       !hovered.none && { label: t(HUB_LOC.historyResidents), value: <Num value={hovered.residents} unit={Unit.Integer} /> },
       !hovered.none && { label: t(HUB_LOC.historySkiDays), value: hovered.skiDays >= 0 ? <Num value={hovered.skiDays} unit={Unit.Integer} /> : "–" },
@@ -262,7 +263,7 @@ export function HistoryView(): JSX.Element {
     <>
       <InfoLine
         header
-        label={<LocText entry={HUB_FMT.historyHeadGuests} args={{ MONTH: nowName }} />}
+        label={yoy.now ? <LocText entry={HUB_FMT.historyHeadGuests} args={{ MONTH: nowName }} /> : t(HUB_LOC.historyGuests)}
         value={
           <div className={styles.histHeadValue}>
             <StableWidth samples={samples.count} align="end">{yoy.now ? <Num value={yoy.now.guests} unit={Unit.Integer} /> : "–"}</StableWidth>
@@ -319,7 +320,7 @@ export function HistoryView(): JSX.Element {
     <>
       <InfoLine
         header
-        label={<LocText entry={HUB_FMT.historyHeadNet} args={{ MONTH: nowName }} />}
+        label={yoy.now ? <LocText entry={HUB_FMT.historyHeadNet} args={{ MONTH: nowName }} /> : t(HUB_LOC.historyNet)}
         value={
           <div className={styles.histHeadValue}>
             {moneyCell(yoy.now ? yoy.now.net : NaN, samples)}
@@ -329,7 +330,7 @@ export function HistoryView(): JSX.Element {
         tip={head([t(HUB_LOC.historyTipYoy), beforeLine(yoy.before ? yoy.before.net : null, Unit.Money)])}
       />
       <BarChart slots={slots} up={incomeUp} down={costsDown} line={netLine} scale={{ top: mTop, bottom: mBottom }} height={plotH}
-        hover={hover} onHover={setHover} topLabel={<SignedNum value={mTop} unit={Unit.Money} />}
+        hover={hover} onHover={setHover} topLabel={<Num value={mTop} unit={Unit.Money} />}
         bottomLabel={<SignedNum value={-mBottom} unit={Unit.Money} />} tip={moneyTip} />
       <AxisRow labels={labels} />
       <Legend items={[

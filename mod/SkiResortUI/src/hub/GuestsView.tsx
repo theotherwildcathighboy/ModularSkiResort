@@ -87,7 +87,7 @@ import {
 import type { LastMonthMark, TicketNote, TripPlannerNote } from "./hubRules";
 import { HUB_FMT, HUB_LOC, allMonthNames, monthName } from "./hubText";
 import {
-  Divider, FlexBar, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, Tip, TipLines, cx, numArg, useNumberSamples,
+  Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, cx, numArg, useNumberSamples,
 } from "./parts";
 import type { NumberSamples } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
@@ -317,6 +317,7 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
         thisMonth={countCell(l ? l.paidThisMonth : -1)} lastMonth={last(l?.paidLastMonth)}
         tip={rowTip(t(HUB_LOC.guestsRowPaid), <LocText entry={HUB_FMT.guestsTipPaid} args={{
           MONTH: thisName, GUESTS: countCell(l ? l.guestsThisMonth : -1), PAID: countCell(l ? l.paidThisMonth : -1),
+          HOLDERS: countCell(l ? l.passHoldersThisMonth : -1),
           UNPAID: countCell(l ? l.unpaidThisMonth : -1), FREE: countCell(l ? l.freeThisMonth : -1),
         }} />)}
       />
@@ -350,7 +351,7 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
       ) : (
         <InfoLine
           label={t(HUB_LOC.estRowTourists)}
-          value={l && l.estKnown ? <SignedNum value={l.estTourists} unit={Unit.Integer} /> : DASH}
+          value={l && l.estKnown ? <Num value={l.estTourists} unit={Unit.Integer} /> : DASH}
           tip={t(HUB_LOC.estTouristsTip)}
         />
       )}

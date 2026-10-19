@@ -91,7 +91,7 @@ export interface RunLineProps {
 }
 
 function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
-  const { row, live, liftName, t, gating, backcountryPct } = p;
+  const { row, live, liftName, t, gating } = p;
   const rated = row.band >= 0;
   let openLine: string | JSX.Element | null = null;
   if (!row.bound) openLine = t(HUB_LOC.runOpenNone);
@@ -109,7 +109,7 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
   if (row.served) {
     servedLine = liftName ? <LocText key="s" entry={HUB_FMT.runServed} args={{ NAME: liftName }} /> : t(HUB_LOC.runServedAnon);
   } else if (row.member) {
-    servedLine = <LocText key="s" entry={HUB_FMT.runNotServed} args={{ PCT: numArg(backcountryPct, Unit.Percentage) }} />;
+    servedLine = <LocText key="s" entry={HUB_FMT.runNotServed} args={{ PCT: numArg(Math.round(row.servedFactor * 100), Unit.Percentage) }} />;
   }
   return (
     <TipLines
@@ -129,7 +129,7 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
           }} />,
         },
         row.member && <LocText key="v" entry={HUB_FMT.runValueParts} args={{
-          B: numArg(row.bandValue, Unit.FloatSingleFraction),
+          B: numArg(row.bandValue, Unit.FloatTwoFractions),
           S: numArg(row.sizeFactor, Unit.FloatTwoFractions),
           T: numArg(row.typeFactor, Unit.FloatTwoFractions),
           L: numArg(row.servedFactor, Unit.FloatTwoFractions),

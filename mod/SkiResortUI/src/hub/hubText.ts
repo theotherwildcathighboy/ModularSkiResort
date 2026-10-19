@@ -129,7 +129,7 @@ export const HUB_LOC = {
 
   // ---- status line (6.2) ----
   statusNoRuns: ["SkiResort.Hub.STATUS_NO_RUNS", "Closed · no runs yet"],
-  statusUnlinked: ["SkiResort.Hub.STATUS_UNLINKED", "Not linked to a ski area"],
+  statusUnlinked: ["SkiResort.Hub.STATUS_UNLINKED", "No Welcome Sign within 5 km"],
   statusTipRule: ["SkiResort.Hub.STATUS_TIP_RULE", "Open: at least 15 cm of snow on 60 % of the run, 31 cm on natural black runs. Closed: under 40 %. Patchy: in between."],
   statusTipMeasured: ["SkiResort.Hub.STATUS_TIP_MEASURED", "Snow is measured on each run from the game's snow."],
   statusTipEstimated: ["SkiResort.Hub.STATUS_TIP_ESTIMATED", "Some runs are estimated from the day's temperature until their snow can be measured."],
@@ -341,7 +341,7 @@ export const HUB_LOC = {
   guestsRowGroups: ["SkiResort.Hub.GUESTS_ROW[Groups]", "Tourist groups"],
   guestsRowResidents: ["SkiResort.Hub.GUESTS_ROW[Residents]", "Residents"],
   guestsRowPaid: ["SkiResort.Hub.GUESTS_ROW[Paid]", "Paid a lift ticket"],
-  guestsRowTickets: ["SkiResort.Hub.GUESTS_ROW[Tickets]", "Lift tickets"],
+  guestsRowTickets: ["SkiResort.Hub.GUESTS_ROW[Tickets]", "Ticket money"],
   guestsTipTourists: ["SkiResort.Hub.GUESTS_TIP[Tourists]", "People in tourist groups that arrived at this ski area's lodges or Welcome Sign."],
   guestsTipGroups: ["SkiResort.Hub.GUESTS_TIP[Groups]", "Tourists arrive in groups; each group counts once."],
   guestsTipResidents: ["SkiResort.Hub.GUESTS_TIP[Residents]", "Residents of your city who came to a lodge for leisure."],
@@ -398,14 +398,14 @@ export const HUB_LOC = {
   // Contract 7 (season passes v1): rows drawn while passes are on or used (hubRules.passesShown); the note while tickets are fees.
   moneyTipPasses: ["SkiResort.Hub.MONEY_TIP[Passes]", "Sold July to June. Holders ski free all season and come more often. Share and price: Options > Modular Ski Resort > Main > Ski area balance."],
   moneyTipPassHolders: ["SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a season pass: no lift ticket money now."],
-  guestsRowPassHolders: ["SkiResort.Hub.GUESTS_ROW[PassHolders]", "of which pass holders"],
+  guestsRowPassHolders: ["SkiResort.Hub.GUESTS_ROW[PassHolders]", "Came in on a season pass"],
   guestsTipPassHolders: ["SkiResort.Hub.GUESTS_TIP[PassHolders]", "Residents who came in on a season pass. They paid once for the season and pay nothing at the gate. Tourists never hold one."],
   // Contract 8 (econ-2 round 2): lessons, the pre-season sale, the city-income estimate (hidden under Tourism Overhaul: EST_TO_NOTE / EST_TO_TIP).
   moneyTipLessons: ["SkiResort.Hub.MONEY_TIP[Lessons]", "One lesson per guest. Share and price: Options > Modular Ski Resort > Main > Ski area balance."],
   moneyTipPassesPre: ["SkiResort.Hub.MONEY_TIP[PassesPre]", "The one sale before the season opens. Counted in the row above too."],
   moneyRowCityIncome: ["SkiResort.Hub.MONEY_ROW[CityIncome]", "City income the resort brings"],
   moneyTipCityIncome: ["SkiResort.Hub.MONEY_TIP[CityIncome]", "Estimate: this ski area's share of the city's tourist draw × the game's tourist income. Not resort income, not in the net."],
-  guestsRowLessons: ["SkiResort.Hub.GUESTS_ROW[Lessons]", "of which took a lesson"],
+  guestsRowLessons: ["SkiResort.Hub.GUESTS_ROW[Lessons]", "Took a lesson"],
   guestsTipLessons: ["SkiResort.Hub.GUESTS_TIP[Lessons]", "Guests who took a lesson, one each."],
   unlinkedMoney: ["SkiResort.Hub.UNLINKED_MONEY", "Runs that are not linked cost nothing and earn nothing; their lifts still cost money to run."],
 
@@ -426,7 +426,7 @@ export const HUB_LOC = {
   // Contract 6: the school and patrol tiles (upgrades of the sign, launched like the lodge) and the pickers.
   buildShortSchool: ["SkiResort.Hub.BUILD_SHORT[School]", "Goes near this ski area's Welcome Sign; teaches on green runs."],
   buildShortPatrol: ["SkiResort.Hub.BUILD_SHORT[Patrol]", "Goes on the Welcome Sign; place it near steep runs."],
-  buildTipSchool: ["SkiResort.Hub.BUILD_TIP_SCHOOL", "Adds +12 to the runs and lifts sum while a green run counts; locals come 20 % more often."],
+  buildTipSchool: ["SkiResort.Hub.BUILD_TIP_SCHOOL", "Adds +12 to Runs, lifts and school while a green run counts; locals come 20 % more often."],
   buildTipPatrol: ["SkiResort.Hub.BUILD_TIP_PATROL", "Black and double-black runs within 1 km score 15 % more; runs there without a lift count at least 70 %."],
   buildTipLuxury: ["SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days stay full at a lift ticket price up to 40 higher."],
   pickerTipLiftType: ["SkiResort.Hub.PICKER_TIP[LiftType]", "Pick the kind of lift to build."],
@@ -453,7 +453,7 @@ export const HUB_LOC = {
   historyRangeSeasons: ["SkiResort.Hub.HISTORY[RangeSeasons]", "2 seasons"],
   historyRangeYears: ["SkiResort.Hub.HISTORY[RangeYears]", "5 years"],
   historyRangeAll: ["SkiResort.Hub.HISTORY[RangeAll]", "All"],
-  historyTipRange12: ["SkiResort.Hub.HISTORY_TIP[Range12]", "The last 12 months, this month last."],
+  historyTipRange12: ["SkiResort.Hub.HISTORY_TIP[Range12]", "The last 12 months. The month in progress is the last bar."],
   historyTipRangeSeasons: ["SkiResort.Hub.HISTORY_TIP[RangeSeasons]", "This ski season and the one before, July to June."],
   historyTipRangeYears: ["SkiResort.Hub.HISTORY_TIP[RangeYears]", "The last 60 months."],
   historyTipRangeAll: ["SkiResort.Hub.HISTORY_TIP[RangeAll]", "Every month recorded. Over 5 years, one bar per ski season, July to June."],
@@ -465,7 +465,7 @@ export const HUB_LOC = {
   historyTipAttraction: ["SkiResort.Hub.HISTORY_TIP[Attraction]", "The attraction score when each month closed. A season shows its average."],
   historyTourists: ["SkiResort.Hub.HISTORY[Tourists]", "Tourists"],
   historyResidents: ["SkiResort.Hub.HISTORY[Residents]", "Residents"],
-  historySkiDays: ["SkiResort.Hub.HISTORY[SkiDays]", "Ski days"],
+  historySkiDays: ["SkiResort.Hub.HISTORY[SkiDays]", "Ski-day trips"],
   historyTickets: ["SkiResort.Hub.HISTORY[Tickets]", "Lift tickets"],
   historyLodge: ["SkiResort.Hub.HISTORY[Lodge]", "Lodge spend"],
   historyPasses: ["SkiResort.Hub.HISTORY[Passes]", "Season passes"],
@@ -479,6 +479,7 @@ export const HUB_LOC = {
   historyPartial: ["SkiResort.Hub.HISTORY[Partial]", "Partial: counted for part of the month only"],
   historyPartialSeason: ["SkiResort.Hub.HISTORY[PartialSeason]", "Partial: some months are missing or partial"],
   historyCurrent: ["SkiResort.Hub.HISTORY[Current]", "So far this month"],
+  historyCurrentSeason: ["SkiResort.Hub.HISTORY[CurrentSeason]", "So far this season"],
   historyGap: ["SkiResort.Hub.HISTORY[Gap]", "Nothing recorded"],
   historyTipYoy: ["SkiResort.Hub.HISTORY_TIP[Yoy]", "The last whole month against the same month a year earlier."],
   historyTipStaff: ["SkiResort.Hub.HISTORY_TIP[Staff]", "The game's bill for buildings and wages, at the rate when the month closed."],
@@ -585,7 +586,7 @@ export const HUB_FMT = {
   guestsMonthLast: ["SkiResort.Hub.GUESTS_MONTH[Last]", "Month of {MONTH}"],
   /** Round S1 F7: bar 2's label while last month was counted only since the load (hubRules.lastMonthMark). */
   guestsMonthLastPartial: ["SkiResort.Hub.GUESTS_MONTH[LastPartial]", "Month of {MONTH}, partial"],
-  guestsTipPaid: ["SkiResort.Hub.GUESTS_TIP[Paid]", "Month of {MONTH}: {GUESTS} guests, {PAID} paid, {UNPAID} could not pay, {FREE} came in free while tickets were off or the ski area was closed."],
+  guestsTipPaid: ["SkiResort.Hub.GUESTS_TIP[Paid]", "Month of {MONTH}: {GUESTS} guests, {PAID} paid, {HOLDERS} on a pass, {UNPAID} could not pay, {FREE} free while tickets were off or closed."],
   ticketsNoteOpen: ["SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest without a season pass pays {PRICE} on arrival. Set the price in Options."],
   /** Round S1: both guest bars' tooltip, {MAX} = hubRules.guestBarScale. */
   guestsBarScale: ["SkiResort.Hub.GUESTS_BAR_SCALE", "Full bar: {MAX} guests"],
