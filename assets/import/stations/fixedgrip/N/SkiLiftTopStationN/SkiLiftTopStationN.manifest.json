@@ -1,0 +1,2279 @@
+{
+  "name": "SkiLiftTopStationN",
+  "written_utc": "2026-10-19T17:22:09Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiLiftTopStationN.fbx": {
+      "bytes": 210876,
+      "sha1": "348431e52de1f72e0b3f395087b13056bb68d9e0"
+    },
+    "SkiLiftTopStationN_BaseColor.png": {
+      "bytes": 2797559,
+      "sha1": "6805b2c46705e7720ae345ac5dec059607cc0ca5"
+    },
+    "SkiLiftTopStationN_ControlMask.png": {
+      "bytes": 97006,
+      "sha1": "5bb2193b763926ad8cec824ee136ec65a36dfa6e"
+    },
+    "SkiLiftTopStationN_LOD1.fbx": {
+      "bytes": 108844,
+      "sha1": "a78d25bf88d704808e9d32c147273d0601bdad2f"
+    },
+    "SkiLiftTopStationN_LOD1_Win.fbx": {
+      "bytes": 13196,
+      "sha1": "5075e8875ae41d7f945bdd11f6514ec8b107d655"
+    },
+    "SkiLiftTopStationN_LOD2.fbx": {
+      "bytes": 43004,
+      "sha1": "bc086386ad3582338b4c07b5b33745ebda1945e0"
+    },
+    "SkiLiftTopStationN_LOD2_Win.fbx": {
+      "bytes": 13196,
+      "sha1": "aa66ee3a72c772dc6570e7f17a9f50f2959ca245"
+    },
+    "SkiLiftTopStationN_MaskMap.png": {
+      "bytes": 1041401,
+      "sha1": "e1eb6cad4774c094f6dc28975785334709b7967d"
+    },
+    "SkiLiftTopStationN_Normal.png": {
+      "bytes": 1852556,
+      "sha1": "46d7b0803c6e9240025036be085efab5003cfaca"
+    },
+    "SkiLiftTopStationN_Win.fbx": {
+      "bytes": 13196,
+      "sha1": "0be6f960ee752ee4feb2309c055a5047f8e16a0d"
+    },
+    "settings.json": {
+      "bytes": 751,
+      "sha1": "b8193b002d2145f8ea934e1ec55dbb36d4de97c3"
+    }
+  },
+  "generator": "lift_terminal.py (generation M)",
+  "kind": "return",
+  "generation": "M",
+  "spec": "design/fg-stations-m.md + fg-stations-m-skeptic.md MUST-CHANGE 1-6 (build/fg-stations-m.md)",
+  "finish": "shipping",
+  "atlas_px": 2048,
+  "ao_samples": 48,
+  "pack_margin_px": 6,
+  "tris": {
+    "0": 2660,
+    "1": 1196,
+    "2": 400
+  },
+  "tris_win": 6,
+  "parts": 136,
+  "caps": {
+    "lod0": 3600,
+    "lod1_ratio": 0.45,
+    "lod2": 400
+  },
+  "materials": [
+    "concrete",
+    "darksteel",
+    "fire_red",
+    "flag_red",
+    "galv",
+    "glass",
+    "label",
+    "paint1",
+    "rope",
+    "rope_orange",
+    "rubber",
+    "safety_black",
+    "safety_yellow",
+    "signband",
+    "timber",
+    "trim_white",
+    "wheelsteel"
+  ],
+  "reserved_uv": {
+    "label_ops": [
+      0.53515625,
+      0.92773438,
+      0.76953125,
+      0.99609375
+    ],
+    "label_slow": [
+      0.39453125,
+      0.81640625,
+      0.62890625,
+      0.88476562
+    ],
+    "label_unload": [
+      0.39453125,
+      0.88867188,
+      0.53125,
+      0.99609375
+    ],
+    "sign": [
+      0.0078125,
+      0.8046875,
+      0.390625,
+      0.99609375
+    ]
+  },
+  "win_cells": [
+    7
+  ],
+  "submeshes": [
+    "Win"
+  ],
+  "engine_base": {
+    "verdict": "OK",
+    "ok_edges": 50,
+    "blocked_edges": 0
+  },
+  "engine_base_lods": {
+    "1": {
+      "verdict": "OK",
+      "ok_edges": 18,
+      "blocked_edges": 0
+    },
+    "2": {
+      "verdict": "OK",
+      "ok_edges": 14,
+      "blocked_edges": 0
+    }
+  },
+  "lod_switch_m": {
+    "csum": 24.864683628082275,
+    "bias": 0.0,
+    "distances": [
+      104.77755453061441,
+      156.2584407964542,
+      270.19610277947305
+    ],
+    "switch": {
+      "1": 156.2584407964542,
+      "2": 270.19610277947305
+    },
+    "cull": 5403.924575169881
+  },
+  "validation": {
+    "errors": 0,
+    "warnings": 2,
+    "warn_checks": [
+      "lod-bounds"
+    ]
+  },
+  "density": {
+    "w1_px_per_m": 97.81,
+    "median_px_per_m": 71.12,
+    "classes": {
+      "bearing": {
+        "px_per_m": 58.6,
+        "m2": 0.84,
+        "w": 0.6
+      },
+      "bearingdeck_": {
+        "px_per_m": 78.1,
+        "m2": 5.16,
+        "w": 0.8
+      },
+      "board_": {
+        "px_per_m": 58.6,
+        "m2": 3.19,
+        "w": 0.6
+      },
+      "bolt_": {
+        "px_per_m": 58.6,
+        "m2": 0.07,
+        "w": 0.6
+      },
+      "chev_": {
+        "px_per_m": 58.6,
+        "m2": 0.17,
+        "w": 0.6
+      },
+      "colplate": {
+        "px_per_m": 78.1,
+        "m2": 1.56,
+        "w": 0.8
+      },
+      "column": {
+        "px_per_m": 136.8,
+        "m2": 8.93,
+        "w": 1.4
+      },
+      "crest": {
+        "px_per_m": 68.4,
+        "m2": 20.1,
+        "w": 0.7
+      },
+      "door_": {
+        "px_per_m": 78.1,
+        "m2": 2.56,
+        "w": 0.8
+      },
+      "doorlite_": {
+        "px_per_m": 58.6,
+        "m2": 0.15,
+        "w": 0.6
+      },
+      "drip_": {
+        "px_per_m": 48.8,
+        "m2": 0.86,
+        "w": 0.5
+      },
+      "guy_": {
+        "px_per_m": 39.1,
+        "m2": 0.34,
+        "w": 0.4
+      },
+      "hut": {
+        "px_per_m": 156.3,
+        "m2": 18.33,
+        "w": 1.6
+      },
+      "hutbase": {
+        "px_per_m": 58.6,
+        "m2": 5.09,
+        "w": 0.6
+      },
+      "hutroof": {
+        "px_per_m": 78.1,
+        "m2": 7.62,
+        "w": 0.8
+      },
+      "kick_": {
+        "px_per_m": 58.6,
+        "m2": 2.48,
+        "w": 0.6
+      },
+      "liftiebay": {
+        "px_per_m": 78.1,
+        "m2": 28.48,
+        "w": 0.8
+      },
+      "maze_": {
+        "px_per_m": 48.8,
+        "m2": 0.83,
+        "w": 0.5
+      },
+      "plate_": {
+        "px_per_m": 97.7,
+        "m2": 0.18,
+        "w": 1.0
+      },
+      "post_": {
+        "px_per_m": 58.6,
+        "m2": 1.85,
+        "w": 0.6
+      },
+      "propane": {
+        "px_per_m": 78.1,
+        "m2": 1.1,
+        "w": 0.8
+      },
+      "propane_": {
+        "px_per_m": 78.1,
+        "m2": 0.05,
+        "w": 0.8
+      },
+      "rail_": {
+        "px_per_m": 58.6,
+        "m2": 3.47,
+        "w": 0.6
+      },
+      "rampdown": {
+        "px_per_m": 68.4,
+        "m2": 22.51,
+        "w": 0.7
+      },
+      "rampup": {
+        "px_per_m": 68.4,
+        "m2": 27.68,
+        "w": 0.7
+      },
+      "ropechord_": {
+        "px_per_m": 78.1,
+        "m2": 3.38,
+        "w": 0.8
+      },
+      "sheave_bull": {
+        "px_per_m": 97.7,
+        "m2": 9.33,
+        "w": 1.0
+      },
+      "spoke_": {
+        "px_per_m": 58.6,
+        "m2": 4.71,
+        "w": 0.6
+      },
+      "stake_": {
+        "px_per_m": 97.7,
+        "m2": 9.04,
+        "w": 1.0
+      },
+      "stakewrap_": {
+        "px_per_m": 78.1,
+        "m2": 5.28,
+        "w": 0.8
+      },
+      "stoparm_": {
+        "px_per_m": 58.6,
+        "m2": 0.55,
+        "w": 0.6
+      },
+      "stripe_": {
+        "px_per_m": 58.6,
+        "m2": 0.2,
+        "w": 0.6
+      },
+      "wheelhub": {
+        "px_per_m": 58.6,
+        "m2": 2.0,
+        "w": 0.6
+      },
+      "wheelrope": {
+        "px_per_m": 78.1,
+        "m2": 1.85,
+        "w": 0.8
+      },
+      "winframe_": {
+        "px_per_m": 58.6,
+        "m2": 1.22,
+        "w": 0.6
+      },
+      "wrung_": {
+        "px_per_m": 48.8,
+        "m2": 0.3,
+        "w": 0.5
+      },
+      "wxarm": {
+        "px_per_m": 48.8,
+        "m2": 0.03,
+        "w": 0.5
+      },
+      "wxcup_": {
+        "px_per_m": 48.8,
+        "m2": 0.05,
+        "w": 0.5
+      },
+      "wxmast": {
+        "px_per_m": 48.8,
+        "m2": 0.55,
+        "w": 0.5
+      }
+    },
+    "starving_lt14": []
+  },
+  "weather": {
+    "intensity": 0.4,
+    "ladder": [
+      {
+        "intensity": 0.4,
+        "ok": true,
+        "VL1": 0.0458,
+        "VL2": 0.0694,
+        "VL3": -0.013,
+        "VL4": 0.235,
+        "dLstar_mean": 1.124,
+        "dLstar_gt2": 0.1662
+      },
+      {
+        "intensity": 0.45,
+        "ok": false,
+        "VL1": 0.0515,
+        "VL2": 0.09,
+        "VL3": -0.0146,
+        "VL4": 0.264,
+        "dLstar_mean": 1.264,
+        "dLstar_gt2": 0.195
+      }
+    ],
+    "preset": "station",
+    "slot_wear": "free",
+    "snow": 0.0,
+    "vanilla": {
+      "VL1_mean_rel_dL": 0.0458,
+      "VL2_share_rel_dL_gt_0.15": 0.06942,
+      "VL4_max": 0.2355,
+      "visible_texels": 1159540,
+      "ok": true,
+      "failed": []
+    }
+  },
+  "emissive": "none (MC1 / X14: every light is a vanilla sub-object)",
+  "sign_band": {
+    "rect": [
+      1648,
+      2040,
+      16,
+      800
+    ],
+    "px_per_m": 448.0,
+    "px_per_m_uv": [
+      448.0,
+      448.0
+    ],
+    "emblem_px": 392,
+    "emblem_texels": 49141,
+    "plate_cols": [
+      482,
+      784
+    ],
+    "plate_texels": 118384,
+    "digit_texels": 23028.6,
+    "digit_texels_expected": 23026.0,
+    "digit_coverage_ratio": 1.0001,
+    "digit_full_texels": 22377,
+    "digit_aa_texels": 1277,
+    "digit_aa_levels": 63,
+    "digit_outside_box": 0.0,
+    "digit_font": "Bfont (builtin)",
+    "digit_ss": 8,
+    "digit_tris": 145,
+    "digit_px_h": 313.6,
+    "digit_h_m": 0.7,
+    "digit_w_m": 0.36,
+    "digit_box_m": [
+      0.5,
+      0.7
+    ],
+    "relief": {
+      "bevel_m": 0.016,
+      "bevel_h_m": 0.005,
+      "plate_step_m": 0.008,
+      "plate_step_h_m": 0.002,
+      "bead_inset_m": 0.026,
+      "bead_w_m": 0.01,
+      "bead_h_m": 0.0015,
+      "edge_ao": 0.14,
+      "edge_ao_m": 0.045,
+      "occ_min": 0.86
+    },
+    "digits": "3",
+    "relief_tilt_max_deg": 41.93,
+    "owner": "signboard",
+    "shared_with": [],
+    "badge": null,
+    "reserved_uv": [
+      0.0078125,
+      0.8046875,
+      0.390625,
+      0.99609375
+    ]
+  },
+  "labels": {
+    "label_ops": {
+      "kind": "ops",
+      "rect": [
+        1900,
+        2040,
+        1096,
+        1576
+      ],
+      "px_per_m": [
+        400.0,
+        400.0
+      ],
+      "size_m": [
+        1.2,
+        0.35
+      ],
+      "lines": [
+        "LIFT OPS"
+      ],
+      "cap_m": 0.1772,
+      "condense": 0.802,
+      "glyph_m": 0.278,
+      "stroke_px": 11.37,
+      "picto_stroke_px": 4.4,
+      "style": "blue",
+      "read_m": 34.8,
+      "t2_ok": true,
+      "t1_ok": false,
+      "l1_ppm_ok": true
+    },
+    "label_slow": {
+      "kind": "slow",
+      "rect": [
+        1672,
+        1812,
+        808,
+        1288
+      ],
+      "px_per_m": [
+        400.0,
+        400.0
+      ],
+      "size_m": [
+        1.2,
+        0.35
+      ],
+      "lines": [
+        "SLOW"
+      ],
+      "cap_m": 0.28,
+      "condense": 0.9791,
+      "glyph_m": 0.0,
+      "stroke_px": 21.93,
+      "picto_stroke_px": 4.4,
+      "style": "orange",
+      "read_m": 0.0,
+      "t2_ok": true,
+      "t1_ok": true,
+      "l1_ppm_ok": true
+    },
+    "label_unload": {
+      "kind": "unload",
+      "rect": [
+        1820,
+        2040,
+        808,
+        1088
+      ],
+      "px_per_m": [
+        400.0,
+        400.0
+      ],
+      "size_m": [
+        0.7,
+        0.55
+      ],
+      "lines": [
+        "UNLOAD"
+      ],
+      "cap_m": 0.07,
+      "condense": 0.7394,
+      "glyph_m": 0.2924,
+      "placard_m": [
+        0.3655,
+        0.53
+      ],
+      "stroke_px": 4.14,
+      "picto_stroke_px": 4.68,
+      "style": "yellow",
+      "read_m": 36.5,
+      "t2_ok": true,
+      "t1_ok": false,
+      "l1_ppm_ok": true
+    }
+  },
+  "tension_scale": null,
+  "detail_stats": {
+    "drawn": {
+      "seams": 22,
+      "bolts": 17,
+      "helix": 88,
+      "corrugation": 17
+    },
+    "skipped": {}
+  },
+  "ctl_seam_texels_scaled": 0,
+  "dressing_lod": {
+    "lod1_delete": [
+      "board_ops",
+      "board_slow",
+      "board_slow_post",
+      "board_unload",
+      "board_unload_post",
+      "chev_deck0_base",
+      "chev_deck0_k",
+      "chev_deck1_base",
+      "chev_deck1_k",
+      "label_ops",
+      "label_slow",
+      "label_unload",
+      "maze_flag_crest_0",
+      "maze_flag_crest_1",
+      "maze_post_crest_0",
+      "maze_post_crest_1",
+      "maze_post_crest_2",
+      "maze_rope_crest_0_0_hi",
+      "maze_rope_crest_0_0_lo",
+      "maze_rope_crest_0_1_hi",
+      "maze_rope_crest_0_1_lo",
+      "stripe_unload"
+    ],
+    "lod1_keep": []
+  },
+  "sub_objects": {
+    "target_prefab": "SkiTopStationBuilding",
+    "frame": "game local",
+    "objects": [
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "prefab": "SkiPisteFloodlightLow",
+        "mesh": "SkiPisteFloodlightLowA Mesh",
+        "guid": "CID:6827e281427c087a3b7ef19c824ca28b",
+        "pos": [
+          4.77,
+          0.0,
+          2.64
+        ],
+        "rot": [
+          0.0,
+          0.9961947,
+          0.0,
+          -0.0871557
+        ],
+        "parent": 0,
+        "note": "replaces LightpoleParkRandom01 (DECISIONS 247); yaw 190, beam to the line"
+      },
+      {
+        "prefab": "WallLightShortRangeRandom01",
+        "guid": "UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
+        "pos": [
+          4.77,
+          3.3,
+          1.0
+        ],
+        "rot": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "parent": 0
+      },
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "prefab": "SkiDressEStop",
+        "mesh": "SkiDressEStopB",
+        "guid": "CID:9ad8824185f7473ea1799df015acc940",
+        "pos": [
+          3.42,
+          1.0,
+          0.0
+        ],
+        "rot": [
+          0.0,
+          -0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "parent": 0,
+        "note": "replaces estop_post('ul', M_TOP estop), z0 crest"
+      },
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "prefab": "SkiDressExtinguisher",
+        "mesh": "SkiDressExtinguisherB",
+        "guid": "CID:04211f82829f421b9899ffaff582e530",
+        "pos": [
+          4.12,
+          1.75,
+          1.0
+        ],
+        "rot": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "parent": 0,
+        "note": "replaces extinguisher('booth', booth +x (door) wall), +X"
+      },
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "prefab": "SkiDressTools",
+        "mesh": "SkiDressToolsB",
+        "guid": "CID:5f92c70cec824289aa2673d59018e8a5",
+        "pos": [
+          6.125,
+          1.0,
+          1.6409
+        ],
+        "rot": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "parent": 0,
+        "lean": {
+          "wall_point": [
+            6.125,
+            2.0334
+          ],
+          "wall_normal": [
+            0.0,
+            -1.0
+          ],
+          "rest_z": -0.3925
+        },
+        "note": "replaces tools('bay', foot M_TOP tools, -X): the builder pair's centre, leaning on the E rail's top tube (the rest plane behind the tube's inner face so the pair just touches the tube, cs2_kitrows.kit_tube_offset); rest plane 0.0614 m behind the rail tube face"
+      }
+    ],
+    "x_convention": "game (gx, gy, gz) = authoring (-y, z, x) (lift_terminal.m_to_game, S1): gx = -authoring y; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; the DQ / gondola / tram / building rows follow it since S1b-N, 2026-10-16: cs2_liftdress.blender_to_game is the same map)",
+    "kinds": {
+      "vanilla": 1,
+      "mod": 4
+    }
+  },
+  "fine_detail": {
+    "flag": true,
+    "step": "3c",
+    "report": "build/fine-detail-step3c-tram-pali.md",
+    "x_convention": "game (gx, gy, gz) = authoring (-y, z, x) (lift_terminal.m_to_game, S1): gx = -authoring y; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; the DQ / gondola / tram / building rows follow it since S1b-N, 2026-10-16: cs2_liftdress.blender_to_game is the same map)",
+    "rows": {
+      "vanilla": 1,
+      "mod": 4
+    },
+    "F1": "3 dressing-kit rows {'SkiDressEStop': 1, 'SkiDressExtinguisher': 1, 'SkiDressTools': 1}: CIDs staged, the replaced parts gone, mounts held (floor / whole back on the wall + 0.4 m access / foot-line rule + contact), the real kit meshes clear of every station face, the swept carrier cloud (nearest 0.617 m), the keep-outs, every vanilla and kit row, inside the lot",
+    "kit_rows": [
+      {
+        "row": 0,
+        "prop": "SkiDressEStop",
+        "cid": "9ad8824185f7473ea1799df015acc940",
+        "mount": "ground",
+        "pos_host": [
+          0.0,
+          -3.42,
+          1.0
+        ],
+        "row_pos": [
+          3.42,
+          1.0,
+          0.0
+        ],
+        "row_rot": [
+          0.0,
+          -0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "estop_post('ul', M_TOP estop), z0 crest",
+        "floor_gap_m": 0.0,
+        "cloud_gap_m": {
+          "the swept 6M chair body (M3)": 0.617
+        },
+        "nearest_row": [
+          "WallLightShortRangeRandom01@1.00,-4.77",
+          1.799
+        ],
+        "nearest_keepout": [
+          "hosted SkiLiftTowerET62O (+0.1)",
+          3.978
+        ],
+        "aabb_host": [
+          [
+            -0.085,
+            -3.49,
+            1.01
+          ],
+          [
+            0.085,
+            -3.35,
+            2.2
+          ]
+        ],
+        "kit_fbx_sha1": "cc908db6b733"
+      },
+      {
+        "row": 1,
+        "prop": "SkiDressExtinguisher",
+        "cid": "04211f82829f421b9899ffaff582e530",
+        "mount": "wall",
+        "pos_host": [
+          1.0,
+          -4.12,
+          1.75
+        ],
+        "row_pos": [
+          4.12,
+          1.75,
+          1.0
+        ],
+        "row_rot": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "was": "extinguisher('booth', booth +x (door) wall), +X",
+        "wall_silhouette_m": [
+          0.19,
+          0.527
+        ],
+        "access_m": 0.4,
+        "wall_gap_m": 0.0,
+        "cloud_gap_m": {
+          "the swept 6M chair body (M3)": 1.43
+        },
+        "nearest_row": [
+          "WallLightShortRangeRandom01@1.00,-4.77",
+          1.045
+        ],
+        "nearest_keepout": [
+          "hosted SkiLiftTowerET62O (+0.1)",
+          5.248
+        ],
+        "aabb_host": [
+          [
+            1.01,
+            -4.2282,
+            1.75
+          ],
+          [
+            1.1916,
+            -4.0384,
+            2.277
+          ]
+        ],
+        "kit_fbx_sha1": "9bdc6df30869"
+      },
+      {
+        "row": 2,
+        "prop": "SkiDressTools",
+        "cid": "5f92c70cec824289aa2673d59018e8a5",
+        "mount": "lean",
+        "pos_host": [
+          1.972,
+          -6.125,
+          1.0
+        ],
+        "row_pos": [
+          6.125,
+          1.0,
+          1.6408999999999998
+        ],
+        "row_rot": [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "was": "tools('bay', foot M_TOP tools, -X): the builder pair's centre, leaning on the E rail's top tube (the rest plane behind the tube's inner face so the pair just touches the tube, cs2_kitrows.kit_tube_offset)",
+        "rest_gap_m": 0.0,
+        "tube_hc_r": [
+          1.1,
+          0.028
+        ],
+        "ledge_offset_m": 0.0614,
+        "rests_on": [
+          "rail_bay_top"
+        ],
+        "cloud_gap_m": {
+          "the swept 6M chair body (M3)": 3.312
+        },
+        "nearest_row": [
+          "SkiPisteFloodlightLow@2.64,-4.77",
+          0.975
+        ],
+        "nearest_keepout": [
+          "hosted SkiLiftTowerET62O (+0.1)",
+          6.662
+        ],
+        "aabb_host": [
+          [
+            1.6309,
+            -6.45,
+            1.01
+          ],
+          [
+            2.0234,
+            -5.825,
+            2.3519
+          ]
+        ],
+        "kit_fbx_sha1": "6323b9a0d4c3"
+      }
+    ],
+    "removed": [
+      {
+        "prop": "SkiDressEStop",
+        "removed": [
+          "estop_ul_"
+        ],
+        "was": "estop_post('ul', M_TOP estop), z0 crest"
+      },
+      {
+        "prop": "SkiDressExtinguisher",
+        "removed": [
+          "ext_booth"
+        ],
+        "was": "extinguisher('booth', booth +x (door) wall), +X"
+      },
+      {
+        "prop": "SkiDressTools",
+        "removed": [
+          "tool_bay_"
+        ],
+        "was": "tools('bay', foot M_TOP tools, -X): the builder pair's centre, leaning on the E rail's top tube (the rest plane behind the tube's inner face so the pair just touches the tube, cs2_kitrows.kit_tube_offset)"
+      }
+    ],
+    "lamps_to_vanilla": "none left: the wall lights are vanilla rows (X14); the lamp post row is our SkiPisteFloodlightLow mod row (T17 lamp part, DECISIONS 247)",
+    "kept_modelled": {
+      "labels / LIFT boards": "FS5: the host atlas (UNLOAD (no STAY SEATED: M19), LIFT OPS, SLOW, the capacity placard, the sign)",
+      "maze / gate / board posts": "fine geometry (8-seg capped posts, 6-sided ropes, 12-seg capped posts)",
+      "weather mast": "FS1: the guyed anemometer mast stays",
+      "propane / stop arm / stakes": "modelled (no vanilla match / M18 layout)"
+    }
+  },
+  "prefab_contract": {
+    "source": "gamedata-mirror/ImportedData/SkiTopStationBuilding/SkiTopStationBuilding.Prefab",
+    "source_sha256": "844091fbf288d0734a477a5978776bd247aab54d0e168b54be3e5958ca53ea2d",
+    "repoint": {
+      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:f262eb7eedcee6170cc68cf6aae388ea",
+      "m_Meshes[0].m_Mesh_to": "<the M mesh's CID, written by the importer>",
+      "k_mesh": "SkiLiftTopStationK",
+      "rule": "only this line changes (surgery/towers-transfer.md; never rename, never a new .Prefab.cid)"
+    },
+    "frozen": {
+      "$type": "0|Game.Prefabs.BuildingPrefab, Game",
+      "name": "SkiTopStationBuilding",
+      "active": true,
+      "components": {
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 8,
+        "$rcontent": [
+          {
+            "$type": "3|Game.Prefabs.ServiceConsumption, Game",
+            "name": "ServiceConsumption",
+            "active": true,
+            "m_Upkeep": 1000,
+            "m_ElectricityConsumption": 0,
+            "m_WaterConsumption": 0,
+            "m_GarbageAccumulation": 0,
+            "m_TelecomNeed": 0
+          },
+          {
+            "$type": "4|Game.Prefabs.ServiceObject, Game",
+            "name": "ServiceObject",
+            "active": true,
+            "m_Service": "$fstrref:UnityGUID:5c1f656a5ea20284197a71e4997b4187"
+          },
+          {
+            "$type": "5|Game.Prefabs.PlaceableObject, Game",
+            "name": "PlaceableObject",
+            "active": true,
+            "m_ConstructionCost": 30000,
+            "m_XPReward": 40
+          },
+          {
+            "$type": "6|Game.Prefabs.UIObject, Game",
+            "name": "UIObject",
+            "active": true,
+            "m_Group": null,
+            "m_Priority": 53,
+            "m_Icon": "assetdb://global/3eb0d7b98fc9ee162816d9bb77056956",
+            "m_IsDebugObject": false
+          },
+          {
+            "$type": "7|Game.Prefabs.ObjectSubNets, Game",
+            "name": "ObjectSubNets",
+            "active": true,
+            "m_InvertWhen": 0,
+            "m_SubNets": {
+              "$type": "8|Game.Prefabs.ObjectSubNetInfo[], Game",
+              "$rlength": 1,
+              "$rcontent": [
+                {
+                  "$type": "9|Game.Prefabs.ObjectSubNetInfo, Game",
+                  "m_NetPrefab": "$fstrref:CID:996ee501a8214bc8ba38f64139097c5a",
+                  "m_BezierCurve": {
+                    "$type": "10|Colossal.Mathematics.Bezier4x3, Colossal.Mathematics",
+                    "a": {
+                      "$type": "11|Unity.Mathematics.float3, Unity.Mathematics",
+                      "x": 0,
+                      "y": 0,
+                      "z": -9
+                    },
+                    "b": {
+                      "$type": 11,
+                      "x": 0,
+                      "y": 0,
+                      "z": -10
+                    },
+                    "c": {
+                      "$type": 11,
+                      "x": 0,
+                      "y": 0,
+                      "z": -11
+                    },
+                    "d": {
+                      "$type": 11,
+                      "x": 0,
+                      "y": 0,
+                      "z": -12
+                    }
+                  },
+                  "m_NodeIndex": {
+                    "$type": "12|Unity.Mathematics.int2, Unity.Mathematics",
+                    "x": 0,
+                    "y": 1
+                  },
+                  "m_ParentMesh": {
+                    "$type": 12,
+                    "x": -1,
+                    "y": -1
+                  },
+                  "m_Upgrades": {
+                    "$type": "13|Game.Prefabs.NetPieceRequirements[], Game",
+                    "$rlength": 0,
+                    "$rcontent": []
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "$type": "14|Game.Prefabs.ObjectSubLanes, Game",
+            "name": "ObjectSubLanes",
+            "active": true,
+            "m_SubLanes": {
+              "$type": "15|Game.Prefabs.ObjectSubLaneInfo[], Game",
+              "$rlength": 3,
+              "$rcontent": [
+                {
+                  "$type": "16|Game.Prefabs.ObjectSubLaneInfo, Game",
+                  "m_LanePrefab": "$fstrref:UnityGUID:5d88ac45a40b30341a79535930e3b735",
+                  "m_BezierCurve": {
+                    "$type": 10,
+                    "a": {
+                      "$type": 11,
+                      "x": -1.8,
+                      "y": 5.24,
+                      "z": -5.025
+                    },
+                    "b": {
+                      "$type": 11,
+                      "x": -1.8,
+                      "y": 5.25,
+                      "z": -4.94
+                    },
+                    "c": {
+                      "$type": 11,
+                      "x": -1.8,
+                      "y": 5.26,
+                      "z": -4.86
+                    },
+                    "d": {
+                      "$type": 11,
+                      "x": -1.8,
+                      "y": 5.27,
+                      "z": -4.775
+                    }
+                  },
+                  "m_NodeIndex": {
+                    "$type": 12,
+                    "x": 0,
+                    "y": 0
+                  },
+                  "m_ParentMesh": {
+                    "$type": 12,
+                    "x": 0,
+                    "y": 0
+                  }
+                },
+                {
+                  "$type": 16,
+                  "m_LanePrefab": "$fstrref:UnityGUID:5d88ac45a40b30341a79535930e3b735",
+                  "m_BezierCurve": {
+                    "$type": 10,
+                    "a": {
+                      "$type": 11,
+                      "x": 1.8,
+                      "y": 5.24,
+                      "z": -5.025
+                    },
+                    "b": {
+                      "$type": 11,
+                      "x": 1.8,
+                      "y": 5.25,
+                      "z": -4.94
+                    },
+                    "c": {
+                      "$type": 11,
+                      "x": 1.8,
+                      "y": 5.26,
+                      "z": -4.86
+                    },
+                    "d": {
+                      "$type": 11,
+                      "x": 1.8,
+                      "y": 5.27,
+                      "z": -4.775
+                    }
+                  },
+                  "m_NodeIndex": {
+                    "$type": 12,
+                    "x": 1,
+                    "y": 1
+                  },
+                  "m_ParentMesh": {
+                    "$type": 12,
+                    "x": 0,
+                    "y": 0
+                  }
+                },
+                {
+                  "$type": 16,
+                  "m_LanePrefab": "$fstrref:UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b",
+                  "m_BezierCurve": {
+                    "$type": 10,
+                    "a": {
+                      "$type": 11,
+                      "x": 0,
+                      "y": 5.9,
+                      "z": -5.025
+                    },
+                    "b": {
+                      "$type": 11,
+                      "x": 0,
+                      "y": 5.91,
+                      "z": -4.94
+                    },
+                    "c": {
+                      "$type": 11,
+                      "x": 0,
+                      "y": 5.92,
+                      "z": -4.86
+                    },
+                    "d": {
+                      "$type": 11,
+                      "x": 0,
+                      "y": 5.93,
+                      "z": -4.775
+                    }
+                  },
+                  "m_NodeIndex": {
+                    "$type": 12,
+                    "x": 2,
+                    "y": 2
+                  },
+                  "m_ParentMesh": {
+                    "$type": 12,
+                    "x": 0,
+                    "y": 0
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "$type": "17|Game.Prefabs.BuildingTerraformOverride, Game",
+            "name": "BuildingTerraformOverride",
+            "active": true,
+            "m_LevelMinOffset": {
+              "$type": "18|Unity.Mathematics.float2, Unity.Mathematics",
+              "x": 1600,
+              "y": 1600
+            },
+            "m_LevelMaxOffset": {
+              "$type": 18,
+              "x": 0,
+              "y": 0
+            },
+            "m_LevelFrontLeft": {
+              "$type": 18,
+              "x": 1,
+              "y": 1
+            },
+            "m_LevelFrontRight": {
+              "$type": 18,
+              "x": 1,
+              "y": 1
+            },
+            "m_LevelBackLeft": {
+              "$type": 18,
+              "x": 1,
+              "y": 1
+            },
+            "m_LevelBackRight": {
+              "$type": 18,
+              "x": 1,
+              "y": 1
+            },
+            "m_SmoothMinOffset": {
+              "$type": 18,
+              "x": 0,
+              "y": 0
+            },
+            "m_SmoothMaxOffset": {
+              "$type": 18,
+              "x": 0,
+              "y": 0
+            },
+            "m_HeightOffset": 0,
+            "m_AdditionalSmoothAreas": null,
+            "m_DontRaise": true,
+            "m_DontLower": true
+          },
+          {
+            "$type": "23|Game.Prefabs.ObjectSubObjects, Game",
+            "name": "ObjectSubObjects",
+            "active": true,
+            "m_SubObjects": {
+              "$type": "24|Game.Prefabs.ObjectSubObjectInfo[], Game",
+              "$rlength": 6,
+              "$rcontent": [
+                {
+                  "$type": "25|Game.Prefabs.ObjectSubObjectInfo, Game",
+                  "m_Object": "$fstrref:CID:83da589378fe4a0884231381c2af52fc",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 0,
+                    "y": 0,
+                    "z": -4.9
+                  },
+                  "m_Rotation": {
+                    "$type": "21|Unity.Mathematics.quaternion, Unity.Mathematics",
+                    "value": {
+                      "$type": "22|Unity.Mathematics.float4, Unity.Mathematics",
+                      "x": 0,
+                      "y": 1,
+                      "z": 0,
+                      "w": 0
+                    }
+                  },
+                  "m_ParentMesh": -1,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:6827e281427c087a3b7ef19c824ca28b",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 4.77,
+                    "y": 0,
+                    "z": 2.64
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 0.9961947,
+                      "z": 0,
+                      "w": -0.0871557
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 4.77,
+                    "y": 3.3,
+                    "z": 1
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 0,
+                      "z": 0,
+                      "w": 1
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:9ad8824185f7473ea1799df015acc940",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 3.42,
+                    "y": 1,
+                    "z": 0
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": -0.7071068,
+                      "z": 0,
+                      "w": 0.7071068
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:04211f82829f421b9899ffaff582e530",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 4.12,
+                    "y": 1.75,
+                    "z": 1
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 0,
+                      "z": 0,
+                      "w": 1
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:5f92c70cec824289aa2673d59018e8a5",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 6.125,
+                    "y": 1,
+                    "z": 1.6409
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 1,
+                      "z": 0,
+                      "w": 0
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "m_Circular": false,
+      "m_AccessType": 0,
+      "m_LotWidth": 2,
+      "m_LotDepth": 3,
+      "m_Meshes": [
+        {
+          "$type": "20|Game.Prefabs.ObjectMeshInfo, Game",
+          "m_Position": {
+            "$type": 11,
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "m_Rotation": {
+            "$type": 21,
+            "value": {
+              "$type": 22,
+              "x": 0,
+              "y": 0,
+              "z": 0,
+              "w": 1
+            }
+          },
+          "m_RequireState": 0
+        }
+      ]
+    },
+    "frozen_sha256": "e23c26d4c8a69f1c48efd7df0c14f438b5e5de625447f7646fe915c97e1b9617",
+    "code": {
+      "WheelLocal_game": [
+        0.0,
+        3.75,
+        0.0
+      ],
+      "StubTipLocalZ": -12.0,
+      "SkiCatalog": "SkiCatalog.cs StationFixedGripTop"
+    },
+    "carrier_tr": {
+      "hang_m": 2.4,
+      "grip_top_above_rope_m": 0.08,
+      "lane_x_m": 1.8,
+      "seats": 3,
+      "axle_m": 7.04
+    },
+    "hosted_tower": {
+      "prefab": "SkiLiftTerminalTowerTop",
+      "mesh_after_M6_M7": "SkiLiftTowerET62O",
+      "position": [
+        0.0,
+        0.0,
+        -4.9
+      ],
+      "rotation_quat": [
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    },
+    "utility_object": null,
+    "colour_slots_lod0": [
+      [
+        0.25,
+        0.26,
+        0.275,
+        1.0
+      ],
+      [
+        0.85,
+        0.25,
+        0.1,
+        1.0
+      ],
+      [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    ]
+  },
+  "bounds": {
+    "m_game": {
+      "min": [
+        -3.2,
+        0.0,
+        -4.792
+      ],
+      "max": [
+        6.65,
+        6.53,
+        3.693
+      ]
+    },
+    "k_mesh_prefab": {
+      "min": [
+        -5.14999962,
+        -0.01,
+        -5.16749
+      ],
+      "max": [
+        2.70000076,
+        5.41214466,
+        2.6
+      ],
+      "file": "c030ee3ff256df91/SkiLiftTopStationK/SkiLiftTopStationK Mesh_40b74cd09413dbdeb994541bf97aa354.Prefab"
+    },
+    "grows_beyond_k": {
+      "x": [
+        0.0,
+        3.95
+      ],
+      "y": [
+        0.0,
+        1.118
+      ],
+      "z": [
+        0.0,
+        1.093
+      ]
+    },
+    "policy": "recorded deviation (skeptic MC4): the building prefab has no bounds field; the repoint changes m_Mesh only, the M mesh prefab's bounds are the importer's; mod code reads no station bounds (SkiPrefabCatalogSystem.cs:849 = carriers only); the footprint is the lot. Orchestrator ack PENDING; vanilla use unverified."
+  },
+  "bounds_authoring": {
+    "min": [
+      -4.7917,
+      -6.65,
+      0.0
+    ],
+    "max": [
+      3.693,
+      3.2,
+      6.53
+    ]
+  },
+  "up_lane_y": -1.0,
+  "frame": "game = (-y, z, x) of authoring (S1, unverified in game)",
+  "orientation": {
+    "up_lane_y_authoring": -1.0,
+    "measured_centre_y": {
+      "hut": -4.77,
+      "liftiebay": -4.925,
+      "stripe_unload": -1.8,
+      "board_unload": -3.5
+    },
+    "label_normals_xy": {
+      "label_unload": [
+        -1.0,
+        0.0
+      ]
+    },
+    "ok": true,
+    "frame": "game (gx, gy, gz) = authoring (-y, z, x) (lift_terminal.m_to_game, S1): gx = -authoring y; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; the DQ / gondola / tram / building rows follow it since S1b-N, 2026-10-16: cs2_liftdress.blender_to_game is the same map)",
+    "spin": "the up lane is the RIGHT one looking uphill in this frame (base +y loads, top -y unloads); StationAlign.UpLaneIsSecond puts chain A on the right looking uphill IN GAME: the same lane under probe X2 branch N (game x = -authoring y, M's own rows), the mirror under branch P"
+  },
+  "sheave_trains": {
+    "note": "no rope-guiding wheel group besides the bullwheel (the hosted ET62O carries the entry train, a tower built by lift_tower itself)",
+    "ok": true
+  },
+  "contracts": {
+    "M2": {
+      "torus_R": 1.8,
+      "torus_z": 3.75,
+      "ring_dev_max": 0.0,
+      "rim_outer": 1.74,
+      "chord_dev_max": 0.055
+    },
+    "M3": {
+      "poses": 2964,
+      "min": {
+        "struct": 0.272,
+        "dress": 0.24,
+        "machine": 0.036
+      },
+      "where": {
+        "struct": {
+          "lod": 0,
+          "pose": "arc",
+          "path": [
+            1.418,
+            -1.108,
+            3.75
+          ],
+          "facing": 1.0
+        },
+        "dress": {
+          "lod": 0,
+          "pose": "a0_lane-1",
+          "path": [
+            -1.623,
+            -1.8,
+            4.267
+          ],
+          "facing": -1.0
+        },
+        "machine": {
+          "lod": 0,
+          "pose": "a0_lane+1",
+          "path": [
+            -0.478,
+            1.8,
+            3.902
+          ],
+          "facing": -1.0
+        }
+      },
+      "grip_min": 0.06,
+      "grip_where": {
+        "lod": 0,
+        "pose": "a0_lane-1",
+        "path": [
+          -4.775,
+          -1.8,
+          5.27
+        ],
+        "facing": 1.0
+      },
+      "levels": [
+        0,
+        1
+      ],
+      "anchors": [
+        [
+          -4.775,
+          5.27
+        ],
+        [
+          -5.025,
+          5.24
+        ],
+        [
+          -9.0,
+          7.04
+        ],
+        [
+          -12.0,
+          7.04
+        ]
+      ]
+    },
+    "M4": {
+      "surface": "crest",
+      "surface_z": 1.0,
+      "cushion_z": 1.5,
+      "cushion_over": 0.5,
+      "plank_z": 1.35,
+      "plank_over_surface": 0.35,
+      "plank_min_sweep": 0.35,
+      "plank_min_at": {
+        "pose": "a0_lane+1",
+        "path": [
+          0.0,
+          1.8,
+          3.75
+        ],
+        "part": "crest"
+      },
+      "window": [
+        0.45,
+        0.55
+      ],
+      "pin": "grip top = lane (ChairPinSystem.cs:1401); a rope-point pin would raise every FG chair 0.080 (skeptic claim 4)"
+    },
+    "M5": {
+      "st0_et0": {
+        "min_m": 0.15,
+        "part": "rampup"
+      },
+      "st0_et1": {
+        "min_m": 0.15,
+        "part": "rampup"
+      },
+      "st1_et0": {
+        "min_m": 0.15,
+        "part": "rampup"
+      },
+      "st1_et1": {
+        "min_m": 0.15,
+        "part": "rampup"
+      }
+    },
+    "M7": {
+      "surfaces": {
+        "crest": [
+          1.0,
+          [
+            -1.1,
+            1.3
+          ],
+          [
+            -3.2,
+            3.2
+          ]
+        ],
+        "liftiebay": [
+          1.0,
+          [
+            -1.9,
+            2.1
+          ],
+          [
+            3.2,
+            6.65
+          ]
+        ]
+      },
+      "ladders": {},
+      "ramps": {
+        "rampup": {
+          "slope_deg": 19.98,
+          "width": 2.731,
+          "from": "GRADE",
+          "to": "crest",
+          "y": [
+            0.0,
+            0.993
+          ]
+        }
+      },
+      "joins": {
+        "crest | liftiebay": {
+          "ok": true,
+          "opening": 1.105,
+          "across": "x",
+          "at": [
+            0.085,
+            1.19
+          ],
+          "between": [
+            "kitrow_00_SkiDressEStop",
+            "stakewrap_1"
+          ]
+        }
+      },
+      "orphans": [],
+      "not_walkable": {
+        "hutbase": {
+          "why": "hutbase",
+          "y": 1.15,
+          "area": 3.83,
+          "at": [
+            -0.16,
+            1.15,
+            4.54
+          ]
+        },
+        "hutroof": {
+          "why": "hutroof",
+          "y": 3.53,
+          "area": 3.45,
+          "at": [
+            -0.63,
+            3.53,
+            4.77
+          ]
+        },
+        "sheave_bull_rim": {
+          "why": "sheave_bull",
+          "y": 3.95,
+          "area": 2.43,
+          "at": [
+            -1.45,
+            3.95,
+            -0.87
+          ]
+        }
+      },
+      "undeclared": [],
+      "rule_ramp_deg": 20.0,
+      "rule_grade_step": 0.3
+    },
+    "M8": {
+      "parts": 136,
+      "box_pairs": 224,
+      "declared_contacts": 156,
+      "known_open": []
+    },
+    "M9": {
+      "x": [
+        -4.792,
+        3.693
+      ],
+      "y": [
+        -6.65,
+        3.2
+      ],
+      "z": [
+        0.0,
+        6.53
+      ],
+      "lv_stub_min_m": null
+    },
+    "M12": [
+      {
+        "prefab": "SkiPisteFloodlightLow",
+        "pos_authoring": [
+          2.64,
+          -4.77,
+          0.0
+        ],
+        "facing": null,
+        "box_lo": [
+          2.119,
+          -5.587,
+          0.0
+        ],
+        "box_hi": [
+          3.161,
+          -3.949,
+          8.373
+        ],
+        "hits": [],
+        "chair_m": 2.317
+      },
+      {
+        "prefab": "WallLightShortRangeRandom01",
+        "pos_authoring": [
+          1.0,
+          -4.77,
+          3.3
+        ],
+        "facing": "+X",
+        "box_lo": [
+          1.0,
+          -4.912,
+          3.242
+        ],
+        "box_hi": [
+          1.115,
+          -4.628,
+          3.358
+        ],
+        "hits": [],
+        "chair_m": 2.401
+      }
+    ],
+    "M19": {
+      "forbidden": [
+        {
+          "item": "stay",
+          "words": "STAY SEATED"
+        }
+      ],
+      "ok": true
+    },
+    "M20": {
+      "up_lane_y_authoring": -1.0,
+      "measured_centre_y": {
+        "hut": -4.77,
+        "liftiebay": -4.925,
+        "stripe_unload": -1.8,
+        "board_unload": -3.5
+      },
+      "label_normals_xy": {
+        "label_unload": [
+          -1.0,
+          0.0
+        ]
+      },
+      "ok": true,
+      "frame": "game (gx, gy, gz) = authoring (-y, z, x) (lift_terminal.m_to_game, S1): gx = -authoring y; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; the DQ / gondola / tram / building rows follow it since S1b-N, 2026-10-16: cs2_liftdress.blender_to_game is the same map)",
+      "spin": "the up lane is the RIGHT one looking uphill in this frame (base +y loads, top -y unloads); StationAlign.UpLaneIsSecond puts chain A on the right looking uphill IN GAME: the same lane under probe X2 branch N (game x = -authoring y, M's own rows), the mirror under branch P"
+    },
+    "M21": {
+      "note": "no rope-guiding wheel group besides the bullwheel (the hosted ET62O carries the entry train, a tower built by lift_tower itself)",
+      "ok": true
+    },
+    "F1": {
+      "message": "3 dressing-kit rows {'SkiDressEStop': 1, 'SkiDressExtinguisher': 1, 'SkiDressTools': 1}: CIDs staged, the replaced parts gone, mounts held (floor / whole back on the wall + 0.4 m access / foot-line rule + contact), the real kit meshes clear of every station face, the swept carrier cloud (nearest 0.617 m), the keep-outs, every vanilla and kit row, inside the lot",
+      "rows": [
+        {
+          "row": 0,
+          "prop": "SkiDressEStop",
+          "cid": "9ad8824185f7473ea1799df015acc940",
+          "mount": "ground",
+          "pos_host": [
+            0.0,
+            -3.42,
+            1.0
+          ],
+          "row_pos": [
+            3.42,
+            1.0,
+            0.0
+          ],
+          "row_rot": [
+            0.0,
+            -0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "was": "estop_post('ul', M_TOP estop), z0 crest",
+          "floor_gap_m": 0.0,
+          "cloud_gap_m": {
+            "the swept 6M chair body (M3)": 0.617
+          },
+          "nearest_row": [
+            "WallLightShortRangeRandom01@1.00,-4.77",
+            1.799
+          ],
+          "nearest_keepout": [
+            "hosted SkiLiftTowerET62O (+0.1)",
+            3.978
+          ],
+          "aabb_host": [
+            [
+              -0.085,
+              -3.49,
+              1.01
+            ],
+            [
+              0.085,
+              -3.35,
+              2.2
+            ]
+          ],
+          "kit_fbx_sha1": "cc908db6b733"
+        },
+        {
+          "row": 1,
+          "prop": "SkiDressExtinguisher",
+          "cid": "04211f82829f421b9899ffaff582e530",
+          "mount": "wall",
+          "pos_host": [
+            1.0,
+            -4.12,
+            1.75
+          ],
+          "row_pos": [
+            4.12,
+            1.75,
+            1.0
+          ],
+          "row_rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "was": "extinguisher('booth', booth +x (door) wall), +X",
+          "wall_silhouette_m": [
+            0.19,
+            0.527
+          ],
+          "access_m": 0.4,
+          "wall_gap_m": 0.0,
+          "cloud_gap_m": {
+            "the swept 6M chair body (M3)": 1.43
+          },
+          "nearest_row": [
+            "WallLightShortRangeRandom01@1.00,-4.77",
+            1.045
+          ],
+          "nearest_keepout": [
+            "hosted SkiLiftTowerET62O (+0.1)",
+            5.248
+          ],
+          "aabb_host": [
+            [
+              1.01,
+              -4.2282,
+              1.75
+            ],
+            [
+              1.1916,
+              -4.0384,
+              2.277
+            ]
+          ],
+          "kit_fbx_sha1": "9bdc6df30869"
+        },
+        {
+          "row": 2,
+          "prop": "SkiDressTools",
+          "cid": "5f92c70cec824289aa2673d59018e8a5",
+          "mount": "lean",
+          "pos_host": [
+            1.972,
+            -6.125,
+            1.0
+          ],
+          "row_pos": [
+            6.125,
+            1.0,
+            1.6408999999999998
+          ],
+          "row_rot": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "was": "tools('bay', foot M_TOP tools, -X): the builder pair's centre, leaning on the E rail's top tube (the rest plane behind the tube's inner face so the pair just touches the tube, cs2_kitrows.kit_tube_offset)",
+          "rest_gap_m": 0.0,
+          "tube_hc_r": [
+            1.1,
+            0.028
+          ],
+          "ledge_offset_m": 0.0614,
+          "rests_on": [
+            "rail_bay_top"
+          ],
+          "cloud_gap_m": {
+            "the swept 6M chair body (M3)": 3.312
+          },
+          "nearest_row": [
+            "SkiPisteFloodlightLow@2.64,-4.77",
+            0.975
+          ],
+          "nearest_keepout": [
+            "hosted SkiLiftTowerET62O (+0.1)",
+            6.662
+          ],
+          "aabb_host": [
+            [
+              1.6309,
+              -6.45,
+              1.01
+            ],
+            [
+              2.0234,
+              -5.825,
+              2.3519
+            ]
+          ],
+          "kit_fbx_sha1": "6323b9a0d4c3"
+        }
+      ]
+    },
+    "M18": {
+      "min_width": 0.763,
+      "narrowest_route": "E strip",
+      "narrowest_at": [
+        1.56,
+        -4.13
+      ],
+      "narrowest_parts": [
+        [
+          "kitrow_01_SkiDressExtinguisher",
+          0.382
+        ],
+        [
+          "rail_bay_knee",
+          0.413
+        ]
+      ],
+      "routes": {
+        "crest>door": {
+          "from": "crest",
+          "to": "door",
+          "box": null,
+          "width": 0.78,
+          "at": [
+            1.31,
+            -5.78
+          ],
+          "parts": [
+            [
+              "hut",
+              0.39
+            ],
+            [
+              "kitrow_02_SkiDressTools",
+              0.434
+            ]
+          ]
+        },
+        "crest>NW": {
+          "from": "crest",
+          "to": "NW",
+          "box": null,
+          "width": 0.804,
+          "at": [
+            -0.89,
+            -3.58
+          ],
+          "parts": [
+            [
+              "hut",
+              0.402
+            ],
+            [
+              "stakewrap_0",
+              0.435
+            ]
+          ]
+        },
+        "crest>NE": {
+          "from": "crest",
+          "to": "NE",
+          "box": null,
+          "width": 0.792,
+          "at": [
+            1.06,
+            -3.58
+          ],
+          "parts": [
+            [
+              "hut",
+              0.396
+            ],
+            [
+              "stakewrap_1",
+              0.441
+            ]
+          ]
+        },
+        "W strip": {
+          "from": "NW",
+          "to": "SW",
+          "box": [
+            -1.9,
+            -0.8,
+            -6.65,
+            -3.2
+          ],
+          "width": 0.824,
+          "at": [
+            -1.24,
+            -4.28
+          ],
+          "parts": [
+            [
+              "winframe_hutmx",
+              0.412
+            ],
+            [
+              "stoparm_0",
+              0.452
+            ]
+          ]
+        },
+        "back strip": {
+          "from": "SW",
+          "to": "SE",
+          "box": [
+            -1.9,
+            2.1,
+            -6.65,
+            -5.57
+          ],
+          "width": 0.879,
+          "at": [
+            -0.54,
+            -6.08
+          ],
+          "parts": [
+            [
+              "post_bay_4",
+              0.439
+            ],
+            [
+              "winframe_hutmy",
+              0.488
+            ]
+          ]
+        },
+        "E strip": {
+          "from": "SE",
+          "to": "NE",
+          "box": [
+            1.0,
+            2.1,
+            -6.65,
+            -3.2
+          ],
+          "width": 0.763,
+          "at": [
+            1.56,
+            -4.13
+          ],
+          "parts": [
+            [
+              "kitrow_01_SkiDressExtinguisher",
+              0.382
+            ],
+            [
+              "rail_bay_knee",
+              0.413
+            ]
+          ]
+        },
+        "front ledge": {
+          "from": "NW",
+          "to": "NE",
+          "box": [
+            -1.9,
+            2.1,
+            -3.97,
+            -2.4
+          ],
+          "width": 0.792,
+          "at": [
+            1.06,
+            -3.58
+          ],
+          "parts": [
+            [
+              "hut",
+              0.396
+            ],
+            [
+              "stakewrap_1",
+              0.441
+            ]
+          ]
+        }
+      },
+      "nodes": {
+        "crest": [
+          -1.087,
+          -2.133
+        ],
+        "door": [
+          1.513,
+          -5.133
+        ],
+        "NW": [
+          -1.237,
+          -3.683
+        ],
+        "NE": [
+          1.463,
+          -3.683
+        ],
+        "SW": [
+          -1.287,
+          -5.733
+        ],
+        "SE": [
+          1.163,
+          -6.033
+        ]
+      },
+      "rule": {
+        "min": 0.7,
+        "band": [
+          0.3,
+          1.8
+        ],
+        "floor_tol": 0.05,
+        "grid": 0.05,
+        "cap": 0.8,
+        "surface_z": 1.0,
+        "standing_cells": 6361,
+        "plan_triangles": 1355
+      }
+    },
+    "M10": {
+      "panes": {
+        "hutwin_mx": {
+          "side": "-x",
+          "facing_wall_m": null
+        },
+        "hutwin_my": {
+          "side": "-y",
+          "facing_wall_m": null
+        },
+        "hutwin_py": {
+          "side": "+y",
+          "facing_wall_m": null
+        }
+      },
+      "house_sides": [],
+      "hut_sides": [
+        "+y",
+        "-x",
+        "-y"
+      ],
+      "cells": {
+        "7": 3
+      }
+    },
+    "M13": {
+      "intensity": 0.4,
+      "ok": true,
+      "ladder": [
+        [
+          0.4,
+          true
+        ],
+        [
+          0.45,
+          false
+        ]
+      ]
+    },
+    "M11": {
+      "sign": {
+        "px_per_m": 448.0,
+        "digit_px_h": 313.6,
+        "digit_coverage_ratio": 1.0001,
+        "digit_aa_levels": 63,
+        "owner": "signboard",
+        "shared_with": [],
+        "badge": null
+      },
+      "labels": {
+        "label_ops": [
+          400.0,
+          400.0
+        ],
+        "label_slow": [
+          400.0,
+          400.0
+        ],
+        "label_unload": [
+          400.0,
+          400.0
+        ]
+      },
+      "scale": null
+    },
+    "M14": {
+      "w1_px_per_m": 97.81,
+      "median_px_per_m": 71.12,
+      "starving_lt14": []
+    },
+    "M15": {
+      "lod0": 2660,
+      "cap": 3600,
+      "lod1": 1196,
+      "lod2": 400,
+      "lod2_target": 400,
+      "batches": 9
+    }
+  }
+}

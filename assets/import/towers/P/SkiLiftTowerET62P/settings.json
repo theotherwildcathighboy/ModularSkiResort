@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiLiftTowerET62P_LOD1_BaseColor.png": "SkiLiftTowerET62P_BaseColor.png",
+    "SkiLiftTowerET62P_LOD1_ControlMask.png": "SkiLiftTowerET62P_ControlMask.png",
+    "SkiLiftTowerET62P_LOD1_MaskMap.png": "SkiLiftTowerET62P_MaskMap.png",
+    "SkiLiftTowerET62P_LOD1_Normal.png": "SkiLiftTowerET62P_Normal.png",
+    "SkiLiftTowerET62P_LOD2_BaseColor.png": "SkiLiftTowerET62P_BaseColor.png",
+    "SkiLiftTowerET62P_LOD2_ControlMask.png": "SkiLiftTowerET62P_ControlMask.png",
+    "SkiLiftTowerET62P_LOD2_MaskMap.png": "SkiLiftTowerET62P_MaskMap.png",
+    "SkiLiftTowerET62P_LOD2_Normal.png": "SkiLiftTowerET62P_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

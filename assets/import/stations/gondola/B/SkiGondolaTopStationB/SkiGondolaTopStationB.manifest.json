@@ -1,0 +1,2956 @@
+{
+  "name": "SkiGondolaTopStationB",
+  "written_utc": "2026-10-19T17:19:54Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiGondolaTopStationB.fbx": {
+      "bytes": 614204,
+      "sha1": "b8c4a23dfdcdb5bd39e96c28a3b360203903d6c1"
+    },
+    "SkiGondolaTopStationB_BaseColor.png": {
+      "bytes": 2614728,
+      "sha1": "5e88ad9fff94f22eced959738f2dd8b5b33edc0b"
+    },
+    "SkiGondolaTopStationB_ControlMask.png": {
+      "bytes": 131555,
+      "sha1": "1bc7bf208b0603dcf78398a13f6cfb23791f6e3e"
+    },
+    "SkiGondolaTopStationB_Emissive.png": {
+      "bytes": 88492,
+      "sha1": "5aabaf51a934a404e648fb12a7d7bd2cd80ab992"
+    },
+    "SkiGondolaTopStationB_LOD1.fbx": {
+      "bytes": 227132,
+      "sha1": "ca1ce3284b16d72e683b3b2eb38328c384e00c4e"
+    },
+    "SkiGondolaTopStationB_LOD1_Win.fbx": {
+      "bytes": 21244,
+      "sha1": "bddf10510869099874c34d9be74538886f317cb5"
+    },
+    "SkiGondolaTopStationB_LOD2.fbx": {
+      "bytes": 55948,
+      "sha1": "8aad41baedb027a920ff909388aff0fafc821e72"
+    },
+    "SkiGondolaTopStationB_LOD2_Win.fbx": {
+      "bytes": 21244,
+      "sha1": "d186fd83dfe655eefdff9491f236c820afb2a3e2"
+    },
+    "SkiGondolaTopStationB_MaskMap.png": {
+      "bytes": 1067126,
+      "sha1": "906b7c92c887d0c2817101372fa85aa57ac9b29d"
+    },
+    "SkiGondolaTopStationB_Normal.png": {
+      "bytes": 1121579,
+      "sha1": "bbe6eb4051ce0bff9ece91fb30aaf7e604445319"
+    },
+    "SkiGondolaTopStationB_Win.fbx": {
+      "bytes": 21228,
+      "sha1": "b23bdadc1b03c11567d1b880f03b2ad3b67afb48"
+    },
+    "settings.json": {
+      "bytes": 799,
+      "sha1": "a8b1d6cac5558e4965f119a3f22fd90c5dbc5345"
+    }
+  },
+  "generator": "lift_terminal_detach.py",
+  "kind": "building",
+  "variant": "gd-top",
+  "spec": "dq-terminal.md + dq-terminal-skeptic.md MUST-CHANGE 1-13 + Revision 1 (verdicts-2026-10-11.md #3-4: front ladder, one underside ladder, gangplank, no left-flank railings, sign band, housing windows) + Revision 1b polish (vector plate digits, plate-edge relief / occlusion) + Revision 2 (second look 3': the front ladder extends to the ground)",
+  "revision": 2,
+  "revision_polish": "1b 2026-10-11: vector Bfont plate digits (anti-aliased, 448 px/m), plate-edge relief + emblem panel edge occlusion",
+  "revision2": "2 2026-10-11 (second look 3'): the nose ladder runs from a ground footing (open-bottom, z 0) through a ladder-way in the landing to the crown, one 0.30 rung grid, no cage",
+  "front_ladder": {
+    "nose_ladder": {
+      "x": -10.22,
+      "y": -5.4,
+      "z_foot": 0.1,
+      "z_top": 9.1247,
+      "z_rim": 8.0547,
+      "rungs": 26,
+      "rung_z": [
+        0.35,
+        7.85
+      ],
+      "foot": [
+        -10.57,
+        -10.1,
+        -5.8,
+        -5.0,
+        0.0,
+        0.1
+      ],
+      "foot_ok_edges": 4,
+      "climb_room": {
+        "fixed": [
+          1.5,
+          null
+        ],
+        "chairs": [
+          1.5,
+          null
+        ]
+      }
+    },
+    "roof_ladder": {
+      "x": [
+        -9.92,
+        -9.36
+      ],
+      "rungs": 17,
+      "first": [
+        -5.27279,
+        8.19992
+      ],
+      "last": [
+        -0.4527,
+        8.66656
+      ],
+      "first_rung_gap_m": 0.689
+    }
+  },
+  "gondola_draft": "1 2026-10-11: walled hall, cabin-silhouette portals, boarding platforms + edge stripes, operator room, machinery deck + internal stair, nose + roof ladder from a z 0 footing, glazing band, portal-face sign, real-cabin sweep (build report 'Gondola stations, draft 1')",
+  "gondola": {
+    "portal": {
+      "outline_lane_uz": [
+        [
+          -1.45,
+          0.0
+        ],
+        [
+          -1.45,
+          1.2
+        ],
+        [
+          -1.45,
+          3.15
+        ],
+        [
+          -1.430423,
+          3.273607
+        ],
+        [
+          -1.373607,
+          3.385114
+        ],
+        [
+          -1.285114,
+          3.473607
+        ],
+        [
+          -1.173607,
+          3.530423
+        ],
+        [
+          -1.05,
+          3.55
+        ],
+        [
+          -0.65,
+          3.55
+        ],
+        [
+          -0.55,
+          3.576795
+        ],
+        [
+          -0.476795,
+          3.65
+        ],
+        [
+          -0.45,
+          3.75
+        ],
+        [
+          -0.45,
+          5.1
+        ],
+        [
+          -0.43097,
+          5.195671
+        ],
+        [
+          -0.376777,
+          5.276777
+        ],
+        [
+          -0.295671,
+          5.33097
+        ],
+        [
+          -0.2,
+          5.35
+        ],
+        [
+          0.85,
+          5.35
+        ],
+        [
+          0.945671,
+          5.33097
+        ],
+        [
+          1.026777,
+          5.276777
+        ],
+        [
+          1.08097,
+          5.195671
+        ],
+        [
+          1.1,
+          5.1
+        ],
+        [
+          1.1,
+          3.55
+        ],
+        [
+          1.223607,
+          3.530423
+        ],
+        [
+          1.335114,
+          3.473607
+        ],
+        [
+          1.423607,
+          3.385114
+        ],
+        [
+          1.480423,
+          3.273607
+        ],
+        [
+          1.5,
+          3.15
+        ],
+        [
+          1.5,
+          1.2
+        ],
+        [
+          1.5,
+          0.0
+        ]
+      ],
+      "clear_m": 0.3,
+      "margin_beyond_clear_m": 0.0373,
+      "tightest_box": "carriage",
+      "tightest_pin_dz": 0.08,
+      "openings_y": [
+        [
+          -1.55,
+          -4.5
+        ],
+        [
+          1.55,
+          4.5
+        ]
+      ]
+    },
+    "platforms": {
+      "n": {
+        "top_y": 0.3,
+        "edge_abs_y": 4.42,
+        "stripe_m": 0.12,
+        "board_x": [
+          -9.75,
+          3.8
+        ],
+        "board_length_m": 13.55,
+        "walk_x": [
+          3.8,
+          7.85
+        ],
+        "walk_abs_y": [
+          4.9,
+          6.0
+        ]
+      },
+      "p": {
+        "top_y": 0.3,
+        "edge_abs_y": 4.42,
+        "stripe_m": 0.12,
+        "board_x": [
+          -9.75,
+          3.8
+        ],
+        "board_length_m": 13.55,
+        "walk_x": [
+          3.8,
+          6.6
+        ],
+        "walk_abs_y": [
+          4.9,
+          6.0
+        ]
+      }
+    },
+    "cabin_floor": {
+      "underside_y_today": 0.35,
+      "underside_y_rope_pin": 0.43,
+      "platform_y": 0.3,
+      "step_in_m": 0.05
+    },
+    "stair": {
+      "x0": 6.6,
+      "x1": 9.25,
+      "xbw": 10.1,
+      "y_wall": -6.0,
+      "ya": -5.15,
+      "yb": -2.55,
+      "z0": 0.3,
+      "zl": 2.95,
+      "zt": 5.6,
+      "n": 13,
+      "rise1": 0.2038,
+      "going1": 0.2208,
+      "rise2": 0.2038,
+      "going2": 0.2167,
+      "pitch_deg": 43.25,
+      "headroom_min_m": 2.194
+    },
+    "walkable": [
+      {
+        "surface": "floor (cabin trough)",
+        "y": 0.03,
+        "from": "grade",
+        "by": "the portal mouths: the openings reach grade, 0.03 m apron step"
+      },
+      {
+        "surface": "platf_n (boarding)",
+        "y": 0.3,
+        "from": "grade",
+        "by": "a 2.00 m ramp stepside_n (0 -> 0.3, under a canopy) + double side door at x 2.40 (a 1.8 x 2.3 m opening cut through the wall, sill = the platform top)"
+      },
+      {
+        "surface": "platf_p (boarding)",
+        "y": 0.3,
+        "from": "grade",
+        "by": "a 2.00 m ramp stepside_p (0 -> 0.3, under a canopy) + double side door at x 2.40 (a 1.8 x 2.3 m opening cut through the wall, sill = the platform top)"
+      },
+      {
+        "surface": "opr_floor (operator room)",
+        "y": 0.3,
+        "from": "platf_n",
+        "by": "walkway |y| >= 4.90 past the turn -> door on the room's -X wall (a 0.85 x 1.95 m opening cut through it)"
+      },
+      {
+        "surface": "grate_stl (stair landing)",
+        "y": 2.95,
+        "from": "platf_p",
+        "by": "stair flight 1 (13 risers of 0.204, goings 0.221) from the +Y walkway end x 6.60"
+      },
+      {
+        "surface": "grate_dka / grate_dkb (machinery deck)",
+        "y": 5.6,
+        "from": "grate_stl",
+        "by": "stair flight 2 (13 risers of 0.204, goings 0.217) to the deck edge y 2.55"
+      },
+      {
+        "surface": "roof crown (wind mast)",
+        "y": 8.55,
+        "from": "grade",
+        "by": "lfoot_nz (z 0) -> nose ladder on the portal face y -5.4 (26 rungs 0.35 -> 7.85, rails to 9.12) -> roof ladder over the curve (17 rungs, ends |y| 0.45)"
+      },
+      {
+        "surface": "roof shell (shallow standing seam, 0 -> 14.5 deg)",
+        "y": 7.6,
+        "from": "roof crown",
+        "by": "steps off the roof ladder (it lies on the roof); snow guards along the eaves"
+      }
+    ],
+    "doors": {
+      "n": {
+        "opening_m": [
+          1.8,
+          2.3
+        ],
+        "sill_y": 0.3,
+        "wall_m": 0.25,
+        "rays_clear": 9,
+        "ray_spread_m": 0.6,
+        "clear_rays": 54,
+        "clear_opening_m": [
+          1.8,
+          2.3
+        ],
+        "head_y": 2.6,
+        "centre_post": false
+      },
+      "p": {
+        "opening_m": [
+          1.8,
+          2.3
+        ],
+        "sill_y": 0.3,
+        "wall_m": 0.25,
+        "rays_clear": 9,
+        "ray_spread_m": 0.6,
+        "clear_rays": 54,
+        "clear_opening_m": [
+          1.8,
+          2.3
+        ],
+        "head_y": 2.6,
+        "centre_post": false
+      },
+      "opr": {
+        "opening_m": [
+          0.85,
+          1.95
+        ],
+        "sill_y": 0.3,
+        "wall_m": 0.1,
+        "rays_clear": 9,
+        "ray_spread_m": 0.3
+      }
+    },
+    "not_walkable": [
+      {
+        "part": "canopy_n",
+        "area_m2": 5.16,
+        "min_side_m": 1.72,
+        "top_y": 2.95,
+        "why": "the entry canopies are roofs over the doors (3.0 x 1.8 m sheet steel on two tie rods), not walking surfaces; nothing on them needs service and snow is pushed off from the platform"
+      },
+      {
+        "part": "canopy_p",
+        "area_m2": 5.16,
+        "min_side_m": 1.72,
+        "top_y": 2.95,
+        "why": "the entry canopies are roofs over the doors (3.0 x 1.8 m sheet steel on two tie rods), not walking surfaces; nothing on them needs service and snow is pushed off from the platform"
+      },
+      {
+        "part": "opr_roof",
+        "area_m2": 4.73,
+        "min_side_m": 2.03,
+        "top_y": 3.02,
+        "why": "the operator room's ceiling slab INSIDE the hall, 2.3 m under the machinery deck: a room's roof, not a platform (no railing, nothing to service up there, hidden behind the glass)"
+      },
+      {
+        "part": "sheave_bull_rim",
+        "area_m2": 5.354,
+        "min_side_m": 6.0,
+        "top_y": 5.075,
+        "why": "the bullwheel rim (machine, under the deck grating)"
+      },
+      {
+        "part": "tension_carriage",
+        "area_m2": 2.666,
+        "min_side_m": 1.36,
+        "top_y": 6.1,
+        "why": "the tension carriage top (machine; serviced from the deck grating beside it)"
+      },
+      {
+        "part": "wheelrope",
+        "area_m2": 1.038,
+        "min_side_m": 6.095,
+        "top_y": 4.898,
+        "why": "the haul rope round the bullwheel (machine)"
+      }
+    ],
+    "standable_census": {
+      "rule": "up faces (n.z >= 0.98) above 0.10 m, >= 0.5 m2 and >= 0.4 m both ways per part",
+      "walkable": [
+        "grate_dka",
+        "grate_dka_lip",
+        "grate_dkb",
+        "grate_dkb_lip",
+        "grate_stl",
+        "opr_floor",
+        "platf_n",
+        "platf_p",
+        "roof_shell_0",
+        "roof_shell_1",
+        "roof_shell_2",
+        "stepside_n",
+        "stepside_p"
+      ],
+      "declared": [
+        "canopy_",
+        "opr_roof",
+        "sheave_bull",
+        "tension_",
+        "wheelrope"
+      ]
+    },
+    "front_ladder": {
+      "nose_ladder": {
+        "x": -10.22,
+        "y": -5.4,
+        "z_foot": 0.1,
+        "z_top": 9.1247,
+        "z_rim": 8.0547,
+        "rungs": 26,
+        "rung_z": [
+          0.35,
+          7.85
+        ],
+        "foot": [
+          -10.57,
+          -10.1,
+          -5.8,
+          -5.0,
+          0.0,
+          0.1
+        ],
+        "foot_ok_edges": 4,
+        "climb_room": {
+          "fixed": [
+            1.5,
+            null
+          ],
+          "chairs": [
+            1.5,
+            null
+          ]
+        }
+      },
+      "roof_ladder": {
+        "x": [
+          -9.92,
+          -9.36
+        ],
+        "rungs": 17,
+        "first": [
+          -5.27279,
+          8.19992
+        ],
+        "last": [
+          -0.4527,
+          8.66656
+        ],
+        "first_rung_gap_m": 0.689
+      }
+    },
+    "glazing": {
+      "panes": 76,
+      "pane_tris": 152,
+      "glazed_fraction": {
+        "n": 0.9745,
+        "p": 0.9745
+      },
+      "mullion_w_max_m": 0.1,
+      "rooms": {
+        "b0": 17,
+        "b1": 18,
+        "b2": 19,
+        "b3": 20,
+        "b4": 21,
+        "b5": 22,
+        "f0": 23,
+        "f1": 1,
+        "f2": 2,
+        "f4": 3,
+        "f5": 4,
+        "f6": 5,
+        "n00": 6,
+        "n01": 7,
+        "n02": 8,
+        "n03": 9,
+        "n04": 10,
+        "n05": 11,
+        "n06": 12,
+        "n07": 13,
+        "n08": 14,
+        "opr": 15,
+        "p00": 16,
+        "p01": 17,
+        "p02": 18,
+        "p03": 19,
+        "p04": 20,
+        "p05": 21,
+        "p06": 22,
+        "p07": 23,
+        "p08": 1
+      },
+      "room_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "neighbour_m": 3.0,
+      "hard_pairs": 64,
+      "pane_area_m2": {
+        "n": 115.87,
+        "p": 115.87,
+        "f": 11.64,
+        "b": 71.88
+      },
+      "tiers_z": [
+        [
+          1.26,
+          2.64
+        ],
+        [
+          2.64,
+          5.6
+        ],
+        [
+          5.6,
+          7.25
+        ]
+      ],
+      "bays_x": [
+        [
+          -9.75,
+          -7.54,
+          "hall"
+        ],
+        [
+          -7.54,
+          -5.33,
+          "hall"
+        ],
+        [
+          -5.33,
+          -3.12,
+          "hall"
+        ],
+        [
+          -3.12,
+          -0.91,
+          "hall"
+        ],
+        [
+          -0.91,
+          1.3,
+          "hall"
+        ],
+        [
+          1.3,
+          3.5,
+          "door"
+        ],
+        [
+          3.5,
+          5.675,
+          "hall"
+        ],
+        [
+          5.675,
+          7.85,
+          "hall"
+        ],
+        [
+          7.85,
+          10.1,
+          "opr"
+        ]
+      ],
+      "nose_bays_y": [
+        -6.0,
+        -4.5,
+        -3.0,
+        -1.15,
+        1.15,
+        3.0,
+        4.5,
+        6.0
+      ],
+      "back_bays_y": [
+        -6.0,
+        -4.0,
+        -2.0,
+        0.0,
+        2.0,
+        4.0,
+        6.0
+      ],
+      "door": {
+        "clear_m": [
+          1.8,
+          2.3
+        ],
+        "x": 2.4,
+        "leaves": 2,
+        "draft1_clear_m": [
+          0.85,
+          1.95
+        ]
+      }
+    },
+    "cabin_sweep": {
+      "min_clear_m": 0.32,
+      "nearest_part": "floor_0",
+      "at": "lane -Y x -9.25",
+      "pin": "grip-top pin",
+      "how": "cabin vertex -> station",
+      "gate_m": 0.3,
+      "placements": 418,
+      "search_m": 0.55,
+      "nearest_by_part": {
+        "floor_0": {
+          "m": 0.32,
+          "at": "lane -Y x -9.25",
+          "pin": "grip-top pin"
+        },
+        "floor_1": {
+          "m": 0.32,
+          "at": "lane -Y x +0.75",
+          "pin": "grip-top pin"
+        },
+        "apron_n": {
+          "m": 0.32,
+          "at": "lane -Y x -10.00",
+          "pin": "grip-top pin"
+        },
+        "apron_p": {
+          "m": 0.32,
+          "at": "lane +Y x -10.00",
+          "pin": "grip-top pin"
+        },
+        "portalframe_n": {
+          "m": 0.35,
+          "at": "lane -Y x -10.50",
+          "pin": "grip-top pin"
+        },
+        "wall_nose": {
+          "m": 0.35,
+          "at": "lane -Y x -10.50",
+          "pin": "grip-top pin"
+        },
+        "portalframe_p": {
+          "m": 0.35,
+          "at": "lane +Y x -10.50",
+          "pin": "grip-top pin"
+        },
+        "dkbeam_0": {
+          "m": 0.37,
+          "at": "lane -Y x +3.25",
+          "pin": "rope-point pin"
+        },
+        "dkbeam_2": {
+          "m": 0.37,
+          "at": "turn -75 deg",
+          "pin": "rope-point pin"
+        },
+        "dkbeam_3": {
+          "m": 0.37,
+          "at": "turn -39 deg",
+          "pin": "rope-point pin"
+        }
+      },
+      "cabin": {
+        "fbx": "assets/import/cabins/A/SkiGondolaCabin8A/SkiGondolaCabin8A.fbx",
+        "sha1": "04cae387629d60a1ad1927378802a3e64b321daf",
+        "verts": 1363,
+        "tris": 2404,
+        "bounds_m": [
+          [
+            -1.0499,
+            -0.0,
+            -1.18
+          ],
+          [
+            1.094,
+            4.5,
+            1.18
+          ]
+        ],
+        "max_edge_m": 1.7957,
+        "outboard_authoring": "-Y",
+        "frame": "u = sign * raw x (outboard +), h = raw y, t = sign * raw z (proper; nitpick A3)",
+        "stalk_u_m": [
+          0.5013,
+          0.749
+        ]
+      },
+      "excluded_machine": [
+        "haulrope_",
+        "wheelrope",
+        "sheave_bull",
+        "spoke_",
+        "wheelhub",
+        "detrail_",
+        "railhang_",
+        "tyre",
+        "drive_",
+        "tension_",
+        "sheave_guide",
+        "guideframe_"
+      ],
+      "method": "BVH overlap per pose + vertex-to-surface both ways (cabin LOD0 vertices; station vertices within the pose box); straights every 0.25 m from 1 m outside the anchor, the turn every 3 deg"
+    },
+    "fit": {
+      "fit_parts": 24,
+      "c8_nearest_m": 0.493,
+      "sub_objects": 15,
+      "lot_cells": [
+        3,
+        4
+      ],
+      "mesh_x": [
+        -12.1,
+        10.95
+      ],
+      "mesh_y": [
+        -8.25,
+        8.25
+      ]
+    }
+  },
+  "gondola_rev1": "1 2026-10-11 (eighth look): the LONG GLAZED HALL - stone plinth + coping, full-height `_Win` glazing between slim steel mullions on both long sides, the back and above the portal lintel, ring beams, a shallow standing-seam roof on deep eaves (outriggers, cedar soffits, linear soffit lights, snow guards, gutters, downspouts), double-door skier entries with canopies and ramps, three signs on one rect, vanilla lamp posts / lights / props as sub-objects, the detail pass's dressing + labels + weathering, lot 3 x 4 (build/gondola-stations-rev1.md)",
+  "finish": "shipping",
+  "atlas_px": 2048,
+  "ao_samples": 48,
+  "pack_margin_px": 6,
+  "tris": {
+    "0": 8661,
+    "1": 3121,
+    "2": 490
+  },
+  "tris_win": 152,
+  "parts": 473,
+  "caps": {
+    "lod0": 10000,
+    "lod1_max": null,
+    "lod2": 500
+  },
+  "materials": [
+    "accent3",
+    "cedar",
+    "concrete",
+    "darksteel",
+    "galv",
+    "glass",
+    "label",
+    "lamp",
+    "pad2",
+    "paint1",
+    "rope",
+    "rubber",
+    "signband",
+    "stone",
+    "stripe",
+    "wheelsteel"
+  ],
+  "bake_materials": {
+    "0": {
+      "faces": 17,
+      "texels": 13804,
+      "slot": 3,
+      "normal": "none",
+      "recolor_scale": 0.9999999012886178
+    },
+    "1": {
+      "faces": 72,
+      "texels": 17071,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "2": {
+      "faces": 281,
+      "texels": 214241,
+      "slot": 0,
+      "normal": "GL",
+      "recolor_scale": null
+    },
+    "3": {
+      "faces": 622,
+      "texels": 11119,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "4": {
+      "faces": 1806,
+      "texels": 37006,
+      "slot": 0,
+      "normal": "GL",
+      "recolor_scale": null
+    },
+    "5": {
+      "faces": 25,
+      "texels": 8424,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "6": {
+      "faces": 2,
+      "texels": 100800,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "7": {
+      "faces": 90,
+      "texels": 2814,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "8": {
+      "faces": 709,
+      "texels": 648857,
+      "slot": 1,
+      "normal": "none",
+      "recolor_scale": 1.0
+    },
+    "9": {
+      "faces": 252,
+      "texels": 21151,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "10": {
+      "faces": 672,
+      "texels": 1145,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "11": {
+      "faces": 3,
+      "texels": 307328,
+      "slot": 3,
+      "normal": "none",
+      "recolor_scale": 1.0000000987114017
+    },
+    "12": {
+      "faces": 88,
+      "texels": 66190,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "13": {
+      "faces": 10,
+      "texels": 3098,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "14": {
+      "faces": 88,
+      "texels": 1751,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    }
+  },
+  "detail": [
+    "apron_",
+    "band_",
+    "beam_",
+    "board_",
+    "cab_",
+    "canopy_",
+    "coping_",
+    "crosshead_",
+    "dkbeam_",
+    "door_",
+    "door_cab_leaf",
+    "door_eng_leaf",
+    "door_n_leaf",
+    "door_opr_leaf",
+    "door_p_leaf",
+    "eavesof_",
+    "endglass_",
+    "engroom_",
+    "gable_",
+    "grate_",
+    "grate_balc_i_lip",
+    "grate_balc_lip",
+    "grate_balc_n_lip",
+    "grate_balc_o_lip",
+    "grate_gang_lip",
+    "haulrope_",
+    "label_",
+    "lamp_",
+    "mull_",
+    "opr_walls",
+    "outrig_",
+    "ped_",
+    "platf_",
+    "plinth_",
+    "pstripe_",
+    "ringbeam_",
+    "roof_",
+    "signband_",
+    "signplate_",
+    "snowguard_",
+    "soffit_",
+    "spandrel_",
+    "spine_",
+    "stonebase_",
+    "stread_",
+    "transom_",
+    "wall_",
+    "wallin_",
+    "wheelrope",
+    "winframe_"
+  ],
+  "relief_height_m": [
+    -0.024000000208616257,
+    0.0
+  ],
+  "sign_band": {
+    "signband_n": {
+      "rect": [
+        1648,
+        2040,
+        16,
+        800
+      ],
+      "px_per_m": 448.0,
+      "px_per_m_uv": [
+        448.0,
+        448.0
+      ],
+      "emblem_px": 392,
+      "emblem_texels": 49141,
+      "plate_cols": [
+        482,
+        784
+      ],
+      "plate_texels": 118384,
+      "digit_texels": 33979.8,
+      "digit_texels_expected": 33979.4,
+      "digit_coverage_ratio": 1.0,
+      "digit_full_texels": 33132,
+      "digit_aa_texels": 1700,
+      "digit_aa_levels": 63,
+      "digit_outside_box": 0.0,
+      "digit_font": "Bfont (builtin)",
+      "digit_ss": 8,
+      "digit_tris": 194,
+      "digit_px_h": 313.6,
+      "digit_h_m": 0.7,
+      "digit_w_m": 0.436,
+      "digit_box_m": [
+        0.5,
+        0.7
+      ],
+      "relief": {
+        "bevel_m": 0.016,
+        "bevel_h_m": 0.005,
+        "plate_step_m": 0.008,
+        "plate_step_h_m": 0.002,
+        "bead_inset_m": 0.026,
+        "bead_w_m": 0.01,
+        "bead_h_m": 0.0015,
+        "edge_ao": 0.14,
+        "edge_ao_m": 0.045,
+        "occ_min": 0.86,
+        "tilt_max_deg": 41.93,
+        "tilt_field_deg": 0.0,
+        "tilted_texels": 26416
+      },
+      "digits": "8",
+      "px_per_m_min": 442.8,
+      "reserved_uv": [
+        0.0078125,
+        0.8046875,
+        0.390625,
+        0.99609375
+      ],
+      "shared_with": [
+        "signband_p",
+        "signband_q"
+      ]
+    }
+  },
+  "ctl_seam_texels_scaled": 8,
+  "sign_reserved_uv": {
+    "n": [
+      0.0078125,
+      0.8046875,
+      0.390625,
+      0.99609375
+    ]
+  },
+  "rev1": {
+    "spec": "gondola revision 1 (verdicts-2026-10-11 eighth look: the long glazed hall, 3 x 4 lot, bigger skier entries) + the detach detail pass's kit where it fits (labels, weathering, vanilla sub-objects); build/gondola-stations-rev1.md",
+    "density": {
+      "w1_px_per_m": 28.08,
+      "median_px_per_m": 11.27,
+      "classes": {
+        "apron_": {
+          "px_per_m": 8.4,
+          "m2": 0.18,
+          "w": 0.3
+        },
+        "board_": {
+          "px_per_m": 16.8,
+          "m2": 1.26,
+          "w": 0.6
+        },
+        "cabinet_": {
+          "px_per_m": 16.8,
+          "m2": 0.98,
+          "w": 0.6
+        },
+        "canopy_": {
+          "px_per_m": 28.1,
+          "m2": 22.57,
+          "w": 1.0
+        },
+        "canopyrod_": {
+          "px_per_m": 19.7,
+          "m2": 0.96,
+          "w": 0.7
+        },
+        "ceil_": {
+          "px_per_m": 3.4,
+          "m2": 238.2,
+          "w": 0.12
+        },
+        "clamp_": {
+          "px_per_m": 28.1,
+          "m2": 0.18,
+          "w": 1.0
+        },
+        "commbracket_": {
+          "px_per_m": 28.1,
+          "m2": 0.66,
+          "w": 1.0
+        },
+        "commcable_": {
+          "px_per_m": 28.1,
+          "m2": 0.7,
+          "w": 1.0
+        },
+        "coping_": {
+          "px_per_m": 25.3,
+          "m2": 41.77,
+          "w": 0.9
+        },
+        "detrail_": {
+          "px_per_m": 8.4,
+          "m2": 19.23,
+          "w": 0.3
+        },
+        "dkbeam_": {
+          "px_per_m": 5.6,
+          "m2": 47.15,
+          "w": 0.2
+        },
+        "door_": {
+          "px_per_m": 22.5,
+          "m2": 32.88,
+          "w": 0.8
+        },
+        "downspout_": {
+          "px_per_m": 16.8,
+          "m2": 9.35,
+          "w": 0.6
+        },
+        "eavesof_": {
+          "px_per_m": 16.8,
+          "m2": 52.05,
+          "w": 0.6
+        },
+        "floor_": {
+          "px_per_m": 8.4,
+          "m2": 241.2,
+          "w": 0.3
+        },
+        "gable_": {
+          "px_per_m": 25.3,
+          "m2": 15.27,
+          "w": 0.9
+        },
+        "grate_": {
+          "px_per_m": 7.0,
+          "m2": 164.17,
+          "w": 0.25
+        },
+        "guideframe_": {
+          "px_per_m": 28.1,
+          "m2": 3.36,
+          "w": 1.0
+        },
+        "gutter_": {
+          "px_per_m": 16.8,
+          "m2": 15.25,
+          "w": 0.6
+        },
+        "haulrope_": {
+          "px_per_m": 28.1,
+          "m2": 11.48,
+          "w": 1.0
+        },
+        "insul_": {
+          "px_per_m": 28.1,
+          "m2": 0.08,
+          "w": 1.0
+        },
+        "kick_": {
+          "px_per_m": 28.1,
+          "m2": 3.69,
+          "w": 1.0
+        },
+        "lamp_": {
+          "px_per_m": 16.8,
+          "m2": 8.31,
+          "w": 0.6
+        },
+        "lfoot_": {
+          "px_per_m": 19.7,
+          "m2": 0.63,
+          "w": 0.7
+        },
+        "lrail_": {
+          "px_per_m": 16.8,
+          "m2": 5.18,
+          "w": 0.6
+        },
+        "lrung_": {
+          "px_per_m": 16.8,
+          "m2": 1.97,
+          "w": 0.6
+        },
+        "lstand_": {
+          "px_per_m": 16.8,
+          "m2": 0.31,
+          "w": 0.6
+        },
+        "mull_": {
+          "px_per_m": 25.3,
+          "m2": 112.53,
+          "w": 0.9
+        },
+        "opr_": {
+          "px_per_m": 11.2,
+          "m2": 35.32,
+          "w": 0.4
+        },
+        "oprglass": {
+          "px_per_m": 8.4,
+          "m2": 1.55,
+          "w": 0.3
+        },
+        "outrig_": {
+          "px_per_m": 16.8,
+          "m2": 11.06,
+          "w": 0.6
+        },
+        "platf_": {
+          "px_per_m": 16.8,
+          "m2": 50.23,
+          "w": 0.6
+        },
+        "portalframe_": {
+          "px_per_m": 33.7,
+          "m2": 5.11,
+          "w": 1.2
+        },
+        "post_": {
+          "px_per_m": 16.8,
+          "m2": 3.58,
+          "w": 0.6
+        },
+        "pstripe_": {
+          "px_per_m": 16.8,
+          "m2": 10.7,
+          "w": 0.6
+        },
+        "rail_": {
+          "px_per_m": 16.8,
+          "m2": 7.6,
+          "w": 0.6
+        },
+        "railhang_": {
+          "px_per_m": 8.4,
+          "m2": 6.76,
+          "w": 0.3
+        },
+        "ringbeam_": {
+          "px_per_m": 22.5,
+          "m2": 88.71,
+          "w": 0.8
+        },
+        "roof_": {
+          "px_per_m": 37.9,
+          "m2": 326.42,
+          "w": 1.35
+        },
+        "rooflining": {
+          "px_per_m": 2.8,
+          "m2": 265.73,
+          "w": 0.1
+        },
+        "sheave_": {
+          "px_per_m": 22.5,
+          "m2": 11.01,
+          "w": 0.8
+        },
+        "sheave_bull": {
+          "px_per_m": 8.4,
+          "m2": 19.76,
+          "w": 0.3
+        },
+        "signplate_": {
+          "px_per_m": 28.1,
+          "m2": 9.72,
+          "w": 1.0
+        },
+        "snowguard_": {
+          "px_per_m": 16.8,
+          "m2": 8.23,
+          "w": 0.6
+        },
+        "spandrel_": {
+          "px_per_m": 28.1,
+          "m2": 7.84,
+          "w": 1.0
+        },
+        "spoke_": {
+          "px_per_m": 8.4,
+          "m2": 7.71,
+          "w": 0.3
+        },
+        "stepside_": {
+          "px_per_m": 25.3,
+          "m2": 9.29,
+          "w": 0.9
+        },
+        "stonebase_": {
+          "px_per_m": 30.9,
+          "m2": 70.07,
+          "w": 1.1
+        },
+        "stpost": {
+          "px_per_m": 11.2,
+          "m2": 0.86,
+          "w": 0.4
+        },
+        "stread_": {
+          "px_per_m": 8.4,
+          "m2": 10.49,
+          "w": 0.3
+        },
+        "stringer_": {
+          "px_per_m": 8.4,
+          "m2": 9.29,
+          "w": 0.3
+        },
+        "tension_": {
+          "px_per_m": 8.4,
+          "m2": 15.45,
+          "w": 0.3
+        },
+        "transom_": {
+          "px_per_m": 19.7,
+          "m2": 49.63,
+          "w": 0.7
+        },
+        "tyre": {
+          "px_per_m": 8.4,
+          "m2": 10.71,
+          "w": 0.3
+        },
+        "wall_": {
+          "px_per_m": 29.7,
+          "m2": 170.71,
+          "w": 1.3
+        },
+        "wheelhub": {
+          "px_per_m": 8.4,
+          "m2": 2.7,
+          "w": 0.3
+        },
+        "wheelrope": {
+          "px_per_m": 42.1,
+          "m2": 6.24,
+          "w": 1.5
+        },
+        "wxarm": {
+          "px_per_m": 28.1,
+          "m2": 0.04,
+          "w": 1.0
+        },
+        "wxbox": {
+          "px_per_m": 28.1,
+          "m2": 0.07,
+          "w": 1.0
+        },
+        "wxmast": {
+          "px_per_m": 28.1,
+          "m2": 0.16,
+          "w": 1.0
+        }
+      },
+      "starving_lt14": [
+        "dkbeam_",
+        "floor_",
+        "grate_",
+        "opr_",
+        "oprglass",
+        "stpost",
+        "stread_",
+        "stringer_"
+      ]
+    },
+    "emissive": {
+      "lit_texels": 29956,
+      "cool_texels": 0,
+      "warm_texels": 29956
+    },
+    "labels": {
+      "label_ops": {
+        "kind": "ops",
+        "rect": [
+          1900,
+          2040,
+          808,
+          1288
+        ],
+        "px_per_m": [
+          400.0,
+          400.0
+        ],
+        "size_m": [
+          1.2,
+          0.35
+        ],
+        "lines": [
+          "LIFT OPS"
+        ],
+        "cap_m": 0.1772,
+        "condense": 0.802,
+        "glyph_m": 0.278,
+        "stroke_px": 11.37,
+        "picto_stroke_px": 4.4,
+        "style": "blue",
+        "read_m": 34.8,
+        "t2_ok": true,
+        "t1_ok": false,
+        "l1_ppm_ok": true,
+        "reserved_uv": [
+          0.39453125,
+          0.92773438,
+          0.62890625,
+          0.99609375
+        ]
+      },
+      "label_waitn": {
+        "kind": "waithere",
+        "rect": [
+          1900,
+          2040,
+          1296,
+          1536
+        ],
+        "px_per_m": [
+          400.0,
+          400.0
+        ],
+        "size_m": [
+          0.6,
+          0.35
+        ],
+        "lines": [
+          "WAIT",
+          "HERE"
+        ],
+        "cap_m": 0.071,
+        "condense": 0.8022,
+        "glyph_m": 0.258,
+        "stroke_px": 4.55,
+        "picto_stroke_px": 4.4,
+        "style": "yellow",
+        "read_m": 32.2,
+        "t2_ok": true,
+        "t1_ok": false,
+        "l1_ppm_ok": true,
+        "reserved_uv": [
+          0.6328125,
+          0.92773438,
+          0.75,
+          0.99609375
+        ]
+      }
+    },
+    "label_ppm": 400.0,
+    "weather": {
+      "intensity": 0.7,
+      "ladder": [
+        {
+          "intensity": 0.4,
+          "ok": true,
+          "VL1": 0.0202,
+          "VL2": 0.0227,
+          "VL3": -0.0056,
+          "VL4": 0.231,
+          "dLstar_mean": 0.488,
+          "dLstar_gt2": 0.0523
+        },
+        {
+          "intensity": 0.45,
+          "ok": true,
+          "VL1": 0.0227,
+          "VL2": 0.0268,
+          "VL3": -0.0063,
+          "VL4": 0.26,
+          "dLstar_mean": 0.548,
+          "dLstar_gt2": 0.0604
+        },
+        {
+          "intensity": 0.5,
+          "ok": true,
+          "VL1": 0.0252,
+          "VL2": 0.0306,
+          "VL3": -0.007,
+          "VL4": 0.289,
+          "dLstar_mean": 0.609,
+          "dLstar_gt2": 0.0707
+        },
+        {
+          "intensity": 0.55,
+          "ok": true,
+          "VL1": 0.0277,
+          "VL2": 0.0342,
+          "VL3": -0.0077,
+          "VL4": 0.318,
+          "dLstar_mean": 0.669,
+          "dLstar_gt2": 0.0842
+        },
+        {
+          "intensity": 0.6,
+          "ok": true,
+          "VL1": 0.0302,
+          "VL2": 0.0377,
+          "VL3": -0.0084,
+          "VL4": 0.347,
+          "dLstar_mean": 0.729,
+          "dLstar_gt2": 0.099
+        },
+        {
+          "intensity": 0.65,
+          "ok": true,
+          "VL1": 0.0327,
+          "VL2": 0.0411,
+          "VL3": -0.0091,
+          "VL4": 0.376,
+          "dLstar_mean": 0.789,
+          "dLstar_gt2": 0.1117
+        },
+        {
+          "intensity": 0.7,
+          "ok": true,
+          "VL1": 0.0352,
+          "VL2": 0.0444,
+          "VL3": -0.0098,
+          "VL4": 0.405,
+          "dLstar_mean": 0.849,
+          "dLstar_gt2": 0.1222
+        }
+      ],
+      "preset": "station",
+      "slot_wear": "free",
+      "snow": 0.0,
+      "vanilla": {
+        "VL1_mean_rel_dL": 0.03518,
+        "VL2_share_rel_dL_gt_0.15": 0.04437,
+        "VL3_mean_dsmooth": -0.0098,
+        "VL3_max_abs_dsmooth": 0.25783,
+        "VL4_max": 0.4049,
+        "VL5_snow_share": 0.0,
+        "visible_texels": 894826,
+        "ok": true,
+        "failed": []
+      },
+      "guards": {
+        "G1_alpha_kept": true,
+        "G2_msk_GB_kept": true,
+        "G3_worst_full_slot_rel": 0.595,
+        "G4_worst_floor_gap": 0.004314,
+        "G5_ctl_identity": true,
+        "G6_protect_identical": true,
+        "G7_range_ok": true
+      },
+      "perceptual": {
+        "mean_Lstar_before": 69.044,
+        "mean_abs_dLstar": 0.8488,
+        "p95_abs_dLstar": 3.646,
+        "share_dLstar_gt_2": 0.1222,
+        "texels": 894826,
+        "tinted": false
+      },
+      "coverage": {
+        "edge": 0.07701,
+        "grime": 0.30459,
+        "grime_cavity": 0.15005,
+        "grime_door": 0.00553,
+        "grime_eave": 0.18213,
+        "grime_ground": 0.04102,
+        "rust": 0.05063,
+        "scuff": 0.01664,
+        "snow": 0.0
+      },
+      "sources": {
+        "cover_overflow_cells": 1307,
+        "doors": 3,
+        "down_faces": 1157,
+        "geo_candidates": 7456,
+        "geo_pairs": 1112,
+        "lattice_curtain_faces": 216,
+        "lattice_faces": 216,
+        "lattice_skipped": 0,
+        "rust_sources": 273,
+        "traffic_parts": 36
+      },
+      "roles": {
+        "galv": 34201,
+        "masonry": 280432,
+        "none": 452972,
+        "pad": 822,
+        "paint": 16902,
+        "paint_steel": 652405,
+        "timber": 17072
+      }
+    },
+    "share": null,
+    "share_groups": null,
+    "shared_faces": null,
+    "detail_stats": {
+      "drawn": {
+        "seams": 537
+      },
+      "skipped": {
+        "helix": 252,
+        "seams": 65,
+        "grate": 185,
+        "bolts": 49
+      }
+    },
+    "sub_objects": {
+      "target_prefab": "SkiGondolaTopStationB",
+      "frame": "game local",
+      "objects": [
+        {
+          "prefab": "WallLightShortRangeRandom01",
+          "guid": "UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
+          "pos": [
+            3.33,
+            5.65,
+            -10.02
+          ],
+          "rot": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            7.2,
+            2.8,
+            2.4
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            5.15,
+            7.6,
+            -7.5
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            5.15,
+            7.6,
+            -2.3
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            5.15,
+            7.6,
+            2.4
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "TrashbinRandom01",
+          "guid": "UnityGUID:41e3c9ba6e1d6b948a6b1bc3499a5397",
+          "pos": [
+            7.45,
+            0.0,
+            4.1
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "GardenBenchRandom01",
+          "guid": "UnityGUID:8df0703be09426948b5bc3262d86bc04",
+          "pos": [
+            7.0,
+            0.0,
+            -2.0
+          ],
+          "rot": [
+            0.0,
+            0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "WallLightShortRangeRandom01",
+          "guid": "UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
+          "pos": [
+            -3.33,
+            5.65,
+            -10.02
+          ],
+          "rot": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            -7.2,
+            2.8,
+            2.4
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            -5.15,
+            7.6,
+            -7.5
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            -5.15,
+            7.6,
+            -2.3
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            -5.15,
+            7.6,
+            2.4
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "TrashbinRandom01",
+          "guid": "UnityGUID:41e3c9ba6e1d6b948a6b1bc3499a5397",
+          "pos": [
+            -7.45,
+            0.0,
+            4.1
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "GardenBenchRandom01",
+          "guid": "UnityGUID:8df0703be09426948b5bc3262d86bc04",
+          "pos": [
+            -7.0,
+            0.0,
+            -2.0
+          ],
+          "rot": [
+            0.0,
+            -0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "WallLightShortRangeRandom01",
+          "guid": "UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
+          "pos": [
+            4.55,
+            2.1,
+            7.83
+          ],
+          "rot": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "parent": 0
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiPisteFloodlightLow",
+          "mesh": "SkiPisteFloodlightLowA Mesh",
+          "guid": "CID:6827e281427c087a3b7ef19c824ca28b",
+          "pos": [
+            7.2,
+            0.0,
+            -11.0
+          ],
+          "rot": [
+            0.0,
+            0.976296,
+            0.0,
+            -0.2164396
+          ],
+          "parent": 0,
+          "note": "replaces LightpolePark; yaw 205 (beam to the line, across to the axis)"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiPisteFloodlightLow",
+          "mesh": "SkiPisteFloodlightLowA Mesh",
+          "guid": "CID:6827e281427c087a3b7ef19c824ca28b",
+          "pos": [
+            -7.2,
+            0.0,
+            -11.0
+          ],
+          "rot": [
+            0.0,
+            0.976296,
+            0.0,
+            0.2164396
+          ],
+          "parent": 0,
+          "note": "replaces LightpolePark; yaw 155 (beam to the line, across to the axis)"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiDressExtinguisher",
+          "mesh": "SkiDressExtinguisherB",
+          "guid": "CID:04211f82829f421b9899ffaff582e530",
+          "pos": [
+            6.0,
+            0.45,
+            4.1
+          ],
+          "rot": [
+            0.0,
+            -0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "note": "replaces extinguisher('pln', (X - 1.30, -1 wi))"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiDressEStop",
+          "mesh": "SkiDressEStopB",
+          "guid": "CID:9ad8824185f7473ea1799df015acc940",
+          "pos": [
+            5.7,
+            0.3,
+            3.5
+          ],
+          "rot": [
+            0.0,
+            -0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "note": "replaces estop_post('pln', (X - 1.90, -5.70))"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiDressExtinguisher",
+          "mesh": "SkiDressExtinguisherB",
+          "guid": "CID:04211f82829f421b9899ffaff582e530",
+          "pos": [
+            -6.0,
+            0.45,
+            4.1
+          ],
+          "rot": [
+            0.0,
+            0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "note": "replaces extinguisher('plp', (X - 1.30, +1 wi))"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiDressEStop",
+          "mesh": "SkiDressEStopB",
+          "guid": "CID:9ad8824185f7473ea1799df015acc940",
+          "pos": [
+            -5.7,
+            0.3,
+            3.5
+          ],
+          "rot": [
+            0.0,
+            0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "note": "replaces estop_post('plp', (X - 1.90, +5.70))"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiDressHoseReel",
+          "mesh": "SkiDressHoseReelB",
+          "guid": "CID:e8c76b0b9f9340a08f728e6d992d4692",
+          "pos": [
+            6.0,
+            0.4,
+            0.8
+          ],
+          "rot": [
+            0.0,
+            -0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "note": "replaces hose_reel('pl', (xd - 1.60, wi), -Y, z 0.75, r 0.22): same centre, the kit's 0.70 m plate; nitpick A2 2026-10-13: mirrored onto the -Y wall with the operator room"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiDressSkiRackWall",
+          "mesh": "SkiDressSkiRackWallB",
+          "guid": "CID:e4ba645d1e20aabe72fd7cfec10b69cc",
+          "pos": [
+            7.3,
+            0.0,
+            6.1
+          ],
+          "rot": [
+            0.0,
+            0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "note": "replaces ski_rack('gn', xd + 2.2 .. 5.2, y -(W2 + 1.05), z0 0.02, side -1): frame + 7 pairs + 2 boards",
+          "colour_set": "orange",
+          "variant": "SkiDressSkiRackWall_Orange"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiDressTools",
+          "mesh": "SkiDressToolsB",
+          "guid": "CID:5f92c70cec824289aa2673d59018e8a5",
+          "pos": [
+            6.723,
+            0.0,
+            8.325
+          ],
+          "rot": [
+            0.0,
+            0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "lean": {
+            "wall_point": [
+              6.3305,
+              8.325
+            ],
+            "wall_normal": [
+              1.0,
+              0.0
+            ],
+            "rest_z": -0.3925
+          },
+          "note": "replaces tools('gn', foot (xd + 5.75, plinth - 0.32), -Y): leans on the coping's top edge; leans on the ledge's top edge at z 1.26: rest plane 0.0195 m behind its face"
+        }
+      ],
+      "x_convention": "game (gx, gy, gz) = (-y, z, x) of authoring; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; cs2_liftdress.blender_to_game = lift_terminal.m_to_game; the tram's design frame goes through tram_to_game = (-X, Y, Z)); a +Y facing is game -X",
+      "kinds": {
+        "vanilla": 15,
+        "mod": 9
+      }
+    },
+    "dress_tris_lod0": 62,
+    "lod0_target": 9000,
+    "batches": 9
+  },
+  "fine_detail": {
+    "step": "3b 2026-10-12 (build/fine-detail-step3b-stations.md; engine build/fine-detail-step2-engine.md)",
+    "flag": true,
+    "x_convention": "game (gx, gy, gz) = (-y, z, x) of authoring; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; cs2_liftdress.blender_to_game = lift_terminal.m_to_game; the tram's design frame goes through tram_to_game = (-X, Y, Z)); a +Y facing is game -X",
+    "rows": {
+      "vanilla": 15,
+      "mod": 9
+    },
+    "kit_rows": [
+      {
+        "prop": "SkiDressExtinguisher",
+        "cid": "04211f82829f421b9899ffaff582e530",
+        "mount": "wall",
+        "pos_authoring": [
+          4.1,
+          -6.0,
+          0.45
+        ],
+        "row_pos": [
+          6.0,
+          0.44999999999999996,
+          4.1
+        ],
+        "row_rot": [
+          0.0,
+          -0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "extinguisher('pln', (X - 1.30, -1 wi))",
+        "wall_silhouette_m": [
+          0.19,
+          0.527
+        ],
+        "access_m": 0.4,
+        "wall_gap_m": 0.0,
+        "c8_gap_m": 1.607,
+        "nearest_row": [
+          "TrashbinRandom01@4.10,-7.45",
+          1.214
+        ],
+        "aabb_authoring": [
+          [
+            4.0184,
+            -5.99,
+            0.45
+          ],
+          [
+            4.2082,
+            -5.8084,
+            0.977
+          ]
+        ],
+        "kit_fbx_sha1": "9bdc6df30869"
+      },
+      {
+        "prop": "SkiDressEStop",
+        "cid": "9ad8824185f7473ea1799df015acc940",
+        "mount": "ground",
+        "pos_authoring": [
+          3.5,
+          -5.7,
+          0.3
+        ],
+        "row_pos": [
+          5.7,
+          0.3,
+          3.5
+        ],
+        "row_rot": [
+          0.0,
+          -0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "estop_post('pln', (X - 1.90, -5.70))",
+        "floor_gap_m": 0.0,
+        "c8_gap_m": 1.531,
+        "nearest_row": [
+          "kit SkiDressExtinguisher@4.10,-6.00",
+          0.435
+        ],
+        "aabb_authoring": [
+          [
+            3.415,
+            -5.77,
+            0.31
+          ],
+          [
+            3.585,
+            -5.63,
+            1.5
+          ]
+        ],
+        "kit_fbx_sha1": "cc908db6b733"
+      },
+      {
+        "prop": "SkiDressExtinguisher",
+        "cid": "04211f82829f421b9899ffaff582e530",
+        "mount": "wall",
+        "pos_authoring": [
+          4.1,
+          6.0,
+          0.45
+        ],
+        "row_pos": [
+          -6.0,
+          0.44999999999999996,
+          4.1
+        ],
+        "row_rot": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "extinguisher('plp', (X - 1.30, +1 wi))",
+        "wall_silhouette_m": [
+          0.19,
+          0.527
+        ],
+        "access_m": 0.4,
+        "wall_gap_m": 0.0,
+        "c8_gap_m": 1.614,
+        "nearest_row": [
+          "TrashbinRandom01@4.10,7.45",
+          1.214
+        ],
+        "aabb_authoring": [
+          [
+            3.9918,
+            5.8084,
+            0.45
+          ],
+          [
+            4.1816,
+            5.99,
+            0.977
+          ]
+        ],
+        "kit_fbx_sha1": "9bdc6df30869"
+      },
+      {
+        "prop": "SkiDressEStop",
+        "cid": "9ad8824185f7473ea1799df015acc940",
+        "mount": "ground",
+        "pos_authoring": [
+          3.5,
+          5.7,
+          0.3
+        ],
+        "row_pos": [
+          -5.7,
+          0.3,
+          3.5
+        ],
+        "row_rot": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "estop_post('plp', (X - 1.90, +5.70))",
+        "floor_gap_m": 0.0,
+        "c8_gap_m": 1.531,
+        "nearest_row": [
+          "kit SkiDressExtinguisher@4.10,6.00",
+          0.409
+        ],
+        "aabb_authoring": [
+          [
+            3.415,
+            5.63,
+            0.31
+          ],
+          [
+            3.585,
+            5.77,
+            1.5
+          ]
+        ],
+        "kit_fbx_sha1": "cc908db6b733"
+      },
+      {
+        "prop": "SkiDressHoseReel",
+        "cid": "e8c76b0b9f9340a08f728e6d992d4692",
+        "mount": "wall",
+        "pos_authoring": [
+          0.8,
+          -6.0,
+          0.4
+        ],
+        "row_pos": [
+          6.0,
+          0.4,
+          0.8
+        ],
+        "row_rot": [
+          0.0,
+          -0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "hose_reel('pl', (xd - 1.60, wi), -Y, z 0.75, r 0.22): same centre, the kit's 0.70 m plate; nitpick A2 2026-10-13: mirrored onto the -Y wall with the operator room",
+        "wall_silhouette_m": [
+          0.7,
+          0.7
+        ],
+        "access_m": 0.4,
+        "wall_gap_m": 0.0,
+        "c8_gap_m": 1.571,
+        "nearest_row": [
+          "GardenBenchRandom01@-2.00,-7.00",
+          1.483
+        ],
+        "aabb_authoring": [
+          [
+            0.45,
+            -5.99,
+            0.4
+          ],
+          [
+            1.15,
+            -5.67,
+            1.1
+          ]
+        ],
+        "kit_fbx_sha1": "9648cfba9fce"
+      },
+      {
+        "prop": "SkiDressSkiRackWall",
+        "cid": "e4ba645d1e20aabe72fd7cfec10b69cc",
+        "mount": "ground",
+        "pos_authoring": [
+          6.1,
+          -7.3,
+          0.0
+        ],
+        "row_pos": [
+          7.3,
+          0.0,
+          6.1
+        ],
+        "row_rot": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "ski_rack('gn', xd + 2.2 .. 5.2, y -(W2 + 1.05), z0 0.02, side -1): frame + 7 pairs + 2 boards",
+        "colour_set": "orange",
+        "floor": "grade (z 0)",
+        "c8_gap_m": 2.714,
+        "nearest_row": [
+          "TrashbinRandom01@4.10,-7.45",
+          0.284
+        ],
+        "aabb_authoring": [
+          [
+            4.63,
+            -7.7604,
+            0.01
+          ],
+          [
+            7.57,
+            -6.9805,
+            1.7503
+          ]
+        ],
+        "kit_fbx_sha1": "52d5f46cc0f9"
+      },
+      {
+        "prop": "SkiDressTools",
+        "cid": "5f92c70cec824289aa2673d59018e8a5",
+        "mount": "lean",
+        "pos_authoring": [
+          8.325,
+          -6.35,
+          0.0
+        ],
+        "row_pos": [
+          6.723,
+          0.0,
+          8.325
+        ],
+        "row_rot": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "tools('gn', foot (xd + 5.75, plinth - 0.32), -Y): leans on the coping's top edge",
+        "rest_gap_m": 0.0,
+        "ledge_z": [
+          1.2,
+          1.26
+        ],
+        "ledge_offset_m": 0.0195,
+        "rests_on": [
+          "coping_n"
+        ],
+        "c8_gap_m": 2.086,
+        "nearest_row": [
+          "kit SkiDressSkiRackWall@6.10,-7.30",
+          0.518
+        ],
+        "aabb_authoring": [
+          [
+            8.025,
+            -6.733,
+            0.01
+          ],
+          [
+            8.65,
+            -6.3405,
+            1.3519
+          ]
+        ],
+        "kit_fbx_sha1": "6323b9a0d4c3"
+      }
+    ],
+    "removed_to_kit_rows": [
+      "estop_pln_",
+      "estop_plp_",
+      "ext_pln",
+      "ext_plp",
+      "hosereel_pl_",
+      "ski_gn_",
+      "skirack_gn_",
+      "tool_gn_"
+    ],
+    "lamps_to_vanilla_rows": [],
+    "lamp_parts_left": [
+      "lamp_eaven",
+      "lamp_eavep"
+    ],
+    "fine_geometry": [
+      "board posts 12-seg (WAIT HERE)",
+      "control cabinets: no finish bevel strips, a 0.02 m lid lip (0.015 overhang on every free side)"
+    ],
+    "kept_modelled": [
+      "weather mast wx* (FS1: it sets the frozen bounds top)",
+      "LIFT boards + labels in the host atlas at 400 px/m (FS5: no station sign set)",
+      "gondola linear soffit lights lamp_eave* (no vanilla linear light)",
+      "control cabinets (ElectricalBox01 / 02 need the S1 Editor GUID harvest; 95cbbe17 rejected)"
+    ]
+  },
+  "sheave_trains": {
+    "builder": "cs2_sheaves.dq_train (lift_tower's gantry train) + finish_train",
+    "head": "GD",
+    "per_lane": 4,
+    "lanes_y": [
+      -3.0,
+      3.0
+    ],
+    "gauge_m": 6.0,
+    "pitch_m": 0.62,
+    "sheave_r_m": 0.25,
+    "sheave_w_m": 0.1,
+    "segments": 16,
+    "groove": "V (0.18 r)",
+    "axle_z": 4.545,
+    "axle_rule": "rope tangent on the rim tops (nitpick A)",
+    "axle_on_lane": false,
+    "rope_z": 4.85,
+    "rim_top_z": 4.795,
+    "rope_on_sheave_top": 4.85,
+    "x_extent": [
+      -12.1,
+      -9.74
+    ],
+    "x_nose": -10.0,
+    "carriers_abs_y": {
+      "sub": 2.902,
+      "main_yoke": 2.83,
+      "hanger": [
+        2.69,
+        2.8
+      ]
+    },
+    "wheels": {
+      "generation": "v2 (T62 round 3: cs2_sheaves.wheel, 16 segments, groove, seen hub bosses)",
+      "builder": "cs2_sheaves.wheel",
+      "tris_per_wheel_max": 120,
+      "material": "wheelsteel",
+      "lod": {
+        "1": "flat band on the crest rings + 2 n-gon discs (no boss)",
+        "2": "no wheel"
+      }
+    },
+    "lateral_err_m": 0.0,
+    "carrier_max_dy_from_lane_m": -0.064,
+    "parts": 46,
+    "tris_lod0": 1108,
+    "tangent_err_m": 0.0
+  },
+  "orientation": {
+    "up_lane_y_authoring": -1.0,
+    "operator_room_side_y": -1.0,
+    "stair_side_y": 1.0,
+    "measured_centre_y": {
+      "board_ops": -5.35,
+      "door_opr_leaf": -5.45,
+      "label_ops": -5.35,
+      "opr_floor": -5.025,
+      "opr_roof": -4.975,
+      "opr_walls": -5.025,
+      "oprglass": -4.038,
+      "win_opr_": -5.105
+    },
+    "stair_centre_y": 4.25,
+    "label_ops_normal_x": -1.0,
+    "rows_y": {
+      "SkiDressHoseReel (kit row)": -6.0,
+      "WallLight (operator door)": -4.55
+    },
+    "wait_here": {
+      "loading_side_y": 1.0,
+      "centre_y": {
+        "board_waitn": 4.992,
+        "label_waitn": 5.04
+      },
+      "label_normal_y": 1.0
+    },
+    "frame": "authoring (x travel, -X = line; y lateral); gondola rows are written game x = -y (cs2_liftdress.blender_to_game; x-sign gate settled N, 2026-10-15, S1b-N applied 2026-10-16)",
+    "spin": "the up lane is the RIGHT one looking uphill in this frame (the base departs on +Y, the top's cabins arrive on -Y), the DQ stations' O1 rule; nitpick A2 moved the top's room from +Y"
+  },
+  "win_cells": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "density_worst": [
+    {
+      "part": "lstand_rf13",
+      "source_px_per_m": 20113.4,
+      "shipped_px_per_m": 16.8
+    },
+    {
+      "part": "lstand_rf03",
+      "source_px_per_m": 20113.4,
+      "shipped_px_per_m": 16.8
+    },
+    {
+      "part": "lstand_rf12",
+      "source_px_per_m": 20113.3,
+      "shipped_px_per_m": 16.8
+    },
+    {
+      "part": "lstand_rf11",
+      "source_px_per_m": 20113.3,
+      "shipped_px_per_m": 16.8
+    },
+    {
+      "part": "lstand_rf02",
+      "source_px_per_m": 20113.3,
+      "shipped_px_per_m": 16.8
+    },
+    {
+      "part": "lstand_rf10",
+      "source_px_per_m": 20113.3,
+      "shipped_px_per_m": 16.8
+    },
+    {
+      "part": "lstand_rf01",
+      "source_px_per_m": 20113.3,
+      "shipped_px_per_m": 16.8
+    },
+    {
+      "part": "lstand_rf00",
+      "source_px_per_m": 20113.3,
+      "shipped_px_per_m": 16.8
+    }
+  ],
+  "submeshes": [
+    "Win"
+  ],
+  "engine_base": {
+    "verdict": "OK",
+    "ok_edges": 75,
+    "blocked_edges": 0
+  },
+  "engine_base_lods": {
+    "1": {
+      "verdict": "OK",
+      "ok_edges": 75,
+      "blocked_edges": 0
+    },
+    "2": {
+      "verdict": "OK",
+      "ok_edges": 49,
+      "blocked_edges": 0
+    }
+  },
+  "lod_switch_m": {
+    "csum": 49.29999923706055,
+    "bias": 0.0,
+    "distances": [
+      115.13013973686913,
+      191.79009167552493,
+      484.0330439592255
+    ],
+    "switch": {
+      "1": 191.79009167552493,
+      "2": 484.0330439592255
+    },
+    "cull": 10714.533167521158
+  },
+  "validation": {
+    "errors": 0,
+    "warnings": 2,
+    "warn_checks": [
+      "lod-bounds"
+    ]
+  },
+  "contracts": {
+    "C1": "wheel (5.4, 0, 4.85), torus 3.02, rim 3.0",
+    "C2": "lanes +-3.0 at z 4.85, x -12.0 -> 5.4",
+    "C3": "crown 8.550, eave +-7.45",
+    "C6": "x -12.10..10.95, y -8.25..8.25 within lot (3, 4)",
+    "C8": "1308 envelope placements clear (dz 0 and +0.08)",
+    "C13": "bracket centre (-10.15, 0.0, 7.3)",
+    "ST1": "GD head x 4 per lane, rope tangent on the rims (err 0.00 mm), carriers <= lane -0.064 (gate -0.03), x >= -12.1, 46 parts / 1108 tris",
+    "G11": "operator room, LIFT OPS, door light + hose reel rows on the up lane y -1 (arriving), the stair on +1; WAIT HERE at the loading entry y +1",
+    "R1e": "sign 1.750 x 0.875 m per side, digits '8' vector Bfont (builtin) 0.700 x 0.436 m (194 tris) in the 0.50 x 0.70 m box, reserved 448 px/m at 2048",
+    "R1d": "all 388 rail / post / kick vertices inside the hall walls (no exterior flank railing)",
+    "G1": "portals: cabin silhouette opening u -1.45..1.5 (slot -0.45..1.1 to z 5.35) holds every carrier box + 0.3 at both pins; smallest margin beyond that 0.037 m (carriage, pin +0.08)",
+    "G2": "boarding platforms at 0.3 = cabin floor (underside 0.35) - 0.05 step (+0.08 with the rope pin), edge |y| 4.42 (0.326 m outboard of the cabin), boarding length 13.55 m, yellow edge stripe 0.12 m",
+    "G3": "8 walkable surfaces, each reached from grade: floor (cabin trough) <- grade; platf_n (boarding) <- grade; platf_p (boarding) <- grade; opr_floor (operator room) <- platf_n; grate_stl (stair landing) <- platf_p; grate_dka / grate_dkb (machinery deck) <- grate_stl; roof crown (wind mast) <- grade; roof shell (shallow standing seam, 0 -> 14.5 deg) <- roof crown; standable-top census: 6 tops declared not walkable (canopy_n, canopy_p, opr_roof, sheave_bull_rim, tension_carriage, wheelrope), none undeclared",
+    "G4": "nose ladder climbing room 1.50 m to fixed objects, 1.50 m to the cabins (gate 0.61); stair pitch 43.3 deg, risers 0.204 / 0.204, headroom 2.19 m",
+    "G5": "long glazed hall: 76 `_Win` panes (sides {'n': 0.9745, 'p': 0.9745} of the wall glazed, slim mullions <= 0.10 m), nose band above the lintel, glazed back, operator room panes; 31 rooms -> 23 ids [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23] (reused beyond 3.0 m, 64 hard pairs apart)",
+    "G7": "sign on the PORTAL face (centre y 0, z 6.14) between the slot tops and the nose ring beam + both sides, 1.750 x 0.875 m, emblem + vector '8' at 448 px/m (p and q share rect n); 3 x 25 rays from 1 m in front meet each sign first",
+    "G8": "real SkiGondolaCabin8A swept (418 poses, both pins): min clearance 0.320 m to floor_0 at lane -Y x -9.25 (grip-top pin) >= 0.3",
+    "G9": "lot 3 x 4 (24 m across = prefab x, 32 m along the travel = prefab z): mesh x -12.10..10.95 (<= 16.0 + 0.5), y -8.25..8.25 (<= 12.0); hosted tower not exported, HV stub tip -16 inside; 15 vanilla footprints inside",
+    "G10": "24 fitted parts box-tested on their faces: no undeclared overlap, none in the C8 envelope (nearest 0.493 m) or the tower keep-out; 15 vanilla footprints clear of the mesh, the cabins, the tower, the ladder zone and each other",
+    "F1": "7 dressing-kit rows {'SkiDressExtinguisher': 2, 'SkiDressEStop': 2, 'SkiDressHoseReel': 1, 'SkiDressSkiRackWall': 1, 'SkiDressTools': 1}: CIDs staged, the replaced parts gone, mounts held (floor / whole back on the wall / foot-line rule), the real kit meshes clear of every station face, the C8 envelope (nearest 1.531 m), the hosted tower / keep-outs, every vanilla and kit row, inside the lot",
+    "C10": "SkiGondolaTopStationB: validate_asset_name + lint ok",
+    "C12": "_Win room cells [(1, 4), (2, 1), (3, 1), (4, 1), (5, 1), (6, 3), (7, 3), (8, 3), (9, 3), (10, 3), (11, 2), (12, 3), (13, 3), (14, 2), (15, 2), (16, 3), (17, 5), (18, 6), (19, 6), (20, 6), (21, 5), (22, 6), (23, 4)] (want [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]: revision 1: one room per curtain-wall bay + the operator room, ids reused beyond 3 m), no pane left in main",
+    "C4": "min z 0.00000",
+    "C11": "LOD0 8661 <= 10000, revision 1 budget 9000 (ROUND-SPEC section 4)",
+    "C5": "engine base OK, 75 OK edges, parts ['stepside_n', 'stepside_p', 'stonebase_back', 'stonebase_n', 'stonebase_nose', 'stonebase_p', 'wall_back', 'wall_n', 'wall_nose', 'wall_p'] all OK"
+  },
+  "contract": {
+    "variant": "gd-top",
+    "x_frame": "FBX-raw x (= authoring y); game x = -x (x-sign gate settled N 2026-10-15): negate every x here (bounds_prefab min / max swap) when writing prefab rows; sub_objects rows are already game",
+    "carrier": {
+      "row": "gd8",
+      "source": "catalog/carriers.json [hang_m, grip_top_above_rope_m, lane_x_m, axle_m]; dq-chair.md section 2/3 [seat_top_m]",
+      "hang_m": 4.5,
+      "grip_top_above_rope_m": 0.08,
+      "seat_top_above_lowest_m": 0.0
+    },
+    "gauge_m": 6.0,
+    "wheel_radius_m": 3.0,
+    "turn_radius_code_m": 3.0,
+    "load_clear_m": 0.05,
+    "lane_rope_y": 4.85,
+    "deck_top_y": 0.3,
+    "soffit_y": null,
+    "band_top_or_eave_y": 7.6,
+    "crown_y": 8.55,
+    "pin_convention": "lane = chair GRIP TOP today (ChairPinSystem bounds.max.y); the modelled rope, torus, wheel table and anchors sit on the lane",
+    "seat_over_deck_m": {
+      "today": 0.05,
+      "if_dq_chair_Q1_pins_rope_point": 0.13
+    },
+    "wheel_local_prefab": [
+      0.0,
+      4.85,
+      5.4
+    ],
+    "wheel_centre_authoring": [
+      5.4,
+      0.0,
+      4.85
+    ],
+    "anchors_hv": [
+      {
+        "a": [
+          -3.0,
+          4.85,
+          -12.125
+        ],
+        "b": [
+          -3.0,
+          4.86,
+          -12.04
+        ],
+        "c": [
+          -3.0,
+          4.87,
+          -11.96
+        ],
+        "d": [
+          -3.0,
+          4.88,
+          -11.875
+        ],
+        "lane_prefab": "SkiGondolaHaulRope",
+        "lane_fallback": "UnityGUID:5d88ac45a40b30341a79535930e3b735"
+      },
+      {
+        "a": [
+          3.0,
+          4.85,
+          -12.125
+        ],
+        "b": [
+          3.0,
+          4.86,
+          -12.04
+        ],
+        "c": [
+          3.0,
+          4.87,
+          -11.96
+        ],
+        "d": [
+          3.0,
+          4.88,
+          -11.875
+        ],
+        "lane_prefab": "SkiGondolaHaulRope",
+        "lane_fallback": "UnityGUID:5d88ac45a40b30341a79535930e3b735"
+      }
+    ],
+    "anchor_comm": {
+      "a": [
+        0.0,
+        7.3,
+        -10.275
+      ],
+      "b": [
+        0.0,
+        7.31,
+        -10.19
+      ],
+      "c": [
+        0.0,
+        7.32,
+        -10.11
+      ],
+      "d": [
+        0.0,
+        7.33,
+        -10.025
+      ],
+      "lane_prefab": "UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b"
+    },
+    "hosted_tower": null,
+    "nose_guide_tip_z": -12.0,
+    "stub_hv": [
+      [
+        0.0,
+        0.0,
+        -13.0
+      ],
+      [
+        0.0,
+        0.0,
+        -16.0
+      ]
+    ],
+    "stub_lv": null,
+    "lv_pole": null,
+    "stub_tip_local_z": -16.0,
+    "stub_tip_touchpoints": "SkiCatalog StationDef row (per-row StubTipLocalZ = -16) and every reader of the single const SkiCatalog.StubTipLocalZ (-12, aliased StationAlign.StubTipLocalZ: StationAlign, SkiResortStatsSystem StubTip, LiftCensus) - code-economy Phase A touchpoint list",
+    "lot": [
+      3,
+      4
+    ],
+    "anchor_to_wheel_run_m": 17.4,
+    "max_wheel_run_m": 30.0,
+    "bounds_prefab": {
+      "min": [
+        -8.25,
+        0.0,
+        -12.1
+      ],
+      "max": [
+        8.25,
+        9.75,
+        10.95
+      ]
+    },
+    "bounds_top_y": 9.75,
+    "net_sub_objects_y": {
+      "rule": "AnchorTop: line axle + grip_top_above_rope_m + 0.03",
+      "line_axle": 10.0,
+      "y": 10.11,
+      "owner": "line lens (pre-pin fallback only)"
+    },
+    "emissive": {
+      "purpose": 72,
+      "intensity": 0.6,
+      "lamps": 2
+    },
+    "lane_prefabs": {
+      "hv_haul": {
+        "prefab": "SkiGondolaHaulRope",
+        "fallback": "UnityGUID:5d88ac45a40b30341a79535930e3b735",
+        "why": "FindAnchors pairs stubs with lanes BY PREFAB: the gondola towers' HV stubs name SkiGondolaHaulRope (tram_tower.STUB_LANES gd_haul, round-2-contract 10.1)"
+      },
+      "lv_comm": "UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b"
+    },
+    "line_prefab": "SkiGondolaHV",
+    "carrier_prefab": "SkiGondolaCabin8 (mesh SkiGondolaCabin8A)",
+    "lot_note": "m_LotWidth 3 x m_LotDepth 4 (Richard, eighth look): 24 m ACROSS the line = prefab x (lateral |x| <= 12; the mesh spans x -8.25 .. 8.25, the vanilla sub-objects stay inside too, G9), 32 m ALONG the travel = prefab z (z -16 .. 16 + 0.5; the mesh spans z -12.10 .. 10.95; the hosted entry tower at z -11 spans z -13.52 .. -8.48 and the HV stub runs z -13 -> -16 = SkiCatalog StubTipLocalZ, on the lot's front edge, as on 2 x 4)",
+    "win_room_ids": "revision 1: one room per curtain-wall bay (all its tiers), the operator room its own; ids reused beyond 3 m (manifest gondola.glazing.rooms / room_ids)",
+    "color_defaults": {
+      "slot1": {
+        "rgb": [
+          0.25,
+          0.26,
+          0.275
+        ],
+        "what": "roof, mullions, transoms, ring beams, corner columns, outriggers, gable fascias, canopies, door frames, portal trims (dark steel; towers-transfer G5 compensated value)"
+      },
+      "slot3": {
+        "rgb": [
+          0.16,
+          0.3,
+          0.2
+        ],
+        "what": "sign spandrel + side sign plates + the sign fields (the DQ / draft-1 green default)"
+      },
+      "slot2": {
+        "rgb": [
+          0.85,
+          0.25,
+          0.1
+        ],
+        "what": "the ski rack gear's accent colour (the shared cs2_bldg gear via cs2_liftdress.ski_rack, material 'accent'); the platform stripes are fixed safety yellow"
+      }
+    },
+    "floor_y": 0.03,
+    "machinery_deck_y": 5.6
+  },
+  "params": {
+    "variant": "gd-top",
+    "kind": "top",
+    "gondola": true,
+    "carrier_key": "gd8",
+    "carrier_src": "catalog/carriers.json [hang_m, grip_top_above_rope_m, lane_x_m, axle_m]; dq-chair.md section 2/3 [seat_top_m]",
+    "lane_y": 3.0,
+    "rim_r": 3.0,
+    "torus_r": 3.02,
+    "rim_segs": 44,
+    "torus_segs": 36,
+    "hang": 4.5,
+    "grip_above_rope": 0.08,
+    "seat_top": 0.0,
+    "load_clear": 0.05,
+    "z_rope": 4.85,
+    "z_wheel": 4.85,
+    "line_axle": 10.0,
+    "z_soffit": null,
+    "z_top": 7.6,
+    "z_ceil": 7.6,
+    "chord_half": 7.45,
+    "roof_rise": 0.95,
+    "z_crown": 8.549999999999999,
+    "w_half": 6.25,
+    "x_nose": -10.0,
+    "x_back": 10.350000000000001,
+    "length": 20.35,
+    "wheel_back": 4.95,
+    "x_wheel": 5.4,
+    "ped_f": null,
+    "ped_r": null,
+    "anchor_x": -12.0,
+    "slot_half": 0.0,
+    "notch_top": null,
+    "lowest_abs": 0.35,
+    "env": [
+      [
+        "body",
+        2.37,
+        2.154,
+        -0.005,
+        2.005,
+        0.022
+      ],
+      [
+        "roof",
+        2.27,
+        2.07,
+        1.995,
+        2.455,
+        0.0
+      ],
+      [
+        "hat",
+        1.53,
+        1.326,
+        2.445,
+        2.755,
+        -0.0221
+      ],
+      [
+        "hanger",
+        0.21,
+        0.258,
+        2.745,
+        3.905,
+        0.6251
+      ],
+      [
+        "carriage",
+        1.11,
+        0.8,
+        3.895,
+        4.405,
+        0.355
+      ],
+      [
+        "grip",
+        0.31,
+        0.35,
+        4.395,
+        4.505,
+        0.13
+      ]
+    ],
+    "lod0_cap": 10000,
+    "lod1_max": null,
+    "lod2": 500,
+    "hosted_tower": false,
+    "engine_base": [
+      "wall_n",
+      "wall_p",
+      "wall_back",
+      "wall_nose",
+      "stonebase_n",
+      "stonebase_p",
+      "stonebase_back",
+      "stonebase_nose",
+      "stepside_n",
+      "stepside_p"
+    ],
+    "win_part": "ctrlwin",
+    "folder": "stations/gondola/A",
+    "stem": "SkiGondolaTopStation",
+    "clear": 0.3
+  }
+}

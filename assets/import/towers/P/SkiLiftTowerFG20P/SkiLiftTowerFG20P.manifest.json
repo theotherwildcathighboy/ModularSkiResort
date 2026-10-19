@@ -1,0 +1,738 @@
+{
+  "name": "SkiLiftTowerFG20P",
+  "written_utc": "2026-10-19T16:51:11Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiLiftTowerFG20P.fbx": {
+      "bytes": 255356,
+      "sha1": "ccb8b43035519065f936b0c6ef1b62793030bc09"
+    },
+    "SkiLiftTowerFG20P_BaseColor.png": {
+      "bytes": 823028,
+      "sha1": "7fb5ae0d63d223f0937bb8d086b6066c8a40f22b"
+    },
+    "SkiLiftTowerFG20P_ControlMask.png": {
+      "bytes": 42514,
+      "sha1": "70aa9f05c00809e96d93347e1fbd239fd6ffc9db"
+    },
+    "SkiLiftTowerFG20P_LOD1.fbx": {
+      "bytes": 111868,
+      "sha1": "cf1ad3faea0393b6545ff129f7d4f2bb9ed213cd"
+    },
+    "SkiLiftTowerFG20P_LOD2.fbx": {
+      "bytes": 40524,
+      "sha1": "6a28b0f917b61e3745b7f848167f76578c6502ee"
+    },
+    "SkiLiftTowerFG20P_MaskMap.png": {
+      "bytes": 450958,
+      "sha1": "9870c03bdd4567679bbf29dbb85f3e2afa631a7f"
+    },
+    "SkiLiftTowerFG20P_Normal.png": {
+      "bytes": 188031,
+      "sha1": "54ea819b994395818676751d5876d5500fd8565e"
+    },
+    "settings.json": {
+      "bytes": 735,
+      "sha1": "39af76cdaae08f77e912808d3a47f24b28fa78fb"
+    }
+  },
+  "generator": "lift_tower.py@c82e573-dirty",
+  "spec": "towers-v2 + skeptic",
+  "variant": "FG20",
+  "family": "FG",
+  "role": "line",
+  "kind": "support",
+  "head": "yan",
+  "derived_from": null,
+  "tris": {
+    "0": 3450,
+    "1": 1324,
+    "2": 380
+  },
+  "lod_drift_top_m": {
+    "1": 0.0,
+    "2": 0.0
+  },
+  "parts": 150,
+  "axle": 19.04,
+  "gauge": 3.6,
+  "h_top": 1.974,
+  "bounds_m": {
+    "min_z": -4.0,
+    "max_z": 21.013999938964844,
+    "lateral": 1.909999966621399,
+    "travel": 0.9700000882148743
+  },
+  "top_anchor_y": 21.014,
+  "pier": 4.0,
+  "comm_lv_y": 20.15,
+  "atlas": 1024,
+  "ao_samples": 48,
+  "pack_margin_px": 6,
+  "sheave_profile": "lite (lift_tower.lite_sheave, 6 x segs tris)",
+  "wheels": {
+    "generation": "v2 (T62 round 3: cs2_sheaves.wheel, 16 segments, groove, seen hub bosses)",
+    "builder": "cs2_sheaves.wheel",
+    "r": 0.2,
+    "w": 0.13,
+    "segs": 16,
+    "profile": {
+      "groove": 0.18,
+      "groove_min": 0.02,
+      "chamfer": 0.0,
+      "boss_r": 0.45,
+      "boss_top": 0.35,
+      "boss_h": 0.1,
+      "boss_segs": 8,
+      "root_segs": 8
+    },
+    "tris_per_wheel_max": 120,
+    "discs": "n-gon",
+    "groove": "V (max(0.02, 0.18 r))",
+    "hub_boss": "seen faces only",
+    "material": "wheelsteel",
+    "lod": {
+      "1": "flat band on the crest rings + 2 n-gon discs (no boss)",
+      "2": "no wheel"
+    }
+  },
+  "sheaves_per_side": 4,
+  "train_sag_m": 0.0,
+  "density_worst": [
+    {
+      "part": "rail_catwalk_knee",
+      "source_px_per_m": 6947.8,
+      "shipped_px_per_m": 56.3
+    },
+    {
+      "part": "rail_catwalk_top",
+      "source_px_per_m": 6947.8,
+      "shipped_px_per_m": 56.3
+    },
+    {
+      "part": "pier",
+      "source_px_per_m": 1024.0,
+      "shipped_px_per_m": 14.1
+    },
+    {
+      "part": "arrest_0",
+      "source_px_per_m": 1024.0,
+      "shipped_px_per_m": 28.1
+    },
+    {
+      "part": "ladder_rung_23",
+      "source_px_per_m": 1079.2,
+      "shipped_px_per_m": 42.2
+    },
+    {
+      "part": "ladder_rung_26",
+      "source_px_per_m": 1079.2,
+      "shipped_px_per_m": 42.2
+    },
+    {
+      "part": "conduit_0",
+      "source_px_per_m": 1079.2,
+      "shipped_px_per_m": 42.2
+    },
+    {
+      "part": "ladder_rung_24",
+      "source_px_per_m": 1079.2,
+      "shipped_px_per_m": 42.2
+    }
+  ],
+  "lod_switch_m": {
+    "csum": 30.77400004863739,
+    "bias": 0.6053636540069204,
+    "distances": [
+      74.84588413840827,
+      120.8185106944516,
+      225.5203164204661
+    ],
+    "switch": {
+      "1": 120.8185106944516,
+      "2": 225.5203164204661
+    },
+    "cull": 4396.2023391828725
+  },
+  "ingest": null,
+  "bake": {
+    "A": 1024,
+    "margin_px": 6,
+    "ao": "self",
+    "uncovered_texels": 642121
+  },
+  "prefab_notes": {
+    "size_y": "ObjectUtils.GetSize y = bounds.max.y (1.6.0f1 ObjectUtils.cs:51-58)",
+    "switch_points": "FG 8/3, 20/3, 32/3; DQ 4/3, 10/3, 16/3 m (M10; Revision 1: FG20 / DQ16 add the last point)",
+    "leg_size_y": "StandingObject.m_LegSize.y = leg zone above the origin (ObjectInitializeSystem.cs:1293); pick it on purpose (FG/ET use the mast height)"
+  },
+  "placeholder_row_new": {
+    "row": {
+      "variant": "FG20",
+      "member_prefab": "SkiLiftTowerFG20",
+      "mesh": "SkiLiftTowerFG20O",
+      "top_anchor_y": 21.014,
+      "utility_object_y": 19.04,
+      "hv_lanes": [
+        1.8,
+        19.04
+      ],
+      "lv_comm_y": 20.15,
+      "base_below_node_m": 12.0,
+      "wins_e_m": [
+        10.667,
+        16.0
+      ],
+      "base_above_terrain_m": [
+        -1.333,
+        4.0
+      ],
+      "pier": 4.0
+    },
+    "family": {
+      "placeholder": "SkiLiftTowerPlaceholder",
+      "net_subobject_y": 9.014,
+      "score": "1/(1+(s>=0 ? 2s : -s)), s = top - (e + y)",
+      "switch_points_e_m": [
+        2.667,
+        6.667,
+        10.667
+      ],
+      "grounded_up_to_e_m": 16.0,
+      "members": [
+        {
+          "variant": "FG8",
+          "member_prefab": "SkiLiftTowerFG2",
+          "mesh": "SkiLiftTowerFG8O",
+          "top_anchor_y": 9.014,
+          "utility_object_y": 7.04,
+          "hv_lanes": [
+            1.8,
+            7.04
+          ],
+          "lv_comm_y": 8.15,
+          "base_below_node_m": 0.0,
+          "wins_e_m": [
+            0.0,
+            2.667
+          ],
+          "base_above_terrain_m": [
+            0.0,
+            2.667
+          ],
+          "pier": 4.0
+        },
+        {
+          "variant": "FG12",
+          "member_prefab": "SkiLiftTowerFG12",
+          "mesh": "SkiLiftTowerFG12O",
+          "top_anchor_y": 13.014,
+          "utility_object_y": 11.04,
+          "hv_lanes": [
+            1.8,
+            11.04
+          ],
+          "lv_comm_y": 12.15,
+          "base_below_node_m": 4.0,
+          "wins_e_m": [
+            2.667,
+            6.667
+          ],
+          "base_above_terrain_m": [
+            -1.333,
+            2.667
+          ],
+          "pier": 4.0
+        },
+        {
+          "variant": "FG16",
+          "member_prefab": "SkiLiftTowerFG16",
+          "mesh": "SkiLiftTowerFG16O",
+          "top_anchor_y": 17.014,
+          "utility_object_y": 15.04,
+          "hv_lanes": [
+            1.8,
+            15.04
+          ],
+          "lv_comm_y": 16.15,
+          "base_below_node_m": 8.0,
+          "wins_e_m": [
+            6.667,
+            10.667
+          ],
+          "base_above_terrain_m": [
+            -1.333,
+            2.667
+          ],
+          "pier": 4.0
+        },
+        {
+          "variant": "FG20",
+          "member_prefab": "SkiLiftTowerFG20",
+          "mesh": "SkiLiftTowerFG20O",
+          "top_anchor_y": 21.014,
+          "utility_object_y": 19.04,
+          "hv_lanes": [
+            1.8,
+            19.04
+          ],
+          "lv_comm_y": 20.15,
+          "base_below_node_m": 12.0,
+          "wins_e_m": [
+            10.667,
+            16.0
+          ],
+          "base_above_terrain_m": [
+            -1.333,
+            4.0
+          ],
+          "pier": 4.0
+        }
+      ]
+    }
+  },
+  "detail_pass_1": {
+    "relief": {
+      "drawn": {
+        "edge_round": 77,
+        "marks:band": 96,
+        "marks:boltring": 64,
+        "bolts": 162,
+        "grate": 2
+      },
+      "skipped": {}
+    },
+    "tone": {
+      "drawn": {
+        "mottle": 1220,
+        "chalk": 212
+      },
+      "skipped": {}
+    },
+    "tone_gate": {
+      "material": {
+        "galv": {
+          "texels": 46713,
+          "s0": 0.0182,
+          "s1": 0.0301,
+          "want": 0.0267,
+          "delivered": 1.023,
+          "ok": true
+        },
+        "paint": {
+          "texels": 241994,
+          "s0": 0.0112,
+          "s1": 0.0294,
+          "want": 0.0234,
+          "delivered": 1.159,
+          "ok": true
+        }
+      },
+      "class": {
+        "arrest": {
+          "texels": 1112,
+          "s0": 0.016,
+          "s1": 0.0232,
+          "want": 0.0255,
+          "delivered": 0.72
+        },
+        "conduit": {
+          "texels": 3882,
+          "s0": 0.018,
+          "s1": 0.0339,
+          "want": 0.0266,
+          "delivered": 1.227
+        },
+        "crossarm": {
+          "texels": 28696,
+          "s0": 0.0121,
+          "s1": 0.0299,
+          "want": 0.0237,
+          "delivered": 1.17
+        },
+        "cwbrace": {
+          "texels": 286,
+          "s0": 0.0101,
+          "s1": 0.0255,
+          "want": 0.023,
+          "delivered": 1.002
+        },
+        "flange_armcap": {
+          "texels": 4066,
+          "s0": 0.0064,
+          "s1": 0.0331,
+          "want": 0.0218,
+          "delivered": 1.389
+        },
+        "flange_mastbase": {
+          "texels": 3672,
+          "s0": 0.0079,
+          "s1": 0.0252,
+          "want": 0.0222,
+          "delivered": 1.02
+        },
+        "grate_catwalk": {
+          "texels": 9486,
+          "s0": 0.0185,
+          "s1": 0.0304,
+          "want": 0.0268,
+          "delivered": 1.031
+        },
+        "grate_catwalk_lip": {
+          "texels": 2851,
+          "s0": 0.0174,
+          "s1": 0.0311,
+          "want": 0.0262,
+          "delivered": 1.101
+        },
+        "gusset_arm": {
+          "texels": 724,
+          "s0": 0.0071,
+          "s1": 0.0212,
+          "want": 0.022,
+          "delivered": 0.853
+        },
+        "hanger": {
+          "texels": 5459,
+          "s0": 0.0097,
+          "s1": 0.0177,
+          "want": 0.0228,
+          "delivered": 0.634
+        },
+        "insulator": {
+          "texels": 384,
+          "s0": 0.008,
+          "s1": 0.0192,
+          "want": 0.0223,
+          "delivered": 0.743
+        },
+        "jbox": {
+          "texels": 648,
+          "s0": 0.0105,
+          "s1": 0.0277,
+          "want": 0.0231,
+          "delivered": 1.094
+        },
+        "kick_catwalk": {
+          "texels": 2062,
+          "s0": 0.0153,
+          "s1": 0.0295,
+          "want": 0.0252,
+          "delivered": 1.076
+        },
+        "ladder_rail": {
+          "texels": 14971,
+          "s0": 0.0178,
+          "s1": 0.0293,
+          "want": 0.0265,
+          "delivered": 0.996
+        },
+        "ladder_rung": {
+          "texels": 6100,
+          "s0": 0.0172,
+          "s1": 0.0265,
+          "want": 0.0261,
+          "delivered": 0.863
+        },
+        "liftbar": {
+          "texels": 3276,
+          "s0": 0.0102,
+          "s1": 0.0347,
+          "want": 0.023,
+          "delivered": 1.418
+        },
+        "liftpost": {
+          "texels": 400,
+          "s0": 0.0029,
+          "s1": 0.019,
+          "want": 0.0212,
+          "delivered": 0.801
+        },
+        "mast": {
+          "texels": 149276,
+          "s0": 0.0114,
+          "s1": 0.0244,
+          "want": 0.0234,
+          "delivered": 0.921
+        },
+        "pivot": {
+          "texels": 887,
+          "s0": 0.0141,
+          "s1": 0.0289,
+          "want": 0.0246,
+          "delivered": 1.079
+        },
+        "post_catwalk": {
+          "texels": 1081,
+          "s0": 0.0096,
+          "s1": 0.0248,
+          "want": 0.0228,
+          "delivered": 0.979
+        },
+        "rail_catwalk_knee": {
+          "texels": 1186,
+          "s0": 0.0153,
+          "s1": 0.0251,
+          "want": 0.0252,
+          "delivered": 0.85
+        },
+        "rail_catwalk_top": {
+          "texels": 1336,
+          "s0": 0.0133,
+          "s1": 0.0315,
+          "want": 0.0242,
+          "delivered": 1.222
+        },
+        "rocker_main": {
+          "texels": 11880,
+          "s0": 0.0115,
+          "s1": 0.029,
+          "want": 0.0235,
+          "delivered": 1.138
+        },
+        "rocker_sub": {
+          "texels": 11602,
+          "s0": 0.0121,
+          "s1": 0.0361,
+          "want": 0.0237,
+          "delivered": 1.452
+        },
+        "sheave_arm": {
+          "texels": 6121,
+          "s0": 0.0069,
+          "s1": 0.0273,
+          "want": 0.022,
+          "delivered": 1.128
+        },
+        "stiff_mastjoint": {
+          "texels": 2922,
+          "s0": 0.0116,
+          "s1": 0.0369,
+          "want": 0.0235,
+          "delivered": 1.499
+        },
+        "tipdeflector": {
+          "texels": 13900,
+          "s0": 0.0087,
+          "s1": 0.0189,
+          "want": 0.0225,
+          "delivered": 0.718
+        }
+      }
+    },
+    "tone_gate_ok": true,
+    "plates": [
+      {
+        "px": [
+          54,
+          119
+        ],
+        "ppm": 337.5,
+        "glyph_px": 47,
+        "cap_px": 43.0,
+        "numeral": "20",
+        "rect": [
+          518,
+          572,
+          298,
+          417
+        ]
+      },
+      {
+        "px": [
+          53,
+          119
+        ],
+        "ppm": 331.2,
+        "glyph_px": 47,
+        "cap_px": 43.0,
+        "numeral": "20",
+        "rect": [
+          664,
+          717,
+          582,
+          701
+        ]
+      }
+    ],
+    "decal_rects": 4,
+    "numeral": "20",
+    "subtexel_fill": {
+      "faces": 0,
+      "texels": 0,
+      "by_class": {},
+      "f3b_faces": 10,
+      "f3b_texels": 1292,
+      "f3b_by_class": {
+        "arrest": 2,
+        "platerim": 8
+      },
+      "slivers_unfilled": {},
+      "black_after": 0,
+      "black_after_faces": [],
+      "black_after_lods": {
+        "1": 0,
+        "2": 0
+      }
+    },
+    "pad": {
+      "triangle_texels": 8142,
+      "triangle_edge_fractional": 0.432,
+      "band_texels": 3576,
+      "band_yellow": 1481,
+      "band_black": 1469
+    },
+    "weather": {
+      "intensity": 0.3,
+      "slot_wear": "free",
+      "snow": 0.0,
+      "ok": true,
+      "failed": [],
+      "VL1": 0.03503,
+      "VL2": 0.05572,
+      "VL3": -0.00903,
+      "VL4": 0.271,
+      "dLstar": 0.9378,
+      "share_dLstar_gt_2": 0.1835,
+      "G5_ctl_identity": true,
+      "G6_protect_identical": true,
+      "roles": {
+        "paint_steel": 241994,
+        "pad": 70909,
+        "galv": 46713,
+        "masonry": 8520,
+        "none": 38342
+      },
+      "protect_texels": 30368
+    }
+  },
+  "weather": {
+    "A": 1024,
+    "N": 406478,
+    "compose_contact": false,
+    "coverage": {
+      "edge": 0.10241,
+      "grime": 0.3385,
+      "grime_cavity": 0.20619,
+      "grime_door": 0.0,
+      "grime_eave": 0.13669,
+      "grime_ground": 0.05055,
+      "rust": 0.12724,
+      "scuff": 0.06729,
+      "snow": 0.0
+    },
+    "doors": [],
+    "fields_MB": 36.2,
+    "ground": "grade",
+    "guards": {
+      "G1_alpha_kept": true,
+      "G2_msk_GB_kept": true,
+      "G3_worst_full_slot_rel": 0.41856,
+      "G4_worst_floor_gap": 0.0767283,
+      "G5_ctl_identity": true,
+      "G6_protect_identical": true,
+      "G7_range_ok": true
+    },
+    "intensity": 0.3,
+    "name": "SkiLiftTowerFG20P",
+    "perceptual": {
+      "mean_Lstar_before": 69.175,
+      "mean_abs_dLstar": 0.9378,
+      "p95_abs_dLstar": 4.319,
+      "share_dLstar_gt_2": 0.1835,
+      "texels": 286328,
+      "tinted": false
+    },
+    "protect_texels": 30368,
+    "role_source": {
+      "material": 143,
+      "override": 7
+    },
+    "roles": {
+      "galv": 46713,
+      "masonry": 8520,
+      "none": 38342,
+      "pad": 70909,
+      "paint_steel": 241994
+    },
+    "roles_refined": 0,
+    "seed": 2758563879,
+    "slot_wear": "free",
+    "snow": 0.0,
+    "sources": {
+      "cover_overflow_cells": 169,
+      "doors": 0,
+      "down_faces": 517,
+      "geo_candidates": 5494,
+      "geo_pairs": 1309,
+      "lattice_curtain_faces": 0,
+      "lattice_faces": 36,
+      "lattice_skipped": 0,
+      "rust_sources": 118,
+      "traffic_parts": 0
+    },
+    "spec_key": "cc8042033d8ff72b7a6f4175cef6dc9b65fc39d3",
+    "vanilla": {
+      "VL1_all_covered": 0.03492,
+      "VL1_mean_rel_dL": 0.03503,
+      "VL2_share_rel_dL_gt_0.15": 0.05572,
+      "VL3_max_abs_dsmooth": 0.11994,
+      "VL3_mean_dsmooth": -0.00903,
+      "VL4_max": 0.271,
+      "VL4_parts": [
+        {
+          "floored": false,
+          "part": "mast",
+          "ratio": 0.056,
+          "role": "paint_steel",
+          "std_L": 0.12184,
+          "texels": 140727
+        },
+        {
+          "floored": false,
+          "part": "crashpad_outer",
+          "ratio": 0.271,
+          "role": "pad",
+          "std_L": 0.13005,
+          "texels": 39036
+        },
+        {
+          "floored": false,
+          "part": "crossarm",
+          "ratio": 0.0722,
+          "role": "paint_steel",
+          "std_L": 0.11429,
+          "texels": 18097
+        },
+        {
+          "floored": false,
+          "part": "crashpad",
+          "ratio": 0.1032,
+          "role": "pad",
+          "std_L": 0.08982,
+          "texels": 9959
+        },
+        {
+          "floored": false,
+          "part": "ladder_rail_p",
+          "ratio": 0.1525,
+          "role": "galv",
+          "std_L": 0.07311,
+          "texels": 7363
+        }
+      ],
+      "VL5_snow_share": 0.0,
+      "budget": {
+        "VL1": 0.05,
+        "VL2": 0.08,
+        "VL3_abs": 0.3,
+        "VL3_hi": 0.01,
+        "VL3_lo": -0.06,
+        "VL4": 0.5
+      },
+      "failed": [],
+      "ok": true,
+      "visible_texels": 286328
+    }
+  }
+}

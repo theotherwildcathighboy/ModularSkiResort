@@ -1,0 +1,831 @@
+{
+  "name": "SkiLiftTowerDQ14P",
+  "written_utc": "2026-10-19T16:52:01Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiLiftTowerDQ14P.fbx": {
+      "bytes": 277308,
+      "sha1": "987a416db4d865fb39b37725f390584b1f8c9b31"
+    },
+    "SkiLiftTowerDQ14P_BaseColor.png": {
+      "bytes": 735295,
+      "sha1": "bfeb087446398b25b4d6de5d28dbb636df1f8531"
+    },
+    "SkiLiftTowerDQ14P_ControlMask.png": {
+      "bytes": 48187,
+      "sha1": "4b4e777b24fca71cacb0ed2e0e7c1e7b8779ed85"
+    },
+    "SkiLiftTowerDQ14P_LOD1.fbx": {
+      "bytes": 125868,
+      "sha1": "d88dfee4495d5b7aa458006a5821fdf8b8b3614f"
+    },
+    "SkiLiftTowerDQ14P_LOD2.fbx": {
+      "bytes": 47884,
+      "sha1": "0ecb9a2daf51ef9b2aca79dadfa219930aecccc9"
+    },
+    "SkiLiftTowerDQ14P_MaskMap.png": {
+      "bytes": 433080,
+      "sha1": "6d9635e1d3b1cbfb354c9eadbbbaebde0124d7f8"
+    },
+    "SkiLiftTowerDQ14P_Normal.png": {
+      "bytes": 211112,
+      "sha1": "f85ad53b0b1b80441880b0265b471ef31f093c71"
+    },
+    "settings.json": {
+      "bytes": 735,
+      "sha1": "2fd76b35bc1209fb2f6e6c485b4723af5814d91c"
+    }
+  },
+  "generator": "lift_tower.py@c82e573-dirty",
+  "spec": "towers-v2 + skeptic",
+  "variant": "DQ14",
+  "family": "DQ",
+  "role": "line",
+  "kind": "support",
+  "head": "ingest",
+  "derived_from": {
+    "source": "Kagelok 'Chair Lift' (CC BY 4.0)",
+    "uid": "afd305cdd4cb450f80b59f24b4b3e236",
+    "url": "https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236",
+    "mode": "derived geometry (line head kit)"
+  },
+  "tris": {
+    "0": 3762,
+    "1": 1546,
+    "2": 400
+  },
+  "lod_drift_top_m": {
+    "1": 0.0,
+    "2": 0.02506
+  },
+  "parts": 180,
+  "axle": 12.0,
+  "gauge": 5.2,
+  "h_top": 1.95012,
+  "bounds_m": {
+    "min_z": -6.0,
+    "max_z": 13.950119972229004,
+    "lateral": 2.993506908416748,
+    "travel": 2.388000011444092
+  },
+  "top_anchor_y": 13.95,
+  "pier": 6.0,
+  "comm_lv_y": 13.2,
+  "atlas": 1024,
+  "ao_samples": 48,
+  "pack_margin_px": 6,
+  "sheave_profile": "lite (lift_tower.lite_sheave, 6 x segs tris)",
+  "wheels": {
+    "generation": "v2 (T62 round 3: cs2_sheaves.wheel, 16 segments, groove, seen hub bosses)",
+    "builder": "cs2_sheaves.wheel",
+    "r": 0.223,
+    "w": 0.1,
+    "segs": 16,
+    "profile": {
+      "groove": 0.18,
+      "groove_min": 0.02,
+      "chamfer": 0.0,
+      "boss_r": 0.45,
+      "boss_top": 0.35,
+      "boss_h": 0.1,
+      "boss_segs": 8,
+      "root_segs": 8
+    },
+    "tris_per_wheel_max": 120,
+    "discs": "n-gon",
+    "groove": "V (max(0.02, 0.18 r))",
+    "hub_boss": "seen faces only",
+    "material": "wheelsteel",
+    "lod": {
+      "1": "flat band on the crest rings + 2 n-gon discs (no boss)",
+      "2": "no wheel"
+    }
+  },
+  "sheaves_per_side": 8,
+  "train_sag_m": 0.0,
+  "density_worst": [
+    {
+      "part": "rail_deckp1_top",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 33.7
+    },
+    {
+      "part": "rail_deckn0_top",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 33.7
+    },
+    {
+      "part": "rail_deckn1_top",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 33.7
+    },
+    {
+      "part": "rail_deckn0_knee",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 33.7
+    },
+    {
+      "part": "rail_deckp0_top",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 33.7
+    },
+    {
+      "part": "rail_deckn1_knee",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 33.7
+    },
+    {
+      "part": "rail_deckp0_knee",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 33.7
+    },
+    {
+      "part": "rail_deckp1_knee",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 33.7
+    }
+  ],
+  "lod_switch_m": {
+    "csum": 30.71313238143921,
+    "bias": 0.6500290112250268,
+    "distances": [
+      69.35258034650217,
+      108.18505618892601,
+      212.68752823979395
+    ],
+    "switch": {
+      "1": 108.18505618892601,
+      "2": 212.68752823979395
+    },
+    "cull": 4253.752548108468
+  },
+  "ingest": {
+    "source": "Sketchfab_2017_09_02_17_41_10.blend",
+    "uid": "afd305cdd4cb450f80b59f24b4b3e236",
+    "kit": "line (Plateforme Pil Haut + Pil Deco)",
+    "p0_u": [
+      0.0,
+      104.7634,
+      -1.7264
+    ],
+    "scale_m_per_u": 0.3,
+    "shear_k": -0.22328,
+    "shear_deg": 12.587,
+    "gauge_delta_m": 0.35,
+    "kept": {
+      "gantry_00": {
+        "verts": 144,
+        "tris": 284
+      },
+      "endplate_0": {
+        "verts": 8,
+        "tris": 12
+      },
+      "endplate_1": {
+        "verts": 8,
+        "tris": 12
+      },
+      "endplate_2": {
+        "verts": 8,
+        "tris": 12
+      },
+      "endplate_3": {
+        "verts": 8,
+        "tris": 12
+      }
+    },
+    "h_top_m": 1.95012,
+    "beam_top_m": 1.92531,
+    "feet_m": [
+      -0.29591,
+      -0.29591
+    ],
+    "clean": {
+      "gantry_00": {
+        "name": "gantry_00",
+        "verts_in": 144,
+        "faces_in": 142,
+        "doubles": 0,
+        "loose_edges": 0,
+        "loose_verts": 0,
+        "degenerate_faces": 0,
+        "ngons_triangulated": 0,
+        "components": 1,
+        "components_closed": 1,
+        "components_recalculated": 1,
+        "normals_flipped": 0,
+        "flips_by_component": [],
+        "recalc": "manifold",
+        "custom_normals_cleared": false,
+        "sharp_edges_cleared": 0,
+        "colour_attributes": [],
+        "unused_slots": 0,
+        "outputs_removed": 1,
+        "ngons": 0,
+        "verts": 144,
+        "faces": 142,
+        "tris": 284
+      },
+      "endplate_0": {
+        "name": "endplate_0",
+        "verts_in": 8,
+        "faces_in": 6,
+        "doubles": 0,
+        "loose_edges": 0,
+        "loose_verts": 0,
+        "degenerate_faces": 0,
+        "ngons_triangulated": 0,
+        "components": 1,
+        "components_closed": 1,
+        "components_recalculated": 1,
+        "normals_flipped": 0,
+        "flips_by_component": [],
+        "recalc": "manifold",
+        "custom_normals_cleared": false,
+        "sharp_edges_cleared": 0,
+        "colour_attributes": [],
+        "unused_slots": 0,
+        "outputs_removed": 1,
+        "ngons": 0,
+        "verts": 8,
+        "faces": 6,
+        "tris": 12
+      },
+      "endplate_1": {
+        "name": "endplate_1",
+        "verts_in": 8,
+        "faces_in": 6,
+        "doubles": 0,
+        "loose_edges": 0,
+        "loose_verts": 0,
+        "degenerate_faces": 0,
+        "ngons_triangulated": 0,
+        "components": 1,
+        "components_closed": 1,
+        "components_recalculated": 1,
+        "normals_flipped": 0,
+        "flips_by_component": [],
+        "recalc": "manifold",
+        "custom_normals_cleared": false,
+        "sharp_edges_cleared": 0,
+        "colour_attributes": [],
+        "unused_slots": 0,
+        "outputs_removed": 0,
+        "ngons": 0,
+        "verts": 8,
+        "faces": 6,
+        "tris": 12
+      },
+      "endplate_2": {
+        "name": "endplate_2",
+        "verts_in": 8,
+        "faces_in": 6,
+        "doubles": 0,
+        "loose_edges": 0,
+        "loose_verts": 0,
+        "degenerate_faces": 0,
+        "ngons_triangulated": 0,
+        "components": 1,
+        "components_closed": 1,
+        "components_recalculated": 1,
+        "normals_flipped": 0,
+        "flips_by_component": [],
+        "recalc": "manifold",
+        "custom_normals_cleared": false,
+        "sharp_edges_cleared": 0,
+        "colour_attributes": [],
+        "unused_slots": 0,
+        "outputs_removed": 0,
+        "ngons": 0,
+        "verts": 8,
+        "faces": 6,
+        "tris": 12
+      },
+      "endplate_3": {
+        "name": "endplate_3",
+        "verts_in": 8,
+        "faces_in": 6,
+        "doubles": 0,
+        "loose_edges": 0,
+        "loose_verts": 0,
+        "degenerate_faces": 0,
+        "ngons_triangulated": 0,
+        "components": 1,
+        "components_closed": 1,
+        "components_recalculated": 1,
+        "normals_flipped": 0,
+        "flips_by_component": [],
+        "recalc": "manifold",
+        "custom_normals_cleared": false,
+        "sharp_edges_cleared": 0,
+        "colour_attributes": [],
+        "unused_slots": 0,
+        "outputs_removed": 0,
+        "ngons": 0,
+        "verts": 8,
+        "faces": 6,
+        "tris": 12
+      }
+    },
+    "internal_partition_quads_dropped": 3
+  },
+  "bake": {
+    "A": 1024,
+    "margin_px": 6,
+    "ao": "self",
+    "uncovered_texels": 784102
+  },
+  "prefab_notes": {
+    "size_y": "ObjectUtils.GetSize y = bounds.max.y (1.6.0f1 ObjectUtils.cs:51-58)",
+    "switch_points": "FG 8/3, 20/3, 32/3; DQ 4/3, 10/3, 16/3 m (M10; Revision 1: FG20 / DQ16 add the last point)",
+    "leg_size_y": "StandingObject.m_LegSize.y = leg zone above the origin (ObjectInitializeSystem.cs:1293); pick it on purpose (FG/ET use the mast height)"
+  },
+  "catalog_handoff": {
+    "AimHeightM": 9.0,
+    "piece_lanes": [
+      2.6,
+      8.0
+    ],
+    "piece_comm_lv_y": 9.2,
+    "line_net_subobject_y": 9.95,
+    "member_axle_y": 12.0,
+    "member_comm_lv_y": 13.2
+  },
+  "detail_pass_1": {
+    "relief": {
+      "drawn": {
+        "edge_round": 223,
+        "marks:band": 64,
+        "marks:boltring": 32,
+        "bolts": 140,
+        "grate": 8
+      },
+      "skipped": {}
+    },
+    "tone": {
+      "drawn": {
+        "mottle": 1130,
+        "chalk": 160
+      },
+      "skipped": {}
+    },
+    "tone_gate": {
+      "material": {
+        "galv": {
+          "texels": 59293,
+          "s0": 0.0186,
+          "s1": 0.0299,
+          "want": 0.0269,
+          "delivered": 1.001,
+          "ok": true
+        },
+        "paint": {
+          "texels": 142629,
+          "s0": 0.0108,
+          "s1": 0.0322,
+          "want": 0.0232,
+          "delivered": 1.295,
+          "ok": true
+        }
+      },
+      "class": {
+        "arrest": {
+          "texels": 209,
+          "s0": 0.0138,
+          "s1": 0.0295,
+          "want": 0.0245,
+          "delivered": 1.114
+        },
+        "conduit": {
+          "texels": 904,
+          "s0": 0.0168,
+          "s1": 0.0378,
+          "want": 0.0259,
+          "delivered": 1.448
+        },
+        "endplate": {
+          "texels": 4044,
+          "s0": 0.0138,
+          "s1": 0.0423,
+          "want": 0.0244,
+          "delivered": 1.711
+        },
+        "flange_mastbase": {
+          "texels": 1378,
+          "s0": 0.0054,
+          "s1": 0.0292,
+          "want": 0.0216,
+          "delivered": 1.228
+        },
+        "gantry": {
+          "texels": 56607,
+          "s0": 0.0109,
+          "s1": 0.034,
+          "want": 0.0232,
+          "delivered": 1.376
+        },
+        "grate_deckn": {
+          "texels": 23283,
+          "s0": 0.0179,
+          "s1": 0.0293,
+          "want": 0.0265,
+          "delivered": 0.991
+        },
+        "grate_deckn_lip": {
+          "texels": 2369,
+          "s0": 0.019,
+          "s1": 0.0333,
+          "want": 0.0272,
+          "delivered": 1.168
+        },
+        "grate_deckp": {
+          "texels": 23482,
+          "s0": 0.0192,
+          "s1": 0.0298,
+          "want": 0.0272,
+          "delivered": 0.972
+        },
+        "grate_deckp_lip": {
+          "texels": 1565,
+          "s0": 0.0209,
+          "s1": 0.0304,
+          "want": 0.0282,
+          "delivered": 0.946
+        },
+        "grate_landn": {
+          "texels": 442,
+          "s0": 0.0168,
+          "s1": 0.0263,
+          "want": 0.0259,
+          "delivered": 0.866
+        },
+        "grate_landn_lip": {
+          "texels": 236,
+          "s0": 0.0219,
+          "s1": 0.0275,
+          "want": 0.0288,
+          "delivered": 0.709
+        },
+        "grate_landp": {
+          "texels": 442,
+          "s0": 0.015,
+          "s1": 0.0192,
+          "want": 0.025,
+          "delivered": 0.514
+        },
+        "grate_landp_lip": {
+          "texels": 236,
+          "s0": 0.0176,
+          "s1": 0.0256,
+          "want": 0.0263,
+          "delivered": 0.795
+        },
+        "hanger": {
+          "texels": 488,
+          "s0": 0.0079,
+          "s1": 0.0227,
+          "want": 0.0222,
+          "delivered": 0.909
+        },
+        "jbox": {
+          "texels": 216,
+          "s0": 0.0095,
+          "s1": 0.0262,
+          "want": 0.0227,
+          "delivered": 1.043
+        },
+        "kick_deckn": {
+          "texels": 1076,
+          "s0": 0.0032,
+          "s1": 0.0224,
+          "want": 0.0213,
+          "delivered": 0.946
+        },
+        "kick_deckp": {
+          "texels": 1002,
+          "s0": 0.0037,
+          "s1": 0.0181,
+          "want": 0.0213,
+          "delivered": 0.757
+        },
+        "ladder_rail": {
+          "texels": 3458,
+          "s0": 0.0181,
+          "s1": 0.0303,
+          "want": 0.0266,
+          "delivered": 1.041
+        },
+        "ladder_rung": {
+          "texels": 1911,
+          "s0": 0.0168,
+          "s1": 0.0291,
+          "want": 0.0259,
+          "delivered": 1.018
+        },
+        "mast": {
+          "texels": 40414,
+          "s0": 0.0108,
+          "s1": 0.0242,
+          "want": 0.0232,
+          "delivered": 0.924
+        },
+        "pivot": {
+          "texels": 384,
+          "s0": 0.0148,
+          "s1": 0.0247,
+          "want": 0.0249,
+          "delivered": 0.846
+        },
+        "post_deckn": {
+          "texels": 1156,
+          "s0": 0.0071,
+          "s1": 0.0337,
+          "want": 0.022,
+          "delivered": 1.409
+        },
+        "post_deckp": {
+          "texels": 1190,
+          "s0": 0.0054,
+          "s1": 0.0204,
+          "want": 0.0216,
+          "delivered": 0.839
+        },
+        "rail_deckn_knee": {
+          "texels": 864,
+          "s0": 0.0042,
+          "s1": 0.0337,
+          "want": 0.0214,
+          "delivered": 1.43
+        },
+        "rail_deckn_top": {
+          "texels": 793,
+          "s0": 0.0049,
+          "s1": 0.0358,
+          "want": 0.0215,
+          "delivered": 1.515
+        },
+        "rail_deckp_knee": {
+          "texels": 790,
+          "s0": 0.0063,
+          "s1": 0.0345,
+          "want": 0.0218,
+          "delivered": 1.451
+        },
+        "rail_deckp_top": {
+          "texels": 862,
+          "s0": 0.0069,
+          "s1": 0.0322,
+          "want": 0.022,
+          "delivered": 1.342
+        },
+        "rocker_main": {
+          "texels": 13080,
+          "s0": 0.0103,
+          "s1": 0.0321,
+          "want": 0.023,
+          "delivered": 1.299
+        },
+        "rocker_sub": {
+          "texels": 10754,
+          "s0": 0.0093,
+          "s1": 0.0307,
+          "want": 0.0227,
+          "delivered": 1.249
+        },
+        "stiff_mastjoint": {
+          "texels": 1388,
+          "s0": 0.0087,
+          "s1": 0.028,
+          "want": 0.0225,
+          "delivered": 1.139
+        },
+        "yoke": {
+          "texels": 6743,
+          "s0": 0.0121,
+          "s1": 0.0309,
+          "want": 0.0237,
+          "delivered": 1.217
+        }
+      }
+    },
+    "tone_gate_ok": true,
+    "plates": [
+      {
+        "px": [
+          54,
+          119
+        ],
+        "ppm": 337.5,
+        "glyph_px": 47,
+        "cap_px": 43.0,
+        "numeral": "14",
+        "rect": [
+          394,
+          448,
+          6,
+          125
+        ]
+      },
+      {
+        "px": [
+          54,
+          120
+        ],
+        "ppm": 337.5,
+        "glyph_px": 47,
+        "cap_px": 43.0,
+        "numeral": "14",
+        "rect": [
+          329,
+          383,
+          5,
+          125
+        ]
+      }
+    ],
+    "decal_rects": 4,
+    "numeral": "14",
+    "subtexel_fill": {
+      "faces": 8,
+      "texels": 187,
+      "by_class": {
+        "kick_deckn": 1,
+        "kick_deckp": 2,
+        "platerim": 5
+      },
+      "f3b_faces": 14,
+      "f3b_texels": 1278,
+      "f3b_by_class": {
+        "arrest": 2,
+        "kick_deckn": 4,
+        "kick_deckp": 8
+      },
+      "slivers_unfilled": {},
+      "black_after": 0,
+      "black_after_faces": [],
+      "black_after_lods": {
+        "1": 0,
+        "2": 0
+      }
+    },
+    "pad": {
+      "triangle_texels": 2962,
+      "triangle_edge_fractional": 0.532,
+      "band_texels": 1253,
+      "band_yellow": 445,
+      "band_black": 442
+    },
+    "weather": {
+      "intensity": 0.25,
+      "slot_wear": "free",
+      "snow": 0.0,
+      "ok": true,
+      "failed": [],
+      "VL1": 0.0308,
+      "VL2": 0.06782,
+      "VL3": -0.00858,
+      "VL4": 0.1852,
+      "dLstar": 0.8439,
+      "share_dLstar_gt_2": 0.1526,
+      "G5_ctl_identity": true,
+      "G6_protect_identical": true,
+      "roles": {
+        "paint_steel": 142629,
+        "pad": 25244,
+        "galv": 59293,
+        "masonry": 4608,
+        "none": 32709
+      },
+      "protect_texels": 19411
+    }
+  },
+  "weather": {
+    "A": 1024,
+    "N": 264483,
+    "compose_contact": false,
+    "coverage": {
+      "edge": 0.13519,
+      "grime": 0.29251,
+      "grime_cavity": 0.19991,
+      "grime_door": 0.0,
+      "grime_eave": 0.10751,
+      "grime_ground": 0.03142,
+      "rust": 0.08131,
+      "scuff": 0.02703,
+      "snow": 0.0
+    },
+    "doors": [],
+    "fields_MB": 23.5,
+    "ground": "grade",
+    "guards": {
+      "G1_alpha_kept": true,
+      "G2_msk_GB_kept": true,
+      "G3_worst_full_slot_rel": 0.344,
+      "G4_worst_floor_gap": 0.1075318,
+      "G5_ctl_identity": true,
+      "G6_protect_identical": true,
+      "G7_range_ok": true
+    },
+    "intensity": 0.25,
+    "name": "SkiLiftTowerDQ14P",
+    "perceptual": {
+      "mean_Lstar_before": 64.97,
+      "mean_abs_dLstar": 0.8439,
+      "p95_abs_dLstar": 5.112,
+      "share_dLstar_gt_2": 0.1526,
+      "texels": 158731,
+      "tinted": false
+    },
+    "protect_texels": 19411,
+    "role_source": {
+      "material": 165,
+      "override": 15
+    },
+    "roles": {
+      "galv": 59293,
+      "masonry": 4608,
+      "none": 32709,
+      "pad": 25244,
+      "paint_steel": 142629
+    },
+    "roles_refined": 0,
+    "seed": 3455350873,
+    "slot_wear": "free",
+    "snow": 0.0,
+    "sources": {
+      "cover_overflow_cells": 117,
+      "doors": 0,
+      "down_faces": 616,
+      "geo_candidates": 5432,
+      "geo_pairs": 721,
+      "lattice_curtain_faces": 0,
+      "lattice_faces": 56,
+      "lattice_skipped": 0,
+      "rust_sources": 124,
+      "traffic_parts": 0
+    },
+    "spec_key": "3de7a70047a779d7583d5c1c6e932d1e182bb25f",
+    "vanilla": {
+      "VL1_all_covered": 0.02738,
+      "VL1_mean_rel_dL": 0.0308,
+      "VL2_share_rel_dL_gt_0.15": 0.06782,
+      "VL3_max_abs_dsmooth": 0.1155,
+      "VL3_mean_dsmooth": -0.00858,
+      "VL4_max": 0.1852,
+      "VL4_parts": [
+        {
+          "floored": false,
+          "part": "gantry_00",
+          "ratio": 0.1852,
+          "role": "paint_steel",
+          "std_L": 0.12139,
+          "texels": 41404
+        },
+        {
+          "floored": false,
+          "part": "mast",
+          "ratio": 0.0322,
+          "role": "paint_steel",
+          "std_L": 0.11086,
+          "texels": 36083
+        },
+        {
+          "floored": false,
+          "part": "crashpad_outer",
+          "ratio": 0.1837,
+          "role": "pad",
+          "std_L": 0.13206,
+          "texels": 13718
+        },
+        {
+          "floored": false,
+          "part": "grate_deckp",
+          "ratio": 0.0081,
+          "role": "galv",
+          "std_L": 0.03616,
+          "texels": 11672
+        },
+        {
+          "floored": false,
+          "part": "grate_deckn",
+          "ratio": 0.0086,
+          "role": "galv",
+          "std_L": 0.03646,
+          "texels": 11469
+        }
+      ],
+      "VL5_snow_share": 0.0,
+      "budget": {
+        "VL1": 0.05,
+        "VL2": 0.08,
+        "VL3_abs": 0.3,
+        "VL3_hi": 0.01,
+        "VL3_lo": -0.06,
+        "VL4": 0.5
+      },
+      "failed": [],
+      "ok": true,
+      "visible_texels": 158731
+    }
+  }
+}

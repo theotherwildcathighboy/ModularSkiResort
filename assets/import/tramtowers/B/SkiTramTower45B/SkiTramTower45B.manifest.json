@@ -1,0 +1,2086 @@
+{
+  "name": "SkiTramTower45B",
+  "written_utc": "2026-10-19T17:32:52Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiTramTower45B.fbx": {
+      "bytes": 447772,
+      "sha1": "003637ae1062c4409b92828ac7ce1c524fd4ac5e"
+    },
+    "SkiTramTower45B_BaseColor.png": {
+      "bytes": 2759194,
+      "sha1": "81395eafa3b5f994204df61484fd620b7b59b6bc"
+    },
+    "SkiTramTower45B_ControlMask.png": {
+      "bytes": 121465,
+      "sha1": "4fd5b4dcd9a2d86596def6533aa8032631890c98"
+    },
+    "SkiTramTower45B_LOD1.fbx": {
+      "bytes": 169836,
+      "sha1": "1ee33b781126dd8535d24b93813d70289a7ea643"
+    },
+    "SkiTramTower45B_LOD2.fbx": {
+      "bytes": 41980,
+      "sha1": "48210a47cddab2f916a3263b3734fd9093b0e426"
+    },
+    "SkiTramTower45B_MaskMap.png": {
+      "bytes": 1950231,
+      "sha1": "1f4459f7c55bed3418c8be3cd66017af09617738"
+    },
+    "SkiTramTower45B_Normal.png": {
+      "bytes": 429998,
+      "sha1": "cdba7ef02def009de7149c25de1ae8127879b7c1"
+    },
+    "settings.json": {
+      "bytes": 703,
+      "sha1": "efcaa5cf6e2f18fafd037d622d56a95e4418de56"
+    }
+  },
+  "generator": "tram_tower.py",
+  "git_sha": "c82e573f7a89",
+  "family": "tram",
+  "H": 45,
+  "letter": "B",
+  "args": {
+    "family": "tram",
+    "height": null,
+    "all": true,
+    "out": "%USERPROFILE%\\AppData\\Local\\Temp\\claude\\C--Users-USER-Documents-ClaudeProjects\\e0c848b4-c7c1-4952-9e28-9bce9e9c775e\\scratchpad\\held\\tramtowers\\B",
+    "letter": "B",
+    "finish": true,
+    "lods": true,
+    "export": true,
+    "review": null,
+    "preview": null,
+    "no_preview": true,
+    "beacon": false,
+    "weather": "on",
+    "weather_probe": true,
+    "atlas": null,
+    "ao_samples": 48,
+    "saddle_l": 4.8,
+    "no_lattice_ladder": false,
+    "lattice_ladder": false,
+    "no_validate": true,
+    "wheels": "v2",
+    "lineup": false
+  },
+  "rulings": [
+    "R27",
+    "R28",
+    "R30",
+    "R31"
+  ],
+  "contract": "design/lattice-towers.md + skeptic MC1-MC10",
+  "revision": {
+    "n": 1,
+    "date": "2026-10-11",
+    "verdicts": "verdicts-2026-10-11.md items 7 / 8 (ref-liftblog digest 1.3-1.5)",
+    "changes": [
+      "ground-to-head ladder outside the -X face, side baskets, offset flights",
+      "curved saddle girders + haul sheave row",
+      "upper stabilising frame + slewing jib cranes + lugs"
+    ]
+  },
+  "tris": {
+    "0": 6548,
+    "1": 2224,
+    "2": 456
+  },
+  "budget": {
+    "lod0_target": 5200,
+    "lod0_cap": 6900,
+    "lod1_target": 2400,
+    "lod2_warn": 470,
+    "lod2_cap": 500
+  },
+  "budget_warnings": [
+    "LOD0 6548 > target 5200"
+  ],
+  "lod_drift_m": [
+    0.0,
+    0.0
+  ],
+  "parts": 635,
+  "tally": {
+    "arrest_": 48,
+    "bplate_": 40,
+    "braceK_": 512,
+    "braceKm_": 128,
+    "braceN_": 192,
+    "braceXa_": 64,
+    "braceXb_": 64,
+    "bskt_": 264,
+    "collar_": 128,
+    "collarcap_": 64,
+    "cranecol_": 32,
+    "cranehook_": 16,
+    "cranehook_b": 24,
+    "cranejib_": 24,
+    "craneknee_": 16,
+    "cranetrol_": 24,
+    "cranewinch_": 24,
+    "gantrybeam_": 24,
+    "gantrypost_": 32,
+    "gantryx_": 24,
+    "grate_bskt": 112,
+    "grate_deck": 24,
+    "gusset_": 64,
+    "haulroll_": 800,
+    "haulroll_bar": 40,
+    "haulroll_liner": 768,
+    "haulroll_tie": 48,
+    "headchord_": 48,
+    "headdiag_": 96,
+    "headend_": 32,
+    "headvert_": 64,
+    "headx_": 96,
+    "kick_deck": 60,
+    "leg_": 72,
+    "lrail_": 148,
+    "lug_": 40,
+    "ped_": 40,
+    "pier_": 32,
+    "plan_": 160,
+    "plate_": 4,
+    "platerim_": 16,
+    "post_deck": 112,
+    "rail_deck": 288,
+    "ringL1_": 224,
+    "ringL2_": 64,
+    "rung_": 1032,
+    "saddle_": 80,
+    "saddle_liner": 24,
+    "sbrk_": 64,
+    "sbrkarm_": 40,
+    "sbrkdiag_": 32,
+    "sbrkhang_": 48,
+    "sbrkknee_": 32
+  },
+  "layout": {
+    "lower": [
+      [
+        1.5,
+        8.6256
+      ],
+      [
+        8.6256,
+        14.4847
+      ],
+      [
+        14.4847,
+        19.3025
+      ],
+      [
+        19.3025,
+        23.2641
+      ],
+      [
+        23.2641,
+        26.5215
+      ],
+      [
+        26.5215,
+        29.2
+      ]
+    ],
+    "neck": [
+      [
+        29.2,
+        32.4
+      ],
+      [
+        32.4,
+        35.6
+      ],
+      [
+        35.6,
+        38.8
+      ]
+    ],
+    "rings": [
+      1.5,
+      8.6256,
+      14.4847,
+      19.3025,
+      23.2641,
+      26.5215,
+      29.2,
+      32.4,
+      35.6
+    ],
+    "plan_levels": [
+      8.6256,
+      19.3025,
+      26.5215,
+      29.2,
+      35.6
+    ],
+    "kinds": [
+      "K",
+      "K",
+      "K",
+      "K",
+      "X",
+      "X"
+    ],
+    "flare_deg": 7.8113,
+    "alpha": 0.7878,
+    "collar_rings": [
+      2,
+      4,
+      7,
+      8
+    ],
+    "ladder": {
+      "face": "-X (authoring) = travel -z in the net frame",
+      "standoff_m": 0.4,
+      "lines": [
+        0.0,
+        1.0
+      ],
+      "arrival_z": 40.08,
+      "rails_from_z": -12.0,
+      "rungs_from_z": -11.75,
+      "flights": [
+        {
+          "line": 0.0,
+          "from": 0.0,
+          "to": 8.696,
+          "length": 8.696
+        },
+        {
+          "line": 1.0,
+          "from": 8.696,
+          "to": 14.555,
+          "length": 5.859
+        },
+        {
+          "line": 0.0,
+          "from": 14.555,
+          "to": 23.334,
+          "length": 8.779
+        },
+        {
+          "line": 1.0,
+          "from": 23.334,
+          "to": 32.47,
+          "length": 9.136
+        },
+        {
+          "line": 0.0,
+          "from": 32.47,
+          "to": 40.08,
+          "length": 7.61
+        }
+      ],
+      "baskets": [
+        {
+          "z_ring": 8.626,
+          "floor": 8.696,
+          "lateral": [
+            0.33,
+            1.4
+          ]
+        },
+        {
+          "z_ring": 14.485,
+          "floor": 14.555,
+          "lateral": [
+            -0.4,
+            0.67
+          ]
+        },
+        {
+          "z_ring": 23.264,
+          "floor": 23.334,
+          "lateral": [
+            0.33,
+            1.4
+          ]
+        },
+        {
+          "z_ring": 32.4,
+          "floor": 32.47,
+          "lateral": [
+            -0.4,
+            0.67
+          ]
+        }
+      ]
+    }
+  },
+  "datum": {
+    "z0": 41.25,
+    "h_top": 3.75,
+    "end_slope": 0.016
+  },
+  "contracts": {
+    "authoring": {
+      "frame": "authoring",
+      "bounds": {
+        "min": [
+          -6.2,
+          -6.2,
+          -12.0
+        ],
+        "max": [
+          6.2,
+          6.2,
+          45.0
+        ]
+      },
+      "z_rope": 41.25,
+      "haul_z": 40.85,
+      "saddles": {
+        "p": {
+          "crown": 41.15,
+          "tip": 40.8916,
+          "lane_y": 5.5
+        },
+        "n": {
+          "crown": 41.15,
+          "tip": 40.8916,
+          "lane_y": -5.5
+        }
+      },
+      "lanes": {
+        "hv_y": 5.5,
+        "lv_haul_y": 5.0,
+        "lv_haul_dz": -0.4
+      },
+      "footings": {
+        "ped_0": "open bottom at z 0",
+        "ped_1": "open bottom at z 0",
+        "ped_2": "open bottom at z 0",
+        "ped_3": "open bottom at z 0"
+      },
+      "ladder": {
+        "rails": 10,
+        "rungs": 172,
+        "rail_foot_z": -12.0,
+        "rung_foot_z": -11.766,
+        "variant_float_m": 10.0,
+        "foot_drop_at_pier_grade_m": 2.155,
+        "foot_need_m": 12.155,
+        "foot_short_at_pier_bound_m": 0.155,
+        "flights": 5,
+        "baskets": 4,
+        "lengths_m": [
+          8.696,
+          5.859,
+          8.779,
+          9.136,
+          7.61
+        ],
+        "lines_y": [
+          0.0,
+          1.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        "arrival_z": 40.08,
+        "corridor_margin_m": 4.5,
+        "rail_member_clearance_m": 0.065
+      },
+      "zones": {
+        "zones": [
+          "carriage",
+          "carhead",
+          "haulgrip_f",
+          "haulgrip_b",
+          "haulgrip_fo",
+          "haulgrip_bo",
+          "upright",
+          "upright_in",
+          "crossbar",
+          "column",
+          "fin_yoke",
+          "roof",
+          "body",
+          "R30a_out",
+          "R30b_out",
+          "R30a_in",
+          "R30b_in"
+        ],
+        "hits": 0,
+        "corridors": {
+          "HV_track": {
+            "y": 5.5,
+            "dz": 0.0,
+            "r": 0.1,
+            "min_clearance_m": 0.1236
+          },
+          "LV_haul": {
+            "y": 5.0,
+            "dz": -0.4,
+            "r": 0.06,
+            "min_clearance_m": 0.0121
+          }
+        }
+      },
+      "symmetry": {
+        "y_mirror_worst_m": 1.1e-06,
+        "exempt_prefixes": [
+          "rung_",
+          "lrail_",
+          "bskt_",
+          "grate_bskt",
+          "arrest_"
+        ],
+        "exempt_vertices": 1460,
+        "exempt_part_kinds": [
+          "arrest",
+          "bskt",
+          "grate",
+          "lrail",
+          "rung"
+        ]
+      }
+    },
+    "net": {
+      "frame": "net",
+      "bounds": {
+        "min": [
+          -6.2,
+          -6.2,
+          -12.0
+        ],
+        "max": [
+          6.2,
+          6.2,
+          45.0
+        ]
+      },
+      "z_rope": 41.25,
+      "haul_z": 40.85,
+      "saddles": {
+        "p": {
+          "crown": 41.15,
+          "tip": 40.8916,
+          "lane_y": 5.5
+        },
+        "n": {
+          "crown": 41.15,
+          "tip": 40.8916,
+          "lane_y": -5.5
+        }
+      },
+      "lanes": {
+        "hv_y": 5.5,
+        "lv_haul_y": 5.0,
+        "lv_haul_dz": -0.4
+      },
+      "footings": {
+        "ped_0": "open bottom at z 0",
+        "ped_1": "open bottom at z 0",
+        "ped_2": "open bottom at z 0",
+        "ped_3": "open bottom at z 0"
+      },
+      "ladder": {
+        "rails": 10,
+        "rungs": 172,
+        "rail_foot_z": -12.0,
+        "rung_foot_z": -11.766,
+        "variant_float_m": 10.0,
+        "foot_drop_at_pier_grade_m": 2.155,
+        "foot_need_m": 12.155,
+        "foot_short_at_pier_bound_m": 0.155,
+        "flights": 5,
+        "baskets": 4,
+        "lengths_m": [
+          8.696,
+          5.859,
+          8.779,
+          9.136,
+          7.61
+        ],
+        "lines_y": [
+          0.0,
+          1.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        "arrival_z": 40.08,
+        "corridor_margin_m": 4.5,
+        "rail_member_clearance_m": 0.065
+      },
+      "zones": {
+        "zones": [
+          "carriage",
+          "carhead",
+          "haulgrip_f",
+          "haulgrip_b",
+          "haulgrip_fo",
+          "haulgrip_bo",
+          "upright",
+          "upright_in",
+          "crossbar",
+          "column",
+          "fin_yoke",
+          "roof",
+          "body",
+          "R30a_out",
+          "R30b_out",
+          "R30a_in",
+          "R30b_in"
+        ],
+        "hits": 0,
+        "corridors": {
+          "HV_track": {
+            "y": 5.5,
+            "dz": 0.0,
+            "r": 0.1,
+            "min_clearance_m": 0.1236
+          },
+          "LV_haul": {
+            "y": 5.0,
+            "dz": -0.4,
+            "r": 0.06,
+            "min_clearance_m": 0.0121
+          }
+        }
+      },
+      "symmetry": {
+        "y_mirror_worst_m": 1.3e-06,
+        "exempt_prefixes": [
+          "rung_",
+          "lrail_",
+          "bskt_",
+          "grate_bskt",
+          "arrest_"
+        ],
+        "exempt_vertices": 1460,
+        "exempt_part_kinds": [
+          "arrest",
+          "bskt",
+          "grate",
+          "lrail",
+          "rung"
+        ]
+      }
+    }
+  },
+  "g_clear": {
+    "structure": 0.6,
+    "structure_box": "carriage",
+    "rope_support": 0.01,
+    "rope_support_box": "carriage",
+    "structure_level_carrier": 1.8,
+    "structure_level_carrier_box": "body",
+    "by_box": {
+      "carriage": {
+        "structure": 0.6,
+        "rope_support": 0.01,
+        "parts": {
+          "rope_support": [
+            "saddle_liner_n",
+            "saddle_liner_p",
+            "saddle_n",
+            "saddle_p"
+          ],
+          "structure": [
+            "lug_0",
+            "lug_1"
+          ]
+        }
+      },
+      "carhead": {
+        "structure": 1.46,
+        "rope_support": 0.28,
+        "parts": {
+          "rope_support": [
+            "saddle_liner_n",
+            "saddle_liner_p",
+            "saddle_n",
+            "saddle_p"
+          ],
+          "structure": [
+            "lug_0",
+            "lug_1"
+          ]
+        }
+      },
+      "haulgrip_f": {
+        "structure": null,
+        "rope_support": 0.19,
+        "parts": {
+          "rope_support": [
+            "sbrkarm_n_1",
+            "sbrkarm_p_1"
+          ]
+        }
+      },
+      "haulgrip_b": {
+        "structure": 0.76,
+        "rope_support": 0.63,
+        "parts": {
+          "rope_support": [
+            "sbrkknee_n_0",
+            "sbrkknee_p_0"
+          ],
+          "structure": [
+            "gantrybeam_0"
+          ]
+        }
+      },
+      "haulgrip_fo": {
+        "structure": null,
+        "rope_support": null,
+        "parts": {}
+      },
+      "haulgrip_bo": {
+        "structure": 0.7,
+        "rope_support": null,
+        "parts": {
+          "structure": [
+            "gantrybeam_0"
+          ]
+        }
+      },
+      "upright": {
+        "structure": null,
+        "rope_support": null,
+        "parts": {}
+      },
+      "upright_in": {
+        "structure": 1.92,
+        "rope_support": 1.17,
+        "parts": {
+          "rope_support": [
+            "sbrkknee_n_0",
+            "sbrkknee_p_0"
+          ],
+          "structure": [
+            "gantrybeam_0"
+          ]
+        }
+      },
+      "crossbar": {
+        "structure": null,
+        "rope_support": 0.98,
+        "parts": {
+          "rope_support": [
+            "saddle_n",
+            "saddle_p"
+          ]
+        }
+      },
+      "column": {
+        "structure": null,
+        "rope_support": 1.1,
+        "parts": {
+          "rope_support": [
+            "saddle_n",
+            "saddle_p"
+          ]
+        }
+      },
+      "fin_yoke": {
+        "structure": 2.14,
+        "rope_support": 0.93,
+        "parts": {
+          "rope_support": [
+            "saddle_n",
+            "saddle_p"
+          ],
+          "structure": [
+            "lug_0",
+            "lug_1"
+          ]
+        }
+      },
+      "roof": {
+        "structure": 2.05,
+        "rope_support": 1.0,
+        "parts": {
+          "rope_support": [
+            "sbrk_n_2",
+            "sbrk_p_2"
+          ],
+          "structure": [
+            "lug_0",
+            "lug_1"
+          ]
+        }
+      },
+      "body": {
+        "structure": 1.8,
+        "rope_support": 0.87,
+        "parts": {
+          "rope_support": [
+            "sbrk_n_2",
+            "sbrk_p_2"
+          ],
+          "structure": [
+            "lug_0",
+            "lug_1"
+          ]
+        }
+      }
+    },
+    "g_max": 2.5,
+    "g_step": 0.01,
+    "end_slope": 0.016,
+    "pitched_boxes": [
+      "carriage",
+      "carhead",
+      "haulgrip_f",
+      "haulgrip_b",
+      "haulgrip_fo",
+      "haulgrip_bo"
+    ],
+    "accepted_contacts_level": {
+      "haulgrip_f": [
+        "haulroll_liner_n_0",
+        "haulroll_liner_n_1",
+        "haulroll_liner_n_2",
+        "haulroll_liner_n_3",
+        "haulroll_liner_n_4",
+        "haulroll_liner_n_5",
+        "haulroll_liner_n_6",
+        "haulroll_liner_p_0",
+        "haulroll_liner_p_1",
+        "haulroll_liner_p_2",
+        "haulroll_liner_p_3",
+        "haulroll_liner_p_4",
+        "haulroll_liner_p_5",
+        "haulroll_liner_p_6",
+        "haulroll_n_0",
+        "haulroll_n_1",
+        "haulroll_n_2",
+        "haulroll_n_3",
+        "haulroll_n_4",
+        "haulroll_n_5",
+        "haulroll_n_6",
+        "haulroll_p_0",
+        "haulroll_p_1",
+        "haulroll_p_2",
+        "haulroll_p_3",
+        "haulroll_p_4",
+        "haulroll_p_5",
+        "haulroll_p_6"
+      ],
+      "haulgrip_b": [
+        "haulroll_liner_n_1",
+        "haulroll_liner_n_2",
+        "haulroll_liner_n_3",
+        "haulroll_liner_n_4",
+        "haulroll_liner_n_5",
+        "haulroll_liner_n_6",
+        "haulroll_liner_n_7",
+        "haulroll_liner_p_1",
+        "haulroll_liner_p_2",
+        "haulroll_liner_p_3",
+        "haulroll_liner_p_4",
+        "haulroll_liner_p_5",
+        "haulroll_liner_p_6",
+        "haulroll_liner_p_7",
+        "haulroll_n_1",
+        "haulroll_n_2",
+        "haulroll_n_3",
+        "haulroll_n_4",
+        "haulroll_n_5",
+        "haulroll_n_6",
+        "haulroll_n_7",
+        "haulroll_p_1",
+        "haulroll_p_2",
+        "haulroll_p_3",
+        "haulroll_p_4",
+        "haulroll_p_5",
+        "haulroll_p_6",
+        "haulroll_p_7"
+      ],
+      "upright_in": [
+        "sbrk_n_2",
+        "sbrk_n_3",
+        "sbrk_p_2",
+        "sbrk_p_3",
+        "sbrkarm_n_0",
+        "sbrkarm_n_1",
+        "sbrkarm_p_0",
+        "sbrkarm_p_1"
+      ]
+    }
+  },
+  "atlas": 2048,
+  "bake": {
+    "margin_px": 6,
+    "ao": "self",
+    "uncovered_texels": 2613429,
+    "pack_px_per_m": {
+      "min": 3.2966105489821915,
+      "median": 33.09882452416735,
+      "max": 326.0257386309386
+    },
+    "islands": 1042,
+    "height_range_m": [
+      -0.11954651027917862,
+      0.015985317528247833
+    ],
+    "prefilter": "box x4 (R24-style)"
+  },
+  "density_px_per_m": {
+    "leg_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "ringL2_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "ringL1_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "braceK_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "braceKm_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "braceXa_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "braceXb_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "braceN_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "plan_": {
+      "median": 24.8,
+      "min": 24.8
+    },
+    "rung_": {
+      "median": 16.5,
+      "min": 16.5
+    },
+    "lrail_": {
+      "median": 16.5,
+      "min": 16.5
+    },
+    "headchord_": {
+      "median": 49.6,
+      "min": 49.6
+    },
+    "headend_": {
+      "median": 49.6,
+      "min": 49.6
+    },
+    "headvert_": {
+      "median": 41.4,
+      "min": 41.4
+    },
+    "headx_": {
+      "median": 49.6,
+      "min": 49.6
+    },
+    "headdiag_": {
+      "median": 41.4,
+      "min": 41.4
+    },
+    "saddle_": {
+      "median": 66.1,
+      "min": 66.0
+    },
+    "sbrkarm_": {
+      "median": 41.4,
+      "min": 41.4
+    },
+    "sbrk_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "sbrkhang_": {
+      "median": 41.4,
+      "min": 41.4
+    },
+    "sbrkdiag_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "sbrkknee_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "haulroll_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "haulroll_bar": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "haulroll_tie": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "grate_deck": {
+      "median": 41.4,
+      "min": 41.4
+    },
+    "post_deck": {
+      "median": 24.8,
+      "min": 24.8
+    },
+    "rail_deck": {
+      "median": 24.8,
+      "min": 23.0
+    },
+    "kick_deck": {
+      "median": 24.8,
+      "min": 24.8
+    },
+    "gantrypost_": {
+      "median": 41.4,
+      "min": 41.4
+    },
+    "gantrybeam_": {
+      "median": 49.6,
+      "min": 49.6
+    },
+    "gantryx_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "lug_": {
+      "median": 24.8,
+      "min": 24.8
+    },
+    "cranecol_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "cranejib_": {
+      "median": 41.4,
+      "min": 41.4
+    },
+    "craneknee_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "cranetrol_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "cranehook_": {
+      "median": 24.8,
+      "min": 24.8
+    },
+    "cranehook_b": {
+      "median": 24.8,
+      "min": 24.8
+    },
+    "cranewinch_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "grate_bskt": {
+      "median": 24.8,
+      "min": 24.8
+    },
+    "bskt_": {
+      "median": 16.5,
+      "min": 16.5
+    },
+    "ped_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "pier_": {
+      "median": 8.3,
+      "min": 8.3
+    },
+    "bplate_": {
+      "median": 66.2,
+      "min": 66.2
+    },
+    "gusset_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "plate_": {
+      "median": 326.0,
+      "min": 326.0
+    },
+    "platerim_": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "arrest_": {
+      "median": 3.3,
+      "min": 3.3
+    },
+    "collar_": {
+      "median": 49.6,
+      "min": 49.6
+    },
+    "collarcap_": {
+      "median": 9.9,
+      "min": 9.9
+    },
+    "haulroll_liner": {
+      "median": 33.1,
+      "min": 33.1
+    },
+    "saddle_liner": {
+      "median": 66.0,
+      "min": 66.0
+    }
+  },
+  "lod_switch_m": {
+    "csum": 81.80000114440918,
+    "bias": 0.5168325417166961,
+    "distances": [
+      153.54759379245874,
+      263.46926447240406,
+      581.855212342429
+    ],
+    "switch": {
+      "1": 263.46926447240406,
+      "2": 581.855212342429
+    },
+    "cull": 12425.033060237833
+  },
+  "surface_area_m2": 1531.2,
+  "prefab": {
+    "tower_prefab": "SkiTramTower45",
+    "mesh": "SkiTramTower45A",
+    "placeholder": "SkiTramTowerPlaceholder (mesh SkiTramTower30A)",
+    "utility_object": {
+      "type": 8,
+      "position": [
+        0.0,
+        41.25,
+        0.0
+      ]
+    },
+    "stubs": [
+      {
+        "lane": "HV track",
+        "lane_prefab": "SkiTramTrackRope",
+        "lane_fallback": "UnityGUID:5d88ac45a40b30341a79535930e3b735",
+        "pos": [
+          -5.5,
+          41.25,
+          0.0
+        ],
+        "node_index": [
+          0,
+          0
+        ]
+      },
+      {
+        "lane": "HV track",
+        "lane_prefab": "SkiTramTrackRope",
+        "lane_fallback": "UnityGUID:5d88ac45a40b30341a79535930e3b735",
+        "pos": [
+          5.5,
+          41.25,
+          0.0
+        ],
+        "node_index": [
+          1,
+          1
+        ]
+      },
+      {
+        "lane": "LV haul",
+        "lane_prefab": "SkiTramHaulRope",
+        "lane_fallback": "UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b",
+        "pos": [
+          -5.0,
+          40.85,
+          0.0
+        ],
+        "node_index": [
+          2,
+          2
+        ]
+      },
+      {
+        "lane": "LV haul",
+        "lane_prefab": "SkiTramHaulRope",
+        "lane_fallback": "UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b",
+        "pos": [
+          5.0,
+          40.85,
+          0.0
+        ],
+        "node_index": [
+          3,
+          3
+        ]
+      }
+    ],
+    "standing_object": {
+      "m_LegSize": [
+        12.4,
+        29.2,
+        12.4
+      ],
+      "m_CircularLeg": false,
+      "m_LegGap": [
+        0,
+        0
+      ]
+    },
+    "pillar_object": {
+      "m_Type": 2,
+      "m_AnchorOffset": 0,
+      "m_VerticalPillarOffsetRange": [
+        -1,
+        1
+      ]
+    },
+    "terraform_override": "copy SkiLiftTowerFG12 (LevelMin (2,2), LevelMax (-2,-2), corners (1,1), DontRaise/DontLower)",
+    "bounds_top": 45.0,
+    "raw_bounds_min_y": -12.0,
+    "clamp_bounds_min_y": -0.01,
+    "net_subobjects": {
+      "m_Position": [
+        0.0,
+        30.0,
+        0.0
+      ],
+      "m_Placement": 0,
+      "m_AnchorTop": false,
+      "note": "= SkiTramTower30A LOD0 bounds max y; re-read after import (PIPELINE 6.5)"
+    },
+    "top_anchor_y": 30.0,
+    "elevation_range": [
+      0,
+      30.0
+    ],
+    "variant_scoring": {
+      "sizes": [
+        30.0,
+        45.0,
+        60.0
+      ],
+      "spec_y": 30.0,
+      "switches": [
+        [
+          0.0,
+          30.0
+        ],
+        [
+          10.01,
+          45.0
+        ],
+        [
+          25.01,
+          60.0
+        ]
+      ],
+      "max_float": 10.0,
+      "max_bury": 4.99
+    },
+    "pier": {
+      "depth": 12.0,
+      "covers_float_m": 10.0,
+      "slope_allowance_m": 2.0,
+      "corner_diag_m": 7.778,
+      "grade_covered_on_diagonal": 0.257
+    },
+    "color_slot1_default": [
+      0.66,
+      0.67,
+      0.69
+    ],
+    "piece_lanes": {
+      "hv_track": [
+        5.5,
+        26.25
+      ],
+      "lv_haul": [
+        5.0,
+        25.85
+      ],
+      "find_anchor": true,
+      "comm": null,
+      "lane_hanging": 0.004,
+      "note": "R31: own rope-lane prefabs with m_Hanging 0.004 (SkiLiftHaulRopeB sags 0.03)"
+    }
+  },
+  "carving": {
+    "rope_above_ground_node_m": 26.25,
+    "cabin_underside_above_chord_m": 16.25,
+    "height_range_min_max_for_clearance_m": 18.25,
+    "midspan_reach_chord_at_span_m": {
+      "h_0.004 (R31)": 4062.5,
+      "h_0.03 (vanilla)": 541.7
+    },
+    "cabin_band_abs_x_m": [
+      3.6,
+      7.4
+    ],
+    "piece_width_needed_m": 14.8,
+    "note": "min only protects the cabin when the piece is at least this wide (cut = piece width + margin)"
+  },
+  "catalog_drift": [],
+  "previews": [],
+  "detail_pass": {
+    "n": 1,
+    "date": "2026-10-11",
+    "contract": "design/detail-pass-1-towers.md sections 4-6 + skeptic M1-M11 (build/detail-pass-1-towers-lattice.md)",
+    "geometry": {
+      "coplanar_same_cm2": {
+        "total": 0,
+        "worst_pair": 0.0,
+        "pairs": {}
+      },
+      "hidden_contact_tris": {},
+      "anisotropy": {
+        "median": 1.0,
+        "p95": 1.0,
+        "per_class_over_1.35": {}
+      },
+      "detail_parts": {
+        "plate_": 2,
+        "platerim_": 2,
+        "arrest_": 5,
+        "collar_": 16,
+        "collarcap_": 16,
+        "haulroll_liner": 16,
+        "saddle_liner": 2,
+        "beacon_": 0
+      },
+      "plate_p_mm": [
+        6.0,
+        2.0
+      ],
+      "plate_n_mm": [
+        6.0,
+        2.0
+      ],
+      "arrest_front_m": 0.027,
+      "collar_proud_m": [
+        0.04,
+        0.04
+      ],
+      "bvh_clashes": []
+    },
+    "lods": {
+      "LOD1": {
+        "coplanar_same_total_cm2": 0,
+        "worst_pair_cm2": 0.0,
+        "smooth_member_edges": 624
+      },
+      "LOD2": {
+        "coplanar_same_total_cm2": 0,
+        "worst_pair_cm2": 0.0,
+        "smooth_member_edges": 32
+      }
+    },
+    "texture": {
+      "relief": {
+        "drawn": {
+          "edge_round": 428,
+          "seams": 212,
+          "marks:plate": 84,
+          "bolts": 164,
+          "marks:bolts": 40,
+          "marks:slot": 40,
+          "grate": 2
+        },
+        "skipped": {}
+      },
+      "tone": {
+        "drawn": {
+          "mottle": 1512,
+          "chalk": 6
+        },
+        "skipped": {}
+      },
+      "plates": {
+        "plate_n": {
+          "glyph_px": 76,
+          "numeral_cap_px": 65,
+          "border_px": 2,
+          "rect_px": [
+            184,
+            86
+          ],
+          "px_per_m": 328.6,
+          "rect": [
+            631,
+            717,
+            286,
+            470
+          ],
+          "ctl_RGB_max": 0.0
+        },
+        "plate_p": {
+          "glyph_px": 76,
+          "numeral_cap_px": 65,
+          "border_px": 2,
+          "rect_px": [
+            184,
+            86
+          ],
+          "px_per_m": 328.6,
+          "rect": [
+            631,
+            717,
+            286,
+            470
+          ],
+          "ctl_RGB_max": 0.0
+        }
+      },
+      "decal_rects": 2,
+      "height_range_m": [
+        -0.11954651027917862,
+        0.015985317528247833
+      ],
+      "classes": {
+        "bplate_": {
+          "texels": 3021,
+          "A_std": 0.0138,
+          "ds_std": 0.0125,
+          "dl_std": 0.0089,
+          "tilt_share": 0.043,
+          "ppm_med": 66.2
+        },
+        "braceK_": {
+          "texels": 211507,
+          "A_std": 0.0225,
+          "ds_std": 0.0186,
+          "dl_std": 0.0142,
+          "tilt_share": 0.001,
+          "ppm_med": 33.1
+        },
+        "braceKm_": {
+          "texels": 83189,
+          "A_std": 0.0224,
+          "ds_std": 0.0191,
+          "dl_std": 0.0138,
+          "tilt_share": 0.001,
+          "ppm_med": 33.1
+        },
+        "braceN_": {
+          "texels": 67119,
+          "A_std": 0.0212,
+          "ds_std": 0.0192,
+          "dl_std": 0.0137,
+          "tilt_share": 0.0,
+          "ppm_med": 33.1
+        },
+        "braceXa_": {
+          "texels": 29425,
+          "A_std": 0.0189,
+          "ds_std": 0.0169,
+          "dl_std": 0.0153,
+          "tilt_share": 0.0,
+          "ppm_med": 33.1
+        },
+        "braceXb_": {
+          "texels": 28921,
+          "A_std": 0.021,
+          "ds_std": 0.0198,
+          "dl_std": 0.0142,
+          "tilt_share": 0.001,
+          "ppm_med": 33.1
+        },
+        "bskt_": {
+          "texels": 1850,
+          "A_std": 0.0175,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 16.5
+        },
+        "collar_": {
+          "texels": 10682,
+          "A_std": 0.018,
+          "ds_std": 0.0158,
+          "dl_std": 0.0127,
+          "tilt_share": 0.574,
+          "ppm_med": 49.6
+        },
+        "collarcap_": {
+          "texels": 608,
+          "A_std": 0.0086,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 9.9
+        },
+        "cranecol_": {
+          "texels": 8568,
+          "A_std": 0.0191,
+          "ds_std": 0.022,
+          "dl_std": 0.0081,
+          "tilt_share": 0.947,
+          "ppm_med": 33.1
+        },
+        "cranehook_": {
+          "texels": 51,
+          "A_std": 0.0016,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 24.8
+        },
+        "cranehook_b": {
+          "texels": 116,
+          "A_std": 0.0421,
+          "ds_std": 0.0386,
+          "dl_std": 0.0155,
+          "tilt_share": 0.0,
+          "ppm_med": 24.8
+        },
+        "cranejib_": {
+          "texels": 13850,
+          "A_std": 0.037,
+          "ds_std": 0.0365,
+          "dl_std": 0.0216,
+          "tilt_share": 0.51,
+          "ppm_med": 41.4
+        },
+        "craneknee_": {
+          "texels": 2187,
+          "A_std": 0.0348,
+          "ds_std": 0.0356,
+          "dl_std": 0.018,
+          "tilt_share": 0.974,
+          "ppm_med": 33.1
+        },
+        "cranetrol_": {
+          "texels": 1493,
+          "A_std": 0.0051,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 33.1
+        },
+        "cranewinch_": {
+          "texels": 2169,
+          "A_std": 0.0225,
+          "ds_std": 0.014,
+          "dl_std": 0.0122,
+          "tilt_share": 0.0,
+          "ppm_med": 33.1
+        },
+        "gantrybeam_": {
+          "texels": 71824,
+          "A_std": 0.024,
+          "ds_std": 0.0189,
+          "dl_std": 0.0151,
+          "tilt_share": 0.471,
+          "ppm_med": 49.6
+        },
+        "gantrypost_": {
+          "texels": 38357,
+          "A_std": 0.0209,
+          "ds_std": 0.0153,
+          "dl_std": 0.0121,
+          "tilt_share": 0.467,
+          "ppm_med": 41.4
+        },
+        "gantryx_": {
+          "texels": 8642,
+          "A_std": 0.0202,
+          "ds_std": 0.0202,
+          "dl_std": 0.0129,
+          "tilt_share": 0.828,
+          "ppm_med": 33.1
+        },
+        "grate_bskt": {
+          "texels": 6318,
+          "A_std": 0.0176,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 24.8
+        },
+        "grate_deck": {
+          "texels": 69939,
+          "A_std": 0.0228,
+          "ds_std": 0.015,
+          "dl_std": 0.0128,
+          "tilt_share": 0.391,
+          "ppm_med": 41.4
+        },
+        "gusset_": {
+          "texels": 854,
+          "A_std": 0.0144,
+          "ds_std": 0.0159,
+          "dl_std": 0.0111,
+          "tilt_share": 0.0,
+          "ppm_med": 33.1
+        },
+        "haulroll_": {
+          "texels": 437,
+          "A_std": 0.0166,
+          "ds_std": 0.0131,
+          "dl_std": 0.0136,
+          "tilt_share": 0.0,
+          "ppm_med": 33.1
+        },
+        "haulroll_bar": {
+          "texels": 2920,
+          "A_std": 0.0182,
+          "ds_std": 0.0172,
+          "dl_std": 0.012,
+          "tilt_share": 0.0,
+          "ppm_med": 33.1
+        },
+        "haulroll_liner": {
+          "texels": 96,
+          "A_std": 0.0073,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 33.1
+        },
+        "haulroll_tie": {
+          "texels": 656,
+          "A_std": 0.0153,
+          "ds_std": 0.015,
+          "dl_std": 0.0153,
+          "tilt_share": 0.0,
+          "ppm_med": 33.1
+        },
+        "headchord_": {
+          "texels": 85680,
+          "A_std": 0.0197,
+          "ds_std": 0.0174,
+          "dl_std": 0.0135,
+          "tilt_share": 0.505,
+          "ppm_med": 49.6
+        },
+        "headdiag_": {
+          "texels": 15145,
+          "A_std": 0.0217,
+          "ds_std": 0.0183,
+          "dl_std": 0.014,
+          "tilt_share": 0.86,
+          "ppm_med": 41.4
+        },
+        "headend_": {
+          "texels": 9321,
+          "A_std": 0.0226,
+          "ds_std": 0.0189,
+          "dl_std": 0.017,
+          "tilt_share": 0.517,
+          "ppm_med": 49.6
+        },
+        "headvert_": {
+          "texels": 13468,
+          "A_std": 0.0185,
+          "ds_std": 0.0159,
+          "dl_std": 0.0143,
+          "tilt_share": 0.596,
+          "ppm_med": 41.4
+        },
+        "headx_": {
+          "texels": 70924,
+          "A_std": 0.0209,
+          "ds_std": 0.0196,
+          "dl_std": 0.0146,
+          "tilt_share": 0.707,
+          "ppm_med": 49.6
+        },
+        "kick_deck": {
+          "texels": 2686,
+          "A_std": 0.0164,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 24.8
+        },
+        "leg_": {
+          "texels": 265739,
+          "A_std": 0.021,
+          "ds_std": 0.0182,
+          "dl_std": 0.014,
+          "tilt_share": 0.65,
+          "ppm_med": 33.1
+        },
+        "lrail_": {
+          "texels": 7142,
+          "A_std": 0.0185,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 16.5
+        },
+        "lug_": {
+          "texels": 280,
+          "A_std": 0.006,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 24.8
+        },
+        "ped_": {
+          "texels": 17575,
+          "A_std": 0.0061,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.724,
+          "ppm_med": 33.1
+        },
+        "pier_": {
+          "texels": 4478,
+          "A_std": 0.013,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.731,
+          "ppm_med": 8.3
+        },
+        "plan_": {
+          "texels": 25311,
+          "A_std": 0.0196,
+          "ds_std": 0.0187,
+          "dl_std": 0.0135,
+          "tilt_share": 0.0,
+          "ppm_med": 24.8
+        },
+        "plate_": {
+          "texels": 15470,
+          "A_std": 0.0057,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 326.0
+        },
+        "platerim_": {
+          "texels": 26,
+          "A_std": 0.0011,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 33.1
+        },
+        "post_deck": {
+          "texels": 252,
+          "A_std": 0.0126,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 24.8
+        },
+        "rail_deck": {
+          "texels": 3068,
+          "A_std": 0.013,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 24.8
+        },
+        "ringL1_": {
+          "texels": 162608,
+          "A_std": 0.0215,
+          "ds_std": 0.0184,
+          "dl_std": 0.0139,
+          "tilt_share": 0.0,
+          "ppm_med": 33.1
+        },
+        "ringL2_": {
+          "texels": 35707,
+          "A_std": 0.0205,
+          "ds_std": 0.0186,
+          "dl_std": 0.0132,
+          "tilt_share": 0.0,
+          "ppm_med": 33.1
+        },
+        "rung_": {
+          "texels": 21,
+          "A_std": 0.0092,
+          "ds_std": 0.0,
+          "dl_std": 0.0,
+          "tilt_share": 0.0,
+          "ppm_med": 16.5
+        },
+        "saddle_": {
+          "texels": 80970,
+          "A_std": 0.0247,
+          "ds_std": 0.0186,
+          "dl_std": 0.0142,
+          "tilt_share": 0.292,
+          "ppm_med": 66.0
+        },
+        "saddle_liner": {
+          "texels": 16640,
+          "A_std": 0.0088,
+          "ds_std": 0.0036,
+          "dl_std": 0.002,
+          "tilt_share": 0.005,
+          "ppm_med": 66.0
+        },
+        "sbrk_": {
+          "texels": 7761,
+          "A_std": 0.0263,
+          "ds_std": 0.0199,
+          "dl_std": 0.0125,
+          "tilt_share": 0.88,
+          "ppm_med": 33.1
+        },
+        "sbrkarm_": {
+          "texels": 17876,
+          "A_std": 0.018,
+          "ds_std": 0.0172,
+          "dl_std": 0.0141,
+          "tilt_share": 0.496,
+          "ppm_med": 41.4
+        },
+        "sbrkdiag_": {
+          "texels": 16150,
+          "A_std": 0.0187,
+          "ds_std": 0.0189,
+          "dl_std": 0.0141,
+          "tilt_share": 0.905,
+          "ppm_med": 33.1
+        },
+        "sbrkhang_": {
+          "texels": 37042,
+          "A_std": 0.0201,
+          "ds_std": 0.0175,
+          "dl_std": 0.0129,
+          "tilt_share": 0.632,
+          "ppm_med": 41.4
+        },
+        "sbrkknee_": {
+          "texels": 4819,
+          "A_std": 0.0168,
+          "ds_std": 0.0177,
+          "dl_std": 0.0129,
+          "tilt_share": 0.952,
+          "ppm_med": 33.1
+        }
+      },
+      "subtexel_fill": {
+        "faces": 518,
+        "texels": 8512,
+        "by_prefix": {
+          "arrest_": 24,
+          "bskt_": 44,
+          "cranehook_": 2,
+          "grate_bskt": 10,
+          "gusset_": 18,
+          "haulroll_": 23,
+          "kick_deck": 11,
+          "lrail_": 16,
+          "platerim_": 6,
+          "rail_deck": 20,
+          "rung_": 344
+        }
+      },
+      "relief_kinds_missing": [],
+      "tone_small_classes": {
+        "headend_": [
+          0.0189,
+          20.2
+        ],
+        "sbrkknee_": [
+          0.0177,
+          23.5
+        ],
+        "haulroll_": [
+          0.0131,
+          7.1
+        ],
+        "haulroll_bar": [
+          0.0172,
+          14.2
+        ],
+        "haulroll_tie": [
+          0.015,
+          3.2
+        ],
+        "cranecol_": [
+          0.022,
+          21.7
+        ],
+        "cranejib_": [
+          0.0365,
+          22.4
+        ],
+        "craneknee_": [
+          0.0356,
+          5.5
+        ],
+        "cranehook_b": [
+          0.0386,
+          0.5
+        ],
+        "bplate_": [
+          0.0125,
+          12.3
+        ],
+        "gusset_": [
+          0.0159,
+          4.2
+        ],
+        "collar_": [
+          0.0158,
+          23.2
+        ]
+      },
+      "tone_low": {},
+      "weather": {
+        "intensity": 0.25,
+        "ok": true,
+        "VL1": 0.03415,
+        "guards": {
+          "G1_alpha_kept": true,
+          "G2_msk_GB_kept": true,
+          "G5_ctl_identity": true,
+          "G3_worst_full_slot_rel": 0.15,
+          "G4_worst_floor_gap": 0.0156569,
+          "G6_protect_identical": true,
+          "G7_range_ok": true
+        }
+      }
+    },
+    "ledger_lod0": 6548,
+    "relief_prefixes": [
+      "bplate_",
+      "collar_",
+      "cranecol_",
+      "cranejib_",
+      "craneknee_",
+      "gantrybeam_",
+      "gantrypost_",
+      "gantryx_",
+      "grate_deck",
+      "headchord_",
+      "headdiag_",
+      "headend_",
+      "headvert_",
+      "headx_",
+      "leg_",
+      "ped_",
+      "pier_",
+      "saddle_",
+      "sbrk_",
+      "sbrkarm_",
+      "sbrkdiag_",
+      "sbrkhang_",
+      "sbrkknee_"
+    ]
+  },
+  "weather": {
+    "name": "SkiTramTower45B",
+    "A": 2048,
+    "intensity": 0.25,
+    "slot_wear": "free",
+    "snow": 0.0,
+    "ground": "grade",
+    "vanilla": {
+      "VL1_all_covered": 0.03335,
+      "VL1_mean_rel_dL": 0.03415,
+      "VL2_share_rel_dL_gt_0.15": 0.01099,
+      "VL3_max_abs_dsmooth": 0.06035,
+      "VL3_mean_dsmooth": 0.00153,
+      "VL4_max": 0.1172,
+      "VL4_parts": [
+        {
+          "floored": false,
+          "part": "leg_1",
+          "ratio": 0.1128,
+          "role": "galv",
+          "std_L": 0.11751,
+          "texels": 63902
+        },
+        {
+          "floored": false,
+          "part": "leg_0",
+          "ratio": 0.1172,
+          "role": "galv",
+          "std_L": 0.11627,
+          "texels": 63851
+        },
+        {
+          "floored": false,
+          "part": "leg_2",
+          "ratio": 0.115,
+          "role": "galv",
+          "std_L": 0.11418,
+          "texels": 63831
+        },
+        {
+          "floored": false,
+          "part": "leg_3",
+          "ratio": 0.1166,
+          "role": "galv",
+          "std_L": 0.1194,
+          "texels": 63802
+        },
+        {
+          "floored": false,
+          "part": "grate_deck",
+          "ratio": 0.0113,
+          "role": "galv",
+          "std_L": 0.03043,
+          "texels": 33648
+        }
+      ],
+      "VL5_snow_share": 0.0,
+      "budget": {
+        "VL1": 0.05,
+        "VL2": 0.08,
+        "VL3_abs": 0.3,
+        "VL3_hi": 0.01,
+        "VL3_lo": -0.06,
+        "VL4": 0.5
+      },
+      "failed": [],
+      "ok": true,
+      "visible_texels": 1150985
+    },
+    "perceptual": {
+      "mean_Lstar_before": 70.371,
+      "mean_abs_dLstar": 0.9857,
+      "p95_abs_dLstar": 4.271,
+      "share_dLstar_gt_2": 0.1968,
+      "texels": 1150985,
+      "tinted": false
+    },
+    "guards": {
+      "G1_alpha_kept": true,
+      "G2_msk_GB_kept": true,
+      "G3_worst_full_slot_rel": 0.15,
+      "G4_worst_floor_gap": 0.0156569,
+      "G5_ctl_identity": true,
+      "G6_protect_identical": true,
+      "G7_range_ok": true
+    },
+    "roles": {
+      "galv": 1499971,
+      "masonry": 22053,
+      "none": 32669,
+      "paint": 24721,
+      "paint_metal": 1544
+    },
+    "sources": {
+      "cover_overflow_cells": 1008,
+      "doors": 0,
+      "down_faces": 965,
+      "geo_candidates": 24084,
+      "geo_pairs": 4782,
+      "lattice_curtain_faces": 104,
+      "lattice_faces": 168,
+      "lattice_skipped": 0,
+      "rust_sources": 561,
+      "traffic_parts": 0
+    },
+    "protect_texels": 15901,
+    "role_source": {
+      "material": 603,
+      "override": 32
+    },
+    "coverage": {
+      "edge": 0.29526,
+      "grime": 0.32223,
+      "grime_cavity": 0.21889,
+      "grime_door": 0.0,
+      "grime_eave": 0.14536,
+      "grime_ground": 0.00572,
+      "rust": 0.21569,
+      "scuff": 0.0,
+      "snow": 0.0
+    },
+    "seconds": {
+      "apply": 1.414,
+      "fields": 4.538,
+      "inner": 0.037,
+      "masks": 1.163,
+      "total": 7.501
+    },
+    "probe": {
+      "0.50": {
+        "ok": false,
+        "VL1": 0.0678,
+        "VL2": 0.1837,
+        "VL4": 0.232,
+        "dLstar_mean": 1.909,
+        "share_dLstar_gt_2": 0.2837
+      },
+      "0.45": {
+        "ok": false,
+        "VL1": 0.0611,
+        "VL2": 0.1703,
+        "VL4": 0.209,
+        "dLstar_mean": 1.728,
+        "share_dLstar_gt_2": 0.2693
+      },
+      "0.40": {
+        "ok": false,
+        "VL1": 0.0544,
+        "VL2": 0.1532,
+        "VL4": 0.186,
+        "dLstar_mean": 1.546,
+        "share_dLstar_gt_2": 0.2535
+      },
+      "0.35": {
+        "ok": false,
+        "VL1": 0.0477,
+        "VL2": 0.1318,
+        "VL4": 0.164,
+        "dLstar_mean": 1.362,
+        "share_dLstar_gt_2": 0.2382
+      },
+      "0.30": {
+        "ok": false,
+        "VL1": 0.0409,
+        "VL2": 0.1005,
+        "VL4": 0.14,
+        "dLstar_mean": 1.175,
+        "share_dLstar_gt_2": 0.2194
+      },
+      "0.25": {
+        "ok": true,
+        "VL1": 0.0341,
+        "VL2": 0.011,
+        "VL4": 0.117,
+        "dLstar_mean": 0.986,
+        "share_dLstar_gt_2": 0.1968
+      },
+      "0.20": {
+        "ok": true,
+        "VL1": 0.0274,
+        "VL2": 0.0,
+        "VL4": 0.094,
+        "dLstar_mean": 0.794,
+        "share_dLstar_gt_2": 0.1679
+      },
+      "0.15": {
+        "ok": true,
+        "VL1": 0.0205,
+        "VL2": 0.0,
+        "VL4": 0.071,
+        "dLstar_mean": 0.6,
+        "share_dLstar_gt_2": 0.1232
+      },
+      "0.10": {
+        "ok": true,
+        "VL1": 0.0137,
+        "VL2": 0.0,
+        "VL4": 0.047,
+        "dLstar_mean": 0.403,
+        "share_dLstar_gt_2": 0.0007
+      },
+      "0.05": {
+        "ok": true,
+        "VL1": 0.0069,
+        "VL2": 0.0,
+        "VL4": 0.024,
+        "dLstar_mean": 0.203,
+        "share_dLstar_gt_2": 0.0
+      }
+    }
+  },
+  "night_subobjects": null
+}

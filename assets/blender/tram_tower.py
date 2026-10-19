@@ -49,7 +49,7 @@ SKEPTIC MUST-CHANGE (section 4) - where each landed
     8  member caps on free ends; each tram leg ONE prism over [foot, kink, head] with a mitred
        ring at the kink (no V-notch); pier allowance uses the corner diagonal
     9  citations live in the build report (PIPELINE line drift fixed there)
-    10 validator kind passed explicitly (validate_asset_folder kind "prop"; assets-check -Kind prop)
+    10 validator kind passed explicitly (validate_asset_folder kind "hanging" = no per-part density floor, like lift_tower; assets-check -Kind hanging (DECISIONS 315: the 30 px/m prop floor fails every shipped lattice / tram tower))
 
 REVISION 1 - Richard's first live review (verdicts-2026-10-11.md items 7 / 8; reference digest
 ref-liftblog/digest.md sections 1.3-1.5: P2P-03/11/15/24/26/33, JH-09/15). Richard's verdict wins over
@@ -4713,7 +4713,7 @@ def run_variant(family, H, args, catalog_drift):
             lod.name, lod.data.name = f"{name}LOD{k}Src", f"{name}LOD{k}Src"
         b = budget(spec)
         findings = cs2_validate.validate_asset_folder(asset_dir, name, {
-            "kind": "prop", "lod0_cap": b["lod0_cap"], "lod1_ratio": 0.5, "lod2_cap": b["lod2_cap"],
+            "kind": "hanging", "lod0_cap": b["lod0_cap"], "lod1_ratio": 0.5, "lod2_cap": b["lod2_cap"],
             "hero": False, "expected_lods": tuple(range(1, len(lods) + 1)), "expected_submeshes": ()})
         n_err = sum(1 for f in findings if f[0] == "ERROR")
         n_warn = sum(1 for f in findings if f[0] == "WARN")

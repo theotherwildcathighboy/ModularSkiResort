@@ -1,0 +1,999 @@
+{
+  "name": "SkiLiftTowerDQ20P",
+  "written_utc": "2026-10-19T17:08:21Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiLiftTowerDQ20P.fbx": {
+      "bytes": 286028,
+      "sha1": "48ac666706e72d116b242d42da25e8c0ee0e72e7"
+    },
+    "SkiLiftTowerDQ20P_BaseColor.png": {
+      "bytes": 749721,
+      "sha1": "54a36d3719b3be35b96aa3213c2f3d7035a1d460"
+    },
+    "SkiLiftTowerDQ20P_ControlMask.png": {
+      "bytes": 49392,
+      "sha1": "64c001f5935d0b091603bd74fc50a24e45170cd2"
+    },
+    "SkiLiftTowerDQ20P_LOD1.fbx": {
+      "bytes": 126044,
+      "sha1": "5abf48c40fe066d7c7c542df148c1e11480ea2b0"
+    },
+    "SkiLiftTowerDQ20P_LOD2.fbx": {
+      "bytes": 47644,
+      "sha1": "a64092291fc34186aadf1b905df9e5dccd6d1929"
+    },
+    "SkiLiftTowerDQ20P_MaskMap.png": {
+      "bytes": 450346,
+      "sha1": "7c1eac3e02248cbf23209313ae3ae090d6ec7e1d"
+    },
+    "SkiLiftTowerDQ20P_Normal.png": {
+      "bytes": 209664,
+      "sha1": "1b003b163d3f4cc0c1323a6a22b600029bcc8850"
+    },
+    "settings.json": {
+      "bytes": 735,
+      "sha1": "42d1b195e1dc7e02a6143bef5f82f3ec36f3b3ee"
+    }
+  },
+  "generator": "lift_tower.py@c82e573-dirty",
+  "spec": "towers-v2 + skeptic",
+  "variant": "DQ20",
+  "family": "DQ",
+  "role": "line",
+  "kind": "support",
+  "head": "ingest",
+  "derived_from": {
+    "source": "Kagelok 'Chair Lift' (CC BY 4.0)",
+    "uid": "afd305cdd4cb450f80b59f24b4b3e236",
+    "url": "https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236",
+    "mode": "derived geometry (line head kit)"
+  },
+  "tris": {
+    "0": 3970,
+    "1": 1546,
+    "2": 400
+  },
+  "lod_drift_top_m": {
+    "1": 0.0,
+    "2": 0.02506
+  },
+  "parts": 201,
+  "axle": 18.0,
+  "gauge": 5.2,
+  "h_top": 1.95012,
+  "bounds_m": {
+    "min_z": -6.0,
+    "max_z": 19.950119018554688,
+    "lateral": 2.993506908416748,
+    "travel": 2.388000011444092
+  },
+  "top_anchor_y": 19.95,
+  "pier": 6.0,
+  "comm_lv_y": 19.2,
+  "atlas": 1024,
+  "ao_samples": 48,
+  "pack_margin_px": 6,
+  "sheave_profile": "lite (lift_tower.lite_sheave, 6 x segs tris)",
+  "wheels": {
+    "generation": "v2 (T62 round 3: cs2_sheaves.wheel, 16 segments, groove, seen hub bosses)",
+    "builder": "cs2_sheaves.wheel",
+    "r": 0.223,
+    "w": 0.1,
+    "segs": 16,
+    "profile": {
+      "groove": 0.18,
+      "groove_min": 0.02,
+      "chamfer": 0.0,
+      "boss_r": 0.45,
+      "boss_top": 0.35,
+      "boss_h": 0.1,
+      "boss_segs": 8,
+      "root_segs": 8
+    },
+    "tris_per_wheel_max": 120,
+    "discs": "n-gon",
+    "groove": "V (max(0.02, 0.18 r))",
+    "hub_boss": "seen faces only",
+    "material": "wheelsteel",
+    "lod": {
+      "1": "flat band on the crest rings + 2 n-gon discs (no boss)",
+      "2": "no wheel"
+    }
+  },
+  "sheaves_per_side": 8,
+  "train_sag_m": 0.0,
+  "density_worst": [
+    {
+      "part": "rail_deckn0_knee",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 32.1
+    },
+    {
+      "part": "rail_deckn1_knee",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 32.1
+    },
+    {
+      "part": "rail_deckn1_top",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 32.1
+    },
+    {
+      "part": "rail_deckp1_top",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 32.1
+    },
+    {
+      "part": "rail_deckn0_top",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 32.1
+    },
+    {
+      "part": "rail_deckp1_knee",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 32.1
+    },
+    {
+      "part": "rail_deckp0_top",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 32.1
+    },
+    {
+      "part": "rail_deckp0_knee",
+      "source_px_per_m": 5954.8,
+      "shipped_px_per_m": 32.1
+    }
+  ],
+  "lod_switch_m": {
+    "csum": 36.71313238143921,
+    "bias": 0.7409979358480265,
+    "distances": [
+      75.76867978001893,
+      121.41720425289779,
+      238.70140634985782
+    ],
+    "switch": {
+      "1": 121.41720425289779,
+      "2": 238.70140634985782
+    },
+    "cull": 4774.030352889328
+  },
+  "ingest": {
+    "source": "Sketchfab_2017_09_02_17_41_10.blend",
+    "uid": "afd305cdd4cb450f80b59f24b4b3e236",
+    "kit": "line (Plateforme Pil Haut + Pil Deco)",
+    "p0_u": [
+      0.0,
+      104.7634,
+      -1.7264
+    ],
+    "scale_m_per_u": 0.3,
+    "shear_k": -0.22328,
+    "shear_deg": 12.587,
+    "gauge_delta_m": 0.35,
+    "kept": {
+      "gantry_00": {
+        "verts": 144,
+        "tris": 284
+      },
+      "endplate_0": {
+        "verts": 8,
+        "tris": 12
+      },
+      "endplate_1": {
+        "verts": 8,
+        "tris": 12
+      },
+      "endplate_2": {
+        "verts": 8,
+        "tris": 12
+      },
+      "endplate_3": {
+        "verts": 8,
+        "tris": 12
+      }
+    },
+    "h_top_m": 1.95012,
+    "beam_top_m": 1.92532,
+    "feet_m": [
+      -0.29591,
+      -0.29591
+    ],
+    "clean": {
+      "gantry_00": {
+        "name": "gantry_00",
+        "verts_in": 144,
+        "faces_in": 142,
+        "doubles": 0,
+        "loose_edges": 0,
+        "loose_verts": 0,
+        "degenerate_faces": 0,
+        "ngons_triangulated": 0,
+        "components": 1,
+        "components_closed": 1,
+        "components_recalculated": 1,
+        "normals_flipped": 0,
+        "flips_by_component": [],
+        "recalc": "manifold",
+        "custom_normals_cleared": false,
+        "sharp_edges_cleared": 0,
+        "colour_attributes": [],
+        "unused_slots": 0,
+        "outputs_removed": 1,
+        "ngons": 0,
+        "verts": 144,
+        "faces": 142,
+        "tris": 284
+      },
+      "endplate_0": {
+        "name": "endplate_0",
+        "verts_in": 8,
+        "faces_in": 6,
+        "doubles": 0,
+        "loose_edges": 0,
+        "loose_verts": 0,
+        "degenerate_faces": 0,
+        "ngons_triangulated": 0,
+        "components": 1,
+        "components_closed": 1,
+        "components_recalculated": 1,
+        "normals_flipped": 0,
+        "flips_by_component": [],
+        "recalc": "manifold",
+        "custom_normals_cleared": false,
+        "sharp_edges_cleared": 0,
+        "colour_attributes": [],
+        "unused_slots": 0,
+        "outputs_removed": 1,
+        "ngons": 0,
+        "verts": 8,
+        "faces": 6,
+        "tris": 12
+      },
+      "endplate_1": {
+        "name": "endplate_1",
+        "verts_in": 8,
+        "faces_in": 6,
+        "doubles": 0,
+        "loose_edges": 0,
+        "loose_verts": 0,
+        "degenerate_faces": 0,
+        "ngons_triangulated": 0,
+        "components": 1,
+        "components_closed": 1,
+        "components_recalculated": 1,
+        "normals_flipped": 0,
+        "flips_by_component": [],
+        "recalc": "manifold",
+        "custom_normals_cleared": false,
+        "sharp_edges_cleared": 0,
+        "colour_attributes": [],
+        "unused_slots": 0,
+        "outputs_removed": 0,
+        "ngons": 0,
+        "verts": 8,
+        "faces": 6,
+        "tris": 12
+      },
+      "endplate_2": {
+        "name": "endplate_2",
+        "verts_in": 8,
+        "faces_in": 6,
+        "doubles": 0,
+        "loose_edges": 0,
+        "loose_verts": 0,
+        "degenerate_faces": 0,
+        "ngons_triangulated": 0,
+        "components": 1,
+        "components_closed": 1,
+        "components_recalculated": 1,
+        "normals_flipped": 0,
+        "flips_by_component": [],
+        "recalc": "manifold",
+        "custom_normals_cleared": false,
+        "sharp_edges_cleared": 0,
+        "colour_attributes": [],
+        "unused_slots": 0,
+        "outputs_removed": 0,
+        "ngons": 0,
+        "verts": 8,
+        "faces": 6,
+        "tris": 12
+      },
+      "endplate_3": {
+        "name": "endplate_3",
+        "verts_in": 8,
+        "faces_in": 6,
+        "doubles": 0,
+        "loose_edges": 0,
+        "loose_verts": 0,
+        "degenerate_faces": 0,
+        "ngons_triangulated": 0,
+        "components": 1,
+        "components_closed": 1,
+        "components_recalculated": 1,
+        "normals_flipped": 0,
+        "flips_by_component": [],
+        "recalc": "manifold",
+        "custom_normals_cleared": false,
+        "sharp_edges_cleared": 0,
+        "colour_attributes": [],
+        "unused_slots": 0,
+        "outputs_removed": 0,
+        "ngons": 0,
+        "verts": 8,
+        "faces": 6,
+        "tris": 12
+      }
+    },
+    "internal_partition_quads_dropped": 3
+  },
+  "bake": {
+    "A": 1024,
+    "margin_px": 6,
+    "ao": "self",
+    "uncovered_texels": 786047
+  },
+  "prefab_notes": {
+    "size_y": "ObjectUtils.GetSize y = bounds.max.y (1.6.0f1 ObjectUtils.cs:51-58)",
+    "switch_points": "FG 8/3, 20/3, 32/3; DQ 4/3, 10/3, 16/3, 22/3, 28/3 m (follow-up 2026-10-11: DQ20 adds 28/3 beside DQ18's 22/3; the other manifests keep their frozen string)",
+    "leg_size_y": "StandingObject.m_LegSize.y = leg zone above the origin (ObjectInitializeSystem.cs:1293); pick it on purpose (FG/ET use the mast height)"
+  },
+  "catalog_handoff": {
+    "AimHeightM": 9.0,
+    "piece_lanes": [
+      2.6,
+      8.0
+    ],
+    "piece_comm_lv_y": 9.2,
+    "line_net_subobject_y": 9.95,
+    "member_axle_y": 18.0,
+    "member_comm_lv_y": 19.2
+  },
+  "placeholder_row_new": {
+    "row": {
+      "variant": "DQ20",
+      "member_prefab": "SkiLiftTowerDQ20",
+      "mesh": "SkiLiftTowerDQ20O",
+      "top_anchor_y": 19.95,
+      "utility_object_y": 18.0,
+      "hv_lanes": [
+        2.6,
+        18.0
+      ],
+      "lv_comm_y": 19.2,
+      "base_below_node_m": 10.0,
+      "wins_e_m": [
+        9.333,
+        16.0
+      ],
+      "base_above_terrain_m": [
+        -0.667,
+        6.0
+      ],
+      "pier": 6.0
+    },
+    "family": {
+      "placeholder": "SkiLiftTowerDQPlaceholder",
+      "net_subobject_y": 9.95,
+      "score": "1/(1+(s>=0 ? 2s : -s)), s = top - (e + y)",
+      "switch_points_e_m": [
+        1.333,
+        3.333,
+        5.333,
+        7.333,
+        9.333
+      ],
+      "grounded_up_to_e_m": 16.0,
+      "members": [
+        {
+          "variant": "DQ10",
+          "member_prefab": "SkiLiftTowerDQ10",
+          "mesh": "SkiLiftTowerDQ10O",
+          "top_anchor_y": 9.95,
+          "utility_object_y": 8.0,
+          "hv_lanes": [
+            2.6,
+            8.0
+          ],
+          "lv_comm_y": 9.2,
+          "base_below_node_m": 0.0,
+          "wins_e_m": [
+            0.0,
+            1.333
+          ],
+          "base_above_terrain_m": [
+            0.0,
+            1.333
+          ],
+          "pier": 6.0
+        },
+        {
+          "variant": "DQ12",
+          "member_prefab": "SkiLiftTowerDQ12",
+          "mesh": "SkiLiftTowerDQ12O",
+          "top_anchor_y": 11.95,
+          "utility_object_y": 10.0,
+          "hv_lanes": [
+            2.6,
+            10.0
+          ],
+          "lv_comm_y": 11.2,
+          "base_below_node_m": 2.0,
+          "wins_e_m": [
+            1.333,
+            3.333
+          ],
+          "base_above_terrain_m": [
+            -0.667,
+            1.333
+          ],
+          "pier": 6.0
+        },
+        {
+          "variant": "DQ14",
+          "member_prefab": "SkiLiftTowerDQ14",
+          "mesh": "SkiLiftTowerDQ14O",
+          "top_anchor_y": 13.95,
+          "utility_object_y": 12.0,
+          "hv_lanes": [
+            2.6,
+            12.0
+          ],
+          "lv_comm_y": 13.2,
+          "base_below_node_m": 4.0,
+          "wins_e_m": [
+            3.333,
+            5.333
+          ],
+          "base_above_terrain_m": [
+            -0.667,
+            1.333
+          ],
+          "pier": 6.0
+        },
+        {
+          "variant": "DQ16",
+          "member_prefab": "SkiLiftTowerDQ16",
+          "mesh": "SkiLiftTowerDQ16O",
+          "top_anchor_y": 15.95,
+          "utility_object_y": 14.0,
+          "hv_lanes": [
+            2.6,
+            14.0
+          ],
+          "lv_comm_y": 15.2,
+          "base_below_node_m": 6.0,
+          "wins_e_m": [
+            5.333,
+            7.333
+          ],
+          "base_above_terrain_m": [
+            -0.667,
+            1.333
+          ],
+          "pier": 6.0
+        },
+        {
+          "variant": "DQ18",
+          "member_prefab": "SkiLiftTowerDQ18",
+          "mesh": "SkiLiftTowerDQ18O",
+          "top_anchor_y": 17.95,
+          "utility_object_y": 16.0,
+          "hv_lanes": [
+            2.6,
+            16.0
+          ],
+          "lv_comm_y": 17.2,
+          "base_below_node_m": 8.0,
+          "wins_e_m": [
+            7.333,
+            9.333
+          ],
+          "base_above_terrain_m": [
+            -0.667,
+            1.333
+          ],
+          "pier": 6.0
+        },
+        {
+          "variant": "DQ20",
+          "member_prefab": "SkiLiftTowerDQ20",
+          "mesh": "SkiLiftTowerDQ20O",
+          "top_anchor_y": 19.95,
+          "utility_object_y": 18.0,
+          "hv_lanes": [
+            2.6,
+            18.0
+          ],
+          "lv_comm_y": 19.2,
+          "base_below_node_m": 10.0,
+          "wins_e_m": [
+            9.333,
+            16.0
+          ],
+          "base_above_terrain_m": [
+            -0.667,
+            6.0
+          ],
+          "pier": 6.0
+        }
+      ]
+    }
+  },
+  "detail_pass_1": {
+    "relief": {
+      "drawn": {
+        "edge_round": 223,
+        "marks:band": 96,
+        "marks:boltring": 48,
+        "bolts": 140,
+        "grate": 8
+      },
+      "skipped": {}
+    },
+    "tone": {
+      "drawn": {
+        "mottle": 1234,
+        "chalk": 168
+      },
+      "skipped": {}
+    },
+    "tone_gate": {
+      "material": {
+        "galv": {
+          "texels": 56977,
+          "s0": 0.0194,
+          "s1": 0.0319,
+          "want": 0.0273,
+          "delivered": 1.085,
+          "ok": true
+        },
+        "paint": {
+          "texels": 148492,
+          "s0": 0.0106,
+          "s1": 0.0333,
+          "want": 0.0231,
+          "delivered": 1.35,
+          "ok": true
+        }
+      },
+      "class": {
+        "arrest": {
+          "texels": 296,
+          "s0": 0.0149,
+          "s1": 0.0283,
+          "want": 0.0249,
+          "delivered": 1.027
+        },
+        "conduit": {
+          "texels": 1408,
+          "s0": 0.0137,
+          "s1": 0.0323,
+          "want": 0.0244,
+          "delivered": 1.247
+        },
+        "endplate": {
+          "texels": 3660,
+          "s0": 0.0086,
+          "s1": 0.043,
+          "want": 0.0224,
+          "delivered": 1.801
+        },
+        "flange_mastbase": {
+          "texels": 1256,
+          "s0": 0.0047,
+          "s1": 0.0303,
+          "want": 0.0215,
+          "delivered": 1.281
+        },
+        "gantry": {
+          "texels": 51129,
+          "s0": 0.0116,
+          "s1": 0.0364,
+          "want": 0.0235,
+          "delivered": 1.475
+        },
+        "grate_deckn": {
+          "texels": 21224,
+          "s0": 0.0197,
+          "s1": 0.0319,
+          "want": 0.0275,
+          "delivered": 1.072
+        },
+        "grate_deckn_lip": {
+          "texels": 1875,
+          "s0": 0.0202,
+          "s1": 0.0277,
+          "want": 0.0278,
+          "delivered": 0.806
+        },
+        "grate_deckp": {
+          "texels": 21224,
+          "s0": 0.0176,
+          "s1": 0.0315,
+          "want": 0.0264,
+          "delivered": 1.114
+        },
+        "grate_deckp_lip": {
+          "texels": 1875,
+          "s0": 0.0191,
+          "s1": 0.026,
+          "want": 0.0272,
+          "delivered": 0.752
+        },
+        "grate_landn": {
+          "texels": 416,
+          "s0": 0.0126,
+          "s1": 0.021,
+          "want": 0.0239,
+          "delivered": 0.72
+        },
+        "grate_landn_lip": {
+          "texels": 220,
+          "s0": 0.0189,
+          "s1": 0.0347,
+          "want": 0.027,
+          "delivered": 1.245
+        },
+        "grate_landp": {
+          "texels": 416,
+          "s0": 0.01,
+          "s1": 0.0189,
+          "want": 0.0229,
+          "delivered": 0.684
+        },
+        "grate_landp_lip": {
+          "texels": 206,
+          "s0": 0.0147,
+          "s1": 0.0287,
+          "want": 0.0249,
+          "delivered": 1.053
+        },
+        "hanger": {
+          "texels": 433,
+          "s0": 0.0092,
+          "s1": 0.0241,
+          "want": 0.0226,
+          "delivered": 0.95
+        },
+        "jbox": {
+          "texels": 200,
+          "s0": 0.0103,
+          "s1": 0.02,
+          "want": 0.023,
+          "delivered": 0.736
+        },
+        "kick_deckn": {
+          "texels": 1085,
+          "s0": 0.0067,
+          "s1": 0.0262,
+          "want": 0.0219,
+          "delivered": 1.082
+        },
+        "kick_deckp": {
+          "texels": 954,
+          "s0": 0.0098,
+          "s1": 0.0212,
+          "want": 0.0228,
+          "delivered": 0.801
+        },
+        "ladder_rail": {
+          "texels": 4404,
+          "s0": 0.0178,
+          "s1": 0.0296,
+          "want": 0.0265,
+          "delivered": 1.009
+        },
+        "ladder_rung": {
+          "texels": 2778,
+          "s0": 0.0181,
+          "s1": 0.0324,
+          "want": 0.0266,
+          "delivered": 1.147
+        },
+        "mast": {
+          "texels": 54330,
+          "s0": 0.0077,
+          "s1": 0.0216,
+          "want": 0.0222,
+          "delivered": 0.861
+        },
+        "pivot": {
+          "texels": 331,
+          "s0": 0.0156,
+          "s1": 0.0254,
+          "want": 0.0253,
+          "delivered": 0.858
+        },
+        "post_deckn": {
+          "texels": 1155,
+          "s0": 0.0084,
+          "s1": 0.0214,
+          "want": 0.0224,
+          "delivered": 0.84
+        },
+        "post_deckp": {
+          "texels": 1188,
+          "s0": 0.0109,
+          "s1": 0.0321,
+          "want": 0.0232,
+          "delivered": 1.289
+        },
+        "rail_deckn_knee": {
+          "texels": 757,
+          "s0": 0.0085,
+          "s1": 0.034,
+          "want": 0.0224,
+          "delivered": 1.408
+        },
+        "rail_deckn_top": {
+          "texels": 692,
+          "s0": 0.0043,
+          "s1": 0.0309,
+          "want": 0.0214,
+          "delivered": 1.309
+        },
+        "rail_deckp_knee": {
+          "texels": 757,
+          "s0": 0.0046,
+          "s1": 0.0307,
+          "want": 0.0215,
+          "delivered": 1.297
+        },
+        "rail_deckp_top": {
+          "texels": 830,
+          "s0": 0.0102,
+          "s1": 0.0361,
+          "want": 0.023,
+          "delivered": 1.479
+        },
+        "rocker_main": {
+          "texels": 11900,
+          "s0": 0.0116,
+          "s1": 0.038,
+          "want": 0.0235,
+          "delivered": 1.546
+        },
+        "rocker_sub": {
+          "texels": 10077,
+          "s0": 0.0107,
+          "s1": 0.0321,
+          "want": 0.0231,
+          "delivered": 1.292
+        },
+        "stiff_mastjoint": {
+          "texels": 2289,
+          "s0": 0.0083,
+          "s1": 0.0276,
+          "want": 0.0223,
+          "delivered": 1.127
+        },
+        "yoke": {
+          "texels": 6000,
+          "s0": 0.0107,
+          "s1": 0.0313,
+          "want": 0.0232,
+          "delivered": 1.256
+        }
+      }
+    },
+    "tone_gate_ok": true,
+    "plates": [
+      {
+        "px": [
+          51,
+          114
+        ],
+        "ppm": 318.8,
+        "glyph_px": 45,
+        "cap_px": 41.0,
+        "numeral": "20",
+        "rect": [
+          314,
+          365,
+          312,
+          426
+        ]
+      },
+      {
+        "px": [
+          52,
+          114
+        ],
+        "ppm": 325.0,
+        "glyph_px": 46,
+        "cap_px": 42.0,
+        "numeral": "20",
+        "rect": [
+          376,
+          428,
+          312,
+          426
+        ]
+      }
+    ],
+    "decal_rects": 4,
+    "numeral": "20",
+    "subtexel_fill": {
+      "faces": 11,
+      "texels": 319,
+      "by_class": {
+        "platerim": 11
+      },
+      "f3b_faces": 6,
+      "f3b_texels": 866,
+      "f3b_by_class": {
+        "arrest": 2,
+        "kick_deckp": 4
+      },
+      "slivers_unfilled": {},
+      "black_after": 0,
+      "black_after_faces": [],
+      "black_after_lods": {
+        "1": 0,
+        "2": 0
+      }
+    },
+    "pad": {
+      "triangle_texels": 2732,
+      "triangle_edge_fractional": 0.534,
+      "band_texels": 1190,
+      "band_yellow": 415,
+      "band_black": 420
+    },
+    "weather": {
+      "intensity": 0.25,
+      "slot_wear": "free",
+      "snow": 0.0,
+      "ok": true,
+      "failed": [],
+      "VL1": 0.02903,
+      "VL2": 0.05957,
+      "VL3": -0.00799,
+      "VL4": 0.1978,
+      "dLstar": 0.7946,
+      "share_dLstar_gt_2": 0.1457,
+      "G5_ctl_identity": true,
+      "G6_protect_identical": true,
+      "roles": {
+        "paint_steel": 148492,
+        "pad": 23121,
+        "galv": 56977,
+        "masonry": 4174,
+        "none": 29768
+      },
+      "protect_texels": 17773
+    }
+  },
+  "weather": {
+    "A": 1024,
+    "N": 262532,
+    "compose_contact": false,
+    "coverage": {
+      "edge": 0.12688,
+      "grime": 0.27928,
+      "grime_cavity": 0.18565,
+      "grime_door": 0.0,
+      "grime_eave": 0.10874,
+      "grime_ground": 0.02806,
+      "rust": 0.09613,
+      "scuff": 0.02888,
+      "snow": 0.0
+    },
+    "doors": [],
+    "fields_MB": 23.4,
+    "ground": "grade",
+    "guards": {
+      "G1_alpha_kept": true,
+      "G2_msk_GB_kept": true,
+      "G3_worst_full_slot_rel": 0.344,
+      "G4_worst_floor_gap": 0.1113424,
+      "G5_ctl_identity": true,
+      "G6_protect_identical": true,
+      "G7_range_ok": true
+    },
+    "intensity": 0.25,
+    "name": "SkiLiftTowerDQ20P",
+    "perceptual": {
+      "mean_Lstar_before": 65.68,
+      "mean_abs_dLstar": 0.7946,
+      "p95_abs_dLstar": 4.685,
+      "share_dLstar_gt_2": 0.1457,
+      "texels": 165246,
+      "tinted": false
+    },
+    "protect_texels": 17773,
+    "role_source": {
+      "material": 186,
+      "override": 15
+    },
+    "roles": {
+      "galv": 56977,
+      "masonry": 4174,
+      "none": 29768,
+      "pad": 23121,
+      "paint_steel": 148492
+    },
+    "roles_refined": 0,
+    "seed": 2883453700,
+    "slot_wear": "free",
+    "snow": 0.0,
+    "sources": {
+      "cover_overflow_cells": 120,
+      "doors": 0,
+      "down_faces": 644,
+      "geo_candidates": 5950,
+      "geo_pairs": 917,
+      "lattice_curtain_faces": 0,
+      "lattice_faces": 56,
+      "lattice_skipped": 0,
+      "rust_sources": 145,
+      "traffic_parts": 0
+    },
+    "spec_key": "53bdfc58bcd59756fa917a42cf7884fdb8d8c3a6",
+    "vanilla": {
+      "VL1_all_covered": 0.02649,
+      "VL1_mean_rel_dL": 0.02903,
+      "VL2_share_rel_dL_gt_0.15": 0.05957,
+      "VL3_max_abs_dsmooth": 0.11066,
+      "VL3_mean_dsmooth": -0.00799,
+      "VL4_max": 0.1978,
+      "VL4_parts": [
+        {
+          "floored": false,
+          "part": "mast",
+          "ratio": 0.0402,
+          "role": "paint_steel",
+          "std_L": 0.10646,
+          "texels": 50311
+        },
+        {
+          "floored": false,
+          "part": "gantry_00",
+          "ratio": 0.1854,
+          "role": "paint_steel",
+          "std_L": 0.11807,
+          "texels": 37177
+        },
+        {
+          "floored": false,
+          "part": "crashpad_outer",
+          "ratio": 0.1978,
+          "role": "pad",
+          "std_L": 0.13409,
+          "texels": 12435
+        },
+        {
+          "floored": false,
+          "part": "grate_deckn",
+          "ratio": 0.0078,
+          "role": "galv",
+          "std_L": 0.0355,
+          "texels": 10574
+        },
+        {
+          "floored": false,
+          "part": "grate_deckp",
+          "ratio": 0.0079,
+          "role": "galv",
+          "std_L": 0.0377,
+          "texels": 10573
+        }
+      ],
+      "VL5_snow_share": 0.0,
+      "budget": {
+        "VL1": 0.05,
+        "VL2": 0.08,
+        "VL3_abs": 0.3,
+        "VL3_hi": 0.01,
+        "VL3_lo": -0.06,
+        "VL4": 0.5
+      },
+      "failed": [],
+      "ok": true,
+      "visible_texels": 165246
+    }
+  }
+}
