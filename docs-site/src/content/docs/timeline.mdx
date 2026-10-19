@@ -1,0 +1,143 @@
+---
+title: Timeline
+description: Dated list of what was explored, built, changed and discarded while making Modular Ski Resort, with the reason for each, August to October 2026.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Shot from '../../components/Shot.astro';
+
+{/*
+  Sources: docs/TIMELINE.md (per phase), docs/DECISIONS.md 240-321, docs/archive/DECISIONS-001-239.md.
+  The grey #n at the end of a row is the decision-ledger entry number. Event list with sources:
+  docs/research/ui/docs-site-timeline-icons-2026-10-19.md.
+*/}
+
+One owner (direction, verdicts, Editor imports, all in-game testing) and Claude as lead architect (design, correctness, written record). Project start: **Aug 3, 2026**.
+
+- **Outcomes:** *Explored*, *Built*, *Changed*, *Discarded*, *Superseded*, *Settled*.
+- **Dates:** session dates. A range means the work spanned those days.
+- **Reference:** the grey number is the entry in the project's decision ledger.
+- **Rule since day one:** engine behaviour is claimed only from the decompiled game or a field test. The ledger was corrected twice when the field disagreed.
+
+<Shot label="Hero image for the timeline: the first chairlift line that drew in the game, next to the finished resort." />
+
+## August
+
+- **Aug 3 · Explored** Golf-pack analysis and the full spec. Assets cannot hook attractiveness or the economy, so the mod is code plus assets, and a lift is a network prefab drawn like a road, not a building. <span class="ref">#1 #2</span>
+- **Aug 3-4 · Built** Blender generators and the first imported stations, towers and chairs. <span class="ref">#20</span>
+- **Aug 4 · Built** First chairlift line that draws in the game.
+- **Aug 4-6 · Changed** Cable connection saga. Cables refused to attach to stations on slopes. Result: one anchor per rope end, and the doctrine to anchor as little as possible. <span class="ref">#4 #5</span>
+- **Aug 5 · Explored** Overnight research on snow, trails and glades, and the code mod.
+- **Aug 6 · Built** Terminal towers hosted on the stations (the vanilla substation pattern); single-anchor slope fix. Why: any-slope connections; the recolour gate was found the same day. <span class="ref">#8 #21</span>
+- **Aug 6-7 · Built** Dynamic tower heights, grounded pillars, sagging cable. <span class="ref">#10 #17</span>
+- **Aug 7 · Built** Code that pins chairs to the cable and carries power up the line. A real edge stub attaches the line, code supplies the power: the two cannot be had from prefab data alone. Beta reached, 5 days in. <span class="ref">#9b</span>
+- **Aug 8-10 · Explored** Golf-pack file dissection for the menu, surfaces, clubhouse and packaging recipes.
+- **Aug 10 · Built** Ski Resort menu tab under Parks & Recreation; attraction score and snow-line code; first trail surfaces. <span class="ref">#30</span>
+- **Aug 10 · Built** Base lodge, three preview rounds, ending on a true A-frame. Why: the verdict on the second round. <span class="ref">#25</span>
+- **Aug 11 · Changed** Lodge becomes an upgrade of one resort entity, the Welcome Sign (first called the gate). Why: one entity gives the resort its identity and size follows from what is built; sizes S / M / L rejected. A native crash on the first lodge placement reshaped the child on a census of all 238 vanilla upgrade prefabs. <span class="ref">#37 #44</span>
+- **Aug 11 · Discarded** Hijacking a terrain-paint slot for runs. Community-hostile: many maps have no free slot. Four alternatives all proved viable. <span class="ref">#55</span>
+- **Aug 11 · Built** Layered run rendering: snow simulation carries the white, decals carry the corduroy. <span class="ref">#55 #57</span>
+- **Aug 11 · Discarded** Splat "Auto v2". "Not worth it, I don't see people using it." <span class="ref">#56</span>
+- **Aug 11 · Discarded** Further tuning of chairs at stations. Cable-trust did not read right either; moving chairs replace the handling. <span class="ref">#53</span>
+- **Aug 11 · Built** Names and icons round: runtime localization, six glyph icons. <span class="ref">#50</span>
+- **Aug 12 · Changed** Runs stayed white in summer. A kill-switch test found the white was the original decal textures, re-bound by the game after every swap. Fix: write the mod's textures into the prefab references. <span class="ref">#61 #62</span>
+- **Aug 12 · Built** Summer green decals, winter corduroy, per-texel snow line with bottom-up melt. <span class="ref">#63 #64</span>
+- **Aug 12 · Explored** Funicular and firefighter mods dissected. Vanilla vehicles ride custom networks with no code; the "chairs are static" claim was amended. <span class="ref">#65 #3</span>
+- **Aug 13 · Built** Snow guns, hydrants and floodlights; props on runs; night runs. Snow-free props in every season were traced and fixed the same day. <span class="ref">#74 #79 #81 #85</span>
+- **Aug 13 · Built** Snow rounds R5 to R7 field-confirmed on timelapses. <span class="ref">#68 #70 #73</span>
+- **Aug 12-17 · Changed** Snow injection moved to a Burst job: 18-37 ms down to 2.1-5.0 ms. <span class="ref">#88</span>
+- **Aug 14-17 · Built** Runs become Welcome Sign upgrades with a 5 km tether, a build cost and a delete cascade. The engine has no install path for area upgrades, so the mod supplies it. <span class="ref">#90</span>
+- **Aug 17 · Discarded** Stations as sign upgrades, tried then reverted. Richard: Move It on stations is non-negotiable. Kept: low-voltage stub, roadless placement. <span class="ref">#93 #96</span>
+- **Aug 19 · Built** Lift power through one door at the base drive terminal. Full loop passes in game: sign, lodge, stations, lift, runs, power, economics. <span class="ref">#97</span>
+- **Aug 19 · Built** Moving chairs, milestone 2. The earlier static pinning had never executed. <span class="ref">#98</span>
+
+## September
+
+- **Sep 22 · Explored** Game 1.6.2 audit: nothing relied on changed. <span class="ref">#99</span>
+- **Sep 22 · Changed** Chairs "did not move at all" in the field. A developer-menu tab was built to read the chair loop; terminals had never been classified as stations. Then: "They do not go around the bull wheel." Chairs now follow the rope round the wheel centre. <span class="ref">#100 #101 #102 #103</span>
+- **Sep 22 · Changed** Station art rebuilt: LODs, `_Win` rooms, engine-base foundations, baked chairs removed. Why: the art pipeline v2 plan. <span class="ref">#104 #105 #106</span>
+- **Sep 30 · Explored** Reference-mod study (ParkManager, GPL). Richard: stay non-GPL and re-derive; MIT code and CC-BY assets. <span class="ref">#109 #110</span>
+- **Sep 30 · Built** Glade tool: plans trees on and around runs. <span class="ref">#111 #112</span>
+- **Sep 30 · Changed** Runs bind to the resort on drawing, with live drawing feedback. <span class="ref">#113 #115</span>
+- **Sep 30-Oct 1 · Changed** Rating v2. Richard: "near impossible to draw a green run". Rating is now the crux of the easiest line, not the steepest patch; bands moved to 6 / 25 / 40 / 60 %. <span class="ref">#116 #118</span>
+
+## October 1-9
+
+- **Oct 1 · Changed** Run end zones redone. Raw-height zones rated valleys and bowls too hard. <span class="ref">#119</span>
+- **Oct 1 · Settled** Rating accepted and frozen after field test 2: "compromises sound". <span class="ref">#120 #121</span>
+- **Oct 1 · Changed** Runs own themselves. Bulldozing one run deleted the sign and the resort. <span class="ref">#121 #123</span>
+- **Oct 1 · Changed** Glade clearing and planting folded into one 1-8 tree-density dial. Why: glades too thick. <span class="ref">#125 #126</span>
+- **Oct 1 · Built** Ski Resort hub, the first in-game panel. Richard asked for one consolidated, friendlier interface; the sign was hard to find. <span class="ref">#117 #127 #128</span>
+- **Oct 3 · Built** Resort switcher, lifts tab, station alignment aid. Rulings: no whole-lift delete (section by section is the workflow); no vanilla toolbar entries. <span class="ref">#130 #132</span>
+- **Oct 4 · Changed** Lodge water demand 15,000 to 1,000: about 15× vanilla. <span class="ref">#133 #135</span>
+- **Oct 4 · Built** Natural run, ski-area attraction score, fees, hub v3. Richard: "go full bore on economy and stats". <span class="ref">#136 #139</span>
+- **Oct 4 · Changed** Run icons redrawn in picture style E. The black-plate set read badly. <span class="ref">#141</span>
+- **Oct 4 · Changed** Lodge reachability and sign utilities. An upgrade building has no road connection, so nobody could reach the lodge; the sign got no power or water on an empty road. <span class="ref">#141 #143 #144</span>
+- **Oct 5 · Built** Ski days. Field test 8: the town lodge drew 162 guests a month, the real hill 2. Residents go to the nearest venue of the leisure type they drew, so the lodge now claims a share of leisure decisions. <span class="ref">#146 #147</span>
+- **Oct 5 · Changed** Launcher glyph: peak and snowflake, white like its neighbours. <span class="ref">#148</span>
+- **Oct 5 · Settled** Base game only. Other mods may enhance, never be required. <span class="ref">#150</span>
+- **Oct 5-10 · Explored** Field tests 9 and 10: car trips took 5.7 to 7.9 game hours against 2 planned. Richard chose "measure first" over tuning; counters were added (M1), then eight options built (M2). <span class="ref">#152 #153 #154 #156 #157</span>
+
+## October 10-13
+
+- **Oct 10 · Settled** Pre-beta review: keep and refactor the lift network, no rebuild. Three lift types at launch, one listing. <span class="ref">#158</span>
+- **Oct 10-11 · Changed** Asset round opens with 34 photos: four carriers, five lodges, school, patrol, own sign. Scope grew from three lift types to four (fixed-grip triple, detachable quad, gondola, aerial tram). <span class="ref">#159 #160 #162</span>
+- **Oct 11 · Built** Tram shuttle mover; unpowered lifts become inert. <span class="ref">#164 #172</span>
+- **Oct 11 · Built** Five lodges, school, patrol hut and HQ, Welcome Sign. A-frame revision: "looks solid", brown walls stay. <span class="ref">#163 #165</span>
+- **Oct 11 · Changed** Tram stations rebuilt on a lift-blog reference. "Super cool" except one unreachable platform; every station platform became a reachability contract. <span class="ref">#166</span>
+- **Oct 11 · Built** 25 build-strip icons in style E. "Solid." <span class="ref">#167</span>
+- **Oct 11 · Discarded** One-luxury-lodge limit. "If they want to go crazy or use anarchy to make a bigger one, props to them." <span class="ref">#182</span>
+- **Oct 11 · Settled** Vanilla props first: "if we have vanilla props in game ... we should use those instead". <span class="ref">#183</span>
+- **Oct 11 · Built** Tower detail pass ("Towers are looking great") and the blinking tower beacon. <span class="ref">#184 #189</span>
+- **Oct 11 · Changed** Gondola stations: keyhole-portal draft replaced by a long glazed hall on a stone plinth. <span class="ref">#187</span>
+- **Oct 11-12 · Built** Grand Lodge, three revisions: U-plan round a pool court, then plaza, valet drive and vanilla trees and benches. "Looks really good." <span class="ref">#176 #188</span>
+- **Oct 11 · Discarded** Dynamic tower and chair numbers, filed as a later idea. Feasible with base-game props only. <span class="ref">#194</span>
+- **Oct 12 · Explored** Vanilla detail benchmark: the detail lives in the texture layer, not the mesh. Fine-detail pass follows for every building and station. <span class="ref">#195 #201-#207 #213</span>
+- **Oct 12 · Changed** Tram wheel 10.4 m to 3.6 m, true to scale. <span class="ref">#196</span>
+- **Oct 12 · Changed** Lift boards redrawn in real signage style. STAY SEATED removed from the detachable top station: "doesn't quite make sense haha". <span class="ref">#205 #212</span>
+- **Oct 12 · Superseded** Kit accent colour: Parent colour accepted, then reversed to five fixed per-building colour sets. <span class="ref">#210 #214</span>
+- **Oct 13 · Built** Orange safety-net fence; writable signs through optional Write Everywhere layouts. <span class="ref">#222 #223</span>
+- **Oct 13 · Changed** Tram base ramps (lot 5 × 3 to 6 × 3) and the top foundation 12 m below grade. Richard: "Can we have the whole FOUNDATION and SUPPORTS go LOWER?" <span class="ref">#216 #227</span>
+- **Oct 13 · Built** First import session. A shared texture sheet binds across the sharers in one action. <span class="ref">#228</span>
+
+## October 14-16
+
+- **Oct 14 · Explored** Making the resort pay, visibly. Ticket cash reached the treasury but the Economy panel showed none. Tickets are now booked as public-transport fares. <span class="ref">#238 #239</span>
+- **Oct 14 · Built** Season passes. Vail model: passes about 65 % of lift revenue, bought once, non-refundable. <span class="ref">#240</span>
+- **Oct 15 · Built** Approved economy numbers: ticket 40 to 60, lodge spend 15, lesson fee, pre-season pass sale. Richard: "make sure lodges and ski schools have upkeep and appropriate employees". <span class="ref">#241</span>
+- **Oct 15 · Changed** Player text unified: one term per thing. <span class="ref">#242</span>
+- **Oct 15-16 · Explored** Ash Flat playtest: 99 items, triaged into 50 tickets. <span class="ref">#243</span>
+- **Oct 16 · Changed** Prop rows on stations and buildings mirrored: the game negates x on import, so props stood up to 3.9 m off their wall. <span class="ref">#245</span>
+- **Oct 16 · Settled** Chairs do not sway with the wind-blown cable. Engine limit, accepted. <span class="ref">#249</span>
+- **Oct 16 · Changed** Snow rules on Richard's numbers: guns make snow up to 3.3 °C; open at 15 cm. <span class="ref">#250 #251</span>
+- **Oct 16 · Built** Run names painted on the hill; cat-track probes. <span class="ref">#252 #255</span>
+- **Oct 16 · Explored** Texture parity. The "blurry stone" was texel density, 10-46 px/m against vanilla 340-520. Richard: "vanilla parity". <span class="ref">#253</span>
+- **Oct 16 · Built** One shared tile sheet for all eight buildings. Walls from 10-46 to 300-400 px/m. Cost: triangles, under hard caps. <span class="ref">#256</span>
+
+## October 17-19
+
+- **Oct 17 · Built** Window kit v2 and door kit v2. Richard: "the vanilla school's window frames next to ours is rough"; later "Sweet! I approve." <span class="ref">#258 #260</span>
+- **Oct 17 · Superseded** Parasol removal of Oct 16. "Bring the umbrellas back ... vanilla props. No need to make our own." <span class="ref">#248 #262</span>
+- **Oct 17 · Built** Fittings: downpipes, snow guards, vents. Icicles out: "wouldn't make sense in the summer". <span class="ref">#263</span>
+- **Oct 17 · Explored** Snow-prop weathering rejected; the asset-creation wiki was read in full and the weathering redone. <span class="ref">#264 #265</span>
+- **Oct 17 · Built** Snow-gun plume; guns stop at 0.60 m of snow. <span class="ref">#266</span>
+- **Oct 17 · Changed** Run-type tile icons: three revisions. Natural and groomed kept as the originals, snowmaking, night and cat track new. <span class="ref">#267</span>
+- **Oct 17 · Changed** Summit Lodge plinth 12 to 16 m after Richard's terrain edits. <span class="ref">#268</span>
+- **Oct 18 · Built** Chalet doors, fire pits (vanilla), structure gate: "a pass on all buildings for what is structurally unrealistic". <span class="ref">#271 #273 #274</span>
+- **Oct 18 · Changed** Wheel rounds. One wheel on every tower and station ("consistent"), then round 3 under 120 tris: "8-12 wheels per tower ... reduce the tris". <span class="ref">#272 #276</span>
+- **Oct 18 · Settled** One hybrid Paradox Mods item: code and assets together. Prefab identity never moves between items. <span class="ref">#277 #278</span>
+- **Oct 18 · Discarded** Tram corner fins: "it didn't add anything". <span class="ref">#279</span>
+- **Oct 18 · Explored** How vanilla skyscrapers texture. Richard: "How does a huge skyscraper do it in the game?" Vanilla cuts faces and stacks islands. <span class="ref">#280</span>
+- **Oct 18 · Changed** Tram stations to plain `_Gls` glass: "the fake interiors lit up at night won't look right". Own tile sheet approved. <span class="ref">#281 #282</span>
+- **Oct 18 · Built** Hub history store and view: guests and finances per month. <span class="ref">#283 #284 #289</span>
+- **Oct 18 · Changed** Roof-edge trim on a grain swatch strip, 0 extra triangles. Hub wording rounds. <span class="ref">#286 #287</span>
+- **Oct 18 · Built** Export round X: eight tiled buildings and sign. <span class="ref">#290</span>
+- **Oct 18-19 · Built** Both tram stations fit the tile route: base 15,902 of 16,000, top 13,632 of 14,000. Richard: "dang they look so much better". Exported as letter B. <span class="ref">#291 #294 #295</span>
+- **Oct 19 · Changed** Hub design review. Two nets disagreed (+138,600 against +380,685). All seven big changes approved: one Net, simpler Finances chart, honest History chart. <span class="ref">#292 #293 #296 #297</span>
+- **Oct 19 · Settled** Round X and tram B imported. One import action per texture-sharing group, after a 107 MB duplicate. <span class="ref">#298</span>
+- **Oct 19 · Changed** Window interiors. The room behind the glass was vanilla's commercial interior atlas, picked by the asset name; the burger was one of its rooms. Windows became plain glass with lit backing plates. <span class="ref">#303 #307</span>
+- **Oct 19 · Built** Night fixes: run-tile stripe, "No ski school" states, terrain-follow rule, Grand Lodge cap 30,000 to 33,500, CAD-look pass. <span class="ref">#299 #300 #302 #304</span>
+- **Oct 19 · Built** Tower planner. Measured: all 18 test nodes sat at elevation 0, so the engine chose the shortest tower. Richard: "I also don't think we need to do another lift test". <span class="ref">#301 #306 #311</span>
+- **Oct 19 · Changed** Ski School becomes a top-level building. <span class="ref">#308 #309 #318</span>
+- **Oct 19 · Built** Lift export on the round-3 wheels (letters P, N, B) and integration build Y for all eight buildings. <span class="ref">#315 #316</span>
+- **Oct 19 · Settled** Vanilla sub-objects wherever one exists: "they tend to have way more detail and saves us tons of effort". Bell-tower light dropped. <span class="ref">#305 #317 #320</span>

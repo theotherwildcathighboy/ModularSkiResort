@@ -5,6 +5,7 @@ description: Five lodge tiers, ski school and ski patrol effects, and the road, 
 
 import { Aside } from '@astrojs/starlight/components';
 import Shot from '../../../components/Shot.astro';
+import Icon from '../../../components/Icon.astro';
 
 {/* src: SkiCatalog.cs Lodges / Schools / Patrols / Ladder / School / Patrol; hub strings problemTip*, buildTip*, skiDaysTip* */}
 
@@ -19,11 +20,11 @@ Guest entry point and capacity source. No lodge: attraction score **0**.
 
 | Tier | Role |
 |---|---|
-| **Mountain Hut** | Small hut for mid-mountain or roadless sites. |
-| **A-Frame Day Lodge** | Base lodge. Cheapest. Default. |
-| **Chalet Lodge** | Larger day lodge. Ski days stay full at a higher ticket price. |
-| **Swanky Summit Lodge** | Luxury summit lodge. High summer appeal when a lift reaches it. |
-| **Swanky Grand Lodge** | Highest guest capacity. |
+| <Icon name="lodge-hut" alt="Mountain Hut icon" /> **Mountain Hut** | Small hut for mid-mountain or roadless sites. |
+| <Icon name="lodge-a-frame" alt="A-Frame Day Lodge icon" /> **A-Frame Day Lodge** | Base lodge. Cheapest. Default. |
+| <Icon name="lodge-chalet" alt="Chalet Lodge icon" /> **Chalet Lodge** | Larger day lodge. Ski days stay full at a higher ticket price. |
+| <Icon name="lodge-summit" alt="Swanky Summit Lodge icon" /> **Swanky Summit Lodge** | Luxury summit lodge. High summer appeal when a lift reaches it. |
+| <Icon name="lodge-grand" alt="Swanky Grand Lodge icon" /> **Swanky Grand Lodge** | Highest guest capacity. |
 
 - **Build limit:** none.
 - **Stacking:** the best lodge sets the **lodge base**. Other lodges add smaller extras, capped at **24** points (diminishing returns).
@@ -38,7 +39,7 @@ Guest entry point and capacity source. No lodge: attraction score **0**.
 
 ## Ski School
 
-Teaches lessons and lifts local skiing. See [Passes and Lessons](/guides/passes-and-lessons/).
+<Icon name="building-school" alt="Ski School icon" /> Teaches lessons and lifts local skiing. See [Passes and Lessons](/guides/passes-and-lessons/).
 
 - **Score:** **+12** to *Runs, lifts and school* while at least one green run counts.
 - **Demand:** locals ski **20 %** more often.
@@ -47,7 +48,7 @@ Teaches lessons and lifts local skiing. See [Passes and Lessons](/guides/passes-
 
 ## Ski Patrol
 
-Two buildings: **Ski Patrol Hut**, **Ski Patrol HQ**.
+Two buildings: <Icon name="building-patrol-hut" alt="Ski Patrol Hut icon" /> **Ski Patrol Hut**, <Icon name="building-patrol-hq" alt="Ski Patrol HQ icon" /> **Ski Patrol HQ**.
 
 - **Placement:** on the Welcome Sign, near steep runs.
 - **Effect:** black and double-black runs within **1 km** score **15 %** more.

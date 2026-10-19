@@ -1,0 +1,13 @@
+---
+// One of the mod's own icons (public/icons/, copied from the game-side icon set), shown inline at text size.
+// Never decorative: alt text always names the thing. Glyphs (white-on-transparent SVGs) are inverted in the light theme.
+interface Props {
+  name: string;
+  alt: string;
+  size?: number;
+}
+const { name, alt, size = 28 } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const ext = name.startsWith('glyph-') ? 'svg' : 'png';
+---
+<img class={`icon${ext === 'svg' ? ' icon-glyph' : ''}`} src={`${base}/icons/${name}.${ext}`} alt={alt} width={size} height={size} loading="lazy" decoding="async" />

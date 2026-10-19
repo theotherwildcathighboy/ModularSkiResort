@@ -4,6 +4,7 @@ description: "Fixed-grip, detachable, gondola and aerial tram: speeds, seats, li
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import Icon from '../../../components/Icon.astro';
 
 {/* src: SkiCatalog.cs Lifts rows (rates, envelopes, station costs, score values); catalog/carriers.json (seats, speed, spacing) */}
 
@@ -13,7 +14,7 @@ Station and line prices are catalog values; the build tile tooltip shows the act
 
 Four lift families. A line and its two stations share one type.
 
-| | Fixed-grip triple | Detachable quad | Gondola | Aerial tram |
+| | <Icon name="lift-fixed-grip" alt="Fixed-grip lift icon" /> Fixed-grip triple | <Icon name="lift-detachable" alt="Detachable lift icon" /> Detachable quad | <Icon name="lift-gondola" alt="Gondola icon" /> Gondola | <Icon name="lift-tram" alt="Aerial tram icon" /> Aerial tram |
 |---|---|---|---|---|
 | Carrier | 3-seat chair | 4-seat chair | 8-person cabin | 100-person cabin, two cabins shuttling |
 | Line speed | 2.5 m/s | 5.0 m/s | 5.5 m/s | 10 m/s, 60 s dwell at each terminal |

@@ -4,6 +4,7 @@ description: Cost, upkeep, staff and attraction values for every building in the
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import Icon from '../../../components/Icon.astro';
 
 {/* src: SkiCatalog.cs Lodges / Schools / Patrols / Signs rows (informational prices; the prefab is the truth); hub strings buildTip* */}
 
@@ -18,6 +19,7 @@ The ski area. Runs and lifts within **5 km** belong to it; every other building 
 
 | | |
 |---|---|
+| Icon | <Icon name="building-welcome-sign" alt="Welcome Sign icon" /> |
 | Name | Ski Area Welcome Sign |
 | Cost | 12,000 |
 | Requirements | Road at its front; power, water, sewage |
@@ -28,11 +30,11 @@ Guest entry points; capacity and score source.
 
 | Lodge | Build | Upkeep / month | Jobs | Base / extra | Holds at once | Ticket tolerance | Spend |
 |---|---|---|---|---|---|---|---|
-| Mountain Hut | 50,000 | 3,000 | 4 | 16 / 4 | 200 | +0 | ×1 |
-| A-Frame Day Lodge | 40,000 | 3,000 | 6 | 20 / 4 | 360 | +0 | ×1 |
-| Chalet Lodge | 200,000 | 8,000 | 12 | 30 / 8 | 720 | +20 | ×1.5 |
-| Swanky Summit Lodge | 1,500,000 | 18,000 | 8 | 40 / 12 | 480 | +40 | ×3 |
-| Swanky Grand Lodge | 1,200,000 | 20,000 | 18 | 40 / 12 | 1,080 | +40 | ×3 |
+| <Icon name="lodge-hut" alt="Mountain Hut icon" /> Mountain Hut | 50,000 | 3,000 | 4 | 16 / 4 | 200 | +0 | ×1 |
+| <Icon name="lodge-a-frame" alt="A-Frame Day Lodge icon" /> A-Frame Day Lodge | 40,000 | 3,000 | 6 | 20 / 4 | 360 | +0 | ×1 |
+| <Icon name="lodge-chalet" alt="Chalet Lodge icon" /> Chalet Lodge | 200,000 | 8,000 | 12 | 30 / 8 | 720 | +20 | ×1.5 |
+| <Icon name="lodge-summit" alt="Swanky Summit Lodge icon" /> Swanky Summit Lodge | 1,500,000 | 18,000 | 8 | 40 / 12 | 480 | +40 | ×3 |
+| <Icon name="lodge-grand" alt="Swanky Grand Lodge icon" /> Swanky Grand Lodge | 1,200,000 | 20,000 | 18 | 40 / 12 | 1,080 | +40 | ×3 |
 
 - **Base / extra:** score points when best lodge (base) or any other lodge (extra). Extras capped at **24**. See [Attraction Formula](/reference/attraction/#lodge-base).
 - **Holds at once:** ski-day skiers accepted at once (more on a powder day).
@@ -47,6 +49,7 @@ Lesson seller; green-run score bonus.
 
 | | |
 |---|---|
+| Icon | <Icon name="building-school" alt="Ski School icon" /> |
 | Cost / upkeep / jobs | 80,000 / 4,000 a month / 6 |
 | Score | +12 to *Runs, lifts and school* while a green run counts |
 | Demand | Locals ski 20 % more often |
@@ -57,7 +60,7 @@ Lesson seller; green-run score bonus.
 
 Boosts steep and unserved runs nearby.
 
-| | Patrol Hut | Patrol HQ |
+| | <Icon name="building-patrol-hut" alt="Ski Patrol Hut icon" /> Patrol Hut | <Icon name="building-patrol-hq" alt="Ski Patrol HQ icon" /> Patrol HQ |
 |---|---|---|
 | Cost / upkeep / jobs | 15,000 / 1,500 a month / 2 | 15,000 / 1,500 a month / 2 |
 | Effect | Black and double-black runs within 1 km score 15 % more; unserved runs there count at least 70 % | Same |
@@ -73,11 +76,11 @@ Area-priced.
 
 | Type | Build fee | Upkeep / hectare / month | Score factor |
 |---|---|---|---|
-| Natural | 500 + 250 / ha | 0 | green ×0.5, blue ×0.75, black ×1 |
-| Groomed | 2,000 + 1,000 / ha | 150 | ×1 |
-| Snowmaking | 4,000 + 4,000 / ha | 500 | ×1 |
-| Night | 6,000 + 7,000 / ha | 800 | ×1.25 |
-| Cat track | 2,000 + 1,000 / ha | 150 | adds 0 |
+| <Icon name="run-natural" alt="Natural run icon" /> Natural | 500 + 250 / ha | 0 | green ×0.5, blue ×0.75, black ×1 |
+| <Icon name="run-groomed" alt="Groomed run icon" /> Groomed | 2,000 + 1,000 / ha | 150 | ×1 |
+| <Icon name="run-snowmaking" alt="Snowmaking run icon" /> Snowmaking | 4,000 + 4,000 / ha | 500 | ×1 |
+| <Icon name="run-night" alt="Night run icon" /> Night | 6,000 + 7,000 / ha | 800 | ×1.25 |
+| <Icon name="run-cat-track" alt="Cat track icon" /> Cat track | 2,000 + 1,000 / ha | 150 | adds 0 |
 
 - **Upkeep:** paid only while the run has snow (groomed, or made by guns).
 - **Skiers on the slope at once, per hectare:** green **45**, blue **25**, black **15**, double black **7.5**. Natural runs: half.

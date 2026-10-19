@@ -5,6 +5,7 @@ description: Run drawing, difficulty rating, run types with fees and upkeep, and
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 import Shot from '../../../components/Shot.astro';
+import Icon from '../../../components/Icon.astro';
 
 {/* src: SkiSlopeClassifier.cs band cuts; RunSnowRules.cs; SkiRunBindingRules.cs fees; SkiRunUpkeepSystem.cs; SkiResortScore.cs size factor; Options text */}
 
@@ -38,22 +39,27 @@ Rating = slope of the **hardest unavoidable pitch**: the crux of the easiest lin
 
 <Tabs>
   <TabItem label="Natural">
+    <Icon name="run-natural" alt="Natural run icon" />
     **Surface:** none drawn (visible on the **piste map**). Opens on natural snow only.
     **Value:** green ×**0.5**, blue ×**0.75**, black ×**1**. **Build fee:** 500 + 250 per ha. **Upkeep:** none.
   </TabItem>
   <TabItem label="Groomed">
+    <Icon name="run-groomed" alt="Groomed run icon" />
     **Surface:** groomed snow. **Value:** full when open.
     **Build fee:** 2,000 + 1,000 per ha. **Upkeep:** 150 per ha per month while snow-covered.
   </TabItem>
   <TabItem label="Snowmaking">
+    <Icon name="run-snowmaking" alt="Snowmaking run icon" />
     **Surface:** groomed, plus snow guns (lances, fan guns, hydrants) where the air is cold enough.
     **Build fee:** 4,000 + 4,000 per ha. **Upkeep:** 500 per ha per month while snow-covered.
   </TabItem>
   <TabItem label="Night">
+    <Icon name="run-night" alt="Night run icon" />
     **Surface:** snowmaking plus floodlights. **Value:** ×**1.25** of groomed.
     **Build fee:** 6,000 + 7,000 per ha. **Upkeep:** 800 per ha per month while snow-covered.
   </TabItem>
   <TabItem label="Cat track">
+    <Icon name="run-cat-track" alt="Cat track icon" />
     **Role:** link across the hill. Adds **0** to score and capacity. **Pricing:** as groomed.
     **Slope limit:** under **25 %**; steeper is marked *Unsuitable*.
   </TabItem>

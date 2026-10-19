@@ -5,6 +5,7 @@ description: "Ski Resort hub reference: header, status line, problem band, tiles
 
 import { Aside } from '@astrojs/starlight/components';
 import Shot from '../../../components/Shot.astro';
+import Icon from '../../../components/Icon.astro';
 
 {/* src: hubText.ts (HUB_LOC / HUB_FMT strings) and the Options text for the hub group */}
 
@@ -73,7 +74,7 @@ Income above, running costs below, **Net so far this month** at the bottom. Rows
 
 ## History
 
-Guests and finances per month, for this ski area or the whole city.
+<Icon name="glyph-history" alt="History tile glyph" /> Guests and finances per month, for this ski area or the whole city.
 
 - **Ranges:** last 12 months; this season against last; one bar per season (average month, so incomplete seasons compare fairly); all.
 - **Bar tooltip:** numbers.
@@ -84,8 +85,8 @@ Guests and finances per month, for this ski area or the whole city.
 
 Three tabs along the bottom hold every tool.
 
-- **Lifts:** base station, top station, lift line.
-- **Runs:** natural, groomed, snowmaking, night, cat track.
+- **Lifts:** base station, top station, lift line. Tile icons: <Icon name="lift-fixed-grip" alt="Fixed-grip lift icon" /> <Icon name="lift-detachable" alt="Detachable lift icon" /> <Icon name="lift-gondola" alt="Gondola icon" /> <Icon name="lift-tram" alt="Aerial tram icon" />
+- **Runs:** natural, groomed, snowmaking, night, cat track. Tile icons: <Icon name="run-natural" alt="Natural run icon" /> <Icon name="run-groomed" alt="Groomed run icon" /> <Icon name="run-snowmaking" alt="Snowmaking run icon" /> <Icon name="run-night" alt="Night run icon" /> <Icon name="run-cat-track" alt="Cat track icon" />
 - **Buildings:** lodges, ski school, patrol.
 - **Tiles:** cost shown; active tile reads *In use: click again to stop*.
 

@@ -13,3 +13,18 @@
 .shot figcaption { display: flex; flex-direction: column; gap: 0.35rem; max-width: 36rem; }
 .shot strong { letter-spacing: 0.04em; text-transform: uppercase; font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); }
 .shot span { font-size: var(--sl-text-sm); }
+
+.icon {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 0.35em 0 0;
+  border-radius: 0.3rem;
+}
+.sl-markdown-content .icon { margin-top: 0; margin-bottom: 0; }
+:root[data-theme='light'] .icon-glyph { filter: invert(1); }
+
+.ref {
+  color: var(--sl-color-gray-3);
+  font-size: var(--sl-text-xs);
+  white-space: nowrap;
+}

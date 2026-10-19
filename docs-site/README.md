@@ -1,6 +1,6 @@
 # docs-site: the Modular Ski Resort docs
 
-Player guides, reference and the "making of" story for the mod, built with
+Player guides, reference, the asset pipeline and a dated timeline for the mod, built with
 [Astro Starlight](https://starlight.astro.build) and published to GitHub Pages. MIT, like the rest of the code.
 
 ## Run it
@@ -37,11 +37,14 @@ src/content/docs/
   getting-started/              Your first resort in 10 minutes
   guides/                       How-to, in the order a player meets things
   reference/                    Numbers: buildings, lifts, the attraction formula, settings
-  making-of/index.mdx           The storyline, one section per chapter (stubs for now)
+  asset-pipeline.mdx            For modellers: budgets, LODs, texel density, tile sheet, vanilla props, gates
+  timeline.mdx                  Dated list of what was explored, built, changed, discarded, and why (ledger #n at row end)
   changelog.mdx                 Version history
   credits.mdx                   Credits and licences
 src/components/Shot.astro       Labelled grey box for a screenshot that does not exist yet
-src/styles/custom.css           The only custom style (the Shot box)
+src/components/Icon.astro       One of the mod's own icons inline (public/icons/, copied from the game-side icon set)
+src/assets/resort-logo-*.svg    The launcher glyph (peak and snowflake) for the header and home hero; white and navy
+src/styles/custom.css           The only custom style (the Shot box, inline icons, timeline refs)
 astro.config.mjs                Title, sidebar (explicit, in this order), base path
 ```
 
@@ -51,7 +54,7 @@ The sidebar is written by hand in `astro.config.mjs`, so a new page needs a line
 
 1. **Player voice.** Talk to someone building a resort, in plain sentences: "Place the top station facing the base
    station", not "the top station's rotation constraint". The guides never name an engine system, a component or a
-   prefab. The *making of* section is the one place that may, because it is written for modders.
+   prefab. The Asset Pipeline and Timeline pages are the places that may, because they are written for modders.
 2. **No jargon without the glossary.** If a term needs defining (texel, LOD, prefab, ECS), either define it on the
    spot in one sentence or do not use it in a guide. Terms are defined in the project glossary (`docs/GLOSSARY.md`,
    private); lift that sentence, do not link to it.

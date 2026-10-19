@@ -5,6 +5,7 @@ description: Lift build order, per-section redo, terrain limits, scoring conditi
 
 import { Steps, Aside } from '@astrojs/starlight/components';
 import Shot from '../../../components/Shot.astro';
+import Icon from '../../../components/Icon.astro';
 
 {/* src: SkiCatalog.cs (lift rows, envelopes), hub strings buildHint*, problemTip*, liftLine2* */}
 
@@ -15,7 +16,11 @@ like a road. Towers, cable and carriers are generated.
 
 <Steps>
 
-1. **Lift type:** hub Lifts tab. Fixed-grip triple chairlift, detachable quad chairlift, gondola or aerial tram. Line and both stations share one type.
+1. **Lift type:** hub Lifts tab. Line and both stations share one type.
+   <Icon name="lift-fixed-grip" alt="Fixed-grip lift icon" /> Fixed-grip triple chairlift.
+   <Icon name="lift-detachable" alt="Detachable lift icon" /> Detachable quad chairlift.
+   <Icon name="lift-gondola" alt="Gondola icon" /> Gondola.
+   <Icon name="lift-tram" alt="Aerial tram icon" /> Aerial tram.
 2. **Base station:** bottom of the lift.
 3. **Top station:** top of the lift, facing the base station. A guide line shows when the stations are straight to each other.
 4. **Lift line:** drawn station to station.
