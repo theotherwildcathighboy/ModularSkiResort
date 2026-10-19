@@ -1,0 +1,3046 @@
+{
+  "name": "SkiLodgeHutCommercialLowX",
+  "written_utc": "2026-10-19T01:54:31Z",
+  "blender": "5.2.2 LTS",
+  "files": {
+    "SkiLodgeHutCommercialLowX.fbx": {
+      "bytes": 401132,
+      "sha1": "729e893a7d0876b6ff6a719d52bd4906701c84f8"
+    },
+    "SkiLodgeHutCommercialLowX_LOD1.fbx": {
+      "bytes": 151916,
+      "sha1": "381d7639afe3d0679679cee5852fdefc1dc4928c"
+    },
+    "SkiLodgeHutCommercialLowX_LOD1_BaseColor.png": {
+      "bytes": 1166033,
+      "sha1": "444e7b80dccdf174a0a02a42e67b75380d56e139"
+    },
+    "SkiLodgeHutCommercialLowX_LOD1_ControlMask.png": {
+      "bytes": 55820,
+      "sha1": "0ece7b21bd153bcc40bc6206206c5f3541a0df1f"
+    },
+    "SkiLodgeHutCommercialLowX_LOD1_MaskMap.png": {
+      "bytes": 385007,
+      "sha1": "c8d8458a8b6f66836971ed70a7cb2f6c25616915"
+    },
+    "SkiLodgeHutCommercialLowX_LOD1_Normal.png": {
+      "bytes": 796555,
+      "sha1": "f941a63aa212164f33365e4142eaa3c8a3f037b6"
+    },
+    "SkiLodgeHutCommercialLowX_LOD1_Win.fbx": {
+      "bytes": 16780,
+      "sha1": "651071b8f67e43112840509675810b314170c228"
+    },
+    "SkiLodgeHutCommercialLowX_LOD2.fbx": {
+      "bytes": 35212,
+      "sha1": "5666a084f965cae10418e1f1af6dfe6968a5c7b8"
+    },
+    "SkiLodgeHutCommercialLowX_LOD2_Win.fbx": {
+      "bytes": 16780,
+      "sha1": "93893690fdbd1a4cf4f3b3365daa35ab43526c05"
+    },
+    "SkiLodgeHutCommercialLowX_Win.fbx": {
+      "bytes": 16828,
+      "sha1": "e459575aba5f51c21ad4377cf8d21c37d14c5dc5"
+    },
+    "settings.json": {
+      "bytes": 1544,
+      "sha1": "46685d0d17874fcf35bd6f151ae7d8758d443026"
+    }
+  },
+  "generator": "lodge.py",
+  "git_sha": "883d134",
+  "spec": "bldg-kit-2026-10",
+  "recipe": "L2",
+  "args": {
+    "lodge": null,
+    "school": false,
+    "patrol": null,
+    "recipe": "L2",
+    "out": null,
+    "export": true,
+    "name": null,
+    "letter": "X",
+    "blockout": false,
+    "finish": true,
+    "lods": true,
+    "no_validate": false,
+    "tex": "auto",
+    "interior": "name",
+    "tower": true,
+    "roof_windows": "win",
+    "preview": null,
+    "ab": null,
+    "review": null,
+    "review_out": null,
+    "ao_samples": 48,
+    "packer": "calibrated",
+    "weather_sweep": null,
+    "signset": false,
+    "no_signset": false,
+    "no_fine": false,
+    "signset_out": "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/signs",
+    "tiled": true,
+    "sheet_tex": 4096,
+    "far_tex": 1024,
+    "sheet_layout": "rollout",
+    "sheet_dir": "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/sheet/SkiTileSheetX",
+    "weather_level": "auto",
+    "window_kit": "v2",
+    "window_mode": "auto",
+    "window_family": "auto",
+    "door_kit": "v2",
+    "door_holes": "auto",
+    "door_mode": "auto",
+    "fittings": "v1",
+    "structure": "v1",
+    "trim": "v1",
+    "trim_seg": null,
+    "ppm_report": false
+  },
+  "prefab": "SkiLodgeHut",
+  "tris": {
+    "0": 5943,
+    "1": 1816,
+    "2": 326
+  },
+  "budget": {
+    "lod0_target": 5500,
+    "lod0_cap": 6000,
+    "lod1": 2400,
+    "lod2": 450,
+    "lod2_cap": 450
+  },
+  "parts": 227,
+  "materials_used": [
+    "accent",
+    "concrete",
+    "deck",
+    "galv",
+    "glass_dark",
+    "lamp",
+    "metal_roof",
+    "safety_yellow",
+    "ski_black",
+    "slate",
+    "stone_rubble",
+    "timber_heavy",
+    "timber_lap",
+    "timber_shake",
+    "trim",
+    "trim_grain",
+    "trim_w"
+  ],
+  "materials": {
+    "accent": {
+      "set": null,
+      "albedo_lin": [
+        0.6038,
+        0.6038,
+        0.6038
+      ],
+      "target_srgb": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "slot": 2,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "concrete": {
+      "set": "Concrete034",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_126",
+      "N": 126,
+      "ppm": 41.91,
+      "tile_sq": 3.0,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        0.58,
+        0.58,
+        0.58
+      ],
+      "set_mean_srgb": [
+        0.723,
+        0.723,
+        0.723
+      ],
+      "target_srgb": null,
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "deck": {
+      "set": "Planks021",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_48",
+      "N": 48,
+      "ppm": 31.43,
+      "tile_sq": 1.54,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        0.3534,
+        0.3608,
+        0.4841
+      ],
+      "set_mean_srgb": [
+        0.77,
+        0.671,
+        0.466
+      ],
+      "target_srgb": [
+        0.48,
+        0.42,
+        0.33
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "galv": {
+      "set": "Metal032",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_42",
+      "N": 42,
+      "ppm": 20.96,
+      "tile_sq": 2.0,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "set_mean_srgb": [
+        0.49,
+        0.536,
+        0.579
+      ],
+      "target_srgb": null,
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "glass_dark": {
+      "set": null,
+      "albedo_lin": [
+        0.006,
+        0.0085,
+        0.0116
+      ],
+      "target_srgb": [
+        0.07,
+        0.09,
+        0.11
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "lamp": {
+      "set": null,
+      "albedo_lin": [
+        0.3185,
+        0.2957,
+        0.233
+      ],
+      "target_srgb": [
+        0.6,
+        0.58,
+        0.52
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": [
+        0.89,
+        0.6921,
+        0.3801
+      ]
+    },
+    "metal_roof": {
+      "set": null,
+      "albedo_lin": [
+        0.6038,
+        0.6038,
+        0.6038
+      ],
+      "target_srgb": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "slot": 3,
+      "proj": "inplane",
+      "emissive_lin": null
+    },
+    "safety_yellow": {
+      "set": null,
+      "albedo_lin": [
+        0.7874,
+        0.448,
+        0.0072
+      ],
+      "target_srgb": [
+        0.9,
+        0.7,
+        0.08
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "ski_black": {
+      "set": null,
+      "albedo_lin": [
+        0.0049,
+        0.0049,
+        0.0054
+      ],
+      "target_srgb": [
+        0.06,
+        0.06,
+        0.065
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "slate": {
+      "set": "RoofingTiles003",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\RoofingTiles003_107",
+      "N": 107,
+      "ppm": 33.53,
+      "tile_sq": 3.2,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "set_mean_srgb": [
+        0.214,
+        0.224,
+        0.215
+      ],
+      "target_srgb": null,
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "inplane"
+    },
+    "stone_rubble": {
+      "set": "Bricks096",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Bricks096_134",
+      "N": 134,
+      "ppm": 41.91,
+      "tile_sq": 3.2,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        1.0634,
+        1.0862,
+        1.6336
+      ],
+      "set_mean_srgb": [
+        0.442,
+        0.418,
+        0.316
+      ],
+      "target_srgb": [
+        0.455,
+        0.435,
+        0.4
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "timber_heavy": {
+      "set": "Planks021",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_65",
+      "N": 65,
+      "ppm": 41.91,
+      "tile_sq": 1.54,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        0.1321,
+        0.0972,
+        0.1196
+      ],
+      "set_mean_srgb": [
+        0.77,
+        0.671,
+        0.466
+      ],
+      "target_srgb": [
+        0.3,
+        0.22,
+        0.16
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "along"
+    },
+    "timber_lap": {
+      "set": "WoodSiding009",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_101",
+      "N": 101,
+      "ppm": 41.91,
+      "tile_sq": 2.4,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        0.1198,
+        0.0842,
+        0.0813
+      ],
+      "set_mean_srgb": [
+        0.792,
+        0.758,
+        0.628
+      ],
+      "target_srgb": [
+        0.295,
+        0.235,
+        0.185
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "timber_shake": {
+      "set": "WoodSiding013",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding013_75",
+      "N": 75,
+      "ppm": 41.91,
+      "tile_sq": 1.8,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "set_mean_srgb": [
+        0.406,
+        0.352,
+        0.275
+      ],
+      "target_srgb": null,
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "trim": {
+      "set": null,
+      "albedo_lin": [
+        0.6038,
+        0.6038,
+        0.6038
+      ],
+      "target_srgb": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "slot": 1,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "trim_grain": {
+      "set": "WoodSiding009",
+      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_50",
+      "N": 50,
+      "ppm": 20.96,
+      "tile_sq": 2.4,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "set_mean_srgb": [
+        0.792,
+        0.758,
+        0.628
+      ],
+      "target_srgb": null,
+      "slot": 1,
+      "uv_rot": 0,
+      "proj": "box"
+    },
+    "trim_w": {
+      "set": null,
+      "albedo_lin": [
+        0.3424,
+        0.3303,
+        0.307
+      ],
+      "target_srgb": [
+        0.62,
+        0.61,
+        0.59
+      ],
+      "slot": 1,
+      "proj": "box",
+      "emissive_lin": null
+    }
+  },
+  "cull": {
+    "faces_before": 2474,
+    "faces_removed": 437,
+    "area_before": 2129.8,
+    "area_after": 1552.0,
+    "wall_area_deleted_by_rays": 0.0,
+    "wall_rule": "contact",
+    "d_min": 25.0,
+    "rays": 24,
+    "ring": 8,
+    "removed_per_part": {
+      "plinthcap_hut": 18,
+      "trim_corners": 8,
+      "roof_hutA": 5,
+      "fascia_hutA": 2,
+      "roof_hutB": 5,
+      "fascia_hutB": 2,
+      "ridge_hut": 3,
+      "gable_hut0": 2,
+      "gable_hut1": 2,
+      "snowguard_hutN": 2,
+      "gutter_hutS": 1,
+      "gutter_hutN": 1,
+      "downspout_hutNW": 3,
+      "downspout_hutNWext": 2,
+      "downspout_hutNE": 3,
+      "downspout_hutNEext": 2,
+      "tail_purlinE": 4,
+      "bracket_rakeE0": 3,
+      "bracket_rakeE1": 3,
+      "bracket_rakeE2": 4,
+      "bracket_rakeE3": 4,
+      "tail_purlinW": 4,
+      "bracket_rakeW0": 4,
+      "bracket_rakeW1": 4,
+      "bracket_rakeW2": 3,
+      "bracket_rakeW3": 3,
+      "bracket_hutcanopy0": 2,
+      "bracket_hutcanopy1": 2,
+      "head_E0": 2,
+      "sill_E0": 1,
+      "trim_shE0": 4,
+      "head_E1": 2,
+      "sill_E1": 1,
+      "trim_shE1": 4,
+      "head_Wd0": 1,
+      "head_Wd1": 1,
+      "head_W0": 2,
+      "sill_W0": 1,
+      "trim_shW0": 2,
+      "head_W1": 2,
+      "sill_W1": 1,
+      "trim_shW1": 2,
+      "sill_bW0": 1,
+      "head_bW1": 1,
+      "sill_bW1": 1,
+      "stair_bas_treads": 21,
+      "stair_bas_str0": 1,
+      "stair_bas_str1": 2,
+      "col_baslanding": 6,
+      "trail_basp": 9,
+      "trail_basr": 4,
+      "head_S0": 2,
+      "sill_S0": 1,
+      "trim_shS0": 4,
+      "head_S1": 2,
+      "sill_S1": 1,
+      "trim_shS1": 4,
+      "head_S2": 2,
+      "sill_S2": 1,
+      "trim_shS2": 4,
+      "head_Sd": 1,
+      "sill_bS0": 1,
+      "sill_bS1": 1,
+      "head_N0": 2,
+      "sill_N0": 1,
+      "trim_shN0": 4,
+      "head_N1": 2,
+      "sill_N1": 1,
+      "trim_shN1": 4,
+      "head_N2": 2,
+      "sill_N2": 1,
+      "trim_shN2": 4,
+      "sill_bN": 1,
+      "deckfascia_hutW": 9,
+      "deckfascia_hutS": 11,
+      "col_hutposts": 108,
+      "trail_hutp": 19,
+      "lamp_deckSWarm": 1,
+      "lamp_deckNWarm": 1,
+      "deckfascia_bridge": 10,
+      "trail_bridgeSp": 4,
+      "trail_bridgeSr": 6,
+      "trail_bridgeNp": 4,
+      "trail_bridgeNr": 6,
+      "deckfascia_skiN": 10,
+      "deckfascia_skiS": 10,
+      "step_hut1": 5,
+      "step_hut2": 1,
+      "downspout_hutSW": 2,
+      "downspout_hutSE": 3,
+      "downspout_hutSEext": 2,
+      "flag_hut": 5,
+      "flagpanel_hut": 1
+    }
+  },
+  "area_report": {
+    "kept_m2": 1552.0,
+    "sum_w2a": 1145.7,
+    "k": 0.48,
+    "predicted_ppm_w1": {
+      "1024": 14.52,
+      "2048": 29.04,
+      "4096": 58.09
+    },
+    "predicted_ppm_unweighted": {
+      "1024": 12.48,
+      "2048": 24.95,
+      "4096": 49.91
+    },
+    "by_prefix": {
+      "bracket_": [
+        13.0,
+        3.2
+      ],
+      "col_": [
+        29.1,
+        29.1
+      ],
+      "deck_": [
+        199.8,
+        112.4
+      ],
+      "deckfascia_": [
+        59.2,
+        14.8
+      ],
+      "door_": [
+        3.5,
+        7.9
+      ],
+      "downspout_": [
+        11.4,
+        2.9
+      ],
+      "entry_": [
+        1.7,
+        3.9
+      ],
+      "fascia_": [
+        31.4,
+        7.8
+      ],
+      "flag_": [
+        2.4,
+        0.6
+      ],
+      "flagpanel_": [
+        2.6,
+        0.6
+      ],
+      "footing_": [
+        5.6,
+        5.6
+      ],
+      "gable_": [
+        31.9,
+        31.9
+      ],
+      "gutter_": [
+        8.4,
+        2.1
+      ],
+      "head_": [
+        12.8,
+        12.8
+      ],
+      "lamp_": [
+        4.2,
+        1.6
+      ],
+      "mull_": [
+        0.7,
+        0.2
+      ],
+      "pier_": [
+        122.2,
+        122.2
+      ],
+      "plinth_": [
+        317.3,
+        317.3
+      ],
+      "plinthcap_": [
+        17.0,
+        17.0
+      ],
+      "rake_": [
+        30.5,
+        7.6
+      ],
+      "reveal_": [
+        13.9,
+        3.5
+      ],
+      "ridge_": [
+        18.4,
+        6.6
+      ],
+      "roof_": [
+        262.6,
+        165.3
+      ],
+      "sign_": [
+        6.0,
+        6.0
+      ],
+      "sill_": [
+        3.8,
+        0.9
+      ],
+      "snowguard_": [
+        3.8,
+        1.0
+      ],
+      "soffit_": [
+        39.0,
+        2.4
+      ],
+      "stair_": [
+        18.2,
+        13.6
+      ],
+      "step_": [
+        14.3,
+        14.3
+      ],
+      "stovepipe_": [
+        3.5,
+        0.9
+      ],
+      "stripe_": [
+        0.4,
+        0.1
+      ],
+      "tail_": [
+        4.9,
+        1.2
+      ],
+      "trail_": [
+        40.2,
+        10.1
+      ],
+      "trim_": [
+        26.0,
+        26.0
+      ],
+      "wall_": [
+        192.0,
+        192.0
+      ]
+    }
+  },
+  "shipped_density": {
+    "median_w1": 13.97,
+    "median_all": 13.97,
+    "by_weight": {
+      "0.25": 3.49,
+      "0.5": 6.99,
+      "0.6": 8.39,
+      "0.75": 10.48,
+      "0.8": 11.18,
+      "1": 13.97,
+      "1.25": 17.47,
+      "1.5": 20.96
+    }
+  },
+  "tex": 1024,
+  "bake": {
+    "A": 1024,
+    "margin_px": 8,
+    "uncovered_texels": 824089,
+    "seconds": {
+      "pack": 0.2793579999997746,
+      "emit": 0.5688986999739427,
+      "ao": 0.39163999998709187,
+      "total": 3.153937200026121
+    },
+    "files": [
+      "SkiLodgeHutCommercialLowX_BaseColor.png",
+      "SkiLodgeHutCommercialLowX_Normal.png",
+      "SkiLodgeHutCommercialLowX_MaskMap.png",
+      "SkiLodgeHutCommercialLowX_ControlMask.png",
+      "SkiLodgeHutCommercialLowX_Emissive.png"
+    ],
+    "ao": "self",
+    "pack_px_per_m": {
+      "min": 3.49331533075169,
+      "median": 6.986803717321783,
+      "max": 20.962903311636605
+    }
+  },
+  "pack_margin": {
+    "islands": 1033,
+    "margin_px": 8,
+    "contract_px": 16,
+    "packer": "calibrated",
+    "dry_pack_w1_ppm": 13.97
+  },
+  "rooms": {
+    "attE": 5,
+    "attW": 6,
+    "basN": 9,
+    "basS": 8,
+    "basW": 7,
+    "fl1E": 1,
+    "fl1N": 4,
+    "fl1S": 3,
+    "fl1W": 2
+  },
+  "rooms_n": 9,
+  "engine_base": {
+    "0": {
+      "verdict": "NONE",
+      "ok_edges": 0,
+      "blocked_edges": 0,
+      "below_verts": 1255,
+      "ok_parts": [],
+      "mode": "plinth"
+    },
+    "1": {
+      "verdict": "NONE",
+      "ok_edges": 0,
+      "blocked_edges": 0,
+      "below_verts": 468,
+      "ok_parts": [],
+      "mode": "plinth"
+    },
+    "2": {
+      "verdict": "NONE",
+      "ok_edges": 0,
+      "blocked_edges": 0,
+      "below_verts": 104,
+      "ok_parts": [],
+      "mode": "plinth"
+    }
+  },
+  "lot": {
+    "x": [
+      -8.08,
+      11.8
+    ],
+    "y": [
+      -8.58,
+      6.953
+    ],
+    "z": [
+      -7.2,
+      8.8
+    ],
+    "half_lot": [
+      12.0,
+      12.0
+    ],
+    "margin_x": 0.2,
+    "margin_y": 3.42,
+    "warn": []
+  },
+  "mesh_hash": {
+    "LOD0_prebake": "278674edb358",
+    "Win": "22c5ac0fa179",
+    "LOD0": "30ea8f13c6ed",
+    "WinFar": "eeacb25caca2",
+    "LOD1": "4be49ec3646e",
+    "LOD2": "5ed69ee7cb92"
+  },
+  "facing": {
+    "arrival_centroid_x": "10.516",
+    "need": 3.0
+  },
+  "extent_game_m": {
+    "x": 15.53,
+    "y": 16.0,
+    "z": 19.88,
+    "min_y": -7.2
+  },
+  "lod_plan": {
+    "LOD1": {
+      "cap": 1816,
+      "achievable": 1856,
+      "target": 1816,
+      "dry_run": 1816,
+      "protected_tris": 224,
+      "note": "ok"
+    },
+    "LOD2": {
+      "cap": 450,
+      "achievable": 326,
+      "target": 326,
+      "dry_run": 326,
+      "protected_tris": 224,
+      "note": "ok"
+    }
+  },
+  "lod_info": [
+    {
+      "deleted_faces": 1083,
+      "after_delete": 1893,
+      "after_planar": 1856,
+      "protected_tris": 224,
+      "target": 1816,
+      "tris": 1816,
+      "ratio": 0.9755
+    },
+    {
+      "deleted_faces": 1861,
+      "after_delete": 326,
+      "after_planar": 326,
+      "protected_tris": 224,
+      "target": 326,
+      "tris": 326,
+      "ratio": 1.0
+    }
+  ],
+  "lod_switch_m": {
+    "csum": 51.41300058364868,
+    "bias": 0.08694621166336487,
+    "distances": [
+      136.46547987770623,
+      246.8696775361297,
+      582.6622369167937
+    ],
+    "switch": {
+      "1": 246.8696775361297,
+      "2": 582.6622369167937
+    },
+    "cull": 10520.245493531986
+  },
+  "panes_off_surface": {
+    "1": [],
+    "2": []
+  },
+  "batches_per_mesh_group": 9,
+  "vram_mb": 7.0,
+  "interior": {
+    "route": "name",
+    "keyword": "CommercialLow"
+  },
+  "emissive": true,
+  "review_pack": null,
+  "stage_seconds": {
+    "build": 3.8,
+    "parts": 5.1,
+    "cull": 5.2,
+    "bake": 11.0,
+    "lods": 11.2
+  },
+  "total_seconds": 11.5,
+  "window_kit": {
+    "openings": 24,
+    "holes": 24,
+    "faces_cut": 90,
+    "missing": [],
+    "partial": [],
+    "ring_tris_before_merge": 677,
+    "ring_faces_after_merge": 102,
+    "panes_blocked": 0,
+    "mode": "lean",
+    "family": "chalet",
+    "arrival_authoring": [
+      1.0,
+      -0.0
+    ],
+    "panes_unrecessed_far": 39,
+    "panes": 39
+  },
+  "door_kit": {
+    "family": "chalet",
+    "holes": "all",
+    "mode": "full",
+    "parts": 10,
+    "glass_depths": [
+      0.106
+    ],
+    "leaf_depths": {
+      "bas": -0.1,
+      "hut": -0.1
+    },
+    "hardware": {
+      "bas": [
+        "door_bas_lever"
+      ],
+      "hut": [
+        "door_hut_lever"
+      ]
+    }
+  },
+  "fittings": {
+    "version": 1,
+    "rows": 1,
+    "items": [
+      {
+        "kind": "roof",
+        "prefab": "ACVentRoofRandom01",
+        "final": [
+          3.0,
+          2.5,
+          5.818
+        ],
+        "on": [
+          "roof_hutB"
+        ],
+        "above_m": 0.299,
+        "note": "plumbing vent, east slope (the stovepipe is on the west)"
+      },
+      {
+        "kind": "shoes",
+        "n": 1,
+        "parts": [
+          "downspout_hutSW"
+        ]
+      },
+      {
+        "kind": "closelook",
+        "gutters": [
+          {
+            "gutter": "gutter_hutS",
+            "profile": "half",
+            "back_gap_was_mm": 10.0,
+            "segments": [
+              [
+                -6.0,
+                9.0
+              ]
+            ],
+            "length_m": 15.0,
+            "straps": 0,
+            "seat_gap_was_mm": [
+              10.0
+            ]
+          },
+          {
+            "gutter": "gutter_hutN",
+            "profile": "half",
+            "back_gap_was_mm": 10.0,
+            "segments": [
+              [
+                -6.0,
+                9.0
+              ]
+            ],
+            "length_m": 15.0,
+            "straps": 0,
+            "seat_gap_was_mm": [
+              10.0
+            ]
+          }
+        ],
+        "pipes": [
+          {
+            "pipe": "downspout_hutNW",
+            "moved_mm": 0.0,
+            "neck": true,
+            "nw": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "W_lo": [
+              -4.9,
+              5.8
+            ],
+            "W_up": [
+              -4.9,
+              5.8
+            ],
+            "jog_over_z": null,
+            "foot": {
+              "z": 0.05,
+              "on": "runs on (no shoe)"
+            },
+            "clips": [
+              1.24
+            ],
+            "gutter": "gutter_hutN"
+          },
+          {
+            "pipe": "downspout_hutNE",
+            "moved_mm": 0.0,
+            "neck": true,
+            "nw": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "W_lo": [
+              7.9,
+              5.8
+            ],
+            "W_up": [
+              7.9,
+              5.8
+            ],
+            "jog_over_z": null,
+            "foot": {
+              "z": 0.05,
+              "on": "runs on (no shoe)"
+            },
+            "clips": [
+              1.24
+            ],
+            "gutter": "gutter_hutN"
+          },
+          {
+            "pipe": "downspout_hutSW",
+            "moved_mm": 167.0,
+            "neck": true,
+            "nw": [
+              0.0,
+              -1.0,
+              0.0
+            ],
+            "W_lo": [
+              -4.9,
+              -5.633
+            ],
+            "W_up": [
+              -4.9,
+              -5.633
+            ],
+            "jog_over_z": null,
+            "foot": {
+              "z": 0.45,
+              "on": "part:plinthcap_hut"
+            },
+            "clips": [],
+            "gutter": "gutter_hutS"
+          },
+          {
+            "pipe": "downspout_hutSE",
+            "moved_mm": 0.0,
+            "neck": true,
+            "nw": [
+              0.0,
+              -1.0,
+              0.0
+            ],
+            "W_lo": [
+              7.9,
+              -5.8
+            ],
+            "W_up": [
+              7.9,
+              -5.8
+            ],
+            "jog_over_z": null,
+            "foot": {
+              "z": 0.05,
+              "on": "runs on (no shoe)"
+            },
+            "clips": [
+              1.24
+            ],
+            "gutter": "gutter_hutS"
+          },
+          {
+            "pipe": "downspout_hutNWext",
+            "clips": [
+              -4.46,
+              -2.97,
+              -1.48
+            ],
+            "run_on": true
+          },
+          {
+            "pipe": "downspout_hutNEext",
+            "clips": [
+              -4.46,
+              -2.97,
+              -1.48
+            ],
+            "run_on": true
+          },
+          {
+            "pipe": "downspout_hutSEext",
+            "clips": [
+              -4.46,
+              -2.97,
+              -1.48
+            ],
+            "run_on": true
+          }
+        ]
+      },
+      {
+        "kind": "audit",
+        "shells": 61,
+        "rows": 1,
+        "violations": 0
+      }
+    ],
+    "shoes": true
+  },
+  "structure": {
+    "version": 1,
+    "parts": 41,
+    "shells": 138,
+    "roles": {
+      "bracket": 10,
+      "held": 1,
+      "member": 8,
+      "post": 10,
+      "railpost": 4,
+      "slab": 8
+    },
+    "violations": 0,
+    "snaps": [
+      {
+        "fix": "bracket",
+        "shell": "bracket_hutcanopy0#0",
+        "mm": 106.9,
+        "was": "bracket (2 member(s)) touches 1 thing(s) ['wall_hut'], carries nothing on its top: it needs the wall and its load at [-0.8, -8.595, 2.95]"
+      },
+      {
+        "fix": "bracket",
+        "shell": "bracket_hutcanopy1#0",
+        "mm": 106.9,
+        "was": "bracket (2 member(s)) touches 2 thing(s) ['entry_hut', 'wall_hut'], carries nothing on its top: it needs the wall and its load at [0.8, -8.595, 2.95]"
+      },
+      {
+        "fix": "end",
+        "shell": "stair_bas_str0#0",
+        "mm": 164.0,
+        "was": "lower end in air: 151 mm from grade (L 6.96 m) at [-6.532, 6.53, -6.197]"
+      }
+    ],
+    "unsnapped": 0,
+    "glass": {
+      "panes": 39,
+      "shells": 42,
+      "violations": 0,
+      "declared": []
+    }
+  },
+  "trim": {
+    "version": "v1",
+    "remapped": {
+      "deckfascia_bridge": [
+        "trim",
+        "trim_grain"
+      ],
+      "deckfascia_hutS": [
+        "trim",
+        "trim_grain"
+      ],
+      "deckfascia_hutW": [
+        "trim",
+        "trim_grain"
+      ],
+      "deckfascia_skiN": [
+        "trim",
+        "trim_grain"
+      ],
+      "deckfascia_skiS": [
+        "trim",
+        "trim_grain"
+      ],
+      "fascia_hutA": [
+        "trim",
+        "trim_grain"
+      ],
+      "fascia_hutB": [
+        "trim",
+        "trim_grain"
+      ],
+      "rake_hutA0": [
+        "trim",
+        "trim_grain"
+      ],
+      "rake_hutA1": [
+        "trim",
+        "trim_grain"
+      ],
+      "rake_hutB0": [
+        "trim",
+        "trim_grain"
+      ],
+      "rake_hutB1": [
+        "trim",
+        "trim_grain"
+      ]
+    },
+    "by_key": {
+      "lux_trim": 0,
+      "trim": 11,
+      "trim_white": 0
+    },
+    "weather_pin": null,
+    "seg_m": null
+  },
+  "weather": {
+    "A": 1024,
+    "N": 232230,
+    "compose_contact": false,
+    "coverage": {
+      "edge": 0.10344,
+      "grime": 0.6694,
+      "grime_cavity": 0.13748,
+      "grime_door": 0.00382,
+      "grime_eave": 0.21254,
+      "grime_ground": 0.51277,
+      "rust": 0.00927,
+      "scuff": 0.01781,
+      "snow": 0.0
+    },
+    "doors": [
+      {
+        "bottom_z": -2.6,
+        "id": "door_bas_",
+        "out": [
+          0.0,
+          1.0
+        ]
+      },
+      {
+        "bottom_z": 0.45,
+        "id": "door_hut_",
+        "out": [
+          0.0,
+          -1.0
+        ]
+      }
+    ],
+    "fields_MB": 20.7,
+    "fields_seconds": 0.584,
+    "ground": "plinth",
+    "guards": {
+      "G1_alpha_kept": true,
+      "G2_msk_GB_kept": true,
+      "G3_worst_full_slot_rel": 0.320815,
+      "G4_worst_floor_gap": -0.0,
+      "G5_ctl_identity": true,
+      "G6_protect_identical": true,
+      "G7_range_ok": true
+    },
+    "intensity": 0.4,
+    "name": "SkiLodgeHutCommercialLowX",
+    "perceptual": {
+      "mean_Lstar_before": 30.308,
+      "mean_abs_dLstar": 0.8174,
+      "p95_abs_dLstar": 3.446,
+      "share_dLstar_gt_2": 0.1288,
+      "texels": 120140,
+      "tinted": false
+    },
+    "protect_texels": 0,
+    "role_source": {
+      "material": 183,
+      "material+metal": 2,
+      "override": 3,
+      "prefix": 39
+    },
+    "roles": {
+      "deck": 24923,
+      "galv": 3712,
+      "masonry": 93299,
+      "none": 206,
+      "paint": 14929,
+      "roof_tile": 31401,
+      "timber": 63760
+    },
+    "roles_refined": 2,
+    "seconds": {
+      "apply": 0.233,
+      "fields": 0.585,
+      "inner": 0.571,
+      "masks": 0.156,
+      "total": 1.595
+    },
+    "seed": 3096312555,
+    "slot_wear": "free",
+    "snow": 0.0,
+    "sources": {
+      "cover_overflow_cells": 66,
+      "doors": 2,
+      "down_faces": 317,
+      "geo_candidates": 441,
+      "geo_pairs": 51,
+      "lattice_curtain_faces": 0,
+      "lattice_faces": 0,
+      "lattice_skipped": 0,
+      "rust_sources": 20,
+      "traffic_parts": 9
+    },
+    "spec_key": "7b20b64a61a30bc21573789fbe9e6873528e364c",
+    "vanilla": {
+      "VL1_all_covered": 0.06463,
+      "VL1_mean_rel_dL": 0.04649,
+      "VL2_share_rel_dL_gt_0.15": 0.07346,
+      "VL3_max_abs_dsmooth": 0.11819,
+      "VL3_mean_dsmooth": -0.01032,
+      "VL4_max": 0.2382,
+      "VL4_parts": [
+        {
+          "floored": false,
+          "part": "wall_hut",
+          "ratio": 0.0686,
+          "role": "timber",
+          "std_L": 0.01126,
+          "texels": 35259
+        },
+        {
+          "floored": false,
+          "part": "roof_hutB",
+          "ratio": 0.0442,
+          "role": "roof_tile",
+          "std_L": 0.01629,
+          "texels": 14369
+        },
+        {
+          "floored": false,
+          "part": "roof_hutA",
+          "ratio": 0.0429,
+          "role": "roof_tile",
+          "std_L": 0.01626,
+          "texels": 14341
+        },
+        {
+          "floored": false,
+          "part": "plinth_hut",
+          "ratio": 0.2353,
+          "role": "masonry",
+          "std_L": 0.05964,
+          "texels": 8272
+        },
+        {
+          "floored": false,
+          "part": "deck_hutW",
+          "ratio": 0.2382,
+          "role": "deck",
+          "std_L": 0.02755,
+          "texels": 4430
+        }
+      ],
+      "VL5_snow_share": 0.0,
+      "budget": {
+        "VL1": 0.05,
+        "VL2": 0.08,
+        "VL3_abs": 0.3,
+        "VL3_hi": 0.01,
+        "VL3_lo": -0.06,
+        "VL4": 0.5
+      },
+      "failed": [],
+      "ok": true,
+      "visible_texels": 120140
+    },
+    "recipe_spec": {
+      "intensity": 0.4,
+      "overrides": [
+        [
+          "drum_",
+          {
+            "role": "galv",
+            "scale": 1.3
+          }
+        ],
+        [
+          "drum_hutfuel2base",
+          {
+            "role": "timber"
+          }
+        ],
+        [
+          "stair_bas",
+          {
+            "role": "deck"
+          }
+        ],
+        [
+          "deck_ski",
+          {
+            "scuff": 1.0
+          }
+        ]
+      ]
+    }
+  },
+  "we_boards": {
+    "by": "lodge.py nitpick C (build/nitpick-c-lodges.md)",
+    "use": "optional Write Everywhere layouts (another fleet): each face is the board's flat printable quad, unobstructed (its frame ring sits outside the face, 0.03 m proud); role blank = an empty panel left for the player's own label, name = a lit name board (sheet kind) a WE text may cover",
+    "frame": "centre / normal / right / up in prefab-local game metres; game (gx, gy, gz) = (-y, z, x) of authoring; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; FBX-raw = authoring (y, z, x) and the game negates FBX x on import). Rows are designed in the old +y frame and written through rule T (x -> -x, q -> (qx, -qy, -qz, qw)). Identity rows (role signset) are frame-free.",
+    "boards": [
+      {
+        "face": "sign_hutname_face",
+        "role": "name",
+        "sheet_kind": "hut.name",
+        "drawn_by": "sign set SkiSignSetHutB",
+        "centre": [
+          0.0,
+          3.7,
+          -5.08
+        ],
+        "normal": [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        "right": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "up": [
+          0.0,
+          1.0,
+          -0.0
+        ],
+        "size_m": [
+          5.0,
+          0.8
+        ]
+      },
+      {
+        "face": "sign_hut_face",
+        "role": "blank",
+        "sheet_kind": "hut.picto",
+        "drawn_by": "sign set SkiSignSetHutB",
+        "centre": [
+          -0.0,
+          4.15,
+          8.08
+        ],
+        "normal": [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        "right": [
+          -1.0,
+          0.0,
+          -0.0
+        ],
+        "up": [
+          0.0,
+          1.0,
+          -0.0
+        ],
+        "size_m": [
+          2.4,
+          0.6
+        ]
+      }
+    ]
+  },
+  "sub_objects": {
+    "target_prefab": "SkiLodgeHut",
+    "frame": "game local (gx, gy, gz) = (-y, z, x) of authoring, gx NEGATED (x-sign gate N, 2026-10-15); rotation (x, y, z, w); recipes design rows in the old +y frame, written through rule T (fine_detail.design_row_to_game)",
+    "notes": "ObjectSubObjects on the hand-made prefab: m_GroupIndex 0, m_Probability 100; m_ParentMesh per object (-1 = on the lot, 0 = attached to the main mesh: wall lights, deck props); GUIDs = the variant family's placeholder (design/detail-pass-1.md 1.6), whitelisted in tools/preflight.ps1 at the surgery round",
+    "objects": [
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          6.5,
+          0.43,
+          -6.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          2.0,
+          0.43,
+          -6.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fc058a3d03b337e4794c432a84170316",
+        "prefab": "TableSetCommercialRandom01",
+        "position": [
+          -2.5,
+          0.43,
+          -6.6
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "b7e2343fd7ff9f642b77084a04738e43",
+        "prefab": "ParasolRandom01",
+        "position": [
+          3.37,
+          0.43,
+          -6.6
+        ],
+        "rotation": [
+          0.0,
+          -0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "63c46490ab59afd4dae01ee442f1e462",
+        "prefab": "DeckChairRandom01",
+        "position": [
+          7.2,
+          0.43,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "63c46490ab59afd4dae01ee442f1e462",
+        "prefab": "DeckChairRandom01",
+        "position": [
+          4.25,
+          0.43,
+          -6.6
+        ],
+        "rotation": [
+          0.0,
+          -1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "0d01c98e6f7cd9b44ac31084b6ba7ccd",
+        "prefab": "FirewoodPileRandom01",
+        "position": [
+          6.45,
+          0.43,
+          4.2
+        ],
+        "rotation": [
+          0.0,
+          -0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "41e3c9ba6e1d6b948a6b1bc3499a5397",
+        "prefab": "TrashbinRandom01",
+        "position": [
+          -1.0,
+          0.43,
+          10.4
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "0bbcb0620e01694448cb78385580351b",
+        "prefab": "GasHeaterRandom01",
+        "position": [
+          7.7,
+          0.43,
+          -2.8
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "0bbcb0620e01694448cb78385580351b",
+        "prefab": "GasHeaterRandom01",
+        "position": [
+          7.7,
+          0.43,
+          3.2
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          -1.2,
+          3.05,
+          -5.0
+        ],
+        "rotation": [
+          0.0,
+          -1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          1.2,
+          3.05,
+          -5.0
+        ],
+        "rotation": [
+          0.0,
+          -1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          5.5,
+          3.05,
+          -0.5
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          -0.95,
+          -0.75,
+          -5.15
+        ],
+        "rotation": [
+          0.0,
+          -1.0,
+          0.0,
+          0.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "b99325ff4ff4dfd459734d8f765c2597",
+        "prefab": "ACVentWallRandom01",
+        "position": [
+          -5.5,
+          3.5,
+          -4.3
+        ],
+        "rotation": [
+          0.0,
+          -0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "b99325ff4ff4dfd459734d8f765c2597",
+        "prefab": "ACVentWallRandom01",
+        "position": [
+          -5.5,
+          3.5,
+          3.25
+        ],
+        "rotation": [
+          0.0,
+          -0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8df0703be09426948b5bc3262d86bc04",
+        "prefab": "GardenBenchRandom01",
+        "position": [
+          6.286,
+          0.43,
+          -3.0
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "8df0703be09426948b5bc3262d86bc04",
+        "prefab": "GardenBenchRandom01",
+        "position": [
+          6.286,
+          0.43,
+          1.49
+        ],
+        "rotation": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "fb4247f7a6f75b1478d9dd01ac88ce86",
+        "prefab": "BarrelRandom01",
+        "position": [
+          4.9,
+          0.0,
+          11.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": -1
+      },
+      {
+        "m_Object": "fb4247f7a6f75b1478d9dd01ac88ce86",
+        "prefab": "BarrelRandom01",
+        "position": [
+          5.9,
+          0.0,
+          11.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": -1
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          1.15,
+          2.65,
+          8.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          -1.15,
+          2.65,
+          8.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "m_Object": "697285a4905f6972960bf5d91fe8307c",
+        "prefab": "SkiDressSkiRack",
+        "mesh": "SkiDressSkiRackB",
+        "position": [
+          -2.6,
+          0.43,
+          10.13
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0,
+        "note": "replaces skirack_wingN (ski_rack_frame slots 6 along X at authoring (10.13, 2.6)); the kit's 1.70 m rack stands along Y (identity)",
+        "colour_set": "red",
+        "variant": "SkiDressSkiRack_Red"
+      },
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "m_Object": "e7380c568464e51607acf1f592abbadd",
+        "prefab": "SkiDressSkiRackV2",
+        "mesh": "SkiDressSkiRackV2B",
+        "position": [
+          2.6,
+          0.43,
+          10.13
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0,
+        "note": "replaces skirack_wingS (ski_rack_frame slots 6 along X at authoring (10.13, -2.6)); the kit's 1.70 m rack stands along Y (identity)",
+        "colour_set": "red",
+        "variant": "SkiDressSkiRackV2_Red"
+      },
+      {
+        "m_Object": "e334c9885e132684488e4fa21e06d975",
+        "prefab": "ACVentRoofRandom01",
+        "position": [
+          -3.0,
+          5.8183,
+          -2.5
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "m_Object": "4ef7fa691fbc48e792e72ba9cf3194c7",
+        "prefab": "SkiSignSetHut",
+        "mesh": "SkiSignSetHutB",
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0,
+        "role": "signset",
+        "bounds": [
+          [
+            -2.5,
+            1.1,
+            -5.08
+          ],
+          [
+            2.5,
+            4.45,
+            8.08
+          ]
+        ]
+      }
+    ],
+    "x_convention": "game (gx, gy, gz) = (-y, z, x) of authoring; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; FBX-raw = authoring (y, z, x) and the game negates FBX x on import). Rows are designed in the old +y frame and written through rule T (x -> -x, q -> (qx, -qy, -qz, qw)). Identity rows (role signset) are frame-free.",
+    "kinds": {
+      "vanilla": 23,
+      "mod": 3
+    }
+  },
+  "ppm_by_material": {
+    "accent": {
+      "p10": 7.0,
+      "p50": 7.0,
+      "p90": 7.0,
+      "area_m2": 2.6,
+      "faces": 5
+    },
+    "concrete": {
+      "p10": 14.0,
+      "p50": 14.0,
+      "p90": 14.7,
+      "area_m2": 22.6,
+      "faces": 78
+    },
+    "deck": {
+      "p10": 10.5,
+      "p50": 10.5,
+      "p90": 10.5,
+      "area_m2": 210.5,
+      "faces": 139
+    },
+    "galv": {
+      "p10": 7.0,
+      "p50": 7.0,
+      "p90": 8.5,
+      "area_m2": 50.4,
+      "faces": 380
+    },
+    "lamp": {
+      "p10": 7.0,
+      "p50": 7.0,
+      "p90": 17.5,
+      "area_m2": 1.6,
+      "faces": 84
+    },
+    "metal_roof": {
+      "p10": 8.4,
+      "p50": 8.4,
+      "p90": 8.4,
+      "area_m2": 10.0,
+      "faces": 12
+    },
+    "safety_yellow": {
+      "p10": 7.0,
+      "p50": 7.0,
+      "p90": 7.0,
+      "area_m2": 0.4,
+      "faces": 10
+    },
+    "ski_black": {
+      "p10": 21.0,
+      "p50": 21.0,
+      "p90": 21.0,
+      "area_m2": 0.0,
+      "faces": 18
+    },
+    "slate": {
+      "p10": 11.2,
+      "p50": 11.2,
+      "p90": 11.2,
+      "area_m2": 252.7,
+      "faces": 6
+    },
+    "stone_rubble": {
+      "p10": 14.0,
+      "p50": 14.0,
+      "p90": 14.1,
+      "area_m2": 453.9,
+      "faces": 118
+    },
+    "timber_heavy": {
+      "p10": 7.0,
+      "p50": 14.0,
+      "p90": 14.0,
+      "area_m2": 163.0,
+      "faces": 462
+    },
+    "timber_lap": {
+      "p10": 3.5,
+      "p50": 14.0,
+      "p90": 14.0,
+      "area_m2": 231.0,
+      "faces": 6
+    },
+    "timber_shake": {
+      "p10": 14.0,
+      "p50": 14.0,
+      "p90": 14.0,
+      "area_m2": 31.9,
+      "faces": 2
+    },
+    "trim": {
+      "p10": 7.0,
+      "p50": 7.0,
+      "p90": 14.0,
+      "area_m2": 70.2,
+      "faces": 427
+    },
+    "trim_grain": {
+      "p10": 7.0,
+      "p50": 7.0,
+      "p90": 7.1,
+      "area_m2": 121.1,
+      "faces": 210
+    },
+    "trim_w": {
+      "p10": 7.0,
+      "p50": 7.0,
+      "p90": 7.0,
+      "area_m2": 3.8,
+      "faces": 80
+    }
+  },
+  "smooth_by_material": {
+    "accent": {
+      "A_mean": 0.302,
+      "A_p10": 0.286,
+      "A_p50": 0.31,
+      "A_p90": 0.314,
+      "metal_mean": 0.0,
+      "area_m2": 2.6
+    },
+    "concrete": {
+      "A_mean": 0.383,
+      "A_p10": 0.345,
+      "A_p50": 0.369,
+      "A_p90": 0.392,
+      "metal_mean": 0.0,
+      "area_m2": 22.6
+    },
+    "deck": {
+      "A_mean": 0.277,
+      "A_p10": 0.247,
+      "A_p50": 0.278,
+      "A_p90": 0.306,
+      "metal_mean": 0.0,
+      "area_m2": 210.5
+    },
+    "galv": {
+      "A_mean": 0.548,
+      "A_p10": 0.396,
+      "A_p50": 0.42,
+      "A_p90": 1.0,
+      "metal_mean": 0.768,
+      "area_m2": 50.4
+    },
+    "lamp": {
+      "A_mean": 0.455,
+      "A_p10": 0.443,
+      "A_p50": 0.455,
+      "A_p90": 0.459,
+      "metal_mean": 0.0,
+      "area_m2": 1.6
+    },
+    "metal_roof": {
+      "A_mean": 0.327,
+      "A_p10": 0.31,
+      "A_p50": 0.322,
+      "A_p90": 0.349,
+      "metal_mean": 0.999,
+      "area_m2": 10.0
+    },
+    "safety_yellow": {
+      "A_mean": 0.469,
+      "A_p10": 0.271,
+      "A_p50": 0.286,
+      "A_p90": 1.0,
+      "metal_mean": 0.0,
+      "area_m2": 0.4
+    },
+    "ski_black": {
+      "A_mean": 0.74,
+      "A_p10": 0.443,
+      "A_p50": 1.0,
+      "A_p90": 1.0,
+      "metal_mean": 0.0,
+      "area_m2": 0.0
+    },
+    "slate": {
+      "A_mean": 0.304,
+      "A_p10": 0.29,
+      "A_p50": 0.306,
+      "A_p90": 0.318,
+      "metal_mean": 0.0,
+      "area_m2": 252.7
+    },
+    "stone_rubble": {
+      "A_mean": 0.228,
+      "A_p10": 0.216,
+      "A_p50": 0.231,
+      "A_p90": 0.247,
+      "metal_mean": 0.0,
+      "area_m2": 453.9
+    },
+    "timber_heavy": {
+      "A_mean": 0.326,
+      "A_p10": 0.267,
+      "A_p50": 0.294,
+      "A_p90": 0.318,
+      "metal_mean": 0.0,
+      "area_m2": 163.0
+    },
+    "timber_lap": {
+      "A_mean": 0.345,
+      "A_p10": 0.329,
+      "A_p50": 0.341,
+      "A_p90": 0.365,
+      "metal_mean": 0.0,
+      "area_m2": 231.0
+    },
+    "timber_shake": {
+      "A_mean": 0.298,
+      "A_p10": 0.29,
+      "A_p50": 0.29,
+      "A_p90": 0.306,
+      "metal_mean": 0.0,
+      "area_m2": 31.9
+    },
+    "trim": {
+      "A_mean": 0.471,
+      "A_p10": 0.278,
+      "A_p50": 0.345,
+      "A_p90": 1.0,
+      "metal_mean": 0.0,
+      "area_m2": 70.2
+    },
+    "trim_grain": {
+      "A_mean": 0.348,
+      "A_p10": 0.298,
+      "A_p50": 0.341,
+      "A_p90": 0.365,
+      "metal_mean": 0.0,
+      "area_m2": 121.1
+    },
+    "trim_w": {
+      "A_mean": 0.65,
+      "A_p10": 0.231,
+      "A_p50": 0.98,
+      "A_p90": 1.0,
+      "metal_mean": 0.0,
+      "area_m2": 3.8
+    }
+  },
+  "tiled": {
+    "layout": "rollout",
+    "sheet": {
+      "name": "SkiTileSheetX",
+      "workspace": "../../../../../../../../../%USERNAME%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/sheet/SkiTileSheetX",
+      "A": 4096,
+      "hash": "0d3e5eee7bf6c131",
+      "owner": "SkiSchoolCommercialLowX",
+      "is_owner": false,
+      "maps": 5,
+      "mb_raw_bc7": 111.85,
+      "shared_prefix": "../../../buildings/X/SkiSchoolCommercialLowX/SkiSchoolCommercialLowX",
+      "emissive_bound": true,
+      "repeats": {
+        "deck": 2,
+        "galv": 2,
+        "lux_balrail": 2,
+        "lux_glulam": 2,
+        "lux_paver": 2,
+        "lux_siding_red": 2,
+        "lux_siding_walnut": 2,
+        "lux_stone_tan": 2,
+        "timber_heavy": 2
+      },
+      "label_rect": [
+        3968,
+        2944,
+        128,
+        128
+      ],
+      "label_npz": null
+    },
+    "far": {
+      "A": 1024,
+      "files": [
+        "SkiLodgeHutCommercialLowX_LOD1_BaseColor.png",
+        "SkiLodgeHutCommercialLowX_LOD1_Normal.png",
+        "SkiLodgeHutCommercialLowX_LOD1_MaskMap.png",
+        "SkiLodgeHutCommercialLowX_LOD1_ControlMask.png"
+      ],
+      "mb_raw_bc7": 5.59
+    },
+    "tile_mesh": {
+      "strip": {
+        "parts": 12,
+        "patches": 217,
+        "stretched": 97,
+        "segments": 217,
+        "max_len_m": 15.08,
+        "min_along_ppm": 31.83,
+        "max_across_m": 0.76,
+        "auto_cut_parts": [],
+        "tris_in": 233,
+        "tris_out": 414,
+        "strip_prefixes": [
+          "ridge_"
+        ],
+        "seg_m": null
+      },
+      "tris_before": 2178,
+      "tris_after": 5943,
+      "sliced_tris": 163,
+      "pieces": 2811,
+      "tjunction_inserts": 323,
+      "verts": 4379,
+      "label_rects": {},
+      "label_rect": [
+        3968,
+        2944,
+        128,
+        128
+      ],
+      "degenerate_removed": 0,
+      "ground_cuts_skipped": 0,
+      "ground_tjunctions_left": 0,
+      "patch_shift": {
+        "patches": 707,
+        "patches_shifted": 104,
+        "axes_uv": [
+          47,
+          57
+        ]
+      },
+      "flat_detail_tris": 577,
+      "flat_prefixes": [
+        "gutter_",
+        "downspout_",
+        "snowguard_",
+        "reveal_",
+        "sash_",
+        "mull_",
+        "jamb_",
+        "head_",
+        "sill_",
+        "door_bas_leaf",
+        "door_bas_lever",
+        "door_bas_sill",
+        "door_hut_leaf",
+        "door_hut_lever",
+        "door_hut_sill",
+        "entry_bas",
+        "entry_hut",
+        "reveal_dbas",
+        "reveal_dhut",
+        "fit_"
+      ],
+      "weather": {
+        "level": 0,
+        "band_cut_tris": 45,
+        "pieces_by_rule": {
+          "base": 583,
+          "eave": 76,
+          "valley": 24,
+          "sill_drip": 14
+        },
+        "strips": 14,
+        "tris_weathered": 1610,
+        "tris_strips": 88
+      },
+      "window_kit_holes": 24,
+      "uv_outside_region": {}
+    },
+    "weather_ladder": [
+      {
+        "level": 0,
+        "tris": 5943
+      }
+    ],
+    "ppm_by_material": {
+      "accent": {
+        "p10": 13.9,
+        "p50": 13.9,
+        "p90": 13.9,
+        "area_m2": 2.6,
+        "faces": 10
+      },
+      "concrete": {
+        "p10": 269.1,
+        "p50": 320.0,
+        "p90": 320.0,
+        "area_m2": 13.5,
+        "faces": 195
+      },
+      "concrete~w": {
+        "p10": 160.0,
+        "p50": 160.0,
+        "p90": 160.0,
+        "area_m2": 9.1,
+        "faces": 100
+      },
+      "deck": {
+        "p10": 155.8,
+        "p50": 155.8,
+        "p90": 155.8,
+        "area_m2": 184.6,
+        "faces": 102
+      },
+      "deck~w": {
+        "p10": 155.8,
+        "p50": 155.8,
+        "p90": 155.8,
+        "area_m2": 25.9,
+        "faces": 248
+      },
+      "galv": {
+        "p10": 1.7,
+        "p50": 62.0,
+        "p90": 115.3,
+        "area_m2": 50.4,
+        "faces": 765
+      },
+      "lamp": {
+        "p10": 22.9,
+        "p50": 22.9,
+        "p90": 22.9,
+        "area_m2": 1.6,
+        "faces": 168
+      },
+      "metal_roof": {
+        "p10": 320.0,
+        "p50": 320.0,
+        "p90": 320.0,
+        "area_m2": 5.4,
+        "faces": 16
+      },
+      "metal_roof~w": {
+        "p10": 160.0,
+        "p50": 160.0,
+        "p90": 160.0,
+        "area_m2": 4.6,
+        "faces": 8
+      },
+      "safety_yellow": {
+        "p10": 1.4,
+        "p50": 1.4,
+        "p90": 1.4,
+        "area_m2": 0.4,
+        "faces": 20
+      },
+      "ski_black": {
+        "p10": 2.0,
+        "p50": 2.0,
+        "p90": 2.0,
+        "area_m2": 0.0,
+        "faces": 36
+      },
+      "slate": {
+        "p10": 300.0,
+        "p50": 300.0,
+        "p90": 300.0,
+        "area_m2": 222.1,
+        "faces": 92
+      },
+      "slate~w": {
+        "p10": 150.0,
+        "p50": 150.0,
+        "p90": 150.0,
+        "area_m2": 30.6,
+        "faces": 40
+      },
+      "stone_rubble": {
+        "p10": 252.3,
+        "p50": 300.0,
+        "p90": 300.0,
+        "area_m2": 6.4,
+        "faces": 108
+      },
+      "stone_rubble~w": {
+        "p10": 150.0,
+        "p50": 150.0,
+        "p90": 150.0,
+        "area_m2": 438.5,
+        "faces": 484
+      },
+      "timber_heavy": {
+        "p10": 2.0,
+        "p50": 2.0,
+        "p90": 155.8,
+        "area_m2": 47.5,
+        "faces": 821
+      },
+      "timber_heavy~w": {
+        "p10": 131.8,
+        "p50": 155.8,
+        "p90": 155.8,
+        "area_m2": 42.0,
+        "faces": 696
+      },
+      "timber_lap": {
+        "p10": 375.9,
+        "p50": 400.0,
+        "p90": 400.0,
+        "area_m2": 183.6,
+        "faces": 337
+      },
+      "timber_lap~w": {
+        "p10": 200.0,
+        "p50": 200.0,
+        "p90": 200.0,
+        "area_m2": 34.0,
+        "faces": 160
+      },
+      "timber_shake": {
+        "p10": 266.7,
+        "p50": 266.7,
+        "p90": 266.7,
+        "area_m2": 28.4,
+        "faces": 106
+      },
+      "timber_shake~w": {
+        "p10": 266.7,
+        "p50": 266.7,
+        "p90": 266.7,
+        "area_m2": 2.7,
+        "faces": 32
+      },
+      "trim": {
+        "p10": 1.9,
+        "p50": 1.9,
+        "p90": 1.9,
+        "area_m2": 70.2,
+        "faces": 854
+      },
+      "trim_grain": {
+        "p10": 112.8,
+        "p50": 130.3,
+        "p90": 261.4,
+        "area_m2": 121.1,
+        "faces": 376
+      },
+      "trim_w": {
+        "p10": 1.9,
+        "p50": 1.9,
+        "p90": 2.0,
+        "area_m2": 3.8,
+        "faces": 160
+      }
+    },
+    "smooth_by_material": {
+      "accent": {
+        "A_mean": 0.302,
+        "A_p10": 0.302,
+        "A_p50": 0.302,
+        "A_p90": 0.302,
+        "metal_mean": 0.0,
+        "area_m2": 2.6
+      },
+      "concrete": {
+        "A_mean": 0.376,
+        "A_p10": 0.353,
+        "A_p50": 0.384,
+        "A_p90": 0.388,
+        "metal_mean": 0.0,
+        "area_m2": 22.6
+      },
+      "deck": {
+        "A_mean": 0.298,
+        "A_p10": 0.267,
+        "A_p50": 0.306,
+        "A_p90": 0.314,
+        "metal_mean": 0.0,
+        "area_m2": 210.5
+      },
+      "galv": {
+        "A_mean": 0.4,
+        "A_p10": 0.4,
+        "A_p50": 0.4,
+        "A_p90": 0.4,
+        "metal_mean": 1.0,
+        "area_m2": 50.4
+      },
+      "lamp": {
+        "A_mean": 0.451,
+        "A_p10": 0.451,
+        "A_p50": 0.451,
+        "A_p90": 0.451,
+        "metal_mean": 0.0,
+        "area_m2": 1.6
+      },
+      "metal_roof": {
+        "A_mean": 0.329,
+        "A_p10": 0.322,
+        "A_p50": 0.329,
+        "A_p90": 0.329,
+        "metal_mean": 0.998,
+        "area_m2": 10.0
+      },
+      "safety_yellow": {
+        "A_mean": 0.349,
+        "A_p10": 0.349,
+        "A_p50": 0.349,
+        "A_p90": 0.349,
+        "metal_mean": 0.0,
+        "area_m2": 0.4
+      },
+      "ski_black": {
+        "A_mean": 0.451,
+        "A_p10": 0.451,
+        "A_p50": 0.451,
+        "A_p90": 0.451,
+        "metal_mean": 0.0,
+        "area_m2": 0.0
+      },
+      "slate": {
+        "A_mean": 0.366,
+        "A_p10": 0.318,
+        "A_p50": 0.392,
+        "A_p90": 0.416,
+        "metal_mean": 0.0,
+        "area_m2": 252.7
+      },
+      "stone_rubble": {
+        "A_mean": 0.262,
+        "A_p10": 0.251,
+        "A_p50": 0.255,
+        "A_p90": 0.29,
+        "metal_mean": 0.0,
+        "area_m2": 444.9
+      },
+      "timber_heavy": {
+        "A_mean": 0.291,
+        "A_p10": 0.259,
+        "A_p50": 0.302,
+        "A_p90": 0.314,
+        "metal_mean": 0.0,
+        "area_m2": 89.5
+      },
+      "timber_lap": {
+        "A_mean": 0.345,
+        "A_p10": 0.31,
+        "A_p50": 0.353,
+        "A_p90": 0.373,
+        "metal_mean": 0.0,
+        "area_m2": 217.6
+      },
+      "timber_shake": {
+        "A_mean": 0.295,
+        "A_p10": 0.231,
+        "A_p50": 0.29,
+        "A_p90": 0.345,
+        "metal_mean": 0.0,
+        "area_m2": 31.1
+      },
+      "trim": {
+        "A_mean": 0.349,
+        "A_p10": 0.349,
+        "A_p50": 0.349,
+        "A_p90": 0.349,
+        "metal_mean": 0.0,
+        "area_m2": 70.2
+      },
+      "trim_grain": {
+        "A_mean": 0.36,
+        "A_p10": 0.353,
+        "A_p50": 0.361,
+        "A_p90": 0.369,
+        "metal_mean": 0.0,
+        "area_m2": 121.1
+      },
+      "trim_w": {
+        "A_mean": 0.302,
+        "A_p10": 0.302,
+        "A_p50": 0.302,
+        "A_p90": 0.302,
+        "metal_mean": 0.0,
+        "area_m2": 3.8
+      }
+    },
+    "weather_by_material": {
+      "concrete": {
+        "area_m2": 22.6,
+        "weathered_m2": 9.1,
+        "strip_m2": 0.0,
+        "share": 0.402
+      },
+      "deck": {
+        "area_m2": 210.5,
+        "weathered_m2": 25.9,
+        "strip_m2": 0.0,
+        "share": 0.123
+      },
+      "metal_roof": {
+        "area_m2": 10.0,
+        "weathered_m2": 4.6,
+        "strip_m2": 0.0,
+        "share": 0.456
+      },
+      "slate": {
+        "area_m2": 252.7,
+        "weathered_m2": 30.6,
+        "strip_m2": 0.0,
+        "share": 0.121
+      },
+      "stone_rubble": {
+        "area_m2": 444.9,
+        "weathered_m2": 438.5,
+        "strip_m2": 0.0,
+        "share": 0.986
+      },
+      "timber_heavy": {
+        "area_m2": 89.5,
+        "weathered_m2": 42.0,
+        "strip_m2": 0.0,
+        "share": 0.469
+      },
+      "timber_lap": {
+        "area_m2": 209.4,
+        "weathered_m2": 25.8,
+        "strip_m2": 8.2,
+        "share": 0.123
+      },
+      "timber_shake": {
+        "area_m2": 28.4,
+        "weathered_m2": 0.0,
+        "strip_m2": 2.7,
+        "share": 0.0
+      }
+    },
+    "lod0_tris": 5943,
+    "seconds": 1.6,
+    "trim": {
+      "version": "v1",
+      "strip_by_material": {
+        "galv": {
+          "across_p10": 120.0,
+          "across_p50": 120.0,
+          "along_p10": 32.1,
+          "along_p50": 32.1,
+          "area_m2": 18.4,
+          "faces": 38
+        },
+        "trim_grain": {
+          "across_p10": 400.0,
+          "across_p50": 400.0,
+          "along_p10": 31.8,
+          "along_p50": 42.4,
+          "area_m2": 121.1,
+          "faces": 376
+        }
+      },
+      "ctl_r_by_material": {
+        "accent": 0.0,
+        "concrete": 0.0,
+        "deck": 0.0,
+        "galv": 0.0,
+        "lamp": 0.0,
+        "metal_roof": 0.0,
+        "safety_yellow": 0.0,
+        "ski_black": 0.0,
+        "slate": 0.0,
+        "stone_rubble": 0.0,
+        "timber_heavy": 0.0,
+        "timber_lap": 0.0,
+        "timber_shake": 0.0,
+        "trim": 1.0,
+        "trim_grain": 1.0,
+        "trim_w": 1.0
+      },
+      "part_sites": {
+        "deckfascia_bridge": {
+          "c": [
+            -0.0,
+            -9.431,
+            0.233
+          ],
+          "n": [
+            -1.0,
+            0.0
+          ],
+          "area_m2": 7.66,
+          "len_m": 2.88
+        },
+        "deckfascia_hutS": {
+          "c": [
+            -7.146,
+            -0.697,
+            0.23
+          ],
+          "n": [
+            -1.0,
+            0.0
+          ],
+          "area_m2": 20.44,
+          "len_m": 11.31
+        },
+        "deckfascia_hutW": {
+          "c": [
+            -1.5,
+            6.646,
+            0.231
+          ],
+          "n": [
+            0.0,
+            1.0
+          ],
+          "area_m2": 25.79,
+          "len_m": 14.08
+        },
+        "deckfascia_skiN": {
+          "c": [
+            2.958,
+            -10.13,
+            0.243
+          ],
+          "n": [
+            0.0,
+            1.0
+          ],
+          "area_m2": 2.68,
+          "len_m": 1.74
+        },
+        "deckfascia_skiS": {
+          "c": [
+            -2.958,
+            -10.13,
+            0.243
+          ],
+          "n": [
+            0.0,
+            1.0
+          ],
+          "area_m2": 2.68,
+          "len_m": 1.74
+        },
+        "fascia_hutA": {
+          "c": [
+            -6.77,
+            -1.5,
+            3.753
+          ],
+          "n": [
+            -1.0,
+            0.0
+          ],
+          "area_m2": 15.69,
+          "len_m": 15.12
+        },
+        "fascia_hutB": {
+          "c": [
+            6.77,
+            -1.5,
+            3.753
+          ],
+          "n": [
+            -1.0,
+            0.0
+          ],
+          "area_m2": 15.69,
+          "len_m": 15.12
+        },
+        "rake_hutA0": {
+          "c": [
+            -3.35,
+            6.06,
+            5.556
+          ],
+          "n": [
+            0.0,
+            1.0
+          ],
+          "area_m2": 7.62,
+          "len_m": 6.86
+        },
+        "rake_hutA1": {
+          "c": [
+            -3.35,
+            -9.06,
+            5.556
+          ],
+          "n": [
+            0.0,
+            1.0
+          ],
+          "area_m2": 7.62,
+          "len_m": 6.86
+        },
+        "rake_hutB0": {
+          "c": [
+            3.35,
+            6.06,
+            5.556
+          ],
+          "n": [
+            -0.0,
+            -1.0
+          ],
+          "area_m2": 7.62,
+          "len_m": 6.86
+        },
+        "rake_hutB1": {
+          "c": [
+            3.35,
+            -9.06,
+            5.556
+          ],
+          "n": [
+            0.0,
+            -1.0
+          ],
+          "area_m2": 7.62,
+          "len_m": 6.86
+        },
+        "ridge_hut": {
+          "c": [
+            -0.0,
+            -1.5,
+            7.633
+          ],
+          "n": [
+            -1.0,
+            0.0
+          ],
+          "area_m2": 18.42,
+          "len_m": 15.0
+        }
+      },
+      "strip": {
+        "parts": 12,
+        "patches": 217,
+        "stretched": 97,
+        "segments": 217,
+        "max_len_m": 15.08,
+        "min_along_ppm": 31.83,
+        "max_across_m": 0.76,
+        "auto_cut_parts": [],
+        "tris_in": 233,
+        "tris_out": 414,
+        "strip_prefixes": [
+          "ridge_"
+        ],
+        "seg_m": null
+      },
+      "strip_cell": "trim_grain",
+      "weather_pin": null,
+      "retired": [
+        "lux_paver~w"
+      ]
+    }
+  },
+  "fine_detail": {
+    "fine_detail": true,
+    "x_convention": "game (gx, gy, gz) = (-y, z, x) of authoring; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; FBX-raw = authoring (y, z, x) and the game negates FBX x on import). Rows are designed in the old +y frame and written through rule T (x -> -x, q -> (qx, -qy, -qz, qw)). Identity rows (role signset) are frame-free.",
+    "sign_set": {
+      "cid": "4ef7fa691fbc48e792e72ba9cf3194c7",
+      "faces": [
+        "sign_hutname_face",
+        "sign_hut_face",
+        "sign_hutmenu_face"
+      ],
+      "mesh": "SkiSignSetHutB",
+      "asset_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\claude\\C--Users-USER-Documents-ClaudeProjects\\8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d\\scratchpad\\signs\\SkiSignSetHutB",
+      "tris": 6,
+      "cull": {
+        "extent_m": [
+          5.0,
+          3.35,
+          13.16
+        ],
+        "area_m2": 5.88,
+        "thin_bias": 2.7144,
+        "cull_bias0_m": 712.3,
+        "target_m": 582.7,
+        "m_Bias": 0.29,
+        "cull_at_bias_m": 582.6,
+        "lod_factor": 652.0,
+        "small_mesh_rule": "not applied (LodProperties present)",
+        "status": "[U] formula until SkiProbeLodA / F5"
+      },
+      "bounds_game": [
+        [
+          -2.5,
+          1.1,
+          -5.08
+        ],
+        [
+          2.5,
+          4.45,
+          8.08
+        ]
+      ],
+      "row": {
+        "kind": "mod",
+        "ref": "CID",
+        "m_Object": "4ef7fa691fbc48e792e72ba9cf3194c7",
+        "prefab": "SkiSignSetHut",
+        "mesh": "SkiSignSetHutB",
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0,
+        "role": "signset"
+      },
+      "owner": false,
+      "validate": {
+        "errors": [],
+        "warnings": [],
+        "tris": {
+          "0": 6
+        },
+        "tex": [
+          2048
+        ]
+      },
+      "staged": [
+        "assets/staging/prefabs/signs/B/SkiSignSetHut/SkiSignSetHut.Prefab",
+        "assets/staging/prefabs/signs/B/SkiSignSetHut/SkiSignSetHutB Mesh.LodProperties.fragment",
+        "assets/staging/prefabs/signs/B/SkiSignSetHut/SkiSignSetHutB Mesh.surgery.json"
+      ]
+    },
+    "rows": {
+      "vanilla": 23,
+      "mod": 3
+    }
+  }
+}

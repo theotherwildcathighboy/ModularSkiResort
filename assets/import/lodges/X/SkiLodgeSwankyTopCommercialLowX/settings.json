@@ -1,0 +1,23 @@
+{
+  "sharedAssets": {
+    "SkiLodgeSwankyTopCommercialLowX_BaseColor.png": "../../../buildings/X/SkiSchoolCommercialLowX/SkiSchoolCommercialLowX_BaseColor.png",
+    "SkiLodgeSwankyTopCommercialLowX_Normal.png": "../../../buildings/X/SkiSchoolCommercialLowX/SkiSchoolCommercialLowX_Normal.png",
+    "SkiLodgeSwankyTopCommercialLowX_MaskMap.png": "../../../buildings/X/SkiSchoolCommercialLowX/SkiSchoolCommercialLowX_MaskMap.png",
+    "SkiLodgeSwankyTopCommercialLowX_ControlMask.png": "../../../buildings/X/SkiSchoolCommercialLowX/SkiSchoolCommercialLowX_ControlMask.png",
+    "SkiLodgeSwankyTopCommercialLowX_Emissive.png": "../../../buildings/X/SkiSchoolCommercialLowX/SkiSchoolCommercialLowX_Emissive.png",
+    "SkiLodgeSwankyTopCommercialLowX_LOD1_BaseColor.png": "SkiLodgeSwankyTopCommercialLowX_LOD1_BaseColor.png",
+    "SkiLodgeSwankyTopCommercialLowX_LOD1_Normal.png": "SkiLodgeSwankyTopCommercialLowX_LOD1_Normal.png",
+    "SkiLodgeSwankyTopCommercialLowX_LOD1_MaskMap.png": "SkiLodgeSwankyTopCommercialLowX_LOD1_MaskMap.png",
+    "SkiLodgeSwankyTopCommercialLowX_LOD1_ControlMask.png": "SkiLodgeSwankyTopCommercialLowX_LOD1_ControlMask.png",
+    "SkiLodgeSwankyTopCommercialLowX_LOD2_BaseColor.png": "SkiLodgeSwankyTopCommercialLowX_LOD1_BaseColor.png",
+    "SkiLodgeSwankyTopCommercialLowX_LOD2_Normal.png": "SkiLodgeSwankyTopCommercialLowX_LOD1_Normal.png",
+    "SkiLodgeSwankyTopCommercialLowX_LOD2_MaskMap.png": "SkiLodgeSwankyTopCommercialLowX_LOD1_MaskMap.png",
+    "SkiLodgeSwankyTopCommercialLowX_LOD2_ControlMask.png": "SkiLodgeSwankyTopCommercialLowX_LOD1_ControlMask.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}
