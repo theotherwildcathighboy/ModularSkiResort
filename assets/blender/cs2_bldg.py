@@ -1507,6 +1507,9 @@ def vent_stack(name, spec, x, y, r=0.12, rise=0.8, segs=8):
                    "galv")
 
 
+CHIM_DRIP = 0.06    # fittings v1 (T95): the concrete crown's drip past the stack each side (was a 0.2 m galv slab)
+
+
 def chimney(name, x, y, w, d, top_z, base_z=0.0, shoulder=None, ground=False,
             mat="stone_rubble"):
     """`chim_<name>` stack to top_z - 0.28, optional shoulder (w, d, top) as
@@ -1527,8 +1530,11 @@ def chimney(name, x, y, w, d, top_z, base_z=0.0, shoulder=None, ground=False,
     parts += box_part(f"chim_{name}", (x - w / 2, y - d / 2, stack_z0),
                       (x + w / 2, y + d / 2, cap0 + 0.04), mat,
                       drop=("+Z",) + (() if ground else ("-Z",)), ground=ground)
-    parts += box_part(f"chimcap_{name}", (x - w / 2 - 0.2, y - d / 2 - 0.2, cap0),
-                      (x + w / 2 + 0.2, y + d / 2 + 0.2, top_z), "galv")
+    # T95 (cad-review-2026-10-19 section 6, fittings v1): a mortar crown with a 6 cm drip past the stack, not a
+    # galvanised tray 0.2 m proud (metal 1.0 read as a flat grey / navy slab on the stone, shot 22.28)
+    dr, ck = (CHIM_DRIP, "concrete") if FITTINGS.get("version", 0) >= 1 else (0.2, "galv")
+    parts += box_part(f"chimcap_{name}", (x - w / 2 - dr, y - d / 2 - dr, cap0),
+                      (x + w / 2 + dr, y + d / 2 + dr, top_z), ck)
     return parts
 
 
@@ -4108,7 +4114,10 @@ def chimney_shroud(name, lo, hi):
     (crown minus its 0.2 m drip each side). Close look: a screen band (8, no ends) + 12 (plate) + 4 (pyramid) =
     24 tris (v1's four legs were 32 of 48)."""
     leg_h, leg, th, rise = SHROUD
-    x0, y0, x1, y1 = lo[0] + 0.15, lo[1] + 0.15, hi[0] - 0.15, hi[1] - 0.15
+    # T95: the crowns now drip CHIM_DRIP (fittings v1, the only path that builds a shroud), so the plate still ends
+    # 5 cm past the stack each side (was crown - 0.15 against the old 0.2 m galv drip)
+    ins = CHIM_DRIP - 0.05
+    x0, y0, x1, y1 = lo[0] + ins, lo[1] + ins, hi[0] - ins, hi[1] - ins
     z0 = hi[2]
     g = _Geo()
     # close look (2026-10-17): a screen band (four walls, 1 cm into the crown and the plate) replaces the four

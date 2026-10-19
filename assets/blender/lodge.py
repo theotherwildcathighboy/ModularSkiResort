@@ -221,6 +221,11 @@ def parse_args(argv=None):
     ap.add_argument("--slots", default="v1", choices=("v1", "v2"),
                     help="v2 = T89 three recolour slots: R paint (as today), G trim boards / wood trim, B window "
                          "casings; accent and metal roof become fixed colours (needs --trim v1)")
+    # ridge v2 (T95, docs/research/art/cad-review-2026-10-19.md section 8): gable slabs end on the ridge plane (3 mm
+    # overlap) under a 12-tri bent flashing; hip ridges / hips flashed too; L1's hand-built roofs follow. off = every
+    # build byte-identical.
+    ap.add_argument("--ridge", default="off", choices=("off", "v2"),
+                    help="v2 = ridge flashing instead of the 0.8 m galv box (off = byte-identical)")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -462,18 +467,29 @@ def aframe_parts(c, opts):
                   drop=("-Z", "+Z"), cut_z=(S1_Z + 0.17, DTOP))
     P += K.prism_gable("prow", "X", PX1 - 0.3, PX1, PY0, PY1, S2P_Z, PRZ - 0.02, ridge_at=PRY)
     # ---- roofs (standing seam, slot 3), ridge caps, rakes, fascia, tails ----------------
-    P += K.roof_slab("mainW", "Y", -22.0, 22.0, S2X0 - OVER, EAVE_Z, RX + 0.35, RZ + 0.35 * MP,
-                     wall_line=S2X0, mat="metal_roof")
-    P += K.roof_slab("mainE", "Y", -22.0, 22.0, S2X1 + OVER, EAVE_Z, RX - 0.35, RZ + 0.35 * MP,
-                     wall_line=S2X1, mat="metal_roof")
-    P += K.box_part("ridge_main", (RX - 0.225, -0.75 - 21.35, RZ + 0.01),
-                    (RX + 0.225, -0.75 + 21.35, RZ + 0.15), "galv")
-    P += K.roof_slab("prowS", "X", -4.1, PX1 + 1.1, PY0 - 1.0, EAVE_Z, PRY + 0.35,
-                     PRZ + 0.35 * PP, wall_line=PY0, mat="metal_roof")
-    P += K.roof_slab("prowN", "X", -4.1, PX1 + 1.1, PY1 + 1.0, EAVE_Z, PRY - 0.35,
-                     PRZ + 0.35 * PP, wall_line=PY1, mat="metal_roof")
-    P += K.box_part("ridge_prow", (3.63 - 7.55, PRY - 0.225, PRZ + 0.01),
-                    (3.63 + 7.55, PRY + 0.225, PRZ + 0.15), "galv")
+    # ridge v2 (T95, cad-review-2026-10-19 section 8): the slabs end RIDGE_GAP past the ridge plane (a 6 mm overlap,
+    # no 0.35 m crossing) under the kit's 12-tri bent flashing; v0 = the old slabs + galv boxes, byte for byte
+    v2 = K.RIDGE.get("version", 0) >= 2
+    g_ = K.RIDGE_GAP
+    ov = g_ if v2 else 0.35
+    P += K.roof_slab("mainW", "Y", -22.0, 22.0, S2X0 - OVER, EAVE_Z, RX + ov, RZ + ov * MP,
+                     wall_line=S2X0, mat="metal_roof", ridge_x=RX + g_ if v2 else None)
+    P += K.roof_slab("mainE", "Y", -22.0, 22.0, S2X1 + OVER, EAVE_Z, RX - ov, RZ + ov * MP,
+                     wall_line=S2X1, mat="metal_roof", ridge_x=RX - g_ if v2 else None)
+    if v2:                                  # ends where the v1 box did: 5 cm short of the north chimney stack
+        P += K.ridge_flashing("main", "Y", RX, RZ, MP, MP, 0.24, -22.0, -0.75 + 21.35)
+    else:
+        P += K.box_part("ridge_main", (RX - 0.225, -0.75 - 21.35, RZ + 0.01),
+                        (RX + 0.225, -0.75 + 21.35, RZ + 0.15), "galv")
+    P += K.roof_slab("prowS", "X", -4.1, PX1 + 1.1, PY0 - 1.0, EAVE_Z, PRY + ov,
+                     PRZ + ov * PP, wall_line=PY0, mat="metal_roof", ridge_x=PRY + g_ if v2 else None)
+    P += K.roof_slab("prowN", "X", -4.1, PX1 + 1.1, PY1 + 1.0, EAVE_Z, PRY - ov,
+                     PRZ + ov * PP, wall_line=PY1, mat="metal_roof", ridge_x=PRY - g_ if v2 else None)
+    if v2:
+        P += K.ridge_flashing("prow", "X", PRY, PRZ, PP, PP, 0.24, 3.63 - 7.55, PX1 + 1.1)
+    else:
+        P += K.box_part("ridge_prow", (3.63 - 7.55, PRY - 0.225, PRZ + 0.01),
+                        (3.63 + 7.55, PRY + 0.225, PRZ + 0.15), "galv")
     for gy, tag in ((-22.06, "S"), (22.06, "N")):
         P += K.roof_slab(f"W{tag}", "Y", gy - 0.06, gy + 0.06, S2X0 - OVER, EAVE_Z - 0.05, RX,
                          RZ - 0.02, thick=0.40, mat="trim", prefix="rake_")
@@ -597,12 +613,21 @@ def aframe_parts(c, opts):
     P += K.box_part("beam_porch", lo, hi, "timber_heavy")
     pb = S2X0                               # porch roof runs back to the main wall (rev. 1:
     #                                         the eave no longer covers the cap ledge)
-    P += K.roof_slab("porchS", "X", -17.4, pb, -2.6, 2.85, 0.05, 5.295, thick=0.20,
-                     mat="metal_roof")
-    P += K.roof_slab("porchN", "X", -17.4, pb, 2.6, 2.85, -0.05, 5.295, thick=0.20,
-                     mat="metal_roof")
-    lo, hi = cbox(0.5 * (-17.405 + pb - 0.005), 0.0, 5.35, pb - 0.005 + 17.405, 0.40, 0.12)
-    P += K.box_part("ridge_porch", lo, hi, "galv")
+    if v2:                                  # ridge v2: same pitch, slabs end +-RIDGE_GAP past y 0, flashing on top
+        pt = (5.295 - 2.85) / 2.65
+        pz = 5.295 - 0.05 * pt              # the slab centre plane at y 0
+        P += K.roof_slab("porchS", "X", -17.4, pb, -2.6, 2.85, g_, pz + g_ * pt, thick=0.20,
+                         mat="metal_roof", ridge_x=g_)
+        P += K.roof_slab("porchN", "X", -17.4, pb, 2.6, 2.85, -g_, pz + g_ * pt, thick=0.20,
+                         mat="metal_roof", ridge_x=-g_)
+        P += K.ridge_flashing("porch", "X", 0.0, pz, pt, pt, 0.20, -17.4, pb)
+    else:
+        P += K.roof_slab("porchS", "X", -17.4, pb, -2.6, 2.85, 0.05, 5.295, thick=0.20,
+                         mat="metal_roof")
+        P += K.roof_slab("porchN", "X", -17.4, pb, 2.6, 2.85, -0.05, 5.295, thick=0.20,
+                         mat="metal_roof")
+        lo, hi = cbox(0.5 * (-17.405 + pb - 0.005), 0.0, 5.35, pb - 0.005 + 17.405, 0.40, 0.12)
+        P += K.box_part("ridge_porch", lo, hi, "galv")
     P += K.prism_gable("porch", "X", -17.15, -16.85, -2.2, 2.2, 3.20, 5.22)
     for sgn, tag in ((-1, "S"), (1, "N")):
         P += K.roof_slab(f"porch{tag}", "X", -17.52, -17.40, sgn * 2.6, 2.78, 0.0, 5.18,
@@ -1696,6 +1721,19 @@ def _we_boards(parts, recipe, spec):
     return out
 
 
+def _gls_extra_faces(win, table, prefixes):
+    """T95: face indices of the `_Gls` sub-mesh that belong to recipe.gls_extra parts (not kit panes)."""
+    bm = bmesh.new()
+    bm.from_mesh(win.data)
+    layer = bm.faces.layers.int.get("part")
+    if layer is None:
+        bm.free()
+        raise RuntimeError(f"{win.name}: no 'part' face attribute to tell gls_extra faces from panes")
+    out = {f.index for f in cs2_submesh._faces_with_prefix(bm, layer, table, prefixes)}
+    bm.free()
+    return out
+
+
 def _out_dir(recipe, args, letter):
     if args.out:
         return os.path.abspath(args.out)
@@ -1756,7 +1794,10 @@ def run(recipe, args):
     W_, D_ = recipe.lot
     # 1-2 clean + parts
     clear_scene()
-    parts = build_parts(recipe, opts)
+    if glass == "gls":                      # T95: recipes read it (the school's gallery goes to `_Gls`)
+        opts["glass"] = "gls"
+    with K.ridge_kit(2 if getattr(args, "ridge", "off") == "v2" else 0):
+        parts = build_parts(recipe, opts)
     door2 = None
     if dk:                                  # door kit v2: the registry of its parts (exact names)
         door2 = {"flat": K.door2_flat(), "protect": K.door2_protect(),
@@ -1855,7 +1896,8 @@ def run(recipe, args):
     base0 = K.check_base_mode(obj, table, recipe.base_mode, recipe.ground_prefixes, recipe.plinth)
     # 11 rooms (before the bake: no pane texels); T85 --glass gls: every pane to ONE clear `_Gls` (no rooms)
     if glass == "gls":
-        win, cells = cs2_submesh.split_submesh(obj, table, ("win_",), "Gls"), {}
+        win, cells = cs2_submesh.split_submesh(obj, table, ("win_",) + tuple(getattr(recipe, "gls_extra", ())),
+                                               "Gls"), {}
     else:
         win, cells = K.split_rooms(obj, table, recipe.rooms, name=name)
     subsfx = "Gls" if glass == "gls" else "Win"
@@ -1904,6 +1946,10 @@ def run(recipe, args):
                                          for o, n in sorted({tuple(v) for v in slot_moved.values()})}}
     if plates is not None:
         result["glass"] = {"route": "gls", "plates": plates}
+        if getattr(recipe, "gls_extra", ()):
+            result["glass"]["extra_prefixes"] = list(recipe.gls_extra)
+    if getattr(args, "ridge", "off") == "v2":
+        result["ridge"] = "v2"
     if cap_override is not None:
         result["budget_override"] = cap_override
     if tc:                                  # T70 trim v1 builds only
@@ -2033,6 +2079,11 @@ def run(recipe, args):
                 # window kit v2: the holes were cut on the tiled LOD0 (_tiled_lod0_rollout);
                 # every recessed pane must now see out of its hole
                 blocked = K.check_panes_clear(obj, win) if win is not None else []
+                if blocked and glass == "gls" and getattr(recipe, "gls_extra", ()):
+                    # T95: the recipe's extra `_Gls` glass (the school's gallery tunnel) is not a kit pane in a wall
+                    # hole; its own frame ribs stand 2-4 cm proud of it. The gate judges the `win_` panes only.
+                    xs = _gls_extra_faces(win, table, recipe.gls_extra)
+                    blocked = [b for b in blocked if b[0] not in xs]
                 if blocked:
                     raise RuntimeError(f"{name}: {len(blocked)} recessed panes look at a wall: "
                                        f"{blocked[:8]}")
@@ -2594,7 +2645,7 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
     }
     if result.get("window_kit"):           # kit v2 builds only (older manifests keep their keys)
         data["window_kit"] = result["window_kit"]
-    for k_ in ("glass", "slots_v2", "budget_override"):       # T85 / T89 builds only
+    for k_ in ("glass", "slots_v2", "budget_override", "ridge"):       # T85 / T89 / ridge v2 builds only
         if result.get(k_) is not None:
             data[k_] = result[k_]
     if result.get("door_kit"):             # door kit v2 builds only

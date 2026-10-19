@@ -594,12 +594,18 @@ def carpet_parts(K, C, c):
     return P
 
 
-def gallery_parts(C, c):
+def gallery_parts(C, c, gls=False):
     """The bubble carpet's covered gallery (LOT frame): plumb arched frames every GALLERY[3] m,
     standing on the side covers; `gallery_side` dark tinted side panels (glass_dark),
     `gallery_roof` the frosted arc (trim_white: an OPAQUE baked panel, see-through glass is
     unverified in our pipeline), `gallery_in` the inside (seen through the open ends),
-    `galleryrib_<t>` white stiles on the sides + frame strips over the arc."""
+    `galleryrib_<t>` white stiles on the sides + frame strips over the arc.
+    gls (T95, cad-review-2026-10-19 section 6; lodge.py --glass gls): the most CAD-looking object of the resort
+    (a white plastic tube, shot 22.17) becomes a clear tunnel: `gallery_side` / `gallery_roof` go to the plain-glass
+    `_Gls` sub-mesh (RECIPE.gls_extra, DECISIONS 281), the ribs `galv` aluminium hoops, and the opaque inner skin
+    `gallery_in` is dropped (the double-sided glass shows the belt). The arc keeps its 6 facets: the review's 12
+    (15 deg steps) measured +252 LOD0 tris (blockout 5,423 -> 5,675) and pushed the school past 7,000 at weather
+    level 0 (7,170; integration build 2026-10-19), so it waits for Richard's cap call."""
     tag, yc, xl, L, _cov, _wd, _b = c
     xt = xl - L
     a, hs, rise, step = GALLERY
@@ -635,8 +641,9 @@ def gallery_parts(C, c):
         ipts, _o = seg_quad(xl, xt, p, q, off=-PANEL_T)    # the panel's inner skin (no weld)
         in_q.append((ipts[::-1], (-out[0], -out[1], -out[2])))
     P = C.quads_part("gallery_side", side_q, "glass_dark")
-    P += C.quads_part("gallery_roof", roof_q, "trim_white")
-    P += C.quads_part("gallery_in", in_q, "trim_white")
+    P += C.quads_part("gallery_roof", roof_q, "glass_dark" if gls else "trim_white")
+    if not gls:
+        P += C.quads_part("gallery_in", in_q, "trim_white")
     n = int(round(L / step))
     rib = []
     for k in range(n + 1):
@@ -658,19 +665,20 @@ def gallery_parts(C, c):
                                 (sx, 0.0, 0.0)))
             else:                                   # arc: an offset frame strip
                 rib.append(seg_quad(xa, xb, p, q, off=RIB_OUT))
-    P += C.quads_part(f"galleryrib_{tag}", rib, "trim_white")
+    P += C.quads_part(f"galleryrib_{tag}", rib, "galv" if gls else "trim_white")
     return P
 
 
-def yard_parts(K, C, fine=False):
+def yard_parts(K, C, fine=False, gls=False):
     """The revision-2 back yard (LOT frame): both carpets, the bubble gallery, the maze at
-    carpet A's loading end, the lesson signs, the slalom cones (legacy path) and the pennants."""
+    carpet A's loading end, the lesson signs, the slalom cones (legacy path) and the pennants.
+    gls (lodge.py --glass gls): the gallery is clear glass (gallery_parts)."""
     fk = {"fine": True} if fine else {}
     P = []
     for c in CARPETS:
         P += carpet_parts(K, C, c)
         if c[6]:
-            P += gallery_parts(C, c)
+            P += gallery_parts(C, c, gls=gls)
     # S6 maze at carpet A's loading end (galv posts, slot-2 tape)
     P += K.maze_fence("carpet", MAZE_SEGS, h=1.0, post_every=MAZE_POST, **fk)
     # S5 lesson-meeting post signs, facing the back door (+X)
@@ -961,7 +969,7 @@ def build(recipe, opts):
 
     # ---- into the lot frame, then the yard (revision 2) ---------------------------------
     _shift(P, OX)
-    P += yard_parts(K, C, fine)
+    P += yard_parts(K, C, fine, gls=opts.get("glass") == "gls")
 
     # ---- material remap (kit hard-codes "trim" = slot 1 = barn red here) --------------
     if K.WINDOW_KIT["version"] == 2:     # window kit v2: warm off-white paint, weathered sills
@@ -1004,6 +1012,8 @@ RECIPE = FineRecipe(
     # floating 1.95 m over the deck at LOD2 (buildings-review-geometry F4); lod2_keep takes
     # exact part names. fascia_uf: the monopitch's edge (revision 2) closes the roof at LOD2
     lod2_keep=(FIELD_FACE, "fascia_gf", "fascia_uf", "lanterncol_school"),
+    # T95: under --glass gls the gallery tunnel is clear glass on the `_Gls` sub-mesh (gallery_parts)
+    gls_extra=("gallery_side", "gallery_roof"),
     labels=((FIELD_FACE, None, {}),),      # painter bound in _labels() (needs the class)
     cull_ok=(),
     views=(("tower", (0.85, -0.55, 0.55)), ("carpets", (0.55, 1.0, 0.45)),

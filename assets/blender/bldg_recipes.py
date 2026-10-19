@@ -166,6 +166,10 @@ class Recipe:
     tile_scale: tuple = ()
     tiled_weather: object = None
     tiled_flat: tuple = ()
+    # ---- T95 (2026-10-19, docs/research/art/cad-review-2026-10-19.md section 6): extra part-name prefixes that go to
+    # the plain-glass `_Gls` sub-mesh with the `win_` panes under lodge.py --glass gls (no backing plate: e.g. the
+    # school's gallery tunnel). Read only on the gls path; () = every recipe unchanged.
+    gls_extra: tuple = ()
 
 
 # ======================================================================================

@@ -421,8 +421,10 @@ def build_chalet(recipe, opts):
                     ground=True)
     P += K.box_part("chim_Btop", (cx0, cy0, 9.0), (cx1, cy1, 11.0 - 0.24), "stone_rubble",
                     drop=("-Z", "+Z"))
-    P += K.box_part("chimcap_B", (cx0 - 0.15, cy0 - 0.15, 11.0 - 0.28), (cx1 + 0.15, cy1 + 0.15, 11.0),
-                    "galv")
+    # T95 (cad-review-2026-10-19 section 6, fittings v1): a concrete mortar crown with the kit's 6 cm drip (the
+    # shroud plate reads these bounds), not a galv tray
+    dr, ck = (K.CHIM_DRIP, "concrete") if K.FITTINGS.get("version", 0) >= 1 else (0.15, "galv")
+    P += K.box_part("chimcap_B", (cx0 - dr, cy0 - dr, 11.0 - 0.28), (cx1 + dr, cy1 + dr, 11.0), ck)
     # ---- Mass A: stone G + L1, arcade piers, jettied timber L2, roof along X ----------------
     P += K.storey("Ag", A_X0, A_X1, A_Y0, A_Y1, 0.0, G_TOP, "stone_rubble", ground=True,
                   drop=("+Z", "+X", "+Y"))

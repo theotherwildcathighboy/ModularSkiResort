@@ -553,7 +553,9 @@ def build_hut(recipe, opts):
             ztop = underside(y) - (0.24 if abs(y) == 2.75 else 0.02)
             P += K.bracket(f"rake{tag}{k}", (x, y, ztop), "+X" if sgn > 0 else "-X",
                            span=RAKE_OVER - 0.10, drop=0.9)
-    P += K.stovepipe("hut", spec, STOVE_XY[0], STOVE_XY[1], r=0.15, detail="mid",   # T91: L2 has 57 tris under its cap,
+    # T91 built "mid" (L2 had 57 tris under its cap); the 2026-10-19 integration build (T85 plates +48, ridge v2 -30)
+    # measured 6,009 / 6,000 at weather level 0, so the pipe goes "lean" (-40) and L2 keeps weather level 0
+    P += K.stovepipe("hut", spec, STOVE_XY[0], STOVE_XY[1], r=0.15, detail="lean",
                      rise=STOVE_TOP - K.roof_z(spec, *STOVE_XY))
     # ---- facades --------------------------------------------------------------------------
     wE, wW = WallRef("+X", FL_X1), WallRef("-X", FL_X0)
