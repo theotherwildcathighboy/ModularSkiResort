@@ -44,7 +44,7 @@ src/content/docs/
 src/components/Shot.astro       Labeled gray box for a screenshot that does not exist yet
 src/components/Icon.astro       One of the mod's own icons inline (public/icons/, copied from the game-side icon set)
 src/assets/resort-logo-*.svg    The launcher glyph (peak and snowflake) for the header and home hero; white and navy
-src/styles/custom.css           The only custom style (the Shot box, inline icons, timeline refs)
+src/styles/custom.css           The only custom style (the look: palette tokens, fonts; the Shot box, inline icons, timeline refs)
 astro.config.mjs                Title, sidebar (explicit, in this order), base path
 ```
 
@@ -71,32 +71,25 @@ The sidebar is written by hand in `astro.config.mjs`, so a new page needs a line
 7. **Use Starlight's pieces where they help**: `Steps` for procedures, `Tabs` for alternatives, `Aside` for a
    note, tip or caution. Prefer a table for numbers.
 
-## Look variants
+## Look
 
-Four presentation options sit beside the current look; none is on. Each is one CSS file in `src/styles/variants/`,
-and the screenshots and contact sheets are in `shots/variants/` (git-ignored). The current look is
-`customCss: ['./src/styles/custom.css']` with no plugin. Only presentation differs: no page content changes.
-All four were built with `npm run build` (and the plain site) on 2026-10-19.
+The hub's palette, picked by the author on 2026-10-19 from four options. All of it is in `src/styles/custom.css`,
+loaded by the one `customCss` entry in `astro.config.mjs`; no theme plugin.
 
-Switch: in `astro.config.mjs`, change the `customCss` line, and for variants 3 and 4 also add the import and the plugin.
-Switch back by restoring `customCss: ['./src/styles/custom.css']` and removing the `plugins` line and import.
-A theme plugin that is installed but not imported costs nothing; `starlight-theme-rapide` 0.6.0 and
-`starlight-theme-nova` 0.12.3 are pinned in `package.json`.
+- **Dark mode:** navy. Page `#121c2f`, header and sidebar `#1d2b44` (the logo navy), surfaces `#2a3753` (the hub panel),
+  text snow `#f0fbff`.
+- **Light mode:** snow. Page `#f4fbff`, header and sidebar white, text navy `#1d2b44`.
+- **Accent:** ice blue. Dark `#3db4f0` / high `#6ecdff`; light `#0b78b4` / high `#0a4f78` (deepened for contrast on white).
+  Orange `#ffa42d` (the hub's warning color) marks the current page, table-header rules and the button hover.
+- **Asides and badges** use the run difficulty colors: tip = green `#4caf50`, note = blue `#3478dc`, caution = orange,
+  danger = black diamond (`#0e0e12`, light edge in dark mode).
+- **Fonts:** headings, site title, sidebar group labels and the primary button use Barlow Condensed 600 / 700
+  (SIL OFL 1.1, listed on the Credits page), self-hosted as latin-subset woff2 in `public/fonts/` with its `OFL.txt`; body
+  is the system sans stack. No request leaves the site for fonts.
 
-1. **default-accent** (Starlight layout, hub accent):
-   `customCss: ['./src/styles/custom.css', './src/styles/variants/default-accent.css'],`
-2. **hub-palette** (navy / snow / orange, difficulty-color asides, Barlow Condensed headings from Google Fonts):
-   `customCss: ['./src/styles/custom.css', './src/styles/variants/hub-palette.css'],`
-3. **community-theme-a** (starlight-theme-rapide):
-   add `import starlightThemeRapide from 'starlight-theme-rapide';` at the top, then
-   `customCss: ['./src/styles/custom.css', './src/styles/variants/community-theme-a.css'],` and
-   `plugins: [starlightThemeRapide()],` inside `starlight({ ... })`.
-4. **community-theme-b** (starlight-theme-nova):
-   add `import starlightThemeNova from 'starlight-theme-nova';`, then
-   `customCss: ['./src/styles/custom.css', './src/styles/variants/community-theme-b.css'],` and
-   `plugins: [starlightThemeNova()],`.
-
-Once one is chosen, delete the other three CSS files and `npm uninstall` the unused theme package.
+Change the accent: edit the three `--sl-color-accent*` values in the dark block (`:root`) and in the light block
+(`:root[data-theme='light']`) at the top of `custom.css`; everything else follows. Change the palette the same way,
+through the `--sl-color-*` tokens. The `@font-face` URLs are `/fonts/...`; Vite prefixes them with `DOCS_BASE` at build time.
 
 ## Status
 

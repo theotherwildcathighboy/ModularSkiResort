@@ -1,3 +1,137 @@
+/* Look: the hub's palette (mod/SkiResortUI/src/hub/hub.module.scss). Dark mode is navy (#1d2b44 logo navy, #2a3753 hub
+   panel surface) with snow text (#f0fbff); light mode is snow-white with navy text. Accent is ice blue (hub
+   rgba(110,205,255), deepened for contrast on white); orange #ffa42d (hub warning) marks the current page and
+   the primary button. Asides and badges use the run difficulty colors: tip = green circle, note = blue square,
+   caution = hub orange, danger = black diamond. Headings: Barlow Condensed (SIL OFL 1.1), self-hosted from
+   public/fonts/; body is the system sans stack. Change the accent in the two accent blocks below. */
+
+/* latin subset of Barlow Condensed 600 and 700; no request leaves the site. */
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/barlow-condensed-600.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/barlow-condensed-700.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --sl-font-system: ui-sans-serif, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --sr-head: 'Barlow Condensed', 'Arial Narrow', 'Segoe UI', sans-serif;
+
+  /* dark: navy surfaces, snow text */
+  --sl-color-white: #f0fbff;
+  --sl-color-gray-1: #dce9f2;
+  --sl-color-gray-2: #b9c9d8;
+  --sl-color-gray-3: #8fa3ba;
+  --sl-color-gray-4: #56698a;
+  --sl-color-gray-5: #2a3753;
+  --sl-color-gray-6: #1d2b44;
+  --sl-color-black: #121c2f;
+
+  --sl-color-accent-low: #12405c;
+  --sl-color-accent: #3db4f0;
+  --sl-color-accent-high: #6ecdff;
+
+  /* run difficulty colours */
+  --sl-color-green-low: #1c3d27; /* easiest, green circle */
+  --sl-color-green: #4caf50;
+  --sl-color-green-high: #b6e6b8;
+  --sl-color-blue-low: #1b3566; /* intermediate, blue square */
+  --sl-color-blue: #3478dc;
+  --sl-color-blue-high: #bcd4fa;
+  --sl-color-orange-low: #4a3210; /* hub warning */
+  --sl-color-orange: #ffa42d;
+  --sl-color-orange-high: #ffd9a3;
+  --sl-color-red-low: #0a0a0e; /* advanced, black diamond */
+  --sl-color-red: #aab4be;
+  --sl-color-red-high: #f0fbff;
+  --sl-color-purple-low: #0a0a0e;
+  --sl-color-purple: #aab4be;
+  --sl-color-purple-high: #f0fbff;
+
+  --sl-color-bg-nav: #1d2b44;
+  --sl-color-bg-sidebar: #1d2b44;
+  --sl-color-hairline-light: #2a3753;
+  --sl-color-hairline: #2a3753;
+}
+:root[data-theme='light'] {
+  /* light: snow surfaces, navy text */
+  --sl-color-white: #1d2b44;
+  --sl-color-gray-1: #26385a;
+  --sl-color-gray-2: #3b4d6e;
+  --sl-color-gray-3: #566a8a;
+  --sl-color-gray-4: #8a9bb3;
+  --sl-color-gray-5: #cbd8e5;
+  --sl-color-gray-6: #e4eef6;
+  --sl-color-gray-7: #ffffff;
+  --sl-color-black: #f4fbff;
+
+  --sl-color-accent-low: #d6effc;
+  --sl-color-accent: #0b78b4;
+  --sl-color-accent-high: #0a4f78;
+
+  --sl-color-green-low: #dcf1dd;
+  --sl-color-green: #4caf50;
+  --sl-color-green-high: #1f5a24;
+  --sl-color-blue-low: #dce8fb;
+  --sl-color-blue: #3478dc;
+  --sl-color-blue-high: #174a96;
+  --sl-color-orange-low: #ffe8c7;
+  --sl-color-orange: #ffa42d;
+  --sl-color-orange-high: #7a4300;
+  --sl-color-red-low: #e1e5ea;
+  --sl-color-red: #0e0e12;
+  --sl-color-red-high: #0e0e12;
+  --sl-color-purple-low: #e1e5ea;
+  --sl-color-purple: #0e0e12;
+  --sl-color-purple-high: #0e0e12;
+
+  --sl-color-bg-nav: #ffffff;
+  --sl-color-bg-sidebar: #ffffff;
+  --sl-color-hairline-light: #dbe6f0;
+  --sl-color-hairline: #cbd8e5;
+}
+
+/* Tip = green circle (easiest); note / caution / danger map through the tokens above. */
+.starlight-aside--tip {
+  --sl-color-asides-text-accent: var(--sl-color-green-high);
+  --sl-color-asides-border: var(--sl-color-green);
+  background-color: var(--sl-color-green-low);
+}
+.sl-badge.tip { --sl-badge-tip-border: var(--sl-color-green); --sl-badge-tip-bg: var(--sl-color-green-low); }
+:root[data-theme='light'] .sl-badge.tip { --sl-badge-tip-bg: var(--sl-color-green-high); }
+:root[data-theme='light'] .sl-badge.danger { --sl-badge-danger-bg: #0e0e12; }
+
+/* Heavier, condensed header face. */
+h1, h2, h3, h4, .site-title {
+  font-family: var(--sr-head);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+h1 { text-transform: uppercase; letter-spacing: 0.04em; }
+.sl-markdown-content h2 { font-size: 2rem; line-height: 1.1; }
+.sl-markdown-content h3 { font-size: 1.5rem; }
+.site-title { font-size: 1.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.sidebar-content .large { font-family: var(--sr-head); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* Orange accent: current page marker, selection, primary button, table header rule. */
+::selection { background: color-mix(in srgb, #ffa42d 45%, transparent); }
+.sidebar-content a[aria-current='page'] { box-shadow: inset 3px 0 0 #ffa42d; }
+.sl-link-button.primary { font-family: var(--sr-head); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.sl-link-button.primary:hover { background: #ffa42d; border-color: #ffa42d; color: #1d2b44; }
+.sl-markdown-content th { border-bottom: 2px solid #ffa42d; }
+
+/* ---- site components ---- */
+
 .shot {
   display: flex;
   align-items: center;
@@ -29,5 +163,4 @@
   white-space: nowrap;
 }
 
-.hero .actions { justify-content: center; }
 .hero .actions .sl-link-button { font-size: 1.15rem; padding: 0.75rem 1.5rem; }
