@@ -799,10 +799,12 @@ def prism_gable(name, axis, a0, a1, e0, e1, eave_z, ridge_z, ridge_at=None, eave
     return _single(f"gable_{name}", build, mat)
 
 
-def _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line=None):
+def _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line=None, ridge_x=None):
     """Tilted slab between the eave point and the ridge point (base_lodge.add_roof_slab
     analytic port). Returns the soffit corner loops when `wall_line` splits the underside:
-    (soffit_pts) for a separate part, or None."""
+    (soffit_pts) for a separate part, or None. ridge_x (ridge v2, T95): the ridge end is cut
+    on the VERTICAL plane across = ridge_x (top and bottom lines end there), so two slabs meet
+    in a clean apex with no overshoot; None = the end perpendicular to the slab (as before)."""
     ax = axis.upper()
     E = Vector((e_edge, e_z))
     R = Vector((r_edge, r_z))
@@ -810,11 +812,14 @@ def _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line=None):
     n = Vector((-d.y, d.x)) if d.x > 0 else Vector((d.y, -d.x))
     h = 0.5 * thick
     Et, Eb, Rt, Rb = E + n * h, E - n * h, R + n * h, R - n * h
+    if ridge_x is not None:
+        Rt = Et + d * ((ridge_x - Et.x) / d.x)
+        Rb = Eb + d * ((ridge_x - Eb.x) / d.x)
 
     def P(p, a):
         return (p.x, a, p.y) if ax == "Y" else (a, p.x, p.y)
     up3 = Vector(P(n, 0.0))
-    dd3 = Vector(P(d, 0.0))
+    dd3 = Vector(P(d, 0.0)) if ridge_x is None else Vector(P(Vector((math.copysign(1.0, d.x), 0.0)), 0.0))
     aout = Vector((0, 1, 0)) if ax == "Y" else Vector((1, 0, 0))
     split = None
     if wall_line is not None:
@@ -845,13 +850,14 @@ def _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line=None):
 
 
 def roof_slab(name, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick=0.24, wall_line=None,
-              mat="slate", prefix="roof_"):
+              mat="slate", prefix="roof_", ridge_x=None):
     """`roof_<name>` slab from the eave line (e_edge, e_z) to the ridge line (r_edge, r_z),
     spanning a0..a1 along `axis` (the ridge direction); `wall_line` splits the underside
     into `soffit_<name>` (the visible overhang, its own part, w 0.25) and the inner
-    underside (attic, culled). `prefix` lets rakes reuse it (`rake_`)."""
+    underside (attic, culled). `prefix` lets rakes reuse it (`rake_`). `ridge_x`: see
+    _slab_geo (ridge v2 vertical ridge cut; None = unchanged)."""
     g = _Geo()
-    res = _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line)
+    res = _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line, ridge_x=ridge_x)
     parts = [(g.finish(f"{prefix}{name}"), mat)]
     if res is not None:
         pts, out = res
@@ -875,6 +881,122 @@ def _ridge_cap_parts(name, spec, g, w, h, a_lo, a_hi, mat="galv"):
     return box_part(f"ridge_{name}", lo, hi, mat)
 
 
+RIDGE_LEG = 0.26            # ridge v2: flashing leg, plan metres each side of the ridge line
+RIDGE_RISE = 0.035          # ridge v2: apex above the higher slab top at the ridge line
+RIDGE_SHEET = 0.025         # ridge v2: apex sheet depth (outer apex -> inner apex)
+RIDGE_CLEAR = 0.004         # ridge v2: leg hem above the slab top (contact, no z-fight)
+RIDGE_GAP = 0.003           # ridge v2: each slab runs this far PAST the ridge plane (a 6 mm overlap), so the two closed
+#                             slabs' end faces never coincide (lodge WELD_M 0.5 mm would fuse them into a zero-area
+#                             island) and no slot opens along the ridge (L5 gate G1 casts rays in the ridge plane); the
+#                             overlap tips stay under the flashing's inner apex (<= 3 mm x pitch above the slab top)
+
+
+def _ridge_flashing(name, spec, g, a_lo, a_hi, mat="galv"):
+    """Ridge v2 (T95 CAD pass, 2026-10-19): a bent sheet-metal ridge flashing whose two legs
+    follow the slopes, on slabs cut vertically at the ridge (gable_roof under ridge_kit(2)).
+    Replaces the v1 box (0.8 m wide, up to 0.5 m tall on a 45-degree roof: it had to hide the
+    crossed slab overshoot, RIDGE_EXT) that read as a CAD bar on every gable. Profile (across,
+    up): hem L on slope 0, apex A, hem R on slope 1, inner apex B (A - RIDGE_SHEET); the
+    underside faces sit 4 mm over the slab tops and close the shell. 12 tris (= the v1 box): two
+    top quads, two underside quads and a two-triangle chevron cap at each end."""
+    r, zr = g["r"], g["ridge_z"]
+    h = 0.5 * spec.thick
+    top0 = zr + h * math.sqrt(1.0 + g["t0"] ** 2)       # slab-top heights at the ridge line
+    top1 = zr + h * math.sqrt(1.0 + g["t1"] ** 2)
+    za = max(top0, top1) + RIDGE_RISE
+    L = (r - RIDGE_LEG, top0 - g["t0"] * RIDGE_LEG + RIDGE_CLEAR)
+    R = (r + RIDGE_LEG, top1 - g["t1"] * RIDGE_LEG + RIDGE_CLEAR)
+    A = (r, za)
+    B = (r, za - RIDGE_SHEET)
+    ax = g["ax"]
+
+    def P(p, a):
+        return (p[0], a, p[1]) if ax == "Y" else (a, p[0], p[1])
+
+    def nrm(p, q):                                       # outward (up) normal of segment p -> q
+        dx, dz = q[0] - p[0], q[1] - p[1]
+        n = Vector((-dz, dx)) if dx > 0 else Vector((dz, -dx))
+        return Vector(P((n.x, n.y), 0.0))
+
+    aout = Vector((0, 1, 0)) if ax == "Y" else Vector((1, 0, 0))
+    G = _Geo()
+    V = {k: (G.v(P(p, a_lo)), G.v(P(p, a_hi))) for k, p in (("L", L), ("A", A), ("R", R), ("B", B))}
+    G.face([V["L"][0], V["A"][0], V["A"][1], V["L"][1]], nrm(L, A))
+    G.face([V["A"][0], V["R"][0], V["R"][1], V["A"][1]], nrm(A, R))
+    # closed underside (hem -> inner apex -> hem): nothing of the cap is ever seen from behind through the
+    # gable end (L5 gate G1 "the gable is open" ray-casts the porte-cochere gable)
+    G.face([V["L"][0], V["B"][0], V["B"][1], V["L"][1]], -nrm(L, B))
+    G.face([V["B"][0], V["R"][0], V["R"][1], V["B"][1]], -nrm(B, R))
+    for e, s in ((0, -1.0), (1, 1.0)):
+        G.face([V["L"][e], V["A"][e], V["B"][e]], aout * s)
+        G.face([V["B"][e], V["A"][e], V["R"][e]], aout * s)
+    obj = G.finish(f"ridge_{name}")
+    obj["no_bevel"] = 1     # a 2 cm bevel (BEVEL_PREFIXES "ridge_") shreds the 2.5 cm sheet into zero-area slivers
+    return [(obj, mat)]
+
+
+def ridge_flashing(name, axis, r, ridge_z, t0, t1, thick, a_lo, a_hi, mat="galv"):
+    """Public ridge v2 flashing for hand-built gables (lodge.aframe_parts' L1 main / prow / porch roofs): the same
+    12-tri bent cap as gable_roof under ridge_kit(2). r / ridge_z = the ridge line in the across axis / the slab
+    CENTRE plane height there; t0 / t1 = the slopes (rise per metre) on the low / high across side; the slabs must
+    end on the vertical planes across = r +/- RIDGE_GAP, overlapping (roof_slab(..., ridge_x=r +/- RIDGE_GAP))."""
+    spec = RoofSpec("gable", 0.0, 1.0, 0.0, 1.0, 0.0, 30.0, axis=axis, thick=thick)
+    g = {"ax": axis.upper(), "r": r, "ridge_z": ridge_z, "t0": t0, "t1": t1}
+    return _ridge_flashing(name, spec, g, a_lo, a_hi, mat=mat)
+
+
+def _edge_flashing(G, pa, pb, n1, n2, leg=RIDGE_LEG):
+    """Ridge v2 hip / ridge flashing along the roof-top edge pa -> pb between two planes with upward normals n1, n2:
+    a chevron (hem in plane 1, apex RIDGE_RISE out along the bisector, hem in plane 2, inner apex RIDGE_SHEET
+    under it) swept along the edge; 12 tris (two top quads, two underside quads, a two-triangle cap at each end)."""
+    e = (pb - pa).normalized()
+    b = (n1 + n2).normalized()
+    legs = []
+    for n in (n1, n2):
+        l = n.cross(e).normalized()
+        if l.dot(b) > 0:
+            l = -l
+        legs.append((l, n))
+    V = []
+    for p in (pa, pb):
+        A = p + b * RIDGE_RISE
+        L1 = p + legs[0][0] * leg + legs[0][1] * RIDGE_CLEAR
+        L2 = p + legs[1][0] * leg + legs[1][1] * RIDGE_CLEAR
+        B = A - b * RIDGE_SHEET
+        V.append({k: G.v(tuple(q)) for k, q in (("L", L1), ("A", A), ("R", L2), ("B", B))})
+    G.face([V[0]["L"], V[0]["A"], V[1]["A"], V[1]["L"]], (legs[0][1] + b).normalized())
+    G.face([V[0]["A"], V[0]["R"], V[1]["R"], V[1]["A"]], (legs[1][1] + b).normalized())
+    G.face([V[0]["L"], V[0]["B"], V[1]["B"], V[1]["L"]], -(legs[0][1] + b).normalized())    # closed underside
+    G.face([V[0]["B"], V[0]["R"], V[1]["R"], V[1]["B"]], -(legs[1][1] + b).normalized())
+    for k, s in ((0, -1.0), (1, 1.0)):
+        G.face([V[k]["L"], V[k]["A"], V[k]["B"]], e * s)
+        G.face([V[k]["B"], V[k]["A"], V[k]["R"]], e * s)
+
+
+# ridge v2 (T95 CAD pass, 2026-10-19): gable_roof cuts both slabs vertically on the ridge line (no RIDGE_EXT
+# overshoot) and caps them with _ridge_flashing instead of the v1 box. RIDGE["version"] 0 / 1 = the old
+# geometry, byte for byte (lodge.py wires it as an opt-in flag; until then a driver enters ridge_kit(2)).
+RIDGE = {"version": 0}
+
+
+class ridge_kit:
+    """Context manager: gable_roof builds ridge v2 while RIDGE["version"] >= 2."""
+
+    def __init__(self, version=2):
+        self.cfg = {"version": int(version)}
+        self._saved = None
+
+    def __enter__(self):
+        self._saved = dict(RIDGE)
+        RIDGE.update(self.cfg)
+        return RIDGE
+
+    def __exit__(self, *exc):
+        RIDGE.clear()
+        RIDGE.update(self._saved)
+        return False
+
+
 def _eave_tip(spec, g, side):
     ov = spec.overhang
     if side == 0:
@@ -893,16 +1015,18 @@ def gable_roof(name, spec, fascia=0.42, rake=0.40, ridge_cap=(0.45, 0.14), tails
     g = _roof_geometry(spec)
     ro = spec.overhang if spec.rake_over is None else spec.rake_over
     a_lo, a_hi = g["a0"] - ro, g["a1"] + ro
+    v2 = RIDGE.get("version", 0) >= 2 and bool(ridge_cap)
     parts = []
     for side, tag in ((0, "A"), (1, "B")):
         et, zt = _eave_tip(spec, g, side)
         t = g["t0"] if side == 0 else g["t1"]
         sgn = 1.0 if side == 0 else -1.0
-        r_edge = g["r"] + sgn * ext
-        r_z = g["ridge_z"] + ext * t
+        r_edge = g["r"] + sgn * (RIDGE_GAP if v2 else ext)
+        r_z = g["ridge_z"] + (RIDGE_GAP if v2 else ext) * t
         wl = g["e0"] if side == 0 else g["e1"]
         parts += roof_slab(f"{name}{tag}", g["ax"], a_lo, a_hi, et, zt, r_edge, r_z,
-                           spec.thick, wall_line=wl, mat=spec.mat)
+                           spec.thick, wall_line=wl, mat=spec.mat,
+                           ridge_x=g["r"] + sgn * RIDGE_GAP if v2 else None)
         # rake boards at both gable ends (slot-1 trim), tracking the slab top
         for aend, atag in ((a_lo - 0.06, "0"), (a_hi + 0.06, "1")):
             parts += roof_slab(f"{name}{tag}{atag}", g["ax"], aend - 0.06, aend + 0.06,
@@ -944,7 +1068,11 @@ def gable_roof(name, spec, fascia=0.42, rake=0.40, ridge_cap=(0.45, 0.14), tails
             else:
                 p0, p1 = (a_lo, et + off), (a_hi, et + off)
             parts += gutter(f"{name}{tag}", p0, p1, gz)
-    if ridge_cap:
+    if ridge_cap and v2:
+        # flush with the slab ends (as the v1 box): an overrun pushes a dormer flashing's inner end into the wall it
+        # meets and the hidden-face cull slices its end caps into zero-area UV islands (L4 ridge_ueg / ridge_d)
+        parts += _ridge_flashing(name, spec, g, a_lo, a_hi)
+    elif ridge_cap:
         parts += _ridge_cap_parts(name, spec, g, ridge_cap[0], ridge_cap[1], a_lo, a_hi)
     if walls:
         wm = wall_mat or "timber_lap"
@@ -1026,7 +1154,41 @@ def hip_roof(name, spec, fascia=0.42, ridge_cap=(0.45, 0.14), snow_guard=0, gutt
                    ((dvec.x, dvec.y, 0), (nrm.x, nrm.y, 0), (0, 0, 1)),
                    (0.5 * (q - p).length + 0.03, 0.06, 0.5 * fascia))
         parts.append((fg.finish(f"fascia_{name}"), spec.trim))
-    if ridge_cap:
+    if ridge_cap and RIDGE.get("version", 0) >= 2:
+        # ridge v2 (T95): bent flashing on the ridge and the four hips (12 tris per edge), legs in the two
+        # adjacent roof planes, instead of 0.45 / 0.27 m wide boxes laid along them
+        cg = _Geo()
+        if spec.axis.upper() == "Y":
+            quads = [(0, 1, r0, r0), (1, 2, r1, r0), (2, 3, r1, r1), (3, 0, r0, r1)]
+        else:
+            quads = [(0, 1, r1, r0), (1, 2, r1, r1), (2, 3, r0, r1), (3, 0, r0, r0)]
+        pn = []
+        for i, j, ra, rb in quads:
+            n = (Vector(c[j]) - Vector(c[i])).cross(Vector(ra) - Vector(c[i]))
+            if n.length < 1e-9:
+                n = (Vector(c[j]) - Vector(c[i])).cross(Vector(rb) - Vector(c[i]))
+            n.normalize()
+            pn.append(n if n.z > 0 else -n)
+        corner_to_ridge = {0: r0, 1: r0, 2: r1, 3: r1} if spec.axis.upper() == "Y" else \
+                          {0: r0, 1: r1, 2: r1, 3: r0}
+        hleg = 0.6 * RIDGE_LEG
+        for i in range(4):                      # hip i: corner i, between planes i and i-1
+            ci, cr = Vector(c[i]), Vector(corner_to_ridge[i])
+            e = (cr - ci).normalized()
+            # start up the hip until both legs (perpendicular to it, in their planes) stay inside the eave lines
+            s = 0.0
+            for k in ((i + 1) % 4, (i - 1) % 4):
+                ed = (Vector(c[k]) - ci).normalized()
+                th = math.acos(max(-1.0, min(1.0, ed.dot(e))))
+                s = max(s, hleg / max(math.tan(th), 1e-3) + 0.01)
+            _edge_flashing(cg, ci + e * s, cr, pn[i], pn[(i - 1) % 4], leg=hleg)
+        if L > 1e-6:                            # the ridge: between the two long-side planes
+            long_planes = [k for k, (i, j, ra, rb) in enumerate(quads) if ra is not rb]
+            _edge_flashing(cg, Vector(r0), Vector(r1), pn[long_planes[0]], pn[long_planes[1]])
+        fo = cg.finish(f"ridge_{name}")
+        fo["no_bevel"] = 1      # sheet flashing: no 2 cm bevel (it shreds the 2.5 cm sheet)
+        parts.append((fo, "galv"))
+    elif ridge_cap:
         cg = _Geo()
         w, h = ridge_cap
         if L > 1e-6:
@@ -1326,8 +1488,20 @@ def roof_window(name, spec, side, u, z, w=0.9, h=1.2, room=None, panes=True):
 
 
 def vent_stack(name, spec, x, y, r=0.12, rise=0.8, segs=8):
-    """`vent_<name>` 8-seg pipe, base 0.1 below roof_z, rise above it, top capped."""
+    """`vent_<name>` 8-seg pipe, base 0.1 below roof_z, rise above it, top capped.
+    Fittings v1 (T91, 2026-10-19): a painted-black pipe (the bare galv swatch is metal 1.0 and reads white /
+    chrome in the game) with a flashing skirt, a crimp band and a rain hat sitting on the pipe top."""
     z0 = roof_z(spec, x, y) - 0.10
+    if FITTINGS.get("version", 0) >= 1:
+        zt = z0 + 0.10 + rise
+
+        def pipe(g):
+            g.cyl((x, y, z0), (x, y, zt), r, segs, cap0=False, cap1=False)
+            g.cyl((x, y, z0 + 0.10 - 0.02), (x, y, z0 + 0.10 + 0.14), r * 1.55, segs, r1=r * 0.99,
+                  cap0=False, cap1=False)                                    # flashing skirt on the roof
+            g.cyl((x, y, zt - 0.30), (x, y, zt - 0.26), r * 1.10, segs, r1=r * 0.99, cap0=False, cap1=False)   # crimp band
+            g.cyl((x, y, zt), (x, y, zt + 0.10), r * 1.75, segs, r1=r * 0.20)                 # rain hat on the top
+        return _single(f"vent_{name}", pipe, "ski_black")
     return _single(f"vent_{name}",
                    lambda g: g.cyl((x, y, z0), (x, y, z0 + 0.10 + rise), r, segs, cap0=False),
                    "galv")
@@ -1358,21 +1532,102 @@ def chimney(name, x, y, w, d, top_z, base_z=0.0, shoulder=None, ground=False,
     return parts
 
 
-def stovepipe(name, spec, x, y, r=0.15, rise=1.2):
-    """`stovepipe_<name>` pipe from the roof plus a cap disc `stovepipe_<name>cap`."""
+def stovepipe(name, spec, x, y, r=0.15, rise=1.2, detail="auto"):
+    """`stovepipe_<name>` pipe from the roof plus a cap disc `stovepipe_<name>cap`.
+    Fittings v1 (T91, 2026-10-19): painted black stove-pipe (`ski_black`: flat, non-metal; the galv swatch is metal
+    1.0 and read as a white / chrome CAD cylinder in the 2026-10-18 field test) with a flashing skirt on the roof,
+    two crimp bands, a rain collar, a lap seam rib and a conical rain hat standing on a collar (the 2026-10-17
+    close look: the cap never floats)."""
     z0 = roof_z(spec, x, y) - 0.1
+    zt = z0 + 0.1 + rise
+    if FITTINGS.get("version", 0) >= 1:
+        zr = z0 + 0.1                                                       # the roof surface at the pipe
+        zc = zr + 0.55 * rise                                               # rain collar height
+        # detail: "auto" = lean for the patrol huts' 16 cm pipes (6-gons, no bands / seam: P2's tiled LOD0 sits 11 tris under its
+        # 2,500 cap at weather level 0), full otherwise; "mid" = 8-gon + one crimp band, no seam (L2: 57 tris under its 6,000 cap)
+        mode = detail if detail != "auto" else ("lean" if r < 0.10 else "full")
+        lean = mode == "lean"
+        sg = 6 if lean else 8
+        bands = () if lean else ((zr + 0.5 * rise,) if mode == "mid" else (zr + 0.28 * rise, zr + 0.78 * rise))
+
+        def pipe(g):
+            g.cyl((x, y, z0), (x, y, zt), r, sg, cap0=False, cap1=False)
+            g.cyl((x, y, zr - 0.04), (x, y, zr + 0.16), r * 2.5, sg, r1=r * 0.99, cap0=False, cap1=False)   # flashing
+            g.cyl((x, y, zc), (x, y, zc + 0.12), r * 1.85, sg, r1=r * 0.99, cap0=False, cap1=False)        # rain collar
+            for zb in bands:                                                # crimped joints
+                g.cyl((x, y, zb), (x, y, zb + 0.045), r * 1.12, sg, r1=r * 0.99, cap0=False, cap1=False)
+            if mode == "full":
+                g.aabb((x - 0.008, y + r - 0.004, z0 + 0.1), (x + 0.008, y + r + 0.012, zt - 0.02))  # lap seam rib
+
+        def cap1(g):
+            g.cyl((x, y, zt - 0.03), (x, y, zt + 0.125), r * 0.97, sg, cap0=False, cap1=False)     # collar into the pipe
+            g.cyl((x, y, zt + 0.12), (x, y, zt + 0.25), r * 2.1, sg, r1=r * 0.25)                  # conical rain hat
+        return _single(f"stovepipe_{name}", pipe, "ski_black") + _single(f"stovepipe_{name}cap", cap1, "ski_black")
     parts = _single(f"stovepipe_{name}",
                     lambda g: g.cyl((x, y, z0), (x, y, z0 + 0.1 + rise), r, 8, cap0=False,
                                     cap1=False), "galv")
-    zt = z0 + 0.1 + rise
 
     def cap(g):
         g.cyl((x, y, zt + 0.12), (x, y, zt + 0.20), r * 2.0, 8)
-        if FITTINGS.get("version", 0) >= 1:
-            # close look (2026-10-17): the rain cap floated 12 cm over the open pipe (Richard: "floating"); it now
-            # stands on a collar from inside the pipe top into the cap disc (16 tris)
-            g.cyl((x, y, zt - 0.03), (x, y, zt + 0.125), r * 0.97, 8, cap0=False, cap1=False)
     parts += _single(f"stovepipe_{name}cap", cap, "galv")
+    return parts
+
+
+def chimney_pot(name, x, y, z0, z1, r=0.17, segs=8):
+    """`flue_<name>` chimney flue pot (T91, fittings v1): a black metal liner with a rim band and a rain hat, replacing
+    the plain plaster cylinder (white) of the L4 / L5 stacks; z0..z1 = the pot's bottom / top (hat included)."""
+    def pot(g):
+        g.cyl((x, y, z0), (x, y, z1 - 0.08), r, segs, cap0=False, cap1=False)
+        g.cyl((x, y, z1 - 0.15), (x, y, z1 - 0.06), r * 1.22, segs)                                   # solid rim band round the pot top
+        g.cyl((x, y, z1 - 0.06), (x, y, z1), r * 1.45, segs, r1=r * 0.35)                            # rain hat on the rim
+    return _single(f"flue_{name}", pot, "ski_black")
+
+
+def rooftop_unit(name, x, y, z_lo, z_hi, w=1.5, d=1.0, h=0.75):
+    """A rooftop HVAC unit (T87, school, fittings v1): `hvac_<name>*` parts on a level curb over a sloping roof whose
+    top plane spans z_lo..z_hi under the footprint (w along x, d along y): curb, housing in a matte warm-grey paint
+    (`trim_paint_w`), a lid overhang, dark louvre panels with angled slats on both long (+-y) faces, a fan shroud with a
+    guard on top and a refrigerant line down the low end. Flat palette materials, no metal: the bare galv swatch is
+    metal 1.0 and read as shiny black / white boxes in the 2026-10-18 field test."""
+    zb = z_hi + 0.10                                             # housing bottom (the curb top)
+    hx, hy = w / 2, d / 2
+    parts = []
+    parts += box_part(f"hvac_{name}curb", (x - hx + 0.10, y - hy + 0.10, z_lo - 0.05),
+                      (x + hx - 0.10, y + hy - 0.10, zb + 0.02), "ski_black", drop=("-Z", "+Z"))
+    parts += box_part(f"hvac_{name}", (x - hx, y - hy, zb), (x + hx, y + hy, zb + h), "trim_paint_w",
+                      drop=("-Z",))
+    parts += box_part(f"hvac_{name}lid", (x - hx - 0.03, y - hy - 0.03, zb + h - 0.01),
+                      (x + hx + 0.03, y + hy + 0.03, zb + h + 0.04), "trim_paint")
+    zl0, zl1 = zb + 0.12, zb + h - 0.12
+    xl0, xl1 = x - hx + 0.14, x + hx - 0.14
+    n = 6
+    ca, sa = math.cos(math.radians(35.0)), math.sin(math.radians(35.0))
+
+    def grille(g):                                               # 1.2 cm dark backing panels proud of the faces
+        g.aabb((xl0, y - hy - 0.012, zl0), (xl1, y - hy + 0.002, zl1))
+        g.aabb((xl0, y + hy - 0.002, zl0), (xl1, y + hy + 0.012, zl1))
+
+    def slats(g):
+        for sg in (-1, 1):
+            yf = y + sg * hy
+            for j in range(n):
+                zc = zl0 + (zl1 - zl0) * (j + 0.5) / n
+                # a blade tilted 35 deg about X, bottom edge out (sheds rain): local y = (0, sg ca, -sa), z = (0, sa, sg ca)
+                g.obb((0.5 * (xl0 + xl1), yf + sg * 0.025, zc), ((1, 0, 0), (0, sg * ca, -sa), (0, sa, sg * ca)),
+                      (0.5 * (xl1 - xl0) - 0.012, 0.040, 0.007))     # 1.2 cm short of the grille ends (no coplanar end faces)
+    parts += _single(f"hvac_{name}grille", grille, "ski_black")
+    parts += _single(f"hvac_{name}slat", slats, "trim_paint")
+    zf = zb + h + 0.04
+
+    def fan(g):
+        g.cyl((x, y, zf - 0.01), (x, y, zf + 0.12), 0.30, 12, cap0=False)                   # shroud, dark disc on top
+        g.cyl((x, y, zf - 0.01), (x, y, zf + 0.15), 0.34, 12, cap0=False, cap1=False)       # coaming ring
+    parts += _single(f"hvac_{name}fan", fan, "ski_black")
+    parts += box_part(f"hvac_{name}guard", (x - 0.34, y - 0.012, zf + 0.12), (x + 0.34, y + 0.012, zf + 0.15),
+                      "trim_paint")
+    parts += _single(f"hvac_{name}line",
+                     lambda g: g.cyl((x + hx + 0.03, y - 0.25, z_lo - 0.05), (x + hx + 0.03, y - 0.25, zb + 0.30),
+                                     0.035, 6, cap0=False), "ski_black")
     return parts
 
 

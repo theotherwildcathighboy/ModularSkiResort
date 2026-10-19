@@ -553,7 +553,7 @@ def build_hut(recipe, opts):
             ztop = underside(y) - (0.24 if abs(y) == 2.75 else 0.02)
             P += K.bracket(f"rake{tag}{k}", (x, y, ztop), "+X" if sgn > 0 else "-X",
                            span=RAKE_OVER - 0.10, drop=0.9)
-    P += K.stovepipe("hut", spec, STOVE_XY[0], STOVE_XY[1], r=0.15,
+    P += K.stovepipe("hut", spec, STOVE_XY[0], STOVE_XY[1], r=0.15, detail="mid",   # T91: L2 has 57 tris under its cap,
                      rise=STOVE_TOP - K.roof_z(spec, *STOVE_XY))
     # ---- facades --------------------------------------------------------------------------
     wE, wW = WallRef("+X", FL_X1), WallRef("-X", FL_X0)

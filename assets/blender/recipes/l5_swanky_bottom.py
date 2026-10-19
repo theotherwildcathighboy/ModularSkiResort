@@ -156,9 +156,16 @@ def _lin2srgb(c):
 SIDING_RED_LIN = (0.200, 0.100, 0.068)
 SIDING_WALNUT_LIN = (0.140, 0.080, 0.050)
 STONE_TAN_LIN = (0.300, 0.169, 0.0996)
-GLULAM_LIN = (0.500, 0.240, 0.100)
-# T65: the balcony balustrades are a separate stain (they read pale orange against the walnut cladding in review 2026-10-18)
-BALRAIL_LIN = (0.22, 0.10, 0.045)
+# T90 (2026-10-19, Richard item 13 "outer wood trimmings are still too light"): the exposed structural timber (porch
+# and gable trusses, beams, posts, outriggers, clock-tower trim, deck rails) is ONE walnut-family stain, TRIM_WOOD_LIN,
+# a step lighter than the cladding (SIDING_WALNUT_LIN 0.14): it was the honey glulam (0.50, 0.24, 0.10), the brightest
+# surface of the building in the 2026-10-18 shots. T65 had split the balustrades off as BALRAIL_LIN (0.22, 0.10, 0.045);
+# they now share the constant (one constant per family). The porch gable boarding (lux_tg) follows at 1.5x so the
+# trusses still read dark in front of it.
+TRIM_WOOD_LIN = (0.20, 0.09, 0.040)
+GLULAM_LIN = TRIM_WOOD_LIN
+BALRAIL_LIN = TRIM_WOOD_LIN
+TG_LIN = (0.30, 0.135, 0.060)
 
 
 def swanky_materials():
@@ -211,7 +218,7 @@ def swanky_materials():
         # see into"): tongue-and-groove gable boarding behind the porte-cochere trusses (L5) and
         # the L4 entry porch: narrow vertical boards (0.15 m joints, the kit BATTEN is 0.30) in a
         # cedar tone a step darker than the glulam so the truss reads in front of it
-        "lux_tg": BM("WoodSiding009", (1.2, 2.4), _lin2srgb((0.40, 0.19, 0.085)), uv_rot=90,
+        "lux_tg": BM("WoodSiding009", (1.2, 2.4), _lin2srgb(TG_LIN), uv_rot=90,
                      detail=_tg_detail(), density_w=1.0),
     }
 
@@ -1326,8 +1333,33 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
         if louvres:                     # belfry vent on the stage face the clock left
             sw = WallRef(side, {"+X": cx + hg, "-X": cx - hg, "+Y": cy + hg, "-Y": cy - hg}[side])
             zl0, zl1 = shaft_top + 0.45, stage_top - 0.55
-            P += K.wall_box(f"trim_{name}louvre{k}", sw, uc - 0.75, uc + 0.75, zl0, zl1, 0.0,
+            fit = K.FITTINGS.get("version", 0) >= 1
+            ub = 0.72 if fit else 0.75      # T87d: the backing tucks under the frame bars (no coplanar end faces)
+            P += K.wall_box(f"trim_{name}louvre{k}", sw, uc - ub, uc + ub, zl0, zl1, 0.0,
                             0.03, "ski_black" if "ski_black" in K.BLDG_MATERIALS else trim)
+            if K.FITTINGS.get("version", 0) >= 1:
+                # T87d (2026-10-19, Richard item 15 "vents on the clock tower ... missed the detail pass"): the four
+                # flat slabs become a framed louvre: 8 blades 16 cm wide tilted 35 deg (bottom edge out: they shed
+                # rain) over the dark backing, inside a 7 cm frame that stands 12 cm proud (blade tips 11.6 cm)
+                from mathutils import Vector
+                nrm, tan = K._SIDES[side]
+                ca, sa = math.cos(math.radians(35.0)), math.sin(math.radians(35.0))
+                ey = nrm * ca - Vector((0.0, 0.0, 1.0)) * sa
+                ez = tan.cross(ey)
+                nb = 8
+
+                def blades(g, sw=sw, uc=uc, ey=ey, ez=ez, tan=tan, zl0=zl0, zl1=zl1):
+                    for j in range(nb):
+                        zc = zl0 + (zl1 - zl0) * (j + 0.5) / nb
+                        g.obb(K.wall_point(sw, uc, zc, 0.05), (tan, ey, ez), (0.70, 0.08, 0.010))
+                P += K._single(f"trim_{name}slat{k}", blades, "lux_glulam" if "lux_glulam" in K.BLDG_MATERIALS else trim)
+                P += K.wall_boxes(f"trim_{name}frame{k}", sw,
+                                  [(uc - 0.75, uc - 0.68, zl0 - 0.05, zl1 + 0.05, 0.0, 0.12),
+                                   (uc + 0.68, uc + 0.75, zl0 - 0.05, zl1 + 0.05, 0.0, 0.12),
+                                   (uc - 0.68, uc + 0.68, zl1, zl1 + 0.05, 0.0, 0.12),
+                                   (uc - 0.68, uc + 0.68, zl0 - 0.05, zl0, 0.0, 0.12)],
+                                  "lux_glulam" if "lux_glulam" in K.BLDG_MATERIALS else trim)
+                continue
             n = 4
             slats = [(uc - 0.75, uc + 0.75, zl0 + (zl1 - zl0) * (j + 0.5) / n - 0.06,
                       zl0 + (zl1 - zl0) * (j + 0.5) / n + 0.06, 0.03, 0.10) for j in range(n)]
@@ -3367,6 +3399,9 @@ def build_l5(recipe, opts):
         P += K.chimney(f"m{k}", M_RIDGE_X, y, 2.0, 3.0, CHIM_TOP,
                        base_z=K.roof_z(mspec, M_RIDGE_X - 1.0, y) - 0.25, mat=STN)
         for j, dy in enumerate((-0.6, 0.6)):
+            if K.FITTINGS.get("version", 0) >= 1:     # T91: black flue liner with a rim and a rain hat, not a white cylinder
+                P += K.chimney_pot(f"m{k}{j}", M_RIDGE_X, y + dy, CHIM_TOP - 0.02, FLUE_TOP, r=0.17, segs=8)
+                continue
             P += K._single(f"flue_m{k}{j}", lambda g, y=y, dy=dy: g.cyl(
                 (M_RIDGE_X, y + dy, CHIM_TOP - 0.02), (M_RIDGE_X, y + dy, FLUE_TOP), 0.17,
                 8 if (not fine or K.FITTINGS.get("version", 0) >= 1) else 12, cap0=False),
@@ -3826,14 +3861,17 @@ RECIPE = FineRecipe(
     # 25-riser stair) add ~6,800 tris; all of it is LOD0 dressing (deleted at LOD1).
     # revision 3: the cap and target stand (verdict brief); the modelled dressing is vanilla
     # sub-objects now (their tris are vanilla's own, not ours), so LOD0 drops (build report)
-    budget=Budget(26000, 30000, 11000, 480, 800),
+    budget=Budget(26000, 33500, 11000, 480, 800),   # T90 (T92): 33,500 = 31,812 measured x 1.05 (Richard item 16 "up the tri budget by a bit"); was 30,000
     # tiled rollout (2026-10-16, texture-parity-rollout-2026-10-16.md section 2): read only on
     # the --tiled path. 20,833 m2 of LOD0 cut at 1.5-3 m tiles is ~51,600 tris; 2 x 2 tiles on the
     # members, pavers and the swanky walls, plus flat trims / soffits / trusses, fit the 30,000 cap
     tile_scale=(("timber_heavy", 2), ("galv", 2), ("deck", 2), ("lux_glulam", 2), ("lux_balrail", 2),
                 ("lux_paver", 2), ("lux_stone_tan", 2), ("lux_siding_walnut", 2), ("lux_siding_red", 2)),
     # T66: outriggers (`beam_xg*`) draw textured (grain along the member); the porch / tower beams stay flat for the L5 cap
-    tiled_flat=("soffit_", "trim_", "truss_", "beam_tw", "beam_pcl", "poolcap_"),
+    # T90 (2026-10-19): truss_, beam_tw, beam_pcl and trim_ (the unbevelled trim_truss* porch / gable trusses, the deck rail
+    # posts and caps, the clock-tower dial boards and louvres: every wood trim part is a lux_glulam tiled key) left the
+    # flat list: they draw the glulam grain like the outriggers (T66); soffits and pool coping stay flat
+    tiled_flat=("soffit_", "poolcap_"),
     massing="custom", builder=build_l5,
     rooms="auto", interior="CommercialLow",
     # VariationSet A (contract 6, STEEL_DEFAULT_RGB convention): bronze / deep red / copper

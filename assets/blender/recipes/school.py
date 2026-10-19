@@ -153,6 +153,8 @@ LANTERN_PITCH = 25.0
 SPIRE_TOP = 15.00
 BELL = (12.30, 13.00, 0.45, 0.18)    # z0, z1, r bottom, r top
 GLOW_Z = 13.10
+LANTERN_Z = (12.52, 12.74)           # T87c: the lantern lens z0 / z1, hung from the cross beam (underside 13.18) on a rod
+LANTERN_DX = 0.75                    # T87c: lantern x offset from the tower centre (the bell hangs at the centre, r 0.45)
 # pictogram field (tower front, 3.2 m square)
 FIELD = (-0.6, 2.6, 4.6, 7.8)        # y0, y1, z0, z1
 FIELD_FRAC = 0.85
@@ -247,13 +249,8 @@ def _bf(pos):
 
 
 SUB_OBJECTS = (
-    # the corral fences, now lining the learning area (LOT): left line y -13.6, right y 12.6
-    _so(FENCE_4M, "FenceResidentialPieceLowRandom01", (-13.6, 0.0, -6.5), QID, -1),
-    _so(FENCE_4M, "FenceResidentialPieceLowRandom01", (-13.6, 0.0, -10.5), QID, -1),
-    _so(FENCE_4M, "FenceResidentialPieceLowRandom01", (-13.6, 0.0, -14.5), QID, -1),
-    _so(FENCE_4M, "FenceResidentialPieceLowRandom01", (12.6, 0.0, -6.5), QID, -1),
-    _so(FENCE_4M, "FenceResidentialPieceLowRandom01", (12.6, 0.0, -10.5), QID, -1),
-    _so(FENCE_2M, "FenceResidentialPieceLowShortRandom01", (12.6, 0.0, -13.5), QID, -1),
+    # T87 (2026-10-19, Richard item 6): the white picket fence rows (FenceResidentialPieceLow*, six pieces lining the
+    # learning area at lot y -13.6 / 12.6) are gone; FENCE_4M / FENCE_2M stay defined for the record
     _so(SNOWMAN, "SnowmanRandom01", (3.5, 0.0, -4.0), QID, -1),                    # learning area
     _so(BENCH, "GardenBenchRandom01", _bf((6.5, 0.0, 5.0)), QID, -1),          # +X, storefront 1
     _so(BENCH, "GardenBenchRandom01", _bf((-9.0, 0.0, 1.8)), YM90, -1),        # under the meeting board
@@ -512,20 +509,24 @@ def detail_parts(K, C, fine=False):
     P += marking_parts(K, C)
     # S11 belfry glow: a lit floor on the lantern deck + the balustrade's inner faces
     cx, cy = TC
-    f, zf = BELFRY_FLOOR, DECK_Z1 + BELFRY_LIFT
-    P += C.quads_part("lamp_belfryfloor", [([(cx - f, cy - f, zf), (cx + f, cy - f, zf),
-                                              (cx + f, cy + f, zf), (cx - f, cy + f, zf)],
-                                             (0, 0, 1))], "lamp")
-    h, t, a = DECK_HALF, 0.05, DECK_HALF - POST_W
-    zr0, zr1 = zf, RAIL_TOP - 0.01
-    xi0, xi1 = cx - h + t + BELFRY_LIFT, cx + h - t - BELFRY_LIFT
-    yi0, yi1 = cy - h + t + BELFRY_LIFT, cy + h - t - BELFRY_LIFT
-    P += C.quads_part("lamp_belfryrail", [
-        ([(xi0, cy - a, zr0), (xi0, cy + a, zr0), (xi0, cy + a, zr1), (xi0, cy - a, zr1)], (1, 0, 0)),
-        ([(xi1, cy + a, zr0), (xi1, cy - a, zr0), (xi1, cy - a, zr1), (xi1, cy + a, zr1)], (-1, 0, 0)),
-        ([(cx + a, yi0, zr0), (cx - a, yi0, zr0), (cx - a, yi0, zr1), (cx + a, yi0, zr1)], (0, 1, 0)),
-        ([(cx - a, yi1, zr0), (cx + a, yi1, zr0), (cx + a, yi1, zr1), (cx - a, yi1, zr1)], (0, -1, 0))],
-        "lamp")
+    # T87c (2026-10-19, Richard item 10 "too bright, floating"): with fittings v1 the 9.0 m2 of lit floor (5.76) + balustrade faces (3.3)
+    # faces are gone (a whole lit belfry read as a white-hot box at night); the light is ONE small lantern lens
+    # (bell_lantern, in school_parts) at the vanilla lens scale
+    if K.FITTINGS.get("version", 0) < 1:
+        f, zf = BELFRY_FLOOR, DECK_Z1 + BELFRY_LIFT
+        P += C.quads_part("lamp_belfryfloor", [([(cx - f, cy - f, zf), (cx + f, cy - f, zf),
+                                                  (cx + f, cy + f, zf), (cx - f, cy + f, zf)],
+                                                 (0, 0, 1))], "lamp")
+        h, t, a = DECK_HALF, 0.05, DECK_HALF - POST_W
+        zr0, zr1 = zf, RAIL_TOP - 0.01
+        xi0, xi1 = cx - h + t + BELFRY_LIFT, cx + h - t - BELFRY_LIFT
+        yi0, yi1 = cy - h + t + BELFRY_LIFT, cy + h - t - BELFRY_LIFT
+        P += C.quads_part("lamp_belfryrail", [
+            ([(xi0, cy - a, zr0), (xi0, cy + a, zr0), (xi0, cy + a, zr1), (xi0, cy - a, zr1)], (1, 0, 0)),
+            ([(xi1, cy + a, zr0), (xi1, cy - a, zr0), (xi1, cy - a, zr1), (xi1, cy + a, zr1)], (-1, 0, 0)),
+            ([(cx + a, yi0, zr0), (cx - a, yi0, zr0), (cx - a, yi0, zr1), (cx + a, yi0, zr1)], (0, 1, 0)),
+            ([(cx - a, yi1, zr0), (cx + a, yi1, zr0), (cx + a, yi1, zr1), (cx - a, yi1, zr1)], (0, -1, 0))],
+            "lamp")
     # S12 sign lamps over the name board (lenses `lamp_sign<k>`, arms remapped to galv)
     for k, (y, z) in enumerate(SIGN_LAMPS):
         lp, _pt = K.lantern(f"sign{k}", (TW[1], y, z), "+X", kind="wall", h=0.18, w=0.25)
@@ -859,9 +860,23 @@ def build(recipe, opts):
     P += _boxes(C, "bell_beam", [((cx - h + 0.02, cy - 0.07, HEAD_Z[0] + 0.03), (cx + h - 0.02, cy + 0.07, HEAD_Z[0] + 0.17), ())],
                 "trim_white")
     P += C.cyl_part("bell_hanger", (cx, cy, bz1 - 0.02), (cx, cy, HEAD_Z[0] + 0.05), 0.04, "galv", segs=6)
-    P += C.quads_part("lamp_glow", [([(cx - 0.25, cy - 0.25, GLOW_Z), (cx + 0.25, cy - 0.25, GLOW_Z),
-                                      (cx + 0.25, cy + 0.25, GLOW_Z), (cx - 0.25, cy + 0.25, GLOW_Z)],
-                                     (0, 0, -1))], "lamp")
+    if K.FITTINGS.get("version", 0) >= 1:
+        # T87c (Richard item 10, "too bright, and is floating"): the light is a LANTERN hung from the cross beam beside the
+        # bell: a rod from the beam (underside 13.18) into a cone cap, an 8-seg lens 0.18 m across x 0.22 m (0.124 m2 lit,
+        # the scale of a vanilla wall-light lens; the prefab keeps the vanilla house intensity 0.6, prop-emissive-lights.md
+        # section 1.1) and a base plate. The old 0.5 x 0.5 m lit quad floated at 13.10 and the 2.4 m lit floor + balustrade
+        # faces (together 9.0 m2) are gone with it (above). z0 / z1 = LANTERN_Z; every piece overlaps its neighbour by >= 1 cm
+        lz0, lz1 = LANTERN_Z
+        lx = cx + LANTERN_DX
+        P += C.cyl_part("lamp_glow", (lx, cy, lz0 - 0.01), (lx, cy, lz1 + 0.01), 0.09, "lamp", segs=8,
+                        cap0=False, cap1=False)
+        P += C.cyl_part("bell_lanternplate", (lx, cy, lz0 - 0.03), (lx, cy, lz0), 0.11, "ski_black", segs=8)
+        P += C.cyl_part("bell_lanterncap", (lx, cy, lz1), (lx, cy, lz1 + 0.07), 0.12, "ski_black", segs=8, r1=0.03)
+        P += C.cyl_part("bell_lanternrod", (lx, cy, lz1 + 0.05), (lx, cy, HEAD_Z[0] + 0.05), 0.02, "ski_black", segs=6)
+    else:
+        P += C.quads_part("lamp_glow", [([(cx - 0.25, cy - 0.25, GLOW_Z), (cx + 0.25, cy - 0.25, GLOW_Z),
+                                          (cx + 0.25, cy + 0.25, GLOW_Z), (cx - 0.25, cy + 0.25, GLOW_Z)],
+                                         (0, 0, -1))], "lamp")
 
     # ---- windows (kit window_bay; frames remapped to white) ---------------------------
     front = WallRef("+X", gx1)
@@ -935,6 +950,9 @@ def build(recipe, opts):
         P += K.downspout(nm, x, y, zt, nrm, size=0.08, wall_gap=0.06, z_bottom=0.20,
                          shoe_dir="+X")      # fittings v1: the shoe kicks out (nrm points at the wall)
     for k, (x, y) in enumerate(HVAC):
+        if K.FITTINGS.get("version", 0) >= 1:      # T87b: a real rooftop unit (cs2_bldg.rooftop_unit), no galv box
+            P += K.rooftop_unit("ab"[k], x, y, roof_top(x + 0.75), roof_top(x - 0.75), w=1.5, d=1.0, h=0.75)
+            continue
         P += K.box_part(f"hvac_{'ab'[k]}", (x - 0.75, y - 0.5, roof_top(x + 0.75) - 0.05),
                         (x + 0.75, y + 0.5, roof_top(x - 0.75) + 0.75), "galv", drop=("-Z",))
 
@@ -1059,7 +1077,7 @@ WEIGHTS = (("sign_school_face", 1.75), ("sign_meet_face", 1.5), ("emblem_schoolf
 WEATHER = {"intensity": WEATHER_INTENSITY, "overrides": (
     ("carpet_belt", {"role": "pad"}),              # rubber belt: scuffs
     ("carpetrail_", {"role": "paint"}), ("cone_", {"role": "pad", "scale": 0.6}),
-    ("maze_", {"role": "pad", "scale": 0.5}), ("hvac_", {"role": "galv"}),
+    ("maze_", {"role": "pad", "scale": 0.5}), ("hvac_", {"role": "paint"}),   # T87b: painted units, not bare galv
     ("bell_", {"role": "none"}), ("stripe_", {"role": "paint", "scuff": 1.0}))}
 
 

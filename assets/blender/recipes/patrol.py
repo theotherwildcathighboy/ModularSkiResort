@@ -605,12 +605,12 @@ P2_CROSS = (2.20, (-0.70, 2.97))     # +Y slope roof cross: side, plan centre (y
 P2_MAST = (-4.40, 1.30, 3.6, 8.6)    # back gable: 0.14 m outside the rake board (x -4.22)
 P2_MAST_BR = (4.2, 5.0)
 P2_FLAG = (3.55, 4.75, 7.3, (1.2, 0.8))   # deck NE corner: x, y, h (top on grade), cloth
-P2_RACK = (-3.85, -3.15, (3.18,))    # +X wall strip south of the door (u = y). Lean fix: the
+P2_RACK = (-1.75, -1.05, (3.18,))    # +X wall strip NORTH of the door (u = y; T94: was -3.85..-3.15 south, in the way of the door). Lean fix: the
 #                                      bar (was z 2.4, mid-length) is the akja's TOP rest
 #                                      (top z 3.18 on the 3.16-3.20 bar face; the lean-to
 #                                      underside is >= 3.29 over the rack)
 P2_RACK_DEPTH, P2_RACK_BAR = 0.12, 0.04
-P2_AKJA = (-3.5, 82.0, 1.9)          # y, lean, length (M9 "+X"); 82 deg (design 80), 1.9 m:
+P2_AKJA = (-1.40, 82.0, 1.9)         # y, lean, length (M9 "+X"); 82 deg (design 80), 1.9 m:
 #                                      top z 3.18, 0.11 under the lean-to slab at y -3.85
 P2_TOBOGGANS = (("a", 0.55), ("b", 1.35))   # lean fix: x of the two toboggans that leaned on
 #                                      the stair's open side; they lean on the -Y wall
@@ -627,7 +627,7 @@ P2_SPOUT = (-3.6, -4.0)              # downspout pipe line (x, y) on the -Y wall
 #                                      from the gutter outlet passes under the fascia
 P2_WALL_LIGHTS = ((3.55, 3.35), (-0.70, 3.85))   # +X wall (y, z) deck end; +Y wall (x, z)
 P2_VENT = (-2.5, 2.4)                # -Y wall (x, z)
-P2_BENCH = (3.30, 1.0)               # deck (x, y): 0.07 clear of the log face, 0.10 of logpost_2
+P2_BENCH = (3.30, 3.50)               # deck (x, y): T94 moved +Y (to the right facing the front) from y 1.0 so it clears the log pile (y -0.6..2.4); bench 2.12 m long -> y 2.44..4.56, 0.04 clear of the logs, 0.19 of the flag mast (y 4.75)
 # ---- fine-detail step 3d (module docstring) ------------------------------------------------------------
 # the front rack's bar at the kit akja's contact height on the deck (native 75 deg; was 3.18 for the
 # modelled 1.9 m / 82 deg akja); the kit akja's top 3.239 stays 0.05 under the lean-to slab (>= 3.29)

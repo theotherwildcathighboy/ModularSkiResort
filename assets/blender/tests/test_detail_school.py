@@ -259,7 +259,7 @@ def d1_parts(keys, man, ntri):
         assert ntri[f"sign_lesson{k}_post"] == 34, f"D1: lesson pole {k} {ntri[f'sign_lesson{k}_post']} tris"
     sub = man.get("sub_objects") or {}
     objs = sub.get("objects") or []
-    assert len(objs) == len(REC.sub_objects) + 1 == 33, f"D1: sub_objects {len(objs)} (want 32 + sign set)"
+    assert len(objs) == len(REC.sub_objects) + 1 == 27, f"D1: sub_objects {len(objs)} (want 26 + sign set; T87 dropped the 6 picket-fence rows)"
     assert sub.get("target_prefab") == "SkiSchool", sub.get("target_prefab")
     van = [o for o in objs if o.get("kind") != "mod"]
     mod = [o for o in objs if o.get("kind") == "mod"]

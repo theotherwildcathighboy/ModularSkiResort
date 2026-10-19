@@ -450,6 +450,9 @@ def build_l4(recipe, opts):
                    base_z=K.roof_z(uspec, U_RIDGE_X - 0.6, 4.0) - 0.25, mat=STN)
     for k, (x, y, ztop) in enumerate(((8.0 - 0.5, U_Y0 - 0.8, 16.5), (8.0 + 0.5, U_Y0 - 0.8, 16.5),
                                       (U_RIDGE_X, 4.0 - 0.45, 15.5), (U_RIDGE_X, 4.0 + 0.45, 15.5))):
+        if K.FITTINGS.get("version", 0) >= 1:      # T91: black flue liner with a rim and a rain hat, not a white cylinder
+            P += K.chimney_pot(f"u{k}", x, y, ztop - 0.02, ztop + 0.5, r=0.15, segs=12 if fine else 8)
+            continue
         P += K._single(f"flue_u{k}", lambda g, x=x, y=y, z=ztop: g.cyl(
             (x, y, z - 0.02), (x, y, z + 0.5), 0.15, 12 if fine else 8, cap0=False), "plaster")   # 3e: 12-seg
 
