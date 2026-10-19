@@ -403,6 +403,14 @@ SGPOST0_DEG = 68.5
 # ropes drop from 8 to 6 tube segments (-584 tris, 1,168 -> 876 each; a 35 mm rope at 6 sides is
 # indistinguishable at any game distance). The base keeps 8 (it has the budget).
 TRACK_ROPE_SEGS = {"base": 8, "top": 6}
+# T76 (--tiled, docs/research/art/tram-tile-route-plan-2026-10-18.md Q2, Richard 2026-10-18): the base's track ropes
+# drop to the top's 6 sides (-272 tris) so the tiled base fits its 16,000 cap. TILED is set by apply_tiled() from the
+# run's args (main / build_checked), like FINE_DETAIL; flag off reads TRACK_ROPE_SEGS as before.
+TILED = False
+TILED_TRACK_ROPE_SEGS = 6
+# T76 R2 (parent's call on D4, 2026-10-18): under --tiled the unique bake is the LOD1 / LOD2 far set (seen past ~250 m);
+# its weathering ladder starts lower so a 1024 far set (the top) finds a budget-clean step instead of a 2048 atlas
+TILED_FAR_WEATHER_STEPS = (0.10, 0.15, 0.20, 0.25, 0.30, 0.35)
 # Detail pass 1: the dressing (cs2_liftdress builders + painted labels). False rebuilds the 1c
 # geometry plus the N1 / rope changes (tests compare against it).
 DETAIL1 = True
@@ -2302,7 +2310,8 @@ def build_base_saddles(k):
         pts = [(xl, TRACK_Y, STUB_Z)] + [(xl, cy + R * math.sin(a), cz + R * math.cos(a))
                                          for a in angs]
         pts.append((xl, 12.50, ze + t * math.sin(pe)))
-        k.tube(f"rope_track_{tag}", _dedupe(pts), TRACK_ROPE_R, "rope", segs=TRACK_ROPE_SEGS["base"])
+        k.tube(f"rope_track_{tag}", _dedupe(pts), TRACK_ROPE_R, "rope",
+               segs=TILED_TRACK_ROPE_SEGS if TILED else TRACK_ROPE_SEGS["base"])
     zp0, zp1 = 0.35, 0.85
     yb = min(cy + math.sqrt(rb ** 2 - (z - cz) ** 2) for z in (zp0, zp1))
     k.box("sportal_beam", -6.85, 6.85, yb - 0.50, yb - 0.02, zp0, zp1, "galv")
@@ -7500,11 +7509,19 @@ def apply_fine(args):
     return FINE_DETAIL
 
 
+def apply_tiled(args):
+    """T76: TILED follows the run's own args (--tiled), every run (main / build_checked)."""
+    global TILED
+    TILED = bool(getattr(args, "tiled", False))
+    return TILED
+
+
 def build_checked(argv, inject=None):
     """Tests: parse `argv`, clear, assemble (with an optional violation injected) and run the
     contract stage. Returns (t, win, table, report)."""
     args = parse_args(argv)
     apply_fine(args)
+    apply_tiled(args)
     clear_scene()
     t, table, _src, _meta = assemble(args.role, args, bool(args.finish), inject=inject)
     report = {"role": args.role, "wheels": bool(args.wheels) if args.role == "top" else None}
@@ -7547,7 +7564,20 @@ def parse_args(argv=None):
                     help="nitpick B3: with --closeups, render only the shots whose name starts with PREFIX (nb3_)")
     ap.add_argument("--no-fine", dest="no_fine", action="store_true",
                     help="fine-detail step 3c off: the approved revision-2 station byte for byte (FINE_DETAIL)")
+    # T76 (docs/research/art/tram-tile-route-plan-2026-10-18.md; tram_tilesheet.py): off = byte-identical
+    ap.add_argument("--tiled", action="store_true",
+                    help="T76: LOD0 on the station's own swatch sheet (the base folder owns it, the top shares it), "
+                         "glass to _Gls, track ropes 6 sides; LOD1 / LOD2 = today's bake as a far set (needs --finish)")
+    ap.add_argument("--sheet-tex", type=int, default=4096, choices=(2048, 4096), help="tiled: station sheet size")
+    ap.add_argument("--far-tex", type=int, default=None, choices=(512, 1024, 2048, 4096),
+                    help="tiled: the LOD1 / LOD2 far set atlas (default base 2048, top 1024)")
+    ap.add_argument("--sheet-dir", default=None,
+                    help="tiled: the sheet workspace (default <out>/_SkiTramSheet<letter>, beside the asset folders)")
+    ap.add_argument("--tiled-step", type=int, default=0, choices=(0, 1, 2),
+                    help="tiled: the fallback ladder (plan 3.3) steps 1..N applied (0 = the plan's set)")
     a = ap.parse_args(argv)
+    if a.tiled and not a.finish:
+        ap.error("--tiled needs --finish (the sheet LOD0 is a finished build)")
     if a.atlas is None:
         a.atlas = "auto" if a.role == "base" else "2048"
     if a.skirt and a.role != "top":
@@ -7585,6 +7615,7 @@ def main(argv=None):
                            "blender --background --factory-startup --python tram_station.py -- ...")
     args = parse_args(argv)
     apply_fine(args)                        # fine-detail step 3c: every run follows its own args (--no-fine)
+    apply_tiled(args)                       # T76: every run follows its own args (--tiled)
     clear_scene()
     role = args.role
     name = cs2_asset.validate_asset_name(args.name or NAMES[role])
@@ -7605,6 +7636,14 @@ def main(argv=None):
         return {"area_m2": area}
 
     win, base_report, n0 = check_stage(t, table, name, role, args, report)
+    gls = lod0_src = TT = None
+    if args.tiled:
+        # T76: the hall glass leaves the main mesh (_Gls, DECISIONS 281); the un-baked copy becomes the sheet LOD0
+        if args.preview or args.review is not None or args.closeups:
+            raise RuntimeError("--tiled R1 builds no previews / review pack / close-ups (T76 round 2)")
+        import tram_tilesheet as TT
+        gls, lod0_src = TT.split_glass_and_copy(t, name, table)
+        report["T9_panes_m"] = TT.pane_thickness(gls, table)
     kind = "building"
     asset_dir = os.path.join(os.path.abspath(args.out), name) if args.export else \
         os.path.join(tempfile.mkdtemp(prefix="tramstation_"), name)
@@ -7627,7 +7666,11 @@ def main(argv=None):
                                    detail_specs=detail_specs(role),
                                    hero=LD.TRAM_SHARE_HERO, uv_layer="UVMap",
                                    ground_band=(TRAM_WEATHER[role]["ground_z"], 0.60))
-    if not finish:
+    if args.tiled:
+        A = int(args.far_tex or TT.FAR_TEX[role])          # T76: the unique bake is the LOD1 / LOD2 far set
+        atlas_rule.update(chosen=A, far_set=True)
+        report["far_A"] = A
+    elif not finish:
         A = 512 if args.atlas in ("auto", "2048", "4096") else int(args.atlas)
         atlas_rule["chosen"] = A
     elif args.atlas == "auto":
@@ -7650,7 +7693,8 @@ def main(argv=None):
         # every painted label / dial protected 1:1 by its exact name (stamped)
         roles = LD.lift_mat_roles(t.data, LD.TRAM_MAT_ROLES)
         stamped = sorted(n for n in table if n.startswith(LABEL_PREFIXES))
-        compose = SteppedWeather(compose, lambda s: weather_spec(name, role, s), LD.INTENSITY_STEPS,
+        compose = SteppedWeather(compose, lambda s: weather_spec(name, role, s),
+                                 (TILED_FAR_WEATHER_STEPS + LD.INTENSITY_STEPS) if args.tiled else LD.INTENSITY_STEPS,
                                  mat_roles=roles, detail_specs=detail_specs(role), stamped=stamped,
                                  compose_contact=False)
     t.data.uv_layers.active = t.data.uv_layers["UVMap"]
@@ -7676,7 +7720,9 @@ def main(argv=None):
                    for nm, d in sorted(lab.items())
                    if min(d["px_per_m"], d["u_px_per_m"], d["v_px_per_m"]) < 0.95 * d["target_px_per_m"]
                    or d["px_per_m"] < d["target_px_per_m"] - 1e-6]
-            if low:
+            if low and args.tiled:
+                report["far_set_L1_low"] = low          # T76: the far set's labels are seen past the LOD1 switch only
+            elif low:
                 _fail("L1", "labels under their px/m target on the shipped layout: " + "; ".join(low))
         weather = None
         if isinstance(compose, SteppedWeather):
@@ -7702,7 +7748,11 @@ def main(argv=None):
               + ", ".join(f"{nm} {d['px_per_m']}" for nm, d in sorted(lab.items()))
               + (f"; weathering {weather['intensity']} ({[(r['intensity'], r['ok']) for r in weather['ladder']]})"
                  if weather else "; weathering off"))
-    dens = cs2_uv.face_px_per_m(t.data, t.data.uv_layers[cs2_uv.UNIQUE_LAYER], A)
+    far, A_lod0, n_src = t, A, n0
+    if args.tiled:
+        t, far = TT.tiled_lod0(sys.modules[__name__], far, lod0_src, role, name, args, asset_dir, bake, table, report)
+        A_lod0, n_src, n0 = report["tiled"]["sheet"]["A"], cs2_asset.tri_count(far), cs2_asset.tri_count(t)
+    dens = cs2_uv.face_px_per_m(t.data, t.data.uv_layers[cs2_uv.UNIQUE_LAYER], A_lod0)
     shipped_med = area_weighted_median(dens, cs2_uv.face_world_areas(t.data))
     atlas_rule["shipped_median"] = round(shipped_med, 2)
     if finish and shipped_med < args.min_ppm:
@@ -7730,14 +7780,16 @@ def main(argv=None):
 
     cs2_asset.export_fbx(t, os.path.join(asset_dir, f"{name}.fbx"))
     cs2_submesh.export_submeshes(win, name, "Win", asset_dir, lods=(1, 2) if args.lods else ())
+    if gls is not None:
+        cs2_submesh.export_submeshes(gls, name, "Gls", asset_dir, lods=(1, 2) if args.lods else ())
 
     # -- LOD chain (C9, C10) -------------------------------------------------------------------
     lods = []
     tris = {0: n0}
     if args.lods:
-        l1 = min(LOD1_TARGET[role], int(0.45 * n0), survivor_tris(t, table, LOD1_DELETE))
-        l2 = min(LOD2_TARGET[role], survivor_tris(t, table, LOD2_DELETE[role]))
-        lods = cs2_asset.make_lod_chain(t, name, targets=(l1, l2),
+        l1 = min(LOD1_TARGET[role], int(0.45 * n_src), survivor_tris(far, table, LOD1_DELETE))
+        l2 = min(LOD2_TARGET[role], survivor_tris(far, table, LOD2_DELETE[role]))
+        lods = cs2_asset.make_lod_chain(far, name, targets=(l1, l2),
                                         delete_prefixes=(LOD1_DELETE, LOD2_DELETE[role]),
                                         shade_angle=SHADE_ANGLE)
         for i, lod in enumerate(lods, start=1):
@@ -7774,8 +7826,13 @@ def main(argv=None):
                   f"({rep_l['views']} views), worst " + (f"{rep_l['parts'][0]['part']} {rep_l['parts'][0]['back']}"
                                                        if rep_l["parts"] else "none")
                   + f" (<= {rep_l['max_per_part']}); top y {report['lod_top_y'][i]} (LOD0 {report['bounds']['max'][1]})")
-    cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)))
+    if args.tiled:
+        TT.write_settings(asset_dir, name, len(lods), report["tiled"])
+    else:
+        cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)))
     batches = sum(1 + (1 if (lvl == 0 or args.lods) else 0) + 1 for lvl in range(len(lods) + 1))
+    if gls is not None:
+        batches += len(lods) + 1                         # T76: the _Gls sub-mesh on every level
     if batches > BATCH_CAP:
         _fail("batches", f"{batches} > {BATCH_CAP}")
     report["batches"] = batches
@@ -7835,7 +7892,8 @@ def main(argv=None):
         "density_worst": [{"part": table[p - 1] if 0 < p <= len(table) else p,
                            "source_px_per_m": round(s, 1), "shipped_px_per_m": round(d, 1)}
                           for p, s, d in density[:8]],
-        "submeshes": ["Win"], "win_cells": report["C11"], "batches": report["batches"],
+        "submeshes": ["Win"] + (["Gls"] if gls is not None else []), "win_cells": report["C11"],
+        "batches": report["batches"],
         "contracts": {k_: report[k_] for k_ in ("C1", "C3", "C4", "C5", "C7", "C8", "C13",
                                                  "C13_unique")},
         "detail1": detail1,
@@ -7857,6 +7915,11 @@ def main(argv=None):
                                 if k_ in ("wrap_deg", "strand_deg", "length_m")}},
         "carriers_json": carriers["drift"] if carriers else "unread",
         "prefab_contract": contract,
+        **({"tiled": dict(report["tiled"], panes_m=report.get("T9_panes_m"), far_A=A,
+                          far_set_L1_low=report.get("far_set_L1_low"),
+                          lod_glazepanel_parts={i: sum(1 for n in v if n.startswith("glazepanel_"))
+                                                for i, v in (report.get("lod_parts") or {}).items()})}
+           if args.tiled else {}),
     })
     # kit colour variants (2026-10-12): a shipping export stages the variants its kit rows name
     import dress_kit
@@ -7864,12 +7927,14 @@ def main(argv=None):
     if not args.no_validate:
         t.name, t.data.name = name + "Src", name + "Src"
         win.name, win.data.name = name + "WinSrc", name + "WinSrc"
+        if gls is not None:
+            gls.name, gls.data.name = name + "GlsSrc", name + "GlsSrc"
         for i, lod in enumerate(lods, start=1):
             lod.name, lod.data.name = f"{name}LOD{i}Src", f"{name}LOD{i}Src"
         findings = cs2_validate.validate_asset_folder(asset_dir, name, {
             "kind": kind, "lod0_cap": LOD0_CAP[role], "lod2_cap": min(LOD2_CAP[role], LOD2_CLI_CAP),
             "hero": True, "expected_lods": tuple(range(1, len(lods) + 1)),
-            "expected_submeshes": ("Win",), "max_texture": 4096})
+            "expected_submeshes": ("Win",) + (("Gls",) if gls is not None else ()), "max_texture": 4096})
         report["validate"] = (sum(1 for f in findings if f[0] == "ERROR"),
                               sum(1 for f in findings if f[0] == "WARN"))
         print(f"[tram] validate_asset_folder: {report['validate'][0]} errors, "

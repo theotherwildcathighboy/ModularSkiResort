@@ -67,6 +67,13 @@ by its skeptic MC1-MC11; build report build/detail-pass-1-lifts-tram.md).
       of w = 1, 20.78 -> 20.36 px/m, with the lattice kit sharing its UV islands), and the below-grade classes (hidden on a
       summit, seen on a cliff) are floored -5 % of the measured export (found 2.6, lattice members 9.7, pad footings 6.7);
       they are off the 14 px/m starving list by tram_station.DENSITY_BELOW.
+  T76 round 1 (docs/research/art/tram-tile-route-plan-2026-10-18.md section 6.2; tram_station.py --tiled + tram_tilesheet.py):
+      when TRAM_SHIPPED_DIR holds a --tiled export (its manifests carry a "tiled" block) T1-T13 run and the gates that
+      measure the old unique LOD0 atlas (D2 emissive, D3 labels, D10 floors) are replaced by them (T7 / T8 / T2e); D6
+      reads the far-set atlas. T1 (flag off byte-identical): the flag-off finish assemble's geometry_hash == the HEAD
+      883d134 pins T1_PINS, and with TRAM_FLAGOFF_DIR + TRAM_HEAD_DIR set, every FBX / PNG / settings.json sha1 of the
+      two flag-off exports' manifests is equal. T13 compares the tiled manifests with the flag-off export
+      (TRAM_FLAGOFF_DIR). TRAM_TILED_ONLY=1 runs T1-T13 alone (no in-process D / F / NB checks).
 Exit 1 on any failure.
 """
 import hashlib
@@ -91,6 +98,8 @@ REPO = os.path.dirname(os.path.dirname(LIB))
 SHIPPED = os.environ.get("TRAM_SHIPPED_DIR") or os.path.join(REPO, "assets", "import", "stations", "tram", "A")
 # (TRAM_SHIPPED_DIR: read the manifests / textures of a scratch export instead of the imported letter folder, to
 # verify an unimported round before Richard's export; unset = the shipped folder as before)
+# TRAM_LETTER (T76 R3): the generation letter of the asset names inside TRAM_SHIPPED_DIR (default: tram_station.NAMES' A)
+SHIPPED_NAMES = {r: n[:-1] + os.environ.get("TRAM_LETTER", n[-1]) for r, n in ts.NAMES.items()}
 FAILS = []
 
 
@@ -102,13 +111,13 @@ def check(cond, msg):
 
 
 def manifest(role):
-    name = ts.NAMES[role]
+    name = SHIPPED_NAMES[role]
     with open(os.path.join(SHIPPED, name, f"{name}.manifest.json"), encoding="utf-8") as fh:
         return json.load(fh)
 
 
 def png(role, suffix):
-    name = ts.NAMES[role]
+    name = SHIPPED_NAMES[role]
     return cs2_validate.load_png_pixels(os.path.join(SHIPPED, name, f"{name}_{suffix}.png"))
 
 
@@ -385,7 +394,8 @@ def d6_frozen():
         check(hosted == want, f"D6 {role}: hosted {hosted}")
         man = manifest(role)
         check(man["win_cells"] == {"base": [6, 8, 17, 18], "top": [7]}[role]
-              and man["atlas_px"] == {"base": 4096, "top": 2048}[role],
+              and man["atlas_px"] == ((man["tiled"]["far_A"] if man.get("tiled") else None)
+                                      or {"base": 4096, "top": 2048}[role]),
               f"D6 {role}: _Win {man['win_cells']}, atlas {man['atlas_px']}")
         tris = {int(k_): v for k_, v in man["tris"].items()}
         check(tris[0] <= ts.LOD0_CAP[role] and tris[1] <= 0.5 * tris[0] and tris[2] <= ts.LOD2_CLI_CAP
@@ -807,20 +817,393 @@ def nb_checks():
           f"PLACEHOLDER, the ramps {'BUILT (nitpick B2)' if ts.RAMPS else 'STOPPED'}; the top carries no block")
 
 
+# --------------------------------------------------------------------------------------
+# T76 round 1: the tiled export (plan section 6.2)
+# --------------------------------------------------------------------------------------
+# T1 pins: tram_station.geometry_hash of the flag-off FINISH assemble (fine detail on) at HEAD 883d134, measured
+# 2026-10-18 by the R1 build (docs/research/art/tram-tile-build-1-2026-10-18.md): (hash, vertices, polygons)
+T1_PINS = {"base": ("dcb4f2e726e622df", 10418, 8586), "top": ("b136b9e10e1af3c9", 8003, 7103)}
+T2_PLAN = {"base": 15896, "top": 13586}          # the plan's probe-8 numbers (section 3.2)
+STRIP_ONLY = ("tram_steel_b", "tram_steel_t", "tram_galv")
+NEVER_STRIP = ("tram_grate", "tram_stone", "tram_render", "tram_timber")
+
+
+def tiled():
+    """True when TRAM_SHIPPED_DIR holds a --tiled export (both manifests carry the tiled block)."""
+    try:
+        return all(manifest(r).get("tiled") for r in ("base", "top"))
+    except OSError:
+        return False
+
+
+def _files(folder, name):
+    with open(os.path.join(folder, name, f"{name}.manifest.json"), encoding="utf-8") as fh:
+        return {f: d["sha1"] for f, d in json.load(fh)["files"].items()}
+
+
+def fbx_equiv(pa, pb, tol=1e-6):
+    """(equal, note) of two FBX exports from DIFFERENT processes: every element identical except (a) the tangent /
+    binormal arrays, ulp noise <= tol (the mikktspace pass, test_tram_station_determinism.fbx_equal_except_tspace),
+    (b) the object UIDs (int64 props: Blender's exporter derives them from Python's per-process randomised str hash),
+    which must map one-to-one, and (c) CreationTime / FileId. Measured R1: the zlib-compressed tangent arrays make
+    the files' bytes and lengths differ while everything else is equal."""
+    import io_scene_fbx.parse_fbx as pf
+
+    def flat(el, path, out):
+        key = path + "/" + el.id.decode(errors="replace")
+        out.append((key, el.id, el.props))
+        for i, c in enumerate(el.elems):
+            flat(c, f"{key}[{i}]", out)
+    trees = []
+    for p in (pa, pb):
+        out = []
+        for i, e in enumerate(pf.parse(p)[0].elems):
+            flat(e, f"[{i}]", out)
+        trees.append(out)
+    if len(trees[0]) != len(trees[1]):
+        return False, "element counts differ"
+    uid, worst = {}, 0.0
+    for (ka, ida, pa_), (kb, _idb, pb_) in zip(*trees):
+        if ka != kb or len(pa_) != len(pb_):
+            return False, f"structure differs at {ka}"
+        for x, y in zip(pa_, pb_):
+            if hasattr(x, "tobytes") or hasattr(x, "typecode"):
+                ax, ay = np.asarray(x, dtype=np.float64), np.asarray(y, dtype=np.float64)
+                if ax.shape != ay.shape:
+                    return False, f"array shape differs at {ka}"
+                if ida in (b"Tangents", b"Binormals"):
+                    worst = max(worst, float(np.abs(ax - ay).max()) if ax.size else 0.0)
+                    if worst > tol:
+                        return False, f"{ka} differs by {worst:.2e}"
+                elif not np.array_equal(ax, ay):
+                    return False, f"{ka} differs"
+            elif x != y and ka.split("/")[-1] not in ("CreationTime", "FileId"):
+                if isinstance(x, int) and isinstance(y, int) and abs(x) > 2 ** 20:
+                    if uid.setdefault(x, y) != y:
+                        return False, f"{ka}: UID mapping inconsistent"
+                    continue
+                return False, f"{ka} differs ({x!r} vs {y!r})"
+    if len(set(uid.values())) != len(uid):
+        return False, "UID mapping not one-to-one"
+    return True, f"{len(uid)} UIDs remapped, tangent / binormal noise {worst:.1e}"
+
+
+def _fbx_same_but_uid(pa, pb):
+    if fbx_equiv(pa, pb)[0]:
+        return True
+    if os.path.basename(pa) in T1_VERTEX_ORDER:
+        return _fbx_vertex_multiset(pa) == _fbx_vertex_multiset(pb)
+    return False
+
+
+# HEAD 883d134 itself is not run-to-run deterministic here (R1, 2026-10-18): two HEAD exports of the top differ in the
+# VERTEX ORDER of the decimated LOD2 (77 of 924 coordinates moved, same counts, same coordinate sum); compared as a
+# vertex multiset + polygon count instead
+T1_VERTEX_ORDER = ("SkiTramTopStationA_LOD2.fbx",)
+
+
+def _fbx_vertex_multiset(p):
+    import io_scene_fbx.parse_fbx as pf
+    out = []
+
+    def walk(el):
+        if el.id in (b"Vertices", b"PolygonVertexIndex"):
+            out.append((el.id, np.asarray(el.props[0], np.float64)))
+        for c in el.elems:
+            walk(c)
+    for e in pf.parse(p)[0].elems:
+        walk(e)
+    v = [a for k_, a in out if k_ == b"Vertices"][0].reshape(-1, 3)
+    n_poly = int((np.asarray([a for k_, a in out if k_ == b"PolygonVertexIndex"][0]) < 0).sum())
+    return (n_poly, np.round(v[np.lexsort(v.T[::-1])], 6).tobytes())
+
+
+def t1_flag_off():
+    import tram_tilesheet  # noqa: F401  (imported here only: the flag-off build never imports it)
+    for role in ("base", "top"):
+        args = ts.parse_args(["--role", role, "--finish"])
+        ts.apply_fine(args)
+        ts.apply_tiled(args)
+        ts.clear_scene()
+        t, _tb, _s, _m = ts.assemble(role, args, True)
+        h = ts.geometry_hash(t)
+        pin = T1_PINS[role]
+        check(pin is not None and tuple(h) == tuple(pin), f"T1 {role}: flag-off finish geometry_hash {h} == HEAD 883d134 "
+                                                         f"pin {pin} (TILED {ts.TILED}, base rope segs "
+                                                         f"{ts.TRACK_ROPE_SEGS['base']})")
+    off, head = os.environ.get("TRAM_FLAGOFF_DIR"), os.environ.get("TRAM_HEAD_DIR")
+    if off and head:
+        for role in ("base", "top"):
+            name = ts.NAMES[role]
+            a, b = _files(off, name), _files(head, name)
+            diff = sorted(f for f in set(a) | set(b) if a.get(f) != b.get(f)
+                          and not (f.endswith(".fbx") and _fbx_same_but_uid(os.path.join(off, name, f),
+                                                                             os.path.join(head, name, f))))
+            check(not diff and len(a) >= 10, f"T1 {role}: flag-off export == HEAD export, {len(a)} files "
+                                             f"(FBX / PNG / settings.json sha1), differ {diff}")
+    else:
+        print("[detail-tram] note T1: TRAM_FLAGOFF_DIR / TRAM_HEAD_DIR unset: export file hashes not compared")
+
+
+def t_tiled():
+    import tram_tilesheet as TT
+    mans = {r: manifest(r) for r in ("base", "top")}
+    T = {r: m["tiled"] for r, m in mans.items()}
+    for role in ("base", "top"):
+        man, td = mans[role], T[role]
+        tris = {int(k_): v for k_, v in man["tris"].items()}
+        # T2
+        check(tris[0] == td["lod0_tris"] <= ts.LOD0_CAP[role],
+              f"T2 {role}: tiled LOD0 {tris[0]} tris <= cap {ts.LOD0_CAP[role]} (headroom {ts.LOD0_CAP[role] - tris[0]}; "
+              f"plan probe 8 {T2_PLAN[role]}, pre-tile {td['lod0_tris_pretile']}, ladder step {td['step']})")
+        # T3
+        check(td["uv_outside_region"] == {}, f"T3 {role}: every face inside its swatch / palette / label rect "
+                                             f"{td['uv_outside_region']}")
+        # T4
+        t4 = td.get("T4") or {}
+        ok4 = ("C6p" in t4) if role == "top" else ("C6" in t4)
+        check(ok4, f"T4 {role}: {'C6p plinth band' if role == 'top' else 'C6 engine base'} on the tiled LOD0 "
+                   f"{json.dumps(t4)[:200]}")
+        if role == "top":
+            pts = _fbx_points(os.path.join(SHIPPED, SHIPPED_NAMES[role], f"{SHIPPED_NAMES[role]}.fbx"))
+            near = int((np.abs(pts[:, 1]) < 0.01).sum())
+            check(near == 0, f"T4 top: {near} LOD0 vertices within 0.01 m of y 0 (exported FBX, {len(pts)} vertices)")
+        # T5
+        tiles = td["sheet"]["tiles"]
+        sb = td["strip_by_key"]
+        bad5 = {k_: v for k_, v in sb.items() if abs(v["across_p50"] - tiles[k_]["ppm"]) > 0.10 * tiles[k_]["ppm"]
+                or v["along_p10"] < 14.0}
+        ri, routes = td["route_info"], td["routes"]
+        strips = set(td["strip_parts"])
+        missed = sorted(nm for nm, d in ri.items() if d["keys"][0] in STRIP_ONLY and len(d["keys"]) == 1
+                        and d["long_m"] > d["T"] and d["short_m"] <= 0.9 * d["T"] and nm not in strips)
+        wrong = sorted(nm for nm in strips if ri[nm]["keys"][0] in NEVER_STRIP
+                       or (ri[nm]["keys"][0] == "tram_roof" and not nm.startswith("fascia_")))
+        check(not bad5 and not missed and not wrong and strips,
+              f"T5 {role}: {len(strips)} strip parts; across p50 within 10 % of the swatch, along p10 >= 14 "
+              f"{ {k_: (v['across_p50'], v['along_p10']) for k_, v in sb.items()} } (bad {bad5}); members missed {missed}; "
+              f"wrong keys {wrong}")
+        # T6
+        nw = {k_: v for k_, v in td["open_edges_new_m"].items() if k_ not in td["open_edges_new_ground_m"]}
+        c18 = td.get("C18_tiled") or {}
+        check(not nw, f"T6 {role}: no new open edges off the ground band (T-junction closure) {nw}; ground band "
+                      f"{td['open_edges_new_ground_m']} (tile_mesh leaves ground T-junctions by design)")
+        check(c18.get("ok") is True, f"T6 {role}: C18 walk-around on the tiled LOD0 (glass out) "
+                                     f"{c18.get('back')} back of {c18.get('hits')} hits {c18.get('error', '')[:300]}")
+        # T7
+        low, wlow = {}, {}
+        labc = {ts.part_kind(g) for g in td["label_groups"]}
+        for c, by in td["ppm_by_class"].items():
+            if c in labc:
+                continue                  # labels / dials / pictograms: the label gate below
+            for k_, d in by.items():
+                if k_ not in tiles:
+                    continue
+                # plan 6.2 T7: >= 100 px/m per class (strips: across); box projection on an oblique face reads
+                # cos(angle) of the swatch (6-sided posts 186 of 200), so the gate is the class p10, the min reported
+                v = d["strip"]["across_p50"] if d.get("strip") else d["p10"]
+                if v < 100.0:
+                    low[f"{c}/{k_}"] = (d["min"], d["p10"], tiles[k_]["ppm"])
+                if d.get("w_p50") is not None and d["w_p50"] < 0.95 * tiles[k_ + "~w"]["ppm"]:
+                    wlow[f"{c}/{k_}~w"] = (d["w_p50"], tiles[k_ + "~w"]["ppm"])
+        pal = sorted(f"{c}/{k_}" for c, by in td["ppm_by_class"].items() for k_ in by
+                     if k_ not in tiles and k_ in TT.SWATCHES)
+        check(not low and not wlow and not pal and td["tile_mesh"]["flat_detail_tris"] == 0,
+              f"T7 {role}: every class on a swatch >= 100 px/m (clean area p10; strips across), interior included; "
+              f"weathered pieces at their cell (half); no tiled key on a palette "
+              f"cell: low {low}, weathered low {wlow}, palette {pal}, flat-detail tris {td['tile_mesh']['flat_detail_tris']}")
+        today = {nm: d["px_per_m"] for nm, d in (manifest_shipped(role).get("detail1") or {}).get("labels", {}).items()}
+        lab_low = {}
+        for g, d in td["label_px"].items():
+            tgt = td["label_targets"][g]
+            floor = min(tgt, today.get(g, tgt)) if g.startswith("label_") else min(tgt, 58.9)
+            got = min(d["u_px_per_m"] or 0, d["v_px_per_m"] or 0)
+            if got < 0.95 * floor:
+                lab_low[g] = (got, floor)
+        check(not lab_low, f"T7 {role}: labels / dials / pictograms >= min(target, today) on the sheet "
+                           f"{ {g: (d['u_px_per_m'], d['v_px_per_m']) for g, d in td['label_px'].items()} } (low {lab_low})")
+        # T8
+        ctl = td["ctl_by_key"]
+        want8 = {"tram_steel_b": (1, 0, 0), "tram_steel_t": (1, 0, 0), "tram_hut_clad": (1, 0, 0), "tram_roof": (0, 1, 0),
+                 "trim": (0, 0, 1), "wheel": (0, 1, 0)}
+        bad8 = {}
+        for k_, v in ctl.items():
+            if k_ == "tram_gate_perf":
+                if not (v[2] >= 0.70 and v[0] < 0.01 and v[1] < 0.01):
+                    bad8[k_] = v
+            elif k_ in want8:
+                if any(abs(a - b) > 0.05 for a, b in zip(v, want8[k_])):
+                    bad8[k_] = v
+            elif k_ in tiles and max(v) > 0.01:
+                bad8[k_] = v
+        check(not bad8 and ts.TINT == TINT_HEAD, f"T8 {role}: ControlMask at face centroids {ctl} (bad {bad8}); TINT "
+                                                 f"unchanged")
+        # T9
+        files = set(os.listdir(os.path.join(SHIPPED, SHIPPED_NAMES[role])))
+        nm_ = SHIPPED_NAMES[role]
+        gls = {f"{nm_}_Gls.fbx", f"{nm_}_LOD1_Gls.fbx", f"{nm_}_LOD2_Gls.fbx"}
+        thin = {k_: v for k_, v in (td.get("panes_m") or {}).items() if v < 0.06 - 1e-6}
+        lg = td.get("lod_glazepanel_parts") or {}
+        check((gls <= files if role == "base" else not (gls & files)) and td["glazepanel_parts_main"] == 0
+              and not any(lg.values()) and not thin and man["win_cells"] == manifest_shipped(role)["win_cells"],
+              f"T9 {role}: _Gls files {sorted(gls & files)}, glazepanel parts in the main LOD0 {td['glazepanel_parts_main']} / "
+              f"LOD1-2 {lg}, panes under 6 cm {thin}, _Win cells {man['win_cells']}")
+        # T10
+        with open(os.path.join(SHIPPED, nm_, "settings.json"), encoding="utf-8") as fh:
+            st = json.load(fh)
+        sh = st.get("sharedAssets", {})
+        own = SHIPPED_NAMES["base"]
+        want_lod0 = {} if role == "base" else {f"{nm_}_{m}.png": f"../{own}/{own}_{m}.png" for m in TT.MAPS}
+        lod0_keys = {k_: v for k_, v in sh.items() if "_LOD" not in k_}
+        lod_ok = all(sh.get(f"{nm_}_LOD1_{m}.png") == f"{nm_}_LOD1_{m}.png" and
+                     sh.get(f"{nm_}_LOD2_{m}.png") == f"{nm_}_LOD1_{m}.png" for m in TT.MAPS[:4])
+        far_ok = all(f"{nm_}_LOD1_{m}.png" in files for m in TT.MAPS[:4]) and f"{nm_}_Emissive.png" not in files \
+            if role == "top" else all(f"{nm_}_LOD1_{m}.png" in files for m in TT.MAPS[:4])
+        check(tris[1] <= 0.5 * tris[0] and tris[2] <= ts.LOD2_CLI_CAP and td["far_A"] == TT.FAR_TEX[role]
+              and lod0_keys == want_lod0 and lod_ok and far_ok and st.get("LOD1") == {"mode": "Skip"},
+              f"T10 {role}: LOD1 {tris[1]} <= 50 % of {tris[0]}, LOD2 {tris[2]} <= {ts.LOD2_CLI_CAP}, far set "
+              f"{td['far_A']}, settings LOD0 {lod0_keys or 'own maps (owner)'}, LOD1 identity / LOD2 -> LOD1 {lod_ok}, "
+              f"far maps present {far_ok}")
+    # T11 (pure layout, both roles one sheet)
+    lay = {r: TT.sheet_layout(r, list(T[r]["sheet"]["palette"]), T[r]["sheet"]["A"], T[r]["step"]) for r in T}
+    check(all(not TT.check_layout(l_) for l_ in lay.values()) and T["base"]["sheet"]["hash"] == T["top"]["sheet"]["hash"]
+          == lay["base"]["hash"] and T["base"]["sheet"]["tiles"] == T["top"]["sheet"]["tiles"],
+          f"T11: layout clean {[TT.check_layout(l_) for l_ in lay.values()]}, one sheet hash "
+          f"{T['base']['sheet']['hash']} / {T['top']['sheet']['hash']} (rebuilt {lay['base']['hash']}), one T per swatch")
+    # T12: an in-process re-mesh of each role (no bake) == the export's LOD0
+    for role in ("base", "top"):
+        h = _remesh_hash(role, T[role]["step"])
+        check(h == T[role]["lod0_hash"], f"T12 {role}: in-process tiled LOD0 {h} == the export's {T[role]['lod0_hash']}")
+    # T13: the contracts are the flag-off export's (geometry differs only by cuts, glass and the base ropes)
+    off = os.environ.get("TRAM_FLAGOFF_DIR")
+    if off:
+        for role in ("base", "top"):
+            with open(os.path.join(off, ts.NAMES[role], f"{ts.NAMES[role]}.manifest.json"), encoding="utf-8") as fh:
+                m0 = json.load(fh)
+            m1 = mans[role]
+            keys13 = ("prefab_contract", "C15", "C17", "contracts", "fine_detail", "win_cells", "nitpick_b2", "nitpick_b3")
+            n0, n1 = _t13_norm(m0, role), _t13_norm(m1, role)
+            diff = [k_ for k_ in keys13 if json.dumps(n0.get(k_), sort_keys=True) != json.dumps(n1.get(k_), sort_keys=True)]
+            c20 = json.dumps(m0["rev2"]["C20"], sort_keys=True) == json.dumps(m1["rev2"]["C20"], sort_keys=True)
+            check(not diff and c20,
+                  f"T13 {role}: {keys13} + C20 equal the flag-off export after the by-design fields (T13_BY_DESIGN) "
+                  f"(differ {diff}); C18 LOD0 back {m0['rev2']['C18']['LOD0']['back']} -> "
+                  f"{m1['rev2']['C18']['LOD0']['back']}, C19 pairs {m0['rev2']['C19']['pairs']} -> {m1['rev2']['C19']['pairs']}")
+    else:
+        print("[detail-tram] note T13: TRAM_FLAGOFF_DIR unset: contracts not compared with a flag-off export")
+
+
+# T13: the fields the tiled build changes BY DESIGN (R1 measured, build note section 9): the atlas rule (the unique bake
+# is the far set: chosen 2048 / 1024, shipped median = the sheet), the LOD switch table (LOD0 tris), the per-family
+# LOD0 tris of the nitpick blocks (tile cuts), the C13 label deviations (upright on the sheet: <= 0.02 holds), and on the
+# base C15's not-walkable REPORT entry ctcornice (the 6-sided track ropes alone drop it: measured flag off + ropes 6;
+# C15 passes either way)
+T13_BY_DESIGN = {"prefab_contract": ("atlas_rule", "lod_switch_m"), "nitpick_b2": ("added_tris_lod0", "added_tris_lod0_total"),
+                 "nitpick_b3": ("tris_lod0", "tris_lod0_total")}
+
+
+def _t13_norm(m, role):
+    out = {}
+    for k_, v in m.items():
+        if isinstance(v, dict):
+            v = {a: b for a, b in v.items() if a not in T13_BY_DESIGN.get(k_, ())}
+        out[k_] = v
+    c = out.get("contracts")
+    if c:
+        c = dict(c)
+        for lab in ("C13", "C13_unique"):
+            if isinstance(c.get(lab), dict):
+                c[lab] = {n: (v_ <= 0.02) for n, v_ in c[lab].items()}
+        out["contracts"] = c
+    if role == "base" and isinstance(out.get("C15"), dict):
+        c15 = dict(out["C15"])
+        c15["not_walkable"] = {n: v_ for n, v_ in (c15.get("not_walkable") or {}).items() if n != "ctcornice"}
+        out["C15"] = c15
+    return out
+TINT_HEAD = {"base": {"R": (0.200, 0.325, 0.250), "G": (0.250, 0.263, 0.275), "B": (0.775, 0.125, 0.100)},
+             "top": {"R": (0.775, 0.800, 0.825), "G": (0.900, 0.700, 0.080), "B": (0.775, 0.125, 0.100)}}
+
+
+def manifest_shipped(role):
+    """The imported letter folder's manifest (assets/import/stations/tram/A), for 'today' numbers."""
+    name = ts.NAMES[role]
+    with open(os.path.join(REPO, "assets", "import", "stations", "tram", "A", name, f"{name}.manifest.json"),
+              encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def _fbx_points(path):
+    import bpy as _b
+    ts.clear_scene()
+    _b.ops.import_scene.fbx(filepath=path)
+    pts = []
+    for o in _b.context.scene.objects:
+        if o.type == "MESH":
+            M = np.array(o.matrix_world)
+            co = np.zeros(len(o.data.vertices) * 3); o.data.vertices.foreach_get("co", co)
+            w = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+            pts.append(np.stack([w[:, 0], w[:, 2], -w[:, 1]], 1))      # prefab (X, Y, Z)
+    ts.clear_scene()
+    return np.concatenate(pts) if pts else np.zeros((0, 3))
+
+
+def _remesh_hash(role, step):
+    import tram_tilesheet as TT
+    args = ts.parse_args(["--role", role, "--finish", "--tiled", "--tiled-step", str(step)])
+    ts.apply_fine(args)
+    ts.apply_tiled(args)
+    ts.clear_scene()
+    name = ts.NAMES[role]
+    t, table, _s, _m = ts.assemble(role, args, True)
+    t.name = t.data.name = name
+    ts.split_windows(t, name, table, ts.WIN_CELLS[role])
+    _g, cp = TT.split_glass_and_copy(t, name, table)
+    work = tempfile.mkdtemp(prefix="t76_t12_")
+    try:
+        d = os.path.join(work, name)
+        os.makedirs(d)
+        rep = {"far_A": 0}
+        lod0, _far = TT.tiled_lod0(ts, t, cp, role, name, args, d, {"files": []}, table, rep)
+        return rep["tiled"]["lod0_hash"]
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+        ts.apply_tiled(ts.parse_args(["--role", role]))
+
+
 def main():
     t0 = time.perf_counter()
     work = tempfile.mkdtemp(prefix="detail_tram_test_")
+    tl = tiled()
+    if tl and os.environ.get("TRAM_TILED_ONLY"):
+        try:
+            t1_flag_off()
+            t_tiled()
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+        dt = time.perf_counter() - t0
+        if FAILS:
+            print(f"FAIL test_detail_tram (T76 tiled only): {len(FAILS)} failure(s) in {dt:.0f} s")
+            for f in FAILS:
+                print(f"  - {f}")
+            sys.exit(1)
+        print(f"PASS test_detail_tram (T76 tiled only): T1-T13 ({dt:.0f} s)")
+        return
     try:
+        if tl:
+            t1_flag_off()
+            t_tiled()
         nb_checks()
         f0_f3_kept()
         f1_kit_contracts()
         f2_h1()
         f4_shipped_fine()
         d1_counts()
-        d2_emissive()
-        d3_labels()
+        if not tl:              # T76: the tiled export replaces the unique-atlas gates by T7 / T8
+            d2_emissive()
+            d3_labels()
         d6_frozen()
-        d10_resolution()
+        if not tl:
+            d10_resolution()
         d7_d8_d9_access_subobjects()
         d4_d5_weather(work)
     finally:
