@@ -52,7 +52,10 @@ WHAT (behind Recipe.tiled / lodge.py --tiled; nothing else calls this module)
         swatch. Flat keys map into their palette cell, label parts into the building's label
         rect. One UV layer "UVUnique", material slots cleared, face attributes copied, plus
         `cs2ts_mat` (material index) and `cs2ts_w` (0 clean, 1 weathered piece, 2 strip).
-    face_ppm / mask_stats / check_uv_cells / weather_stats: measurement.
+        T70 (--trim v1): STRIP faces (layout["strip"] keys, or `strip_prefixes` parts on a tiled
+        key) are never cut: each board maps its WHOLE length along u into the swatch width and
+        across into a band (_strip_frames), so the tris equal the flat build's; `cs2ts_strip` = 1.
+    face_ppm / mask_stats / check_uv_cells / weather_stats / strip_stats: measurement.
 
 Why no ALPHA decal strips: any BaseColor texel alpha <= 128 under a main-mesh UV triangle flips the
 WHOLE main surface to DefaultCutout (AlphaDetectPostProcessor.cs:112-160, SurfacePostProcessor.cs:144-160;
@@ -93,6 +96,28 @@ F_SUFFIX = "~f"
 # thin details drawn flat (their material's mean colour) on every tiled building
 FLAT_DETAIL_PREFIXES = ("gutter_", "downspout_", "snowguard_", "ridge_")
 SHEET_VERSION = "rollout-1"
+
+# ---- T70 `--trim v1` (2026-10-18, docs/research/art/trim-swatch-plan-2026-10-18.md) -----------------
+# Roof-edge trims (rake / fascia / deck fascia) stop drawing a flat palette colour: they sample a grain
+# swatch STRIP-MAPPED along each board (u = the member's long axis over the swatch width, v = across
+# inside a band), no tile cuts, so the LOD0 tris equal the flat build's. The ridge cap keeps its key
+# (galv) and is strip-mapped onto its own swatch. Everything here is inert unless sheet_layout(trim=True)
+# / tile_mesh(strip_prefixes=...) / register_trim_materials() are called: flag off is byte-identical.
+STRIP_CELL = "trim_grain"                       # the sheet entry (cell (5, 7), was lux_paver~w)
+STRIP_KEYS = {"trim_grain": 0, "trim_grain_w": 1}   # material key -> v-band of STRIP_CELL (bottom-up)
+STRIP_PREFIXES_OWN = ("ridge_",)                # strip-mapped on their own key's swatch (galv)
+TRIM_V1_PREFIXES = ("rake_", "fascia_", "deckfascia_")
+TRIM_V1_REMAP = {"trim": "trim_grain", "lux_trim": "trim_grain", "trim_white": "trim_grain_w"}
+TRIM_V1_RETIRE = ("lux_paver~w",)               # proven unsampled (plan 1.3); L5 pinned to weather level 4
+TRIM_V1_CELL = (5, 7, 1)
+TRIM_SHEET_VERSION = "+trim1"
+STRIP_PPM = 400.0                               # across the board at A = 4096 (scales with the sheet)
+STRIP_MIN_ALONG = 8.0                           # along-grain px/m floor at 4096: longer members (> 60 m) are cut
+STRIP_SEG_M = None                              # optional along-member segment cut (m); None = no cuts
+# MaskMap A of the two bands (texture-parity section 3: flat trim 0.35, siding_paint 0.38); kept out of
+# SMOOTH_TARGET so the flag-off layout hash never sees them
+TRIM_SMOOTH = {"trim_grain": 0.36, "trim_grain_w": 0.40}
+TRIM_WHITE_SRGB = (0.85, 0.85, 0.85)            # band 1 = today's trim_white mean
 
 # ---- the probe layout (T16): swatch slot (col, row) in units of A/4, rows bottom-up --------
 SWATCHES = {
@@ -236,6 +261,8 @@ def tiled_keys():
 
 def smooth_of(key):
     k = base_key(key)
+    if k in TRIM_SMOOTH:
+        return float(TRIM_SMOOTH[k])
     m = K.BLDG_MATERIALS[k]
     return float(SMOOTH_TARGET.get(k, m.smooth if m.smooth is not None else 0.4))
 
@@ -247,15 +274,67 @@ def metal_of(key, layout_name="rollout"):
     return float(METAL_OVERRIDE.get(k, K.BLDG_MATERIALS[k].metal))
 
 
+# ---- T70 trim v1 helpers -----------------------------------------------------------------------------
+
+def register_trim_materials():
+    """The two strip keys, registered ONLY under --trim v1 (both carry a set, so they never join the
+    palette list; the far set (LOD1 / LOD2 bake) draws them as WoodSiding009, BOX-projected like the flat
+    trim it replaces: "along" gave L5's near-degenerate trim slivers their own zero-area UVTile islands and
+    the far pack raised, R2 2026-10-18): trim_grain = slot-1 recolour (band 0), trim_grain_w = fixed warm
+    white (band 1, the school)."""
+    K.BLDG_MATERIALS.setdefault("trim_grain", K.BldgMat(
+        "WoodSiding009", (2.4, 1.2), None, smooth=TRIM_SMOOTH["trim_grain"], slot=1, recolor=True,
+        density_w=0.5, proj="box"))
+    K.BLDG_MATERIALS.setdefault("trim_grain_w", K.BldgMat(
+        "WoodSiding009", (2.4, 1.2), TRIM_WHITE_SRGB, smooth=TRIM_SMOOTH["trim_grain_w"],
+        density_w=0.5, proj="box"))
+    for k in STRIP_KEYS:
+        K.WEATHER_ROLES_EXTRA.setdefault(k, "paint")
+
+
+def trim_remap(parts):
+    """(parts, {part name: [old key, new key]}): rake_ / fascia_ / deckfascia_ parts on trim / lux_trim /
+    trim_white take the strip keys (TRIM_V1_REMAP). The ONE choke point of the trim look: recipe-local
+    trims never read RoofSpec.trim, so the kit default is not where this lives."""
+    out, moved = [], {}
+    for o, k in parts:
+        nk = TRIM_V1_REMAP.get(k) if o.name.startswith(TRIM_V1_PREFIXES) else None
+        if nk:
+            moved[o.name] = [k, nk]
+            out.append((o, nk))
+        else:
+            out.append((o, k))
+    return out, moved
+
+
+def flat_detail_prefixes(trim=False):
+    """FLAT_DETAIL_PREFIXES, minus the strip-mapped own-swatch prefixes (ridge_) under --trim v1."""
+    if not trim:
+        return FLAT_DETAIL_PREFIXES
+    return tuple(p for p in FLAT_DETAIL_PREFIXES if p not in STRIP_PREFIXES_OWN)
+
+
+def strip_guard(C):
+    """Guard rows at each band edge of the strip cell: 16 px at 480 (mip 4), scaled with the sheet."""
+    return max(4, int(round(C / 30.0)))
+
+
 # ======================================================================================
 # Layout
 # ======================================================================================
 
-def sheet_layout(A=SHEET_A, layout="rollout", repeats=None):
-    """Rects of every swatch / the palette / the label region for sheet size A (no pixels)."""
+def sheet_layout(A=SHEET_A, layout="rollout", repeats=None, trim=False):
+    """Rects of every swatch / the palette / the label region for sheet size A (no pixels).
+    trim (T70 --trim v1, rollout only): TRIM_V1_RETIRE leaves, STRIP_CELL takes its cell, and
+    out["strip"] maps each strip key to {rect_px, band, bands, guard_px, ppm}. Every other tile and
+    every palette rect stays where it is (the palette list is built from LAYOUTS, not from out)."""
     spec = LAYOUTS[layout]
+    if trim and layout != "rollout":
+        raise ValueError("trim v1 needs the rollout layout")
     if layout == "rollout":
         ensure_materials()              # the palette order must not depend on which builder ran
+    if trim:
+        register_trim_materials()
     g = int(spec["grid"])
     cell = A // g
     if cell * g != A:
@@ -264,7 +343,13 @@ def sheet_layout(A=SHEET_A, layout="rollout", repeats=None):
     out = {"A": A, "layout": layout, "grid": g, "cell": cell, "tiles": {}, "palette": {},
            "alias": dict(spec["alias"]), "palette_extra": list(spec["palette_extra"]),
            "repeats": {k: int(v) for k, v in sorted(repeats.items())}}
-    for k, (c, r, span) in spec["tiles"].items():
+    tiles_spec = dict(spec["tiles"])
+    if trim:
+        for k in TRIM_V1_RETIRE:
+            if tiles_spec.pop(k, None) != TRIM_V1_CELL:
+                raise RuntimeError(f"trim v1: {k} is not at {TRIM_V1_CELL} (the plan's proven-free cell)")
+        tiles_spec[STRIP_CELL] = TRIM_V1_CELL
+    for k, (c, r, span) in tiles_spec.items():
         sw = span * cell
         pad = max(8, sw // 32)
         C = sw - 2 * pad
@@ -295,6 +380,10 @@ def sheet_layout(A=SHEET_A, layout="rollout", repeats=None):
     PX, PY = out["palette_rect"][:2]
     for i, key in enumerate(flat):
         out["palette"][key] = {"rect_px": [PX + (i % pg) * pcell, PY + (i // pg) * pcell, pcell]}
+    if trim:
+        x0, y0, C = out["tiles"][STRIP_CELL]["rect_px"]
+        out["strip"] = {k: {"rect_px": [x0, y0, C], "band": b, "bands": 2, "guard_px": strip_guard(C),
+                            "ppm": STRIP_PPM * C / 480.0} for k, b in sorted(STRIP_KEYS.items())}
     out["hash"] = layout_hash(out)
     return out
 
@@ -320,9 +409,15 @@ def swatch_key(layout, key, weathered=False):
 def layout_hash(layout):
     keys = sorted({base_key(k) for k in layout["tiles"]} | {k for k in layout["palette"] if not k.endswith(F_SUFFIX)})
     mats = {k: repr(K.BLDG_MATERIALS[k]) for k in keys}
-    blob = json.dumps({"v": SHEET_VERSION, "tiles": layout["tiles"], "palette": layout["palette"],
-                       "repeats": layout["repeats"], "mats": mats, "smooth": SMOOTH_TARGET,
-                       "metal": METAL_ROLLOUT}, sort_keys=True, default=str)
+    d = {"v": SHEET_VERSION, "tiles": layout["tiles"], "palette": layout["palette"],
+         "repeats": layout["repeats"], "mats": mats, "smooth": SMOOTH_TARGET, "metal": METAL_ROLLOUT}
+    if layout.get("strip"):             # T70 trim v1 only: the flag-off blob keeps its key set
+        d["v"] = SHEET_VERSION + TRIM_SHEET_VERSION
+        d["trim"] = 1
+        d["strip"] = layout["strip"]
+        d["mats"].update({k: repr(K.BLDG_MATERIALS[k]) for k in STRIP_KEYS})
+        d["trim_smooth"] = TRIM_SMOOTH
+    blob = json.dumps(d, sort_keys=True, default=str)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
 
 
@@ -494,21 +589,174 @@ def weather_overlay(key, base, nrm, metal, sm, seed):
     return np.clip(b, 0, 1), np.clip(mt, 0, 1), np.clip(s, 0, 1)
 
 
+def _blur_u(a, w):
+    """Periodic box blur of width w px along u (axis 1)."""
+    w = max(1, int(w))
+    if w <= 1:
+        return a
+    F = np.cumsum(np.concatenate([a[:, -w:], a, a[:, :w]], axis=1), axis=1, dtype=np.float64)
+    lo = w // 2
+    out = (F[:, w + lo:w + lo + a.shape[1]] - F[:, lo:lo + a.shape[1]]) / w
+    return out
+
+
+def _gauss_rows(prof, sigma):
+    """1-D gaussian smoothing (edge-replicated) of a per-row profile."""
+    r = int(3 * sigma)
+    x = np.arange(-r, r + 1)
+    k = np.exp(-0.5 * (x / sigma) ** 2); k /= k.sum()
+    p = np.pad(prof, ((r, r),) + ((0, 0),) * (prof.ndim - 1), mode="edge")
+    return np.apply_along_axis(lambda c: np.convolve(c, k, mode="valid"), 0, p)
+
+
+def _board_interiors(lum, C):
+    """[(row0, row1)] board interiors of the lap-siding source (rows between the lap seams, which are
+    the dark shadow dips of the row-mean luminance; measured pitch 0.15 m = 60 px at 400 px/m)."""
+    row = _gauss_rows(lum.mean(1), 1.0)
+    seam = row < np.median(row) - 0.05
+    edge = max(3, int(round(C / 96.0)))          # 5 px at 480: the lip and the shadow edge
+    grow = seam.copy()
+    for d in range(1, edge + 1):
+        grow |= np.roll(seam, d) | np.roll(seam, -d)
+    runs, r0 = [], None
+    n = len(grow)
+    for i in range(n):
+        if not grow[i] and r0 is None:
+            r0 = i
+        if (grow[i] or i == n - 1) and r0 is not None:
+            r1 = i if grow[i] else n
+            if r1 - r0 >= max(16, C // 16):
+                runs.append((r0, r1))
+            r0 = None
+    if len(runs) < 4:
+        raise RuntimeError(f"trim stock: only {len(runs)} board interiors found in WoodSiding009")
+    return runs
+
+
+def _strip_maps(C, cache_dir=None):
+    """The STRIP_CELL content (C x C, plan section 2.2): two v-bands of H = C / 2 rows, bottom-up
+    band 0 = slot-1 stain / paint (luminance-normalised to RECOLOR_ALBEDO, light fade streaks), band 1 =
+    fixed warm white paint (the same grain at +-4 % luminance). Columns (u) run ALONG the grain.
+    Authored from WoodSiding009 at STRIP_PPM: board interiors (no lap seams) stacked with mirrored v and
+    cross-fades, the lap shading removed (low-frequency row detrend), the full 2.4 m source period
+    squeezed into C columns (periodic in u), normal u-blurred (1/6 width) so the along-member stretch
+    (7-37x on 3-44 m runs) shows streaks, not smeared knots. Returns (base linear (C,C,3), nrm 0..1,
+    metal (C,C), smooth (C,C), ctl (C,C,4), info)."""
+    H = C // 2
+    ppm = STRIP_PPM * C / 480.0
+    pf = K.prefilter_set("WoodSiding009", (2.4, 1.2), ppm, cache_dir=cache_dir)
+    N = pf["N"]
+    if N % C:
+        raise RuntimeError(f"trim stock: source {N} px is not a multiple of the cell content {C}")
+    tag = os.path.basename(pf["dir"])
+    col = _load(os.path.join(pf["dir"], f"{tag}_Color.png"))[..., :3]
+    nrm = _load(os.path.join(pf["dir"], f"{tag}_NormalGL.png"))[..., :3] * 2.0 - 1.0
+    rough = _load(os.path.join(pf["dir"], f"{tag}_Roughness.png"))[..., 0]
+    lin = K.srgb_to_linear(col)
+    lum = lin @ LUMA
+    runs = _board_interiors(lum, C)
+    # lap shading out: divide each row by its low-frequency luminance trend (sigma 1/40 of the content),
+    # the normal's row-mean tilt out the same way; the grain (high-frequency rows) stays
+    sig = max(2.0, C / 40.0)
+    trend = _gauss_rows(lum.mean(1), sig)
+    lin_d = lin * (float(lum.mean()) / np.maximum(trend, 1e-6))[:, None, None]
+    ntr = _gauss_rows(nrm.mean(1), sig)
+    nrm_d = nrm - ntr[:, None, :] * np.array((1.0, 1.0, 0.0))
+    sq = N // C                                   # squeeze the 2.4 m period into C columns
+
+    def squeeze(a):
+        return a.reshape(a.shape[0], C, sq, *a.shape[2:]).mean(2)
+    lin_d, nrm_d, rough_s = squeeze(lin_d), squeeze(nrm_d), squeeze(rough)
+    cf = max(4, C // 60)                          # 8 px cross-fade at 480
+
+    def stack(first, shift_u):
+        """H rows from interiors first, first + 3, ... (mirrored every other one), cross-faded."""
+        rows_l, rows_n, rows_r = [], [], []
+        k = 0
+        filled = 0
+        while filled < H + cf:
+            r0, r1 = runs[(first + 3 * k) % len(runs)]
+            sl = slice(r0, r1)
+            pl, pn, pr = lin_d[sl], nrm_d[sl], rough_s[sl]
+            if k % 2:
+                pl, pn, pr = pl[::-1], pn[::-1] * np.array((1.0, -1.0, 1.0)), pr[::-1]
+            sh = (shift_u * (k + 1)) % C
+            pl, pn, pr = np.roll(pl, sh, 1), np.roll(pn, sh, 1), np.roll(pr, sh, 1)
+            if rows_l:
+                t = ((np.arange(cf) + 0.5) / cf)[:, None]
+                rows_l[-1][-cf:] = rows_l[-1][-cf:] * (1 - t[..., None]) + pl[:cf] * t[..., None]
+                rows_n[-1][-cf:] = rows_n[-1][-cf:] * (1 - t[..., None]) + pn[:cf] * t[..., None]
+                rows_r[-1][-cf:] = rows_r[-1][-cf:] * (1 - t) + pr[:cf] * t
+                pl, pn, pr = pl[cf:], pn[cf:], pr[cf:]
+            rows_l.append(pl.copy()); rows_n.append(pn.copy()); rows_r.append(pr.copy())
+            filled += len(pl)
+            k += 1
+        return (np.concatenate(rows_l)[:H], np.concatenate(rows_n)[:H], np.concatenate(rows_r)[:H], k)
+
+    seed = int(hashlib.sha1(STRIP_CELL.encode()).hexdigest()[:8], 16)
+    bands = []
+    for b in (0, 1):
+        L_, N_, R_, used = stack(first=b, shift_u=(C // 7) * (1 + 2 * b) + 13 * b)
+        L_ = _blur_u(L_, max(1, C // 20))
+        N_ = _blur_u(N_, max(1, C // 6))
+        N_[..., 2] = np.maximum(N_[..., 2], 0.05)
+        R_ = _blur_u(R_, max(1, C // 20))
+        g = L_ @ LUMA
+        gm = float(g.mean())
+        rel = (g - gm) / max(float(g.std()), 1e-6)
+        sm = 1.0 - R_
+        if b == 0:
+            # light weathering (plan 2.2): low-frequency +-8 % fade along u, ~10 % of the columns -12 %
+            # (drips run across the board = down a fascia face); colour re-normalised after, so every
+            # building keeps its approved trim colour mean-for-mean
+            fade = _pnoise(C, C / 2.5, seed, 2.2)[:H]
+            st = _streaks(C, seed + 3, C / 60.0, True)[:H]
+            lum_b = g * (1.0 + 0.08 * np.clip(fade, -1.5, 1.5)) * (1.0 - 0.12 * st)
+            k_ = float(K.srgb_to_linear(cs2_asset.RECOLOR_ALBEDO)) / max(float(lum_b.mean()), 1e-6)
+            base = np.repeat(np.clip(lum_b * k_, 0, 1)[..., None], 3, -1)
+            sm = sm - 0.04 * st
+            tgt = TRIM_SMOOTH["trim_grain"]
+        else:
+            white = _lin(TRIM_WHITE_SRGB)
+            v = 1.0 + 0.04 * np.clip(rel, -2.5, 2.5)
+            v = v / float(v.mean())
+            base = np.clip(white[None, None, :] * v[..., None], 0, 1)
+            N_[..., :2] *= 0.5                     # paint fills the grain: half the relief
+            tgt = TRIM_SMOOTH["trim_grain_w"]
+        N_ /= np.maximum(np.linalg.norm(N_, axis=-1, keepdims=True), 1e-9)
+        src_mean = float(sm.mean())
+        sm = np.clip(tgt + (sm - src_mean) * SMOOTH_GAIN, 0.0, 1.0)
+        bands.append((base, N_ * 0.5 + 0.5, sm, used))
+    base = np.concatenate([bands[0][0], bands[1][0]])
+    nrm_o = np.concatenate([bands[0][1], bands[1][1]])
+    sm = np.concatenate([bands[0][2], bands[1][2]])
+    metal = np.zeros((C, C))
+    ctl = np.zeros((C, C, 4))
+    ctl[:H, :, 0] = 1.0              # slot 1 over band 0 (its guard rows too: mip bleed stays in-band)
+    info = {"key": STRIP_CELL, "set": "WoodSiding009", "ppm": round(ppm, 1), "tile_m": round(C / ppm, 4),
+            "repeat": 1, "bands": {k: {"band": b, "rows": [b * H, (b + 1) * H]} for k, b in STRIP_KEYS.items()},
+            "guard_px": strip_guard(C), "interiors": len(runs), "cross_fade_px": cf, "metal": 0.0, "slot": 1,
+            "smooth_mean": [round(float(bands[0][2].mean()), 3), round(float(bands[1][2].mean()), 3)],
+            "base_mean_lin": [[round(float(x), 4) for x in bands[b][0].reshape(-1, 3).mean(0)] for b in (0, 1)]}
+    return base, nrm_o, metal, sm, ctl, info
+
+
 def _put(dst, x0, y0, block):
     h, w = block.shape[:2]
     dst[y0:y0 + h, x0:x0 + w] = block
 
 
 def build_sheet(out_dir, name, A=SHEET_A, swatch=SWATCH, pad=PAD, keys=None, cache_dir=None,
-                layout="probe", repeats=None):
+                layout="probe", repeats=None, trim=False):
     """The family sheet (module doc). Returns the layout (sheet_layout) with "maps" (linear
     arrays), "tiles" carrying per-swatch info and "means" (per-swatch mean base / mask / ctl,
-    used to fill label backgrounds without the pixels). `keys` limits the probe swatches."""
+    used to fill label backgrounds without the pixels). `keys` limits the probe swatches.
+    trim (T70 --trim v1): STRIP_CELL is written by _strip_maps with a per-texel ControlMask."""
     if layout == "probe" and A != 4 * swatch:
         raise ValueError("probe sheet is a 4 x 4 swatch grid")
     if layout == "rollout":
         ensure_materials()
-    lay = sheet_layout(A, layout, repeats)
+    lay = sheet_layout(A, layout, repeats, trim=trim)
     base = np.zeros((A, A, 4)); base[..., 3] = 1.0     # LINEAR rgb + alpha (stamp_on_face wants 4)
     nrm = np.zeros((A, A, 3)); nrm[..., :] = (0.5, 0.5, 1.0)
     msk = np.zeros((A, A, 4))
@@ -522,6 +770,25 @@ def build_sheet(out_dir, name, A=SHEET_A, swatch=SWATCH, pad=PAD, keys=None, cac
         x0, y0, C = t["rect_px"]
         pd = t["pad"]
         k = base_key(skey)
+        wrap = lambda a: np.pad(a, ((pd, pd), (pd, pd)) + ((0, 0),) * (a.ndim - 2), mode="wrap")
+        if trim and skey == STRIP_CELL:
+            b, n, mt, sm, cc, info = _strip_maps(C, cache_dir)
+            X, Y = x0 - pd, y0 - pd
+            _put(base[..., :3], X, Y, wrap(b))
+            _put(nrm, X, Y, wrap(n))
+            mm = np.zeros((C, C, 4)); mm[..., 0] = mt; mm[..., 3] = sm
+            _put(msk, X, Y, wrap(mm))
+            _put(ctl, X, Y, wrap(cc))
+            info["rect_px"] = [x0, y0, C]
+            t.update(info)
+            H = C // 2
+            for kk, bb in STRIP_KEYS.items():
+                rs = slice(bb * H, (bb + 1) * H)
+                means[kk] = {"base": b[rs].reshape(-1, 3).mean(0).tolist(),
+                             "msk": [0.0, 0, 0, float(sm[rs].mean())],
+                             "ctl": [float(round(cc[rs, :, 0].mean())), 0.0, 0.0, 0.0]}
+            means[skey] = means["trim_grain"]
+            continue
         b, n, metal, sm, slot, info = _swatch_maps(k, C, cache_dir, repeat=t["repeat"], layout_name=layout)
         mt = np.full((C, C), float(metal))
         if skey.endswith(W_SUFFIX):
@@ -529,7 +796,6 @@ def build_sheet(out_dir, name, A=SHEET_A, swatch=SWATCH, pad=PAD, keys=None, cac
             b, mt, sm = weather_overlay(skey, b, n, metal, sm, seed)
             info["weathered"] = W_CLASS[k]
             info["smooth_mean"] = round(float(sm.mean()), 3)
-        wrap = lambda a: np.pad(a, ((pd, pd), (pd, pd)) + ((0, 0),) * (a.ndim - 2), mode="wrap")
         X, Y = x0 - pd, y0 - pd
         _put(base[..., :3], X, Y, wrap(b))
         _put(nrm, X, Y, wrap(n))
@@ -1037,9 +1303,155 @@ def shift_patches(tuv, tris, V, Mw, fmat, fpart, keys, skey, tiles, is_label):
     return {"patches": len(groups), "patches_shifted": shifted, "axes_uv": axes}
 
 
+def strip_region(layout, sk):
+    """(x0, u width, v_lo, v_hi, across px/m, band) of the sheet region a strip face of sheet key `sk`
+    samples: a band of STRIP_CELL (minus its guard rows) or the whole content square of its own swatch."""
+    st = layout.get("strip", {}).get(sk)
+    if st is not None:
+        x0, y0, C = st["rect_px"]
+        H = C // st["bands"]
+        g = st["guard_px"]
+        yb = y0 + st["band"] * H
+        return x0, C, yb + g, yb + H - g, float(st["ppm"]), st["band"]
+    t = layout["tiles"][sk]
+    x0, y0, C = t["rect_px"]
+    return x0, C, y0, y0 + C, C / (tile_m_of(sk) * t.get("repeat", 1)), None
+
+
+def _strip_frames(Vw, tris, fpart, part_name, is_strip, skey, layout, seg_m=None):
+    """Strip UV frames (plan section 2.4, per planar patch). Patch = the strip faces of one part that share
+    an edge and a plane (a board face; welded rings such as a four-box deck fascia stay apart, their faces
+    meet at an angle or at a T). d = the patch's long in-plane axis (2-D PCA, sign-fixed; near-square
+    patches take the horizontal in-plane axis), b = n x d (so (u, v) is never mirrored), u along d, v along
+    b at the across px/m. A patch that fits the band at the across px/m maps ISOTROPIC (short members, end
+    caps); a longer one maps its WHOLE length over the swatch width (u stretched, the stock's grain runs
+    along u). One v origin and one u origin per patch, hashed (crc32 of part / patch), so every face of a
+    board shows its own strip of the stock. With seg_m the patch is cut (by the caller) at the world lines
+    s = k seg_m along d, each segment with its own u origin; a member so long that its along density would
+    fall under STRIP_MIN_ALONG is cut the same way at width / STRIP_MIN_ALONG (60 m at 4096; report
+    auto_cut_parts). Raises when a face is wider than the band. Returns ({tri: frame}, report);
+    frame = dict(M (2, 3), o [(2,) per segment k, keyed k - k0], seg (seg_m, k0, d) | None)."""
+    import zlib
+    by_part = {}
+    for i in np.flatnonzero(is_strip):
+        by_part.setdefault(int(fpart[i]), []).append(int(i))
+    A = layout["A"]
+    min_along = STRIP_MIN_ALONG * A / 4096.0
+    frames = {}
+    rep = {"parts": len(by_part), "patches": 0, "stretched": 0, "segments": 0, "max_len_m": 0.0,
+           "min_along_ppm": None, "max_across_m": 0.0, "auto_cut_parts": []}
+
+    def h(s):
+        return zlib.crc32(s.encode("utf-8")) & 0xFFFFFFFF
+    up = np.array((0.0, 0.0, 1.0))
+    nrm = {}
+    for i in np.flatnonzero(is_strip):
+        P = Vw[[int(v) for v in tris[i]]]
+        nn = np.zeros(3)
+        for j in range(1, len(P) - 1):
+            nn += np.cross(P[j] - P[0], P[j + 1] - P[0])
+        nrm[int(i)] = nn / max(np.linalg.norm(nn), 1e-12)
+    for p in sorted(by_part):
+        faces = by_part[p]
+        nm = part_name(p)
+        parent = {f: f for f in faces}
+
+        def find(a):
+            while parent[a] != a:
+                parent[a] = parent[parent[a]]
+                a = parent[a]
+            return a
+        owner = {}
+        for ti in faces:
+            vs = [int(v) for v in tris[ti]]
+            for j in range(len(vs)):
+                e = tuple(sorted((vs[j], vs[(j + 1) % len(vs)])))
+                for o in owner.get(e, ()):
+                    if float(nrm[o] @ nrm[ti]) > 0.9998:
+                        ra, rb = find(o), find(ti)
+                        if ra != rb:
+                            parent[max(ra, rb)] = min(ra, rb)
+                owner.setdefault(e, []).append(ti)
+        groups = {}
+        for ti in faces:
+            groups.setdefault(find(ti), []).append(ti)
+        for pi, g in enumerate(sorted(groups.values(), key=min)):
+            sks = {skey[t] for t in g}
+            if len(sks) != 1:
+                raise RuntimeError(f"strip part {nm}: one patch with keys {sorted(sks)}")
+            sk = sks.pop()
+            x0, Cu, v_lo, v_hi, ppm_a, band = strip_region(layout, sk)
+            Hu = v_hi - v_lo
+            n = nrm[g[0]]
+            P = Vw[sorted({int(v) for t in g for v in tris[t]})]
+            e1 = np.cross(up, n)
+            if np.linalg.norm(e1) < 1e-6:
+                e1 = np.array((1.0, 0.0, 0.0))
+            e1 /= np.linalg.norm(e1)
+            e2 = np.cross(n, e1)
+            c = P.mean(0)
+            Q = np.stack([(P - c) @ e1, (P - c) @ e2], 1)
+            ev, evec = np.linalg.eigh(np.cov(Q.T) if len(Q) > 2 else np.eye(2))
+            if ev[1] < 1.2 * ev[0]:
+                d = e1
+            else:
+                d = e1 * evec[0, 1] + e2 * evec[1, 1]
+                d /= np.linalg.norm(d)
+            d = d * (1.0 if d[np.argmax(np.abs(d))] > 0 else -1.0)
+            b = np.cross(n, d)
+            b /= max(np.linalg.norm(b), 1e-12)
+            s, t = P @ d, P @ b
+            Ls, Lt = float(np.ptp(s)), float(np.ptp(t))
+            ext_v = Lt * ppm_a
+            rep["max_across_m"] = max(rep["max_across_m"], round(Lt, 4))
+            rep["max_len_m"] = max(rep["max_len_m"], round(Ls, 3))
+            if ext_v > Hu + 1e-6:
+                raise RuntimeError(f"strip {nm}: a face {Lt:.3f} m across > the band's {Hu / ppm_a:.3f} m ({sk})")
+            seg = None
+            if Ls * ppm_a <= Cu + 1e-6:
+                ppm_u, span = ppm_a, Ls * ppm_a                 # fits: isotropic, no stretch
+            elif seg_m:
+                ppm_u = min(float(Cu), ppm_a * seg_m) / seg_m
+                span = seg_m * ppm_u
+                seg = seg_m
+            else:
+                ppm_u, span = Cu / max(Ls, 1e-9), float(Cu)    # the whole member over the swatch width
+                if ppm_u < min_along:
+                    # over-long member (L5's 74 m main fascia): cut at world lines every width / floor m (60 m
+                    # at 4096), the only members that pay tris (~16 per cut on a bevelled board)
+                    seg = Cu / min_along
+                    ppm_u = min_along
+                    rep["auto_cut_parts"].append(nm)
+            if ppm_u < ppm_a - 1e-9:
+                rep["stretched"] += 1
+            if ppm_u < min_along:
+                raise RuntimeError(f"strip {nm}: {Ls:.1f} m member -> {ppm_u:.1f} px/m along the grain "
+                                   f"(< {min_along:.1f}): split it or segment it")
+            rep["min_along_ppm"] = round(ppm_u, 2) if rep["min_along_ppm"] is None else \
+                min(rep["min_along_ppm"], round(ppm_u, 2))
+            v0 = v_lo + h(f"{nm}|{pi}|v") % (int(Hu - ext_v) + 1)
+            ou = lambda k: x0 + (h(f"{nm}|{pi}|u{k}") % (int(Cu - span) + 1) if span < Cu - 1e-6 else 0)
+            M = np.stack([d * ppm_u, b * ppm_a])
+            ov = v0 - float(t.min()) * ppm_a
+            if seg is None:
+                fr = {"M": M, "o": [np.array((ou(0) - float(s.min()) * ppm_u, ov))], "seg": None}
+                rep["segments"] += 1
+            else:
+                k0 = int(math.floor(float(s.min()) / seg + 1e-9))
+                k1 = int(math.floor(float(s.max()) / seg - 1e-9))
+                fr = {"M": M, "o": [np.array((ou(k) - k * seg * ppm_u, ov)) for k in range(k0, k1 + 1)],
+                      "seg": (seg, k0, d)}
+                rep["segments"] += k1 - k0 + 1
+            rep["patches"] += 1
+            for ti in g:
+                frames[ti] = fr
+    rep["auto_cut_parts"] = sorted(set(rep["auto_cut_parts"]))
+    return frames, rep
+
+
 def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM, max_cells=4096,
               ground_prefixes=(), ground_band=0.011, weather=None, patch_shift=True, flat_prefixes=(),
-              grid_offset=0.0):
+              grid_offset=0.0, strip_prefixes=(), strip_seg_m=None):
     """
     Re-mesh `obj` for the sheet (module doc). `uvtile`: (n_loops, 2) UVTile coordinates of
     obj's CURRENT loops (tiles); `keys`: sorted material keys (material_index -> key);
@@ -1115,17 +1527,29 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
     part_name = lambda pi: table[pi - 1] if 1 <= pi <= len(table) else ""
     is_label = np.array([any(part_name(int(p)).startswith(pre) for pre in label_prefixes)
                          for p in fpart], bool)
+    # T70 strips (--trim v1): a strip key (STRIP_KEYS, in layout["strip"]) or a strip_prefixes part on a
+    # tiled key: no tile cuts, no patch shift, UVs from _strip_frames (empty layout / prefixes = all False)
+    strip_lay = layout.get("strip") or {}
+    is_strip = np.array([(not is_label[i]) and (skey[i] in strip_lay or (
+        bool(strip_prefixes) and skey[i] in tiles
+        and any(part_name(int(fpart[i])).startswith(f) for f in strip_prefixes)))
+        for i in range(len(fpart))], bool)
     # flat details (FLAT_DETAIL_PREFIXES + recipe.tiled_flat): a tiled key drawn as its swatch's
     # mean colour from a palette cell "<key>~f" (no cuts), the vanilla way of texturing gutters,
     # ridges, snow guards and other thin trims
-    is_flatp = np.array([(not is_label[i]) and skey[i] in tiles and (skey[i] + F_SUFFIX) in pal and
-                         any(part_name(int(fpart[i])).startswith(f) for f in flat_prefixes)
+    is_flatp = np.array([(not is_label[i]) and (not is_strip[i]) and skey[i] in tiles and (skey[i] + F_SUFFIX) in pal
+                         and any(part_name(int(fpart[i])).startswith(f) for f in flat_prefixes)
                          for i in range(len(fpart))], bool)
-    n_shift = shift_patches(tuv, tris, V, Mw, fmat, fpart, keys, skey, tiles, is_label | is_flatp) \
+    n_shift = shift_patches(tuv, tris, V, Mw, fmat, fpart, keys, skey, tiles, is_label | is_flatp | is_strip) \
         if patch_shift else {}
+    sframes, srep = ({}, None)
+    if is_strip.any():
+        sframes, srep = _strip_frames(Vw, tris, fpart, part_name, is_strip, skey, layout, seg_m=strip_seg_m)
     pkey = []
     for i in range(len(fpart)):
-        if is_label[i] or (skey[i] in tiles and not is_flatp[i]):
+        if is_strip[i]:
+            pkey.append(None)
+        elif is_label[i] or (skey[i] in tiles and not is_flatp[i]):
             pkey.append(None)
         elif is_flatp[i]:
             pkey.append(skey[i] + F_SUFFIX)
@@ -1185,7 +1609,7 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
     wctx = None
     if weather is not None:
         wctx = _WeatherCtx(Vw, tris, [keys[k] for k in fmat], fpart, part_name, layout, weather)
-        for i in np.flatnonzero(is_flatp):
+        for i in np.flatnonzero(is_flatp | is_strip):
             wctx.wkey[i] = None
     wcount = {}
     # -- clip ----------------------------------------------------------------------------
@@ -1249,7 +1673,20 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
             recs.append({"uv": uv3[vi].copy(), "p": V[v].copy(), "on": frozenset(ons),
                          "key": ("o", v), "vert": v})
         pieces = []
-        if sk in tiles and not is_label[ti] and not is_flatp[ti]:
+        if is_strip[ti]:
+            seg = sframes[ti]["seg"]
+            if seg is None:
+                pieces.append((recs, None))
+            else:                                    # optional segment cuts along the member
+                sl, _k0, d_ax = seg                  # world lines s = k * sl along the patch axis
+                Rw = Mw[:3, :3]
+                for r in recs:
+                    r["uv"] = np.array((float((r["p"] @ Rw.T + Mw[:3, 3]) @ d_ax) / sl, 0.5))
+                su = np.array([r["uv"] for r in recs])
+                pcs, sliced = tile_pieces(recs, su, ti, key, False)
+                n_sliced += int(sliced)
+                pieces = [(pc, None) for pc, _c in pcs]
+        elif sk in tiles and not is_label[ti] and not is_flatp[ti]:
             ground = any(part_name(int(fpart[ti])).startswith(g) for g in ground_prefixes)
             pieces, sliced = tile_pieces(recs, uv3, ti, key, ground)
             n_sliced += int(sliced)
@@ -1296,6 +1733,15 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
                     L = label_map[pre]
                     mpt = (tile_m_of(sk) * tiles[sk].get("repeat", 1)) if sk in tiles else 1.0
                     uvpx = np.asarray(L["origin"]) + (r["uv"] * mpt - L["lo"]) * L["ppm"]
+                elif is_strip[ti]:
+                    sf = sframes[ti]
+                    pw = r["p"] @ Mw[:3, :3].T + Mw[:3, 3]
+                    kseg = 0
+                    if sf["seg"] is not None:
+                        sl, k0, d_ax = sf["seg"]
+                        cw = np.mean([q["p"] for q in pc], 0) @ Mw[:3, :3].T + Mw[:3, 3]
+                        kseg = int(min(max(math.floor(float(cw @ d_ax) / sl) - k0, 0), len(sf["o"]) - 1))
+                    uvpx = sf["M"] @ pw + sf["o"][kseg]
                 elif cell is not None:
                     fr = np.clip(r["uv"] - np.asarray(cell), 0.0, 1.0)
                     uvpx = np.array((rect[0], rect[1])) + fr * rect[2]
@@ -1408,6 +1854,9 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
     km.data.foreach_set("value", fmat[src].astype(np.int32))
     kw = new.attributes.new("cs2ts_w", "INT", "FACE")
     kw.data.foreach_set("value", wfl)
+    if is_strip.any():                          # T70: strip faces (strip_stats); never on a flag-off build
+        ks = new.attributes.new("cs2ts_strip", "INT", "FACE")
+        ks.data.foreach_set("value", is_strip[src].astype(np.int32))
     for k_, v_ in me.items():
         new[k_] = v_
     old = obj.data
@@ -1428,7 +1877,13 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
     cs2_asset.shade_by_angle(obj, 66.0, weighted=True)
     wn = np.zeros(len(new.polygons), np.int32)
     new.attributes["cs2ts_w"].data.foreach_get("value", wn)
-    return {"tris_before": int(n_tris0), "tris_after": int(len(new.polygons)), "sliced_tris": int(n_sliced),
+    extra = {}
+    if srep is not None:
+        sn = np.zeros(len(new.polygons), np.int32)
+        new.attributes["cs2ts_strip"].data.foreach_get("value", sn)
+        extra["strip"] = dict(srep, tris_in=int(is_strip.sum()), tris_out=int(sn.sum()),
+                              strip_prefixes=list(strip_prefixes), seg_m=strip_seg_m)
+    return dict(extra, **{"tris_before": int(n_tris0), "tris_after": int(len(new.polygons)), "sliced_tris": int(n_sliced),
             "pieces": int(n_pieces), "tjunction_inserts": int(n_ins), "verts": int(len(new.vertices)),
             "label_rects": {p: {"origin_px": [int(v) for v in L["origin"]], "size_px": list(L["size"]),
                                 "ppm": round(float(L["ppm"]), 1), "key": L["key"]} for p, L in label_map.items()},
@@ -1438,7 +1893,7 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
             "flat_detail_tris": int(is_flatp.sum()), "flat_prefixes": list(flat_prefixes),
             "weather": None if weather is None else {
                 "level": int(weather.level), "band_cut_tris": int(n_band[0]), "pieces_by_rule": wcount,
-                "strips": len(strips), "tris_weathered": int((wn == 1).sum()), "tris_strips": int((wn == 2).sum())}}
+                "strips": len(strips), "tris_weathered": int((wn == 1).sum()), "tris_strips": int((wn == 2).sum())}})
 
 
 def _plan_strips(wctx, Vw, tris, fpart, part_name, R, ground_band):
@@ -1642,6 +2097,78 @@ def face_ppm(obj, A, keys, mat_attr="cs2ts_mat", uv_layer=None, mat_index=None, 
     return out
 
 
+def strip_stats(obj, A, keys, mat_attr="cs2ts_mat", strip_attr="cs2ts_strip"):
+    """T70: {key: {across_p50, across_p10, along_p10, along_p50, area_m2, faces}} of the strip faces. The
+    geometric-mean face_ppm hides the 1:10 anisotropy, so this splits the UV Jacobian of every face into
+    its singular values: across = the larger (the band's px/m), along = the smaller (grain stretch)."""
+    me = obj.data
+    if me.attributes.get(strip_attr) is None:
+        return {}
+    uv = cs2_uv.loop_uvs(me.uv_layers[cs2_uv.UNIQUE_LAYER]) * A
+    co = np.empty(len(me.vertices) * 3, np.float32); me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3).astype(np.float64) @ np.array(obj.matrix_world)[:3, :3].T
+    mi = np.zeros(len(me.polygons), np.int32); me.attributes[mat_attr].data.foreach_get("value", mi)
+    sf = np.zeros(len(me.polygons), np.int32); me.attributes[strip_attr].data.foreach_get("value", sf)
+    acc = {}
+    for p in me.polygons:
+        if not sf[p.index]:
+            continue
+        ls = list(range(p.loop_start, p.loop_start + p.loop_total))
+        vs = [me.loops[i].vertex_index for i in ls]
+        e1, e2 = co[vs[1]] - co[vs[0]], co[vs[2]] - co[vs[0]]
+        a3 = 0.5 * float(np.linalg.norm(np.cross(e1, e2)))
+        if a3 < 1e-9:
+            continue
+        x = e1 / np.linalg.norm(e1)
+        y = e2 - x * (e2 @ x); y /= max(np.linalg.norm(y), 1e-12)
+        E = np.array([[e1 @ x, e2 @ x], [e1 @ y, e2 @ y]])
+        U = np.stack([uv[ls[1]] - uv[ls[0]], uv[ls[2]] - uv[ls[0]]], 1)
+        J = U @ np.linalg.inv(E)
+        sv = np.linalg.svd(J, compute_uv=False)
+        acc.setdefault(keys[int(mi[p.index])], []).append((sv[0], sv[1], a3))
+    out = {}
+    for k, rows in sorted(acc.items()):
+        r = np.array(rows)
+        qa, qb = _wq(r[:, 0], r[:, 2]), _wq(r[:, 1], r[:, 2])
+        out[k] = {"across_p10": round(qa(0.1), 1), "across_p50": round(qa(0.5), 1),
+                  "along_p10": round(qb(0.1), 1), "along_p50": round(qb(0.5), 1),
+                  "area_m2": round(float(r[:, 2].sum()), 1), "faces": len(rows)}
+    return out
+
+
+def strip_part_sites(obj, strip_attr="cs2ts_strip"):
+    """T70: {part: {c: centroid, n: outward horizontal normal of its biggest face, area_m2, len_m}} of every
+    strip part (world frame of `obj`), so previews and reviews can aim at a named trim."""
+    me = obj.data
+    if me.attributes.get(strip_attr) is None:
+        return {}
+    table = json.loads(me[cs2_asset.PART_TABLE_PROP])
+    n = len(me.polygons)
+    sf = np.zeros(n, np.int32); me.attributes[strip_attr].data.foreach_get("value", sf)
+    pa = np.zeros(n, np.int32); me.attributes["part"].data.foreach_get("value", pa)
+    M = np.array(obj.matrix_world)
+    acc = {}
+    for p in me.polygons:
+        if not sf[p.index]:
+            continue
+        nm = table[pa[p.index] - 1] if 1 <= pa[p.index] <= len(table) else ""
+        c = M[:3, :3] @ np.array(p.center[:]) + M[:3, 3]
+        nn = M[:3, :3] @ np.array(p.normal[:])
+        d = acc.setdefault(nm, {"ca": np.zeros(3), "a": 0.0, "pts": [], "best": (0.0, None)})
+        d["ca"] += c * p.area; d["a"] += p.area
+        d["pts"].append(c)
+        if abs(nn[2]) < 0.6 and p.area > d["best"][0]:
+            d["best"] = (p.area, nn)
+    out = {}
+    for nm, d in sorted(acc.items()):
+        P = np.array(d["pts"])
+        nn = d["best"][1]
+        h = (0.0, 0.0) if nn is None else tuple(nn[:2] / max(np.linalg.norm(nn[:2]), 1e-9))
+        out[nm] = {"c": [round(float(v), 3) for v in d["ca"] / max(d["a"], 1e-9)], "n": [round(v, 3) for v in h],
+                   "area_m2": round(d["a"], 2), "len_m": round(float(np.ptp(P, axis=0).max()), 2)}
+    return out
+
+
 def bc7_mb(A, maps=4):
     """Raw BC7 with a full mip chain: 1 byte / texel x 4/3."""
     return round(A * A * 4.0 / 3.0 * maps / 1e6, 2)
@@ -1745,6 +2272,9 @@ def check_uv_cells(obj, layout, keys, mat_attr="cs2ts_mat", tol_px=0.51):
         for kk in (key, sk + F_SUFFIX):
             if kk in layout["palette"]:
                 x, y, s = layout["palette"][kk]["rect_px"]; rects.append((x, y, s, s))
+        if sk in (layout.get("strip") or {}):      # T70: the key's band of the strip cell (guards excluded)
+            x0, C, v_lo, v_hi, _ppm, _b = strip_region(layout, sk)
+            rects = [(x0, v_lo, C, v_hi - v_lo)]
         rects.append((LX, LY, LW, LH))
         ok = any(((q[:, 0] >= x - tol_px) & (q[:, 0] <= x + w + tol_px) & (q[:, 1] >= y - tol_px)
                   & (q[:, 1] <= y + h + tol_px)).all() for x, y, w, h in rects)
@@ -1756,7 +2286,7 @@ def check_uv_cells(obj, layout, keys, mat_attr="cs2ts_mat", tol_px=0.51):
 # ======================================================================================
 # CLI: compose the family sheet (base swatches + every building's label rect)
 #   blender -b --factory-startup --python cs2_tilesheet.py -- compose <sheet_dir> <name>
-#       [--A 4096] [--layout rollout] [--repeats key=r,...] [--no-emissive]
+#       [--A 4096] [--layout rollout] [--repeats key=r,...] [--no-emissive] [--trim v1]
 # ======================================================================================
 
 def _cli(argv):
@@ -1769,9 +2299,10 @@ def _cli(argv):
     ap.add_argument("--layout", default="rollout")
     ap.add_argument("--repeats", default="")
     ap.add_argument("--no-emissive", action="store_true")
+    ap.add_argument("--trim", default="off", choices=("off", "v1"))
     a = ap.parse_args(argv)
     reps = {kv.split("=")[0]: int(kv.split("=")[1]) for kv in a.repeats.split(",") if kv}
-    lay = build_sheet(a.sheet_dir, a.name, A=a.A, layout=a.layout, repeats=reps)
+    lay = build_sheet(a.sheet_dir, a.name, A=a.A, layout=a.layout, repeats=reps, trim=a.trim == "v1")
     ldir = os.path.join(a.sheet_dir + ".aux", "labels")
     labels = sorted(os.path.join(ldir, f) for f in os.listdir(ldir) if f.endswith(".npz")) \
         if os.path.isdir(ldir) else []

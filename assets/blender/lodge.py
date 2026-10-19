@@ -201,6 +201,13 @@ def parse_args(argv=None):
     # (posts to grade, brackets on their walls, member ends landed) + the RAISING structure audit. Needs fittings v1.
     ap.add_argument("--structure", default="off", choices=("off", "v1"),
                     help="v1 = the structure pass + gate (with --fittings v1; off = every build byte-identical)")
+    # trim v1 (T70, 2026-10-18, docs/research/art/trim-swatch-plan-2026-10-18.md): rake / fascia / deck fascia
+    # sample a strip-mapped grain swatch (cell (5,7), was lux_paver~w), the ridge cap strip-maps its galv swatch,
+    # L5 is pinned to weather level 4. Tiled rollout builds only; off = every build byte-identical.
+    ap.add_argument("--trim", default="off", choices=("off", "v1"),
+                    help="v1 = roof-edge trim on the strip grain swatch (tiled rollout; off = byte-identical)")
+    ap.add_argument("--trim-seg", type=float, default=None, metavar="M",
+                    help="trim v1 A/B only: cut strip members into <= M m segments (costs tris)")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -744,6 +751,23 @@ def structure_cfg(recipe, args):
     if getattr(args, "fittings", "off") != "v1":
         raise RuntimeError("--structure v1 builds on --fittings v1 (the audit runs after the fittings pass)")
     return {"version": 1}
+
+
+# T70 trim v1: the weather level a recipe is pinned to under the flag (L5: lux_paver~w leaves the sheet, which
+# would make its levels 0-3 cheaper and let the auto ladder change the building; level 4 = today's L5 output)
+TRIM_WEATHER_PIN = {"L5": 4}
+
+
+def trim_cfg(recipe, args):
+    """The T70 trim pass settings, or None (trim off). Needs a tiled rollout build (checked in run)."""
+    if getattr(args, "trim", "off") != "v1":
+        if getattr(args, "trim_seg", None):
+            raise RuntimeError("--trim-seg needs --trim v1")
+        return None
+    if getattr(args, "sheet_layout", "rollout") != "rollout":
+        raise RuntimeError("--trim v1 needs the rollout family sheet (--sheet-layout rollout)")
+    return {"version": 1, "weather_pin": TRIM_WEATHER_PIN.get(recipe.key),
+            "seg_m": getattr(args, "trim_seg", None)}
 
 
 def build_parts(recipe, opts):
@@ -1356,6 +1380,10 @@ def run(recipe, args):
     sk = structure_cfg(recipe, args)
     if sk:
         opts["structure"] = sk
+    tc = trim_cfg(recipe, args)
+    if tc and not tiled:
+        raise RuntimeError("--trim v1 needs a tiled build (--tiled, finished, not --blockout): the strip "
+                           "swatch lives on the family sheet")
     W_, D_ = recipe.lot
     # 1-2 clean + parts
     clear_scene()
@@ -1396,6 +1424,14 @@ def run(recipe, args):
             me = o.data
             bpy.data.objects.remove(o, do_unlink=True)
             bpy.data.meshes.remove(me)
+    trim_moved = None
+    if tc:                                  # T70 trim v1: the one remap by prefix (cs2_tilesheet.trim_remap)
+        import cs2_tilesheet as TS
+        TS.register_trim_materials()
+        parts, trim_moved = TS.trim_remap(parts)
+        bad = sorted(o.name for o, k in parts if o.name.startswith(TS.TRIM_V1_PREFIXES) and k in TS.TRIM_V1_REMAP)
+        if bad:                             # G1: no roof-edge trim left on a flat trim key
+            raise RuntimeError(f"{recipe.key}: trim v1 left flat trim keys on {bad[:8]}")
     keys = sorted({k for _o, k in parts})
     T["build"] = time.perf_counter() - t0
     # 3 bevel, 4 density, 5 tags
@@ -1471,6 +1507,12 @@ def run(recipe, args):
                               "mesh": signset["spec"].mesh}
     if we_boards:
         result["we_boards"] = we_boards
+    if tc:                                  # T70 trim v1 builds only
+        import cs2_tilesheet as TS
+        result["trim"] = {"version": "v1", "remapped": dict(sorted(trim_moved.items())),
+                          "by_key": {k: sum(1 for o, n in trim_moved.values() if (o, n) == (k, TS.TRIM_V1_REMAP[k]))
+                                     for k in sorted(TS.TRIM_V1_REMAP)},
+                          "weather_pin": tc["weather_pin"], "seg_m": tc["seg_m"]}
     os.makedirs(asset_dir, exist_ok=True)
     if args.blockout:
         result["finished"] = False
@@ -1769,12 +1811,13 @@ def install_owner_maps(sdir, sname, odir, oname, emissive=True):
     return out
 
 
-def ensure_family_sheet(sdir, sname, A, repeats, emissive=True):
+def ensure_family_sheet(sdir, sname, A, repeats, emissive=True, trim=False):
     """The composed family sheet in `sdir` (layout JSON + PNGs). Rebuilt when the layout hash
     (rects, repeats, material definitions, smoothness table) changed; label rects already in
-    `sdir/labels` are pasted. Returns the layout dict (with per-swatch means, no pixels)."""
+    `sdir/labels` are pasted. Returns the layout dict (with per-swatch means, no pixels).
+    trim: the T70 --trim v1 layout (its own hash, so an off and a v1 sheet never share a folder)."""
     import cs2_tilesheet as TS
-    lay = TS.sheet_layout(A, "rollout", repeats)
+    lay = TS.sheet_layout(A, "rollout", repeats, trim=trim)
     aux = sdir + ".aux"                       # layout + label rects: never inside the asset folder
     os.makedirs(aux, exist_ok=True)
     jp = os.path.join(aux, f"{sname}.layout.json")
@@ -1785,7 +1828,7 @@ def ensure_family_sheet(sdir, sname, A, repeats, emissive=True):
                 for m in ("BaseColor", "Normal", "MaskMap", "ControlMask")):
             return old
     print(f"[lodge] tiled: building the family sheet {sname} ({A}, hash {lay['hash']})")
-    full = TS.build_sheet(sdir, sname, A=A, layout="rollout", repeats=repeats)
+    full = TS.build_sheet(sdir, sname, A=A, layout="rollout", repeats=repeats, trim=trim)
     ldir = os.path.join(sdir + ".aux", "labels")
     labels = sorted(os.path.join(ldir, f) for f in os.listdir(ldir) if f.endswith(".npz")) \
         if os.path.isdir(ldir) else []
@@ -1794,13 +1837,13 @@ def ensure_family_sheet(sdir, sname, A, repeats, emissive=True):
     return TS.load_layout(jp)
 
 
-def recompose_family_sheet(sdir, sname, A=4096):
+def recompose_family_sheet(sdir, sname, A=4096, trim=False):
     """Rebuild the family sheet PNGs with every building's label rect pasted (run once after the
     last building of a round; the hash check alone would keep a sheet without new labels)."""
     jp = os.path.join(sdir + ".aux", f"{sname}.layout.json")
     if os.path.isfile(jp):
         os.remove(jp)
-    return ensure_family_sheet(sdir, sname, A, _sheet_repeats())
+    return ensure_family_sheet(sdir, sname, A, _sheet_repeats(), trim=trim)
 
 
 def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far):
@@ -1826,12 +1869,17 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
     letter = name[len(recipe.asset):] if name.startswith(recipe.asset) else (args.letter or recipe.letter)
     sdir, sname = sheet_paths(args, letter)
     repeats = _sheet_repeats()
-    layout = ensure_family_sheet(sdir, sname, SA, repeats)
+    trim = getattr(args, "trim", "off") == "v1"
+    tcfg = trim_cfg(recipe, args) if trim else None
+    layout = ensure_family_sheet(sdir, sname, SA, repeats, trim=trim)
     layout["label_rect"] = TS.label_rect_for(layout, recipe.key)
     uvt = cs2_uv.loop_uvs(lod0.data.uv_layers[cs2_bake.TILE_LAYER])
     tw = getattr(recipe, "tiled_weather", None) or {}
     wl = getattr(args, "weather_level", "auto")
-    if tw.get("off"):
+    if tcfg and tcfg["weather_pin"] is not None:
+        # T70: lux_paver~w left the sheet; the pinned level is today's output (plan 1.3 step 4)
+        ladder = [TS.weather_level(int(tcfg["weather_pin"]))]
+    elif tw.get("off"):
         ladder = [None]
     elif "level" in tw:
         ladder = [TS.weather_level(int(tw["level"]))]
@@ -1843,24 +1891,27 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
     pristine = lod0.data.copy()
     tm = None
     tried = []
+    tm_kw = dict(label_prefixes=tuple(p for p, _pa, _kw in recipe.labels),
+                 ground_prefixes=tuple(recipe.ground_prefixes) if recipe.base_mode == "engine" else (),
+                 label_ppm=TS.LABEL_PPM * SA / 4096.0,
+                 flat_prefixes=TS.flat_detail_prefixes(trim) + tuple(getattr(recipe, "tiled_flat", ()) or ())
+                 # kit v2: the window parts draw their material's mean colour (no tile cuts)
+                 + ((K.KIT2_PARTS + WINDOW_FLAT_EXTRA.get(recipe.key, ()))
+                    if getattr(args, "window_kit", "v1") == "v2" else ())
+                 # door kit v2: its parts (exact names) draw flat too
+                 + (tuple(result.get("door_kit", {}).get("flat", ())))
+                 # fittings v1: fit_* parts flat
+                 + (FITTINGS_FLAT if "fittings" in result else ()),
+                 grid_offset=0.5 if recipe.base_mode == "plinth" else 0.0,
+                 # T70 trim v1: ridge caps strip-mapped on their own swatch (the strip keys need nothing)
+                 strip_prefixes=TS.STRIP_PREFIXES_OWN if trim else ())
     for W in ladder:
         if tm is not None:                          # retry from the untouched copy
             old = lod0.data
             lod0.data = pristine.copy()
             bpy.data.meshes.remove(old)
-        tm = TS.tile_mesh(lod0, uvt, sorted(keys), layout,
-                          label_prefixes=tuple(p for p, _pa, _kw in recipe.labels),
-                          ground_prefixes=tuple(recipe.ground_prefixes) if recipe.base_mode == "engine" else (),
-                          label_ppm=TS.LABEL_PPM * SA / 4096.0, weather=W,
-                          flat_prefixes=TS.FLAT_DETAIL_PREFIXES + tuple(getattr(recipe, "tiled_flat", ()) or ())
-                          # kit v2: the window parts draw their material's mean colour (no tile cuts)
-                          + ((K.KIT2_PARTS + WINDOW_FLAT_EXTRA.get(recipe.key, ()))
-                             if getattr(args, "window_kit", "v1") == "v2" else ())
-                          # door kit v2: its parts (exact names) draw flat too
-                          + (tuple(result.get("door_kit", {}).get("flat", ())))
-                          # fittings v1: fit_* parts flat
-                          + (FITTINGS_FLAT if "fittings" in result else ()),
-                          grid_offset=0.5 if recipe.base_mode == "plinth" else 0.0)
+        tm = TS.tile_mesh(lod0, uvt, sorted(keys), layout, weather=W,
+                          strip_seg_m=tcfg["seg_m"] if tcfg else None, **tm_kw)
         if getattr(args, "window_kit", "v1") == "v2":
             # window kit v2: the wall holes, cut AFTER the tile slicing so only the tile pieces
             # under an opening are split (cut before, a hole's lines crossed every tile row)
@@ -1878,6 +1929,39 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
               f"(cap {cap})")
         if tm["tris_after"] <= cap:
             break
+    if tcfg and tcfg["seg_m"]:
+        # T70 segment cuts (opt-in, A/B / --trim v2 only) pay tris: measure them against the UNCUT strip map run
+        # through the same ladder, refuse cuts that would only fit by dropping weathering, and leave the cap to
+        # assert_budget below (the gate is "delta under this building's cap", never "~0")
+        ref = bpy.data.objects.new(name + "SegRef", pristine.copy())
+        ref.matrix_world = lod0.matrix_world.copy()
+        bpy.context.scene.collection.objects.link(ref)
+        ref_tried = []
+        try:
+            for W0 in ladder:
+                if ref_tried:
+                    old = ref.data
+                    ref.data = pristine.copy()
+                    bpy.data.meshes.remove(old)
+                TS.tile_mesh(ref, uvt, sorted(keys), layout, weather=W0, strip_seg_m=None, **tm_kw)
+                if getattr(args, "window_kit", "v1") == "v2":
+                    K.punch_openings(ref, json.loads(ref.data[cs2_asset.PART_TABLE_PROP]))
+                ref_tried.append({"level": None if W0 is None else W0.level, "tris": cs2_asset.tri_count(ref)})
+                if ref_tried[-1]["tris"] <= cap:
+                    break
+        finally:
+            rme = ref.data
+            bpy.data.objects.remove(ref, do_unlink=True)
+            bpy.data.meshes.remove(rme)
+        sg = {"seg_m": tcfg["seg_m"], "level": tried[-1]["level"], "level_uncut": ref_tried[-1]["level"],
+              "tris_cut": tried[-1]["tris"], "tris_uncut": ref_tried[-1]["tris"],
+              "delta": tried[-1]["tris"] - ref_tried[-1]["tris"], "cap": cap, "headroom": cap - tried[-1]["tris"]}
+        tm["seg_gate"] = sg
+        print(f"[lodge] trim seg gate: {tcfg['seg_m']} m cuts {sg['tris_uncut']} -> {sg['tris_cut']} "
+              f"(+{sg['delta']}) at weather level {sg['level']} (uncut {sg['level_uncut']}), cap {cap}")
+        if sg["level"] != sg["level_uncut"]:
+            raise RuntimeError(f"{name}: --trim-seg {tcfg['seg_m']} only fits by dropping weathering from level "
+                               f"{sg['level_uncut']} to {sg['level']}: the cuts cost +{sg['delta']} tris")
     bpy.data.meshes.remove(pristine)
     lod0.name = name
     lod0.data.name = name
@@ -1903,7 +1987,13 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
         raise RuntimeError(f"{name}: faces sample outside their sheet region {tm['uv_outside_region']}")
     smooth = TS.mask_stats(lod0, os.path.join(sdir, f"{sname}_MaskMap.png"), sorted(keys))
     wstats = TS.weather_stats(lod0, sorted(keys)) if tm.get("weather") else {}
-    for a in ("cs2ts_mat", "cs2ts_w"):
+    sstats = TS.strip_stats(lod0, SA, sorted(keys)) if trim else {}
+    ssites = TS.strip_part_sites(lod0) if trim else {}
+    # G5: the composed ControlMask R (slot 1) at every face centroid, per key (mask_stats reads channel R as
+    # "metal_mean"): trim_grain 1, trim_grain_w 0, galv 0
+    sctl = {k: v["metal_mean"] for k, v in TS.mask_stats(
+        lod0, os.path.join(sdir, f"{sname}_ControlMask.png"), sorted(keys)).items()} if trim else {}
+    for a in ("cs2ts_mat", "cs2ts_w", "cs2ts_strip"):
         attr = lod0.data.attributes.get(a)
         if attr is not None:
             lod0.data.attributes.remove(attr)
@@ -1921,7 +2011,7 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
     is_owner = recipe.key == SHEET_OWNER_KEY
     if is_owner:
         if lab_npz:                                 # the owner ships the sheet WITH its own labels
-            layout = recompose_family_sheet(sdir, sname, SA)
+            layout = recompose_family_sheet(sdir, sname, SA, trim=trim)
         install_owner_maps(sdir, sname, asset_dir, name)
     rel = os.path.relpath(odir, asset_dir).replace("\\", "/")
     result["tiled"] = {
@@ -1935,6 +2025,10 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
         "tile_mesh": tm, "weather_ladder": tried, "ppm_by_material": ppm, "smooth_by_material": smooth,
         "weather_by_material": wstats, "lod0_tris": tris0, "seconds": round(time.perf_counter() - t0, 1),
     }
+    if trim:
+        result["tiled"]["trim"] = {"version": "v1", "strip_by_material": sstats, "ctl_r_by_material": sctl,
+                                   "part_sites": ssites, "strip": tm.get("strip"), "strip_cell": TS.STRIP_CELL, "weather_pin": tcfg["weather_pin"],
+                                   "retired": list(TS.TRIM_V1_RETIRE)}
     print(f"[lodge] tiled: LOD0 {tris0} tris on {sname} ({tm['sliced_tris']} tris sliced into "
           f"{tm['pieces']} pieces, {tm['tjunction_inserts']} T-junction inserts, weather "
           f"{tm.get('weather')}); far set {A_far}")
@@ -2097,6 +2191,8 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
         data["fittings"] = result["fittings"]
     if "structure" in result:              # structure v1 builds only
         data["structure"] = result["structure"]
+    if "trim" in result:                   # T70 trim v1 builds only
+        data["trim"] = result["trim"]
     # art pass, detail pass 1: keys only for recipes that use the features (older manifests
     # keep their key set)
     rep = getattr(hook, "report", None) if hook is not None else None
