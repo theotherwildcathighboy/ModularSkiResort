@@ -404,7 +404,7 @@ def roof_parts(C):
                  (x0, y1, roof_bot(x0))], (0.0, 0.0, -1.0))
     P = C.quads_part("roof_uf", [top_q(xB, tx0, yL, ty0), top_q(xB, tx0, ty0, ty1),
                                  top_q(xB, tx0, ty1, yR), top_q(tx0, xF, yL, ty0),
-                                 top_q(tx0, xF, ty1, yR)], "concrete")
+                                 top_q(tx0, xF, ty1, yR)], "slate")           # T69: shingle roof (was concrete)
     fas = []
     for y0, y1 in ((yL, ty0), (ty1, yR)):
         fas.append(([(xF, y0, roof_bot(xF)), (xF, y1, roof_bot(xF)), (xF, y1, roof_top(xF)),
@@ -742,7 +742,7 @@ def build(recipe, opts):
     P += C.quads_part("roof_gf", [
         ([(ux1, gy0, ROOF_GF_Z), (gx1, gy0, ROOF_GF_Z), (gx1, ty0, ROOF_GF_Z), (ux1, ty0, ROOF_GF_Z)], (0, 0, 1)),
         ([(ux1, ty1, ROOF_GF_Z), (gx1, ty1, ROOF_GF_Z), (gx1, gy1, ROOF_GF_Z), (ux1, gy1, ROOF_GF_Z)], (0, 0, 1))],
-        "concrete")
+        "slate")                                                               # T69
     P += roof_parts(C)
     P += glulam_parts(C)
 
@@ -854,6 +854,11 @@ def build(recipe, opts):
                     segs=6, cap0=False, r1=0.0)
     bz0, bz1, br0, br1 = BELL
     P += C.cyl_part("bell_school", (cx, cy, bz0), (cx, cy, bz1), br0, "galv", segs=10, r1=br1)
+    # T69: the lamp cone hangs: a cross beam between two opposite head boards (ends 3 cm into them, inside their z span so no
+    # coplanar face) and a hanger rod from the beam into the cone top (2 cm each end)
+    P += _boxes(C, "bell_beam", [((cx - h + 0.02, cy - 0.07, HEAD_Z[0] + 0.03), (cx + h - 0.02, cy + 0.07, HEAD_Z[0] + 0.17), ())],
+                "trim_white")
+    P += C.cyl_part("bell_hanger", (cx, cy, bz1 - 0.02), (cx, cy, HEAD_Z[0] + 0.05), 0.04, "galv", segs=6)
     P += C.quads_part("lamp_glow", [([(cx - 0.25, cy - 0.25, GLOW_Z), (cx + 0.25, cy - 0.25, GLOW_Z),
                                       (cx + 0.25, cy + 0.25, GLOW_Z), (cx - 0.25, cy + 0.25, GLOW_Z)],
                                      (0, 0, -1))], "lamp")

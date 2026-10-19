@@ -157,6 +157,8 @@ SIDING_RED_LIN = (0.200, 0.100, 0.068)
 SIDING_WALNUT_LIN = (0.140, 0.080, 0.050)
 STONE_TAN_LIN = (0.300, 0.169, 0.0996)
 GLULAM_LIN = (0.500, 0.240, 0.100)
+# T65: the balcony balustrades are a separate stain (they read pale orange against the walnut cladding in review 2026-10-18)
+BALRAIL_LIN = (0.22, 0.10, 0.045)
 
 
 def swanky_materials():
@@ -184,7 +186,7 @@ def swanky_materials():
         # --- L5 revision 1 (2026-10-11, Peak 7 reference) ------------------------------
         # balcony balustrades: honey glulam colour as vertical boards with batten grooves
         # (Peak 7's orange baluster rails read as a slatted band at game distance)
-        "lux_balrail": BM("WoodSiding009", (1.2, 2.4), _lin2srgb(GLULAM_LIN), detail=K.BATTEN,
+        "lux_balrail": BM("WoodSiding009", (1.2, 2.4), _lin2srgb(BALRAIL_LIN), detail=K.BATTEN,
                           uv_rot=90, density_w=0.6),
         # pool deck / walkway pavers (the photo's red-brown pavers): Bricks096 laid flat
         "lux_paver": BM("Bricks096", (1.6, 0.8), (0.52, 0.34, 0.28), smooth=0.20,
@@ -2220,7 +2222,7 @@ def check_gable_braces(parts):
 
 
 def cross_gable(name, side, plane, c, z0, meet, *, wall_mat, glulam, gf_mat=None,
-                floors=UPPER, brackets=False):
+                floors=UPPER, brackets=False, wall_mat_lo=None):
     """
     Peak 7 projecting bay under a cross gable, over a balcony stack. The bay box stands
     XG_PROJ proud of the host wall (side, plane), XG_HALF either side of the along-coordinate
@@ -2250,11 +2252,16 @@ def cross_gable(name, side, plane, c, z0, meet, *, wall_mat, glulam, gf_mat=None
             raise ValueError(f"cross_gable {name}: a stone GF starts at grade")
         lo, hi = rect(0.0, Z_F[1])
         P += K.box_part(f"wall_gx{name}", lo, hi, gf_mat, drop=("+Z",), ground=True)
-        lo, hi = rect(Z_F[1], Z_WALL)
-        P += K.box_part(f"wall_xg{name}", lo, hi, wall_mat, drop=("+Z", "-Z"))
+        # T67: the bay's F2 band carries the host wall's F2 siding (wall_mat_lo), F3 and up the upper siding
+        lo, hi = rect(Z_F[1], Z_F[2])
+        P += K.box_part(f"wall_xg{name}", lo, hi, wall_mat_lo or wall_mat, drop=("+Z", "-Z"))
+        lo, hi = rect(Z_F[2], Z_WALL)
+        P += K.box_part(f"wall_xg{name}u", lo, hi, wall_mat, drop=("+Z", "-Z"))
     else:
-        lo, hi = rect(z0, Z_WALL)
-        P += K.box_part(f"wall_xg{name}", lo, hi, wall_mat, drop=("+Z",))
+        lo, hi = rect(z0, Z_F[2])
+        P += K.box_part(f"wall_xg{name}", lo, hi, wall_mat_lo or wall_mat, drop=("+Z",))
+        lo, hi = rect(Z_F[2], Z_WALL)
+        P += K.box_part(f"wall_xg{name}u", lo, hi, wall_mat, drop=("+Z", "-Z"))
     r0, r1 = (meet + 0.8, front) if sg > 0 else (front, meet - 0.8)
     if axn == "X":
         spec = RoofSpec("gable", r0, r1, c - XG_HALF, c + XG_HALF, Z_WALL, 45.0, axis="X",
@@ -3264,7 +3271,7 @@ def build_l5(recipe, opts):
             P += window_column(f"mr{k}{j}", "+X", M_X1, yc + d, UPPER, gf=False)
     xg_fronts = []
     for k, yc in enumerate(XG_ROAD):
-        ps, front = cross_gable(f"r{k}", "+X", M_X1, yc, 0.0, X_MEET_ROAD, wall_mat=SID_HI,
+        ps, front = cross_gable(f"r{k}", "+X", M_X1, yc, 0.0, X_MEET_ROAD, wall_mat=SID_HI, wall_mat_lo=SID_LO,
                                 glulam=GLU, gf_mat=STN)
         P += ps
         xg_fronts.append(("+X", front, "m", "B"))
@@ -3282,7 +3289,7 @@ def build_l5(recipe, opts):
     for j, d in enumerate((-2.0, 2.0)):
         P += window_column(f"mc{j}", "-X", M_X0, d, UPPER, gf=False)
     for k, yc in enumerate(XG_COURT):
-        ps, front = cross_gable(f"c{k}", "-X", M_X0, yc, Z_F[1], X_MEET_COURT, wall_mat=SID_HI,
+        ps, front = cross_gable(f"c{k}", "-X", M_X0, yc, Z_F[1], X_MEET_COURT, wall_mat=SID_HI, wall_mat_lo=SID_LO,
                                 glulam=GLU, brackets=True)
         P += ps
         xg_fronts.append(("-X", front, "m", "A"))
@@ -3307,7 +3314,7 @@ def build_l5(recipe, opts):
         for j, x in enumerate((-27.8, -24.2, -12.6, -10.2)):
             P += window_column(f"wc{tag}{j}", cside, cplane, x, UPPER, gf=False)
         meet = (0.5 * (y0 + y1)) + (W_RIDGE - XG_RIDGE) * (1.0 if y1 < 0 else -1.0)
-        ps, front = cross_gable(f"w{tag}", cside, cplane, XG_WING, Z_F[1], meet, wall_mat=SID_HI,
+        ps, front = cross_gable(f"w{tag}", cside, cplane, XG_WING, Z_F[1], meet, wall_mat=SID_HI, wall_mat_lo=SID_LO,
                                 glulam=GLU, brackets=True)
         P += ps
         xg_fronts.append((cside, front, f"w{tag}", "B" if y1 < 0 else "A"))
@@ -3825,7 +3832,8 @@ RECIPE = FineRecipe(
     # members, pavers and the swanky walls, plus flat trims / soffits / trusses, fit the 30,000 cap
     tile_scale=(("timber_heavy", 2), ("galv", 2), ("deck", 2), ("lux_glulam", 2), ("lux_balrail", 2),
                 ("lux_paver", 2), ("lux_stone_tan", 2), ("lux_siding_walnut", 2), ("lux_siding_red", 2)),
-    tiled_flat=("soffit_", "trim_", "truss_", "beam_", "poolcap_"),
+    # T66: outriggers (`beam_xg*`) draw textured (grain along the member); the porch / tower beams stay flat for the L5 cap
+    tiled_flat=("soffit_", "trim_", "truss_", "beam_tw", "beam_pcl", "poolcap_"),
     massing="custom", builder=build_l5,
     rooms="auto", interior="CommercialLow",
     # VariationSet A (contract 6, STEEL_DEFAULT_RGB convention): bronze / deep red / copper

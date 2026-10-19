@@ -537,7 +537,9 @@ def r2_revision(parts, keys, verts):
     assert bell[:, 1].max() < leaf_m[:, 1].min() - 0.05 and bell[:, 2].min() > head_m[:, 2].max(), \
         f"R2a: the alarm bell is not above-left of the tower door ({bell.min(0)}..{bell.max(0)})"
     # (b) the roof: every roof_uf face rises toward -X at ROOF_PITCH_DEG
-    obj = {o.name: o for o, _k in parts}["roof_uf"]
+    assert keys["roof_uf"] == "slate" and keys["roof_gf"] == "slate", (keys["roof_uf"], keys["roof_gf"])   # T69 shingle roofs
+    assert keys["roof_tower"] == "metal_roof" and keys["lanterncap_roof"] == "metal_roof"
+    obj ={o.name: o for o, _k in parts}["roof_uf"]
     M = obj.matrix_world.to_3x3()
     angs = []
     for p in obj.data.polygons:

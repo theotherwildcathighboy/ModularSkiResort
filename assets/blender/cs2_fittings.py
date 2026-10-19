@@ -1609,6 +1609,7 @@ STRUCT_RULES = (
     ("post", ("col_", "logpost_", "stilt_", "gazebocol_", "lanterncol_", "logframe_", "pier_",
               "footing_", "step_", "stairblk_", "balcpost_"), ()),
     ("member", ("beam_", "strut_", "truss_", "trim_truss", "joist_", "logplate_", "rail_", "tail_"), ()),
+    ("hung", ("bell_",), ("bell_alarm",)),           # T69: a hanging fixture: its TOP must touch what carries it
     ("held", ("glassrail_", "balcwall_", "kick_", "mast_", "trsplate_", "galleryrib_"), ()),
     ("post", ("flag_",), ()),
 )
@@ -1622,6 +1623,7 @@ SIDE_MOUNT = ("stair_", "deck_", "deckfascia_", "balc_", "plinthcap_", "step_", 
 # per recipe: {part name or prefix: (role | "skip", reason)} - the declared exceptions (and the tags a recipe adds)
 STRUCT_DECLARE = {
     "P2": {"logpost_": ("railpost", "the deck rail's log newels: the steel bars run through them, the tops are free")},
+    "school": {"bell_beam": ("member", "the lantern's cross beam: both ends must land in the head boards")},
     "L4": {"trim_dposts": ("post", "the cantilever deck's glulam posts (unbevelled, so renamed trim_)")},
     "L5": {"trim_twpost": ("railpost", "the tower deck parapet's posts (unbevelled, so renamed trim_)"),
            "trim_twcap": ("member", "the tower deck parapet's cap rail")},
@@ -1909,7 +1911,7 @@ def audit_structure(recipe, parts):
         elong = math.sqrt(max(srt[0], 1e-12) / max(srt[1], 1e-12))
         vertical = abs(ax[2]) >= 0.9 or (elong < 3.0 and ext[2] >= max(ext[0], ext[1]))
         pts = _edge_pts(co, ps, STRUCT_STEP)
-        if role in ("member", "post", "railpost"):     # ends / tops / feet also sample the faces' interiors
+        if role in ("member", "post", "railpost", "hung"):     # ends / tops / feet also sample the faces' interiors
             pts = np.vstack([pts, _face_pts(co, ps, 0.04)])
         r = {"shell": name, "role": role, "final_c": fin((lo + hi) / 2), "size": [round(float(v), 3) for v in ext]}
         bad = []
@@ -1978,6 +1980,12 @@ def audit_structure(recipe, parts):
                 g, by = gs[j]
                 bad.append(("end", g, f"{'lower' if j == 0 else 'upper'} end in air: {g * 1000:.0f} mm from "
                                       f"{by or 'anything'} (L {L:.2f} m)", ends[j].mean(0)))
+        elif role == "hung":                       # T69: the first check above already needs ANY contact; a hung part's TOP is carried
+            top = pts[pts[:, 2] >= hi[2] - STRUCT_BAND]
+            g, by = _landed(W, recipe, grade, top, me)
+            r["top_mm"], r["top_on"] = round(g * 1000, 1), by
+            if g > CONTACT_M:
+                bad.append(("top", g, f"hung fixture's top ends in air: {g * 1000:.0f} mm from {by or 'anything'}", top.mean(0)))
         elif role == "bracket":                    # judged per bracket UNIT (arm + strut ...) after the loop
             sup = set(ovo)
             for p in pts[:: max(1, len(pts) // 300)]:

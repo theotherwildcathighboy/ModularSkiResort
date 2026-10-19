@@ -188,7 +188,7 @@ BUILDERS = [
 REF = {
     "storey": 9, "plinth": 4, "prism_gable": 4, "roof_slab": 9, "gable_roof": 472,
     "hip_roof": 78, "shed_roof": 77, "flat_roof": 41, "dormer": 53, "roof_window": 21,
-    "vent_stack": 14, "chimney": 14, "stovepipe": 28, "window_bay": 41,
+    "vent_stack": 14, "chimney": 15, "stovepipe": 28, "window_bay": 41,
     "window_bay_tr": 48, "curtain_wall": 76, "entry": 153, "sign_board": 21,
     "emblem_disc": 32, "emblem_square": 5, "stone_pier": 10, "col": 5, "logcol": 14,
     "beam": 6, "bracket": 12, "bracket_curved": 24, "truss_kingpost": 48, "deck": 70,
@@ -223,6 +223,11 @@ def check_builders():
         ref = REF[nm]
         assert abs(n - ref) <= max(1, 0.10 * ref), f"{nm}: {n} faces vs reference {ref}"
         built[nm] = parts
+    # T64: the chimney shoulder keeps its +Z face over its whole footprint (the stack is narrower than the shoulder)
+    sh = [o for o, _m in built["chimney"] if o.name == "chim_csh"][0]
+    tops = [p for p in sh.data.polygons if p.normal.z > 0.99
+            and abs(sum(sh.data.vertices[i].co.z for i in p.vertices) / 4 - 3.0) < 1e-6]
+    assert len(tops) == 1 and abs(tops[0].area - 1.6 * 1.4) < 1e-6, f"chimney shoulder +Z face missing / partial: {len(tops)}"
     ok(f"{len(BUILDERS)} builders: prefixes, matkeys, face counts within 10 % of the reference")
     # ground parts: OK ring, nothing at / below z 0 except the open band edges
     for nm, pre in GROUND_BUILDERS.items():

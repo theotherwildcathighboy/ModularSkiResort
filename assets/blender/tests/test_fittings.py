@@ -324,6 +324,21 @@ def check_structure_gate():
         assert FIT.struct_role("balc_x") == "slab" and FIT.struct_role("balcwall_x") == "held"
         assert FIT.struct_role("roof_hutcanopy0") == "slab" and FIT.struct_role("trim_trussxgr0") == "member"
         assert FIT.struct_role("gutter_a") is None and FIT.struct_role("balcpost_x") == "post"
+        assert FIT.struct_role("bell_school", "school") == "hung" and FIT.struct_role("bell_alarm", "school") is None
+        assert FIT.struct_role("bell_beam", "school") == "member"
+        # T69: a bell that touches something (its stand) but ends 15 cm under its beam fails 'top'; with its hanger it passes
+        def bell_scene(hanger):
+            clear()
+            parts = (_box("wall_a", (-1.7, -1.0, 0.0), (-1.5, 1.0, 3.5)) + _box("wall_b", (1.5, -1.0, 0.0), (1.7, 1.0, 3.5))
+                     + _box("beam_t", (-1.52, -0.1, 3.0), (1.52, 0.1, 3.2)) + _box("wall_s", (-0.5, -0.5, 0.0), (0.5, 0.5, 2.0))
+                     + _box("bell_t", (-0.3, -0.3, 2.0), (0.3, 0.3, 2.85)))
+            if hanger:
+                parts += _box("bell_th", (-0.05, -0.05, 2.83), (0.05, 0.05, 3.02))
+            return _sviol(parts)[0]
+        v = bell_scene(False)
+        assert any(r == "top" and nm.startswith("bell_t") for r, nm, _v, _d in v), v
+        v = bell_scene(True)
+        assert not v, v
     finally:
         FIT.STRUCT_AUDIT_MODE = mode
     ok("structure gate: a post 30 cm over grade, a post carrying nothing, a beam 3 cm short of its wall, a kit "

@@ -1342,8 +1342,10 @@ def chimney(name, x, y, w, d, top_z, base_z=0.0, shoulder=None, ground=False,
     stack_z0 = base_z
     if shoulder is not None:
         sw, sd, stop = shoulder
+        # T64: the +Z face stays. The stack is narrower (its -Z is dropped), so a dropped shoulder top left a hollow ring
+        # 0.2-0.5 m wide around the shaft (review 9 / 10.webp); the part under the stack is interior.
         parts += box_part(f"chim_{name}sh", (x - sw / 2, y - sd / 2, base_z),
-                          (x + sw / 2, y + sd / 2, stop), mat, drop=("+Z",),
+                          (x + sw / 2, y + sd / 2, stop), mat,
                           ground=ground and base_z == 0.0)
         stack_z0 = stop
         ground = False

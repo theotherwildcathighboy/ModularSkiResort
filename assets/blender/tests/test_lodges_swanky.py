@@ -266,6 +266,22 @@ def coplanar_overlaps(obj, table, tol=1e-3):
     return sorted(bad)
 
 
+def check_l5_xg_band(recipe):
+    """T67: each cross-gable bay's F2 band (Z_F[1]..Z_F[2]) is the host wall's lower siding, F3 and up the upper siding."""
+    from recipes import l5_swanky_bottom as SW
+    lodge.clear_scene()
+    ps = lodge.build_parts(recipe, {"tower": True, "roof_windows": False})
+    mats = {o.name: k for o, k in ps}
+    V = {o.name: SW.world_coords(o) for o, _k in ps}
+    for n in ("r0", "r1", "c0", "c1", "ws", "wn"):
+        lo, up = f"wall_xg{n}", f"wall_xg{n}u"
+        assert mats[lo] == "lux_siding_red" and mats[up] == "lux_siding_walnut", (n, mats[lo], mats[up])
+        assert V[lo][:, 2].min() >= SW.Z_F[1] - 1e-6 and V[lo][:, 2].max() <= SW.Z_F[2] + 1e-6, n
+        assert abs(V[up][:, 2].min() - SW.Z_F[2]) < 1e-6 and abs(V[up][:, 2].max() - SW.Z_WALL) < 1e-6, n
+    lodge.clear_scene()
+    print("ok T67 bay band: wall_xg{r0,r1,c0,c1,ws,wn} red F2 band + walnut upper")
+
+
 def check_l5_r1(r, obj, table):
     """Revision-1 contracts on the joined LOD0 (lot, facing, pools; see the docstring)."""
     from recipes import l5_swanky_bottom as SW
@@ -275,6 +291,9 @@ def check_l5_r1(r, obj, table):
     assert lot["margin_x"] >= 0.0 and lot["margin_y"] >= 0.0, lot
     assert r["facing"]["arrival_centroid_x"] >= SW.H_X1 + SW.X_SHIFT, r["facing"]
     assert recipe.budget.lod0_cap == 30000 and r["tris"][0] <= 30000, r["tris"]
+    tf = tuple(recipe.tiled_flat)          # T66: the outriggers draw textured, the porch / tower beams stay flat
+    assert not any("beam_xgc0o0".startswith(p) for p in tf), f"outriggers still flat: {tf}"
+    assert all(any(n.startswith(p) for p in tf) for n in ("beam_tw0", "beam_pcl0")), f"porch / tower beams lost the flat list: {tf}"
     pp = np.zeros(len(obj.data.polygons), np.int32)
     obj.data.attributes["part"].data.foreach_get("value", pp)
     W = K._world_coords(obj)
@@ -1159,6 +1178,7 @@ def pass1(tmp):
     assert abs(zmax - SW.FLUE_TOP) < 0.06, (zmax, SW.FLUE_TOP)
     assert r["base"][0]["verdict"] == "OK"
     print(f"ok L5 --no-tower: LOD0 {r['tris'][0]} tris, max z {zmax:.2f} (flue pots)")
+    check_l5_xg_band(L5)                   # T67
     # the hosted clock tower (tram base station / static object): footing -1.5, no ground
     lodge.clear_scene()
     from recipes import l5_swanky_bottom as SW
