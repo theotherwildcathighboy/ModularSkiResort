@@ -1,0 +1,15 @@
+.shot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 1.5rem 0;
+  border: 2px dashed var(--sl-color-gray-4);
+  border-radius: 0.5rem;
+  background: var(--sl-color-gray-6);
+  color: var(--sl-color-gray-2);
+  text-align: center;
+  padding: 1rem;
+}
+.shot figcaption { display: flex; flex-direction: column; gap: 0.35rem; max-width: 36rem; }
+.shot strong { letter-spacing: 0.04em; text-transform: uppercase; font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); }
+.shot span { font-size: var(--sl-text-sm); }

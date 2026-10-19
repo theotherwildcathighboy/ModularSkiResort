@@ -1,0 +1,16 @@
+---
+// A labelled grey box standing in for a screenshot that has not been taken yet.
+// Never a mock-up: the box says what the real picture must show. Replace with a real
+// <img> (or Starlight's Image) when the shot exists; the label is the shot-list entry.
+interface Props {
+  label: string;
+  ratio?: string;
+}
+const { label, ratio = '16 / 9' } = Astro.props;
+---
+<figure class="shot" style={`aspect-ratio: ${ratio}`} role="img" aria-label={`Screenshot to come: ${label}`}>
+  <figcaption>
+    <strong>Screenshot to come</strong>
+    <span>{label}</span>
+  </figcaption>
+</figure>
