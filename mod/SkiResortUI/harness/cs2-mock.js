@@ -234,7 +234,8 @@
     const Tag = props.as === "div" ? "div" : "button";
     const theme = props.theme || {};
     return h(Tag, Object.assign(rest(props), {
-      className: cx("h-btn", theme.button, props.selected && "h-selected", props.className),
+      // the game REPLACES the button theme when theme.button is set: no stand-in padding on themed buttons (tiles, chips)
+      className: cx(theme.button ? null : "h-btn", theme.button, props.selected && "h-selected", props.className),
       onClick: (e) => { if (props.onSelect) props.onSelect(); if (props.onClick) props.onClick(e); },
       title: typeof props.tooltipLabel === "string" ? props.tooltipLabel : undefined,
     }), props.children);
