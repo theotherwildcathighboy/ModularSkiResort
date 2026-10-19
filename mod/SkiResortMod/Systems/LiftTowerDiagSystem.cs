@@ -25,6 +25,16 @@
 // scores break by probability-weighted random (:2336-2358). NOT replicated (UNVERIFIED effect): CheckRequirements per member
 // (:2148), the +0.5 for a group already selected this update (:2331). ownerElevation = cmin(Game.Net.Elevation) (:980).
 //
+// PLAN (T48 step 2, docs/research/field/2026-10-19/tower-planner-build-1.md; read-only like the rest): after every "Towers [nodes]"
+// block, each path of the line is re-planned by the pure LiftTowerPlanner on the REAL terrain (TerrainUtils.SampleHeight on the
+// TerrainSystem.GetHeightData() heightmap, TerrainUtils.cs:82 / TerrainSystem.cs:2603, the same main-thread read the [nodes] block
+// uses) along the path's node polyline (xz), from its first node to its last, both ends taken as stations with the rope at node y +
+// the shortest member's rope height (the field lines' ends carry a shortest tower; a station stub's own lane height is an open item
+// for step 3b). It logs "Towers [plan]" (planned vs actual node count, per planned node the member, rope and flags, per span the
+// lowest carrier above ground and the max rope height) + one "Towers [plan summary]" line, and caches the planned geometry for
+// LiftTowerPlanOverlaySystem, keyed by every edge and node entity of the line (so selecting a section, a node or a tower finds it).
+// Selecting a line whose plan is not cached (e.g. one past the per-emission cap) queues it here: RequestPlan → next update.
+//
 // Mod.cs: UpdateAfter<LiftTowerDiagSystem, LiftCensusSystem>(Modification4B) — same anchor family as TramShuttleSystem.
 
 using System;
@@ -63,6 +73,14 @@ namespace SkiResortMod.Systems
         private readonly List<LiftCensus.Edge> m_LastEdges = new List<LiftCensus.Edge>();
         private int m_Blocks, m_Dumps;
 
+        // T48 step 2: the planner and the overlay cache.
+        internal const int MaxCachedEntities = 8192;
+        private readonly LiftTowerPlanner m_Planner = new LiftTowerPlanner();
+        private readonly Dictionary<Entity, LiftPlanDraw> m_Draws = new Dictionary<Entity, LiftPlanDraw>();
+        private readonly HashSet<Entity> m_NotALine = new HashSet<Entity>();
+        private Entity m_PlanRequest;
+        private int m_Plans;
+
         protected override void OnCreate()
         {
             base.OnCreate();
@@ -84,6 +102,10 @@ namespace SkiResortMod.Systems
             m_Pending.Clear();
             m_LastEdges.Clear();
             m_Blocks = m_Dumps = 0;
+            m_Draws.Clear();
+            m_NotALine.Clear();
+            m_PlanRequest = Entity.Null;
+            m_Plans = 0;
         }
 
         protected override void OnUpdate()
@@ -91,6 +113,20 @@ namespace SkiResortMod.Systems
             if (!m_Armed || m_Disabled)
                 return;
             m_Frame++;
+            if (m_PlanRequest != Entity.Null)
+            {
+                Entity want = m_PlanRequest;
+                m_PlanRequest = Entity.Null;
+                try
+                {
+                    PlanSelected(want);
+                }
+                catch (Exception e)
+                {
+                    Fail(e);
+                    return;
+                }
+            }
             if (m_Pending.Count == 0 || m_Frame - m_LastQueueFrame < SettleFrames)
                 return;
             try
@@ -141,6 +177,7 @@ namespace SkiResortMod.Systems
                 return;
             try
             {
+                m_NotALine.Clear();
                 m_LastEdges.Clear();
                 m_LastEdges.AddRange(edges);
                 List<List<LiftCensus.Edge>> comps = Components(m_LastEdges);
@@ -357,7 +394,145 @@ namespace SkiResortMod.Systems
               .Append("; formula MISMATCH ").Append(mismatches).Append(" node(s); elevation>=4 but shortest member chosen ").Append(ladderMissed).Append(" node(s)");
             Mod.Log.Info(sb.ToString());
             m_Blocks++;
+
+            // T48 step 2: the planned line beside the actual one (its own try: a planner fault must not cost the [nodes] block).
+            try
+            {
+                WritePlans(comp, paths, typeDef, typeName, why, ref hd);
+            }
+            catch (Exception e)
+            {
+                Mod.Log.Warn($"Towers [plan]: line {typeName} edge {Fmt(LiftCensusSystem.Ent(comp[0].Id))} — planner failed " +
+                             $"({e.GetType().Name}: {e.Message}); the [nodes] block above is unaffected\n{e}");
+            }
             return true;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        // T48 step 2: plan + overlay cache
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>The overlay's lookup: the cached plan of the line that <paramref name="e"/> (edge, node) belongs to.</summary>
+        internal bool TryGetPlanDraw(Entity e, out LiftPlanDraw draw) => m_Draws.TryGetValue(e, out draw);
+
+        /// <summary>The overlay asks for a plan of a selected entity that has none cached; served on the next update (at most one
+        /// per update, an entity that is not on a line is remembered until the next census build).</summary>
+        internal void RequestPlan(Entity e)
+        {
+            if (m_Armed && !m_Disabled && e != Entity.Null && !m_NotALine.Contains(e) && !m_Draws.ContainsKey(e))
+                m_PlanRequest = e;
+        }
+
+        private void PlanSelected(Entity want)
+        {
+            List<List<LiftCensus.Edge>> comps = Components(m_LastEdges);
+            for (int c = 0; c < comps.Count; c++)
+            {
+                List<LiftCensus.Edge> comp = comps[c];
+                for (int i = 0; i < comp.Count; i++)
+                {
+                    if (LiftCensusSystem.Ent(comp[i].Id) == want || LiftCensusSystem.Ent(comp[i].Start) == want ||
+                        LiftCensusSystem.Ent(comp[i].End) == want)
+                    {
+                        if (!WriteLine(comp, "selected (overlay)"))
+                            m_NotALine.Add(want);
+                        return;
+                    }
+                }
+            }
+            m_NotALine.Add(want);
+        }
+
+        private void WritePlans(List<LiftCensus.Edge> comp, List<List<Hop>> paths, LiftTypeDef typeDef, string typeName, string why,
+                                ref TerrainHeightData hd)
+        {
+            string head = "line " + typeName + " edge " + Fmt(LiftCensusSystem.Ent(comp[0].Id));
+            LiftTowerPlanConstants constants = LiftTowerPlanConstants.For(typeDef);
+            if (constants == null)
+            {
+                Mod.Log.Info($"Towers [plan]: {head} — no planner constants for lift type '{typeName}' (untyped line): not planned");
+                return;
+            }
+            if (m_Draws.Count > MaxCachedEntities)
+                m_Draws.Clear();   // bound: entities of lines long deleted; the overlay re-requests what it needs
+            TerrainHeightData terrain = hd;
+            for (int p = 0; p < paths.Count; p++)
+            {
+                List<Hop> path = paths[p];
+                if (path.Count < 2)
+                    continue;
+                var pts = new float3[path.Count];
+                for (int i = 0; i < path.Count; i++)
+                    pts[i] = EntityManager.TryGetComponent<Game.Net.Node>(path[i].Node, out var n) ? n.m_Position : default;
+                var cum = new float[path.Count];
+                for (int i = 1; i < pts.Length; i++)
+                    cum[i] = cum[i - 1] + math.distance(pts[i - 1].xz, pts[i].xz);
+                float length = cum[cum.Length - 1];
+                string pathHead = paths.Count > 1 ? head + " path " + p : head;
+                if (length < 2f * constants.StepM)
+                {
+                    Mod.Log.Info($"Towers [plan]: {pathHead} — {length:F1} m of line, too short to plan");
+                    continue;
+                }
+
+                LiftTerrainSampler sampler = (along, lateral) =>
+                {
+                    float3 at = PolylineAt(pts, cum, along, lateral, out _);
+                    return TerrainUtils.SampleHeight(ref terrain, at);
+                };
+                float ropeA = pts[0].y + constants.RopeAboveBase(0);
+                float ropeB = pts[pts.Length - 1].y + constants.RopeAboveBase(0);
+                LiftTowerPlan plan = m_Planner.Plan(sampler, length, ropeA, ropeB, constants);
+                m_Plans++;
+
+                var sb = new StringBuilder(2048);
+                plan.AppendLog(sb, pathHead + " (" + why + "; ends = the path's first / last node, rope at node y + " +
+                                   F(constants.RopeAboveBase(0), "F2") + ") vs actual " + path.Count + " node(s), " +
+                                   math.max(0, path.Count - 2) + " line tower(s)");
+                float maxAbove = float.NegativeInfinity;
+                int violated = 0;
+                for (int s = 0; s < plan.Spans.Length; s++)
+                {
+                    maxAbove = math.max(maxAbove, plan.Spans[s].MaxRopeAboveM);
+                    if (plan.Spans[s].FloorViolated || plan.Spans[s].HeightViolated)
+                        violated++;
+                }
+                sb.Append("Towers [plan summary]: ").Append(pathHead).Append(": planned ").Append(plan.Nodes.Length).Append(" node(s) / ")
+                  .Append(plan.LineTowers).Append(" line tower(s) vs actual ").Append(path.Count).Append(" / ").Append(math.max(0, path.Count - 2))
+                  .Append("; members {").Append(plan.MemberCounts()).Append("}; min floor margin ").Append(Sg(plan.MinFloorMarginM))
+                  .Append(" m; max rope above ground ").Append(F(maxAbove, "F1")).Append(" m; ")
+                  .Append(violated == 0 ? "every span clear" : violated + " span(s) VIOLATED (no clear arrangement on this ground)");
+                Mod.Log.Info(sb.ToString());
+
+                LiftPlanDraw draw = LiftPlanDraw.Build(plan, s => PolylineAt(pts, cum, s, 0f, out _), s =>
+                {
+                    PolylineAt(pts, cum, s, 0f, out float3 right);
+                    return right;
+                });
+                for (int i = 0; i < path.Count; i++)
+                {
+                    m_Draws[path[i].Node] = draw;
+                    if (path[i].NextEdge != Entity.Null)
+                        m_Draws[path[i].NextEdge] = draw;
+                }
+            }
+        }
+
+        /// <summary>The point <paramref name="along"/> metres (xz) along the node polyline, <paramref name="lateral"/> metres to the
+        /// right of its local direction (y = 0); <paramref name="right"/> = that unit right vector.</summary>
+        private static float3 PolylineAt(float3[] pts, float[] cum, float along, float lateral, out float3 right)
+        {
+            int seg = 0;
+            while (seg < pts.Length - 2 && cum[seg + 1] < along)
+                seg++;
+            float segLen = cum[seg + 1] - cum[seg];
+            float u = segLen > 1e-4f ? math.saturate((along - cum[seg]) / segLen) : 0f;
+            float2 a = pts[seg].xz, b = pts[seg + 1].xz;
+            float2 dir = segLen > 1e-4f ? (b - a) / segLen : new float2(0f, 1f);
+            float2 r = new float2(dir.y, -dir.x);   // right of A→B in CS2's x-right / z-forward plane
+            right = new float3(r.x, 0f, r.y);
+            float2 xz = math.lerp(a, b, u) + r * lateral;
+            return new float3(xz.x, 0f, xz.y);
         }
 
         /// <summary>Walk the component into paths of nodes (start at a degree-1 node, lowest y first; branches restart at a

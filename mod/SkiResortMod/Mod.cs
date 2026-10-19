@@ -546,6 +546,13 @@ namespace SkiResortMod
             // The phase must stay Modification4B or the anchor is skipped and the system silently never prints.
             updateSystem.UpdateAfter<LiftTowerDiagSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
 
+            // T48 step 2 (docs/research/field/2026-10-19/tower-planner-build-1.md): READ-ONLY overlay of the planned towers and rope of
+            // the selected lift line (the plan LiftTowerDiagSystem logs as "Towers [plan]"). Anchor is load-bearing for the reason of
+            // SkiStationAlignSystem below: OverlayRenderSystem (Rendering, SystemOrder.cs:687, 1.6.2 :688) consumes and clears the
+            // overlay buffers each frame (OverlayRenderSystem.cs:781, 790), so the lines must be added BEFORE it in the same phase.
+            // Gated by the LiftBuildAids setting inside the system.
+            updateSystem.UpdateBefore<LiftTowerPlanOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
+
             // Lift park emitter (§5.3 OD-6 (a); I-2's fix of a spec error, registration added by the
             // integrator 2026-10-03). The census (4B) only QUEUES the surviving sections of an opened lift:
             // EndFrameBarrier.CreateCommandBuffer throws at Modification4B (Game/SafeCommandBufferSystem.cs

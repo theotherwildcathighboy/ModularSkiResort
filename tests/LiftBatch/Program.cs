@@ -116,6 +116,10 @@ namespace LiftBatch
             LoopHoldTests.Run(Check);
             // Round T06 (docs/research/field/2026-10-15/build/T06-served-links.md): run-to-run links in the served rule.
             ServedLinkTests.Run(Check);
+            // T48 step 1 (docs/research/field/2026-10-19/tower-planner-build-1.md): the pure tower planner (LiftPlannerTests.cs, LP-0..LP-9).
+            LiftPlannerTests.Run(Check);
+            foreach (string line in LiftPlannerTests.Report)
+                Console.WriteLine("PLAN  " + line);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  LiftBatch checks={0} failures={1}", s_Checks, s_Failures));

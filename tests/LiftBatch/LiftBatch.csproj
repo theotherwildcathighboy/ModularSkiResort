@@ -59,6 +59,9 @@
     <Compile Include="LoopHoldTests.cs" />
     <!-- Round T06 (2026-10-16, docs/research/field/2026-10-15/build/T06-served-links.md): runs linked to a served run are served. -->
     <Compile Include="ServedLinkTests.cs" />
+    <!-- T48 step 1 (2026-10-19, docs/research/field/2026-10-19/tower-planner-build-1.md): the pure tower planner and its tests. -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftTowerPlanner.cs" Link="LiftTowerPlanner.cs" />
+    <Compile Include="LiftPlannerTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />
