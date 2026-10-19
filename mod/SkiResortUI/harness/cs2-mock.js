@@ -281,13 +281,58 @@
       open ? h("div", { className: "h-foldout-content" }, props.children) : null);
   }
   const simple = (tag, cls) => (props) => h(tag, Object.assign(rest(props), { className: cx(cls, props.className) }), props.children);
-  function DropdownItem(props) {
-    return h("div", { className: cx("h-dditem", props.selected && "h-selected", props.className), onClick: () => { if (props.onChange && !props.selected) props.onChange(props.value); else if (props.onToggleSelected && props.selected) props.onToggleSelected(props.value); } }, props.children);
+  // T97 P1 (2026-10-19): Dropdown / DropdownToggle / DropdownItem follow the game's dropdown.tsx (installed 1.6.2f1 index.js@716237,
+  // @717950, @719062): a context with visible / toggle / hide; the children (the toggle) render in place; while open the list renders in a
+  // PORTAL on <body> under the toggle (at least its width, AnchoredPopup minWidth: true, @713812) above a full-screen barrier whose click
+  // closes it (PointerBarrier, @621027). Portals bubble React events along the React tree, exactly as in game, so the hub's mousedown guard
+  // around the Dropdown is exercised here too. An item fires onChange only when it is not selected, then closes the list. Not faithful:
+  // the vanilla chrome (here plain dark boxes), flipping up, focus / gamepad navigation, sounds.
+  const DropdownContext = React.createContext({ visible: false, toggle: () => {}, hide: () => {} });
+  function Dropdown(props) {
+    const [open, setOpen] = React.useState(false);
+    const [at, setAt] = React.useState(null);
+    const anchor = React.useRef(null);
+    const set = (v) => {
+      if (v && anchor.current) {
+        const el = anchor.current.firstElementChild || anchor.current;
+        const r = el.getBoundingClientRect();
+        setAt({ left: r.left, top: r.bottom, width: r.width });
+      }
+      setOpen(v);
+      if (props.onToggle) props.onToggle(v);
+    };
+    const ctx = { visible: open, toggle: () => set(!open), hide: () => set(false) };
+    return h(DropdownContext.Provider, { value: ctx },
+      h("span", { ref: anchor, className: "h-ddanchor" }, props.children),
+      open ? ReactDOM.createPortal(h("div", { className: "h-ddbarrier", onClick: () => set(false) }), document.body) : null,
+      open && at ? ReactDOM.createPortal(h("div", { className: "h-ddpopup", style: { left: at.left + "px", top: at.top + "px", minWidth: at.width + "px" },
+        onClick: (e) => e.stopPropagation() }, props.content), document.body) : null);
   }
-  function Dropdown(props) { return h("div", { className: cx("h-dropdown", props.className) }, props.children, props.content); }
+  function DropdownToggle(props) {
+    const ctx = React.useContext(DropdownContext);
+    return h("button", Object.assign(rest(props), { className: cx("h-ddtoggle", ctx.visible && "active", props.className), onClick: (e) => { e.stopPropagation(); ctx.toggle(); } }),
+      h("div", { className: "h-ddlabel" }, props.children), h("span", { className: "h-ddindicator" }, ctx.visible ? "▴" : "▾"));
+  }
+  function DropdownItem(props) {
+    const ctx = React.useContext(DropdownContext);
+    return h("div", { className: cx("h-dditem", props.selected && "h-selected", props.className), onClick: () => {
+      if (props.onChange && !props.selected) props.onChange(props.value); else if (props.onToggleSelected && props.selected) props.onToggleSelected(props.value);
+      if (props.closeOnSelect !== false) ctx.hide();
+    } }, props.children);
+  }
+  (function addDropdownCss() {
+    const css = ".h-ddanchor{display:flex;flex:1 1 0;min-width:0}" +
+      ".h-ddtoggle{display:flex;align-items:center;flex:1 1 0;min-width:0;background:rgba(255,255,255,0.08);color:inherit;border:1px solid rgba(255,255,255,0.18);border-radius:4rem;padding:2rem 8rem;cursor:pointer;font:inherit}" +
+      ".h-ddtoggle:hover,.h-ddtoggle.active{background:var(--hoverColorNormal)}" +
+      ".h-ddlabel{flex:1 1 0;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left}.h-ddindicator{margin-left:6rem;opacity:0.7}" +
+      ".h-ddbarrier{position:fixed;left:0;top:0;right:0;bottom:0;z-index:9998}" +
+      ".h-ddpopup{position:fixed;z-index:9999;background:rgba(20,26,38,0.98);border:1px solid rgba(255,255,255,0.15);border-radius:4rem;padding:4rem 0;color:var(--normalTextColor);box-shadow:0 6rem 18rem rgba(0,0,0,0.5)}" +
+      ".h-ddpopup .h-dditem{display:flex;padding:6rem 12rem}.h-ddpopup .h-dditem:hover{background:var(--hoverColorNormal)}";
+    const el = document.createElement("style"); el.textContent = css; document.head.appendChild(el);
+  })();
   window["cs2/ui"] = {
-    Button, FloatingButton, Tooltip, Panel, PanelFoldout, DropdownItem, Dropdown,
-    DropdownToggle: simple("button", "h-btn"), Icon: (props) => h("img", { src: imgSrc(props.src), className: cx("h-icon", props.className), alt: "" }),
+    Button, FloatingButton, Tooltip, Panel, PanelFoldout, DropdownItem, Dropdown, DropdownToggle,
+    Icon: (props) => h("img", { src: imgSrc(props.src), className: cx("h-icon", props.className), alt: "" }),
     MenuButton: Button, PanelSection: simple("div", "h-section"), PanelSectionRow: simple("div", "h-row"),
     Scrollable: simple("div", "h-scrollable"), Portal: (props) => props.children,
     FormattedText: simple("span", ""), FormattedParagraphs: simple("div", ""), MarkdownRenderer: simple("div", ""), MarkupRenderer: simple("div", ""),

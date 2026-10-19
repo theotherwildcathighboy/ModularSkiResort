@@ -29,6 +29,7 @@
  * B1 UI half (contract 11): T22.1-T22.5 the Finances column = the Net's eight rows (netRows order, netRowsTotal = netMonth with -1 read as
  * 0, netRowShown hides only a 0 income row, every harness live row adds up and equals its History month in progress, MoneyView
  * draws the contract-11 fields): 229 checks.
+ * T97 P1 header selector (2026-10-19, contract 11): T24.1-T24.3 (resortCountsVariant, resortListCounts, the selector's source facts): 239 checks.
  * A new rule in hubRules.ts adds its literal rows here (oracles are literals, never recomputed).
  */
 "use strict";
@@ -459,6 +460,24 @@ function run(srcDir) {
     const header = fs.readFileSync(path.join(srcDir, "hub", "HubHeader.tsx"), "utf8");
     eq("T23.2 tier label, upgrade line, header rule", [strip.includes("LODGE_TIER[id] ?? BUILD_LABEL.lodge"),
       (strip.match(/HUB_LOC\.buildActiveUpgrade/g) || []).length, header.includes("HUB_LOC.resortTip")], [true, 2, true]);
+  }
+  // T24 (T97 P1, 2026-10-19, DECISIONS 308; docs/research/ui/hub-selector-p1-p3-2026-10-19.md): the header selector. Its item counts
+  // (singular forms; the Not linked row adds its free lodges) and the source facts the gate cannot see: the vanilla Dropdown with
+  // FOCUS_DISABLED, DropdownItem from the shim, picking = selectResort(entrySign), the drag guard around it, the rule tooltip and note.
+  eq("T24.1 resortCountsVariant", [[5, 3], [1, 3], [5, 1], [1, 1], [0, 0], [1, 0], [0, 1]].map(([r, l]) => R.resortCountsVariant(r, l)),
+    ["many", "runOne", "lodgeOne", "one", "many", "runOne", "lodgeOne"]);
+  eq("T24.2 resortListCounts: a sign's own lodges; Not linked adds its free lodges; null and negatives read 0",
+    [R.resortListCounts({ kind: 0, runs: 5, lodges: 3, freeLodges: 1 }), R.resortListCounts({ kind: 1, runs: 1, lodges: 0, freeLodges: 1 }),
+      R.resortListCounts(null), R.resortListCounts({ kind: 0, runs: -1, lodges: -1, freeLodges: 4 })],
+    [{ runs: 5, lodges: 3 }, { runs: 1, lodges: 1 }, { runs: 0, lodges: 0 }, { runs: 0, lodges: 0 }]);
+  {
+    const header = fs.readFileSync(path.join(srcDir, "hub", "HubHeader.tsx"), "utf8");
+    eq("T24.3 selector source: Dropdown + DropdownToggle with FOCUS_DISABLED, DropdownItem from cs2shim, selectResort(entrySign(r)), drag guard, rule tip, note, caption",
+      [/<Dropdown focusKey=\{FOCUS_DISABLED\}/.test(header), /<DropdownToggle focusKey=\{FOCUS_DISABLED\}/.test(header),
+        /import \{ DropdownItem \} from "\.\.\/cs2shim";/.test(header), /from "cs2\/ui";/.test(header) && !/import \{[^}]*DropdownItem[^}]*\} from "cs2\/ui"/.test(header),
+        header.includes("onChange={() => hubTriggers.selectResort(entrySign(r))}"), header.includes("<div className={styles.selector} onMouseDown={noDrag}>"),
+        header.includes("HUB_LOC.resortTip"), header.includes("HUB_LOC.resortMenuNote"), header.includes("HUB_LOC.resortCaption")],
+      [true, true, true, true, true, true, true, true, true]);
   }
 
   // T20 (T78 build 2, contract 10; docs/research/ui/hub-history-build-2-2026-10-18.md): the History view. Source checks plus the pure

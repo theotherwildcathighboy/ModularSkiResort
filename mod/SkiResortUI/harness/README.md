@@ -26,7 +26,9 @@ Edit a component -> `npm run build` -> "Reload bundle" in the page.
 
 Faithful: `cs2/api` semantics (`bindValue` fallback, `useValue`, `bindLocalValue`, `trigger`), `LocalizedString`
 placeholder substitution, `LocalizedNumber` unit formats the hub relies on (src/hub/parts.tsx header), the props
-the hub passes to `Panel` / `PanelFoldout` / `Button` / `FloatingButton` / `Tooltip` / `DropdownItem`, the game's
+the hub passes to `Panel` / `PanelFoldout` / `Button` / `FloatingButton` / `Tooltip` / `DropdownItem`, the `Dropdown` open / close
+flow (T97 P1, 2026-10-19: the list in a portal under its toggle, a barrier click closes it, React events bubble through the portal as in
+game; not its chrome, flip-up or focus), the game's
 `:root` theme variables (its `index.css` is served read-only from the Steam folder as `/game/index.css`, with
 `coui://` URLs rewritten), its `Media/` glyphs and Noto Sans fonts, and its rem rule (1 rem = 1 px at 1080p;
 the page defaults to a fixed 1 rem = 1 px so a small window stays readable).

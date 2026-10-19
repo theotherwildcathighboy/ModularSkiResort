@@ -45,6 +45,9 @@
  *     SkiDayRules.PriceFactor(price, tolerance), seam of the economy group); PROBLEM 23-25 are band rows
  *     (mixedLiftTypes flies to the lift, the other two to their subject); receiptPartsVariant and
  *     lodgeSpendShown pick the Overview's school term and the Money view's lodge-spend row. Oracles T12-T14.
+ *   - T97 P1 (2026-10-19, DECISIONS 308; docs/research/ui/hub-selector-p1-p3-2026-10-19.md): the header selector's item line
+ *     "N runs · N lodges" picks its singular forms (resortCountsVariant) from the row's counts (resortListCounts: the Not linked
+ *     row adds its free lodges). Oracles T24.1-T24.2.
  */
 import type { Entity } from "cs2/utils";
 import {
@@ -208,6 +211,24 @@ export function problemClick(p: ProblemRow): ProblemClick {
 /** The three band slots and the "+N" count (design 3.1: slot 3 shows the third row plus "+N"). */
 export function bandSlots(rows: readonly ProblemRow[]): { slots: Array<ProblemRow | null>; more: number } {
   return { slots: [rows[0] ?? null, rows[1] ?? null, rows[2] ?? null], more: Math.max(0, rows.length - 3) };
+}
+
+// ---- header selector (T97 P1) -------------------------------------------------------------------
+
+/** The counts an area's selector item shows: runs, and lodges (the Not linked row adds the lodges on no live sign). */
+export function resortListCounts(row: ResortRow | null | undefined): { runs: number; lodges: number } {
+  if (!row) return { runs: 0, lodges: 0 };
+  const runs = Math.max(0, row.runs | 0);
+  const lodges = Math.max(0, row.lodges | 0) + (row.kind === 1 ? Math.max(0, row.freeLodges | 0) : 0);
+  return { runs, lodges };
+}
+
+export type ResortCountsVariant = "many" | "runOne" | "lodgeOne" | "one";
+
+/** Which RESORT_COUNTS text: "{RUNS} runs · {LODGES} lodges" or one of its singular forms (0 reads plural: "0 runs"). */
+export function resortCountsVariant(runs: number, lodges: number): ResortCountsVariant {
+  const r1 = (runs | 0) === 1, l1 = (lodges | 0) === 1;
+  return r1 && l1 ? "one" : r1 ? "runOne" : l1 ? "lodgeOne" : "many";
 }
 
 // ---- status line --------------------------------------------------------------------------------

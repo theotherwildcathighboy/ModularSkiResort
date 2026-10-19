@@ -121,6 +121,8 @@
 // SnowEstimated] (snow is always depth + coverage, T18.1-T18.3) and MONEY_TIP[Natural].
 // T86 / T97 field fixes (2026-10-19; HUB_CONTRACT 11 unchanged): new SCHOOL_OFF, SCHOOL_WAITING, BUILD_ACTIVE_UPGRADE, RESORT_TIP;
 // BUILD_TAB_TIP[Buildings] changed in place.
+// T97 P1 header selector (2026-10-19, DECISIONS 308; HUB_CONTRACT 11 unchanged): new RESORT_CAPTION, RESORT_MENU_NOTE,
+// RESORT_COUNTS[Many|RunOne|LodgeOne|One]; RESORT_TIP changed in place (the one rule, now the selector's tooltip).
 // Additional languages: further IDictionarySource implementations — see SPEC §13 Phase 6.
 
 using System.Collections.Generic;
@@ -689,7 +691,14 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RESORT_POSITION", "{N} / {COUNT}" },
                 { "SkiResort.Hub.RESORT_DEFAULT", "Ski area {N}" },
                 { "SkiResort.Hub.RESORT_FLY", "Fly to the Welcome Sign" },
-                { "SkiResort.Hub.RESORT_TIP", "The ski area shown: its Welcome Sign and everything built for it." },
+                { "SkiResort.Hub.RESORT_TIP", "Everything you build belongs to a Welcome Sign. Click to pick the ski area shown." },
+                // T97 P1 header selector (2026-10-19): caption, the open list's note, an item's counts.
+                { "SkiResort.Hub.RESORT_CAPTION", "Ski area" },
+                { "SkiResort.Hub.RESORT_MENU_NOTE", "Selecting a sign, a lodge or a station on the map shows its ski area here." },
+                { "SkiResort.Hub.RESORT_COUNTS[Many]", "{RUNS} runs · {LODGES} lodges" },
+                { "SkiResort.Hub.RESORT_COUNTS[RunOne]", "1 run · {LODGES} lodges" },
+                { "SkiResort.Hub.RESORT_COUNTS[LodgeOne]", "{RUNS} runs · 1 lodge" },
+                { "SkiResort.Hub.RESORT_COUNTS[One]", "1 run · 1 lodge" },
                 { "SkiResort.Hub.UNLINKED_ENTRY", "Not linked to a ski area" },
                 { "SkiResort.Hub.UNLINKED_HINT", "More than 5 km from every Welcome Sign. Place a sign nearby to link them." },
                 { "SkiResort.Hub.RENAME", "Rename" },

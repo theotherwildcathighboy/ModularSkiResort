@@ -226,6 +226,16 @@
 //     the hub-launched lodge is the active tool: Create mode, or a selection that is not one of our
 //     signs, cancels to the default tool with a "!!!" line (another of our signs: follows it, logged).
 //     The lodge stays a ServiceUpgrade of the sign (hub-u2-spec §6.1 g — a constraint for every round).
+//     (6) T97 P3 (2026-10-19, DECISIONS 308; docs/research/ui/hub-selector-p1-p3-2026-10-19.md): when the launch ENDS
+//     (placement ended, the resort switch ended it, the verify failed, the watch cancelled it), the sign is deselected —
+//     ONLY when step (3) is what selected it (m_LaunchSelectedSign) and the world selection is still that sign. Vanilla
+//     keeps the owner selected after its own upgrade placement: ObjectToolSystem never writes ToolSystem.selected (it only
+//     reads it, :3246, :3318, :4198; 1.6.2 the same, no write), it ends itself only after a ForbidMultiple / extension apply
+//     (:3468-3471, 1.6.2 :3527) or an OwnerSide cancel (:3406-3409), and the activeTool setter keeps the selection
+//     (ToolSystem.cs:84-111); the default tool clears it only on its own cancel or an empty click (DefaultToolSystem.cs:936,
+//     :1144, :1184). There the player selected the building first; from the hub WE did, and the sign's vanilla panel that our
+//     selection opened stayed open after the lodge was placed (T97). A sign the player had selected before the launch stays
+//     selected, like vanilla; a selection the player moved elsewhere is never touched. One "Hub [upgrade]" line per deselect.
 //
 // FOCUS (research §2.B.6, OD6: fly, never select). The DebugSystemSearch.FocusEntity recipe
 // (Game.Debug/DebugSystemSearch.cs:625-645, 1.6.2 :646-666) minus its selection, on the orbit camera
@@ -924,6 +934,9 @@ namespace SkiResortMod.Systems
         private Entity m_LodgeSign;
         private int m_LodgeVerifyCountdown;
         private bool m_LodgeWatch;
+        // T97 P3 (header LODGE step 6): the sign the hub's launch selected in the world; Null when the player had it
+        // selected already (theirs, kept like vanilla) or no launch owns the selection.
+        private Entity m_LaunchSelectedSign;
 
         // Dev tab / DUMP (plain fields written on events).
         public string HandshakeText { get; private set; } = "no uiHello yet";
@@ -1103,6 +1116,7 @@ namespace SkiResortMod.Systems
                 m_LodgeSign = Entity.Null;
                 m_LodgeVerifyCountdown = 0;
                 m_LodgeWatch = false;
+                m_LaunchSelectedSign = Entity.Null;
                 LodgeStateText = "-";
                 Array.Clear(m_ItemDriftLogged, 0, m_ItemDriftLogged.Length);   // Catalog Phase B: one drift WARN per item per load
                 m_SentMismatchLogged = false;
@@ -1826,6 +1840,8 @@ namespace SkiResortMod.Systems
             LodgeStateText = $"{id}: ended, the hub switched to {Ent(target)}";
             Mod.Log.Info($"Hub [upgrade] {id} placement ended by the resort switch — it was on the cursor ({how}) for sign " +
                          $"{Ent(bound)}, not {ResortLabel(target)}: default tool (its tile puts it on the shown resort's sign)");
+            if (hub)
+                ReleaseLaunchSelection(id, "ended by the resort switch");
         }
 
         /// <summary>Rules 1, 4, 5, 6, the bind notices and rule 7 — only when the stats rows changed
@@ -2484,7 +2500,12 @@ namespace SkiResortMod.Systems
             // (2) Default tool first (clears a selected upgrade synchronously, header LODGE).
             if (m_ToolSystem.activeTool != m_DefaultTool)
                 m_ToolSystem.activeTool = m_DefaultTool;
-            // (3) Select the sign (the object tool's upgrade target is GetUpgradable(selected)).
+            // (3) Select the sign (the object tool's upgrade target is GetUpgradable(selected)). P3 (step 6): remember
+            //     whether WE select it; a relaunch on the sign an earlier launch of ours selected keeps owning it.
+            if (selected != sign)
+                m_LaunchSelectedSign = sign;
+            else if (m_LaunchSelectedSign != sign)
+                m_LaunchSelectedSign = Entity.Null;   // the player's own selection: kept when the placement ends
             m_SelectedInfo.SetSelection(sign);
             // (4) Locked was checked by the caller; launch.
             bool ok = m_ToolSystem.ActivatePrefabTool(upgrade);
@@ -2506,6 +2527,7 @@ namespace SkiResortMod.Systems
                               $"(ActivatePrefabTool returned false and switched to the default tool) — sign {Ent(sign)} " +
                               $"selected ({camera}), nothing placed ({source})");
                 LodgeStateText = $"{id}: failed, no tool took the prefab";
+                ReleaseLaunchSelection(id, "launch failed (no tool)");
             }
             LastTriggerText = $"launch {id} on {Ent(sign)}: {(ok ? "verifying" : "FAILED")}";
         }
@@ -2619,6 +2641,31 @@ namespace SkiResortMod.Systems
                           (cancelled
                               ? "switched to the default tool so nothing can be placed off its sign"
                               : "it is not on the cursor, nothing to cancel"));
+            ReleaseLaunchSelection(id, "launch over (verify failed)");
+        }
+
+        /// <summary>T97 P3 (header LODGE step 6): the hub's launch is over. Deselects the sign only when the launch selected
+        /// it AND the world selection is still that sign (SelectedInfoUISystem.SetSelection = ToolSystem.selected,
+        /// SelectedInfoUISystem.cs:456-462; the vanilla info panel closes on its next update). A sign the player had selected
+        /// before the launch, or a selection they moved since, is never touched. One line per deselect, one when kept
+        /// because the selection moved. Event time only.</summary>
+        private void ReleaseLaunchSelection(string id, string why)
+        {
+            Entity mine = m_LaunchSelectedSign;
+            m_LaunchSelectedSign = Entity.Null;
+            if (mine == Entity.Null)
+                return;   // the player's own selection (or nothing of ours): vanilla keeps the owner selected, so do we
+            Entity now = m_ToolSystem.selected;
+            if (now != mine)
+            {
+                Mod.Log.Info($"Hub [upgrade] {id} {why}: sign {Ent(mine)} not deselected — the selection is {Ent(now)} now, not ours");
+                return;
+            }
+            m_SelectedInfo.SetSelection(Entity.Null);
+            if (m_ToolSystem.selected == mine)
+                m_ToolSystem.selected = Entity.Null;   // SetSelection skips when its cached entity is already Null (:458)
+            Mod.Log.Info($"Hub [upgrade] {id} {why}: deselected sign {Ent(mine)} — the hub's launch had selected it " +
+                         "(vanilla keeps an owner the player selected; T97 P3)");
         }
 
         private void WatchLodge()
@@ -2629,6 +2676,7 @@ namespace SkiResortMod.Systems
                 m_LodgeWatch = false;
                 LodgeStateText = $"{id}: ended (tool now '{ToolId(m_ToolSystem.activeTool)}')";
                 Mod.Log.Info($"Hub [upgrade] {id} placement ended — tool now '{ToolId(m_ToolSystem.activeTool)}'");
+                ReleaseLaunchSelection(id, "placement ended");
                 return;
             }
             ObjectToolSystem.Mode mode = m_ObjectTool.actualMode;
@@ -2641,6 +2689,7 @@ namespace SkiResortMod.Systems
                 Mod.Log.Error($"!!! Hub upgrade ({id}): the object tool left Upgrade mode (now {mode}; selected {Ent(selected)} " +
                               "has no InstalledUpgrade buffer, ObjectToolSystem.cs:3246-3249) — switched to the default tool so " +
                               $"no free-standing {id} can be placed");
+                ReleaseLaunchSelection(id, "cancelled (left Upgrade mode)");
                 return;
             }
             if (selected != m_LodgeSign)
@@ -2649,6 +2698,7 @@ namespace SkiResortMod.Systems
                 {
                     Mod.Log.Info($"Hub [upgrade] {id} now goes on sign {Ent(selected)} (selection changed from {Ent(m_LodgeSign)})");
                     m_LodgeSign = selected;
+                    m_LaunchSelectedSign = Entity.Null;   // P3: not our selection any more, kept when the placement ends
                     LodgeStateText = $"{id}: on the cursor, Upgrade mode on sign {Ent(m_LodgeSign)}";
                 }
                 else
@@ -2659,6 +2709,7 @@ namespace SkiResortMod.Systems
                     Mod.Log.Error($"!!! Hub upgrade ({id}): the selection moved to {Ent(selected)}, which is not a Welcome Sign, " +
                                   "while it was on the cursor — switched to the default tool so it cannot attach to another " +
                                   "building (the upgrade target is the selected entity, ObjectToolSystem.cs:3318)");
+                    m_LaunchSelectedSign = Entity.Null;   // P3: the player's selection now, never deselected
                 }
             }
         }

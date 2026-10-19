@@ -70,6 +70,9 @@
   const resorts = [
     { sign: SIGN, kind: 0, name: "Ash Flat", customName: true, runs: 5, rated: 4, flat: 1, green: 2, blue: 1, black: 1, doubleBlack: 0, areaM2: 333000, verticalM: 610, verticalApprox: false, lodges: 3, freeLodges: 1, liftRows: 3, liftLengthM: 3140, capacityPerHour: 3600 },
     { sign: SIGN2, kind: 0, name: "Resort 2", customName: false, runs: 0, rated: 0, flat: 0, green: 0, blue: 0, black: 0, doubleBlack: 0, areaM2: 0, verticalM: 0, verticalApprox: true, lodges: 0, freeLodges: 0, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 },
+    // T97 P1 (2026-10-19): C# always sends the Not linked row, last (bindings.ts ResortRow.kind); Run 6 is bound to no sign, so it
+    // counts 1 run and the header selector lists it ("Not linked to a ski area", 1 run · 0 lodges).
+    { sign: NULL, kind: 1, name: "", customName: false, runs: 1, rated: 0, flat: 0, green: 0, blue: 0, black: 0, doubleBlack: 0, areaM2: 19000, verticalM: 95, verticalApprox: true, lodges: 0, freeLodges: 0, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 },
   ];
   // T77: the receipt numbers are self-consistent (SkiResortScore.cs:468, 495): S = (4.55 + 21 + 12) × 1.15 × 1.2 = 51.82,
   // terrain = 4 × sqrt(S) = 28.8, full = 18 + 28.8 = 47, attraction = 46.8 × 0.94 = 44. city.month 1 = February.

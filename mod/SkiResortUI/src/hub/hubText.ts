@@ -81,6 +81,9 @@
  * T86 / T97 field fixes (2026-10-19, docs/research/field/2026-10-19/fix-T96-T86-T97.md; contract 11 unchanged): new SCHOOL_OFF,
  * SCHOOL_WAITING (a built school at 0 says why, hubRules.schoolState), BUILD_ACTIVE_UPGRADE, RESORT_TIP; BUILD_TAB_TIP[Buildings]
  * changed in place (lodges, school and patrol join the sign).
+ * T97 P1 header selector (2026-10-19, DECISIONS 308; docs/research/ui/hub-selector-p1-p3-2026-10-19.md; contract 11 unchanged): new
+ * RESORT_CAPTION, RESORT_MENU_NOTE, RESORT_COUNTS[One] (HUB_LOC) and RESORT_COUNTS[Many|RunOne|LodgeOne] (HUB_FMT); RESORT_TIP changed in
+ * place (the one rule, now the selector's tooltip).
  * Contract:
  *   - Every entry is a literal `[key, english]` tuple. tools/check-bundle.js rule R4 FAILS the build
  *     unless each key exists in root mod/SkiResortMod/LocaleEN.cs with IDENTICAL text, and WARNS
@@ -116,8 +119,12 @@ export const HUB_LOC = {
   resortPrev: ["SkiResort.Hub.RESORT_PREV", "Previous ski area"],
   resortNext: ["SkiResort.Hub.RESORT_NEXT", "Next ski area"],
   resortFly: ["SkiResort.Hub.RESORT_FLY", "Fly to the Welcome Sign"],
-  /** T97: the header name's tooltip line: the one rule (the panel is one ski area, keyed to its sign). */
-  resortTip: ["SkiResort.Hub.RESORT_TIP", "The ski area shown: its Welcome Sign and everything built for it."],
+  /** T97: the header selector's tooltip line: the one rule (the panel is one ski area, keyed to its sign). P1 changed it in place. */
+  resortTip: ["SkiResort.Hub.RESORT_TIP", "Everything you build belongs to a Welcome Sign. Click to pick the ski area shown."],
+  /** T97 P1: the selector's caption, the open list's note, and an item's counts when both are 1 (the other forms: HUB_FMT). */
+  resortCaption: ["SkiResort.Hub.RESORT_CAPTION", "Ski area"],
+  resortMenuNote: ["SkiResort.Hub.RESORT_MENU_NOTE", "Selecting a sign, a lodge or a station on the map shows its ski area here."],
+  resortCountsOne: ["SkiResort.Hub.RESORT_COUNTS[One]", "1 run · 1 lodge"],
   unlinkedEntry: ["SkiResort.Hub.UNLINKED_ENTRY", "Not linked to a ski area"],
   unlinkedHint: ["SkiResort.Hub.UNLINKED_HINT", "More than 5 km from every Welcome Sign. Place a sign nearby to link them."],
   rename: ["SkiResort.Hub.RENAME", "Rename"],
@@ -507,6 +514,10 @@ export const HUB_LOC = {
 /** Placeholder entries: ONLY as <LocText entry={HUB_FMT.x} args={...} /> (gate R5, R13). */
 export const HUB_FMT = {
   resortPosition: ["SkiResort.Hub.RESORT_POSITION", "{N} / {COUNT}"],
+  // T97 P1: a selector item's counts (hubRules.resortCountsVariant picks; "one" is HUB_LOC.resortCountsOne).
+  resortCounts: ["SkiResort.Hub.RESORT_COUNTS[Many]", "{RUNS} runs · {LODGES} lodges"],
+  resortCountsRunOne: ["SkiResort.Hub.RESORT_COUNTS[RunOne]", "1 run · {LODGES} lodges"],
+  resortCountsLodgeOne: ["SkiResort.Hub.RESORT_COUNTS[LodgeOne]", "{RUNS} runs · 1 lodge"],
   contractMismatchCore: ["SkiResort.Hub.CONTRACT_MISMATCH_CORE", "This panel (version {UI}) and the mod's DLL (version {DLL}) come from different builds. Building still works; the resort statistics are hidden until the mod is reinstalled."],
   // status (6.2)
   statusLine: ["SkiResort.Hub.STATUS_LINE", "{STATE} · {OPEN} of {TOTAL} runs open"],

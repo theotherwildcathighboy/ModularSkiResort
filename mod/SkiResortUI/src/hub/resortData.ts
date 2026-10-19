@@ -72,13 +72,22 @@ export function currentResort(e: ResortEntries, selected: Entity | null | undefi
   return { row: null, index: -1, isUnlinked: false };
 }
 
+/** What selectResort takes for an entry: its sign, Null for the Not linked row. */
+export function entrySign(row: ResortRow): Entity {
+  return row.kind === 1 ? { index: 0, version: 0 } : row.sign;
+}
+
+/** A stable key per entry (T97 P1: the header selector's item values): "index:version", "unlinked" for the Not linked row. */
+export function entryKey(row: ResortRow): string {
+  return row.kind === 1 ? "unlinked" : `${row.sign.index}:${row.sign.version}`;
+}
+
 /** The sign (or Null) of the entry `step` places after the current one, wrapping around. */
 export function stepResort(e: ResortEntries, cur: CurrentResort, step: number): Entity | null {
   const n = e.entries.length;
   if (n < 2) return null;
   const from = cur.index < 0 ? 0 : cur.index;
-  const to = e.entries[(((from + step) % n) + n) % n];
-  return to.kind === 1 ? { index: 0, version: 0 } : to.sign;
+  return entrySign(e.entries[(((from + step) % n) + n) % n]);
 }
 
 export function runsOf(rows: readonly RunRow[] | null | undefined, selected: Entity | null | undefined): RunRow[] {

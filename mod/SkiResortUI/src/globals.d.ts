@@ -30,3 +30,16 @@ declare module "*.svg" {
   const url: string;
   export default url;
 }
+
+/**
+ * T97 P1 (2026-10-19): the synced DropdownToggle typings declare no `focusKey`, but gate rule R15 requires a literal
+ * focusKey={FOCUS_DISABLED} on every DropdownToggle in a Panel header. At runtime the prop is a no-op: DropdownToggleBase
+ * spreads its props into the Button and THEN sets focusKey: DROPDOWN_TOGGLE_KEY (installed 1.6.2f1 index.js@718643), so the
+ * toggle always registers inside the Dropdown's own FocusKeyOverride; the Dropdown's focusKey (declared) is the one that
+ * keeps the whole control out of the header's single-child focus slot. Interface merge only, no runtime value.
+ */
+declare module "cs2/ui" {
+  interface DropdownToggleBaseProps {
+    focusKey?: FocusKey;
+  }
+}

@@ -207,6 +207,111 @@
   color: var(--normalTextColor);
 }
 
+// ---- T97 P1: the ski-area selector (vanilla cs2/ui Dropdown; HubHeader.tsx header) -----------------
+
+// "Ski area": dim, never shrinks; the panel still drags by it (no mousedown guard).
+.switcherCaption {
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-left: 6rem;
+  margin-right: 6rem;
+  font-size: var(--fontSizeS);
+  white-space: nowrap;
+  color: var(--normalTextColor);
+  opacity: 0.55;
+}
+
+// The host div: takes the name's flex slot (Tip and the drag guard attach here).
+.selector {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  margin-right: 4rem;
+  pointer-events: auto;
+}
+
+// The toggle: the vanilla dropdown-toggle theme (label + StrokeArrowDown indicator), filling the slot.
+.selectorToggle {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  overflow: hidden;
+  text-transform: none;
+}
+
+// The name inside the toggle's label div: its own ellipsis and colour (the toggle theme sets the button's colour, so the Not
+// linked warning colour sits here).
+.selectorLabel {
+  min-width: 0rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  color: var(--normalTextColor);
+}
+
+.selectorLabel.warnText {
+  color: var(--warningColor);
+}
+
+// The list (inside the vanilla dropdown-menu / scrollable): items, then the note.
+.selectorMenu {
+  display: flex;
+  flex-direction: column;
+  min-width: 320rem;
+  pointer-events: auto;
+}
+
+.selectorItem {
+  text-transform: none;
+}
+
+// One item: name left (ellipsis), counts right (dim, never cut).
+.selectorItemRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-grow: 1;
+  min-width: 0rem;
+}
+
+.selectorItemName {
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.selectorItemCounts {
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-left: 16rem;
+  font-size: var(--fontSizeS);
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.selectorNote {
+  padding: 6rem 10rem 6rem 10rem;
+  border-top-style: solid;
+  border-top-width: 1rem;
+  border-top-color: rgba(255, 255, 255, 0.1);
+  color: var(--normalTextColor);
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  opacity: 0.7;
+  white-space: normal;
+  text-transform: none;
+}
+
 .switcherPosition {
   flex-grow: 0;
   flex-shrink: 0;
