@@ -441,6 +441,48 @@ export const HUB_LOC = {
   buildTipNatural: ["SkiResort.Hub.BUILD_TIP_NATURAL", "Nothing is drawn on the ground: find it with the piste map."],
   buildTipLodge: ["SkiResort.Hub.BUILD_TIP_LODGE", "A new lodge needs staff, power and water. Until it has them, the sign's efficiency and the attraction can fall."],
   buildTipTypeNatural: ["SkiResort.Hub.BUILD_TIP_TYPE[Natural]", "Score: greens count half, blues three quarters, blacks in full. It opens only when natural snow covers it."],
+
+  // ---- history view (T78 build 2, contract 10; SkiResort.Hub.HISTORY[...] family; tooltips <= 25 words, T18.4) ----
+  tileHistory: ["SkiResort.Hub.TILE[History]", "History"],
+  tileTipHistory: ["SkiResort.Hub.TILE_TIP[History]", "Guests and finances of every month this ski area has recorded."],
+  sectionHistory: ["SkiResort.Hub.SECTION[History]", "History"],
+  historyScopeArea: ["SkiResort.Hub.HISTORY[ScopeArea]", "This ski area"],
+  historyScopeCity: ["SkiResort.Hub.HISTORY[ScopeCity]", "Whole city"],
+  historyTipScope: ["SkiResort.Hub.HISTORY_TIP[Scope]", "Whole city adds up every ski area that exists now. A deleted ski area's history goes with it."],
+  historyRange12: ["SkiResort.Hub.HISTORY[Range12]", "12 months"],
+  historyRangeSeasons: ["SkiResort.Hub.HISTORY[RangeSeasons]", "2 seasons"],
+  historyRangeYears: ["SkiResort.Hub.HISTORY[RangeYears]", "5 years"],
+  historyRangeAll: ["SkiResort.Hub.HISTORY[RangeAll]", "All"],
+  historyTipRange12: ["SkiResort.Hub.HISTORY_TIP[Range12]", "The last 12 months, this month last."],
+  historyTipRangeSeasons: ["SkiResort.Hub.HISTORY_TIP[RangeSeasons]", "This ski season and the one before, July to June."],
+  historyTipRangeYears: ["SkiResort.Hub.HISTORY_TIP[RangeYears]", "The last 60 months."],
+  historyTipRangeAll: ["SkiResort.Hub.HISTORY_TIP[RangeAll]", "Every month recorded. Over 5 years, one bar per ski season, July to June."],
+  historyTipRangeOff: ["SkiResort.Hub.HISTORY_TIP[RangeOff]", "Not enough months recorded yet."],
+  historyGuests: ["SkiResort.Hub.HISTORY[Guests]", "Guests"],
+  historyFinances: ["SkiResort.Hub.HISTORY[Finances]", "Finances"],
+  historyBoth: ["SkiResort.Hub.HISTORY[Both]", "Both"],
+  historyAttraction: ["SkiResort.Hub.HISTORY[Attraction]", "Attraction"],
+  historyTipAttraction: ["SkiResort.Hub.HISTORY_TIP[Attraction]", "The attraction score when each month closed. A season shows its average."],
+  historyTourists: ["SkiResort.Hub.HISTORY[Tourists]", "Tourists"],
+  historyResidents: ["SkiResort.Hub.HISTORY[Residents]", "Residents"],
+  historySkiDays: ["SkiResort.Hub.HISTORY[SkiDays]", "Ski days"],
+  historyTickets: ["SkiResort.Hub.HISTORY[Tickets]", "Lift tickets"],
+  historyLodge: ["SkiResort.Hub.HISTORY[Lodge]", "Lodge spend"],
+  historyPasses: ["SkiResort.Hub.HISTORY[Passes]", "Season passes"],
+  historyLessons: ["SkiResort.Hub.HISTORY[Lessons]", "Lessons"],
+  historyLifts: ["SkiResort.Hub.HISTORY[Lifts]", "Lifts"],
+  historyRuns: ["SkiResort.Hub.HISTORY[Runs]", "Runs"],
+  historyStaff: ["SkiResort.Hub.HISTORY[Staff]", "Buildings and wages"],
+  historyNet: ["SkiResort.Hub.HISTORY[Net]", "Net"],
+  historyEmpty: ["SkiResort.Hub.HISTORY[Empty]", "No month recorded yet. The first one closes at the end of this month."],
+  historyUnlinked: ["SkiResort.Hub.HISTORY[Unlinked]", "Not linked keeps no history. Whole city shows every ski area."],
+  historyPartial: ["SkiResort.Hub.HISTORY[Partial]", "Partial: counted for part of the month only"],
+  historyPartialSeason: ["SkiResort.Hub.HISTORY[PartialSeason]", "Partial: some months are missing or partial"],
+  historyCurrent: ["SkiResort.Hub.HISTORY[Current]", "So far this month"],
+  historyGap: ["SkiResort.Hub.HISTORY[Gap]", "Nothing recorded"],
+  historyTipYoy: ["SkiResort.Hub.HISTORY_TIP[Yoy]", "The last whole month against the same month a year earlier."],
+  historyTipStaff: ["SkiResort.Hub.HISTORY_TIP[Staff]", "The game's bill for buildings and wages, at the rate when the month closed."],
+  historyTipChart: ["SkiResort.Hub.HISTORY_TIP[Chart]", "Point at a bar for its numbers. Faded bars are partial months."],
 } as const;
 
 /** Placeholder entries: ONLY as <LocText entry={HUB_FMT.x} args={...} /> (gate R5, R13). */
@@ -597,6 +639,12 @@ export const HUB_FMT = {
   buildMonthRun: ["SkiResort.Hub.BUILD_MONTH_RUN", "{RATE} per ha with snow"],
   buildMonthLift: ["SkiResort.Hub.BUILD_MONTH_LIFT", "{BASE} per complete lift + {PERKM} per km of line"],
   follow: ["SkiResort.Hub.FOLLOW", "Now showing {NAME}."],
+  // history view (T78 build 2, contract 10): {MONTH} = monthName, {YEAR} = the game year as plain digits, {FROM}/{TO} = a season's years.
+  historyMonthYear: ["SkiResort.Hub.HISTORY_MONTH", "Month of {MONTH} {YEAR}"],
+  historySeason: ["SkiResort.Hub.HISTORY_SEASON", "Ski season {FROM}/{TO}"],
+  historyHeadGuests: ["SkiResort.Hub.HISTORY_HEAD[Guests]", "Guests, Month of {MONTH}"],
+  historyHeadNet: ["SkiResort.Hub.HISTORY_HEAD[Net]", "Net, Month of {MONTH}"],
+  historyTipBefore: ["SkiResort.Hub.HISTORY_TIP[Before]", "Month of {MONTH} {YEAR}: {N}"],
 } as const;
 
 /** STATUS_WORD by hubRules.statusWord (6.2). */
@@ -873,4 +921,18 @@ export function monthName(month: number, t: (e: LocEntry) => string, back = 0): 
 /** Every month's name, translated: width samples for a cell that shows a month. */
 export function allMonthNames(t: (e: LocEntry) => string): string[] {
   return MONTH_FALLBACK.map((_, i) => monthName(i, t));
+}
+
+/**
+ * T78 (contract 10): the game's short month names, `Common.MONTH_SHORT:<0-11>` (the same indexed entry as Common.MONTH, installed
+ * 1.6.2f1 index.js `MONTH_SHORT:new Ec` @444971, rendered with {index} by the vanilla time-line charts @953286; Locale.cok holds
+ * `Common.MONTH_SHORT:9` in all 12 locales: "Oct" in English, "Okt" in German, "10" in the CJK tables, so the index is 0-based like
+ * Common.MONTH; checked 2026-10-18). The History
+ * view's axis labels. NOT our keys: not in LocaleEN.cs (like monthEntry).
+ */
+const MONTH_SHORT_FALLBACK: readonly string[] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** The short name of a calendar month 0..11, translated; "–" when out of range. */
+export function monthShortName(month: number, t: (e: LocEntry) => string): string {
+  return Number.isInteger(month) && month >= 0 && month < 12 ? t([`Common.MONTH_SHORT:${month}`, MONTH_SHORT_FALLBACK[month]]) : "–";
 }

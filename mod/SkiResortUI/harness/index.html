@@ -45,24 +45,24 @@
   #status.err { color: #ff8a80; }
 
   /* --- stand-ins for cs2/ui components (the game's own chrome is not available) --- */
-  .h-btn { background: rgba(255,255,255,0.06); color: inherit; border: 1px solid rgba(255,255,255,0.12); border-radius: 4rem; padding: 4rem 8rem; cursor: pointer; font: inherit; }
+  .h-btn { background: rgba(255,255,255,0.06); color: inherit; border: 1px solid rgba(255,255,255,0.12); border-radius: 4rem; padding: 6rem 12rem; margin: 2rem; cursor: pointer; font: inherit; }
   .h-btn:hover { background: var(--hoverColorNormal); }
   .h-btn.h-selected { background: var(--selectedColor); }
   .h-floating { width: 48rem; height: 48rem; border-radius: 8rem; border: 1px solid rgba(255,255,255,0.2); background: var(--panelColorNormal); cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .h-floating.h-selected { outline: 2px solid var(--accentColorNormal); }
   .h-floating-img { width: 32rem; height: 32rem; filter: brightness(0) invert(1); }
   .h-tipwrap { position: relative; display: inline-flex; }
-  .h-tip { position: absolute; left: 0; top: 100%; margin-top: 6rem; z-index: 50; background: rgba(20,26,38,0.96); color: var(--normalTextColor); border: 1px solid rgba(255,255,255,0.15); border-radius: 4rem; padding: 6rem 8rem; font-size: var(--fontSizeXS); white-space: nowrap; pointer-events: none; }
+  .h-tip { position: absolute; left: 0; top: 100%; margin-top: 6rem; z-index: 50; background: rgba(20,26,38,0.96); color: var(--normalTextColor); border: 1px solid rgba(255,255,255,0.15); border-radius: 4rem; padding: 6rem 8rem; font-size: var(--fontSizeXS); white-space: normal; max-width: 320rem; line-height: 1.35; pointer-events: none; }
   .h-panel { position: absolute; left: 50%; top: 80rem; transform: translateX(-50%); min-width: 420rem; max-height: calc(100% - 120rem); display: flex; flex-direction: column; background: var(--panelColorNormal); color: var(--normalTextColor); border-radius: 6rem; box-shadow: 0 8px 30px rgba(0,0,0,0.5); font-size: var(--fontSizeS); }
   .h-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 8rem 12rem; border-bottom: 1px solid var(--dividerColor); font-size: var(--fontSizeM); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
   .h-panel-title { flex: 1; min-width: 0; }
   .h-panel-close { background: none; border: 0; color: inherit; font-size: 22rem; cursor: pointer; line-height: 1; padding: 0 4rem; }
-  .h-panel-content { overflow: auto; padding: 8rem 12rem; flex: 1; min-height: 0; }
+  .h-panel-content { overflow: auto; padding: 10rem 16rem; flex: 1; min-height: 0; }
   .h-panel-footer { border-top: 1px solid var(--dividerColor); padding: 8rem 12rem; }
   .h-foldout { border: 1px solid var(--dividerColor); border-radius: 4rem; margin: 6rem 0; }
   .h-foldout-header { display: flex; align-items: center; gap: 6rem; padding: 6rem 8rem; cursor: pointer; background: var(--sectionBackgroundColor); }
   .h-foldout-content { padding: 6rem 8rem; }
-  .h-section { padding: 6rem 0; } .h-row { display: flex; justify-content: space-between; padding: 2rem 0; }
+  .h-section { padding: 6rem 0; } .h-row { display: flex; justify-content: space-between; padding: 4rem 0; }
   .h-dditem { padding: 4rem 8rem; cursor: pointer; } .h-dditem.h-selected { background: var(--selectedColor); }
   .h-scrollable { overflow: auto; }
 </style>

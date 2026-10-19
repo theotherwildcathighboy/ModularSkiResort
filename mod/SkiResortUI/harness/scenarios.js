@@ -1,7 +1,7 @@
 /*
  * harness/scenarios.js - sample binding values for the browser harness (MIT, 2026-10-18).
  * Shapes follow src/bindings.ts (BuildItem, GladeState, ResortRow, ResortLive, RunRow, RunLive,
- * LiftRow, ProblemRow, CityStats). Numbers are plausible, not measured: this is for wording and
+ * LiftRow, ProblemRow, CityStats; HistoryArea since contract 10). Numbers are plausible, not measured: this is for wording and
  * layout, not for sim checks. Enum values: see the *_KIND / BAND / LIFT_STATE / PROBLEM tables in
  * bindings.ts (RunKind Groomed 0 Snowmaking 1 Night 2 Natural 3 CatTrack 4; BAND Green 1 Blue 2
  * Black 3 DoubleBlack 4; LIFT_STATE Running 0 ... StationsOnly 4; RESORT_STATUS Open 3).
@@ -96,16 +96,57 @@
     { sign: SIGN, code: 21, severity: 1, subject: E(401), subjectTop: NULL, name: "Day Lodge", count: 1, pct: 0, factor: "", more: 0, detail: 300, ifFixed: 0, buildItem: "" },
     { sign: SIGN2, code: 9, severity: 2, subject: NULL, subjectTop: NULL, name: "", count: 0, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "runGroomed" },
   ];
+  // T78 build 2 (contract 10): `history` - 30 months for Ash Flat (Sep 2024 .. Feb 2027, the month in progress last: city.month 1 =
+  // February) with a winter peak, +15 % a year, a two-month GAP (Mar-Apr 2026: the mod was off), one partial month (Oct 2025: a load
+  // that was not seeded), the July season boundaries; and 10 months for "Resort 2", which started in May 2026 (First). Flags:
+  // HISTORY_FLAG in bindings.ts (Partial 1, Gap 16, First 64, Current 128). Plausible, not measured.
+  const WINTER = [1.0, 1.0, 0.8, 0.45, 0.15, 0.1, 0.12, 0.12, 0.15, 0.25, 0.55, 0.9];   // Jan .. Dec
+  function historyOf(sign, firstKey, n, scale, opts) {
+    const o = opts || {};
+    const h = { sign, firstMonthKey: firstKey, flags: [], tourists: [], residents: [], skiDays: [], ticketsPaid: [], ticketIncome: [], lodgeIncome: [],
+      passIncome: [], lessonIncome: [], liftCost: [], runCost: [], buildingsCost: [], wagesCost: [], attraction: [], snowPct: [] };
+    const push = (m) => { for (const k of Object.keys(m)) h[k].push(m[k]); };
+    for (let i = 0; i < n; i++) {
+      const key = firstKey + i, month = key % 12;
+      if (o.gap && o.gap.includes(key)) {
+        push({ flags: 16, tourists: 0, residents: 0, skiDays: -1, ticketsPaid: 0, ticketIncome: 0, lodgeIncome: 0, passIncome: 0, lessonIncome: 0,
+          liftCost: 0, runCost: 0, buildingsCost: -1, wagesCost: -1, attraction: -1, snowPct: -1 });
+        continue;
+      }
+      const current = i === n - 1, share = current ? 0.45 : 1;
+      const f = WINTER[month], g = 1 + 0.15 * (i / 12);
+      const t = Math.round(3300 * f * g * scale * share), r = Math.round(1800 * (0.3 + 0.7 * f) * g * scale * share);
+      const paid = Math.round(0.85 * (t + r));
+      push({
+        flags: (i === 0 ? 64 : 0) | (current ? 129 : 0) | (o.partial && o.partial.includes(key) ? 1 : 0),
+        tourists: t, residents: r, skiDays: f > 0.3 ? Math.round(t * 0.9) : Math.round(t * 0.5), ticketsPaid: paid, ticketIncome: paid * 65,
+        lodgeIncome: Math.round((t + r) * 9), passIncome: Math.round(({ 8: 40000, 9: 60000, 10: 30000, 11: 10000 }[month] || 0) * g * scale * share),
+        lessonIncome: Math.round(t * 0.04) * 80, liftCost: Math.round((i < 6 ? 3900 : 5500) * share), runCost: Math.round((f > 0.3 ? 29400 : 4400) * scale * share),
+        buildingsCost: Math.round(9800 * share), wagesCost: Math.round(31200 * share), attraction: Math.round((30 + 14 * f + i * 0.3) * (scale < 1 ? 0.4 : 1)),
+        snowPct: Math.round(f > 0.3 ? 70 + 25 * f : 5 + 40 * f),
+      });
+    }
+    return h;
+  }
+  const NOW_KEY = 2027 * 12 + 1;   // February 2027 = city.month 1
+  const history = [
+    historyOf(SIGN, NOW_KEY - 29, 30, 1, { gap: [2026 * 12 + 2, 2026 * 12 + 3], partial: [2025 * 12 + 9] }),
+    historyOf(SIGN2, 2026 * 12 + 4, 10, 0.2),
+  ];
+
   const glade = { available: true, active: false, level: 4, treeLine: false, reason: "" };
 
-  const base = { hubOpen: false, contract: 9, buildStamp: "", showHubButton: true, build: buildItems(), glade,
-    resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0 };
+  const base = { hubOpen: false, contract: 10, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+    resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [] };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
-    "contract mismatch (DLL 8, UI 9)": Object.assign({}, base, { contract: 8, hubOpen: true }),
+    "contract mismatch (DLL 9, UI 10)": Object.assign({}, base, { contract: 9, hubOpen: true }),
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
-    "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems,
+    "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed" }) }),
+    // T78: 8 years of history, so "All" draws July-June seasons (over 60 months).
+    "Ash Flat, 8 years of history": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
+      problems, history: [historyOf(SIGN, NOW_KEY - 95, 96, 1, { gap: [2026 * 12 + 2, 2026 * 12 + 3], partial: [2025 * 12 + 9] }), history[1]] }),
   };
 })();

@@ -21,6 +21,8 @@
  * too: sets with 1 / 2 / 3 sent options, the fallback, a half-imported type, visible ids, optionOf, dotTarget), T13 (the
  * price tolerance: (80, 0) 0.8, (80, 20) 0.9, (80, 40) 1, (200, 40) 0.4, (250, 40) 0.4), T14 (PROBLEM 23-25, isBuildItemId
  * for all 25 ids, liftTypesOf, receiptPartsVariant, lodgeSpendShown).
+ * T78 build 2 (contract 10): T20 checks the History view (six views, HISTORY keys in both files, four ranges, no chart.js, HISTORY_FLAG
+ * parity with C#, history$ only in HistoryView, no snow without depth) and runs tools/test-history-rules.js (31 oracles): 208 checks.
  * A new rule in hubRules.ts adds its literal rows here (oracles are literals, never recomputed).
  */
 "use strict";
@@ -63,12 +65,14 @@ function load(srcDir, ts) {
   // Round M2 (T11): the bindings module hubRules.ts loaded (same cache entry, so the same values).
   // Contract 6 (T12): buildItems.ts (BUILD_ITEMS, the table the strip passes to the pickers); it imports values only from
   // ../bindings (the same cache entry). The purity check above applies to hubRules.ts only.
-  return { rules, bindings: compile(path.join(srcDir, "bindings.ts")), items: compile(path.join(srcDir, "hub", "buildItems.ts")) };
+  // T78 (T20): historyRules.ts, pure like hubRules.ts (its own purity check is in tools/test-history-rules.js).
+  return { rules, bindings: compile(path.join(srcDir, "bindings.ts")), items: compile(path.join(srcDir, "hub", "buildItems.ts")),
+    history: compile(path.join(srcDir, "hub", "historyRules.ts")) };
 }
 
 function run(srcDir) {
   const ts = require("typescript");
-  const { rules: R, bindings: BIND, items: ITEMS } = load(srcDir, ts);
+  const { rules: R, bindings: BIND, items: ITEMS, history: HR } = load(srcDir, ts);
   const failures = [];
   let checks = 0;
   const eq = (name, got, want) => {
@@ -409,6 +413,42 @@ function run(srcDir) {
   eq("T19.1 schoolState", [R.schoolState({ schoolValue: 12 }, P25, S1), R.schoolState({ schoolValue: 0 }, P25, S1), R.schoolState({ schoolValue: 0 }, P25, S2),
     R.schoolState({ schoolValue: 0 }, [], S1), R.schoolState({ schoolValue: -1 }, [], S1), R.schoolState(null, P25, S1)],
     ["on", "noGreen", "none", "none", "unknown", "unknown"]);
+
+  // T20 (T78 build 2, contract 10; docs/research/ui/hub-history-build-2-2026-10-18.md): the History view. Source checks plus the pure
+  // helper's own oracles (tools/test-history-rules.js, run here so gate R18 covers them).
+  const read = (rel) => fs.readFileSync(path.join(srcDir, rel), "utf8");
+  const csDir = path.resolve(__dirname, "..", "..", "SkiResortMod");
+  const stateSrc = read(path.join("hub", "hubState.ts"));
+  const viewsLit = (stateSrc.match(/export const HUB_VIEWS: readonly HubView\[\] = \[([^\]]*)\]/) || [, ""])[1].split(",").map((s) => s.trim().replace(/"/g, "")).filter(Boolean);
+  eq("T20.1 HUB_VIEWS: six views, history after money (Finances)", viewsLit, ["overview", "runs", "lifts", "guests", "money", "history"]);
+  const locale = fs.readFileSync(path.join(csDir, "LocaleEN.cs"), "utf8");
+  const csTuples = new Map();
+  for (const m of locale.matchAll(/\{\s*"([^"]+)",\s*"((?:[^"\\]|\\.)*)"\s*\}/g)) csTuples.set(m[1], m[2]);
+  const histKeys = [...tuples.keys()].filter((k) => /^SkiResort\.Hub\.(HISTORY|TILE\[History\]|TILE_TIP\[History\]|SECTION\[History\])/.test(k));
+  eq("T20.2 every HISTORY key of hubText.ts is in LocaleEN.cs with the same text (45 keys)",
+    [histKeys.length, histKeys.filter((k) => csTuples.get(k) !== tuples.get(k))], [45, []]);
+  const viewSrc = read(path.join("hub", "HistoryView.tsx"));
+  const H = HR;
+  eq("T20.3 four range options (12 months, 2 seasons, 5 years, all), each with a label and a tooltip in HistoryView",
+    [H.HISTORY_RANGES, ["RANGE_LABEL", "RANGE_TIP"].map((m) => (viewSrc.match(new RegExp(`const ${m}[^=]*= \\{([^}]*)\\}`)) || [, ""])[1].split("\n").filter((l) => /:\s*HUB_LOC\./.test(l)).length),
+      viewSrc.includes("options={HISTORY_RANGES}")], [["months12", "seasons2", "years5", "all"], [4, 4], true]);
+  const allSrc = [];
+  const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.(ts|tsx)$/.test(e.name)) allSrc.push([p, fs.readFileSync(p, "utf8")]); } };
+  walk(srcDir);
+  eq("T20.4 no chart.js import in src/ (inline SVG, React only)", allSrc.filter(([, s]) => /(from\s+|require\s*\(\s*|import\s*\(\s*)["']chart\.js["']/.test(s)).map(([p]) => path.relative(srcDir, p)), []);
+  const histCs = fs.readFileSync(path.join(csDir, "Systems", "SkiResortHistory.cs"), "utf8");
+  const hubCs = fs.readFileSync(path.join(csDir, "Systems", "SkiResortHubUISystem.cs"), "utf8");
+  const csFlags = {};
+  for (const m of (histCs.match(/class HistoryFlags\s*\{([\s\S]*?)\}/) || [, ""])[1].matchAll(/const byte (\w+) = (\d+);/g)) csFlags[m[1]] = Number(m[2]);
+  csFlags.Current = Number((hubCs.match(/public const int HistoryFlagCurrent = (\d+);/) || [, "-1"])[1]);
+  eq("T20.5 HISTORY_FLAG = C# HistoryFlags (stored bits) + HistoryFlagCurrent (binding only)", BIND.HISTORY_FLAG, csFlags);
+  const historyUsers = allSrc.filter(([p, s]) => /\bhistory\$/.test(s) && !/bindings\.ts$/.test(p)).map(([p]) => path.relative(srcDir, p).split(path.sep).join("/"));
+  eq("T20.6 history$ is subscribed only by the History view (C# builds `history` only while it is observed)", historyUsers, ["hub/HistoryView.tsx"]);
+  eq("T20.7 the History view draws no snow (the store has coverage but no depth; snow is never one number, T18)", /snowPct|snowDepth/.test(viewSrc), false);
+  eq("T20.8 the History tile shows a glyph, not a number from `history` (ViewTiles never reads history$)", /history\$/.test(read(path.join("hub", "ViewTiles.tsx"))), false);
+  const hr = require("./test-history-rules").run(srcDir);
+  checks += hr.checks;
+  for (const f of hr.failures) failures.push(`test-history-rules ${f}`);
   return { checks, failures };
 }
 

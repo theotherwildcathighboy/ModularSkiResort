@@ -17,7 +17,7 @@ Edit a component -> `npm run build` -> "Reload bundle" in the page.
 ## What the page gives you
 
 - Left pane: scenario (not connected / contract mismatch / connected empty city / Ash Flat with runs, lifts,
-  problems), C# connected toggle (contract 8 vs 0), DLL-stamp-differs toggle, top-left button toggle, a
+  problems and 30 months of `history` / Ash Flat with 8 years of history, so "All" draws July-June seasons), C# connected toggle (contract 8 vs 0), DLL-stamp-differs toggle, top-left button toggle, a
   "set binding" box (`name = JSON`), UI scale, and the log of every trigger the UI sends (what C# would receive).
 - Right: the "game viewport" with the three registrar targets mounted: `Game` (the hub root), `GameTopLeft`
   (floating button), `UniversalModMenu` (the square).
@@ -38,3 +38,8 @@ by editing the bindings; the rest is logged. Sample data in `scenarios.js` is pl
 sim numbers off it.
 
 The gate (`tools/check-bundle.js`) does not look at this folder; nothing here ships.
+
+**Known gap (Richard, 2026-10-18 in game):** the game's own tooltip balloons wrap and its panel / button chrome has more padding than
+these stand-ins, so the harness reads a little more crammed than the game ("in game it looked totally good"). Judge wording,
+hierarchy, numbers and charts here; judge spacing and wrapping in game. The stand-in CSS was loosened (tooltips wrap at 320 rem,
+buttons 6 x 12 rem padding) but it is still not the game's chrome.

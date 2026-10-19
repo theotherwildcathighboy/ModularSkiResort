@@ -58,7 +58,7 @@
  *     (index.js@421257 subscribe/dispose), so C#'s observerCount counts binding objects, not
  *     components. Subscribe to every panel binding (contract 3, ch6 section 10.1: build$, glade$,
  *     resorts$, resortLive$, selectedResort$, runs$, runLive$, lifts$, problems$, city$, pisteMap$,
- *     follow$) ONLY in components that mount while the panel is open (research 2.F.6; gate rule R11):
+ *     follow$; contract 10: history$, without Demand) ONLY in components that mount while the panel is open (research 2.F.6; gate rule R11):
  *     closing the panel unsubscribes them, and C# stops computing (the stats system's Demand follows
  *     the observers of build, resorts, resortLive, runs, runLive, lifts, problems and city, ch5 4.3;
  *     pisteMap and follow are panel bindings without Demand). hubOpen$, contract$, buildStamp$ and
@@ -88,6 +88,8 @@ import type { Entity } from "cs2/utils";
 export const GROUP = "skiResort";
 
 /**
+ * Contract 10 (T78 build 2, 2026-10-18: docs/research/ui/hub-history-build-2-2026-10-18.md - the `history` binding, one HistoryArea per live
+ * ski area: parallel monthly series oldest -> newest, the month in progress last with HISTORY_FLAG.Current; the History view reads it).
  * Contract 9 (T77 hub wording round 1, 2026-10-18: docs/research/ui/hub-wording-round-1-2026-10-18.md - CityStats appends month, the
  * calendar month 0..11 that the guest ledger counts as this month; the views name it "Month of <name>" through vanilla Common.MONTH:<n>).
  * Contract 8 (econ-2 round 2, 2026-10-15: docs/research/econ-2/build/round-2.md - ResortLive appends lessonsThisMonth, lessonsLastMonth,
@@ -104,7 +106,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree
  * controls (CORE only) and says why (spec 4.5).
  */
-export const HUB_CONTRACT = 9;
+export const HUB_CONTRACT = 10;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -632,6 +634,53 @@ export interface CityStats {
   month: number;
 }
 
+/**
+ * HistoryArea.flags bits (contract 10). 1..64 are the STORED bits of C# HistoryFlags (Systems/SkiResortHistory.cs; tools/test-hub-rules.js
+ * compares them literally); Current = 128 is binding only (C# SkiResortHubUISystem.HistoryFlagCurrent): the month in progress, always the
+ * last entry. Partial: counting started partway (a load not seeded, a calendar jump). Short: under 95 % of the month simulated.
+ * CostsEstimated: reserved (never set in v1). SnapshotMissing: buildings / wages / attraction / snow unknown. Gap: no data for that month
+ * (flows 0, unknowns -1). SkiDaysPartial: the ski-day count is since-load while the rest is whole. First: the area's first month (it may
+ * have been placed partway through it).
+ */
+export const HISTORY_FLAG = {
+  Partial: 1, Short: 2, CostsEstimated: 4, SnapshotMissing: 8, Gap: 16, SkiDaysPartial: 32, First: 64, Current: 128,
+} as const;
+
+/**
+ * `history` (contract 10, T78): one row per live ski area (resorts order; Not linked has none), months oldest -> newest. Densified in C#:
+ * index i is month firstMonthKey + i; every array has the same length n >= 1; the last entry is the month in progress (flags & Current).
+ * Money in whole credits, costs positive. Rates and point values (buildingsCost, wagesCost, attraction, snowPct) are snapshots at the
+ * month's roll; for the month in progress buildings / wages are the rate x the share simulated so far. -1 = unknown in skiDays,
+ * buildingsCost, wagesCost, attraction, snowPct. The view sums areas for "whole city" and buckets long ranges into July-June seasons
+ * (src/hub/historyRules.ts). C#: SkiResortHubUISystem WriteHistory (header HISTORY).
+ */
+export interface HistoryArea {
+  sign: Entity;
+  /** Month key of entry 0: year x 12 + calendar month 0..11 (C# SkiMoneyRules.MonthKey). */
+  firstMonthKey: number;
+  /** HISTORY_FLAG bits per month. */
+  flags: number[];
+  tourists: number[];
+  residents: number[];
+  /** Ski-day guests who reached a lodge; -1 unknown. */
+  skiDays: number[];
+  ticketsPaid: number[];
+  ticketIncome: number[];
+  lodgeIncome: number[];
+  passIncome: number[];
+  lessonIncome: number[];
+  liftCost: number[];
+  runCost: number[];
+  /** -1 unknown. */
+  buildingsCost: number[];
+  /** -1 unknown. */
+  wagesCost: number[];
+  /** -1 unknown. */
+  attraction: number[];
+  /** Run snow coverage 0-100 at the roll; -1 unknown. */
+  snowPct: number[];
+}
+
 /** CityStats.tripPlanner when a trip system is off and no known replacement is loaded. Manual parity with
  *  C# SkiTripSystems.UnknownLabel (no gate rule compares string constants; both sides test the literal "?":
  *  tools/test-hub-rules.js T11.8 and ResortBatch SkiDayTests section X). */
@@ -649,7 +698,7 @@ export function clampGladeLevel(level: number): number {
 
 // ---- names --------------------------------------------------------------------------------------
 
-/** Value binding names (C# -> UI): 16 in contract 3 (`lodges` removed). */
+/** Value binding names (C# -> UI): 16 in contract 3 (`lodges` removed); 17 in contract 10 (`history`). */
 export const BINDING = {
   hubOpen: "hubOpen",
   contract: "contract",
@@ -667,6 +716,7 @@ export const BINDING = {
   city: "city",
   pisteMap: "pisteMap",
   follow: "follow",
+  history: "history",
 } as const;
 
 /** Trigger names (UI -> C#): 17 in contract 3. */
@@ -715,6 +765,7 @@ const EMPTY_RUNS: readonly RunRow[] = [];
 const EMPTY_RUN_LIVE: readonly RunLive[] = [];
 const EMPTY_LIFTS: readonly LiftRow[] = [];
 const EMPTY_PROBLEMS: readonly ProblemRow[] = [];
+const EMPTY_HISTORY: readonly HistoryArea[] = [];
 
 export const FALLBACK = {
   hubOpen: false,
@@ -739,6 +790,7 @@ export const FALLBACK = {
   /** D19: the piste map is on by default (C# owns the value). */
   pisteMap: true,
   follow: 0,
+  history: EMPTY_HISTORY,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -776,6 +828,9 @@ export const city$: ValueBinding<CityStats> = bindValue<CityStats>(GROUP, BINDIN
 export const pisteMap$: ValueBinding<boolean> = bindValue<boolean>(GROUP, BINDING.pisteMap, FALLBACK.pisteMap);
 /** D36: a counter C# moves on each automatic area switch (selection rule 7). Panel only. */
 export const follow$: ValueBinding<number> = bindValue<number>(GROUP, BINDING.follow, FALLBACK.follow);
+/** Contract 10 (T78): the monthly history of every live ski area. Panel only, and only the History view subscribes it (no Demand:
+ *  C# builds and sends it only while observed, on a stored month, an area change, or the month in progress at most every 5 s). */
+export const history$: ValueBinding<readonly HistoryArea[]> = bindValue<readonly HistoryArea[]>(GROUP, BINDING.history, FALLBACK.history);
 
 // ---- triggers -----------------------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 // SkiResortHistorySystem — the hub's monthly history store, the C# half (T78 build round 1, DECISIONS 283; plan
 // docs/research/ui/hub-history-chart-plan-2026-10-18.md §5.1 P2 and P4; build note docs/research/ui/hub-history-build-1-2026-10-18.md).
 // The element and its bytes are pure (SkiResortHistory.cs); this file holds their ECS halves and the system that fills them.
-// The binding (P5) and the History view (P6) are the next round: nothing here is sent to the UI yet.
+// The binding (P5, SkiResortHubUISystem `history`) and the History view (P6) came in build round 2 (header BINDING).
 //
 // STORE (decision F1): a DynamicBuffer<SkiResortHistoryMonth> on each Welcome Sign, [InternalBufferCapacity(0)] (off-chunk), one
 // element per closed calendar month, oldest first, keys strictly increasing (SkiResortHistory.Append: same key replaces, a key
@@ -38,6 +38,10 @@
 // error pattern (disabled for the load). No per-mirror lines.
 // COST: per tick a few field reads; per roll one stats rebuild and one buffer append per area; per mirror N signs × one
 // component write. AddBuffer / AddComponentData are structural changes (a sync point), once per sign per city.
+// BINDING (T78 build 2, P5): SkiResortHubUISystem publishes the `history` binding from these buffers and the ledger's month in
+// progress. It reads two counters of this system: Revision (moves when a stored month changes: an append, a replace, a gap
+// marker, and at every city load) and ProgressRevision (moves at every month-in-progress mirror write). Nothing else here
+// knows about the UI.
 //
 // Created 2026-10-18.
 
@@ -161,6 +165,14 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_SignSet = new HashSet<Entity>();
         private readonly StringBuilder m_Sb = new StringBuilder(256);
 
+        /// <summary>T78 P5 (header BINDING): moves whenever a stored month changes (append, replace, gap marker) and at every city
+        /// load. The hub re-sends `history` when it moved.</summary>
+        public int Revision { get; private set; }
+
+        /// <summary>T78 P5 (header BINDING): moves at every month-in-progress mirror write (at most every MirrorEveryFrames sim
+        /// frames, and only when the ledger moved). The hub re-sends the month in progress on it, throttled.</summary>
+        public int ProgressRevision { get; private set; }
+
         protected override void OnCreate()
         {
             base.OnCreate();
@@ -200,6 +212,7 @@ namespace SkiResortMod.Systems
             m_Mirrored = false;
             m_LastMirrorFrame = 0;
             m_LastMirrorRevision = int.MinValue;
+            Revision++;   // P5: another city's buffers (the hub re-sends `history`)
             m_SeenGeneration = m_Counter.LastMonthStep.Generation;   // the next step (Started) is this load's
             if (mode != GameMode.Game)
                 return;
@@ -417,6 +430,8 @@ namespace SkiResortMod.Systems
                 m.m_Flags |= HistoryFlags.First;
             result = SkiResortHistory.Append(ref store, m);
             length = store.Count;
+            if (result != SkiResortHistory.AppendResult.Rejected)
+                Revision++;   // P5: the hub re-sends `history`
         }
 
         // ── the jump ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -478,6 +493,7 @@ namespace SkiResortMod.Systems
             m_LastMirrorFrame = now;
             m_LastMirrorRevision = ledger.Revision;
             m_Mirrored = true;
+            ProgressRevision++;   // P5: the month in progress moved (the hub re-sends it, throttled)
         }
 
         // ── helpers ─────────────────────────────────────────────────────────────────────────────────────────────────────

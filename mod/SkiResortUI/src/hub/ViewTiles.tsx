@@ -25,6 +25,8 @@
  *     (TILE[RunsOpen], XS 56.6 / 93.1 / 117.5 rem against the caption room 75 / 111 / 135 of design §2.3:
  *     fits, no shrink), so "2 / 3" says what it counts; the Not linked tile shows a total and keeps
  *     "Runs" (TILE[Runs]). The tooltip title follows the caption.
+ *   - T78 (contract 10): a sixth tile, History, after Finances: its value is the City Statistics glyph (never a number: the
+ *     tile must not subscribe `history`, which only the History view observes), its tooltip TILE_TIP[History].
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, city$ (T77: the month's name in the Guests
  *     tooltip, "Month of <name>"); local view$.
  */
@@ -41,7 +43,7 @@ import { buildingsAndWages, liveOf, unfinishedLifts } from "./hubRules";
 import { HUB_VIEWS, view$ } from "./hubState";
 import type { HubView } from "./hubState";
 import { HUB_FMT, HUB_LOC, monthName } from "./hubText";
-import { LocText, SignedNum, Tip, TipLines, cx, numArg } from "./parts";
+import { Glyph, LocText, SignedNum, Tip, TipLines, cx, numArg } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
 
@@ -51,7 +53,11 @@ const CAPTION: Readonly<Record<HubView, LocEntry>> = {
   lifts: HUB_LOC.tileLifts,
   guests: HUB_LOC.tileGuests,
   money: HUB_LOC.tileMoney,
+  history: HUB_LOC.tileHistory,
 };
+
+/** T78: the History tile's value (the game's City Statistics icon, drawn as a mask in the tile's text colour). */
+const HISTORY_GLYPH = "Media/Game/Icons/CityStatistics.svg";
 
 const DASH = <span>{"–"}</span>;
 const HELD = <span>{"…"}</span>;
@@ -83,6 +89,9 @@ function tileValue(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: b
         ? <LocalizedFraction value={l.liftsCounted} total={l.liftsComplete} unit={Unit.Integer} /> : DASH;
     case "guests":
       return !unlinked && l && l.guestsThisMonth >= 0 ? numArgEl(l.guestsThisMonth) : DASH;
+    case "history":
+      // T78 (contract 10): a glyph, not a number - the tile must not subscribe `history` (only the History view does).
+      return <Glyph src={HISTORY_GLYPH} className={styles.tileGlyph} />;
     default:
       return l ? <SignedNum value={l.netMonth} unit={Unit.Money} /> : DASH;
   }
@@ -122,6 +131,8 @@ function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boo
         l && l.lastMonthFull && l.guestsLastMonth >= 0 && <LocText key="l" entry={HUB_FMT.tileTipLast} args={{
           MONTH: monthName(month, t, 1), N: numArg(l.guestsLastMonth, Unit.Integer),
         }} />, open]} />;
+    case "history":
+      return <TipLines lines={[t(HUB_LOC.tileHistory), t(HUB_LOC.tileTipHistory), open]} />;
     default:
       return <TipLines lines={[t(HUB_LOC.tileMoney), t(HUB_LOC.tileTipMoney), l && l.ticketIncomeEstimated && t(HUB_LOC.tileTipEst),
         l && buildingsAndWages(l) < 0 && t(HUB_LOC.tileTipEstBuildings), open]} />;

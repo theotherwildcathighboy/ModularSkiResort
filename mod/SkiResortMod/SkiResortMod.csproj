@@ -220,6 +220,9 @@
 		     parses the NAMES and BUILD-ITEMS blocks of Systems\SkiCatalog.cs (the C# item table moved there from the hub
 		     system), so a SkiCatalog-only edit must re-run the gate. -->
 		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\SkiCatalog.cs" />
+		<!-- T78 build 2 (contract 10): tools/test-hub-rules.js (gate R18) compares bindings.ts HISTORY_FLAG with the
+		     HistoryFlags constants of this file, so a C#-only flag change must re-run the gate. -->
+		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\SkiResortHistory.cs" />
 		<SkiUiInput Include="$(SkiUiDir)\tools\*.lock" />
 		<SkiUiInput Include="$(SkiCsiiInstall)\Cities2_Data\Content\Game\.ModdingToolchain\npx-create-csii-ui-mod\template\types\*.d.ts" Condition="'$(SkiCsiiInstall)' != ''" />
 		<SkiUiInput Include="$(SkiCsiiInstall)\Cities2_Data\Content\Game\UI\index.js" Condition="'$(SkiCsiiInstall)' != ''" />

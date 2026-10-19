@@ -24,9 +24,9 @@
  *                               (index.js@435324);
  *       ok (= HUB_CONTRACT)  -> header = the ski-area switcher; content = the start card while the
  *                               city has no live sign (deviation U9: even when unlinked runs or lifts
- *                               exist), else the status line + problems band (StatusBlock), the five
+ *                               exist), else the status line + problems band (StatusBlock), the six
  *                               tiles (ViewTiles) and the selected view (Overview, Runs, Lifts, Guests,
- *                               Money); footer = OkFooter -> BuildStrip.
+ *                               Money = Finances, History since contract 10); footer = OkFooter -> BuildStrip.
  *     Each part sits in its own ErrorBoundary: a crash in one leaves the others usable; the view's
  *     boundary is keyed by the view, so a crashed view recovers on a switch.
  *   - RENDER COST (ch6 section 6.15, design 8.1 "why the split"): OkPanel subscribes ONLY the slow
@@ -67,6 +67,7 @@ import { LOC, useT } from "../l10n";
 import { BuildStrip, MISMATCH_FOOTER, OkFooter } from "./BuildStrip";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { GuestsView } from "./GuestsView";
+import { HistoryView } from "./HistoryView";
 import { HubHeader } from "./HubHeader";
 import { NO_FOCUS, focused$, resetHoverRun, sendHoverRun, useHubConnection, view$ } from "./hubState";
 import type { HubConnection } from "./hubState";
@@ -158,6 +159,7 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
       case "lifts": shownView = <LiftsView listRef={listRef} />; break;
       case "guests": shownView = <GuestsView />; break;
       case "money": shownView = <MoneyView />; break;
+      case "history": shownView = <HistoryView />; break;   // T78 (contract 10)
       default: shownView = <OverviewView />; break;
     }
     body = (

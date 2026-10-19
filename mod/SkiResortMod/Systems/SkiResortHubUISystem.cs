@@ -30,6 +30,20 @@
 // field write (no queue: mouse traffic must not fill QueueCapacity), validated against the catalog in the
 // next OnUpdate (C4) and counted; only its first valid and first refused call per load are logged.
 //
+// HISTORY (contract 10, T78 build 2; docs/research/ui/hub-history-build-2-2026-10-18.md, plan hub-history-chart-plan-2026-10-18.md
+// §5.4): a 17th value binding `history` (RawValueBinding, panel binding WITHOUT Demand: only the History view subscribes it).
+// One HistoryArea row per live ski area (the stats `resorts` order, Not linked excluded: it has no sign and no history): `sign`,
+// `firstMonthKey` (SkiMoneyRules.MonthKey: year × 12 + month 0..11) and 15 parallel arrays of the same length n, index i =
+// month firstMonthKey + i, oldest → newest. Built from the sign's DynamicBuffer<SkiResortHistoryMonth> DENSIFIED here (a Gap
+// marker covers its key .. the next element's key − 1: every month of it is sent with flags GAP, flows 0, unknowns −1), then
+// the ledger's month in progress appended LAST with flags CURRENT (128, binding only, never stored) | PARTIAL when the ledger
+// counts it since load; months between the last stored one and it are GAP. The month in progress: the ledger's This
+// (booked so far), SkiDaySystem's ArrivedThisMonth, buildings / wages = the ResortLive rate × the share of the month simulated
+// (the counter's MonthFramesSimulated / MonthFrames), attraction and snow % = the ResortLive point values now. snowPct −1 =
+// unknown (the stored 255). Pushed only while observed and only when SkiResortHistorySystem.Revision moved (a stored month),
+// the area set (stats ResortsRevision) moved, or ProgressRevision moved AND HistoryProgressPushS (5 s wall clock) passed since
+// the last push; re-sent once on (re)subscribe. Payload ≈ 15 numbers × months × areas (5 years × 5 areas ≈ 4,500 numbers).
+//
 // BINDINGS (all registered with AddBinding — never AddUpdateBinding, which would re-send a raw binding
 // every frame, research §2.B.1; UISystemBase.cs:48-58). Colossal.UI.Binding facts [scratch decompile
 // of the installed 1.6.2f1 DLL, research §0 citation policy; re-checked 2026-10-03 with Cecil: IJsonWriter
@@ -399,7 +413,9 @@ namespace SkiResortMod.Systems
         public const string Group = "skiResort";
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a
-        /// binding, trigger, field or meaning changes. 9 = T77 hub wording round 1 (2026-10-18, docs/research/ui/hub-wording-round-1-2026-10-18.md:
+        /// binding, trigger, field or meaning changes. 10 = T78 build 2 (2026-10-18, docs/research/ui/hub-history-build-2-2026-10-18.md: the
+        /// `history` binding, one HistoryArea row per live ski area, parallel monthly series oldest → newest with the month in progress last;
+        /// header HISTORY). 9 = T77 hub wording round 1 (2026-10-18, docs/research/ui/hub-wording-round-1-2026-10-18.md:
         /// CityStats appends month, the calendar month 0..11 the guest ledger counts; nothing else). 8 = Econ-2 round 2 (2026-10-15, docs/research/econ-2/build/round-2.md: ResortLive
         /// appends lessonsThisMonth, lessonsLastMonth, lessonIncomeMonth, passesPreSeason, passIncomePreSeason, cityIncomeEst; no CityStats
         /// change). 7 = Season passes v1 (2026-10-14, docs/research/econ-2/build/season-pass-v1.md:
@@ -411,7 +427,7 @@ namespace SkiResortMod.Systems
         /// days, docs/research/ski-days/spec (ch4 §A: ten ResortLive fields appended; the six last-month guest fields
         /// also for a partial month); 3 was Round E1 (econ-round spec ch5 §4, design hub-v3-design.md §8); 2 was
         /// hub-u2-spec.md §2 (Rounds U2/M1).</summary>
-        public const int HubContract = 9;
+        public const int HubContract = 10;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed
         /// after the one-shot "!!!" until the next load (amended 2026-10-01, U1 fixer round, finding
@@ -475,6 +491,9 @@ namespace SkiResortMod.Systems
             /// LogWindow of this many wall-clock seconds (the R15 rule): `problems` follows simulation state
             /// (efficiency factors crossing 100 % in a brownout), so its row count can move every poll.</summary>
             public const float PushRowsLogWindowS = 10f;
+            /// <summary>T78 (contract 10, header HISTORY): wall-clock seconds between two `history` pushes caused only by the
+            /// month in progress moving (a stored month or an area change pushes at once).</summary>
+            public const float HistoryProgressPushS = 5f;
         }
 
         // ── build items (contract 6: the ONE table SkiCatalog.BuildItems; bindings.ts BUILD_ITEM_IDS / BUILD_ITEM_PREFAB and
@@ -742,6 +761,7 @@ namespace SkiResortMod.Systems
         private readonly ArrayPush m_RunLivePush = new ArrayPush("runLive");
         private readonly ArrayPush m_LiftsPush = new ArrayPush("lifts");
         private readonly ArrayPush m_ProblemsPush = new ArrayPush("problems");
+        private readonly ArrayPush m_HistoryPush = new ArrayPush("history");   // contract 10 (header HISTORY)
 
         // ── requests (trigger → OnUpdate) ─────────────────────────────────────────────────────────
 
@@ -779,6 +799,11 @@ namespace SkiResortMod.Systems
         private SkiRunBindTriggerSystem m_BindTrigger;   // fixer round: PickSignName (empty sign rename)
         private SkiRunCatalogSystem m_Catalog;
         private SkiResortStatsSystem m_Stats;
+        // Contract 10 (header HISTORY): the stored months, the ledger's month in progress, its ski days and the calendar.
+        private SkiResortHistorySystem m_HistorySystem;
+        private SkiGuestCounterSystem m_GuestCounter;
+        private SkiDaySystem m_SkiDays;
+        private Game.Simulation.TimeSystem m_Time;
         private LiftCensusSystem m_Census;
         private SkiResortAttractivenessSystem m_Attractiveness;
         // Catalog Phase A (ext row 21 / row 6; was :670 + :833 m_PowerBridge, read only at :1011 for the station set):
@@ -809,6 +834,7 @@ namespace SkiResortMod.Systems
         private ValueBinding<CityStats> m_City;
         private ValueBinding<bool> m_PisteMapBinding;
         private ValueBinding<int> m_FollowBinding;
+        private RawValueBinding m_History;          // contract 10 (header HISTORY)
 
         /// <summary>The DLL's stamp as a runtime value (BuildStamp.Value is a const: comparing it with
         /// another constant would be a compile-time expression).</summary>
@@ -952,6 +978,10 @@ namespace SkiResortMod.Systems
             m_BindTrigger = World.GetOrCreateSystemManaged<SkiRunBindTriggerSystem>();
             m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
             m_Stats = World.GetOrCreateSystemManaged<SkiResortStatsSystem>();
+            m_HistorySystem = World.GetOrCreateSystemManaged<SkiResortHistorySystem>();   // contract 10 (header HISTORY)
+            m_GuestCounter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
+            m_SkiDays = World.GetOrCreateSystemManaged<SkiDaySystem>();
+            m_Time = World.GetOrCreateSystemManaged<Game.Simulation.TimeSystem>();
             m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();   // Catalog Phase A
@@ -981,6 +1011,7 @@ namespace SkiResortMod.Systems
             m_RunLivePush.Binding = m_RunLive = new RawValueBinding(Group, "runLive", WriteRunLive);
             m_LiftsPush.Binding = m_Lifts = new RawValueBinding(Group, "lifts", WriteLifts);
             m_ProblemsPush.Binding = m_Problems = new RawValueBinding(Group, "problems", WriteProblems);
+            m_HistoryPush.Binding = m_History = new RawValueBinding(Group, "history", WriteHistory);   // contract 10
 
             // Values (C# → UI), in bindings.ts order (contract 3, ch5 §4.1; gate R1 needs the literals).
             AddBinding(m_HubOpen = new ValueBinding<bool>(Group, "hubOpen", false));
@@ -1001,6 +1032,7 @@ namespace SkiResortMod.Systems
                 new CityStatsComparer()));
             AddBinding(m_PisteMapBinding = new ValueBinding<bool>(Group, "pisteMap", true));
             AddBinding(m_FollowBinding = new ValueBinding<int>(Group, "follow", 0));
+            AddBinding(m_History);   // contract 10 (header HISTORY): panel binding, no Demand
 
             // Triggers (UI → C#): bindings.ts TRIGGER (§2.2).
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -1023,7 +1055,7 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<Entity>(Group, "hoverRun", OnHoverRun));
 
             Mod.Log.Info($"{nameof(SkiResortHubUISystem)} created — group '{Group}', contract {HubContract}, " +
-                         $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 16 value bindings, " +
+                         $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 17 value bindings, " +
                          "17 triggers");
         }
 
@@ -1051,6 +1083,8 @@ namespace SkiResortMod.Systems
                 m_RunLivePush.Reset();
                 m_LiftsPush.Reset();
                 m_ProblemsPush.Reset();
+                m_HistoryPush.Reset();
+                ResetHistoryPush();   // contract 10: drop the last city's rows
                 m_NextLockRefresh = 0f;
                 m_LockResortsRevision = int.MinValue;
                 m_LocksDirty = true;
@@ -1155,7 +1189,9 @@ namespace SkiResortMod.Systems
                              $"bundled at build: {BuildStamp.UiBundled}); bindings hubOpen, contract, buildStamp, " +
                              "showHubButton (always observed), build, glade, resorts, resortLive, selectedResort, runs, " +
                              "runLive, lifts, problems, city (panel bindings: catalog and stats Demand follow them, nothing " +
-                             "is computed while closed), pisteMap and follow (panel values, no Demand); arrays pushed per " +
+                             "is computed while closed), pisteMap and follow (panel values, no Demand), history (contract 10: " +
+                             "the History view only, no Demand; pushed when a stored month or the area set changed, the month " +
+                             $"in progress at most every {Tuning.HistoryProgressPushS:0.#} s, HistoryProgressPushS); arrays pushed per " +
                              "stats revision (slow rows and live rows apart), logged only when a row count changes; triggers " +
                              "toggleHub, setHubOpen, uiHello, uiError, launch, focusRun, gladeToggle, gladeSetLevel, " +
                              "gladeSetTreeLine, dumpHub, selectResort, rename, focusLift, focusBuilding, uiLayout, setPisteMap " +
@@ -2903,6 +2939,7 @@ namespace SkiResortMod.Systems
             PushArray(m_RunLivePush, runLiveActive, m_Stats.RunLiveRevision, m_Stats.RunLiveCount);
             PushArray(m_LiftsPush, liftsActive, m_Stats.LiftsRevision, m_Stats.LiftCount);
             PushArray(m_ProblemsPush, problemsActive, m_Stats.ProblemsRevision, m_Stats.ProblemCount);
+            PushHistory();   // contract 10 (header HISTORY): no Demand of its own
 
             if (cityActive)
                 m_City.Update(m_Stats.City);   // our comparer dedups (struct, field by field)
@@ -2992,7 +3029,7 @@ namespace SkiResortMod.Systems
         private void FlushPushRows()
         {
             float now = UnityEngine.Time.realtimeSinceStartup;
-            ArrayPush[] all = { m_ResortsPush, m_ResortLivePush, m_RunsPush, m_RunLivePush, m_LiftsPush, m_ProblemsPush };
+            ArrayPush[] all = { m_ResortsPush, m_ResortLivePush, m_RunsPush, m_RunLivePush, m_LiftsPush, m_ProblemsPush, m_HistoryPush };
             for (int i = 0; i < all.Length; i++)
             {
                 if (all[i].RowsLog.Count > 0)
@@ -3809,6 +3846,283 @@ namespace SkiResortMod.Systems
             writer.ArrayEnd();
         }
 
+        // ── history (contract 10, header HISTORY) ─────────────────────────────────────────────────
+
+        /// <summary>HistoryArea.flags bit of the month in progress: binding only, never stored (bindings.ts HISTORY_FLAG.Current;
+        /// the stored bits are HistoryFlags, SkiResortHistory.cs, 1..64).</summary>
+        public const int HistoryFlagCurrent = 128;
+
+        // Series indices of a HistoryRow, in the HistoryArea field order after sign / firstMonthKey.
+        private const int HsFlags = 0, HsTourists = 1, HsResidents = 2, HsSkiDays = 3, HsTicketsPaid = 4, HsTicketIncome = 5,
+                          HsLodgeIncome = 6, HsPassIncome = 7, HsLessonIncome = 8, HsLiftCost = 9, HsRunCost = 10, HsBuildingsCost = 11,
+                          HsWagesCost = 12, HsAttraction = 13, HsSnowPct = 14, HsCount = 15;
+
+        /// <summary>One HistoryArea row as it will be sent (rows are reused across pushes; no per-push allocation once warm).</summary>
+        private sealed class HistoryRow
+        {
+            public Entity Sign;
+            public int FirstKey;
+            public readonly List<int>[] Series = new List<int>[HsCount];
+            public int Count => Series[HsFlags].Count;
+
+            public HistoryRow()
+            {
+                for (int s = 0; s < HsCount; s++)
+                    Series[s] = new List<int>(64);
+            }
+
+            public void Clear(Entity sign)
+            {
+                Sign = sign;
+                FirstKey = SkiResortLedger.NoMonth;
+                for (int s = 0; s < HsCount; s++)
+                    Series[s].Clear();
+            }
+        }
+
+        private readonly List<HistoryRow> m_HistoryRows = new List<HistoryRow>(8);
+        private int m_HistoryRowCount;
+        private int m_HistoryPushKey;
+        private int m_HistorySeenRevision = int.MinValue, m_HistorySeenResorts = int.MinValue, m_HistorySeenProgress = int.MinValue;
+        private float m_HistoryNextProgressPush;
+
+        /// <summary>A load: the last city's rows are dropped (the subscribe-time write then sends []).</summary>
+        private void ResetHistoryPush()
+        {
+            m_HistoryRowCount = 0;
+            m_HistorySeenRevision = m_HistorySeenResorts = m_HistorySeenProgress = int.MinValue;
+            m_HistoryNextProgressPush = 0f;
+            m_HistoryPushKey++;
+        }
+
+        /// <summary>Header HISTORY: rebuild the rows only when the push will happen (a stored month, the area set, the throttled
+        /// month in progress, or a (re)subscribe), then the shared PushArray bookkeeping (row-count lines, slow-push WARN).</summary>
+        private void PushHistory()
+        {
+            bool active = m_History.active;
+            if (active)
+            {
+                int revision = m_HistorySystem.Revision, resorts = m_Stats.ResortsRevision, progress = m_HistorySystem.ProgressRevision;
+                float now = UnityEngine.Time.realtimeSinceStartup;
+                bool due = !m_HistoryPush.WasActive || revision != m_HistorySeenRevision || resorts != m_HistorySeenResorts ||
+                           (progress != m_HistorySeenProgress && now >= m_HistoryNextProgressPush);
+                if (due)
+                {
+                    m_HistorySeenRevision = revision;
+                    m_HistorySeenResorts = resorts;
+                    m_HistorySeenProgress = progress;
+                    m_HistoryNextProgressPush = now + Tuning.HistoryProgressPushS;
+                    CollectHistory();
+                    m_HistoryPushKey++;
+                }
+            }
+            PushArray(m_HistoryPush, active, m_HistoryPushKey, m_HistoryRowCount);
+        }
+
+        /// <summary>Header HISTORY: one row per live sign of the stats `resorts` rows (their order) that has a stored month or a month
+        /// in progress; the buffer densified (Gap markers expanded), the month in progress appended last.</summary>
+        private void CollectHistory()
+        {
+            m_HistoryRowCount = 0;
+            SkiResortLedger ledger = m_GuestCounter.Ledger;
+            int progressKey = ledger != null && m_GuestCounter.IsArmed ? ledger.MonthKey : SkiResortLedger.NoMonth;
+            double share = 0d;
+            if (progressKey != SkiResortLedger.NoMonth)
+            {
+                double frames = SkiMoneyRules.MonthFrames(m_Time.daysPerYear);
+                share = frames > 0d ? math.clamp(m_GuestCounter.MonthFramesSimulated / frames, 0d, 1d) : 0d;
+            }
+            EntityManager em = EntityManager;
+            for (int i = 0; i < m_Stats.ResortCount; i++)
+            {
+                ResortStats rs = m_Stats.GetResort(i);
+                Entity sign = rs.Sign;
+                if (rs.Kind != 0 || sign == Entity.Null || !em.Exists(sign) || em.HasComponent<Deleted>(sign))
+                    continue;
+                if (m_HistoryRowCount == m_HistoryRows.Count)
+                    m_HistoryRows.Add(new HistoryRow());
+                HistoryRow row = m_HistoryRows[m_HistoryRowCount];
+                row.Clear(sign);
+                int next = SkiResortLedger.NoMonth;   // the key the next month must have
+                if (em.HasBuffer<SkiResortHistoryMonth>(sign))
+                {
+                    DynamicBuffer<SkiResortHistoryMonth> b = em.GetBuffer<SkiResortHistoryMonth>(sign, isReadOnly: true);
+                    for (int k = 0; k < b.Length; k++)
+                    {
+                        SkiResortHistoryMonth m = b[k];
+                        if (row.Count == 0)
+                        {
+                            if (m.IsGap)
+                                continue;   // a marker never leads a row (SkiResortHistory.Trim keeps it so; belt and braces)
+                            row.FirstKey = m.m_MonthKey;
+                        }
+                        else if (m.m_MonthKey < next)
+                            continue;       // keys are strictly increasing (Append); a stray older key is skipped
+                        else
+                            HistoryFillGap(row, next, m.m_MonthKey);   // nothing to fill unless a marker is missing
+                        if (m.IsGap)
+                        {
+                            // A marker covers its key .. the next element's key − 1 (or up to the month in progress).
+                            int until = k + 1 < b.Length ? b[k + 1].m_MonthKey : progressKey;
+                            until = math.max(until, m.m_MonthKey + 1);
+                            HistoryFillGap(row, m.m_MonthKey, until);
+                            next = until;
+                        }
+                        else
+                        {
+                            HistoryAdd(row, m, m.m_SnowPct == SkiResortHistoryMonth.SnowUnknown ? -1 : m.m_SnowPct);
+                            next = m.m_MonthKey + 1;
+                        }
+                    }
+                }
+                if (progressKey != SkiResortLedger.NoMonth && (row.Count == 0 || progressKey >= next))
+                {
+                    if (row.Count == 0)
+                        row.FirstKey = progressKey;
+                    else
+                        HistoryFillGap(row, next, progressKey);
+                    HistoryAddProgress(row, ledger, i, progressKey, share);
+                }
+                if (row.Count > 0)
+                    m_HistoryRowCount++;
+            }
+        }
+
+        /// <summary>GAP months for keys [from, to). A span longer than the 1200-month safety cap (a dev-tool calendar jump)
+        /// restarts the row at `to`: the older months are not sent (they stay stored).</summary>
+        private static void HistoryFillGap(HistoryRow row, int from, int to)
+        {
+            if (to <= from)
+                return;
+            if (to - from > SkiResortHistory.CapMonths)
+            {
+                row.Clear(row.Sign);
+                row.FirstKey = to;
+                return;
+            }
+            SkiResortHistoryMonth gap = SkiResortHistoryMonth.Gap(from);
+            for (int key = from; key < to; key++)
+                HistoryAdd(row, gap, -1);
+        }
+
+        private static void HistoryAdd(HistoryRow row, in SkiResortHistoryMonth m, int snowPct)
+        {
+            List<int>[] s = row.Series;
+            s[HsFlags].Add(m.m_Flags);
+            s[HsTourists].Add(m.m_Tourists);
+            s[HsResidents].Add(m.m_Residents);
+            s[HsSkiDays].Add(m.m_SkiDays);
+            s[HsTicketsPaid].Add(m.m_TicketsPaid);
+            s[HsTicketIncome].Add(m.m_TicketIncome);
+            s[HsLodgeIncome].Add(m.m_LodgeIncome);
+            s[HsPassIncome].Add(m.m_PassIncome);
+            s[HsLessonIncome].Add(m.m_LessonIncome);
+            s[HsLiftCost].Add(m.m_LiftCost);
+            s[HsRunCost].Add(m.m_RunCost);
+            s[HsBuildingsCost].Add(m.m_BuildingsCost);
+            s[HsWagesCost].Add(m.m_WagesCost);
+            s[HsAttraction].Add(m.m_Attraction);
+            s[HsSnowPct].Add(snowPct);
+        }
+
+        /// <summary>The month in progress (header HISTORY): the ledger's This booked so far (the stored months' own mapping,
+        /// SkiResortHistoryMonth.FromLedger), ski days so far, buildings / wages = the rate × the share simulated, attraction and snow
+        /// now. Flags CURRENT | PARTIAL when the ledger counts it since load.</summary>
+        private void HistoryAddProgress(HistoryRow row, SkiResortLedger ledger, int resortIndex, int key, double share)
+        {
+            Entity sign = row.Sign;
+            SkiResortLedger.Month month = ledger.TryGet(SkiResortStatsSystem.ToRef(sign), out SkiResortLedger.Entry e) ? e.This : default;
+            int flags = HistoryFlagCurrent | (ledger.ThisMonthSinceLoad ? HistoryFlags.Partial : 0);
+            SkiResortHistoryMonth m = SkiResortHistoryMonth.FromLedger(month, key, 0);
+            if (m_SkiDays.IsArmed && m_SkiDays.TryGetArea(sign, out SkiDayAreaView view) && view.ArrivedThisMonth >= 0)
+                m.m_SkiDays = view.ArrivedThisMonth;
+            int snow = -1;
+            if (TryLiveOf(sign, resortIndex, out ResortLiveStats live))
+            {
+                m.m_BuildingsCost = live.BuildingsMonth >= 0 ? (int)math.round(live.BuildingsMonth * share) : SkiResortHistoryMonth.Unknown;
+                m.m_WagesCost = live.WagesMonth >= 0 ? (int)math.round(live.WagesMonth * share) : SkiResortHistoryMonth.Unknown;
+                m.m_Attraction = live.Attraction >= 0 ? live.Attraction : SkiResortHistoryMonth.Unknown;
+                byte b = SkiResortHistoryMonth.SnowByte(live.SnowPct);
+                snow = b == SkiResortHistoryMonth.SnowUnknown ? -1 : b;
+            }
+            HistoryAdd(row, m, snow);
+            row.Series[HsFlags][row.Count - 1] = flags;
+        }
+
+        /// <summary>The sign's ResortLive row: same index as its resorts row when the arrays agree, else searched.</summary>
+        private bool TryLiveOf(Entity sign, int resortIndex, out ResortLiveStats live)
+        {
+            if (resortIndex < m_Stats.ResortLiveCount)
+            {
+                live = m_Stats.GetResortLive(resortIndex);
+                if (live.Sign == sign)
+                    return true;
+            }
+            for (int j = 0; j < m_Stats.ResortLiveCount; j++)
+            {
+                live = m_Stats.GetResortLive(j);
+                if (live.Sign == sign)
+                    return true;
+            }
+            live = default;
+            return false;
+        }
+
+        /// <summary>`history` (bindings.ts HistoryArea; header HISTORY): the rows CollectHistory built.</summary>
+        private void WriteHistory(IJsonWriter writer)
+        {
+            writer.ArrayBegin((uint)m_HistoryRowCount);
+            for (int i = 0; i < m_HistoryRowCount; i++)
+            {
+                HistoryRow r = m_HistoryRows[i];
+                writer.TypeBegin("SkiResortMod.HistoryArea");
+                writer.PropertyName("sign");
+                UnityWriters.Write(writer, r.Sign);
+                writer.PropertyName("firstMonthKey");
+                writer.Write(r.FirstKey);
+                writer.PropertyName("flags");
+                WriteHistorySeries(writer, r.Series[HsFlags]);
+                writer.PropertyName("tourists");
+                WriteHistorySeries(writer, r.Series[HsTourists]);
+                writer.PropertyName("residents");
+                WriteHistorySeries(writer, r.Series[HsResidents]);
+                writer.PropertyName("skiDays");
+                WriteHistorySeries(writer, r.Series[HsSkiDays]);
+                writer.PropertyName("ticketsPaid");
+                WriteHistorySeries(writer, r.Series[HsTicketsPaid]);
+                writer.PropertyName("ticketIncome");
+                WriteHistorySeries(writer, r.Series[HsTicketIncome]);
+                writer.PropertyName("lodgeIncome");
+                WriteHistorySeries(writer, r.Series[HsLodgeIncome]);
+                writer.PropertyName("passIncome");
+                WriteHistorySeries(writer, r.Series[HsPassIncome]);
+                writer.PropertyName("lessonIncome");
+                WriteHistorySeries(writer, r.Series[HsLessonIncome]);
+                writer.PropertyName("liftCost");
+                WriteHistorySeries(writer, r.Series[HsLiftCost]);
+                writer.PropertyName("runCost");
+                WriteHistorySeries(writer, r.Series[HsRunCost]);
+                writer.PropertyName("buildingsCost");
+                WriteHistorySeries(writer, r.Series[HsBuildingsCost]);
+                writer.PropertyName("wagesCost");
+                WriteHistorySeries(writer, r.Series[HsWagesCost]);
+                writer.PropertyName("attraction");
+                WriteHistorySeries(writer, r.Series[HsAttraction]);
+                writer.PropertyName("snowPct");
+                WriteHistorySeries(writer, r.Series[HsSnowPct]);
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
+        }
+
+        private static void WriteHistorySeries(IJsonWriter writer, List<int> values)
+        {
+            writer.ArrayBegin((uint)values.Count);
+            for (int i = 0; i < values.Count; i++)
+                writer.Write(values[i]);
+            writer.ArrayEnd();
+        }
+
         // ── prefab resolution: Catalog Phase A (ext row 21; was :3365-3416, the house pattern's PrefabID fast path +
         //    name-scan copy): each item is resolved by SkiPrefabCatalogSystem.TryGetPrefab (same per-load cache as every other
         //    consumer). Catalog Phase B (§8.1, D6, D7): the (type, name) pair is the table row's (SkiCatalog.TypeNameOf(kind),
@@ -3940,7 +4254,7 @@ namespace SkiResortMod.Systems
                    $"resortLive {m_ResortLive.observerCount}, selectedResort {m_SelectedBinding.observerCount}, runs " +
                    $"{m_Runs.observerCount}, runLive {m_RunLive.observerCount}, lifts {m_Lifts.observerCount}, problems " +
                    $"{m_Problems.observerCount}, city {m_City.observerCount}, pisteMap {m_PisteMapBinding.observerCount}, " +
-                   $"follow {m_FollowBinding.observerCount}";
+                   $"follow {m_FollowBinding.observerCount}, history {m_History.observerCount}";
         }
 
         /// <summary>Pushes per array (dev tab, DUMP; ch5 §4.9).</summary>

@@ -48,10 +48,10 @@ import {
 
 // ---- panel view state (local values; contract 3, ch6 section 3) -----------------------------------
 
-/** The five views under the tiles (D33). */
-export type HubView = "overview" | "runs" | "lifts" | "guests" | "money";
+/** The views under the tiles (D33): five since contract 3, "history" appended after Finances in contract 10 (T78). */
+export type HubView = "overview" | "runs" | "lifts" | "guests" | "money" | "history";
 
-export const HUB_VIEWS: readonly HubView[] = ["overview", "runs", "lifts", "guests", "money"];
+export const HUB_VIEWS: readonly HubView[] = ["overview", "runs", "lifts", "guests", "money", "history"];
 
 /** The selected view: "overview" at UI load; survives closing the hub; a UI reload resets it. */
 export const view$ = bindLocalValue<HubView>("overview");
@@ -63,6 +63,14 @@ export const treesOpen$ = bindLocalValue<boolean>(true);
  *  yet: the strip then opens on the tab the idle NEXT line points at. Local value (nothing sent to C#); survives closing the
  *  hub, a UI reload resets it. */
 export const buildTab$ = bindLocalValue<string>("");
+
+/** T78 (contract 10): the History view's controls (local values, nothing sent; they survive closing the hub, a UI reload resets
+ *  them). Scope "area" = the shown ski area, "city" = every live area summed; range: historyRules.HistoryRange; charts: guests /
+ *  money / both; the attraction strip is off by default (Richard's answer 2, 2026-10-18). */
+export const historyScope$ = bindLocalValue<"area" | "city">("area");
+export const historyRange$ = bindLocalValue<string>("months12");
+export const historyCharts$ = bindLocalValue<string>("both");
+export const historyAttraction$ = bindLocalValue<boolean>(false);
 
 // ---- hoverRun (D19 emphasis; ch6 section 3.3) -----------------------------------------------------
 

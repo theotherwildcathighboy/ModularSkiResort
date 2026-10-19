@@ -187,11 +187,13 @@ const BINDINGS_TS = "bindings.ts";
 const PANEL_BINDINGS = new Set([
   "resorts$", "resortLive$", "selectedResort$", "runs$", "runLive$", "lifts$", "problems$", "city$",
   "build$", "glade$", "pisteMap$", "follow$",
+  "history$",   // contract 10 (T78): only the History view subscribes it (no Demand)
 ]);
 const PANEL_FILES = new Set([
   "hub/HubPanel.tsx", "hub/HubHeader.tsx", "hub/StartCard.tsx", "hub/StatusBlock.tsx", "hub/ViewTiles.tsx",
   "hub/OverviewView.tsx", "hub/RunsView.tsx", "hub/RunList.tsx", "hub/LiftsView.tsx", "hub/LiftTable.tsx",
   "hub/GuestsView.tsx", "hub/MoneyView.tsx", "hub/BuildStrip.tsx", "hub/TreeControls.tsx",
+  "hub/HistoryView.tsx", "hub/HistoryChart.tsx",   // contract 10 (T78 build 2)
 ]);
 /** Rule R16 (Round E1): the TS file that holds BUILD_GROUPS. */
 const BUILD_ITEMS_TS = path.join("hub", "buildItems.ts");
