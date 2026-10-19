@@ -529,7 +529,12 @@ def detail_parts(K, C, fine=False):
             "lamp")
     # S12 sign lamps over the name board (lenses `lamp_sign<k>`, arms remapped to galv)
     for k, (y, z) in enumerate(SIGN_LAMPS):
-        lp, _pt = K.lantern(f"sign{k}", (TW[1], y, z), "+X", kind="wall", h=0.18, w=0.25)
+        if K.FITTINGS.get("version", 0) >= 1:
+            # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): the sign lamps are a matched pair of vanilla WallLight03
+            # goosenecks (cs2_fittings ROWS["school"]["wall"]); the modelled gooseneck (T102 r2) is out
+            continue
+        else:
+            lp, _pt = K.lantern(f"sign{k}", (TW[1], y, z), "+X", kind="wall", h=0.18, w=0.25)
         P += lp
     return P
 
@@ -603,9 +608,9 @@ def gallery_parts(C, c, gls=False):
     gls (T95, cad-review-2026-10-19 section 6; lodge.py --glass gls): the most CAD-looking object of the resort
     (a white plastic tube, shot 22.17) becomes a clear tunnel: `gallery_side` / `gallery_roof` go to the plain-glass
     `_Gls` sub-mesh (RECIPE.gls_extra, DECISIONS 281), the ribs `galv` aluminium hoops, and the opaque inner skin
-    `gallery_in` is dropped (the double-sided glass shows the belt). The arc keeps its 6 facets: the review's 12
-    (15 deg steps) measured +252 LOD0 tris (blockout 5,423 -> 5,675) and pushed the school past 7,000 at weather
-    level 0 (7,170; integration build 2026-10-19), so it waits for Richard's cap call."""
+    `gallery_in` is dropped (the double-sided glass shows the belt). The arc has the review's 12 facets (15 deg
+    steps, +252 LOD0 tris): T101 (DECISIONS 317) moved the rooftop units to vanilla rows, which pays for it under the
+    7,000 cap at weather level 0 (the integration build had kept 6 facets: 7,170 with 12)."""
     tag, yc, xl, L, _cov, _wd, _b = c
     xt = xl - L
     a, hs, rise, step = GALLERY
@@ -613,9 +618,9 @@ def gallery_parts(C, c, gls=False):
     def zc(x):
         return _carpet_z(c, x) + COVER_H
 
-    # profile (lateral v, height h above the cover top): side, 3 arc segments, apex, mirrored
+    # profile (lateral v, height h above the cover top): side, 3 (gls: 6) arc segments, apex, mirrored
     arc = [(-a * math.cos(math.radians(t)), hs + rise * math.sin(math.radians(t)))
-           for t in (0.0, 30.0, 60.0, 90.0)]
+           for t in ((0.0, 15.0, 30.0, 45.0, 60.0, 75.0, 90.0) if gls else (0.0, 30.0, 60.0, 90.0))]
     prof = [(-a, 0.0)] + arc + [(-v, h) for v, h in reversed(arc[:-1])] + [(a, 0.0)]
     segs = list(zip(prof, prof[1:]))                # 8 segments: side, 3 + 3 arc, side
 
@@ -869,18 +874,13 @@ def build(recipe, opts):
                 "trim_white")
     P += C.cyl_part("bell_hanger", (cx, cy, bz1 - 0.02), (cx, cy, HEAD_Z[0] + 0.05), 0.04, "galv", segs=6)
     if K.FITTINGS.get("version", 0) >= 1:
-        # T87c (Richard item 10, "too bright, and is floating"): the light is a LANTERN hung from the cross beam beside the
+        # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): NO belfry light at all (Richard: the hung lantern read as hanging in front of / inside the bell);
+        # no lens, no glow, no emissive in the belfry. (T87c before it: a LANTERN hung from the cross beam beside the
         # bell: a rod from the beam (underside 13.18) into a cone cap, an 8-seg lens 0.18 m across x 0.22 m (0.124 m2 lit,
         # the scale of a vanilla wall-light lens; the prefab keeps the vanilla house intensity 0.6, prop-emissive-lights.md
         # section 1.1) and a base plate. The old 0.5 x 0.5 m lit quad floated at 13.10 and the 2.4 m lit floor + balustrade
         # faces (together 9.0 m2) are gone with it (above). z0 / z1 = LANTERN_Z; every piece overlaps its neighbour by >= 1 cm
-        lz0, lz1 = LANTERN_Z
-        lx = cx + LANTERN_DX
-        P += C.cyl_part("lamp_glow", (lx, cy, lz0 - 0.01), (lx, cy, lz1 + 0.01), 0.09, "lamp", segs=8,
-                        cap0=False, cap1=False)
-        P += C.cyl_part("bell_lanternplate", (lx, cy, lz0 - 0.03), (lx, cy, lz0), 0.11, "ski_black", segs=8)
-        P += C.cyl_part("bell_lanterncap", (lx, cy, lz1), (lx, cy, lz1 + 0.07), 0.12, "ski_black", segs=8, r1=0.03)
-        P += C.cyl_part("bell_lanternrod", (lx, cy, lz1 + 0.05), (lx, cy, HEAD_Z[0] + 0.05), 0.02, "ski_black", segs=6)
+        pass
     else:
         P += C.quads_part("lamp_glow", [([(cx - 0.25, cy - 0.25, GLOW_Z), (cx + 0.25, cy - 0.25, GLOW_Z),
                                           (cx + 0.25, cy + 0.25, GLOW_Z), (cx - 0.25, cy + 0.25, GLOW_Z)],
@@ -958,8 +958,12 @@ def build(recipe, opts):
         P += K.downspout(nm, x, y, zt, nrm, size=0.08, wall_gap=0.06, z_bottom=0.20,
                          shoe_dir="+X")      # fittings v1: the shoe kicks out (nrm points at the wall)
     for k, (x, y) in enumerate(HVAC):
-        if K.FITTINGS.get("version", 0) >= 1:      # T87b: a real rooftop unit (cs2_bldg.rooftop_unit), no galv box
-            P += K.rooftop_unit("ab"[k], x, y, roof_top(x + 0.75), roof_top(x - 0.75), w=1.5, d=1.0, h=0.75)
+        if K.FITTINGS.get("version", 0) >= 1:
+            # T101 (DECISIONS 305 / 317, vanilla props first): only the level curb is ours; the unit on it is a vanilla
+            # ACMachineRoofRandom01 row (cs2_fittings ROWS["school"]["curb"]). T87b's modelled unit
+            # (cs2_bldg.rooftop_unit, 284 tris) stays in the kit, unused here.
+            # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): no curb either (Richard: "vanilla only, never ours"; the units sit on
+            # the roof with no gap: cs2_fittings ROWS["school"]["roof"] seats ACMachineRoof02 / 03 on the 13.5-deg slope)
             continue
         P += K.box_part(f"hvac_{'ab'[k]}", (x - 0.75, y - 0.5, roof_top(x + 0.75) - 0.05),
                         (x + 0.75, y + 0.5, roof_top(x - 0.75) + 0.75), "galv", drop=("-Z",))

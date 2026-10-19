@@ -660,7 +660,11 @@ def aframe_parts(c, opts):
                 P += K.roof_window(f"{sl}{row}{i}", spec, side, y, z, room=f"rw{sl}{row}",
                                    panes=panes)
     for i, y in enumerate((-16.0, -8.0, 0.0, 8.0, 16.0)):
-        P += K.vent_stack(f"ridge{i}", spec, RX, y)
+        # T101 r2 found the placeholder ACVentRoofRandom01 too steep for this 53-degree roof (one seat for five
+        # variants); T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): the specific ACVentRoof03 passes the gate, so fittings v1 = five
+        # vanilla rows 0.5 m down the W slope (cs2_fittings ROWS["L1"]["roof"]), no modelled stack
+        if K.FITTINGS.get("version", 0) < 1:
+            P += K.vent_stack(f"ridge{i}", spec, RX, y)
     P += K.snow_guard("W", spec, "-X")
     P += K.snow_guard("E", spec, "+X", spans=((-22.0, PRY - 8.5), (PRY + 8.5, 22.0)))
     gz = EAVE_Z - 0.10
@@ -701,6 +705,8 @@ def aframe_parts(c, opts):
     lamp_y = [-DY + piece1 * 2 / n1, -DY + piece1 * 7 / n1, gap[1] - DY + piece2 * 2 / n2,
               gap[1] - DY + piece2 * 7 / n2]
     for k, ly in enumerate(lamp_y):
+        if K.FITTINGS.get("version", 0) >= 1:   # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): vanilla GardenLight03 rows on the deck
+            continue                            # by the rail (cs2_fittings ROWS["L1"]["curb"]); kit lantern out
         lp, _pt = K.lantern(f"railF{k}", (DX1, ly, DTOP + 1.10), "+X", kind="post")
         P += lp
     return P

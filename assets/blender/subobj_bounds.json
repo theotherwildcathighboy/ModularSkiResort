@@ -45,6 +45,32 @@
     "ChairCommercial06"
    ]
   },
+  "03b1510ce391829409b4f09a7bffaa49": {
+   "bounds": [
+    [
+     -0.082,
+     0.0,
+     -0.08
+    ],
+    [
+     0.082,
+     0.603,
+     0.08
+    ]
+   ],
+   "guid": "03b1510ce391829409b4f09a7bffaa49",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "GardenLight03 Mesh"
+   ],
+   "prefab": "GardenLight03",
+   "prefabs": [
+    "GardenLight03"
+   ],
+   "source": "dump (RenderPrefab m_Bounds); GUID: resources.assets PrefabsMap (tools/vanilla-guid-map.py), T101 r3",
+   "tris": 454,
+   "variants": []
+  },
   "0bbcb0620e01694448cb78385580351b": {
    "bounds": [
     [
@@ -104,6 +130,58 @@
    "variants": [
     "FirewoodPile01"
    ]
+  },
+  "1ad78f47f5ed32b4a85ae101abc6d7ae": {
+   "bounds": [
+    [
+     -0.142,
+     -0.247,
+     -0.142
+    ],
+    [
+     0.142,
+     0.595,
+     0.142
+    ]
+   ],
+   "guid": "1ad78f47f5ed32b4a85ae101abc6d7ae",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "ACVentRoof03 Mesh"
+   ],
+   "prefab": "ACVentRoof03",
+   "prefabs": [
+    "ACVentRoof03"
+   ],
+   "source": "dump (RenderPrefab m_Bounds); GUID: resources.assets PrefabsMap (tools/vanilla-guid-map.py), T101 r3",
+   "tris": 110,
+   "variants": []
+  },
+  "2ea04b52c3797114cb8e4c281a6c91c3": {
+   "bounds": [
+    [
+     -0.806,
+     -0.782,
+     -0.357
+    ],
+    [
+     0.679,
+     0.634,
+     0.335
+    ]
+   ],
+   "guid": "2ea04b52c3797114cb8e4c281a6c91c3",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "ACMachineRoof02 Mesh"
+   ],
+   "prefab": "ACMachineRoof02",
+   "prefabs": [
+    "ACMachineRoof02"
+   ],
+   "source": "dump (RenderPrefab m_Bounds); GUID: resources.assets PrefabsMap (tools/vanilla-guid-map.py), T101 r3",
+   "tris": 316,
+   "variants": []
   },
   "3f8dafc1558bce24597bd8ca898947fa": {
    "bounds": [
@@ -168,6 +246,32 @@
     "Trashbin03",
     "Trashbin04"
    ]
+  },
+  "4a2cdf33f0f230547ace4b40393f8a64": {
+   "bounds": [
+    [
+     -0.617,
+     -0.837,
+     -0.37
+    ],
+    [
+     0.617,
+     0.67,
+     0.37
+    ]
+   ],
+   "guid": "4a2cdf33f0f230547ace4b40393f8a64",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "ACMachineRoof03 Mesh"
+   ],
+   "prefab": "ACMachineRoof03",
+   "prefabs": [
+    "ACMachineRoof03"
+   ],
+   "source": "dump (RenderPrefab m_Bounds); GUID: resources.assets PrefabsMap (tools/vanilla-guid-map.py), T101 r3",
+   "tris": 346,
+   "variants": []
   },
   "57d3607bc6f3c79408a27d4990e38565": {
    "bounds": [
@@ -242,6 +346,32 @@
     "DeckChair03"
    ]
   },
+  "64dc87161400b8b4eab7ef0b1f75fda2": {
+   "bounds": [
+    [
+     -0.139,
+     -0.098,
+     0.0
+    ],
+    [
+     0.139,
+     0.508,
+     0.332
+    ]
+   ],
+   "guid": "64dc87161400b8b4eab7ef0b1f75fda2",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "WallLight04 Mesh"
+   ],
+   "prefab": "WallLight04",
+   "prefabs": [
+    "WallLight04"
+   ],
+   "source": "dump (RenderPrefab m_Bounds); GUID: resources.assets PrefabsMap (tools/vanilla-guid-map.py), T101 r3",
+   "tris": 1082,
+   "variants": []
+  },
   "68c87b3894d5ed74d8180dd43c12da30": {
    "bounds": [
     [
@@ -303,6 +433,32 @@
     "WarningLight01",
     "WarningLight02"
    ]
+  },
+  "7dc1256672985f840a2e4884a5c4f31a": {
+   "bounds": [
+    [
+     -0.184,
+     -0.059,
+     0.0
+    ],
+    [
+     0.184,
+     0.439,
+     0.55
+    ]
+   ],
+   "guid": "7dc1256672985f840a2e4884a5c4f31a",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "WallLight03 Mesh"
+   ],
+   "prefab": "WallLight03",
+   "prefabs": [
+    "WallLight03"
+   ],
+   "source": "dump (RenderPrefab m_Bounds); GUID: resources.assets PrefabsMap (tools/vanilla-guid-map.py), T101 r3",
+   "tris": 918,
+   "variants": []
   },
   "8d8722db083c3564291e3778cceeb1ae": {
    "bounds": [
@@ -434,6 +590,32 @@
    ],
    "source": "dump",
    "tris": 304,
+   "variants": []
+  },
+  "9941294ce11529c42a120ac622d61cbd": {
+   "bounds": [
+    [
+     -0.169,
+     -0.092,
+     -0.169
+    ],
+    [
+     0.169,
+     0.0,
+     0.169
+    ]
+   ],
+   "guid": "9941294ce11529c42a120ac622d61cbd",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "RoofLight03 Mesh"
+   ],
+   "prefab": "RoofLight03",
+   "prefabs": [
+    "RoofLight03"
+   ],
+   "source": "dump (RenderPrefab m_Bounds); GUID: resources.assets PrefabsMap (tools/vanilla-guid-map.py), T101 r3",
+   "tris": 332,
    "variants": []
   },
   "SkiDressAkja": {
@@ -834,6 +1016,32 @@
     "Parasol03"
    ]
   },
+  "b916e77fd42bccf448ed1020e15673e4": {
+   "bounds": [
+    [
+     -0.363,
+     -0.445,
+     -0.363
+    ],
+    [
+     0.363,
+     1.426,
+     0.363
+    ]
+   ],
+   "guid": "b916e77fd42bccf448ed1020e15673e4",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "EU_Chimney05 Mesh"
+   ],
+   "prefab": "EU_Chimney05",
+   "prefabs": [
+    "EU_Chimney05"
+   ],
+   "source": "dump (RenderPrefab m_Bounds); GUID: resources.assets PrefabsMap (tools/vanilla-guid-map.py), T101 r3",
+   "tris": 2420,
+   "variants": []
+  },
   "b99325ff4ff4dfd459734d8f765c2597": {
    "bounds": [
     [
@@ -1076,6 +1284,32 @@
     "ACVentRoof04",
     "ACVentRoof05"
    ]
+  },
+  "e73db1817f8e60543897e8c94e92d2ae": {
+   "bounds": [
+    [
+     -0.507,
+     -0.616,
+     -0.287
+    ],
+    [
+     0.507,
+     0.732,
+     0.287
+    ]
+   ],
+   "guid": "e73db1817f8e60543897e8c94e92d2ae",
+   "mesh_offset_variants": [],
+   "meshes": [
+    "ACMachineRoof01 Mesh"
+   ],
+   "prefab": "ACMachineRoof01",
+   "prefabs": [
+    "ACMachineRoof01"
+   ],
+   "source": "dump (RenderPrefab m_Bounds); GUID: resources.assets PrefabsMap (tools/vanilla-guid-map.py), T101 r3",
+   "tris": 228,
+   "variants": []
   },
   "ed041afbdfcc3db4188ce264b34304a2": {
    "bounds": [

@@ -440,7 +440,8 @@ def build_p1(recipe, opts):
         ly, lz = P1_LAMP
         lp, _pt = K.lantern("p1door", (x1, ly, lz), "+X", kind="wall", h=0.35, w=0.20)
         P += lp
-    P += K.stovepipe("p1", spec, -1.2, 1.5, r=0.08, rise=0.95)
+    if K.FITTINGS.get("version", 0) < 1:     # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): fittings v1 = vanilla ACVentRoof03 (ROWS["P1"])
+        P += K.stovepipe("p1", spec, -1.2, 1.5, r=0.08, rise=0.95)
     # gear: standing fence rolls (closed, z 0.02: kit ground-band rule), bamboo poles
     # leaning on the front wall, a toboggan against the +Y gable end
     for k, (rx, ry) in enumerate(P1_ROLLS):
@@ -767,7 +768,8 @@ def build_p2(recipe, opts):
     if not fine:                         # fine: a WallLightShortRangeRandom01 row (P2_ROWS_FINE)
         lp, _pt = K.lantern("hqdoor", (x1, dy, 3.70), "+X", kind="wall", h=0.35, w=0.20)
         P += lp
-    P += K.stovepipe("hq", spec, -1.5, -2.5, r=0.08, rise=1.2)
+    if K.FITTINGS.get("version", 0) < 1:     # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): fittings v1 = vanilla ACVentRoof03 (ROWS["P2"])
+        P += K.stovepipe("hq", spec, -1.5, -2.5, r=0.08, rise=1.2)
     # ---- deck, joists, front beam, stair (ground stringers), log posts, steel bars ------
     dx0, dx1, dy0, dy1 = P2_DECK
     P += K.deck("hq", dx0, dx1, dy0, dy1, f1, support="none", fascia=0.0, board_dir="Y",

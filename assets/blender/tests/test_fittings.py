@@ -230,7 +230,10 @@ def check_audit_gate():
 
 
 def check_p2_build():
-    """P2 (gutter, leader pipe, shoe, stovepipe) through lodge.run with fittings v1 and the audit in RAISE mode."""
+    """P2 (gutter, leader pipe, shoe, stove vent) through lodge.run with fittings v1 and the audit in RAISE mode. Since
+    DECISIONS 320 (T101 r3) the stovepipe under fittings v1 is the vanilla ACVentRoof03 row, seated by the roof gate: the
+    check asserts no modelled stovepipe is left and the row's base has no air (the stovepipe builder itself, cap on its
+    collar, stays covered by test_t87_t91_fixtures)."""
     import lodge
     import tempfile
     FIT.AUDIT_MODE = "raise"
@@ -248,10 +251,12 @@ def check_p2_build():
     assert any(s["rules"].get("gutter", {}).get("worst_mm", 99) <= FIT.CONTACT_M * 1000 for s in gut), gut
     p = fix["pipes"][0]
     assert p["foot"]["on"] == "grade" and abs(p["foot"]["z"] - K.GROUND_LIFT) < 1e-6, p
-    caps = [s for n, s in shells.items() if n.startswith("stovepipe_hqcap")]
-    assert caps and all(s["held"] for s in caps), caps
+    assert not [n for n in shells if n.startswith("stovepipe_")], sorted(shells)
+    vent = [r for r in a["rows"] if r["prefab"] == FIT.PIPE_VENT]
+    assert len(vent) == 1 and vent[0]["air_mm"] <= FIT.CONTACT_M * 1000, vent
     ok(f"P2 with fittings v1: audit clean in RAISE mode ({a['n_shells']} shells); half-round gutter seated on its "
-       f"fascia with {g['straps']} straps; the leader's shoe on grade + GROUND_LIFT; the stovepipe cap on its collar")
+       f"fascia with {g['straps']} straps; the leader's shoe on grade + GROUND_LIFT; no modelled stovepipe, the vanilla "
+       f"{FIT.PIPE_VENT} row seated ({vent[0]['air_mm']} mm air)")
 
 
 def _sviol(parts, key="T"):

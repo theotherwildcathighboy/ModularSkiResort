@@ -44,19 +44,83 @@ WALL_LIGHT = "WallLightShortRangeRandom01"          # the project's entry-lamp p
 ROOF_LIGHT = "RoofLightRandom01"                    # ceiling-mounted downlight (hangs 0.15 below its origin)
 VENT = "ACVentRoofRandom01"                         # small roof vents: capped pipes, mushroom cap, turbine
 KITCHEN = "CommercialACVentRoofRandom01"            # commercial exhaust stacks / fans (1.5-2.0 m)
+# T101 r3 (2026-10-19, DECISIONS 320, Richard: "if a sub object, fixture, detail exists in game and we can re-use it, we
+# should"): SPECIFIC vanilla variants for a fixed look / a matched pair. GUIDs from the installed resources.assets
+# PrefabsMap (tools/vanilla-guid-map.py: 47,432 prefabs; checked against the placeholder GUIDs above); base data per
+# variant in fittings_vanilla_bases.json (one-variant groups, docs/research/field/2026-10-19/integration-build.md 12).
+AC_HEATPUMP = "ACMachineRoof01"                     # split condenser; its fan grille faces game +z (decoded lineup render)
+AC_UNIT_A = "ACMachineRoof02"                       # rooftop package unit 1.49 x 0.69, base frame 1.15 x 0.67
+AC_UNIT_B = "ACMachineRoof03"                       # rooftop package unit 1.23 x 0.74, base frame 1.23 x 0.72
+PIPE_VENT = "ACVentRoof03"                          # capped pipe vent 0.28 x 0.84 (the stovepipe / ridge-vent read)
+DECK_LIGHT = "GardenLight03"                        # lantern head on a 0.6 m post (deck lights by the rails)
+GOOSENECK = "WallLight03"                           # gooseneck barn lamp (the sign lamps)
+CARRIAGE = "WallLight04"                            # carriage lantern (not placed: the post lanterns stand on decks)
+DOWNLIGHT = "RoofLight03"                           # round ceiling downlight
+CHIMNEY_POT = "EU_Chimney05"                        # domed round chimney pot; sunk into our stacks (crown kind)
+VARIANT_GUIDS = {
+    AC_HEATPUMP: "e73db1817f8e60543897e8c94e92d2ae", AC_UNIT_A: "2ea04b52c3797114cb8e4c281a6c91c3",
+    AC_UNIT_B: "4a2cdf33f0f230547ace4b40393f8a64", PIPE_VENT: "1ad78f47f5ed32b4a85ae101abc6d7ae",
+    DECK_LIGHT: "03b1510ce391829409b4f09a7bffaa49", GOOSENECK: "7dc1256672985f840a2e4884a5c4f31a",
+    CARRIAGE: "64dc87161400b8b4eab7ef0b1f75fda2", DOWNLIGHT: "9941294ce11529c42a120ac622d61cbd",
+    CHIMNEY_POT: "b916e77fd42bccf448ed1020e15673e4",
+}
+# rooftop units stand only on a FLAT roof (Richard, DECISIONS 320): the roof gate raises when the footprint's roof heights
+# differ by more than FLAT_TOL_M; on a sloped roof the unit is the heat pump on a wall (ground_wall) instead
+FLAT_ONLY = (AC_HEATPUMP, AC_UNIT_A, AC_UNIT_B)
+FLAT_TOL_M = 0.01
+POT_SHOW_M = 0.85                                   # how much of a sunk chimney pot stands above the crown: its body,
+#                                                     lattice band and dome (0.55 showed only the dome; preview 2026-10-19)
 
 # The tables (FINAL frame). wall: (prefab, (x, y, z) near the wall face, (nx, ny) outward normal, note);
-# ceiling: (prefab, (x, y, z_from) cast up, note); roof: (prefab, (x, y), note).
+# ceiling: (prefab, (x, y, z_from) cast up, note); roof: (prefab, (x, y), note);
+# curb (T101): (prefab, part name, (x, y) or None, note): the prop stands on that part's closed top (a level curb, a
+#   deck), yawed so that EVERY variant's base ring lands on it (_place_curb); None = the part's centre;
+# crown (T101 r3): (prefab, crown part, (x, y), note): a chimney pot sunk into the stack so POT_SHOW_M stands above
+#   the crown, its footprint inside the crown top (_place_crown);
+# ground_wall (T101 r3): (prefab, (x, y) at the wall, (nx, ny) outward normal, note): a unit on grade, its back on the
+#   wall with no gap, its front out (_place_ground_wall).
+_L1_VENT_X = (16.0, 8.0, 0.0, -8.0, -16.0)
 ROWS = {
     "school": {
         "roof": ((VENT, (10.5, -5.5), "plumbing vent, upper roof (washrooms)"),
-                 (VENT, (-5.0, -5.5), "plumbing vent, upper roof")),
+                 (VENT, (-5.0, -5.5), "plumbing vent, upper roof"),
+                 # T101 r3: the two rooftop units are vanilla (Richard: "vanilla only, never ours"), no curb, and ONLY on
+                 # a flat roof (Richard 2026-10-19: "rooftop units go only on flat roof areas"; the gate FLAT_ONLY below):
+                 # the ground floor's flat front roof roof_gf (z 3.45, 2.5 m deep), between the upper-floor windows
+                 # (x 8.1-9.4 / 10.6-11.9) and below their sills (4.24); they were on the 13.5-deg monopitch at x 6 / 11
+                 (AC_UNIT_A, (8.75, -14.6), "rooftop AC unit, flat front roof (was hvac_a)"),
+                 (AC_UNIT_B, (11.25, -14.6), "rooftop AC unit, flat front roof (was hvac_b)")),
+        # the sign lamps over the name board: a matched pair of vanilla goosenecks (were modelled, T102 r2); z 4.45 =
+        # the back plate (from -0.06) clears the sign frame top 4.26 and sits flat on the tower wall
+        "wall": ((GOOSENECK, (-0.40, -16.0, 4.45), (0.0, -1.0), "sign lamp over the name board (left)"),
+                 (GOOSENECK, (2.40, -16.0, 4.45), (0.0, -1.0), "sign lamp over the name board (right)")),
+        # the heat pump: the split condenser on grade against the back wall (outside, low)
+        # (x 14.2: between the back window g5, sill 13.57, and the corner board at 15.0)
+        "ground_wall": ((AC_HEATPUMP, (14.2, -5.0), (0.0, 1.0), "heat pump at the back wall"),),
     },
     # L1: v1's kitchen exhaust on the A-frame ridge is gone (close look, 2026-10-17): seated so that no variant
     # shows air under its base (the gate below), CommercialACVentRoof04 kept only 0.32 of its 0.54 m above the
-    # 60-degree ridge, and the five modelled ridge vent stacks already carry the A-Basin read
+    # 60-degree ridge. T101 (2026-10-19): the placeholder VENT x 5 0.5 m down the 52.97-deg W slope failed the same
+    # gate (one seat for five variants: 01 / 02 / 05 buried); T101 r3: the specific capped pipe ACVentRoof03 alone
+    # seats with ~0.65 m of the 0.36 m needed above the roof, so the five modelled vent stacks go (lodge.py, fittings
+    # v1). The four rail-top kit lanterns become vanilla deck lights on the deck by the rail (the rail top is 7 cm).
+    "L1": {
+        "roof": tuple((PIPE_VENT, (x, -5.0), f"plumbing vent on the W slope, was vent_ridge{i}")
+                      for i, x in enumerate(_L1_VENT_X)),
+        "curb": tuple((DECK_LIGHT, "deck_ext", (x, 14.8), f"deck light by the rail, was lamp_railF{i}")
+                      for i, x in enumerate((16.909, 6.682, -7.0, -17.0))),
+    },
+    "P1": {
+        "roof": ((PIPE_VENT, (1.5, 1.2), "stove flue vent (was the modelled stovepipe)"),),
+    },
+    "P2": {
+        "roof": ((PIPE_VENT, (-2.5, 1.5), "stove flue vent (was the modelled stovepipe)"),),
+    },
     "L2": {
-        "roof": ((VENT, (3.0, 2.5), "plumbing vent, east slope (the stovepipe is on the west)"),),
+        "roof": ((VENT, (3.0, 2.5), "plumbing vent, east slope (the stovepipe is on the west)"),
+                 (PIPE_VENT, (-3.2, -1.5), "stove flue vent (was the modelled stovepipe)")),
+        "curb": ((DECK_LIGHT, "deck_hutW", (-8.25, 7.75), "deck light, was lamp_deckSW"),
+                 (DECK_LIGHT, "deck_hutW", (5.25, 7.75), "deck light, was lamp_deckNW")),
     },
     "L3": {
         "wall": ((WALL_LIGHT, (-2.17, 13.48, 2.22), (0.0, 1.0), "podW door: the one kit door without a lamp"),),
@@ -71,6 +135,11 @@ ROWS = {
         "roof": ((KITCHEN, (-5.0, 9.0), "kitchen exhaust on the dining wing's low roof"),
                  (VENT, (8.5, -4.0), "plumbing vent, main rear slope (east of dormer u3)"),
                  (VENT, (-6.0, -4.0), "plumbing vent, main rear slope (east of dormer u2)")),
+        # T101 r3: the four modelled flue pots become vanilla domed pots sunk into the two stacks
+        "crown": ((CHIMNEY_POT, "chimcap_u1", (-15.8, -7.5), "chimney pot, was flue_u0"),
+                  (CHIMNEY_POT, "chimcap_u1", (-15.8, -8.5), "chimney pot, was flue_u1"),
+                  (CHIMNEY_POT, "chimcap_u2", (3.55, -8.0), "chimney pot, was flue_u2"),
+                  (CHIMNEY_POT, "chimcap_u2", (4.45, -8.0), "chimney pot, was flue_u3")),
     },
     "L5": {
         "wall": ((WALL_LIGHT, (17.85, -19.1, 2.34), (0.0, -1.0), "clock-tower door ctxp"),
@@ -81,6 +150,13 @@ ROWS = {
         "roof": ((VENT, (-4.0, 1.5), "plumbing vent, M courtyard slope (between dormers d4 / d5)"),
                  (VENT, (4.0, 1.5), "plumbing vent, M courtyard slope (between dormers d5 / d6)"),
                  (VENT, (26.0, 1.5), "plumbing vent, north wing slope")),
+        # T101 r3: the porte-cochere's two hung kit lanterns become vanilla ceiling downlights
+        "ceiling": ((DOWNLIGHT, (-2.5, -27.75, 3.9), "porte-cochere downlight, was lamp_pc0"),
+                    (DOWNLIGHT, (2.5, -27.75, 3.9), "porte-cochere downlight, was lamp_pc1")),
+        "crown": ((CHIMNEY_POT, "chimcap_m0", (-14.6, -3.0), "chimney pot, was flue_m00"),
+                  (CHIMNEY_POT, "chimcap_m0", (-13.4, -3.0), "chimney pot, was flue_m01"),
+                  (CHIMNEY_POT, "chimcap_m1", (13.4, -3.0), "chimney pot, was flue_m10"),
+                  (CHIMNEY_POT, "chimcap_m1", (14.6, -3.0), "chimney pot, was flue_m11")),
     },
 }
 # chimney shrouds over the crown slab of chimneys that have no flue pots (L4 / L5's M stacks have pots; L5's
@@ -93,6 +169,11 @@ GLASS_PREFIXES = ("win_", "wall_ghgl", "glass")
 
 
 def _bounds(prefab):
+    """(GUID, union bounds lo / hi game local) of a placeholder (subobj_bounds.json) or a specific variant (T101 r3:
+    VARIANT_GUIDS + its own mesh bounds in fittings_vanilla_bases.json)."""
+    if prefab in VARIANT_GUIDS:
+        v = _vanilla_bases()[prefab][prefab]
+        return VARIANT_GUIDS[prefab], [v["lo"], v["hi"]]
     with open(os.path.join(_HERE, "subobj_bounds.json"), encoding="utf-8") as fh:
         props = json.load(fh)["props"]
     hits = [v for v in props.values() if v.get("prefab") == prefab]
@@ -217,6 +298,10 @@ def _place_roof(sc, recipe, prefab, bounds, pf, note):
                                f"{hit[2] if hit else 'nothing'}, not a roof")
         zs.append(hit[0].z)
         parts.add(hit[2])
+    if prefab in FLAT_ONLY and max(zs) - min(zs) > FLAT_TOL_M:
+        raise RuntimeError(f"fittings {recipe.key} {prefab} ({note}): a rooftop unit on a slope (roof heights "
+                           f"{min(zs):.2f}-{max(zs):.2f} m under its footprint): flat roofs only; on a slope use the "
+                           f"heat pump on a wall (ground_wall)")
     # close look (2026-10-17): seat it so that EVERY variant's base rings (its skirt bottom, a flashing plate) touch
     # or sink into the roof at every ring point (v1 sank the union bounds' 0.33 m below the lowest corner, which
     # left ACVentRoof04's plate 24-30 cm and CommercialACVentRoof02's 37 cm over the roof); then every variant must
@@ -255,6 +340,126 @@ def _place_roof(sc, recipe, prefab, bounds, pf, note):
     return (pf[0], pf[1], z0), sorted(parts), round(above, 3)
 
 
+def _place_curb(sc, recipe, prefab, curb, note, at=None):
+    """T101: a prop on the closed top of part `curb` (a level rooftop curb, a deck; `at` = a FINAL (x, y) on it, None =
+    the part's centre). Tries the yaws 90 / 0 / 270 / 180 deg and
+    takes the first for which EVERY variant's base-frame ring (fittings_vanilla_bases.json) lands on `curb` (rays down
+    from above); origin z = min(top z - ring y) - 3 mm so every frame touches or sinks 3 mm; then the box over the curb
+    (the props' union footprint radius, up to the union top) must not meet another part. Returns (FINAL point, q, yaw,
+    the part list)."""
+    if curb not in sc.boxes:
+        raise RuntimeError(f"fittings {recipe.key} {prefab} ({note}): no part {curb!r} to stand on")
+    lo, hi = sc.boxes[curb]
+    if at is not None:
+        ax0, ay0 = final_to_auth(recipe, (at[0], at[1]))
+        ca = Vector((ax0, ay0, 0.5 * (lo.z + hi.z)))
+    else:
+        ca = (lo + hi) / 2
+    pf = auth_to_final(recipe, (ca.x, ca.y, hi.z))
+    variants = _vanilla_bases().get(prefab, {})
+    if not variants:
+        raise RuntimeError(f"fittings: no variant bases for {prefab} in fittings_vanilla_bases.json")
+    for t in (90.0, 0.0, 270.0, 180.0):
+        q = (0.0, round(math.sin(math.radians(t) / 2), 7) + 0.0, 0.0, round(math.cos(math.radians(t) / 2), 7) + 0.0)
+        ax, _up, az = _row_frame(recipe, q)
+        zs, ok = [], True
+        for _vn, v in sorted(variants.items()):
+            for y, ring in v["rings"]:
+                for x, z in ring:
+                    p = Vector(pf) + ax * x + az * z
+                    hit = sc.cast(final_to_auth(recipe, (p.x, p.y, hi.z + 5.0)), (0, 0, -1), 10.0)
+                    if hit is None or hit[2] != curb or abs(hit[0].z - hi.z) > 0.005:
+                        ok = False
+                        break
+                    zs.append(hit[0].z - y - 0.003)
+                if not ok:
+                    break
+            if not ok:
+                break
+        if ok:
+            break
+    else:
+        raise RuntimeError(f"fittings {recipe.key} {prefab} ({note}): no yaw seats every variant's base frame on "
+                           f"the top of {curb}")
+    z0 = min(zs)
+    b_lo, b_hi = _bounds(prefab)[1]
+    r = max(abs(b_lo[0]), abs(b_hi[0]), abs(b_lo[2]), abs(b_hi[2]))
+    blo = Vector((ca.x - r, ca.y - r, hi.z + 0.05))
+    bhi = Vector((ca.x + r, ca.y + r, z0 + float(b_hi[1])))
+    clash = sc.box_hits(blo, bhi, skip=ROOF_PREFIXES + (curb, "soffit_", "fascia_", "rake_", "gable_"))
+    if clash:
+        raise RuntimeError(f"fittings {recipe.key} {prefab} ({note}): meets part(s) {clash[:4]}")
+    return (pf[0], pf[1], z0), q, t, [curb]
+
+
+def _place_crown(sc, recipe, prefab, crown, pf, note):
+    """T101 r3: a vanilla chimney pot (its own stack included) sunk into our stack so POT_SHOW_M of it stands above the
+    crown slab `crown`: the 4 corners of its footprint (union bounds, game x / z) and its centre must hit the crown's
+    top face (rays down), and the box over the crown must not meet another part. Returns (FINAL point, parts)."""
+    if crown not in sc.boxes:
+        raise RuntimeError(f"fittings {recipe.key} {prefab} ({note}): no crown {crown!r}")
+    lo, hi = sc.boxes[crown]
+    b_lo, b_hi = _bounds(prefab)[1]
+    hx, hz = max(abs(b_lo[0]), abs(b_hi[0])), max(abs(b_lo[2]), abs(b_hi[2]))
+    for gx, gz in [(0.0, 0.0)] + [(sx * hx, sz * hz) for sx in (-1, 1) for sz in (-1, 1)]:
+        q = (pf[0] - gx, pf[1] - gz, hi.z + 5.0)
+        hit = sc.cast(final_to_auth(recipe, q), (0, 0, -1), 10.0)
+        if hit is None or hit[2] != crown or abs(hit[0].z - hi.z) > 0.005:
+            raise RuntimeError(f"fittings {recipe.key} {prefab} ({note}): footprint point {q[:2]} is off the top of "
+                               f"{crown} ({hit[2] if hit else 'nothing'})")
+    z0 = hi.z - (float(b_hi[1]) - POT_SHOW_M)
+    ca = Vector(final_to_auth(recipe, (pf[0], pf[1], 0.0)))
+    r = max(hx, hz)
+    clash = sc.box_hits(Vector((ca.x - r, ca.y - r, hi.z + 0.02)), Vector((ca.x + r, ca.y + r, hi.z + POT_SHOW_M)),
+                        skip=(crown, "chim_", "flue_") + ROOF_PREFIXES)
+    if clash:
+        raise RuntimeError(f"fittings {recipe.key} {prefab} ({note}): meets part(s) {clash[:4]}")
+    return (pf[0], pf[1], z0), [crown]
+
+
+def _place_ground_wall(sc, recipe, prefab, pf, n, note):
+    """T101 r3: a unit on grade (z 0 in the authoring frame = the engine base) with its back on a wall and its front
+    out along FINAL `n`. The wall is found as _place_wall does (a non-glass face within 1.5 m, normal within 25 deg);
+    the yaw is the one of 0 / 90 / 180 / 270 deg whose game +z (the unit's fan front) points along n; the origin stands
+    the unit's back (game -z extent) 3 mm into the wall and its base ring 3 mm into grade; the unit's box must not meet
+    another part (the wall itself and ground parts aside). Returns (FINAL point, q, yaw, wall part)."""
+    v = _vanilla_bases()[prefab][prefab]
+    na = Vector(final_to_auth(recipe, (n[0], n[1])) + (0.0,)).normalized()
+    hits = []
+    for zc in (0.15, 0.5):                          # the grade band, then the wall: the back sits on the outermost
+        pa = Vector(final_to_auth(recipe, (pf[0], pf[1], zc)))
+        hit = sc.cast(pa + na * 1.5, -na, 3.0)
+        if hit is None:
+            raise RuntimeError(f"fittings {recipe.key} {prefab} ({note}): no wall within 1.5 m of {pf} at z {zc}")
+        if hit[2].startswith(GLASS_PREFIXES) or hit[1].dot(na) < math.cos(math.radians(25.0)):
+            raise RuntimeError(f"fittings {recipe.key} {prefab} ({note}): wall hit {hit[2]} normal {tuple(hit[1])}")
+        hits.append(hit)
+    loc, nrm, part, _t = min(hits, key=lambda h: h[3])     # the shortest ray = the face standing out furthest
+    touched = tuple(sorted({h[2] for h in hits}))
+    nf = Vector((n[0], n[1], 0.0)).normalized()
+    best = None
+    for t in (0.0, 90.0, 180.0, 270.0):
+        q = (0.0, round(math.sin(math.radians(t) / 2), 7) + 0.0, 0.0, round(math.cos(math.radians(t) / 2), 7) + 0.0)
+        _ax, _up, az = _row_frame(recipe, q)
+        d = az.dot(nf)                             # the fan front (+z) along the outward normal
+        if best is None or d > best[0]:
+            best = (d, t, q, az)
+    _d, t, q, az = best
+    wf = Vector(auth_to_final(recipe, tuple(loc)))
+    back = -float(v["lo"][2])
+    ring_y = min(y for y, _r in v["rings"])
+    p0 = wf + az * (back - 0.003)                   # az points out of the wall: the back face (-z) 3 mm into it
+    p0.z = -ring_y - 0.003
+    lo_, hi_ = v["lo"], v["hi"]
+    r = max(abs(lo_[0]), abs(hi_[0]), abs(lo_[2]), abs(hi_[2]))
+    ca = Vector(final_to_auth(recipe, (p0.x, p0.y, 0.0)))
+    clash = sc.box_hits(Vector((ca.x - r, ca.y - r, 0.05)), Vector((ca.x + r, ca.y + r, p0.z + float(hi_[1]))),
+                        skip=touched + ("ground_", "grade_", "plinth", "skirt", "step_"))
+    if clash:
+        raise RuntimeError(f"fittings {recipe.key} {prefab} ({note}): meets part(s) {clash[:4]}")
+    return (p0.x, p0.y, p0.z), q, t, part
+
+
 def build(recipe, parts, opts):
     """(new parts, design rows, manifest info) for recipe.key. Pure function of the parts and the tables."""
     key = recipe.key
@@ -284,6 +489,29 @@ def build(recipe, parts, opts):
         placed.append(("roof", prefab, lf, rows[-1]))
         info.append({"kind": "roof", "prefab": prefab, "final": [round(v, 3) for v in lf], "on": on,
                      "above_m": above, "note": note})
+    for prefab, curb, at, note in spec.get("curb", ()):    # T101: a prop on a part's closed top (curb, deck)
+        guid, _b = _bounds(prefab)
+        lf, q, t, on = _place_curb(sc, recipe, prefab, curb, note, at)
+        r = design_row(prefab, guid, lf)
+        rows.append((r[0], r[1], r[2], q, r[4]))
+        placed.append(("curb", prefab, lf, rows[-1]))
+        info.append({"kind": "curb", "prefab": prefab, "final": [round(v, 3) for v in lf], "on": on,
+                     "yaw_deg": t, "note": note})
+    for prefab, crown, pf, note in spec.get("crown", ()):  # T101 r3: a vanilla chimney pot sunk into our stack
+        guid, _b = _bounds(prefab)
+        lf, on = _place_crown(sc, recipe, prefab, crown, pf, note)
+        rows.append(design_row(prefab, guid, lf))
+        placed.append(("crown", prefab, lf, rows[-1]))
+        info.append({"kind": "crown", "prefab": prefab, "final": [round(v, 3) for v in lf], "on": on,
+                     "show_m": POT_SHOW_M, "note": note})
+    for prefab, pf, n, note in spec.get("ground_wall", ()):  # T101 r3: a unit on grade, its back on a wall
+        guid, _b = _bounds(prefab)
+        lf, q, t, on = _place_ground_wall(sc, recipe, prefab, pf, n, note)
+        r = design_row(prefab, guid, lf)
+        rows.append((r[0], r[1], r[2], q, r[4]))
+        placed.append(("ground_wall", prefab, lf, rows[-1]))
+        info.append({"kind": "ground_wall", "prefab": prefab, "final": [round(v, 3) for v in lf], "on": on,
+                     "yaw_deg": t, "note": note})
     # shoe gate: every shoe outlet (built inside cs2_bldg.fittings) stands outside the building
     shoes = list(K.FIT_SHOES) if opts.get("fittings") else []
     shoe_bad = []
@@ -846,6 +1074,10 @@ def audit_rows(recipe, rows, sc):
     out = []
     B = _vanilla_bases()
     for kind, prefab, pf, drow in rows:
+        if kind in ("crown", "ground_wall"):        # T101 r3: sunk into the stack / back + base 3 mm into wall + grade
+            out.append({"kind": kind, "prefab": prefab, "final": [round(c, 3) for c in pf], "air_mm": 0.0,
+                        "worst_variant": prefab, "detail": "seated by construction (_place_crown / _place_ground_wall)"})
+            continue
         q = drow[3]
         ax, up, az = _row_frame(recipe, q)
         P0 = Vector(pf)

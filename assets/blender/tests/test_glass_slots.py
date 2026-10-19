@@ -40,7 +40,10 @@ import cs2_bldg as K                   # noqa: E402
 import cs2_tilesheet as TS             # noqa: E402
 import lodge                           # noqa: E402
 
-X_HASH = "0d3e5eee7bf6c131"            # export round X (DECISIONS 290): the trim v1 family sheet
+# the flag-off trim v1 family sheet. Export round X (DECISIONS 290) was 0d3e5eee7bf6c131; B's T90 wood constants
+# (c82e573: GLULAM_LIN / TG_LIN, unconditional) moved it to ecbcf85506aacaa6 (measured on a clean HEAD copy, integration
+# build 2026-10-19); re-pinned in T102 (DECISIONS 317). The --slots v2 / --glass gls keys never enter it.
+X_HASH = "ecbcf85506aacaa6"
 CHECKS = []
 
 

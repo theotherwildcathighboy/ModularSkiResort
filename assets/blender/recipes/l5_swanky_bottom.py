@@ -1960,7 +1960,8 @@ FINE_PLACEHOLDERS = (
     PLACEHOLDERS[0], PLACEHOLDERS[1],
     (("lamp_pc",), "the porte-cochere's hanging lanterns (2, with rods)",
      "vanilla has no pendant (RoofLightRandom01 is a ceiling dome, WallLightShortRange a wall mount); "
-     "kept modelled, emissive; the rods are 8-seg round now"),
+     "kept modelled, emissive; the rods are 8-seg round now. Fittings v1 (T101 r3, DECISIONS 320): replaced by "
+     "vanilla RoofLight03 ceiling rows"),
 )
 
 
@@ -3399,9 +3400,8 @@ def build_l5(recipe, opts):
         P += K.chimney(f"m{k}", M_RIDGE_X, y, 2.0, 3.0, CHIM_TOP,
                        base_z=K.roof_z(mspec, M_RIDGE_X - 1.0, y) - 0.25, mat=STN)
         for j, dy in enumerate((-0.6, 0.6)):
-            if K.FITTINGS.get("version", 0) >= 1:     # T91: black flue liner with a rim and a rain hat, not a white cylinder
-                P += K.chimney_pot(f"m{k}{j}", M_RIDGE_X, y + dy, CHIM_TOP - 0.02, FLUE_TOP, r=0.17, segs=8)
-                continue
+            if K.FITTINGS.get("version", 0) >= 1:     # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): vanilla EU_Chimney05 pots sunk
+                continue                                 # into the stacks (cs2_fittings ROWS["L5"]["crown"])
             P += K._single(f"flue_m{k}{j}", lambda g, y=y, dy=dy: g.cyl(
                 (M_RIDGE_X, y + dy, CHIM_TOP - 0.02), (M_RIDGE_X, y + dy, FLUE_TOP), 0.17,
                 8 if (not fine or K.FITTINGS.get("version", 0) >= 1) else 12, cap0=False),
@@ -3552,6 +3552,8 @@ def build_l5(recipe, opts):
         P += K.box_part("soffit_pcceil", (P_POST_X[0], -5.3, P_TIE + 0.24),
                         (P_POST_X[1], 5.3, P_TIE + 0.30), "deck", drop=("+Z",))
     for k, y in enumerate((-2.5, 2.5)):
+        if K.FITTINGS.get("version", 0) >= 1:   # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): vanilla RoofLight03 downlights
+            continue                            # (cs2_fittings ROWS["L5"]["ceiling"]); lantern + rod out
         lp, _pt = K.lantern(f"pc{k}", (pmid, y, 3.9), "+X", kind="post")
         P += lp
         if fine:                        # step 3e: an 8-seg round rod (lantern top to the ceiling)
