@@ -1,0 +1,81 @@
+---
+title: First Resort
+description: Welcome Sign, lodge, chairlift, run, opening day. One small resort in ten minutes.
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import Shot from '../../../components/Shot.astro';
+
+One small resort from empty mountain to opening day. Every building is an upgrade of the Welcome Sign; place it first.
+
+<Aside type="tip" title="Site Selection">
+Snow decides viability. Option **Show the winter snow line while placing** (default on) draws two lines on the
+terrain while placing a sign or drawing a run:
+- **Average winter snow line.**
+- **Snow-gun line:** fainter, below the first line.
+
+Build on or above both.
+</Aside>
+
+<Steps>
+
+1. **Place the Welcome Sign.**
+
+   Hub (top-left button, or Ski Resort tab under Parks & Recreation) > **Place Welcome Sign**.
+
+   - **Role:** is the ski area. Lifts and runs within **5 km** belong to it.
+   - **Placement:** front on a road. Needs road, power, water and sewage.
+   - **Effect:** sign efficiency multiplies the attraction score.
+
+   <Shot label="The hub's Start a ski area card with the five steps, and the Welcome Sign placed at a road." />
+
+2. **Add a lodge.**
+
+   Hub > **Buildings** tab > lodge, placed near the sign.
+
+   - **Default:** A-Frame Day Lodge, the cheapest lodge with real capacity.
+   - **Requirements:** deck side on a road; staff, power, water.
+   - **No lodge:** attraction score **0**.
+
+   Tiers: [Lodges, School and Patrol](/guides/lodges-school-patrol/).
+
+3. **Build the chairlift.**
+
+   Hub > **Lifts** tab > lift type, then:
+
+   1. Place the **base station** at the bottom.
+   2. Place the **top station** at the top, facing the base station. A guide line shows when they are straight.
+   3. Draw the **lift line** station to station. On steep ground, draw one section at a time; a single section can be redone later.
+   4. Connect the base station to a **low-voltage power line**. No power, no lift.
+
+   <Shot label="A base station, a top station and the first lift-line section, with the straight-line guide visible." />
+
+   Details: [Lifts](/guides/lifts/).
+
+4. **Draw a run.**
+
+   Hub > **Runs** tab > type (**Groomed** to start). Draw the outline from the lift top downhill, within **5 km** of the sign.
+
+   - **Rating:** green, blue, black or double black from the hardest unavoidable pitch. Shown in the tooltip while drawing.
+   - **Full value:** requires a running lift that reaches the run top.
+
+   <Shot label="A run outline being drawn, with the slope heat-map and the rating tooltip." />
+
+   Details: [Runs and Snow](/guides/runs-and-snow/).
+
+5. **Open for the season.**
+
+   - **Open:** snow covers **60 %** of the run. Hub status line: *Open · 2 of 3 runs open*.
+   - **Tiles:** Attraction rises first; Guests and Finances fill as ski-day trips arrive.
+
+   <Shot label="The hub's status line and tiles in winter: Open, attraction score, guests and finances." />
+
+</Steps>
+
+## Problems
+
+Hub problem band: facts such as *No lift yet*, *Lodge is not at a road*.
+
+- **Click:** flies to the cause.
+- **Hover:** shows the cost.
+- **Band empty, nothing happens:** [Troubleshooting](/guides/troubleshooting/).

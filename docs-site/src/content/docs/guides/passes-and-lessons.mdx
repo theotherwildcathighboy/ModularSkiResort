@@ -1,0 +1,66 @@
+---
+title: Passes and Lessons
+description: Ski-day visitors, lift ticket, lodge spend, season passes and lessons, with the Options that change them.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+{/* src: Options text (LocaleEN.cs, Settings); SkiMoneyRules.cs consts; SkiCatalog.cs LodgeSpend; DECISIONS ledger 240-241 (passes, lessons) */}
+
+## Ski Days
+
+Mod-owned visitors: residents and hotel tourists on a day out skiing. Target: a lodge within reach of home. Payment: at the gate.
+
+| Option (Main > Ski days) | Default | Effect |
+|---|---|---|
+| Locals who ski | 25 % | Residents' skiing frequency. **0** disables residents. |
+| Tourists who ski | 50 % | Same, for hotel guests. |
+| Longest ski-day trip | 7 km | No trips from farther than this to a lodge. Fewer trips with distance. |
+| Powder pull | 100 % | Fresh-snow bonus. At **100 %** a full powder day doubles the residents who go. |
+
+- **Increases trips:** attraction, fresh snow, shorter distance.
+- **Decreases trips:** lift ticket price above **40**.
+
+## Lift Ticket
+
+Paid on arrival, from household to city balance. One price for all ski areas.
+
+- **Option:** Main > Ski area balance > Lift ticket price.
+- **Default:** **60**. **Maximum:** **200**. **0:** tickets off.
+- **Ski-day curve:** thins out above **40**: about **90 %** at 60, **80 %** at 80, **20 %** at 200.
+- **Lodge tolerance:** chalet, summit and grand lodges raise the price where thinning starts.
+- **Game-sent visitors:** arrive at any price and pay it.
+
+## Lodge Spend
+
+Paid by each paying ski guest at the arrival lodge. Scales with lodge tier.
+
+- **Default setting:** **15** per guest.
+- **Hut, A-frame:** **15**. **Chalet:** **23**. **Summit, Grand:** **45**.
+- **Source:** household funds left after the lift ticket. Tickets off: spend **0**.
+- **Setting 0:** spend off.
+
+## Season Passes
+
+Pre-paid ski season, July to June. Holders skip the gate fee and ski more often.
+
+- **Purchase decision:** once per season per resident household, when a ski area first opens to it. Chance = *Season pass share* (default **50 %**) × the household's chance of skiing there.
+- **Price:** *Season pass price*, default **4** lift tickets, at the ticket price on the sale date, locked for the season. Breakeven: more than **4** ski days.
+- **Affordability:** no purchase into debt. A household that declines pays day tickets all season; not asked again.
+- **Tourists:** never buy a pass.
+- **Pre-season sale:** first month of the season. Each household in reach rolls as above; revenue arrives as a lump. Hub label: *Season passes sold before the season*.
+- **Share 0:** passes off.
+- **Options:** Main > Ski area balance.
+
+## Lessons
+
+Requires a ski area with a working **ski school**.
+
+- **Share:** **20 %** of that day's skiers (default).
+- **Price:** **1.5** lift tickets at the day's ticket price.
+- **Payment:** household funds left after the lift ticket or pass.
+- **Share 0:** lessons off.
+
+<Aside type="note" title="Income Booking">
+Tickets, passes, lessons and lodge spend book together as resort income. Economy panel location: [Economy](/guides/economy-panel/).
+</Aside>

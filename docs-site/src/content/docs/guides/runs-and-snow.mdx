@@ -1,0 +1,100 @@
+---
+title: Runs and Snow
+description: Run drawing, difficulty rating, run types with fees and upkeep, and the snow conditions for open, patchy and closed.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import Shot from '../../../components/Shot.astro';
+
+{/* src: SkiSlopeClassifier.cs band cuts; RunSnowRules.cs; SkiRunBindingRules.cs fees; SkiRunUpkeepSystem.cs; SkiResortScore.cs size factor; Options text */}
+
+## Drawing
+
+Hub **Runs** tab > type > area tool, drawn from the lift top downhill.
+
+- **Binding:** a run within **5 km** of a Welcome Sign joins that ski area on drawing. Option **Bind runs the moment they are drawn**, default on.
+- **Feedback:** slope heat-map (grey flat, green, blue, black, red double black), contour lines, tooltip with rating, hardest unavoidable pitch, length, vertical drop.
+
+<Shot label="Drawing a run: slope heat-map over the outline and the rating tooltip." />
+
+## Rating
+
+Rating = slope of the **hardest unavoidable pitch**: the crux of the easiest line from run top to run bottom. Not the average (a flat runout cannot hide a steep pitch), not the steepest patch (one corner on a bank cannot make a double black).
+
+| Slope of that pitch | Rating | Worth (before size and type) |
+|---|---|---|
+| under 6 % | Flat (unrated) | 0 |
+| 6 to 25 % | Green circle | 6 |
+| 25 to 40 % | Blue square | 12 |
+| 40 to 60 % | Black diamond | 20 |
+| 60 % and over | Double black diamond | 28 |
+
+- **Cannot be rated:** outline too large, too thin or without terrain. Worth **3**.
+- **New run:** counts **0** until rated.
+- **Reshaped run:** keeps its last rating during re-rating.
+- **Size factor:** **1** at 2 ha, **2** at the top end, minimum **0.25**. See [Attraction Formula](/reference/attraction/#run-value).
+
+## Run Types
+
+<Tabs>
+  <TabItem label="Natural">
+    **Surface:** none drawn (visible on the **piste map**). Opens on natural snow only.
+    **Value:** green ×**0.5**, blue ×**0.75**, black ×**1**. **Build fee:** 500 + 250 per ha. **Upkeep:** none.
+  </TabItem>
+  <TabItem label="Groomed">
+    **Surface:** groomed snow. **Value:** full when open.
+    **Build fee:** 2,000 + 1,000 per ha. **Upkeep:** 150 per ha per month while snow-covered.
+  </TabItem>
+  <TabItem label="Snowmaking">
+    **Surface:** groomed, plus snow guns (lances, fan guns, hydrants) where the air is cold enough.
+    **Build fee:** 4,000 + 4,000 per ha. **Upkeep:** 500 per ha per month while snow-covered.
+  </TabItem>
+  <TabItem label="Night">
+    **Surface:** snowmaking plus floodlights. **Value:** ×**1.25** of groomed.
+    **Build fee:** 6,000 + 7,000 per ha. **Upkeep:** 800 per ha per month while snow-covered.
+  </TabItem>
+  <TabItem label="Cat track">
+    **Role:** link across the hill. Adds **0** to score and capacity. **Pricing:** as groomed.
+    **Slope limit:** under **25 %**; steeper is marked *Unsuitable*.
+  </TabItem>
+</Tabs>
+
+Reshaping a run: no extra cost.
+
+## Snow Conditions
+
+Snow is measured per run from the game's snow simulation.
+
+- **Open:** at least **15 cm** on **60 %** of the run. Natural black and double-black: **31 cm**.
+- **Patchy:** between open and closed. Counts part of its value.
+- **Closed:** snow on less than **40 %** of the run.
+- **Snow guns:** snowmaking and night runs, where air temperature is at most **3.3 °C** above freezing (option *Snowmaking margin*). Higher margin: longer season, higher snowmaking bill.
+- **Estimated snow:** after a save load, or for a new sign, snow is estimated from the day's temperature. Marked **≈**.
+- **No open run:** ski area counts as summer sightseeing; lodges and lifts count at a reduced share.
+
+<Aside type="note" title="Snow Gating Off">
+Option **Snow & season gating** off: every run counts as open all year. Upkeep is paid only while grooming or snow guns run, so a warm map with gating off has **0** upkeep.
+</Aside>
+
+## Lift Service
+
+- **Lift-served:** a complete, powered lift reaches the run top.
+- **Backcountry:** no lift serves the run. Counts **40 %** of a served run (option *Backcountry run value*).
+- **Ski patrol:** raises nearby black backcountry runs to at least **70 %**. See [Lodges, School and Patrol](/guides/lodges-school-patrol/).
+
+## Glades
+
+Tree tool: plans trees on and around runs. Hover a run, click.
+
+- **Toggle:** **Ctrl+Shift+G**.
+- **Tree density:** **Shift+G** steps **1** (clears the run) to **8** (thick forest).
+- **Mode:** **Alt+G** switches run interior / tree line along the edge.
+- **Rebinding:** all three keys in Options.
+
+## Piste Map
+
+Hub Runs view switch **Piste map**: draws every run on the ground in difficulty colours.
+
+- **Natural runs:** dashed.
+- **Too flat:** grey.
+- **Cannot be rated:** orange.

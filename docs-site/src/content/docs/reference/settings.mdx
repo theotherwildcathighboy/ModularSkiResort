@@ -1,0 +1,97 @@
+---
+title: Settings
+description: Every option under Options > Modular Ski Resort, with its range and default.
+---
+
+{/* src: mod/SkiResortMod/Settings/LocaleEN.cs (labels, descriptions) and SkiResortSettings.cs (ranges, defaults) */}
+
+**Location:** Options > Modular Ski Resort > Main. **Money:** game currency units.
+
+## Hub
+
+Hub button and auto-open behaviour.
+
+| Option | Default | |
+|---|---|---|
+| Show the Ski Resort button (top left) | On | Shows the hub button at the top left. The hub is always in the Universal Mod Panel too. Mouse and keyboard layout only. |
+| Open the hub when a Welcome Sign is selected | On | Never closes the hub; close it with its X or Escape. |
+
+## Ski Area Balance
+
+Economy and attraction tuning.
+
+| Option | Range | Default | What it does |
+|---|---|---|---|
+| Attractiveness scale (K) | 1 to 10 | 4 | How much runs and lifts add to the attraction score. See [Attraction Formula](/reference/attraction/). |
+| Backcountry run value | 0 to 100 % | 40 % | What a run no running lift serves is worth, against a lift-served one. |
+| Lift ticket price | 0 to 200, step 5 | 60 | What each guest pays on arrival, one price for every ski area. Above 40 it lowers ski days. 0 turns tickets off. |
+| Lodge spend per guest | 0 to 50, step 5 | 15 | What each paying guest also spends at the lodge: ×1 at a hut or A-frame, ×1.5 at a chalet, ×3 at a summit or grand lodge. 0 turns it off. |
+| Book resort income as public transportation fees | On/off | On | See [Economy](/guides/economy-panel/). |
+| Lesson share | 0 to 50 %, step 5 | 20 % | The share of skiers who also take a lesson at a ski area with a working school. 0 turns lessons off. |
+| Lesson price (× lift ticket) | 1 to 3, step 0.5 | 1.5 | A lesson costs this many lift tickets. Needs a ticket price above 0. |
+| Season pass share | 0 to 100 %, step 5 | 50 % | The share of resident households that buy a pass. Tourists never do. 0 turns passes off. |
+| Season pass price (× lift ticket) | 2 to 10 | 4 | A pass costs this many lift tickets, locked for the season. Needs a ticket price above 0. |
+
+## Ski Days
+
+Mod-owned visitor stream (see [Passes and Lessons](/guides/passes-and-lessons/)).
+
+| Option | Range | Default | What it does |
+|---|---|---|---|
+| Locals who ski | 0 to 50 %, step 5 | 25 % | How often residents spend a day skiing. |
+| Tourists who ski | 0 to 100 %, step 5 | 50 % | How often hotel guests do. |
+| Longest ski-day trip (km) | 2 to 12 | 7 | Nobody farther from a lodge, in a straight line, is sent. |
+| Powder pull | 0 to 200 %, step 10 | 100 % | How much a fresh-snow day adds. At 100 %, a full powder day doubles the residents who go. |
+
+## Snow
+
+Open-state gating and snow-gun range.
+
+| Option | Default | What it does |
+|---|---|---|
+| Snow & season gating | On | A run adds to the score only while snow lies on it. Off: every run counts as open all year, for maps without winter. |
+| Snowmaking margin (°C) | 3.3 (38 F) | Snow guns work where the air on the run is at most this many degrees above freezing. |
+
+## Terrain
+
+Terrain paint slot used by run snow.
+
+| Option | Default | What it does |
+|---|---|---|
+| Ski-run terrain paint slot | Auto (free slot only) | Ski runs paint terrain through one of the map's **4** extra material slots. **Auto** uses a free slot only; many maps have none, and runs then fall back to flat painted surfaces. **Force slot 1 to 4** replaces that map material with ski-run snow everywhere the map author painted it. **Off** uses decal surfaces. Takes effect when a save loads. |
+
+## Runs
+
+Run drawing feedback and cosmetics.
+
+| Option | Default | What it does |
+|---|---|---|
+| Bind runs the moment they are drawn | On | A run drawn within 5 km of a Welcome Sign joins and is charged immediately, even while paused. |
+| Show run difficulty while drawing | On | Slope heat-map and a tooltip with rating, pitch, length and drop. |
+| Contour lines while drawing runs | On | Terrain contours switch on while a run is selected in the area tool, then off again. |
+| Show the winter snow line while placing | On | Two lines on the terrain: the average winter snow line, and a fainter one below where snow guns start to work. |
+| Show run names on the hill | On | Each run's name written on the ground, in its difficulty colour, at piste-map distance. |
+| Run outline size | 0 to 16, default 8 | Thickness of the outline and corner dots while drawing. 0 keeps the game's thin outline. |
+| Snow lances, fan guns and hydrants | 0 to 100 %, default 100 % | How many corners of snowmaking and night runs get a snow gun. Look only. |
+| Floodlight masts on night runs | 0 to 100 %, default 100 % | How many corners of night runs get a mast. Look only; night skiing does not need the masts. |
+| Snow-gun plumes | On | A vapour plume while the guns make snow. Look only. |
+
+## Lifts
+
+Placement aids.
+
+| Option | Default | What it does |
+|---|---|---|
+| Lift building aids | On | Guide line and offset readout while placing a station; a bulldozer warning showing what a click on a lift removes. |
+
+## Key Bindings
+
+Glade tool and diagnostics.
+
+| Action | Default |
+|---|---|
+| Glade tool: toggle | Ctrl+Shift+G |
+| Glade tool: next tree density (1 to 8) | Shift+G |
+| Glade tool: interior / tree line | Alt+G |
+| Dump diagnostics | Ctrl+Alt+G. Writes the drawing-feedback and glade-tool state to the mod log; a support tool. |
+

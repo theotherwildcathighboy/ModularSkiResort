@@ -1,0 +1,83 @@
+---
+title: Buildings
+description: Cost, upkeep, staff and attraction values for every building in the mod.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+{/* src: SkiCatalog.cs Lodges / Schools / Patrols / Signs rows (informational prices; the prefab is the truth); hub strings buildTip* */}
+
+<Aside type="note" title="Build Tooltip">
+Prices are catalog values. The build tile tooltip shows the actual price. Jobs and upkeep per month are billed
+under Parks & Recreation. Several prices are pending balance before release.
+</Aside>
+
+## Welcome Sign
+
+The ski area. Runs and lifts within **5 km** belong to it; every other building is its upgrade.
+
+| | |
+|---|---|
+| Name | Ski Area Welcome Sign |
+| Cost | 12,000 |
+| Requirements | Road at its front; power, water, sewage |
+
+## Lodges
+
+Guest entry points; capacity and score source.
+
+| Lodge | Build | Upkeep / month | Jobs | Base / extra | Holds at once | Ticket tolerance | Spend |
+|---|---|---|---|---|---|---|---|
+| Mountain Hut | 50,000 | 3,000 | 4 | 16 / 4 | 200 | +0 | ×1 |
+| A-Frame Day Lodge | 40,000 | 3,000 | 6 | 20 / 4 | 360 | +0 | ×1 |
+| Chalet Lodge | 200,000 | 8,000 | 12 | 30 / 8 | 720 | +20 | ×1.5 |
+| Swanky Summit Lodge | 1,500,000 | 18,000 | 8 | 40 / 12 | 480 | +40 | ×3 |
+| Swanky Grand Lodge | 1,200,000 | 20,000 | 18 | 40 / 12 | 1,080 | +40 | ×3 |
+
+- **Base / extra:** score points when best lodge (base) or any other lodge (extra). Extras capped at **24**. See [Attraction Formula](/reference/attraction/#lodge-base).
+- **Holds at once:** ski-day skiers accepted at once (more on a powder day).
+- **Ticket tolerance:** ski days stay full up to a lift ticket price of **40** plus this.
+- **Spend:** multiplies *Lodge spend per guest* (default **15**): **15**, **23** or **45** per paying guest.
+- **Road:** not required for Mountain Hut and Swanky Summit Lodge.
+- **Summer share of score:** **0.5** (Grand **0.6**). Hut **0.75** and Summit **1.0** when a working lift top station is within **300 m**.
+
+## Ski School
+
+Lesson seller; green-run score bonus.
+
+| | |
+|---|---|
+| Cost / upkeep / jobs | 80,000 / 4,000 a month / 6 |
+| Score | +12 to *Runs, lifts and school* while a green run counts |
+| Demand | Locals ski 20 % more often |
+| Lessons | [Passes and Lessons](/guides/passes-and-lessons/) |
+| Limit | One per Welcome Sign |
+
+## Ski Patrol
+
+Boosts steep and unserved runs nearby.
+
+| | Patrol Hut | Patrol HQ |
+|---|---|---|
+| Cost / upkeep / jobs | 15,000 / 1,500 a month / 2 | 15,000 / 1,500 a month / 2 |
+| Effect | Black and double-black runs within 1 km score 15 % more; unserved runs there count at least 70 % | Same |
+| Road | Not required | Not required |
+
+## Stations and Lines
+
+See [Lift Types](/reference/lifts/).
+
+## Runs
+
+Area-priced.
+
+| Type | Build fee | Upkeep / hectare / month | Score factor |
+|---|---|---|---|
+| Natural | 500 + 250 / ha | 0 | green ×0.5, blue ×0.75, black ×1 |
+| Groomed | 2,000 + 1,000 / ha | 150 | ×1 |
+| Snowmaking | 4,000 + 4,000 / ha | 500 | ×1 |
+| Night | 6,000 + 7,000 / ha | 800 | ×1.25 |
+| Cat track | 2,000 + 1,000 / ha | 150 | adds 0 |
+
+- **Upkeep:** paid only while the run has snow (groomed, or made by guns).
+- **Skiers on the slope at once, per hectare:** green **45**, blue **25**, black **15**, double black **7.5**. Natural runs: half.

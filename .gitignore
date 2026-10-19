@@ -45,7 +45,7 @@ assets/staging/
 # Local-only by design (user call 2026-08-12): research/docs stay on this machine,
 # asset sources and shipped textures are not for a code repo. All texture PNGs are
 # deterministic generator output (assets/blender) or re-downloadable (ambientCG).
-docs/
+/docs/
 assets/textures/
 mod/SkiResortMod/Textures/
 

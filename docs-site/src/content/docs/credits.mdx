@@ -1,0 +1,81 @@
+---
+title: Credits and Licences
+description: Dependencies, references and licences for code, art and third-party material.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+{/* src: release/CREDITS.md, assets/LICENSE, LICENSE (root), README licence section */}
+
+## Licences
+
+| Part | Licence |
+|---|---|
+| Code: the C# mod, the Blender generators, the tools, this documentation site | **MIT**, copyright 2026 theotherwildcathighboy |
+| Art assets and everything generated from them: meshes, textures, previews, the in-game prefabs | **Creative Commons Attribution 4.0 (CC BY 4.0)**. Credit "Modular Ski Resort by theotherwildcathighboy" |
+| Tiling materials from ambientCG | **CC0**, no attribution required |
+
+<Aside type="caution" title="To confirm before release">
+The repository states MIT for code and CC BY 4.0 for art. Whether the art should instead share the code's licence
+is an open decision for the release; this page follows the repository as it is today.
+</Aside>
+
+**Third-party code:** none. The GPL-licensed mods studied (ParkManager, ParkingLotTool) were re-derived
+from the game's own systems, never copied.
+
+## Inspiration
+
+- **Modular Golf Course Pack** (Paradox Mods ID 144768): the modular-recreation concept that inspired this
+  project's architecture.
+- **Meapy, CS2-TourismOverhaul**: the tourism and attraction framework this mod integrates with; studied for
+  compatibility and design reference. Optional.
+- **Yenyang, Recolor**: the asset colour convention (channel masks, light-albedo regions) follows the standard
+  their mod established; hosted towers are recolourable through its painter. Optional.
+- **klyte45, Write Everywhere** (Paradox Mods 92908): optional. If installed, the Welcome Sign shows the ski
+  area's name through a layout file we ship, and the lodge and school name boards become writable. Nothing of
+  Write Everywhere is included and the mod never requires it.
+- **tomkpunkt, ParkManager** (Paradox Mods 161179, GPL-3.0): studied as a research reference for programmatic net
+  and object creation, ordered cleanup and Gameface UI patterns. No code copied, no runtime dependency.
+- **krzychu124, Scene Explorer**: indispensable for live ECS debugging during development.
+- **CitiesSkylinesModding community**: the agents-plugins toolchain and documentation.
+
+## References
+
+- **Arapahoe Basin's original Pallavicini lift** (a Yan double): this mod's fixed-grip hardware is a nostalgia tribute.
+- **Lift Blog** (liftblog.com, Peter Landsman): the lift-engineering reference behind the lift family. Tower,
+  terminal and tram designs were studied against its photo essays (notably the Peak 2 Peak Gondola and the
+  Jackson Hole Aerial Tram pages). Photos were used as reference only; nothing from the site is redistributed.
+
+## Lettering
+
+The sign sets (lodge, school, patrol and gate boards) carry text rasterised at build time from typefaces installed
+on the build machine: Bookman Old Style Bold for the resort-identity boards, Franklin Gothic Demi Cond for the
+utility boards. Only the rendered textures ship; no font file is included or required. The lift boards are
+lettered with Blender's built-in font.
+
+## Third-Party Models
+
+Modelling references and, where stated, mesh sources. Each is licensed under
+[Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/) and was modified for
+Cities: Skylines II (re-scaled, re-topologised, re-UV'd and re-textured).
+
+- **"Chair Lift" by Kagelok**: [Sketchfab](https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236),
+  CC BY 4.0. Planned: tower sheave-train and catwalk geometry adapted; chair, grip and terminal proportions
+  traced. Nothing derived ships yet.
+- **"Ski gongola and lift station detailed drafts" by Wilin_Amaurea**:
+  [Sketchfab](https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db),
+  CC BY 4.0. Planned: gondola cabin shell adapted; hanger, carriage and station layout used as reference.
+  Nothing derived ships yet.
+
+**Credit lines:** apply from the first release that ships anything derived from these models.
+
+## Textures
+
+Tiling materials: CC0 sets from [ambientCG](https://ambientcg.com). Attribution not required.
+
+
+## Build Credits
+
+**Lead architect:** Claude (Anthropic): decompilation, prefab surgery and
+procedural asset generation. **Owner:** direction, in-game testing of every build, sign-off on
+every asset. The story is in [Making Of](/making-of/).

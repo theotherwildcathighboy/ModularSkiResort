@@ -21,8 +21,8 @@ export default defineConfig({
       sidebar: [
         { label: 'Home', link: '/' },
         {
-          label: 'Getting started',
-          items: [{ label: 'Your first resort in 10 minutes', slug: 'getting-started/first-resort' }],
+          label: 'Getting Started',
+          items: [{ label: 'First Resort', slug: 'getting-started/first-resort' }],
         },
         {
           label: 'Guides',
@@ -45,9 +45,9 @@ export default defineConfig({
             { slug: 'reference/settings' },
           ],
         },
-        { label: 'The making of', slug: 'making-of' },
+        { label: 'Making Of', slug: 'making-of' },
         { label: 'Changelog', slug: 'changelog' },
-        { label: 'Credits and licences', slug: 'credits' },
+        { label: 'Credits and Licences', slug: 'credits' },
       ],
     }),
   ],

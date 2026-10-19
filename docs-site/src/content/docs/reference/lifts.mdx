@@ -1,0 +1,59 @@
+---
+title: Lift Types
+description: "Fixed-grip, detachable, gondola and aerial tram: speeds, seats, limits, prices and score values."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+{/* src: SkiCatalog.cs Lifts rows (rates, envelopes, station costs, score values); catalog/carriers.json (seats, speed, spacing) */}
+
+<Aside type="note" title="Catalog Prices">
+Station and line prices are catalog values; the build tile tooltip shows the actual price.
+</Aside>
+
+Four lift families. A line and its two stations share one type.
+
+| | Fixed-grip triple | Detachable quad | Gondola | Aerial tram |
+|---|---|---|---|---|
+| Carrier | 3-seat chair | 4-seat chair | 8-person cabin | 100-person cabin, two cabins shuttling |
+| Line speed | 2.5 m/s | 5.0 m/s | 5.5 m/s | 10 m/s, 60 s dwell at each terminal |
+| Design spacing | 15 m | 30 m | 60 m | n/a (shuttle) |
+| Steepest slope | 80 % | 90 % | 120 % | 250 % |
+| Longest span between towers | 60 m | 90 m | 250 m | 1,000 m |
+| Tallest tower | 16 m | 10 m | 28 m | 30 m |
+| Base station | 60,000 | 125,000 | 190,000 | 300,000 |
+| Top station | 30,000 | 65,000 | 110,000 | 190,000 |
+| Line, per km | 7,500 | 15,000 | 21,875 | 33,750 |
+| Running cost, per month | 2,500 + 1,000 per km | 5,000 + 2,000 per km | 8,000 + 3,000 per km | 11,000 + 4,500 per km |
+| Score value (winter) | 6 | 15 | 25 | 30 |
+| Share of that value in summer | 25 % | 25 % | 75 % | 100 % |
+| Serves a run if | within 150 m of the line, ≤ 15 m above the top station | Same | Same | within 300 m of the top terminal |
+
+## Running Cost
+
+- **Billing:** full amount every month, including without power.
+- **Reduction:** ×**0.25** while the lift is unfinished or its ski area has no open run.
+
+## Score Value
+
+Added by a complete, powered lift.
+
+- **Winter:** table value.
+- **No run counts:** chairlifts ×**0.25**, gondolas ×**0.75**.
+- **Summer:** share row of the table. The tram is the best summer attraction.
+
+## Station Names
+
+Format: type and end. *Fixed-Grip Chairlift: Base Station*, *Gondola: Top Station*, *Aerial Tram: Base Terminal*.
+
+## Capacity
+
+Design figure in skiers per hour, shown in the hub.
+
+- **Tooltip:** lists seats per carrier and line speed.
+- **Trip:** base to top at line speed, at 1× game speed.
+- **Riders:** not simulated.
+
+## Tram Operation
+
+Shuttle: two cabins travel back and forth and dwell at each terminal.

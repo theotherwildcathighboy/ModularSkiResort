@@ -1,0 +1,110 @@
+---
+title: Attraction Formula
+description: Ski area attraction score from lodges, runs, lifts, ski school, variety and vertical, and its conversion to tourists.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+{/* src: SkiResortScore.cs constants and BandValueOf / TypeFactorOf / SizeFactor; SkiCatalog.cs ladder, lift and school values; Options text AttractivenessScaleK; hub receipt strings; SPEC 3.1 (the game squares attractiveness) */}
+
+Per ski area **attraction score**, **0** to **200**, shown in the hub Attraction view. Scale: large park about **10**,
+tourist attraction **50**, landmark **120**. The game converts the score to tourists.
+
+## Equation
+
+Score formula and its inputs.
+
+```text
+score = min( 200 , efficiency × ( lodge base + K × √S ) )
+
+S     = ( runs + lifts + school ) × variety × vertical
+```
+
+- **K:** option *Attractiveness scale*, default **4**. All runs open, full efficiency: small ski area about **50**, medium about **95**, large about **160**.
+- **Square root:** doubling runs and lifts does not double the score. The game squares each building's attractiveness when counting tourists, so tourists scale in proportion to ski area size.
+- **Cap:** **200**.
+- **Hub:** receipt rows per term; full equation in the section header tooltip.
+
+## Lodge Base
+
+Best lodge contributes its **base**; every other lodge contributes its **extra**. Extras are capped at **24**.
+
+| Lodge | Base | Extra |
+|---|---|---|
+| Mountain Hut | 16 | 4 |
+| A-Frame Day Lodge | 20 | 4 |
+| Chalet Lodge | 30 | 8 |
+| Swanky Summit Lodge | 40 | 12 |
+| Swanky Grand Lodge | 40 | 12 |
+
+- **No run counts:** lodge base ×**0.5**.
+- **Summer share of base:** **50 %** for Hut, A-frame, Chalet and Summit; **60 %** for Grand.
+- **Summer with a working lift top station within 300 m:** Hut **75 %**, Summit **100 %**.
+
+## Run Value
+
+Each run adds:
+
+```text
+run value = difficulty × size × type × lift × open
+```
+
+| Factor | Values |
+|---|---|
+| **Difficulty** | Green **6**, blue **12**, black **20**, double black **28**. Flat **0**. Cannot be rated **3**. Pending **0**. |
+| **Size** | `1 + 0.3 × ln(area ÷ 2 ha)`, clamped to **0.25**–**2**. Below 1 ha, scales down proportionally. |
+| **Type** | Groomed and snowmaking **1**. Night **1.25**. Natural: green **0.5**, blue **0.75**, black and double black **1**. |
+| **Lift** | **1** if a running lift reaches the top. Otherwise *Backcountry run value* (default **40 %**). Patrolled run: at least **70 %**. |
+| **Open** | Open **1**. Closed **0**. Patchy: partial. |
+
+Snow moves the score: a closed run adds **0**. The receipt shows both the actual and the all-open sum.
+
+## Lifts
+
+Each complete, powered lift adds its type's **score value**.
+
+| Fixed-grip | Detachable | Gondola | Aerial tram |
+|---|---|---|---|
+| 6 | 15 | 25 | 30 |
+
+- **No run counts:** chairlifts ×**0.25**, gondolas ×**0.75**.
+- **Summer:** fixed-grip and detachable ×**0.25**, gondola ×**0.75**, tram ×**1**.
+
+## Ski School
+
+**+12** while a green run counts; otherwise **0**. The hub names the cause.
+
+## Variety
+
+**×1.15** while a green, a blue and a black (or harder) run all count; otherwise **×1**.
+
+## Vertical
+
+Drop from the lowest run bottom to the highest run top, among counting runs.
+
+```text
+vertical factor = 1 + clamp( vertical metres ÷ 600 , 0 , 1 )
+```
+
+**×1** at 0 m; **×2** at 600 m or more.
+
+## Efficiency
+
+Welcome Sign efficiency as in its info panel: staff, power, water, sewage, garbage, budget and more.
+
+- **Value used:** the day's average, at most **100 %**.
+- **Effect:** multiplies the whole score.
+- **Hub:** names every cause costing **5 %** or more.
+
+## Tourist Draw
+
+The score is the ski area's attractiveness in the game's tourist formula.
+
+- **Lodge panels:** show **0** (the ski area carries the score).
+- **Game counting:** each building's score squared. The hub shows this ski area's **share of the city's tourist draw**.
+- **Effect:** the share sets how many tourists come to the city, not their destination.
+
+<Aside type="note" title="Ski Days">
+Ski days are a separate stream: mod-owned visitors reacting to score, fresh snow, distance and lift ticket price.
+The score draws game-sent tourists only. See [Passes and Lessons](/guides/passes-and-lessons/).
+</Aside>
