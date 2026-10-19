@@ -1,0 +1,29 @@
+/* Look variant 1: default-accent. Starlight's own layout and fonts, recoloured with the hub's marks:
+   ice blue accent (hub rgba(110,205,255)), warm orange for highlights (hub --warningColor #ffa42d).
+   Tokens only; no layout change, no webfont. Enable: see docs-site/README.md "Look variants". */
+
+:root {
+  --sl-color-accent-low: #0e3a55;
+  --sl-color-accent: #2aa6e6;
+  --sl-color-accent-high: #6ecdff;
+  --sl-color-orange-low: #4a3210;
+  --sl-color-orange: #ffa42d;
+  --sl-color-orange-high: #ffd9a3;
+  --hl: #ffa42d; /* highlight orange */
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #d8f0fc;
+  --sl-color-accent: #0b78b4;
+  --sl-color-accent-high: #0a4f78;
+  --sl-color-orange-low: #ffe8c7;
+  --sl-color-orange: #ffa42d;
+  --sl-color-orange-high: #7a4300;
+  --hl: #d97f00;
+}
+
+/* Orange highlights: current page, selection, hover, the primary button, the h2 rule. */
+::selection { background: color-mix(in srgb, #ffa42d 45%, transparent); }
+.sidebar-content a[aria-current='page'] { box-shadow: inset 3px 0 0 var(--hl); }
+.sl-markdown-content a:hover { text-decoration-color: var(--hl); }
+.sl-link-button.primary:hover { background: #ffa42d; border-color: #ffa42d; color: #1d2b44; }
+.sl-markdown-content h2 { border-bottom: 2px solid color-mix(in srgb, var(--hl) 55%, transparent); padding-bottom: 0.25rem; }

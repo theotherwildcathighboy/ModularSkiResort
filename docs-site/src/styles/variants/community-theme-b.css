@@ -1,0 +1,27 @@
+/* Look variant 4: community-theme-b = starlight-theme-nova (0.12.3). Modern top-navigation layout with
+   a translucent bar, large radii and generous spacing. Our accent goes in through the Starlight
+   tokens it reads (--sl-color-accent*), the orange highlights through --sl-color-orange*.
+   Requires the plugin: see docs-site/README.md "Look variants". */
+
+:root {
+  --sl-color-accent-low: #0e3a55;
+  --sl-color-accent: #2aa6e6;
+  --sl-color-accent-high: #6ecdff;
+  --sl-color-orange-low: #4a3210;
+  --sl-color-orange: #ffa42d;
+  --sl-color-orange-high: #ffd9a3;
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #d8f0fc;
+  --sl-color-accent: #0b78b4;
+  --sl-color-accent-high: #0a4f78;
+  --sl-color-orange-low: #ffe8c7;
+  --sl-color-orange: #ffa42d;
+  --sl-color-orange-high: #7a4300;
+}
+::selection { background: color-mix(in srgb, #ffa42d 45%, transparent); }
+
+/* Nova hardcodes its primary button in Tailwind black / gray; route it through our accent instead. */
+a.not-content.rounded-xl.border-transparent { background: var(--sl-color-accent); color: #fff; }
+:root:not([data-theme='light']) a.not-content.rounded-xl.border-transparent { background: var(--sl-color-accent-high); color: #0b2434; }
+a.not-content.rounded-xl.border-transparent:hover { background: #ffa42d; color: #1d2b44; }

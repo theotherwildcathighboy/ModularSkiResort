@@ -71,6 +71,33 @@ The sidebar is written by hand in `astro.config.mjs`, so a new page needs a line
 7. **Use Starlight's pieces where they help**: `Steps` for procedures, `Tabs` for alternatives, `Aside` for a
    note, tip or caution. Prefer a table for numbers.
 
+## Look variants
+
+Four presentation options sit beside the current look; none is on. Each is one CSS file in `src/styles/variants/`,
+and the screenshots and contact sheets are in `shots/variants/` (git-ignored). The current look is
+`customCss: ['./src/styles/custom.css']` with no plugin. Only presentation differs: no page content changes.
+All four were built with `npm run build` (and the plain site) on 2026-10-19.
+
+Switch: in `astro.config.mjs`, change the `customCss` line, and for variants 3 and 4 also add the import and the plugin.
+Switch back by restoring `customCss: ['./src/styles/custom.css']` and removing the `plugins` line and import.
+A theme plugin that is installed but not imported costs nothing; `starlight-theme-rapide` 0.6.0 and
+`starlight-theme-nova` 0.12.3 are pinned in `package.json`.
+
+1. **default-accent** (Starlight layout, hub accent):
+   `customCss: ['./src/styles/custom.css', './src/styles/variants/default-accent.css'],`
+2. **hub-palette** (navy / snow / orange, difficulty-color asides, Barlow Condensed headings from Google Fonts):
+   `customCss: ['./src/styles/custom.css', './src/styles/variants/hub-palette.css'],`
+3. **community-theme-a** (starlight-theme-rapide):
+   add `import starlightThemeRapide from 'starlight-theme-rapide';` at the top, then
+   `customCss: ['./src/styles/custom.css', './src/styles/variants/community-theme-a.css'],` and
+   `plugins: [starlightThemeRapide()],` inside `starlight({ ... })`.
+4. **community-theme-b** (starlight-theme-nova):
+   add `import starlightThemeNova from 'starlight-theme-nova';`, then
+   `customCss: ['./src/styles/custom.css', './src/styles/variants/community-theme-b.css'],` and
+   `plugins: [starlightThemeNova()],`.
+
+Once one is chosen, delete the other three CSS files and `npm uninstall` the unused theme package.
+
 ## Status
 
 The skeleton, the page list with its sources and what is still placeholder are in the project's

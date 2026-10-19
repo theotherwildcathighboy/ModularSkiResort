@@ -15,6 +15,8 @@
   },
   "dependencies": {
     "@astrojs/starlight": "0.42.6",
-    "astro": "7.3.8"
+    "astro": "7.3.8",
+    "starlight-theme-nova": "0.12.3",
+    "starlight-theme-rapide": "0.6.0"
   }
 }
