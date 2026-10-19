@@ -69,8 +69,10 @@ import time
 import traceback
 from dataclasses import replace
 
+import bmesh
 import bpy
 import numpy as np
+from mathutils import Vector
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
@@ -208,6 +210,17 @@ def parse_args(argv=None):
                     help="v1 = roof-edge trim on the strip grain swatch (tiled rollout; off = byte-identical)")
     ap.add_argument("--trim-seg", type=float, default=None, metavar="M",
                     help="trim v1 A/B only: cut strip members into <= M m segments (costs tris)")
+    # T85 / T89 (2026-10-19, docs/research/field/2026-10-19/fix-T85-T89.md). Both default off = byte-identical.
+    ap.add_argument("--glass", default="win", choices=("win", "gls"),
+                    help="gls = T85 plain glass: the panes go to a clear `_Gls` sub-mesh (no vanilla fake interiors), a "
+                         "backing plate per light group sits behind the glass on an interior palette key (lit ones glow "
+                         "at night on the sheet's emissive), the asset name drops the interior keyword (tiled + kit v2)")
+    ap.add_argument("--lod0-cap", type=int, default=None, metavar="N",
+                    help="a PROPOSED LOD0 cap for this build only (T92: caps may rise 'by a bit', never silently): the "
+                         "recipe's cap is replaced and the manifest records both under budget_override")
+    ap.add_argument("--slots", default="v1", choices=("v1", "v2"),
+                    help="v2 = T89 three recolour slots: R paint (as today), G trim boards / wood trim, B window "
+                         "casings; accent and metal roof become fixed colours (needs --trim v1)")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -230,20 +243,32 @@ def select_recipe(args):
                         recipes)
 
 
-def asset_name(recipe, letter, override=None, interior="name"):
+def asset_base(recipe, glass="win"):
+    """The asset base name: recipe.asset, minus the interior keyword under --glass gls (T85: no `_Win`, so the
+    keyword that picks vanilla's fake interiors has no job; SkiLodgeAFrameCommercialLow -> SkiLodgeAFrame)."""
+    if glass == "gls":
+        return recipe.asset.replace(recipe.interior, "")
+    return recipe.asset
+
+
+def asset_name(recipe, letter, override=None, interior="name", glass="win"):
     """`<asset><letter>`; validate_asset_name + lint; the _Win interior keyword must be in
-    the FILE name on the name route (EC-sk M1)."""
+    the FILE name on the name route (EC-sk M1). glass "gls" (T85): no `_Win`, no keyword."""
     if interior == "settings":
         raise NotImplementedError(
             "--interior settings (the R19 probe route) needs a literal sharedAssets key in "
             "settings.json: cs2_asset.write_settings(extra_shared=...) is not built (N10); "
             "read Settings.cs:678-689 first. Use the default name route.")
-    base = override or recipe.asset
+    base = override or asset_base(recipe, glass)
     name = cs2_asset.validate_asset_name(base + letter)
     rep = cs2_validate._Report(name)
     cs2_validate.lint_asset_name(name, rep)
     if any(f[0] == "ERROR" for f in rep):
         raise RuntimeError(f"asset name {name!r} fails lint: {list(rep)}")
+    if glass == "gls":
+        if recipe.interior in name:
+            raise RuntimeError(f"{name}: --glass gls ships no `_Win`; drop the interior keyword {recipe.interior!r}")
+        return name
     if interior == "name" and recipe.interior not in name:
         raise RuntimeError(f"{name}: the interior keyword {recipe.interior!r} must be in the "
                            f"asset name (route 'name'; SettingsImporter matches the FILE name)")
@@ -770,6 +795,340 @@ def trim_cfg(recipe, args):
             "seg_m": getattr(args, "trim_seg", None)}
 
 
+# ---- T85 --glass gls / T89 --slots v2 (2026-10-19, docs/research/field/2026-10-19/fix-T85-T89.md) ----------------
+# T85: the `_Win` panes drew vanilla's CommercialLow fake interiors (the burger poster, lit rooms). Plain glass instead
+# (DECISIONS 281's tram route): every pane goes to ONE clear `_Gls` sub-mesh and a BACKING PLATE sits behind each light
+# group on an interior palette key, so the clear glass never shows the empty shell (back faces are culled: through a
+# bare hole you would see the sky through the far wall). Lit / dim plates carry the sheet's emissive (BuildingActive,
+# ObjectInterpolateSystem.cs:1194-1203 1.6.0f1: lit while the building is active and powered, no day / night gate).
+PLATE_PREFIX = "winback_"
+PLATE_DELTA = 0.03          # plate behind its glass where the void allows (m)
+PLATE_MARGINS = (0.15, 0.06, 0.0)   # tried in order: kept only when every corner hides behind main-mesh geometry
+PLATE_DEEP_M = 0.20         # clear depth behind the glass above which the plate goes PLATE_DELTA back (else halfway)
+PLATE_MERGE_GAP = 0.25      # deep lights on one plane closer than this (bars, mullions) share one plate
+PLATE_MERGE_GAP_SURFACE = 0.08   # surface lights: bars only (a plate across two casings would show on the wall between)
+PLATE_HIDE_REACH = 0.35     # a margin corner must hit main mesh within this along +n (behind a wall / casing)
+PLATE_FAR_PROUD = 0.02      # far set: the plate 2 cm proud of the unholed wall, 3 cm behind the far glass (+0.05)
+INTERIOR_SHARE = (("interior_lit", 12), ("interior_dim", 5), ("interior_dark", 3))   # of 20, by group name hash
+# T89: today's accent colour becomes a fixed key per building (the old slot-2 default)
+SLOTS_V2_ACCENT = {"school": "accent_orange", "P1": "accent_orange", "L1": "accent_orange",
+                   "L2": "accent_red", "L3": "accent_red", "L5": "accent_green"}
+# the X mesh prefabs' ColorProperties (slot 1 / 2 / 3), gamedata-mirror 2026-10-19 (surgery-x-b section 2)
+SLOTS_X = {"school": ((0.625, 0.225, 0.15), (0.85, 0.25, 0.10), (0.225, 0.21, 0.20)),
+           "P1": ((0.125, 0.30, 0.25), (0.85, 0.25, 0.10), (1.0, 1.0, 1.0)),
+           "P2": ((0.19, 0.19, 0.19), (1.0, 1.0, 1.0), (1.0, 1.0, 1.0)),
+           "L1": ((0.0625, 0.3125, 0.25), (0.85, 0.25, 0.10), (0.69, 0.69, 0.675)),
+           "L2": ((0.225, 0.15, 0.10), (0.55, 0.10, 0.08), (0.69, 0.69, 0.675)),
+           "L3": ((0.225, 0.15, 0.10), (0.55, 0.10, 0.08), (1.0, 1.0, 1.0)),
+           "L4": ((0.15, 0.15, 0.15), (1.0, 1.0, 1.0), (0.25, 0.25, 0.26)),
+           "L5": ((0.20, 0.14, 0.09), (0.10, 0.30, 0.18), (0.25, 0.25, 0.26))}
+SLOT3_FROM = {"L1": "slot1", "L4": "slot1", "L5": "slot1", "P2": "slot1",          # casings were slot-1 trim
+              "L2": "timber_heavy~f", "L3": "timber_heavy~f", "P1": "timber_heavy~f",   # flat timber casings
+              "school": "trim_paint"}                                                 # fixed off-white
+
+
+def _part_world(o):
+    M = o.matrix_basis
+    return [M @ v.co for v in o.data.vertices], M
+
+
+def _pane_rects(panes):
+    """[(name, n, d, right, up, poly_pts, rect or None)] per pane polygon (rect = (u0, u1, v0, v1) in the
+    pane's in-plane frame when the polygon is an axis-aligned rectangle there)."""
+    out = []
+    for o in panes:
+        W, M = _part_world(o)
+        R3 = M.to_3x3()
+        for p in o.data.polygons:
+            pts = [W[i] for i in p.vertices]
+            n = (R3 @ p.normal).normalized()
+            up = Vector((0.0, 0.0, 1.0)) - n * n.z
+            if up.length < 1e-6:
+                up = Vector((0.0, 1.0, 0.0)) - n * n.y
+            up.normalize()
+            right = up.cross(n).normalized()
+            us = [q.dot(right) for q in pts]
+            vs = [q.dot(up) for q in pts]
+            rect = None
+            if len(pts) == 4:
+                u0, u1, v0, v1 = min(us), max(us), min(vs), max(vs)
+                if all(min(abs(u - u0), abs(u - u1)) < 1e-3 and min(abs(v - v0), abs(v - v1)) < 1e-3
+                       for u, v in zip(us, vs)):
+                    rect = (u0, u1, v0, v1)
+            out.append((o.name, n, round(pts[0].dot(n), 3), right, up, pts, rect))
+    return out
+
+
+def _merge_rects(rects, gap=PLATE_MERGE_GAP):
+    """Greedy merge of rectangles (u0, u1, v0, v1, names) on one plane: first along u (same v range), then along
+    v (same u range); a merge only ever forms a rectangle, so no plate covers anything but its lights' span."""
+    def merge(rs, axis):
+        changed = True
+        while changed:
+            changed = False
+            for i in range(len(rs)):
+                for j in range(i + 1, len(rs)):
+                    a, b = rs[i], rs[j]
+                    if axis == "u":
+                        same = abs(a[2] - b[2]) < 1e-3 and abs(a[3] - b[3]) < 1e-3
+                        g = max(a[0], b[0]) - min(a[1], b[1])
+                    else:
+                        same = abs(a[0] - b[0]) < 1e-3 and abs(a[1] - b[1]) < 1e-3
+                        g = max(a[2], b[2]) - min(a[3], b[3])
+                    if same and g <= gap:
+                        rs[i] = (min(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), max(a[3], b[3]), a[4] + b[4])
+                        del rs[j]
+                        changed = True
+                        break
+                if changed:
+                    break
+        return rs
+    return merge(merge(list(rects), "u"), "v")
+
+
+def _interior_key(seed_name):
+    import hashlib
+    h = int(hashlib.sha1(seed_name.encode()).hexdigest()[:8], 16) % 20
+    acc = 0
+    for k, w in INTERIOR_SHARE:
+        acc += w
+        if h < acc:
+            return k
+    return INTERIOR_SHARE[-1][0]
+
+
+def build_backing_plates(parts, recipe):
+    """T85: (plate parts [(obj, key)], plate records). One quad per merged rectangular light group (non-rectangular
+    panes get their own polygon), PLATE_DELTA behind the glass when the space behind is open (deep: a holed wall, a
+    glass wall, a void), else halfway to the wall (a surface opening: glass proud of an intact wall). A deep plate
+    grows by the largest PLATE_MARGINS step whose four corners all hide behind main-mesh geometry (a ray along +n
+    hits within PLATE_HIDE_REACH), so through a kit hole the plate always fills the view past the glass edge."""
+    from mathutils.bvhtree import BVHTree
+    panes = [o for o, _k in parts if o.name.startswith("win_")]
+    if not panes:
+        return [], []
+    verts, polys = [], []
+    for o, _k in parts:
+        if o.name.startswith("win_"):
+            continue
+        W, _M = _part_world(o)
+        base = len(verts)
+        verts += [tuple(v) for v in W]
+        polys += [tuple(base + i for i in p.vertices) for p in o.data.polygons]
+    bvh = BVHTree.FromPolygons(verts, polys)
+
+    def clear_behind(pts, n):
+        best = 9.0
+        c = sum(pts, Vector()) / len(pts)
+        for q in [c] + [c + (p - c) * 0.9 for p in pts]:
+            loc, _nn, _i, dist = bvh.ray_cast(q - n * 0.002, -n, 2.0)
+            if loc is not None:
+                best = min(best, dist + 0.002)
+        return best
+
+    def hidden(q, n):
+        loc, _nn, _i, dist = bvh.ray_cast(q + n * 0.002, n, PLATE_HIDE_REACH)
+        return loc is not None
+
+    recs = _pane_rects(panes)
+    groups = {}
+    singles = []
+    for r in recs:
+        name, n, d, right, up, pts, rect = r
+        if rect is None:
+            singles.append(r)
+            continue
+        deep = clear_behind(pts, n) > PLATE_DEEP_M          # each light classified before any merge
+        key = (round(n.x, 3), round(n.y, 3), round(n.z, 3), d, deep)
+        groups.setdefault(key, {"n": n, "right": right, "up": up, "d": d, "deep": deep, "rects": []})["rects"].append(
+            (*rect, [name]))
+    out, records = [], []
+    seq = 0
+
+    def emit(pts_plate, n, names, delta, margin, kind, clear):
+        nonlocal seq
+        nm = f"{PLATE_PREFIX}{names[0][4:]}_{seq}"
+        seq += 1
+        key = _interior_key(names[0])
+        out.extend(K._single(nm, lambda g: g.poly(pts_plate, n), key))
+        records.append({"part": nm, "key": key, "lights": len(names), "delta_m": round(delta, 4),
+                        "margin_m": margin, "kind": kind, "clear_m": round(min(clear, 9.0), 3), "seed": names[0]})
+
+    for g in groups.values():
+        n, right, up, d = g["n"], g["right"], g["up"], g["d"]
+        gap = PLATE_MERGE_GAP if g["deep"] else PLATE_MERGE_GAP_SURFACE
+        for (u0, u1, v0, v1, names) in _merge_rects(g["rects"], gap):
+            corners = lambda m, back: [right * (u0 - m) + up * (v0 - m) + n * (d - back),
+                                       right * (u1 + m) + up * (v0 - m) + n * (d - back),
+                                       right * (u1 + m) + up * (v1 + m) + n * (d - back),
+                                       right * (u0 - m) + up * (v1 + m) + n * (d - back)]
+            glass = corners(0.0, 0.0)
+            h = clear_behind(glass, n)
+            if h > PLATE_DEEP_M:
+                delta, kind = PLATE_DELTA, "deep"
+                margin = 0.0
+                for m in PLATE_MARGINS:
+                    if m == 0.0 or all(hidden(q, n) for q in corners(m, delta)):
+                        margin = m
+                        break
+            else:
+                delta, kind, margin = max(0.005, 0.5 * h), "surface", 0.0
+            emit(corners(margin, delta), n, names, delta, margin, kind, h)
+    for (name, n, d, right, up, pts, rect) in singles:
+        h = clear_behind(pts, n)
+        delta = PLATE_DELTA if h > PLATE_DEEP_M else max(0.005, 0.5 * h)
+        emit([p - n * delta for p in pts], n, [name], delta, 0.0, "polygon", h)
+    print(f"[glass] {recipe.key}: {len(recs)} pane polygons -> {len(records)} backing plates "
+          f"({sum(1 for r in records if r['kind'] == 'deep')} deep, "
+          f"{sum(1 for r in records if r['kind'] == 'surface')} surface, "
+          f"{sum(1 for r in records if r['kind'] == 'polygon')} polygon); keys "
+          f"{ {k: sum(1 for r in records if r['key'] == k) for k, _w in INTERIOR_SHARE} }")
+    return out, records
+
+
+def _lift_plates(obj, table):
+    """T85: move the backing-plate faces of the joined mesh onto a temporary object (same transform, attributes, UV
+    layers and material slots) so the cull neither sees them as occluders nor touches them. Returns it or None."""
+    idx = {i + 1 for i, n in enumerate(table) if n.startswith(PLATE_PREFIX)}
+    if not idx:
+        return None
+    me = obj.data
+    part = np.zeros(len(me.polygons), np.int32)
+    me.attributes["part"].data.foreach_get("value", part)
+    pobj = obj.copy()
+    pobj.data = me.copy()
+    pobj.name = pobj.data.name = obj.name + "PlatesTmp"
+    bpy.context.scene.collection.objects.link(pobj)
+    for o, keep in ((pobj, True), (obj, False)):
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        bm.faces.ensure_lookup_table()
+        kill = [f for f in bm.faces if (int(part[f.index]) in idx) != keep]
+        bmesh.ops.delete(bm, geom=kill, context="FACES")
+        bm.to_mesh(o.data)
+        bm.free()
+        o.data.update()
+    return pobj
+
+
+def _rejoin_plates(obj, pobj):
+    """Join the lifted plates back into `obj` (the name, transform and part table stay obj's)."""
+    name = obj.name
+    bpy.ops.object.select_all(action="DESELECT")
+    pobj.select_set(True)
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.join()
+    if bpy.context.active_object.name != name:
+        raise RuntimeError(f"plate rejoin renamed {name}")
+
+
+def unrecess_plates(far, depth, plates):
+    """T85: the far set has no wall holes (kit v2), so K.unrecess_panes moves its recessed panes back out to
+    +PANE_OFFSET; each DEEP plate follows: a ray along +n from the plate must hit the unholed wall at
+    delta + depth (any of `depth`), then the plate moves to PLATE_FAR_PROUD in front of that wall and shrinks by its
+    margin (the far glass has no casing hole to hide a margin). Surface / polygon plates stay. Returns counts."""
+    from mathutils.bvhtree import BVHTree
+    depths = tuple(depth) if isinstance(depth, (tuple, list, set)) else (depth,)
+    me = far.data
+    table = json.loads(me[cs2_asset.PART_TABLE_PROP])
+    rec = {r["part"]: r for r in plates}
+    part = np.zeros(len(me.polygons), np.int32)
+    me.attributes["part"].data.foreach_get("value", part)
+    pl_faces = [p for p in me.polygons if 1 <= part[p.index] <= len(table)
+                and table[part[p.index] - 1] in rec]
+    pl_idx = {p.index for p in pl_faces}
+    # BVH of every non-plate face of the far set (world frame)
+    bm2 = bmesh.new()
+    bm2.from_mesh(me)
+    bm2.faces.ensure_lookup_table()
+    bmesh.ops.delete(bm2, geom=[bm2.faces[i] for i in sorted(pl_idx)], context="FACES")
+    bm2.transform(far.matrix_world)
+    bvh = BVHTree.FromBMesh(bm2)
+    bm2.free()
+    M = far.matrix_world
+    Mi = M.inverted()
+    R3 = M.to_3x3()
+    moved = skipped = 0
+    new_co = {}
+    for p in pl_faces:
+        r = rec[table[part[p.index] - 1]]
+        if r["kind"] != "deep":
+            skipped += 1
+            continue
+        c = M @ p.center
+        n = (R3 @ p.normal).normalized()
+        want = [r["delta_m"] + dd for dd in depths]
+        dist = None                     # centre + four inset samples: a mullion / bar in front of one is not the wall
+        for q in [c] + [c + ((M @ me.vertices[vi].co) - c) * 0.6 for vi in p.vertices]:
+            loc, _nn, _i, dd_ = bvh.ray_cast(q + n * 0.002, n, 1.0)
+            if loc is not None and min(abs(dd_ + 0.002 - w) for w in want) <= 0.02:
+                dist = dd_ + 0.002
+                break
+        if dist is None:
+            skipped += 1
+            continue
+        moved += 1
+        shift = n * (dist + PLATE_FAR_PROUD)
+        m = float(r["margin_m"])
+        up = Vector((0.0, 0.0, 1.0)) - n * n.z
+        if up.length < 1e-6:
+            up = Vector((0.0, 1.0, 0.0)) - n * n.y
+        up.normalize()
+        right = up.cross(n).normalized()
+        for vi in p.vertices:
+            w = M @ me.vertices[vi].co
+            dv = w - c
+            du, dvv = dv.dot(right), dv.dot(up)
+            du = math.copysign(max(abs(du) - m, 0.0), du)
+            dvv = math.copysign(max(abs(dvv) - m, 0.0), dvv)
+            new_co[vi] = c + right * du + up * dvv + n * dv.dot(n) + shift
+    for vi, w in new_co.items():
+        me.vertices[vi].co = Mi @ w
+    me.update()
+    print(f"[glass] far set: {moved} deep plates moved out to +{PLATE_FAR_PROUD} m, {skipped} stayed")
+    return {"moved": moved, "stayed": skipped}
+
+
+def slots_v2_report(recipe, layout, lod0, sdir, sname, keys, ctl_rgb):
+    """T89: the default VariationSet that reproduces the X look and the composed ControlMask per key at the LOD0 face
+    centroids (`ctl_rgb`, read before the tiling attributes were dropped). Colours are sRGB as ColorProperties stores
+    them; the game multiplies their linear value (TS.slot_default_for, BatchDataSystem.cs:716-718)."""
+    import cs2_tilesheet as TS
+    s1, s2x, s3x = SLOTS_X[recipe.key]
+    if recipe.key in ("L4", "L5"):
+        from recipes import l5_swanky_bottom as _l5
+        slot2 = TS.slot_default_for(_l5.GLULAM_LIN)             # the glulam constant (T90: = the balcony walls')
+    elif recipe.key == "school":
+        slot2 = (1.0, 1.0, 1.0)                                 # white boards: lin(0.80) (was a fixed 0.85 band)
+    else:
+        slot2 = tuple(s1)                                       # the boards were slot 1
+    src = SLOT3_FROM[recipe.key]
+    if src == "slot1":
+        slot3 = tuple(s1)
+    elif src == "trim_paint":
+        slot3 = TS.slot_default_for(K.srgb_to_linear(np.asarray(K.BLDG_MATERIALS["trim_paint"].target_srgb)))
+    else:
+        mean = (layout.get("means") or {}).get(src) or (layout.get("means") or {}).get(src[:-2])
+        slot3 = TS.slot_default_for(mean["base"])
+    by_slot = {1: [], 2: [], 3: []}
+    for k in keys:
+        m = K.BLDG_MATERIALS.get(k)
+        if m is not None and m.slot:
+            by_slot[int(m.slot)].append(k)
+    gated = set(by_slot[1] + by_slot[2] + by_slot[3]) | set(TS.ACCENT_FIXED) | {"metal_roof_lt", "metal_roof_dk"}
+    bad = {k: v for k, v in ctl_rgb.items()
+           if k in gated and any(abs(v[c] - (1.0 if K.BLDG_MATERIALS[k].slot == c + 1 else 0.0)) > 0.05
+                                 for c in range(3))}
+    if bad:
+        raise RuntimeError(f"{recipe.key}: ControlMask at the face centroids disagrees with the key slots: {bad}")
+    return {"defaults": {"slot1": list(s1), "slot2": list(slot2), "slot3": list(slot3)},
+            "x_colours": {"slot1": list(s1), "slot2": list(s2x), "slot3": list(s3x)},
+            "keys_by_slot": by_slot, "ctl_rgb_by_material": ctl_rgb,
+            "fixed": {"accent": SLOTS_V2_ACCENT.get(recipe.key) if any(k in TS.ACCENT_FIXED for k in keys) else None,
+                      "metal_roof": next((k for k in ("metal_roof_lt", "metal_roof_dk") if k in keys), None)}}
+
+
 def build_parts(recipe, opts):
     """Kit calls in recipe order; asserts unique part names (no Blender .001 renames).
     opts["window_kit"] (window_kit_cfg) builds the windows with kit v2, opts["door_kit"]
@@ -852,12 +1211,12 @@ def part_weights(parts, recipe=None):
     return w
 
 
-def delete_lists(recipe, table):
+def delete_lists(recipe, table, plates=False):
     """(LOD1, LOD2) delete prefix tuples; lod2_keep re-protects stamped faces (their delete
     prefix is replaced by the exact names of the other parts it matched); ground parts are
-    never deleted (asserted)."""
+    never deleted (asserted). plates (T85 --glass gls): the backing plates go at LOD2 (500-tri budget)."""
     d1 = tuple(K.LOD1_DELETE) + tuple(recipe.lod1_extra)
-    d2 = list(K.LOD2_DELETE) + list(recipe.lod2_extra)
+    d2 = list(K.LOD2_DELETE) + list(recipe.lod2_extra) + ([PLATE_PREFIX] if plates else [])
     for keep in recipe.lod2_keep:
         for p in [p for p in d2 if keep.startswith(p)]:
             d2.remove(p)
@@ -869,8 +1228,8 @@ def delete_lists(recipe, table):
     return d1, d2
 
 
-def plan_lod_targets(obj, table, recipe):
-    d1, d2 = delete_lists(recipe, table)
+def plan_lod_targets(obj, table, recipe, plates=False):
+    d1, d2 = delete_lists(recipe, table, plates=plates)
     return K.plan_lod_targets(obj, table, recipe, delete_lists=(d1, d2),
                               protect_prefixes=recipe.ground_prefixes)
 
@@ -1354,6 +1713,10 @@ def run(recipe, args):
                           signset=not getattr(args, "no_signset", False))
     if getattr(args, "tiled", False):
         recipe = replace(recipe, tiled=True)
+    cap_override = None
+    if getattr(args, "lod0_cap", None):
+        cap_override = {"recipe_cap": recipe.budget.lod0_cap, "proposed_cap": int(args.lod0_cap)}
+        recipe = replace(recipe, budget=replace(recipe.budget, lod0_cap=int(args.lod0_cap)))
     tiled = bool(getattr(recipe, "tiled", False)) and args.finish and not args.blockout
     if getattr(args, "signset", False) and FD.sign_set_of(recipe) is None:
         raise RuntimeError(f"{recipe.key}: --signset but the recipe declares no sign set "
@@ -1361,7 +1724,9 @@ def run(recipe, args):
     T = {}
     t0 = time.perf_counter()
     letter = args.letter or (os.path.basename(os.path.normpath(args.out)) if args.out else recipe.letter)
-    name = asset_name(recipe, letter, args.name, args.interior)
+    glass = getattr(args, "glass", "win")
+    slots = getattr(args, "slots", "v1") == "v2"
+    name = asset_name(recipe, letter, args.name, args.interior, glass)
     out = _out_dir(recipe, args, letter)
     asset_dir = os.path.join(out, name)
     opts = {"tower": args.tower, "roof_windows": args.roof_windows}
@@ -1381,6 +1746,10 @@ def run(recipe, args):
     if sk:
         opts["structure"] = sk
     tc = trim_cfg(recipe, args)
+    if slots and not tc:
+        raise RuntimeError("--slots v2 needs --trim v1 (the slot-2 boards are the strip cell's band 1)")
+    if glass == "gls" and not (wk and (tiled or args.blockout)):
+        raise RuntimeError("--glass gls needs --window-kit v2 and a tiled build (the plates sit behind kit panes)")
     if tc and not tiled:
         raise RuntimeError("--trim v1 needs a tiled build (--tiled, finished, not --blockout): the strip "
                            "swatch lives on the family sheet")
@@ -1428,10 +1797,24 @@ def run(recipe, args):
     if tc:                                  # T70 trim v1: the one remap by prefix (cs2_tilesheet.trim_remap)
         import cs2_tilesheet as TS
         TS.register_trim_materials()
-        parts, trim_moved = TS.trim_remap(parts)
+        tremap = TS.slots_v2_trim_remap(recipe.key) if slots else None
+        if slots:
+            TS.register_slot_materials()
+        parts, trim_moved = TS.trim_remap(parts, tremap)
         bad = sorted(o.name for o, k in parts if o.name.startswith(TS.TRIM_V1_PREFIXES) and k in TS.TRIM_V1_REMAP)
         if bad:                             # G1: no roof-edge trim left on a flat trim key
             raise RuntimeError(f"{recipe.key}: trim v1 left flat trim keys on {bad[:8]}")
+    slot_moved = None
+    if slots:                               # T89: casings -> frame (B), accent / metal roof fixed, glulam -> G
+        import cs2_tilesheet as TS
+        parts, slot_moved = TS.slots_v2_remap(parts, recipe.key, SLOTS_V2_ACCENT.get(recipe.key, "accent_orange"),
+                                              no_frame=door2["flat"] if door2 else ())
+    plates = None
+    if glass == "gls":                      # T85: a backing plate behind every light group
+        import cs2_tilesheet as TS
+        TS.register_glass_materials()
+        pparts, plates = build_backing_plates(parts, recipe)
+        parts = list(parts) + pparts
     keys = sorted({k for _o, k in parts})
     T["build"] = time.perf_counter() - t0
     # 3 bevel, 4 density, 5 tags
@@ -1470,14 +1853,22 @@ def run(recipe, args):
     facing = K.check_facing(obj, table, recipe.arrival_prefixes, D_)
     cs2_asset.orient_for_net(obj)
     base0 = K.check_base_mode(obj, table, recipe.base_mode, recipe.ground_prefixes, recipe.plinth)
-    # 11 rooms (before the bake: no pane texels)
-    win, cells = K.split_rooms(obj, table, recipe.rooms, name=name)
-    # 12 cull (after the rooms so panes are not occluders)
+    # 11 rooms (before the bake: no pane texels); T85 --glass gls: every pane to ONE clear `_Gls` (no rooms)
+    if glass == "gls":
+        win, cells = cs2_submesh.split_submesh(obj, table, ("win_",), "Gls"), {}
+    else:
+        win, cells = K.split_rooms(obj, table, recipe.rooms, name=name)
+    subsfx = "Gls" if glass == "gls" else "Win"
+    # 12 cull (after the rooms so panes are not occluders); T85: the backing plates sit out of the mesh during the
+    # cull (a surface plate 1-3 cm in front of a wall would hide that wall, and LOD2 drops the plates)
+    pobj = _lift_plates(obj, table) if glass == "gls" else None
     cull = K.cull_hidden(obj, protect=tuple(recipe.ground_prefixes) + K.LABEL_PREFIXES
                          + (K.KIT2_RECESSED if wk else ()) + (door2["protect"] if door2 else ()),
                          table=table, cull_ok=recipe.cull_ok, wall_rule=recipe.wall_rule,
                          arrival=(0.0, -1.0), ground_prefixes=recipe.ground_prefixes,
                          thin_occluders=FITTINGS_THIN if fk else ())
+    if pobj is not None:
+        _rejoin_plates(obj, pobj)
     T["cull"] = time.perf_counter() - t0
     # 13 budget, 14 area report
     n0 = K.assert_budget(obj, recipe.budget, 0)
@@ -1507,6 +1898,14 @@ def run(recipe, args):
                               "mesh": signset["spec"].mesh}
     if we_boards:
         result["we_boards"] = we_boards
+    if slot_moved is not None:
+        result["slots_v2"] = {"moved": dict(sorted(slot_moved.items())),
+                              "by_key": {f"{o}->{n}": sum(1 for v in slot_moved.values() if v == [o, n])
+                                         for o, n in sorted({tuple(v) for v in slot_moved.values()})}}
+    if plates is not None:
+        result["glass"] = {"route": "gls", "plates": plates}
+    if cap_override is not None:
+        result["budget_override"] = cap_override
     if tc:                                  # T70 trim v1 builds only
         import cs2_tilesheet as TS
         result["trim"] = {"version": "v1", "remapped": dict(sorted(trim_moved.items())),
@@ -1655,24 +2054,26 @@ def run(recipe, args):
             depth = (depth,) + tuple(door2["glass_d"])
         win_far, moved = K.unrecess_panes(win, far, depth=depth)
         result["window_kit"]["panes_unrecessed_far"] = moved
+        if glass == "gls":                # T85: the far set's plates follow their glass out of the wall
+            result["glass"]["far_plates"] = unrecess_plates(far, depth, result["glass"]["plates"])
         result["window_kit"]["panes"] = len(win.data.polygons)
         result["hashes"]["WinFar"] = mesh_hash(win_far)
         if args.lods:                     # the export takes each file stem as the object name
             keep = win.name
             win.name = keep + "Near"
             try:
-                cs2_submesh.export_submeshes(win_far, name, "Win", asset_dir, lods=(1, 2))
+                cs2_submesh.export_submeshes(win_far, name, subsfx, asset_dir, lods=(1, 2))
             finally:
                 win.name = keep
-        cs2_submesh.export_submeshes(win, name, "Win", asset_dir, lods=())
+        cs2_submesh.export_submeshes(win, name, subsfx, asset_dir, lods=())
     elif win is not None:
-        cs2_submesh.export_submeshes(win, name, "Win", asset_dir, lods=(1, 2) if args.lods else ())
+        cs2_submesh.export_submeshes(win, name, subsfx, asset_dir, lods=(1, 2) if args.lods else ())
     # 18-19 LOD chain + checks
     lods = []
     if args.lods:
         src = far if tiled else obj
-        (t1, t2), plan = plan_lod_targets(src, table, recipe)
-        d1, d2 = delete_lists(recipe, table)
+        (t1, t2), plan = plan_lod_targets(src, table, recipe, plates=glass == "gls")
+        d1, d2 = delete_lists(recipe, table, plates=glass == "gls")
         lods, infos = K.lod_chain(src, name, (t1, t2), (d1, d2), recipe.ground_prefixes)
         result["lod_plan"] = plan
         result["lod_info"] = infos
@@ -1718,7 +2119,7 @@ def run(recipe, args):
     if args.review is not None:
         import cs2_review
         result["review_pack"] = cs2_review.write_pack(
-            name, asset_dir, dict(enumerate([obj] + lods)), {"Win": win} if win is not None else {},
+            name, asset_dir, dict(enumerate([obj] + lods)), {subsfx: win} if win is not None else {},
             meta={"generator": "lodge.py", "args": vars(args), "kind": "building",
                   "caps": {0: recipe.budget.lod0_cap, 1: result["tris"].get(1),
                            2: recipe.budget.lod2_cap},
@@ -1745,7 +2146,7 @@ def run(recipe, args):
     _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0)
     if not args.no_validate:
         result["validate"] = validate(asset_dir, name, recipe, obj, win, A,
-                                      max_texture=4096 if tiled else None)
+                                      max_texture=4096 if tiled else None, subsfx=subsfx)
     print(f"[lodge] asset folder: {asset_dir}")
     med = (hook.density or {}).get("median_w1") if hook else None
     chain = [result["tris"][i] for i in sorted(result["tris"]) if i]
@@ -1793,7 +2194,7 @@ def sheet_owner(args, letter):
     """(owner asset dir, owner name): the ski school of the same letter (rollout doc section 7:
     the sheet travels as the school's own LOD0 maps; the seven others share them cross-asset)."""
     rc = R.get_recipe(SHEET_OWNER_KEY)
-    oname = rc.asset + letter
+    oname = asset_base(rc, getattr(args, "glass", "win")) + letter
     root = os.path.abspath(args.out) if args.out else os.path.join(IMPORT_ROOT, rc.category, letter)
     return os.path.join(root, oname), oname
 
@@ -1811,13 +2212,13 @@ def install_owner_maps(sdir, sname, odir, oname, emissive=True):
     return out
 
 
-def ensure_family_sheet(sdir, sname, A, repeats, emissive=True, trim=False):
+def ensure_family_sheet(sdir, sname, A, repeats, emissive=True, trim=False, slots=False, glass=False):
     """The composed family sheet in `sdir` (layout JSON + PNGs). Rebuilt when the layout hash
     (rects, repeats, material definitions, smoothness table) changed; label rects already in
     `sdir/labels` are pasted. Returns the layout dict (with per-swatch means, no pixels).
     trim: the T70 --trim v1 layout (its own hash, so an off and a v1 sheet never share a folder)."""
     import cs2_tilesheet as TS
-    lay = TS.sheet_layout(A, "rollout", repeats, trim=trim)
+    lay = TS.sheet_layout(A, "rollout", repeats, trim=trim, slots=slots, glass=glass)
     aux = sdir + ".aux"                       # layout + label rects: never inside the asset folder
     os.makedirs(aux, exist_ok=True)
     jp = os.path.join(aux, f"{sname}.layout.json")
@@ -1828,7 +2229,7 @@ def ensure_family_sheet(sdir, sname, A, repeats, emissive=True, trim=False):
                 for m in ("BaseColor", "Normal", "MaskMap", "ControlMask")):
             return old
     print(f"[lodge] tiled: building the family sheet {sname} ({A}, hash {lay['hash']})")
-    full = TS.build_sheet(sdir, sname, A=A, layout="rollout", repeats=repeats, trim=trim)
+    full = TS.build_sheet(sdir, sname, A=A, layout="rollout", repeats=repeats, trim=trim, slots=slots, glass=glass)
     ldir = os.path.join(sdir + ".aux", "labels")
     labels = sorted(os.path.join(ldir, f) for f in os.listdir(ldir) if f.endswith(".npz")) \
         if os.path.isdir(ldir) else []
@@ -1837,13 +2238,13 @@ def ensure_family_sheet(sdir, sname, A, repeats, emissive=True, trim=False):
     return TS.load_layout(jp)
 
 
-def recompose_family_sheet(sdir, sname, A=4096, trim=False):
+def recompose_family_sheet(sdir, sname, A=4096, trim=False, slots=False, glass=False):
     """Rebuild the family sheet PNGs with every building's label rect pasted (run once after the
     last building of a round; the hash check alone would keep a sheet without new labels)."""
     jp = os.path.join(sdir + ".aux", f"{sname}.layout.json")
     if os.path.isfile(jp):
         os.remove(jp)
-    return ensure_family_sheet(sdir, sname, A, _sheet_repeats(), trim=trim)
+    return ensure_family_sheet(sdir, sname, A, _sheet_repeats(), trim=trim, slots=slots, glass=glass)
 
 
 def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far):
@@ -1866,12 +2267,15 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
     far.name = name + "Far"
     far.data.name = name + "Far"
     SA = int(getattr(args, "sheet_tex", 4096))
-    letter = name[len(recipe.asset):] if name.startswith(recipe.asset) else (args.letter or recipe.letter)
+    base = asset_base(recipe, getattr(args, "glass", "win"))
+    letter = name[len(base):] if name.startswith(base) else (args.letter or recipe.letter)
     sdir, sname = sheet_paths(args, letter)
     repeats = _sheet_repeats()
     trim = getattr(args, "trim", "off") == "v1"
     tcfg = trim_cfg(recipe, args) if trim else None
-    layout = ensure_family_sheet(sdir, sname, SA, repeats, trim=trim)
+    slots = getattr(args, "slots", "v1") == "v2"
+    glass = getattr(args, "glass", "win") == "gls"
+    layout = ensure_family_sheet(sdir, sname, SA, repeats, trim=trim, slots=slots, glass=glass)
     layout["label_rect"] = TS.label_rect_for(layout, recipe.key)
     uvt = cs2_uv.loop_uvs(lod0.data.uv_layers[cs2_bake.TILE_LAYER])
     tw = getattr(recipe, "tiled_weather", None) or {}
@@ -1993,6 +2397,8 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
     # "metal_mean"): trim_grain 1, trim_grain_w 0, galv 0
     sctl = {k: v["metal_mean"] for k, v in TS.mask_stats(
         lod0, os.path.join(sdir, f"{sname}_ControlMask.png"), sorted(keys)).items()} if trim else {}
+    # T89 gate: the composed ControlMask R / G / B at every face centroid, per key (slots_v2_report raises on a miss)
+    ctl_rgb = TS.ctl_rgb_stats(lod0, os.path.join(sdir, f"{sname}_ControlMask.png"), sorted(keys)) if slots else {}
     for a in ("cs2ts_mat", "cs2ts_w", "cs2ts_strip"):
         attr = lod0.data.attributes.get(a)
         if attr is not None:
@@ -2011,7 +2417,7 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
     is_owner = recipe.key == SHEET_OWNER_KEY
     if is_owner:
         if lab_npz:                                 # the owner ships the sheet WITH its own labels
-            layout = recompose_family_sheet(sdir, sname, SA, trim=trim)
+            layout = recompose_family_sheet(sdir, sname, SA, trim=trim, slots=slots, glass=glass)
         install_owner_maps(sdir, sname, asset_dir, name)
     rel = os.path.relpath(odir, asset_dir).replace("\\", "/")
     result["tiled"] = {
@@ -2025,6 +2431,8 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
         "tile_mesh": tm, "weather_ladder": tried, "ppm_by_material": ppm, "smooth_by_material": smooth,
         "weather_by_material": wstats, "lod0_tris": tris0, "seconds": round(time.perf_counter() - t0, 1),
     }
+    if slots:
+        result["tiled"]["slots_v2"] = slots_v2_report(recipe, layout, lod0, sdir, sname, keys, ctl_rgb)
     if trim:
         result["tiled"]["trim"] = {"version": "v1", "strip_by_material": sstats, "ctl_r_by_material": sctl,
                                    "part_sites": ssites, "strip": tm.get("strip"), "strip_cell": TS.STRIP_CELL, "weather_pin": tcfg["weather_pin"],
@@ -2178,13 +2586,17 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
         "lod_switch_m": result.get("lod_switch_m"), "panes_off_surface": result.get("panes_off"),
         "batches_per_mesh_group": batches,
         "vram_mb": (round(vram * (1.25 if emis else 1.0), 1) if vram else None),
-        "interior": {"route": args.interior, "keyword": recipe.interior},
+        "interior": ({"route": "none (T85 --glass gls: clear _Gls, no keyword)", "keyword": None}
+                     if getattr(args, "glass", "win") == "gls" else {"route": args.interior, "keyword": recipe.interior}),
         "emissive": emis, "review_pack": result.get("review_pack"),
         "stage_seconds": {k: round(v, 1) for k, v in T.items()},
         "total_seconds": round(time.perf_counter() - t0, 1),
     }
     if result.get("window_kit"):           # kit v2 builds only (older manifests keep their keys)
         data["window_kit"] = result["window_kit"]
+    for k_ in ("glass", "slots_v2", "budget_override"):       # T85 / T89 builds only
+        if result.get(k_) is not None:
+            data[k_] = result[k_]
     if result.get("door_kit"):             # door kit v2 builds only
         data["door_kit"] = {k: v for k, v in result["door_kit"].items() if k != "flat"}
     if "fittings" in result:
@@ -2270,19 +2682,19 @@ def _export_sign_set(signset, recipe, args, name, obj, lods, result, area):
             "texture": (cs2_signset.SHEET_OWNER, rep["asset_dir"] if rep["owner"] else owner_dir)}
 
 
-def validate(asset_dir, name, recipe, obj, win, A, max_texture=None):
+def validate(asset_dir, name, recipe, obj, win, A, max_texture=None, subsfx="Win"):
     """cs2_validate.validate_asset_folder with the section-14 spec (the N11 keys are passed
     for the validator lens and checked here: keyword, emissive file, max texture)."""
     lods = (1, 2)
     spec = {"kind": "building", "base_mode": recipe.base_mode,
             "lot_m": (8 * recipe.lot[0], 8 * recipe.lot[1]), "lod0_cap": recipe.budget.lod0_cap,
             "lod1_ratio": 0.5, "lod2_cap": recipe.budget.lod2_cap, "hero": True,
-            "expected_lods": lods, "expected_submeshes": ("Win",) if win is not None else (),
+            "expected_lods": lods, "expected_submeshes": (subsfx,) if win is not None else (),
             "interior_keyword": recipe.interior,
             "max_texture": max_texture or (4096 if recipe.allow_4096 else recipe.tex)}
     obj.name, obj.data.name = name + "Src", name + "Src"
     if win is not None:
-        win.name, win.data.name = name + "WinSrc", name + "WinSrc"
+        win.name, win.data.name = name + subsfx + "Src", name + subsfx + "Src"
     findings = cs2_validate.validate_asset_folder(asset_dir, name, spec)
     errs = [f for f in findings if f[0] == "ERROR"]
     warns = [f for f in findings if f[0] == "WARN"]

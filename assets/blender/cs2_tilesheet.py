@@ -252,7 +252,7 @@ def tile_m_of(key):
     m = K.BLDG_MATERIALS[base_key(key)]
     if m.set:
         return K.square_tile_m(m)
-    return FLAT_TILE_M[base_key(key)]
+    return _bt(FLAT_TILE_M, base_key(key))
 
 
 def tiled_keys():
@@ -261,6 +261,7 @@ def tiled_keys():
 
 def smooth_of(key):
     k = base_key(key)
+    k = V2_BASE.get(k, k)
     if k in TRIM_SMOOTH:
         return float(TRIM_SMOOTH[k])
     m = K.BLDG_MATERIALS[k]
@@ -269,6 +270,7 @@ def smooth_of(key):
 
 def metal_of(key, layout_name="rollout"):
     k = base_key(key)
+    k = V2_BASE.get(k, k)
     if layout_name == "rollout" and k in METAL_ROLLOUT:
         return METAL_ROLLOUT[k]
     return float(METAL_OVERRIDE.get(k, K.BLDG_MATERIALS[k].metal))
@@ -292,14 +294,166 @@ def register_trim_materials():
         K.WEATHER_ROLES_EXTRA.setdefault(k, "paint")
 
 
-def trim_remap(parts):
+def trim_remap(parts, remap=None):
     """(parts, {part name: [old key, new key]}): rake_ / fascia_ / deckfascia_ parts on trim / lux_trim /
-    trim_white take the strip keys (TRIM_V1_REMAP). The ONE choke point of the trim look: recipe-local
-    trims never read RoofSpec.trim, so the kit default is not where this lives."""
+    trim_white take the strip keys (TRIM_V1_REMAP, or `remap`: slots_v2_trim_remap under --slots v2). The ONE
+    choke point of the trim look: recipe-local trims never read RoofSpec.trim, so the kit default is not where
+    this lives."""
+    remap = TRIM_V1_REMAP if remap is None else remap
     out, moved = [], {}
     for o, k in parts:
-        nk = TRIM_V1_REMAP.get(k) if o.name.startswith(TRIM_V1_PREFIXES) else None
+        nk = remap.get(k) if o.name.startswith(TRIM_V1_PREFIXES) else None
         if nk:
+            moved[o.name] = [k, nk]
+            out.append((o, nk))
+        else:
+            out.append((o, k))
+    return out, moved
+
+
+# ---- T89 `--slots v2` + T85 `--glass gls` (2026-10-19, docs/research/field/2026-10-19/fix-T85-T89.md) ------------
+# Three recolour slots on every building: R = the paint colour (as today), G = trim boards / wood trim, B = window
+# casings. Today's G (accent) and B (metal_roof) leave the recolour: they become FIXED keys that bake today's default
+# colour. The game reads a VariationSet colour as sRGB and multiplies its LINEAR value (BatchDataSystem.cs:716-718
+# 1.6.0f1: meshColor.m_ColorSet.m_Channel0.linear), so a fixed key = lin(RECOLOR_ALBEDO) x lin(old colour), and a default
+# that reproduces a linear target t is srgb(t / lin(RECOLOR_ALBEDO)) (slot_default_for). Everything here is inert
+# unless sheet_layout / build_sheet get slots=True / glass=True or register_slot_materials / register_glass_materials
+# run: flag off is byte-identical.
+SLOTS_V2_STRIP = {"trim_grain": 0, "trim_grain_s2": 1}     # band 1 = band 0's grain, ControlMask G (slot 2)
+SLOTS_V2_RETIRE = {"lux_stone_tan~w": (3, 6, 1), "lux_siding_red~w": (6, 7, 1)}   # 0 m2 sampled on all eight X builds
+SLOTS_V2_TILES = {"metal_roof_dk": (3, 6, 1), "metal_roof_dk~w": (6, 7, 1)}
+SLOTS_V2_RENAME_ALL = {"lux_glulam": "lux_glulam_s2", "lux_balrail": "lux_balrail_s2",   # same cells, slot-2 swatches
+                       "metal_roof": "metal_roof_lt"}                                         # same hero cell, fixed light
+# a v2 key reads the measured tables (smoothness, metal, flat tile, weathering class) of the key it derives from, so
+# no module table is ever mutated (a v2 layout built in a process leaves the flag-off hash unchanged)
+V2_BASE = {"lux_glulam_s2": "lux_glulam", "lux_balrail_s2": "lux_balrail", "metal_roof_lt": "metal_roof",
+           "metal_roof_dk": "metal_roof", "trim_grain_s2": "trim_grain"}
+FRAME_KEY = "frame"                                 # slot-3 casing paint (flat): reveal_ / head_ / jamb_ / sill_
+FRAME_PREFIXES = ("reveal_", "head_", "jamb_", "sill_")
+METAL_ROOF_LIGHT = (0.69, 0.69, 0.675)              # the old slot-3 default of L1 / L2 (prefab ColorProperties)
+METAL_ROOF_DARK = (0.25, 0.25, 0.26)                # L4 / L5 (school was 0.225 0.21 0.20: within 0.03)
+ACCENT_FIXED = {"accent_orange": (0.85, 0.25, 0.10), "accent_red": (0.55, 0.10, 0.08),
+                "accent_green": (0.10, 0.30, 0.18)}  # the old slot-2 defaults (school / P1 / L1, L2 / L3, L5)
+GLASS_KEYS = {                                      # backing plates behind the clear `_Gls` panes (sRGB albedo, emissive)
+    "interior_lit": ((0.30, 0.24, 0.18), (0.85, 0.62, 0.36)),
+    "interior_dim": ((0.22, 0.18, 0.14), (0.45, 0.32, 0.18)),
+    "interior_dark": ((0.10, 0.09, 0.085), None),
+}
+PALETTE_APPENDED_V2 = (FRAME_KEY,) + tuple(ACCENT_FIXED) + ("metal_roof_dk~f",)   # renamed keys' "~f" keep their cell
+PALETTE_APPENDED_GLASS = tuple(GLASS_KEYS)
+SLOTS_V2_VERSION = "+slots2"
+GLASS_VERSION = "+gls1"
+
+
+def _bt(table, k):
+    """table[k], else the table entry of the key a v2 key derives from (V2_BASE)."""
+    return table[k] if k in table else table[V2_BASE[k]]
+
+
+def _recolor_lin():
+    return float(K.srgb_to_linear(cs2_asset.RECOLOR_ALBEDO))
+
+
+def fixed_srgb(colour):
+    """sRGB albedo that reproduces a recolour region (RECOLOR_ALBEDO) under the VariationSet `colour` as the game draws
+    it: lin(base) x lin(colour) (the colour is sRGB-encoded, BatchDataSystem.cs:716-718)."""
+    lin = np.clip(_recolor_lin() * np.asarray(K.srgb_to_linear(np.asarray(colour, np.float64))), 0.0, 1.0)
+    return tuple(round(float(x), 5) for x in K.linear_to_srgb(lin))
+
+
+def slot_default_for(target_lin):
+    """The VariationSet colour (sRGB, as stored in ColorProperties) that turns a RECOLOR_ALBEDO region into the linear
+    albedo `target_lin` (the inverse of fixed_srgb); clipped to [0, 1]."""
+    c = np.clip(np.asarray(target_lin, np.float64) / _recolor_lin(), 0.0, 1.0)
+    return tuple(round(float(x), 4) for x in K.linear_to_srgb(c))
+
+
+def slots_v2_rename():
+    """{old key: v2 key} drawn from the old key's cell. The balcony walls (lux_balrail) join slot 2 only while they share
+    the glulam's colour (one wood constant, T90's TRIM_WOOD_LIN): one slot = one default colour, so a different
+    balcony colour stays fixed. HEAD f43ac56 (= export X): glulam (0.50, 0.24, 0.10) != balcony (0.22, 0.10, 0.045)."""
+    ensure_materials()
+    out = dict(SLOTS_V2_RENAME_ALL)
+    gl, br = K.BLDG_MATERIALS.get("lux_glulam"), K.BLDG_MATERIALS.get("lux_balrail")
+    if gl is None or br is None or gl.target_srgb != br.target_srgb:
+        out.pop("lux_balrail")
+    return out
+
+
+def strip_keys(slots=False):
+    return SLOTS_V2_STRIP if slots else STRIP_KEYS
+
+
+def register_slot_materials():
+    """--slots v2 keys. metal_roof_lt (the fixed light roof: same seam detail, no recolour) draws in metal_roof's hero
+    cell, so L1's 3,435 m2 roof keeps its density; metal_roof_dk takes a retired weathered cell. Only NEW keys are
+    added (BLDG_MATERIALS, WEATHER_ROLES_EXTRA); every existing entry and every module table stays as it was."""
+    from dataclasses import replace as _rp
+    ensure_materials()
+    register_trim_materials()
+    tg = K.BLDG_MATERIALS["trim_grain"]
+    K.BLDG_MATERIALS.setdefault("trim_grain_s2", _rp(tg, slot=2))
+    mr = K.BLDG_MATERIALS["metal_roof"]
+    K.BLDG_MATERIALS.setdefault("metal_roof_lt", _rp(mr, target_srgb=fixed_srgb(METAL_ROOF_LIGHT), slot=0,
+                                                     recolor=False))
+    K.BLDG_MATERIALS.setdefault("metal_roof_dk", _rp(mr, target_srgb=fixed_srgb(METAL_ROOF_DARK), slot=0,
+                                                     recolor=False))
+    ren = slots_v2_rename()
+    for a in ("lux_glulam", "lux_balrail"):     # the slot-2 wood (balcony walls only when they share the glulam colour)
+        if a in ren:
+            K.BLDG_MATERIALS.setdefault(ren[a], _rp(K.BLDG_MATERIALS[a], slot=2, recolor=True))
+    K.BLDG_MATERIALS.setdefault(FRAME_KEY, K.BldgMat(None, None, (0.80, 0.80, 0.80), smooth=0.35, slot=3,
+                                                     recolor=True))
+    for k, t in ACCENT_FIXED.items():           # smoothness = SMOOTH_TARGET["accent"]
+        K.BLDG_MATERIALS.setdefault(k, K.BldgMat(None, None, fixed_srgb(t), smooth=SMOOTH_TARGET["accent"],
+                                                 density_w=0.5))
+    import cs2_weather
+    roles = {**cs2_weather.MAT_ROLES, **K.WEATHER_ROLES_EXTRA}
+    K.WEATHER_ROLES_EXTRA.setdefault("trim_grain_s2", "paint")
+    for a, b in ren.items():
+        K.WEATHER_ROLES_EXTRA.setdefault(b, roles.get(a, "timber"))   # lux_* carry no role (L4 / L5 weather None)
+    K.WEATHER_ROLES_EXTRA.setdefault("metal_roof_dk", roles["metal_roof"])
+    K.WEATHER_ROLES_EXTRA.setdefault(FRAME_KEY, "paint")
+    for k in ACCENT_FIXED:
+        K.WEATHER_ROLES_EXTRA.setdefault(k, roles.get("accent", "paint"))
+
+
+def register_glass_materials():
+    """--glass gls: the three interior palette keys of the backing plates (lit / dim carry emissive)."""
+    for k, (alb, emi) in GLASS_KEYS.items():
+        K.BLDG_MATERIALS.setdefault(k, K.BldgMat(None, None, alb, smooth=0.30, density_w=0.25, emissive_srgb=emi))
+        K.WEATHER_ROLES_EXTRA.setdefault(k, "none")
+
+
+def slots_v2_trim_remap(recipe_key):
+    """The roof-edge boards' strip key per building: L4 / L5 keep band 0 (slot 1: their glulam is the slot-2 wood
+    trim); every other building moves its boards to band 1 (slot 2). The school's white boards go to band 1 too
+    (default slot 2 = white)."""
+    if recipe_key in ("L4", "L5"):
+        return {"trim": "trim_grain", "lux_trim": "trim_grain", "trim_white": "trim_grain_s2"}
+    return {"trim": "trim_grain_s2", "lux_trim": "trim_grain_s2", "trim_white": "trim_grain_s2"}
+
+
+def slots_v2_remap(parts, recipe_key, accent_key, no_frame=()):
+    """(parts, {part: [old, new]}): window casings -> FRAME_KEY (slot 3), accent -> its fixed colour key, metal_roof ->
+    metal_roof_dk on the dark-roof buildings (else metal_roof_lt), lux_glulam / lux_balrail -> their slot-2 keys.
+    `no_frame`: exact part names the casing rule skips (the door kit's liners: a door is not a window casing)."""
+    no_frame = set(no_frame)
+    ren = slots_v2_rename()
+    dark = recipe_key in ("L4", "L5", "school")
+    out, moved = [], {}
+    for o, k in parts:
+        nk = None
+        if (o.name.startswith(FRAME_PREFIXES) and o.name not in no_frame
+                and k not in ("galv", "concrete", "glass_dark", "label")):
+            nk = FRAME_KEY
+        elif k == "accent":
+            nk = accent_key
+        elif k == "metal_roof" and dark:
+            nk = "metal_roof_dk"
+        elif k in ren:
+            nk = ren[k]
+        if nk and nk != k:
             moved[o.name] = [k, nk]
             out.append((o, nk))
         else:
@@ -323,18 +477,27 @@ def strip_guard(C):
 # Layout
 # ======================================================================================
 
-def sheet_layout(A=SHEET_A, layout="rollout", repeats=None, trim=False):
+def sheet_layout(A=SHEET_A, layout="rollout", repeats=None, trim=False, slots=False, glass=False):
     """Rects of every swatch / the palette / the label region for sheet size A (no pixels).
     trim (T70 --trim v1, rollout only): TRIM_V1_RETIRE leaves, STRIP_CELL takes its cell, and
     out["strip"] maps each strip key to {rect_px, band, bands, guard_px, ppm}. Every other tile and
-    every palette rect stays where it is (the palette list is built from LAYOUTS, not from out)."""
+    every palette rect stays where it is (the palette list is built from LAYOUTS, not from out).
+    slots (T89 --slots v2, needs trim): SLOTS_V2_RETIRE leave, metal_roof_dk + its ~w take their cells,
+    lux_glulam's cell is drawn as lux_glulam_s2, band 1 of the strip cell is trim_grain_s2; the new flat keys
+    are appended after every existing palette key. glass (T85 --glass gls): the interior keys appended last."""
     spec = LAYOUTS[layout]
     if trim and layout != "rollout":
         raise ValueError("trim v1 needs the rollout layout")
+    if slots and not trim:
+        raise ValueError("--slots v2 needs --trim v1 (the slot-2 boards live on the strip cell)")
     if layout == "rollout":
         ensure_materials()              # the palette order must not depend on which builder ran
     if trim:
         register_trim_materials()
+    if slots:
+        register_slot_materials()
+    if glass:
+        register_glass_materials()
     g = int(spec["grid"])
     cell = A // g
     if cell * g != A:
@@ -349,11 +512,18 @@ def sheet_layout(A=SHEET_A, layout="rollout", repeats=None, trim=False):
             if tiles_spec.pop(k, None) != TRIM_V1_CELL:
                 raise RuntimeError(f"trim v1: {k} is not at {TRIM_V1_CELL} (the plan's proven-free cell)")
         tiles_spec[STRIP_CELL] = TRIM_V1_CELL
+    if slots:
+        for k, cell_ in SLOTS_V2_RETIRE.items():
+            if tiles_spec.pop(k, None) != cell_:
+                raise RuntimeError(f"slots v2: {k} is not at {cell_} (the proven-unsampled cell)")
+        tiles_spec.update(SLOTS_V2_TILES)
+        for a, b in slots_v2_rename().items():
+            tiles_spec[b] = tiles_spec.pop(a)
     for k, (c, r, span) in tiles_spec.items():
         sw = span * cell
         pad = max(8, sw // 32)
         C = sw - 2 * pad
-        rep = int(repeats.get(base_key(k), 1))
+        rep = int(repeats.get(V2_BASE.get(base_key(k), base_key(k)), 1))   # a v2 key keeps its base key's repeat
         if C % rep:
             raise ValueError(f"{k}: content {C} not divisible by repeat {rep}")
         out["tiles"][k] = {"rect_px": [c * cell + pad, r * cell + pad, C], "swatch_px": sw,
@@ -365,14 +535,24 @@ def sheet_layout(A=SHEET_A, layout="rollout", repeats=None, trim=False):
     out["label_region"] = [lc * cell, lr * cell, lw * cell, lh * cell]
     out["label_rect"] = list(out["label_region"])
     # flat keys -> palette cells (sorted, deterministic)
+    late = (set(PALETTE_APPENDED) | set(PALETTE_APPENDED_V2) | set(PALETTE_APPENDED_GLASS) | set(SLOTS_V2_TILES)
+            | set(SLOTS_V2_RENAME_ALL.values()))
     flat = sorted(k for k, m in K.BLDG_MATERIALS.items()
                   if not m.set and k not in spec["tiles"] and k not in out["alias"]
-                  and k not in PALETTE_APPENDED)
+                  and k not in late)
     flat += [k for k in spec["palette_extra"] if k not in flat]
     if layout == "rollout":
-        flat += sorted(k + F_SUFFIX for k in spec["tiles"] if not k.endswith(W_SUFFIX))
+        ff = sorted(k + F_SUFFIX for k in spec["tiles"] if not k.endswith(W_SUFFIX))
+        if slots:                       # a renamed key's "~f" keeps the palette cell of the key it replaces
+            ren = slots_v2_rename()
+            ff = [ren.get(k[:-len(F_SUFFIX)], k[:-len(F_SUFFIX)]) + F_SUFFIX for k in ff]
+        flat += ff
     # keys added after the rollout go LAST, so every earlier key keeps its palette cell
     flat += [k for k in PALETTE_APPENDED if k in K.BLDG_MATERIALS and k not in flat]
+    if slots:
+        flat += [k for k in PALETTE_APPENDED_V2 if k not in flat]
+    if glass:
+        flat += [k for k in PALETTE_APPENDED_GLASS if k not in flat]
     pg = out["palette_grid"]
     pcell = (ps * cell) // pg
     if len(flat) > pg * pg:
@@ -383,7 +563,11 @@ def sheet_layout(A=SHEET_A, layout="rollout", repeats=None, trim=False):
     if trim:
         x0, y0, C = out["tiles"][STRIP_CELL]["rect_px"]
         out["strip"] = {k: {"rect_px": [x0, y0, C], "band": b, "bands": 2, "guard_px": strip_guard(C),
-                            "ppm": STRIP_PPM * C / 480.0} for k, b in sorted(STRIP_KEYS.items())}
+                            "ppm": STRIP_PPM * C / 480.0} for k, b in sorted(strip_keys(slots).items())}
+    if slots:
+        out["slots"] = "v2"
+    if glass:
+        out["glass"] = "gls"
     out["hash"] = layout_hash(out)
     return out
 
@@ -415,8 +599,15 @@ def layout_hash(layout):
         d["v"] = SHEET_VERSION + TRIM_SHEET_VERSION
         d["trim"] = 1
         d["strip"] = layout["strip"]
-        d["mats"].update({k: repr(K.BLDG_MATERIALS[k]) for k in STRIP_KEYS})
+        d["mats"].update({k: repr(K.BLDG_MATERIALS[k]) for k in strip_keys(layout.get("slots") == "v2")})
         d["trim_smooth"] = TRIM_SMOOTH
+    if layout.get("slots") == "v2":     # T89 / T85: the flag-off blob keeps its key set
+        d["v"] += SLOTS_V2_VERSION
+        d["mats"].update({k: repr(K.BLDG_MATERIALS[k]) for k in (FRAME_KEY, "metal_roof_dk", "trim_grain_s2")
+                          + tuple(slots_v2_rename().values()) + tuple(ACCENT_FIXED)})
+    if layout.get("glass") == "gls":
+        d["v"] += GLASS_VERSION
+        d["mats"].update({k: repr(K.BLDG_MATERIALS[k]) for k in PALETTE_APPENDED_GLASS})
     blob = json.dumps(d, sort_keys=True, default=str)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
 
@@ -486,7 +677,7 @@ def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
         nrm = cs2_compose.blend_rnm(nrm.astype(np.float32), det)
         info["detail"] = f"ribs {m.detail.seams_m} m, {'columns' if along_u else 'rows'}"
     src_mean = float(sm.mean())
-    tgt = SMOOTH_TARGET.get(key, src_mean)
+    tgt = SMOOTH_TARGET.get(V2_BASE.get(key, key), src_mean)
     sm = np.clip(tgt + (sm - src_mean) * SMOOTH_GAIN, 0.0, 1.0)
     info["smooth_src_mean"] = round(src_mean, 3)
     info["smooth_mean"] = round(float(sm.mean()), 3)
@@ -535,7 +726,7 @@ def weather_overlay(key, base, nrm, metal, sm, seed):
     overlay stays sparse). Classes (W_CLASS): stone damp + lichen, timber silver-greying + water
     marks, paint dirt, metal-roof streaks, slate moss, concrete drip stains, deck / paver scuff.
     Linear albedo; deterministic per key."""
-    cls = W_CLASS[base_key(key)]
+    cls = _bt(W_CLASS, base_key(key))
     m = K.BLDG_MATERIALS[base_key(key)]
     C = base.shape[0]
     vertical_cols = (int(m.uv_rot) % 180 == 0)          # box / planar: world-vertical = v
@@ -633,7 +824,7 @@ def _board_interiors(lum, C):
     return runs
 
 
-def _strip_maps(C, cache_dir=None):
+def _strip_maps(C, cache_dir=None, slots=False):
     """The STRIP_CELL content (C x C, plan section 2.2): two v-bands of H = C / 2 rows, bottom-up
     band 0 = slot-1 stain / paint (luminance-normalised to RECOLOR_ALBEDO, light fade streaks), band 1 =
     fixed warm white paint (the same grain at +-4 % luminance). Columns (u) run ALONG the grain.
@@ -696,6 +887,9 @@ def _strip_maps(C, cache_dir=None):
     seed = int(hashlib.sha1(STRIP_CELL.encode()).hexdigest()[:8], 16)
     bands = []
     for b in (0, 1):
+        if slots and b == 1:            # T89 --slots v2: band 1 = band 0's pixels, ControlMask G (slot 2)
+            bands.append(bands[0])
+            continue
         L_, N_, R_, used = stack(first=b, shift_u=(C // 7) * (1 + 2 * b) + 13 * b)
         L_ = _blur_u(L_, max(1, C // 20))
         N_ = _blur_u(N_, max(1, C // 6))
@@ -733,8 +927,11 @@ def _strip_maps(C, cache_dir=None):
     metal = np.zeros((C, C))
     ctl = np.zeros((C, C, 4))
     ctl[:H, :, 0] = 1.0              # slot 1 over band 0 (its guard rows too: mip bleed stays in-band)
+    if slots:
+        ctl[H:, :, 1] = 1.0          # T89: slot 2 over band 1
     info = {"key": STRIP_CELL, "set": "WoodSiding009", "ppm": round(ppm, 1), "tile_m": round(C / ppm, 4),
-            "repeat": 1, "bands": {k: {"band": b, "rows": [b * H, (b + 1) * H]} for k, b in STRIP_KEYS.items()},
+            "repeat": 1, "bands": {k: {"band": b, "rows": [b * H, (b + 1) * H]}
+                                   for k, b in strip_keys(slots).items()},
             "guard_px": strip_guard(C), "interiors": len(runs), "cross_fade_px": cf, "metal": 0.0, "slot": 1,
             "smooth_mean": [round(float(bands[0][2].mean()), 3), round(float(bands[1][2].mean()), 3)],
             "base_mean_lin": [[round(float(x), 4) for x in bands[b][0].reshape(-1, 3).mean(0)] for b in (0, 1)]}
@@ -747,7 +944,7 @@ def _put(dst, x0, y0, block):
 
 
 def build_sheet(out_dir, name, A=SHEET_A, swatch=SWATCH, pad=PAD, keys=None, cache_dir=None,
-                layout="probe", repeats=None, trim=False):
+                layout="probe", repeats=None, trim=False, slots=False, glass=False):
     """The family sheet (module doc). Returns the layout (sheet_layout) with "maps" (linear
     arrays), "tiles" carrying per-swatch info and "means" (per-swatch mean base / mask / ctl,
     used to fill label backgrounds without the pixels). `keys` limits the probe swatches.
@@ -756,7 +953,7 @@ def build_sheet(out_dir, name, A=SHEET_A, swatch=SWATCH, pad=PAD, keys=None, cac
         raise ValueError("probe sheet is a 4 x 4 swatch grid")
     if layout == "rollout":
         ensure_materials()
-    lay = sheet_layout(A, layout, repeats, trim=trim)
+    lay = sheet_layout(A, layout, repeats, trim=trim, slots=slots, glass=glass)
     base = np.zeros((A, A, 4)); base[..., 3] = 1.0     # LINEAR rgb + alpha (stamp_on_face wants 4)
     nrm = np.zeros((A, A, 3)); nrm[..., :] = (0.5, 0.5, 1.0)
     msk = np.zeros((A, A, 4))
@@ -772,7 +969,7 @@ def build_sheet(out_dir, name, A=SHEET_A, swatch=SWATCH, pad=PAD, keys=None, cac
         k = base_key(skey)
         wrap = lambda a: np.pad(a, ((pd, pd), (pd, pd)) + ((0, 0),) * (a.ndim - 2), mode="wrap")
         if trim and skey == STRIP_CELL:
-            b, n, mt, sm, cc, info = _strip_maps(C, cache_dir)
+            b, n, mt, sm, cc, info = _strip_maps(C, cache_dir, slots=slots)
             X, Y = x0 - pd, y0 - pd
             _put(base[..., :3], X, Y, wrap(b))
             _put(nrm, X, Y, wrap(n))
@@ -782,11 +979,11 @@ def build_sheet(out_dir, name, A=SHEET_A, swatch=SWATCH, pad=PAD, keys=None, cac
             info["rect_px"] = [x0, y0, C]
             t.update(info)
             H = C // 2
-            for kk, bb in STRIP_KEYS.items():
+            for kk, bb in strip_keys(slots).items():
                 rs = slice(bb * H, (bb + 1) * H)
                 means[kk] = {"base": b[rs].reshape(-1, 3).mean(0).tolist(),
                              "msk": [0.0, 0, 0, float(sm[rs].mean())],
-                             "ctl": [float(round(cc[rs, :, 0].mean())), 0.0, 0.0, 0.0]}
+                             "ctl": [float(round(cc[rs, :, c].mean())) for c in range(3)] + [0.0]}
             means[skey] = means["trim_grain"]
             continue
         b, n, metal, sm, slot, info = _swatch_maps(k, C, cache_dir, repeat=t["repeat"], layout_name=layout)
@@ -794,7 +991,7 @@ def build_sheet(out_dir, name, A=SHEET_A, swatch=SWATCH, pad=PAD, keys=None, cac
         if skey.endswith(W_SUFFIX):
             seed = int(hashlib.sha1(skey.encode()).hexdigest()[:8], 16)
             b, mt, sm = weather_overlay(skey, b, n, metal, sm, seed)
-            info["weathered"] = W_CLASS[k]
+            info["weathered"] = _bt(W_CLASS, k)
             info["smooth_mean"] = round(float(sm.mean()), 3)
         X, Y = x0 - pd, y0 - pd
         _put(base[..., :3], X, Y, wrap(b))
@@ -1039,7 +1236,7 @@ class _WeatherCtx:
             self.wkey.append(sk if (sk is not None and sk.endswith(W_SUFFIX)) else None)
         self.wall = np.abs(self.n[:, 2]) < 0.35
         self.roof = np.array([(self.n[i, 2] >= 0.35 and self.wkey[i] is not None and
-                               W_CLASS[base_key(self.wkey[i])] in ("slate", "metal_roof")) for i in range(nt)])
+                               _bt(W_CLASS, base_key(self.wkey[i])) in ("slate", "metal_roof")) for i in range(nt)])
         # roof eave height per part (lowest z of its roof-class faces)
         self.part_eave = {}
         for i in np.flatnonzero(self.roof):
@@ -1507,8 +1704,9 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
     skey = []
     for i, k_ in enumerate(fmat):
         kk = keys[k_]
-        if kk in FLAT_TILE_M:                      # projection_specs: flat keys use 1 m per unit
-            tuv[i] = tuv[i] / FLAT_TILE_M[kk]
+        fk_ = V2_BASE.get(kk, kk)
+        if fk_ in FLAT_TILE_M:                     # projection_specs: flat keys use 1 m per unit
+            tuv[i] = tuv[i] / FLAT_TILE_M[fk_]
         sk = alias.get(kk, kk)
         if sk in tiles:
             r = int(tiles[sk].get("repeat", 1))
@@ -1981,7 +2179,7 @@ def _plan_strips(wctx, Vw, tris, fpart, part_name, R, ground_band):
             else:
                 groups.append([lo, hi, [P]])
         floor_ok = lambda j: (wctx.n[j, 2] > 0.8 and wctx.wkey[j] is not None
-                              and W_CLASS[base_key(wctx.wkey[j])] in ("deck", "concrete", "paver", "stone"))
+                              and _bt(W_CLASS, base_key(wctx.wkey[j])) in ("deck", "concrete", "paver", "stone"))
         for lo, hi, Ps in groups:
             P = np.concatenate(Ps)
             L, T = frame(P)
@@ -2207,6 +2405,37 @@ def mask_stats(obj, maskmap_path, keys, mat_attr="cs2ts_mat", mat_index=None, uv
                         "A_p50": round(q(0.5), 3), "A_p90": round(q(0.9), 3),
                         "metal_mean": round(float((m * w).sum() / w.sum()), 3),
                         "area_m2": round(float(w.sum()), 1)}
+    return out
+
+
+def ctl_rgb_stats(obj, ctl_path, keys, mat_attr="cs2ts_mat"):
+    """{key: [R, G, B] area-weighted means}: the composed ControlMask at each triangle's centroid UV (T89 gate: every
+    key draws exactly its slot, mask_stats only reads R)."""
+    me = obj.data
+    img = K._load_raw(ctl_path)
+    H, W = img.shape[:2]
+    lay = me.uv_layers.get(cs2_uv.UNIQUE_LAYER) or me.uv_layers.active
+    uv = cs2_uv.loop_uvs(lay)
+    co = np.empty(len(me.vertices) * 3, np.float32); me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3).astype(np.float64)
+    mi = np.zeros(len(me.polygons), np.int32)
+    me.attributes[mat_attr].data.foreach_get("value", mi)
+    acc = {}
+    for p in me.polygons:
+        ls = list(range(p.loop_start, p.loop_start + p.loop_total))
+        vs = [me.loops[i].vertex_index for i in ls]
+        for i in range(1, len(vs) - 1):
+            a3 = 0.5 * np.linalg.norm(np.cross(co[vs[i]] - co[vs[0]], co[vs[i + 1]] - co[vs[0]]))
+            if a3 <= 1e-9:
+                continue
+            c = (uv[ls[0]] + uv[ls[i]] + uv[ls[i + 1]]) / 3.0
+            x = int(np.clip(c[0] * W, 0, W - 1)); y = int(np.clip(c[1] * H, 0, H - 1))
+            acc.setdefault(int(mi[p.index]), []).append((*img[y, x, :3], a3))
+    out = {}
+    for k, rows in sorted(acc.items()):
+        r = np.array(rows)
+        w = r[:, 3]
+        out[keys[k]] = [round(float((r[:, c] * w).sum() / w.sum()), 3) for c in range(3)]
     return out
 
 
