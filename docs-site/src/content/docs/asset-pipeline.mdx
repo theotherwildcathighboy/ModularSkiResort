@@ -16,14 +16,14 @@ Tools used: Blender (headless Python generators), the Cities: Skylines II Editor
 
 ## Triangle Budgets
 
-Triangle (tri) cap per asset at LOD0. **A cap is a ceiling, not a target.**
+Triangle (tri) cap per asset at LOD0. **A cap is a ceiling.**
 
 - **Yardstick:** vanilla class. A vanilla crane tower is 2,016 tris.
-- **Rule (DECISIONS 254, 256):** the gap between a building's target and its cap is the fudge. Detail beyond the cap is texture work, never triangles.
+- **Rule (DECISIONS 254, 256):** the gap between a building's target and its cap is the fudge. Detail beyond the cap is done in the texture.
 - **Enforcement:** the cap is a validator error, checked at the weathering level the building ships with. A build that fits only by dropping a weathering level is over (DECISIONS 316).
 - **Exception (DECISIONS 305):** the Grand Lodge's clock numbers, hands and louvres keep full detail, over the cap by a measured margin.
 
-| Building | Cap | Shipped (build Y) |
+| Building | Cap | Latest build |
 |---|---|---|
 | Mountain Hut | 6,000 | 5,969 |
 | A-Frame Day Lodge | 16,000 | 10,934 |
@@ -52,7 +52,7 @@ Triangle (tri) cap per asset at LOD0. **A cap is a ceiling, not a target.**
 
 - **Lodges and school (DECISIONS 256):** one cap per building, fixed when the tile sheet landed. Tiling raised LOD0 from 6,763 to 10,036 tris on the A-Frame Day Lodge and from 23,019 to 29,916 on the Grand Lodge. Caps stayed put: "the target / cap gap is the fudge".
 - **Grand Lodge (DECISIONS 302):** 33,500 = measured 31,812 × 1.05, rounded up. No other cap moved.
-- **Towers (DECISIONS 276):** cap = the larger of the first-round cap and the smallest multiple of 100 giving at least 5 % headroom.
+- **Towers (DECISIONS 276):** cap = the larger of the original cap and the smallest multiple of 100 giving at least 5 % headroom.
 - **Wheels (DECISIONS 276):** a tower carries 8 to 12 wheels. At 224 tris each, a 25-tower line spent 67,200 tris on wheels alone. One wheel at 120 tris or fewer cut that to 24,000 (fixed-grip), 39,200 (detachable) and 49,000 (gondola) per 25-tower line.
 
 ## LODs
@@ -73,11 +73,11 @@ Texels per metre (px/m): texture pixels covering one metre of model. The quality
 
 - **Vanilla, small buildings:** 346 (houses) to 518 (EU hotel).
 - **Vanilla, large buildings:** 93 (hospital) to 304 (towers); TrainStation02 257 (DECISIONS 280).
-- **Before the tile sheet:** 10 to 46 px/m. Review called the stone "blurry"; the cause was density, not compression (DECISIONS 253).
+- **Before the tile sheet:** 10 to 46 px/m. Review called the stone "blurry"; the cause was density; compression was ruled out (DECISIONS 253).
 - **Now:** walls and roofs 300 to 400 px/m on the tile sheet. Grand Lodge 171 to 200; tram stations 120 to 200 on big surfaces.
 - **Texture floor:** 512² per map, any kind.
 - **Mip margin:** islands keep a margin of max(16, atlas ÷ 64) px so distant mips do not bleed.
-- **Alpha:** any BaseColor alpha below 255 turns the whole surface into cutout. Weathering is opaque swatches, never alpha strips.
+- **Alpha:** any BaseColor alpha below 255 turns the whole surface into cutout. Weathering uses opaque swatches only.
 - **Fine detail:** features under 5 cm go in the normal map and must span at least 3 texels. Weathering overlays are at least 5 cm and 8 texels, low frequency only.
 
 ### Tile Sheet
@@ -87,7 +87,7 @@ A shared 4096² sheet of repeating material swatches, 8 × 8 cells of 512 px.
 - **Why:** the Editor binds a texture to a model only by file-name suffix, and only 16 suffixes exist. Per-material surfaces are impossible; vanilla does not use them either. Vanilla paints one big sheet and reuses it (the EU hotel reuses each texel about 37×).
 - **Repetition:** vanilla stores nearly all maps as Clamp (3,657 of 3,696), so repeats come from cutting faces to swatch size and stacking identical islands. Towers reuse each texel 45 to 295×.
 - **Family sheet:** all eight buildings use one sheet at LOD0. The school owns it; the others share it through `settings.json`.
-- **Import:** the owner and every sharer are imported in **one Editor action**. Sharers imported later get a byte-identical copy (about 107 MB for five lodges, DECISIONS 298).
+- **Import:** the sheet owner and every sharer are imported in **one Editor action**. Sharers imported later get a byte-identical copy (about 107 MB for five lodges, DECISIONS 298).
 - **Memory:** building texture memory fell from 344.2 MB to 173.4 MB (DECISIONS 256).
 - **Price:** tile cuts cost tris. A 10 × 4 m wall is 2 tris as one quad and about 16 cut into 3.2 m tiles. A blanket cut added 30 to 48 % to lodge tri counts.
 - **Strip UV:** long trim (ridge, rake, fascia) maps once along its length on a grain swatch, 400 px/m across. 0 extra tris.
@@ -103,9 +103,9 @@ Tram stations use their own 4096² sheet; the base owns it, the top shares it (D
 
 ## Vanilla First
 
-Rule (Richard, DECISIONS 320): if a sub-object, fixture or detail exists in the game, reference it instead of modelling it.
+Rule (the author, DECISIONS 320): if a sub-object, fixture or detail exists in the game, reference it instead of modelling it.
 
-- **Why:** vanilla props carry more detail, add 0 tris to the asset's cap and save effort.
+- **Why:** vanilla props carry more detail and add 0 tris to the asset's cap.
 - **Method:** a sub-object row names the prop by verified GUID. GUIDs are read from the game's `resources.assets` prefab map (DECISIONS 230); preflight whitelists them.
 - **Rooftop units:** `ACMachineRoofRandom01`, every variant, 1.0 to 1.5 m, 228 to 346 tris each. No curb, no gap. On a sloped roof: the heat-pump variant on the wall, low.
 - **Vents:** `ACVentRoofRandom01` for ridge vents.
@@ -149,14 +149,14 @@ Spend triangles where the eye reads them at play distance; hold them back where 
 
 ## Process
 
-Asset loop, Claude on generation, Richard on import and testing.
+Claude generates; the author reviews previews, imports in the Editor and tests in the game.
 
 <Steps>
 
 1. **Reference:** photos first. Fix the recolour slots (R, G, B channels of the control mask = slots 1, 2, 3). One palette per building; deviations need a stated story.
-2. **Generate:** headless Blender script builds the asset, its LODs and maps. Every generation gets a new letter in the name; a name is never reused.
+2. **Generate:** headless Blender script builds the asset, its LODs and maps. Each export gets a new name so the game never confuses two versions.
 3. **Preview:** renders and a review pack, judged in a live Blender. No export before the verdict.
-4. **Export:** FBX, `_BaseColor`, `_Normal`, `_MaskMap`, `_ControlMask` and `settings.json` under `assets/import/<category>/<letter>/`. The game negates FBX x on import; sub-object rows carry that mirror.
+4. **Export:** FBX, `_BaseColor`, `_Normal`, `_MaskMap`, `_ControlMask` and `settings.json` in its own folder under `assets/import/<category>/`. The game negates FBX x on import; sub-object rows carry that mirror.
 5. **Import:** Editor, No Preset. Texture-sharing groups go in as one action.
 6. **Surgery:** repoint the hand-made prefab to the new mesh ids, add `ColorProperties`, `LodProperties` and `EmissiveProperties` as needed, validate, mirror to the repo.
 7. **Test:** full game restart, error popups counted first, then the feature.
@@ -165,7 +165,7 @@ Asset loop, Claude on generation, Richard on import and testing.
 
 ## Gates
 
-A check that fails the build on a known mistake. A lesson becomes a gate, not a note.
+A check that fails the build on a known mistake. Each lesson from a field test becomes a gate.
 
 - **Asset check (`tools/assets-check.ps1`):** texture names, UV, alpha below 255, LOD1 above 0.50 × LOD0, LOD0 cap, LOD2 cap, engine-base ring, texture floor 512², per-part density, FBX round trip.
 - **Preflight (`tools/preflight.ps1`):** whole-project check of prefabs, ids, rope lanes, spawn markers, vanilla GUID whitelist. Expected: 0 FAIL, 0 WARN.

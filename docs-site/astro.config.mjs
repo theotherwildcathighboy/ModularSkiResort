@@ -15,7 +15,7 @@ export default defineConfig({
     starlight({
       title: 'Modular Ski Resort',
       description:
-        'Player guides, reference, the asset pipeline and a dated timeline for Modular Ski Resort, a ski resort mod for Cities: Skylines II.',
+        'Guides, reference, asset pipeline and timeline for Modular Ski Resort, a ski resort mod for Cities: Skylines II.',
       customCss: ['./src/styles/custom.css'],
       logo: {
         light: './src/assets/resort-logo-navy.svg',
@@ -53,6 +53,7 @@ export default defineConfig({
         { label: 'Asset Pipeline', slug: 'asset-pipeline' },
         { label: 'Timeline', slug: 'timeline' },
         { label: 'Changelog', slug: 'changelog' },
+        { label: 'AI Disclosure', slug: 'ai-disclosure' },
         { label: 'Credits and Licences', slug: 'credits' },
       ],
     }),

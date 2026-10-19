@@ -52,7 +52,7 @@ run value = difficulty × size × type × lift × open
 | Factor | Values |
 |---|---|
 | **Difficulty** | Green **6**, blue **12**, black **20**, double black **28**. Flat **0**. Cannot be rated **3**. Pending **0**. |
-| **Size** | `1 + 0.3 × ln(area ÷ 2 ha)`, clamped to **0.25**–**2**. Below 1 ha, scales down proportionally. |
+| **Size** | `1 + 0.3 × ln(area ÷ 2 ha)`, clamped to **0.25** to **2**. Below 1 ha, scales down proportionally. |
 | **Type** | Groomed and snowmaking **1**. Night **1.25**. Natural: green **0.5**, blue **0.75**, black and double black **1**. |
 | **Lift** | **1** if a running lift reaches the top. Otherwise *Backcountry run value* (default **40 %**). Patrolled run: at least **70 %**. |
 | **Open** | Open **1**. Closed **0**. Patchy: partial. |
@@ -102,7 +102,7 @@ The score is the ski area's attractiveness in the game's tourist formula.
 
 - **Lodge panels:** show **0** (the ski area carries the score).
 - **Game counting:** each building's score squared. The hub shows this ski area's **share of the city's tourist draw**.
-- **Effect:** the share sets how many tourists come to the city, not their destination.
+- **Effect:** the share sets how many tourists come to the city; their destination is unaffected.
 
 <Aside type="note" title="Ski Days">
 Ski days are a separate stream: mod-owned visitors reacting to score, fresh snow, distance and lift ticket price.

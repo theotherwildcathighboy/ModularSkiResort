@@ -11,8 +11,8 @@ import { Aside } from '@astrojs/starlight/components';
 
 | Part | Licence |
 |---|---|
-| Code: the C# mod, the Blender generators, the tools, this documentation site | **MIT**, copyright 2026 theotherwildcathighboy |
-| Art assets and everything generated from them: meshes, textures, previews, the in-game prefabs | **Creative Commons Attribution 4.0 (CC BY 4.0)**. Credit "Modular Ski Resort by theotherwildcathighboy" |
+| Code: the C# mod, the Blender generators, the tools, this documentation site | **MIT**, copyright 2026 the mod's author |
+| Art assets and everything generated from them: meshes, textures, previews, the in-game prefabs | **Creative Commons Attribution 4.0 (CC BY 4.0)**. Credit "Modular Ski Resort" and its author, as named in the repository licence files |
 | Tiling materials from ambientCG | **CC0**, no attribution required |
 
 <Aside type="caution" title="To confirm before release">
@@ -21,7 +21,7 @@ is an open decision for the release; this page follows the repository as it is t
 </Aside>
 
 **Third-party code:** none. The GPL-licensed mods studied (ParkManager, ParkingLotTool) were re-derived
-from the game's own systems, never copied.
+from the game's own systems; no code was copied.
 
 ## Inspiration
 
@@ -32,11 +32,11 @@ from the game's own systems, never copied.
 - **Yenyang, Recolor**: the asset colour convention (channel masks, light-albedo regions) follows the standard
   their mod established; hosted towers are recolourable through its painter. Optional.
 - **klyte45, Write Everywhere** (Paradox Mods 92908): optional. If installed, the Welcome Sign shows the ski
-  area's name through a layout file we ship, and the lodge and school name boards become writable. Nothing of
+  area's name through a layout file the mod ships, and the lodge and school name boards become writable. Nothing of
   Write Everywhere is included and the mod never requires it.
 - **tomkpunkt, ParkManager** (Paradox Mods 161179, GPL-3.0): studied as a research reference for programmatic net
   and object creation, ordered cleanup and Gameface UI patterns. No code copied, no runtime dependency.
-- **krzychu124, Scene Explorer**: indispensable for live ECS debugging during development.
+- **krzychu124, Scene Explorer**: live ECS debugging during development.
 - **CitiesSkylinesModding community**: the agents-plugins toolchain and documentation.
 
 ## References
@@ -77,5 +77,5 @@ Tiling materials: CC0 sets from [ambientCG](https://ambientcg.com). Attribution 
 ## Build Credits
 
 **Lead architect:** Claude (Anthropic): decompilation, prefab surgery and
-procedural asset generation. **Owner:** direction, in-game testing of every build, sign-off on
-every asset. The story is in [Timeline](/timeline/).
+procedural asset generation. **Author:** direction, in-game testing of every build, sign-off on
+every asset. How the work was split: [AI Disclosure](/ai-disclosure/). The dated story: [Timeline](/timeline/).
