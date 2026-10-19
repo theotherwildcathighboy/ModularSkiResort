@@ -13,6 +13,20 @@
 
 		<!--The file where mod information which is required for publishing mod on PDX mods are stored-->
 		<PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>
+
+		<!--
+		SAVE IDENTITY (T74, 2026-10-19; docs/research/release-update-constraints-2026-10-18.md section 1 row 9, section 4 item 4;
+		Systems/SkiRunBinding.cs:50-57). A save names each of our persisted components by its AssemblyQualifiedName, which
+		carries "Version=" + this AssemblyVersion (Colossal.Core ComponentSerializer.cs:33-41). Whether Mono resolves a saved
+		name whose version differs is unverified, so the version never changes: AssemblyVersion is PINNED at 1.0.0.0 FOREVER
+		(it was the SDK default 1.0.0.0 before this pin, so no build ever wrote another one). It is also the third tie-break
+		when two copies of the DLL are installed (Colossal.IO.AssetDatabase ExecutableAsset.cs:149, :189). The release number
+		moves in FileVersion (below) and in Properties/PublishConfiguration.xml ModVersion. tests/SaveBatch SL-AV reads the
+		built DLL and fails on any other AssemblyVersion (SaveLayouts.PinnedAssemblyVersion).
+		-->
+		<AssemblyVersion>1.0.0.0</AssemblyVersion>
+		<!-- Moves with each release (free; nothing persisted reads it). -->
+		<FileVersion>1.0.0.0</FileVersion>
 	</PropertyGroup>
 
 	<!--Imports must be after PropertyGroup block-->

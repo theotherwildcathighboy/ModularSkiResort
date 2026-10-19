@@ -30,6 +30,11 @@ desktop.ini
 #                                  ImportedData (tools/sync-gamedata.ps1)
 #   release/                     — listing copy + curated screenshots (not regenerable)
 
+# Per-release test saves (T74, 2026-10-19): city saves are large binaries kept on this machine only;
+# the folder's README (what to keep, how to name it) is tracked.
+release/saves-by-release/*
+!release/saves-by-release/README.md
+
 # Python bytecode
 __pycache__/
 *.pyc

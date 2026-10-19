@@ -68,6 +68,8 @@ using Unity.Entities;
 
 namespace SkiResortMod.Systems
 {
+    // SELF-ALIAS (T74): the stripped saved AQN, a literal; why and the rules in SkiRunBinding.cs "SELF-ALIAS".
+    [FormerlySerializedAs("SkiResortMod.Systems.SkiRunTreeMember, SkiResortMod")]
     public struct SkiRunTreeMember : IComponentData, IQueryTypeParameter, ISerializable
     {
         /// <summary>Layout version written by this build (see header). v1 is frozen; bump

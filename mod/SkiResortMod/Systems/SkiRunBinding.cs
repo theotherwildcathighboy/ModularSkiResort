@@ -52,7 +52,9 @@
 //     the SkiResortMod assembly without [FormerlySerializedAs] — the type table resolves old
 //     names only through that attribute (ComponentSerializerLibrary.UpdateTypeTable). Whether
 //     Mono's Type.GetType tolerates a changed AssemblyVersion of this non-strong-named assembly
-//     is unverified (the csproj sets none, so it stays 1.0.0.0).
+//     is unverified; since T74 (2026-10-19) the csproj PINS AssemblyVersion 1.0.0.0 forever and
+//     the type carries a self-alias (below): a saved name that stops resolving falls back to it
+//     (ComponentSerializer.cs:51-65; inferred from the decompile, not yet seen in game).
 //
 // FLAGS. FlagPaid = the one-time bind fee is settled for this run: never charge it again, also
 // not after the sign dies and the run re-links (§3.3 rows 4/5). FlagRestored = linked by the load
@@ -66,6 +68,14 @@ using Unity.Entities;
 
 namespace SkiResortMod.Systems
 {
+    // SELF-ALIAS (T74, constraints doc §4 item 3; docs/research/release-scaffolds-2026-10-19.md §1). A load first tries
+    // Type.GetType(saved AQN); only when that fails does it strip ", ..." segments from the right until a key of the
+    // [FormerlySerializedAs] table hits (Colossal.Core 1.6.2f1 ComponentSerializer.cs:51-65; the table is filled from this
+    // attribute by ComponentSerializerLibrary.UpdateTypeTable :113-121). The stripped AQN below therefore still finds this
+    // type if the version / load-context part of the saved name stops resolving. A LITERAL on purpose: an alias is an OLD
+    // name and must not follow a rename. Must equal SaveLayouts.Alias (tests/SaveBatch SL-A reads the built DLL); keys must
+    // be unique across the mod (UpdateTypeTable uses Dictionary.Add, a duplicate throws).
+    [FormerlySerializedAs("SkiResortMod.Systems.SkiRunBinding, SkiResortMod")]
     public struct SkiRunBinding : IComponentData, IQueryTypeParameter, ISerializable
     {
         /// <summary>Layout version written by this build (see header). v1 is frozen; bump

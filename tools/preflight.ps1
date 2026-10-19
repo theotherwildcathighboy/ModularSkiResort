@@ -24,6 +24,8 @@
 #                  SPAWN (no plain spawn marker on a ServiceUpgrade child), WEATHER (no WeatherObject on a spawnable),
 #                  NETNULL (no null m_Lane / m_Piece / m_Section), PROP (no gameplay components on scenery props), KEEP (SkiLiftTowerFG2 present), ARRLEN ($rlength /
 #                  $plength match the real array counts). Also in LANES: rope-lane m_Hanging <= 0.01 (R31).
+#  10. SHIPPED   - every (name, type, CID) of tools/shipped-prefabs.json (tools/freeze-shipped.ps1) is still an owned prefab
+#                  with that CID (FAIL otherwise); an owned non-RenderPrefab not in the list WARNs until re-frozen (T74).
 #
 # Ownership = directories named Ski* under ImportedData, Ski* prefabs inside the
 # Editor library folder (c030ee3ff256df91), plus legacy FixedGripChairLift (reported).
@@ -510,6 +512,56 @@ if ($lib -and (Test-Path $lib)) {
     else { $rows.Add("OK    KEEP      SkiLiftTowerFG2 object prefab present") }
 }
 $rows.Add("OK    IDIOMS    $idiomRows hand-made prefab(s) scanned (HOSTED, SPAWN, WEATHER, NETNULL, PROP, ARRLEN; $arrSkipped skipped by ARRLEN: Odin Color literals)")
+
+# ---- 10. SHIPPED: the frozen shipped-prefab list (T74, 2026-10-19) -------------------------------------------------------
+# tools/shipped-prefabs.json (written by tools/freeze-shipped.ps1 from gamedata-mirror; its header has the rules) lists every
+# owned non-RenderPrefab as (name, type, cid). A save names a prefab by (type, name, hash) and our other prefabs by CID
+# (Game.Prefabs/PrefabID.cs:45-52; constraints doc section 0 mechanisms 1-4), so for every listed entry the live install
+# must still hold an owned prefab with that root name and type whose .Prefab.cid is unchanged: else FAIL (section 3 rule 1:
+# never rename / retype / re-CID; rule 4: never delete). An owned prefab NOT in the list is a WARN until the list is
+# regenerated (tools/sync-gamedata.ps1, then tools/freeze-shipped.ps1). Release day: tools/freeze-shipped.ps1 -Release x.y.z.
+$shippedPath = Join-Path $PSScriptRoot "shipped-prefabs.json"
+if (-not (Test-Path -LiteralPath $shippedPath)) {
+    $rows.Add("FAIL  SHIPPED   tools/shipped-prefabs.json is missing (run tools/freeze-shipped.ps1)"); $failures++
+}
+else {
+    $shipped = Get-Content -LiteralPath $shippedPath -Raw | ConvertFrom-Json
+    $shIdRoot = (Resolve-Path -LiteralPath $ImportedData).ProviderPath.TrimEnd('\')
+    $shNameRe = [regex]'(?m)^ {4}"name":\s*"([^"]+)"'
+    $shTypeRe = [regex]'"\$type":\s*"0\|Game\.Prefabs\.(\w+), Game"'
+    $live = @{}
+    foreach ($p in $ownedPrefabs) {
+        $text = [IO.File]::ReadAllText($p.FullName)
+        $tm = $shTypeRe.Match($text); $nm = $shNameRe.Match($text)
+        if (-not $tm.Success -or -not $nm.Success -or $tm.Groups[1].Value -ceq "RenderPrefab") { continue }
+        $cid = ""
+        if (Test-Path -LiteralPath ($p.FullName + ".cid")) { $cid = ([IO.File]::ReadAllText($p.FullName + ".cid")).Trim().ToLower() }
+        $k = "$($tm.Groups[1].Value):$($nm.Groups[1].Value)"
+        if (-not $live.ContainsKey($k)) { $live[$k] = New-Object System.Collections.Generic.List[object] }
+        $live[$k].Add([pscustomobject]@{ Cid = $cid; Rel = $p.FullName.Substring($shIdRoot.Length + 1) })
+    }
+    $frozen = @{}
+    $shOk = 0
+    foreach ($e in $shipped.prefabs) {
+        $k = "$($e.type):$($e.name)"; $frozen[$k] = $true
+        if (-not $live.ContainsKey($k)) {
+            $rows.Add("FAIL  SHIPPED   $k (cid $($e.cid), was $($e.file)) is gone: a shipped prefab was renamed, retyped or deleted (constraints section 3 rules 1 / 4; ObsoleteIdentifiers if unavoidable)"); $failures++
+            continue
+        }
+        if (-not ($live[$k] | Where-Object { $_.Cid -eq $e.cid })) {
+            $rows.Add("FAIL  SHIPPED   ${k}: .Prefab.cid $((($live[$k] | ForEach-Object { $_.Cid }) -join ', ')) != the frozen $($e.cid) (rule 1 / row 7a: keep the old file's CID) <- $((($live[$k] | ForEach-Object { $_.Rel }) -join ', '))"); $failures++
+            continue
+        }
+        $shOk++
+    }
+    foreach ($k in ($live.Keys | Sort-Object)) {
+        if (-not $frozen.ContainsKey($k)) {
+            $rows.Add("WARN  SHIPPED   $k not in tools/shipped-prefabs.json <- $((($live[$k] | ForEach-Object { $_.Rel }) -join ', ')) (new prefab: tools/sync-gamedata.ps1, then tools/freeze-shipped.ps1)"); $warnings++
+        }
+    }
+    $relState = if ($shipped.released) { "released $($shipped.released)" } else { "provisional, not released" }
+    $rows.Add("OK    SHIPPED   $shOk of $(@($shipped.prefabs).Count) frozen prefab(s) present with their CID ($relState; list of $($shipped.generated))")
+}
 
 # ---- summary -------------------------------------------------------------------------
 $rows | ForEach-Object { Write-Output $_ }

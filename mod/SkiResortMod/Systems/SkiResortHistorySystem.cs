@@ -59,6 +59,9 @@ namespace SkiResortMod.Systems
 {
     /// <summary>ECS half of the pure SkiResortHistoryMonth (SkiResortHistory.cs holds the fields, the layout and the codec).
     /// NEVER rename, move or turn into a component (header of SkiResortHistory.cs).</summary>
+    // SELF-ALIAS (T74): the stripped saved AQN, a literal; why and the rules in SkiRunBinding.cs "SELF-ALIAS". Here, not on
+    // the pure half: SkiResortHistory.cs stays free of Colossal types (tests/ResortBatch links it).
+    [FormerlySerializedAs("SkiResortMod.Systems.SkiResortHistoryMonth, SkiResortMod")]
     [InternalBufferCapacity(0)]
     public partial struct SkiResortHistoryMonth : IBufferElementData, ISerializable
     {
@@ -76,6 +79,8 @@ namespace SkiResortMod.Systems
     }
 
     /// <summary>ECS half of the pure SkiResortMonthInProgress (P4). One per Welcome Sign; written only by SkiResortHistorySystem.</summary>
+    // SELF-ALIAS (T74): as SkiResortHistoryMonth above.
+    [FormerlySerializedAs("SkiResortMod.Systems.SkiResortMonthInProgress, SkiResortMod")]
     public partial struct SkiResortMonthInProgress : IComponentData, IQueryTypeParameter, ISerializable
     {
         public void Serialize<TWriter>(TWriter writer) where TWriter : IWriter

@@ -26,6 +26,8 @@ using Unity.Entities;
 
 namespace SkiResortMod.Systems
 {
+    // SELF-ALIAS (T74): the stripped saved AQN, a literal; why and the rules in SkiRunBinding.cs "SELF-ALIAS".
+    [FormerlySerializedAs("SkiResortMod.Systems.SkiSeasonPass, SkiResortMod")]
     public struct SkiSeasonPass : IComponentData, IQueryTypeParameter, ISerializable
     {
         /// <summary>Layout version written by this build (see header). v1 is frozen; bump only when APPENDING a field.</summary>
