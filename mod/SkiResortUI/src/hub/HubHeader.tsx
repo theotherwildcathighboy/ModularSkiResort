@@ -139,7 +139,7 @@ export function HubHeader(): JSX.Element {
           />
         </div>
       ) : (
-        <Tip tip={<TipLines lines={[name, unlinked && t(HUB_LOC.unlinkedHint)]} />}>
+        <Tip tip={<TipLines lines={[name, unlinked ? t(HUB_LOC.unlinkedHint) : t(HUB_LOC.resortTip)]} />}>
           <div className={cx(styles.switcherName, unlinked && styles.warnText)}>{name}</div>
         </Tip>
       )}

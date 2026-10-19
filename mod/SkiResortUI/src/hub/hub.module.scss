@@ -858,12 +858,19 @@
 .buildTile {
   position: relative;
   display: flex;
-  // T31: icon over its short label (was icon only, 44 tall): 2 border + 28 icon + 14 label + 6 air = 50.
+  // T31: icon over its short label (was icon only, 44 tall).
+  // T96 (field 2026-10-19 item 1, shot 22.08.59): the run stripe sat ON the icon. Cause: content was centred in a 50 x fontScale
+  // box, leaving (8 x fontScale - 4) / 2 = 2 rem above the icon at 100 %, while the stripe is absolute at top 2, height 4 (and
+  // Gameface may size the box content-box: the same overlap, 2 rem). Now the stripe has its OWN band: border-box, content from
+  // the top under an 8 rem band (2 air + 4 stripe + 2 air, fixed rem like the stripe itself), then 28 icon + 14 label + 2 air
+  // that scale with the text size: 4 border + 8 band + 44 x fontScale = 56 at 100 %, 78 at 150 %. Tiles without a stripe (lifts,
+  // buildings) keep the same band: their step number and lock / hint dot sit in it.
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: calc(50rem * var(--fontScale));
-  padding: 0rem;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  height: calc(12rem + 44rem * var(--fontScale));
+  padding: 8rem 0rem 0rem 0rem;
   overflow: hidden;
   background-color: var(--sectionBackgroundColor);
   border-style: solid;
@@ -935,12 +942,12 @@
   border-radius: 4rem;
 }
 
-// Run kind stripe along the tile's bottom edge (the run list's marker colours).
+// Run kind stripe along the tile's top edge (the run list's marker colours), in the tile's 8 rem top band (T96: never over the icon).
 .buildStripe {
   position: absolute;
   left: 6rem;
   right: 6rem;
-  top: 2rem; // T31: along the TOP edge now; the bottom holds the label
+  top: 2rem; // T31: along the TOP edge now; the bottom holds the label. T96: band = .buildTile padding-top 8rem
   height: 4rem;
   box-sizing: border-box;
   border-radius: 2rem;
@@ -1616,6 +1623,11 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+// T86 (field 2026-10-19): InfoLine flagDim - a state, not a fault ("No run counts yet"): normal text, dimmed like .dimLine.
+.flagTextDim {
+  color: var(--textColorDimmer);
 }
 
 .infoValue {

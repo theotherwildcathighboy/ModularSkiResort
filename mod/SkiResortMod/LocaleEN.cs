@@ -119,6 +119,8 @@
 // the point (every *TIP* text at most 25 words, tools/test-hub-rules.js T18.4); new RECEIPT_ROW[*], RECEIPT_TIP[Scale], NO_SCHOOL,
 // SCHOOL_NO_GREEN, MOUNTAIN[SnowDepth|SnowCover], MOUNTAIN_TIP[Depth], SKI_DAYS_TIP[Split]; removed MOUNTAIN[Snow|SnowMeasured|
 // SnowEstimated] (snow is always depth + coverage, T18.1-T18.3) and MONEY_TIP[Natural].
+// T86 / T97 field fixes (2026-10-19; HUB_CONTRACT 11 unchanged): new SCHOOL_OFF, SCHOOL_WAITING, BUILD_ACTIVE_UPGRADE, RESORT_TIP;
+// BUILD_TAB_TIP[Buildings] changed in place.
 // Additional languages: further IDictionarySource implementations — see SPEC §13 Phase 6.
 
 using System.Collections.Generic;
@@ -649,6 +651,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.AREA", "Skiable area" },
                 { "SkiResort.Hub.BUILD_EMPTY", "No building tools were reported. See SkiResortMod.Mod.log." },
                 { "SkiResort.Hub.BUILD_ACTIVE", "In use: click again to stop" },
+                { "SkiResort.Hub.BUILD_ACTIVE_UPGRADE", "Joins this ski area's Welcome Sign · click again to stop" },
                 // Round F6 (C4): the hub shows a ski area -> the lodge goes on its sign (T12: the camera no longer flies
                 // there first; SkiResortHubUISystem lodge launch, item A2); BUILD_HINT_LODGE_SELECTED below
                 // is the Not linked / mismatch text (src/hub/BuildStrip.tsx picks one by FooterInfo.lodgeShown).
@@ -686,6 +689,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RESORT_POSITION", "{N} / {COUNT}" },
                 { "SkiResort.Hub.RESORT_DEFAULT", "Ski area {N}" },
                 { "SkiResort.Hub.RESORT_FLY", "Fly to the Welcome Sign" },
+                { "SkiResort.Hub.RESORT_TIP", "The ski area shown: its Welcome Sign and everything built for it." },
                 { "SkiResort.Hub.UNLINKED_ENTRY", "Not linked to a ski area" },
                 { "SkiResort.Hub.UNLINKED_HINT", "More than 5 km from every Welcome Sign. Place a sign nearby to link them." },
                 { "SkiResort.Hub.RENAME", "Rename" },
@@ -845,6 +849,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RECEIPT_TIP[Scale]", "The section total is this scale × the square root of the terms above. Attractiveness scale in Options." },
                 { "SkiResort.Hub.NO_SCHOOL", "No ski school" },
                 { "SkiResort.Hub.SCHOOL_NO_GREEN", "No green run" },
+                { "SkiResort.Hub.SCHOOL_OFF", "Switched off" },
+                { "SkiResort.Hub.SCHOOL_WAITING", "No run counts yet" },
                 { "SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –" },
                 { "SkiResort.Hub.RECEIPT[Efficiency]", "Welcome Sign efficiency" },
                 // Round M2 (R5): changed in place, "garbage" added (one wording across the hub).
@@ -1041,7 +1047,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_TAB[Buildings]", "Buildings" },
                 { "SkiResort.Hub.BUILD_TAB_TIP[Lifts]", "Lifts: build the two stations, then the line. Pick the lift type below." },
                 { "SkiResort.Hub.BUILD_TAB_TIP[Runs]", "Runs: draw a run from the top of a lift, or plan trees with the tree tool." },
-                { "SkiResort.Hub.BUILD_TAB_TIP[Buildings]", "Buildings: the Welcome Sign, lodges, the ski school and patrol. Pick the lodge below." },
+                { "SkiResort.Hub.BUILD_TAB_TIP[Buildings]", "Buildings: lodges, the ski school and patrol join this ski area's Welcome Sign. Pick the lodge below." },
                 { "SkiResort.Hub.BUILD_LABEL[Base]", "Base station" },
                 { "SkiResort.Hub.BUILD_LABEL[Top]", "Top station" },
                 { "SkiResort.Hub.BUILD_LABEL[Line]", "Lift line" },

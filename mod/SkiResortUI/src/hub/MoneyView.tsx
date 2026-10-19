@@ -88,7 +88,7 @@ import type { Translate } from "../l10n";
 import { BUILD_ITEMS, findBuildItem } from "./buildItems";
 import {
   PRICE_EXAMPLES, PRICE_NO_EFFECT_MAX, cityIncomeShown, hubPrice, liveOf, netRowShown, passesShown, presaleShown, priceFactorPct,
-  priceFullWith, schoolState, ticketsRow,
+  priceFullWith, schoolBuiltOf, schoolState, ticketsRow,
 } from "./hubRules";
 import type { SchoolState } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, monthName } from "./hubText";
@@ -294,10 +294,11 @@ function PassRows({ l, month, samples, t }: { l: ResortLive | null; month: strin
 function LessonRow({ l, city, school, month, samples, t }: {
   l: ResortLive | null; city: CityStats; school: SchoolState; month: string; samples: NumberSamples; t: Translate;
 }): JSX.Element | null {
-  if (!l || (!netRowShown("lessons", l, city) && school !== "none")) return null;
+  // T86: lessons need an installed, switched-on school (no green run): "none" and "off" are the 0s with a cause.
+  if (!l || (!netRowShown("lessons", l, city) && school !== "none" && school !== "off")) return null;
   return (
     <InfoLine
-      flag={school === "none" ? t(HUB_LOC.noSchool) : undefined}
+      flag={school === "none" ? t(HUB_LOC.noSchool) : school === "off" ? t(HUB_LOC.schoolOff) : undefined}
       label={<LocText entry={HUB_FMT.moneyRowLessons} args={{ MONTH: month, N: numArg(Math.max(0, l.lessonsThisMonth), Unit.Integer) }} />}
       value={<Cell samples={samples}>{incomeValue(l.lessonIncomeMonth)}</Cell>}
       tip={t(HUB_LOC.moneyTipLessons)}
@@ -404,7 +405,7 @@ function SignMoney({ row, l, city, build, kinds, problems, samples, t }: {
       <TicketsRow l={l} price={city.ticketPrice} samples={samples} t={t} />
       <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} t={t} />
       <LodgeSpendRow l={l} city={city} samples={samples} t={t} />
-      <LessonRow l={l} city={city} school={schoolState(l, problems, row.sign)} month={month} samples={samples} t={t} />
+      <LessonRow l={l} city={city} school={schoolState(l, problems, row.sign, schoolBuiltOf(build))} month={month} samples={samples} t={t} />
       <PassesMonthRow l={l} city={city} samples={samples} t={t} />
       <InfoLine header label={t(HUB_LOC.sectionCosts)} />
       <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />

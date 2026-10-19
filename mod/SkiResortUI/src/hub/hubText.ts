@@ -78,6 +78,9 @@
  * tips have their own caps). New: RECEIPT_ROW[Runs|Lifts|School|Variety|Vertical|Scale], RECEIPT_TIP[Scale] (the Attraction view's
  * terms as rows), NO_SCHOOL / SCHOOL_NO_GREEN (InfoLine `flag`), MOUNTAIN[SnowDepth|SnowCover] + MOUNTAIN_TIP[Depth] (snow = depth +
  * coverage, T18.1-T18.3), SKI_DAYS_TIP[Split]. Removed: MOUNTAIN[Snow|SnowMeasured|SnowEstimated], MONEY_TIP[Natural].
+ * T86 / T97 field fixes (2026-10-19, docs/research/field/2026-10-19/fix-T96-T86-T97.md; contract 11 unchanged): new SCHOOL_OFF,
+ * SCHOOL_WAITING (a built school at 0 says why, hubRules.schoolState), BUILD_ACTIVE_UPGRADE, RESORT_TIP; BUILD_TAB_TIP[Buildings]
+ * changed in place (lodges, school and patrol join the sign).
  * Contract:
  *   - Every entry is a literal `[key, english]` tuple. tools/check-bundle.js rule R4 FAILS the build
  *     unless each key exists in root mod/SkiResortMod/LocaleEN.cs with IDENTICAL text, and WARNS
@@ -113,6 +116,8 @@ export const HUB_LOC = {
   resortPrev: ["SkiResort.Hub.RESORT_PREV", "Previous ski area"],
   resortNext: ["SkiResort.Hub.RESORT_NEXT", "Next ski area"],
   resortFly: ["SkiResort.Hub.RESORT_FLY", "Fly to the Welcome Sign"],
+  /** T97: the header name's tooltip line: the one rule (the panel is one ski area, keyed to its sign). */
+  resortTip: ["SkiResort.Hub.RESORT_TIP", "The ski area shown: its Welcome Sign and everything built for it."],
   unlinkedEntry: ["SkiResort.Hub.UNLINKED_ENTRY", "Not linked to a ski area"],
   unlinkedHint: ["SkiResort.Hub.UNLINKED_HINT", "More than 5 km from every Welcome Sign. Place a sign nearby to link them."],
   rename: ["SkiResort.Hub.RENAME", "Rename"],
@@ -233,6 +238,9 @@ export const HUB_LOC = {
    *  (hubRules.schoolState: no school at all, or a school but no green run counts). */
   noSchool: ["SkiResort.Hub.NO_SCHOOL", "No ski school"],
   schoolNoGreen: ["SkiResort.Hub.SCHOOL_NO_GREEN", "No green run"],
+  /** T86 (field 2026-10-19 item 5): a school that is built but adds 0 says why (hubRules.schoolState "off" / "waiting"). */
+  schoolOff: ["SkiResort.Hub.SCHOOL_OFF", "Switched off"],
+  schoolWaiting: ["SkiResort.Hub.SCHOOL_WAITING", "No run counts yet"],
   receiptOpenNone: ["SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –"],
   receiptEfficiency: ["SkiResort.Hub.RECEIPT[Efficiency]", "Welcome Sign efficiency"],
   receiptTipEfficiency: ["SkiResort.Hub.RECEIPT_TIP[Efficiency]", "As in the Welcome Sign's info panel: staff, power, water, sewage, garbage, budget and more. The score uses the day's average, at most 100 %."],
@@ -417,6 +425,9 @@ export const HUB_LOC = {
   // ---- build strip (6.10) ----
   buildEmpty: ["SkiResort.Hub.BUILD_EMPTY", "No building tools were reported. See SkiResortMod.Mod.log."],
   buildActive: ["SkiResort.Hub.BUILD_ACTIVE", "In use: click again to stop"],
+  /** T97 (field 2026-10-19 item 12): line 2 while a lodge, school or patrol tool is active. The launch selects the sign in the world
+   *  (the engine's Upgrade mode targets the selected building, ObjectToolSystem.cs:3318), so its vanilla panel opens: say why. */
+  buildActiveUpgrade: ["SkiResort.Hub.BUILD_ACTIVE_UPGRADE", "Joins this ski area's Welcome Sign · click again to stop"],
   locked: ["SkiResort.Hub.LOCKED", "Not available yet"],
   buildHintSign: ["SkiResort.Hub.BUILD_HINT_SIGN", "The sign is the ski area: runs and lifts within 5 km belong to it."],
   buildHintLodge: ["SkiResort.Hub.BUILD_HINT_LODGE", "Goes near this ski area's Welcome Sign."],
@@ -808,7 +819,7 @@ export const BUILD_TAB: Readonly<Record<string, LocEntry>> = {
 export const BUILD_TAB_TIP: Readonly<Record<string, LocEntry>> = {
   lifts: ["SkiResort.Hub.BUILD_TAB_TIP[Lifts]", "Lifts: build the two stations, then the line. Pick the lift type below."],
   runs: ["SkiResort.Hub.BUILD_TAB_TIP[Runs]", "Runs: draw a run from the top of a lift, or plan trees with the tree tool."],
-  buildings: ["SkiResort.Hub.BUILD_TAB_TIP[Buildings]", "Buildings: the Welcome Sign, lodges, the ski school and patrol. Pick the lodge below."],
+  buildings: ["SkiResort.Hub.BUILD_TAB_TIP[Buildings]", "Buildings: lodges, the ski school and patrol join this ski area's Welcome Sign. Pick the lodge below."],
 };
 /** A tile's visible label by its role: base / top / line (every lift type), sign, lodge (the chosen tier), school, patrolHut,
  *  patrolHQ, and the four run kinds (short: the Runs tab already says "run"; the tooltip and footer keep RUN_TYPE). */

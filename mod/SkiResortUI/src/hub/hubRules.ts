@@ -852,13 +852,41 @@ export function unfinishedLifts(row: ResortRow, live: ResortLive | null): number
 
 // ---- T80 (2026-10-18): conditional row states --------------------------------------------------------
 
-/** The ski school of a sign, for the rows whose 0 has a cause (T80, Richard item 3): "on" = its value counts (schoolValue > 0);
- *  "noGreen" = built but no green run counts (the sign's PROBLEM.SchoolNoGreenRun row, C# HubProblemCode 25); "none" = no school;
- *  "unknown" = no live row or schoolValue < 0. Reads only C#'s fields: no new contract field. */
-export type SchoolState = "on" | "noGreen" | "none" | "unknown";
-export function schoolState(l: ResortLive | null, problems: readonly ProblemRow[] | null | undefined, sign: Entity | null | undefined): SchoolState {
+/** C# SkiResortHubUISystem.ReasonKeyAlreadyBuilt: build[].reason while the SHOWN sign's InstalledUpgrade buffer already holds the
+ *  item's ForbidMultiple prefab (the school), switched off or not (UpgradeConflict, Deleted / Temp skipped). */
+export const REASON_ALREADY_BUILT = "SkiResort.Hub.REASON[AlreadyBuilt]";
+
+/** The shown sign has a ski school: the school tile carries the AlreadyBuilt lock (C# sends it for the shown sign only). */
+export function schoolBuiltOf(build: readonly BuildItem[] | null | undefined): boolean {
+  for (const b of build ?? []) if (b && b.id === "school" && b.locked && b.reason === REASON_ALREADY_BUILT) return true;
+  return false;
+}
+
+/** The ski school of a sign, for the rows whose 0 has a cause (T80, Richard item 3; T86 field 2026-10-19): "on" = its value counts
+ *  (schoolValue > 0); "noGreen" = runs count but no green one (the sign's PROBLEM.SchoolNoGreenRun row, C# HubProblemCode 25, sent
+ *  only while RunsCounted > 0, SkiResortStatsSystem.cs:2700); "waiting" = built, no run counts at all (live.summer: SkiResortScore.cs
+ *  :414 summer ⇔ RunsCounted == 0, so SchoolRule gives +0, SkiResortScore.cs:467); "off" = built, runs count, still 0 and no row 25:
+ *  the only way is SchoolActive false, the upgrade switched off (BuildingOption.Inactive, SkiResortAttractivenessSystem.cs:1445);
+ *  "none" = no school; "unknown" = no live row or schoolValue < 0. `built` = schoolBuiltOf(build) for the SAME shown sign. Reads only
+ *  C#'s fields: no new contract field. Field 2026-10-19: a school on a sign with no runs read "No ski school" (no row 25 there). */
+export type SchoolState = "on" | "noGreen" | "waiting" | "off" | "none" | "unknown";
+export function schoolState(l: ResortLive | null, problems: readonly ProblemRow[] | null | undefined, sign: Entity | null | undefined,
+  built = false): SchoolState {
   if (!l || !(l.schoolValue >= 0)) return "unknown";
   if (l.schoolValue > 0) return "on";
   for (const p of problems ?? []) if (p && p.code === PROBLEM.SchoolNoGreenRun && sameEntity(p.sign, sign)) return "noGreen";
-  return "none";
+  if (!built) return "none";
+  return l.summer ? "waiting" : "off";
+}
+
+/** The School row's flag (HUB_LOC key name) by state; null = no flag ("on" / "unknown"). "waiting" is a state, not a fault: the
+ *  row draws it dim (InfoLine flagDim). */
+export function schoolFlagOf(s: SchoolState): "noSchool" | "schoolNoGreen" | "schoolOff" | "schoolWaiting" | null {
+  switch (s) {
+    case "none": return "noSchool";
+    case "noGreen": return "schoolNoGreen";
+    case "off": return "schoolOff";
+    case "waiting": return "schoolWaiting";
+    default: return null;
+  }
 }

@@ -20,6 +20,8 @@
     return IDS.map((id) => {
       const it = { id, locked: !!(o.locked && o.locked.includes(id)), active: o.active === id, reason: "" };
       if (it.locked) it.reason = o.lockReason || "Unlock the Ski Resort milestone first.";
+      // T86: C# locks a ForbidMultiple upgrade already on the SHOWN sign with REASON[AlreadyBuilt] (the school; hubRules.schoolBuiltOf).
+      if (o.built && o.built.includes(id)) { it.locked = true; it.reason = "SkiResort.Hub.REASON[AlreadyBuilt]"; }
       if (id.startsWith("run")) {
         it.price = { runNatural: 0, runGroomed: 120, runSnowmaking: 180, runNight: 160, runCatTrack: 60 }[id];
         it.pricePerHa = { runNatural: 0, runGroomed: 450, runSnowmaking: 900, runNight: 700, runCatTrack: 200 }[id];
@@ -159,15 +161,19 @@
     "contract mismatch (DLL 10, UI 11)": Object.assign({}, base, { contract: 10, hubOpen: true }),
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
-      glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed" }) }),
+      glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),
     // T78: 8 years of history, so "All" draws July-June seasons (over 60 months).
     "Ash Flat, 8 years of history": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [moneyFrom(Object.assign({}, live), h8), live2], selectedResort: SIGN,
-      runs, runLive, lifts, problems, history: [h8, history[1]] }),
+      runs, runLive, lifts, problems, history: [h8, history[1]], build: buildItems({ built: ["school"] }) }),
     // T82 B5a: the status line's two other snow states - estimated snow ("≈ 41 cm · 72 %", the season word in the tooltip) and a
     // warning hint that keeps the slot ("Thawing", the snow pair in the tooltip).
     "Ash Flat, snow estimated": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { snowEstimated: true, snowDepthCm: 41, snowPct: 72 }), live2],
-      selectedResort: SIGN, runs, runLive, lifts, problems, history }),
+      selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
     "Ash Flat, thawing": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { seasonHint: 3, snowDepthCm: 22, snowPct: 54, topTempC: 3 }), live2],
-      selectedResort: SIGN, runs, runLive, lifts, problems, history }),
+      selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
+    // T86 (field 2026-10-19, Ash Flat 22:13): a ski school on a sign with no counted run (SUMMER: schoolValue 0, no row 25). The School
+    // row must read "No run counts yet" (dim), never "No ski school".
+    "Ash Flat, school built, no run counts": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { summer: true, schoolValue: 0 }), live2],
+      selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
   };
 })();

@@ -52,11 +52,11 @@
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
-import { BAND, PROBLEM, city$, problems$, resortLive$, resorts$, runs$, sameEntity, selectedResort$ } from "../bindings";
-import type { CityStats, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
+import { BAND, PROBLEM, build$, city$, problems$, resortLive$, resorts$, runs$, sameEntity, selectedResort$ } from "../bindings";
+import type { BuildItem, CityStats, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
-import { factorRowsOf, hectares, liveOf, receiptPartsVariant, resultVariant, schoolState, scoreBarParts } from "./hubRules";
+import { factorRowsOf, hectares, liveOf, receiptPartsVariant, resultVariant, schoolBuiltOf, schoolFlagOf, schoolState, scoreBarParts } from "./hubRules";
 import { ASSET_NAME, BAND_NAME, HUB_FMT, HUB_LOC, factorEntry } from "./hubText";
 import type { BuildItemId } from "../bindings";
 import {
@@ -194,8 +194,8 @@ function problemOf(problems: readonly ProblemRow[] | null | undefined, sign: Res
   return null;
 }
 
-function Receipt({ row, l, city, problems, t }: {
-  row: ResortRow; l: ResortLive | null; city: CityStats; problems: readonly ProblemRow[]; t: Translate;
+function Receipt({ row, l, city, problems, build, t }: {
+  row: ResortRow; l: ResortLive | null; city: CityStats; problems: readonly ProblemRow[]; build: readonly BuildItem[]; t: Translate;
 }): JSX.Element {
   const held = !!l && l.attractionHeld;
   const attraction = l ? l.attraction : -1;
@@ -217,7 +217,9 @@ function Receipt({ row, l, city, problems, t }: {
     VERTICAL: numArg(l ? l.verticalMultiplier : -1, Unit.FloatTwoFractions),
   };
   const school = receiptPartsVariant(l) === "school";
-  const schoolNow = schoolState(l, problems, row.sign);   // T80: the School row's flag
+  // T80: the School row's flag; T86: built-but-0 has its own cause (the build strip's AlreadyBuilt lock = this shown sign has one).
+  const schoolNow = schoolState(l, problems, row.sign, schoolBuiltOf(build));
+  const schoolFlag = schoolFlagOf(schoolNow);
   const K = numArg(city.scaleK, Unit.Integer);
   const noLodgeRow = variant === "noLodge" ? problemOf(problems, row.sign, PROBLEM.NoLodge) : null;
   const allOffRow = variant === "noLodge" && !noLodgeRow ? problemOf(problems, row.sign, PROBLEM.LodgesAllOff) : null;
@@ -291,7 +293,7 @@ function Receipt({ row, l, city, problems, t }: {
         tip={<TipLines lines={[t(HUB_LOC.receiptRowLifts), t(HUB_LOC.receiptTipLifts)]} />} />
       {/* Item 3: no school / no green run is a 0 with the warning glyph and the cause, not a tooltip sentence. */}
       <InfoLine sub op="+" label={t(HUB_LOC.receiptRowSchool)}
-        flag={schoolNow === "none" ? t(HUB_LOC.noSchool) : schoolNow === "noGreen" ? t(HUB_LOC.schoolNoGreen) : undefined}
+        flag={schoolFlag ? t(HUB_LOC[schoolFlag]) : undefined} flagDim={schoolNow === "waiting"}
         value={l && l.schoolValue >= 0 ? numArg(l.schoolValue, Unit.FloatSingleFraction, false, false) : DASH}
         tip={<TipLines lines={[t(HUB_LOC.receiptRowSchool), t(HUB_LOC.receiptTipSchool)]} />} />
       <InfoLine sub op="×" label={t(HUB_LOC.receiptRowVariety)}
@@ -342,6 +344,7 @@ export function OverviewView(): JSX.Element {
   const runs = useValue(runs$);
   const problems = useValue(problems$);
   const city = useValue(city$);
+  const build = useValue(build$);   // T86: the school tile's AlreadyBuilt lock (hubRules.schoolBuiltOf)
 
   const cur = currentResort(resortEntries(resorts), selected);
   const row = cur.row;
@@ -364,7 +367,7 @@ export function OverviewView(): JSX.Element {
   }
   return (
     <>
-      <Receipt row={row} l={l} city={city} problems={problems} t={t} />
+      <Receipt row={row} l={l} city={city} problems={problems} build={build} t={t} />
       <Divider />
       <MountainSection row={row} live={l} city={city} unrateable={unrateable} t={t} />
     </>

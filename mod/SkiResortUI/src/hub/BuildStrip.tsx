@@ -231,7 +231,7 @@ function tileTip(e: OrderedBuildItem, t: Translate, lodgeShown: boolean): JSX.El
         t(nameEntry(e.id)),
         { label: t(HUB_LOC.buildTipOnce), value: onceValue(e.id, e.item) },
         { label: t(HUB_LOC.buildTipMonth), value: monthValue(e.id, e.item, t) },
-        e.item.active ? t(HUB_LOC.buildActive) : t(longEntry(e.id, lodgeShown)),
+        e.item.active ? t(k === "lodge" || k === "school" || k === "patrol" ? HUB_LOC.buildActiveUpgrade : HUB_LOC.buildActive) : t(longEntry(e.id, lodgeShown)),
         (k === "station" || k === "line") && t(HUB_LOC.buildHintLiftSign),
         run && t(HUB_LOC.buildTipLink),
         run && t(HUB_LOC.buildTipReshape),
@@ -293,7 +293,7 @@ function labelEntry(id: BuildItemId): LocEntry {
     case "station": return BUILD_LABEL[stationRole(id) === "top" ? "top" : "base"];
     case "line": return BUILD_LABEL.line;
     case "sign": return BUILD_LABEL.sign;
-    case "lodge": return BUILD_LABEL.lodge;
+    case "lodge": return LODGE_TIER[id] ?? BUILD_LABEL.lodge;   // T97: the tile names the chosen tier (the chip above it)
     case "school": return BUILD_LABEL.school;
     case "patrol": return id === "patrolHQ" ? BUILD_LABEL.patrolHQ : BUILD_LABEL.patrolHut;
     default: return nameEntry(id);
@@ -435,7 +435,10 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   } else if (state === "follow") {
     line1 = <LocText entry={HUB_FMT.follow} args={{ NAME: info.followName ?? "" }} />; line2 = ""; line1Cls = styles.buildLineNormal;
   } else if (state === "active" && activeEntry) {
-    line1 = <Line1 id={activeEntry.id} item={activeEntry.item} t={t} />; line2 = t(HUB_LOC.buildActive);
+    line1 = <Line1 id={activeEntry.id} item={activeEntry.item} t={t} />;
+    // T97: an upgrade (lodge, school, patrol) selects the sign in the world while it is placed: line 2 says what it joins.
+    const k = kindOf(activeEntry.id);
+    line2 = t(k === "lodge" || k === "school" || k === "patrol" ? HUB_LOC.buildActiveUpgrade : HUB_LOC.buildActive);
   } else if (state === "locked" && lockedEntry) {
     line1 = <Line1 id={lockedEntry.id} item={lockedEntry.item} t={t} />;
     line2 = t(sentKeyEntry(lockedEntry.item.reason, HUB_LOC.locked)); line2Cls = styles.buildLineLocked;

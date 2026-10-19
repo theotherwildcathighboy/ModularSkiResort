@@ -425,6 +425,41 @@ function run(srcDir) {
   eq("T19.1 schoolState", [R.schoolState({ schoolValue: 12 }, P25, S1), R.schoolState({ schoolValue: 0 }, P25, S1), R.schoolState({ schoolValue: 0 }, P25, S2),
     R.schoolState({ schoolValue: 0 }, [], S1), R.schoolState({ schoolValue: -1 }, [], S1), R.schoolState(null, P25, S1)],
     ["on", "noGreen", "none", "none", "unknown", "unknown"]);
+  // T86 (field 2026-10-19 item 5): a built school (the tile's AlreadyBuilt lock) at 0 is never "No ski school": no counted run
+  // (live.summer) -> "waiting", runs count with no row 25 -> "off" (switched off); row 25 still wins; the lock must be the school's.
+  const AB = R.REASON_ALREADY_BUILT;
+  eq("T19.2 schoolBuiltOf", [R.schoolBuiltOf([{ id: "school", locked: true, reason: AB }]), R.schoolBuiltOf([{ id: "school", locked: true, reason: "SkiResort.Hub.REASON[Locked]" }]),
+    R.schoolBuiltOf([{ id: "lodge", locked: true, reason: AB }]), R.schoolBuiltOf([{ id: "school", locked: false, reason: "" }]), R.schoolBuiltOf(null)],
+    [true, false, false, false, false]);
+  eq("T19.3 schoolState with a built school", [R.schoolState({ schoolValue: 0, summer: true }, [], S1, true), R.schoolState({ schoolValue: 0, summer: false }, [], S1, true),
+    R.schoolState({ schoolValue: 0, summer: false }, P25, S1, true), R.schoolState({ schoolValue: 12, summer: false }, [], S1, true),
+    R.schoolState({ schoolValue: 0, summer: true }, [], S1, false), R.schoolState({ schoolValue: -1, summer: true }, [], S1, true)],
+    ["waiting", "off", "noGreen", "on", "none", "unknown"]);
+  eq("T19.4 schoolFlagOf", ["none", "noGreen", "off", "waiting", "on", "unknown"].map(R.schoolFlagOf),
+    ["noSchool", "schoolNoGreen", "schoolOff", "schoolWaiting", null, null]);
+  eq("T19.5 the field case (Ash Flat 22:13, log: school on, runs 0/0, SUMMER) reads waiting, not none",
+    R.schoolState({ schoolValue: 0, summer: true }, [], S1, R.schoolBuiltOf([{ id: "school", locked: true, reason: AB }])), "waiting");
+  eq("T19.6 the views pass the lock", [fs.readFileSync(path.join(srcDir, "hub", "OverviewView.tsx"), "utf8").includes("schoolBuiltOf(build)"), fs.readFileSync(path.join(srcDir, "hub", "MoneyView.tsx"), "utf8").includes("schoolBuiltOf(build)")], [true, true]);
+  // T96 (field 2026-10-19 item 1): the run stripe has its own band: .buildTile lays out from the top under an 8 rem padding (the
+  // stripe is absolute at top 2, height 4), border-box, height 12 rem + 44 rem x fontScale; never centred content again.
+  {
+    const scss = fs.readFileSync(path.join(srcDir, "hub", "hub.module.scss"), "utf8");
+    const tile = (scss.match(/\n\.buildTile \{[^}]*\}/) || [""])[0].replace(/\/\/[^\n]*/g, "");
+    const stripe = (scss.match(/\n\.buildStripe \{[^}]*\}/) || [""])[0].replace(/\/\/[^\n]*/g, "");
+    const num = (re, txt) => { const m = txt.match(re); return m ? parseFloat(m[1]) : NaN; };
+    const padTop = num(/padding:\s*([\d.]+)rem/, tile), top = num(/\btop:\s*([\d.]+)rem/, stripe), h = num(/\bheight:\s*([\d.]+)rem/, stripe);
+    eq("T23.1 build tile: stripe band above the icon (top + height < padding-top), content from the top, border-box",
+      [top + h < padTop, /justify-content:\s*flex-start/.test(tile), /box-sizing:\s*border-box/.test(tile),
+        tile.includes("height: calc(12rem + 44rem * var(--fontScale))")],
+      [true, true, true, true]);
+  }
+  // T97 (field 2026-10-19 item 12): the Lodge tile names its tier; an active upgrade tile says it joins the sign; the header tip.
+  {
+    const strip = fs.readFileSync(path.join(srcDir, "hub", "BuildStrip.tsx"), "utf8");
+    const header = fs.readFileSync(path.join(srcDir, "hub", "HubHeader.tsx"), "utf8");
+    eq("T23.2 tier label, upgrade line, header rule", [strip.includes("LODGE_TIER[id] ?? BUILD_LABEL.lodge"),
+      (strip.match(/HUB_LOC\.buildActiveUpgrade/g) || []).length, header.includes("HUB_LOC.resortTip")], [true, 2, true]);
+  }
 
   // T20 (T78 build 2, contract 10; docs/research/ui/hub-history-build-2-2026-10-18.md): the History view. Source checks plus the pure
   // helper's own oracles (tools/test-history-rules.js, run here so gate R18 covers them).
