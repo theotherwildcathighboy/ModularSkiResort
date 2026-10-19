@@ -268,6 +268,13 @@ namespace SkiResortMod
             // Lift tickets (ch4 §5): drains the counter's arrivals; mod-to-mod anchor in the same phase (the
             // SkiRunUpkeepSystem → SkiSnowInjectionSystem precedent). Not load-bearing (drain semantics).
             updateSystem.UpdateAfter<SkiLiftTicketSystem, SkiGuestCounterSystem>(SystemUpdatePhase.GameSimulation);
+            // Hub history (T78 build 1, DECISIONS 283; docs/research/ui/hub-history-build-1-2026-10-18.md): one saved sample per ski
+            // area per closed month on its Welcome Sign, and the month in progress mirrored onto the sign (seeded back on load).
+            // Anchor AND interval are load-bearing: it reads the counter's LastMonthStep and Ledger right after the counter's
+            // AdvanceMonth; with the counter's interval (16) it inherits the counter's offset (UpdateSystem.cs:400-431) and runs in
+            // the same frame after it, so the first tick after a load seeds the ledger before anything mirrors over the save.
+            // GameSimulation: pause stops it; the Editor never arms it.
+            updateSystem.UpdateAfter<SkiResortHistorySystem, SkiGuestCounterSystem>(SystemUpdatePhase.GameSimulation);
             // Lift running charge (ch4 §3, D23): the run-upkeep pattern, next to it in the frame and the log. GameSimulation:
             // pause stops the meter, the Editor never bills.
             updateSystem.UpdateAfter<SkiLiftChargeSystem, SkiRunUpkeepSystem>(SystemUpdatePhase.GameSimulation);

@@ -468,6 +468,13 @@ namespace SkiResortMod.Systems
         /// pass); compare for equality; never reset.</summary>
         internal int Revision { get; private set; }
 
+        /// <summary>T78 (SkiResortHistorySystem, additive): the month this system counts in (SkiMoneyRules.MonthKey; NoMonth before
+        /// its first pass). It steps on its own passes, so it can trail the guest counter's month by up to one pass.</summary>
+        internal int MonthKey => m_Month.Key;
+
+        /// <summary>T78: last month is known but partial (since load, since a jump, or short): its ski-day count is not whole.</summary>
+        internal bool LastMonthPartial => m_Month.LastKnown && m_Month.LastSinceLoad;
+
         /// <summary>The last pass's view of <paramref name="sign"/>. Main thread, no job sync; false: unarmed or
         /// unknown sign (a sign enters at its first applied pass).</summary>
         internal bool TryGetArea(Entity sign, out SkiDayAreaView view)

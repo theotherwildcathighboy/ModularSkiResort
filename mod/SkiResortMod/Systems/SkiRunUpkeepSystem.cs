@@ -70,8 +70,19 @@
 // request in docs/research/field-test-7-notes-impl5.md) can read the same number as the bill. The charge
 // line names the hectares clipped when there are any. Cost: one dictionary lookup per run per charge pass
 // (1,024 frames).
+//
+// PER-AREA BOOKING (T78 P3, DECISIONS 283; docs/research/ui/hub-history-build-1-2026-10-18.md): every debit is also booked
+// per ski area into the guest counter's SkiResortLedger (Month.RunUpkeep, AddRunUpkeep), so the history store keeps each
+// area's real run cost, not a rate. Rule = the hub's per-run rule (SkiResortStatsSystem.CollectRuns): weight of an area =
+// Σ over its bound, catalogued, non-natural runs with active texels of BilledHa × CostPerHaMonth(kind); unbound runs and the
+// part of the bill no catalogued run explains (a run one catalog rebuild behind, billed uncapped) go to Not linked
+// (EntityRef.Null). SkiResortHistory.SplitDebit makes the parts sum exactly to the debit with a per-area carry, so no area
+// drifts. DebitedThisLoad and the money taken are unchanged; the hub's this-month run-cost lines are still the stats
+// system's RATE (CostGroomed/Snowmaking/NightMonth), their meaning is unchanged. Cost: one more catalog pass per charge
+// pass (every 1,024 frames), a handful of ledger writes.
 
 using System;
+using System.Collections.Generic;
 using Colossal.Serialization.Entities;
 using Game;
 using Game.City;
@@ -192,6 +203,16 @@ namespace SkiResortMod.Systems
         // F6 D3 (header FLOOD WINDOW): folds the charge lines; reset per load, flushed before a load.
         private readonly LogWindow m_ChargeLog = new LogWindow(Tuning.LogWindowS);
 
+        // T78 P3 (header PER-AREA BOOKING): the split of each debit over the ski areas; carries per sign, reset per load.
+        private SkiGuestCounterSystem m_Counter;   // looked up lazily (the counter creates this system in its OnCreate)
+        private readonly List<Entity> m_SplitSigns = new List<Entity>(8);
+        private readonly Dictionary<Entity, double> m_SplitCarryOf = new Dictionary<Entity, double>();
+        private double m_SplitCarryNotLinked;
+        private double[] m_SplitWeights = new double[8], m_SplitCarry = new double[8];
+        private long[] m_SplitParts = new long[8];
+        private int m_LastSplitAreas;
+        private long m_LastSplitNotLinked;
+
         protected override void OnCreate()
         {
             base.OnCreate();
@@ -261,6 +282,10 @@ namespace SkiResortMod.Systems
             m_ChargeLog.Reset();   // F6 D3: flushed in OnGamePreload; nothing carries over
             LastMonthlyRate = 0f;
             DebitedThisLoad = 0;   // Round M1 (M7b)
+            m_SplitCarryOf.Clear();   // T78 P3
+            m_SplitCarryNotLinked = 0.0;
+            m_LastSplitAreas = 0;
+            m_LastSplitNotLinked = 0;
             IdleReason = IdleNotArmed;
 
             if (mode != GameMode.Game)
@@ -275,7 +300,8 @@ namespace SkiResortMod.Systems
                          "injection system's ACTIVE thermal mask (gates off = free, summer " +
                          "= free, natural terrain = free), each run's hectares capped at its plan area; charge pass every " +
                          $"{Tuning.ChargeIntervalFrames} sim frames, elapsed-frame accrual " +
-                         "with fractional carry; charge lines at most one per " +
+                         "with fractional carry; each debit split over the ski areas by their runs' billed rate (the hub's per-run rule) " +
+                         "into the guest ledger; charge lines at most one per " +
                          $"LogWindowS={Tuning.LogWindowS:0} s wall clock (a burst is folded into one summary)");
         }
 
@@ -362,6 +388,7 @@ namespace SkiResortMod.Systems
                 money.Subtract(debit);
                 EntityManager.SetComponentData(city, money);
                 DebitedThisLoad += debit;   // Round M1 (M7b): the month's run upkeep in the `Guests [month]` line
+                BookPerArea(debit, monthlyRate, texelHa);   // T78 P3: the same debit, split over the ski areas into the ledger
             }
 
             m_ChargeCounter++;
@@ -388,7 +415,8 @@ namespace SkiResortMod.Systems
                               $"{Tuning.SnowmakingCostPerHaMonth} + groomed {groomedHa:F1} ha × " +
                               $"{Tuning.GroomedCostPerHaMonth} + night {nightHa:F1} ha × " +
                               $"{Tuning.NightCostPerHaMonth}, balance {balance}" +
-                              (clippedHa >= 0.05f ? $" (edge texels over the runs' plan areas not billed: {clippedHa:F1} ha)" : "");
+                              (clippedHa >= 0.05f ? $" (edge texels over the runs' plan areas not billed: {clippedHa:F1} ha)" : "") +
+                              (debit > 0 ? $"; booked to {m_LastSplitAreas} ski area(s)" + (m_LastSplitNotLinked > 0 ? $" + Not linked {m_LastSplitNotLinked}" : "") : "");
                 // F6 D3 (header FLOOD WINDOW): the first line after a quiet window (or the forced
                 // restart) is written as before; the rest of a burst is folded into one summary.
                 switch (m_ChargeLog.Offer(now, force, body, debit, rateBucket))
@@ -405,6 +433,76 @@ namespace SkiResortMod.Systems
             {
                 WriteChargeSummary(now);   // the end of a burst: never silent
             }
+        }
+
+        /// <summary>T78 P3 (header PER-AREA BOOKING): splits <paramref name="debit"/> over the ski areas by each bound run's
+        /// billed rate and books the parts into the guest ledger (AddRunUpkeep). The parts sum exactly to the debit
+        /// (SkiResortHistory.SplitDebit). Main thread; no allocation once the lists have grown to the area count.</summary>
+        private void BookPerArea(int debit, float monthlyRate, float texelHa)
+        {
+            if (m_Counter == null)
+                m_Counter = World.GetExistingSystemManaged<SkiGuestCounterSystem>();
+            if (m_Counter == null || debit <= 0)
+                return;
+            // Weights: the stats system's per-run rule (SkiResortStatsSystem.CollectRuns): BilledHa × CostPerHaMonth(kind) for
+            // every catalogued non-natural run with active texels, grouped by its gate. Cat tracks are in no mask (rate 0).
+            m_SplitSigns.Clear();
+            double bound = 0.0, unbound = 0.0;
+            int rows = m_Catalog.RowCount;
+            for (int i = 0; i < rows; i++)
+            {
+                SkiRunCatalogSystem.RunRow row = m_Catalog.GetRow(i);
+                if (row.Kind == (int)RunKind.Natural)
+                    continue;
+                if (!m_SnowInjectionSystem.TryGetRunActiveTexels(row.Entity, out int texels) || texels <= 0)
+                    continue;
+                double w = (double)BilledHa(texels, texelHa, row.AreaM2) * CostPerHaMonth((RunKind)row.Kind);
+                if (!(w > 0.0) || double.IsInfinity(w))
+                    continue;
+                if (row.Gate == Entity.Null)
+                {
+                    unbound += w;
+                    continue;
+                }
+                int s = m_SplitSigns.IndexOf(row.Gate);
+                if (s < 0)
+                {
+                    s = m_SplitSigns.Count;
+                    m_SplitSigns.Add(row.Gate);
+                    EnsureSplitCapacity(s + 2);
+                    m_SplitWeights[s] = 0.0;
+                }
+                m_SplitWeights[s] += w;
+                bound += w;
+            }
+            int areas = m_SplitSigns.Count;
+            int slots = areas + 1;   // the last slot = Not linked: unbound runs + the part of the bill the catalog does not list
+            EnsureSplitCapacity(slots);
+            m_SplitWeights[areas] = unbound + Math.Max(0.0, monthlyRate - bound - unbound);
+            for (int s = 0; s < areas; s++)
+                m_SplitCarry[s] = m_SplitCarryOf.TryGetValue(m_SplitSigns[s], out double c) ? c : 0.0;
+            m_SplitCarry[areas] = m_SplitCarryNotLinked;
+            SkiResortHistory.SplitDebit(debit, m_SplitWeights, m_SplitCarry, m_SplitParts, slots, areas);
+            SkiResortLedger ledger = m_Counter.Ledger;
+            for (int s = 0; s < areas; s++)
+            {
+                m_SplitCarryOf[m_SplitSigns[s]] = m_SplitCarry[s];
+                ledger.AddRunUpkeep(new EntityRef(m_SplitSigns[s].Index, m_SplitSigns[s].Version), m_SplitParts[s]);
+            }
+            m_SplitCarryNotLinked = m_SplitCarry[areas];
+            ledger.AddRunUpkeep(EntityRef.Null, m_SplitParts[areas]);
+            m_LastSplitAreas = areas;
+            m_LastSplitNotLinked = m_SplitParts[areas];
+        }
+
+        private void EnsureSplitCapacity(int n)
+        {
+            if (m_SplitWeights.Length >= n)
+                return;
+            int size = Math.Max(n, m_SplitWeights.Length * 2);
+            Array.Resize(ref m_SplitWeights, size);
+            Array.Resize(ref m_SplitCarry, size);
+            Array.Resize(ref m_SplitParts, size);
         }
 
         /// <summary>F7 E2 (header PLAN-AREA CAP): takes each catalogued run's texel hectares above its plan

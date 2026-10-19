@@ -109,6 +109,11 @@
 //     SkiDaySystem the leisure scan's phase; GuestArrival.Citizen and the resident maps m_ResidentsThis / Last (the
 //     residents booked into the ledger's month in progress and the month before it, with their visit counts: fixer
 //     R2) answer TryResidentCounted and TryResidentVisits.
+// T78 HISTORY (DECISIONS 283; docs/research/ui/hub-history-build-1-2026-10-18.md; additive): LastMonthStep (each start / roll /
+// jump with the closed month's key and labels), MonthFramesSimulated, MonthByJump and LiveSigns are read by
+// SkiResortHistorySystem (UpdateAfter this system, same 16-frame interval); SeedMonthMeasures moves the month start frame and
+// the run-upkeep / fee baselines back after it seeded the ledger's month in progress from the save. Nothing else changed:
+// the ledger is still Reset here on every load and only this system calls Advance.
 // CONTRACT (house pattern): "created" line; per-load reset and re-arm in OnGameLoadingComplete (Game mode
 // only; SkiOtherMods.Refresh runs there too); OnGamePreload completes jobs, books the finished scan and the
 // ticket system's batch in flight (E1 fixer pass 2), and writes the month in progress (try/caught:
@@ -296,6 +301,49 @@ namespace SkiResortMod.Systems
         internal uint LastLeisureScanFrame { get; private set; }
         /// <summary>False until the first leisure scan of this load.</summary>
         internal bool HasLeisureScan { get; private set; }
+
+        // ── T78 (DECISIONS 283; docs/research/ui/hub-history-build-1-2026-10-18.md): what SkiResortHistorySystem reads ──────
+        /// <summary>One ledger month step (a start, roll or jump) as the counter took it: Generation ++ per step (never reset),
+        /// the closed month's key and labels read BEFORE Advance moved them.</summary>
+        internal struct MonthStepInfo
+        {
+            public int Generation;
+            public SkiResortLedger.AdvanceResult Result;
+            public int ClosedKey, NewKey;          // ClosedKey = NoMonth for a start
+            public bool ClosedSinceLoad;           // counting started partway through the closed month (load or jump)
+            public bool ClosedShort;               // fewer than 95 % of its frames simulated (SkiMoneyRules.IsShortMonth)
+            public uint Frame;
+        }
+        internal MonthStepInfo LastMonthStep { get; private set; }
+
+        /// <summary>Sim frames of the ledger's month in progress simulated so far (0 before the first step); the mirror stores it
+        /// so a seeded month keeps the 95 % short rule whole.</summary>
+        internal uint MonthFramesSimulated => m_HasMonthStart ? m_SimulationSystem.frameIndex - m_MonthStartFrame : 0u;
+
+        /// <summary>The month in progress started at a calendar jump (the " (since the time jump)" label), not at a load.</summary>
+        internal bool MonthByJump => m_MonthByJump;
+
+        /// <summary>Live signs of the last target-map rebuild (main thread; do not keep the list).</summary>
+        internal IReadOnlyList<Entity> LiveSigns => m_Signs;
+
+        /// <summary>T78 P4: after SkiResortHistorySystem seeded the ledger's month in progress from the save (SeedMonth +
+        /// SeedThis), the counter's own month measures follow: the month began <paramref name="framesBefore"/> frames before
+        /// now (the short rule and, for a partial month, the hub's projection); the run-upkeep and fee baselines move back by
+        /// what was seeded, so the `Guests [month]` total line covers the whole month too. Main thread.</summary>
+        internal void SeedMonthMeasures(uint framesBefore, bool partial, bool byJump, long runUpkeepSeeded, long feeSeeded)
+        {
+            uint now = m_SimulationSystem.frameIndex;
+            m_MonthStartFrame = now - framesBefore;   // wrap-safe
+            m_HasMonthStart = true;
+            if (partial)
+            {
+                CountingSinceFrame = m_MonthStartFrame;
+                HasCountingSinceFrame = true;
+            }
+            m_MonthByJump = partial && byJump;
+            m_UpkeepAtMonthStart -= Math.Max(0L, runUpkeepSeeded);
+            m_FeeAtMonthStart -= Math.Max(0L, feeSeeded);
+        }
 
         /// <summary>Round M1 (m1-spec M7 a2, §7.3): was <paramref name="citizen"/> counted as a resident guest (leisure
         /// scan) in the ledger month <paramref name="monthKey"/> (SkiMoneyRules.MonthKey)? False when that month is
@@ -736,7 +784,17 @@ namespace SkiResortMod.Systems
                 closedShort = SkiMoneyRules.IsShortMonth(simulated, dpy);
                 pct = SkiMoneyRules.SimulatedPct(simulated, dpy);
             }
-            switch (m_Ledger.Advance(key, closedShort))
+            SkiResortLedger.AdvanceResult step = m_Ledger.Advance(key, closedShort);
+            if (step != SkiResortLedger.AdvanceResult.None)
+            {
+                // T78: what the history system reads (the closed month's labels were read before Advance moved them)
+                LastMonthStep = new MonthStepInfo
+                {
+                    Generation = LastMonthStep.Generation + 1, Result = step, ClosedKey = prev, NewKey = key,
+                    ClosedSinceLoad = closedSinceLoad, ClosedShort = closedShort, Frame = now,
+                };
+            }
+            switch (step)
             {
                 case SkiResortLedger.AdvanceResult.Started:
                     CountingSinceFrame = now;   // E1 fixer F8

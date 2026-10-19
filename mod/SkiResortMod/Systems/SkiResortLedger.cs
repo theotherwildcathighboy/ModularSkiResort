@@ -1,6 +1,6 @@
 // SkiResortLedger — the PURE monthly guest and money ledger of Round E1 (docs/research/econ-round/spec/
 // ch4-money.md §4.6, §6.2; decisions D25 guests, D26 tickets, D23 lift charge). In memory only, reset on
-// every load (nothing is serialized); one Entry per ski area keyed by its sign as an EntityRef, with
+// every load (nothing is serialized; T78 P4 restores the month in progress, header HISTORY); one Entry per ski area keyed by its sign as an EntityRef, with
 // EntityRef.Null = Not linked (lift charges only). Consumers: SkiGuestCounterSystem (owner of the one
 // instance, Advance / AddArrival / Prune), SkiLiftTicketSystem (AddTickets), SkiLiftChargeSystem
 // (AddLiftCharge), SkiResortStatsSystem (Entry.This / Last and the month flags), tests/ResortBatch
@@ -63,6 +63,15 @@
 // PassesSold / PassIncome (the totals still count every pass once), also kept per season on the Entry (PassSeasonPre /
 // PassSeasonPreIncome; PassSeasonPreOf / PassSeasonPreIncomeOf). Advance / Total carry the month fields.
 //
+// HISTORY (T78, DECISIONS 283; docs/research/ui/hub-history-build-1-2026-10-18.md): the ledger itself stays in memory and is
+// still Reset on every load. Two additions. P3: Month.RunUpkeep, booked per ski area by SkiRunUpkeepSystem (AddRunUpkeep, the
+// AddTickets rules); Σ over the entries, Not linked included, = the city-wide `run upkeep` of the `Guests [month]` line. P4:
+// SkiResortHistorySystem mirrors each area's This (and its pass season) into the saved SkiResortMonthInProgress component and,
+// after a load, SeedMonth(key, partial) + SeedThis(sign, …) add the saved month back when its key is the ledger's month, so
+// ThisMonthSinceLoad is false again for a month that was whole up to the save. Another key seeds nothing (counting stays
+// since-load). Not linked (EntityRef.Null) has no sign to carry it and is not restored. Closed months go to the per-sign
+// history buffer (SkiResortHistory.cs), not here.
+//
 // PURE FILE: `using System;` and `using System.Collections.Generic;` plus EntityRef only (tests/ResortBatch
 // links it).
 
@@ -94,6 +103,9 @@ namespace SkiResortMod.Systems
             public long PassIncomePre;
             public int Lessons;
             public long LessonIncome;
+            // T78 P3 (header HISTORY): the run upkeep debited from the city for this ski area's runs (₵, whole credits;
+            // EntityRef.Null = unbound runs and runs the catalog does not list yet). Booked by SkiRunUpkeepSystem.
+            public long RunUpkeep;
             public int Guests => TouristGuests + LocalGuests;
         }
 
@@ -360,6 +372,96 @@ namespace SkiResortMod.Systems
             Revision++;
         }
 
+        /// <summary>T78 P3: adds the run upkeep debited for this ski area's runs (EntityRef.Null = Not linked); an amount ≤ 0
+        /// changes nothing (no entry is created); else the entry is created on first use and Revision moves.</summary>
+        public void AddRunUpkeep(EntityRef sign, long amount)
+        {
+            if (amount <= 0)
+                return;
+            int i = IndexOf(sign);
+            Entry e = m_Entries[i];
+            e.This.RunUpkeep += amount;
+            m_Entries[i] = e;
+            Revision++;
+        }
+
+        /// <summary>T78 P4 (header HISTORY): accepts a saved month in progress for the ledger's month. False, and nothing
+        /// changes, unless the ledger has started (MonthKey != NoMonth) and <paramref name="monthKey"/> is its month. True:
+        /// ThisMonthSinceLoad = <paramref name="partial"/> (the saved month's own state: a month that was whole up to the save is
+        /// whole again), Revision++. The caller then adds each area's saved numbers with SeedThis.</summary>
+        public bool SeedMonth(int monthKey, bool partial)
+        {
+            if (MonthKey == NoMonth || monthKey != MonthKey)
+                return false;
+            ThisMonthSinceLoad = partial;
+            Revision++;
+            return true;
+        }
+
+        /// <summary>T78 P4: ADDS a saved month in progress into this ski area's This (whatever was booked since the load stays:
+        /// the first scans after a load are baselines, so nothing is counted twice), and its pass season totals — added when the
+        /// entry holds the same season, taken when it holds none, ignored when it already holds another season. Inputs below 0
+        /// read 0. Call only after SeedMonth returned true. An all-zero month changes nothing.</summary>
+        public void SeedThis(EntityRef sign, in Month saved, int passSeasonKey, int passSeasonSold, long passSeasonIncome,
+                             int passSeasonPre, long passSeasonPreIncome)
+        {
+            bool season = passSeasonSold > 0 || passSeasonIncome > 0;
+            if (IsZero(saved) && !season)
+                return;
+            int i = IndexOf(sign);
+            Entry e = m_Entries[i];
+            Month m = e.This;
+            m.TouristGuests += Math.Max(0, saved.TouristGuests);
+            m.TouristParties += Math.Max(0, saved.TouristParties);
+            m.LocalGuests += Math.Max(0, saved.LocalGuests);
+            m.TouristOnLeisure += Math.Max(0, saved.TouristOnLeisure);
+            m.TicketsPaid += Math.Max(0, saved.TicketsPaid);
+            m.TicketsUnpaid += Math.Max(0, saved.TicketsUnpaid);
+            m.TicketsFree += Math.Max(0, saved.TicketsFree);
+            m.TicketIncome += Math.Max(0L, saved.TicketIncome);
+            if (saved.LiftCharged > 0.0 && !double.IsInfinity(saved.LiftCharged))
+                m.LiftCharged += saved.LiftCharged;
+            m.LodgeSpends += Math.Max(0, saved.LodgeSpends);
+            m.LodgeSpendIncome += Math.Max(0L, saved.LodgeSpendIncome);
+            m.PassesSold += Math.Max(0, saved.PassesSold);
+            m.PassIncome += Math.Max(0L, saved.PassIncome);
+            m.PassHolderGuests += Math.Max(0, saved.PassHolderGuests);
+            m.PassesPre += Math.Max(0, saved.PassesPre);
+            m.PassIncomePre += Math.Max(0L, saved.PassIncomePre);
+            m.Lessons += Math.Max(0, saved.Lessons);
+            m.LessonIncome += Math.Max(0L, saved.LessonIncome);
+            m.RunUpkeep += Math.Max(0L, saved.RunUpkeep);
+            e.This = m;
+            if (season && passSeasonKey != NoSeason)
+            {
+                bool empty = e.PassSeasonSold == 0 && e.PassSeasonIncome == 0;
+                if (empty && e.PassSeasonKey != passSeasonKey)
+                {
+                    e.PassSeasonKey = passSeasonKey;
+                    e.PassSeasonSold = e.PassSeasonPre = 0;
+                    e.PassSeasonIncome = e.PassSeasonPreIncome = 0;
+                }
+                if (e.PassSeasonKey == passSeasonKey)
+                {
+                    e.PassSeasonSold += Math.Max(0, passSeasonSold);
+                    e.PassSeasonIncome += Math.Max(0L, passSeasonIncome);
+                    e.PassSeasonPre += Math.Max(0, passSeasonPre);
+                    e.PassSeasonPreIncome += Math.Max(0L, passSeasonPreIncome);
+                }
+            }
+            m_Entries[i] = e;
+            Revision++;
+        }
+
+        private static bool IsZero(in Month m)
+        {
+            return m.TouristGuests <= 0 && m.TouristParties <= 0 && m.LocalGuests <= 0 && m.TouristOnLeisure <= 0 &&
+                   m.TicketsPaid <= 0 && m.TicketsUnpaid <= 0 && m.TicketsFree <= 0 && m.TicketIncome <= 0 &&
+                   !(m.LiftCharged > 0.0) && m.LodgeSpends <= 0 && m.LodgeSpendIncome <= 0 && m.PassesSold <= 0 &&
+                   m.PassIncome <= 0 && m.PassHolderGuests <= 0 && m.PassesPre <= 0 && m.PassIncomePre <= 0 &&
+                   m.Lessons <= 0 && m.LessonIncome <= 0 && m.RunUpkeep <= 0;
+        }
+
         /// <summary>Drops entries whose sign is not live; keeps EntityRef.Null; returns how many.
         /// Order of the kept entries is unchanged.</summary>
         public int Prune(HashSet<EntityRef> liveSigns)
@@ -407,6 +509,7 @@ namespace SkiResortMod.Systems
                 t.PassIncomePre += m.PassIncomePre;
                 t.Lessons += m.Lessons;
                 t.LessonIncome += m.LessonIncome;
+                t.RunUpkeep += m.RunUpkeep;                  // T78 P3
             }
             return t;
         }

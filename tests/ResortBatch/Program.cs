@@ -106,6 +106,7 @@ namespace ResortBatch
             UnpoweredTests.Run(Check);   // Phase D (round-4-contract §7.2): unpowered lifts are inert, full upkeep (UP-1 to UP-6)
             CatTrackTests.Run(Check);   // T54 probe 1: the cat track's pure rules (CT54-1 to CT54-7)
             SnowGunPlumeTests.Run(Check);   // T46: the guns-running predicate, the plume and its lease (GP-1 to GP-6)
+            HistoryTests.Run(Check);   // T78 build 1: hub history store, codecs, upkeep split, month-in-progress seed (H-1 to H-9)
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  ResortBatch checks={0} failures={1}", s_Checks, s_Failures));
             Environment.ExitCode = s_Failures;
