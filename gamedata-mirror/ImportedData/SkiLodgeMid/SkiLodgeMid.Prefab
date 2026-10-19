@@ -8,7 +8,7 @@
     "components": {
         "$id": 1,
         "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
-        "$rlength": 8,
+        "$rlength": 9,
         "$rcontent": [
             {
                 "$id": 2,
@@ -85,6 +85,56 @@
                 "m_Priority": 12,
                 "m_Icon": "assetdb://global/d3df64753c68a935d57aff51fc52815b",
                 "m_IsDebugObject": false
+            },
+            {
+                "$id": 55,
+                "$type": "18|Game.Prefabs.BuildingTerraformOverride, Game",
+                "name": "BuildingTerraformOverride",
+                "active": true,
+                "m_LevelMinOffset": {
+                    "$type": "19|Unity.Mathematics.float2, Unity.Mathematics",
+                    "x": 1600,
+                    "y": 1600
+                },
+                "m_LevelMaxOffset": {
+                    "$type": 19,
+                    "x": 0,
+                    "y": 0
+                },
+                "m_LevelFrontLeft": {
+                    "$type": 19,
+                    "x": 1,
+                    "y": 1
+                },
+                "m_LevelFrontRight": {
+                    "$type": 19,
+                    "x": 1,
+                    "y": 1
+                },
+                "m_LevelBackLeft": {
+                    "$type": 19,
+                    "x": 1,
+                    "y": 1
+                },
+                "m_LevelBackRight": {
+                    "$type": 19,
+                    "x": 1,
+                    "y": 1
+                },
+                "m_SmoothMinOffset": {
+                    "$type": 19,
+                    "x": 0,
+                    "y": 0
+                },
+                "m_SmoothMaxOffset": {
+                    "$type": 19,
+                    "x": 0,
+                    "y": 0
+                },
+                "m_HeightOffset": 0,
+                "m_AdditionalSmoothAreas": null,
+                "m_DontRaise": true,
+                "m_DontLower": true
             },
             {
                 "$id": 10,
