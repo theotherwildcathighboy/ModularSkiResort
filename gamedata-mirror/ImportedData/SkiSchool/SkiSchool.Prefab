@@ -8,7 +8,7 @@
     "components": {
         "$id": 1,
         "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
-        "$rlength": 9,
+        "$rlength": 11,
         "$rcontent": [
             {
                 "$id": 2,
@@ -22,23 +22,32 @@
                 "m_TelecomNeed": 0
             },
             {
-                "$id": 3,
-                "$type": "3|Game.Prefabs.ServiceUpgrade, Game",
-                "name": "ServiceUpgrade",
+                "$id": 120,
+                "$type": "24|Game.Prefabs.ServiceObject, Game",
+                "name": "ServiceObject",
                 "active": true,
-                "m_Buildings": {
-                    "$id": 4,
-                    "$type": "4|Game.Prefabs.BuildingPrefab[], Game",
-                    "$rlength": 1,
+                "m_Service": $fstrref:"UnityGUID:5c1f656a5ea20284197a71e4997b4187"
+            },
+            {
+                "$id": 121,
+                "$type": "25|Game.Prefabs.PlaceableObject, Game",
+                "name": "PlaceableObject",
+                "active": true,
+                "m_ConstructionCost": 80000,
+                "m_XPReward": 150
+            },
+            {
+                "$id": 122,
+                "$type": "26|Game.Prefabs.CityServiceBuilding, Game",
+                "name": "CityServiceBuilding",
+                "active": true,
+                "m_Upkeeps": {
+                    "$id": 123,
+                    "$type": "27|Game.Prefabs.ServiceUpkeepItem[], Game",
+                    "$rlength": 0,
                     "$rcontent": [
-                        $fstrref:"CID:4d1c1615eb1bd62b7caa7235bb671e5f"
                     ]
-                },
-                "m_UpgradeCost": 80000,
-                "m_XPReward": 150,
-                "m_MaxPlacementOffset": 3,
-                "m_MaxPlacementDistance": 5000,
-                "m_ForbidMultiple": true
+                }
             },
             {
                 "$id": 5,

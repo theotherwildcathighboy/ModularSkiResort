@@ -1272,10 +1272,17 @@ namespace LiftBatch
 
         private static void UpgradeFields(string text, string prefab, int cost, bool forbid, int jobs, int upkeep, string w)
         {
-            MirrorNum(text, @"""m_UpgradeCost"":\s*(-?[0-9.]+)", cost, w, prefab + " ServiceUpgrade m_UpgradeCost");
-            Match fm = Regex.Match(text, @"""m_ForbidMultiple"":\s*(true|false)");
-            if (Check(fm.Success, w, prefab + ": no m_ForbidMultiple in the mirror"))
-                Eq(forbid ? "true" : "false", fm.Groups[1].Value, w, prefab + " m_ForbidMultiple");
+            // T100 (DECISIONS 309): a converted top-level row has no ServiceUpgrade block; its cost sits on PlaceableObject and
+            // the engine's ForbidMultiple is gone (the hub keeps a soft lock). The row constants are unchanged.
+            bool topLevel = !text.Contains("Game.Prefabs.ServiceUpgrade, Game");
+            MirrorNum(text, topLevel ? PlaceableCost : @"""m_UpgradeCost"":\s*(-?[0-9.]+)", cost, w,
+                      prefab + (topLevel ? " PlaceableObject m_ConstructionCost (top-level, T100)" : " ServiceUpgrade m_UpgradeCost"));
+            if (!topLevel)
+            {
+                Match fm = Regex.Match(text, @"""m_ForbidMultiple"":\s*(true|false)");
+                if (Check(fm.Success, w, prefab + ": no m_ForbidMultiple in the mirror"))
+                    Eq(forbid ? "true" : "false", fm.Groups[1].Value, w, prefab + " m_ForbidMultiple");
+            }
             MirrorNum(text, @"""m_Workplaces"":\s*(-?[0-9.]+)", jobs, w, prefab + " Workplace m_Workplaces");
             MirrorNum(text, @"""m_Upkeep"":\s*(-?[0-9.]+)", upkeep, w, prefab + " ServiceConsumption m_Upkeep");
         }

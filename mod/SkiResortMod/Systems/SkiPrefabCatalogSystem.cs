@@ -404,6 +404,15 @@ namespace SkiResortMod.Systems
             return m_Lodges.Contains(prefab) || m_Schools.Contains(prefab) || m_Patrols.Contains(prefab);
         }
 
+        /// <summary>T100 (spec (b) site 11): the RUNTIME fact behind "launch through the sign's Upgrade tool": the prefab carries
+        /// ServiceUpgradeData. False for a converted top-level building (SkiSchool since 2026-10-19), which is placed like a
+        /// station (ActivatePrefabTool); SkiCatalog's Kind-derived BuildItemDef.IsUpgrade stays the row's default until every
+        /// prefab of the family has converted (LiftBatch CatalogTests asserts it). Event time only.</summary>
+        internal bool IsUpgradePrefab(Entity prefab)
+        {
+            return prefab != Entity.Null && EntityManager.HasComponent<ServiceUpgradeData>(prefab);
+        }
+
         internal bool IsSign(Entity prefab)
         {
             EnsureFresh();

@@ -16,6 +16,11 @@
 //     ACTIVE unless its buffer entry carries BuildingOption.Inactive (BuildingUtils.CheckOption
 //     (InstalledUpgrade, …), BuildingUtils.cs:356 — the attraction chapter's rule, ch1 §7.2): the live
 //     count feeds the problems band at once (C7), the Result's ActiveLodges feeds the tile.
+//   * School  (T100, top-level since 2026-10-19) = the attraction snapshot's link (SkiResortAttractivenessSystem
+//     .CopySchoolLinks: nearest live sign within the tether, SchoolLinkRules); its jobs (AddJobs) and its own
+//     upkeep and wages (BuildingCostSplit per building, CityServiceBuilding D2) are added to its area's Jobs /
+//     Buildings / Wages, where a child school's were merged into the sign's. Score facts (SchoolValue, row 25) come
+//     from the Result as before.
 //   * Lift    = TryResolveResort(base station xz); no base → top station; no station → the anchor
 //     edge's start node: the nearest live sign with distance <= SkiRunOwnershipSystem.TetherMeters,
 //     ties by distance then Index then Version (SkiResortIndex). None → Not linked (OD-1 (a): worked
@@ -541,6 +546,8 @@ namespace SkiResortMod.Systems
         private readonly List<Entity> m_LodgeEntities = new List<Entity>(4);      // every live lodge building
         private readonly Dictionary<Entity, int> m_LodgeResort = new Dictionary<Entity, int>();   // lodge → resort index
         private readonly HashSet<Entity> m_LodgeActive = new HashSet<Entity>();                    // listed and not Inactive
+        private readonly List<Entity> m_TopSchools = new List<Entity>(2);       // T100: CopySchoolLinks, per rebuild
+        private readonly List<Entity> m_TopSchoolSigns = new List<Entity>(2);   // T100: the school's sign, Entity.Null = not linked
         private readonly HashSet<Entity> m_NoRoad = new HashSet<Entity>();                         // F7 D5: signs / lodges, m_RoadEdge Null
         private readonly Dictionary<Entity, int> m_ProviderOf = new Dictionary<Entity, int>();    // our signs / lodges → a
         private readonly HashSet<Entity> m_Ours = new HashSet<Entity>();
@@ -2012,6 +2019,8 @@ namespace SkiResortMod.Systems
 
             // Upkeep inputs (CityServiceBudgetSystem.cs:392-421), fetched once per rebuild.
             bool upkeepReady = PrepareUpkeep(out EconomyParameterData economy, out ResourcePrefabs resourcePrefabs);
+            // T100: the top-level schools and their signs (the attraction snapshot's links, the score's own membership).
+            m_Attractiveness.CopySchoolLinks(m_TopSchools, m_TopSchoolSigns);
 
             // Contract 8: the game's TouristIncome statistic, once per rebuild (GetStatisticValue completes the
             // statistics writers, a short sync); not read under Tourism Overhaul (the UI hides the row), -1 when unavailable.
@@ -2227,6 +2236,12 @@ namespace SkiResortMod.Systems
                 }
                 int jobs = 0, filled = 0;
                 AddJobs(sign, ref jobs, ref filled);
+                // T100 (spec (b) site 4): a linked top-level school's jobs are its own now (a child's merged into the sign).
+                for (int t = 0; t < m_TopSchools.Count; t++)
+                {
+                    if (m_TopSchoolSigns[t] == sign)
+                        AddJobs(m_TopSchools[t], ref jobs, ref filled);
+                }
                 live.Jobs = jobs;
                 live.JobsFilled = filled;
                 live.NextStep = (int)HubRules.NextStep(row.Lodges, work.CompleteLifts, row.Runs);   // C8
@@ -2361,6 +2376,19 @@ namespace SkiResortMod.Systems
                 {
                     buildingsF = b;
                     wagesF = w;
+                    // T100 (spec (b) site 5): a linked top-level school is billed on its own (CityServiceBuilding, D2): the
+                    // same game formula per building, summed. A child's upkeep and wages were merged into the sign's.
+                    for (int t = 0; t < m_TopSchools.Count; t++)
+                    {
+                        Entity school = m_TopSchools[t];
+                        if (m_TopSchoolSigns[t] != sign || !EntityManager.TryGetComponent(school, out PrefabRef schoolRef))
+                            continue;
+                        if (BuildingCostSplit(school, schoolRef.m_Prefab, economy, resourcePrefabs, out float schoolB, out float schoolW))
+                        {
+                            buildingsF += schoolB;
+                            wagesF += schoolW;
+                        }
+                    }
                 }
                 live.BuildingsMonth = buildingsF >= 0f ? RoundToInt(buildingsF) : -1;
                 live.WagesMonth = wagesF >= 0f ? RoundToInt(wagesF) : -1;

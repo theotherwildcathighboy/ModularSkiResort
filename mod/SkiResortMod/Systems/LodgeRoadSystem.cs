@@ -360,6 +360,7 @@ namespace SkiResortMod.Systems
             List<RoadRow> rows = Rows();
             var states = new List<string>(rows.Count);
             var pending = new List<string>(rows.Count);
+            var topLevel = new List<string>(rows.Count);   // T100
             for (int r = 0; r < rows.Count; r++)
             {
                 RoadRow row = rows[r];
@@ -374,6 +375,16 @@ namespace SkiResortMod.Systems
                 }
                 if (row.What == "lodge" && m_LodgePrefab == Entity.Null)
                     m_LodgePrefab = prefab;
+                // T100 (spec (b) site 12): a TOP-LEVEL row (the prefab has no ServiceUpgradeData, e.g. SkiSchool since
+                // 2026-10-19) is never marked NoRoadConnection: the game's own top-level branch sets RequireRoad from its
+                // uncovered demands (BuildingInitializeSystem.cs:156-170 is the upgrade branch, :209-300 the native one).
+                // Nothing written, no "rule changed" WARN; one Info line below.
+                if (prefab != Entity.Null && !EntityManager.HasComponent<ServiceUpgradeData>(prefab))
+                {
+                    topLevel.Add(row.Prefab);
+                    states.Add(row.Prefab + ": not written (top-level building: the game's own road rule, T100)");
+                    continue;
+                }
                 if (row.Rule != LodgeRoadRule.Base)
                     CoverageGuard(row, prefab);
                 if (row.Rule == LodgeRoadRule.None)
@@ -387,6 +398,9 @@ namespace SkiResortMod.Systems
             if (pending.Count > 0)
                 Mod.Log.Info($"LodgeRoad: pending prefab(s) not imported yet — nothing written for them: '{string.Join("', '", pending.ToArray())}' " +
                              "(SkiCatalog names; their road rule applies at the first load after the import)");
+            if (topLevel.Count > 0)
+                Mod.Log.Info($"LodgeRoad: top-level prefab(s) — nothing written, the game's own road rule applies (RequireRoad from " +
+                             $"their power / water / garbage / worker demands): '{string.Join("', '", topLevel.ToArray())}' (T100)");
             m_State = string.Join("; ", states.ToArray());
         }
 
