@@ -28,3 +28,6 @@
   font-size: var(--sl-text-xs);
   white-space: nowrap;
 }
+
+.hero .actions { justify-content: center; }
+.hero .actions .sl-link-button { font-size: 1.15rem; padding: 0.75rem 1.5rem; }

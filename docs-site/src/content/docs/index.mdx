@@ -10,37 +10,34 @@ hero:
     light: ../../assets/resort-logo-navy.svg
   tagline: Ski resorts for Cities Skylines II. Drawn lifts and runs on the game's own snow.
   actions:
-    - text: First Resort
-      link: /getting-started/first-resort/
+    - text: Build a Resort
+      link: /quickstart/
       icon: right-arrow
-    - text: Guides
-      link: /guides/lifts/
-      variant: minimal
 ---
 
 import { CardGrid } from '@astrojs/starlight/components';
 import FeatureCard from '../../components/FeatureCard.astro';
 import Shot from '../../components/Shot.astro';
 
-<Shot label="Hero shot: a winter lift line up a bowl, lodge and Welcome Sign in the foreground, runs in difficulty colours." />
+<Shot label="Hero shot: a winter lift line up a bowl, lodge and Welcome Sign in the foreground, runs in difficulty colors." />
 
 ## Features
 
 <CardGrid>
   <FeatureCard title="Lifts" icon="lift-detachable" alt="Detachable lift icon">
-    Fixed-grip and detachable chairlifts, gondolas and an aerial tram. Tower height follows the terrain
-    and the cable sags under the carriers.
+    Fixed-grip and detachable chairlifts, gondolas and an aerial tram. Chairs and cabins ride the cable.
+    Tower height follows the terrain and the cable sags under the carriers.
   </FeatureCard>
   <FeatureCard title="Runs" icon="run-groomed" alt="Groomed run icon">
-    Run outline rated green to double black from its slope. Snow comes from the game's own simulation;
+    Draw a run; its slope sets the rating, green to double black. Snow comes from the game's own simulation;
     snow guns extend the season where it is cold enough.
   </FeatureCard>
-  <FeatureCard title="Lodges, School, Patrol" icon="lodge-grand" alt="Swanky Grand Lodge icon">
-    **5** lodge tiers, a ski school and patrol huts, all upgrades of the Welcome Sign (the ski area).
+  <FeatureCard title="Lodges, Ski School, Patrol" icon="lodge-grand" alt="Swanky Grand Lodge icon">
+    **5** lodge tiers, a Ski School and patrol huts, all upgrades of the Welcome Sign (the ski area).
     Guests and locals ski; the city's tourism responds.
   </FeatureCard>
   <FeatureCard title="Hub" icon="glyph-history" alt="Hub History tile glyph">
-    One panel: score, runs, lifts, guests, finances, history and every building tool.
+    Interface for attractiveness score, runs, lifts, guests, finances, historical performance, and building tools.
   </FeatureCard>
 </CardGrid>
 
@@ -60,7 +57,7 @@ import Shot from '../../components/Shot.astro';
 
 ## Next
 
-- [First Resort](/getting-started/first-resort/)
+- [Resort Quickstart](/quickstart/)
 - [Economy](/guides/economy-panel/): where resort income appears in the Economy panel.
 - [Asset Pipeline](/asset-pipeline/): how a building, tower or station is made.
 - [Timeline](/timeline/): what was built, changed and discarded, with dates.

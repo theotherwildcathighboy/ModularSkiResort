@@ -7,7 +7,9 @@
   "license": "MIT",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "lock:check": "node tools/docs-lock-check.js",
+    "lock:relock": "node tools/docs-lock-check.js --relock",
+    "build": "npm run lock:check && astro build",
     "preview": "astro preview",
     "astro": "astro"
   },

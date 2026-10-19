@@ -29,19 +29,19 @@ One-time: repository Settings > Pages > Source = GitHub Actions. The workflow se
 the repository (`https://<owner>.github.io` and `/<repo>`); locally they default to the root. For a custom domain,
 set `DOCS_SITE` to it, `DOCS_BASE` to `/`, and add `public/CNAME`.
 
-## How the pages are organised
+## How the pages are organized
 
 ```text
 src/content/docs/
   index.mdx                     Home: pitch, install, one hero screenshot
-  getting-started/              Your first resort in 10 minutes
+  quickstart.mdx                Resort quickstart: the fewest steps to a working resort
   guides/                       How-to, in the order a player meets things
   reference/                    Numbers: buildings, lifts, the attraction formula, settings
-  asset-pipeline.mdx            For modellers: budgets, LODs, texel density, tile sheet, vanilla props, gates
+  asset-pipeline.mdx            For modelers: budgets, LODs, texel density, tile sheet, vanilla props, gates
   timeline.mdx                  Dated list of what was explored, built, changed, discarded, and why (ledger #n at row end)
   changelog.mdx                 Version history
-  credits.mdx                   Credits and licences
-src/components/Shot.astro       Labelled grey box for a screenshot that does not exist yet
+  credits.mdx                   Credits and licenses
+src/components/Shot.astro       Labeled gray box for a screenshot that does not exist yet
 src/components/Icon.astro       One of the mod's own icons inline (public/icons/, copied from the game-side icon set)
 src/assets/resort-logo-*.svg    The launcher glyph (peak and snowflake) for the header and home hero; white and navy
 src/styles/custom.css           The only custom style (the Shot box, inline icons, timeline refs)
@@ -75,3 +75,11 @@ The sidebar is written by hand in `astro.config.mjs`, so a new page needs a line
 
 The skeleton, the page list with its sources and what is still placeholder are in the project's
 `docs/research/ui/docs-site-skeleton-2026-10-19.md`.
+
+## Protected writing
+
+The author's own text sits inside `<!-- LOCK -->` and `<!-- /LOCK -->` markers, and a page whose frontmatter has `locked: true` is locked whole. An AI session must not edit inside those markers or those pages.
+
+- `npm run lock:check` (also the first step of `npm run build`) hashes each locked region and fails with the file path if one changed, went missing, or is new and not yet locked.
+- `npm run lock:relock` rewrites `docs-lock.json`. Run it only when the author asks.
+- Lock keys are `<path>#<n>` for the n-th region in a file and `<path>#page` for a locked page.

@@ -1,6 +1,6 @@
 ---
 title: Attraction Formula
-description: Ski area attraction score from lodges, runs, lifts, ski school, variety and vertical, and its conversion to tourists.
+description: Ski area attraction score from lodges, runs, lifts, Ski School, variety and vertical, and its conversion to tourists.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -17,7 +17,7 @@ Score formula and its inputs.
 ```text
 score = min( 200 , efficiency × ( lodge base + K × √S ) )
 
-S     = ( runs + lifts + school ) × variety × vertical
+S     = ( runs + lifts + Ski School ) × variety × vertical
 ```
 
 - **K:** option *Attractiveness scale*, default **4**. All runs open, full efficiency: small ski area about **50**, medium about **95**, large about **160**.
@@ -83,7 +83,7 @@ Each complete, powered lift adds its type's **score value**.
 Drop from the lowest run bottom to the highest run top, among counting runs.
 
 ```text
-vertical factor = 1 + clamp( vertical metres ÷ 600 , 0 , 1 )
+vertical factor = 1 + clamp( vertical meters ÷ 600 , 0 , 1 )
 ```
 
 **×1** at 0 m; **×2** at 600 m or more.

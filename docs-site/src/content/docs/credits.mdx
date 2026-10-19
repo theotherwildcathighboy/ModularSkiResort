@@ -1,22 +1,22 @@
 ---
-title: Credits and Licences
-description: Dependencies, references and licences for code, art and third-party material.
+title: Credits and Licenses
+description: Dependencies, references and licenses for code, art and third-party material.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-{/* src: release/CREDITS.md, assets/LICENSE, LICENSE (root), README licence section */}
+{/* src: release/CREDITS.md, assets/LICENSE, LICENSE (root), README license section; golf pack author from docs/SPEC.md and docs/RELEASE-CHECKLIST.md */}
 
-## Licences
+## Licenses
 
-| Part | Licence |
+| Part | License |
 |---|---|
 | Code: the C# mod, the Blender generators, the tools, this documentation site | **MIT**, copyright 2026 the mod's author |
-| Art assets and everything generated from them: meshes, textures, previews, the in-game prefabs | **Creative Commons Attribution 4.0 (CC BY 4.0)**. Credit "Modular Ski Resort" and its author, as named in the repository licence files |
+| Art assets and everything generated from them: meshes, textures, previews, the in-game prefabs | **Creative Commons Attribution 4.0 (CC BY 4.0)**. Credit "Modular Ski Resort" and its author, as named in the repository license files |
 | Tiling materials from ambientCG | **CC0**, no attribution required |
 
 <Aside type="caution" title="To confirm before release">
-The repository states MIT for code and CC BY 4.0 for art. Whether the art should instead share the code's licence
+The repository states MIT for code and CC BY 4.0 for art. Whether the art should instead share the code's license
 is an open decision for the release; this page follows the repository as it is today.
 </Aside>
 
@@ -25,36 +25,44 @@ from the game's own systems; no code was copied.
 
 ## Inspiration
 
-- **Modular Golf Course Pack** (Paradox Mods ID 144768): the modular-recreation concept that inspired this
+- **Modular Golf Course Pack** by joergeske: the modular-recreation concept that inspired this
   project's architecture.
 - **Meapy, CS2-TourismOverhaul**: the tourism and attraction framework this mod integrates with; studied for
   compatibility and design reference. Optional.
-- **Yenyang, Recolor**: the asset colour convention (channel masks, light-albedo regions) follows the standard
-  their mod established; hosted towers are recolourable through its painter. Optional.
 - **tomkpunkt, ParkManager** (Paradox Mods 161179, GPL-3.0): studied as a research reference for programmatic net
   and object creation, ordered cleanup and Gameface UI patterns. No code copied, no runtime dependency.
 - **krzychu124, Scene Explorer**: live ECS debugging during development.
 - **CitiesSkylinesModding community**: the agents-plugins toolchain and documentation.
 
-## References
+## Asset Inspirations
 
-- **Arapahoe Basin's original Pallavicini lift** (a Yan double): this mod's fixed-grip hardware is a nostalgia tribute.
-- **Lift Blog** (liftblog.com, Peter Landsman): the lift-engineering reference behind the lift family. Tower,
-  terminal and tram designs were studied against its photo essays (notably the Peak 2 Peak Gondola and the
-  Jackson Hole Aerial Tram pages). Photos were used as reference only; nothing from the site is redistributed.
+Each asset follows a real lift or building. They are places that matter to the author.
+
+| Asset | Real place |
+|---|---|
+| A-frame lodge | The A-frame lodge at Arapahoe Basin, Colorado |
+| Fixed-grip chairlift | The Pallavicini lift at Arapahoe Basin, Colorado |
+| Detachable quad | The Collins lift at Alta, Utah |
+| Gondola | Loosely the Aspen gondola, made more generic |
+| Aerial tram | The Jackson Hole Aerial Tram, Wyoming |
+| Grand lodge | The Peak 7 lodge at Breckenridge, Colorado |
+| Chalet hut | A peak lodge at Courchevel, France |
+| Ski School | The kids' ski school at Palisades Tahoe, California |
+| Small patrol hut | The Lady Morgan ski patrol shack at Deer Valley, Park City, Utah |
+| Large patrol hut | The patrol building at Song Mountain, Finger Lakes, New York |
 
 ## Lettering
 
-The sign sets (lodge, school, patrol and gate boards) carry text rasterised at build time from typefaces installed
+The sign sets (lodge, Ski School, patrol and gate boards) carry text rasterized at build time from typefaces installed
 on the build machine: Bookman Old Style Bold for the resort-identity boards, Franklin Gothic Demi Cond for the
 utility boards. Only the rendered textures ship; no font file is included or required. The lift boards are
 lettered with Blender's built-in font.
 
 ## Third-Party Models
 
-Modelling references and, where stated, mesh sources. Each is licensed under
+Modeling references and, where stated, mesh sources. Each is licensed under
 [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/) and was modified for
-Cities: Skylines II (re-scaled, re-topologised, re-UV'd and re-textured).
+Cities: Skylines II (re-scaled, re-topologized, re-UV'd and re-textured).
 
 - **"Chair Lift" by Kagelok**: [Sketchfab](https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236),
   CC BY 4.0. Planned: tower sheave-train and catwalk geometry adapted; chair, grip and terminal proportions

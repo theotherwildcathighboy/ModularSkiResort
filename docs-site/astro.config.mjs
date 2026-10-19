@@ -25,10 +25,7 @@ export default defineConfig({
       lastUpdated: false,
       sidebar: [
         { label: 'Home', link: '/' },
-        {
-          label: 'Getting Started',
-          items: [{ label: 'First Resort', slug: 'getting-started/first-resort' }],
-        },
+        { label: 'Resort Quickstart', slug: 'quickstart' },
         {
           label: 'Guides',
           items: [
@@ -54,7 +51,7 @@ export default defineConfig({
         { label: 'Timeline', slug: 'timeline' },
         { label: 'Changelog', slug: 'changelog' },
         { label: 'AI Disclosure', slug: 'ai-disclosure' },
-        { label: 'Credits and Licences', slug: 'credits' },
+        { label: 'Credits and Licenses', slug: 'credits' },
       ],
     }),
   ],
