@@ -275,6 +275,12 @@ namespace SkiResortMod.Systems
         private float m_LastCensusLineAt = float.NegativeInfinity;   // F6 D4: realtimeSinceStartup of the last census line
         private int m_RunLines;
         private int m_RunLinesSuppressed;
+        // M6 / L5 (code review 2026-10-19): the timer sweep of a city with no run of ours and no known sign
+        // does nothing; the gate walk then happens at most once per CensusHeartbeatS to keep the sign count
+        // (and ResortPresence) honest. m_LastRunCount: runs of ours at the last load pass / sweep, -1 = unknown.
+        private int m_LastRunCount = -1;
+        private float m_LastGateWalkAt = float.NegativeInfinity;
+        private const string TimerSweepWhy = "sweep";
 
         // Round U1: never reset (a monotonically increasing counter; readers compare for equality).
         private int m_BindGeneration;
@@ -298,6 +304,10 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
+                    // M6a (code review 2026-10-19): all four run kinds are SurfacePrefab areas
+                    // (Game.Prefabs/SurfacePrefab.cs:21-23 adds Game.Areas.Surface); lots, districts
+                    // and map tiles never enter this walk.
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),
                     ComponentType.ReadOnly<Geometry>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                 },
@@ -350,6 +360,9 @@ namespace SkiResortMod.Systems
             m_LastMigrateFailures = 0;
             m_SweepFrameValid = false;
             m_LastCensusLineAt = float.NegativeInfinity;
+            m_LastRunCount = -1;
+            m_LastGateWalkAt = float.NegativeInfinity;
+            ResortPresence.Reset();   // before this system counts (the census sets its lifts at its first build)
             LastBound = -1;
             LastUnbound = -1;
             LastOrphaned = -1;
@@ -409,6 +422,7 @@ namespace SkiResortMod.Systems
             catch (Exception e)
             {
                 m_Disabled = true;
+                ResortPresence.MarkUnknown();
                 if (!m_ErrorLogged)
                 {
                     m_ErrorLogged = true;
@@ -436,11 +450,12 @@ namespace SkiResortMod.Systems
                 m_SweepFrameValid = true;
                 m_LastSweepFrame = frame;
 
-                Sweep("sweep");
+                Sweep(TimerSweepWhy);
             }
             catch (Exception e)
             {
                 m_Disabled = true;
+                ResortPresence.MarkUnknown();
                 if (!m_ErrorLogged)
                 {
                     m_ErrorLogged = true;
@@ -576,6 +591,7 @@ namespace SkiResortMod.Systems
             catch (Exception e)
             {
                 m_Disabled = true;
+                ResortPresence.MarkUnknown();
                 if (!m_ErrorLogged)
                 {
                     m_ErrorLogged = true;
@@ -833,6 +849,9 @@ namespace SkiResortMod.Systems
             LastOrphaned = orphaned;
             LastForeign = foreign;
             LastGates = m_Gates.Count;
+            m_LastRunCount = m_Plan.Count;
+            m_LastGateWalkAt = UnityEngine.Time.realtimeSinceStartup;
+            ResortPresence.SetSignsRuns(m_Gates.Count, m_Plan.Count);
 
             LastLoadPass = $"{migrated} migrated Owner(sign)→binding (fee kept, no charge), " +
                            $"{migratedDead} of them with a dead sign → paid orphan, {foreign} " +
@@ -942,6 +961,17 @@ namespace SkiResortMod.Systems
 
         private void Sweep(string why)
         {
+            // M6 / L5: a timer sweep in a city with no run of ours and no known sign has nothing to bind,
+            // migrate or count; it only walks the buildings (to keep the sign count honest) once per
+            // CensusHeartbeatS. Event sweeps (a drawn run, a placed sign, the load-pass retry) and any
+            // city with a run always take the full path.
+            float t0 = UnityEngine.Time.realtimeSinceStartup;
+            if (why == TimerSweepWhy && m_LastRunCount == 0 && !AnyRunOfOurs() &&
+                t0 - m_LastGateWalkAt < Tuning.CensusHeartbeatS)
+                return;
+            m_LastGateWalkAt = t0;
+            var sweepTimer = Stopwatch.StartNew();
+
             m_RunLines = 0;
             m_RunLinesSuppressed = 0;
             m_MigrateFailures = 0;
@@ -1070,12 +1100,16 @@ namespace SkiResortMod.Systems
             int migrateFailures = m_MigrateFailures;
             // F6 D4 (header SWEEP): on any change at once; unchanged, a CensusHeartbeatS heartbeat.
             float now = UnityEngine.Time.realtimeSinceStartup;
+            m_LastRunCount = m_Plan.Count;
+            ResortPresence.SetSignsRuns(gates, m_Plan.Count);
+            // L5: an unchanged census with everything at zero is not proof of life worth a line every 120 s.
+            bool allZero = bound == 0 && unbound == 0 && orphaned == 0 && foreign == 0 && gates == 0;
             bool log = bound != LastBound || unbound != LastUnbound || orphaned != LastOrphaned ||
                        foreign != LastForeign || gates != LastGates || newBinds > 0 ||
                        rebound > 0 || newOrphans > 0 || migrated > 0 || refused > 0 ||
                        unexpected > 0 || signEntries > 0 || signBuffers > 0 ||
                        migrateFailures != m_LastMigrateFailures ||
-                       !(now - m_LastCensusLineAt < Tuning.CensusHeartbeatS);
+                       (!allZero && !(now - m_LastCensusLineAt < Tuning.CensusHeartbeatS));
             m_LastMigrateFailures = migrateFailures;
             if (log)
             {
@@ -1106,7 +1140,8 @@ namespace SkiResortMod.Systems
                              (orphaned > 0 && gates == 0
                                  ? " — paid orphans re-link free when a sign is placed within " +
                                    $"{Tuning.TetherM:F0} m"
-                                 : ""));
+                                 : "") +
+                             $" [{sweepTimer.Elapsed.TotalMilliseconds:F2} ms]");
             }
             LastBound = bound;
             LastUnbound = unbound;
@@ -1157,6 +1192,29 @@ namespace SkiResortMod.Systems
         }
 
         // ── collection (read-only; no structural change happens while chunks are held) ──
+
+        /// <summary>M6: any run of ours in the world. Empty query = no sync; otherwise one chunk scan of the
+        /// Surface areas (a handful in a vanilla city). Main thread.</summary>
+        private bool AnyRunOfOurs()
+        {
+            if (m_RunAreaQuery.IsEmptyIgnoreFilter)
+                return false;
+            m_RunAreaQuery.CompleteDependency();
+            var prefabRefHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
+            using (var chunks = m_RunAreaQuery.ToArchetypeChunkArray(Allocator.Temp))
+            {
+                for (int c = 0; c < chunks.Length; c++)
+                {
+                    var prefabRefs = chunks[c].GetNativeArray(ref prefabRefHandle);
+                    for (int i = 0; i < prefabRefs.Length; i++)
+                    {
+                        if (IsRunPrefab(prefabRefs[i].m_Prefab))
+                            return true;
+                    }
+                }
+            }
+            return false;
+        }
 
         private void CollectGates()
         {

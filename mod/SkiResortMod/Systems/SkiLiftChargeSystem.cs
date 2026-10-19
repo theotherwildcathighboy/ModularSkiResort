@@ -496,7 +496,12 @@ namespace SkiResortMod.Systems
             if (censusOn)
             {
                 m_Census.CopyRows(m_Rows);
-                BuildSignIndex();
+                // L7 (code review 2026-10-19): the sign index (a Park-building walk with a writer sync) feeds only Resolve(row);
+                // no lift rows, nothing reads it.
+                if (m_Rows.Count > 0)
+                    BuildSignIndex();
+                else
+                    m_Index.Clear();
             }
             else
             {

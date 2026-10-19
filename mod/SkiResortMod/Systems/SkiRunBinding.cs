@@ -38,7 +38,10 @@
 //   * Consequences (write them into the release notes):
 //       (a) LAYOUT v1 IS FROZEN: byte version | Entity gate (int32 index) | byte flags |
 //           int32 paid = 10 bytes per run, little-endian (BinaryWriter.Write(uint) byte order).
-//           A v2 may only APPEND fields and must branch on m_Version in Deserialize.
+//           After 1.0 this layout NEVER changes (DECISIONS 314 D2): no payload length is written, so an older build
+//           reading a longer element reads the rest of the block shifted. New fields = a NEW ISerializable type (a
+//           companion component), which an older build skips cleanly as an unknown type. Before the 1.0 freeze an
+//           append + CurrentVersion bump (branch on m_Version in Deserialize) is still allowed.
 //       (b) DOWNGRADE HAZARD: a pre-O1 build loads a post-O1 save WITHOUT error (unknown type,
 //           block skipped), then its sweep re-binds AND RE-CHARGES every run (4,000-20,000
 //           each) and re-adds Owner + the sign's SubArea buffer (the one-run-bulldoze trap
@@ -78,8 +81,9 @@ namespace SkiResortMod.Systems
     [FormerlySerializedAs("SkiResortMod.Systems.SkiRunBinding, SkiResortMod")]
     public struct SkiRunBinding : IComponentData, IQueryTypeParameter, ISerializable
     {
-        /// <summary>Layout version written by this build (see header). v1 is frozen; bump
-        /// only when APPENDING a field, and branch on it in Deserialize.</summary>
+        /// <summary>Layout version written by this build (see header). v1 is frozen; before the 1.0 freeze a bump
+        /// appends a field and branches on it in Deserialize; after 1.0 this layout never changes (a NEW type
+        /// carries new fields, DECISIONS 314 D2).</summary>
         public const byte CurrentVersion = 1;
 
         /// <summary>The one-time bind fee is settled for this run: never charge it again.</summary>
@@ -129,8 +133,7 @@ namespace SkiResortMod.Systems
         public void Deserialize<TReader>(TReader reader) where TReader : IReader
         {
             reader.Read(out m_Version);
-            // v1 layout. A future v2 appends after m_PaidAmount: read it under
-            // `if (m_Version >= 2)` so v1 saves keep loading.
+            // v1 layout (frozen; after 1.0 it never changes, new fields = a NEW ISerializable type, DECISIONS 314 D2).
             reader.Read(out m_Gate);     // Owner.cs:22 shape; -1 / out of range -> Entity.Null
             reader.Read(out m_Flags);
             reader.Read(out m_PaidAmount);

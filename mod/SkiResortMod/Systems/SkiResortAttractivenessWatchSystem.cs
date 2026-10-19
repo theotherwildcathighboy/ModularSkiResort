@@ -76,6 +76,11 @@ namespace SkiResortMod.Systems
         private SkiResortAttractivenessSystem m_Attractiveness;
         private EntityQuery m_BuildingEvents;
         private EntityQuery m_AreaEvents;
+        // L1 (code review 2026-10-19): while ResortPresence says no sign, run or lift of ours exists, only a CREATED
+        // building / run can start a resort (an Updated or Deleted one cannot be ours), so the per-frame test looks
+        // at these Created-only queries and an ordinary city pays no PrefabRef read for its building churn.
+        private EntityQuery m_BuildingCreated;
+        private EntityQuery m_AreaCreated;
 
         // Per-load state — reset at OnGameLoadingComplete.
         private bool m_Armed;
@@ -107,11 +112,39 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Temp>(),
                 },
             });
+            m_BuildingCreated = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadOnly<Game.Buildings.Building>(),
+                    ComponentType.ReadOnly<PrefabRef>(),
+                    ComponentType.ReadOnly<Created>(),
+                },
+                None = new[]
+                {
+                    ComponentType.ReadOnly<Temp>(),
+                },
+            });
+            m_AreaCreated = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadOnly<Area>(),
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),   // L3: our runs are SurfacePrefab areas
+                    ComponentType.ReadOnly<PrefabRef>(),
+                    ComponentType.ReadOnly<Created>(),
+                },
+                None = new[]
+                {
+                    ComponentType.ReadOnly<Temp>(),
+                },
+            });
             m_AreaEvents = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),   // L3: our runs are SurfacePrefab areas
                     ComponentType.ReadOnly<PrefabRef>(),
                 },
                 Any = new[]
@@ -153,16 +186,19 @@ namespace SkiResortMod.Systems
                 // a STRUCTURAL recompute is pending (a pending soft one does not stop a placement).
                 if (!m_Attractiveness.IsActive || m_Attractiveness.RecomputePending)
                     return;
-                bool buildingEvents = !m_BuildingEvents.IsEmptyIgnoreFilter;
-                bool areaEvents = !m_AreaEvents.IsEmptyIgnoreFilter;
+                bool present = ResortPresence.Present;   // L1
+                EntityQuery buildingQuery = present ? m_BuildingEvents : m_BuildingCreated;
+                EntityQuery areaQuery = present ? m_AreaEvents : m_AreaCreated;
+                bool buildingEvents = !buildingQuery.IsEmptyIgnoreFilter;
+                bool areaEvents = !areaQuery.IsEmptyIgnoreFilter;
                 if (!buildingEvents && !areaEvents)
                     return;
                 GameManager gm = GameManager.instance;
                 if (gm == null || gm.isGameLoading)
                     return;
 
-                bool buildings = buildingEvents && AnyWatched(m_BuildingEvents, areas: false);
-                bool runs = areaEvents && AnyWatched(m_AreaEvents, areas: true);
+                bool buildings = buildingEvents && AnyWatched(buildingQuery, areas: false);
+                bool runs = areaEvents && AnyWatched(areaQuery, areas: true);
                 if (!buildings && !runs)
                     return;
 

@@ -5,7 +5,10 @@
 //     TypeManager ISerializable type of an assembly other than Game.dll, Game.Serialization/SerializerSystem.cs:194-209);
 //     nothing is added in Mod.cs.
 //   * LAYOUT v1 IS FROZEN: byte version | int32 SeasonKey | int32 PricePaid | byte Flags = 10 bytes per household,
-//     little-endian. A v2 may only APPEND fields and must branch on m_Version in Deserialize.
+//     little-endian. After 1.0 this layout NEVER changes (DECISIONS 314 D2: no payload
+//     length is written, so an older build reading a longer element reads the rest of the block shifted); new fields = a NEW
+//     ISerializable type, which an older build skips cleanly as an unknown type. Before the 1.0 freeze an append +
+//     CurrentVersion bump (branch on m_Version in Deserialize) is still allowed.
 //   * NEVER rename this type, move its namespace or rename the assembly (the saved type name is its
 //     AssemblyQualifiedName); a build that does not know the type skips the block ("Not serializable type" in Player.log).
 //
@@ -30,7 +33,7 @@ namespace SkiResortMod.Systems
     [FormerlySerializedAs("SkiResortMod.Systems.SkiSeasonPass, SkiResortMod")]
     public struct SkiSeasonPass : IComponentData, IQueryTypeParameter, ISerializable
     {
-        /// <summary>Layout version written by this build (see header). v1 is frozen; bump only when APPENDING a field.</summary>
+        /// <summary>Layout version written by this build (see header). v1 is frozen; before the 1.0 freeze a bump appends a field, after 1.0 this layout never changes (a NEW type carries new fields, DECISIONS 314 D2).</summary>
         public const byte CurrentVersion = 1;
 
         /// <summary>The ski-season year this standing is for (SkiMoneyRules.SeasonKeyOf).</summary>
@@ -67,7 +70,7 @@ namespace SkiResortMod.Systems
         public void Deserialize<TReader>(TReader reader) where TReader : IReader
         {
             reader.Read(out m_Version);
-            // v1 layout. A future v2 appends after m_Flags: read it under `if (m_Version >= 2)` so v1 saves keep loading.
+            // v1 layout (frozen; after 1.0 it never changes, new fields = a NEW ISerializable type, DECISIONS 314 D2).
             reader.Read(out m_SeasonKey);
             reader.Read(out m_PricePaid);
             reader.Read(out m_Flags);

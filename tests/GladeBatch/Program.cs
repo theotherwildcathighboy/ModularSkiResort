@@ -100,6 +100,7 @@ namespace GladeBatch
             BeltGateTests(fixtures, seeds);
             AgeHistogramTest();
             TimingReport(fixtures, sets);
+            AttemptCapReport();   // D5 (code review 2026-10-19): the worst-case attempt count and time on a giant saturated run, printed
 
             // Round G2 (spec §4.11).
             ComposeUnitTests(fixtures);

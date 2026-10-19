@@ -156,7 +156,7 @@ namespace SkiResortMod.Systems
             public double m_Length;                      // Σ segment lengths
             public float3 m_BaseEnd, m_TopEnd;           // track-rope points where the path starts / ends (docks, else rope ends)
             public float m_BaseRunM, m_TopRunM;          // synthesized dock runs (0 = none)
-            /// <summary>Additive: the station dock each end uses (0 = DockA (−X bay), 1 = DockB (+X bay), −1 = none: the
+            /// <summary>Additive: the station dock each end uses (0 = DockA = hosted entry 0, 1 = DockB; T14 frame: the tram base's A is the +X bay, the top's A the −X bay; −1 = none: the
             /// path ends at the rope end).</summary>
             public sbyte m_BaseDock = -1, m_TopDock = -1;
         }

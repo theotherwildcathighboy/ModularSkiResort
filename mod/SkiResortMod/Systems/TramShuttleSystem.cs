@@ -48,11 +48,13 @@
 //
 // CABIN A / B IDENTITY (skeptic MUST 1; transient, per session, never saved). C8 rejects index-keyed state because entity
 // indices are remapped on load, so "cabin A = the lower (Index, Version)" could swap the cabins after a load (each would
-// jump to the other rope). The mover keeps a transient map cabin -> hosted BAY (0 = hosted entry 0, the -X bay; 1 = +X).
+// jump to the other rope). The mover keeps a transient map cabin -> hosted BAY (0 = hosted entry 0 = dock A; 1 = entry 1 = dock B;
+// T14 frame, L12: dock A is the +X bay on the tram BASE and the -X bay on the tram TOP, SkiCatalog StationDef.DockLocalA / B).
 // Which chain a bay rides is geometry: chain A's cabin is the one in the bay of chain A's base dock (Path.m_BaseDock; the
 // other bay rides chain B). A cabin without an entry gets one, per station, by the first rule that applies:
-//   (a) FRESH BASE: every cabin within 0.05 m of a hosted pose -> the bay it stands in (on a canonical station chain A
-//       docks at the -X bay, so "the cabin in hosted bay 0 is A");
+//   (a) FRESH BASE: every cabin within 0.05 m of a hosted pose -> the bay it stands in (the bay is read from the cabin's
+//       GEOMETRY against Path.m_BaseDock, never from the sign of X: since T14 the base's dock A is the +X bay, so "the
+//       cabin in hosted bay 0 is A" holds by dock, not by side);
 //   (b) CLOCK PLACES: the assignment with the smaller sum |Transform - target|, the target being the clock place when
 //       Running, the latched (or both candidate) terminal configurations when Held, the hosted poses when Parked or when
 //       the station has no path. After a load the saved Transforms sit at the clock places, so the right mapping costs ~0;
@@ -469,7 +471,9 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Game.Objects.Static>(),
                     ComponentType.ReadOnly<Owner>(),
                     ComponentType.ReadOnly<PrefabRef>(),
-                    ComponentType.ReadWrite<Transform>(),
+                    // M8 (code review 2026-10-19): the probe only counts PrefabRef; ReadWrite<Transform> made a
+                    // CompleteDependency here sync every Transform writer in the city (cars, pedestrians).
+                    ComponentType.ReadOnly<Transform>(),
                 },
                 Any = new[]
                 {
@@ -558,6 +562,7 @@ namespace SkiResortMod.Systems
             m_ErrorLogged = false;
             m_LastError = null;
             m_ArmLogged = false;
+            m_LaneScanLogged = false;
             m_IdleLogged = false;
             m_CensusWarned = false;
             m_CensusBuilt = false;
@@ -689,8 +694,10 @@ namespace SkiResortMod.Systems
 
                 double timeS = ShuttleProfile.TimeSOf(m_RenderingSystem.frameIndex, m_RenderingSystem.frameTime);
 
-                // 3. Triggers.
-                m_DiagProbeHitsLast = m_ChangedCabinQuery.IsEmptyIgnoreFilter ? 0 : CountChangedCabins();
+                // 3. Triggers. M8: the cabin probe runs only once a tram exists (a Shuttle census row, a run or a parked
+                // cabin); a city without one never reads the query's chunks.
+                bool tramPresent = m_Runs.Count > 0 || m_ParkedCabins.Count > 0 || AnyShuttleRow();
+                m_DiagProbeHitsLast = !tramPresent || m_ChangedCabinQuery.IsEmptyIgnoreFilter ? 0 : CountChangedCabins();
                 if (m_DiagProbeHitsLast > 0)
                 {
                     m_DiagProbeHits += m_DiagProbeHitsLast;
@@ -795,8 +802,8 @@ namespace SkiResortMod.Systems
         {
             int count = 0;
             // REVIEW #16 pattern (ChairPinSystem's main-thread chunk reads, code-review-2026-10/REVIEW.md #16): complete the
-            // writers of the query's components before the main-thread GetNativeArray reads below.
-            m_ChangedCabinQuery.CompleteDependency();
+            // writers of the component read below. M8: PrefabRef only (the query itself is Transform ReadOnly).
+            EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
             var chunks = m_ChangedCabinQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
             {
@@ -1316,10 +1323,16 @@ namespace SkiResortMod.Systems
 
         /// <summary>§4.5 step 2: the HV lanes owned by a Shuttle line's edges and nodes (ChairPinSystem.cs:1307-1351 with the
         /// Mover test inverted). R28: the track ropes are the only HV lanes; the haul ropes (LV, 8) fail the flag.</summary>
+        private bool m_LaneScanLogged;   // M9: one cost line per load
+
         private void HarvestLanes()
         {
             IReadOnlyDictionary<Entity, LiftTypeDef> lineTypes = m_PrefabCatalog.LiftLineTypes;
             m_Lanes.Clear();
+            // M9 (code review 2026-10-19): every utility lane of the city is in this query; the lane PREFAB is tested first through
+            // the shared cached lookup (CableLanePrefabs), so only HV-lane-prefab lanes pay for the owner read.
+            long laneScanStart = System.Diagnostics.Stopwatch.GetTimestamp();
+            int lanesSeen = 0, lanesHv = 0;
             // REVIEW #16 pattern (ChairPinSystem's main-thread chunk reads, code-review-2026-10/REVIEW.md #16): complete the
             // writers of the query's components before the main-thread GetNativeArray reads below.
             m_LaneQuery.CompleteDependency();
@@ -1338,16 +1351,17 @@ namespace SkiResortMod.Systems
                     var curves = chunks[c].GetNativeArray(ref curveHandle);
                     var owners = chunks[c].GetNativeArray(ref ownerHandle);
                     var prefabRefs = chunks[c].GetNativeArray(ref prefabRefHandle);
+                    lanesSeen += entities.Length;
                     for (int i = 0; i < entities.Length; i++)
                     {
+                        if (!CableLanePrefabs.IsHighVoltage(EntityManager, prefabRefs[i].m_Prefab))
+                            continue;
+                        lanesHv++;
                         Entity ownerEntity = owners[i].m_Owner;
                         if (ownerEntity == Entity.Null ||
                             !EntityManager.TryGetComponent<PrefabRef>(ownerEntity, out var ownerPrefab) ||
                             !lineTypes.TryGetValue(ownerPrefab.m_Prefab, out LiftTypeDef lineDef) || lineDef == null ||
                             lineDef.Mover != MoverKind.Shuttle)
-                            continue;
-                        if (!EntityManager.TryGetComponent<UtilityLaneData>(prefabRefs[i].m_Prefab, out var utility) ||
-                            (utility.m_UtilityTypes & UtilityTypes.HighVoltageLine) == 0)
                             continue;
                         m_Lanes.Add(new LiftLoopCache.CableLane
                         {
@@ -1365,6 +1379,14 @@ namespace SkiResortMod.Systems
             finally
             {
                 chunks.Dispose();
+            }
+            if (!m_LaneScanLogged)
+            {
+                m_LaneScanLogged = true;
+                Mod.Log.Info($"TramShuttle [cost] lane scan (first harvest of the load): {lanesSeen} utility lane(s) in the city, {lanesHv} of an HV " +
+                             $"lane prefab, {m_Lanes.Count} kept as tram cable lane(s), " +
+                             $"{(System.Diagnostics.Stopwatch.GetTimestamp() - laneScanStart) * 1000.0 / System.Diagnostics.Stopwatch.Frequency:F2} ms " +
+                             "(lane prefab tested first through a cached lookup)");
             }
         }
 

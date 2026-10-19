@@ -1259,6 +1259,7 @@ namespace SkiResortMod.Systems
             }
             PruneParked();
             StoreRowCounts();
+            ResortPresence.SetLifts(m_Census.Rows.Count);   // the resort-present bit (ResortPresence header): lifts of ours
             // T03 step 1 (read-only diagnostic, LiftTowerDiagSystem header): hand it this build's line edges; it queues lines whose
             // signature is new and prints them after the census has been quiet. No ECS read here.
             m_TowerDiag?.OnCensusBuilt(m_Edges);

@@ -54,7 +54,11 @@
 //
 // SCOPE: border sub-objects owned by OUR run areas only (Secondary + Owner, owner's
 // prefab in the watched set). Stamping a prop with no effects is a no-op; the per-pass
-// cost is a few dozen AddComponent calls, twice per game day plus settle.
+// cost is one batched AddComponent, twice per game day plus settle.
+// M4 (code review 2026-10-19): the props are found by walking our run areas' SubObject
+// buffers (the SkiSnowGunPlumeSystem pattern), NOT by scanning every Secondary object in
+// the city (street and traffic lights too) with two EntityManager lookups each; a city
+// with no resort (ResortPresence) or no run area returns before any query result is read.
 
 using System;
 using System.Collections.Generic;
@@ -99,7 +103,7 @@ namespace SkiResortMod.Systems
 
         private EffectFlagSystem m_EffectFlagSystem;
         private PrefabSystem m_PrefabSystem;
-        private EntityQuery m_PropQuery;
+        private EntityQuery m_RunQuery;
         private EntityQuery m_PrefabScanQuery;
 
         private readonly HashSet<Entity> m_RunPrefabs = new HashSet<Entity>();
@@ -122,13 +126,14 @@ namespace SkiResortMod.Systems
             m_EffectFlagSystem = World.GetOrCreateSystemManaged<EffectFlagSystem>();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
 
-            m_PropQuery = GetEntityQuery(new EntityQueryDesc
+            m_RunQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
                 {
-                    ComponentType.ReadOnly<Secondary>(),
-                    ComponentType.ReadOnly<Owner>(),
+                    ComponentType.ReadOnly<Game.Areas.Area>(),
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),   // SurfacePrefab.cs:21-23: our runs, not lots / districts / tiles
                     ComponentType.ReadOnly<PrefabRef>(),
+                    ComponentType.ReadOnly<Game.Objects.SubObject>(),
                 },
                 None = new[]
                 {
@@ -204,6 +209,10 @@ namespace SkiResortMod.Systems
             {
                 if (m_Disabled || !m_Armed)
                     return;
+                // M4: no sign, run or lift of ours (ResortPresence) or no run area at all: nothing to aim or stamp.
+                // m_HaveFlag stays false, so the first pass after a resort appears is the hygiene pass.
+                if (!ResortPresence.Present || m_RunQuery.IsEmptyIgnoreFilter)
+                    return;
 
                 // T22: face the masts into the run. Cheap when nothing is out of aim (a prefab test per prop).
                 int aimed = AimMasts(out int aimUnmatched, out int aimTotal);
@@ -254,40 +263,57 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private int StampRunProps()
+        /// <summary>M4: the live Secondary props of our run areas (their SubObject buffers), optionally only
+        /// those whose prefab is in <paramref name="onlyPrefabs"/> (the masts). Appends (prop, run) pairs.</summary>
+        private void CollectRunProps(NativeList<Entity> props, NativeList<Entity> owners, HashSet<Entity> onlyPrefabs)
         {
-            var toStamp = new NativeList<Entity>(64, Allocator.Temp);
-            var chunks = m_PropQuery.ToArchetypeChunkArray(Allocator.Temp);
+            var runs = m_RunQuery.ToEntityArray(Allocator.Temp);
             try
             {
-                var entityHandle = GetEntityTypeHandle();
-                var ownerHandle = GetComponentTypeHandle<Owner>(isReadOnly: true);
-                for (int c = 0; c < chunks.Length; c++)
+                for (int r = 0; r < runs.Length; r++)
                 {
-                    var entities = chunks[c].GetNativeArray(entityHandle);
-                    var owners = chunks[c].GetNativeArray(ref ownerHandle);
-                    for (int i = 0; i < owners.Length; i++)
+                    Entity run = runs[r];
+                    if (!m_RunPrefabs.Contains(EntityManager.GetComponentData<PrefabRef>(run).m_Prefab))
+                        continue;
+                    var buffer = EntityManager.GetBuffer<Game.Objects.SubObject>(run, isReadOnly: true);
+                    for (int i = 0; i < buffer.Length; i++)
                     {
-                        Entity owner = owners[i].m_Owner;
-                        if (!EntityManager.HasComponent<PrefabRef>(owner))
+                        Entity prop = buffer[i].m_SubObject;
+                        if (!EntityManager.Exists(prop) || !EntityManager.HasComponent<Secondary>(prop) ||
+                            EntityManager.HasComponent<Deleted>(prop) || EntityManager.HasComponent<Temp>(prop) ||
+                            !EntityManager.HasComponent<Owner>(prop) ||
+                            EntityManager.GetComponentData<Owner>(prop).m_Owner != run)
                             continue;
-                        Entity ownerPrefab =
-                            EntityManager.GetComponentData<PrefabRef>(owner).m_Prefab;
-                        if (m_RunPrefabs.Contains(ownerPrefab))
-                            toStamp.Add(entities[i]);
+                        if (onlyPrefabs != null &&
+                            (!EntityManager.HasComponent<PrefabRef>(prop) ||
+                             !onlyPrefabs.Contains(EntityManager.GetComponentData<PrefabRef>(prop).m_Prefab)))
+                            continue;
+                        props.Add(prop);
+                        if (owners.IsCreated)
+                            owners.Add(run);
                     }
                 }
             }
             finally
             {
-                chunks.Dispose();
+                runs.Dispose();
             }
+        }
 
-            for (int i = 0; i < toStamp.Length; i++)
-                EntityManager.AddComponent<EffectsUpdated>(toStamp[i]);
-            int n = toStamp.Length;
-            toStamp.Dispose();
-            return n;
+        private int StampRunProps()
+        {
+            var toStamp = new NativeList<Entity>(64, Allocator.Temp);
+            try
+            {
+                CollectRunProps(toStamp, default, null);
+                if (toStamp.Length > 0)
+                    EntityManager.AddComponent<EffectsUpdated>(toStamp.AsArray());   // one structural change, not one per prop
+                return toStamp.Length;
+            }
+            finally
+            {
+                toStamp.Dispose();
+            }
         }
 
         // House pattern: fast PrefabID path + name-scan fallback, tolerate missing.
@@ -365,25 +391,17 @@ namespace SkiResortMod.Systems
                 return 0;
             var toAim = new NativeList<Entity>(16, Allocator.Temp);
             var toRot = new NativeList<quaternion>(16, Allocator.Temp);
-            var chunks = m_PropQuery.ToArchetypeChunkArray(Allocator.Temp);
+            var masts = new NativeList<Entity>(16, Allocator.Temp);
+            var mastRuns = new NativeList<Entity>(16, Allocator.Temp);
             try
             {
-                var entityHandle = GetEntityTypeHandle();
-                var ownerHandle = GetComponentTypeHandle<Owner>(isReadOnly: true);
-                var prefabHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
-                for (int c = 0; c < chunks.Length; c++)
+                CollectRunProps(masts, mastRuns, m_MastPrefabs);
                 {
-                    var entities = chunks[c].GetNativeArray(entityHandle);
-                    var owners = chunks[c].GetNativeArray(ref ownerHandle);
-                    var prefabs = chunks[c].GetNativeArray(ref prefabHandle);
-                    for (int i = 0; i < entities.Length; i++)
+                    for (int m = 0; m < masts.Length; m++)
                     {
-                        if (!m_MastPrefabs.Contains(prefabs[i].m_Prefab))
-                            continue;
-                        Entity owner = owners[i].m_Owner;
-                        if (!EntityManager.HasComponent<PrefabRef>(owner) ||
-                            !m_RunPrefabs.Contains(EntityManager.GetComponentData<PrefabRef>(owner).m_Prefab) ||
-                            !EntityManager.HasBuffer<Game.Areas.Node>(owner))
+                        Entity mast = masts[m];
+                        Entity owner = mastRuns[m];
+                        if (!EntityManager.HasBuffer<Game.Areas.Node>(owner))
                             continue;
                         total++;
                         DynamicBuffer<Game.Areas.Node> ring = EntityManager.GetBuffer<Game.Areas.Node>(owner, true);
@@ -406,7 +424,7 @@ namespace SkiResortMod.Systems
                             m_RingY[k] = p.y;
                             m_RingZ[k] = p.z;
                         }
-                        Game.Objects.Transform t = EntityManager.GetComponentData<Game.Objects.Transform>(entities[i]);
+                        Game.Objects.Transform t = EntityManager.GetComponentData<Game.Objects.Transform>(mast);
                         int node = MastAimRules.NearestNode(m_RingX, m_RingZ, n, t.m_Position.x, t.m_Position.z);
                         if (node < 0 || !MastAimRules.Aim(m_RingX, m_RingY, m_RingZ, n, node, out float ax, out float az))
                         {
@@ -416,14 +434,15 @@ namespace SkiResortMod.Systems
                         float3 fwd = math.mul(t.m_Rotation, new float3(0f, 0f, 1f));
                         if (MastAimRules.AngleDeg(fwd.x, fwd.z, ax, az) < MastAimRules.WriteToleranceDeg)
                             continue;
-                        toAim.Add(entities[i]);
+                        toAim.Add(mast);
                         toRot.Add(quaternion.LookRotationSafe(new float3(ax, 0f, az), math.up()));
                     }
                 }
             }
             finally
             {
-                chunks.Dispose();
+                masts.Dispose();
+                mastRuns.Dispose();
             }
 
             for (int i = 0; i < toAim.Length; i++)

@@ -251,7 +251,11 @@ namespace SkiResortMod.Settings
                     "material slots. Auto uses a free slot only — many maps have none, and " +
                     "runs then fall back to flat painted surfaces. Force replaces that map " +
                     "material with ski-run snow everywhere the map author painted it " +
-                    "(usually small areas — check your map). Takes effect when a save loads."
+                    "(usually small areas — check your map), and ERASES the map's paint of " +
+                    "that material under and around your ski runs: once the city is saved, " +
+                    "that paint stays erased, and switching the option back does not restore " +
+                    "it. Nothing is touched until the city has its first ski run. Takes " +
+                    "effect when a save loads."
                 },
                 {
                     m_Setting.GetEnumValueLocaleID(TerrainSlotPolicy.Auto),
@@ -390,6 +394,18 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftBuildAids)),
                     "Guide line and offset readout while placing a station; a warning on the bulldozer " +
                     "showing what a click on a lift removes"
+                },
+
+                // --- Diagnostics (code review 2026-10-19, DECISIONS 314 D4 + D9) --------------------
+                { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupDiagnostics), "Diagnostics" },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.DiagnosticMeasurements)),
+                    "Measurement diagnostics"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.DiagnosticMeasurements)),
+                    "For field tests, off by default. Turns on extra measurements that cost a little frame time " +
+                    "(a daily ski-day measurement pass and the Ctrl+Alt+G slope capture file). Leave it off for normal play."
                 },
 
                 // --- Key bindings (glade tool, spec §5) --------------------------------------

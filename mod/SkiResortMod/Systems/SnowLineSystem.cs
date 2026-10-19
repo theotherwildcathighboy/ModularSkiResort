@@ -31,7 +31,7 @@
 //     climate, temperature override); at most one recompute per game hour (~182 s of simulation at 1×
 //     and ≥ 30 fps: 262,144 / 24 = 10,923 frames, SimulationSystem.cs:238, :255).
 //   * D14 — GetSnowmakingMarginC is THE snowmaking margin of the mod (Options ▸ Snow "Snowmaking
-//     margin (°C)", clamped 0..6, 2 when settings are not loaded); IsSnowGatingEnabled is the one read
+//     margin (°C)", clamped 0..6, RunSnowRules.DefaultSnowmakingMarginC = 3.3 when settings are not loaded); IsSnowGatingEnabled is the one read
 //     of "Snow & season gating". GetLapsePerM / GetBaseHeight expose the lapse for the estimates.
 //   * The climate line is written on EVERY load in Game or Editor mode (was once per session), with
 //     the D31 numbers and the cost of 100 SampleClimate reads; the first day-mean of a load writes one

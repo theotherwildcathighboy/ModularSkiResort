@@ -1840,10 +1840,14 @@ namespace SkiResortMod.Systems
                 }
             }
             SkiDayCityMonth city = m_CityThis;
+            // D6 (code review 2026-10-19): silent in a city that never had anything of ours this load.
+            if (ResortPresence.EverSeen)
+            {
             Mod.Log.Info($"SkiDays [day] {month} all ski areas: sent {sent}, arrived {arrived}, failed {failed}; fresh decisions " +
                          $"{city.FreshLocals + city.FreshTourists} (locals at home {city.FreshLocals}, tourists in a hotel {city.FreshTourists}; " +
                          $"{city.FreshWithCar} with a car; {city.ShoppingNeed} waiting to shop); citizens with Leisure walked {city.Walked} over " +
                          $"{city.WalkPasses} pass(es); {CensusText()}; " + CityCostText(city));
+            }
         }
 
         /// <summary>M8 running cost of the month (= one game day): every pass with work but the timed one; Round M2 (D8):
@@ -2785,7 +2789,7 @@ namespace SkiResortMod.Systems
             int step = m_HourStep;
             if (step == 0)
                 return;
-            if (step == 1)
+            if (step == 1 && SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)   // D4: no scan runs without the option, so no [near] line either
             {
                 const int minutesPerHour = 60;
                 string label = ClockText(SkiDayTiming.MinuteOfDay(m_Time.normalizedTime) / minutesPerHour * minutesPerHour);
@@ -3528,10 +3532,20 @@ namespace SkiResortMod.Systems
                     ScheduleCensus(ref all, now);
                 // Round M2 (D5): a walker scan every Tuning.NearScanPasses passes with an area, on the hour (ClimateTick)
                 // and on the timed `[cost]` pass (OnUpdate), after the census (it reads the claims ClaimJob just appended).
-                if (++m_NearPasses >= Tuning.NearScanPasses)
-                    m_NearDue = true;
-                if (m_NearDue)
-                    ScheduleNear(ref all, now, lodgeArray, siteArray);
+                // D4 (code review 2026-10-19): the scan is measure-only (the [near] lines and the DUMP) and makes ResidentAISystem wait
+                // on our chain: behind Options > Diagnostics, off by default.
+                if (SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
+                {
+                    if (++m_NearPasses >= Tuning.NearScanPasses)
+                        m_NearDue = true;
+                    if (m_NearDue)
+                        ScheduleNear(ref all, now, lodgeArray, siteArray);
+                }
+                else
+                {
+                    m_NearDue = false;
+                    m_NearPasses = 0;
+                }
             }
         }
 
@@ -3736,6 +3750,10 @@ namespace SkiResortMod.Systems
         /// measured (E5, the house skip of the first pass: RecordCost leaves out the next pass with work).</summary>
         private void MaybeRearmCost()
         {
+            // D4 (code review 2026-10-19): the midday re-arm is measurement scaffolding behind Options > Diagnostics (off by default);
+            // the once-per-load measurement stays.
+            if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
+                return;
             if (!m_CostLogged || !(m_Time.normalizedTime >= 0.5f))
                 return;
             int day = SkiDayRules.DayKey(m_Time.year, m_Time.normalizedDate, m_Time.daysPerYear);

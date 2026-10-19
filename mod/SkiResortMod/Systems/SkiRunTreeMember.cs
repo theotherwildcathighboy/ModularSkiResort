@@ -40,7 +40,9 @@
 //   Serialize always writes CurrentVersion and the v2 layout: the version byte describes the
 //   bytes being written now, whatever version the tag was loaded from. Deserialize reads the
 //   version first and reads variant + planGen only when version >= 2; a v1 tag loads as
-//   m_Variant = VariantUnknown, m_PlanGen = 0. A future v3 may only APPEND and must branch here.
+//   m_Variant = VariantUnknown, m_PlanGen = 0. After 1.0 this layout NEVER changes (DECISIONS 314 D2: no payload length is written, so an older build reading a longer
+//   element reads the rest of the block shifted); new fields = a NEW ISerializable type, which an older build skips cleanly.
+//   The v1 -> v2 branch above is the pre-release pattern (append + bump + branch), allowed only before the 1.0 freeze.
 //   LEGACY TEST: use m_PlanGen == 0 (or m_Variant == VariantUnknown), NOT m_Version < 2 — a v1
 //   tag re-saved by this build reads back as version 2 with PlanGen 0 / VariantUnknown.
 //
@@ -72,8 +74,9 @@ namespace SkiResortMod.Systems
     [FormerlySerializedAs("SkiResortMod.Systems.SkiRunTreeMember, SkiResortMod")]
     public struct SkiRunTreeMember : IComponentData, IQueryTypeParameter, ISerializable
     {
-        /// <summary>Layout version written by this build (see header). v1 is frozen; bump
-        /// only when APPENDING a field, and branch on it in Deserialize.</summary>
+        /// <summary>Layout version written by this build (see header). v1 is frozen; before the 1.0 freeze a bump
+        /// appends a field and branches on it in Deserialize; after 1.0 this layout never changes (a NEW type
+        /// carries new fields, DECISIONS 314 D2).</summary>
         public const byte CurrentVersion = 2;
 
         /// <summary>m_Layer values: interior glade tree / tree-line belt tree (unchanged since

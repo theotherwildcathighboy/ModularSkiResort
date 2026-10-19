@@ -54,8 +54,14 @@
 //     No free slot ⇒ loud log, graceful disable for the load. The prefab mutation is
 //     runtime-only: nothing calls asset.Save, so map assets on disk are never touched.
 //
-// INVARIANT: the claimed channel is fully DERIVED state. Every load: wipe the channel
-// across the playable area, then re-stamp every live run polygon. Every change event
+// C1 (code review 2026-10-19, DECISIONS 314): NOTHING above happens before the city has a run of
+// ours (the claim, the render-settings mutation and every splatmap write wait for the first run).
+// And when the Force policy took a slot the MAP uses, the load wipe is skipped: only our own
+// previous bounds are ever erased, never the playable area (the map's paint of that material
+// is in the saved splatmap; once erased it stays erased).
+//
+// INVARIANT: the claimed channel is fully DERIVED state. Every load (FREE slot only): wipe the
+// channel across the playable area, then re-stamp every live run polygon. Every change event
 // afterwards: erase the previous pass's union bounds, re-stamp everything (full channel
 // re-rasterize — the research doc's answer to overlap/erase bookkeeping). Stale paint from
 // sessions where the mod was absent is cleaned by the load wipe; paint left in saves after
@@ -184,6 +190,8 @@ namespace SkiResortMod.Systems
 
         // Per-load state.
         private bool m_Active;                     // slot claimed + textures + brushes OK
+        private bool m_AwaitingFirstRun;           // C1(b): textures + brushes ready, claim deferred until the city has a run of ours
+        private bool m_ForcedOccupied;             // C1(a): Force policy took a slot the map was using: never wipe the playable area
         private bool m_Disabled;                   // tripped by the catch; re-armed per load
         private bool m_ErrorLogged;                // one "!!!" with stack per load
         private TerrainMaterialType m_ClaimedSlot = TerrainMaterialType.None;
@@ -215,6 +223,7 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),   // L3: runs are SurfacePrefab areas; skips lots, districts, map tiles
                     ComponentType.ReadOnly<Geometry>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                     ComponentType.ReadOnly<Triangle>(),
@@ -231,6 +240,7 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),   // L3
                     ComponentType.ReadOnly<PrefabRef>(),
                 },
                 Any = new[]
@@ -249,6 +259,7 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),   // L3
                     ComponentType.ReadOnly<PrefabRef>(),
                     ComponentType.ReadOnly<Deleted>(),
                 },
@@ -324,6 +335,8 @@ namespace SkiResortMod.Systems
             // Re-arm and reset per load, whatever the mode — leaving to the menu must
             // deactivate painting too.
             m_Active = false;
+            m_AwaitingFirstRun = false;
+            m_ForcedOccupied = false;
             m_Disabled = false;
             m_ErrorLogged = false;
             m_ClaimedSlot = TerrainMaterialType.None;
@@ -375,21 +388,16 @@ namespace SkiResortMod.Systems
                                  "painting disabled for this load (see brush inventory above)");
                     return;
                 }
-                m_WinterActive = EvaluateWinter(out string seasonDetail);
-                if (!ClaimSlot())
-                    return; // reason logged
-                if (!RegisterToolPrefab())
-                    return; // reason logged
-
-                m_Active = true;
-                m_RasterizePending = true; // first pass: wipe + full stamp
-                ApplyDecalVisibility(splatActive: true);
-                Mod.Log.Info($"Splat: ACTIVE — slot {m_ClaimedSlot}, initial season " +
-                             $"{(m_WinterActive ? "winter" : "summer")} ({seasonDetail}), " +
-                             $"{m_RunPrefabs.Count} run prefab(s) watched, debounce " +
-                             $"{Tuning.RasterizeDebounceFrames} frames, season check every " +
-                             $"{Tuning.SeasonCheckFrames} frames");
-                LogSplatmapOnce();
+                // C1(b) (code review 2026-10-19): never claim a slot, mutate the render
+                // settings or touch the splatmap before the city has a run of ours — a
+                // city without a resort (or with the option set once for another map) is
+                // left exactly as the map author made it.
+                m_AwaitingFirstRun = true;
+                if (HasAnyRun())
+                    TryActivate();
+                else
+                    Mod.Log.Info("Splat: waiting for the first ski run of ours before claiming a " +
+                                 "terrain slot (a city without runs is never touched)");
             }
             catch (Exception e)
             {
@@ -404,14 +412,57 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>The deferred claim (C1 b): season, slot claim, tool prefab, first rasterize
+        /// pass. Runs at load when a run already exists, else on the first run event. Any
+        /// failure leaves the system inert for the load (reason logged) and stops waiting.</summary>
+        private void TryActivate()
+        {
+            m_AwaitingFirstRun = false;
+            m_WinterActive = EvaluateWinter(out string seasonDetail);
+            if (!ClaimSlot())
+                return; // reason logged
+            if (!RegisterToolPrefab())
+                return; // reason logged
+
+            m_Active = true;
+            m_RasterizePending = true; // first pass: wipe (free slot only) + full stamp
+            ApplyDecalVisibility(splatActive: true);
+            Mod.Log.Info($"Splat: ACTIVE — slot {m_ClaimedSlot}, initial season " +
+                         $"{(m_WinterActive ? "winter" : "summer")} ({seasonDetail}), " +
+                         $"{m_RunPrefabs.Count} run prefab(s) watched, debounce " +
+                         $"{Tuning.RasterizeDebounceFrames} frames, season check every " +
+                         $"{Tuning.SeasonCheckFrames} frames");
+            LogSplatmapOnce();
+        }
+
+        /// <summary>True when at least one area of ours is in the world (completed geometry).</summary>
+        private bool HasAnyRun()
+        {
+            return !m_AreaScanQuery.IsEmptyIgnoreFilter && AnyMatchingPrefab(m_AreaScanQuery);
+        }
+
         protected override void OnUpdate()
         {
             try
             {
-                if (m_Disabled || !m_Active)
+                if (m_Disabled || (!m_Active && !m_AwaitingFirstRun))
                     return;
 
-                m_FrameCounter++;
+                if (m_AwaitingFirstRun)
+                {
+                    // Waiting for the first run (C1 b): a run is created or updated, then
+                    // the claim, and the pass below stamps it. Emptiness checks first.
+                    m_FrameCounter++;
+                    if (((!m_AreaEventQuery.IsEmptyIgnoreFilter && AnyMatchingPrefab(m_AreaEventQuery)) ||
+                         m_FrameCounter % 64 == 0) && HasAnyRun())
+                        TryActivate();
+                    if (!m_Active)
+                        return;
+                }
+                else
+                {
+                    m_FrameCounter++;
+                }
 
                 // Event watch: emptiness checks first (free), chunk scans only on event
                 // frames, prefab-filtered so unrelated area churn stays cheap.
@@ -467,12 +518,23 @@ namespace SkiResortMod.Systems
                 // area so stale paint (runs edited while the mod was absent, older bugs)
                 // cannot survive a load.
                 m_ChannelWiped = true;
-                float2 playMin = m_TerrainSystem.playableOffset;
-                float2 playMax = playMin + m_TerrainSystem.playableArea;
-                eraseDabs += EraseRect(playMin, playMax, Tuning.WipeBrushSizeMeters);
-                Mod.Log.Info($"Splat [wipe]: channel {m_ClaimedSlot} wiped across playable " +
-                             $"({playMin.x:F0},{playMin.y:F0})-({playMax.x:F0},{playMax.y:F0}) " +
-                             $"with {eraseDabs} dab(s)");
+                if (m_ForcedOccupied)
+                {
+                    // C1(a): the slot was the MAP's material. Its paint is the map author's
+                    // and the city's save carries it: never wipe the playable area. We erase
+                    // only our own previous bounds (the branch below), once we have any.
+                    Mod.Log.Info($"Splat [wipe]: skipped for {m_ClaimedSlot} — the map uses this material, " +
+                                 "so only the ski runs' own bounds are ever erased");
+                }
+                else
+                {
+                    float2 playMin = m_TerrainSystem.playableOffset;
+                    float2 playMax = playMin + m_TerrainSystem.playableArea;
+                    eraseDabs += EraseRect(playMin, playMax, Tuning.WipeBrushSizeMeters);
+                    Mod.Log.Info($"Splat [wipe]: channel {m_ClaimedSlot} wiped across playable " +
+                                 $"({playMin.x:F0},{playMin.y:F0})-({playMax.x:F0},{playMax.y:F0}) " +
+                                 $"with {eraseDabs} dab(s)");
+                }
             }
             else if (m_HasLastBounds)
             {
@@ -485,6 +547,10 @@ namespace SkiResortMod.Systems
             float2 boundsMin = new float2(float.MaxValue, float.MaxValue);
             float2 boundsMax = new float2(float.MinValue, float.MinValue);
 
+            // L4 (code review 2026-10-19): these chunk reads wait for no job; GeometrySystem writes Triangle at Modification2B.
+            EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
+            EntityManager.CompleteDependencyBeforeRO<Triangle>();
+            EntityManager.CompleteDependencyBeforeRO<Node>();
             var chunks = m_AreaScanQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
             {
@@ -656,6 +722,8 @@ namespace SkiResortMod.Systems
 
             int runs = 0;
             float midSum = 0f;
+            EntityManager.CompleteDependencyBeforeRO<PrefabRef>();   // L4
+            EntityManager.CompleteDependencyBeforeRO<Geometry>();
             var chunks = m_AreaScanQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
             {
@@ -732,11 +800,13 @@ namespace SkiResortMod.Systems
                     SkiResortMod.Settings.TerrainSlotPolicy.ForceExtra3 => TerrainMaterialType.Extra3,
                     _ => TerrainMaterialType.Extra4,
                 };
-                if (!IsSlotFree(rs, forced))
+                m_ForcedOccupied = !IsSlotFree(rs, forced);
+                if (m_ForcedOccupied)
                     Mod.Log.Info($"Splat: FORCING {forced} per mod options — replacing this " +
                                  $"map's material {DescribeSlot(GetSlotDiffuse(rs, forced))} with " +
-                                 "ski-run paint (areas the map painted with it will show run " +
-                                 "material; revert by changing the option and reloading)");
+                                 "ski-run paint. The map's paint of that material is ERASED under " +
+                                 "and around the ski runs and STAYS erased once the city is saved: " +
+                                 "changing the option back and reloading does not restore it");
                 return ClaimSpecific(settings, rs, forced);
             }
 
@@ -1232,6 +1302,7 @@ namespace SkiResortMod.Systems
         /// Runs only on event frames; chunk-level iteration.</summary>
         private bool AnyMatchingPrefab(EntityQuery query)
         {
+            EntityManager.CompleteDependencyBeforeRO<PrefabRef>();   // L4
             var chunks = query.ToArchetypeChunkArray(Allocator.Temp);
             try
             {

@@ -1027,6 +1027,12 @@ namespace SkiResortMod.Systems
 
         // Per-load state — reset and re-armed at OnGameLoadingComplete.
         private bool m_Armed;                      // GameMode.Game + run prefabs present
+        // M2b (code review 2026-10-19): FoldRowsJob is the only writer of the five planes, so ClearPlanesJob runs
+        // only when the last BuildMask scheduled a run (or the planes are fresh from a load / a throw).
+        private bool m_PlanesDirty = true;
+        // M2 resort-present test: the last evaluated pass found no run polygon of ours at all (the "no run polygons
+        // placed" exit); while true and ResortPresence.Present is false OnUpdate returns before any query or sync.
+        private bool m_NoRunsSettled;
         private bool m_Disabled;                   // one-shot catch or buffer drift
         private bool m_ErrorLogged;                // one "!!!" with stack per load
         private bool m_BufferValidated;
@@ -1448,6 +1454,10 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
+                    // M2a (code review 2026-10-19): every run kind is a SurfacePrefab area (Game.Prefabs/
+                    // SurfacePrefab.cs:18-23 adds Game.Areas.Surface); the walk skips lots, districts and the
+                    // 529 map tiles that used to be tested against the prefab sets on every pass.
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),
                     ComponentType.ReadOnly<Geometry>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                     ComponentType.ReadOnly<Triangle>(),
@@ -1616,6 +1626,8 @@ namespace SkiResortMod.Systems
             m_Armed = false;
             m_Disabled = false;
             m_ErrorLogged = false;
+            m_PlanesDirty = true;      // M2b: a new city starts from cleared planes
+            m_NoRunsSettled = false;
             m_BufferValidated = false;
             m_ReadbackWarned = false;
             m_InitialTopupPending = false;
@@ -1818,6 +1830,10 @@ namespace SkiResortMod.Systems
                 // flight (a few rendered frames per 1,024 sim frames).
                 if (m_MeasurePending)
                     PollMeasureReadback(frame);
+                // M2 (resort-present bit, ResortPresence header): a city whose last pass found no run polygon and
+                // that has no sign, run or lift of ours does no work here — no planes, no area walk, no sync.
+                if (m_NoRunsSettled && !m_MeasurePending && !ResortPresence.Present)
+                    return;
                 if (!m_InitialTopupPending &&
                     frame - m_LastTopupFrame < (uint)Tuning.TopupIntervalFrames)
                     return;
@@ -1891,6 +1907,7 @@ namespace SkiResortMod.Systems
         {
             var timer = System.Diagnostics.Stopwatch.StartNew();
             double tMask = 0, tReadback = 0, tMerge = 0;
+            m_NoRunsSettled = false;
 
             // E1 (ch3 §5.3, second pass): the first evaluated pass of the load starts SnowSettled's
             // 256-frame clock, also when this pass idles below, before any refresh.
@@ -1956,7 +1973,10 @@ namespace SkiResortMod.Systems
                     SetIdle($"no injected run placed — {stats.NaturalScheduled} natural run(s) measured only " +
                             $"(async snow-map readback every {RunSnowRules.MeasureIntervalFrames} sim frames)");
                 else
+                {
                     SetIdle("no run polygons placed");
+                    m_NoRunsSettled = stats.NaturalTotal == 0 && stats.UnboundRuns == 0;
+                }
                 return;
             }
             // FIELD BUG FIX 2026-08-12: this early-out previously fired whenever ALL gates
@@ -3021,8 +3041,10 @@ namespace SkiResortMod.Systems
                 return;
             bool first = m_DayKey == int.MinValue;
             if (!first)
+            {
                 WriteDayLine(null);
-                WriteMadeLine();   // T09
+                WriteMadeLine();   // T09 (L6: both belong to a day ROLL; the ledger is empty at the first pass of a load)
+            }
             m_DayKey = day;
             m_DayFromLoad = first;
             int month = SkiMoneyRules.MonthKey(m_TimeSystem.year, m_TimeSystem.normalizedDate);
@@ -3038,7 +3060,8 @@ namespace SkiResortMod.Systems
         /// written when no pass was counted. Never reads the TimeSystem (also called from OnDestroy).</summary>
         private void WriteDayLine(string end)
         {
-            if (m_DayPasses > 0)
+            // D6 (code review 2026-10-19): silent until anything of ours was seen this load.
+            if (m_DayPasses > 0 && ResortPresence.EverSeen)
             {
                 string suffix = m_DayFromLoad
                     ? (end == null ? " (part day, from the load)" : $" (part day, from the load, to {end})")
@@ -3336,14 +3359,19 @@ namespace SkiResortMod.Systems
             // is also what preserves the "first run claims the texel" attribution rule.
             // The main thread meanwhile only reads ECS buffers and builds TriData, which
             // the jobs never touch.
-            JobHandle chain = new ClearPlanesJob
+            JobHandle chain = default;
+            if (m_PlanesDirty)
             {
-                Mask = m_Mask,
-                DecayMask = m_DecayMask,
-                RampMask = m_RampMask,
-                ProtectMask = m_ProtectMask,
-                Owner = m_Owner,
-            }.ScheduleParallel(TexSize, RowBatch, default);
+                chain = new ClearPlanesJob
+                {
+                    Mask = m_Mask,
+                    DecayMask = m_DecayMask,
+                    RampMask = m_RampMask,
+                    ProtectMask = m_ProtectMask,
+                    Owner = m_Owner,
+                }.ScheduleParallel(TexSize, RowBatch, default);
+                m_PlanesDirty = false;
+            }
 
             // E1 ch3 §4.2-§4.3: the snapshot every fold of this pass measures from (Measure = snap.Usable;
             // with Measure false the jobs never read it). m_RunSnowInputs gets one entry per scheduled run.
@@ -3354,6 +3382,12 @@ namespace SkiResortMod.Systems
             ulong naturalSig = 0;
 
             var pending = new List<PendingRun>();
+            // L4 (code review 2026-10-19): the chunk reads below go through type handles, which do not wait for
+            // running jobs; GeometrySystem writes Triangle / Node / Geometry at Modification2B.
+            EntityManager.CompleteDependencyBeforeRO<Triangle>();
+            EntityManager.CompleteDependencyBeforeRO<Node>();
+            EntityManager.CompleteDependencyBeforeRO<Geometry>();
+            EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
             var chunks = m_RunScanQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
             {
@@ -3496,6 +3530,7 @@ namespace SkiResortMod.Systems
                 // free the per-run buffers, then let the outer catch disable the system.
                 // ScheduleRun reassigns `chain` after EVERY ScheduleParallel and registers
                 // its buffers in `pending` BEFORE scheduling, so nothing escapes this.
+                m_PlanesDirty = true;   // M2b: a fold may have written some planes before the throw
                 DrainPending(ref chain, pending);
                 throw;
             }
@@ -3503,6 +3538,8 @@ namespace SkiResortMod.Systems
             {
                 chunks.Dispose();
             }
+            if (pending.Count > 0)
+                m_PlanesDirty = true;   // M2b: this pass's folds wrote the planes; the next BuildMask clears them
 
             // Vanilla contract for job-side height reads (AreaResourceSystem /
             // GeometrySystem / LaneSystem precedent): register the chain as a CPU-height

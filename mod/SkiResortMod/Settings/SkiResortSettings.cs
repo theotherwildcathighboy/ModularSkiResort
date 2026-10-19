@@ -157,8 +157,8 @@ namespace SkiResortMod.Settings
     }
 
     [FileLocation("ModsSettings/SkiResortMod/SkiResortMod")]
-    [SettingsUIGroupOrder(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings)]
-    [SettingsUIShowGroupName(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings)]
+    [SettingsUIGroupOrder(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics)]
+    [SettingsUIShowGroupName(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics)]
     // One keyboard action declaration per binding (conflict warnings; see header).
     [SettingsUIKeyboardAction(ActToggleGlade)]
     [SettingsUIKeyboardAction(ActGladeNextVariant)]
@@ -175,6 +175,7 @@ namespace SkiResortMod.Settings
         public const string GroupRuns = "Runs";
         public const string GroupLifts = "Lifts";        // Round L1 (hub-u2-spec.md §2.1)
         public const string GroupKeybindings = "Keybindings";
+        public const string GroupDiagnostics = "Diagnostics";   // code review 2026-10-19 D4 / D9
 
         // Action names inside our input map (map name = ModSetting.id,
         // "SkiResortMod.SkiResortMod.Mod", ModSetting.cs:39, 245). Persisted in the
@@ -191,6 +192,7 @@ namespace SkiResortMod.Settings
         public const int DefaultBackcountryValuePercent = 40;
         public const bool DefaultEnableSnowGating = true;
         public const bool DefaultSnowGunPlumes = true;       // T46: vapour plumes on running snow guns
+        public const bool DefaultDiagnosticMeasurements = false;   // code review 2026-10-19 D4 / D9: measurement scaffolding off
         public const bool DefaultBookTicketsAsFees = true;   // DECISIONS 239
         public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;             // 50 % (0 = passes off); DECISIONS 240
         public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;   // 4 lift tickets
@@ -264,7 +266,7 @@ namespace SkiResortMod.Settings
 
         /// <summary>LodgeSpendPerGuest (Catalog Phase B, round-2-contract §9, D15; header LODGE SPEND): what each paying
         /// ski guest also spends at the lodge they arrive at (× the tier's SpendMultiplier), charged with the ticket. Read
-        /// live by SkiLiftTicketSystem through SkiMoneyRules.ClampLodgeSpend. 0 = off (the default, R11). Persisted under
+        /// live by SkiLiftTicketSystem through SkiMoneyRules.ClampLodgeSpend. 0 = off; the default is 15 (DefaultLodgeSpendPerGuest, DECISIONS 241; it was 0 = off, R11). Persisted under
         /// this property name — never rename. unit "money" as LiftTicketPrice.</summary>
         [SettingsUISlider(min = 0f, max = LodgeSpendPerGuestMax, step = LodgeSpendPerGuestStep, unit = "money")]
         [SettingsUISection(SectionMain, GroupBalance)]
@@ -376,7 +378,9 @@ namespace SkiResortMod.Settings
 
         /// <summary>Slot policy for painting runs onto the terrain itself. Auto claims a
         /// free Extra slot only (many CO maps have none); ForceExtraN sacrifices that
-        /// map material; Off keeps the classic decal surfaces. Takes effect on load.</summary>
+        /// map material (its paint under and around the runs is erased and stays erased once
+        /// saved; never claimed before the city has a run of ours); Off keeps the classic decal
+        /// surfaces. Takes effect on load.</summary>
         [SettingsUISection(SectionMain, GroupTerrain)]
         public TerrainSlotPolicy TerrainSnowSlot { get; set; }
 
@@ -453,6 +457,19 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupLifts)]
         public bool LiftBuildAids { get; set; }
 
+        // --- Diagnostics (code review 2026-10-19, DECISIONS 314 D4 + D9) ---------------------
+
+        /// <summary>Measurement scaffolding for field tests, OFF by default and for every player: (D4) the midday
+        /// measurement re-arm and the measure-only ResidentAI pass in SkiDaySystem / SkiGuestCounterSystem /
+        /// SkiLodgeParkingSystem (they force main-thread syncs on vanilla jobs), and (D9) the .skislope capture file of the
+        /// Ctrl+Alt+G dump (the only file the mod writes outside the log and its settings; the log dump stays for every
+        /// player). Read live by those systems. Persisted under this property name — never rename.</summary>
+        [SettingsUISection(SectionMain, GroupDiagnostics)]
+        public bool DiagnosticMeasurements { get; set; }
+
+        /// <summary>Null-tolerant read for the systems (Mod.Settings is null before OnLoad and after OnDispose).</summary>
+        public static bool DiagnosticsOn => Mod.Settings?.DiagnosticMeasurements ?? DefaultDiagnosticMeasurements;
+
         // --- Key bindings (glade tool, spec §5) ---------------------------------------------
         // MUST stay public get+set ProxyBinding (ModSetting.cs:32-34). Defaults come from the
         // attribute via the base constructor — never assign these in SetDefaults.
@@ -516,6 +533,7 @@ namespace SkiResortMod.Settings
             ShowHubButton = true;                 // resort-hub-understand.md §5.1 OD2 (default on)
             OpenHubOnSignSelect = true;           // §5.1 / §5.2 item 2 (default on)
             LiftBuildAids = true;                 // hub-u2-spec.md §2.4 (default on)
+            DiagnosticMeasurements = DefaultDiagnosticMeasurements;   // D4 / D9: off
             // Key bindings deliberately absent: the base constructor generated them
             // (ModSetting.cs:43, 56-64) before this runs.
         }

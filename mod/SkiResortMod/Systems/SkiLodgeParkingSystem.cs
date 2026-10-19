@@ -657,6 +657,10 @@ namespace SkiResortMod.Systems
         /// it is the synchronous one. Returns true on the arming tick, which RecordCost leaves out.</summary>
         private bool RearmCostAtMidday()
         {
+            // D4 (code review 2026-10-19): the midday re-arm is measurement scaffolding behind Options > Diagnostics (off by default);
+            // the once-per-load measurement stays.
+            if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
+                return false;
             if (!m_CostLogged || !(m_TimeSystem.normalizedTime >= 0.5f))
                 return false;
             int day = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear);

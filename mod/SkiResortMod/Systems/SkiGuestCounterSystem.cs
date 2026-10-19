@@ -953,6 +953,9 @@ namespace SkiResortMod.Systems
             // Booked) was booked as public transportation fees; the rest was added to the balance directly.
             long fees = last ? m_FeeLastMonth : FeeBookedNow() - m_FeeAtMonthStart;
             string feeText = fees < 0 ? "?" : fees.ToString();
+            // D6 (code review 2026-10-19): silent in a city that never had anything of ours this load.
+            if (ResortPresence.EverSeen)
+            {
             Mod.Log.Info($"Guests [month] {month} all ski areas: guests {guests}, tickets +{income}, passes {passesSold} sold +{passIncome} " +
                          $"({passesPre} +{passIncomePre} before the season) " +
                          $"with {passHolders} pass-holder guest(s), lessons {lessons} +{lessonIncome} ({feeText} of tickets, passes, lessons and " +
@@ -960,6 +963,7 @@ namespace SkiResortMod.Systems
                          $"run upkeep {upkeepText} (whole city), " +
                          $"not linked lift charges -{notLinked:F0}; now picked by {parties} tourist part(ies) on the way, " +
                          $"{locals} local(s) and {tourists} tourist(s) on leisure heading to a lodge");
+            }
 
             if (!last)
                 return;
@@ -1324,6 +1328,10 @@ namespace SkiResortMod.Systems
         /// leaves unmeasured (m_CostSkipNext).</summary>
         private bool RearmCostAtMidday()
         {
+            // D4 (code review 2026-10-19): the midday re-arm is measurement scaffolding behind Options > Diagnostics (off by default);
+            // the once-per-load measurement stays.
+            if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
+                return false;
             if (!m_CostLogged || !(m_TimeSystem.normalizedTime >= 0.5f))
                 return false;
             int day = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear);

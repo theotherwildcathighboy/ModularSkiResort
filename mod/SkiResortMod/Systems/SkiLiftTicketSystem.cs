@@ -626,7 +626,9 @@ namespace SkiResortMod.Systems
                 {
                     // the first exception is the one worth reporting
                 }
-                m_JobInFlight = false;
+                // L8 (code review 2026-10-19): m_JobInFlight is NOT cleared here. The job above completed and may already have moved
+                // household money; leaving the flag set lets the preload path (OnGamePreload / OnDestroy) book that completed
+                // job into the ledger and write the batch's passes, instead of dropping both.
                 if (!m_ErrorLogged)
                 {
                     m_ErrorLogged = true;
@@ -1103,6 +1105,10 @@ namespace SkiResortMod.Systems
         /// which RecordCost leaves out.</summary>
         private bool RearmCostAtMidday()
         {
+            // D4 (code review 2026-10-19): the midday re-arm is measurement scaffolding behind Options > Diagnostics (off by default);
+            // the once-per-load measurement stays.
+            if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
+                return false;
             if (!m_CostLogged || !(m_TimeSystem.normalizedTime >= 0.5f))
                 return false;
             int day = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear);

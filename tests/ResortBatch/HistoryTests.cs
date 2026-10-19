@@ -152,6 +152,14 @@ namespace ResortBatch
         private static void ProgressCodec()
         {
             C(SkiResortMonthInProgress.V1Bytes == 142, "H-MP1 consts", "V1Bytes = " + SkiResortMonthInProgress.V1Bytes + " (want 142)");
+            // L14 (code review 2026-10-19): the month-in-progress codec copies Ledger.Month's fields BY NAME (SkiResortHistory.cs), so a
+            // 20th public field would silently not persist or seed while H-MP1's 142 bytes still pass. SAVE LAYOUT: the saved
+            // SkiResortMonthInProgress / SkiResortHistoryMonth bytes carry exactly these 19 fields; adding one means a NEW
+            // ISerializable type (SaveLayouts.cs, PIPELINE "Code mod: persisted data"), never a change to the existing layouts.
+            int monthFields = typeof(SkiResortLedger.Month).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance).Length;
+            C(monthFields == 19, "H-MP1 Month fields", "SkiResortLedger.Month has " + monthFields + " public instance fields (want exactly 19): " +
+              "the history element and month-in-progress codecs copy them by name, so a new field is NOT persisted or seeded until a NEW " +
+              "ISerializable type carries it (save layout frozen after 1.0; see SaveLayouts.cs)");
             var month = new SkiResortLedger.Month
             {
                 TouristGuests = 1, TouristParties = 2, LocalGuests = 3, TouristOnLeisure = 4, TicketsPaid = 5, TicketsUnpaid = 6,

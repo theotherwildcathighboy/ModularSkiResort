@@ -133,6 +133,9 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
+                    // L3 (code review 2026-10-19): our runs are SurfacePrefab areas (SurfacePrefab.cs:21-23); the
+                    // 256-frame walk no longer visits lots, districts and map tiles.
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                 },
                 None = new[]
@@ -248,6 +251,7 @@ namespace SkiResortMod.Systems
                 float snow01 = math.saturate(depth / Tuning.FullWhiteDepthM);
                 byte value = (byte)math.round(snow01 * 255f);
 
+                EntityManager.CompleteDependencyBeforeRO<PrefabRef>();   // L4: the chunk read below waits for no job
                 var chunks = m_RunAreaQuery.ToArchetypeChunkArray(Allocator.Temp);
                 var toWrite = new NativeList<Entity>(8, Allocator.Temp);
                 try

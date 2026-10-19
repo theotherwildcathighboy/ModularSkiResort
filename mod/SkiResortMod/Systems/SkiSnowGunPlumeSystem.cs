@@ -122,6 +122,9 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
+                    // L2 (code review 2026-10-19): Lots also carry SubObject (LotPrefab.cs:36); Game.Areas.Surface
+                    // (SurfacePrefab.cs:21-23) keeps them out of this per-pass ToEntityArray.
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                     ComponentType.ReadOnly<Game.Objects.SubObject>(),
                 },
@@ -189,7 +192,7 @@ namespace SkiResortMod.Systems
 
         protected override void OnUpdate()
         {
-            if (m_Disabled || !m_Armed)
+            if (m_Disabled || !m_Armed || !ResortPresence.Present)
                 return;
             try
             {
@@ -211,6 +214,9 @@ namespace SkiResortMod.Systems
             bool setting = ReadSetting();
             uint frame = m_Simulation.frameIndex;
             float thresholdC = m_SnowLine.GetFreezingTemperature() + m_SnowLine.GetSnowmakingMarginC();
+            // L2: the lapse read ONCE per pass (SnowLineSystem.GetLocalTemperature = ambient - (y - base) * scale; the
+            // same expression below, so each gun's value is bit-identical to the per-gun call it replaces).
+            m_SnowLine.GetLocalTemperatureCoefficients(out float lapseAmbient, out float lapseBase, out float lapseScale);
             m_Write.Clear();
             m_WriteEnd.Clear();
             m_WriteFlip.Clear();
@@ -242,7 +248,8 @@ namespace SkiResortMod.Systems
                             !EntityManager.HasComponent<Game.Objects.Transform>(gun))
                             continue;
                         guns++;
-                        float gunC = m_SnowLine.GetLocalTemperature(EntityManager.GetComponentData<Game.Objects.Transform>(gun).m_Position.y);
+                        float gunC = lapseAmbient -
+                                     (EntityManager.GetComponentData<Game.Objects.Transform>(gun).m_Position.y - lapseBase) * lapseScale;
                         bool want = SnowGunPlumeRules.PlumeOn(setting, running, gunC, thresholdC);
                         if (want)
                             on++;

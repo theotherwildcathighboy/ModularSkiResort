@@ -16,7 +16,11 @@
 //     int32 ticketIncome | int32 lodgeIncome | int32 passIncome | int32 lessonIncome | int32 liftCost | int32 runCost |
 //     int32 buildingsCost | int32 wagesCost | int32 attraction | byte snowPct
 //   SkiResortMonthInProgress, 142 bytes: see its LAYOUT comment.
-//   A v2 may only APPEND fields after the last one and must read them under `if (m_Version >= 2)`. Never reorder, retype or
+//   After 1.0 these layouts NEVER change (DECISIONS 314 D2): no payload length is written, so an older build reading a longer
+//   element cannot skip the tail and reads the rest of the block shifted (and a garbage int32 becomes the buffer's element
+//   count). A new field goes in a NEW ISerializable type (a companion component or buffer, e.g. SkiResortHistoryMonth2), which
+//   an older build skips cleanly as an unknown type. Before the 1.0 freeze an append + CurrentVersion bump (read under
+//   `if (m_Version >= 2)`) is still allowed. Never reorder, retype or
 //   rename these types, move their namespace, or turn the buffer into a component (the saved type name is the
 //   AssemblyQualifiedName). The game writes a buffer as int32 length + each element's own Serialize, stride 0
 //   (Colossal.Serialization.Entities BufferElementDataSerializer.cs:80-92 → BinaryWriter.cs:120-126, 158-161; 1.6.2f1 Colossal.Core).
@@ -84,7 +88,7 @@ namespace SkiResortMod.Systems
 
     public partial struct SkiResortHistoryMonth
     {
-        /// <summary>Layout version this build writes (header). v1 is frozen; bump only when APPENDING a field.</summary>
+        /// <summary>Layout version this build writes (header). v1 is frozen; before the 1.0 freeze a bump appends a field, after 1.0 this layout never changes (a NEW type carries new fields, DECISIONS 314 D2).</summary>
         public const byte CurrentVersion = 1;
         /// <summary>Bytes one v1 element takes in the save (the round-trip test pins it).</summary>
         public const int V1Bytes = 59;
@@ -179,7 +183,7 @@ namespace SkiResortMod.Systems
             w.Write(m_SnowPct);
         }
 
-        /// <summary>v1 layout. A future v2 appends after m_SnowPct: read it under `if (m_Version >= 2)`.</summary>
+        /// <summary>v1 layout (frozen; after 1.0 it never changes, new fields = a NEW ISerializable type, DECISIONS 314 D2).</summary>
         public void ReadFrom<TReader>(ref TReader r) where TReader : IHistoryReader
         {
             r.Read(out m_Version);
@@ -275,7 +279,7 @@ namespace SkiResortMod.Systems
             w.Write(m_PassSeasonPreIncome);
         }
 
-        /// <summary>v1 layout. A future v2 appends after m_PassSeasonPreIncome under `if (m_Version >= 2)`.</summary>
+        /// <summary>v1 layout (frozen; after 1.0 it never changes, new fields = a NEW ISerializable type, DECISIONS 314 D2).</summary>
         public void ReadFrom<TReader>(ref TReader r) where TReader : IHistoryReader
         {
             r.Read(out m_Version);

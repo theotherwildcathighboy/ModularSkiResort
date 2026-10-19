@@ -1126,7 +1126,12 @@ namespace SkiResortMod.Systems
             AreaToolActive = true;
 
             // 3. Surface prefab selected (AreaToolSystem.prefab, :2637-2652; 1.6.2 :2648). Only
-            //    Surface prefabs create or snap to our runs (AreaToolSystem.cs:320-322).
+            //    Surface prefabs create or snap to our runs (AreaToolSystem.cs:320-322). H1
+            //    (code review 2026-10-19): SkiRunAreaTypeSystem forges the cat-track prefab's
+            //    m_Type Surface -> Space at every load, so "Surface" alone rejected it and the heat
+            //    map / fee row / "too steep for a cat track" line never showed. The gate therefore
+            //    accepts Surface OR a prefab entity in our run-prefab set (the set the Temp filter
+            //    uses in PickEligibleTemp); the Temp query keeps its own Surface requirement.
             AreaPrefab toolPrefab = m_AreaTool.prefab;
             if (toolPrefab == null)
             {
@@ -1139,6 +1144,10 @@ namespace SkiResortMod.Systems
                 m_CachedToolPrefabIsSurface =
                     m_PrefabSystem.TryGetComponentData(toolPrefab, out AreaGeometryData geo) &&
                     geo.m_Type == Game.Areas.AreaType.Surface;   // PrefabSystem.cs:730
+                if (!m_CachedToolPrefabIsSurface &&
+                    m_PrefabSystem.TryGetEntity(toolPrefab, out Entity toolPrefabEntity) &&
+                    m_Ownership.IsRunPrefab(toolPrefabEntity))
+                    m_CachedToolPrefabIsSurface = true;   // H1: the Space-forged cat track
             }
             if (!m_CachedToolPrefabIsSurface)
             {
@@ -2438,6 +2447,14 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn($"RunFeedback: dump failed: {e.Message}");
             }
 
+            // D9 (code review 2026-10-19): the log dump above stays for every player; the .skislope capture is the only file the
+            // mod writes outside its log and settings, so it sits behind Options > Diagnostics (off by default).
+            if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
+            {
+                LastCapturePath = "off (Options > Diagnostics > Measurement diagnostics)";
+                Mod.Log.Info("RunFeedback: capture file not written (Options > Diagnostics > Measurement diagnostics is off)");
+                return;
+            }
             try
             {
                 string path = WriteCapture(out int needCount);

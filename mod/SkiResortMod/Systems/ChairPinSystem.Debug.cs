@@ -100,7 +100,7 @@ namespace SkiResortMod.Systems
             list.Add(Val("OnUpdate calls (this load)", () => m_DiagUpdateCalls));
             list.Add(Val("Frames since last OnUpdate", () =>
                 m_DiagLastUpdateFrame < 0 ? "never" : ((long)m_RenderingSystem.frameIndex - m_DiagLastUpdateFrame).ToString()));
-            list.Add(Val("Last OnUpdate exit", () => m_DiagLastExit));
+            list.Add(Val("Last OnUpdate exit", () => LastExitText()));
             list.Add(Val("Last error", () => m_LastError == null ? "-" : FirstLine(m_LastError)));
 
             // ── Moving mode ─────────────────────────────────────────────────────────────
@@ -375,7 +375,7 @@ namespace SkiResortMod.Systems
                 sb.AppendLine("  " + m_PrefabCatalog.Describe());
                 sb.AppendLine($"  onUpdateCalls={m_DiagUpdateCalls} lastUpdateFrame={m_DiagLastUpdateFrame} " +
                               $"renderFrame={m_RenderingSystem.frameIndex} frameTime={m_RenderingSystem.frameTime:F3} " +
-                              $"lastExit=\"{m_DiagLastExit}\"");
+                              $"lastExit=\"{LastExitText()}\"");
                 // Catalog Phase B: the clock in seconds (phases are per loop, below); fgPhase = the fixed-grip phase the
                 // former "phase=" printed.
                 sb.AppendLine($"  timeS={m_DiagLastTimeS:F2} fgPhase={m_DiagLastTimeS * SkiCatalog.FixedGrip.SpeedMps:F2} " +

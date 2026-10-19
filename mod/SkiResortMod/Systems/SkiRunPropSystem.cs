@@ -187,11 +187,16 @@ namespace SkiResortMod.Systems
             // up again and completed. Once done they leave the query, so steady state
             // is empty and the early-out is near-free. Districts and foreign surfaces
             // linger in the result set; the per-chunk prefab filter skips them cheaply.
+            // M3 (code review 2026-10-19): that "steady state is empty" was false — only LotPrefab adds
+            // PseudoRandomSeed (Game.Prefabs/LotPrefab.cs:37), so map tiles, districts and vanilla surfaces sat in
+            // this query forever and were walked every frame (paused too). Game.Areas.Surface (SurfacePrefab.cs:21-23,
+            // as m_PropRunQuery below) keeps all of them out: only a run of ours that is not yet fully bridged remains.
             m_UnbridgedAreaQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                     ComponentType.ReadOnly<Node>(),
                 },
@@ -289,7 +294,7 @@ namespace SkiResortMod.Systems
 
             try
             {
-                if (m_Disabled || !m_Armed || m_UnbridgedAreaQuery.IsEmptyIgnoreFilter)
+                if (m_Disabled || !m_Armed || !ResortPresence.Present || m_UnbridgedAreaQuery.IsEmptyIgnoreFilter)
                     return;
 
                 // Collect first, mutate after — structural changes invalidate chunks.

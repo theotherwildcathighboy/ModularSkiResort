@@ -844,7 +844,8 @@ namespace SkiResortMod.Systems
 
                 // ── station rows (§1.4). Wheel = bullwheel centre at rope height, prefab-local (x, y = rope, z); NaN = no
                 //    loop (Shuttle). FG: lift_terminal.py drive (0.2, 3.5) + 0.05 / return 3.7 at the origin, authoring
-                //    (x, y, z) → (y, z, x) (was ChairPinSystem.cs:346-350). DQ: SkiDQ{Base,Top}StationA.manifest.json
+                //    (x, y, z) → (-y, z, x) in the game frame since T14 (it was (y, z, x); the wheel y = 0 so these rows do not move)
+                //    (was ChairPinSystem.cs:346-350). DQ: SkiDQ{Base,Top}StationA.manifest.json
                 //    contract.wheel_local_prefab / stub_tip_local_z (the rope at the GRIP-TOP lane, D8). Gondola:
                 //    dq-terminal §12 / §13 (Z_ROPE 0.30 + 0.05 + 4.50), SkiGondola{Base,Top}StationA.manifest.json
                 //    contract.wheel_local_prefab / stub_tip_local_z. Tram: tram-stations §3,

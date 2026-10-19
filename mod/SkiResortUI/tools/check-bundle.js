@@ -189,6 +189,16 @@ const PANEL_BINDINGS = new Set([
   "build$", "glade$", "pisteMap$", "follow$",
   "history$",   // contract 10 (T78): only the History view subscribes it (no Demand)
 ]);
+/**
+ * Rule R11 addition (code review 2026-10-19, L17): the always-mounted files (they render while the hub is closed) may import ONLY
+ * HubPanel from the panel files (a value import; type-only imports are erased). An always-mounted file that imports and renders
+ * <StatusBlock/> or any other panel component passes the per-binding check (it references no panel binding itself) but mounts that
+ * component's subscriptions with the panel closed.
+ */
+const ALWAYS_MOUNTED_FILES = new Set([
+  "index.tsx", "hub/HubRoot.tsx", "hub/HubLauncher.tsx", "hub/hubState.ts", "hub/ErrorBoundary.tsx",
+]);
+const PANEL_ENTRY = "hub/HubPanel.tsx";
 const PANEL_FILES = new Set([
   "hub/HubPanel.tsx", "hub/HubHeader.tsx", "hub/StartCard.tsx", "hub/StatusBlock.tsx", "hub/ViewTiles.tsx",
   "hub/OverviewView.tsx", "hub/RunsView.tsx", "hub/RunList.tsx", "hub/LiftsView.tsx", "hub/LiftTable.tsx",
@@ -890,7 +900,21 @@ function readHubCs(file, errors) {
     const literal = m[6] !== undefined ? m[6] : null;
     const kind = /^(TriggerBinding|CallBinding)$/.test(cls) ? "trigger" : /^(ValueBinding|RawValueBinding|GetterValueBinding|RawMapBinding|ValueBindingWithCustomEquality)$/.test(cls) ? "binding" : null;
     if (!kind) continue;
-    out.regs.push({ cls, kind, generic, name: literal, nameText: m[5].trim(), line: lineAt(m.index) });
+    // R1 (code review 2026-10-19, L17): a constructed binding that is never passed to AddBinding( is never registered with the
+    // game, so the UI shows its fallback forever and C# logs nothing. Registered = the `new` sits directly in an AddBinding(
+    // argument (through any `x = y =` assignment chain), or it is assigned to a name that appears as AddBinding(name).
+    const before = src.slice(0, m.index);
+    let added = /\bAddBinding\s*\(\s*(?:[A-Za-z_][\w.]*\s*=\s*)*$/.test(before);
+    if (!added) {
+      const chain = /((?:[A-Za-z_][\w.]*\s*=(?!=)\s*)+)$/.exec(before);
+      if (chain) {
+        for (const lhs of chain[1].split("=").map((x) => x.trim()).filter(Boolean)) {
+          const esc = lhs.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          if (new RegExp("\\bAddBinding\\s*\\(\\s*(?:[A-Za-z_][\\w.]*\\s*=\\s*)*" + esc + "\\s*\\)").test(src)) { added = true; break; }
+        }
+      }
+    }
+    out.regs.push({ cls, kind, generic, name: literal, nameText: m[5].trim(), line: lineAt(m.index), added });
   }
   return out;
 }
@@ -898,6 +922,7 @@ function readHubCs(file, errors) {
 /** Every `TypeBegin("SkiResortMod.<X>")` block of every .cs under dir (bin/obj excluded). */
 function readCsWriters(dir, errors) {
   const blocks = [];
+  const memberKinds = new Map();
   const files = [];
   const walk = (d) => {
     let entries;
@@ -913,27 +938,127 @@ function readCsWriters(dir, errors) {
     const src = stripCsComments(fs.readFileSync(file, "utf8"));
     const lineAt = (idx) => src.slice(0, idx).split("\n").length;
     const tokens = [];
+    collectCsMemberKinds(src, memberKinds);
     for (const m of src.matchAll(/\.TypeBegin\s*\(\s*(?:"([^"]*)"|([^)]*))\)/g)) tokens.push({ at: m.index, t: "begin", name: m[1] !== undefined ? m[1] : null });
     for (const m of src.matchAll(/\.TypeEnd\s*\(\s*\)/g)) tokens.push({ at: m.index, t: "end" });
-    for (const m of src.matchAll(/\.PropertyName\s*\(\s*(?:"([^"]*)"|([^)]*))\)/g)) tokens.push({ at: m.index, t: "prop", name: m[1] !== undefined ? m[1] : null, expr: m[2] });
+    for (const m of src.matchAll(/\.PropertyName\s*\(\s*(?:"([^"]*)"|([^)]*))\)/g)) tokens.push({ at: m.index, t: "prop", end: m.index + m[0].length, src, name: m[1] !== undefined ? m[1] : null, expr: m[2] });
     tokens.sort((a, b) => a.at - b.at);
     const stack = [];
     for (const tk of tokens) {
       if (tk.t === "begin") {
         const ours = tk.name && tk.name.startsWith("SkiResortMod.");
-        const b = { file, line: lineAt(tk.at), name: ours ? tk.name.slice("SkiResortMod.".length) : null, raw: tk.name, props: [], dynamic: [] };
+        const b = { file, line: lineAt(tk.at), name: ours ? tk.name.slice("SkiResortMod.".length) : null, raw: tk.name, props: [], dynamic: [], writes: [] };
         stack.push(b);
         if (ours) blocks.push(b);
       } else if (tk.t === "end") {
         stack.pop();
       } else if (stack.length) {
         const top = stack[stack.length - 1];
-        if (tk.name !== null) top.props.push(tk.name);
+        if (tk.name !== null) { top.props.push(tk.name); top.writes.push({ name: tk.name, arg: writeArgAfter(tk.src, tk.end) }); }
         else top.dynamic.push((tk.expr || "").trim());
       }
     }
   }
-  return { blocks, files };
+  return { blocks, files, memberKinds };
+}
+
+/**
+ * R2 (code review 2026-10-19, L17): value-kind inference for `writer.PropertyName("x"); writer.Write(<expr>);`. The checker has no
+ * C# type information, so it uses the declared type of the LAST identifier of the argument (field, property, local, parameter or
+ * method return type declared anywhere under CS_DIR; a name declared with more than one kind is "unknown" and skipped), plus
+ * the cast / Fin(...) / "?? \"\"" / comparison / literal forms. "unknown" never fails: only a certain mismatch does.
+ */
+function collectCsMemberKinds(src, map) {
+  const re = /(?:^|[\s(,;{])(bool|byte|sbyte|short|ushort|int|uint|long|ulong|float|double|string|Entity)(\[\])?\s+([A-Za-z_]\w*)\s*(?=[=;,)(\[{]|=>)/g;
+  for (const m of src.matchAll(re)) {
+    const k = csKind(m[1]) + (m[2] ? "[]" : "");
+    if (!map.has(m[3])) map.set(m[3], new Set());
+    map.get(m[3]).add(k);
+  }
+}
+
+/** The argument text of the `.Write(...)` statement that directly follows a PropertyName call ending at `pos`, or null. */
+function writeArgAfter(src, pos) {
+  const head = /^\s*;\s*[A-Za-z_][\w.]*\.Write\s*\(/.exec(src.slice(pos, pos + 160));
+  if (!head) return null;
+  let i = pos + head[0].length, depth = 1;
+  const start = i;
+  for (; i < src.length && depth > 0; i++) {
+    const c = src[i];
+    if (c === "\"") { i++; while (i < src.length && src[i] !== "\"") i += src[i] === "\\" ? 2 : 1; continue; }
+    if (c === "(") depth++;
+    else if (c === ")") depth--;
+  }
+  return depth === 0 ? src.slice(start, i - 1).trim() : null;
+}
+
+/** Splits at the first top-level `?` (not `??`) and its `:`; null when there is none. */
+function splitTernary(e) {
+  let depth = 0, q = -1;
+  for (let i = 0; i < e.length; i++) {
+    const c = e[i];
+    if (c === "\"") { i++; while (i < e.length && e[i] !== "\"") i += e[i] === "\\" ? 2 : 1; continue; }
+    if (c === "(" || c === "[" || c === "<") depth++;
+    else if (c === ")" || c === "]" || c === ">") depth--;
+    else if (c === "?" && depth === 0 && e[i + 1] !== "?" && e[i - 1] !== "?") { q = i; break; }
+  }
+  if (q < 0) return null;
+  depth = 0;
+  for (let i = q + 1; i < e.length; i++) {
+    const c = e[i];
+    if (c === "\"") { i++; while (i < e.length && e[i] !== "\"") i += e[i] === "\\" ? 2 : 1; continue; }
+    if (c === "(" || c === "[") depth++;
+    else if (c === ")" || c === "]") depth--;
+    else if (c === ":" && depth === 0) return { a: e.slice(q + 1, i).trim(), b: e.slice(i + 1).trim() };
+  }
+  return null;
+}
+
+/** "bool" | "number" | "string" | "entity" | "unknown" for a C# Write argument. */
+function kindOfWriteArg(arg, memberKinds) {
+  let e = (arg || "").trim();
+  if (!e) return "unknown";
+  while (/^\(.*\)$/.test(e) && !/\)\s*[\w.(]/.test(e.slice(1, -1).replace(/\([^()]*\)/g, ""))) e = e.slice(1, -1).trim();
+  const cast = /^\(\s*([A-Za-z_][\w.]*)\s*\)\s*\S/.exec(e);
+  if (cast) { const k = csKind(cast[1]); if (k === "bool" || k === "number" || k === "string") return k; }
+  if (/^(true|false)$/.test(e)) return "bool";
+  if (/^-?\d/.test(e)) return "number";
+  if (/^[$@]*"/.test(e) || /\?\?\s*""\s*$/.test(e)) return "string";
+  if (/^Fin\(/.test(e)) return "number";
+  const t = splitTernary(e);
+  if (t) {
+    const a = kindOfWriteArg(t.a, memberKinds), b = kindOfWriteArg(t.b, memberKinds);
+    return a === b ? a : (a === "unknown" ? b : b === "unknown" ? a : "unknown");
+  }
+  if (/^!(?!=)/.test(e) || /(==|!=|<=|>=|&&|\|\|)/.test(e.replace(/\([^()]*\)/g, "()"))) return "bool";
+  let tail = e, indexed = false;
+  const call = /\((?:[^()]|\([^()]*\))*\)$/.exec(tail);
+  if (call) tail = tail.slice(0, call.index);
+  const idx = /\[[^\]]*\]$/.exec(tail);
+  if (idx) { indexed = true; tail = tail.slice(0, idx.index); }
+  const id = /([A-Za-z_]\w*)$/.exec(tail.trim());
+  if (!id) return "unknown";
+  const kinds = memberKinds.get(id[1]);
+  if (!kinds) return "unknown";
+  const pick = new Set();
+  for (const k of kinds) {
+    if (indexed && k.endsWith("[]")) pick.add(k.slice(0, -2));
+    else if (!indexed && !k.endsWith("[]")) pick.add(k);
+  }
+  if (pick.size !== 1) return "unknown";
+  const k = [...pick][0];
+  return k === "bool" || k === "number" || k === "string" || k === "entity" ? k : "unknown";
+}
+
+/** tsKind widened for R2: unions of string literals are strings, unions of numeric literals are numbers. */
+function tsWriteKind(t) {
+  const s = t.trim();
+  const k = tsKind(s);
+  if (k !== "other") return k;
+  const parts = s.split("|").map((x) => x.trim());
+  if (parts.length > 1 && parts.every((x) => /^["'].*["']$/.test(x))) return "string";
+  if (parts.length > 1 && parts.every((x) => /^-?\d+(\.\d+)?$/.test(x))) return "number";
+  return "other";
 }
 
 const LOCALE_KEY_RE = /^(SkiResort|Assets|SubServices)\.[^\s"]+$/;
@@ -1170,6 +1295,7 @@ function checkContract(errors, warnings, report, opts = {}) {
         errors.push(`contract: ${path.basename(HUB_CS)}:${r.line} registers new ${r.cls}(..., ${r.nameText}, ...) - use a string literal name so this gate can check it (rule R1)`);
         continue;
       }
+      if (!r.added) errors.push(`contract: ${path.basename(HUB_CS)}:${r.line} constructs new ${r.cls}(..., "${r.name}", ...) but never passes it to AddBinding( - it is never registered, so the UI would show its fallback forever and C# would log nothing (rule R1)`);
       if (csNames.has(r.name)) errors.push(`contract: ${path.basename(HUB_CS)}:${r.line} registers "${r.name}" twice (rule R1)`);
       csNames.set(r.name, r);
     }
@@ -1208,6 +1334,7 @@ function checkContract(errors, warnings, report, opts = {}) {
   // ---- R2: shape parity -----------------------------------------------------------------------
   const writers = readCsWriters(CS_DIR, errors);
   const written = new Map();
+  let kindChecks = 0, kindDecided = 0;
   for (const b of writers.blocks) {
     const where = `${path.relative(CS_DIR, b.file).split(path.sep).join("/")}:${b.line}`;
     const fields = snap.shapes.get(b.name);
@@ -1220,12 +1347,23 @@ function checkContract(errors, warnings, report, opts = {}) {
       seen.add(p);
       if (!fields.find((f) => f.name === p)) errors.push(`contract: ${where} SkiResortMod.${b.name} writes "${p}" - not a field of TS interface ${b.name} (rule R2)`);
     }
+    // R2 (L17): the value kind of each Write(...) against the TS field type (a bool written for a number, a string for a bool, ...).
+    for (const w of b.writes) {
+      const f = fields.find((x) => x.name === w.name);
+      if (!f || w.arg === null) continue;
+      const want = tsWriteKind(f.type);
+      if (want !== "bool" && want !== "number" && want !== "string") continue;
+      const got = kindOfWriteArg(w.arg, writers.memberKinds);
+      kindChecks++;
+      if (got !== "unknown") kindDecided++;
+      if (got !== "unknown" && got !== want) errors.push(`contract: ${where} SkiResortMod.${b.name} writes "${w.name}" with Write(${w.arg}), a ${got}, but TS ${b.name}.${w.name} is ${f.type} (a ${want}) - the UI would read the wrong kind (rule R2)`);
+    }
     for (const f of fields) if (!seen.has(f.name)) errors.push(`contract: ${where} SkiResortMod.${b.name} does not write "${f.name}" (TS interface ${b.name}${f.optional ? ", optional" : ""}) - the UI would read undefined (rule R2)`);
   }
   const carried = new Set();
   for (const t of snap.bindingTypes.values()) { const b = baseTypeName(t); if (b && b !== "Entity" && snap.shapes.has(b)) carried.add(b); }
   for (const s of carried) if (!written.has(s)) errors.push(`contract: no C# writer for TS interface ${s} (no TypeBegin("SkiResortMod.${s}") under ${CS_DIR}) (rule R2)`);
-  report.push(`contract R2: ${writers.blocks.length} TypeBegin("SkiResortMod.*") block(s) in ${writers.files.length} .cs file(s); shapes written: ${[...written.keys()].sort().join(", ") || "none"}`);
+  report.push(`contract R2: ${writers.blocks.length} TypeBegin("SkiResortMod.*") block(s) in ${writers.files.length} .cs file(s); shapes written: ${[...written.keys()].sort().join(", ") || "none"}; ${kindChecks} Write(...) value kind(s) against the TS field types, ${kindDecided} decided (the rest unknown C# types, skipped)`);
 
   // ---- R3: contract lock ----------------------------------------------------------------------
   if (opts.lockMode !== "none") {
@@ -1423,7 +1561,7 @@ function checkContract(errors, warnings, report, opts = {}) {
  * Returns counters for the report line.
  */
 function lintFixerRules(ts, parsed, entryMaps, errors) {
-  const out = { panelRefs: 0, hookFns: 0, fmtRefs: 0, createCalls: 0, visible: 0 };
+  const out = { panelRefs: 0, hookFns: 0, fmtRefs: 0, createCalls: 0, visible: 0, alwaysMountedImports: 0 };
   const isHookName = (n) => /^use[A-Z0-9]/.test(n);
   const isFn = (n) => ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n) || ts.isArrowFunction(n) ||
     ts.isMethodDeclaration(n) || ts.isGetAccessorDeclaration(n) || ts.isSetAccessorDeclaration(n) || ts.isConstructorDeclaration(n);
@@ -1507,6 +1645,26 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
 
     const visit = (node) => {
       if (isFn(node)) checkFunction(node);
+
+      // R11 (L17): an always-mounted file may import only HubPanel from the panel files.
+      if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text.startsWith(".") &&
+          ALWAYS_MOUNTED_FILES.has(relN)) {
+        const target = path.posix.normalize(path.posix.join(path.posix.dirname(relN), node.moduleSpecifier.text));
+        const hit = [...PANEL_FILES].find((p) => p.replace(/\.tsx?$/, "") === target.replace(/\.tsx?$/, ""));
+        if (hit) {
+          const clause = node.importClause;
+          const typeOnly = !!clause && (clause.isTypeOnly ||
+            (!clause.name && clause.namedBindings && ts.isNamedImports(clause.namedBindings) && clause.namedBindings.elements.length > 0 &&
+             clause.namedBindings.elements.every((el) => el.isTypeOnly)));
+          const named = clause && clause.namedBindings && ts.isNamedImports(clause.namedBindings) ? clause.namedBindings.elements : [];
+          const onlyEntry = hit === PANEL_ENTRY && clause && !clause.name && named.length > 0 &&
+            named.every((el) => (el.propertyName ? el.propertyName.text : el.name.text) === "HubPanel");
+          out.alwaysMountedImports++;
+          if (!typeOnly && !onlyEntry) {
+            errors.push(`${at(node)}: always-mounted src/${relN} imports from the panel file src/${hit} - only { HubPanel } from ${PANEL_ENTRY} may be imported (and only \`import type\` from other panel files): anything else mounts panel subscriptions while the hub is closed (spec 3.6; rule R11)`);
+          }
+        }
+      }
 
       // R11: panel bindings outside panel files.
       if (ts.isIdentifier(node) && PANEL_BINDINGS.has(node.text)) {
