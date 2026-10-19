@@ -111,6 +111,14 @@
 // keep the 'swanky' in that big lodge"; hubText.ts ASSET_NAME follows, gate R4). Nothing retired. Internal prefab names
 // are untouched (deployed ones are save identity, the rest are Richard's call from the table). Keep every entry unique:
 // a duplicate key throws inside ReadEntries and LocalizationManager.LoadLocaleSource drops this whole source.
+// T77 hub wording round 1 (2026-10-18, Richard's ten asks + a full pass; docs/research/ui/hub-wording-round-1-2026-10-18.md
+// has the before/after table; gate R4 with src/hub/hubText.ts; HUB_CONTRACT 9 for CityStats.month): 123 texts changed in
+// place, same keys; the month is named "Month of {MONTH}" (vanilla Common.MONTH:<n>, not ours); new RECEIPT_ROOT; removed
+// MONEY_NOTE[Fees] (the Economy-panel sentence, T79 docs instead). The CatalogGuardTests CG-T2..T8 checks still hold.
+// T80 hub wording round 2 (2026-10-18, layered design pass; same report, "Round 2"; HUB_CONTRACT 9 unchanged): texts cut to
+// the point (every *TIP* text at most 25 words, tools/test-hub-rules.js T18.4); new RECEIPT_ROW[*], RECEIPT_TIP[Scale], NO_SCHOOL,
+// SCHOOL_NO_GREEN, MOUNTAIN[SnowDepth|SnowCover], MOUNTAIN_TIP[Depth], SKI_DAYS_TIP[Split]; removed MOUNTAIN[Snow|SnowMeasured|
+// SnowEstimated] (snow is always depth + coverage, T18.1-T18.3) and MONEY_TIP[Natural].
 // Additional languages: further IDictionarySource implementations — see SPEC §13 Phase 6.
 
 using System.Collections.Generic;
@@ -595,7 +603,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.TITLE", "Ski Resort" },
                 // CONNECTED, CONTRACT_MISMATCH: retired in contract 2 (no longer used by TS or C#; the mismatch
                 // text is CONTRACT_MISMATCH_CORE; integrator 2026-10-03, check-bundle rule 4 warned on both).
-                { "SkiResort.Hub.LAUNCHER_TOOLTIP", "Ski Resort: runs, resort totals and every building tool" },
+                { "SkiResort.Hub.LAUNCHER_TOOLTIP", "Ski Resorts" },
                 { "SkiResort.Hub.NOT_CONNECTED", "The mod is not answering: its hub system is missing or failed. See SkiResortMod.Mod.log." },
                 { "SkiResort.Hub.STAMP_DIFFERS", "The UI bundle comes from a different build than the DLL." },
                 { "SkiResort.Hub.UI_ERROR", "The Ski Resort panel hit an error and was closed. Details are in the mod log." },
@@ -634,7 +642,7 @@ namespace SkiResortMod
                 // Contract 3 (Round E1, ch6 §7.4): SECTION[Runs], NO_SIGN, BUILD_HINT_RUN, TREES_TOOL_OFF,
                 // TREES_TOOL_ON and RUN_FLY retired; RUNS_EMPTY's text changed (ch6 §7.2).
                 { "SkiResort.Hub.SECTION[Trees]", "Trees" },
-                { "SkiResort.Hub.SECTION_FAILED", "This part of the panel hit an error. Details are in the mod log." },
+                { "SkiResort.Hub.SECTION_FAILED", "This part of the panel failed. Details are in the mod log." },
                 { "SkiResort.Hub.PLACE_SIGN", "Place Welcome Sign" },
                 // SIGNS, RUNS_BOUND, RUNS_UNBOUND, LIFTS: removed in contract 2 (hub-u2-spec.md §2.4
                 // "Removed": the `summary` binding they labelled is gone; the resort rows replace it).
@@ -651,12 +659,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.TREES_MORE", "More trees" },
                 { "SkiResort.Hub.TREES_APPLY_TO", "Apply to" },
                 { "SkiResort.Hub.TREES_UNAVAILABLE", "The tree tool is not available right now." },
-                { "SkiResort.Hub.RUNS_EMPTY", "No runs yet. Pick a run type in the Build strip below and draw its outline." },
+                { "SkiResort.Hub.RUNS_EMPTY", "No runs yet. Pick a run type in the Runs tab below and draw its outline." },
                 { "SkiResort.Hub.COL_LENGTH", "Length" },
                 { "SkiResort.Hub.COL_DROP", "Drop" },
                 { "SkiResort.Hub.COL_AREA", "Area" },
-                { "SkiResort.Hub.COL_LENGTH_TIP", "Horizontal length, estimated from the run's outline" },
-                { "SkiResort.Hub.COL_DROP_TIP", "Height difference between the highest and lowest points of the run's outline (approximate)" },
+                { "SkiResort.Hub.COL_LENGTH_TIP", "Horizontal length, estimated from the outline." },
+                { "SkiResort.Hub.COL_DROP_TIP", "Approximate height from the lowest to the highest point of the outline." },
 
                 // (d) Contract 2 (docs/research/hub-u2-spec.md §2.4, Rounds U2/L1/M1, implementer I-4,
                 // 2026-10-03). Texts are the spec's, verbatim (final unless Richard edits them); the TS
@@ -681,16 +689,16 @@ namespace SkiResortMod
                 { "SkiResort.Hub.UNLINKED_ENTRY", "Not linked to a ski area" },
                 { "SkiResort.Hub.UNLINKED_HINT", "More than 5 km from every Welcome Sign. Place a sign nearby to link them." },
                 { "SkiResort.Hub.RENAME", "Rename" },
-                { "SkiResort.Hub.RENAME_TIP", "Enter or clicking away keeps the name, Esc cancels, an empty name restores the default." },
+                { "SkiResort.Hub.RENAME_TIP", "Enter or a click elsewhere keeps the name. Esc cancels. An empty name restores the default." },
                 // Kept from the contract-2 dashboard (now the Overview's mountain block and receipt).
                 { "SkiResort.Hub.DIFFICULTY", "Difficulty" },
                 { "SkiResort.Hub.PENDING", "Being rated" },
                 // Fixer round (findings u2-data-05 / u2-panel-5): band -2, a rating that ended in no terrain /
                 // too large / failed — final, so it must not read "Being rated" forever.
-                { "SkiResort.Hub.UNRATEABLE", "Cannot be rated (outline too large or too thin, or no terrain under it)" },
+                { "SkiResort.Hub.UNRATEABLE", "Cannot be rated: outline too large or too thin, or no terrain under it" },
                 { "SkiResort.Hub.DETAIL[Share]", "Share of the city's tourist draw" },
                 // Round F6 (C3, attraction-honesty D8): the target-tourists row's own tooltip.
-                { "SkiResort.Hub.EST_TOURISTS_TIP", "Worked out with the game's own tourist formula, not counted. Tourism mods can replace that formula, so real arrivals may differ." },
+                { "SkiResort.Hub.EST_TOURISTS_TIP", "From the game's tourist formula, not counted. Tourism mods can replace the formula, so real arrivals can differ." },
                 // Lists (now the Runs and Lifts views).
                 { "SkiResort.Hub.LIFTS_EMPTY", "No lifts yet. Place a base station and a top station facing each other, then draw the lift line between them." },
                 { "SkiResort.Hub.LIFT_DEFAULT", "Lift {N}" },
@@ -700,12 +708,12 @@ namespace SkiResortMod
                 // Fixer round (finding u2-data-06): chairs run on the simulation clock, so the hour is one at
                 // normal speed (spec §2.4's "real time" was wrong at 2× / 3× and while paused). Round E1: a
                 // design figure (D34 honest labels; the game does not simulate riders).
-                { "SkiResort.Hub.LIFT_CAPACITY", "Design capacity (riders an hour at 1× game speed)" },
+                { "SkiResort.Hub.LIFT_CAPACITY", "Capacity" },
                 { "SkiResort.Hub.LIFT_TOWER_REMOVED", "A tower was removed by another tool. Redraw a section next to it to restore it." },
                 { "SkiResort.Hub.LIFT_STRAIGHT", "Stations straight (180°)" },
                 // Fixer round (finding behaviour-4): a lift without a base station stores its name on the top.
-                { "SkiResort.Hub.LIFT_NAME_TIP", "The name is stored on the base station (on the top station while the lift has no base)" },
-                { "SkiResort.Hub.LIFT_SIGN_TIP", "Lifts belong to the nearest Welcome Sign within 5 km of their base station; runs keep the sign they were drawn for" },
+                { "SkiResort.Hub.LIFT_NAME_TIP", "The name is stored on the base station, or on the top station while there is no base." },
+                { "SkiResort.Hub.LIFT_SIGN_TIP", "Lifts belong to the nearest Welcome Sign within 5 km of their base station; runs keep the sign they were drawn for." },
                 // Build strip (§4.2 BuildStrip, §5.8).
                 { "SkiResort.Hub.BUILD_HINT_SIGN", "The sign is the ski area: runs and lifts within 5 km belong to it." },
                 { "SkiResort.Hub.BUILD_HINT_BASE", "Place at the bottom of the lift." },
@@ -724,15 +732,15 @@ namespace SkiResortMod
                 // Texts are final unless Richard edits them (DECISIONS 132: the owner reads new player text).
                 { "SkiResort.Hub.START_TITLE", "Start a ski area" },
                 { "SkiResort.Hub.START_STEP[1]", "Place a Welcome Sign" },
-                { "SkiResort.Hub.START_STEP[2]", "Connect the sign: road, power, water and sewage" },
+                { "SkiResort.Hub.START_STEP[2]", "Connect the sign to a road, power, water and sewage" },
                 { "SkiResort.Hub.START_STEP[3]", "Add a lodge to the sign" },
                 { "SkiResort.Hub.START_STEP[4]", "Build a lift: two stations, then the line" },
                 { "SkiResort.Hub.START_STEP[5]", "Draw runs from the top of the lift" },
                 // START_NOTE retired in Round F7 (D6): footer line 2 (BUILD_HINT_SIGN) says it.
                 { "SkiResort.Hub.STATUS_NO_RUNS", "Closed · no runs yet" },
                 { "SkiResort.Hub.STATUS_UNLINKED", "Not linked to a ski area" },
-                { "SkiResort.Hub.STATUS_TIP_RULE", "Open: 15 cm or more of snow covers 60 % of the run (31 cm on natural black runs). Closed: below 40 %. In between: patchy." },
-                { "SkiResort.Hub.STATUS_TIP_MEASURED", "Snow is measured on each run from the game's own snow." },
+                { "SkiResort.Hub.STATUS_TIP_RULE", "Open: at least 15 cm of snow on 60 % of the run, 31 cm on natural black runs. Closed: under 40 %. Patchy: in between." },
+                { "SkiResort.Hub.STATUS_TIP_MEASURED", "Snow is measured on each run from the game's snow." },
                 { "SkiResort.Hub.STATUS_TIP_ESTIMATED", "Some runs are estimated from the day's temperature until their snow can be measured." },
                 { "SkiResort.Hub.STATUS_TIP_GATING", "Snow & season gating is off in Options, so every run counts as open." },
                 { "SkiResort.Hub.STATUS_TIP_VISUALS", "Snow is hidden in your Gameplay settings. Runs still open on the simulated snow." },
@@ -740,39 +748,39 @@ namespace SkiResortMod
                 { "SkiResort.Hub.POWDER_DAY", "Powder day" },
                 { "SkiResort.Hub.PROBLEM[None]", "Nothing needs your attention." },
                 { "SkiResort.Hub.PROBLEM[Unlinked]", "More than 5 km from every Welcome Sign" },
-                { "SkiResort.Hub.PROBLEM[NoLodge]", "No lodge: guests have nowhere to arrive" },
+                { "SkiResort.Hub.PROBLEM[NoLodge]", "No lodge" },
                 { "SkiResort.Hub.PROBLEM[LodgesAllOff]", "All lodges are switched off" },
-                { "SkiResort.Hub.PROBLEM[NoRuns]", "No runs yet: draw one to open" },
+                { "SkiResort.Hub.PROBLEM[NoRuns]", "No runs yet" },
                 // Round F7 (D5): the two road rows (C# HubProblemCode SignNoRoad 18, LodgeNoRoad 19).
                 { "SkiResort.Hub.PROBLEM[SignNoRoad]", "Welcome Sign is not at a road" },
-                { "SkiResort.Hub.PROBLEM[LodgeNoRoad]", "Lodge is not at a road: guests cannot reach it" },
+                { "SkiResort.Hub.PROBLEM[LodgeNoRoad]", "Lodge is not at a road" },
                 // Round S1 (D28): the ski-day rows (C# HubProblemCode SkiDaysCannotReach 20, NoParkingNearLodge 21,
                 // LodgeNotSlopeside 22). Round M1 (D1): SkiDaysCannotReach's row and tip reworded (header).
                 { "SkiResort.Hub.PROBLEM[SkiDaysCannotReach]", "Many ski-day guests with a car never arrive" },
                 { "SkiResort.Hub.PROBLEM[NoParkingNearLodge]", "No parking near the lodge" },
                 { "SkiResort.Hub.PROBLEM[LodgeNotSlopeside]", "Lodge is far from the runs" },
                 // Catalog Phase B (D13): C# HubProblemCode SchoolNoGreenRun 25 (23 and 24 carry a placeholder: block (e) FMT).
-                { "SkiResort.Hub.PROBLEM[SchoolNoGreenRun]", "The ski school has no green run" },
-                { "SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Guests arrive at a lodge, so a ski area without one has an attraction of 0. Place a lodge near the Welcome Sign with the lodge tile in the Build strip." },
-                { "SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "A lodge that is switched off does not count. With none left, guests have nowhere to arrive and the attraction is 0. Switch one on in the Welcome Sign's info panel (Upgrades)." },
-                { "SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "A lodge that is switched off does not count in the lodge base." },
+                { "SkiResort.Hub.PROBLEM[SchoolNoGreenRun]", "Ski school has no green run" },
+                { "SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Guests arrive at a lodge, so without one the attraction is 0. Build one near the Welcome Sign from the Buildings tab." },
+                { "SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "Switched-off lodges do not count, so the attraction is 0. Switch one on under Upgrades in the Welcome Sign's info panel." },
+                { "SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "Switched-off lodges do not count in the lodge base." },
                 // Round F7 (D4): no longer tells the player to connect a sign that is connected.
                 // Round M2 (R5): changed in place; names garbage and points at the factor rows below it.
-                { "SkiResort.Hub.PROBLEM_TIP[Efficiency]", "Efficiency as on the Welcome Sign's info panel: staff, power, water, sewage, garbage, budget and more. Any cause costing 5 % or more is listed below." },
+                { "SkiResort.Hub.PROBLEM_TIP[Efficiency]", "As in the Welcome Sign's info panel. Every cause that costs 5 % or more is listed below." },
                 // Phase D (round-4-contract §4.4, DECISIONS 171 rulings 1-3, skeptic MUST-1; was "Its base station gets no
                 // electricity, so the lift adds nothing and its runs count as having no lift. ..."): the lift stops, serves no
                 // run, and its upkeep is still billed (power never lowers it; no "full": the NoOpenRun quarter can still apply,
                 // round-4 fixer); power is the base station's only (CG-T8).
-                { "SkiResort.Hub.PROBLEM_TIP[LiftNoPower]", "No electricity at its base station: the lift stops and serves no run, but maintenance is still charged. Connect a low-voltage line to it." },
-                { "SkiResort.Hub.PROBLEM_TIP[LiftSectionMissing]", "A section of the line is being redrawn or was removed. The lift counts again as soon as the line is closed; until then it costs a quarter of its running cost." },
+                { "SkiResort.Hub.PROBLEM_TIP[LiftNoPower]", "Its base station has no electricity, so the lift stops and serves no run. Maintenance is still charged. Connect a low-voltage line." },
+                { "SkiResort.Hub.PROBLEM_TIP[LiftSectionMissing]", "A section was removed or is being redrawn. Until the line is complete the lift counts 0 and costs a quarter." },
                 { "SkiResort.Hub.PROBLEM_TIP[LiftUnfinished]", "The line does not join a base station and a top station yet." },
-                { "SkiResort.Hub.PROBLEM_TIP[NoRuns]", "Pick a run type in the Build strip and draw its outline within 5 km of the Welcome Sign." },
+                { "SkiResort.Hub.PROBLEM_TIP[NoRuns]", "Pick a run type in the Runs tab and draw it within 5 km of the Welcome Sign." },
                 { "SkiResort.Hub.PROBLEM_TIP[Stations]", "A station is placed, but no line joins it to its partner yet." },
                 { "SkiResort.Hub.PROBLEM_TIP[LiftChairsStopped]", "The lift is complete and still counts, but its chairs stopped. The mod log says why." },
-                { "SkiResort.Hub.PROBLEM_TIP[RunsUnrateable]", "Their outline is too large or too thin, or there is no terrain under it. Such a run counts very little." },
-                { "SkiResort.Hub.PROBLEM_TIP[RunsRating]", "Their difficulty is being worked out, one run at a time. A new run counts 0 until then; a reshaped run keeps its last rating." },
-                { "SkiResort.Hub.PROBLEM_TIP[RunsFlat]", "A run rated Flat adds nothing to the score. Draw it on steeper ground." },
-                { "SkiResort.Hub.PROBLEM_TIP[FreeLodges]", "These lodges are not on a Welcome Sign, so they count nowhere." },
+                { "SkiResort.Hub.PROBLEM_TIP[RunsUnrateable]", "The outline is too large or too thin, or has no terrain under it. These runs count very little." },
+                { "SkiResort.Hub.PROBLEM_TIP[RunsRating]", "Runs are rated one at a time. A new run counts 0 until it is rated; a reshaped run keeps its last rating." },
+                { "SkiResort.Hub.PROBLEM_TIP[RunsFlat]", "A Flat run adds nothing to the score. Draw it on steeper ground." },
+                { "SkiResort.Hub.PROBLEM_TIP[FreeLodges]", "These lodges belong to no Welcome Sign, so they count nowhere." },
                 // Round F7 (D5): the tooltip's first line is the row ("Welcome Sign is not at a road" /
                 // "Lodge is not at a road: ..."), so "it" names the building; the fix hints come from
                 // findings/sign-utilities.md §5 and ped-access.md §2.4 / §4.2 (the deck side is the lot front;
@@ -785,9 +793,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations." },
                 // Catalog Phase B: C# HubProblemCode 23-25 (D18 mixed types; D11 summit-served 300 m = SkiCatalog.Ladder
                 // .SummitServedRadiusM, CG-T6; D13 the school's green run).
-                { "SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and the stations it joins must be one kind of lift. Redraw the line as the stations' kind, or move its end off the other lift's station." },
+                { "SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and its stations must be one lift type; until then the lift counts 0. Redraw the line as the stations' type." },
                 { "SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "In summer a summit lodge counts more only within 300 m of a working lift's top station." },
-                { "SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The school adds to the score only while a green run counts." },
+                { "SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while a green run counts." },
                 { "SkiResort.Hub.PROBLEM_MORE_TIP", "Also needs attention:" },
                 { "SkiResort.Hub.PROBLEM_CLICK_FLY", "Click to fly there." },
                 { "SkiResort.Hub.PROBLEM_CLICK_LIST", "Click to open the list." },
@@ -796,54 +804,66 @@ namespace SkiResortMod
                 { "SkiResort.Hub.TILE[RunsOpen]", "Runs open" },
                 { "SkiResort.Hub.TILE[Lifts]", "Lifts" },
                 { "SkiResort.Hub.TILE[Guests]", "Guests" },
-                { "SkiResort.Hub.TILE[Money]", "Money" },
-                { "SkiResort.Hub.TILE_TIP[Attraction]", "Its score on the game's scale: a large park is about 10, a landmark 120. Lodges carry it; their own panels show 0." },
+                { "SkiResort.Hub.TILE[Money]", "Finances" },
+                { "SkiResort.Hub.TILE_TIP[Attraction]", "The ski area's score on the attraction scale: a large park is about 10, a landmark about 120. Lodges carry it; their panels show 0." },
                 { "SkiResort.Hub.TILE_TIP_HELD", "Checking runs and snow after loading. The game keeps the saved score meanwhile." },
-                { "SkiResort.Hub.TILE_TIP[Runs]", "Runs fully open now, of all runs of this ski area." },
+                { "SkiResort.Hub.TILE_TIP[Runs]", "Runs fully open now, out of all runs in this ski area." },
                 // Phase D (round-4-contract §4.4; was "... Without power the chairs still move, but the lift adds nothing."): the
                 // carriers stop without power (ChairPinSystem hold, the tram Held), CG-T8.
-                { "SkiResort.Hub.TILE_TIP[Lifts]", "Lifts that count (complete, with power at the base station), of the complete lifts. Without power a lift stops and adds nothing." },
-                { "SkiResort.Hub.TILE_TIP[Guests]", "Guests who arrived this month: tourists at the lodges and the Welcome Sign, and residents visiting a lodge." },
+                { "SkiResort.Hub.TILE_TIP[Lifts]", "Complete lifts with power at the base station, out of all complete lifts. Without power a lift stops and adds nothing." },
+                { "SkiResort.Hub.TILE_TIP[Guests]", "Month of {MONTH}: tourists who arrived at the lodges or the Welcome Sign, and residents who visited a lodge." },
                 { "SkiResort.Hub.TILE_TIP_SINCE_LOAD", "Counted since you loaded the city." },
-                { "SkiResort.Hub.TILE_TIP[Money]", "Resort money a month: lift tickets minus running costs and the game's bill for buildings and wages, at today's rates. What tourists spend in your city's shops and hotels is not included." },
-                { "SkiResort.Hub.TILE_TIP_EST", "≈ estimated: less than a full month of lift tickets has been counted." },
+                { "SkiResort.Hub.TILE_TIP[Money]", "Net per month at today's rates: lift tickets and lodge spend minus running costs. Season passes and lessons are not in it." },
+                { "SkiResort.Hub.TILE_TIP_EST", "≈ Less than a whole month of lift tickets has been counted." },
                 { "SkiResort.Hub.TILE_TIP_EST_BUILDINGS", "≈ The game's bill for buildings and wages is not known yet." },
                 { "SkiResort.Hub.TILE_TIP_OPEN", "Click to show it below." },
                 { "SkiResort.Hub.SECTION[Attraction]", "Attraction" },
                 { "SkiResort.Hub.SCORE_TICK[Attraction]", "tourist attraction 50" },
                 { "SkiResort.Hub.SCORE_TICK[Landmark]", "landmark 120" },
                 { "SkiResort.Hub.RECEIPT[LodgeBase]", "Lodge base" },
-                { "SkiResort.Hub.RECEIPT[LodgeBaseHalf]", "Lodge base (half until a run counts)" },
-                { "SkiResort.Hub.RECEIPT[LodgeBaseNone]", "Lodge base (no lodge)" },
+                { "SkiResort.Hub.RECEIPT[LodgeBaseHalf]", "Lodge base, half until a run counts" },
+                { "SkiResort.Hub.RECEIPT[LodgeBaseNone]", "Lodge base, no lodge" },
                 // Catalog Phase B (R11 ladder; CG-T5: "up to <Ladder.ExtraCap>"): changed in place.
-                { "SkiResort.Hub.RECEIPT_TIP[LodgeBase]", "The best lodge's base, plus each other lodge's extra, up to 24 more. Switched-off lodges do not count. While no run counts: half, more for a summit lodge a lift reaches." },
-                { "SkiResort.Hub.RECEIPT[Terrain]", "Runs and lifts" },
-                { "SkiResort.Hub.RECEIPT_TIP[Runs]", "Runs: the sum of each run's value now (difficulty, size, type, lift and snow). Each run's tooltip in the Runs view shows its own." },
+                { "SkiResort.Hub.RECEIPT_TIP[LodgeBase]", "Best lodge's base plus the others' extras, up to 24 more. Half while no run counts, more for a summit lodge a lift reaches." },
+                { "SkiResort.Hub.RECEIPT[Terrain]", "Runs, lifts and school" },
+                { "SkiResort.Hub.RECEIPT_TIP[Runs]", "Each run's value now, from its difficulty, size, type, lift and snow. The Runs view lists them." },
                 // Catalog Phase B (R12; CG-T4: every Loop type's "<name> <ScoreValue>" in index order and the summer-share words):
                 // changed in place.
-                { "SkiResort.Hub.RECEIPT_TIP[Lifts]", "Lifts: each complete lift with power adds its kind's value: fixed-grip 6, detachable 15, gondola 25. While no run counts: chairlifts a quarter, gondolas three quarters." },
+                { "SkiResort.Hub.RECEIPT_TIP[Lifts]", "Each complete lift with power adds fixed-grip 6, detachable 15, gondola 25. While no run counts, chairlifts add a quarter and gondolas three quarters." },
                 // Catalog Phase B: the school's line of the receipt's parts tooltip (shown while ResortLive.schoolValue > 0).
-                { "SkiResort.Hub.RECEIPT_TIP[School]", "School: a ski school on the Welcome Sign adds its value while a green run counts." },
-                { "SkiResort.Hub.RECEIPT_TIP[Variety]", "Variety: 15 % more while a green, a blue and a black (or harder) run all count." },
+                { "SkiResort.Hub.RECEIPT_TIP[School]", "A ski school on the Welcome Sign adds its value while a green run counts." },
+                { "SkiResort.Hub.RECEIPT_TIP[Variety]", "× 1.15 while a green, a blue and a black or harder run all count, else × 1." },
+                // T80 (2026-10-18, Richard item 4): one labelled row per term of the "Runs, lifts and school" section; item 3: a
+                // school row / lessons row whose 0 has a cause says it with the warning glyph.
+                { "SkiResort.Hub.RECEIPT_ROW[Runs]", "Runs" },
+                { "SkiResort.Hub.RECEIPT_ROW[Lifts]", "Lifts" },
+                { "SkiResort.Hub.RECEIPT_ROW[School]", "Ski school" },
+                { "SkiResort.Hub.RECEIPT_ROW[Variety]", "Variety" },
+                { "SkiResort.Hub.RECEIPT_ROW[Vertical]", "Vertical" },
+                { "SkiResort.Hub.RECEIPT_ROW[Scale]", "Square root × scale" },
+                { "SkiResort.Hub.RECEIPT_TIP[Scale]", "The section total is this scale × the square root of the terms above. Attractiveness scale in Options." },
+                { "SkiResort.Hub.NO_SCHOOL", "No ski school" },
+                { "SkiResort.Hub.SCHOOL_NO_GREEN", "No green run" },
                 { "SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –" },
                 { "SkiResort.Hub.RECEIPT[Efficiency]", "Welcome Sign efficiency" },
                 // Round M2 (R5): changed in place, "garbage" added (one wording across the hub).
-                { "SkiResort.Hub.RECEIPT_TIP[Efficiency]", "The Welcome Sign's efficiency, as on its info panel: staff, power, water, sewage, garbage, budget and more. The score uses the day's average, at most 100 %." },
+                { "SkiResort.Hub.RECEIPT_TIP[Efficiency]", "As in the Welcome Sign's info panel: staff, power, water, sewage, garbage, budget and more. The score uses the day's average, at most 100 %." },
                 { "SkiResort.Hub.RECEIPT[Result]", "Attraction" },
-                { "SkiResort.Hub.RECEIPT[ResultNoLodge]", "Attraction (no lodge: 0)" },
-                { "SkiResort.Hub.RECEIPT_TIP[Result]", "(Lodge base + runs and lifts) × efficiency, at most 200. The active lodges carry it in equal shares; a lodge's own panel shows 0." },
-                { "SkiResort.Hub.SHARE_TIP", "This ski area's share of the city's attraction, counted the game's way: the square of each building's score. It sets how many tourists come, not where they go." },
+                { "SkiResort.Hub.RECEIPT[ResultNoLodge]", "Attraction, no lodge" },
+                { "SkiResort.Hub.RECEIPT_TIP[Result]", "(Lodge base + runs, lifts and school) × efficiency, at most 200. The active lodges share it; their own panels show 0." },
+                { "SkiResort.Hub.SHARE_TIP", "This ski area's share of the city's attraction, the game's way: each building's score squared. It sets how many tourists come, not where they go." },
                 { "SkiResort.Hub.SECTION[Mountain]", "Mountain" },
                 { "SkiResort.Hub.MOUNTAIN[Vertical]", "Vertical" },
                 { "SkiResort.Hub.MOUNTAIN_TIP[Vertical]", "From the lowest run bottom to the highest run top. ≈ while runs are being rated." },
-                { "SkiResort.Hub.AREA_TIP", "The plan area of all runs of this ski area." },
-                { "SkiResort.Hub.MOUNTAIN[Snow]", "Snow now" },
-                { "SkiResort.Hub.MOUNTAIN[SnowMeasured]", "Snow now (measured)" },
-                { "SkiResort.Hub.MOUNTAIN[SnowEstimated]", "Snow now (estimated)" },
-                { "SkiResort.Hub.MOUNTAIN_TIP[Snow]", "Share of the run area with at least 15 cm of snow (31 cm on natural black runs)." },
+                { "SkiResort.Hub.AREA_TIP", "The plan area of all runs in this ski area." },
+                // T80 (Richard item 6): snow is always depth in cm + run coverage in % (MOUNTAIN[Snow|SnowMeasured|SnowEstimated] removed).
+                { "SkiResort.Hub.MOUNTAIN[SnowDepth]", "Snow depth" },
+                { "SkiResort.Hub.MOUNTAIN[SnowCover]", "Run coverage" },
+                { "SkiResort.Hub.MOUNTAIN_TIP[Depth]", "Average snow depth on the runs." },
+                { "SkiResort.Hub.MOUNTAIN_TIP[Snow]", "Share of the run area with at least 15 cm of snow, 31 cm on natural black runs." },
                 { "SkiResort.Hub.UNLINKED_NOTE", "These runs and lifts belong to no ski area, so they score nothing and draw no guests." },
                 { "SkiResort.Hub.TREE_TOOL", "Tree tool" },
-                { "SkiResort.Hub.TREE_TOOL_TIP", "Plan trees on and around your runs: turn the tool on, hover a run and click." },
+                { "SkiResort.Hub.TREE_TOOL_TIP", "Plans trees on and around runs. Turn it on, hover a run and click." },
                 { "SkiResort.Hub.TREE_TOOL_TIP_ON", "The tree tool is on. Click to turn it off." },
                 { "SkiResort.Hub.PISTE_MAP", "Piste map" },
                 { "SkiResort.Hub.PISTE_MAP_TIP", "Draws this ski area's runs on the ground, in difficulty colours, while the panel is open. Natural: dashed. Too flat: grey. Cannot be rated: orange." },
@@ -877,34 +897,34 @@ namespace SkiResortMod
                 // capacity includes its station stops (HubRules.ShuttleCapacityPerHour).
                 // Phase D (round-4-contract §4.4 with skeptic MUST-3, 24 words; was "..., as built; a tram counts its station
                 // stops. The game ..."): an unpowered lift shows capacity – (SkiResortStatsSystem, HubRules.LiftCapacityShown).
-                { "SkiResort.Hub.LIFT_CAPACITY_TIP", "{SEATS} seats a carrier at {SPEED} m/s; a tram counts its station stops; none unpowered or with no open run. Riders are not simulated." },
+                { "SkiResort.Hub.LIFT_CAPACITY_TIP", "{SEATS} seats per carrier at {SPEED} m/s; a tram counts its station stops. None without power or an open run. Riders are not simulated." },
                 // Catalog Phase B: the Lifts view's totals row (it sums several lift types: no {SEATS} / {SPEED}).
                 // Phase D (round-4-contract §4.4 with skeptic MUST-3, 25 words; was "The sum over the complete lifts, each with
                 // its own seats and speed, as built; ..."): the area total sums only the lifts that carry.
-                { "SkiResort.Hub.LIFTS_TOTAL_CAPACITY_TIP", "The sum over the powered, open complete lifts, at their own seats and speed; a tram counts its station stops. Riders are not simulated." },
+                { "SkiResort.Hub.LIFTS_TOTAL_CAPACITY_TIP", "Sum over complete lifts with power and an open run; a tram counts its station stops. Riders are not simulated." },
                 { "SkiResort.Hub.LIFT_RUNS", "Runs it serves" },
                 { "SkiResort.Hub.LIFT_COST", "Running cost" },
                 // Phase D (DECISIONS 171 ruling 2, skeptic MUST-1; build-rules.md §3.2; was "Billed at 25 %: no power"): power no
                 // longer lowers the bill (SkiMoneyRules.LiftUpkeepBillingOf), so a reduced row whose status is No power is
                 // billed reduced only because its ski area has no counted run (NoOpenRun). hubRules.ts liftCostReason still
                 // picks this key for that row, so the key keeps its slot and names the true reason (text only, contract 6).
-                { "SkiResort.Hub.LIFT_COST_REDUCED[NoPower]", "Billed at 25 %: no open run in its ski area" },
-                { "SkiResort.Hub.LIFT_COST_REDUCED[Unfinished]", "Billed at 25 % while unfinished" },
-                { "SkiResort.Hub.LIFT_COST_REDUCED[SectionMissing]", "Billed at 25 % while a section is missing" },
+                { "SkiResort.Hub.LIFT_COST_REDUCED[NoPower]", "Billed at a quarter: no open run in its ski area" },
+                { "SkiResort.Hub.LIFT_COST_REDUCED[Unfinished]", "Billed at a quarter while unfinished" },
+                { "SkiResort.Hub.LIFT_COST_REDUCED[SectionMissing]", "Billed at a quarter while a section is missing" },
                 // Round M2 (R3, T2): a complete, powered lift whose ski area has no counted run (hubText.ts liftCostReducedNoOpenRun).
-                { "SkiResort.Hub.LIFT_COST_REDUCED[NoOpenRun]", "Billed at 25 %: no open run in its ski area" },
+                { "SkiResort.Hub.LIFT_COST_REDUCED[NoOpenRun]", "Billed at a quarter: no open run in its ski area" },
                 { "SkiResort.Hub.LIFT_ACTIONS", "Click to fly there (to the gap if a section is missing). The pen renames it." },
                 { "SkiResort.Hub.LIFTS_TOTAL_LENGTH", "Total lift length" },
-                { "SkiResort.Hub.LIFTS_TOTAL_CAPACITY", "Design capacity, all lifts" },
+                { "SkiResort.Hub.LIFTS_TOTAL_CAPACITY", "Capacity, all lifts" },
                 { "SkiResort.Hub.SECTION[Guests]", "Guests" },
-                { "SkiResort.Hub.GUESTS_MONTH[This]", "This month" },
-                { "SkiResort.Hub.GUESTS_MONTH[Last]", "Last month" },
+                { "SkiResort.Hub.GUESTS_MONTH[This]", "Month of {MONTH}" },
+                { "SkiResort.Hub.GUESTS_MONTH[Last]", "Month of {MONTH}" },
                 // Round S1: F7's partial last month (bar label) and D27's ski-day row with its tooltip body.
-                { "SkiResort.Hub.GUESTS_MONTH[LastPartial]", "Last month (partial)" },
-                { "SkiResort.Hub.GUESTS_ROW[SkiDays]", "Ski days" },
-                { "SkiResort.Hub.GUESTS_TIP[SkiDays]", "Skiers the resort sent here, counted when they reach a lodge. Counting starts when the lift ticket gate first opens in a season, so it is 0 before that. They also count as residents or tourists." },
+                { "SkiResort.Hub.GUESTS_MONTH[LastPartial]", "Month of {MONTH}, partial" },
+                { "SkiResort.Hub.GUESTS_ROW[SkiDays]", "Reached a lodge" },
+                { "SkiResort.Hub.GUESTS_TIP[SkiDays]", "Skiers the resort sends out on a ski day, counted when they reach a lodge. They also count as residents or tourists." },
                 { "SkiResort.Hub.GUESTS_GROUP[Lodges]", "At the lodges" },
-                { "SkiResort.Hub.GUESTS_GROUP[Sent]", "Sent to ski by the resort" },
+                { "SkiResort.Hub.GUESTS_GROUP[Sent]", "Ski-day trips" },
                 { "SkiResort.Hub.GUESTS_GROUP[Tickets]", "Lift tickets" },
                 { "SkiResort.Hub.GUESTS_NOTE[NeverSki]", "Includes visitors who never ski" },
                 { "SkiResort.Hub.GUESTS_ROW[Tourists]", "Tourists" },
@@ -916,12 +936,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.GUESTS_TIP[Groups]", "Tourists arrive in groups; each group counts once." },
                 { "SkiResort.Hub.GUESTS_TIP[Residents]", "Residents of your city who came to a lodge for leisure." },
                 { "SkiResort.Hub.GUESTS_TIP[Tickets]", "Paid by each guest's household into your city's balance." },
-                { "SkiResort.Hub.GUESTS_LAST_NA", "Not counted: guests are counted only from the moment the city loads." },
+                { "SkiResort.Hub.GUESTS_LAST_NA", "Not counted: counting starts when the city loads." },
                 // Round M1 (D5): a month can now also be partial because time was skipped ahead; the new text waits (header).
-                { "SkiResort.Hub.GUESTS_LAST_PARTIAL", "Last month was not counted in full: the city was loaded, or time was skipped ahead, during it." },
+                { "SkiResort.Hub.GUESTS_LAST_PARTIAL", "Not counted in full: the city was loaded, or time skipped ahead, during that month." },
                 // Round S1 (D27): the ski-day state line and its tooltips; the Room lines are placeholder keys below.
                 // 800 m is D10's slopeside distance, 360 D21's skiers per lodge.
-                { "SkiResort.Hub.SKI_DAYS[Off]", "Ski days are off (Options)" },
+                { "SkiResort.Hub.SKI_DAYS[Off]", "Ski days are off in Options" },
                 { "SkiResort.Hub.SKI_DAYS[SignOff]", "Closed: the Welcome Sign is not running" },
                 { "SkiResort.Hub.SKI_DAYS[NoRun]", "Closed: no open run" },
                 { "SkiResort.Hub.SKI_DAYS[NoLodge]", "No lodge for ski days" },
@@ -931,61 +951,62 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Ski days need a lodge that is switched on, at a road, and within 800 m of the runs." },
                 { "SkiResort.Hub.SKI_DAYS_TIP[Runs]", "The runs set the limit: bigger and easier runs hold more skiers at once." },
                 { "SkiResort.Hub.SKI_DAYS_TIP[Lodges]", "The lodges set the limit: each lodge takes 360 skiers at once, more on a powder day." },
-                { "SkiResort.Hub.EST_ROW[Tourists]", "Target tourists from this ski area (estimated)" },
+                { "SkiResort.Hub.EST_ROW[Tourists]", "Estimated tourists from this ski area" },
                 { "SkiResort.Hub.EST_TO_NOTE", "Detected: Tourism Overhaul. It sets tourist numbers." },
                 { "SkiResort.Hub.EST_TO_TIP", "Tourism Overhaul sets tourist numbers in this city, so no estimate is shown." },
                 // Round M2 (R9): the Guests view's trip-planner note (no placeholder; Known / KnownOff are in the
                 // placeholder block below) and its tooltip.
                 { "SkiResort.Hub.TRIP_PLANNER_NOTE[Unknown]", "Part of the game's trip planner is switched off (another mod, or a game error), so trip times can differ." },
                 { "SkiResort.Hub.TRIP_PLANNER_NOTE[UnknownOff]", "Ski days off: the game's leisure systems are switched off (another mod, or a game error)." },
-                { "SkiResort.Hub.TRIP_PLANNER_TIP", "Read at each city load: which of the game's own trip systems are switched on, and which known mods are loaded. The mod's log lists the systems." },
+                { "SkiResort.Hub.TRIP_PLANNER_TIP", "Read at each city load: which of the game's trip systems are on, and which known mods are loaded. The mod log lists them." },
                 { "SkiResort.Hub.GUESTS_NOTE[Where]", "Counted when tourists arrive at this ski area's lodge or Welcome Sign, and when residents come to a lodge for leisure." },
-                { "SkiResort.Hub.GUESTS_NOTE[SinceLoad]", "Counting started when you loaded the city, partway through this month." },
-                { "SkiResort.Hub.TICKETS_NOTE[Off]", "Lift tickets are off (Options: Lift ticket price is 0)." },
+                { "SkiResort.Hub.GUESTS_NOTE[SinceLoad]", "Counting started when you loaded the city, partway through the month." },
+                { "SkiResort.Hub.TICKETS_NOTE[Off]", "Lift tickets are off: the Lift ticket price in Options is 0." },
                 { "SkiResort.Hub.TICKETS_NOTE[NoEfficiency]", "No lift tickets now: the Welcome Sign is not running." },
                 // Round M2 (R2, T1): changed in place; a running lift alone no longer opens the gate, and NotKnownYet also
                 // covers a new sign without a score (fixer, review-ui-hub-money F2: shortened to 58 characters so the
                 // one-line ticket slot shows it whole; hubText.ts holds the same text).
                 { "SkiResort.Hub.TICKETS_NOTE[NothingOpen]", "No lift tickets now: no run is open." },
-                { "SkiResort.Hub.TICKETS_NOTE[NotKnownYet]", "No lift tickets yet: runs are being checked (new sign or load)." },
-                { "SkiResort.Hub.SECTION[Money]", "Money" },
-                { "SkiResort.Hub.MONEY_COL", "A month" },
+                { "SkiResort.Hub.TICKETS_NOTE[NotKnownYet]", "No lift tickets yet: runs are being checked after a load or a new sign." },
+                { "SkiResort.Hub.SECTION[Money]", "Finances" },
+                { "SkiResort.Hub.MONEY_COL", "Per month" },
                 { "SkiResort.Hub.MONEY_TICKETS[Unknown]", "Lift tickets: counted after a quarter month" },
                 { "SkiResort.Hub.MONEY_TICKETS[Off]", "Lift tickets: off" },
-                { "SkiResort.Hub.MONEY_TICKETS_TIP", "Last month's lift ticket money once a whole month has been counted. Before that, an estimate: this month so far scaled to a whole month (≈). The count is the guests who paid, each at the price when they arrived." },
+                { "SkiResort.Hub.MONEY_TICKETS_TIP", "Guests who paid × the price when they arrived, for the last whole month. ≈ until one is counted: the month so far, scaled up." },
                 { "SkiResort.Hub.SECTION[Costs]", "Running costs" },
-                { "SkiResort.Hub.MONEY_ROW[Buildings]", "Buildings and wages (game formula)" },
-                { "SkiResort.Hub.MONEY_NET", "Net a month" },
-                { "SkiResort.Hub.MONEY_TIP[Natural]", "Natural runs have no running cost." },
-                { "SkiResort.Hub.MONEY_TIP[Net]", "Lift ticket income minus the running costs at today's rates. What tourists spend in your city's shops and hotels is not included." },
-                { "SkiResort.Hub.MONEY_NOTE[Panel]", "Lift tickets, season passes, lessons and lodge spend show in the Economy panel under public transportation fees while Options > Modular Ski Resort > Main > Ski area balance > Book resort income as public transportation fees is on. When it is off they go straight to your balance. The game bills buildings and wages under Parks & Recreation." },
+                { "SkiResort.Hub.MONEY_ROW[Buildings]", "Buildings and wages" },
+                { "SkiResort.Hub.MONEY_NET", "Net per month" },
+                // MONEY_TIP[Natural] ("Natural runs have no running cost.") removed 2026-10-18 (T80): the row's ¢0 says it.
+                { "SkiResort.Hub.MONEY_TIP[Net]", "Lift tickets and lodge spend minus running costs, at today's rates. Season passes and lessons are not in it." },
+                { "SkiResort.Hub.MONEY_NOTE[Panel]", "Per month at today's rates. Season passes count per season." },
                 { "SkiResort.Hub.MONEY_NOTE[Rwh]", "Detected: Realistic Workplaces. The real bill can differ." },
-                { "SkiResort.Hub.MONEY_TIP[Rwh]", "Realistic Workplaces And Households changes staff and service costs, so the bill can differ." },
-                { "SkiResort.Hub.MONEY_NOTE[Est]", "≈ Estimate: lift tickets are projected from this month so far until a full month has been counted." },
+                { "SkiResort.Hub.MONEY_TIP[Rwh]", "Realistic Workplaces And Households changes staff costs; the bill can differ." },
+                { "SkiResort.Hub.MONEY_NOTE[Est]", "≈ Lift tickets are projected from the month so far until a whole month has been counted." },
                 // Round M2 (R7, hub-price.md): the Money view's price line, tooltip lines without a placeholder.
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Title]", "Lift ticket price" },
-                { "SkiResort.Hub.MONEY_PRICE_TIP[Where]", "Change it in Options > Modular Ski Resort > Main > Ski area balance > Lift ticket price. One price for every ski area." },
-                { "SkiResort.Hub.MONEY_PRICE_TIP[Who]", "Only ski days react to it. Visitors the game sends on its own come at any price, and the attraction score ignores it." },
+                { "SkiResort.Hub.MONEY_PRICE_TIP[Where]", "Options > Modular Ski Resort > Main > Ski area balance. One price for every ski area." },
+                { "SkiResort.Hub.MONEY_PRICE_TIP[Who]", "Only ski days react to it; other visitors and the attraction score ignore it." },
                 // Catalog Phase B (D15): the Money view's lodge-spend income row (only while it earned money this month).
                 { "SkiResort.Hub.MONEY_ROW[LodgeSpend]", "Lodge spend" },
-                // Contract 7 (season passes v1; hubText.ts holds the same texts, gate R4).
-                { "SkiResort.Hub.MONEY_NOTE[Fees]", "Resort income shows in the Economy panel under public transportation fees." },
-                { "SkiResort.Hub.MONEY_ROW[Passes]", "Season passes sold (this season) · {N}" },
+                // Contract 7 (season passes v1; hubText.ts holds the same texts, gate R4). MONEY_NOTE[Fees] ("Resort income shows in
+                // the Economy panel ...") was removed on 2026-10-18 (T77, Richard): where vanilla shows resort income goes to the
+                // player docs (T79), not the hub.
+                { "SkiResort.Hub.MONEY_ROW[Passes]", "Season passes sold this season · {N}" },
                 // Contract 8 (econ-2 round 2): the pre-season sale and lesson rows, the city-income estimate row, the lesson guests row.
                 { "SkiResort.Hub.MONEY_ROW[PassesPre]", "Season passes sold before the season · {N}" },
-                { "SkiResort.Hub.MONEY_ROW[Lessons]", "Lessons (this month) · {N}" },
-                { "SkiResort.Hub.MONEY_TIP[Lessons]", "Lessons taken this month and what they paid, counted so far. Needs a working ski school. Booked like lift tickets." },
-                { "SkiResort.Hub.MONEY_TIP[PassesPre]", "Season passes sold in the one sale before the season, when the ski area first opens. Already counted in the row above." },
-                { "SkiResort.Hub.MONEY_ROW[CityIncome]", "City income the resort brings (estimate)" },
-                { "SkiResort.Hub.MONEY_TIP[CityIncome]", "This resort's share of the city's tourist draw times the money the game counts as tourist income. It is not resort income and not in the net." },
+                { "SkiResort.Hub.MONEY_ROW[Lessons]", "Lessons, Month of {MONTH} · {N}" },
+                { "SkiResort.Hub.MONEY_TIP[Lessons]", "One lesson per guest. Share and price: Options > Modular Ski Resort > Main > Ski area balance." },
+                { "SkiResort.Hub.MONEY_TIP[PassesPre]", "The one sale before the season opens. Counted in the row above too." },
+                { "SkiResort.Hub.MONEY_ROW[CityIncome]", "City income the resort brings" },
+                { "SkiResort.Hub.MONEY_TIP[CityIncome]", "Estimate: this ski area's share of the city's tourist draw × the game's tourist income. Not resort income, not in the net." },
                 { "SkiResort.Hub.GUESTS_ROW[Lessons]", "of which took a lesson" },
-                { "SkiResort.Hub.GUESTS_TIP[Lessons]", "People who took a lesson this month, one lesson each, at a ski area with a working ski school." },
-                { "SkiResort.Hub.MONEY_TIP[Passes]", "Season passes sold this ski season (July to June) and what they paid, counted since the game was loaded. A household with a pass skis free at the gate for the rest of the season and goes skiing more often. Set the share and the price in Options > Modular Ski Resort > Main > Ski area balance. Booked like lift tickets." },
-                { "SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holders skiing (this month)" },
-                { "SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a season pass this month. They paid for the pass once, so they add no lift ticket money now." },
+                { "SkiResort.Hub.GUESTS_TIP[Lessons]", "Guests who took a lesson, one each." },
+                { "SkiResort.Hub.MONEY_TIP[Passes]", "Sold July to June. Holders ski free all season and come more often. Share and price: Options > Modular Ski Resort > Main > Ski area balance." },
+                { "SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holders skiing, Month of {MONTH}" },
+                { "SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a season pass: no lift ticket money now." },
                 { "SkiResort.Hub.GUESTS_ROW[PassHolders]", "of which pass holders" },
                 { "SkiResort.Hub.GUESTS_TIP[PassHolders]", "Residents who came in on a season pass. They paid once for the season and pay nothing at the gate. Tourists never hold one." },
-                { "SkiResort.Hub.MONEY_TIP[LodgeSpend]", "What paying ski guests spent at the lodges (Options > Modular Ski Resort > Main > Ski area balance > Lodge spend per guest)." },
+                { "SkiResort.Hub.MONEY_TIP[LodgeSpend]", "Paying ski guests' spend at the lodges. Set per guest in Options > Modular Ski Resort > Main > Ski area balance." },
                 // MONEY_NOTE[Unknown] retired in Round F7 (D2): the tickets row says "counted after a quarter month".
                 { "SkiResort.Hub.UNLINKED_MONEY", "Runs that are not linked cost nothing and earn nothing; their lifts still cost money to run." },
                 { "SkiResort.Hub.BUILD_SHORT[Lodge]", "Goes near this ski area's Welcome Sign." },
@@ -1029,14 +1050,14 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_LABEL[Snowmaking]", "Snowmaking" },
                 { "SkiResort.Hub.BUILD_LABEL[Night]", "Night" },
                 { "SkiResort.Hub.BUILD_TIP_ONCE", "One-time" },
-                { "SkiResort.Hub.BUILD_TIP_MONTH", "Each month" },
+                { "SkiResort.Hub.BUILD_TIP_MONTH", "Per month" },
                 { "SkiResort.Hub.BUILD_MONTH_NONE", "Nothing" },
                 { "SkiResort.Hub.BUILD_MONTH_GAME", "Upkeep and wages, billed by the game" },
                 { "SkiResort.Hub.BUILD_MONTH_STATION", "The whole lift is priced by its length: both stations and the line. This station is one part." },
                 { "SkiResort.Hub.BUILD_TIP_RESHAPE", "Reshaping a run later costs nothing more." },
                 { "SkiResort.Hub.BUILD_TIP_LINK", "Runs link to the nearest Welcome Sign within 5 km." },
                 { "SkiResort.Hub.BUILD_TIP_NATURAL", "Nothing is drawn on the ground: find it with the piste map." },
-                { "SkiResort.Hub.BUILD_TIP_LODGE", "A new lodge needs staff, power and water; until it has them, the sign's efficiency, and so the attraction, can fall." },
+                { "SkiResort.Hub.BUILD_TIP_LODGE", "A new lodge needs staff, power and water. Until it has them, the sign's efficiency and the attraction can fall." },
                 { "SkiResort.Hub.BUILD_TIP_TYPE[Natural]", "Score: greens count half, blues three quarters, blacks in full. It opens only when natural snow covers it." },
                 { "SkiResort.Hub.STATUS_LINE", "{STATE} · {OPEN} of {TOTAL} runs open" },
                 { "SkiResort.Hub.STATUS_LINE_ONE", "{STATE} · {OPEN} of 1 run open" },
@@ -1055,18 +1076,18 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[EfficiencyMore]", "Welcome Sign at {PCT}: {REASON} and {N} more" },
                 { "SkiResort.Hub.PROBLEM[NotRunning]", "Welcome Sign not running: {REASON}" },
                 { "SkiResort.Hub.PROBLEM[NotRunningMore]", "Welcome Sign not running: {REASON} and {N} more" },
-                { "SkiResort.Hub.PROBLEM[LiftNoPower]", "{NAME} has no power: it counts 0" },
-                { "SkiResort.Hub.PROBLEM[LiftSectionMissing]", "{NAME} is missing a section: it counts 0" },
+                { "SkiResort.Hub.PROBLEM[LiftNoPower]", "{NAME} has no power" },
+                { "SkiResort.Hub.PROBLEM[LiftSectionMissing]", "{NAME} is missing a section" },
                 { "SkiResort.Hub.PROBLEM[LiftUnfinished]", "{NAME} is unfinished" },
-                { "SkiResort.Hub.PROBLEM[NoLift]", "No lift yet: runs count {PCT} without one" },
+                { "SkiResort.Hub.PROBLEM[NoLift]", "No lift yet" },
                 { "SkiResort.Hub.PROBLEM[StationsPair]", "{NAME}: draw the lift line" },
                 { "SkiResort.Hub.PROBLEM[StationsBaseOnly]", "{NAME}: place its top station" },
                 { "SkiResort.Hub.PROBLEM[StationsTopOnly]", "{NAME}: place its base station" },
-                { "SkiResort.Hub.PROBLEM[LiftChairsStopped]", "{NAME}: the chairs are not moving" },
+                { "SkiResort.Hub.PROBLEM[LiftChairsStopped]", "{NAME}: chairs not moving" },
                 // Catalog Phase B: C# HubProblemCode MixedLiftTypes 23 (D18) and SummitLodgeNotLiftServed 24 (D11).
-                { "SkiResort.Hub.PROBLEM[MixedLiftTypes]", "{NAME} mixes lift types: it counts 0" },
+                { "SkiResort.Hub.PROBLEM[MixedLiftTypes]", "{NAME} mixes lift types" },
                 { "SkiResort.Hub.PROBLEM[SummitLodgeNotLiftServed]", "Summit lodges no lift reaches: {N}" },
-                { "SkiResort.Hub.PROBLEM[RunsUnserved]", "Runs without a lift: {N} (they count {PCT})" },
+                { "SkiResort.Hub.PROBLEM[RunsUnserved]", "Runs unconnected to a lift: {N}" },
                 { "SkiResort.Hub.PROBLEM[RunsUnrateable]", "Runs that cannot be rated: {N}" },
                 { "SkiResort.Hub.PROBLEM[RunsRating]", "Runs being rated: {N}" },
                 { "SkiResort.Hub.PROBLEM[RunsFlat]", "Runs too flat to score: {N}" },
@@ -1081,26 +1102,29 @@ namespace SkiResortMod
                 { "SkiResort.Hub.TILE_TIP_FULL", "At full efficiency: {N}" },
                 { "SkiResort.Hub.TILE_TIP_STAFFING", "× efficiency {PCT}" },
                 { "SkiResort.Hub.TILE_TIP_PARTLY", "Patchy: {N}" },
-                { "SkiResort.Hub.TILE_TIP_UNFINISHED", "Not complete (a section missing, unfinished, or stations only): {N}" },
-                { "SkiResort.Hub.TILE_TIP_LAST", "Last month: {N}" },
+                { "SkiResort.Hub.TILE_TIP_UNFINISHED", "Not complete yet: {N}" },
+                { "SkiResort.Hub.TILE_TIP_LAST", "Month of {MONTH}: {N}" },
                 { "SkiResort.Hub.SCORE_OF", "{A} of 200" },
-                { "SkiResort.Hub.SCORE_BAR_TIP", "{NOW} now. {FULL} at full efficiency. The ticks show what game buildings score: a tourist attraction about 50, a landmark about 120." },
+                { "SkiResort.Hub.SCORE_BAR_TIP", "{NOW} now, {FULL} at full efficiency. Ticks: a tourist attraction scores about 50, a landmark about 120." },
                 { "SkiResort.Hub.RECEIPT_TIP_LODGES", "Lodges counted: {N}" },
-                { "SkiResort.Hub.RECEIPT_TIP[Terrain]", "{K} × the square root of ((runs + lifts) × variety × vertical). {K} is the Attractiveness scale option. Adding a run never lowers it." },
-                { "SkiResort.Hub.RECEIPT_PARTS", "Runs {RUNS} · lifts {LIFTS} · variety ×{VARIETY} · vertical ×{VERTICAL}" },
+                { "SkiResort.Hub.RECEIPT_TIP[Terrain]", "{K} is the Attractiveness scale in Options. Adding a run never lowers the total." },
+                { "SkiResort.Hub.RECEIPT_PARTS", "(runs {RUNS} + lifts {LIFTS}) × variety {VARIETY} × vertical {VERTICAL}" },
                 // Catalog Phase B (R13, round-2-contract §8.5): the parts line with the school term and the lodge base's best lodge
                 // and extras (ResortLive.lodgeBest / lodgeExtra). (RECEIPT_TIP_LUXURY_IGNORED, for ResortLive.luxuryIgnored, was
                 // removed 2026-10-11 with the one-luxury-lodge cap; the field stays on the wire, always 0.)
-                { "SkiResort.Hub.RECEIPT_PARTS_SCHOOL", "Runs {RUNS} · lifts {LIFTS} · school {SCHOOL} · variety ×{VARIETY} · vertical ×{VERTICAL}" },
+                { "SkiResort.Hub.RECEIPT_PARTS_SCHOOL", "(runs {RUNS} + lifts {LIFTS} + school {SCHOOL}) × variety {VARIETY} × vertical {VERTICAL}" },
+                // T77 (2026-10-18, Richard item 9): the second line under Runs and lifts, so the receipt reads as the computed
+                // equation (HubRules.Terrain = K × sqrt(S)); {TERRAIN} = ResortLive.terrain.
+                { "SkiResort.Hub.RECEIPT_ROOT", "{K} × the square root of the line above = {TERRAIN}" },
                 { "SkiResort.Hub.RECEIPT_TIP_LODGE_BEST", "Best lodge: {NAME}; the others add {E}." },
-                { "SkiResort.Hub.RECEIPT_TIP[Vertical]", "Vertical: up to double at 600 m, from the lowest bottom to the highest top of the runs that count now ({M})." },
+                { "SkiResort.Hub.RECEIPT_TIP[Vertical]", "From × 1 at 0 m to × 2 at 600 m or more. Now {M}, lowest bottom to highest top of the runs that count." },
                 { "SkiResort.Hub.RECEIPT_OPEN", "Runs open now: {PCT} of their full value" },
                 { "SkiResort.Hub.RECEIPT_TIP[Open]", "Closed runs add nothing and patchy runs add part, so snow moves the score. With every run fully open, runs would add {FULL}." },
                 { "SkiResort.Hub.RECEIPT_TIMES", "× {PCT}" },
                 { "SkiResort.Hub.DIFF_TIP_PENDING", "Being rated: {N}" },
                 { "SkiResort.Hub.DIFF_TIP_UNRATEABLE", "Cannot be rated: {N}" },
                 { "SkiResort.Hub.AREA_HA", "{HA} ha" },
-                { "SkiResort.Hub.SNOW_DEPTH", "Average depth on the measured runs: {CM} cm" },
+                { "SkiResort.Hub.SNOW_DEPTH", "{CM} cm" },
                 { "SkiResort.Hub.RUN_OPEN[Open]", "Open: snow on {PCT} of it" },
                 { "SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: snow on {PCT} of it" },
                 { "SkiResort.Hub.RUN_OPEN[Closed]", "Closed: snow on {PCT} of it" },
@@ -1108,26 +1132,27 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_NOT_SERVED", "No running lift reaches its top: it counts {PCT}" },
                 { "SkiResort.Hub.RUN_VALUE_OF", "{NOW} of {FULL}" },
                 { "SkiResort.Hub.RUN_VALUE_PARTS", "difficulty {B} × size {S} × type {T} × lift {L} × open {O}" },
-                { "SkiResort.Hub.LIFT_DETAIL", "{LENGTH} · rise {RISE} · {MIN} min · {CAP}/h design · {N} runs" },
-                { "SkiResort.Hub.LIFT_DETAIL_ONE", "{LENGTH} · rise {RISE} · {MIN} min · {CAP}/h design · 1 run" },
-                { "SkiResort.Hub.LIFT_DETAIL_NONE", "{LENGTH} · rise {RISE} · {MIN} min · {CAP}/h design · no runs" },
+                { "SkiResort.Hub.LIFT_DETAIL", "{LENGTH} · rise {RISE} · {MIN} min ride · {CAP} skiers/h · {N} runs" },
+                { "SkiResort.Hub.LIFT_DETAIL_ONE", "{LENGTH} · rise {RISE} · {MIN} min ride · {CAP} skiers/h · 1 run" },
+                { "SkiResort.Hub.LIFT_DETAIL_NONE", "{LENGTH} · rise {RISE} · {MIN} min ride · {CAP} skiers/h · no runs" },
                 { "SkiResort.Hub.LIFT_RIDE_MIN", "{MIN} min" },
-                { "SkiResort.Hub.CAPACITY_VALUE", "{CAP} riders/h" },
-                { "SkiResort.Hub.GUESTS_TIP[Paid]", "{GUESTS} guests this month: {PAID} paid, {UNPAID} could not pay, {FREE} came in free (lift tickets off or the ski area closed)." },
-                { "SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest without a season pass pays {PRICE} on arrival (Options: Lift ticket price)." },
+                { "SkiResort.Hub.CAPACITY_VALUE", "{CAP} skiers/h" },
+                { "SkiResort.Hub.GUESTS_TIP[Paid]", "Month of {MONTH}: {GUESTS} guests, {PAID} paid, {UNPAID} could not pay, {FREE} came in free while tickets were off or the ski area was closed." },
+                { "SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest without a season pass pays {PRICE} on arrival. Set the price in Options." },
                 // Round M2 (R9): the Guests view's trip-planner note when a known mod is loaded; NAME = CityStats.tripPlanner.
                 { "SkiResort.Hub.TRIP_PLANNER_NOTE[Known]", "Detected: {NAME}. It replaces the game's trip planner, so trip times can differ." },
                 { "SkiResort.Hub.TRIP_PLANNER_NOTE[KnownOff]", "Ski days off: {NAME} replaced the game's leisure systems." },
                 // Round S1: the guest bars' fixed scale, and D27's capacity lines ("Holds {N} skiers at once":
                 // ruling R-Q3, N = the capacity at once, D21) and the Ski days row's count lines.
                 { "SkiResort.Hub.GUESTS_BAR_SCALE", "Full bar: {MAX} guests" },
-                { "SkiResort.Hub.SKI_DAYS[RoomRuns]", "Holds {N} skiers at once (runs limit)" },
-                { "SkiResort.Hub.SKI_DAYS[RoomLodges]", "Holds {N} skiers at once (lodges limit)" },
+                { "SkiResort.Hub.SKI_DAYS[RoomRuns]", "Holds {N} skiers at once, set by the runs" },
+                { "SkiResort.Hub.SKI_DAYS[RoomLodges]", "Holds {N} skiers at once, set by the lodges" },
                 { "SkiResort.Hub.SKI_DAYS[Room]", "Holds {N} skiers at once" },
-                { "SkiResort.Hub.SKI_DAYS_TIP[Sent]", "Sent this month: {SENT} · close by {WALK} · with a car {CAR} · far, no car {FAR}" },
+                { "SkiResort.Hub.SKI_DAYS_TIP[Sent]", "Month of {MONTH}: {SENT} sent, {ARRIVED} reached a lodge" },
+                { "SkiResort.Hub.SKI_DAYS_TIP[Split]", "Close by {WALK} · by car {CAR} · far, no car {FAR}" },   // T80
                 { "SkiResort.Hub.SKI_DAYS_TIP[Now]", "On the hill or on the way now: {NOW} of {CAP}" },
-                { "SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets last month: {N} paid" },
-                { "SkiResort.Hub.MONEY_TICKETS[Est]", "Lift tickets (estimated): {N} paid" },
+                { "SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets, Month of {MONTH}: {N} paid" },
+                { "SkiResort.Hub.MONEY_TICKETS[Est]", "Lift tickets, Month of {MONTH}: {N} paid" },
                 { "SkiResort.Hub.MONEY_TICKETS_PRICE", "Lift ticket price now: {PRICE}" },
                 // Round M2 (R7): the price line (PCT = hubRules.priceFactorPct as a percent) and its curve tooltip line.
                 { "SkiResort.Hub.MONEY_PRICE_LINE", "Lift ticket {PRICE} · ski days {PCT}" },
@@ -1139,16 +1164,16 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_ROW[Snowmaking]", "Snowmaking runs · {HA} ha with snow" },
                 { "SkiResort.Hub.MONEY_ROW[Night]", "Night runs · {HA} ha with snow" },
                 { "SkiResort.Hub.MONEY_ROW[Lifts]", "Lifts · {N} · {LEN} of line" },
-                { "SkiResort.Hub.MONEY_TIP[Runs]", "{RATE} per hectare a month where the run holds managed snow now. It moves with the temperature through the day." },
+                { "SkiResort.Hub.MONEY_TIP[Runs]", "{RATE} per ha per month of managed snow." },
                 // Round M2 (R3, T2): changed in place, the third reduced case.
                 // Phase D (DECISIONS 171 ruling 2, skeptic MUST-1; was "...; a quarter while unfinished, without power or with no
                 // open run in its ski area. ..."): an unpowered lift still pays in full; two reductions remain.
-                { "SkiResort.Hub.MONEY_TIP[Lifts]", "{BASE} a month for each complete lift, plus {PERKM} per km of line, in full even without power; a quarter while unfinished or with no open run in its ski area. Now {FULL} at the full rate and {REDUCED} at a quarter." },
+                { "SkiResort.Hub.MONEY_TIP[Lifts]", "{BASE} per month per lift + {PERKM} per km of line, in full even without power; a quarter while unfinished or with no open run. Now {FULL} in full, {REDUCED} at a quarter." },
                 // Catalog Phase B: the lifts row's tooltip when two or more lift types are offered (each type's rates on its own line).
                 // Phase D (as MONEY_TIP[Lifts]; was "...; a quarter while unfinished, without power or with no open run ...").
-                { "SkiResort.Hub.MONEY_TIP[LiftsTypes]", "Each complete lift costs its kind's monthly base plus a rate per km of line, in full even without power; a quarter while unfinished or with no open run in its ski area. Now {FULL} at the full rate and {REDUCED} at a quarter." },
-                { "SkiResort.Hub.MONEY_TIP_LIFT_RATE", "{TYPE}: {BASE} a month + {PERKM} per km" },
-                { "SkiResort.Hub.MONEY_TIP[Buildings]", "The game's own formula for the lodges and the Welcome Sign at the current Parks & Recreation budget: upkeep {UPKEEP}, wages {WAGES} for {FILLED} of {JOBS} staff." },
+                { "SkiResort.Hub.MONEY_TIP[LiftsTypes]", "Each lift: its kind's base per month + a rate per km of line, in full even without power; a quarter while unfinished or with no open run. Now {FULL} in full, {REDUCED} at a quarter." },
+                { "SkiResort.Hub.MONEY_TIP_LIFT_RATE", "{TYPE}: {BASE} per month + {PERKM} per km" },
+                { "SkiResort.Hub.MONEY_TIP[Buildings]", "Upkeep {UPKEEP} · wages {WAGES} for {FILLED} of {JOBS} staff, at the Parks & Recreation budget." },
                 { "SkiResort.Hub.BUILD_LINE_RUN", "{NAME} · {FEE} + {PERHA} per ha" },
                 { "SkiResort.Hub.BUILD_LINE_COST", "{NAME} · {COST}" },
                 { "SkiResort.Hub.BUILD_LINE_LIFT", "{NAME} · about {PERKM} per km of line" },
@@ -1177,7 +1202,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SEASON_TIP[SnowGunsOnly]", "Day average at the top above freezing, but snow guns are running now." },
                 { "SkiResort.Hub.SEASON_TIP[Thawing]", "Day average at the top above freezing and no snow gun running now. The runs are open on the snow that is left." },
                 { "SkiResort.Hub.SEASON_TIP[WaitingForSnow]", "Cold enough (day average at the top at or below freezing, or snow guns running), but no run has enough snow yet." },
-                { "SkiResort.Hub.SEASON_TIP[TooWarm]", "Day average at the top above freezing and no snow gun can run now. Runs open again when it turns cold; if it never does on this map, turn off Options > Modular Ski Resort > Main > Snow > Snow & season gating." },
+                { "SkiResort.Hub.SEASON_TIP[TooWarm]", "Day average at the top above freezing, too warm for snow guns. Runs reopen when it cools, or turn off Snow & season gating in Options." },
                 { "SkiResort.Hub.LIFT_STATUS[Running]", "Running" },
                 { "SkiResort.Hub.LIFT_STATUS[NoPower]", "No power" },
                 { "SkiResort.Hub.LIFT_STATUS[ChairsStopped]", "Chairs stopped" },
@@ -1193,11 +1218,11 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_SHORT[Night]", "Floodlit snowmaking run: scores 25 % more." },
                 { "SkiResort.Hub.BUILD_SHORT[Natural]", "Natural snow only, no running cost; easy runs score less." },
                 { "SkiResort.Hub.BUILD_SHORT[CatTrack]", "Green only; crosses other runs. Not part of the score." },   // T54 probe 1
-                { "SkiResort.Hub.NEXT[Sign]", "Next: Buildings tab: place a Ski Area Welcome Sign." },
+                { "SkiResort.Hub.NEXT[Sign]", "Next: place a Ski Area Welcome Sign from the Buildings tab." },
                 { "SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within 5 km." },
-                { "SkiResort.Hub.NEXT[Lodge]", "Next: Buildings tab: a lodge near this ski area's Welcome Sign." },
-                { "SkiResort.Hub.NEXT[Lift]", "Next: Lifts tab: a base station, a top station, then the line." },
-                { "SkiResort.Hub.NEXT[Run]", "Next: Runs tab: draw a run within 5 km of this Welcome Sign." },
+                { "SkiResort.Hub.NEXT[Lodge]", "Next: a lodge near this ski area's Welcome Sign, from the Buildings tab." },
+                { "SkiResort.Hub.NEXT[Lift]", "Next: in the Lifts tab, a base station, a top station, then the line." },
+                { "SkiResort.Hub.NEXT[Run]", "Next: draw a run within 5 km of this Welcome Sign, from the Runs tab." },
                 { "SkiResort.Hub.NEXT[Done]", "Hover a tile to see what it builds and what it costs." },
                 { "SkiResort.Hub.NEXT2[Unlinked]", "Place a sign near them to link them." },
                 { "SkiResort.Hub.NEXT2[Lodge]", "Guests arrive at a lodge. Without one the attraction is 0." },

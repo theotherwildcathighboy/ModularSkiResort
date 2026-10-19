@@ -158,13 +158,13 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "liftNoPower": return <LocText entry={HUB_FMT.problemLiftNoPower} args={{ NAME }} />;
     case "liftSectionMissing": return <LocText entry={HUB_FMT.problemLiftSectionMissing} args={{ NAME }} />;
     case "liftUnfinished": return <LocText entry={HUB_FMT.problemLiftUnfinished} args={{ NAME }} />;
-    case "noLift": return <LocText entry={HUB_FMT.problemNoLift} args={{ PCT }} />;
+    case "noLift": return <>{t(HUB_LOC.problemNoLift)}</>;   // T77: no {PCT} on the line (the tooltip says it)
     case "noRuns": return <>{t(HUB_LOC.problemNoRuns)}</>;
     case "stationsPair": return <LocText entry={HUB_FMT.problemStationsPair} args={{ NAME }} />;
     case "stationsBaseOnly": return <LocText entry={HUB_FMT.problemStationsBaseOnly} args={{ NAME }} />;
     case "stationsTopOnly": return <LocText entry={HUB_FMT.problemStationsTopOnly} args={{ NAME }} />;
     case "liftChairsStopped": return <LocText entry={HUB_FMT.problemLiftChairsStopped} args={{ NAME }} />;
-    case "runsUnserved": return <LocText entry={HUB_FMT.problemRunsUnserved} args={{ N, PCT }} />;
+    case "runsUnserved": return <LocText entry={HUB_FMT.problemRunsUnserved} args={{ N }} />;
     case "runsUnrateable": return <LocText entry={HUB_FMT.problemRunsUnrateable} args={{ N }} />;
     case "runsRating": return <LocText entry={HUB_FMT.problemRunsRating} args={{ N }} />;
     case "freeLodges": return <LocText entry={HUB_FMT.problemFreeLodges} args={{ N }} />;

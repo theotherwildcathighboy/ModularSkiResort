@@ -53,6 +53,9 @@
  *     (the Ski days row and its state line) and GUESTS_GROUP[Tickets] (paid, pass holders, lessons, lift tickets in money). The
  *     three populations differ by design; the rows, bindings and tooltips keep their keys. Supersedes "FIRST the Ski days row"
  *     above: Ski days is now the first row of the second group.
+ *   - T77 (2026-10-18, contract 9): the months are named, "Month of <name>" on the bars and in the tooltips (CityStats.month,
+ *     vanilla Common.MONTH:<n>), the bare name in the two column heads (their cells keep the money width). Supersedes the
+ *     "This month" / "Last month" / "Last month (partial)" labels above.
  *   - Not linked: the header and UNLINKED_NOTE.
  *   - Fixed slots only: StableWidth cells with the shared money / count samples, note slots of fixed
  *     height (note2 = 2 XS lines, note1 = 1) whose empty state keeps its height (D33).
@@ -82,7 +85,7 @@ import {
   guestBarParts, guestBarScale, lastMonthMark, lessonsShown, liveOf, passesShown, skiDayLine, skiDayTip, skiDayWalk, ticketNote, tripPlannerNote,
 } from "./hubRules";
 import type { LastMonthMark, TicketNote, TripPlannerNote } from "./hubRules";
-import { HUB_FMT, HUB_LOC } from "./hubText";
+import { HUB_FMT, HUB_LOC, allMonthNames, monthName } from "./hubText";
 import {
   Divider, FlexBar, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, Tip, TipLines, cx, numArg, useNumberSamples,
 } from "./parts";
@@ -99,7 +102,7 @@ function countCell(v: number): JSX.Element | string {
 
 /** One guest bar row: label (StableWidth of every month label), track, value. */
 function GuestBar({ label, labels, value, max, samples, tip }: {
-  label: string; labels: readonly string[]; value: number; max: number; samples: NumberSamples; tip?: JSX.Element | string;
+  label: JSX.Element | string; labels: readonly JSX.Element[]; value: number; max: number; samples: NumberSamples; tip?: JSX.Element | string;
 }): JSX.Element {
   const [fill, rest] = guestBarParts(value, max);
   return (
@@ -221,10 +224,18 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
   const lastMonth = l && l.guestsLastMonth >= 0 ? l.guestsLastMonth : -1;
   // Round S1 (ch4 B.3): a fixed ladder (50, 100, 200, 500, ...) instead of the larger month.
   const scale = guestBarScale(thisMonth, lastMonth);
-  const labels = [t(HUB_LOC.guestsMonthThis), t(HUB_LOC.guestsMonthLast)];
-  const lastLabel = mark === "partial" ? t(HUB_LOC.guestsMonthLastPartial) : labels[1];
-  /** Bar label samples: all three labels, so the track keeps its width whatever the mark (D33). */
-  const barLabels = [labels[0], labels[1], t(HUB_LOC.guestsMonthLastPartial)];
+  // T77 (contract 9): the months by name, "Month of <name>" (city.month; last month = the one before, the ledger only rolls
+  // to the next calendar month, a jump leaves last month unknown). The column heads carry the bare name: their cells are
+  // the money sample's width, and the bars right above already say "Month of".
+  const thisName = monthName(city.month, t);
+  const lastName = monthName(city.month, t, 1);
+  const thisLabel = <LocText entry={HUB_FMT.guestsMonthThis} args={{ MONTH: thisName }} />;
+  const lastLabel = mark === "partial"
+    ? <LocText entry={HUB_FMT.guestsMonthLastPartial} args={{ MONTH: lastName }} />
+    : <LocText entry={HUB_FMT.guestsMonthLast} args={{ MONTH: lastName }} />;
+  /** Bar label samples: the partial form of every month (always the longest), so the track keeps its width whatever the
+   *  month or the mark (D33). */
+  const barLabels = allMonthNames(t).map((n, i) => <LocText key={i} entry={HUB_FMT.guestsMonthLastPartial} args={{ MONTH: n }} />);
   const lastNote = lastMonthNote(mark, t);
   const scaleLine = <LocText key="s" entry={HUB_FMT.guestsBarScale} args={{ MAX: numArg(scale, Unit.Integer) }} />;
   /** A last-month value: the number when C# sent one (a whole or a partial month), else "–" (H10). */
@@ -241,9 +252,12 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
     <TipLines lines={[
       t(HUB_LOC.guestsRowSkiDays),
       t(HUB_LOC.guestsTipSkiDays),
+      // T80 (Richard item 1): dispatch and arrival in one line, the split of the sent skiers under it.
       !!l && l.skiDaysSent >= 0 && <LocText key="sent" entry={HUB_FMT.skiDaysTipSent} args={{
-        SENT: numArg(l.skiDaysSent, Unit.Integer), WALK: numArg(skiDayWalk(l), Unit.Integer),
-        CAR: numArg(l.skiDaysSentCar, Unit.Integer), FAR: numArg(l.skiDaysSentNoCar, Unit.Integer),
+        MONTH: thisName, SENT: numArg(l.skiDaysSent, Unit.Integer), ARRIVED: numArg(l.skiDaysThisMonth, Unit.Integer),
+      }} />,
+      !!l && l.skiDaysSent >= 0 && <LocText key="split" entry={HUB_FMT.skiDaysTipSplit} args={{
+        WALK: numArg(skiDayWalk(l), Unit.Integer), CAR: numArg(l.skiDaysSentCar, Unit.Integer), FAR: numArg(l.skiDaysSentNoCar, Unit.Integer),
       }} />,
       !!l && l.skiDaysCap >= 0 && l.skiDaysNow >= 0 && <LocText key="now" entry={HUB_FMT.skiDaysTipNow} args={{
         NOW: numArg(l.skiDaysNow, Unit.Integer), CAP: numArg(l.skiDaysCap, Unit.Integer),
@@ -255,8 +269,8 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
   return (
     <>
       <GuestsHeader l={l} city={city} note={note} t={t} />
-      <GuestBar label={labels[0]} labels={barLabels} value={thisMonth} max={scale} samples={samples}
-        tip={<TipLines lines={[labels[0], scaleLine]} />} />
+      <GuestBar label={thisLabel} labels={barLabels} value={thisMonth} max={scale} samples={samples}
+        tip={<TipLines lines={[thisLabel, scaleLine]} />} />
       <GuestBar label={lastLabel} labels={barLabels} value={lastMonth} max={scale} samples={samples}
         tip={<TipLines lines={[lastLabel, lastNote, scaleLine]} />} />
       <Divider />
@@ -264,10 +278,10 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
         <div className={styles.colHeadSpacer} />
         {/* E1 fixer (F14): heads measured in the row font (S), labels in XS - aligned with GuestRow's cells. */}
         <StableWidth samples={samples.money} align="end" className={cx(styles.valueCell, styles.colHeadCell)}>
-          <span className={styles.colLabel}>{labels[0]}</span>
+          <span className={styles.colLabel}>{thisName}</span>
         </StableWidth>
         <StableWidth samples={samples.money} align="end" className={cx(styles.valueCell, styles.colHeadCell)}>
-          <span className={styles.colLabel}>{labels[1]}</span>
+          <span className={styles.colLabel}>{lastName}</span>
         </StableWidth>
       </div>
       {/* T07: group 1, the people at the lodges (open or not), and the note that not all of them ski. */}
@@ -302,7 +316,7 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
         label={t(HUB_LOC.guestsRowPaid)} samples={samples}
         thisMonth={countCell(l ? l.paidThisMonth : -1)} lastMonth={last(l?.paidLastMonth)}
         tip={rowTip(t(HUB_LOC.guestsRowPaid), <LocText entry={HUB_FMT.guestsTipPaid} args={{
-          GUESTS: countCell(l ? l.guestsThisMonth : -1), PAID: countCell(l ? l.paidThisMonth : -1),
+          MONTH: thisName, GUESTS: countCell(l ? l.guestsThisMonth : -1), PAID: countCell(l ? l.paidThisMonth : -1),
           UNPAID: countCell(l ? l.unpaidThisMonth : -1), FREE: countCell(l ? l.freeThisMonth : -1),
         }} />)}
       />

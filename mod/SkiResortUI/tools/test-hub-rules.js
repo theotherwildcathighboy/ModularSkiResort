@@ -380,6 +380,35 @@ function run(srcDir) {
   eq("T17.12 tabOfDot: tile, chip, none", [R.tabOfDot({ kind: "tile", id: "runGroomed" }, META), R.tabOfDot({ kind: "chip", set: "lift", value: "gondola" }, META),
     R.tabOfDot({ kind: "chip", set: "lodge", value: "lodgeMid" }, META), R.tabOfDot(null, META)], ["runs", "lifts", "buildings", null]);
   eq("T14.9 BUILD_ITEMS covers every id once, table order = BUILD_ITEM_IDS", META.map((m) => m.id), BIND.BUILD_ITEM_IDS);
+
+  // T18 (T80, 2026-10-18; PIPELINE section 0 "Hub UI design rule"): source checks over the texts and the Attraction view.
+  // (a) Snow is ALWAYS two numbers, depth in cm and run coverage in % (Richard's pet peeve, three rounds): the MOUNTAIN snow entries
+  // name both, no "Snow now" label survives, and OverviewView.tsx renders both fields. (b) No wall of text: every tooltip entry (a key
+  // with "TIP") is at most 25 words; a word is a token with a letter, a digit or a {PLACEHOLDER} ("·", ">", "×", "%" do not count).
+  // The two lift-money tips carry live figures and a billing rule: capped at their T80 length instead (CG-T8 caps them at 42 / 44).
+  const textSrc = fs.readFileSync(path.join(srcDir, "hub", "hubText.ts"), "utf8") + "\n" + fs.readFileSync(path.join(srcDir, "l10n.ts"), "utf8");
+  const tuples = new Map();
+  for (const m of textSrc.matchAll(/\["([^"]+)",\s*"((?:[^"\\]|\\.)*)"\]/g)) if (!tuples.has(m[1])) tuples.set(m[1], m[2]);
+  const depth = tuples.get("SkiResort.Hub.MOUNTAIN[SnowDepth]") || "";
+  const cover = tuples.get("SkiResort.Hub.MOUNTAIN[SnowCover]") || "";
+  eq("T18.1 MOUNTAIN snow: one entry names the depth, one the coverage", [/depth/i.test(depth), /coverage/i.test(cover)], [true, true]);
+  eq("T18.2 no 'Snow now' label and no single-number snow key left", [[...tuples.values()].some((v) => /^Snow now/i.test(v)),
+    ["SkiResort.Hub.MOUNTAIN[Snow]", "SkiResort.Hub.MOUNTAIN[SnowMeasured]", "SkiResort.Hub.MOUNTAIN[SnowEstimated]"].some((k) => tuples.has(k))], [false, false]);
+  const overview = fs.readFileSync(path.join(srcDir, "hub", "OverviewView.tsx"), "utf8");
+  eq("T18.3 OverviewView renders depth (snowDepthCm) and coverage (snowPct) with their labels",
+    ["HUB_LOC.mountainSnowDepth", "HUB_LOC.mountainSnowCover", "snowDepthCm", "live.snowPct"].map((s) => overview.includes(s)), [true, true, true, true]);
+  const words = (s) => s.split(/\s+/).filter((w) => /[A-Za-z0-9{]/.test(w)).length;
+  const CAPS = { "SkiResort.Hub.MONEY_TIP[Lifts]": 32, "SkiResort.Hub.MONEY_TIP[LiftsTypes]": 35 };
+  const over = [];
+  for (const [k, v] of tuples) if (/TIP/.test(k) && words(v) > (CAPS[k] ?? 25)) over.push(`${k} ${words(v)}`);
+  eq("T18.4 every tooltip text is at most 25 words (lift-money tips: their T80 caps)", over, []);
+
+  // T19 (T80, Richard item 3): the ski school's row state; the Lessons and School rows flag a 0 with "No ski school" / "No green run".
+  const S1 = { index: 1, version: 1 }, S2 = { index: 2, version: 1 };
+  const P25 = [{ sign: S1, code: BIND.PROBLEM.SchoolNoGreenRun }];
+  eq("T19.1 schoolState", [R.schoolState({ schoolValue: 12 }, P25, S1), R.schoolState({ schoolValue: 0 }, P25, S1), R.schoolState({ schoolValue: 0 }, P25, S2),
+    R.schoolState({ schoolValue: 0 }, [], S1), R.schoolState({ schoolValue: -1 }, [], S1), R.schoolState(null, P25, S1)],
+    ["on", "noGreen", "none", "none", "unknown", "unknown"]);
   return { checks, failures };
 }
 

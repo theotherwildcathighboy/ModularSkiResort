@@ -35,6 +35,14 @@
  *     term while schoolValue > 0 (hubRules.receiptPartsVariant), its tooltip RECEIPT_TIP[School]. Every number is still
  *     the model's Result (D10). ResortLive.luxuryIgnored is no longer read (always 0 since 2026-10-11, when the
  *     one-luxury-lodge cap went; the field stays on the wire so contract 6 does not change).
+ *   - T77 (2026-10-18, Richard item 9): the parts line reads as the sum and the multipliers it is, "(runs + lifts [+ school]) × variety
+ *     × vertical" (SkiResortScore.cs:468 S), and a second SubLine RECEIPT_ROOT "{K} × the square root of the line above = {TERRAIN}"
+ *     closes the equation (HubRules.Terrain = K × sqrt(S); TERRAIN = ResortLive.terrain, the row's own value; nothing computed here).
+ *   - T80 (2026-10-18, Richard round 2, PIPELINE section 0 "Hub UI design rule"): layered. "Runs, lifts and school" is the section
+ *     total; its terms are labelled sub rows (Runs + the open-share SubLine, Lifts, Ski school, Variety × , Vertical × , Square root ×
+ *     scale K); T77's two equation lines moved into the total's tooltip. The School row flags its 0 (hubRules.schoolState: "No ski
+ *     school" / "No green run" with the Warning glyph). MOUNTAIN: snow is two rows, Snow depth (cm) and Run coverage (%), "≈" while
+ *     estimated. Supersedes the T77 SubLines and the "Snow now" row above.
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
@@ -42,7 +50,7 @@ import { BAND, PROBLEM, city$, problems$, resortLive$, resorts$, runs$, sameEnti
 import type { CityStats, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
-import { factorRowsOf, hectares, liveOf, receiptPartsVariant, resultVariant, scoreBarParts } from "./hubRules";
+import { factorRowsOf, hectares, liveOf, receiptPartsVariant, resultVariant, schoolState, scoreBarParts } from "./hubRules";
 import { ASSET_NAME, BAND_NAME, HUB_FMT, HUB_LOC, factorEntry } from "./hubText";
 import type { BuildItemId } from "../bindings";
 import {
@@ -131,16 +139,14 @@ function MountainSection({ row, live, city, unrateable, t }: {
       ]}
     />
   );
+  // T80 (Richard item 6, PIPELINE section 0): snow is ALWAYS two numbers, depth in cm and run coverage in %; "≈" in the mark slot
+  // when estimated, and the tooltip says measured or estimated. tools/test-hub-rules.js T18 guards it.
   const snowPct = live ? live.snowPct : -1;
-  const snowLabel = snowPct < 0 ? HUB_LOC.mountainSnow : live && live.snowEstimated ? HUB_LOC.mountainSnowEstimated : HUB_LOC.mountainSnowMeasured;
-  const snowTip = (
-    <TipLines
-      lines={[
-        t(HUB_LOC.mountainTipSnow),
-        live && live.snowDepthCm >= 0 && <LocText key="d" entry={HUB_FMT.snowDepth} args={{ CM: numArg(live.snowDepthCm, Unit.Integer) }} />,
-        city.snowVisualsOff && t(HUB_LOC.statusTipVisuals),
-      ]}
-    />
+  const depthCm = live ? live.snowDepthCm : -1;
+  const snowMark = live && live.snowEstimated && (snowPct >= 0 || depthCm >= 0) ? "≈" : null;
+  const how = live && (live.snowEstimated ? t(HUB_LOC.runEstimated) : t(HUB_LOC.statusTipMeasured));
+  const snowTip = (head: string, body: string): JSX.Element => (
+    <TipLines lines={[head, body, how, city.snowVisualsOff && t(HUB_LOC.statusTipVisuals)]} />
   );
   return (
     <>
@@ -159,9 +165,16 @@ function MountainSection({ row, live, city, unrateable, t }: {
         tip={t(HUB_LOC.areaTip)}
       />
       <InfoLine
-        label={t(snowLabel)}
+        label={t(HUB_LOC.mountainSnowDepth)}
+        mark={snowMark}
+        value={depthCm >= 0 ? <LocText entry={HUB_FMT.snowDepth} args={{ CM: numArg(depthCm, Unit.Integer) }} /> : DASH}
+        tip={snowTip(t(HUB_LOC.mountainSnowDepth), t(HUB_LOC.mountainTipDepth))}
+      />
+      <InfoLine
+        label={t(HUB_LOC.mountainSnowCover)}
+        mark={snowMark}
         value={snowPct >= 0 ? <Num value={snowPct} unit={Unit.Percentage} /> : DASH}
-        tip={snowTip}
+        tip={snowTip(t(HUB_LOC.mountainSnowCover), t(HUB_LOC.mountainTipSnow))}
       />
     </>
   );
@@ -198,6 +211,8 @@ function Receipt({ row, l, city, problems, t }: {
     VERTICAL: numArg(l ? l.verticalMultiplier : -1, Unit.FloatTwoFractions),
   };
   const school = receiptPartsVariant(l) === "school";
+  const schoolNow = schoolState(l, problems, row.sign);   // T80: the School row's flag
+  const K = numArg(city.scaleK, Unit.Integer);
   const noLodgeRow = variant === "noLodge" ? problemOf(problems, row.sign, PROBLEM.NoLodge) : null;
   const allOffRow = variant === "noLodge" && !noLodgeRow ? problemOf(problems, row.sign, PROBLEM.LodgesAllOff) : null;
 
@@ -238,26 +253,43 @@ function Receipt({ row, l, city, problems, t }: {
           l && bestEntry && <LocText key="b" entry={HUB_FMT.receiptTipLodgeBest} args={{ NAME: t(bestEntry), E: numArg(l.lodgeExtra, Unit.FloatSingleFraction) }} />,
         ]} />}
       />
+      {/* T80 (Richard item 4): the section total, its full equation one layer down (the header's tooltip: RECEIPT_PARTS[_SCHOOL] +
+          RECEIPT_ROOT, T77's two lines), then one labelled row per term. Every number is C#'s (D10). */}
       <InfoLine
         label={t(HUB_LOC.receiptTerrain)}
         value={l && l.terrain >= 0 ? numArg(l.terrain, Unit.FloatSingleFraction, true) : DASH}
-        tip={<LocText entry={HUB_FMT.receiptTipTerrain} args={{ K: numArg(city.scaleK, Unit.Integer) }} />}
-      />
-      <SubLine
         tip={<TipLines lines={[
-          t(HUB_LOC.receiptTipRuns), t(HUB_LOC.receiptTipLifts), school && t(HUB_LOC.receiptTipSchool), t(HUB_LOC.receiptTipVariety),
-          <LocText key="v" entry={HUB_FMT.receiptTipVertical} args={{ M: numArg(l ? l.scoreVerticalM : -1, Unit.Height) }} />,
+          t(HUB_LOC.receiptTerrain),
+          school && l
+            ? <LocText key="p" entry={HUB_FMT.receiptPartsSchool} args={{ ...parts, SCHOOL: numArg(l.schoolValue, Unit.FloatSingleFraction) }} />
+            : <LocText key="p" entry={HUB_FMT.receiptParts} args={parts} />,
+          <LocText key="r" entry={HUB_FMT.receiptRoot} args={{ K, TERRAIN: l && l.terrain >= 0 ? numArg(l.terrain, Unit.FloatSingleFraction) : DASH }} />,
+          <LocText key="k" entry={HUB_FMT.receiptTipTerrain} args={{ K }} />,
         ]} />}
-      >
-        {school && l
-          ? <LocText entry={HUB_FMT.receiptPartsSchool} args={{ ...parts, SCHOOL: numArg(l.schoolValue, Unit.FloatSingleFraction) }} />
-          : <LocText entry={HUB_FMT.receiptParts} args={parts} />}
-      </SubLine>
+      />
+      <InfoLine sub label={t(HUB_LOC.receiptRowRuns)} value={parts.RUNS}
+        tip={<TipLines lines={[t(HUB_LOC.receiptRowRuns), t(HUB_LOC.receiptTipRuns)]} />} />
       <SubLine tip={<LocText entry={HUB_FMT.receiptTipOpen} args={{ FULL: numArg(l ? l.runsValueFull : -1, Unit.FloatSingleFraction) }} />}>
         {l && l.openSharePct >= 0
           ? <LocText entry={HUB_FMT.receiptOpen} args={{ PCT: numArg(l.openSharePct, Unit.Percentage) }} />
           : t(HUB_LOC.receiptOpenNone)}
       </SubLine>
+      <InfoLine sub label={t(HUB_LOC.receiptRowLifts)} value={parts.LIFTS}
+        tip={<TipLines lines={[t(HUB_LOC.receiptRowLifts), t(HUB_LOC.receiptTipLifts)]} />} />
+      {/* Item 3: no school / no green run is a 0 with the warning glyph and the cause, not a tooltip sentence. */}
+      <InfoLine sub label={t(HUB_LOC.receiptRowSchool)}
+        flag={schoolNow === "none" ? t(HUB_LOC.noSchool) : schoolNow === "noGreen" ? t(HUB_LOC.schoolNoGreen) : undefined}
+        value={l && l.schoolValue >= 0 ? numArg(l.schoolValue, Unit.FloatSingleFraction, false, false) : DASH}
+        tip={<TipLines lines={[t(HUB_LOC.receiptRowSchool), t(HUB_LOC.receiptTipSchool)]} />} />
+      <InfoLine sub label={t(HUB_LOC.receiptRowVariety)}
+        value={<LocText entry={HUB_FMT.receiptTimes} args={{ PCT: parts.VARIETY }} />}
+        tip={<TipLines lines={[t(HUB_LOC.receiptRowVariety), t(HUB_LOC.receiptTipVariety)]} />} />
+      <InfoLine sub label={t(HUB_LOC.receiptRowVertical)}
+        value={<LocText entry={HUB_FMT.receiptTimes} args={{ PCT: parts.VERTICAL }} />}
+        tip={<TipLines lines={[t(HUB_LOC.receiptRowVertical),
+          <LocText key="v" entry={HUB_FMT.receiptTipVertical} args={{ M: numArg(l ? l.scoreVerticalM : -1, Unit.Height) }} />]} />} />
+      <InfoLine sub label={t(HUB_LOC.receiptRowScale)} value={K}
+        tip={<TipLines lines={[t(HUB_LOC.receiptRowScale), t(HUB_LOC.receiptTipScale)]} />} />
       <InfoLine
         label={t(HUB_LOC.receiptEfficiency)}
         value={l && l.efficiencyPct >= 0 ? <LocText entry={HUB_FMT.receiptTimes} args={{ PCT: numArg(l.efficiencyPct, Unit.Percentage) }} /> : DASH}

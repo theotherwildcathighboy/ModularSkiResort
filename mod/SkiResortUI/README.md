@@ -97,11 +97,11 @@ src/hub/ErrorBoundary.tsx, src/hub/report.ts   containment and reporting of UI e
 src/hub/HubPanel.tsx  the panel: draggable cs2/ui Panel (header / content / footer), body by link state, one ErrorBoundary per part
 src/hub/HubHeader.tsx, RenameField.tsx   the title-bar ski-area switcher and the one <input>
 src/hub/StatusBlock.tsx   the status line and the three-slot problems band (contract 3)
-src/hub/ViewTiles.tsx     the five tiles = the navigation (Attraction, Runs, Lifts, Guests, Money)
+src/hub/ViewTiles.tsx     the five tiles = the navigation (Attraction, Runs, Lifts, Guests, Finances; T77 renamed the Money tile, the file and keys keep "Money")
 src/hub/OverviewView.tsx  the score receipt and the mountain (difficulty bar and legend moved here)
 src/hub/RunsView.tsx, RunList.tsx, TreeControls.tsx   tree tool rows, piste-map toggle, run rows
 src/hub/LiftsView.tsx, LiftTable.tsx   two-line lift rows and the totals
-src/hub/GuestsView.tsx, MoneyView.tsx   guests, tickets, running costs, the one net
+src/hub/GuestsView.tsx, MoneyView.tsx   guests, tickets, running costs, the one net (MoneyView = the Finances view)
 src/hub/StartCard.tsx     the panel's content while the city has no Welcome Sign
 src/hub/hubRules.ts   pure display rules (joins, problem band, dot, footer, variants, bars); no React
 src/hub/resortData.ts pure selection and filter helpers (which rows belong to the shown ski area)

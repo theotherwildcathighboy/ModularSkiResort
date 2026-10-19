@@ -53,6 +53,11 @@
  *     "Season passes sold (this season) · {N}" with the season's pass income as its value (MONEY_TIP[Passes]) and the count row
  *     MONEY_ROW[PassHolders] "Pass holders skiing (this month)" (MONEY_TIP[PassHolders]). The net is still C#'s tickets + lodge spend: the
  *     pass income is a season figure and is not in the monthly net.
+ *   - T77 (2026-10-18; contract 9): the view is "Finances" (tile, header) with a "Per month" column; the month-bound rows name the
+ *     month (lift tickets of the month before or this month projected, pass holders and lessons this month: "Month of <name>",
+ *     CityStats.month); the MONEY_NOTE[Fees] SubLine under the tickets row is gone (Richard: where vanilla shows resort income
+ *     belongs in the player docs, T79), so `city.bookTicketsAsFees` is no longer read here; "Buildings and wages" lost "(game
+ *     formula)". Supersedes the Contract 7 MONEY_NOTE[Fees] line below.
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$
  *     (Round F7: the run kinds of the area).
  *   - Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; round-2-contract.md section 8.5): the price
@@ -66,17 +71,17 @@
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
-import { RUN_KIND, build$, city$, resortLive$, resorts$, runs$, selectedResort$ } from "../bindings";
-import type { BuildItem, BuildItemId, CityStats, ResortLive, ResortRow, RunRow } from "../bindings";
+import { RUN_KIND, build$, city$, problems$, resortLive$, resorts$, runs$, selectedResort$ } from "../bindings";
+import type { BuildItem, BuildItemId, CityStats, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import { BUILD_ITEMS, findBuildItem } from "./buildItems";
 import {
   PRICE_EXAMPLES, PRICE_NO_EFFECT_MAX, buildingsAndWages, cityIncomeShown, hubPrice, incomeNote, lessonsShown, liveOf, lodgeSpendShown,
-  passesShown, presaleShown, priceFactorPct, priceFullWith, ticketsRow,
+  passesShown, presaleShown, priceFactorPct, priceFullWith, schoolState, ticketsRow,
 } from "./hubRules";
-import type { IncomeNote } from "./hubRules";
-import { HUB_FMT, HUB_LOC, LIFT_TYPE } from "./hubText";
+import type { IncomeNote, SchoolState } from "./hubRules";
+import { HUB_FMT, HUB_LOC, LIFT_TYPE, monthName } from "./hubText";
 import { Divider, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, TipLines, numArg, useNumberSamples } from "./parts";
 import type { NumberSamples } from "./parts";
 import { currentResort, resortEntries, runsOf } from "./resortData";
@@ -177,7 +182,7 @@ function LodgeSpendRow({ l, samples, t }: { l: ResortLive | null; samples: Numbe
 }
 
 /** Contract 7 (season passes v1): the season's pass sales with their income, and the pass holders who skied this month. */
-function PassRows({ l, samples, t }: { l: ResortLive | null; samples: NumberSamples; t: Translate }): JSX.Element {
+function PassRows({ l, month, samples, t }: { l: ResortLive | null; month: string; samples: NumberSamples; t: Translate }): JSX.Element {
   const sold = l ? l.passesSoldSeason : -1;
   const holders = l ? l.passHoldersThisMonth : -1;
   return (
@@ -197,7 +202,7 @@ function PassRows({ l, samples, t }: { l: ResortLive | null; samples: NumberSamp
       )}
       <InfoLine
         sub
-        label={t(HUB_LOC.moneyRowPassHolders)}
+        label={<LocText entry={HUB_FMT.moneyRowPassHolders} args={{ MONTH: month }} />}
         value={<Cell samples={samples}>{holders >= 0 ? <Num value={holders} unit={Unit.Integer} /> : DASH}</Cell>}
         tip={t(HUB_LOC.moneyTipPassHolders)}
       />
@@ -206,11 +211,16 @@ function PassRows({ l, samples, t }: { l: ResortLive | null; samples: NumberSamp
 }
 
 /** Contract 8 (econ-2 round 2): the lessons this month with what they paid, drawn once a lesson was taken (lessonsShown). */
-function LessonRow({ l, samples, t }: { l: ResortLive | null; samples: NumberSamples; t: Translate }): JSX.Element | null {
-  if (!l || !lessonsShown(l)) return null;
+function LessonRow({ l, school, month, samples, t }: {
+  l: ResortLive | null; school: SchoolState; month: string; samples: NumberSamples; t: Translate;
+}): JSX.Element | null {
+  // T80 (Richard item 3): drawn once a lesson was taken, or while there is no ski school, as 0 with the Warning glyph and "No ski school"
+  // (the row says why it is 0; the tooltip no longer does). A school with no lessons yet keeps the contract-8 behaviour (no row).
+  if (!l || (!lessonsShown(l) && school !== "none")) return null;
   return (
     <InfoLine
-      label={<LocText entry={HUB_FMT.moneyRowLessons} args={{ N: numArg(l.lessonsThisMonth, Unit.Integer) }} />}
+      flag={school === "none" ? t(HUB_LOC.noSchool) : undefined}
+      label={<LocText entry={HUB_FMT.moneyRowLessons} args={{ MONTH: month, N: numArg(Math.max(0, l.lessonsThisMonth), Unit.Integer) }} />}
       value={<Cell samples={samples}>{l.lessonIncomeMonth >= 0 ? <SignedNum value={l.lessonIncomeMonth} unit={Unit.Money} /> : DASH}</Cell>}
       tip={t(HUB_LOC.moneyTipLessons)}
     />
@@ -243,14 +253,17 @@ function NetRow({ l, samples, t }: { l: ResortLive | null; samples: NumberSample
   );
 }
 
-function TicketsRow({ l, price, samples, t }: { l: ResortLive | null; price: number; samples: NumberSamples; t: Translate }): JSX.Element {
+function TicketsRow({ l, price, month, samples, t }: {
+  l: ResortLive | null; price: number; month: number; samples: NumberSamples; t: Translate;
+}): JSX.Element {
   const r = l ? ticketsRow(l, price) : "unknown";
   const N = numArg(l ? l.ticketPaidMonth : -1, Unit.Integer);
   let label: string | JSX.Element;
+  // T77: "last" is the month before (a whole month counted), "est" this month projected (the "≈" mark says so).
   switch (r) {
     case "off": label = t(HUB_LOC.moneyTicketsOff); break;
-    case "last": label = <LocText entry={HUB_FMT.moneyTicketsLast} args={{ N }} />; break;
-    case "est": label = <LocText entry={HUB_FMT.moneyTicketsEst} args={{ N }} />; break;
+    case "last": label = <LocText entry={HUB_FMT.moneyTicketsLast} args={{ MONTH: monthName(month, t, 1), N }} />; break;
+    case "est": label = <LocText entry={HUB_FMT.moneyTicketsEst} args={{ MONTH: monthName(month, t), N }} />; break;
     default: label = t(HUB_LOC.moneyTicketsUnknown); break;
   }
   const value = r === "off" || r === "unknown" || !l ? DASH : <SignedNum value={l.ticketIncomeMonth} unit={Unit.Money} />;
@@ -293,9 +306,9 @@ function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; 
   );
 }
 
-function SignMoney({ row, l, city, build, kinds, samples, t }: {
+function SignMoney({ row, l, city, build, kinds, problems, samples, t }: {
   row: ResortRow; l: ResortLive | null; city: CityStats; build: readonly BuildItem[]; kinds: ReadonlySet<number>;
-  samples: NumberSamples; t: Translate;
+  problems: readonly ProblemRow[]; samples: NumberSamples; t: Translate;
 }): JSX.Element {
   const bw = l ? buildingsAndWages(l) : -1;
   const note = l ? incomeNote(l, city.ticketPrice) : null;
@@ -303,12 +316,11 @@ function SignMoney({ row, l, city, build, kinds, samples, t }: {
   return (
     <>
       <MoneyHeader note={note} samples={samples} t={t} />
-      <TicketsRow l={l} price={city.ticketPrice} samples={samples} t={t} />
-      {city.bookTicketsAsFees && <SubLine>{t(HUB_LOC.moneyNoteFees)}</SubLine>}
+      <TicketsRow l={l} price={city.ticketPrice} month={city.month} samples={samples} t={t} />
       <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} t={t} />
       <LodgeSpendRow l={l} samples={samples} t={t} />
-      {passesShown(l, city) && <PassRows l={l} samples={samples} t={t} />}
-      <LessonRow l={l} samples={samples} t={t} />
+      {passesShown(l, city) && <PassRows l={l} month={monthName(city.month, t)} samples={samples} t={t} />}
+      <LessonRow l={l} school={schoolState(l, problems, row.sign)} month={monthName(city.month, t)} samples={samples} t={t} />
       <CityIncomeRow l={l} city={city} samples={samples} t={t} />
       <InfoLine header label={t(HUB_LOC.sectionCosts)} />
       {kinds.has(RUN_KIND.Natural) && (
@@ -316,7 +328,6 @@ function SignMoney({ row, l, city, build, kinds, samples, t }: {
           sub
           label={<LocText entry={HUB_FMT.moneyRowNatural} args={{ HA: ha(l?.haNatural) }} />}
           value={<Cell samples={samples}><span className={styles.dimValue}><Num value={0} unit={Unit.Money} /></span></Cell>}
-          tip={t(HUB_LOC.moneyTipNatural)}
         />
       )}
       {kinds.has(RUN_KIND.Groomed) && (
@@ -390,11 +401,12 @@ export function MoneyView(): JSX.Element {
   const city = useValue(city$);
   const build = useValue(build$);
   const runs = useValue(runs$);
+  const problems = useValue(problems$);   // T80: the school's state (hubRules.schoolState) for the Lessons row
 
   const cur = currentResort(resortEntries(resorts), selected);
   const row = cur.row;
   if (!row) return <div className={styles.dimLine}>{DASH}</div>;
   const l = liveOf(live, cur.isUnlinked ? null : row.sign);
   if (cur.isUnlinked) return <UnlinkedMoney row={row} l={l} build={build} samples={samples} t={t} />;
-  return <SignMoney row={row} l={l} city={city} build={build} kinds={kindsOf(runsOf(runs, row.sign))} samples={samples} t={t} />;
+  return <SignMoney row={row} l={l} city={city} build={build} kinds={kindsOf(runsOf(runs, row.sign))} problems={problems} samples={samples} t={t} />;
 }

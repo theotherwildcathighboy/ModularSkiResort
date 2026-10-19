@@ -135,7 +135,8 @@ export function TipLines({ lines }: { lines: ReadonlyArray<TipLine> }): JSX.Elem
  * nowrap, no pointer events). `align` = where the visible content sits.
  */
 export function StableWidth({ samples, align, className, children }: {
-  samples: readonly string[] | null;
+  /** Strings, or (T77) one-text-node elements such as a <LocText> ("Month of {MONTH}" for every month). */
+  samples: readonly ReactNode[] | null;
   align?: "start" | "center" | "end";
   className?: string;
   children: ReactNode;
@@ -279,7 +280,7 @@ export function MarkSlot({ mark }: { mark: "≈" | "…" | null }): JSX.Element 
 }
 
 /** One label / value row with the vanilla InfoRow metrics (28.2 / 39.7 / 47.3 rem at 100 / 130 / 150 %). */
-export function InfoLine({ label, value, tip, mark, header, sub, info }: {
+export function InfoLine({ label, value, tip, mark, header, sub, info, flag }: {
   label: string | JSX.Element;
   value?: ReactNode;
   tip?: ReactNode;
@@ -294,11 +295,20 @@ export function InfoLine({ label, value, tip, mark, header, sub, info }: {
    *  label is then a flex row [text (shrinks, ellipsis) | glyph | rest], never inline-block (unproven in
    *  Gameface, ViewTiles.tsx E1 fixer F13). */
   info?: boolean;
+  /** T80 (Richard item 3): a row whose 0 has a cause says it after the label, the problem band's Warning glyph + a short
+   *  warning-coloured word ("No ski school"), instead of a tooltip sentence. Same flex box as `info`. */
+  flag?: string;
 }): JSX.Element {
   return (
     <Tip tip={tip}>
       <div className={cx(styles.infoLine, header && styles.infoHeader, sub && styles.infoSub)}>
-        {info ? (
+        {flag ? (
+          <div className={styles.infoLabelBox}>
+            <div className={styles.infoLabelText}>{label}</div>
+            <Glyph src="Media/Glyphs/Warning.svg" className={cx(styles.infoMark, styles.glyphWarnTone)} />
+            <div className={styles.flagText}>{flag}</div>
+          </div>
+        ) : info ? (
           <div className={styles.infoLabelBox}>
             <div className={styles.infoLabelText}>{label}</div>
             <Glyph src={GLYPH_INFO} className={cx(styles.infoMark, styles.glyphDimTone)} />

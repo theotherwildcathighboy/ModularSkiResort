@@ -41,7 +41,7 @@
 
   const city = { known: true, daysPerYear: 365, scaleK: 4, backcountryPct: 40, ticketPrice: 65, snowGating: true,
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
-    tripPlanner: "", tripPlannerBlocksSkiDays: false, bookTicketsAsFees: true, passShare: 50 };
+    tripPlanner: "", tripPlannerBlocksSkiDays: false, bookTicketsAsFees: true, passShare: 50, month: 1 };
 
   const SIGN = E(101), SIGN2 = E(102);
   const runs = [
@@ -69,10 +69,12 @@
     { sign: SIGN, kind: 0, name: "Ash Flat", customName: true, runs: 5, rated: 4, flat: 1, green: 2, blue: 1, black: 1, doubleBlack: 0, areaM2: 333000, verticalM: 610, verticalApprox: false, lodges: 3, freeLodges: 1, liftRows: 3, liftLengthM: 3140, capacityPerHour: 3600 },
     { sign: SIGN2, kind: 0, name: "Resort 2", customName: false, runs: 0, rated: 0, flat: 0, green: 0, blue: 0, black: 0, doubleBlack: 0, areaM2: 0, verticalM: 0, verticalApprox: true, lodges: 0, freeLodges: 0, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 },
   ];
+  // T77: the receipt numbers are self-consistent (SkiResortScore.cs:468, 495): S = (4.55 + 21 + 12) × 1.15 × 1.2 = 51.82,
+  // terrain = 4 × sqrt(S) = 28.8, full = 18 + 28.8 = 47, attraction = 46.8 × 0.94 = 44. city.month 1 = February.
   const live = {
     sign: SIGN, status: 3, runsOpen: 4, runsPartly: 1, snowEstimated: false, snowPct: 88, snowDepthCm: 64, seasonHint: 1, topTempKnown: true, topTempC: -6,
-    attraction: 72, attractionFull: 85, attractionHeld: false, lodgesActive: 2, summer: false, lodgePart: 18, terrain: 41, runsValue: 4.55, runsValueFull: 5.5, openSharePct: 83,
-    liftsValue: 1.4, liftsComplete: 2, liftsCounted: 2, varietyMultiplier: 1.15, verticalMultiplier: 1.2, scoreVerticalM: 610, efficiencyPct: 94, sharePct: 61,
+    attraction: 44, attractionFull: 47, attractionHeld: false, lodgesActive: 2, summer: false, lodgePart: 18, terrain: 28.8, runsValue: 4.55, runsValueFull: 5.5, openSharePct: 83,
+    liftsValue: 21, liftsComplete: 2, liftsCounted: 2, varietyMultiplier: 1.15, verticalMultiplier: 1.2, scoreVerticalM: 610, efficiencyPct: 94, sharePct: 61,
     estKnown: true, estTourists: 1240, nextStep: 0, thisMonthSinceLoad: true, lastMonthFull: true,
     guestsThisMonth: 3860, touristsThisMonth: 2410, touristGroupsThisMonth: 640, residentsThisMonth: 1450, paidThisMonth: 3300, unpaidThisMonth: 360, freeThisMonth: 200, ticketsThisMonth: 3300,
     guestsLastMonth: 5120, touristsLastMonth: 3300, touristGroupsLastMonth: 880, residentsLastMonth: 1820, paidLastMonth: 4500, ticketsLastMonth: 4500,
@@ -81,7 +83,7 @@
     liftCostMonth: 5500, liftsBilled: 2, liftsBilledReduced: 1, buildingsMonth: 9800, wagesMonth: 31200, jobs: 64, jobsFilled: 58,
     netMonth: 138600, netEstimated: false,
     skiDaysState: 6, skiDaysThisMonth: 2410, skiDaysLastMonth: 3300, skiDaysSent: 2600, skiDaysSentCar: 1900, skiDaysSentNoCar: 700, skiDaysNow: 310, skiDaysCap: 480, skiDaysLimit: 2, skiDaysPowderPct: 35,
-    lodgeBest: "lodgeMid", lodgeExtra: 1, luxuryIgnored: 0, schoolValue: 0.4, patrolledRuns: 3, priceTolerance: 78, lodgeSpendMonth: 46000,
+    lodgeBest: "lodgeMid", lodgeExtra: 1, luxuryIgnored: 0, schoolValue: 12, patrolledRuns: 3, priceTolerance: 78, lodgeSpendMonth: 46000,
     passesSoldSeason: 420, passIncomeSeason: 126000, passHoldersThisMonth: 390, passHoldersLastMonth: 410, lessonsThisMonth: 120, lessonsLastMonth: 160, lessonIncomeMonth: 9600,
     passesPreSeason: 85, passIncomePreSeason: 25500, cityIncomeEst: 390000,
   };
@@ -96,12 +98,12 @@
   ];
   const glade = { available: true, active: false, level: 4, treeLine: false, reason: "" };
 
-  const base = { hubOpen: false, contract: 8, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 9, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0 };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
-    "contract mismatch (DLL 7, UI 8)": Object.assign({}, base, { contract: 7, hubOpen: true }),
+    "contract mismatch (DLL 8, UI 9)": Object.assign({}, base, { contract: 8, hubOpen: true }),
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed" }) }),

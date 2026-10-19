@@ -88,6 +88,8 @@ import type { Entity } from "cs2/utils";
 export const GROUP = "skiResort";
 
 /**
+ * Contract 9 (T77 hub wording round 1, 2026-10-18: docs/research/ui/hub-wording-round-1-2026-10-18.md - CityStats appends month, the
+ * calendar month 0..11 that the guest ledger counts as this month; the views name it "Month of <name>" through vanilla Common.MONTH:<n>).
  * Contract 8 (econ-2 round 2, 2026-10-15: docs/research/econ-2/build/round-2.md - ResortLive appends lessonsThisMonth, lessonsLastMonth,
  * lessonIncomeMonth, passesPreSeason, passIncomePreSeason, cityIncomeEst; no CityStats, binding or trigger change).
  * Contract 7 (season passes v1, 2026-10-14: docs/research/econ-2/build/season-pass-v1.md - ResortLive appends passesSoldSeason,
@@ -102,7 +104,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree
  * controls (CORE only) and says why (spec 4.5).
  */
-export const HUB_CONTRACT = 8;
+export const HUB_CONTRACT = 9;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -625,6 +627,9 @@ export interface CityStats {
   bookTicketsAsFees: boolean;
   /** Contract 7: the Options setting Season pass share, 0-100 (0 = passes off). */
   passShare: number;
+  /** Contract 9 (T77): the calendar month of the game date, 0 = January .. 11 = December (C# SkiMoneyRules.MonthKey, the month the guest
+   *  ledger counts); -1 = not known. Named in the views through vanilla Common.MONTH:<n> (hubText.monthEntry). */
+  month: number;
 }
 
 /** CityStats.tripPlanner when a trip system is off and no known replacement is loaded. Manual parity with
@@ -729,7 +734,7 @@ export const FALLBACK = {
   city: {
     known: false, daysPerYear: 0, scaleK: 4, backcountryPct: 40, ticketPrice: 0, snowGating: true,
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
-    tripPlanner: "", tripPlannerBlocksSkiDays: false, bookTicketsAsFees: true, passShare: 50,
+    tripPlanner: "", tripPlannerBlocksSkiDays: false, bookTicketsAsFees: true, passShare: 50, month: -1,
   } as CityStats,
   /** D19: the piste map is on by default (C# owns the value). */
   pisteMap: true,

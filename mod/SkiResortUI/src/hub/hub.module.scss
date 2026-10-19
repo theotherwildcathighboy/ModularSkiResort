@@ -1583,6 +1583,18 @@
   margin-left: 6rem;
 }
 
+// T80 (2026-10-18, Richard item 3): InfoLine `flag` - the word after the Warning glyph ("No ski school"), warning colour.
+.flagText {
+  flex-grow: 0;
+  flex-shrink: 1;
+  min-width: 0rem;
+  margin-left: 4rem;
+  color: var(--warningColor);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .infoValue {
   display: flex;
   flex-direction: row;

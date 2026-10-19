@@ -399,7 +399,8 @@ namespace SkiResortMod.Systems
         public const string Group = "skiResort";
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a
-        /// binding, trigger, field or meaning changes. 8 = Econ-2 round 2 (2026-10-15, docs/research/econ-2/build/round-2.md: ResortLive
+        /// binding, trigger, field or meaning changes. 9 = T77 hub wording round 1 (2026-10-18, docs/research/ui/hub-wording-round-1-2026-10-18.md:
+        /// CityStats appends month, the calendar month 0..11 the guest ledger counts; nothing else). 8 = Econ-2 round 2 (2026-10-15, docs/research/econ-2/build/round-2.md: ResortLive
         /// appends lessonsThisMonth, lessonsLastMonth, lessonIncomeMonth, passesPreSeason, passIncomePreSeason, cityIncomeEst; no CityStats
         /// change). 7 = Season passes v1 (2026-10-14, docs/research/econ-2/build/season-pass-v1.md:
         /// ResortLive appends passesSoldSeason, passIncomeSeason, passHoldersThisMonth, passHoldersLastMonth; CityStats appends
@@ -410,7 +411,7 @@ namespace SkiResortMod.Systems
         /// days, docs/research/ski-days/spec (ch4 §A: ten ResortLive fields appended; the six last-month guest fields
         /// also for a partial month); 3 was Round E1 (econ-round spec ch5 §4, design hub-v3-design.md §8); 2 was
         /// hub-u2-spec.md §2 (Rounds U2/M1).</summary>
-        public const int HubContract = 8;
+        public const int HubContract = 9;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed
         /// after the one-shot "!!!" until the next load (amended 2026-10-01, U1 fixer round, finding
@@ -637,11 +638,14 @@ namespace SkiResortMod.Systems
                 writer.Write(value.BookTicketsAsFees);
                 writer.PropertyName("passShare");
                 writer.Write(Fin(value.PassShare));
+                // Contract 9 (T77): the calendar month 0..11 (the UI names it with vanilla Common.MONTH:<n>).
+                writer.PropertyName("month");
+                writer.Write(Fin(value.Month));
                 writer.TypeEnd();
             }
         }
 
-        /// <summary>`city` dedup: all twelve fields (typed Equals per field — no boxing; floats with .Equals; the
+        /// <summary>`city` dedup: all fifteen fields (typed Equals per field — no boxing; floats with .Equals; the
         /// string with ==).</summary>
         private sealed class CityStatsComparer : EqualityComparer<CityStats>
         {
@@ -652,7 +656,8 @@ namespace SkiResortMod.Systems
                        a.SnowmakingMarginC.Equals(b.SnowmakingMarginC) && a.SnowVisualsOff == b.SnowVisualsOff &&
                        a.TourismOverhaul == b.TourismOverhaul && a.RealisticWorkplaces == b.RealisticWorkplaces &&
                        a.TripPlanner == b.TripPlanner && a.TripPlannerBlocksSkiDays == b.TripPlannerBlocksSkiDays &&   // Round M2 R9
-                       a.BookTicketsAsFees == b.BookTicketsAsFees && a.PassShare == b.PassShare;   // Contract 7
+                       a.BookTicketsAsFees == b.BookTicketsAsFees && a.PassShare == b.PassShare &&   // Contract 7
+                       a.Month == b.Month;   // Contract 9
             }
 
             public override int GetHashCode(CityStats c)
@@ -672,7 +677,8 @@ namespace SkiResortMod.Systems
                     h = h * 31 + (c.TripPlanner ?? "").GetHashCode();   // Round M2 R9
                     h = h * 31 + (c.TripPlannerBlocksSkiDays ? 1 : 0);
                     h = h * 31 + (c.BookTicketsAsFees ? 1 : 0);   // Contract 7
-                    return h * 31 + c.PassShare;
+                    h = h * 31 + c.PassShare;
+                    return h * 31 + c.Month;   // Contract 9
                 }
             }
         }

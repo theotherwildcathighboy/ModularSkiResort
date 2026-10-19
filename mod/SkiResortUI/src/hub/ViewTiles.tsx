@@ -25,21 +25,22 @@
  *     (TILE[RunsOpen], XS 56.6 / 93.1 / 117.5 rem against the caption room 75 / 111 / 135 of design §2.3:
  *     fits, no shrink), so "2 / 3" says what it counts; the Not linked tile shows a total and keeps
  *     "Runs" (TILE[Runs]). The tooltip title follows the caption.
- *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$; local view$.
+ *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, city$ (T77: the month's name in the Guests
+ *     tooltip, "Month of <name>"); local view$.
  */
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { Unit } from "cs2/l10n";
 import { LocalizedFraction } from "../cs2shim";
-import { resortLive$, resorts$, selectedResort$ } from "../bindings";
+import { city$, resortLive$, resorts$, selectedResort$ } from "../bindings";
 import type { ResortLive, ResortRow } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
 import { buildingsAndWages, liveOf, unfinishedLifts } from "./hubRules";
 import { HUB_VIEWS, view$ } from "./hubState";
 import type { HubView } from "./hubState";
-import { HUB_FMT, HUB_LOC } from "./hubText";
+import { HUB_FMT, HUB_LOC, monthName } from "./hubText";
 import { LocText, SignedNum, Tip, TipLines, cx, numArg } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
@@ -95,7 +96,7 @@ function tileMark(v: HubView, l: ResortLive | null, unlinked: boolean): "≈" | 
   return "";
 }
 
-function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boolean, t: Translate): JSX.Element {
+function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boolean, month: number, t: Translate): JSX.Element {
   const open = t(HUB_LOC.tileTipOpen);
   switch (v) {
     case "overview":
@@ -115,9 +116,12 @@ function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boo
         n > 0 && <LocText key="u" entry={HUB_FMT.tileTipUnfinished} args={{ N: numArg(n, Unit.Integer) }} />, open]} />;
     }
     case "guests":
-      return <TipLines lines={[t(HUB_LOC.tileGuests), t(HUB_LOC.tileTipGuests),
+      // T77 (contract 9): this month and the one before by name (city.month).
+      return <TipLines lines={[t(HUB_LOC.tileGuests), <LocText key="g" entry={HUB_FMT.tileTipGuests} args={{ MONTH: monthName(month, t) }} />,
         l && l.thisMonthSinceLoad && t(HUB_LOC.tileTipSinceLoad),
-        l && l.lastMonthFull && l.guestsLastMonth >= 0 && <LocText key="l" entry={HUB_FMT.tileTipLast} args={{ N: numArg(l.guestsLastMonth, Unit.Integer) }} />, open]} />;
+        l && l.lastMonthFull && l.guestsLastMonth >= 0 && <LocText key="l" entry={HUB_FMT.tileTipLast} args={{
+          MONTH: monthName(month, t, 1), N: numArg(l.guestsLastMonth, Unit.Integer),
+        }} />, open]} />;
     default:
       return <TipLines lines={[t(HUB_LOC.tileMoney), t(HUB_LOC.tileTipMoney), l && l.ticketIncomeEstimated && t(HUB_LOC.tileTipEst),
         l && buildingsAndWages(l) < 0 && t(HUB_LOC.tileTipEstBuildings), open]} />;
@@ -130,6 +134,7 @@ export function ViewTiles({ tilesRef }: { tilesRef: RefObject<HTMLDivElement> })
   const selected = useValue(selectedResort$);
   const live = useValue(resortLive$);
   const view = useValue(view$);
+  const city = useValue(city$);
   const cur = currentResort(resortEntries(resorts), selected);
   const row = cur.row;
   const unlinked = cur.isUnlinked;
@@ -140,7 +145,7 @@ export function ViewTiles({ tilesRef }: { tilesRef: RefObject<HTMLDivElement> })
         const on = v === view;
         const mark = tileMark(v, l, unlinked);
         return (
-          <Tip key={v} tip={row ? tileTip(v, row, l, unlinked, t) : undefined}>
+          <Tip key={v} tip={row ? tileTip(v, row, l, unlinked, city.month, t) : undefined}>
             <Button
               theme={{ button: cx(styles.tile, on && styles.tileOn) }}
               selected={on}

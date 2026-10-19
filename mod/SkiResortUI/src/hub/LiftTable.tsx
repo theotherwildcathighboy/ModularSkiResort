@@ -13,6 +13,8 @@
  *     in a StableWidth of the five LIFT_STATUS words (so the name never moves; NoPower and
  *     SectionMissing in the warning colour, ChairsStopped and Unfinished dim). While renaming, the fly
  *     part is a plain `div.liftFly` with the RenameField in the name slot (U7). The pen is a sibling.
+ *   - T77 (2026-10-18, Richard item 8): line 2 reads "1.2 km · rise 300 m · 4.1 min ride · 2,400 skiers/h · 3 runs" and the
+ *     tooltip pair "Capacity  2,400 skiers/h" (was "4.1 min · 2,400/h design", label "Design capacity (riders an hour ...)").
  *   - Line 2 by hubRules.liftLine2: "length · rise · ride min · capacity/h design · N runs" (one / no
  *     runs variants; E1 fixer F9: with the `partner` prop, a lone station whose other kind is placed
  *     elsewhere in the area reads "both stations placed" - the census never pairs them in one row) for a complete lift; else the section-missing / unfinished / stations-only
@@ -121,7 +123,12 @@ function liftTip(row: LiftRow, partner: boolean, t: Translate): JSX.Element {
             ? <LocText entry={HUB_FMT.liftRideMin} args={{ MIN: numArg(row.rideTimeS / 60, Unit.FloatSingleFraction) }} /> : "–",
         },
         <LocText key="rt" entry={HUB_FMT.liftRideTip} args={{ SPEED }} />,
-        { label: t(HUB_LOC.liftCapacity), value: row.capacityPerHour >= 0 ? <Num value={row.capacityPerHour} unit={Unit.Integer} /> : "–" },
+        // T77 (Richard item 8): "Capacity  2,400 skiers/h", the unit the row's line 2 uses.
+        {
+          label: t(HUB_LOC.liftCapacity),
+          value: row.capacityPerHour >= 0
+            ? <LocText entry={HUB_FMT.capacityValue} args={{ CAP: numArg(row.capacityPerHour, Unit.Integer) }} /> : "–",
+        },
         <LocText key="ct" entry={HUB_FMT.liftCapacityTip} args={{ SEATS, SPEED }} />,
         { label: t(HUB_LOC.liftRuns), value: <Num value={row.runsServed} unit={Unit.Integer} /> },
         { label: t(HUB_LOC.liftCost), value: row.costMonth >= 0 ? <Num value={row.costMonth} unit={Unit.MoneyPerMonth} /> : "–" },

@@ -245,12 +245,23 @@
       onClick: () => { if (props.onSelect) props.onSelect(); },
     }), props.src ? h("img", { src: imgSrc(props.src), alt: "", className: "h-floating-img" }) : props.children);
   }
+  // T80 (2026-10-18): like the game's Tooltip (it attaches its listeners to its ONE child, no wrapper element), the listeners go on the
+  // child itself and the tip renders in a portal on <body>, fixed under the child, wrapping at 420 rem. The old inline
+  // `span.h-tipwrap` shrink-wrapped every row with a tooltip (ragged value columns) and collapsed tipped flex bars.
   function Tooltip(props) {
-    const [show, setShow] = React.useState(false);
+    const [at, setAt] = React.useState(null);
     const tip = props.tooltip;
-    return h("span", { className: "h-tipwrap", onMouseEnter: () => setShow(true), onMouseLeave: () => setShow(false) },
-      props.children,
-      show && tip != null && !props.disabled ? h("span", { className: cx("h-tip", props.direction && "h-tip-" + props.direction) }, tip) : null);
+    const child = React.Children.only(props.children);
+    const cp = child.props || {};
+    const enter = (e) => { const r = e.currentTarget.getBoundingClientRect(); setAt({ left: r.left, top: r.bottom }); if (cp.onMouseEnter) cp.onMouseEnter(e); };
+    const leave = (e) => { setAt(null); if (cp.onMouseLeave) cp.onMouseLeave(e); };
+    const shown = at && tip != null && !props.disabled;
+    return h(React.Fragment, null,
+      React.cloneElement(child, { onMouseEnter: enter, onMouseLeave: leave }),
+      shown ? ReactDOM.createPortal(h("span", {
+        className: cx("h-tip", props.direction && "h-tip-" + props.direction),
+        style: { position: "fixed", left: at.left + "px", top: at.top + "px", maxWidth: "420rem", whiteSpace: "normal", zIndex: 10000 },
+      }, tip), document.body) : null);
   }
   function Panel(props) {
     const theme = props.theme || {};

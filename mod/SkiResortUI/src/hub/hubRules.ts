@@ -803,3 +803,16 @@ export function unfinishedLifts(row: ResortRow, live: ResortLive | null): number
   if (!live || !(live.liftsComplete >= 0)) return 0;
   return Math.max(0, (row.liftRows | 0) - live.liftsComplete);
 }
+
+// ---- T80 (2026-10-18): conditional row states --------------------------------------------------------
+
+/** The ski school of a sign, for the rows whose 0 has a cause (T80, Richard item 3): "on" = its value counts (schoolValue > 0);
+ *  "noGreen" = built but no green run counts (the sign's PROBLEM.SchoolNoGreenRun row, C# HubProblemCode 25); "none" = no school;
+ *  "unknown" = no live row or schoolValue < 0. Reads only C#'s fields: no new contract field. */
+export type SchoolState = "on" | "noGreen" | "none" | "unknown";
+export function schoolState(l: ResortLive | null, problems: readonly ProblemRow[] | null | undefined, sign: Entity | null | undefined): SchoolState {
+  if (!l || !(l.schoolValue >= 0)) return "unknown";
+  if (l.schoolValue > 0) return "on";
+  for (const p of problems ?? []) if (p && p.code === PROBLEM.SchoolNoGreenRun && sameEntity(p.sign, sign)) return "noGreen";
+  return "none";
+}

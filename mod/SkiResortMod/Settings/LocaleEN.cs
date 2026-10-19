@@ -171,9 +171,8 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.BookTicketsAsFees)),
-                    "On: lift tickets, season passes, lessons and lodge spend show in the Economy panel under public " +
-                    "transportation fees and reach your balance through the game's budget. Off: they go straight to " +
-                    "your balance and are not in the Economy panel. Default on."
+                    "On: lift tickets, season passes, lessons and lodge spend are booked as public transportation fees " +
+                    "and reach your balance through the game's budget. Off: they go straight to your balance. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LessonShare)),
