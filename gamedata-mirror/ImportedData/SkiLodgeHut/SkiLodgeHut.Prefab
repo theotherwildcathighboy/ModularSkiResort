@@ -16,7 +16,7 @@
                 "name": "ServiceConsumption",
                 "active": true,
                 "m_Upkeep": 3000,
-                "m_ElectricityConsumption": 1000,
+                "m_ElectricityConsumption": 0,
                 "m_WaterConsumption": 700,
                 "m_GarbageAccumulation": 50,
                 "m_TelecomNeed": 0
