@@ -574,6 +574,34 @@ else {
     $rows.Add("OK    SHIPPED   $shOk of $(@($shipped.prefabs).Count) frozen prefab(s) present with their CID ($relState; list of $($shipped.generated))")
 }
 
+# ---- 11. EMISSIVE: no BuildingActive (72) light on an owned mesh prefab (DECISIONS 336) ------------
+# EmissiveProperties.Purpose 72 = BuildingActive: ObjectInterpolateSystem.cs:1194-1198 drives it to 0 unless the entity
+# is a Building with BuildingOption.Inactive clear - dark on every ServiceUpgrade child and on stations. The engine's own
+# importer gives an emissive map 34 = DecorativeLight @ 5 (AssetImportPipeline.cs:2259), which only needs electricity.
+# 71 = EffectSource (the beacon lens, driven by the effect) is allowed.
+# Only mesh prefabs a hand-made prefab points at today: superseded letters stay on disk (never delete, rule 4) and are not judged.
+$emRefd = @{}
+foreach ($p in $ownedPrefabs) {
+    if ($p.Name -match ' Mesh_[0-9a-f]+\.Prefab$') { continue }
+    try { $t0 = [IO.File]::ReadAllText($p.FullName) } catch { continue }
+    foreach ($m in [regex]::Matches($t0, '"m_Mesh": \$fstrref:"CID:([0-9a-f]{32})"')) { $emRefd[$m.Groups[1].Value] = $true }
+}
+$emOk = 0
+foreach ($p in $ownedPrefabs) {
+    if ($p.Name -notmatch ' Mesh_[0-9a-f]+\.Prefab$') { continue }
+    $cidFile = $p.FullName + ".cid"
+    if (-not (Test-Path $cidFile)) { continue }
+    try { $cidVal = ([IO.File]::ReadAllText($cidFile)).Trim().ToLower() } catch { continue }
+    if (-not $emRefd.ContainsKey($cidVal)) { continue }
+    try { $txt = [IO.File]::ReadAllText($p.FullName) } catch { continue }
+    if ($txt -notmatch '"purpose": ') { continue }
+    $bad = [regex]::Matches($txt, '"purpose": (\d+)') | Where-Object { $_.Groups[1].Value -eq '72' }
+    if ($bad.Count -gt 0) {
+        $rows.Add("WARN  EMISSIVE  $($p.Name): EmissiveProperties purpose 72 (BuildingActive) never lights a ServiceUpgrade child or a station - use 34 (DecorativeLight) @ 5, DECISIONS 336"); $warnings++
+    } else { $emOk++ }
+}
+$rows.Add("OK    EMISSIVE  $emOk owned mesh prefab(s) with an emissive block, none on purpose 72")
+
 # ---- summary -------------------------------------------------------------------------
 $rows | ForEach-Object { Write-Output $_ }
 Write-Output ""

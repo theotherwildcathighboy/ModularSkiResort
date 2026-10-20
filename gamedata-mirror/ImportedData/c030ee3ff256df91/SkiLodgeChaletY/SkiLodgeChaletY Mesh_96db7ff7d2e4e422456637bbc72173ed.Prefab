@@ -24,7 +24,7 @@
                             "$id": 4,
                             "$type": "4|Game.Prefabs.EmissiveProperties+SingleLightMapping, Game",
                             "previewState": false,
-                            "purpose": 72,
+                            "purpose": 34,
                             "color": {
                                 "$type": "5|UnityEngine.Color, UnityEngine.CoreModule",
                                 1,
@@ -39,7 +39,7 @@
                                 0,
                                 1
                             },
-                            "intensity": 0.6,
+                            "intensity": 5,
                             "luminance": 0,
                             "responseTime": 0,
                             "animationIndex": -1,
