@@ -44,6 +44,8 @@ namespace LiftBatch
             Lh5ClosedRule();
             Lh6ExpectsLoop();
             Lh7HeldSuffix();
+            Lh8TramSummer();
+            LvIconRule();
             s_Check = null;
         }
 
@@ -87,6 +89,58 @@ namespace LiftBatch
             Eq(", 3 held (1 no power, 2 closed)", LiftLoopHold.HeldSuffix(1, 2), W, "mixed reasons");
             Eq("", LiftLoopHold.HeldSuffix(-1, 0), W, "negative counts read as 0");
             Eq(", 2 held (closed)", LiftLoopHold.HeldSuffix(-4, 2), W, "a negative power count is ignored");
+        }
+
+        /// <summary>LH-8 (DECISIONS 347 e, Richard 2026-10-20: "trams can run in summer as sightseeing. This is typical."): a Shuttle
+        /// type is exempt from the T13 no-open-run hold (never closed, billed full); every Loop type and an untyped row keep it.
+        /// Replays the 10-19 tram 427911:31 -> 85587:31: complete, powered, area closed (summer, snow 0) -> it now carries.</summary>
+        private static void Lh8TramSummer()
+        {
+            const string W = "loop-hold/LH-8";
+            LiftTypeDef tram = null;
+            for (int i = 0; i < 4; i++)
+            {
+                LiftTypeDef def = SkiCatalog.LiftByIndex(i);
+                if (def == null)
+                    continue;
+                bool shuttle = def.Mover == MoverKind.Shuttle;
+                if (shuttle)
+                    tram = def;
+                Eq(!shuttle, LiftClosedRule.ClosedForLift(true, def), W, def.Id + " held when its area has no open run");
+                Eq(false, LiftClosedRule.ClosedForLift(false, def), W, def.Id + " not closed while a run is open");
+                Eq(shuttle, LiftClosedRule.AreaOpenForBilling(false, def), W, def.Id + " billed as open with no open run");
+                Eq(true, LiftClosedRule.AreaOpenForBilling(true, def), W, def.Id + " billed as open with an open run");
+            }
+            Check(LiftClosedRule.HoldsWhenClosed(null) && LiftClosedRule.ClosedForLift(true, null), W,
+                  "an untyped row keeps the hold (as before)");
+            bool closed = LiftClosedRule.ClosedForLift(true, tram);
+            Check(tram != null && LiftServedRule.Carries(true, LiftPower.Powered, closed), W,
+                  "replay 23:15:16: tram 427911:31 complete, powered, area NoOpenRun -> carries (was Held (closed))");
+            LiftTypeDef fg = SkiCatalog.LiftByIndex(0);
+            Check(fg != null && fg.Mover == MoverKind.Loop && !LiftServedRule.Carries(true, LiftPower.Powered, LiftClosedRule.ClosedForLift(true, fg)), W,
+                  "replay 22:58:19: FG 469677:11 in the same area stays held (closed)");
+            Eq(", 1 held (closed)", LiftLoopHold.HeldSuffix(0, 1), W, "the FG's held reason text stays 'closed'");
+        }
+
+        /// <summary>LV-1..LV-4 (T117 follow-up, DECISIONS 347 d; StationLvRule header): the vanilla "low voltage not connected"
+        /// icon goes when an LV wire reaches the stub, at its node or on its middle; it stays with no wire. Replays 10-19.</summary>
+        private static void LvIconRule()
+        {
+            const string W = "lv-icon";
+            Eq(LvStubWire.None, StationLvRule.Classify(0, 0), W + "/LV-1", "no foreign LV edge or node: no wire");
+            Eq(LvStubWire.AtNode, StationLvRule.Classify(1, 0), W + "/LV-1", "a wire edge ending at the stub node");
+            Eq(LvStubWire.MidStub, StationLvRule.Classify(0, 1), W + "/LV-1", "a wire node local-connected onto the stub's middle");
+            Eq(LvStubWire.AtNode, StationLvRule.Classify(1, 1), W + "/LV-1", "both: at node wins (the vanilla check sees it)");
+            // LV-2 replay: the FG base 469677:11 (Connected 1224 / 1224, the LV icon still up at 22:57:40 and 23:02:57; its stub lies
+            // fully outside the mesh, so the wire end can land mid-stub).
+            Check(StationLvRule.ClearsVanillaIcon(true, StationLvRule.Classify(0, 1)), W + "/LV-2",
+                  "FG base 469677:11 replay: wire mid-stub + vanilla LV icon -> removed");
+            // LV-3 replay: the DQ 395053:19 / gondola 380273:23 bases, never wired (0 / 1222): the icon is the truth and stays.
+            Check(!StationLvRule.ClearsVanillaIcon(true, StationLvRule.Classify(0, 0)), W + "/LV-3",
+                  "DQ / gondola base replay: no wire -> the icon stays");
+            // LV-4: the tram base 427911:31 (stub inside the mesh, wire at the tip node): vanilla already cleared it; nothing to do.
+            Check(!StationLvRule.ClearsVanillaIcon(false, StationLvRule.Classify(1, 0)) && StationLvRule.ClearsVanillaIcon(true, LvStubWire.AtNode),
+                  W + "/LV-4", "tram base replay: no icon -> no command; a stale icon at a wired node is removed too");
         }
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);

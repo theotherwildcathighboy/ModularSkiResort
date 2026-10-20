@@ -192,7 +192,9 @@
 // patrol hut into PatrolEntities (tests/BuildingBatch: the invariant, the building gates). Active = Building.m_OptionMask (the
 // bit vanilla mirrors into a child's entry). D3 (309): a top-level lodge has its own Efficiency buffer (CityServiceBuilding);
 // the area's efficiency = the sign's x the active top-level lodges' mean weighted by tier base B (SchoolLinkRules.AreaEfficiency;
-// school and patrol weigh 0), the lodges' factors merged worst-per-factor into the area's list. Positions: m_TopXz, the
+// school and patrol weigh 0), the lodges' factors merged worst-per-factor into the area's list. DECISIONS 347 (c): the mountain
+// lodges' jobs ride on the sign (MountainJobsSystem), so a mountain lodge's D3 efficiency = its own x the sign's staffing
+// product, and the sign term is then the sign without that product (MountainJobsRules.SignTerm: counted once). Positions: m_TopXz, the
 // m_PatrolXz rule (header SYNC POINTS). The poll hash mixes each top-level building's (entity, active) like a child entry, and
 // a lodge's efficiency percent. Logs: one "School [link]" / "Lodge [link]" / "Patrol [link]" line per link change (linked /
 // relinked / NOT LINKED / removed; SchoolLinkRules.Diff), all re-logged once per load; DUMP "top-level buildings". Accessors
@@ -319,6 +321,11 @@ namespace SkiResortMod.Systems
             // top-level lodges (SchoolLinkRules.AreaEfficiency); 0 / 0 = no top-level lodge (the sign's efficiency alone).
             public double LodgeEffSum, LodgeWeightSum;
             public int SignEfficiencyPct;   // the sign's own efficiency (before D3), DUMP
+            // DECISIONS 347 (c) (MountainJobsRules header EFFICIENCY): the sign's staffing product (NotEnoughEmployees x
+            // SickEmployees x EmployeeHappiness, WorkProviderSystem.cs:279-281; the mountain buildings' jobs ride on the sign),
+            // the sign's efficiency without it, and whether a mountain lodge took it into the D3 mean.
+            public float SignStaffing, SignNoStaffValue;
+            public bool MountainInMean;
 
             public void Reset(Entity sign)
             {
@@ -347,6 +354,8 @@ namespace SkiResortMod.Systems
                 Schools = 0;
                 LodgeEffSum = LodgeWeightSum = 0.0;
                 SignEfficiencyPct = 100;
+                SignStaffing = SignNoStaffValue = 1f;
+                MountainInMean = false;
             }
         }
 
@@ -562,6 +571,7 @@ namespace SkiResortMod.Systems
         private readonly List<LiftCensus.Row> m_CensusRows = new List<LiftCensus.Row>(8);
         private readonly List<Entity> m_ScratchEntities = new List<Entity>(8);
         private float[] m_FactorValues = new float[32];
+        private float[] m_NoStaffValues = new float[32];   // DECISIONS 347 (c): the sign's factors without its staffing three
 
         // ── triggers (header CADENCE) ──────────────────────────────────────────────────────────────
         private bool m_StructuralPending;
@@ -1459,16 +1469,25 @@ namespace SkiResortMod.Systems
                 return;
             }
 
-            int count = 0;
+            int count = 0, noStaffCount = 0;
+            float staffing = 1f;
             if (EntityManager.TryGetBuffer(sign, isReadOnly: true, out DynamicBuffer<Efficiency> factors))
             {
                 count = factors.Length;
                 if (m_FactorValues.Length < count)
                     m_FactorValues = new float[count];
+                if (m_NoStaffValues.Length < count)
+                    m_NoStaffValues = new float[count];
                 for (int i = 0; i < count; i++)
                 {
                     Efficiency factor = factors[i];
                     m_FactorValues[i] = factor.m_Efficiency;
+                    // DECISIONS 347 (c): the three factors WorkProviderSystem writes (:279-281) split off for the D3 slice.
+                    if (factor.m_Factor == EfficiencyFactor.NotEnoughEmployees || factor.m_Factor == EfficiencyFactor.SickEmployees ||
+                        factor.m_Factor == EfficiencyFactor.EmployeeHappiness)
+                        staffing *= factor.m_Efficiency > 0f ? factor.m_Efficiency : 0f;
+                    else
+                        m_NoStaffValues[noStaffCount++] = factor.m_Efficiency;
                     if (slot != null && factor.m_Efficiency < 1f)
                         slot.Factors.Add(factor);
                 }
@@ -1481,6 +1500,8 @@ namespace SkiResortMod.Systems
                 slot.EfficiencyValue = efficiency;
                 slot.EfficiencyPct = pct;
                 slot.SignEfficiencyPct = pct;   // T113 D3: LinkTopLevel may fold the area's top-level lodges in
+                slot.SignStaffing = staffing;
+                slot.SignNoStaffValue = noStaffCount == 0 ? 1f : SkiResortScore.SignEfficiency(m_NoStaffValues, noStaffCount);
                 // Efficiency.CompareTo orders the highest value first (Efficiency.cs:36-43): reversed = worst first.
                 slot.Factors.Sort();
                 slot.Factors.Reverse();
@@ -1620,6 +1641,13 @@ namespace SkiResortMod.Systems
                     // D3: the tier base is the weight (SkiCatalog.Lodges B; the school and patrol huts weigh 0, DECISIONS 309).
                     double weight = known ? def.B : 0.0;
                     efficiency = ReadLodgeEfficiency(building, slot);
+                    // DECISIONS 347 (c): a mountain lodge's jobs ride on the sign, so the sign's staffing is its slice's staffing
+                    // (MountainJobsRules; the fold below then takes the sign term without it, so it counts once).
+                    if (known && def.SignJobs > 0 && weight > 0.0)
+                    {
+                        efficiency = MountainJobsRules.MountainEfficiency(efficiency, slot.SignStaffing);
+                        slot.MountainInMean = true;
+                    }
                     slot.LodgeEffSum += weight * efficiency;
                     slot.LodgeWeightSum += weight;
                 }
@@ -1631,7 +1659,8 @@ namespace SkiResortMod.Systems
                 AreaSlot slot = next.Slots[s];
                 if (!(slot.LodgeWeightSum > 0.0))
                     continue;
-                float area = SchoolLinkRules.AreaEfficiency(slot.EfficiencyValue, slot.LodgeEffSum, slot.LodgeWeightSum);
+                float signTerm = MountainJobsRules.SignTerm(slot.EfficiencyValue, slot.SignNoStaffValue, slot.MountainInMean);
+                float area = SchoolLinkRules.AreaEfficiency(signTerm, slot.LodgeEffSum, slot.LodgeWeightSum);
                 slot.EfficiencyValue = area;
                 slot.EfficiencyPct = (int)Math.Round(100.0 * area);
                 slot.Factors.Sort();      // worst first again after the lodge merge (Efficiency.CompareTo: highest first)

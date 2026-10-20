@@ -2290,8 +2290,9 @@ namespace SkiResortMod.Systems
                 }
                 int jobs = 0, filled = 0;
                 AddJobs(sign, ref jobs, ref filled);
-                // T100 / T113 (spec (b) site 4): a linked top-level building's jobs are its own now (lodges, the school; patrol
-                // huts and the mountain lodges have none, DECISIONS 308 option A). A child's were merged into the sign.
+                // T100 / T113 (spec (b) site 4): a linked top-level building's jobs are its own now (lodges, the school). The
+                // patrol huts' and mountain lodges' jobs ride on the sign's WorkProvider (DECISIONS 347 c, MountainJobsSystem),
+                // so AddJobs(sign) above counts them. A child's were merged into the sign.
                 for (int t = 0; t < m_TopLevel.Count; t++)
                 {
                     if (m_TopLevelSigns[t] == sign)

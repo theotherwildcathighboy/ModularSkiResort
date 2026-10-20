@@ -688,5 +688,28 @@ namespace SkiResortMod.Systems
         {
             return linked && s.Known && s.Closed;
         }
+
+        /// <summary>Richard's ruling DECISIONS 347 (e), 2026-10-20: "trams can run in summer as sightseeing. This is typical." A
+        /// Shuttle type (the tram) is exempt from the no-open-run hold; Loop types (chairlifts, gondolas) and untyped rows (null)
+        /// keep it.</summary>
+        public static bool HoldsWhenClosed(LiftTypeDef type)
+        {
+            return type == null || type.Mover != MoverKind.Shuttle;
+        }
+
+        /// <summary>The lift's closed flag after the exemption: the area's published closed state, never for a Shuttle type.
+        /// SkiLiftChargeSystem stores it in LiftCharge.Closed and the closed pair set (TramShuttleSystem.IsClosed,
+        /// ChairPinSystem.IsLoopClosed, the hub), so the held reason "closed" never names a tram.</summary>
+        public static bool ClosedForLift(bool areaClosed, LiftTypeDef type)
+        {
+            return areaClosed && HoldsWhenClosed(type);
+        }
+
+        /// <summary>The billing's area state after the exemption: a running tram is billed as an open lift (full rate), not at
+        /// the 25 % "no open run" share (SkiMoneyRules.LiftUpkeepBillingOf).</summary>
+        public static bool AreaOpenForBilling(bool areaRunOpen, LiftTypeDef type)
+        {
+            return areaRunOpen || !HoldsWhenClosed(type);
+        }
     }
 }

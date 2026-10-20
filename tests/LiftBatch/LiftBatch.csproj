@@ -55,6 +55,8 @@
     <Compile Include="ShuttleTests.cs" />
     <!-- Phase D (code-round-4/round-4-contract.md 7.1, rules group): the pure loop hold and the power-gate / hold tests. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLoopHold.cs" Link="LiftLoopHold.cs" />
+    <!-- 2026-10-20 sim round (DECISIONS 347 d): the station LV icon rule, LoopHoldTests LV-1..LV-4. -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\StationLvRule.cs" Link="StationLvRule.cs" />
     <Compile Include="PowerGateTests.cs" />
     <Compile Include="LoopHoldTests.cs" />
     <!-- Round T06 (2026-10-16, docs/research/field/2026-10-15/build/T06-served-links.md): runs linked to a served run are served. -->

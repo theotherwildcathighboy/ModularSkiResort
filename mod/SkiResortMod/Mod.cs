@@ -672,6 +672,19 @@ namespace SkiResortMod
             // SystemOrder.cs:1018, 1.6.2 :1019, long before a city load).
             updateSystem.UpdateAt<LodgeRoadSystem>(SystemUpdatePhase.GameSimulation);
 
+            // Mountain jobs (DECISIONS 347 c; docs/research/field/2026-10-20/sim-round-build.md): the roadless hut / summit / patrol
+            // buildings' jobs on their linked Welcome Sign's WorkProvider (the ServiceUpgrade combine's runtime path,
+            // ServiceUpgradeSystem.cs:137-154 + CityServiceWorkplaceInitializeSystem.cs:97-121). Polls the published top-level links
+            // every 64 frames; the phase is NOT load-bearing: WorkProviderSystem's tick (GameSimulation, slice every 512 frames)
+            // reads m_MaxWorkers whenever it runs, and nothing vanilla rewrites it for a city service building after its Created frame.
+            updateSystem.UpdateAt<MountainJobsSystem>(SystemUpdatePhase.GameSimulation);
+
+            // Station LV icon (T117 follow-up, DECISIONS 347 d): removes the vanilla LowVoltageNotConnected icon from a station whose
+            // LV stub has a wire (ConnectionWarningSystem counts only edges AT the stub node; a wire that local-connected onto the
+            // stub's middle powers the station but leaves the icon; StationLvRule header). Phase NOT load-bearing: the queued
+            // removes are consumed by IconCommandSystem at ModificationEnd (SystemOrder.cs:271) whenever it runs next.
+            updateSystem.UpdateAt<StationLvIconSystem>(SystemUpdatePhase.GameSimulation);
+
             // T54 probe 1 (docs/research/cat-track-run.md §1 option A; field/2026-10-15/build/T54-probe1-overlap.md): forges
             // AreaGeometryData.m_Type Surface -> Space on the SkiRunCatTrackA prefab at every Game-mode load so a cat track can
             // cross other runs (ValidationHelpers.cs:551 compares only the type). Registered like LodgeRoadSystem: disabled,

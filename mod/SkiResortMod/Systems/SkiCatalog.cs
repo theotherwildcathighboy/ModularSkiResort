@@ -362,6 +362,7 @@ namespace SkiResortMod.Systems
         public readonly int Capacity;            // skiers a day (ski-day capacity)
         public readonly int PriceTolerance;      // ticket price added before the ski-day price factor falls
         public readonly int Jobs;                // informational: the prefab's Workplace is the truth
+        public readonly int SignJobs;            // DECISIONS 347 (c): jobs the linked Welcome Sign carries for a roadless row (MountainJobsSystem)
         public readonly int BuildCost;           // informational: PlaceableObject.m_ConstructionCost (ServiceUpgrade.m_UpgradeCost before T113)
         public readonly int Upkeep;              // informational: ServiceConsumption.m_Upkeep
         public readonly bool ForbidMultiple;     // ServiceUpgrade.m_ForbidMultiple (engine-validated per prefab per owner); false on every lodge tier
@@ -373,9 +374,10 @@ namespace SkiResortMod.Systems
 
         public LodgeDef(int index, string id, string prefab, string buildItemId, double b, double e, double mu, double muSummit,
                         int capacity, int priceTolerance, int jobs, int buildCost, int upkeep, bool forbidMultiple,
-                        bool luxury, float spendMultiplier, LodgeRoadRule roadRule, bool expected)
+                        bool luxury, float spendMultiplier, LodgeRoadRule roadRule, bool expected, int signJobs = 0)
         {
             Index = index;
+            SignJobs = signJobs;
             Id = id;
             Prefab = prefab;
             BuildItemId = buildItemId;
@@ -432,13 +434,16 @@ namespace SkiResortMod.Systems
         public readonly float RadiusM;
         public readonly double ExpertFactor, BackcountryServedMin;
         public readonly int Jobs, BuildCost, Upkeep;
+        public readonly int SignJobs;            // DECISIONS 347 (c): jobs the linked Welcome Sign carries (MountainJobsSystem)
         public readonly bool ForbidMultiple;
         public readonly LodgeRoadRule RoadRule;
         public readonly bool Expected;
 
         public PatrolDef(string prefab, string buildItemId, float radiusM, double expertFactor, double backcountryServedMin,
-                         int jobs, int buildCost, int upkeep, bool forbidMultiple, LodgeRoadRule roadRule, bool expected)
+                         int jobs, int buildCost, int upkeep, bool forbidMultiple, LodgeRoadRule roadRule, bool expected,
+                         int signJobs = 0)
         {
+            SignJobs = signJobs;
             Prefab = prefab;
             BuildItemId = buildItemId;
             RadiusM = radiusM;
@@ -887,7 +892,9 @@ namespace SkiResortMod.Systems
                 //    flip (2026-10-13, §10.1): the four new tiers, the school and both patrol huts are Expected; their
                 //    m_UpgradeCost / m_ForbidMultiple / m_Workplaces / m_Upkeep in gamedata-mirror equal the rows below.
                 //    T113 (2026-10-20): every row is top-level now (BuildCost = PlaceableObject.m_ConstructionCost); the hut, the
-                //    summit lodge and both patrol huts demand nothing (option A, DECISIONS 308): jobs 0 = no Workplace. ──
+                //    summit lodge and both patrol huts demand nothing (option A, DECISIONS 308): jobs 0 = no Workplace.
+                //    DECISIONS 347 (c): their old jobs (hut 4, summit 8, patrol 2 + 2) are signJobs, carried by the linked Welcome
+                //    Sign's WorkProvider (MountainJobsSystem; staff ride up). ──
                 lodges = new[]
                 {
                     // Catalog Phase B (round-2-contract §1.5; was SkiCatalog.cs:296 { LodgeAFrame, 360, "lodge" }):
@@ -897,13 +904,13 @@ namespace SkiResortMod.Systems
                                  luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.Base, expected: true),
                     new LodgeDef(1, "hut", Names.LodgeHut, "lodgeHut", b: 16, e: 4, mu: 0.5, muSummit: 0.75, capacity: 200,
                                  priceTolerance: 0, jobs: 0, buildCost: 50000, upkeep: 3000, forbidMultiple: false,
-                                 luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.Mountain, expected: true),
+                                 luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.Mountain, expected: true, signJobs: 4),
                     new LodgeDef(2, "mid", Names.LodgeMid, "lodgeMid", b: 30, e: 8, mu: 0.5, muSummit: 0.5, capacity: 720,
                                  priceTolerance: 20, jobs: 12, buildCost: 200000, upkeep: 8000, forbidMultiple: false,
                                  luxury: false, spendMultiplier: 1.5f, roadRule: LodgeRoadRule.Base, expected: true),
                     new LodgeDef(3, "summit", Names.LodgeSummit, "lodgeSummit", b: 40, e: 12, mu: 0.5, muSummit: 1.0, capacity: 480,
                                  priceTolerance: 40, jobs: 0, buildCost: 1500000, upkeep: 18000, forbidMultiple: false,
-                                 luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Mountain, expected: true),
+                                 luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Mountain, expected: true, signJobs: 8),
                     new LodgeDef(4, "grand", Names.LodgeGrand, "lodgeGrand", b: 40, e: 12, mu: 0.6, muSummit: 0.6, capacity: 1080,
                                  priceTolerance: 40, jobs: 18, buildCost: 1200000, upkeep: 20000, forbidMultiple: false,
                                  luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Base, expected: true),
@@ -920,10 +927,10 @@ namespace SkiResortMod.Systems
                 {
                     new PatrolDef(Names.PatrolHut, "patrolHut", Patrol.RadiusM, Patrol.ExpertFactor, Patrol.BackcountryServedMin,
                                   jobs: 0, buildCost: 15000, upkeep: 1500, forbidMultiple: false, roadRule: LodgeRoadRule.None,
-                                  expected: true),
+                                  expected: true, signJobs: 2),
                     new PatrolDef(Names.PatrolHQ, "patrolHQ", Patrol.RadiusM, Patrol.ExpertFactor, Patrol.BackcountryServedMin,
                                   jobs: 0, buildCost: 15000, upkeep: 1500, forbidMultiple: false, roadRule: LodgeRoadRule.None,
-                                  expected: true),
+                                  expected: true, signJobs: 2),
                 };
 
                 // Sign: R14's 12,000, landed with the S1 sign surgery (2026-10-13, STATE §3 step 22): SkiResortGate.Prefab:25

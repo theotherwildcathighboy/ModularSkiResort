@@ -17,6 +17,10 @@
 //      line, stable order, empty before -> one line per school (the per-load re-log).
 //   E  T113 D3 (SchoolLinkRules.AreaEfficiency): E1 no top-level lodge = the sign's own, E2 the tier-weighted mean x the sign,
 //      E3 a lodge at 0 alone = 0, E4 the sign at 0 = 0, E5 rounding to 0.01 and the 0.01 floor, E6 the school / patrol weigh 0.
+//   J  DECISIONS 347 (c) mountain jobs on the sign (MountainJobsRules, SkiCatalog SignJobs): J1 the sum over one sign, J2 a
+//      relink moves the slice, J3 not linked / removed / sign deleted -> 0, J4 the write rule and the grace, J5 the catalog rows,
+//      J6 the D3 slice (staffing counted once), J7 the four mountain buildings on one sign = 16, J8 the sign prefab keeps its
+//      Workplace block (WorkProviderSystem.cs:133 needs WorkplaceData or it liquidates the staff).
 //   P  the mirror gate PER BUILDING (gamedata-mirror; all eight: SkiAFrameDayLodge, SkiLodgeHut, SkiLodgeMid, SkiLodgeSummit,
 //      SkiLodgeGrand, SkiSchool, SkiPatrolHut, SkiPatrolHQ): P1 no ServiceUpgrade; P2 ServiceObject = Parks and Recreation;
 //      P3 PlaceableObject cost = the catalog row's BuildCost, XP = the old ServiceUpgrade XP; P4 CityServiceBuilding; P5 Park
@@ -59,6 +63,7 @@ namespace BuildingBatch
             Invariant();
             DiffLog();
             EfficiencyRule();
+            MountainJobs();
             foreach (Gate g in Gates)
                 PrefabGate(g);
             Console.WriteLine($"BuildingBatch: {s_Pass} passed, {s_Fail} failed");
@@ -308,6 +313,79 @@ namespace BuildingBatch
             Check(Near(e5a, 0.33f) && Near(e5b, 0.01f), "E5", $"rounded to 0.01 ({e5a}), floored at 0.01 ({e5b})");
             // E6: the school and patrol huts have no tier base (weight 0): with only them the area is the sign's.
             Check(Near(SchoolLinkRules.AreaEfficiency(0.9f, 0.0 * 0.4, 0.0), 0.9f), "E6", "school / patrol weigh 0: the sign's efficiency");
+        }
+
+        // ── J ────────────────────────────────────────────────────────────────────────────────
+        private static Dictionary<EntityRef, int> Sum(params (EntityRef sign, int jobs, bool live)[] rows)
+        {
+            var signs = new List<EntityRef>(); var jobs = new List<int>(); var live = new List<bool>();
+            foreach (var r in rows) { signs.Add(r.sign); jobs.Add(r.jobs); live.Add(r.live); }
+            var output = new Dictionary<EntityRef, int>();
+            MountainJobsRules.SumBySign(signs, jobs, live, output);
+            return output;
+        }
+
+        private static int At(Dictionary<EntityRef, int> d, EntityRef sign) => d.TryGetValue(sign, out int n) ? n : 0;
+
+        private static void MountainJobs()
+        {
+            LodgeDef hut = null, summit = null, mid = null;
+            foreach (LodgeDef l in SkiCatalog.Lodges) { if (l.Id == "hut") hut = l; if (l.Id == "summit") summit = l; if (l.Id == "mid") mid = l; }
+            PatrolDef ph = SkiCatalog.PatrolByPrefab("SkiPatrolHut"), pq = SkiCatalog.PatrolByPrefab("SkiPatrolHQ");
+
+            // J1: one sign carries every live linked mountain building; a base lodge (own Workplace) adds 0.
+            var j1 = Sum((SignA, summit.SignJobs, true), (SignA, hut.SignJobs, true), (SignA, ph.SignJobs, true), (SignA, mid.SignJobs, true));
+            Check(At(j1, SignA) == 14 && j1.Count == 1, "J1", $"summit 8 + hut 4 + patrol hut 2 + mid 0 on sign A = {At(j1, SignA)} (14)");
+
+            // J2: the summit relinks to B (Move It, or a nearer new sign): A drops 8, B gains 8.
+            var j2 = Sum((SignB, summit.SignJobs, true), (SignA, hut.SignJobs, true), (SignA, ph.SignJobs, true));
+            Check(At(j2, SignA) == 6 && At(j2, SignB) == 8, "J2", $"relink: A {At(j2, SignA)} (6), B {At(j2, SignB)} (8)");
+            Check(MountainJobsRules.NeedsWrite(true, 14, 6) && MountainJobsRules.NeedsWrite(false, 0, 8) &&
+                  !MountainJobsRules.StartsGrace(true, 14, 6) && MountainJobsRules.StartsGrace(false, 0, 8), "J2b",
+                  "relink writes both signs; only B (new workplaces) gets the vanilla grace");
+
+            // J3: not linked (no sign within 5 km) and removed (not live): nothing summed; a carrier sign whose target fell to 0 is
+            // written to 0 (the component stays, the game lays the staff off).
+            var j3 = Sum((EntityRef.Null, summit.SignJobs, true), (SignA, hut.SignJobs, false));
+            Check(j3.Count == 0, "J3", "not linked + removed building: no sign has a target");
+            Check(MountainJobsRules.NeedsWrite(true, 6, 0) && !MountainJobsRules.NeedsWrite(false, 0, 0), "J3b",
+                  "a carrier falls to 0 (written); a sign that never carried any stays untouched");
+
+            // J4: the write rule table.
+            Check(!MountainJobsRules.NeedsWrite(true, 8, 8) && MountainJobsRules.NeedsWrite(true, 0, 8) && MountainJobsRules.StartsGrace(true, 0, 8) &&
+                  !MountainJobsRules.StartsGrace(true, 8, 0), "J4", "equal = no write; 0 -> 8 writes with grace; 8 -> 0 without grace");
+
+            // J5: the catalog rows (DECISIONS 347 c): the old Workplace numbers, carried only by roadless rows with no own jobs.
+            Check(hut.SignJobs == 4 && summit.SignJobs == 8 && ph.SignJobs == 2 && pq.SignJobs == 2, "J5",
+                  $"SignJobs hut {hut.SignJobs} summit {summit.SignJobs} patrol hut {ph.SignJobs} patrol HQ {pq.SignJobs} (4 / 8 / 2 / 2)");
+            bool rowsOk = true;
+            foreach (LodgeDef l in SkiCatalog.Lodges)
+                rowsOk &= l.SignJobs == 0 || (l.Jobs == 0 && l.RoadRule != LodgeRoadRule.Base);
+            rowsOk &= ph.Jobs == 0 && pq.Jobs == 0 && SkiCatalog.SchoolByPrefab("SkiSchool").Jobs > 0;
+            Check(rowsOk, "J5b", "a SignJobs row has Jobs 0 and is not a Base road row (else it would double-count)");
+
+            // J6: the D3 slice. Sign 100 % except staffing 0.5; area = summit (B 40) + A-frame (B 20, own efficiency 1). Staffing on
+            // the summit slice only, the sign term without it: (40 x 0.5 + 20 x 1) / 60 x 1.0 = 0.67.
+            float signTerm = MountainJobsRules.SignTerm(0.5f, 1f, true);
+            float summitEff = MountainJobsRules.MountainEfficiency(1f, 0.5f);
+            float a6 = SchoolLinkRules.AreaEfficiency(signTerm, 40 * summitEff + 20 * 1.0, 60.0);
+            Check(Near(a6, 0.67f), "J6", $"staffing 0.5 on the summit slice: area {a6} (0.67; counting it twice would give 0.33)");
+            Check(Near(MountainJobsRules.SignTerm(0.5f, 1f, false), 0.5f), "J6b",
+                  "no mountain lodge in the mean (patrol huts only, weight 0): staffing stays on the sign term (as before T113)");
+            Check(MountainJobsRules.MountainEfficiency(0.9f, float.NaN) == 0f && MountainJobsRules.MountainEfficiency(0.9f, -1f) == 0f,
+                  "J6c", "non-finite / negative staffing reads 0");
+
+            // J7: the four mountain buildings by one sign = 16, the jobs they had as ServiceUpgrade children before T113.
+            var j7 = Sum((SignA, summit.SignJobs, true), (SignA, hut.SignJobs, true), (SignA, pq.SignJobs, true), (SignA, ph.SignJobs, true));
+            Check(At(j7, SignA) == 16, "J7", $"the four mountain buildings on one sign: {At(j7, SignA)} jobs (16)");
+            Check(MountainJobsRules.Breakdown(new[] { "summit 1:1", "hut 2:1" }, new[] { 8, 4 }) == "summit 1:1 8 + hut 2:1 4" &&
+                  MountainJobsRules.Breakdown(new string[0], new int[0]) == "none linked", "J7b", "log breakdown words");
+
+            // J8: the sign prefab keeps WorkplaceData (Workplace block, m_Workplaces 0).
+            string gate = Path.Combine("gamedata-mirror", "ImportedData", "SkiResortGate", "SkiResortGate.Prefab");
+            string text = File.Exists(gate) ? File.ReadAllText(gate) : string.Empty;
+            Check(text.Contains("Game.Prefabs.Workplace, Game") && Num(text, "m_Workplaces") == "0", "J8",
+                  $"SkiResortGate keeps its Workplace block (m_Workplaces {Num(text, "m_Workplaces")}): WorkProviderSystem.cs:133 reads its WorkplaceData");
         }
 
         // ── P ────────────────────────────────────────────────────────────────────────────────

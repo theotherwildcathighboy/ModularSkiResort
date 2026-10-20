@@ -520,14 +520,16 @@ namespace SkiResortMod.Systems
                 // AreaRunOpen(sign)`, :483): an unpowered complete lift is billed like a powered one, so its area is read too.
                 // T13: the same read (AreaRunState) also steps the area's closed state, once per area per snapshot.
                 bool areaRunOpen = AreaRunState(sign, frame, out bool areaClosed);
-                bool areaOpen = !complete || areaRunOpen;
+                // DECISIONS 347 (e): a Shuttle type (the tram, sightseeing) runs with no open run: never closed, billed full.
+                LiftTypeDef def = SkiCatalog.LiftByIndex(r.Type) ?? SkiCatalog.Lifts[0];
+                areaClosed = LiftClosedRule.ClosedForLift(areaClosed, def);
+                bool areaOpen = !complete || LiftClosedRule.AreaOpenForBilling(areaRunOpen, def);
                 // Phase D (skeptic MUST-1, DECISIONS 171 sub-ruling: upkeep regardless of power; was
                 // SkiMoneyRules.LiftBillingOf(complete, powered, areaOpen), :484): no power input. `powered` still feeds
                 // LiftCharge.Powered, the Operating count and the state line.
                 SkiMoneyRules.LiftBilling billing = SkiMoneyRules.LiftUpkeepBillingOf(complete, areaOpen);
                 // Catalog Phase B (round-2-contract §6.4; was SkiMoneyRules.LiftRate(billing, r.LengthM), the fixed-grip
-                // consts, :467): the row type's two rate numbers; an untyped row bills as fixed-grip (Lifts[0]).
-                LiftTypeDef def = SkiCatalog.LiftByIndex(r.Type) ?? SkiCatalog.Lifts[0];
+                // consts, :467): the row type's two rate numbers; an untyped row bills as fixed-grip (Lifts[0]) (def: above).
                 float rate = SkiMoneyRules.LiftRate(billing, r.LengthM, def.FixedPerMonth, def.PerKmPerMonth);
                 float km = math.isfinite(r.LengthM) && r.LengthM > 0f ? r.LengthM / 1000f : 0f;
                 var lc = new LiftCharge

@@ -1,0 +1,234 @@
+// StationLvIconSystem — removes the vanilla "low voltage not connected" icon from a lift station whose LV stub HAS a wire
+// (T117 follow-up, Richard 2026-10-20: the FG base "was powered" and the LV icon "never went away"; DECISIONS 347 (d)). The why,
+// with decompile citations, is the StationLvRule.cs header: ConnectionWarningSystem counts only edges ending AT the stub node,
+// while the electricity graph also feeds a wire end that local-connected onto the stub's middle. Build note
+// docs/research/field/2026-10-20/sim-round-build.md §3. Created 2026-10-20.
+//
+// WHAT IT DOES: every PollFrames simulation frames (Game mode), for each building with an IconElement buffer whose prefab is one of
+// our stations (the catalog station set): if it carries the vanilla LowVoltageNotConnected icon (ElectricityParameterData,
+// ConnectionWarningSystem.cs:2366) and an LV wire reaches its LV stub (StationLvRule.Classify: a foreign LV edge at an LV stub
+// node, or a foreign LV node in the stub edge's ConnectedNode buffer), it queues IconCommandBuffer.Remove(station, icon prefab,
+// the icon's own Target) through the vanilla IconCommandSystem (the command ConnectionWarningSystem itself would issue,
+// :2390; matched on prefab + target, IconCommandSystem.cs:157). No wire: nothing (the icon is right). Vanilla re-adds the icon
+// only when it re-evaluates the station (the station or a sub-net Updated, CollectOwnersJob :63-140); the next poll removes it
+// again. Nothing else is written: no component, no prefab, no graph edge.
+//
+// LOGS: "created"; per station one line when its wire state first clears an icon this load ("StationPower [lv icon] ...") and
+// again only if the wire state changes; "!!!" once on a throw (then disabled until the next load). DUMP: AppendDump.
+// Phase GameSimulation, not load-bearing (the queue is consumed by IconCommandSystem at ModificationEnd, SystemOrder.cs:271).
+
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
+using Colossal.Entities;
+using Colossal.Serialization.Entities;
+using Game;
+using Game.Common;
+using Game.Net;
+using Game.Notifications;
+using Game.Prefabs;
+using Game.Tools;
+using Unity.Collections;
+using Unity.Entities;
+
+namespace SkiResortMod.Systems
+{
+    public sealed partial class StationLvIconSystem : GameSystemBase
+    {
+        internal const int PollFrames = 64;
+
+        private SkiPrefabCatalogSystem m_PrefabCatalog;
+        private IconCommandSystem m_IconCommandSystem;
+        private EntityQuery m_IconQuery;
+        private EntityQuery m_ElectricityConfigQuery;
+
+        private bool m_Armed, m_Disabled, m_ErrorLogged;
+        private int m_Frame, m_Removed;
+        private readonly Dictionary<Entity, LvStubWire> m_Logged = new Dictionary<Entity, LvStubWire>();
+        private readonly Dictionary<Entity, string> m_LastState = new Dictionary<Entity, string>();
+
+        protected override void OnCreate()
+        {
+            base.OnCreate();
+            m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
+            m_IconCommandSystem = World.GetOrCreateSystemManaged<IconCommandSystem>();
+            m_IconQuery = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadOnly<Game.Buildings.Building>(), ComponentType.ReadOnly<PrefabRef>(),
+                    ComponentType.ReadOnly<IconElement>(), ComponentType.ReadOnly<Game.Net.SubNet>(),
+                },
+                None = new[] { ComponentType.ReadOnly<Temp>(), ComponentType.ReadOnly<Deleted>() },
+            });
+            // ConnectionWarningSystem's own config query (:2706).
+            m_ElectricityConfigQuery = GetEntityQuery(ComponentType.ReadOnly<ElectricityParameterData>());
+            Mod.Log.Info($"{nameof(StationLvIconSystem)} created (clears the vanilla LV-not-connected icon on a station whose LV stub has a wire)");
+        }
+
+        protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
+        {
+            base.OnGameLoadingComplete(purpose, mode);
+            m_Armed = mode == GameMode.Game;
+            m_Disabled = m_ErrorLogged = false;
+            m_Frame = m_Removed = 0;
+            m_Logged.Clear();
+            m_LastState.Clear();
+        }
+
+        protected override void OnUpdate()
+        {
+            if (!m_Armed || m_Disabled)
+                return;
+            if (++m_Frame % PollFrames != 0)
+                return;
+            try
+            {
+                Poll();
+            }
+            catch (Exception e)
+            {
+                m_Disabled = true;
+                if (!m_ErrorLogged)
+                {
+                    m_ErrorLogged = true;
+                    Mod.Log.Error($"!!! {nameof(StationLvIconSystem)} EXCEPTION - LV icon clean-up disabled until the next game load " +
+                                  $"(vanilla icons stay as the game writes them). Please report this stack:\n{e}");
+                }
+            }
+        }
+
+        private void Poll()
+        {
+            if (!m_PrefabCatalog.IsResolved || m_IconQuery.IsEmptyIgnoreFilter || m_ElectricityConfigQuery.IsEmptyIgnoreFilter)
+                return;
+            Entity lvIcon = m_ElectricityConfigQuery.GetSingleton<ElectricityParameterData>().m_LowVoltageNotConnectedPrefab;
+            if (lvIcon == Entity.Null)
+                return;
+            IconCommandBuffer icb = default;
+            bool haveBuffer = false;
+            using (NativeArray<Entity> entities = m_IconQuery.ToEntityArray(Allocator.Temp))
+            using (NativeArray<PrefabRef> prefabs = m_IconQuery.ToComponentDataArray<PrefabRef>(Allocator.Temp))
+            {
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    if (!m_PrefabCatalog.TryGetStation(prefabs[i].m_Prefab, out StationDef _))
+                        continue;
+                    Entity station = entities[i];
+                    DynamicBuffer<IconElement> icons = EntityManager.GetBuffer<IconElement>(station, isReadOnly: true);
+                    int lvIcons = 0;
+                    for (int k = 0; k < icons.Length; k++)
+                    {
+                        if (EntityManager.TryGetComponent(icons[k].m_Icon, out PrefabRef ip) && ip.m_Prefab == lvIcon &&
+                            !EntityManager.HasComponent<Deleted>(icons[k].m_Icon))
+                            lvIcons++;
+                    }
+                    LvStubWire wire = ClassifyStub(station, out int atNode, out int mid);
+                    m_LastState[station] = $"{StationLvRule.Describe(wire)} (at node {atNode}, mid-stub {mid}), vanilla LV icon(s) {lvIcons}";
+                    if (!StationLvRule.ClearsVanillaIcon(lvIcons > 0, wire))
+                        continue;
+                    if (!haveBuffer)
+                    {
+                        icb = m_IconCommandSystem.CreateCommandBuffer();
+                        haveBuffer = true;
+                    }
+                    // Copy the targets first: the buffer handle must not be held across other EntityManager reads.
+                    var targets = new List<Entity>(lvIcons);
+                    icons = EntityManager.GetBuffer<IconElement>(station, isReadOnly: true);
+                    for (int k = 0; k < icons.Length; k++)
+                    {
+                        Entity icon = icons[k].m_Icon;
+                        if (EntityManager.TryGetComponent(icon, out PrefabRef ip) && ip.m_Prefab == lvIcon)
+                            targets.Add(EntityManager.TryGetComponent(icon, out Target t) ? t.m_Target : Entity.Null);
+                    }
+                    for (int k = 0; k < targets.Count; k++)
+                        icb.Remove(station, lvIcon, targets[k]);
+                    m_Removed += targets.Count;
+                    if (!m_Logged.TryGetValue(station, out LvStubWire logged) || logged != wire)
+                    {
+                        m_Logged[station] = wire;
+                        Mod.Log.Info($"StationPower [lv icon] {PrefabName(prefabs[i].m_Prefab)} {Id(station)}: removed {targets.Count} vanilla " +
+                                     $"'low voltage not connected' icon(s) — {StationLvRule.Describe(wire)} (at node {atNode}, mid-stub {mid}); " +
+                                     "the station is LV-connected (ConnectionWarningSystem counts only edges at the stub node)");
+                    }
+                }
+            }
+        }
+
+        /// <summary>The LV wire state of a station's LV stub (StationLvRule.Classify): foreign LV edges at its LV stub nodes, and
+        /// foreign LV nodes local-connected onto its LV stub edge.</summary>
+        private LvStubWire ClassifyStub(Entity station, out int atNode, out int mid)
+        {
+            atNode = mid = 0;
+            var subNets = new List<Entity>(8);
+            DynamicBuffer<Game.Net.SubNet> buffer = EntityManager.GetBuffer<Game.Net.SubNet>(station, isReadOnly: true);
+            for (int i = 0; i < buffer.Length; i++)
+                subNets.Add(buffer[i].m_SubNet);
+            for (int i = 0; i < subNets.Count; i++)
+            {
+                Entity sub = subNets[i];
+                if (!IsLv(sub))
+                    continue;
+                if (EntityManager.HasComponent<Edge>(sub))
+                {
+                    if (!EntityManager.TryGetBuffer(sub, isReadOnly: true, out DynamicBuffer<ConnectedNode> nodes))
+                        continue;
+                    var list = new List<Entity>(nodes.Length);
+                    for (int k = 0; k < nodes.Length; k++)
+                        list.Add(nodes[k].m_Node);
+                    for (int k = 0; k < list.Count; k++)
+                    {
+                        if (!OwnedBy(list[k], station) && IsLv(list[k]))
+                            mid++;
+                    }
+                }
+                else if (EntityManager.TryGetBuffer(sub, isReadOnly: true, out DynamicBuffer<ConnectedEdge> edges))
+                {
+                    var list = new List<Entity>(edges.Length);
+                    for (int k = 0; k < edges.Length; k++)
+                        list.Add(edges[k].m_Edge);
+                    for (int k = 0; k < list.Count; k++)
+                    {
+                        if (!OwnedBy(list[k], station) && IsLv(list[k]))
+                            atNode++;
+                    }
+                }
+            }
+            return StationLvRule.Classify(atNode, mid);
+        }
+
+        private bool IsLv(Entity net)
+        {
+            return EntityManager.TryGetComponent(net, out PrefabRef pr) &&
+                   EntityManager.TryGetComponent(pr.m_Prefab, out ElectricityConnectionData c) &&
+                   c.m_Voltage == Game.Prefabs.ElectricityConnection.Voltage.Low &&
+                   !EntityManager.HasComponent<Deleted>(net);
+        }
+
+        private bool OwnedBy(Entity net, Entity station)
+        {
+            return EntityManager.TryGetComponent(net, out Owner owner) && owner.m_Owner == station;
+        }
+
+        /// <summary>DUMP: per station seen with icons this load, its last LV wire state; the removal count.</summary>
+        internal void AppendDump(StringBuilder sb)
+        {
+            sb.Append("  station LV icon (T117 follow-up): armed ").Append(m_Armed).Append(", disabled ").Append(m_Disabled)
+              .Append(", vanilla LV icons removed ").Append(m_Removed).Append(';');
+            if (m_LastState.Count == 0)
+                sb.Append(" no station carried an icon at a poll");
+            foreach (KeyValuePair<Entity, string> kv in m_LastState)
+                sb.Append(' ').Append(Id(kv.Key)).Append(": ").Append(kv.Value).Append(';');
+            sb.Append('\n');
+        }
+
+        private string PrefabName(Entity prefab)
+        {
+            PrefabSystem ps = World.GetExistingSystemManaged<PrefabSystem>();
+            return ps != null && ps.TryGetPrefab(prefab, out PrefabBase p) ? p.name : "station";
+        }
+
+        private static string Id(Entity e) => e.Index.ToString(CultureInfo.InvariantCulture) + ":" + e.Version.ToString(CultureInfo.InvariantCulture);
+    }
+}
