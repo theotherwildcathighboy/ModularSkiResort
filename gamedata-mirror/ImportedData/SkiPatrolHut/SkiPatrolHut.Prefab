@@ -135,7 +135,7 @@
                 "m_SubObjects": {
                     "$id": 11,
                     "$type": "12|Game.Prefabs.ObjectSubObjectInfo[], Game",
-                    "$rlength": 7,
+                    "$rlength": 8,
                     "$rcontent": [
                         {
                             "$id": 12,
@@ -284,6 +284,30 @@
                         {
                             "$id": 18,
                             "$type": 13,
+                            "m_Object": $fstrref:"UnityGUID:1ad78f47f5ed32b4a85ae101abc6d7ae",
+                            "m_Position": {
+                                "$type": 14,
+                                "x": -1.5,
+                                "y": 2.8133,
+                                "z": -1.2
+                            },
+                            "m_Rotation": {
+                                "$type": 15,
+                                "value": {
+                                    "$type": 16,
+                                    "x": 0,
+                                    "y": 0,
+                                    "z": 0,
+                                    "w": 1
+                                }
+                            },
+                            "m_ParentMesh": 0,
+                            "m_GroupIndex": 0,
+                            "m_Probability": 100
+                        },
+                        {
+                            "$id": 19,
+                            "$type": 13,
                             "m_Object": $fstrref:"CID:5c73becf22314bf1aaf3ce04a1230dd7",
                             "m_Position": {
                                 "$type": 14,
@@ -311,14 +335,14 @@
         ]
     },
     "m_Meshes": {
-        "$id": 19,
+        "$id": 20,
         "$type": "17|Game.Prefabs.ObjectMeshInfo[], Game",
         "$rlength": 1,
         "$rcontent": [
             {
-                "$id": 20,
+                "$id": 21,
                 "$type": "18|Game.Prefabs.ObjectMeshInfo, Game",
-                "m_Mesh": $fstrref:"CID:7159b95a1ed06f5950bd4a3906b9fc57",
+                "m_Mesh": $fstrref:"CID:14e741f97f0f06256f48c0394aa93371",
                 "m_Position": {
                     "$type": 14,
                     "x": 0,

@@ -1,0 +1,103 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiLiftTowerETGDP Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 2,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.LodProperties, Game",
+                "name": "LodProperties",
+                "active": true,
+                "m_Bias": 0,
+                "m_ShadowBias": 0,
+                "m_LodMeshes": {
+                    "$id": 3,
+                    "$type": "3|Game.Prefabs.RenderPrefab[], Game",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        $fstrref:"CID:ef3935c89a72f4a9ca20796c3c730a9b",
+                        $fstrref:"CID:46ce1e2cfa8757079d1dc2a5049b5b97"
+                    ]
+                }
+            },
+            {
+                "$id": 4,
+                "$type": "4|Game.Prefabs.ColorProperties, Game",
+                "name": "ColorProperties",
+                "active": true,
+                "m_ColorVariations": {
+                    "$id": 5,
+                    "$type": "5|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+VariationSet, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 6,
+                            "$type": "6|Game.Prefabs.ColorProperties+VariationSet, Game",
+                            "m_Colors": {
+                                "$id": 7,
+                                "$type": "7|UnityEngine.Color[], UnityEngine.CoreModule",
+                                "$rlength": 3,
+                                "$rcontent": [
+                                    { "$type": "8|UnityEngine.Color, UnityEngine.CoreModule", 0.25, 0.26, 0.275, 1 },
+                                    { "$type": 8, 0.85, 0.25, 0.1, 1 },
+                                    { "$type": 8, 1, 1, 1, 1 }
+                                ]
+                            },
+                            "m_VariationGroup": ""
+                        }
+                    ]
+                },
+                "m_ChannelsBinding": {
+                    "$id": 8,
+                    "$type": "9|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+ColorChannelBinding, Game]], mscorlib",
+                    "$rlength": 3,
+                    "$rcontent": [
+                        { "$id": 9, "$type": "10|Game.Prefabs.ColorProperties+ColorChannelBinding, Game", "m_ChannelId": 0, "m_CanBeModifiedByExternal": false },
+                        { "$id": 10, "$type": 10, "m_ChannelId": 1, "m_CanBeModifiedByExternal": false },
+                        { "$id": 11, "$type": 10, "m_ChannelId": 2, "m_CanBeModifiedByExternal": false }
+                    ]
+                },
+                "m_VariationRanges": { "$type": "11|Unity.Mathematics.int3, Unity.Mathematics", "x": 0, "y": 0, "z": 0 },
+                "m_AlphaRanges": { "$type": 11, "x": 0, "y": 0, "z": 0 },
+                "m_ExternalColorSource": 0
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:413b8243831d52a43107f6186755fc79",
+    "m_SurfaceAssets": {
+        "$id": 12,
+        "$type": "12|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:0005364513bff0215e8ebee855c4db66"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "13|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "14|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -3.39300013,
+            "y": -0.01,
+            "z": -2.52000022
+        },
+        "max": {
+            "$type": 14,
+            "x": 3.39300013,
+            "y": 6.85000038,
+            "z": 2.51999974
+        }
+    },
+    "m_SurfaceArea": 164.608246,
+    "m_IndexCount": 10422,
+    "m_VertexCount": 4684,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

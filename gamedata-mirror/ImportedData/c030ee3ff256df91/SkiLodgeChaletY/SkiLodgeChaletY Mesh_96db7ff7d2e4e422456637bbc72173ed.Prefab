@@ -1,0 +1,145 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiLodgeChaletY Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 3,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.EmissiveProperties, Game",
+                "name": "EmissiveProperties",
+                "active": true,
+                "m_SingleLights": {
+                    "$id": 3,
+                    "$type": "3|System.Collections.Generic.List`1[[Game.Prefabs.EmissiveProperties+SingleLightMapping, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 4,
+                            "$type": "4|Game.Prefabs.EmissiveProperties+SingleLightMapping, Game",
+                            "previewState": false,
+                            "purpose": 72,
+                            "color": {
+                                "$type": "5|UnityEngine.Color, UnityEngine.CoreModule",
+                                1,
+                                1,
+                                1,
+                                1
+                            },
+                            "colorOff": {
+                                "$type": 5,
+                                0,
+                                0,
+                                0,
+                                1
+                            },
+                            "intensity": 0.6,
+                            "luminance": 0,
+                            "responseTime": 0,
+                            "animationIndex": -1,
+                            "materialId": 0
+                        }
+                    ]
+                },
+                "m_MultiLights": null,
+                "m_AnimationCurves": null,
+                "m_SignalGroupAnimations": null
+            },
+            {
+                "$id": 5,
+                "$type": "6|Game.Prefabs.LodProperties, Game",
+                "name": "LodProperties",
+                "active": true,
+                "m_Bias": 0,
+                "m_ShadowBias": 0,
+                "m_LodMeshes": {
+                    "$id": 6,
+                    "$type": "7|Game.Prefabs.RenderPrefab[], Game",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        $fstrref:"CID:2633352fe318083a107b0eff0bf6b57a",
+                        $fstrref:"CID:b728c6d00f68c7004005dde7ae63db59"
+                    ]
+                }
+            },
+            {
+                "$id": 7,
+                "$type": "8|Game.Prefabs.ColorProperties, Game",
+                "name": "ColorProperties",
+                "active": true,
+                "m_ColorVariations": {
+                    "$id": 8,
+                    "$type": "9|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+VariationSet, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 9,
+                            "$type": "10|Game.Prefabs.ColorProperties+VariationSet, Game",
+                            "m_Colors": {
+                                "$id": 10,
+                                "$type": "11|UnityEngine.Color[], UnityEngine.CoreModule",
+                                "$rlength": 3,
+                                "$rcontent": [
+                                    { "$type": 5, 0.225, 0.15, 0.1, 1 },
+                                    { "$type": 5, 0.225, 0.15, 0.1, 1 },
+                                    { "$type": 5, 0.383, 0.2843, 0.2103, 1 }
+                                ]
+                            },
+                            "m_VariationGroup": ""
+                        }
+                    ]
+                },
+                "m_ChannelsBinding": {
+                    "$id": 11,
+                    "$type": "12|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+ColorChannelBinding, Game]], mscorlib",
+                    "$rlength": 3,
+                    "$rcontent": [
+                        { "$id": 12, "$type": "13|Game.Prefabs.ColorProperties+ColorChannelBinding, Game", "m_ChannelId": 0, "m_CanBeModifiedByExternal": false },
+                        { "$id": 13, "$type": 13, "m_ChannelId": 1, "m_CanBeModifiedByExternal": false },
+                        { "$id": 14, "$type": 13, "m_ChannelId": 2, "m_CanBeModifiedByExternal": false }
+                    ]
+                },
+                "m_VariationRanges": { "$type": "14|Unity.Mathematics.int3, Unity.Mathematics", "x": 0, "y": 0, "z": 0 },
+                "m_AlphaRanges": { "$type": 14, "x": 0, "y": 0, "z": 0 },
+                "m_ExternalColorSource": 0
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:20bd60855680f43c3d85192786f21d14",
+    "m_SurfaceAssets": {
+        "$id": 15,
+        "$type": "15|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 2,
+        "$rcontent": [
+            $fstrref:"CID:67dd7941698def0f2421d99b74bb47f4",
+            $fstrref:"CID:523d392d93b17d0d059b94c1dde321b7"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "16|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "17|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -14.0524988,
+            "y": -4.76837158E-07,
+            "z": -15.7552624
+        },
+        "max": {
+            "$type": 17,
+            "x": 19.9569969,
+            "y": 13.0268307,
+            "z": 15.84
+        }
+    },
+    "m_SurfaceArea": 3574.121,
+    "m_IndexCount": 35523,
+    "m_VertexCount": 21978,
+    "m_MeshCount": 2,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

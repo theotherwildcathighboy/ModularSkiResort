@@ -112,6 +112,17 @@ $KnownVanilla = @{
     # Fittings v1 (2026-10-17, DECISIONS 263, docs/research/art/fittings-2026-10-17.md): roof vents / kitchen exhausts as rows on the lodges at the next import.
     "e334c9885e132684488e4fa21e06d975" = "ACVentRoofRandom01 placeholder (plumbing vents; dump-verified subobj_bounds.json)"
     "57d3607bc6f3c79408a27d4990e38565" = "CommercialACVentRoofRandom01 placeholder (kitchen exhausts; variants CommercialACVentRoof01-06; dump-verified subobj_bounds.json)"
+    # Vanilla SPECIFIC variants (T101 round 3, DECISIONS 324; surgery Y 2026-10-19): one named variant per row instead of a Random
+    # placeholder. GUIDs from the installed resources.assets PrefabsMap (tools/vanilla-guid-map.py), bounds in assets/blender/subobj_bounds.json.
+    "e73db1817f8e60543897e8c94e92d2ae" = "ACMachineRoof01 (heat pump; SkiSchool back wall at grade; PrefabsMap 2026-10-19)"
+    "2ea04b52c3797114cb8e4c281a6c91c3" = "ACMachineRoof02 (rooftop unit; SkiSchool flat front roof; PrefabsMap 2026-10-19)"
+    "4a2cdf33f0f230547ace4b40393f8a64" = "ACMachineRoof03 (rooftop unit; SkiSchool flat front roof; PrefabsMap 2026-10-19)"
+    "7dc1256672985f840a2e4884a5c4f31a" = "WallLight03 (gooseneck sign lamp; SkiSchool; PrefabsMap 2026-10-19)"
+    "1ad78f47f5ed32b4a85ae101abc6d7ae" = "ACVentRoof03 (capped pipe vent; patrol hut / HQ, A-frame, hut lodge; PrefabsMap 2026-10-19)"
+    "03b1510ce391829409b4f09a7bffaa49" = "GardenLight03 (deck light; A-frame, hut lodge; PrefabsMap 2026-10-19)"
+    "9941294ce11529c42a120ac622d61cbd" = "RoofLight03 (downlight; SkiLodgeGrand porte-cochere; PrefabsMap 2026-10-19)"
+    "b916e77fd42bccf448ed1020e15673e4" = "EU_Chimney05 (chimney pot; SkiLodgeSummit, SkiLodgeGrand stacks; PrefabsMap 2026-10-19)"
+    "64dc87161400b8b4eab7ef0b1f75fda2" = "WallLight04 (carriage lantern; registered by cs2_fittings VARIANT_GUIDS, placed on no prefab yet; PrefabsMap 2026-10-19)"
     # T51 step 1 (2026-10-16, docs/research/field/2026-10-15/build/T51-markers-step1.md): the two vanilla rows on the A-frame's apron.
     # Both read from the vanilla dump (%TEMP%\pltar\00_BaseGame\...\WaterTower01 Viewing Deck.Prefab: ObjectSubAreas row 0 and the
     # ObjectSubObjects row at (0, 0, 15.5)) and name2guid.json; each is used by hundreds of vanilla prefabs (Hangaround Area: 1963 files).
