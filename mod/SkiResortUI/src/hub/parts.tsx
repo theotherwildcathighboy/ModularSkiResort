@@ -49,6 +49,19 @@ import type { LocEntry } from "../l10n";
 import { GLYPH_INFO } from "./hubRules";
 import styles from "./hub.module.scss";
 
+/** T130 (2026-10-20, Richard: US English, US units): true while vanilla's unit setting is US customary (UnitSystem.Freedom = 1;
+ *  installed index.js formats Length / Height / Volume by `unitSettings.unitSystem` the same way). Snow depth is the one unit vanilla has
+ *  no format for, so the hub shows whole inches then (SNOW_DEPTH_IN / STATUS_SNOW_IN), else cm. */
+export function useInches(): boolean {
+  const loc = useLocalization();
+  return !!loc && !!loc.unitSettings && loc.unitSettings.unitSystem === 1;
+}
+
+/** The snow depth number in the shown unit: cm, or whole inches (1 in = 2.54 cm) when `inches`. */
+export function depthValue(cm: number, inches: boolean): number {
+  return inches ? Math.round(cm / 2.54) : cm;
+}
+
 /** A number with its unit; "–" for a value that is not finite (never "NaN m"). */
 export function Num({ value, unit, signed }: { value: number; unit: Unit; signed?: boolean }): JSX.Element {
   if (typeof value !== "number" || !Number.isFinite(value)) return <span>{"–"}</span>;

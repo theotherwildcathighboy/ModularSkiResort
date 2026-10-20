@@ -11,6 +11,12 @@
 //   (c) and never on a pack already that deep from natural snow (the pack measure clamps each texel at its own target, so
 //       a deep natural texel reads "at target").
 //   Warm-spell protection (T09) holds WARM texels; a warm texel is never cold, so a protection-only pass is never "running".
+//   (d) T135 (2026-10-20; field note 30 "snow guns fired in late May"): and only IN THE GUN SEASON (InGunSeason): October to
+//       March. The playthrough log shows the rule (a) was honest: the Night run's top is 1461 m, 865 m above the climate's
+//       596 m base at 0.01 C/m, so a May night of 6.1 C at the base is -2.5 C at the top, under freezing + 3.3; the guns
+//       started on 9-20 cold texels of 1204. Under the 3 ft bar a run opens on 60 % of its texels, so those guns could never
+//       open it: they billed and plumed for nothing. Real resorts stop snowmaking with the season (base building is Oct-Feb,
+//       March at most). Out of season the fold raises nothing (no bill) and no plume shows; the hysteresis state still steps.
 //
 // THE PACK MEASURE (PackDepthM): over the run's cold texels that have a target (the texels the guns would raise this pass),
 // GunStopDepthM x sum(min(depth, own target)) / sum(own target), from the snapshot the pass measures from (the previous real
@@ -97,6 +103,36 @@ namespace SkiResortMod.Systems
             if (packM < RestartBelowM)
                 return GunState.Running;
             return previous == GunState.Running ? GunState.Running : GunState.Stopped;
+        }
+
+        // ── T135: the gun season ─────────────────────────────────────────────────────────────────────────────────────────
+        /// <summary>The calendar gun season, normalized year date: 1 October (9/12) to 1 April (15/12, wrapping).</summary>
+        public const float GunSeasonStart = 9f / 12f;
+        public const float GunSeasonEnd = 15f / 12f;
+
+        /// <summary>T135 (header (d)): whether snow guns may run now. A vanilla-named season decides where it is clear
+        /// ("SeasonWinter" in, "SeasonSummer" out: a map whose winter falls in June keeps its guns); "SeasonAutumn",
+        /// "SeasonSpring" or any other name use the calendar window October to March, the RunSnowRules.IsSpring pattern.</summary>
+        public static bool InGunSeason(string seasonName, float normalizedDate)
+        {
+            if (seasonName == "SeasonWinter")
+                return true;
+            if (seasonName == "SeasonSummer")
+                return false;
+            float d = normalizedDate - (float)Math.Floor(normalizedDate);
+            return d >= GunSeasonStart || d < GunSeasonEnd - 1f;
+        }
+
+        /// <summary>T135: RaisesThisPass inside the season only.</summary>
+        public static bool RaisesThisPass(GunState state, bool inSeason)
+        {
+            return inSeason && RaisesThisPass(state);
+        }
+
+        /// <summary>T135: GunsRunning inside the season only.</summary>
+        public static bool GunsRunning(GunState state, int coldTexels, bool inSeason)
+        {
+            return inSeason && GunsRunning(state, coldTexels);
         }
 
         /// <summary>Whether a gun run's cold texels are raised this pass (the fold writes their target into the mask, which

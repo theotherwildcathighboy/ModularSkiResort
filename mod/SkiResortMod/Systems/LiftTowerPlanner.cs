@@ -85,6 +85,7 @@ namespace SkiResortMod.Systems
         Infill = 16,      // phase (b)
         SideHill = 32,    // high side - low side > SideHillM (the engine ladder would score the uphill side, cmin)
         Seed = 64,        // given by the caller (re-plan)
+        NearStation = 128, // T126: a planner tower inside the station clearance, placed only because no clear plan exists without it
     }
 
     public sealed class LiftTowerPlanConstants
@@ -104,10 +105,15 @@ namespace SkiResortMod.Systems
         public readonly float StepM;
         public readonly float SideHillM;
         public readonly float ConvexM;                   // breakover: second difference over ±2 samples below -ConvexM
+        /// <summary>T126: no NEW tower nearer a station end than this (metres along the line from the stub): the station's own rope
+        /// run (StationRunM: bullwheel or dock to the stub tip, the longest of the type's stations), at least MinSpanM. Seeds (pins,
+        /// a line's own nodes in PlanFixed) are kept wherever they are.</summary>
+        public readonly float StationClearM;
 
         public LiftTowerPlanConstants(string typeId, LiftTowerMember[] ladder, float ropeBelowTopM, float carrierDropM, float floorM,
                                       float maxRopeAboveGroundM, float typicalSpanM, float maxSpanM, float minSpanM, float halfWidthM,
-                                      float sagRatio, float engineElevationCapM, float stepM = 5f, float sideHillM = 2f, float convexM = 0.5f)
+                                      float sagRatio, float engineElevationCapM, float stepM = 5f, float sideHillM = 2f, float convexM = 0.5f,
+                                      float stationClearM = 0f)
         {
             TypeId = typeId;
             Ladder = ladder;
@@ -124,6 +130,7 @@ namespace SkiResortMod.Systems
             StepM = stepM;
             SideHillM = sideHillM;
             ConvexM = convexM;
+            StationClearM = math.max(minSpanM, stationClearM);
         }
 
         /// <summary>Rope height above the tower base for ladder member <paramref name="m"/>.</summary>
@@ -135,7 +142,31 @@ namespace SkiResortMod.Systems
         {
             return new LiftTowerPlanConstants(TypeId, Ladder, RopeBelowTopM, carrierDropM ?? CarrierDropM, floorM ?? FloorM,
                 maxRopeAboveGroundM ?? MaxRopeAboveGroundM, typicalSpanM ?? TypicalSpanM, maxSpanM ?? MaxSpanM, MinSpanM, HalfWidthM,
-                SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM);
+                SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM);
+        }
+
+        /// <summary>T126: a station's own rope run, metres along the line axis from where the carriers turn or dock to the HV stub
+        /// tip (prefab z): |WheelLocal.z - StubTipLocalZ| on a loop station, |DockLocalA.z - StubTipLocalZ| on a shuttle station;
+        /// 0 when the row has neither. Catalog rows (SkiCatalog stations): FG base 12.2 / top 12.0, DQ 25.6 / 21.6, gondola
+        /// 25.4 / 21.4, tram 6.5 / 6.5.</summary>
+        public static float StationRunM(StationDef s)
+        {
+            if (s == null)
+                return 0f;
+            if (math.isfinite(s.WheelLocal.z))
+                return math.abs(s.WheelLocal.z - s.StubTipLocalZ);
+            if (math.isfinite(s.DockLocalA.z))
+                return math.abs(s.DockLocalA.z - s.StubTipLocalZ);
+            return 0f;
+        }
+
+        /// <summary>T126: the longest StationRunM over the type's base and top stations (the planner does not know which station a
+        /// line end is, so both ends keep the longer run).</summary>
+        public static float StationRunM(LiftTypeDef def)
+        {
+            if (def == null)
+                return 0f;
+            return math.max(StationRunM(SkiCatalog.StationOf(def.Index, StationRole.Base)), StationRunM(SkiCatalog.StationOf(def.Index, StationRole.Top)));
         }
 
         // ── Per-type constants (sources: build note tower-planner-build-1.md §2) ───────────────────────────────────────────────
@@ -183,20 +214,21 @@ namespace SkiResortMod.Systems
         {
             if (def == null)
                 return null;
+            float run = StationRunM(def);   // T126: the station clearance (StationClearM = max(MinSpanM, run))
             switch (def.Id)
             {
                 case "fixedGrip":
                     return new LiftTowerPlanConstants(def.Id, FixedGripLadder, FixedGripLadder[0].TopM - def.AxleM, def.HangM, 3f, 30f,
-                        60f, 90f, 10f, 3f, 0.03f, 16f);
+                        60f, 90f, 10f, 3f, 0.03f, 16f, stationClearM: run);
                 case "detachable":
                     return new LiftTowerPlanConstants(def.Id, DetachableLadder, DetachableLadder[0].TopM - def.AxleM, def.HangM, 3f, 30f,
-                        110f, 245f, 10f, 3f, 0.004f, 10f);
+                        110f, 245f, 10f, 3f, 0.004f, 10f, stationClearM: run);
                 case "gondola":
                     return new LiftTowerPlanConstants(def.Id, GondolaLadder, GondolaLadder[0].TopM - def.AxleM, def.HangM, 3f, 30f,
-                        110f, 245f, 10f, 4.1f, 0.004f, 28f);
+                        110f, 245f, 10f, 4.1f, 0.004f, 28f, stationClearM: run);
                 case "tram":
                     return new LiftTowerPlanConstants(def.Id, TramLadder, TramLadder[0].TopM - def.AxleM, def.HangM, 5f, 0f,
-                        800f, 1000f, 40f, 7.5f, 0.004f, 30f, 10f);   // 10 m samples: a 1-3 km line stays cheap
+                        800f, 1000f, 40f, 7.5f, 0.004f, 30f, 10f, stationClearM: run);   // 10 m samples: a 1-3 km line stays cheap
                 default:
                     return null;
             }
@@ -338,6 +370,7 @@ namespace SkiResortMod.Systems
             if ((f & LiftPlanNodeFlags.Breakover) != 0) sb.Append("breakover,");
             if ((f & LiftPlanNodeFlags.Infill) != 0) sb.Append("infill,");
             if ((f & LiftPlanNodeFlags.SideHill) != 0) sb.Append("side-hill,");
+            if ((f & LiftPlanNodeFlags.NearStation) != 0) sb.Append("near-station,");
             sb.Length--;
             return sb.ToString();
         }
@@ -443,6 +476,108 @@ namespace SkiResortMod.Systems
             b.y -= drop;
             c.y -= drop;
         }
+
+        /// <summary>The y of HangingCurve(a, d, hanging) at xz fraction <paramref name="t"/> (its control points are evenly spaced in
+        /// xz, so the bezier parameter is the xz fraction): lerp(a.y, d.y, t) - 3·t·(1-t)·drop.</summary>
+        public static float HangingY(float3 a, float3 d, float hanging, float t)
+        {
+            float drop = math.distance(a.xz, d.xz) * hanging * 1.3333334f;
+            return math.lerp(a.y, d.y, t) - 3f * t * (1f - t) * drop;
+        }
+
+        // ── T127: the ground the player made, not the ground our own line cut ─────────────────────────────────────────────────
+        // A lift line is a FlattenTerrain power line: TerrainSystem cuts the terrain down to a ceiling of edge y +
+        // NetCompositionData.m_HeightRange.min + TerrainComposition.m_MinHeightOffset (AddSegment, TerrainSystem.cs:1397-1516;
+        // terrain-carving.md §2: our pieces {6, 20} and -2 = edge y + 4) and never fills. The cut is LIVE: it is drawn into the
+        // height cascade from the base heightmap on every update of the area (DrawHeightAdjustments, :4727-4800; the brush path
+        // writes the base map, :3950), and the CPU heights the fit samples are read back from the cascade (:3598-3646). A vanilla line drawn on the ground runs its
+        // edges up to 15 m under convex terrain (playthrough log :1096, min floor margin -12.4 m), so its cut is metres deep; the
+        // fit sampled THAT as the ground and stood towers in the trench (node y = cut floor + E). Once the old edges were replaced
+        // the trench refilled around the towers (the ground at a fitted tower rose +0.5 / +0.4 / +1.9 m after the write, log
+        // :1125 vs :1096) and a node left more than 4 m under the ground keeps its own round cut: the pits of shots 11.39.56,
+        // 11.40.13, 11.42.27.
+        // Rule: a sample that sits AT this line's own cut ceiling (within OwnCutTolM; natural ground is never exactly there, the cut
+        // never fills) is replaced by the plane through the ground just outside the cut (lateral ± (half width + CutFarMarginM)),
+        // when that plane is higher. Ground below the ceiling (a valley the rope crosses) is the player's and is kept.
+
+        public const float OwnCutTolM = 0.3f;
+        /// <summary>Lateral margin beyond the piece half width for the uncut reference samples. The cut's smoothing width lives in the
+        /// compiled terrain shader: UNVERIFIED (8 m is the allowance TerrainSystem subtracts from the smoothing width when it culls
+        /// lots, :899). Too small = the reference is cut too and the raw sample stands (no harm); too large = the plane spans more
+        /// of a cross slope's curvature.</summary>
+        public const float CutFarMarginM = 8f;
+        /// <summary>NetTerrainPiece m_MinHeightOffset of all four line pieces (gamedata-mirror Ski*Piece: (-2, -2, -2)); the fit reads
+        /// the edge's TerrainComposition when it has one.</summary>
+        public const float PieceMinHeightOffsetM = -2f;
+
+        /// <summary>T127: the ground at a sample: <paramref name="raw"/> unless it sits at <paramref name="ceiling"/> (our own cut), then
+        /// the higher of raw and the plane through <paramref name="farLeft"/> / <paramref name="farRight"/> (sampled at ±<paramref
+        /// name="farM"/>) at <paramref name="lateral"/>.</summary>
+        public static float UncutGround(float raw, float ceiling, float farLeft, float farRight, float lateral, float farM, out bool cut)
+        {
+            cut = false;
+            if (!(math.abs(raw - ceiling) <= OwnCutTolM) || farM <= 0f)
+                return raw;
+            float plane = math.lerp(farLeft, farRight, math.saturate((lateral + farM) / (2f * farM)));
+            if (plane <= raw + OwnCutTolM)
+                return raw;
+            cut = true;
+            return plane;
+        }
+
+        /// <summary>T127: <paramref name="raw"/> with UncutGround applied against the line's own cut: the line runs through the node
+        /// points <paramref name="pts"/> (xz distance <paramref name="cum"/> from the first), each span a HangingCurve with
+        /// <paramref name="hanging"/>, its ceiling <paramref name="cutOffset"/>[span] above the curve; the uncut reference is sampled
+        /// at ±<paramref name="farM"/>. <paramref name="onCut"/> (optional) gets the along of every replaced sample.</summary>
+        public static LiftTerrainSampler UncutSampler(LiftTerrainSampler raw, float3[] pts, float[] cum, float hanging, float[] cutOffset,
+                                                      float farM, Action<float> onCut = null)
+        {
+            int n = pts.Length;
+            return (along, lateral) =>
+            {
+                float r = raw(along, lateral);
+                if (n < 2)
+                    return r;
+                int seg = 0;
+                while (seg < n - 2 && along > cum[seg + 1])
+                    seg++;
+                float t = math.saturate((along - cum[seg]) / math.max(cum[seg + 1] - cum[seg], 1e-3f));
+                float ceiling = HangingY(pts[seg], pts[seg + 1], hanging, t) + cutOffset[math.min(seg, cutOffset.Length - 1)];
+                float g = UncutGround(r, ceiling, raw(along, -farM), raw(along, farM), lateral, farM, out bool cut);
+                if (cut)
+                    onCut?.Invoke(along);
+                return g;
+            };
+        }
+    }
+
+    /// <summary>T123: tower numbers along a lift line. Today the number on a tower's plate is its HEIGHT CLASS baked into the prefab
+    /// texture (assets/blender/lift_tower.py:4146-4152 plate_numeral: FG8 -> 8, DQ12 -> 12, GD20 -> 20), so a line that mixes members
+    /// reads 12, 16, 20, 12, ... (Richard's "random"). The order rule (docs/research/dynamic-numbers.md §1): tower n = the n-th line
+    /// tower by distance along the line from the BASE station, 1 at the base, dense (nodes without a tower are skipped). Computed from
+    /// geometry only, so it is the same after a save / load; an edit renumbers only the towers after the first changed one.</summary>
+    public static class LiftTowerNumbering
+    {
+        /// <summary>Numbers 1..N for towers at <paramref name="alongFromBaseM"/> (metres from the base station, any order); ties keep the
+        /// input order. <paramref name="baseIsFirst"/> false = the distances are from the TOP station (numbers are reversed).</summary>
+        public static int[] Numbers(IList<float> alongFromBaseM, bool baseIsFirst = true)
+        {
+            int n = alongFromBaseM == null ? 0 : alongFromBaseM.Count;
+            var idx = new int[n];
+            for (int i = 0; i < n; i++)
+                idx[i] = i;
+            Array.Sort(idx, (x, y) =>
+            {
+                int c = alongFromBaseM[x].CompareTo(alongFromBaseM[y]);
+                if (!baseIsFirst)
+                    c = -c;
+                return c != 0 ? c : x.CompareTo(y);
+            });
+            var num = new int[n];
+            for (int r = 0; r < n; r++)
+                num[idx[r]] = r + 1;
+            return num;
+        }
     }
 
     public sealed class LiftTowerPlanner
@@ -509,6 +644,18 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < m_K.Count - 1; )
             {
                 int added = LegacySpacing ? -1 : MinTowers(i, i + 1);
+                if (added < 0 && !LegacySpacing)
+                {
+                    // T126: the station clearance yields only where the ground leaves no clear plan without a tower inside it (the
+                    // 1,408 m gondola's top station sits on a crest: the ground 8 m in front of it is at station level, LP-22);
+                    // such a tower is flagged NearStation.
+                    m_NoClearance = true;
+                    added = MinTowers(i, i + 1);
+                    m_NoClearance = false;
+                    for (int q = i + 1; q <= i + added; q++)
+                        if (NearStation(m_K[q]))
+                            m_F[q] |= LiftPlanNodeFlags.NearStation;
+                }
                 if (added < 0)
                     added = LegacySegment(i);
                 i += added + 1;
@@ -601,6 +748,16 @@ namespace SkiResortMod.Systems
                                        IList<float> innerAlongM, IList<int> members = null, IList<LiftPlanNodeFlags> flags = null,
                                        bool assign = true)
         {
+            return PlanFixedCore(terrain, lengthM, ropeA, ropeB, c, innerAlongM, members, flags, assign, false);
+        }
+
+        /// <summary>PlanFixed; <paramref name="fillSpares"/> (T128, the Moved fit): the given members are kept (the free plan's own,
+        /// found by the exact search) and a member of -1 marks a spare node, which gets the shortest member that keeps both of its
+        /// spans clear (else the least violation); only if the result is still violated does phase (c) run, kept when better.</summary>
+        private LiftTowerPlan PlanFixedCore(LiftTerrainSampler terrain, float lengthM, float ropeA, float ropeB, LiftTowerPlanConstants c,
+                                            IList<float> innerAlongM, IList<int> members, IList<LiftPlanNodeFlags> flags, bool assign,
+                                            bool fillSpares)
+        {
             if (terrain == null || c == null || c.Ladder == null || c.Ladder.Length == 0 || innerAlongM == null)
                 throw new ArgumentException("LiftTowerPlanner.PlanFixed: terrain, constants, a ladder and the node positions are required");
             m_C = c;
@@ -611,19 +768,59 @@ namespace SkiResortMod.Systems
             m_K.Clear(); m_M.Clear(); m_F.Clear();
             m_K.Add(0); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
             m_K.Add(m_N); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
+            var spares = fillSpares ? new List<int>() : null;
             for (int i = 0; i < innerAlongM.Count; i++)
             {
                 int k = SampleIndex(innerAlongM[i]);
                 if (k <= 0 || k >= m_N || IndexOf(k) >= 0)
                     continue;
-                int m = members != null && i < members.Count ? math.clamp(members[i], 0, c.Ladder.Length - 1) : 0;
+                int given = members != null && i < members.Count ? members[i] : 0;
+                if (spares != null && given < 0)
+                    spares.Add(k);
+                int m = math.clamp(given, 0, c.Ladder.Length - 1);
                 LiftPlanNodeFlags f = flags != null && i < flags.Count ? flags[i] & ~LiftPlanNodeFlags.Station : LiftPlanNodeFlags.Seed;
                 Insert(k, m, f);
             }
             m_UseSag = true;
-            if (assign)
+            if (spares != null)
+            {
+                for (int s = 0; s < spares.Count; s++)
+                    FillSpare(IndexOf(spares[s]));
+                if (TotalViolation() > Tol)
+                    AssignMembers();   // restores the members above when phase (c) does no better
+            }
+            else if (assign)
+            {
                 AssignMembers();
+            }
             return Build();
+        }
+
+        /// <summary>T128: the member of spare node <paramref name="n"/> (between two nodes whose members are set): the shortest that
+        /// keeps its node and both spans clear, else the one with the least summed violation.</summary>
+        private void FillSpare(int n)
+        {
+            if (n <= 0 || n >= m_K.Count - 1)
+                return;
+            int i = m_K[n - 1], k = m_K[n], j = m_K[n + 1];
+            float ri = Rope(i, m_M[n - 1]), rj = Rope(j, m_M[n + 1]);
+            int best = 0;
+            float bestV = float.PositiveInfinity;
+            for (int m = 0; m < m_C.Ladder.Length; m++)
+            {
+                if (!MemberAllowed(k, m) || !NodeOk(k, m))
+                    continue;
+                float rk = Rope(k, m);
+                float v = math.max(SpanViolation(i, ri, k, rk), 0f) + math.max(SpanViolation(k, rk, j, rj), 0f);
+                if (v < bestV - Tol)
+                {
+                    bestV = v;
+                    best = m;
+                }
+                if (v <= Tol)
+                    break;
+            }
+            m_M[n] = best;
         }
 
         /// <summary>Step 3 (T48): fit a line whose node COUNT is fixed (the engine split it, CourseSplitSystem.cs:3485-3493; adding a node
@@ -646,7 +843,7 @@ namespace SkiResortMod.Systems
             if (currentMembers != null && currentMembers.Count == currentInnerAlongM.Count)
             {
                 LiftTowerPlan current = PlanFixed(terrain, lengthM, ropeA, ropeB, c, currentInnerAlongM, currentMembers, null, assign: false);
-                if (current.Clear)
+                if (KeepClear(current))
                 {
                     fit.Kept = current;
                     fit.Mode = LiftFitMode.Kept;
@@ -663,12 +860,17 @@ namespace SkiResortMod.Systems
             }
             if (allowMove && fit.Needed <= fit.Inner && fit.Inner > 0)
             {
+                // T128: the free plan's own members travel with its nodes (phase (c) alone, greedy from the shortest member, missed
+                // the exact search's assignment: the 1,408 m gondola, playthrough log :1096, was Short with 11 nodes where the free
+                // plan needs 9, then re-planned on every re-fit until the loop guard, :1450); spares get FillSpare.
                 var along = new List<float>();
                 var flags = new List<LiftPlanNodeFlags>();
+                var members = new List<int>();
                 for (int i = 1; i < fit.Free.Nodes.Length - 1; i++)
                 {
                     along.Add(fit.Free.Nodes[i].AlongM);
                     flags.Add(fit.Free.Nodes[i].Flags);
+                    members.Add(fit.Free.Nodes[i].Member);
                 }
                 // Spare nodes: the midpoint of the longest span, one at a time (ties: the first).
                 while (along.Count < fit.Inner)
@@ -688,8 +890,9 @@ namespace SkiResortMod.Systems
                     float start = best == 0 ? 0f : along[best - 1];
                     along.Insert(best, start + 0.5f * bestLen);
                     flags.Insert(best, LiftPlanNodeFlags.Infill);
+                    members.Insert(best, -1);
                 }
-                fit.Moved = PlanFixed(terrain, lengthM, ropeA, ropeB, c, along, null, flags);
+                fit.Moved = PlanFixedCore(terrain, lengthM, ropeA, ropeB, c, along, members, flags, false, true);
                 if (fit.Moved.Clear)
                 {
                     fit.Mode = LiftFitMode.Moved;
@@ -700,6 +903,20 @@ namespace SkiResortMod.Systems
             fit.Mode = LiftFitMode.Short;
             fit.Plan = fit.Moved != null && fit.Moved.MinFloorMarginM > fit.Kept.MinFloorMarginM + Tol ? fit.Moved : fit.Kept;
             return fit;
+        }
+
+        /// <summary>T128: a STANDING line (its own members, hysteresis) is kept when every span is within KeepTolM of the floor and
+        /// under the max rope height. The planner's 5 / 10 m grid starts at the path's first node, so the same line sampled from
+        /// the other end reads the ground a few decimetres differently: the lift-line tool planned the 1,925 m tram from the top
+        /// (+0.2 m, playthrough log :2095) and the fit, sampling from the base, read -0.1 m and called it Short (:2131).</summary>
+        public const float KeepTolM = 0.5f;
+
+        private static bool KeepClear(LiftTowerPlan p)
+        {
+            for (int i = 0; i < p.Spans.Length; i++)
+                if (p.Spans[i].HeightViolated || p.Spans[i].MinFloorMarginM < -KeepTolM)
+                    return false;
+            return true;
         }
 
         // ════════════════════════════════════════════════════════════════════════════════════════
@@ -951,7 +1168,7 @@ namespace SkiResortMod.Systems
                     // To a tower (k2, m2).
                     for (int k2 = k + minGap; k2 <= j - minGap && m_S[k2] - m_S[k] <= maxSpan; k2++)
                     {
-                        if (IsForbidden(k2))
+                        if (IsForbidden(k2) || NearStation(k2))
                             continue;
                         if (!SpanInterval(k, rk, k2, out float lo2, out float hi2))
                             continue;
@@ -1091,7 +1308,7 @@ namespace SkiResortMod.Systems
                     // To an anchor (k2, m2).
                     for (int k2 = k + minGap; k2 <= math.min(j - minGap, k + maxGap); k2++)
                     {
-                        if (!SpanInterval(k, rk, k2, out float lo2, out float hi2))
+                        if (NearStation(k2) || !SpanInterval(k, rk, k2, out float lo2, out float hi2))
                             continue;
                         int infill = InfillTowers(m_S[k2] - m_S[k]);
                         for (int m2 = 0; m2 < L; m2++)
@@ -1155,7 +1372,7 @@ namespace SkiResortMod.Systems
                     continue;
                 m_F[n] |= LiftPlanNodeFlags.Breakover;
                 int up = m_High[math.min(crest + 1, m_N)] >= m_High[math.max(crest - 1, 0)] ? crest + 1 : crest - 1;
-                if (up == k || up - i < minGap || j - up < minGap)
+                if (up == k || up - i < minGap || j - up < minGap || NearStation(up))
                     continue;
                 if (InfillTowers(m_S[up] - m_S[i]) + InfillTowers(m_S[j] - m_S[up]) >
                     InfillTowers(m_S[k] - m_S[i]) + InfillTowers(m_S[j] - m_S[k]))
@@ -1199,7 +1416,7 @@ namespace SkiResortMod.Systems
                 // that leaves the halves no worse than the chosen split (planner notes, span table rule 1).
                 int up = m_High[math.min(crest + 1, m_N)] >= m_High[math.max(crest - 1, 0)] ? crest + 1 : crest - 1;
                 int minGap = MinGap();
-                if (up != k && up - i >= minGap && j - up >= minGap)
+                if (up != k && up - i >= minGap && j - up >= minGap && !NearStation(up))
                 {
                     int infill = InfillTowers(m_S[k] - m_S[i]) + InfillTowers(m_S[j] - m_S[k]);
                     int infillUp = InfillTowers(m_S[up] - m_S[i]) + InfillTowers(m_S[j] - m_S[up]);
@@ -1229,6 +1446,13 @@ namespace SkiResortMod.Systems
 
         private int MinGap() => math.max(1, (int)math.ceil(m_C.MinSpanM / m_C.StepM - 1e-4f));
 
+        /// <summary>T126: sample k is inside a station's clearance (StationClearM from either end, in metres: the grid's last step is
+        /// short, so a sample count alone let a tower stand 8 m from a 10 m-MinSpan station, 2026-10-20 playthrough log :1492).</summary>
+        private bool NearStation(int k) =>
+            !m_NoClearance && (m_S[k] < m_C.StationClearM - Tol || m_Length - m_S[k] < m_C.StationClearM - Tol);
+
+        private bool m_NoClearance;
+
         private bool BestSplit(int i, float ri, int j, float rj, int kWorst, out int bestK, out int bestM, out int bestBad, out float bestSum)
         {
             bestK = -1; bestM = -1; bestBad = 3; bestSum = float.PositiveInfinity;
@@ -1236,6 +1460,8 @@ namespace SkiResortMod.Systems
             int minGap = MinGap();
             for (int k = i + minGap; k <= j - minGap; k++)
             {
+                if (NearStation(k))
+                    continue;
                 int infill = InfillTowers(m_S[k] - m_S[i]) + InfillTowers(m_S[j] - m_S[k]);
                 for (int m = 0; m < m_C.Ladder.Length; m++)
                 {
@@ -1367,6 +1593,8 @@ namespace SkiResortMod.Systems
                 kHi = math.min(j - minGap, kHi);
                 for (int k = kLo; k <= kHi; k++)
                 {
+                    if (NearStation(k))
+                        continue;
                     float sub = m_S[k] - m_S[prev];
                     float after = m_S[j] - m_S[k];
                     if (sub > maxSub + 1e-3f || after > (r - 1) * maxSub + 1e-3f)

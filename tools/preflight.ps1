@@ -623,6 +623,23 @@ foreach ($p in $ownedPrefabs) {
 }
 $rows.Add("OK    EMISSIVE  $emOk owned mesh prefab(s) with an emissive block, none on purpose 72; $emBright building mesh(es) at <= 1")
 
+# ---- 12. USENGLISH: US spelling in every player-facing text (T130, 2026-10-20; DECISIONS 350) --------------------------------
+# tools/check-us-english.js (word list inside) scans the locale sources, the hub's locale tuples, the mod's log calls and the
+# docs-site prose; any British spelling is a FAIL. Its --self-test proves the word list still catches its fixtures.
+$usJs = Join-Path $PSScriptRoot "check-us-english.js"
+$usOut = @(& node $usJs 2>&1)
+$usExit = $LASTEXITCODE
+$usSelf = @(& node $usJs --self-test 2>&1)
+$usSelfExit = $LASTEXITCODE
+if ($usExit -ne 0) {
+    foreach ($l in $usOut) { if ("$l" -match '^\S+:\d+: ') { $rows.Add("FAIL  USENGLISH $l"); $failures++ } }
+    if (-not ($usOut | Where-Object { "$_" -match '^\S+:\d+: ' })) { $rows.Add("FAIL  USENGLISH check-us-english.js exit $usExit : $($usOut -join ' ')"); $failures++ }
+} elseif ($usSelfExit -ne 0) {
+    $rows.Add("FAIL  USENGLISH check-us-english.js --self-test: $($usSelf -join ' ')"); $failures++
+} else {
+    $rows.Add("OK    USENGLISH $(($usOut | Select-Object -Last 1)) | $(($usSelf | Select-Object -Last 1))")
+}
+
 # ---- summary -------------------------------------------------------------------------
 $rows | ForEach-Object { Write-Output $_ }
 Write-Output ""

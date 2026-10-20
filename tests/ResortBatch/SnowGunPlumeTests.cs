@@ -41,13 +41,14 @@ namespace ResortBatch
         private static void Constants()
         {
             const string W = "plume GP-1 constants";
-            C(RunSnowRules.GunStopDepthM == 0.60f, W, "gun stop depth 0.60 m");
+            // T133 (Richard, 2026-10-20): guns run while the run is under 3 ft (0.91 m) and top it up to 3 ft + the band.
+            C(Near(RunSnowRules.GunStopDepthM, 0.96, 1e-6), W, "T133 gun stop depth 0.96 m (3 ft + the band)");
             C(RunSnowRules.GunRestartBandM == 0.05f, W, "restart band 0.05 m");
-            C(RunSnowRules.GunStopDepthM > RunSnowRules.GunTargetDepthM, W, "the stop depth is above the 0.35 m base the guns guarantee");
-            C(RunSnowRules.GunStopDepthM >= 4f * RunSnowRules.SkiableDepthM, W, "the stop depth is at least four open bars (0.60 = 4 x 0.15)");
-            C(S.RestartBelowM > RunSnowRules.GunTargetDepthM, W, "guns restart (0.55 m) long before the pack falls to the guaranteed base");
+            C(RunSnowRules.GunStopDepthM > RunSnowRules.GunTargetDepthM, W, "the stop depth is above the 3 ft base the guns guarantee");
+            C(Near(S.RestartBelowM, RunSnowRules.SkiableDepthM, 1e-6), W, "T133 the guns restart exactly below the open bar (3 ft): until the run reaches 3 ft");
+            C(S.StopAtM > RunSnowRules.SkiableDepthM, W, "T133 a pack the guns stopped on is open (stop above the bar)");
             C(Near(S.AtTargetToleranceM, 0.5 / 65535.0 * 8.0, 1e-9), W, "at-target tolerance = the merge's half quantum x 8 m (0.061 mm)");
-            C(Near(S.StopAtM, 0.60 - 0.5 / 65535.0 * 8.0, 1e-6) && Near(S.RestartBelowM, 0.55, 1e-6), W, "stop at 0.59994 m, restart below 0.55 m");
+            C(Near(S.StopAtM, 0.96 - 0.5 / 65535.0 * 8.0, 1e-6) && Near(S.RestartBelowM, 0.91, 1e-6), W, "stop at 0.95994 m, restart below 0.91 m");
             C(Near(S.PlumeLeaseFrames / RunSnowRules.FramesPerGameHour, 1.5, 1e-3) && S.PlumeRenewFrames * 2 == S.PlumeLeaseFrames,
               W, "lease 16384 frames = 1.5 game h, renewed at half");
             C(S.PlumeMaxCount == 256 && S.PlumeIntervalFrames == 64, W, "plume cap 256 (the EffectPrefab's m_MaxCount), pass every 64 frames");
@@ -61,10 +62,10 @@ namespace ResortBatch
             C(S.PackTerm(half, full) == half, W, "a shallow texel counts its depth");
             C(S.PackTerm(1.9f / 8f, full) == full, W, "a 1.9 m natural texel counts at its target (deep natural = at target)");
             C(S.PackTerm(0.01f / 8f, fringe) == 0.01f / 8f && S.PackTerm(0.05f / 8f, fringe) == fringe, W, "a fringe texel counts against its own 0.02 m target");
-            // Two texels, one at 0.30 m and one deep natural: (0.0375 + 0.075) / (0.075 + 0.075) = 0.75 -> 0.45 m.
-            C(Near(S.PackDepthM(0.15, 0.1125), 0.45, 1e-6), W, "half-built + deep natural reads 0.45 m (ratio 0.75)");
-            C(Near(S.PackDepthM(0.075, 0.075), 0.60, 1e-6), W, "fully built reads the stop depth exactly");
-            C(S.PackDepthM(0.075, 0.2) == 0.60f, W, "the ratio clamps at 1");
+            // Two texels, one at 0.30 m and one deep natural (sums in units of 0.60 / 8): ratio 0.75 -> 0.75 x the stop depth (T133: 0.72 m).
+            C(Near(S.PackDepthM(0.15, 0.1125), 0.75 * RunSnowRules.GunStopDepthM, 1e-6), W, "half-built + deep natural reads 0.75 x the stop depth (ratio 0.75)");
+            C(Near(S.PackDepthM(0.075, 0.075), RunSnowRules.GunStopDepthM, 1e-6), W, "fully built reads the stop depth exactly");
+            C(S.PackDepthM(0.075, 0.2) == RunSnowRules.GunStopDepthM, W, "the ratio clamps at 1");
             C(float.IsNaN(S.PackDepthM(0.0, 0.0)) && float.IsNaN(S.PackDepthM(-1.0, 0.0)), W, "nothing measured -> NaN");
             C(float.IsNaN(S.PackDepthM(0.1, double.NaN)), W, "a NaN sum -> NaN");
         }
@@ -83,10 +84,11 @@ namespace ResortBatch
             C(st == R, W, "bare + measured -> Running");
             C(S.GunsRunning(st, 120) && S.RaisesThisPass(st), W, "cold + shallow -> guns run (raise, bill, plume)");
             // cold + at target -> off.
-            st = S.NextGunState(R, 0.60f);
-            C(st == P, W, "pack at 0.60 m -> Stopped");
+            float stop = RunSnowRules.GunStopDepthM;   // T133: 0.96 m (restart below 0.91 m)
+            st = S.NextGunState(R, stop);
+            C(st == P, W, "pack at the stop depth -> Stopped");
             C(!S.GunsRunning(st, 120) && !S.RaisesThisPass(st), W, "cold + at target -> guns off (no raise, no bill, no plume)");
-            C(S.NextGunState(R, 0.60f - 0.00005f) == P, W, "within the half-quantum tolerance counts as at target");
+            C(S.NextGunState(R, stop - 0.00005f) == P, W, "within the half-quantum tolerance counts as at target");
             // cold + deep natural -> off (a February pack: every texel above its target reads at target).
             st = S.NextGunState(U, S.PackDepthM(0.075 * 1000, 0.075 * 1000));
             C(st == P && !S.GunsRunning(st, 5000), W, "cold + deep natural (first measurement) -> off");
@@ -99,8 +101,8 @@ namespace ResortBatch
             // Unknown never raises or plumes.
             C(!S.RaisesThisPass(U) && !S.GunsRunning(U, 999), W, "Unknown (no measurement yet) -> no raise, no plume");
             C(S.NextGunState(U, float.NaN) == U, W, "Unknown stays Unknown until a measurement");
-            // Hysteresis: build up, stop, melt slowly, restart only below 0.55, stop again at 0.60.
-            float[] packs = { 0.10f, 0.40f, 0.58f, 0.59f, 0.60f, 0.59f, 0.57f, 0.556f, 0.55f, 0.549f, 0.56f, 0.59f, 0.60f };
+            // Hysteresis (T133 numbers): build up, stop at 0.96, melt slowly, restart only below 0.91 (3 ft), stop again at 0.96.
+            float[] packs = { 0.10f, 0.40f, 0.94f, 0.95f, stop, 0.95f, 0.93f, 0.916f, 0.911f, 0.905f, 0.92f, 0.95f, stop };
             var expect = new[] { R, R, R, R, P, P, P, P, P, R, R, R, P };
             st = U;
             bool seqOk = true;
@@ -114,10 +116,10 @@ namespace ResortBatch
                 if (st != expect[i])
                     seqOk = false;
             }
-            C(seqOk, W, "build 0.10 -> 0.60 runs, stops at 0.60, holds Stopped from 0.59 down to 0.55, restarts at 0.549, stops at 0.60");
+            C(seqOk, W, "build 0.10 -> 0.96 runs, stops at 0.96, holds Stopped from 0.95 down to 0.911, restarts at 0.905, stops at 0.96");
             C(flipsSeen == 4, W, "exactly 4 flips over the sequence (Unknown->Running, stop, restart, stop): no flicker across the stop depth");
-            C(S.NextGunState(U, 0.57f) == P, W, "first measurement inside the band (0.57 m) -> Stopped (waits for < 0.55)");
-            C(S.NextGunState(R, 0.57f) == R && S.NextGunState(P, 0.57f) == P, W, "inside the band the state is kept");
+            C(S.NextGunState(U, 0.93f) == P, W, "first measurement inside the band (0.93 m) -> Stopped (waits for < 0.91)");
+            C(S.NextGunState(R, 0.93f) == R && S.NextGunState(P, 0.93f) == P, W, "inside the band the state is kept");
         }
 
         // GP-4 (7)
@@ -162,25 +164,39 @@ namespace ResortBatch
             float thr = RunSnowRules.DefaultSnowmakingMarginC;
             float slow = RunSnowRules.RampRateMin;                               // 0.25
             float mean = RunSnowRules.RampRateMin + RunSnowRules.RampRateSpan * 0.5f;   // 1.125
-            // -5 C: chill = (3.3 + 5) / 4 > 1 -> 1, output 2.0. Slowest 0.60 / (0.004 x 0.25 x 2) = 300 windows
-            // = 300 x 64 / 10922.67 = 1.76 game h. Mean 0.60 / 0.009 = 66.7 windows = 0.39 h.
+            // T133: stop depth 0.96 m. -5 C: chill = (3.3 + 5) / 4 > 1 -> 1, output 2.0. Slowest 0.96 / (0.004 x 0.25 x 2) = 480
+            // windows = 480 x 64 / 10922.67 = 2.81 game h. Mean 0.96 / 0.009 = 106.7 windows = 0.63 h.
             double hSlow = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunStopDepthM, -5f, thr, slow));
             double hMean = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunStopDepthM, -5f, thr, mean));
-            C(Near(hSlow, 300 * 64 / 10922.6667, 0.01), W, "-5 C, slowest texel to 0.60 m: 1.76 game h (" + hSlow + ")");
-            C(Near(hMean, 66.6667 * 64 / 10922.6667, 0.01), W, "-5 C, mean texel to 0.60 m: 0.39 game h (" + hMean + ")");
-            // At the gate (3.3 C): output 0.35. Slowest 0.60 / 0.00035 = 1714 windows = 10.0 h; mean 0.60 / 0.001575 = 381 = 2.23 h.
+            C(Near(hSlow, 480 * 64 / 10922.6667, 0.01), W, "-5 C, slowest texel to 0.96 m: 2.81 game h (" + hSlow + ")");
+            C(Near(hMean, 106.6667 * 64 / 10922.6667, 0.01), W, "-5 C, mean texel to 0.96 m: 0.63 game h (" + hMean + ")");
+            // At the gate (3.3 C): output 0.35. Slowest 0.96 / 0.00035 = 2743 windows = 16.1 h; mean 0.96 / 0.001575 = 610 = 3.57 h.
             double gSlow = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunStopDepthM, thr, thr, slow));
             double gMean = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunStopDepthM, thr, thr, mean));
-            C(Near(gSlow, 1714.29 * 64 / 10922.6667, 0.02), W, "at the gate, slowest texel to 0.60 m: 10.0 game h (" + gSlow + ")");
-            C(Near(gMean, 380.95 * 64 / 10922.6667, 0.02), W, "at the gate, mean texel to 0.60 m: 2.23 game h (" + gMean + ")");
-            // A restart from 0.55: the band (0.05 m) at -5 C, slowest: 25 windows = 0.15 h; at the gate 143 windows = 0.84 h.
+            C(Near(gSlow, 2742.86 * 64 / 10922.6667, 0.02), W, "at the gate, slowest texel to 0.96 m: 16.1 game h (" + gSlow + ")");
+            C(Near(gMean, 609.52 * 64 / 10922.6667, 0.02), W, "at the gate, mean texel to 0.96 m: 3.57 game h (" + gMean + ")");
+            // A restart from 0.91: the band (0.05 m) at -5 C, slowest: 25 windows = 0.15 h; at the gate 143 windows = 0.84 h.
             double rSlow = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunRestartBandM, -5f, thr, slow));
             double rGate = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunRestartBandM, thr, thr, slow));
             C(Near(rSlow, 25 * 64 / 10922.6667, 0.01) && Near(rGate, 142.86 * 64 / 10922.6667, 0.01), W,
               "a restart refills the 0.05 m band in 0.15 game h at -5 C and 0.84 h at the gate (slowest texel)");
-            // The 0.35 m base keeps its S26 promise: unchanged by T46.
-            C(RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, thr, thr, slow)) <= 8f, W,
-              "the 0.35 m base is still reached within one night at the gate (S26 unchanged)");
+            // T133: the 3 ft base. The mean texel reaches it within one night (8 game h) even at the gate; the slowest within a game day.
+            C(RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, thr, thr, mean)) <= 8f, W,
+              "T133 the 3 ft base: mean texel within one night at the gate");
+            C(RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, thr, thr, slow)) <= 24f, W,
+              "T133 the 3 ft base: slowest texel within one game day at the gate");
+            // T135: the gun season (October to March; a vanilla winter / summer name decides first).
+            C(S.InGunSeason("SeasonWinter", 6.5f / 12f), W, "T135 a season named winter is in, whatever the calendar (southern map)");
+            C(!S.InGunSeason("SeasonSummer", 0.5f / 12f), W, "T135 a season named summer is out");
+            C(!S.InGunSeason("SeasonSpring", 4.8f / 12f), W, "T135 late May (spring) is out: the 2026-10-20 guns in May");
+            C(!S.InGunSeason("SeasonSpring", 3.5f / 12f), W, "T135 mid April is out");
+            C(S.InGunSeason("SeasonSpring", 2.5f / 12f), W, "T135 mid March is in");
+            C(!S.InGunSeason("SeasonAutumn", 8.5f / 12f), W, "T135 September is out");
+            C(S.InGunSeason("SeasonAutumn", 9.0f / 12f) && S.InGunSeason("SeasonAutumn", 10.5f / 12f), W, "T135 October and November are in");
+            C(S.InGunSeason("", 0.5f / 12f) && S.InGunSeason(null, 11.5f / 12f) && !S.InGunSeason(null, 6f / 12f), W,
+              "T135 no season name: the calendar (January in, December in, July out)");
+            C(!S.RaisesThisPass(S.GunState.Running, false) && S.RaisesThisPass(S.GunState.Running, true), W, "T135 out of season the guns raise nothing");
+            C(!S.GunsRunning(S.GunState.Running, 100, false) && S.GunsRunning(S.GunState.Running, 100, true), W, "T135 out of season no gun runs (no plume)");
         }
     }
 }

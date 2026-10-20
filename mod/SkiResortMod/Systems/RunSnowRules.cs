@@ -13,6 +13,11 @@
 // 31 cm on natural black and double black), the gun margin 3.3 C, the gun and groomed targets, the ramp constants (moved
 // from SkiSnowInjectionSystem.Tuning so a test can tie them to the opening claim), the warm-spell PROTECTION rules
 // (budget, 10 C stop, spring halving, aspect factors, the per-run state machine) and the per-run snow-made LEDGER.
+// T133 (2026-10-20, Richard's rule DECISIONS 350; docs/research/field/2026-10-20/playthrough/sim-snow-build.md): EVERY run opens at
+// 3 ft (0.91 m), made or natural, one bar for all kinds and ratings ("snow piles up crazy fast in this game": the playthrough's
+// natural pack was 2.7-7.9 m mean on the gun runs from November to April); the guns of snowmaking and night runs (and the groomer)
+// keep making snow while the run is under 3 ft and top it up to 3 ft + the restart band (0.96 m), so the run stays open between
+// restarts.
 using System;
 
 namespace SkiResortMod.Systems
@@ -69,8 +74,11 @@ namespace SkiResortMod.Systems
         // D13 threshold and shares
         // T09 ruling (Richard, 2026-10-16): "6 inches / 15 cm is the min for all runs, except 12 inches / 31 cm for natural
         // expert and above runs". Was 2 cm. 31, not 30.48: the ruling's own figure.
-        public const float SkiableDepthM = 0.15f;
-        public const float ExpertNaturalSkiableDepthM = 0.31f;
+        // T133 (Richard, 2026-10-20, DECISIONS 350): "every run opens at 3 ft (91 cm), made or natural". 0.91, not 0.9144: the
+        // rule's own figure. One bar for every run: the expert bar is the same value (kept as a name so SkiableBarNorm and its
+        // callers stay; it can split again by changing this one line).
+        public const float SkiableDepthM = 0.91f;
+        public const float ExpertNaturalSkiableDepthM = SkiableDepthM;
         public const byte ExpertBandMin = 3;                               // = SkiResortScore.BandBlack (3 black, 4 double black)
         public const float SnowHeightScaleM = 8f;                          // = SnowSystem kSnowHeightScale
         public const float SkiableNorm = SkiableDepthM / SnowHeightScaleM; // 0.01875
@@ -206,9 +214,8 @@ namespace SkiResortMod.Systems
             return share <= 0f ? 0f : share >= 1f ? 1f : share;
         }
 
-        /// <summary>T09: the skiable bar of a run, in normalized depth units. A natural run rated black or double black
-        /// (band 3 or 4) needs 31 cm; every other run, and a natural run not rated yet (band below 0), needs 15 cm.
-        /// Injected runs always use 15 cm: their guns can reach it (GunTargetDepthM).</summary>
+        /// <summary>T09: the skiable bar of a run, in normalized depth units, by kind and band. T133: one bar for every run,
+        /// 3 ft (0.91 m), so both branches return SkiableNorm today (ExpertNaturalSkiableDepthM = SkiableDepthM).</summary>
         public static float SkiableBarNorm(RunKind kind, int band)
         {
             return kind == RunKind.Natural && band >= ExpertBandMin ? ExpertNaturalSkiableNorm : SkiableNorm;
@@ -238,7 +245,8 @@ namespace SkiResortMod.Systems
         // Groomed 0.25 is 1.7 bars: grooming is a shoulder-season assist (gate at 0 C), not a gun. The 2026-08-11 field
         // note in Tuning ("raise only with a melt-rate measurement") is answered by the measured 1.9 m pack that the game
         // melted in five wall minutes (analysis-sim-and-hub.md 92-94): melt is not the limit, the open bar is.
-        public const float GunTargetDepthM = 0.35f;
+        // T133: the base the guns guarantee is the open bar itself (was 0.35 m = 2.3 bars of 15 cm).
+        public const float GunTargetDepthM = SkiableDepthM;
         // T46 (2026-10-17, Richard: "if there's lots of snow (like mid season) no reason to run the guns" / "snow piles up
         // fast, maybe raise that limit just for the snow guns"; docs/research/snow-gun-plume-2026-10-17.md §8): the guns of
         // a snowmaking or night run build the pack to GunStopDepthM and then STOP (the injection's gun ramp ceiling since
@@ -248,9 +256,14 @@ namespace SkiResortMod.Systems
         // SnowGunPlumeRules.NextGunState; the band is the 0.05 m the PackedSkipMinRunDepthM derivation below gives one
         // forced interval of the worst measured melt (field test 10: 0.046 m per 1,264 frames), so the guns cannot cycle
         // faster than one forced interval even under that melt.
-        public const float GunStopDepthM = 0.60f;
+        // T133 (Richard: "the guns keep making snow until the run reaches 3 ft"): the guns RESTART when the pack falls below
+        // 3 ft (GunStopDepthM - GunRestartBandM = SkiableDepthM, SnowGunPlumeRules.RestartBelowM) and STOP at 3 ft + the band
+        // (0.96 m), so a pack the guns built never sags under the open bar before they run again. Was 0.60 / 0.55 m.
         public const float GunRestartBandM = 0.05f;
-        public const float GroomedTargetDepthM = 0.25f;
+        public const float GunStopDepthM = SkiableDepthM + GunRestartBandM;
+        // T133: the groomer lays made snow too ("made or natural"), so the groomed ceiling is the gun stop depth (was 0.25 m: a
+        // groomed run could never open on its own under the 3 ft bar). Its gate stays freezing + 0 (GroomedMarginC).
+        public const float GroomedTargetDepthM = GunStopDepthM;
         public const float RampPerTopupM = 0.004f;     // metres per top-up window at rate 1 and gun output 1
         public const float RampRateMin = 0.25f;        // per-texel noise rate range: Min .. Min + Span
         public const float RampRateSpan = 1.75f;

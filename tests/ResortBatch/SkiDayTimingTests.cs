@@ -588,23 +588,29 @@ namespace ResortBatch
             var marks = new int[12];
             var snows = new int[12];
             var snow = new bool[288];
+            var fresh = new float[288];   // T134: the fresh snow per hour; 0.65 on a snow hour, so 7 snow hours = 4.55 = the mark (6 = 3.9 is not)
+            void Fill() { for (int i = 0; i < 288; i++) fresh[i] = snow[i] ? 0.65f : 0f; }
             for (int hr = 0; hr < 24; hr++)
                 snow[hr] = true;   // every hour of month 0
-            SkiDayTiming.MarkHoursPerMonth(snow, 12, marks, snows);
+            Fill();
+            SkiDayTiming.MarkHoursPerMonth(snow, fresh, 12, marks, snows);
             check(marks[0] == 18 && marks[1] == 17 && Sum(marks, 2, 10) == 0 && snows[0] == 24 && Sum(snows, 1, 11) == 0, w,
                   $"snow in month 0 only: marks {marks[0]}/{marks[1]}/rest {Sum(marks, 2, 10)}, snow-hours {snows[0]}/rest {Sum(snows, 1, 11)}; expected 18/17/0, 24/0");
             Array.Clear(snow, 0, snow.Length);
             for (int hr = 264; hr < 288; hr++)
                 snow[hr] = true;   // every hour of month 11
-            SkiDayTiming.MarkHoursPerMonth(snow, 12, marks, snows);
+            Fill();
+            SkiDayTiming.MarkHoursPerMonth(snow, fresh, 12, marks, snows);
             check(marks[11] == 18 && marks[0] == 17 && Sum(marks, 1, 10) == 0 && snows[11] == 24, w,
                   $"snow in month 11 only (the wrap): marks Dec {marks[11]}, Jan {marks[0]}, rest {Sum(marks, 1, 10)}; expected 18, 17, 0");
             Array.Clear(snow, 0, snow.Length);
-            SkiDayTiming.MarkHoursPerMonth(snow, 12, marks, snows);
+            Fill();
+            SkiDayTiming.MarkHoursPerMonth(snow, fresh, 12, marks, snows);
             check(Sum(marks, 0, 12) == 0 && Sum(snows, 0, 12) == 0, w, "no snow → all 0 (the outputs are cleared first)");
             for (int hr = 0; hr < 288; hr++)
                 snow[hr] = true;
-            SkiDayTiming.MarkHoursPerMonth(snow, 12, marks, snows);
+            Fill();
+            SkiDayTiming.MarkHoursPerMonth(snow, fresh, 12, marks, snows);
             bool all24 = true;
             for (int i = 0; i < 12; i++)
                 all24 &= marks[i] == 24 && snows[i] == 24;

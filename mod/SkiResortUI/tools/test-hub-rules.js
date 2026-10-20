@@ -34,6 +34,9 @@
  * AreaList; new T26.1-T26.8 (foldBandRows, liftNameList, liftsTile, the "never a scrollbar" source facts).
  * T100 hub school launch + review M12 (2026-10-19, contract 11): T25.1-T25.4 (code 26 variant / click, the school's hints and plain active
  * line, the M12 root-mounted guard): 243 checks.
+ * T129 / T130 / T131 hub text round (2026-10-20): T21.3 reads the inch variant too; new T29.1-T29.5 (buildItems.BUILDING_DRAW against every
+ * building prefab in gamedata-mirror + SkiCatalog SignJobs, no "joins / near the Welcome Sign" text, no baked snow depth, the tile tooltip's
+ * draw rows) and T30.1 (the Runs / Lifts views list every row: listAll, no pager).
  * A new rule in hubRules.ts adds its literal rows here (oracles are literals, never recomputed).
  */
 "use strict";
@@ -459,12 +462,12 @@ function run(srcDir) {
         tile.includes("height: calc(12rem + 44rem * var(--fontScale))")],
       [true, true, true, true]);
   }
-  // T97 (field 2026-10-19 item 12): the Lodge tile names its tier; an active upgrade tile says it joins the sign; the header tip.
+  // T97 (field 2026-10-19 item 12): the Lodge tile names its tier; the header tip. T129 (2026-10-20): no tile says it joins the sign.
   {
     const strip = fs.readFileSync(path.join(srcDir, "hub", "BuildStrip.tsx"), "utf8");
     const header = fs.readFileSync(path.join(srcDir, "hub", "HubHeader.tsx"), "utf8");
     eq("T23.2 tier label, upgrade line, header rule", [strip.includes("LODGE_TIER[id] ?? BUILD_LABEL.lodge"),
-      (strip.match(/HUB_LOC\.buildActiveUpgrade/g) || []).length, header.includes("HUB_LOC.resortTip")], [true, 2, true]);
+      (strip.match(/HUB_LOC\.buildActiveUpgrade/g) || []).length, header.includes("HUB_LOC.resortTip")], [true, 0, true]);
   }
   // T24 (T97 P1, 2026-10-19, DECISIONS 308; docs/research/ui/hub-selector-p1-p3-2026-10-19.md): the header selector. Its item counts
   // (singular forms; the Not linked row adds its free lodges) and the source facts the gate cannot see: the vanilla Dropdown with
@@ -508,16 +511,16 @@ function run(srcDir) {
       [{ built: 1, drawn: 5 }, null, null, { built: 2, drawn: 2 }]);
     const read = (n) => fs.readFileSync(path.join(srcDir, "hub", n), "utf8");
     const fit = read("fit.tsx"), state = read("hubState.ts"), strip = read("BuildStrip.tsx"), tiles = read("ViewTiles.tsx");
-    eq("T26.7 never a scrollbar, source facts: folds closed by default + accordion, pager always drawn, folds in Attraction / Guests / Finances, pager in Runs / Lifts",
+    eq("T26.7 never a scrollbar, source facts: folds closed by default + accordion, pager always drawn, folds in Attraction / Guests / Finances, no pager in Runs / Lifts (T131)",
       [/export const FOLD_DEFAULT: Readonly<Record<string, string>> = \{\};/.test(state), /open \? "" : id/.test(state),
         /<div className=\{styles\.pagerRow\}>/.test(fit),
         (read("OverviewView.tsx").match(/<Fold\b/g) || []).length, (read("GuestsView.tsx").match(/<Fold\b/g) || []).length,
         (read("MoneyView.tsx").match(/<Fold\b/g) || []).length, /<Pager fit=\{fit\} \/>/.test(read("RunsView.tsx")), /<Pager fit=\{fit\} \/>/.test(read("LiftsView.tsx"))],
-      [true, true, true, 2, 3, 2, true, true]);
+      [true, true, true, 2, 3, 2, false, false]);
     // T27 (contract 12, the lift generator): the Lifts-tab toggle mirrors the tree tool: liftLine$ + liftLineToggle, ok panel only.
     const binds = fs.readFileSync(path.join(srcDir, "bindings.ts"), "utf8");
-    eq("T27.1 lift generator: contract 12, liftLine binding + liftLineToggle trigger, toggle on the Lifts tab only in the ok panel",
-      [BIND.HUB_CONTRACT, /liftLine: "liftLine"/.test(binds), /liftLineToggle: "liftLineToggle"/.test(binds), BIND.CORE_NAMES.indexOf("liftLine") < 0,
+    eq("T27.1 lift generator: contract 12 or later (13 = T136), liftLine binding + liftLineToggle trigger, toggle on the Lifts tab only in the ok panel",
+      [BIND.HUB_CONTRACT >= 12 ? 12 : BIND.HUB_CONTRACT, /liftLine: "liftLine"/.test(binds), /liftLineToggle: "liftLineToggle"/.test(binds), BIND.CORE_NAMES.indexOf("liftLine") < 0,
         strip.includes("{tab === \"lifts\" && info.liftTool && <LiftToolSet t={t} />}"), strip.includes("onSelect={() => hubTriggers.liftLineToggle()}"),
         /liftTool: true/.test(strip), !/liftTool: true/.test(strip.slice(strip.indexOf("MISMATCH_FOOTER"), strip.indexOf("MISMATCH_FOOTER") + 160))],
       [12, true, true, true, true, true, true, true]);
@@ -534,7 +537,8 @@ function run(srcDir) {
     const strip = fs.readFileSync(path.join(srcDir, "hub", "BuildStrip.tsx"), "utf8");
     const status = fs.readFileSync(path.join(srcDir, "hub", "StatusBlock.tsx"), "utf8");
     eq("T25.2 school hints: never the selected-sign hint; active line plain; row 26 drawn with its FMT text and tip",
-      [strip.includes('case "school": return lodgeShown ? HUB_LOC.buildShortSchool : HUB_LOC.buildHintLodge;'), strip.includes('case "school": return HUB_LOC.buildHintLodge;'),
+      // T129 (2026-10-20): both of the school's hints are its own BUILD_SHORT[School]; no selected-sign hint exists any more.
+      [(strip.match(/case "school": return HUB_LOC\.buildShortSchool;/g) || []).length === 2, !strip.includes("buildHintLodgeSelected"),
         strip.includes('k === "lodge" || k === "school"'), status.includes("HUB_FMT.problemSchoolsNotLinked"), status.includes("HUB_LOC.problemTipSchoolsNotLinked")],
       [true, true, false, true, true]);
     const state = fs.readFileSync(path.join(srcDir, "hub", "hubState.ts"), "utf8");
@@ -597,8 +601,8 @@ function run(srcDir) {
   eq("T21.2 B3: every line through linePoints; gap hatch; scale gutter with a \"0\" label",
     [(viewSrc.match(/points: linePoints\(/g) || []).length, chartSrc.includes("gapMarks(slots"), chartSrc.includes("hatchPath("), chartSrc.includes('node: "0"'), /value: \(i\) => b\(i\)\.(skiDays|net|attraction)/.test(viewSrc)],
     [5, true, true, true, false]);
-  eq("T21.3 B5a: the status line renders STATUS_SNOW from snowDepthCm and snowPct (snow is two numbers, T18)",
-    ["HUB_FMT.statusSnow", "l.snowDepthCm", "l.snowPct"].map((x) => statusSrc.includes(x)), [true, true, true]);
+  eq("T21.3 B5a: the status line renders STATUS_SNOW (or its inch form, T130) from snowDepthCm and snowPct (snow is two numbers, T18)",
+    ["HUB_FMT.statusSnow", "HUB_FMT.statusSnowIn", "l.snowDepthCm", "l.snowPct", "useInches()"].map((x) => statusSrc.includes(x)), [true, true, true, true, true]);
   eq("T21.4 B6: operator cells + + + x x x on the receipt's term rows; no SCORE_OF key left",
     [(overview.match(/op="([^"]*)"/g) || []).map((m) => m.slice(4, -1)), tuples.has("SkiResort.Hub.SCORE_OF"), overview.includes("scoreTickPark")],
     [["+", "+", "+", "×", "×", "×"], false, true]);
@@ -644,6 +648,54 @@ function run(srcDir) {
     [["l.ticketsThisMonth", "l.lodgeIncomeMonth", "l.lessonIncomeMonth", "l.passIncomeMonth", "l.liftChargedMonth", "l.runCostMonth", "l.buildingsSoFar", "l.wagesSoFar",
       "<AlsoBlock"].map((x) => moneySrc.includes(x)), /function AlsoBlock[\s\S]*<PassRows/.test(moneySrc), (moneySrc.match(/<PassRows /g) || []).length],
     [[true, true, true, true, true, true, true, true, true], true, 1]);
+  // T29 (T129, 2026-10-20): a building tile shows what the building draws, from the prefab. BUILDING_DRAW must equal every building
+  // prefab's ServiceConsumption (upkeep only where CityServiceBuilding bills it), its Workplace (or SkiCatalog's SignJobs for a roadless
+  // row) and its BuildingTerraformOverride's own m_DontRaise + m_DontLower (LotHeightSystem.cs:253 keeps the slope only with both).
+  const mirror = path.resolve(__dirname, "..", "..", "..", "gamedata-mirror", "ImportedData");
+  const catalogCs = fs.readFileSync(path.join(csDir, "Systems", "SkiCatalog.cs"), "utf8");
+  const blocksOf = (txt) => {
+    const re = /"\$type": "\d+\|Game\.Prefabs\.(\w+), Game"/g; const at = []; let m;
+    while ((m = re.exec(txt))) at.push({ i: m.index, name: m[1] });
+    return at.map((b, k) => ({ name: b.name, text: txt.slice(b.i, k + 1 < at.length ? at[k + 1].i : txt.length) }));
+  };
+  const num = (t, fld) => { const m = new RegExp('"' + fld + '": (-?[0-9.]+)').exec(t); return m ? Number(m[1]) : 0; };
+  const prefabDraw = (id, prefab) => {
+    const txt = fs.readFileSync(path.join(mirror, prefab, prefab + ".Prefab"), "utf8");
+    const bl = blocksOf(txt);
+    const cons = bl.find((b) => b.name === "ServiceConsumption");
+    const billed = bl.some((b) => b.name === "CityServiceBuilding");
+    const work = bl.find((b) => b.name === "Workplace");
+    const tf = bl.find((b) => b.name === "BuildingTerraformOverride");
+    const last = (t, fld) => { const all = [...t.matchAll(new RegExp('"' + fld + '": (true|false)', "g"))]; return all.length ? all[all.length - 1][1] === "true" : false; };
+    // The catalog row that names this build id (rows start at "new LodgeDef(" / "new PatrolDef(" / "new SchoolDef("); its signJobs, if any.
+    const rows = catalogCs.split(/new (?:LodgeDef|PatrolDef|SchoolDef)\(/).slice(1).map((r) => r.slice(0, r.indexOf(")")));
+    const own = rows.find((r) => r.includes('"' + id + '"'));
+    const sj = own ? /signJobs: (\d+)/.exec(own) : null;
+    const signJobs = sj ? Number(sj[1]) : 0;
+    return { prefab, upkeep: cons && billed ? num(cons.text, "m_Upkeep") : 0, power: cons ? num(cons.text, "m_ElectricityConsumption") : 0,
+      water: cons ? num(cons.text, "m_WaterConsumption") : 0, garbage: cons ? num(cons.text, "m_GarbageAccumulation") : 0,
+      workers: (work ? num(work.text, "m_Workplaces") : 0) || signJobs,
+      keepsSlope: !!tf && last(tf.text, "m_DontRaise") && last(tf.text, "m_DontLower") };
+  };
+  const drawIds = Object.keys(ITEMS.BUILDING_DRAW);
+  const buildingIds = ITEMS.BUILD_ITEMS.filter((m) => m.kind !== "line" && m.kind !== "run").map((m) => m.id);
+  eq("T29.1 BUILDING_DRAW has one row per building tile (sign, lodges, school, patrol, stations), none for lines or runs", drawIds, buildingIds);
+  eq("T29.2 every BUILDING_DRAW row equals its prefab (consumption, billed upkeep, workers / SignJobs, terrain flags)",
+    drawIds.filter((id) => JSON.stringify(prefabDraw(id, ITEMS.BUILDING_DRAW[id].prefab)) !== JSON.stringify(ITEMS.BUILDING_DRAW[id]))
+      .map((id) => id + " prefab " + JSON.stringify(prefabDraw(id, ITEMS.BUILDING_DRAW[id].prefab))), []);
+  const linkText = [...tuples.entries()].filter(([, v]) => /join(s|ed)? (this ski area's |the )?Welcome Sign|(near|on) (this ski area's |the |a )?(selected )?Welcome Sign|needs staff/i.test(v)).map(([k]) => k);
+  eq("T29.3 no hub text tells the player a building joins or goes near the Welcome Sign, or that it \"needs staff\" (T129)", linkText, []);
+  // A depth is a number with cm, or with in / ft not followed by a word ("0 in Options", "0 in the net" are not depths).
+  const bakedDepth = [...tuples.entries()].filter(([, v]) => /\d\s*cm\b|\d\s*(in|ft)\b(?!\s+[A-Za-z])/.test(v) && !/\{DEPTH\}/.test(v)).map(([k]) => k);
+  eq("T29.4 no hub text bakes a snow depth (the open depth is C#'s and changes, T133; depth goes through {DEPTH})", bakedDepth, []);
+  const stripSrc = read(path.join("hub", "BuildStrip.tsx"));
+  eq("T29.5 the tile tooltip draws the vanilla rows from BUILDING_DRAW (Power / VolumePerMonth / WeightPerMonth / MoneyPerMonth) and the terrain line",
+    ["...drawRows(e.id, t)", "Unit.Power", "Unit.VolumePerMonth", "Unit.WeightPerMonth", "Unit.MoneyPerMonth", "HUB_LOC.terrainSlope", "HUB_LOC.terrainLevel"].map((x) => stripSrc.includes(x)),
+    [true, true, true, true, true, true, true]);
+  // T30 (T131, DECISIONS 350): the Runs and Lifts views list every row (no pager) and carry listAll, the class the layout test lets scroll.
+  const listViews = ["RunsView.tsx", "LiftsView.tsx"].map((v) => read(path.join("hub", v)));
+  eq("T30.1 Runs / Lifts: every row in one list (styles.listAll), no useFitPage, no <Pager>",
+    listViews.map((v) => [v.includes("styles.listAll"), /useFitPage|<Pager/.test(v)]), [[true, false], [true, false]]);
   const hr = require("./test-history-rules").run(srcDir);
   checks += hr.checks;
   for (const f of hr.failures) failures.push(`test-history-rules ${f}`);

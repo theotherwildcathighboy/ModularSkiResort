@@ -166,8 +166,8 @@
 //
 // T46 (2026-10-17; docs/research/snow-gun-plume-2026-10-17.md, build note field/2026-10-15/build/T46-snow-gun-plume.md):
 //   * GUNS STOP AND RESTART. A snowmaking or night run's cold texels are raised only while its guns RUN
-//     (SnowGunPlumeRules.NextGunState: stop when the run's pack reaches RunSnowRules.GunStopDepthM 0.60 m, natural snow that
-//     deep included; restart below 0.55 m). The gun ramp's ceiling is GunStopDepthM (Tuning.SnowmakingTargetDepthM).
+//     (SnowGunPlumeRules.NextGunState: stop when the run's pack reaches RunSnowRules.GunStopDepthM, natural snow that
+//     deep included; restart below GunStopDepthM - GunRestartBandM; T133 2026-10-20: 0.96 / 0.91 m, was 0.60 / 0.55 m). The gun ramp's ceiling is GunStopDepthM (Tuning.SnowmakingTargetDepthM).
 //   * The pack is measured in the fold (FoldRowsJob, Measure only) over the run's cold texels with a target: Σ min(depth,
 //     own target) / Σ own target. The state steps after the reduction (StepGuns) and gates the NEXT pass's fold
 //     (FoldRowsJob.GunGate): a stopped run writes no mask target (no raise, no active texel, so no bill — the upkeep bills
@@ -223,6 +223,8 @@ namespace SkiResortMod.Systems
             // T46 (2026-10-17): the gun ramp's ceiling is now RunSnowRules.GunStopDepthM (0.60 m), where the guns stop
             // (SnowGunPlumeRules); GunTargetDepthM (0.35 m) stays the base they guarantee within a night. Summer clears it:
             // managed decay takes 0.60 m off in 150 windows (0.9 game h) once the protection budget is spent.
+            // T133 (2026-10-20, Richard's 3 ft rule): stop 0.96 m, restart below 0.91 m = the open bar of every run; GunTargetDepthM
+            // = the bar; the groomed ceiling = the gun stop depth (RunSnowRules). The ramp constants are unchanged.
             public const float SnowmakingTargetDepthM = RunSnowRules.GunStopDepthM;
             public const float GroomedTargetDepthM = RunSnowRules.GroomedTargetDepthM;
 
@@ -1058,6 +1060,8 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<Entity, RunSnowRules.RunLedger> m_Ledger = new Dictionary<Entity, RunSnowRules.RunLedger>();
         private readonly List<LedgerRun> m_LedgerRuns = new List<LedgerRun>();
         private bool m_PassSpring;                   // this pass: the budget halves
+        private bool m_PassGunSeason = true;         // T135: this pass is in the gun season (SnowGunPlumeRules.InGunSeason)
+        private int m_GunSeasonLogged = -1;          // T135: the last season state logged (-1 none this load)
         private float m_PassNorthSign = 1f;          // this pass: -1 for a southern latitude
         private int m_ProtectActiveRuns;             // runs in an Active spell at the last refresh: a real pass is due (no skip)
         private uint m_ProtectLastFrame;             // the frame of the last refresh that stepped the machines
@@ -1211,6 +1215,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>T46: whether the guns of <paramref name="run"/> ran in the last mask pass (SnowGunPlumeRules.GunsRunning).
         /// False when the run was not scheduled (unbound, off the map, not a gun run, injection idle or disabled).</summary>
+        /// <summary>T135 / T136: whether the last pass was in the gun season (the run tooltip's "out of season").</summary>
+        internal bool GunSeasonNow => m_PassGunSeason;
+
         internal bool TryGetRunGunsRunning(Entity run, out bool running)
         {
             return m_GunRunning.TryGetValue(run, out running);
@@ -1231,7 +1238,7 @@ namespace SkiResortMod.Systems
             SnowGunPlumeRules.GunState before = run.GunState;
             SnowGunPlumeRules.GunState next = SnowGunPlumeRules.NextGunState(before, packM);
             m_GunStateNext[run.Run] = next;
-            m_GunRunningNext[run.Run] = SnowGunPlumeRules.GunsRunning(before, cold);
+            m_GunRunningNext[run.Run] = SnowGunPlumeRules.GunsRunning(before, cold, m_PassGunSeason);   // T135
             if (!float.IsNaN(packM))
                 m_GunPackM[run.Run] = packM;
             if (next == before)
@@ -1281,6 +1288,7 @@ namespace SkiResortMod.Systems
             m_GunRunning.Clear();
             m_GunRunningNext.Clear();
             m_GunPackM.Clear();
+            m_GunSeasonLogged = -1;   // T135: the season line again after a load
             if (had)
                 m_GunGeneration++;
         }
@@ -1943,6 +1951,16 @@ namespace SkiResortMod.Systems
             NoteSettingChanges(margin);
             // T09: this pass's season and hemisphere for the protection budget (a string compare and a float read).
             m_PassSpring = RunSnowRules.IsSpring(m_ClimateSystem.currentSeasonName, m_TimeSystem.normalizedDate);
+            // T135: the gun season (October-March; a vanilla winter / summer name decides first). Out of it the guns raise,
+            // bill and plume nothing; one line per change.
+            m_PassGunSeason = SnowGunPlumeRules.InGunSeason(m_ClimateSystem.currentSeasonName, m_TimeSystem.normalizedDate);
+            if (m_GunSeasonLogged != (m_PassGunSeason ? 1 : 0))
+            {
+                Mod.Log.Info($"Snow [guns] season {(m_PassGunSeason ? "IN" : "OUT")} (season '{m_ClimateSystem.currentSeasonName}', date " +
+                             $"{m_TimeSystem.normalizedDate:F3}): snow guns run October to March only (T135)" +
+                             (m_GunSeasonLogged < 0 ? " — first this load" : ""));
+                m_GunSeasonLogged = m_PassGunSeason ? 1 : 0;
+            }
             m_PassNorthSign = m_PlanetarySystem.latitude < 0f ? -1f : 1f;
 
             SnapshotChoice snap = ChooseSnapshot(frame);
@@ -3435,7 +3453,7 @@ namespace SkiResortMod.Systems
                             Entity ne = entities[i];
                             Geometry ng = geometries[i];
                             stats.NaturalScheduled++;
-                            // T09 (ruling): a natural run rated black or double black needs 31 cm, every other 15 cm. The band
+                            // T09 (ruling): a natural run rated black or double black needs 31 cm, every other 15 cm. T133: 0.91 m for all. The band
                             // comes from the catalog's row (an unrated run reads band -1 = 15 cm until its rating lands).
                             float naturalBar = RunSnowRules.SkiableBarNorm(RunKind.Natural, NaturalBand(ne));
                             m_NaturalRuns.Add(new NaturalRun
@@ -3930,7 +3948,7 @@ namespace SkiResortMod.Systems
                 LapseAmbient = lapseAmbient,
                 LapseBaseHeight = lapseBaseHeight,
                 LapseScale = lapseScale,
-                BarNorm = RunSnowRules.SkiableNorm,   // T09: injected runs open at 15 cm (their guns can reach it)
+                BarNorm = RunSnowRules.SkiableNorm,   // T09 / T133: injected runs open at 3 ft (0.91 m), the bar of every run
                 Slot = slot,
                 ProtectMask = m_ProtectMask,
                 Owner = m_Owner,
@@ -3938,7 +3956,7 @@ namespace SkiResortMod.Systems
                 Spring = m_PassSpring,
                 HoursUsed = hoursUsed,
                 NorthSign = m_PassNorthSign,
-                GunGate = gunRun && !SnowGunPlumeRules.RaisesThisPass(gunState),   // T46
+                GunGate = gunRun && !SnowGunPlumeRules.RaisesThisPass(gunState, m_PassGunSeason),   // T46; T135 the season
             }.ScheduleParallel(rowCount, RowBatch, chain);
 
             chain = new ClearScratchRowsJob

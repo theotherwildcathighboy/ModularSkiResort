@@ -180,8 +180,8 @@ namespace SkiResortMod.Systems
             if (!m_Armed)
                 return;
             SkiResortMod.Settings.SkiResortSettings s = Mod.Settings;
-            Mod.Log.Info("RunLabels: ARMED — writes each run's name flat on the ground at its centre (Geometry.m_CenterPosition, the " +
-                         "district-label anchor), in the piste-map colour of its band, with the game's own TextMeshPro text mesh and overlay " +
+            Mod.Log.Info("RunLabels: ARMED — writes each run's name flat on the ground at its center (Geometry.m_CenterPosition, the " +
+                         "district-label anchor), in the piste-map color of its band, with the game's own TextMeshPro text mesh and overlay " +
                          $"text material (option ShowRunNamesOnTheHill, now {(s == null ? "default on" : s.ShowRunNamesOnTheHill ? "on" : "off")}); " +
                          $"visible between camera zoom {RunLabelRules.ZoomHideBelowM:0} and {RunLabelRules.ZoomHideAboveM:0} m (full " +
                          $"{RunLabelRules.ZoomFullFromM:0}-{RunLabelRules.ZoomFullToM:0} m, {RunLabelRules.AlphaSteps} alpha steps); hidden while " +

@@ -919,6 +919,7 @@ export function liftMark(status: number): { ring: boolean; tone: LiftTone } {
     case LIFT_STATUS.Running: return { ring: false, tone: "normal" };
     case LIFT_STATUS.NoPower: return { ring: false, tone: "warn" };
     case LIFT_STATUS.ChairsStopped: return { ring: false, tone: "dim" };
+    case LIFT_STATUS.Closed: return { ring: false, tone: "dim" }; // T132: held closed (no open run), like chairs stopped
     case LIFT_STATUS.SectionMissing: return { ring: true, tone: "warn" };
     default: return { ring: true, tone: "dim" };
   }

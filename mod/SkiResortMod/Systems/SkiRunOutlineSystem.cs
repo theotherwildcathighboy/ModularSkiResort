@@ -607,7 +607,7 @@ namespace SkiResortMod.Systems
                 : "our outline off at size 0 (the game's thin outline only)";
             Mod.Log.Info($"RunOutline: ARMED — {ours}; run prefabs keep the game's snap distance {snap} (snapping {snap} m, " +
                          $"corners {halfSnap} m apart); {m_RunCount} of {RunSurfaceNames.Length} run prefab(s); the game's " +
-                         "outline set (Temp Create/Delete/Select/Modify/Replace/Parent, or Error / Warning), its colours, " +
+                         "outline set (Temp Create/Delete/Select/Modify/Replace/Parent, or Error / Warning), its colors, " +
                          "its dropped shared sides and one dot per corner, projected on the terrain, Rendering before " +
                          "OverlayRenderSystem; setting read every frame; idle = one emptiness check");
             if (missing != null)
@@ -753,7 +753,7 @@ namespace SkiResortMod.Systems
                 m_CostLogged = true;
                 double mean = m_CostDraws > 0 ? m_DrawMsSum / m_CostDraws : 0.0;
                 Mod.Log.Info($"RunOutline [cost] first {Tuning.CostLogAfterDraws} draw frames with a Temp or flagged surface this " +
-                             $"load (ours or not): main thread mean {mean:F3} ms, max {MaxDrawMs:F3} ms per frame (colours + chunk " +
+                             $"load (ours or not): main thread mean {mean:F3} ms, max {MaxDrawMs:F3} ms per frame (colors + chunk " +
                              "list + GetBuffer + schedule + AddBufferWriter; the outline itself is built on a worker, which " +
                              "returns at once when no area of ours is in the frame)");
             }

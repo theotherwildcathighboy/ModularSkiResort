@@ -120,6 +120,8 @@ namespace LiftBatch
             LiftPlannerTests.Run(Check);
             foreach (string line in LiftPlannerTests.Report)
                 Console.WriteLine("PLAN  " + line);
+            // T125 (docs/research/field/2026-10-20/playthrough/lift-tool-build.md): the lift tool's input state machine (TI-1..TI-8).
+            LiftToolInputTests.Run(Check);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  LiftBatch checks={0} failures={1}", s_Checks, s_Failures));

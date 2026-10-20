@@ -176,7 +176,7 @@ function LiftLine2Impl({ row, partner, t, words, typeWords, focused, renaming, o
     ? cx(styles.liftDot, styles.liftDotRing, mark.tone === "warn" ? styles.liftRingWarn : styles.liftRingDim)
     : cx(styles.liftDot, mark.tone === "warn" ? styles.liftDotWarn : mark.tone === "dim" ? styles.liftDotDim : styles.liftDotNormal);
   const wordTone = row.status === LIFT_STATUS.NoPower || row.status === LIFT_STATUS.SectionMissing ? styles.liftWordWarn
-    : row.status === LIFT_STATUS.ChairsStopped || row.status === LIFT_STATUS.Unfinished ? styles.liftWordDim : null;
+    : row.status === LIFT_STATUS.ChairsStopped || row.status === LIFT_STATUS.Unfinished || row.status === LIFT_STATUS.Closed ? styles.liftWordDim : null;
   const inner = (
     <>
       <div className={markCls} />

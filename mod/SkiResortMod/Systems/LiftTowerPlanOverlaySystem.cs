@@ -137,6 +137,10 @@ namespace SkiResortMod.Systems
         {
             if (Mod.Settings != null && !Mod.Settings.LiftBuildAids)
                 return;
+            // T125: never under the lift tool, whose editable preview uses the same rings: two look-alike overlays read as if the
+            // placed line could be edited there.
+            if (m_ToolSystem.activeTool is LiftLineToolSystem)
+                return;
             Entity selected = m_ToolSystem.selected;
             if (selected == Entity.Null)
             {

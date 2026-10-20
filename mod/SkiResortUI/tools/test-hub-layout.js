@@ -7,7 +7,8 @@
  * 3840x2160 - with the game's rem rule, and runs harness/layout-check.js (window.SkiLayout.run) there: every view x fold x page x
  * build tab x overlay at text scale 1.0 and 1.25 (both CSS variables, as the game's applyTextScale sets them). FAILS (exit 1) on any
  * case whose content overflows its box (the Scrollable would show its bar), a header that does not fit, or lodge chips on the
- * Buildings tab.
+ * Buildings tab. T131 (2026-10-20, DECISIONS 350): the Runs and Lifts views are the one exception: they list every row and may
+ * scroll (their list carries class listAll); for them the check FAILS on a drawn pager row instead (harness/layout-check.js).
  *
  * Needs `npm run build` first (it mounts build/SkiResortMod.mjs) and network for the React UMD scripts the harness loads from cdnjs.
  * Usage:   node tools/test-hub-layout.js [--verbose]
@@ -120,8 +121,8 @@ const SHOTS = [
   ["attraction-field-case-1440-fs125", 1440, { scenario: FIELD, view: 0, fs: 1.25 }],
   ["area-list-open-1080", 1080, { scenario: ASH, view: 0, areas: 1 }],
   ["problems-popover-1440", 1440, { scenario: BIG, view: 0, problems: 1 }],
-  ["runs-paged-1440", 1440, { scenario: BIG, view: 1 }],
-  ["lifts-paged-1080", 1080, { scenario: BIG, view: 2 }],
+  ["runs-all-1440", 1440, { scenario: BIG, view: 1 }],
+  ["lifts-all-1080", 1080, { scenario: BIG, view: 2 }],
   ["guests-fold-tickets-2160", 2160, { scenario: ASH, view: 3, fold: 2 }],
   ["finances-fold-costs-2160-fs125", 2160, { scenario: ASH, view: 4, fold: 0, fs: 1.25 }],
   ["history-1440-fs125", 1440, { scenario: ASH, view: 5, fs: 1.25 }],
@@ -180,6 +181,8 @@ async function main() {
       for (const lt of r.liftsTile.filter((x) => x.fs === 1)) console.log(`  lifts tile [${lt.scenario}]: ${lt.text}`);
       for (const x of r.liftTool) console.log(`  lift generator [${x.scenario.split(" ")[0]} fs ${x.fs}]: ${x.present ? "present" : "MISSING"}, family row ${x.rowRem} rem`);
       for (const bd of r.band.filter((x) => x.fs === 1)) console.log(`  band [${bd.scenario}]: ${bd.text.join(" | ")}`);
+      const sc = r.cases.filter((c) => c.scrolls && c.fs === 1 && c.overPx > 1).map((c) => `${c.scenario.split(" ")[0]} view ${c.view} +${c.overRem} rem`);
+      console.log(`  full lists that scroll (text scale 1, allowed: T131): ${sc.length ? Array.from(new Set(sc)).join("; ") : "none"}`);
       for (const f of r.fails) console.log(`  FAIL ${f.scenario || ""} fs ${f.fs || ""}: ${f.what}` + (f.overRem !== undefined ? ` (over ${f.overRem} rem, slack ${f.slackRem} rem)` : ""));
       if (process.argv.includes("--verbose")) for (const c of r.cases) console.log(`    ${c.scenario.slice(0, 22)} fs ${c.fs} view ${c.view} ${c.state}: over ${c.overRem} slack ${c.slackRem} header ${c.headerRem}`);
       failures += r.fails.length;

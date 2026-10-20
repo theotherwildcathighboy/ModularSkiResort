@@ -163,6 +163,48 @@ export const BUILD_STEP: Readonly<Partial<Record<BuildItemId, string>>> = {
  *  Keep in step with SkiCatalog.cs by hand. */
 export const LUXURY_LODGES: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["lodgeSummit", "lodgeGrand"]);
 
+/** T129 (2026-10-20, field notes 15 / 16): what a placed building draws a month, and how it meets the ground. */
+export interface BuildingDraw {
+  /** The prefab (gamedata-mirror/ImportedData/<prefab>/<prefab>.Prefab), for the gate. */
+  prefab: string;
+  /** ServiceConsumption.m_Upkeep, money per month at a 100 % budget; 0 = not billed (a station has no CityServiceBuilding, so the game
+   *  never bills it: CityServiceBuilding.cs:23 adds ServiceUpkeepData only there, BuildingInitializeSystem.cs:1166-1191; the lift's
+   *  running cost covers it). */
+  upkeep: number;
+  /** ServiceConsumption.m_ElectricityConsumption / m_WaterConsumption / m_GarbageAccumulation, the asset panel's units (Power,
+   *  VolumePerMonth, WeightPerMonth; PrefabUISystem.cs:552-559 writes them CeilToInt). */
+  power: number;
+  water: number;
+  garbage: number;
+  /** Jobs: Workplace.m_Workplaces, or for a roadless building SkiCatalog's SignJobs, which the linked sign carries (DECISIONS 347 c). */
+  workers: number;
+  /** BuildingTerraformOverride m_DontRaise AND m_DontLower: the lot keeps the terrain (LotHeightSystem.cs:253 levels it unless both
+   *  are set); false = the lot is leveled (no override block, or not both flags). */
+  keepsSlope: boolean;
+}
+
+/** One row per building tile, from the prefabs (gate: tools/test-hub-rules.js T22 reads every prefab and SkiCatalog's SignJobs and FAILS on
+ *  a difference). A value 0 draws no row (vanilla's asset panel does the same). Lines and runs are not buildings: no row. */
+export const BUILDING_DRAW: Readonly<Partial<Record<BuildItemId, BuildingDraw>>> = {
+  sign: { prefab: "SkiResortGate", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: true },
+  lodge: { prefab: "SkiAFrameDayLodge", upkeep: 3000, power: 1500, water: 1000, garbage: 80, workers: 6, keepsSlope: false },
+  lodgeHut: { prefab: "SkiLodgeHut", upkeep: 3000, power: 0, water: 0, garbage: 0, workers: 4, keepsSlope: true },
+  lodgeMid: { prefab: "SkiLodgeMid", upkeep: 8000, power: 3500, water: 2300, garbage: 190, workers: 12, keepsSlope: true },
+  lodgeSummit: { prefab: "SkiLodgeSummit", upkeep: 18000, power: 0, water: 0, garbage: 0, workers: 8, keepsSlope: true },
+  lodgeGrand: { prefab: "SkiLodgeGrand", upkeep: 20000, power: 3500, water: 5000, garbage: 430, workers: 18, keepsSlope: false },
+  school: { prefab: "SkiSchool", upkeep: 4000, power: 2500, water: 1700, garbage: 130, workers: 6, keepsSlope: true },
+  patrolHut: { prefab: "SkiPatrolHut", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, keepsSlope: true },
+  patrolHQ: { prefab: "SkiPatrolHQ", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, keepsSlope: true },
+  baseStation: { prefab: "SkiBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, keepsSlope: true },
+  topStation: { prefab: "SkiTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: true },
+  baseStationDetachable: { prefab: "SkiDQBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, keepsSlope: true },
+  topStationDetachable: { prefab: "SkiDQTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: true },
+  baseStationGondola: { prefab: "SkiGondolaBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, keepsSlope: true },
+  topStationGondola: { prefab: "SkiGondolaTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: true },
+  baseStationTram: { prefab: "SkiTramBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, keepsSlope: false },
+  topStationTram: { prefab: "SkiTramTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: true },
+};
+
 /** The run kind of a run tile (for its stripe and its RUN_TYPE name), else undefined. */
 export const BUILD_RUN_KIND: Readonly<Partial<Record<BuildItemId, RunKind>>> = {
   runNatural: RUN_KIND.Natural,

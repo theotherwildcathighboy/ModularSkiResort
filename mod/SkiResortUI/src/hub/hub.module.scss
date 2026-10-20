@@ -818,6 +818,13 @@
   font-size: var(--fontSizeS);
 }
 
+// T131 (2026-10-20, DECISIONS 350): the Runs and Lifts views' full list (every row, no pager). Those two views may scroll; the
+// vanilla bar draws over the content (J8: no gutter), so the list keeps its own room for it on the right. harness/layout-check.js
+// reads this class: a view that holds it may overflow, every other view must fit.
+.listAll {
+  padding-right: 8rem;
+}
+
 // Contract 3 (ch6 8.3): the Runs view's header row - piste-map toggle, then the Lift / Length / Drop
 // labels - in XS, 1.6 em high, with the run row's paddings so its cells line up with RunLine's. The
 // labels are dim by the literal colour (U1; the old opacity 0.75 would also dim the toggle).

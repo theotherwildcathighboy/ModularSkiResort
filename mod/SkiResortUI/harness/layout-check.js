@@ -14,7 +14,8 @@
  *   - over = content scrollHeight - clientHeight <= 1 px (the vanilla Scrollable shows its bar at scrollHeight - 1 > offsetHeight,
  *     installed index.js@638418), also with the ski-area list and the +N popover open;
  *   - the header is one row (its height under 2 x its row) and the name never pushes the buttons out (header scrollWidth fits);
- *   - Runs / Lifts views: a page never overflows, and the pager shows "1 / N" once the rows do not fit;
+ *   - Runs / Lifts views (T131, 2026-10-20, DECISIONS 350): the ONE exception. Their list (class listAll) draws every row, no pager,
+ *     and the content may scroll there; the check asserts no pager row is drawn in them and records their overflow as "scrolls";
  *   - Buildings tab: one tile per sent building id, no lodge chip; Lifts tile "built / drawn".
  * The harness chrome is not the game's (harness/README.md): the panel frame here is a stand-in, so the check also reports the slack
  * (rem left) of each case; the report keeps a margin rule (MIN_SLACK_REM) for the title bar / padding difference.
@@ -84,8 +85,11 @@
     const nViews = tiles().length;
     const fail = (what, m) => out.fails.push(Object.assign({ scenario: name, fs, what }, m || {}));
     const rec = (view, state, m) => {
-      out.cases.push(Object.assign({ scenario: name, fs, view, state }, m));
-      if (!m || m.overPx > 1 || m.slackRem < MIN_SLACK_REM) fail(`overflow: view ${view} ${state}`, m);
+      // T131: a Runs / Lifts view (its full list carries listAll) may scroll; it must list every row (no pager row).
+      const scrolls = !!q(cls("listAll"), panel());
+      out.cases.push(Object.assign({ scenario: name, fs, view, state, scrolls }, m));
+      if (scrolls && q(cls("pagerRow"), panel())) fail(`pager drawn on a full-list view: view ${view} ${state}`, m);
+      if (!scrolls && (!m || m.overPx > 1 || m.slackRem < MIN_SLACK_REM)) fail(`overflow: view ${view} ${state}`, m);
       if (m && !m.headerFits) fail(`header overflows: view ${view} ${state}`, m);
     };
     // Every page of the shown state (the view pager, or a list pager on Runs / Lifts) must fit; returns the pager text of page 1.

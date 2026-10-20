@@ -63,7 +63,7 @@ import { factorRowsOf, hectares, liveOf, receiptPartsVariant, resultVariant, sch
 import { ASSET_NAME, BAND_NAME, HUB_FMT, HUB_LOC, factorEntry } from "./hubText";
 import type { BuildItemId } from "../bindings";
 import {
-  BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, cx, numArg,
+  BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, cx, depthValue, numArg, useInches,
 } from "./parts";
 import { currentResort, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
@@ -155,6 +155,7 @@ function MountainSection({ row, live, city, unrateable, t, folded }: {
   // when estimated, and the tooltip says measured or estimated. tools/test-hub-rules.js T18 guards it.
   const snowPct = live ? live.snowPct : -1;
   const depthCm = live ? live.snowDepthCm : -1;
+  const inches = useInches();   // T130: depth in the player's units
   const snowMark = live && live.snowEstimated && (snowPct >= 0 || depthCm >= 0) ? "≈" : null;
   const how = live && (live.snowEstimated ? t(HUB_LOC.runEstimated) : t(HUB_LOC.statusTipMeasured));
   const snowTip = (head: string, body: string): JSX.Element => (
@@ -178,7 +179,9 @@ function MountainSection({ row, live, city, unrateable, t, folded }: {
       <InfoLine
         label={t(HUB_LOC.mountainSnowDepth)}
         mark={snowMark}
-        value={depthCm >= 0 ? <LocText entry={HUB_FMT.snowDepth} args={{ CM: numArg(depthCm, Unit.Integer) }} /> : DASH}
+        value={depthCm < 0 ? DASH : inches
+          ? <LocText entry={HUB_FMT.snowDepthIn} args={{ DEPTH: numArg(depthValue(depthCm, true), Unit.Integer) }} />
+          : <LocText entry={HUB_FMT.snowDepth} args={{ DEPTH: numArg(depthCm, Unit.Integer) }} />}
         tip={snowTip(t(HUB_LOC.mountainSnowDepth), t(HUB_LOC.mountainTipDepth))}
       />
       <InfoLine

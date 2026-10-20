@@ -10,7 +10,8 @@
  *          (accordion, hubState.folds$ / toggleFold), so a view's height is its closed height plus its tallest fold, and the
  *          layout test opens every fold in turn. Closed by default (hubState.FOLD_DEFAULT). Its rows render flat (no wrapper), so
  *          the view pager (3.) can page them one by one.
- *       2. useFitPage + Pager: a list (runs, lifts) shows as many rows as fit and pages the rest ("‹ 1 / 3 ›" under it). The
+ *       2. (T114 useFitPage, retired 2026-10-20 by T131 / DECISIONS 350: the Runs and Lifts views list every row again and are the
+ *          two views allowed to scroll; PIPELINE section 0.) It was: a list (runs, lifts) shows as many rows as fit and pages the rest ("‹ 1 / 3 ›" under it). The
  *          rows that fit are MEASURED after layout (two animation frames later: Gameface lays a new view out a frame late,
  *          layoutReport.ts Round F7): capacity = rows drawn + floor(slack / average row height), slack = the content box's
  *          inner height minus our body's height (negative while it overflows). The pager row is always drawn (empty on one
@@ -21,7 +22,7 @@
  *     page size stays at its first value.
  *   - Buttons here are content-area buttons (not in the Panel header / footer), so R15's FOCUS_DISABLED does not apply.
  */
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
@@ -66,10 +67,6 @@ export function Fold({ view, id, label, value, tip, header, children }: {
   );
 }
 
-/** Last measured page size per list (module level), so a reopened view starts at the size that fitted last time. */
-const lastSize = new Map<string, number>();
-const FIRST_SIZE = 6;
-
 export interface FitPage {
   /** First row index of the page and one past its last. */
   start: number;
@@ -86,64 +83,6 @@ function innerHeight(el: HTMLElement): number {
     pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
   } catch { /* no computed style: 0 */ }
   return el.clientHeight - pad;
-}
-
-/**
- * The page of a list of `count` rows: as many rows as fit the panel (see the header). `listRef` = the element whose children are
- * the drawn rows; `key` names the list (runs / lifts) and resets the page when it changes (an area switch).
- */
-export function useFitPage(key: string, count: number, listRef: RefObject<HTMLElement>): FitPage {
-  const bodyRef = useContext(FitContext);
-  const [size, setSize] = useState<number>(() => lastSize.get(key.split("|")[0]) ?? FIRST_SIZE);
-  const [page, setPage] = useState(0);
-  const keyRef = useRef(key);
-  if (keyRef.current !== key) {
-    keyRef.current = key;
-    if (page !== 0) setPage(0);
-  }
-  const pages = Math.max(1, Math.ceil(count / Math.max(1, size)));
-  const shownPage = Math.min(page, pages - 1);
-  const start = shownPage * size;
-  const end = Math.min(count, start + size);
-
-  useEffect(() => {
-    let frame = 0;
-    let n = 0;
-    const step = (): void => {
-      frame = 0;
-      try {
-        if (++n < 2) { frame = requestAnimationFrame(step); return; }
-        const body = bodyRef ? bodyRef.current : null;
-        const list = listRef.current;
-        const box = body ? body.parentElement : null;
-        if (!body || !list || !box) return;
-        const drawn = end - start;   // rows of this page (a row may draw more than one element)
-        if (drawn <= 0) return;
-        const rowH = list.getBoundingClientRect().height / drawn;
-        if (!(rowH > 0)) return;
-        const slack = innerHeight(box) - body.getBoundingClientRect().height;
-        const fit = slack < 0 ? drawn - Math.ceil(-slack / rowH) : drawn + Math.floor(slack / rowH);
-        const next = Math.max(1, fit);
-        // The capacity estimate holds on a short last page too (same box, same row height).
-        if (next !== size) {
-          lastSize.set(key.split("|")[0], next);
-          setSize(next);
-        }
-      } catch { /* measuring is best effort: keep the size */ }
-    };
-    try { frame = requestAnimationFrame(step); } catch { /* no rAF: keep the size */ }
-    return () => { try { if (frame) cancelAnimationFrame(frame); } catch { /* ignore */ } };
-  });
-
-  // Re-measure on a viewport change (text scale changes re-render through the game's own update).
-  const [, bump] = useState(0);
-  useEffect(() => {
-    const on = (): void => bump((x) => x + 1);
-    try { window.addEventListener("resize", on); } catch { return undefined; }
-    return () => { try { window.removeEventListener("resize", on); } catch { /* ignore */ } };
-  }, []);
-
-  return { start, end, page: shownPage, pages, setPage };
 }
 
 /** The pager row under a list: "‹ 2 / 3 ›", always drawn (empty on one page) so it never changes the view's height. */
@@ -185,7 +124,7 @@ const VIEW_PAGER_POLL_MS = 400;
  * bar and chart block is one child) when the body is taller than the content box. Rows of other pages are hidden with
  * style.display = "none" (React never writes `style` on these row roots, so it stays), all in one synchronous pass: unhide,
  * measure, partition, hide, so nothing paints in between. A fold header is never the last row of a page (it moves to the next).
- * `enabled` false (the Runs / Lifts views, which page their own lists) unhides everything. `resetKey` (view + open fold) returns
+ * `enabled` false (the Runs / Lifts views, which list every row and may scroll: T131) unhides everything. `resetKey` (view + open fold) returns
  * to page 1.
  */
 export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject<HTMLElement>, enabled: boolean, resetKey: string,

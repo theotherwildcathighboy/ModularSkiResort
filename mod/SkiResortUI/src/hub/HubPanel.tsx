@@ -160,8 +160,8 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
     problemsOpen$.update(false);   // T114: the popover lists the old area's rows
   }, [areaKey]);
 
-  // T114: the view pager (fit.tsx): a view still taller than the box after its folds shows its rows page by page. Runs and Lifts page
-  // their own lists. A view switch, a fold toggle or an area switch returns to page 1.
+  // T114: the view pager (fit.tsx): a view still taller than the box after its folds shows its rows page by page. Runs and Lifts list
+  // every row and may scroll (T131, DECISIONS 350). A view switch, a fold toggle or an area switch returns to page 1.
   const folds = useValue(folds$);
   const viewPager = useViewPager(viewRef, contentRef, hasSign && view !== "runs" && view !== "lifts",
     `${view}|${openFold(folds, view)}|${areaKey}`, styles.foldRow);

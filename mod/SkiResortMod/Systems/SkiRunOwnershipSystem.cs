@@ -390,7 +390,7 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info("Ownership: ARMED — runs carry SkiRunBinding v" +
                              $"{SkiRunBinding.CurrentVersion} (serialized: sign, flags, paid) to the " +
                              $"nearest Ski Area Welcome Sign within {Tuning.TetherM:F0} m of the run's " +
-                             "centre at bind time; NO Owner and NO sign SubArea buffer (the bulldozer " +
+                             "center at bind time; NO Owner and NO sign SubArea buffer (the bulldozer " +
                              "deletes one run; SkiRunGateCascadeSystem deletes a deleted sign's runs); " +
                              "one-time run fee by plan area (SkiRunFees.Fee, rounded to ₵" +
                              $"{SkiRunFees.RoundTo}): natural {SkiRunFees.NaturalBase} + {SkiRunFees.NaturalPerHa}/ha, " +

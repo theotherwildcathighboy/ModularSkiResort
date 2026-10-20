@@ -48,7 +48,7 @@ import { memo } from "react";
 import type { MouseEvent } from "react";
 import { Button } from "cs2/ui";
 import { Unit } from "cs2/l10n";
-import { OPEN_STATE, RUN_KIND } from "../bindings";
+import { OPEN_STATE, RUN_GUN_WHY, RUN_KIND } from "../bindings";
 import type { RunLive, RunRow } from "../bindings";
 import type { Translate } from "../l10n";
 import { isRunKind } from "./buildItems";
@@ -105,6 +105,15 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
   }
   // T54 probe 1: a cat track rated blue or steeper says why it is shut (OPEN_STATE.Unsuitable, C# HubRules.CatTrackOpenState).
   if (live && live.openState === OPEN_STATE.Unsuitable) openLine = t(HUB_LOC.runUnsuitable);
+  // T136: why it is open or closed (the measured depth against the 3 ft rule) and, on a gun run, what its snow guns do now.
+  const depthLine = row.bound && gating && live && live.snowDepthCm >= 0 && live.openState !== OPEN_STATE.Unsuitable
+    ? <LocText key="d" entry={HUB_FMT.runDepth} args={{ DEPTH: numArg(live.snowDepthCm / 100, Unit.Length) }} /> : null;
+  const gunWhy = live ? live.gunWhy : RUN_GUN_WHY.None;
+  const gunLine = gunWhy === RUN_GUN_WHY.Making ? t(HUB_LOC.runGunsMaking)
+    : gunWhy === RUN_GUN_WHY.DepthReached ? t(HUB_LOC.runGunsDepth)
+      : gunWhy === RUN_GUN_WHY.TooWarm ? t(HUB_LOC.runGunsWarm)
+        : gunWhy === RUN_GUN_WHY.OutOfSeason ? t(HUB_LOC.runGunsSeason)
+          : gunWhy === RUN_GUN_WHY.Waiting ? t(HUB_LOC.runGunsWaiting) : null;
   let servedLine: string | JSX.Element | null = null;
   if (row.served) {
     servedLine = liftName ? <LocText key="s" entry={HUB_FMT.runServed} args={{ NAME: liftName }} /> : t(HUB_LOC.runServedAnon);
@@ -117,6 +126,8 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
         name,
         `${typeName} · ${t(bandEntry(row.band))}`,
         openLine,
+        depthLine,
+        gunLine,
         !!live && live.snowEstimated && t(HUB_LOC.runEstimated),
         servedLine,
         row.member && row.typeFactor < 1 && t(HUB_LOC.runTypeNote),
@@ -222,7 +233,8 @@ function sameRunLive(a: RunLive | undefined, b: RunLive | undefined): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
   return a.openState === b.openState && a.openFactor === b.openFactor && a.snowPct === b.snowPct &&
-    a.snowEstimated === b.snowEstimated && a.valueNow === b.valueNow && a.costMonth === b.costMonth;
+    a.snowEstimated === b.snowEstimated && a.valueNow === b.valueNow && a.costMonth === b.costMonth &&
+    a.snowDepthCm === b.snowDepthCm && a.gunWhy === b.gunWhy;   // T136
 }
 
 /** Re-render a row only when something it shows or uses changed (ch6 6.8 memo comparator). */

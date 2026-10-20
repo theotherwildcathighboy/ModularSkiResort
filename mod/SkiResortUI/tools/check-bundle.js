@@ -222,6 +222,7 @@ const ENUM_PAIRS = [
   ["SEASON_HINT", "Systems/HubRules.cs", "SeasonHint"],
   ["NEXT_STEP", "Systems/HubRules.cs", "NextStepKind"],
   ["LIFT_STATUS", "Systems/HubRules.cs", "HubLiftStatus"],
+  ["RUN_GUN_WHY", "Systems/HubRules.cs", "RunGunWhy"],   // T136 (contract 13)
   ["PROBLEM", "Systems/HubRules.cs", "HubProblemCode"],
   ["TICKET_GATE", "Systems/SkiMoneyRules.cs", "TicketGate"],
   ["SKI_DAY_STATE", "Systems/HubRules.cs", "HubSkiDayState"],

@@ -112,7 +112,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree
  * controls (CORE only) and says why (spec 4.5).
  */
-export const HUB_CONTRACT = 12;
+export const HUB_CONTRACT = 13;   // 13 = T136: RunLive.snowDepthCm and RunLive.gunWhy appended
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -180,7 +180,10 @@ export const SEASON_HINT = { None: 0, SnowSeason: 1, SnowGunsOnly: 2, Thawing: 3
 export const NEXT_STEP = { Done: 0, Lodge: 1, Lift: 2, Run: 3 } as const;
 
 /** LiftRow.status. C# HubRules HubLiftStatus. */
-export const LIFT_STATUS = { Running: 0, NoPower: 1, ChairsStopped: 2, SectionMissing: 3, Unfinished: 4 } as const;
+export const LIFT_STATUS = { Running: 0, NoPower: 1, ChairsStopped: 2, SectionMissing: 3, Unfinished: 4, Closed: 5 } as const; // T132: Closed appended (a held lift, no open run)
+
+/** RunLive.gunWhy. C# HubRules RunGunWhy (T136). */
+export const RUN_GUN_WHY = { None: 0, Making: 1, DepthReached: 2, TooWarm: 3, OutOfSeason: 4, Waiting: 5 } as const;
 
 /** ResortLive.ticketGate. C# SkiMoneyRules.TicketGate (chapter 4). */
 export const TICKET_GATE = { Open: 0, Off: 1, NoEfficiency: 2, NothingOpen: 3, NotKnownYet: 4 } as const;
@@ -571,6 +574,10 @@ export interface RunLive {
   snowEstimated: boolean;
   valueNow: number;
   costMonth: number;
+  /** T136 (contract 13): coverage-weighted mean snow depth, cm; -1 not measured. */
+  snowDepthCm: number;
+  /** T136 (contract 13): RUN_GUN_WHY, the snow guns of a snowmaking or night run now. */
+  gunWhy: number;
 }
 
 /** One lift (LiftCensus row). */

@@ -1385,7 +1385,7 @@ namespace SkiResortMod.Systems
                 ClearPending();
                 m_PlanState = GladePlanState.None;
                 m_ReplanWhy = null; // the preview must not come straight back
-                Mod.Log.Info($"Glade: preview cancelled on run {EntityText(m_PlannedRun)}");
+                Mod.Log.Info($"Glade: preview canceled on run {EntityText(m_PlannedRun)}");
                 DrawOverlay();
                 return;
             }
@@ -3155,7 +3155,7 @@ namespace SkiResortMod.Systems
             if (ok)
                 Mod.Log.Info($"{head}: {LastApplyCheck}");
             else
-                Mod.Log.Warn($"{head}: {LastApplyCheck} (a tree at a cancelled planted spot means a cancelled Temp " +
+                Mod.Log.Warn($"{head}: {LastApplyCheck} (a tree at a canceled planted spot means a canceled Temp " +
                              "was created; near a felled tree, a tree the census could not see; created ≠ tagged, a " +
                              "create-path Temp the tag system missed — see SkiGladeToolSystem header §8.1)");
         }
@@ -3218,7 +3218,7 @@ namespace SkiResortMod.Systems
             {
                 m_PlanState = GladePlanState.Complete;
                 Mod.Log.Info($"Glade: preview — nothing applicable after validation ({PreviewCancelled} " +
-                             $"planted spot(s) cancelled, {PreviewBlockedKnown} blocked spot(s) known) — layer complete");
+                             $"planted spot(s) canceled, {PreviewBlockedKnown} blocked spot(s) known) — layer complete");
             }
         }
 
@@ -3305,7 +3305,7 @@ namespace SkiResortMod.Systems
                 if (!m_MoneyShortThisPlan)
                 {
                     m_MoneyShortThisPlan = true;
-                    Mod.Log.Info($"Glade: preview — {PreviewCancelled} planted spot(s) cancelled while money " +
+                    Mod.Log.Info($"Glade: preview — {PreviewCancelled} planted spot(s) canceled while money " +
                                  $"{money} < {PreviewPlant} × {Tuning.MaxTreeCost}: nothing learned (validation " +
                                  "also cancels Optional trees for money; not distinguishable per tree)");
                 }
@@ -3345,7 +3345,7 @@ namespace SkiResortMod.Systems
                 }
             }
             PreviewBlockedKnown = set.Count;
-            Mod.Log.Info($"Glade: preview — {seen} planted spot(s) cancelled by validation: learned {learned} " +
+            Mod.Log.Info($"Glade: preview — {seen} planted spot(s) canceled by validation: learned {learned} " +
                          $"new blocked spot(s) (skip set {set.Count} for plan key {m_CurrentPlanKey:X16})" +
                          (unmapped > 0 ? $"; {unmapped} not mapped to a slot (unexpected)" : ""));
             return learned;

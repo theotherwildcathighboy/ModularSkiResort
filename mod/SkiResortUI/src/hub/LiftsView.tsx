@@ -19,6 +19,8 @@
  *     shown area's rows span two or more lift types (hubRules.liftTypesOf), each row shows its type word
  *     (LiftLine2 `typeWords`); the totals row's tooltip is LIFTS_TOTAL_CAPACITY_TIP (it sums several types, so the
  *     per-type LIFT_CAPACITY_TIP with {SEATS} / {SPEED} would not fit it).
+ *   - T131 (2026-10-20, field report item 27, DECISIONS 350): every lift in one list, no pager (T114 paged it); this view and the
+ *     Runs view are the two that may scroll (PIPELINE section 0 hub rule; harness/layout-check.js checks every row is drawn).
  */
 import { useCallback, useMemo, useState } from "react";
 import type { RefObject } from "react";
@@ -31,9 +33,8 @@ import { liftTypesOf, loneStations, partnerPlaced } from "./hubRules";
 import { focused$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, LIFT_STATUS_TEXT, LIFT_TYPE } from "./hubText";
 import { LiftLine2, liftId } from "./LiftTable";
-import { Divider, InfoLine, LocText, Num, numArg } from "./parts";
+import { Divider, InfoLine, LocText, Num, cx, numArg } from "./parts";
 import { currentResort, liftsOf, resortEntries } from "./resortData";
-import { Pager, useFitPage } from "./fit";
 import styles from "./hub.module.scss";
 
 export function LiftsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): JSX.Element {
@@ -68,21 +69,19 @@ export function LiftsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): 
   const typeWords = liftTypesOf(lifts).length >= 2 ? allTypeWords : null;
   const focusedId = focused.kind === "lift" ? `${entityId(focused.entity)}/${entityId(focused.top)}` : "";
   const keyCount = new Map<string, number>();
-  // T114: as many rows as fit the panel, the rest on further pages (fit.tsx); a new area starts on page 1.
-  const fit = useFitPage(`lifts|${selected ? entityId(selected) : ""}`, lifts.length, listRef);
 
   return (
     <>
       {lifts.length === 0 ? (
         <div className={styles.dimLine}>{t(HUB_LOC.liftsEmpty)}</div>
       ) : (
-        <div ref={listRef} className={styles.list}>
+        <div ref={listRef} className={cx(styles.list, styles.listAll)}>
           {lifts.map((l) => {
             const id = liftId(l);
             const seen = keyCount.get(id) ?? 0;
             keyCount.set(id, seen + 1);
             return { l, id, seen };
-          }).slice(fit.start, fit.end).map(({ l, id, seen }) => {
+          }).map(({ l, id, seen }) => {
             return (
               <LiftLine2
                 key={seen === 0 ? id : `${id}#${seen}`}
@@ -102,7 +101,6 @@ export function LiftsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): 
           })}
         </div>
       )}
-      {lifts.length > 0 && <Pager fit={fit} />}
       <Divider />
       <InfoLine
         label={t(HUB_LOC.liftsTotalLength)}

@@ -453,8 +453,10 @@ namespace SkiResortMod.Systems
         /// days, docs/research/ski-days/spec (ch4 §A: ten ResortLive fields appended; the six last-month guest fields
         /// also for a partial month); 3 was Round E1 (econ-round spec ch5 §4, design hub-v3-design.md §8); 2 was
         /// hub-u2-spec.md §2 (Rounds U2/M1). 12 = T114 + the lift generator (2026-10-20, docs/research/ui/hub-round-t114-2026-10-20.md
-        /// section 10): the `liftLine` value binding (HubLiftLineState) and the `liftLineToggle` trigger (LiftLineToolSystem on / off).</summary>
-        public const int HubContract = 12;
+        /// section 10): the `liftLine` value binding (HubLiftLineState) and the `liftLineToggle` trigger (LiftLineToolSystem on / off).
+        /// 13 = T136 (2026-10-20, docs/research/field/2026-10-20/playthrough/sim-snow-build.md): RunLive appends snowDepthCm and gunWhy
+        /// (the run tooltip says why a run is open or closed and why its snow guns run or not).</summary>
+        public const int HubContract = 13;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed
         /// after the one-shot "!!!" until the next load (amended 2026-10-01, U1 fixer round, finding
@@ -2557,6 +2559,17 @@ namespace SkiResortMod.Systems
                 LastTriggerText = $"launch {id}: locked";
                 return;
             }
+            // T125 (DECISIONS 350): a lift-line tile opens THE lift tool (LiftLineToolSystem) for its type; the vanilla net tool
+            // (quick-place) is only the fallback when the lift tool is unusable (disabled after an exception, not armed).
+            if (IsLineItem(item) && m_LiftLineTool != null && m_LiftLineTool.Usable)
+            {
+                LiftTypeDef lineType = SkiCatalog.LiftById(Items[item].LiftTypeId);
+                bool opened = m_LiftLineTool.TryActivate("hub tile " + id + SourceSuffix(source), lineType);
+                Mod.Log.Info($"Hub [launch] {id} -> lift tool (type {lineType?.Id ?? "any"}) ok={opened} ({source})");
+                LastTriggerText = $"launch {id}: {(opened ? "lift tool" : "lift tool refused")}";
+                if (opened)
+                    return;
+            }
             if (m_ItemViaUpgrade[item])
             {
                 LaunchUpgrade(item, prefab, source);
@@ -2948,6 +2961,14 @@ namespace SkiResortMod.Systems
             ToolBaseSystem tool = m_ToolSystem.activeTool;
             if (tool == null || tool == m_DefaultTool)
                 return -1;
+            if (m_LiftLineTool != null && tool == m_LiftLineTool)   // T125: the lift tool lights its type's line tile
+            {
+                LiftTypeDef t = m_LiftLineTool.PresetType;
+                for (int i = 0; t != null && i < ItemCount; i++)
+                    if (IsLineItem(i) && Items[i].LiftTypeId == t.Id)
+                        return i;
+                return -1;
+            }
             if (tool == m_ObjectTool)
             {
                 int upgrade = UpgradeItemOnCursor();
@@ -3008,7 +3029,7 @@ namespace SkiResortMod.Systems
             }
             string name = RunName(run);
             Mod.Log.Info($"Hub [focus] run {Ent(run)} \"{name}\" zoom={zoom:F0} (outline {half.x * 2f:F0} × " +
-                         $"{half.y * 2f:F0} m, centre {geometry.m_CenterPosition.x:F0}, {geometry.m_CenterPosition.z:F0}) ({source})");
+                         $"{half.y * 2f:F0} m, center {geometry.m_CenterPosition.x:F0}, {geometry.m_CenterPosition.z:F0}) ({source})");
             LastTriggerText = $"focusRun {Ent(run)} \"{name}\": zoom {zoom:F0}";
         }
 
@@ -4043,6 +4064,10 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.ValueNow));
                 writer.PropertyName("costMonth");
                 writer.Write(Fin(r.CostMonth));
+                writer.PropertyName("snowDepthCm");   // T136 (contract 13)
+                writer.Write(r.SnowDepthCm);
+                writer.PropertyName("gunWhy");        // T136 (contract 13): HubRules RunGunWhy
+                writer.Write(r.GunWhy);
                 writer.TypeEnd();
             }
             writer.ArrayEnd();

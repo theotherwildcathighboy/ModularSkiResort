@@ -374,6 +374,8 @@ namespace SkiResortMod.Systems
             }
             if (nodeTotal > shown)
                 sb.Append("  … ").Append(nodeTotal - shown).Append(" more node(s) not printed (cap ").Append(MaxNodes).Append(")\n");
+            for (int p = 0; p < paths.Count; p++)
+                AppendOrder(sb, paths[p], ref hd, LiftCensusSystem.Ent(comp[0].Id));
 
             sb.Append("Towers [summary]: line ").Append(typeName).Append(" edge ").Append(Fmt(LiftCensusSystem.Ent(comp[0].Id)))
               .Append(": ").Append(nodeTotal).Append(" node(s); towers {");
@@ -406,6 +408,90 @@ namespace SkiResortMod.Systems
                              $"({e.GetType().Name}: {e.Message}); the [nodes] block above is unaffected\n{e}");
             }
             return true;
+        }
+
+        /// <summary>One "order" line per path: the line towers numbered base -> top by distance along the line (T123,
+        /// LiftTowerNumbering; the plates still show the baked height numeral), a tower on a station's stub node (T126: the stub node
+        /// takes the prefab of the connected net with the highest NetData.m_NodePriority, GenerateNodesSystem.cs:1690-1765, which
+        /// adds the composition width, NetInitializeSystem.cs:135: the marker stub's section (SkiChairliftPiece, 6 m) ties FG / DQ
+        /// (6 m) and loses to the gondola (8.2 m) and the tram (15 m), so their stub node is a line node and spawns a pillar,
+        /// SubObjectSystem.cs:1580-1760), and nodes whose ground sits at this line's own cut ceiling (T127, LiftTowerEdit).</summary>
+        private void AppendOrder(StringBuilder sb, List<Hop> path, ref TerrainHeightData hd, Entity lineEdge)
+        {
+            int n = path.Count;
+            if (n < 2)
+                return;
+            int roleA = StationRoleOf(path[0].Node), roleB = StationRoleOf(path[n - 1].Node);
+            bool baseFirst = !(roleA == (int)StationRole.Top || roleB == (int)StationRole.Base);
+            float cutOff = LiftTowerEdit.PieceMinHeightOffsetM + 6f;
+            if (EntityManager.TryGetComponent<PrefabRef>(lineEdge, out var lp) && EntityManager.TryGetComponent<NetGeometryData>(lp.m_Prefab, out var ng))
+                cutOff = ng.m_DefaultHeightRange.min + LiftTowerEdit.PieceMinHeightOffsetM;
+            var along = new List<float>();
+            var labels = new List<string>();
+            var stub = new StringBuilder();
+            var cut = new StringBuilder();
+            float s = 0f;
+            float3 prev = default;
+            for (int i = 0; i < n; i++)
+            {
+                if (!EntityManager.TryGetComponent<Game.Net.Node>(path[i].Node, out var node))
+                    continue;
+                if (i > 0)
+                    s += math.distance(prev.xz, node.m_Position.xz);
+                prev = node.m_Position;
+                string tower = TowerName(path[i].Node);
+                bool end = i == 0 || i == n - 1;
+                if (tower != null && end)
+                    stub.Append(stub.Length > 0 ? ", " : string.Empty).Append(i == 0 ? "first" : "last").Append(" node ").Append(Fmt(path[i].Node))
+                        .Append(" carries ").Append(tower);
+                if (tower != null && !end)
+                {
+                    along.Add(s);
+                    labels.Add("n" + (i + 1).ToString(CultureInfo.InvariantCulture) + " " + tower.Replace("SkiLiftTower", string.Empty).Replace("SkiTramTower", "T"));
+                }
+                float terrain = TerrainUtils.SampleHeight(ref hd, node.m_Position);
+                if (!end && math.abs(terrain - (node.m_Position.y + cutOff)) <= LiftTowerEdit.OwnCutTolM)
+                    cut.Append(cut.Length > 0 ? ", " : string.Empty).Append('n').Append(i + 1);
+            }
+            if (!baseFirst)
+                for (int i = 0; i < along.Count; i++)
+                    along[i] = s - along[i];
+            int[] num = LiftTowerNumbering.Numbers(along);
+            var order = new string[along.Count];
+            for (int i = 0; i < along.Count; i++)
+                order[num[i] - 1] = "#" + num[i] + " " + labels[i] + " @" + F(along[i], "F0");
+            sb.Append("  order (T123): towers base -> top ").Append(roleA < 0 && roleB < 0 ? "(no station role found: from the path's first node) " : string.Empty)
+              .Append(order.Length == 0 ? "none" : string.Join(", ", order)).Append(" m\n");
+            if (stub.Length > 0)
+                sb.Append("  STATION STUB TOWER (T126): ").Append(stub).Append(" — the stub node took the line prefab (NodePriority), the engine stands a pillar there\n");
+            if (cut.Length > 0)
+                sb.Append("  OWN CUT (T127): the ground at ").Append(cut).Append(" sits at this line's cut ceiling (node y ").Append(Sg(cutOff))
+                  .Append(" m): a pit dug by the line itself\n");
+        }
+
+        /// <summary>StationRole of the station whose sub-net owns <paramref name="node"/> (-1 = not a catalog station's node).</summary>
+        private int StationRoleOf(Entity node)
+        {
+            if (!EntityManager.TryGetComponent<Owner>(node, out var owner) || !EntityManager.TryGetComponent<PrefabRef>(owner.m_Owner, out var op))
+                return -1;
+            StationDef st = SkiCatalog.StationByPrefab(m_PrefabSystem.GetPrefabName(op.m_Prefab));
+            return st != null ? (int)st.Role : -1;
+        }
+
+        /// <summary>The prefab name of the (first) tower in the node's SubObject buffer, carriers skipped; null when none.</summary>
+        private string TowerName(Entity node)
+        {
+            if (!EntityManager.TryGetBuffer(node, true, out DynamicBuffer<Game.Objects.SubObject> subs))
+                return null;
+            IReadOnlyDictionary<Entity, float> carriers = m_PrefabCatalog.CarrierGripTops;
+            for (int i = 0; i < subs.Length; i++)
+            {
+                Entity sub = subs[i].m_SubObject;
+                if (EntityManager.HasComponent<Deleted>(sub) || !EntityManager.TryGetComponent<PrefabRef>(sub, out var sp) || carriers.ContainsKey(sp.m_Prefab))
+                    continue;
+                return m_PrefabSystem.GetPrefabName(sp.m_Prefab);
+            }
+            return null;
         }
 
         // ════════════════════════════════════════════════════════════════════════════════════════

@@ -30,15 +30,27 @@
 //     Error, ToolBaseSystem.cs:533-540) and the definitions are destroyed (DestroyDefinitions, :506-518). Errors: Clear, back to
 //     editing, WARN with the count. Cost is the vanilla Temp pricing (Game.Net/CostSystem, parkmanager-dissection C.6).
 //
-// EDIT LOOP (the Park Manager / Placemaker "generate -> edit -> build" pattern, re-derived; LiftLineEdit holds the model):
-//   left click near a station = base, then top (same lift type); left click on the line = pin a tower there; left press on a tower
-//   and drag = move it (release re-plans; a free tower becomes a pin); right click on a tower = remove it (a pin is unpinned; a free
-//   tower is dropped and the others pinned, its spot excluded); right click elsewhere on the line = clear every pin; Build key
-//   (Enter by default) = build; Esc = drop the line (a second Esc leaves the tool through the frontend's Back).
+// THE ONE LIFT TOOL (T125, DECISIONS 350; build note docs/research/field/2026-10-20/playthrough/lift-tool-build.md): the hub's
+// lift-line tiles open THIS tool with their lift type (TryActivate(why, type)); the vanilla net tool ("quick-place") is no longer on
+// the player's path (the line prefabs have UIObject m_Group null, so the hub tile was the only way in). Enter on the default plan
+// builds what quick-place built, with fewer, fitted towers.
+//
+// EDIT LOOP (the Park Manager / Placemaker "generate -> edit -> build" pattern, re-derived; LiftLineEdit holds the model; the input
+// rules are the pure LiftLineInput, tested in LiftBatch):
+//   left click = the first end, then the other end. An end is a station's stub (a station that already has its line is refused:
+//   bulldoze the section to rework, then click its loose ends), a LOOSE END of a lift line of the same type (a node with one
+//   lift-line edge and no station: what a bulldozed section leaves, so a section is redrawn between its two neighbors), or, once
+//   the type is known (hub tile, or the first end), open ground (a fresh end node: quick-place's line-first drawing). Then left
+//   click on the line = add a tower (pinned); press on a tower and drag = move it; release it off the line = remove it. RIGHT
+//   CLICK = step back one action (cancel a drag, undo the last edit, drop the second end, drop the first end) and close the tool
+//   only when nothing is left (vanilla's "Undo Net Control Point", LiftLineInput). Build key (Enter by default) = build; Esc = the
+//   frontend's Back, which closes the tool (UNVERIFIED in game whether Esc also fires the tool's Cancel action: then it steps back).
+//   Before T125 right click was BOTH the tool's Cancel (drop the whole line) and Secondary Apply (remove a tower): the field test
+//   (2026-10-20 log, 11:41:03 "Edit line dropped (Esc)" on a right click) saw the line vanish.
 //
 // PREVIEW (OverlayRenderSystem.Buffer, drawn at ToolUpdate, cleared by OverlayRenderSystem every frame, OverlayRenderSystem.cs:738-790):
-//   the planned rope coloured by the lowest carrier's floor margin (LiftPlanDraw: green >= 2 m, amber 0-2, red below the floor,
-//   violet above the max rope height); every tower a ground ring coloured by its spans (green clear, red a span below the floor =
+//   the planned rope colored by the lowest carrier's floor margin (LiftPlanDraw: green >= 2 m, amber 0-2, red below the floor,
+//   violet above the max rope height); every tower a ground ring colored by its spans (green clear, red a span below the floor =
 //   SHORT, violet a span above the max rope height = ROPE TOO HIGH), a blue inner ring when pinned, a cross-bar at rope height sized
 //   by the member; the hovered tower white; the dragged tower a white ring at the cursor. Span lengths and the plan line are in the
 //   tooltip (LiftLineTooltipSystem) and in the log.
@@ -79,9 +91,13 @@ namespace SkiResortMod.Systems
         }
 
         private const float StationPickM = 40f;        // a click within this (xz) of a station's stub tip picks the station
+        private const float LooseEndPickM = 25f;       // a click within this (xz) of a loose line end picks it
         private const float StubNodeSearchM = 12f;     // the station's owned net node nearest the stub tip, within this
         private const int TempTimeoutFrames = 30;
+        private const int LooseRefreshFrames = 30;
+        private const int NoticeFrames = 240;          // a refusal stays in the tooltip about 4 s
         private static readonly UnityEngine.Color StationColor = new UnityEngine.Color(0.55f, 0.8f, 1f, 0.9f);
+        private static readonly UnityEngine.Color LooseColor = new UnityEngine.Color(1.0f, 0.75f, 0.15f, 0.9f);
         private static readonly UnityEngine.Color HoverColor = new UnityEngine.Color(1f, 1f, 1f, 0.95f);
         private static readonly UnityEngine.Color PinColor = new UnityEngine.Color(0.3f, 0.6f, 1f, 0.95f);
         private static readonly UnityEngine.Color[] TowerColors =
@@ -109,8 +125,27 @@ namespace SkiResortMod.Systems
         internal int HoverTower => m_HoverTower;
         internal int HoverStation => m_HoverStation;
         internal bool Dragging => !float.IsNaN(m_DragFrom);
+        internal bool DragOff => Dragging && m_DragOff;
         internal string LastMessage { get; private set; } = string.Empty;
-        internal string PendingTypeName => m_Type != null ? m_Type.Id : string.Empty;
+        internal string PendingTypeName => m_Type != null ? m_Type.Id : m_Preset != null ? m_Preset.Id : string.Empty;
+        /// <summary>The lift type the tool was opened for (a hub line tile), null for the hotkey / the hub's generator chip.</summary>
+        internal LiftTypeDef PresetType => m_Preset;
+        /// <summary>The player-facing refusal of the last few seconds (the tooltip shows it), else null.</summary>
+        internal string Notice => m_Notice != null && m_Frame - m_NoticeFrame < NoticeFrames ? m_Notice : null;
+
+        internal LiftLineStep Step
+        {
+            get
+            {
+                switch (m_State)
+                {
+                    case ToolState.PickBase: return LiftLineStep.PickBase;
+                    case ToolState.PickTop: return LiftLineStep.PickTop;
+                    case ToolState.Edit: return LiftLineStep.Edit;
+                    default: return LiftLineStep.Building;
+                }
+            }
+        }
 
         private ToolOutputBarrier m_Barrier;
         private TerrainSystem m_TerrainSystem;
@@ -119,20 +154,42 @@ namespace SkiResortMod.Systems
         private SkiPrefabCatalogSystem m_Catalog;
         private EntityQuery m_DefinitionQuery;
         private EntityQuery m_TempEdgeQuery;
+        private EntityQuery m_LineEdgeQuery;
         private JobHandle m_Deps;
+
+        /// <summary>One end of the line being drawn (LiftLineEndKind). Station / LooseEnd: Node is the existing net node the course
+        /// snaps to (CoursePos.m_Entity); Ground: Pos is the clicked ground point and the course makes a fresh node.</summary>
+        private struct LineEnd
+        {
+            public LiftLineEndKind Kind;
+            public Entity Station, Node;
+            public float3 Pos;
+        }
+
+        private struct LooseEnd
+        {
+            public Entity Node;
+            public float3 Pos;
+            public LiftTypeDef Type;
+        }
 
         private bool m_Armed, m_Disabled, m_ErrorLogged;
         private ToolState m_State;
         private LiftLineEdit m_Edit;
         private LiftPlanDraw m_Draw;
-        private LiftTypeDef m_Type;
+        private LiftTypeDef m_Type, m_Preset;
         private LiftTowerPlanConstants m_C;
         private Entity m_LinePrefab;
-        private Entity m_BaseStation, m_TopStation, m_BaseNode, m_TopNode;
+        private LineEnd m_Base, m_Top;
+        private readonly List<LooseEnd> m_LooseEnds = new List<LooseEnd>();
+        private int m_LooseFrame = int.MinValue / 2;
+        private string m_Notice;
+        private int m_NoticeFrame;
         private float3 m_Hit;
         private bool m_HasHit;
-        private int m_HoverTower = -1, m_HoverStation = -1;
+        private int m_HoverTower = -1, m_HoverStation = -1, m_HoverLoose = -1;
         private float m_DragFrom = float.NaN, m_DragTo = float.NaN;
+        private bool m_DragOff;   // the dragged tower is off the line: release removes it
         private bool m_BuildRequested;
         private int m_EmitFrame, m_Frame, m_Seed = 1;
         private List<LiftLineNode> m_Emitted;
@@ -153,6 +210,12 @@ namespace SkiResortMod.Systems
                 All = new[] { ComponentType.ReadOnly<Temp>(), ComponentType.ReadOnly<Edge>(), ComponentType.ReadOnly<PrefabRef>() },
                 None = new[] { ComponentType.ReadOnly<Deleted>() },
             });
+            // Player-built line edges (a station's own stub edge carries Owner): the loose-end search.
+            m_LineEdgeQuery = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<Game.Net.Edge>(), ComponentType.ReadOnly<PrefabRef>() },
+                None = new[] { ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Temp>(), ComponentType.ReadOnly<Owner>() },
+            });
             Mod.Log.Info($"{nameof(LiftLineToolSystem)} created");
         }
 
@@ -172,10 +235,11 @@ namespace SkiResortMod.Systems
             {
                 PatchSpans();
                 m_Armed = true;
-                Mod.Log.Info($"LiftLine [tool]: ARMED — '{toolID}': click a station, then the other station of the same lift; left " +
-                             "click on the line pins a tower, drag a tower to move it, right click a tower to remove it (right click " +
-                             "elsewhere on the line clears the pins), Build key builds, Esc drops the line. Objective: fewest towers " +
-                             "(spans up to FG 90 / DQ 245 / GD 245 / tram 1000 m), tall members where they save a tower");
+                Mod.Log.Info($"LiftLine [tool]: ARMED — '{toolID}' (T125: THE lift tool, opened by the hub's line tiles): click one end " +
+                             "(station stub, loose line end, or open ground once the type is known), then the other; left click on the " +
+                             "line adds a tower, drag moves one (released off the line: removed), right click steps back one action " +
+                             "(closes the tool when nothing is left), Build key builds, Esc closes. Objective: fewest towers (spans up " +
+                             "to FG 90 / DQ 245 / GD 245 / tram 1000 m), tall members where they save a tower");
             }
             catch (Exception e)
             {
@@ -248,8 +312,10 @@ namespace SkiResortMod.Systems
             Reset("activated");
             SetSpansRaised(true);
             int stations = m_Census.StationCount;
-            Mod.Log.Info($"LiftLine [tool]: running — {stations} lift station(s) in the last census; click the base station's stub " +
-                         $"(within {StationPickM:F0} m), then the top station's");
+            m_LooseFrame = int.MinValue / 2;
+            Mod.Log.Info($"LiftLine [tool]: running — type {(m_Preset != null ? m_Preset.Id : "any (pick a station)")}; {stations} lift " +
+                         $"station(s) in the last census; click the first end (station stub within {StationPickM:F0} m, loose line end " +
+                         $"within {LooseEndPickM:F0} m{(m_Preset != null ? ", or open ground" : string.Empty)}), then the other");
         }
 
         protected override void OnStopRunning()
@@ -302,7 +368,10 @@ namespace SkiResortMod.Systems
 
         // ── public controls (LiftLineHotkeySystem, main thread) ──────────────────────────────────
 
-        public bool TryActivate(string why)
+        /// <summary>Open the tool. <paramref name="type"/> = the lift type of the hub tile that opened it (picks are limited to it and
+        /// open ground is allowed from the first click); null = any type, set by the first station or loose end. Already open with
+        /// another type: the line in progress is dropped (logged) and the tool restarts for the new type.</summary>
+        public bool TryActivate(string why, LiftTypeDef type = null)
         {
             if (m_Disabled || !m_Armed)
             {
@@ -310,11 +379,24 @@ namespace SkiResortMod.Systems
                 return false;
             }
             if (IsActive)
+            {
+                if (type != m_Preset)
+                {
+                    if (m_State != ToolState.PickBase)
+                        Mod.Log.Info($"LiftLine [tool]: type changed to {(type != null ? type.Id : "any")} ({why}) — the {m_State} line is dropped");
+                    m_Preset = type;
+                    Reset("type changed");
+                }
                 return true;
+            }
+            m_Preset = type;
             m_ToolSystem.activeTool = this;   // ToolSystem.cs:84-98
-            Mod.Log.Info($"LiftLine [tool]: activated ({why})");
+            Mod.Log.Info($"LiftLine [tool]: activated ({why}; type {(type != null ? type.Id : "any")})");
             return true;
         }
+
+        /// <summary>False after an exception (until the next load) or outside a game: the hub then falls back to the vanilla net tool.</summary>
+        public bool Usable => m_Armed && !m_Disabled;
 
         public void Deactivate()
         {
@@ -332,7 +414,7 @@ namespace SkiResortMod.Systems
                 return;
             if (m_State != ToolState.Edit || m_Edit?.Plan == null)
             {
-                Say($"LiftLine [build]: nothing to build ({m_State}) — pick the base and the top station first");
+                Say($"LiftLine [build]: nothing to build ({m_State}) — pick both ends first", "Nothing to build yet: click both ends first");
                 return;
             }
             m_BuildRequested = true;
@@ -361,21 +443,15 @@ namespace SkiResortMod.Systems
             }
 
             applyMode = ApplyMode.None;
-            bool pending = m_State != ToolState.PickBase;
-            SetActions(live, live && m_State == ToolState.Edit, pending);
+            // T125: right click is the tool's Cancel action ONLY (step back). Secondary Apply stays off: both are the right mouse
+            // button by default, and with both live one click removed a tower AND dropped the whole line (field test 2026-10-20).
+            SetActions(live, false, live);
 
-            if (pending && cancelAction.WasPressedThisFrame())
+            if (cancelAction.WasPressedThisFrame())
             {
-                if (Dragging)
-                {
-                    m_DragFrom = m_DragTo = float.NaN;
-                    Say("LiftLine [edit]: drag cancelled");
-                }
-                else
-                {
-                    Say($"LiftLine [tool]: {m_State} line dropped (Esc) — click a base station to start again");
-                    Reset("cancelled");
-                }
+                StepBack();
+                if (m_State == ToolState.Edit)
+                    DrawPlan();
                 return;
             }
 
@@ -404,6 +480,44 @@ namespace SkiResortMod.Systems
             return math.all(math.isfinite(m_Hit));
         }
 
+        /// <summary>One right click (LiftLineInput.RightClick): cancel a drag, undo an edit, drop the second end, drop the first end,
+        /// or close the tool when nothing is left.</summary>
+        private void StepBack()
+        {
+            LiftLineBack back = LiftLineInput.RightClick(Step, Dragging, m_Edit != null ? m_Edit.UndoDepth : 0);
+            switch (back)
+            {
+                case LiftLineBack.CancelDrag:
+                    m_DragFrom = m_DragTo = float.NaN;
+                    Say("LiftLine [back]: move canceled (right click)");
+                    return;
+                case LiftLineBack.UndoEdit:
+                    m_Edit.Undo();
+                    Replan($"undo (right click; {m_Edit.UndoDepth} edit(s) left to undo)");
+                    return;
+                case LiftLineBack.DropTop:
+                    m_Edit = null;
+                    m_Draw = null;
+                    m_Top = default;
+                    m_HoverTower = -1;
+                    m_State = ToolState.PickTop;
+                    Say("LiftLine [back]: second end dropped (right click) — click the other end again");
+                    return;
+                case LiftLineBack.DropBase:
+                    m_Base = default;
+                    m_Type = null;
+                    m_C = null;
+                    m_LinePrefab = Entity.Null;
+                    m_State = ToolState.PickBase;
+                    Say("LiftLine [back]: first end dropped (right click) — click an end to start");
+                    return;
+                case LiftLineBack.CloseTool:
+                    Say("LiftLine [back]: nothing left — tool closed (right click)");
+                    Deactivate();
+                    return;
+            }
+        }
+
         private void SetActions(bool apply, bool secondary, bool cancel)
         {
             SetEnabled(applyAction, apply);
@@ -417,95 +531,168 @@ namespace SkiResortMod.Systems
                 action.shouldBeEnabled = value;
         }
 
-        // ── picking the stations ─────────────────────────────────────────────────────────────────
+        // ── picking the ends ────────────────────────────────────────────────────────────────────
+
+        /// <summary>The lift type a pick must have: the first end's once it is placed, else the hub tile's (null = any).</summary>
+        private LiftTypeDef WantType => m_State == ToolState.PickTop ? m_Type : m_Preset;
 
         private void UpdatePick()
         {
-            m_HoverStation = m_HasHit ? NearestStation(m_Hit) : -1;
+            RefreshLooseEnds();
+            LiftTypeDef want = WantType;
+            HoverEnd(want);
             if (!m_HasHit || !applyAction.WasPressedThisFrame())
                 return;
-            if (m_HoverStation < 0)
+
+            LineEnd end;
+            LiftTypeDef def;
+            if (m_HoverStation >= 0)
             {
-                Say($"LiftLine [pick]: no {(m_State == ToolState.PickTop ? m_Type.Id + " " : string.Empty)}lift station within " +
-                    $"{StationPickM:F0} m of the click — click next to a station's line stub");
+                if (!StationEnd(m_HoverStation, out end, out def))
+                    return;
+            }
+            else if (m_HoverLoose >= 0)
+            {
+                LooseEnd le = m_LooseEnds[m_HoverLoose];
+                if (!EntityManager.Exists(le.Node))
+                {
+                    m_LooseFrame = int.MinValue / 2;
+                    return;
+                }
+                end = new LineEnd { Kind = LiftLineEndKind.LooseEnd, Node = le.Node, Pos = NodePos(le.Node) };
+                def = le.Type;
+            }
+            else if (want != null)
+            {
+                end = new LineEnd { Kind = LiftLineEndKind.Ground, Pos = m_Hit };
+                def = want;
+            }
+            else
+            {
+                Say($"LiftLine [pick]: nothing to start from within {StationPickM:F0} m of the click (no type chosen, so open ground is " +
+                    "not offered)", "Click next to a station's line stub, or a loose end of a lift line");
                 return;
             }
-            LiftCensus.Station st = m_Census.StationAt(m_HoverStation);
-            Entity station = m_Census.StationEntityAt(m_HoverStation);
+
             if (m_State == ToolState.PickBase)
             {
-                LiftTypeDef def = st.Type < SkiCatalog.Lifts.Count ? SkiCatalog.Lifts[st.Type] : null;
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(def);
                 Entity line = def != null ? m_Catalog.LineEntity(def) : Entity.Null;
                 if (c == null || line == Entity.Null)
                 {
-                    Say($"LiftLine [pick]: station {Fmt(station)} has no lift type with a line prefab and planner constants — not usable");
+                    Say($"LiftLine [pick]: lift type {(def != null ? def.Id : "?")} has no line prefab or planner constants — not usable",
+                        "This lift type cannot be drawn yet");
                     return;
                 }
-                if (!TryStubNode(station, st.StubTip, line, out Entity node))
-                    return;
                 m_Type = def;
                 m_C = c;
                 m_LinePrefab = line;
-                m_BaseStation = station;
-                m_BaseNode = node;
+                m_Base = end;
                 m_State = ToolState.PickTop;
-                Say($"LiftLine [pick]: base = {def.Id} station {Fmt(station)} (stub node {Fmt(node)}); click the other station");
+                Say($"LiftLine [pick]: first end = {Describe(end)} ({def.Id}); click the other end");
                 return;
             }
+
             // PickTop.
-            if (station == m_BaseStation)
+            if (end.Kind != LiftLineEndKind.Ground && end.Node == m_Base.Node)
             {
-                Say("LiftLine [pick]: that is the first station — click the other one");
+                Say("LiftLine [pick]: that is the first end — click the other one", "That is the first end: click the other one");
                 return;
             }
-            if (!TryStubNode(station, st.StubTip, m_LinePrefab, out Entity top))
-                return;
-            float3 a = EntityManager.GetComponentData<Game.Net.Node>(m_BaseNode).m_Position;
-            float3 b = EntityManager.GetComponentData<Game.Net.Node>(top).m_Position;
-            if (math.distance(a.xz, b.xz) < 2f * m_C.MinSpanM)
+            if (end.Kind == LiftLineEndKind.Station && m_Base.Kind == LiftLineEndKind.Station && end.Station == m_Base.Station)
             {
-                Say($"LiftLine [pick]: the stations are {math.distance(a.xz, b.xz):F0} m apart — too close for a line");
+                Say("LiftLine [pick]: same station as the first end", "That is the first station: click the other one");
                 return;
             }
-            m_TopStation = station;
-            m_TopNode = top;
-            // Station ropes: the stub node + the shortest member's rope (the line's own HV lane rides node y + lane y, LaneSystem.cs
-            // :4112-4115; the 2026-10-20 fit lines read 947.84 at a 940.84 stub = +7.0 FG, tram +26.25).
+            float3 a = EndPos(m_Base), b = EndPos(end);
+            bool bothStations = m_Base.Kind == LiftLineEndKind.Station && end.Kind == LiftLineEndKind.Station;
+            float min = LiftLineInput.MinLengthM(m_C, bothStations);
+            if (math.distance(a.xz, b.xz) < min)
+            {
+                Say($"LiftLine [pick]: the ends are {math.distance(a.xz, b.xz):F0} m apart — under {min:F0} m, too short for a line",
+                    $"Too close: a line needs at least {min:F0} m");
+                return;
+            }
+            m_Top = end;
+            // End ropes: the end node + the shortest member's rope (the line's own HV lane rides node y + lane y, LaneSystem.cs
+            // :4112-4115; the 2026-10-20 fit lines read 947.84 at a 940.84 stub = +7.0 FG, tram +26.25). A loose end is a tower
+            // node at ground + E(member), whose rope is ground + TopM[member] - RopeBelowTopM = node y + RopeAboveBase(0): the same
+            // formula (LiftTowerFitSystem uses it for any line end without a rope lane).
             float ropeA = a.y + m_C.RopeAboveBase(0), ropeB = b.y + m_C.RopeAboveBase(0);
             m_Edit = new LiftLineEdit(m_C, a, b, ropeA, ropeB);
             m_State = ToolState.Edit;
-            Replan($"line {m_Type.Id} {Fmt(m_BaseStation)} -> {Fmt(m_TopStation)}, {m_Edit.LengthM:F0} m, station ropes " +
-                   $"{ropeA:F2} / {ropeB:F2}");
+            Replan($"line {m_Type.Id} {Describe(m_Base)} -> {Describe(m_Top)}, {m_Edit.LengthM:F0} m, end ropes {ropeA:F2} / {ropeB:F2}");
         }
 
-        /// <summary>The census station (of the pending type when picking the top) whose stub tip is nearest the hit, within
-        /// StationPickM; -1 when none.</summary>
-        private int NearestStation(float3 hit)
+        /// <summary>The station or loose end under the cursor (the nearer of the two, each within its pick radius, of the wanted type).
+        /// Sets m_HoverStation / m_HoverLoose (-1 = none).</summary>
+        private void HoverEnd(LiftTypeDef want)
         {
-            int best = -1;
-            float bestD = StationPickM;
+            m_HoverStation = m_HoverLoose = -1;
+            if (!m_HasHit)
+                return;
+            float bestD = float.PositiveInfinity;
             int n = m_Census.StationCount;
             for (int i = 0; i < n; i++)
             {
                 LiftCensus.Station st = m_Census.StationAt(i);
-                if (st.Type == LiftCensus.NoType)
+                if (st.Type == LiftCensus.NoType || (want != null && (st.Type >= SkiCatalog.Lifts.Count || SkiCatalog.Lifts[st.Type] != want)))
                     continue;
-                if (m_State == ToolState.PickTop && (m_Type == null || st.Type >= SkiCatalog.Lifts.Count || SkiCatalog.Lifts[st.Type] != m_Type))
-                    continue;
-                float d = math.distance(st.StubTip.xz, hit.xz);
-                if (d <= bestD)
+                float d = math.distance(st.StubTip.xz, m_Hit.xz);
+                if (d <= StationPickM && d < bestD)
                 {
                     bestD = d;
-                    best = i;
+                    m_HoverStation = i;
                 }
             }
-            return best;
+            for (int i = 0; i < m_LooseEnds.Count; i++)
+            {
+                LooseEnd le = m_LooseEnds[i];
+                if (want != null && le.Type != want)
+                    continue;
+                if (m_State == ToolState.PickTop && le.Node == m_Base.Node)
+                    continue;
+                float d = math.distance(le.Pos.xz, m_Hit.xz);
+                if (d <= LooseEndPickM && d < bestD)
+                {
+                    bestD = d;
+                    m_HoverLoose = i;
+                    m_HoverStation = -1;
+                }
+            }
+        }
+
+        /// <summary>A census station as a line end: its stub node, refused when the station already has its line (T125 note a: the
+        /// tool drew a new plan over the placed line, which read as "editing" it; the build was then refused).</summary>
+        private bool StationEnd(int index, out LineEnd end, out LiftTypeDef def)
+        {
+            end = default;
+            LiftCensus.Station st = m_Census.StationAt(index);
+            Entity station = m_Census.StationEntityAt(index);
+            def = st.Type < SkiCatalog.Lifts.Count ? SkiCatalog.Lifts[st.Type] : null;
+            Entity line = def != null ? m_Catalog.LineEntity(def) : Entity.Null;
+            if (def == null || line == Entity.Null)
+            {
+                Say($"LiftLine [pick]: station {Fmt(station)} has no lift type with a line prefab — not usable", "This station cannot take a line");
+                return false;
+            }
+            if (!TryStubNode(station, st.StubTip, out Entity node))
+                return false;
+            int lines = LineEdgesAt(node);
+            if (lines > 0)
+            {
+                Say($"LiftLine [pick]: station {Fmt(station)} already has its line ({lines} line edge(s) on stub node {Fmt(node)}) — refused; " +
+                    "to rework a placed line, bulldoze the section and click its two loose ends",
+                    "This station already has its line. To rework part of it, bulldoze that section, then click its two loose ends");
+                return false;
+            }
+            end = new LineEnd { Kind = LiftLineEndKind.Station, Station = station, Node = node, Pos = NodePos(node) };
+            return true;
         }
 
         /// <summary>The station's own net node nearest its stub tip (the node the vanilla net tool snaps a line to: the station-owned
         /// stub node, LiftCensusSystem.StationOfNode), from its SubNet buffer.</summary>
-        private bool TryStubNode(Entity station, float3 stubTip, Entity linePrefab, out Entity node)
+        private bool TryStubNode(Entity station, float3 stubTip, out Entity node)
         {
             node = Entity.Null;
             float best = StubNodeSearchM;
@@ -526,8 +713,82 @@ namespace SkiResortMod.Systems
             }
             if (node == Entity.Null)
                 Say($"LiftLine [pick]: station {Fmt(station)} has no own net node within {StubNodeSearchM:F0} m of its stub tip " +
-                    $"({stubTip.x:F1}, {stubTip.z:F1}) — not usable (is the station's stub missing?)");
+                    $"({stubTip.x:F1}, {stubTip.z:F1}) — not usable (is the station's stub missing?)", "This station has no line stub");
             return node != Entity.Null;
+        }
+
+        /// <summary>Player-built lift-line edges (no Owner, not Temp / Deleted) at <paramref name="node"/>.</summary>
+        private int LineEdgesAt(Entity node)
+        {
+            if (!EntityManager.TryGetBuffer(node, true, out DynamicBuffer<Game.Net.ConnectedEdge> edges))
+                return 0;
+            int count = 0;
+            for (int i = 0; i < edges.Length; i++)
+            {
+                Entity e = edges[i].m_Edge;
+                if (EntityManager.HasComponent<Owner>(e) || EntityManager.HasComponent<Deleted>(e) || EntityManager.HasComponent<Temp>(e))
+                    continue;
+                if (EntityManager.TryGetComponent<PrefabRef>(e, out var pr) && m_Catalog.LiftLineTypes.ContainsKey(pr.m_Prefab))
+                    count++;
+            }
+            return count;
+        }
+
+        /// <summary>Every loose end of a player-built lift line: a node with exactly one lift-line edge and no Owner (not a station's
+        /// stub). What bulldozing a section leaves at both sides, and the far end of a line drawn line-first. Refreshed every
+        /// LooseRefreshFrames while picking (a handful of lines: a main-thread walk).</summary>
+        private void RefreshLooseEnds()
+        {
+            if (m_Frame - m_LooseFrame < LooseRefreshFrames)
+                return;
+            m_LooseFrame = m_Frame;
+            m_LooseEnds.Clear();
+            using (var edges = m_LineEdgeQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < edges.Length; i++)
+                {
+                    Entity prefab = EntityManager.GetComponentData<PrefabRef>(edges[i]).m_Prefab;
+                    if (!m_Catalog.LiftLineTypes.TryGetValue(prefab, out LiftTypeDef def))
+                        continue;
+                    Game.Net.Edge ed = EntityManager.GetComponentData<Game.Net.Edge>(edges[i]);
+                    AddLoose(ed.m_Start, def);
+                    AddLoose(ed.m_End, def);
+                }
+            }
+        }
+
+        private void AddLoose(Entity node, LiftTypeDef def)
+        {
+            if (node == Entity.Null || EntityManager.HasComponent<Owner>(node) || EntityManager.HasComponent<Deleted>(node) ||
+                !EntityManager.HasComponent<Game.Net.Node>(node))
+                return;
+            for (int i = 0; i < m_LooseEnds.Count; i++)
+                if (m_LooseEnds[i].Node == node)
+                    return;
+            if (LineEdgesAt(node) != 1)
+                return;
+            m_LooseEnds.Add(new LooseEnd { Node = node, Pos = NodePos(node), Type = def });
+        }
+
+        private float3 NodePos(Entity node) => EntityManager.GetComponentData<Game.Net.Node>(node).m_Position;
+
+        /// <summary>The end's live world position (a node may have been refitted since the pick).</summary>
+        private float3 EndPos(LineEnd e) =>
+            e.Kind != LiftLineEndKind.Ground && EntityManager.Exists(e.Node) && EntityManager.HasComponent<Game.Net.Node>(e.Node)
+                ? NodePos(e.Node) : e.Pos;
+
+        /// <summary>The course's elevation at an end: a loose end keeps its tower's Elevation; stations and ground ends 0.</summary>
+        private float EndElevation(LineEnd e) =>
+            e.Kind == LiftLineEndKind.LooseEnd && EntityManager.TryGetComponent<Game.Net.Elevation>(e.Node, out var el) ? math.cmin(el.m_Elevation) : 0f;
+
+        private static string Describe(LineEnd e)
+        {
+            switch (e.Kind)
+            {
+                case LiftLineEndKind.Station: return "station " + Fmt(e.Station) + " (stub " + Fmt(e.Node) + ")";
+                case LiftLineEndKind.LooseEnd: return "loose end " + Fmt(e.Node);
+                default: return "ground (" + e.Pos.x.ToString("F0") + ", " + e.Pos.z.ToString("F0") + ")";
+            }
         }
 
         // ── editing ─────────────────────────────────────────────────────────────────────────────
@@ -550,16 +811,34 @@ namespace SkiResortMod.Systems
             if (Dragging)
             {
                 if (m_HasHit)
+                {
                     m_DragTo = m_Edit.Snap(along);
+                    m_DragOff = LiftLineInput.DragRemoves(lateral, PickLateralM);
+                }
                 if (!applyAction.IsPressed() || applyAction.WasReleasedThisFrame())
                 {
                     float from = m_DragFrom, to = m_DragTo;
+                    bool off = m_DragOff;
                     m_DragFrom = m_DragTo = float.NaN;
+                    m_DragOff = false;
+                    if (off)
+                    {
+                        // T125: released off the line = remove (was right click on the tower).
+                        bool pinned = m_Edit.IsPinned(from);
+                        LiftLineEditResult rr = m_Edit.RemoveTower(from);
+                        if (rr == LiftLineEditResult.Done)
+                            Replan(pinned ? $"tower at {from:F0} m unpinned (dragged off the line)" :
+                                $"tower at {from:F0} m removed (dragged off the line; the others pinned; no new tower within " +
+                                $"{m_Edit.RemovedRadiusM:F0} m of it)");
+                        else
+                            Say($"LiftLine [edit]: remove at {from:F0} m refused: {Reason(rr)}", "Cannot remove that tower: " + Reason(rr));
+                        return;
+                    }
                     LiftLineEditResult r = m_Edit.MoveTower(from, to);
                     if (r == LiftLineEditResult.Done)
                         Replan($"tower moved {from:F0} -> {to:F0} m (pinned)");
-                    else
-                        Say($"LiftLine [edit]: move {from:F0} -> {to:F0} m refused: {Reason(r)}");
+                    else if (r != LiftLineEditResult.Unchanged)
+                        Say($"LiftLine [edit]: move {from:F0} -> {to:F0} m refused: {Reason(r)}", "Cannot move the tower there: " + Reason(r));
                 }
                 return;
             }
@@ -569,41 +848,21 @@ namespace SkiResortMod.Systems
                 if (!onLine)
                 {
                     Say($"LiftLine [edit]: click {(m_HasHit ? $"{math.abs(lateral):F0} m off" : "not on the terrain")} — click within " +
-                        $"{PickLateralM:F0} m of the line");
+                        $"{PickLateralM:F0} m of the line", $"Click on the line (within {PickLateralM:F0} m) to add a tower");
                     return;
                 }
                 if (m_HoverTower > 0)
                 {
                     m_DragFrom = m_Edit.Plan.Nodes[m_HoverTower].AlongM;
                     m_DragTo = m_DragFrom;
+                    m_DragOff = false;
                     return;
                 }
                 LiftLineEditResult r = m_Edit.AddPin(along);
                 if (r == LiftLineEditResult.Done)
                     Replan($"tower added at {m_Edit.Snap(along):F0} m (pinned)");
-                else
-                    Say($"LiftLine [edit]: add at {along:F0} m refused: {Reason(r)}");
-                return;
-            }
-
-            if (secondaryApplyAction.WasPressedThisFrame() && onLine)
-            {
-                if (m_HoverTower > 0)
-                {
-                    float at = m_Edit.Plan.Nodes[m_HoverTower].AlongM;
-                    bool pinned = m_Edit.IsPinned(at);
-                    LiftLineEditResult r = m_Edit.RemoveTower(at);
-                    if (r == LiftLineEditResult.Done)
-                        Replan(pinned ? $"tower at {at:F0} m unpinned" :
-                            $"tower at {at:F0} m removed (the others pinned; no new tower within {m_Edit.RemovedRadiusM:F0} m of it)");
-                    else
-                        Say($"LiftLine [edit]: remove at {at:F0} m refused: {Reason(r)}");
-                }
-                else if (m_Edit.Pins.Count > 0 || m_Edit.Removed.Count > 0)
-                {
-                    m_Edit.ClearPins();
-                    Replan("every pin cleared (right click off a tower): the planner's own line");
-                }
+                else if (r != LiftLineEditResult.Unchanged)
+                    Say($"LiftLine [edit]: add at {along:F0} m refused: {Reason(r)}", "Cannot add a tower there: " + Reason(r));
             }
         }
 
@@ -611,7 +870,7 @@ namespace SkiResortMod.Systems
         {
             switch (r)
             {
-                case LiftLineEditResult.TooCloseToStation: return "too close to a station";
+                case LiftLineEditResult.TooCloseToStation: return "too close to an end of the line";
                 case LiftLineEditResult.TooCloseToPin: return "too close to a pinned tower";
                 case LiftLineEditResult.Unchanged: return "nothing changed";
                 case LiftLineEditResult.NoTower: return "no tower there";
@@ -650,16 +909,22 @@ namespace SkiResortMod.Systems
         private void EmitCourses()
         {
             List<LiftLineNode> nodes = m_Edit.Emit();
-            if (nodes.Count < 2 || !EntityManager.Exists(m_BaseNode) || !EntityManager.Exists(m_TopNode))
+            if (nodes.Count < 2 || !EndAlive(m_Base) || !EndAlive(m_Top))
             {
-                Say("LiftLine [build]: a station's stub node is gone — line dropped");
-                Reset("stub gone");
+                Say("LiftLine [build]: an end node is gone (station or loose end removed) — line dropped",
+                    "An end of the line is gone: click both ends again");
+                Reset("end gone");
                 return;
             }
-            // The station ends are the live stub nodes.
+            // Station and loose ends are the live nodes (CoursePos.m_Entity snaps the course to them); a ground end is a fresh node
+            // at the clicked ground point. A loose end keeps its tower's Elevation.
+            Entity baseNode = m_Base.Kind == LiftLineEndKind.Ground ? Entity.Null : m_Base.Node;
+            Entity topNode = m_Top.Kind == LiftLineEndKind.Ground ? Entity.Null : m_Top.Node;
             LiftLineNode first = nodes[0], last = nodes[nodes.Count - 1];
-            first.Position = EntityManager.GetComponentData<Game.Net.Node>(m_BaseNode).m_Position;
-            last.Position = EntityManager.GetComponentData<Game.Net.Node>(m_TopNode).m_Position;
+            first.Position = EndPos(m_Base);
+            first.ElevationM = EndElevation(m_Base);
+            last.Position = EndPos(m_Top);
+            last.ElevationM = EndElevation(m_Top);
             nodes[0] = first;
             nodes[nodes.Count - 1] = last;
 
@@ -673,9 +938,9 @@ namespace SkiResortMod.Systems
                     m_Curve = NetUtils.StraightCurve(a.Position, b.Position),
                     m_FixedIndex = -1,
                 };
-                course.m_StartPosition = Pos(course.m_Curve, a, 0f, i == 0 ? m_BaseNode : Entity.Null,
+                course.m_StartPosition = Pos(course.m_Curve, a, 0f, i == 0 ? baseNode : Entity.Null,
                                              i == 0 ? CoursePosFlags.IsFirst : 0);
-                course.m_EndPosition = Pos(course.m_Curve, b, 1f, i + 1 == nodes.Count - 1 ? m_TopNode : Entity.Null,
+                course.m_EndPosition = Pos(course.m_Curve, b, 1f, i + 1 == nodes.Count - 1 ? topNode : Entity.Null,
                                            i + 1 == nodes.Count - 1 ? CoursePosFlags.IsLast : 0);
                 course.m_Length = MathUtils.Length(course.m_Curve);
                 var definition = new CreationDefinition
@@ -692,8 +957,12 @@ namespace SkiResortMod.Systems
             m_Emitted = nodes;
             m_EmitFrame = m_Frame;
             m_State = ToolState.Emitted;
-            Say($"LiftLine [build]: {nodes.Count - 1} course(s) emitted for {nodes.Count - 2} tower(s) — {m_Edit.Describe()}");
+            Say($"LiftLine [build]: {nodes.Count - 1} course(s) emitted for {nodes.Count - 2} tower(s), {Describe(m_Base)} -> " +
+                $"{Describe(m_Top)} — {m_Edit.Describe()}");
         }
+
+        private bool EndAlive(LineEnd e) =>
+            e.Kind == LiftLineEndKind.Ground || (EntityManager.Exists(e.Node) && !EntityManager.HasComponent<Deleted>(e.Node));
 
         private static CoursePos Pos(Bezier4x3 curve, LiftLineNode n, float delta, Entity entity, CoursePosFlags end)
         {
@@ -738,6 +1007,8 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn($"LiftLine [build]: the game refuses the line ({errors} error(s) on the preview, {temps} Temp edge(s) of " +
                              $"{expected}) — nothing built; back to editing. Move the towers off whatever blocks them and Build again");
                 LastMessage = $"Build refused: {errors} error(s)";
+                m_Notice = $"The game refused the line ({errors} problem(s) on the preview): move the towers off what blocks them";
+                m_NoticeFrame = m_Frame;
                 applyMode = ApplyMode.Clear;
                 m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
                 m_State = ToolState.Edit;
@@ -758,20 +1029,35 @@ namespace SkiResortMod.Systems
         {
             OverlayRenderSystem.Buffer buffer = m_Overlay.GetBuffer(out JobHandle deps);
             deps.Complete();
+            LiftTypeDef want = WantType;
+            var ring = new float2(0f, 1f);
             int n = m_Census.StationCount;
             for (int i = 0; i < n; i++)
             {
                 LiftCensus.Station st = m_Census.StationAt(i);
                 if (st.Type == LiftCensus.NoType)
                     continue;
-                if (m_State == ToolState.PickTop && (st.Type >= SkiCatalog.Lifts.Count || SkiCatalog.Lifts[st.Type] != m_Type))
+                if (want != null && (st.Type >= SkiCatalog.Lifts.Count || SkiCatalog.Lifts[st.Type] != want))
                     continue;
                 UnityEngine.Color c = i == m_HoverStation ? HoverColor : StationColor;
-                buffer.DrawCircle(c, c, 0f, OverlayRenderSystem.StyleFlags.Projected, new float2(0f, 1f), st.StubTip, i == m_HoverStation ? 10f : 7f);
+                buffer.DrawCircle(c, c, 0f, OverlayRenderSystem.StyleFlags.Projected, ring, st.StubTip, i == m_HoverStation ? 10f : 7f);
             }
-            if (m_State == ToolState.PickTop && m_HasHit && EntityManager.Exists(m_BaseNode))
+            // T125: the loose ends a section can be redrawn from (amber).
+            for (int i = 0; i < m_LooseEnds.Count; i++)
             {
-                float3 a = EntityManager.GetComponentData<Game.Net.Node>(m_BaseNode).m_Position;
+                LooseEnd le = m_LooseEnds[i];
+                if (want != null && le.Type != want)
+                    continue;
+                UnityEngine.Color c = i == m_HoverLoose ? HoverColor : LooseColor;
+                buffer.DrawCircle(c, c, 0f, OverlayRenderSystem.StyleFlags.Projected, ring, le.Pos, i == m_HoverLoose ? 8f : 5f);
+            }
+            bool onGround = m_HasHit && want != null && m_HoverStation < 0 && m_HoverLoose < 0;
+            if (onGround)   // open ground takes a fresh end here
+                buffer.DrawCircle(HoverColor, HoverColor, 0f, OverlayRenderSystem.StyleFlags.Projected, ring, m_Hit, 4f);
+            if (m_State == ToolState.PickTop && m_HasHit)
+            {
+                float3 a = EndPos(m_Base);
+                buffer.DrawCircle(HoverColor, HoverColor, 0f, OverlayRenderSystem.StyleFlags.Projected, ring, a, 6f);
                 buffer.DrawLine(StationColor, StationColor, 0f, OverlayRenderSystem.StyleFlags.Projected,
                     new Line3.Segment(a, m_Hit), 1.5f, new float2(1f, 1f));
             }
@@ -822,9 +1108,11 @@ namespace SkiResortMod.Systems
             }
             if (Dragging && !float.IsNaN(m_DragTo))
             {
-                float3 p = m_Edit.PointAt(m_DragTo);
+                // Off the line (release removes the tower): a red ring at the cursor; else white at the snapped spot.
+                float3 p = m_DragOff && m_HasHit ? m_Hit : m_Edit.PointAt(m_DragTo);
                 p.y = m_HasHit ? m_Hit.y : p.y;
-                buffer.DrawCircle(HoverColor, HoverColor, 0f, OverlayRenderSystem.StyleFlags.Projected, new float2(0f, 1f), p, 8f);
+                UnityEngine.Color dc = m_DragOff ? TowerColors[1] : HoverColor;
+                buffer.DrawCircle(dc, dc, 0f, OverlayRenderSystem.StyleFlags.Projected, new float2(0f, 1f), p, 8f);
             }
         }
 
@@ -837,16 +1125,25 @@ namespace SkiResortMod.Systems
             m_Draw = null;
             m_Type = null;
             m_C = null;
-            m_LinePrefab = m_BaseStation = m_TopStation = m_BaseNode = m_TopNode = Entity.Null;
-            m_HoverTower = m_HoverStation = -1;
+            m_LinePrefab = Entity.Null;
+            m_Base = m_Top = default;
+            m_HoverTower = m_HoverStation = m_HoverLoose = -1;
             m_DragFrom = m_DragTo = float.NaN;
+            m_DragOff = false;
             m_BuildRequested = false;
             m_Emitted = null;
+            m_LooseFrame = int.MinValue / 2;
         }
 
-        private void Say(string line)
+        /// <summary>Log a line; <paramref name="notice"/> = the short player text the tooltip shows for a few seconds (refusals).</summary>
+        private void Say(string line, string notice = null)
         {
             LastMessage = line.Length > 160 ? line.Substring(0, 160) : line;
+            if (notice != null)
+            {
+                m_Notice = notice;
+                m_NoticeFrame = m_Frame;
+            }
             Mod.Log.Info(line);
         }
 

@@ -957,38 +957,29 @@ namespace SkiResortMod.Systems
 
         /// <summary>M9, MAIN THREAD ONLY (managed arrays; the one exception in this file). <paramref name="snowHour"/>
         /// holds one entry per hour of the year (24 × days, wrapping). For each hour h, the window is hours h − 23 … h
-        /// (wrapping): PowderMark(PowderOf(snow-hours in it)) → <paramref name="markHours"/>[MonthOfHour(h)]++, and a
-        /// snow hour h → <paramref name="snowHours"/>[MonthOfHour(h)]++. Both outputs are cleared first. A sliding sum:
+        /// (wrapping): PowderMark(PowderOf(FreshSteps(the fresh snow in it, <paramref name="freshHour"/>; T134))) → <paramref name="markHours"/>[MonthOfHour(h)]++, and a
+        /// snow hour h → <paramref name="snowHours"/>[MonthOfHour(h)]++. Both outputs are cleared first. 24 adds per hour:
         /// O(hours).</summary>
-        public static void MarkHoursPerMonth(bool[] snowHour, int daysPerYear, int[] markHours, int[] snowHours)
+        public static void MarkHoursPerMonth(bool[] snowHour, float[] freshHour, int daysPerYear, int[] markHours, int[] snowHours)
         {
             if (markHours != null)
                 Array.Clear(markHours, 0, markHours.Length);
             if (snowHours != null)
                 Array.Clear(snowHours, 0, snowHours.Length);
-            if (snowHour == null || markHours == null || snowHours == null)
+            if (snowHour == null || freshHour == null || markHours == null || snowHours == null)
                 return;
             int days = math.max(1, daysPerYear);
-            int n = math.min(snowHour.Length, 24 * days);
+            int n = math.min(math.min(snowHour.Length, freshHour.Length), 24 * days);
             if (n <= 0)
                 return;
-            int window = 0;
-            for (int k = 0; k < 24; k++)
-            {
-                if (snowHour[((-23 + k) % n + n) % n])
-                    window++;   // hours −23 … 0 (wrapping): the window of h = 0
-            }
             for (int h = 0; h < n; h++)
             {
-                if (h > 0)
-                {
-                    if (snowHour[h])
-                        window++;
-                    if (snowHour[((h - 24) % n + n) % n])
-                        window--;
-                }
+                // T134: the window's fresh snow, summed afresh each hour (24 adds; no drift from a running float sum).
+                double fresh = 0.0;
+                for (int k = 0; k < 24; k++)
+                    fresh += freshHour[((h - k) % n + n) % n];
                 int m = SkiDayRules.MonthOfHour(h, days);
-                if (SkiDayRules.PowderMark(SkiDayRules.PowderOf(window)) && (uint)m < (uint)markHours.Length)
+                if (SkiDayRules.PowderMark(SkiDayRules.PowderOf(SkiDayRules.FreshSteps(fresh))) && (uint)m < (uint)markHours.Length)
                     markHours[m]++;
                 if (snowHour[h] && (uint)m < (uint)snowHours.Length)
                     snowHours[m]++;

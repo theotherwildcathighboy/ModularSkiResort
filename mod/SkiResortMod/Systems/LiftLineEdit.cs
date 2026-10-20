@@ -4,14 +4,15 @@
 //
 // THE MODEL
 //   * Two station ends A (base click) and B (top click): the stub-tip nodes' world positions; the line is the straight xz segment
-//     A -> B ("along" = metres from A in xz). Station ropes RopeA / RopeB are given (LiftLineToolSystem: the station's bullwheel
+//     A -> B ("along" = meters from A in xz). Station ropes RopeA / RopeB are given (LiftLineToolSystem: the station's bullwheel
 //     height, else stub node y + the shortest member's rope).
 //   * PINS: positions the user fixed (click on the line = add, drag a tower = move, which pins a free tower). Pins are snapped to the
 //     planner's sample grid (StepM: 5 m, tram 10 m), so a pin is a planner sample and LiftTowerPlanner.Plan keeps it exactly as a
 //     seed (Plan: k = round(along / StepM)). A pin closer than MinSpanM to a station or to another pin is refused.
 //   * THE PLAN = LiftTowerPlanner.Plan(seeds = pins): the fewest-towers search fills every pin-to-pin segment (round 2 objective),
 //     members by phase (c) for every tower (pinned ones included). Re-planned after every change.
-//   * REMOVE (right click on a tower): a pinned tower is unpinned (the planner may put a tower back near it if the line needs one);
+//   * UNDO (T125, right click): every Done edit saves the pins / removed spots before it; Undo restores the last (UndoDepth).
+//   * REMOVE (drag a tower off the line; was right click before T125): a pinned tower is unpinned (the planner may put a tower back near it if the line needs one);
 //     a FREE tower is removed by pinning every OTHER line tower where it stands and dropping this one — the user's "not here" sticks,
 //     and the planner fills only spans that still exceed MaxSpanM or violate the floor; it never puts a NEW tower within
 //     RemovedRadiusM of a removed spot (LiftTowerPlanner.Forbidden), so a tower the span still needs lands elsewhere in it.
@@ -42,7 +43,7 @@ namespace SkiResortMod.Systems
     {
         public float AlongM;
         public float3 Position;   // world: stations = the stub node; towers = (x, ground + ElevationM, z)
-        public float GroundM;     // centre ground (towers)
+        public float GroundM;     // center ground (towers)
         public float ElevationM;  // E = TopM[member] - TopM[0] (towers); 0 for stations
         public int Member;        // ladder index; -1 for a station
         public LiftLineNodeKind Kind;
@@ -157,8 +158,40 @@ namespace SkiResortMod.Systems
 
         // ── edits (the caller re-plans after Done) ───────────────────────────────────────────────
 
+        // ── undo (T125: right click steps back one action) ───────────────────────────────────────
+        // Every edit that returns Done first saves the pins and removed spots it changed; Undo restores the last save (the
+        // caller re-plans). ClearPins saves too, so it can be undone.
+
+        private readonly List<float[][]> m_Undo = new List<float[][]>();
+
+        /// <summary>Edits that can be undone (0 = the planner's own line as it was first drawn, or after every undo).</summary>
+        public int UndoDepth => m_Undo.Count;
+
+        private float[][] Snapshot() => new[] { m_Pins.ToArray(), m_Removed.ToArray() };
+
+        private LiftLineEditResult Saved(float[][] before, LiftLineEditResult r)
+        {
+            if (r == LiftLineEditResult.Done)
+                m_Undo.Add(before);
+            return r;
+        }
+
+        /// <summary>Step back one edit: the pins and removed spots before it. False when there is nothing to undo.</summary>
+        public bool Undo()
+        {
+            if (m_Undo.Count == 0)
+                return false;
+            float[][] s = m_Undo[m_Undo.Count - 1];
+            m_Undo.RemoveAt(m_Undo.Count - 1);
+            m_Pins.Clear();
+            m_Pins.AddRange(s[0]);
+            m_Removed.Clear();
+            m_Removed.AddRange(s[1]);
+            return true;
+        }
+
         /// <summary>Pin a tower at <paramref name="alongM"/> (snapped). Refused within MinSpanM of a station or of another pin.</summary>
-        public LiftLineEditResult AddPin(float alongM) => AddPinExcept(alongM, float.NaN);
+        public LiftLineEditResult AddPin(float alongM) => Saved(Snapshot(), AddPinExcept(alongM, float.NaN));
 
         private LiftLineEditResult AddPinExcept(float alongM, float ignore)
         {
@@ -187,7 +220,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>Move the tower at <paramref name="fromAlongM"/> (a pin, or a free tower, which becomes a pin) to
         /// <paramref name="toAlongM"/> (snapped). Refused like AddPin; the old pin stays when refused.</summary>
-        public LiftLineEditResult MoveTower(float fromAlongM, float toAlongM)
+        public LiftLineEditResult MoveTower(float fromAlongM, float toAlongM) => Saved(Snapshot(), MoveTowerCore(fromAlongM, toAlongM));
+
+        private LiftLineEditResult MoveTowerCore(float fromAlongM, float toAlongM)
         {
             bool wasPinned = IsPinned(fromAlongM);
             float s = Snap(toAlongM);
@@ -195,7 +230,7 @@ namespace SkiResortMod.Systems
             {
                 if (wasPinned)
                     return LiftLineEditResult.Unchanged;
-                return AddPin(fromAlongM);   // a click-drag that did not move pins the free tower where it is
+                return AddPinExcept(fromAlongM, float.NaN);   // a click-drag that did not move pins the free tower where it is
             }
             LiftLineEditResult r = AddPinExcept(s, wasPinned ? fromAlongM : float.NaN);
             if (r != LiftLineEditResult.Done)
@@ -205,9 +240,11 @@ namespace SkiResortMod.Systems
             return LiftLineEditResult.Done;
         }
 
-        /// <summary>Right click on a line tower: a pin is unpinned; a free tower is removed by pinning every other line tower where it
-        /// stands and dropping this one.</summary>
-        public LiftLineEditResult RemoveTower(float alongM)
+        /// <summary>A tower dragged off the line (T125; was right click): a pin is unpinned; a free tower is removed by pinning every
+        /// other line tower where it stands and dropping this one.</summary>
+        public LiftLineEditResult RemoveTower(float alongM) => Saved(Snapshot(), RemoveTowerCore(alongM));
+
+        private LiftLineEditResult RemoveTowerCore(float alongM)
         {
             if (Plan == null)
                 return LiftLineEditResult.NoTower;
@@ -238,6 +275,8 @@ namespace SkiResortMod.Systems
         /// <summary>Back to the planner's own line: no pins, no removed spots.</summary>
         public void ClearPins()
         {
+            if (m_Pins.Count > 0 || m_Removed.Count > 0)
+                m_Undo.Add(Snapshot());
             m_Pins.Clear();
             m_Removed.Clear();
         }
@@ -299,6 +338,116 @@ namespace SkiResortMod.Systems
             sb.Append(" m (").Append(LengthM.ToString("F0", CultureInfo.InvariantCulture)).Append(" m); min floor margin ")
               .Append(LiftTowerPlan.Sg(Plan.MinFloorMarginM)).Append(" m; ").Append(Plan.Clear ? "clear" : "VIOLATED");
             return sb.ToString();
+        }
+    }
+
+    /// <summary>The tool's step (LiftLineToolSystem.ToolState without its two build frames).</summary>
+    public enum LiftLineStep : byte
+    {
+        PickBase,
+        PickTop,
+        Edit,
+        Building,
+    }
+
+    /// <summary>What one right click does (LiftLineInput.RightClick).</summary>
+    public enum LiftLineBack : byte
+    {
+        None,        // building: ignored
+        CancelDrag,  // a tower is being dragged: it goes back where it was
+        UndoEdit,    // the last add / move / remove is undone
+        DropTop,     // no edit left: the second point goes, the tool waits for it again
+        DropBase,    // the first point goes
+        CloseTool,   // nothing left: back to the default tool
+    }
+
+    /// <summary>What a line end is: a station's stub node, the loose end of a lift line (a section was bulldozed: the node has
+    /// one lift-line edge and no station), or open ground (a fresh end node, the vanilla net tool's line-first drawing).</summary>
+    public enum LiftLineEndKind : byte
+    {
+        Station,
+        LooseEnd,
+        Ground,
+    }
+
+    /// <summary>T125 — the lift tool's input rules, pure so LiftBatch tests them (LT-T125-*). One model for every lift type:
+    /// left click places a point / adds a tower, drag moves a tower (released off the line: removes it), right click steps back
+    /// one action and closes the tool only when nothing is left, the Build key (Enter) builds, Esc closes (the frontend's Back).
+    /// Vanilla: NetToolSystem binds right click ("Cancel", override "Undo Net Control Point") to removing the LAST control point
+    /// (NetToolSystem.cs:5482-5483 enable, :6256-6330 Cancel -> m_ControlPoints.RemoveAt(Length - 1)); it disables the action
+    /// when fewer than two points are placed (:5482), where we close the tool instead (ticket T125: "cancels the tool only when
+    /// nothing is left").</summary>
+    public static class LiftLineInput
+    {
+        public static LiftLineBack RightClick(LiftLineStep step, bool dragging, int undoDepth)
+        {
+            switch (step)
+            {
+                case LiftLineStep.Edit:
+                    if (dragging)
+                        return LiftLineBack.CancelDrag;
+                    return undoDepth > 0 ? LiftLineBack.UndoEdit : LiftLineBack.DropTop;
+                case LiftLineStep.PickTop:
+                    return LiftLineBack.DropBase;
+                case LiftLineStep.PickBase:
+                    return LiftLineBack.CloseTool;
+                default:
+                    return LiftLineBack.None;
+            }
+        }
+
+        /// <summary>The step after a right click (CloseTool / None leave it as it is: the tool closes or ignores the click).</summary>
+        public static LiftLineStep After(LiftLineStep step, LiftLineBack back)
+        {
+            switch (back)
+            {
+                case LiftLineBack.DropTop: return LiftLineStep.PickTop;
+                case LiftLineBack.DropBase: return LiftLineStep.PickBase;
+                default: return step;
+            }
+        }
+
+        /// <summary>A drag released this far (or more) to the side of the line removes the tower instead of moving it.</summary>
+        public static bool DragRemoves(float lateralM, float pickLateralM) => math.abs(lateralM) > pickLateralM;
+
+        /// <summary>The shortest line the tool draws: two planner samples, the fit's own floor (LiftTowerFitSystem "too short to
+        /// fit"). A station-to-station line also needs room for its two station run-outs (2 x MinSpanM), as before.</summary>
+        public static float MinLengthM(LiftTowerPlanConstants c, bool bothStations) =>
+            bothStations ? 2f * c.MinSpanM : 2f * c.StepM;
+
+        /// <summary>The player name of a lift type id (SkiCatalog LiftTypeDef.Id); "Lift" when unknown.</summary>
+        public static string TypeName(string typeId)
+        {
+            switch (typeId)
+            {
+                case "fixedGrip": return "Fixed-grip";
+                case "detachable": return "Detachable";
+                case "gondola": return "Gondola";
+                case "tram": return "Tram";
+                default: return "Lift";
+            }
+        }
+
+        /// <summary>The step hint: ALWAYS a non-empty line that names what the next click does in this step.</summary>
+        public static string Prompt(LiftLineStep step, string typeId, bool dragging)
+        {
+            string type = string.IsNullOrEmpty(typeId) ? "Lift" : TypeName(typeId);
+            switch (step)
+            {
+                case LiftLineStep.PickBase:
+                    return string.IsNullOrEmpty(typeId)
+                        ? "Lift line: click a lift station or a loose line end to start · right click: close"
+                        : type + " line: click a station, a loose line end or open ground to start · right click: close";
+                case LiftLineStep.PickTop:
+                    return type + " line: click the other end (a station, a loose line end or open ground) · right click: back";
+                case LiftLineStep.Edit:
+                    return dragging
+                        ? "Release: place the tower here · release off the line: remove it · right click: cancel the move"
+                        : "Click the line: add a tower · drag a tower: move it (off the line: remove it) · right click: undo · " +
+                          "Enter: build · Esc: close";
+                default:
+                    return type + " line: building…";
+            }
         }
     }
 

@@ -138,6 +138,14 @@ namespace ResortBatch
             Eq(HubRules.LiftStatusOf(3, true), HubLiftStatus.Unfinished, w, "LiftStatusOf(3,true)");
             Eq(HubRules.LiftStatusOf(4, false), HubLiftStatus.Unfinished, w, "LiftStatusOf(4,false)");
             Eq(HubRules.LiftStatusOf(9, true), HubLiftStatus.Unfinished, w, "LiftStatusOf(9,true)");
+            // T132 (field 2026-10-20 note 20): a held-closed complete lift reads Closed, chairs on the loop or not; No power wins.
+            Eq(HubRules.LiftStatusOf(0, true, true), HubLiftStatus.Closed, w, "T132 LiftStatusOf(0,true,closed) = Closed (held chairs on the loop)");
+            Eq(HubRules.LiftStatusOf(1, true, true), HubLiftStatus.Closed, w, "T132 LiftStatusOf(1,true,closed) = Closed");
+            Eq(HubRules.LiftStatusOf(0, false, true), HubLiftStatus.NoPower, w, "T132 LiftStatusOf(0,false,closed) = NoPower (power first)");
+            Eq(HubRules.LiftStatusOf(2, true, true), HubLiftStatus.SectionMissing, w, "T132 LiftStatusOf(2,true,closed) = SectionMissing");
+            Eq(HubRules.LiftStatusOf(3, true, true), HubLiftStatus.Unfinished, w, "T132 LiftStatusOf(3,true,closed) = Unfinished");
+            Eq(HubRules.LiftStatusOf(0, true, false), HubLiftStatus.Running, w, "T132 LiftStatusOf(0,true,open) = Running (the tram in October)");
+            Eq((int)HubLiftStatus.Closed, 5, w, "T132 Closed appended as 5 (bindings.ts LIFT_STATUS.Closed)");
 
             // RideTimeS
             NearF(HubRules.RideTimeS(2045f), 409.0, 0.01, w, "RideTimeS(2045)");
@@ -1280,7 +1288,7 @@ namespace ResortBatch
             // takes sixths, 7 h = exactly 0.5). One check.
             bool parity = true;
             string first = "";
-            for (int h = 0; h <= 24; h++)
+            for (int h = 0; h <= 48; h++)   // T134: fresh steps 0..48 (24 h at precipitation 1)
             {
                 double powder = SkiDayRules.PowderOf(h);
                 bool cs = SkiDayRules.PowderMark(powder), ts = HubRules.Percent(powder) >= 50;

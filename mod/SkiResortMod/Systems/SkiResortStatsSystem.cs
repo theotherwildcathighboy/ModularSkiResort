@@ -330,6 +330,8 @@ namespace SkiResortMod.Systems
     {
         public Entity Entity; public int OpenState; public float OpenFactor; public int SnowPct; public bool SnowEstimated;
         public float ValueNow; public int CostMonth;
+        public int SnowDepthCm;   // T136 (contract 13): mean depth, cm; -1 not measured
+        public int GunWhy;        // T136 (contract 13): RunGunWhy
     }
 
     /// <summary>bindings.ts LiftRow (contract 3): the contract-2 fields, then nine new ones. Entity = the census
@@ -638,7 +640,7 @@ namespace SkiResortMod.Systems
         private bool m_IndexBuilt;
         private int m_IndexBuildingCount = -1;
         private int m_SigCatalog = int.MinValue, m_SigCensus = int.MinValue, m_SigLoops = int.MinValue,
-            m_SigAttract = int.MinValue, m_SigTexels = int.MinValue, m_SigSnow = int.MinValue, m_SigGuests = int.MinValue,
+            m_SigAttract = int.MinValue, m_SigTexels = int.MinValue, m_SigSnow = int.MinValue, m_SigGuns = int.MinValue, m_SigGuests = int.MinValue,
             m_SigCharge = int.MinValue, m_SigSkiDays = int.MinValue;
         // Round S1 (ch4 §A.4, §C.4): both ski-day settings 0 (set once per rebuild in BuildResortRows, read by
         // BuildProblems); F1's hysteresis state — the signs whose band showed the Efficiency row on the last build
@@ -844,7 +846,7 @@ namespace SkiResortMod.Systems
             m_IndexBuildingCount = -1;
             m_Index.Clear();
             m_SigCatalog = m_SigCensus = m_SigLoops = m_SigAttract = m_SigTexels = int.MinValue;
-            m_SigSnow = m_SigGuests = m_SigCharge = m_SigSkiDays = int.MinValue;
+            m_SigSnow = m_SigGuns = m_SigGuests = m_SigCharge = m_SigSkiDays = int.MinValue;
             // Round S1 (ch4 §A.4, §C.4): the ski-day systems of this world (null-safe) and a fresh F1 state.
             m_SkiDays = World.GetExistingSystemManaged<SkiDaySystem>();
             m_LodgeParking = World.GetExistingSystemManaged<SkiLodgeParkingSystem>();
@@ -973,6 +975,8 @@ namespace SkiResortMod.Systems
                         sig = WhyTexels;
                     else if (m_Injection.RunSnowGeneration != m_SigSnow)
                         sig = WhySnow;
+                    else if (m_Injection.GunGeneration != m_SigGuns)
+                        sig = WhySnow;   // T136: a run's guns started or stopped (RunLive.gunWhy)
                     else if (m_GuestCounter.Revision != m_SigGuests)
                         sig = WhyGuests;
                     else if (m_LiftCharge.Revision != m_SigCharge)
@@ -1014,6 +1018,7 @@ namespace SkiResortMod.Systems
             m_SigAttract = m_Attractiveness.Generation;
             m_SigTexels = m_Injection.RunTexelGeneration;
             m_SigSnow = m_Injection.RunSnowGeneration;
+            m_SigGuns = m_Injection.GunGeneration;   // T136
             m_SigGuests = m_GuestCounter.Revision;
             m_SigCharge = m_LiftCharge.Revision;
             m_SigSkiDays = m_SkiDays != null ? m_SkiDays.Revision : 0;   // Round S1
@@ -1674,11 +1679,25 @@ namespace SkiResortMod.Systems
                     SnowEstimated = bound && snow.Source == RunSnowSource.Estimated,
                     ValueNow = member ? (float)part.Value : 0f,
                     CostMonth = (int)Math.Round(cost, MidpointRounding.AwayFromZero),
+                    SnowDepthCm = bound && snow.Source == RunSnowSource.Measured ? HubRules.DepthCm(snow.MeanDepthM) : -1,   // T136
+                    GunWhy = (int)GunWhyOf(row.Entity, bound && (row.Kind == (int)RunKind.Snowmaking || row.Kind == (int)RunKind.Night)),
                 });
                 m_RunTops.Add(row.NodeTopPos);
                 m_RunOutlines.Add(row.OutlineXZ);   // T06: the catalog row's array, by reference (the link graph keeps while it is unchanged)
                 m_RunAreas.Add(bound ? resort : -1);
             }
+        }
+
+        /// <summary>T136: the run's snow-gun line (HubRules.GunWhyOf) from the injection's per-run gun state (T46) and season (T135).</summary>
+        private RunGunWhy GunWhyOf(Entity run, bool gunRun)
+        {
+            if (!gunRun)
+                return RunGunWhy.None;
+            bool known = m_Injection.TryGetRunGunState(run, out SnowGunPlumeRules.GunState state, out float _) &&
+                         state != SnowGunPlumeRules.GunState.Unknown;
+            m_Injection.TryGetRunGunsRunning(run, out bool runningNow);
+            return HubRules.GunWhyOf(true, m_SnowLine.IsSnowGatingEnabled(), m_Injection.GunSeasonNow, known,
+                                     state == SnowGunPlumeRules.GunState.Running, runningNow);
         }
 
         /// <summary>ch5 §5.3 step 5: the census as served-rule lifts (power read now) and the rule over every
@@ -1923,7 +1942,8 @@ namespace SkiResortMod.Systems
                     HasTop = IsLive(topStation),
                     Powered = powered,
                     Counted = counted,
-                    Status = (int)HubRules.LiftStatusOf(state, powered),
+                    // T132: closed (the held-closed flag read above) makes a held lift read Closed, not Running.
+                    Status = (int)HubRules.LiftStatusOf(state, powered, closed),
                     // Catalog Phase B (round-2-contract §6.4; was HubRules.RideTimeS((float)loopM), the fixed-grip speed):
                     // half the loop at the row type's speed (fixed-grip 2.5 = today's value). Catalog Phase C (§6.2; was the
                     // same expression inline): the local rideTimeS = that expression for a Loop row, the trip for a tram.

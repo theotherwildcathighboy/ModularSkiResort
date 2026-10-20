@@ -90,7 +90,7 @@ import {
 import type { BandRow, ProblemClick } from "./hubRules";
 import { problemsOpen$, view$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
-import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, numArg } from "./parts";
+import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, depthValue, numArg, useInches } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
 
@@ -128,7 +128,7 @@ function StatusMark({ row, live }: { row: ResortRow | null; live: ResortLive | n
   );
 }
 
-function statusTip(row: ResortRow | null, live: ResortLive | null, city: CityStats, t: Translate): JSX.Element | undefined {
+function statusTip(row: ResortRow | null, live: ResortLive | null, city: CityStats, t: Translate, inches: boolean): JSX.Element | undefined {
   if (!row || row.kind === 1 || !live || (row.runs | 0) <= 0) return undefined;
   const seasonTip = SEASON_TIP_TEXT[live.seasonHint] ?? null;
   // T82 B5a: the hint word one layer down when the slot shows the snow; the snow pair here when the slot shows a word instead.
@@ -146,7 +146,9 @@ function statusTip(row: ResortRow | null, live: ResortLive | null, city: CitySta
         !city.snowGating ? t(HUB_LOC.statusTipGating) : live.snowEstimated ? t(HUB_LOC.statusTipEstimated) : t(HUB_LOC.statusTipMeasured),
         seasonWord && t(seasonWord),
         seasonTip && t(seasonTip),
-        snowHere && live.snowDepthCm >= 0 && { label: t(HUB_LOC.mountainSnowDepth), value: <LocText entry={HUB_FMT.snowDepth} args={{ CM: numArg(live.snowDepthCm, Unit.Integer) }} /> },
+        snowHere && live.snowDepthCm >= 0 && { label: t(HUB_LOC.mountainSnowDepth), value: inches
+          ? <LocText entry={HUB_FMT.snowDepthIn} args={{ DEPTH: numArg(depthValue(live.snowDepthCm, true), Unit.Integer) }} />
+          : <LocText entry={HUB_FMT.snowDepth} args={{ DEPTH: numArg(live.snowDepthCm, Unit.Integer) }} /> },
         snowHere && live.snowPct >= 0 && { label: t(HUB_LOC.mountainSnowCover), value: numArg(live.snowPct, Unit.Percentage) },
         // Round S1 D29: the powder now (0-100; -1 unknown, 0 none: no line).
         live.skiDaysPowderPct > 0 && <LocText key="p" entry={HUB_FMT.statusTipPowder} args={{ PCT: numArg(live.skiDaysPowderPct, Unit.Percentage) }} />,
@@ -368,6 +370,7 @@ export function StatusBlock({ statusRef, problemsRef }: {
   const live = useValue(resortLive$);
   const problems = useValue(problems$);
   const city = useValue(city$);
+  const inches = useInches();   // T130: snow depth in the player's units
 
   const cur = currentResort(resortEntries(resorts), selected);
   const row = cur.row;
@@ -387,7 +390,7 @@ export function StatusBlock({ statusRef, problemsRef }: {
 
   return (
     <>
-      <Tip tip={statusTip(row, l, city, t)}>
+      <Tip tip={statusTip(row, l, city, t, inches)}>
         <div ref={statusRef} className={styles.statusRow}>
           <StatusMark row={row} live={l} />
           <div className={styles.statusText}><StatusSentence row={row} live={l} t={t} /></div>
@@ -395,7 +398,9 @@ export function StatusBlock({ statusRef, problemsRef }: {
           {snow && l.snowEstimated && <div className={styles.statusSnowMark}>{"≈"}</div>}
           <div className={cx(styles.statusHint, (powder || snow) && styles.statusHintOn, warn && styles.statusHintWarn)}>
             {snow
-              ? <LocText entry={HUB_FMT.statusSnow} args={{ CM: numArg(l.snowDepthCm, Unit.Integer), PCT: numArg(l.snowPct, Unit.Percentage) }} />
+              ? (inches
+                ? <LocText entry={HUB_FMT.statusSnowIn} args={{ DEPTH: numArg(depthValue(l.snowDepthCm, true), Unit.Integer), PCT: numArg(l.snowPct, Unit.Percentage) }} />
+                : <LocText entry={HUB_FMT.statusSnow} args={{ DEPTH: numArg(l.snowDepthCm, Unit.Integer), PCT: numArg(l.snowPct, Unit.Percentage) }} />)
               : powder ? t(HUB_LOC.powderDay) : seasonHint ? t(seasonHint) : ""}
           </div>
         </div>

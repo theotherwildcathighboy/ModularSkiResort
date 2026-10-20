@@ -300,7 +300,7 @@ namespace SkiResortMod.Systems
                 return;
             Mod.Log.Info("PisteMap: ARMED — while the hub is open with its Piste map toggle on (and the tree tool off), draws " +
                          "the shown ski area's run outlines on the ground before OverlayRenderSystem (Rendering, every frame, " +
-                         "paused included): colour by difficulty (flat grey, green, blue, black and double black with a white " +
+                         "paused included): color by difficulty (flat gray, green, blue, black and double black with a white " +
                          "edge, being rated faint white, cannot be rated amber), natural runs dashed " +
                          $"DashM={Tuning.DashM:0} m / GapM={Tuning.GapM:0} m, width BaseWidthM={Tuning.BaseWidthM:0} m × zoom / " +
                          $"RefZoomM={PisteMapRules.RefZoomM:0} m (1× to MaxWidthScale={PisteMapRules.MaxWidthScale:0}×), the run " +

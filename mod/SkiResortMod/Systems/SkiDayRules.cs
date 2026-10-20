@@ -92,7 +92,14 @@ namespace SkiResortMod.Systems
         public const int MaxAttraction = 200;                        // = SkiResortScore.MaxAttraction
         public const float SnowPrecipMin = 0.1f;                     // SnowSystem.cs:487
         public const int SnowHourSamples = 24;                       // D19
-        public const int PowderStartHours = 4, PowderFullHours = 10; // D19
+        // D19, T134 (2026-10-20, field note 29 "every day seems to be a powder day"): powder follows the FRESH SNOW of the last 24
+        // game hours, not the count of snowy hours. Fresh = the sum of the precipitation (ClimateSystem, 0..1) over the hours that
+        // snow at the area's top (IsSnowHour), in steps of FreshStep; powder = clamp01((steps - 6) / 6) (sixths, as before), so it
+        // starts above 3.0, the "Powder day" mark (0.5) needs 4.5 and it is full at 6.0. The old rule (snow-hours, 4 / 10, mark at
+        // 7) marked 92 of 212 logged hours in the 2026-10-20 playthrough (every winter day); this one marks 23, one storm a year
+        // (docs/research/field/2026-10-20/playthrough/sim-snow-build.md T134).
+        public const double FreshStep = 0.5;                         // precipitation-hours per step
+        public const int PowderStartSteps = 6, PowderFullSteps = 12; // T134: 3.0 and 6.0 precipitation-hours
         public const double PowderMarkAt = 0.5;                      // D29
         public const double LodgeSkiersPerDay = SkiCatalog.AFrameLodge.SkiersPerDay, PowderCapacityBoost = 0.25;   // D21. Catalog Phase A (F10 / LodgeDef; was SkiDayRules.cs:81 = 360.0): const alias (D4)
         public const int MaxCapacityPeople = 1000000;                // guard
@@ -806,17 +813,30 @@ namespace SkiResortMod.Systems
             return (float)t;
         }
 
-        /// <summary>D19 powder = clamp01((snow-hours − 4) / 6) over the last 24 game hours: sixths only.</summary>
-        public static double PowderOf(int snowHours)
+        /// <summary>T134: one hour's fresh snow: its precipitation when it snows at the top (IsSnowHour), else 0. NaN → 0.</summary>
+        public static float FreshOfHour(float precipitation, bool snowHour)
+            => snowHour && precipitation > 0f ? precipitation : 0f;
+
+        /// <summary>T134: whole FreshStep steps in a 24-hour fresh-snow sum (rounded down, a 1e-6 guard against float sums just
+        /// under a step); NaN or negative → 0.</summary>
+        public static int FreshSteps(double fresh)
         {
-            if (snowHours <= PowderStartHours)
-                return 0.0;
-            if (snowHours >= PowderFullHours)
-                return 1.0;
-            return (snowHours - PowderStartHours) / (double)(PowderFullHours - PowderStartHours);
+            if (!(fresh > 0.0))
+                return 0;
+            return (int)math.floor(fresh / FreshStep + 1e-6);
         }
 
-        /// <summary>D29 "Powder day": powder ≥ 0.5 (7 or more snow-hours). The hub's POWDER_MARK_PCT = 50 on the
+        /// <summary>D19 / T134 powder = clamp01((fresh steps − 6) / 6) over the last 24 game hours: sixths only.</summary>
+        public static double PowderOf(int freshSteps)
+        {
+            if (freshSteps <= PowderStartSteps)
+                return 0.0;
+            if (freshSteps >= PowderFullSteps)
+                return 1.0;
+            return (freshSteps - PowderStartSteps) / (double)(PowderFullSteps - PowderStartSteps);
+        }
+
+        /// <summary>D29 "Powder day": powder ≥ 0.5 (T134: 9 or more fresh steps = 4.5 precipitation-hours of snow in 24 h). The hub's POWDER_MARK_PCT = 50 on the
         /// rounded percent agrees at every reachable powder (HubRulesTests H16 parity, s1-spec N10).</summary>
         public static bool PowderMark(double powder) => powder >= PowderMarkAt;
 

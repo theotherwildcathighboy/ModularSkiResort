@@ -221,7 +221,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.EnableSnowGating)),
                     "On: a run adds to its ski area's score only while snow lies on it - open when 60 % " +
-                    "of it has 15 cm of snow (31 cm on natural black runs), closed below 40 % (measured in the game's own snow, or estimated " +
+                    "of it has 3 ft (91 cm) of snow, closed below 40 % (measured in the game's own snow, or estimated " +
                     "from the climate until the first measurement). A ski area with no open run counts " +
                     "as summer sightseeing. Off: every run counts as open all year, for maps without " +
                     "winter. Runs pay upkeep only while their grooming or snow guns run, so on a warm " +
@@ -234,8 +234,8 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowmakingBonusCelsius)),
                     "Snow guns on snowmaking and night runs work where the air on the run is at most " +
-                    "this many degrees above freezing. Higher means a longer season and a bigger " +
-                    "snowmaking bill. Default 3.3 (38 F)."
+                    "this many degrees above freezing, from October to March, until the run has 3 ft (91 cm) of snow. " +
+                    "Higher means a longer season and a bigger snowmaking bill. Default 3.3 (38 F)."
                 },
                 {
                     m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupTerrain),
@@ -302,7 +302,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowRunGradeWhileDrawing)),
                     "When enabled, drawing or editing a ski run shows a slope heat-map over " +
-                    "the run (grey flat, green, blue, black, red double black) and a tooltip " +
+                    "the run (gray flat, green, blue, black, red double black) and a tooltip " +
                     "with its rating, hardest unavoidable pitch, length and vertical drop."
                 },
                 {
@@ -333,7 +333,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowRunNamesOnTheHill)),
-                    "When enabled, each ski run's name is written on the ground at the run's centre, in its difficulty colour, " +
+                    "When enabled, each ski run's name is written on the ground at the run's center, in its difficulty color, " +
                     "while the camera is at piste-map distance. Handy in summer, when the runs carry no snow. The names step " +
                     "aside while you draw or edit a run."
                 },
@@ -436,8 +436,8 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleGladeToolBinding)),
-                    "Opens or closes the ski-run glade tool. Hover a run bound to a Ski Area " +
-                    "Welcome Sign to preview it at the chosen tree density (felled, removed and " +
+                    "Opens or closes the ski-run glade tool. Point at a run of a ski area " +
+                    "to preview it at the chosen tree density (felled, removed and " +
                     "planted trees); left click applies. Works in a loaded city only. Default Ctrl+Shift+G."
                 },
                 // T48 round 2: the lift-line tool.

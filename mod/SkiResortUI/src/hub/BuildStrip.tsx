@@ -31,6 +31,10 @@
  * holds the type chips and, after them, the LIFT_TOOL toggle (LiftToolSet: reads liftLine$, fires hubTriggers.liftLineToggle, which C#
  * turns into LiftLineToolSystem.TryActivate("hub") / Deactivate()). Ok panel only (FooterInfo.liftTool): on a contract mismatch the
  * strip reads CORE only and the toggle is not drawn.
+ * T129 (2026-10-20, field notes 14-16): no tile says it joins or goes near the Welcome Sign any more (T113 made every building top-level;
+ * the player does not need the link rule). A building tile's tooltip shows what the building draws, vanilla's way (the asset panel's
+ * Upkeep / Electricity / Water / Garbage rows, only the ones above 0, units by the game's unit setting) plus Workers, from
+ * buildItems.BUILDING_DRAW, then one terrain line (TERRAIN[Level|Slope]). Lodge, school and patrol tools say BUILD_ACTIVE like any tool.
  * Contract:
  *   - Groups [sign, lodge tier] | [school, patrolHut, patrolHQ] | [lift type: base "1", top "2", line
  *     "3"] | [runNatural, runGroomed, runSnowmaking, runNight] (src/hub/buildItems.ts). ONE nowrap row;
@@ -71,13 +75,11 @@
  *     no new field). Line 2: the locked reason, else C#'s hint key (line items: HINT[LiftNoPair] for the
  *     SHOWN area's rows of that type), else the short hint. Item names: RUN_TYPE for runs (D17, sentence
  *     case), Assets.NAME for the others (deviation U5).
- *   - Tile tooltip: name; "One-time" and "Each month" label / value rows (run: base fee + per ha;
- *     line: about per km; stations: part of the lift's running cost; sign, lodges, school and patrol:
- *     billed by the game; natural: nothing a month); the long hint (or BUILD_ACTIVE); the lift-sign line on
- *     stations and lines (Round F6 C4: never in the two lines, which would cut it at 130-150 %); runs:
- *     BUILD_TIP_LINK, BUILD_TIP_RESHAPE; natural: BUILD_TIP_NATURAL and the natural type factors
- *     (second pass); lodges: BUILD_TIP_LODGE (second pass: staff and utilities) and on the luxury tiers
- *     BUILD_TIP_LUXURY; school: BUILD_TIP_SCHOOL; patrol huts: BUILD_TIP_PATROL; the locked reason.
+ *   - Tile tooltip: name; "One-time" and "Per month" label / value rows (run: base fee + per ha;
+ *     line: about per km; stations: part of the lift's running cost; natural and the sign: nothing a month; a billed
+ *     building: vanilla's Upkeep row instead of Per month); T129 the draw rows and the terrain line (drawRows); the long
+ *     hint (or BUILD_ACTIVE); runs: BUILD_TIP_RESHAPE; natural: BUILD_TIP_NATURAL and the natural type factors
+ *     (second pass); the luxury tiers: BUILD_TIP_LUXURY; school: BUILD_TIP_SCHOOL; patrol huts: BUILD_TIP_PATROL; the locked reason.
  *   - BuildStrip reads ONLY the CORE `build` binding (and its own local `pick$`), so it is also the
  *     contract-mismatch panel's footer (MISMATCH_FOOTER: no dot, idle NEXT[Done]; hub-u2-spec 4.5,
  *     deviation U11). Everything non-CORE comes in through `info` (FooterInfo), built by OkFooter (ok
@@ -105,7 +107,7 @@ import type { BuildItem, BuildItemId, RunKind } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
 import {
-  BUILD_ITEMS, BUILD_ITEM_ICON, BUILD_RUN_KIND, BUILD_STEP, LUXURY_LODGES, buildMeta, groupBuildItems, stationRole,
+  BUILD_ITEMS, BUILD_ITEM_ICON, BUILD_RUN_KIND, BUILD_STEP, BUILDING_DRAW, LUXURY_LODGES, buildMeta, groupBuildItems, stationRole,
 } from "./buildItems";
 import type { OrderedBuildItem } from "./buildItems";
 import {
@@ -115,17 +117,16 @@ import {
 import type { BuildTab, DotTarget, NextVariant, PickerSelection, PickerSet } from "./hubRules";
 import { buildTab$ } from "./hubState";
 import {
-  ASSET_NAME, BUILD_LABEL, BUILD_SHORT_RUN, BUILD_TAB, BUILD_TAB_TIP, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, NEXT_LINE1, NEXT_LINE2,
+  ASSET_NAME, BUILD_LABEL, BUILD_SHORT_RUN, BUILD_TAB, BUILD_TAB_TIP, DRAW_LABEL, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, NEXT_LINE1, NEXT_LINE2,
   RUN_TYPE, sentKeyEntry,
 } from "./hubText";
 import { AssetIcon, Glyph, LocText, Tip, TipLines, cx, numArg } from "./parts";
+import type { TipLine } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
 
 /** What the footer needs beyond CORE `build`. */
 export interface FooterInfo {
-  /** The hub shows a ski area (upgrades go on its sign: F6 C4); false = Not linked / none / mismatch. */
-  lodgeShown: boolean;
   /** The one dot (null = none). */
   dot: BuildItemId | null;
   /** Idle text. */
@@ -136,7 +137,7 @@ export interface FooterInfo {
   liftTool?: boolean;
 }
 
-export const MISMATCH_FOOTER: FooterInfo = { lodgeShown: false, dot: null, next: "done", followName: null };
+export const MISMATCH_FOOTER: FooterInfo = { dot: null, next: "done", followName: null };
 
 /** How long the D36 notice stays (design 7.5). */
 export const FOLLOW_NOTICE_MS = 6000;
@@ -175,37 +176,36 @@ function Line1({ id, item, t }: { id: BuildItemId; item: BuildItem; t: Translate
 }
 
 /** The short line-2 hint of a tile (design 6.10; contract 6: by kind - every lift type's base / top / line reads the
- *  fixed-grip pair's hints, the school and patrol huts their own, all upgrades the "selected sign" hint without a
- *  shown area). */
-function shortEntry(id: BuildItemId, lodgeShown: boolean): LocEntry {
+ *  fixed-grip pair's hints, the lodges, the school and the patrol huts their own). */
+function shortEntry(id: BuildItemId): LocEntry {
   const kind = BUILD_RUN_KIND[id];
   if (kind !== undefined) return BUILD_SHORT_RUN[kind];
   switch (kindOf(id)) {
     case "sign": return HUB_LOC.buildHintSign;
-    case "lodge": return lodgeShown ? HUB_LOC.buildShortLodge : HUB_LOC.buildHintLodgeSelected;
-    case "school": return lodgeShown ? HUB_LOC.buildShortSchool : HUB_LOC.buildHintLodge;   // T100: top-level, never "on the selected sign"
-    case "patrol": return lodgeShown ? HUB_LOC.buildShortPatrol : HUB_LOC.buildHintLodgeSelected;
+    case "lodge": return HUB_LOC.buildShortLodge;
+    case "school": return HUB_LOC.buildShortSchool;
+    case "patrol": return HUB_LOC.buildShortPatrol;
     case "station": return stationRole(id) === "top" ? HUB_LOC.buildShortTop : HUB_LOC.buildHintBase;
     default: return HUB_LOC.buildShortLift;
   }
 }
 
 /** Line 2 text: locked reason > C#'s hint > the short hint. */
-function line2Text(t: Translate, id: BuildItemId, item: BuildItem, lodgeShown: boolean): string {
+function line2Text(t: Translate, id: BuildItemId, item: BuildItem): string {
   if (item.locked) return t(sentKeyEntry(item.reason, HUB_LOC.locked));
-  if (item.hint) return t(sentKeyEntry(item.hint, shortEntry(id, lodgeShown)));
-  return t(shortEntry(id, lodgeShown));
+  if (item.hint) return t(sentKeyEntry(item.hint, shortEntry(id)));
+  return t(shortEntry(id));
 }
 
 /** The long hint of a tile's tooltip (design 6.10). */
-function longEntry(id: BuildItemId, lodgeShown: boolean): LocEntry {
+function longEntry(id: BuildItemId): LocEntry {
   const kind = BUILD_RUN_KIND[id];
   if (kind !== undefined) return BUILD_SHORT_RUN[kind];
   switch (kindOf(id)) {
     case "sign": return HUB_LOC.buildHintSign;
-    case "lodge": return lodgeShown ? HUB_LOC.buildHintLodge : HUB_LOC.buildHintLodgeSelected;
-    case "school": return HUB_LOC.buildHintLodge;   // T100: a top-level school goes near the sign, it does not join it
-    case "patrol": return lodgeShown ? HUB_LOC.buildShortPatrol : HUB_LOC.buildHintLodgeSelected;
+    case "lodge": return HUB_LOC.buildHintLodge;
+    case "school": return HUB_LOC.buildShortSchool;
+    case "patrol": return HUB_LOC.buildShortPatrol;
     case "station": return stationRole(id) === "top" ? HUB_LOC.buildHintTop : HUB_LOC.buildHintBase;
     default: return HUB_LOC.buildHintLift;
   }
@@ -233,25 +233,40 @@ function monthValue(id: BuildItemId, item: BuildItem, t: Translate): JSX.Element
       ? <LocText entry={HUB_FMT.buildMonthLift} args={{ BASE: numArg(item.monthly, Unit.Money), PERKM: numArg(item.monthlyPerKm, Unit.Money) }} /> : "–";
   }
   if (k === "station") return t(HUB_LOC.buildMonthStation);
-  return t(HUB_LOC.buildMonthGame);
+  return t(HUB_LOC.buildMonthNone);   // T129: a building with upkeep draws its Upkeep row instead (drawRows)
 }
 
-function tileTip(e: OrderedBuildItem, t: Translate, lodgeShown: boolean): JSX.Element {
+/** T129: a building's draw rows, vanilla's asset-panel rows (each only above 0) plus Workers, then its terrain line. The Upkeep row
+ *  replaces "Per month" on a building the game bills; a station keeps "Per month" (the lift's running cost covers it). */
+function drawRows(id: BuildItemId, t: Translate): TipLine[] {
+  const d = BUILDING_DRAW[id];
+  if (!d) return [];
+  return [
+    d.power > 0 && { label: t(DRAW_LABEL.electricity), value: numArg(d.power, Unit.Power) },
+    d.water > 0 && { label: t(DRAW_LABEL.water), value: numArg(d.water, Unit.VolumePerMonth) },
+    d.garbage > 0 && { label: t(DRAW_LABEL.garbage), value: numArg(d.garbage, Unit.WeightPerMonth) },
+    d.workers > 0 && { label: t(HUB_LOC.buildTipWorkers), value: numArg(d.workers, Unit.Integer) },
+    t(d.keepsSlope ? HUB_LOC.terrainSlope : HUB_LOC.terrainLevel),
+  ];
+}
+
+function tileTip(e: OrderedBuildItem, t: Translate): JSX.Element {
   const run = BUILD_RUN_KIND[e.id] !== undefined;
   const k = kindOf(e.id);
+  const draw = BUILDING_DRAW[e.id];
+  const billed = !!draw && draw.upkeep > 0 && k !== "station";
   return (
     <TipLines
       lines={[
         t(nameEntry(e.id)),
         { label: t(HUB_LOC.buildTipOnce), value: onceValue(e.id, e.item) },
-        { label: t(HUB_LOC.buildTipMonth), value: monthValue(e.id, e.item, t) },
-        e.item.active ? t(k === "lodge" || k === "patrol" ? HUB_LOC.buildActiveUpgrade : HUB_LOC.buildActive) : t(longEntry(e.id, lodgeShown)),   // T100: the school is a plain tool
-        (k === "station" || k === "line") && t(HUB_LOC.buildHintLiftSign),
-        run && t(HUB_LOC.buildTipLink),
+        billed && draw ? { label: t(DRAW_LABEL.upkeep), value: numArg(draw.upkeep, Unit.MoneyPerMonth) }
+          : { label: t(HUB_LOC.buildTipMonth), value: monthValue(e.id, e.item, t) },
+        ...drawRows(e.id, t),
+        e.item.active ? t(HUB_LOC.buildActive) : t(longEntry(e.id)),
         run && t(HUB_LOC.buildTipReshape),
         e.id === "runNatural" && t(HUB_LOC.buildTipNatural),
         e.id === "runNatural" && t(HUB_LOC.buildTipTypeNatural),   // second pass: the natural type factors
-        k === "lodge" && t(HUB_LOC.buildTipLodge),                 // second pass: staff and utilities
         LUXURY_LODGES.has(e.id) && t(HUB_LOC.buildTipLuxury),      // contract 6: the luxury label and its price tolerance
         k === "school" && t(HUB_LOC.buildTipSchool),               // contract 6: R13
         k === "patrol" && t(HUB_LOC.buildTipPatrol),               // contract 6: R13
@@ -499,15 +514,13 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     line1 = <>{t(HUB_LOC.buildEmpty)}</>; line2 = ""; line1Cls = styles.buildLineNormal;
   } else if (state === "hover" && hoveredEntry) {
     line1 = <Line1 id={hoveredEntry.id} item={hoveredEntry.item} t={t} />;
-    line2 = line2Text(t, hoveredEntry.id, hoveredEntry.item, info.lodgeShown);
+    line2 = line2Text(t, hoveredEntry.id, hoveredEntry.item);
     if (hoveredEntry.item.locked) line2Cls = styles.buildLineLocked;
   } else if (state === "follow") {
     line1 = <LocText entry={HUB_FMT.follow} args={{ NAME: info.followName ?? "" }} />; line2 = ""; line1Cls = styles.buildLineNormal;
   } else if (state === "active" && activeEntry) {
     line1 = <Line1 id={activeEntry.id} item={activeEntry.item} t={t} />;
-    // T97: an upgrade (lodge, school, patrol) selects the sign in the world while it is placed: line 2 says what it joins.
-    const k = kindOf(activeEntry.id);
-    line2 = t(k === "lodge" || k === "patrol" ? HUB_LOC.buildActiveUpgrade : HUB_LOC.buildActive);   // T100: the school is a plain tool
+    line2 = t(HUB_LOC.buildActive);   // T129: every building is a plain tool since T113
   } else if (state === "locked" && lockedEntry) {
     line1 = <Line1 id={lockedEntry.id} item={lockedEntry.item} t={t} />;
     line2 = t(sentKeyEntry(lockedEntry.item.reason, HUB_LOC.locked)); line2Cls = styles.buildLineLocked;
@@ -551,7 +564,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
                 <div key={e.id} className={styles.buildCell}
                   onMouseEnter={() => setHovered(e.id)}
                   onMouseLeave={() => setHovered((h) => (h === e.id ? null : h))}>
-                  <Tip tip={tileTip(e, t, info.lodgeShown)}>
+                  <Tip tip={tileTip(e, t)}>
                     <Button
                       focusKey={FOCUS_DISABLED}
                       theme={{ button: cx(styles.buildTile, e.item.active && styles.buildTileActive, e.item.locked && styles.buildTileLocked) }}
@@ -611,7 +624,6 @@ export function OkFooter(): JSX.Element {
   const sign = shown && !unlinked ? shown.sign : null;
   const l = shown ? liveOf(live, sign) : null;
   const info: FooterInfo = {
-    lodgeShown: !!shown && !unlinked,
     dot: dotItem(problems, sign, hasSign),
     next: nextVariant(hasSign, unlinked, l),
     followName: noticeOn && shown ? (unlinked ? t(HUB_LOC.unlinkedEntry) : shown.name) : null,

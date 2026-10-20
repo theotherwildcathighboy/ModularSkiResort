@@ -383,6 +383,7 @@ namespace SkiResortMod.Systems
         // per-area scratch.
         private float[] m_YearPrecip, m_YearAmbient;
         private bool[] m_YearSnow;
+        private float[] m_YearFresh;   // T134: per hour, the fresh snow at the area's top (SkiDayRules.FreshOfHour)
         private readonly int[] m_YearMarks = new int[12];
         private readonly int[] m_YearSnowHours = new int[12];
         // Round M2 (D5): the last walker scan per lodge (the DUMP) and this game hour's per-lodge accumulators (the
@@ -1039,7 +1040,7 @@ namespace SkiResortMod.Systems
                 Invariant($"min({SkiDayRules.TouristCap}, {k.TouristsPct}% x A/200 x D) x Wt x P x confidence, D = 1 to 1 km then 0 at reach, P at price ") +
                 Invariant($"{price} = {SkiDayRules.PriceFactor(price):F2} (the full-price threshold raised by the highest price tolerance among the lodges that pass: ") +
                 TierText(tolerance: true) +
-                Invariant($"); powder = clamp01((snow-hours - 4) / 6) over 24 game hours (precipitation >= 0.1, ") +
+                Invariant($"); powder = clamp01((fresh - 3.0) / 3.0) in 0.5 steps, fresh = the precipitation summed over the snow-hours of the last 24 game hours (precipitation >= 0.1, ") +
                 Invariant($"top at or below freezing), pull {k.PowderPct}%; capacity min(runs, {SkiDayRules.LodgeSkiersPerDay} x ski-day lodges ") +
                 "for A-frames — by tier the lodges' skiers a day: " + TierText(tolerance: false) +
                 "; ski-day targets are road lodges, a mountain lodge holds skiers only; no limit on the number of lodges) x " +
@@ -2923,6 +2924,19 @@ namespace SkiResortMod.Systems
             m_Ambient[k] = s.temperature;
         }
 
+        /// <summary>T134: the fresh snow at <paramref name="topM"/> over the ring (the sum of FreshOfHour, precipitation-hours);
+        /// NaN when unknown.</summary>
+        private double FreshAt(float topM)
+        {
+            if (!m_RingValid)
+                return double.NaN;
+            double fresh = 0.0;
+            for (int k = 0; k < SkiDayRules.SnowHourSamples; k++)
+                fresh += SkiDayRules.FreshOfHour(m_Precip[k],
+                    SkiDayRules.IsSnowHour(m_Precip[k], m_Ambient[k], topM, m_BaseHeight, m_Lapse, m_Freezing));
+            return fresh;
+        }
+
         /// <summary>D19: snow-hours at <paramref name="topM"/> over the ring; −1 when unknown.</summary>
         private int SnowHoursAt(float topM)
         {
@@ -2963,6 +2977,7 @@ namespace SkiResortMod.Systems
                 m_YearPrecip = new float[hours];   // only when daysPerYear changes: never per pass
                 m_YearAmbient = new float[hours];
                 m_YearSnow = new bool[hours];
+                m_YearFresh = new float[hours];
                 m_YearValid = false;
             }
             bool refilled = false;
@@ -2996,8 +3011,11 @@ namespace SkiResortMod.Systems
                     continue;
                 float top = (float)info.TopM;
                 for (int h = 0; h < hours; h++)
+                {
                     m_YearSnow[h] = SkiDayRules.IsSnowHour(m_YearPrecip[h], m_YearAmbient[h], top, m_BaseHeight, m_Lapse, m_Freezing);
-                SkiDayTiming.MarkHoursPerMonth(m_YearSnow, days, m_YearMarks, m_YearSnowHours);
+                    m_YearFresh[h] = SkiDayRules.FreshOfHour(m_YearPrecip[h], m_YearSnow[h]);   // T134
+                }
+                SkiDayTiming.MarkHoursPerMonth(m_YearSnow, m_YearFresh, days, m_YearMarks, m_YearSnowHours);
                 Array.Copy(m_YearMarks, mem.PowderYearMarks, 12);
                 Array.Copy(m_YearSnowHours, mem.PowderYearSnow, 12);
                 mem.PowderYearTopM = top;
@@ -3163,7 +3181,8 @@ namespace SkiResortMod.Systems
 
                 bool topKnown = known && r.TopKnown;
                 int snowHours = topKnown ? SnowHoursAt((float)r.TopM) : -1;
-                double powder = snowHours >= 0 ? SkiDayRules.PowderOf(snowHours) : double.NaN;   // NaN unknown (0 in formulas)
+                // T134: powder from the fresh snow of the last 24 game hours (snow-hours stay for the logs).
+                double powder = snowHours >= 0 ? SkiDayRules.PowderOf(SkiDayRules.FreshSteps(FreshAt((float)r.TopM))) : double.NaN;   // NaN unknown (0 in formulas)
                 m_Areas.Add(new AreaJob
                 {
                     Sign = sign,
@@ -4866,7 +4885,7 @@ namespace SkiResortMod.Systems
         public int OnTheWayOrOnSite;          // −1 before the first pass
         public int Capacity;                  // CapacityPeople; −1 before the first pass; 0 is real (Full)
         public SkiDayLimit Limit;
-        public float Powder;                  // (float)PowderOf(snowHours); NaN unknown
+        public float Powder;                  // (float)PowderOf(FreshSteps(fresh)), T134; NaN unknown
         public int SentThisMonth, SentCarThisMonth, SentNoCarThisMonth;     // Walk = Sent − Car − NoCar exactly
         public int ArrivedThisMonth, ArrivedLastMonth;                      // Last −1 unless MonthFlags.LastKnown
         public bool CannotReach;              // UpdateCannotReach(car track)

@@ -55,12 +55,12 @@
     { entity: E(206), name: "Run 6", kind: 0, bound: false, lengthM: 640, dropM: 95, areaM2: 19000, sign: NULL, ordinal: 6, customName: false, band: -1, gradePct: 0, steepestPct: 0, approx: true, member: false, served: false, servedBy: NULL, valueFull: 0, bandValue: 0, sizeFactor: 0, typeFactor: 0, servedFactor: 0 },
   ];
   const runLive = [
-    { entity: E(201), openState: 2, openFactor: 1.0, snowPct: 92, snowEstimated: false, valueNow: 1.0, costMonth: 4600 },
-    { entity: E(202), openState: 2, openFactor: 1.0, snowPct: 100, snowEstimated: false, valueNow: 1.6, costMonth: 17600 },
-    { entity: E(203), openState: 1, openFactor: 0.5, snowPct: 61, snowEstimated: true, valueNow: 0.95, costMonth: 0 },
-    { entity: E(204), openState: 2, openFactor: 1.0, snowPct: 88, snowEstimated: false, valueNow: 0.8, costMonth: 3600 },
-    { entity: E(205), openState: 2, openFactor: 1.0, snowPct: 90, snowEstimated: false, valueNow: 0.2, costMonth: 480 },
-    { entity: E(206), openState: -1, openFactor: 0, snowPct: 0, snowEstimated: true, valueNow: 0, costMonth: 0 },
+    { entity: E(201), openState: 2, openFactor: 1.0, snowPct: 92, snowEstimated: false, valueNow: 1.0, costMonth: 4600, snowDepthCm: 180, gunWhy: 1 },
+    { entity: E(202), openState: 2, openFactor: 1.0, snowPct: 100, snowEstimated: false, valueNow: 1.6, costMonth: 17600, snowDepthCm: 240, gunWhy: 2 },
+    { entity: E(203), openState: 1, openFactor: 0.5, snowPct: 61, snowEstimated: true, valueNow: 0.95, costMonth: 0, snowDepthCm: -1, gunWhy: 0 },
+    { entity: E(204), openState: 2, openFactor: 1.0, snowPct: 88, snowEstimated: false, valueNow: 0.8, costMonth: 3600, snowDepthCm: 130, gunWhy: 3 },
+    { entity: E(205), openState: 2, openFactor: 1.0, snowPct: 90, snowEstimated: false, valueNow: 0.2, costMonth: 480, snowDepthCm: 95, gunWhy: 4 },
+    { entity: E(206), openState: -1, openFactor: 0, snowPct: 0, snowEstimated: true, valueNow: 0, costMonth: 0, snowDepthCm: -1, gunWhy: 0 },
   ];
   const lifts = [
     { entity: E(301), top: E(311), sign: SIGN, name: "Meadow Quad", customName: true, state: 0, sections: 3, towers: 14, chairs: 62, chairsRiding: 62, gaps: 0, towersRemoved: 0, lengthM: 1680, riseM: 470, horizontalM: 1612, alignKnown: true, alignOffsetM: 0.4, alignYawDeg: 1.2, capacityPerHour: 2400, hasBase: true, hasTop: true, powered: true, counted: true, status: 0, rideTimeS: 420, runsServed: 2, costMonth: 3900, billedReduced: false, type: "detachable", seats: 4, speedMps: 5.0 },
@@ -156,13 +156,13 @@
 
   const glade = { available: true, active: false, level: 4, treeLine: false, reason: "" };
 
-  const base = { hubOpen: false, contract: 12, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 13, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
-    liftLine: { available: true, active: false, state: "PickBase" } };   // contract 12
+    liftLine: { available: true, active: false, state: "PickBase" } };   // contract 12; 13 = T136 RunLive.snowDepthCm / gunWhy
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
-    "contract mismatch (DLL 11, UI 12)": Object.assign({}, base, { contract: 11, hubOpen: true }),
+    "contract mismatch (DLL 12, UI 13)": Object.assign({}, base, { contract: 12, hubOpen: true }),
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),

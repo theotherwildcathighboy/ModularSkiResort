@@ -30,6 +30,12 @@
 // (LiftBatch LP-13): the build it causes queues the line again and the re-fit writes nothing ("already fitted"). Guard: a line written
 // MaxWrites times within GuardFrames is left alone with a WARN.
 //
+// GROUND (T127, 2026-10-20 playthrough): the terrain sampler is LiftTowerEdit.UncutSampler — a sample at this line's own cut ceiling
+// (edge y + composition height range min + terrain offset, TerrainSystem.AddSegment) is our trench, so the plane through the uncut
+// ground beside it stands in; towers stood in the trenches of a vanilla line drawn on the ground and kept round pits around them.
+// MOVED (T128): the free plan's own members travel with its nodes, spares get the shortest clearing member (LiftTowerPlanner.Fit);
+// a standing line within LiftTowerPlanner.KeepTolM of the floor is kept (grid noise, not Short).
+//
 // LOGS (silence impossible): one ARMED line per load; per fitted line a "Towers [fit]" block (per tower: position before -> after,
 // member before -> after, elevation, rope; per span: length, lowest carrier over the high side before -> after and where, max rope
 // above ground) + one "Towers [fit summary]"; "already fitted" one line; Short = WARN with the tower count the line needs; skips
@@ -245,8 +251,13 @@ namespace SkiResortMod.Systems
             }
             bool straight = Straight(pts, out float offLine);
             TerrainHeightData terrain = hd;
-            LiftTerrainSampler sampler = (along, lateral) =>
+            LiftTerrainSampler raw = (along, lateral) =>
                 TerrainUtils.SampleHeight(ref terrain, LiftTowerDiagSystem.PolylineAt(pts, cum, along, lateral, out _));
+            // T127: the ground the player made. A sample at this line's own cut ceiling (edge y + height range min + terrain
+            // offset, LiftTowerEdit) is our trench, not the ground: the plane through the uncut ground beside it stands in.
+            var cutAt = new HashSet<int>();
+            LiftTerrainSampler sampler = LiftTowerEdit.UncutSampler(raw, pts, cum, netGeo.m_Hanging, CutOffsets(path, netGeo),
+                c.HalfWidthM + LiftTowerEdit.CutFarMarginM, along => cutAt.Add((int)math.round(along)));
 
             float ropeA = StationRope(path[0].Node, path[0].NextEdge, pts[0], pts[0].y + c.RopeAboveBase(0), out bool laneA);
             float ropeB = StationRope(path[n - 1].Node, path[n - 2].NextEdge, pts[n - 1], pts[n - 1].y + c.RopeAboveBase(0), out bool laneB);
@@ -305,10 +316,16 @@ namespace SkiResortMod.Systems
                 targets[i - 1] = t;
             }
 
+            string cutNote = cutAt.Count > 0
+                ? $"; own cut: ground at {cutAt.Count} sample spot(s) taken from beside this line's own trench (T127)"
+                : string.Empty;
+            string clearText = plan.Clear ? "every span clear"
+                : fit.Mode == LiftFitMode.Kept ? $"within {LiftTowerPlanner.KeepTolM:F1} m of the floor, kept as it stands"
+                : "VIOLATED";
             if (writes == 0)
             {
                 Mod.Log.Info($"Towers [fit]: {head} — already fitted ({fit.Mode}; {plan.LineTowers} line tower(s) {{{plan.MemberCounts()}}}; " +
-                             $"min floor margin {Sg(plan.MinFloorMarginM)} m; {(plan.Clear ? "every span clear" : "VIOLATED")}): nothing written");
+                             $"min floor margin {Sg(plan.MinFloorMarginM)} m; {clearText}{cutNote}): nothing written");
                 return;
             }
             Entity guardKey = path[1].Node;
@@ -330,7 +347,7 @@ namespace SkiResortMod.Systems
               .Append(" + drop ").Append(F(c.CarrierDropM, "F1")).Append(" over the high side (±").Append(F(c.HalfWidthM, "F1"))
               .Append(" m), max rope ").Append(c.MaxRopeAboveGroundM > 0f ? F(c.MaxRopeAboveGroundM, "F0") : "none")
               .Append(toolLine != null ? $"; TOOL LINE (lift-line tool, {toolLine.Pins} pinned): heights only with the tool's members, never moved" : string.Empty)
-              .Append('\n');
+              .Append(cutNote).Append('\n');
             for (int i = 0; i < n; i++)
             {
                 LiftPlanNode pn = plan.Nodes[i];
@@ -364,7 +381,7 @@ namespace SkiResortMod.Systems
                     violatedBefore++;
             sb.Append("Towers [fit summary]: ").Append(head).Append(": ").Append(fit.Mode).Append("; min floor margin ")
               .Append(Sg(before.MinFloorMarginM)).Append(" m (").Append(violatedBefore).Append(" span(s) violated) -> ")
-              .Append(Sg(plan.MinFloorMarginM)).Append(" m (").Append(plan.Clear ? "every span clear" : "VIOLATED").Append("); members {")
+              .Append(Sg(plan.MinFloorMarginM)).Append(" m (").Append(clearText).Append("); members {")
               .Append(before.MemberCounts()).Append("} -> {").Append(plan.MemberCounts()).Append("}; free plan ").Append(fit.Needed)
               .Append(" line tower(s); writing ").Append(writes).Append(" node(s)");
             if (fit.Mode == LiftFitMode.Short)
@@ -483,6 +500,30 @@ namespace SkiResortMod.Systems
                 return fallback;
             fromLane = true;
             return best;
+        }
+
+        /// <summary>T127: per path span, the offset of this line's own cut ceiling above the edge curve: the edge composition's
+        /// m_HeightRange.min (NetCompositionData) + its TerrainComposition m_MinHeightOffset (middle), the sum TerrainSystem.AddSegment
+        /// uses (TerrainSystem.cs:1397-1516, terrain-carving.md §2); the prefab's default range and the pieces' -2 when the edge has
+        /// no composition yet.</summary>
+        private float[] CutOffsets(List<LiftTowerDiagSystem.Hop> path, NetGeometryData netGeo)
+        {
+            var off = new float[math.max(1, path.Count - 1)];
+            for (int i = 0; i < path.Count - 1; i++)
+            {
+                float min = netGeo.m_DefaultHeightRange.min;
+                float terr = LiftTowerEdit.PieceMinHeightOffsetM;
+                Entity e = path[i].NextEdge;
+                if (e != Entity.Null && EntityManager.TryGetComponent<Game.Net.Composition>(e, out var comp) &&
+                    EntityManager.TryGetComponent<NetCompositionData>(comp.m_Edge, out var ncd))
+                {
+                    min = ncd.m_HeightRange.min;
+                    if (EntityManager.TryGetComponent<TerrainComposition>(comp.m_Edge, out var tc))
+                        terr = tc.m_MinHeightOffset.y;
+                }
+                off[i] = min + terr;
+            }
+            return off;
         }
 
         /// <summary>True when the node's Game.Net.Elevation is not exactly (E, E) for E = <paramref name="e"/> (0 = no component or

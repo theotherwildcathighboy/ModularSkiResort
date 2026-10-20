@@ -35,7 +35,8 @@
 //                     Thawing; none open: natural or gun WaitingForSnow, else TooWarm
 //   NextStep          lodge, then a complete lift, then a run, else Done
 //   LiftStatusOf      stats state 0 powered Running / NoPower; 1 powered ChairsStopped / NoPower;
-//                     2 SectionMissing; anything else Unfinished
+//                     2 SectionMissing; anything else Unfinished. T132 (2026-10-20): the closed overload — a complete, powered lift
+//                     (state 0 or 1) held by the no-open-run rule (LiftClosedRule, the tram exempt) reads Closed, not Running
 //   RideTimeS         loop / 2 / ChairSpeedMps (a chair rides half the loop); −1 without a loop
 //   OpenSharePct      round(100 × value / full) half away from zero, 0..100; −1 when full is not > 0
 //   FactorEffectPct   the game's panel number (Game.UI.InGame/EfficiencySection.cs:99-127):
@@ -159,6 +160,10 @@ namespace SkiResortMod.Systems
     public enum ResortStatus : byte { NoRuns = 0, Closed = 1, Partly = 2, Open = 3 }
 
     /// <summary>bindings.ts OPEN_STATE (gate R17).</summary>
+    /// <summary>T136 (field 2026-10-20 note 24): bindings.ts RUN_GUN_WHY (gate R17), RunLive.gunWhy: on a snowmaking or night run,
+    /// whether its snow guns make snow now and why not. None = not a gun run, not bound, or snow gating off.</summary>
+    public enum RunGunWhy : byte { None = 0, Making = 1, DepthReached = 2, TooWarm = 3, OutOfSeason = 4, Waiting = 5 }
+
     public enum RunOpenState : sbyte { None = -1, Closed = 0, Partly = 1, Open = 2, Unsuitable = 3 }   // T54 probe 1: Unsuitable = 3, a cat track rated blue or steeper
 
     /// <summary>bindings.ts SEASON_HINT (gate R17).</summary>
@@ -168,7 +173,10 @@ namespace SkiResortMod.Systems
     public enum NextStepKind : byte { Done = 0, Lodge = 1, Lift = 2, Run = 3 }
 
     /// <summary>bindings.ts LIFT_STATUS (gate R17).</summary>
-    public enum HubLiftStatus : byte { Running = 0, NoPower = 1, ChairsStopped = 2, SectionMissing = 3, Unfinished = 4 }
+    public enum HubLiftStatus : byte { Running = 0, NoPower = 1, ChairsStopped = 2, SectionMissing = 3, Unfinished = 4,
+        // T132 (field 2026-10-20 note 20: every lift read "Running" in October while only the tram ran): a complete, powered lift
+        // held still because its ski area has no open run (LiftClosedRule.ClosedForLift; a tram is never held). Appended.
+        Closed = 5 }
 
     /// <summary>bindings.ts PROBLEM (gate R17). APPEND ONLY, never renumber.</summary>
     public enum HubProblemCode : byte
@@ -387,8 +395,47 @@ namespace SkiResortMod.Systems
             return NextStepKind.Done;
         }
 
+        /// <summary>T136: the run tooltip's snow-gun line. <paramref name="gunRun"/> = a bound snowmaking or night run;
+        /// <paramref name="gating"/> = the snow gating setting is on; <paramref name="inSeason"/> = SnowGunPlumeRules.InGunSeason
+        /// (T135); <paramref name="stateKnown"/> / <paramref name="stateRunning"/> = the run's gun hysteresis state (Unknown = not
+        /// known; Running vs Stopped); <paramref name="runningNow"/> = SnowGunPlumeRules.GunsRunning for the last pass (Running and
+        /// a cold texel). Order: not a gun run, out of season, no measurement yet, making snow, too warm (Running but no texel cold
+        /// enough), else stopped at the 3 ft depth (T133: built, or natural snow that deep).</summary>
+        public static RunGunWhy GunWhyOf(bool gunRun, bool gating, bool inSeason, bool stateKnown, bool stateRunning, bool runningNow)
+        {
+            if (!gunRun || !gating)
+                return RunGunWhy.None;
+            if (!inSeason)
+                return RunGunWhy.OutOfSeason;
+            if (!stateKnown)
+                return RunGunWhy.Waiting;
+            if (runningNow)
+                return RunGunWhy.Making;
+            return stateRunning ? RunGunWhy.TooWarm : RunGunWhy.DepthReached;
+        }
+
+        /// <summary>T136: a run's coverage-weighted mean snow depth in whole centimeters; -1 when not measured (NaN, an
+        /// estimate) or not finite.</summary>
+        public static int DepthCm(float meanDepthM)
+        {
+            if (float.IsNaN(meanDepthM) || float.IsInfinity(meanDepthM) || meanDepthM < 0f)
+                return -1;
+            return (int)Math.Round(meanDepthM * 100.0, MidpointRounding.AwayFromZero);
+        }
+
         public static HubLiftStatus LiftStatusOf(int statsState, bool powered)
         {
+            return LiftStatusOf(statsState, powered, false);
+        }
+
+        /// <summary>T132: <paramref name="closed"/> = the lift's held-closed flag (SkiLiftChargeSystem LiftCharge.Closed: its area has
+        /// no open run, one game hour of hysteresis; never a tram). A complete lift (state 0 or 1) that is powered and closed reads
+        /// Closed whether or not its chairs are on the loop (held chairs stand on it: state 0 with riding &gt; 0 used to read
+        /// Running). No power wins over Closed (the fix the player can make); SectionMissing / Unfinished are not complete.</summary>
+        public static HubLiftStatus LiftStatusOf(int statsState, bool powered, bool closed)
+        {
+            if ((statsState == 0 || statsState == 1) && powered && closed)
+                return HubLiftStatus.Closed;
             switch (statsState)
             {
                 case 0:

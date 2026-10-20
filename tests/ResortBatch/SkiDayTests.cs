@@ -146,7 +146,7 @@ namespace ResortBatch
             Check(Rules.MaxAttraction == 200 && Rules.MaxAttraction == Score.MaxAttraction, w, "MaxAttraction 200 = SkiResortScore.MaxAttraction");
             Check(Rules.SnowPrecipMin == 0.1f && Rules.SnowHourSamples == 24 && Rules.SnowHourSamples == RunSnowRules.DayMeanSamples, w,
                   "SnowPrecipMin 0.1f, SnowHourSamples 24 = RunSnowRules.DayMeanSamples");
-            Check(Rules.PowderStartHours == 4 && Rules.PowderFullHours == 10 && Rules.PowderMarkAt == 0.5, w, "powder 4 / 10 / mark 0.5");
+            Check(Rules.PowderStartSteps == 6 && Rules.PowderFullSteps == 12 && Rules.FreshStep == 0.5 && Rules.PowderMarkAt == 0.5, w, "T134 powder 6 / 12 steps of 0.5 / mark 0.5");
             Check(Rules.LodgeSkiersPerDay == 360.0 && Rules.PowderCapacityBoost == 0.25 && Rules.MaxCapacityPeople == 1000000, w, "lodge 360, boost 0.25, max 1e6");
             Check(Rules.SlopesideMaxM == 800f, w, "SlopesideMaxM 800f");
             Check(Rules.LocalsPctDefault == 25 && Rules.LocalsPctMin == 0 && Rules.LocalsPctMax == 50, w, "Locals 25 / 0 / 50");
@@ -802,17 +802,26 @@ namespace ResortBatch
             Check(Rules.IsSnowHour(0.2f, amb, top, bas, lapse, local) && !Rules.IsSnowHour(0.2f, amb, top, bas, lapse, local - 1e-4f), w,
                   "the local temperature is the float expression ambient − (top − base) × lapse");
 
-            for (int h = -1; h <= 12; h++)
+            // T134: PowderOf takes fresh steps (0.5 precipitation-hours each): 0 to 6, linear to 12, sixths.
+            for (int h = -1; h <= 14; h++)
             {
-                double want = h <= 4 ? 0.0 : (h >= 10 ? 1.0 : (h - 4) / 6.0);
+                double want = h <= 6 ? 0.0 : (h >= 12 ? 1.0 : (h - 6) / 6.0);
                 Check(Near(Rules.PowderOf(h), want, 1e-12), w, $"PowderOf({h}) = {R(Rules.PowderOf(h))}, expected {R(want)}");
             }
-            Check(Rules.PowderOf(5) == 1.0 / 6.0 && Rules.PowderOf(7) == 0.5 && Rules.PowderOf(9) == 5.0 / 6.0, w, "sixths exactly");
-            Check(Rules.PowderMark(Rules.PowderOf(7)) && !Rules.PowderMark(Rules.PowderOf(6)), w, "PowderMark at 7 snow-hours, not 6");
+            Check(Rules.PowderOf(7) == 1.0 / 6.0 && Rules.PowderOf(9) == 0.5 && Rules.PowderOf(11) == 5.0 / 6.0, w, "sixths exactly");
+            Check(Rules.PowderMark(Rules.PowderOf(9)) && !Rules.PowderMark(Rules.PowderOf(8)), w, "T134 PowderMark at 9 steps (4.5), not 8");
             bool markOk = true;
-            for (int h = 0; h <= 24; h++)
-                markOk &= Rules.PowderMark(Rules.PowderOf(h)) == (h >= 7);
-            Check(markOk && !Rules.PowderMark(double.NaN), w, "PowderMark ⇔ 7 or more snow-hours (h 0..24); NaN no");
+            for (int h = 0; h <= 48; h++)
+                markOk &= Rules.PowderMark(Rules.PowderOf(h)) == (h >= 9);
+            Check(markOk && !Rules.PowderMark(double.NaN), w, "PowderMark ⇔ 9 or more steps (0..48); NaN no");
+            Check(Rules.FreshSteps(4.5) == 9 && Rules.FreshSteps(4.4999995) == 9 && Rules.FreshSteps(4.49) == 8 && Rules.FreshSteps(0.0) == 0 &&
+                  Rules.FreshSteps(double.NaN) == 0 && Rules.FreshSteps(-1.0) == 0, w, "T134 FreshSteps: whole half steps, float guard, NaN / negative 0");
+            Check(Rules.FreshOfHour(0.4f, true) == 0.4f && Rules.FreshOfHour(0.4f, false) == 0f && Rules.FreshOfHour(float.NaN, true) == 0f, w,
+                  "T134 FreshOfHour: the precipitation of a snow hour, else 0");
+            // T134 the field case (2026-10-20 playthrough): seven snow hours of light snow (0.2) are no powder day any more; a storm
+            // of 15 hours at 0.4 is (6.0 = full).
+            Check(!Rules.PowderMark(Rules.PowderOf(Rules.FreshSteps(7 * 0.2))), w, "T134 7 light snow-hours (1.4): not a powder day (was one)");
+            Check(Rules.PowderOf(Rules.FreshSteps(15 * 0.4)) == 1.0, w, "T134 a 15-hour storm at 0.4 (6.0): full powder");
 
             Check(Rules.SnowHourSampleDate(0.5f, 0, 12) == 0.5f, w, "SnowHourSampleDate(0.5, 0, 12) = 0.5");
             Check(Near(Rules.SnowHourSampleDate(0.5f, 1, 12), 0.4965278, 1e-7), w, "SnowHourSampleDate(0.5, 1, 12) = " + Rules.SnowHourSampleDate(0.5f, 1, 12));

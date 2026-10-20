@@ -1,9 +1,17 @@
 // LiftLineTooltipSystem — the lift-line tool's mouse tooltip (T48 round 2; build note docs/research/field/2026-10-20/
 // t48-round2-build.md): the prompt for the current step, the plan line (towers, member mix, spans, clearance) and, over the line,
 // the hovered tower or span with its length and lowest carrier. The overlay cannot draw text, so span lengths live here.
-// Text uses LocalizedString.IdWithFallback (Game.UI.Localization/LocalizedString.cs:66): English fallback values until the locale
-// files carry the keys (SkiResort.LiftLine.*). Mod.cs: UpdateAt UITooltip (the TooltipSystemBase phase, as SkiLiftTooltipSystem).
-// No logs per frame; one "!!!" ERROR disables it until the next load.
+// T125 (docs/research/field/2026-10-20/playthrough/lift-tool-build.md):
+//   * The step hint is ALWAYS shown while the tool is open and always names the current step (LiftLineInput.Prompt, tested in
+//     LiftBatch); a refusal (LiftLineToolSystem.Notice) shows as a warning line for a few seconds under it.
+//   * Text is LocalizedString.Value(text), never IdWithFallback(fixedId, text): the frontend's translate cache is keyed by the id
+//     ALONE (installed 1.6.2f1 Cities2_Data/Content/Game/UI/index.js, `function dc()`: `n.get(s)` / `n.set(s, a)` with s = id), so a
+//     fixed id kept the FIRST text it was given. Field test 2026-10-20 shot 11.44.28: the tool in Edit (plan + hover drawn) while the
+//     prompt still read the PickBase text "Lift line: click a lift station" and the plan line "0 pinned" at plan #4 with 3 pins.
+//     Value() (id null) renders the text itself (index.js `xc`: null id -> the fallback, no translate).
+//   * One INFO log line per prompt change (the tooltip state, so a field log shows what the player was told).
+// Mod.cs: UpdateAt UITooltip (the TooltipSystemBase phase, as SkiLiftTooltipSystem). Tooltips are drawn only while the mouse is not
+// over the UI (TooltipUISystem.OnUpdate: !mouseOverUI). One "!!!" ERROR disables it until the next load.
 
 using System;
 using System.Globalization;
@@ -17,8 +25,8 @@ namespace SkiResortMod.Systems
     public sealed partial class LiftLineTooltipSystem : TooltipSystemBase
     {
         private LiftLineToolSystem m_Tool;
-        private StringTooltip m_Prompt, m_Plan, m_Hover;
-        private string m_LastPrompt, m_LastPlan, m_LastHover;
+        private StringTooltip m_Prompt, m_Notice, m_Plan, m_Hover;
+        private string m_LastPrompt, m_LastNotice, m_LastPlan, m_LastHover, m_LoggedPrompt;
         private bool m_Disabled;
 
         protected override void OnCreate()
@@ -26,6 +34,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_Tool = World.GetOrCreateSystemManaged<LiftLineToolSystem>();
             m_Prompt = new StringTooltip { path = "skiLiftLinePrompt", color = TooltipColor.Info };
+            m_Notice = new StringTooltip { path = "skiLiftLineNotice", color = TooltipColor.Warning };
             m_Plan = new StringTooltip { path = "skiLiftLinePlan", color = TooltipColor.Info };
             m_Hover = new StringTooltip { path = "skiLiftLineHover", color = TooltipColor.Info };
             Mod.Log.Info($"{nameof(LiftLineTooltipSystem)} created");
@@ -34,26 +43,32 @@ namespace SkiResortMod.Systems
         protected override void OnUpdate()
         {
             if (m_Disabled || !m_Tool.IsActive)
+            {
+                m_LoggedPrompt = null;
                 return;
+            }
             try
             {
                 LiftLineEdit e = m_Tool.Edit;
-                string prompt;
-                switch (m_Tool.State)
+                string prompt = LiftLineInput.Prompt(m_Tool.Step, m_Tool.PendingTypeName, m_Tool.Dragging);
+                if (m_Tool.DragOff)
+                    prompt = "Release here: remove this tower · move back onto the line to keep it · right click: cancel";
+                if (!string.Equals(prompt, m_LoggedPrompt, StringComparison.Ordinal))
                 {
-                    case LiftLineToolSystem.ToolState.PickBase: prompt = "Lift line: click a lift station"; break;
-                    case LiftLineToolSystem.ToolState.PickTop: prompt = "Lift line (" + m_Tool.PendingTypeName + "): click the other station"; break;
-                    case LiftLineToolSystem.ToolState.Edit: prompt = "Click: add tower · drag: move · right click: remove · Enter: build · Esc: drop"; break;
-                    default: prompt = "Building…"; break;
+                    m_LoggedPrompt = prompt;
+                    Mod.Log.Info($"LiftLine [tooltip]: step {m_Tool.Step} — \"{prompt}\"");
                 }
-                Show(m_Prompt, ref m_LastPrompt, "SkiResort.LiftLine.PROMPT", prompt);
+                Show(m_Prompt, ref m_LastPrompt, prompt);
+                string notice = m_Tool.Notice;
+                if (notice != null)
+                    Show(m_Notice, ref m_LastNotice, notice);
                 if (e?.Plan != null)
                 {
-                    Show(m_Plan, ref m_LastPlan, "SkiResort.LiftLine.PLAN", e.Describe());
+                    Show(m_Plan, ref m_LastPlan, e.Describe());
                     m_Plan.color = e.Plan.Clear ? TooltipColor.Success : TooltipColor.Warning;
                     string hover = HoverText(e);
                     if (hover != null)
-                        Show(m_Hover, ref m_LastHover, "SkiResort.LiftLine.HOVER", hover);
+                        Show(m_Hover, ref m_LastHover, hover);
                 }
             }
             catch (Exception ex)
@@ -74,15 +89,15 @@ namespace SkiResortMod.Systems
             return plan.Constants.Ladder[n.Member].Name.Replace("SkiLiftTower", string.Empty).Replace("SkiTramTower", "T") +
                    " at " + F(n.AlongM) + " m" + (e.IsPinned(n.AlongM) ? " (pinned)" : string.Empty) + "; spans " + F(left.LengthM) +
                    " / " + F(right.LengthM) + " m; lowest carrier " + F1(math.min(left.MinChairAboveGroundM, right.MinChairAboveGroundM)) +
-                   " m above the ground";
+                   " m above the ground · drag to move";
         }
 
-        private void Show(StringTooltip tip, ref string last, string id, string text)
+        private void Show(StringTooltip tip, ref string last, string text)
         {
             if (!string.Equals(text, last, StringComparison.Ordinal))
             {
                 last = text;
-                tip.value = LocalizedString.IdWithFallback(id, text);
+                tip.value = LocalizedString.Value(text);   // header: never a fixed id (the frontend caches by id)
             }
             AddMouseTooltip(tip);
         }

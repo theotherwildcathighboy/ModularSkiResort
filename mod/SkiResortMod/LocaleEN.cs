@@ -130,6 +130,13 @@
 // LiftNoPower|LiftSectionMissing], TILE_TIP_POWERED, PAGE_POSITION, PAGE_PREV, PAGE_NEXT, PROBLEM_MORE_CLICK, BUILD_GROUP[Lodges|Patrol]; TILE_TIP[Lifts],
 // BUILD_TAB_TIP[Buildings] and BUILD_LABEL[Sign|School|PatrolHut|PatrolHQ] changed in place.
 // Contract 12 (lift generator, 2026-10-20): new LIFT_TOOL, LIFT_TOOL_TIP, LIFT_TOOL_TIP_ON, LIFT_TOOL_UNAVAILABLE.
+// T129 / T130 hub text round (2026-10-20, field test notes 14-16, 18, 21, 31; docs/research/ui/hub-text-round-2026-10-20.md has the
+// before / after table; gate R4 with src/hub/hubText.ts; HUB_CONTRACT unchanged): no text says a building joins or goes near the
+// Welcome Sign; the build tiles show the draws instead (vanilla's own Properties.* labels + new BUILD_TIP_WORKERS) and a terrain line
+// (new TERRAIN[Level|Slope]); new SNOW_DEPTH_IN / STATUS_SNOW_IN (US customary units); SNOW_DEPTH / STATUS_SNOW take {DEPTH}; no snow
+// depth threshold baked into a text (STATUS_TIP_RULE, MOUNTAIN_TIP[Snow]: the open depth is C#'s and changes, T133); US spelling in
+// every player text (tools/check-us-english.js). Removed: BUILD_ACTIVE_UPGRADE, BUILD_HINT_LODGE_SELECTED, BUILD_TIP_LODGE,
+// BUILD_HINT_LIFT_SIGN, BUILD_TIP_LINK, BUILD_MONTH_GAME.
 // Additional languages: further IDictionarySource implementations — see SPEC §13 Phase 6.
 
 using System.Collections.Generic;
@@ -444,9 +451,9 @@ namespace SkiResortMod
                 { "Assets.NAME[SkiSnowGunFanIdle]", "Fan Gun, Wheeled (Parked)" },
                 { "Assets.DESCRIPTION[SkiSnowGunFanIdle]", "A fan gun on wheels, parked with its barrel down. Snowmaking and night runs place it by themselves." },
                 { "Assets.NAME[SkiSnowGunLance]", "Snow Lance (Medium)" },
-                { "Assets.DESCRIPTION[SkiSnowGunLance]", "A snow lance: a tall inclined aluminium tube with the nucleator at the head. Snowmaking and night runs place it by themselves." },
+                { "Assets.DESCRIPTION[SkiSnowGunLance]", "A snow lance: a tall inclined aluminum tube with the nucleator at the head. Snowmaking and night runs place it by themselves." },
                 { "Assets.NAME[SkiSnowGunLanceTall]", "Snow Lance (Tall)" },
-                { "Assets.DESCRIPTION[SkiSnowGunLanceTall]", "A tall snow lance: an inclined aluminium tube with the nucleator at the head. Snowmaking and night runs place it by themselves." },
+                { "Assets.DESCRIPTION[SkiSnowGunLanceTall]", "A tall snow lance: an inclined aluminum tube with the nucleator at the head. Snowmaking and night runs place it by themselves." },
                 { "Assets.NAME[SkiSnowGunLanceDown]", "Snow Lance (Folded)" },
                 { "Assets.DESCRIPTION[SkiSnowGunLanceDown]", "A snow lance folded down. Snowmaking and night runs place it by themselves." },
                 { "Assets.NAME[SkiHydrantBox]", "Snowmaking Hydrant Box" },
@@ -474,31 +481,27 @@ namespace SkiResortMod
                 { "Assets.NAME[SkiRunGroomedA]", "Groomed Run" },
                 {
                     "Assets.DESCRIPTION[SkiRunGroomedA]",
-                    "Freeform ski run. Paint the trail within 5 km of a Ski Area Welcome " +
-                    "Sign; grooming appears on the mountain and counts toward the " +
-                    "resort's attractiveness."
+                    "A freeform ski run. Paint the trail; the grooming shows on the mountain " +
+                    "and adds to the resort's attraction."
                 },
                 { "Assets.NAME[SkiRunSnowmakingA]", "Snowmaking Run" },
                 {
                     "Assets.DESCRIPTION[SkiRunSnowmakingA]",
-                    "A groomed run with snowmaking coverage — holds its season longer and " +
-                    "scores attractiveness in marginal weather. Operates within 5 km of a " +
-                    "Ski Area Welcome Sign."
+                    "A groomed run with snow guns: it holds its season longer and still " +
+                    "scores in marginal weather."
                 },
                 { "Assets.NAME[SkiRunNightA]", "Night Run" },
                 {
                     "Assets.DESCRIPTION[SkiRunNightA]",
                     "A snowmaking run with floodlighting for a second, after-dark shift — " +
-                    "the most expensive trail to keep open, and the biggest draw. Operates " +
-                    "within 5 km of a Ski Area Welcome Sign."
+                    "the most expensive trail to keep open, and the biggest draw."
                 },
                 { "Assets.NAME[SkiRunNaturalA]", "Natural Run" },
                 {
                     "Assets.DESCRIPTION[SkiRunNaturalA]",
                     "A marked trail on natural snow. Nothing is groomed or painted: the mountain's " +
                     "own snow is the run, and it opens only when real snow covers it. No monthly " +
-                    "cost. Cut the trail through the forest with the tree tool. Links to the nearest " +
-                    "Ski Area Welcome Sign within 5 km."
+                    "cost. Cut the trail through the forest with the tree tool."
                 },
                 // T54 probe 1 (docs/research/cat-track-run.md §2): the fifth run type. Description <= 25 words.
                 { "Assets.NAME[SkiRunCatTrackA]", "Cat Track" },
@@ -544,8 +547,8 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.RUN_FEE", "Run fee (one-time)" },
                 {
                     "SkiResort.Tooltip.NO_GATE_IN_RANGE",
-                    "No Ski Area Welcome Sign within 5 km — this run will stay unbound " +
-                    "until one is placed"
+                    "No Ski Area Welcome Sign within 5 km: this run will not count until " +
+                    "one is placed nearby"
                 },
                 // T54 probe 1 (SkiRunTooltipSystem.KeyCatSteep): the Error line on a cat track rated blue or steeper.
                 { "SkiResort.Tooltip.CAT_TRACK_TOO_STEEP", "Too steep for a cat track: it will be unsuitable. Keep it under 25 %." },
@@ -570,16 +573,16 @@ namespace SkiResortMod
                 // below its target (learned blocked spots used up the stream) and COMPLETE_FIXED
                 // for one above it (the trees left inside may not be felled), so COMPLETE is shown
                 // only when Trees now = Target.
-                { "SkiResort.GladeTooltip.HINT", "Hover a ski run to plan trees" },
+                { "SkiResort.GladeTooltip.HINT", "Point at a ski run to plan trees" },
                 { "SkiResort.GladeTooltip.NO_RUNS", "No ski run in this city is linked to a Welcome Sign yet" },
-                { "SkiResort.GladeTooltip.UNBOUND", "Run not linked: a Ski Area Welcome Sign must stand within 5 km of its centre" },
+                { "SkiResort.GladeTooltip.UNBOUND", "Run not linked: a Ski Area Welcome Sign must stand within 5 km of its center" },
                 { "SkiResort.GladeTooltip.BLOCKED", "Trees cannot be planned on this run (see the mod log)" },
                 { "SkiResort.GladeTooltip.COMPLETE", "Nothing to change: the run is already at this tree density" },
                 { "SkiResort.GladeTooltip.COMPLETE_BLOCKED", "Nothing more can be planted: the remaining spots are blocked (roads, buildings)" },
                 { "SkiResort.GladeTooltip.COMPLETE_FIXED", "Nothing to change: the remaining trees cannot be felled (other runs', buildings')" },
                 { "SkiResort.GladeTooltip.CLAMPED", "Large run: apply again to continue" },
                 { "SkiResort.GladeTooltip.SATURATED", "No room for more trees" },
-                { "SkiResort.GladeTooltip.MONEY", "Some trees cancelled — not enough money?" },
+                { "SkiResort.GladeTooltip.MONEY", "Some trees canceled — not enough money?" },
                 { "SkiResort.GladeTooltip.TARGET[Interior]", "Run interior" },
                 { "SkiResort.GladeTooltip.TARGET[TreeLine]", "Tree line" },
                 { "SkiResort.GladeTooltip.LEVEL", "Tree density (1-8)" },
@@ -658,12 +661,10 @@ namespace SkiResortMod
                 { "SkiResort.Hub.AREA", "Skiable area" },
                 { "SkiResort.Hub.BUILD_EMPTY", "No building tools were reported. See SkiResortMod.Mod.log." },
                 { "SkiResort.Hub.BUILD_ACTIVE", "In use: click again to stop" },
-                { "SkiResort.Hub.BUILD_ACTIVE_UPGRADE", "Joins this ski area's Welcome Sign · click again to stop" },
                 // Round F6 (C4): the hub shows a ski area -> the lodge goes on its sign (T12: the camera no longer flies
                 // there first; SkiResortHubUISystem lodge launch, item A2); BUILD_HINT_LODGE_SELECTED below
                 // is the Not linked / mismatch text (src/hub/BuildStrip.tsx picks one by FooterInfo.lodgeShown).
-                { "SkiResort.Hub.BUILD_HINT_LODGE", "Goes near this ski area's Welcome Sign." },
-                { "SkiResort.Hub.BUILD_HINT_LODGE_SELECTED", "Goes on the selected Welcome Sign, or the nearest one." },
+                { "SkiResort.Hub.BUILD_HINT_LODGE", "Guests start their ski day here: build it close to the runs." },
                 { "SkiResort.Hub.LOCKED", "Not available yet" },
                 { "SkiResort.Hub.TREES_FEWER", "Fewer trees" },
                 { "SkiResort.Hub.TREES_MORE", "More trees" },
@@ -712,7 +713,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_TOOL_UNAVAILABLE", "Available once a city is loaded." },
                 { "SkiResort.Hub.RESORT_DEFAULT", "Ski area {N}" },
                 { "SkiResort.Hub.RESORT_FLY", "Fly to the Welcome Sign" },
-                { "SkiResort.Hub.RESORT_TIP", "Everything you build belongs to a Welcome Sign. Click to pick the ski area shown." },
+                { "SkiResort.Hub.RESORT_TIP", "Click to pick the ski area the panel shows." },
                 // T97 P1 header selector (2026-10-19): caption, the open list's note, an item's counts.
                 { "SkiResort.Hub.RESORT_CAPTION", "Ski area" },
                 { "SkiResort.Hub.RESORT_MENU_NOTE", "Selecting a sign, a lodge or a station on the map shows its ski area here." },
@@ -747,15 +748,14 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_STRAIGHT", "Stations straight (180°)" },
                 // Fixer round (finding behaviour-4): a lift without a base station stores its name on the top.
                 { "SkiResort.Hub.LIFT_NAME_TIP", "The name is stored on the base station, or on the top station while there is no base." },
-                { "SkiResort.Hub.LIFT_SIGN_TIP", "Lifts belong to the nearest Welcome Sign within 5 km of their base station; runs keep the sign they were drawn for." },
+                { "SkiResort.Hub.LIFT_SIGN_TIP", "A lift belongs to the ski area of its base station; a run keeps the ski area it was drawn for." },
                 // Build strip (§4.2 BuildStrip, §5.8).
-                { "SkiResort.Hub.BUILD_HINT_SIGN", "The sign is the ski area: runs and lifts within 5 km belong to it." },
+                { "SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: the runs and lifts within 5 km belong to it." },
                 { "SkiResort.Hub.BUILD_HINT_BASE", "Place at the bottom of the lift." },
                 { "SkiResort.Hub.BUILD_HINT_TOP", "Place at the top, facing the base station. A guide shows when it is straight." },
                 { "SkiResort.Hub.BUILD_HINT_LIFT", "Draw from station to station. On steep ground, redraw one section at a time." },
                 // Round F6 (C4): an extra TOOLTIP line of the base, top and lift tiles (the footer's two
                 // one-string lines would cut it at 130-150 % text; src/hub/BuildStrip.tsx header).
-                { "SkiResort.Hub.BUILD_HINT_LIFT_SIGN", "Lifts join the nearest Welcome Sign within 5 km of their base station." },
                 // The link states (§4.5).
                 { "SkiResort.Hub.CONTRACT_MISMATCH_CORE", "This panel (version {UI}) and the mod's DLL (version {DLL}) come from different builds. Building still works; the resort statistics are hidden until the mod is reinstalled." },
 
@@ -766,14 +766,14 @@ namespace SkiResortMod
                 // Texts are final unless Richard edits them (DECISIONS 132: the owner reads new player text).
                 { "SkiResort.Hub.START_TITLE", "Start a ski area" },
                 { "SkiResort.Hub.START_STEP[1]", "Place a Welcome Sign" },
-                { "SkiResort.Hub.START_STEP[2]", "Connect the sign to a road, power, water and sewage" },
-                { "SkiResort.Hub.START_STEP[3]", "Add a lodge to the sign" },
+                { "SkiResort.Hub.START_STEP[2]", "Connect the sign to a road" },
+                { "SkiResort.Hub.START_STEP[3]", "Build a lodge near the runs" },
                 { "SkiResort.Hub.START_STEP[4]", "Build a lift: two stations, then the line" },
                 { "SkiResort.Hub.START_STEP[5]", "Draw runs from the top of the lift" },
                 // START_NOTE retired in Round F7 (D6): footer line 2 (BUILD_HINT_SIGN) says it.
                 { "SkiResort.Hub.STATUS_NO_RUNS", "Closed · no runs yet" },
                 { "SkiResort.Hub.STATUS_UNLINKED", "No Welcome Sign within 5 km" },
-                { "SkiResort.Hub.STATUS_TIP_RULE", "Open: at least 15 cm of snow on 60 % of the run, 31 cm on natural black runs. Closed: under 40 %. Patchy: in between." },
+                { "SkiResort.Hub.STATUS_TIP_RULE", "Open: enough snow on 60 % of the run. Closed: under 40 %. Patchy: in between." },
                 { "SkiResort.Hub.STATUS_TIP_MEASURED", "Snow is measured on each run from the game's snow." },
                 { "SkiResort.Hub.STATUS_TIP_ESTIMATED", "Some runs are estimated from the day's temperature until their snow can be measured." },
                 { "SkiResort.Hub.STATUS_TIP_GATING", "Snow & season gating is off in Options, so every run counts as open." },
@@ -795,8 +795,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[LodgeNotSlopeside]", "Lodge is far from the runs" },
                 // Catalog Phase B (D13): C# HubProblemCode SchoolNoGreenRun 25 (23 and 24 carry a placeholder: block (e) FMT).
                 { "SkiResort.Hub.PROBLEM[SchoolNoGreenRun]", "Ski school has no green run" },
-                { "SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Guests arrive at a lodge, so without one the attraction is 0. Build one near the Welcome Sign from the Buildings tab." },
-                { "SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "Switched-off lodges do not count, so the attraction is 0. Switch one on under Upgrades in the Welcome Sign's info panel." },
+                { "SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Guests arrive at a lodge, so without one the attraction is 0. Build one from the Buildings tab." },
+                { "SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "Switched-off lodges do not count, so the attraction is 0. Switch one on in its info panel." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "Switched-off lodges do not count in the lodge base." },
                 // Round F7 (D4): no longer tells the player to connect a sign that is connected.
                 // Round M2 (R5): changed in place; names garbage and points at the factor rows below it.
@@ -808,18 +808,18 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[LiftNoPower]", "Its base station has no electricity, so the lift stops and serves no run. Maintenance is still charged. Connect a low-voltage line." },
                 { "SkiResort.Hub.PROBLEM_TIP[LiftSectionMissing]", "A section was removed or is being redrawn. Until the line is complete the lift counts 0 and costs a quarter." },
                 { "SkiResort.Hub.PROBLEM_TIP[LiftUnfinished]", "The line does not join a base station and a top station yet." },
-                { "SkiResort.Hub.PROBLEM_TIP[NoRuns]", "Pick a run type in the Runs tab and draw it within 5 km of the Welcome Sign." },
+                { "SkiResort.Hub.PROBLEM_TIP[NoRuns]", "Pick a run type in the Runs tab and draw its outline." },
                 { "SkiResort.Hub.PROBLEM_TIP[Stations]", "A station is placed, but no line joins it to its partner yet." },
                 { "SkiResort.Hub.PROBLEM_TIP[LiftChairsStopped]", "The lift is complete and still counts, but its chairs stopped. The mod log says why." },
                 { "SkiResort.Hub.PROBLEM_TIP[RunsUnrateable]", "The outline is too large or too thin, or has no terrain under it. These runs count very little." },
                 { "SkiResort.Hub.PROBLEM_TIP[RunsRating]", "Runs are rated one at a time. A new run counts 0 until it is rated; a reshaped run keeps its last rating." },
                 { "SkiResort.Hub.PROBLEM_TIP[RunsFlat]", "A Flat run adds nothing to the score. Draw it on steeper ground." },
-                { "SkiResort.Hub.PROBLEM_TIP[FreeLodges]", "These lodges belong to no Welcome Sign, so they count nowhere." },
+                { "SkiResort.Hub.PROBLEM_TIP[FreeLodges]", "They are more than 5 km from every Welcome Sign, so they count nowhere. Place a sign nearby or move them." },
                 // Round F7 (D5): the tooltip's first line is the row ("Welcome Sign is not at a road" /
                 // "Lodge is not at a road: ..."), so "it" names the building; the fix hints come from
                 // findings/sign-utilities.md §5 and ped-access.md §2.4 / §4.2 (the deck side is the lot front;
                 // the game links a road within 8.4 m of the front point).
-                { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "Move it so its front touches a road. Power, water and sewage come from that road." },
+                { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "Move it so its front touches a road: staff and visitors come in from it." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgeNoRoad]", "Move it so its entrance side touches a road. Guests walk in from that road." },
                 // T100: top-level ski schools on no Welcome Sign (C# HubProblemCode SchoolsNotLinked 26; its row text is FMT below).
                 { "SkiResort.Hub.PROBLEM_TIP[SchoolsNotLinked]", "More than 5 km from every Welcome Sign, so they teach nobody. Place a sign nearby or move the school." },
@@ -868,7 +868,7 @@ namespace SkiResortMod
                 // changed in place.
                 { "SkiResort.Hub.RECEIPT_TIP[Lifts]", "Each complete lift with power adds fixed-grip 6, detachable 15, gondola 25. While no run counts, chairlifts add a quarter and gondolas three quarters." },
                 // Catalog Phase B: the school's line of the receipt's parts tooltip (shown while ResortLive.schoolValue > 0).
-                { "SkiResort.Hub.RECEIPT_TIP[School]", "A ski school on the Welcome Sign adds its value while a green run counts." },
+                { "SkiResort.Hub.RECEIPT_TIP[School]", "A ski school adds its value while a green run counts." },
                 { "SkiResort.Hub.RECEIPT_TIP[Variety]", "× 1.15 while a green, a blue and a black or harder run all count, else × 1." },
                 // T80 (2026-10-18, Richard item 4): one labelled row per term of the "Runs, lifts and school" section; item 3: a
                 // school row / lessons row whose 0 has a cause says it with the warning glyph.
@@ -899,16 +899,23 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MOUNTAIN[SnowDepth]", "Snow depth" },
                 { "SkiResort.Hub.MOUNTAIN[SnowCover]", "Run coverage" },
                 { "SkiResort.Hub.MOUNTAIN_TIP[Depth]", "Average snow depth on the runs." },
-                { "SkiResort.Hub.MOUNTAIN_TIP[Snow]", "Share of the run area with at least 15 cm of snow, 31 cm on natural black runs." },
+                { "SkiResort.Hub.MOUNTAIN_TIP[Snow]", "Share of the run area with enough snow to ski." },
                 { "SkiResort.Hub.UNLINKED_NOTE", "These runs and lifts belong to no ski area, so they score nothing and draw no guests." },
                 { "SkiResort.Hub.TREE_TOOL", "Tree tool" },
-                { "SkiResort.Hub.TREE_TOOL_TIP", "Plans trees on and around runs. Turn it on, hover a run and click." },
+                { "SkiResort.Hub.TREE_TOOL_TIP", "Plans trees on and around runs. Turn it on, point at a run and click." },
                 { "SkiResort.Hub.TREE_TOOL_TIP_ON", "The tree tool is on. Click to turn it off." },
                 { "SkiResort.Hub.PISTE_MAP", "Piste map" },
-                { "SkiResort.Hub.PISTE_MAP_TIP", "Draws this ski area's runs on the ground, in difficulty colours, while the panel is open. Natural: dashed. Too flat: grey. Cannot be rated: orange." },
+                { "SkiResort.Hub.PISTE_MAP_TIP", "Draws this ski area's runs on the ground in difficulty colors while the panel is open. Natural: dashed. Too flat: gray. Cannot be rated: orange." },
                 { "SkiResort.Hub.COL_LIFT", "Lift" },
                 { "SkiResort.Hub.COL_LIFT_TIP", "↑: a running lift reaches the top of this run." },
                 { "SkiResort.Hub.RUN_ESTIMATED", "Estimated from the day's temperature." },
+                // T136 (sim session, 2026-10-20): the run tooltip's depth line and snow-gun line (hubText.ts runDepth / runGuns*).
+                { "SkiResort.Hub.RUN_DEPTH", "Snow depth {DEPTH} · opens at 3 ft (91 cm)" },
+                { "SkiResort.Hub.RUN_GUNS[Making]", "Snow guns: making snow now" },
+                { "SkiResort.Hub.RUN_GUNS[DepthReached]", "Snow guns: off, 3 ft reached" },
+                { "SkiResort.Hub.RUN_GUNS[TooWarm]", "Snow guns: off, too warm" },
+                { "SkiResort.Hub.RUN_GUNS[OutOfSeason]", "Snow guns: off, out of season (October–March)" },
+                { "SkiResort.Hub.RUN_GUNS[Waiting]", "Snow guns: waiting for the first snow reading" },
                 { "SkiResort.Hub.RUN_OPEN_GATING", "Counts as open: snow rules are off." },
                 { "SkiResort.Hub.RUN_OPEN_NONE", "Not linked: no snow state." },
                 { "SkiResort.Hub.RUN_SERVED_ANON", "A running lift reaches its top." },
@@ -1019,7 +1026,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_NET", "Net so far this month" },
                 // MONEY_TIP[Natural] ("Natural runs have no running cost.") removed 2026-10-18 (T80): the row's ¢0 says it.
                 { "SkiResort.Hub.MONEY_TIP[Net]", "All income booked this month minus all costs: the rows above add up to it. Buildings and wages: today's rate × the month so far." },
-                { "SkiResort.Hub.SECTION[Also]", "Also, not in the net" },
+                { "SkiResort.Hub.SECTION[Also]", "Other figures" },
                 { "SkiResort.Hub.MONEY_NOTE[Panel]", "This month so far: income, lift and run costs as booked; buildings and wages at today's rate for the share of the month gone." },
                 { "SkiResort.Hub.MONEY_NOTE[Rwh]", "Detected: Realistic Workplaces. The real bill can differ." },
                 { "SkiResort.Hub.MONEY_TIP[Rwh]", "Realistic Workplaces And Households changes staff costs; the bill can differ." },
@@ -1052,13 +1059,13 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_TIP[LodgeSpend]", "Booked this month so far: paying ski guests' spend at the lodges. Set per guest in Options > Modular Ski Resort > Main > Ski area balance." },
                 // MONEY_NOTE[Unknown] retired in Round F7 (D2): the tickets row says "counted after a quarter month".
                 { "SkiResort.Hub.UNLINKED_MONEY", "Runs that are not linked cost nothing and earn nothing; their lifts still cost money to run." },
-                { "SkiResort.Hub.BUILD_SHORT[Lodge]", "Goes near this ski area's Welcome Sign." },
+                { "SkiResort.Hub.BUILD_SHORT[Lodge]", "Build it close to the runs." },
                 { "SkiResort.Hub.BUILD_SHORT[Top]", "Place at the top, facing the base station." },
                 { "SkiResort.Hub.BUILD_SHORT[Lift]", "Draw from station to station, one section at a time." },
                 // Catalog Phase B (round-2-contract §8.5-§8.6): the school and patrol tiles, the luxury tiers, the pickers. CG-T6
                 // derives "+12", "20 %" (School), "1 km", "15 %", "70 %" (Patrol) and "40" (the luxury PriceTolerance) from SkiCatalog.
-                { "SkiResort.Hub.BUILD_SHORT[School]", "Goes near this ski area's Welcome Sign; teaches on green runs." },
-                { "SkiResort.Hub.BUILD_SHORT[Patrol]", "Goes on the Welcome Sign; place it near steep runs." },
+                { "SkiResort.Hub.BUILD_SHORT[School]", "Teaches on green runs." },
+                { "SkiResort.Hub.BUILD_SHORT[Patrol]", "Covers the steep runs nearby." },
                 { "SkiResort.Hub.BUILD_TIP_SCHOOL", "Adds +12 to Runs, lifts and school while a green run counts; locals come 20 % more often." },
                 { "SkiResort.Hub.BUILD_TIP_PATROL", "Black and double-black runs within 1 km score 15 % more; runs there without a lift count at least 70 %." },
                 { "SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days stay full at a lift ticket price up to 40 higher." },
@@ -1079,7 +1086,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_TAB[Buildings]", "Buildings" },
                 { "SkiResort.Hub.BUILD_TAB_TIP[Lifts]", "Lifts: build the two stations, then the line. Pick the lift type below." },
                 { "SkiResort.Hub.BUILD_TAB_TIP[Runs]", "Runs: draw a run from the top of a lift, or plan trees with the tree tool." },
-                { "SkiResort.Hub.BUILD_TAB_TIP[Buildings]", "Buildings: lodges, the ski school and patrol join this ski area's Welcome Sign. Each lodge has its own tile." },
+                { "SkiResort.Hub.BUILD_TAB_TIP[Buildings]", "Buildings: the Welcome Sign, lodges, the ski school and ski patrol." },
                 { "SkiResort.Hub.BUILD_LABEL[Base]", "Base station" },
                 { "SkiResort.Hub.BUILD_LABEL[Top]", "Top station" },
                 { "SkiResort.Hub.BUILD_LABEL[Line]", "Lift line" },
@@ -1095,13 +1102,14 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_TIP_ONCE", "One-time" },
                 { "SkiResort.Hub.BUILD_TIP_MONTH", "Per month" },
                 { "SkiResort.Hub.BUILD_MONTH_NONE", "Nothing" },
-                { "SkiResort.Hub.BUILD_MONTH_GAME", "Upkeep and wages, billed by the game" },
                 { "SkiResort.Hub.BUILD_MONTH_STATION", "The whole lift is priced by its length: both stations and the line. This station is one part." },
                 { "SkiResort.Hub.BUILD_TIP_RESHAPE", "Reshaping a run later costs nothing more." },
-                { "SkiResort.Hub.BUILD_TIP_LINK", "Runs link to the nearest Welcome Sign within 5 km." },
                 { "SkiResort.Hub.BUILD_TIP_NATURAL", "Nothing is drawn on the ground: find it with the piste map." },
-                { "SkiResort.Hub.BUILD_TIP_LODGE", "A new lodge needs staff, power and water. Until it has them, the sign's efficiency and the attraction can fall." },
                 { "SkiResort.Hub.BUILD_TIP_TYPE[Natural]", "Score: greens count half, blues three quarters, blacks in full. It opens only when natural snow covers it." },
+                // T129 (2026-10-20): a building tile's draw rows end with Workers; its terrain line (BuildingTerraformOverride).
+                { "SkiResort.Hub.BUILD_TIP_WORKERS", "Workers" },
+                { "SkiResort.Hub.TERRAIN[Level]", "Levels the ground" },
+                { "SkiResort.Hub.TERRAIN[Slope]", "Sits on the slope" },
                 { "SkiResort.Hub.STATUS_LINE", "{STATE} · {OPEN} of {TOTAL} runs open" },
                 { "SkiResort.Hub.STATUS_LINE_ONE", "{STATE} · {OPEN} of 1 run open" },
                 { "SkiResort.Hub.STATUS_LINE_EST", "{STATE} · ≈ {OPEN} of {TOTAL} runs open" },
@@ -1114,7 +1122,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.STATUS_TIP_TEMP", "Day average at the top of the highest run: {TEMP}" },
                 // Round S1 (D29): status tooltip line while powder > 0.
                 { "SkiResort.Hub.STATUS_TIP_POWDER", "Fresh snow at the top: powder {PCT}. More skiers come." },
-                { "SkiResort.Hub.STATUS_SNOW", "{CM} cm · {PCT}" },
+                { "SkiResort.Hub.STATUS_SNOW", "{DEPTH} cm · {PCT}" },
+                { "SkiResort.Hub.STATUS_SNOW_IN", "{DEPTH} in · {PCT}" },   // T130: US customary units
                 { "SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges switched off: {N}" },
                 { "SkiResort.Hub.PROBLEM[Efficiency]", "Welcome Sign at {PCT}: {REASON}" },
                 { "SkiResort.Hub.PROBLEM[EfficiencyMore]", "Welcome Sign at {PCT}: {REASON} and {N} more" },
@@ -1135,8 +1144,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[RunsUnrateable]", "Runs that cannot be rated: {N}" },
                 { "SkiResort.Hub.PROBLEM[RunsRating]", "Runs being rated: {N}" },
                 { "SkiResort.Hub.PROBLEM[RunsFlat]", "Runs too flat to score: {N}" },
-                { "SkiResort.Hub.PROBLEM[FreeLodges]", "Lodges on no Welcome Sign: {N}" },
-                { "SkiResort.Hub.PROBLEM[SchoolsNotLinked]", "Ski schools on no Welcome Sign: {N}" },   // T100
+                { "SkiResort.Hub.PROBLEM[FreeLodges]", "Lodges not linked to a ski area: {N}" },
+                { "SkiResort.Hub.PROBLEM[SchoolsNotLinked]", "Ski schools not linked to a ski area: {N}" },   // T100
                 { "SkiResort.Hub.PROBLEM_MORE", "+{N}" },
                 { "SkiResort.Hub.PROBLEM_TIP[NoLift]", "A run counts {PCT} until a running lift reaches its top: within 150 m of the line, at most 15 m above the top station." },
                 { "SkiResort.Hub.PROBLEM_TIP[RunsUnserved]", "Each counts {PCT} until a running lift reaches its top: within 150 m of the line, at most 15 m above the top station." },
@@ -1168,7 +1177,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.DIFF_TIP_PENDING", "Being rated: {N}" },
                 { "SkiResort.Hub.DIFF_TIP_UNRATEABLE", "Cannot be rated: {N}" },
                 { "SkiResort.Hub.AREA_HA", "{HA} ha" },
-                { "SkiResort.Hub.SNOW_DEPTH", "{CM} cm" },
+                { "SkiResort.Hub.SNOW_DEPTH", "{DEPTH} cm" },
+                { "SkiResort.Hub.SNOW_DEPTH_IN", "{DEPTH} in" },   // T130: US customary units
                 { "SkiResort.Hub.RUN_OPEN[Open]", "Open: snow on {PCT} of it" },
                 { "SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: snow on {PCT} of it" },
                 { "SkiResort.Hub.RUN_OPEN[Closed]", "Closed: snow on {PCT} of it" },
@@ -1240,7 +1250,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.HISTORY[RangeSeasons]", "This season vs last" },
                 { "SkiResort.Hub.HISTORY[RangeBySeason]", "By season" },
                 { "SkiResort.Hub.HISTORY_TIP[Range12]", "The last 12 months. The month in progress is the last bar." },
-                { "SkiResort.Hub.HISTORY_TIP[RangeSeasons]", "This ski season, July to June, in colour. Last season's same months in grey behind it." },
+                { "SkiResort.Hub.HISTORY_TIP[RangeSeasons]", "This ski season, July to June, in color. Last season's same months in gray behind it." },
                 { "SkiResort.Hub.HISTORY_TIP[RangeBySeason]", "One bar per ski season, July to June: the average month, so a season with missing months compares fairly." },
                 { "SkiResort.Hub.HISTORY_TIP[RangeOff]", "Not enough months recorded yet." },
                 { "SkiResort.Hub.HISTORY[Guests]", "Guests" },
@@ -1306,6 +1316,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_STATUS[ChairsStopped]", "Chairs stopped" },
                 { "SkiResort.Hub.LIFT_STATUS[SectionMissing]", "Section missing" },
                 { "SkiResort.Hub.LIFT_STATUS[Unfinished]", "Unfinished" },
+                { "SkiResort.Hub.LIFT_STATUS[Closed]", "Closed" },   // T132 (sim session, 2026-10-20)
                 { "SkiResort.Hub.RUN_TYPE[Groomed]", "Groomed run" },
                 { "SkiResort.Hub.RUN_TYPE[Snowmaking]", "Snowmaking run" },
                 { "SkiResort.Hub.RUN_TYPE[Night]", "Night run" },
@@ -1318,10 +1329,10 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_SHORT[CatTrack]", "Green only; crosses other runs. Not part of the score." },   // T54 probe 1
                 { "SkiResort.Hub.NEXT[Sign]", "Next: place a Ski Area Welcome Sign from the Buildings tab." },
                 { "SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within 5 km." },
-                { "SkiResort.Hub.NEXT[Lodge]", "Next: a lodge near this ski area's Welcome Sign, from the Buildings tab." },
+                { "SkiResort.Hub.NEXT[Lodge]", "Next: build a lodge from the Buildings tab." },
                 { "SkiResort.Hub.NEXT[Lift]", "Next: in the Lifts tab, a base station, a top station, then the line." },
-                { "SkiResort.Hub.NEXT[Run]", "Next: draw a run within 5 km of this Welcome Sign, from the Runs tab." },
-                { "SkiResort.Hub.NEXT[Done]", "Hover a tile to see what it builds and what it costs." },
+                { "SkiResort.Hub.NEXT[Run]", "Next: draw a run from the Runs tab." },
+                { "SkiResort.Hub.NEXT[Done]", "Point at a tile to see its cost and what it does." },
                 { "SkiResort.Hub.NEXT2[Unlinked]", "Place a sign near them to link them." },
                 { "SkiResort.Hub.NEXT2[Lodge]", "Guests arrive at a lodge. Without one the attraction is 0." },
                 { "SkiResort.Hub.NEXT2[Lift]", "Runs that a lift serves count in full." },

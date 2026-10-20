@@ -56,7 +56,7 @@ namespace ResortBatch
         private static void Constants(Func<bool, string, string, bool> check)
         {
             const string W = "snow S1 constants";
-            check(RunSnowRules.SkiableNorm == 0.15f / 8f && RunSnowRules.OpenAtShare == 0.60f &&
+            check(RunSnowRules.SkiableNorm == 0.91f / 8f && RunSnowRules.OpenAtShare == 0.60f &&
                   RunSnowRules.CloseBelowShare == 0.40f && RunSnowRules.MultiplierDeadBand == 0.05f &&
                   RunSnowRules.DefaultSnowmakingMarginC == 3.3f && RunSnowRules.ForcedRealPassFrames == 1024u &&
                   RunSnowRules.MeasureIntervalFrames == 1024u && RunSnowRules.MaxSnapshotAgeFrames == 4096u &&
@@ -222,17 +222,17 @@ namespace ResortBatch
             check(v == 0f, W, "NaN bottom: " + v);
         }
 
-        // S10 IsSkiable(depthNorm, ownTargetNorm) (8; the 15 cm bar since T09: 0.15 / 8 x 65535 = 1228.78 quanta, so 1229 passes)
+        // S10 IsSkiable(depthNorm, ownTargetNorm) (8; T133 the 3 ft bar: 0.91 / 8 x 65535 = 7454.53 quanta, so 7455 passes)
         private static void IsSkiableCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S10 IsSkiable";
-            check(RunSnowRules.IsSkiable(1229 / 65535f, 0f), W, "15.0 cm, no own target: should be skiable");
-            check(!RunSnowRules.IsSkiable(1228 / 65535f, 0f), W, "14.99 cm, no own target: should not be skiable");
+            check(RunSnowRules.IsSkiable(7455 / 65535f, 0f), W, "91.0 cm, no own target: should be skiable");
+            check(!RunSnowRules.IsSkiable(7454 / 65535f, 0f), W, "90.99 cm, no own target: should not be skiable");
             check(!RunSnowRules.IsSkiable(0f, 0f), W, "bare: should not be skiable");
             check(RunSnowRules.IsSkiable(123 / 65535f, 0.001875f), W, "fringe at its 1.5 cm target: should be skiable (E1-S1)");
             check(!RunSnowRules.IsSkiable(122 / 65535f, 0.001875f), W, "fringe one quantum short: should not be skiable");
-            check(RunSnowRules.IsSkiable(1229 / 65535f, 0.04375f), W, "35 cm gun target, 15.0 cm: the 15 cm bar applies, skiable");
-            check(!RunSnowRules.IsSkiable(1228 / 65535f, 0.04375f), W, "35 cm gun target, 14.99 cm: the 15 cm bar applies, not skiable");
+            check(RunSnowRules.IsSkiable(7455 / 65535f, 0.12f), W, "96 cm gun target, 91.0 cm: the 3 ft bar applies, skiable");
+            check(!RunSnowRules.IsSkiable(7454 / 65535f, 0.12f), W, "96 cm gun target, 90.99 cm: the 3 ft bar applies, not skiable");
             check(!RunSnowRules.IsSkiable(0f, 0.5f / 65535f), W, "a sub-quantum target is ignored: bare is not skiable");
         }
 
@@ -614,14 +614,15 @@ namespace ResortBatch
         private static void T09Constants(Func<bool, string, string, bool> check)
         {
             const string W = "snow S24 T09 constants";
-            check(RunSnowRules.SkiableDepthM == 0.15f && RunSnowRules.ExpertNaturalSkiableDepthM == 0.31f, W, "the bars are 15 cm and 31 cm");
+            check(RunSnowRules.SkiableDepthM == 0.91f && RunSnowRules.ExpertNaturalSkiableDepthM == 0.91f, W, "T133 one bar, 3 ft (0.91 m), for every run");
             check(RunSnowRules.ExpertBandMin == SkiResortScore.BandBlack && SkiResortScore.BandDoubleBlack == RunSnowRules.ExpertBandMin + 1,
                 W, "ExpertBandMin tracks SkiResortScore.BandBlack (black and double black)");
             check(RunSnowRules.OpenAtShare == 0.60f && RunSnowRules.CloseBelowShare == 0.40f, W, "the 60 % / 40 % hysteresis is unchanged");
             check(RunSnowRules.DefaultSnowmakingMarginC == 3.3f && RunSnowRules.MinSnowmakingMarginC == 0f && RunSnowRules.MaxSnowmakingMarginC == 6f,
                 W, "margin default 3.3 C (38 F), slider range 0..6");
-            check(RunSnowRules.GunTargetDepthM == 0.35f && RunSnowRules.GroomedTargetDepthM == 0.25f, W, "gun target 0.35 m, groomed 0.25 m");
-            check(RunSnowRules.GunTargetDepthM >= 2f * RunSnowRules.SkiableDepthM, W, "the gun target is at least two open bars");
+            check(RunSnowRules.GunTargetDepthM == RunSnowRules.SkiableDepthM && RunSnowRules.GroomedTargetDepthM == RunSnowRules.GunStopDepthM,
+                W, "T133 gun base = the 3 ft bar, groomed ceiling = the gun stop depth (0.96 m)");
+            check(RunSnowRules.GunTargetDepthM >= RunSnowRules.SkiableDepthM, W, "the gun target reaches the open bar");
             check(RunSnowRules.GroomedTargetDepthM > RunSnowRules.SkiableDepthM, W, "the groomed target clears the open bar");
             check(RunSnowRules.ProtectBudgetHours == 48f && RunSnowRules.ProtectMaxLocalC == 10f, W, "budget 48 game h, stop above 10 C");
             check(RunSnowRules.ProtectSpringFactor == 0.5f && RunSnowRules.ProtectNorthFactor == 1.5f && RunSnowRules.ProtectSouthFactor == 0.5f,
@@ -636,24 +637,24 @@ namespace ResortBatch
         private static void T09SkiableBar(Func<bool, string, string, bool> check)
         {
             const string W = "snow S25 skiable bar";
-            float bar15 = 0.15f / 8f;
-            float bar31 = 0.31f / 8f;
-            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 3) == bar31, W, "natural black needs 31 cm");
-            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 4) == bar31, W, "natural double black needs 31 cm");
-            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 2) == bar15, W, "natural blue needs 15 cm");
-            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 1) == bar15, W, "natural green needs 15 cm");
-            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 0) == bar15, W, "natural flat needs 15 cm");
-            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, -1) == bar15, W, "an unrated natural run needs 15 cm until its rating lands");
-            check(RunSnowRules.SkiableBarNorm(RunKind.Groomed, 4) == bar15, W, "a groomed double black needs 15 cm (only NATURAL expert runs need 31)");
-            check(RunSnowRules.SkiableBarNorm(RunKind.Snowmaking, 3) == bar15, W, "a snowmaking black needs 15 cm");
-            check(RunSnowRules.SkiableBarNorm(RunKind.Night, 4) == bar15, W, "a night double black needs 15 cm");
-            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 3) == RunSnowRules.ExpertNaturalSkiableNorm, W, "the 31 cm bar is ExpertNaturalSkiableNorm");
+            // T133 (Richard, 2026-10-20): every run opens at 3 ft (0.91 m), made or natural, every rating.
+            float bar = 0.91f / 8f;
+            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 3) == bar, W, "T133 natural black needs 3 ft");
+            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 4) == bar, W, "T133 natural double black needs 3 ft");
+            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 2) == bar, W, "T133 natural blue needs 3 ft");
+            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 1) == bar, W, "T133 natural green needs 3 ft");
+            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 0) == bar, W, "T133 natural flat needs 3 ft");
+            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, -1) == bar, W, "T133 an unrated natural run needs 3 ft");
+            check(RunSnowRules.SkiableBarNorm(RunKind.Groomed, 4) == bar, W, "T133 a groomed double black needs 3 ft");
+            check(RunSnowRules.SkiableBarNorm(RunKind.Snowmaking, 3) == bar, W, "T133 a snowmaking black needs 3 ft");
+            check(RunSnowRules.SkiableBarNorm(RunKind.Night, 4) == bar, W, "T133 a night double black needs 3 ft");
+            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 3) == RunSnowRules.ExpertNaturalSkiableNorm, W, "the expert bar is ExpertNaturalSkiableNorm");
             float black = RunSnowRules.SkiableBarNorm(RunKind.Natural, 3);
-            check(!RunSnowRules.IsSkiable(0.30f / 8f, 0f, black), W, "natural black at 30 cm: not skiable");
-            check(RunSnowRules.IsSkiable(0.31f / 8f, 0f, black), W, "natural black at 31 cm: skiable");
-            check(!RunSnowRules.IsSkiable(0.15f / 8f, 0f, black), W, "natural black at 15 cm: not skiable");
-            check(RunSnowRules.IsSkiable(0.15f / 8f, 0f, RunSnowRules.SkiableBarNorm(RunKind.Natural, 2)), W, "the same 15 cm on a natural blue: skiable");
-            check(RunSnowRules.IsSkiable(0.40f / 8f, 0f, black), W, "natural black at 40 cm: skiable");
+            check(!RunSnowRules.IsSkiable(0.90f / 8f, 0f, black), W, "T133 90 cm: not skiable");
+            check(RunSnowRules.IsSkiable(0.91f / 8f, 0f, black), W, "T133 91 cm: skiable");
+            check(!RunSnowRules.IsSkiable(0.31f / 8f, 0f, black), W, "T133 the old 31 cm bar: not skiable any more");
+            check(!RunSnowRules.IsSkiable(0.15f / 8f, 0f, RunSnowRules.SkiableBarNorm(RunKind.Natural, 2)), W, "T133 the old 15 cm bar: not skiable any more");
+            check(RunSnowRules.IsSkiable(1.20f / 8f, 0f, black), W, "T133 1.2 m: skiable");
         }
 
         // S26 the gun reaches "open" by itself (9): windows of 64 frames at step scale 1, the slowest texel has rate noise at its minimum
@@ -663,18 +664,18 @@ namespace ResortBatch
             float thr = RunSnowRules.DefaultSnowmakingMarginC;   // freezing 0 + 3.3
             float slow = RunSnowRules.RampRateMin;
             float mean = RunSnowRules.RampRateMin + RunSnowRules.RampRateSpan * 0.5f;
-            float w15 = RunSnowRules.GunWindowsToReach(RunSnowRules.SkiableDepthM, -3f, thr, slow);
-            float w35 = RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, -3f, thr, slow);
-            check(Near(w15, 75.0, 1.0), W, "slowest texel to 15 cm at -3 C: " + w15 + " windows, expected 75");
-            check(Near(w35, 175.0, 1.0), W, "slowest texel to 35 cm at -3 C: " + w35 + " windows, expected 175");
-            check(RunSnowRules.WindowsToGameHours(w35) < 1.5f, W, "slowest texel reaches the gun target within about one game hour at -3 C");
-            check(RunSnowRules.WindowsToGameHours(w35) <= 8f, W, "inside one night (8 game h) at -3 C");
-            float mean35 = RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, -3f, thr, mean);
-            check(mean35 < w35 && Near(mean35, 0.35 / (0.004 * 1.125 * 2.0), 0.5), W, "the mean texel is faster: " + mean35);
-            float marg = RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, thr, thr, slow);
-            check(RunSnowRules.WindowsToGameHours(marg) <= 8f, W, "even at the gate (marginal output, slowest texel) the pack reaches 35 cm within a night: " +
+            // T133: the gun target is the 3 ft open bar (0.91 m). -3 C: chill (3.3 + 3) / 4 > 1 -> output 2.0; slowest step 0.002 m.
+            float w91 = RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, -3f, thr, slow);
+            check(Near(w91, 455.0, 1.0), W, "T133 slowest texel to 91 cm at -3 C: " + w91 + " windows, expected 455");
+            check(RunSnowRules.WindowsToGameHours(w91) < 3f, W, "T133 slowest texel opens (3 ft) within 3 game h at -3 C");
+            check(RunSnowRules.WindowsToGameHours(w91) <= 8f, W, "inside one night (8 game h) at -3 C");
+            float mean91 = RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, -3f, thr, mean);
+            check(mean91 < w91 && Near(mean91, 0.91 / (0.004 * 1.125 * 2.0), 0.5), W, "the mean texel is faster: " + mean91);
+            float marg = RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, thr, thr, mean);
+            check(RunSnowRules.WindowsToGameHours(marg) <= 8f, W, "T133 even at the gate (marginal output) the mean texel reaches 3 ft within a night: " +
                   RunSnowRules.WindowsToGameHours(marg) + " h");
-            check(RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.SkiableDepthM, thr, thr, slow)) <= 3f, W, "and 15 cm (open) within 3 h");
+            check(RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.SkiableDepthM, thr, thr, slow)) <= 24f, W,
+                  "T133 and the slowest texel at the gate within one game day");
             check(float.IsPositiveInfinity(RunSnowRules.GunWindowsToReach(0.35f, thr + 0.1f, thr, slow)), W, "no gun above the gate");
             check(Near(RunSnowRules.WindowsToGameHours(4096f), 24.0, 1e-3), W, "4096 windows of 64 frames are one game day");
         }
@@ -813,7 +814,7 @@ namespace ResortBatch
             check(hot.State == RunSnowRules.ProtectState.Idle && !started, W, "+12 C: no protection");
             check(!RunSnowRules.TexelProtected(0f, 12f, false, 1f), W, "+12 C: no texel is held");
             // Natural runs: the machine is driven only for gun runs (SkiSnowInjectionSystem.RefreshRunSnow); a natural black run's bar is 31 cm.
-            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 3) > RunSnowRules.SkiableBarNorm(RunKind.Snowmaking, 3), W, "a natural black needs more snow than a gun black");
+            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 3) == RunSnowRules.SkiableBarNorm(RunKind.Snowmaking, 3), W, "T133 a natural black needs the same 3 ft as a gun black");
         }
 
         // S32 the ledger (9)

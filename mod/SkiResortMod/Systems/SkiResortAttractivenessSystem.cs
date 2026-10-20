@@ -590,6 +590,7 @@ namespace SkiResortMod.Systems
         // ── counts and cost (DUMP, [cost]) ─────────────────────────────────────────────────────────
         private string m_LastReason = "-";
         private int m_Recomputes, m_Requests;
+        private int m_PausedRecomputes;   // T120: structural recomputes run by the watcher while the game was paused (DUMP)
         private readonly Dictionary<string, int> m_RecomputesByReason = new Dictionary<string, int>();
         private readonly Dictionary<string, int> m_RequestsByReason = new Dictionary<string, int>();
         private int m_CostCount, m_PollCount;
@@ -658,6 +659,43 @@ namespace SkiResortMod.Systems
             m_StructuralPending = true;
             m_SoftPending = false;
             m_PendingReason = reason;
+        }
+
+        /// <summary>T120 (field test 2026-10-20 note 1; docs/research/field/2026-10-20/playthrough/sim-snow-build.md): the
+        /// watcher's placement request run NOW, for a paused game. GameSimulation does not run while paused
+        /// (SimulationSystem.cs:221-224: selectedSpeed 0 → no frame), so a lodge, school or patrol hut placed while paused
+        /// stayed Not linked until the game ran (the playthrough: paused 10:50-12:17 wall clock, "NoLodge; not linked:
+        /// FreeLodges 6", the hub's Buildings dot kept asking for a lodge; linked at 12:17:50 on the first sim frame). Called
+        /// only by SkiResortAttractivenessWatchSystem at ModificationEnd (main thread, runs paused) right after
+        /// RequestRecompute: the same three steps as one OnUpdate tick (the pending structural Recompute, WriteProviders,
+        /// FlushAreaLogs), so the published links, the provider writes and the logs stay in step. While the game runs the
+        /// watcher leaves the request to the next 16-frame tick, as before.</summary>
+        internal void RecomputeWhilePaused()
+        {
+            try
+            {
+                if (m_Disabled || !IsActive || !m_StructuralPending)
+                    return;
+                string reason = m_PendingReason ?? ReasonTimer;
+                m_StructuralPending = m_SoftPending = false;
+                m_PendingReason = null;
+                if (m_PausedRecomputes++ == 0)
+                    Mod.Log.Info($"Attractiveness [watch]: recompute while paused ({reason}) — first this load; links and " +
+                                 "scores follow a placement without unpausing (T120); later ones are counted (hub DUMP)");
+                Recompute(reason, true);
+                WriteProviders();
+                FlushAreaLogs();
+            }
+            catch (Exception e)
+            {
+                m_Disabled = true;
+                if (!m_ErrorLogged)
+                {
+                    m_ErrorLogged = true;
+                    Mod.Log.Error($"!!! {nameof(SkiResortAttractivenessSystem)} EXCEPTION (paused recompute) — attractiveness " +
+                                  $"disabled until the next game load. Please report this stack:\n{e}");
+                }
+            }
         }
 
         /// <summary>SOFT request: runs once MinSoftGapTicks passed since the last recompute.</summary>
@@ -993,6 +1031,7 @@ namespace SkiResortMod.Systems
             m_TopXz.Clear();
             m_TopLinks.Clear();
             m_TopLinksNext.Clear();
+            m_PausedRecomputes = 0;  // T120
             m_TopKindOf.Clear();
             m_TopLinkLines = 0;
             m_PositionsDue = true;   // the load's recompute is structural anyway
@@ -2567,7 +2606,8 @@ namespace SkiResortMod.Systems
                 double mean = m_CostCount > 0 ? m_CostSumMs / m_CostCount : 0.0;
                 double pollMean = m_PollCount > 0 ? m_PollSumMs / m_PollCount : 0.0;
                 sb.Append("  attractiveness: active ").Append(IsActive).Append(", disabled ").Append(m_Disabled)
-                  .Append(", recomputes ").Append(m_Recomputes).Append(" (by reason: ");
+                  .Append(", recomputes ").Append(m_Recomputes).Append(" (").Append(m_PausedRecomputes)
+                  .Append(" while paused, T120; by reason: ");
                 AppendCounts(sb, m_RecomputesByReason);
                 sb.Append("), requests ").Append(m_Requests).Append(" (by reason: ");
                 AppendCounts(sb, m_RequestsByReason);

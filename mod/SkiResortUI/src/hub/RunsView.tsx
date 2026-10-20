@@ -22,6 +22,8 @@
  *     handed to every RunLine, which shows its run's word in their common width.
  *   - Panel file (gate R11): subscribes selectedResort$, runs$, runLive$, lifts$, pisteMap$, city$
  *     (+ glade$ in TreeRows); local focused$.
+ *   - T131 (2026-10-20, field report item 27, DECISIONS 350): every run in one list, no pager (T114 paged it); this view and the
+ *     Lifts view are the two that may scroll (PIPELINE section 0 hub rule; harness/layout-check.js checks every row is drawn).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RefObject } from "react";
@@ -33,11 +35,10 @@ import { useT } from "../l10n";
 import { runLiveMap } from "./hubRules";
 import { focused$, sendHoverRun } from "./hubState";
 import { HUB_LOC, RUN_STATE_TEXT } from "./hubText";
-import { CheckBox, Divider, Tip, useNumberSamples } from "./parts";
+import { CheckBox, Divider, Tip, cx, useNumberSamples } from "./parts";
 import { RunHeader, RunLine } from "./RunList";
 import { TreeRows } from "./TreeControls";
 import { runsOf } from "./resortData";
-import { Pager, useFitPage } from "./fit";
 import styles from "./hub.module.scss";
 
 export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): JSX.Element {
@@ -78,8 +79,6 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   const onRenameClose = useCallback(() => setRenaming(null), []);
 
   const rows = runsOf(runs, selected);
-  // T114: as many rows as fit the panel, the rest on further pages (fit.tsx); a new area starts on page 1.
-  const fit = useFitPage(`runs|${selected ? entityId(selected) : ""}`, rows.length, listRef);
   const focusedId = focused.kind === "run" ? entityId(focused.entity) : "";
   const gating = city.snowGating;
   const backcountryPct = city.backcountryPct;
@@ -101,9 +100,8 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
       {rows.length === 0 ? (
         <div className={styles.dimLine}>{t(HUB_LOC.runsEmpty)}</div>
       ) : (
-        <div ref={listRef} className={styles.list} onMouseLeave={() => sendHoverRun(NULL_ENTITY)}>
-          {rows.slice(fit.start, fit.end).map((row, j) => {
-            const i = fit.start + j;
+        <div ref={listRef} className={cx(styles.list, styles.listAll)} onMouseLeave={() => sendHoverRun(NULL_ENTITY)}>
+          {rows.map((row, i) => {
             const id = row.entity ? entityId(row.entity) : `row-${i}`;
             return (
               <RunLine
@@ -127,7 +125,6 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
           })}
         </div>
       )}
-      {rows.length > 0 && <Pager fit={fit} />}
     </>
   );
 }

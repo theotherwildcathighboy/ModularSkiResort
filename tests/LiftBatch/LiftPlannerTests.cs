@@ -22,6 +22,14 @@
 //   LP-14 Short when the line has too few nodes; allowMove false never moves;
 //   LP-15 engine numbers: the vanilla ladder picks the planned member at E = TopM[m] - TopM[0] with score 1, top-anchored placement
 //         stands it on the ground, ground + E + AxleM = the planner's rope, E within the net's elevation cap, the edge curve formula.
+//   2026-10-20 playthrough (field/2026-10-20/playthrough/lift-planner-build.md):
+//   LP-21 T128: the 1,408 m gondola with 11 engine nodes is Moved and clear (was Short x3 + the loop guard), its re-fit writes
+//         nothing; a standing line within KeepTolM (0.5 m) of the floor is Kept;
+//   LP-22 T126: StationClearM per type from the station geometry; no planner tower inside it unless the ground leaves no clear plan
+//         (flagged NearStation), in both directions; a pin inside it is kept;
+//   LP-23 T127: UncutGround cases; the 1,408 m gondola in its own trench: the raw sampler sinks towers > 4 m under the natural
+//         ground (a self-sustaining pit), the UncutSampler none;
+//   LP-24 T123: tower numbers base -> top by distance, dense, reversed from the top, an edit shifts only the towers after it.
 // Replay terrain: ground at each node = the log's `terrain`; between nodes the four chord samples at 20/40/60/80 % give
 // ground = lerp(node y, next node y, t) - chord clearance (the diag's chord runs between NODE positions, LiftTowerDiagSystem
 // DescribeNode); linear in between. The log has no cross-slope, so the replay sampler ignores the lateral offset.
@@ -66,6 +74,10 @@ namespace LiftBatch
             Lp18ToolEmission();
             Lp19Pins();
             Lp20VanillaAfterPatch();
+            Lp21GondolaShortLoop();
+            Lp22StationClearance();
+            Lp23OwnCut();
+            Lp24TowerNumbers();
             s_Check = null;
         }
 
@@ -1038,6 +1050,281 @@ namespace LiftBatch
                     Check(fit.Plan.Clear, W, ln.Name + ": not clear on the vanilla path: " + DescribeFit(fit));
                 Check(fit.Plan.LineTowers == inner.Length, W, ln.Name + ": node count changed");
             }
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        // LP-21..LP-24: the 2026-10-20 playthrough (field/2026-10-20/playthrough/logs/SkiResortMod.Mod.log; T123, T126-T128)
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        // The 1,408 m gondola drawn with the vanilla tool in 12 clicks: "Towers [nodes]" block of edge 403680:153 at :1007 (nodes and
+        // the span line under each); Short x3 then the loop guard (:1096, :1214, :1332, :1450). Ropes from the fit header.
+        private static readonly LogNode[] Gd1408 =
+        {
+            N(27f, 931.58f, 931.58f, 0.6f, 1.3f, 1.9f, 2.6f), N(14f, 934.82f, 931.58f, 6.4f, 9.5f, 12.6f, 11.9f),
+            N(214f, 950.45f, 944.14f, -5.5f, -9.3f, -8.1f, 2.1f), N(214f, 989.32f, 989.30f, 8.4f, 17.2f, 13.5f, 3.8f),
+            N(214f, 1037.74f, 1037.71f, -11.0f, -11.0f, -10.6f, 0.3f), N(214f, 1091.41f, 1091.38f, -0.9f, 4.0f, 14.9f, 17.6f),
+            N(214f, 1181.81f, 1181.84f, -2.9f, -10.2f, -11.0f, -10.9f), N(32f, 1292.58f, 1292.55f, 0.1f, -0.2f, -0.2f, 0.1f),
+            N(10f, 1295.42f, 1295.38f, 1.1f, 1.8f, 2.4f, 2.8f), N(22f, 1302.34f, 1299.26f, 4.5f, 4.9f, 4.0f, 2.7f),
+            N(196f, 1327.77f, 1326.46f, -10.4f, -8.8f, -3.0f, -9.4f), N(37f, 1436.88f, 1434.35f, 3.5f, 1.7f, -3.2f, -4.9f),
+            N(0f, 1461.15f, 1461.15f),
+        };
+        // The diag's own plan block for that line (:1073-:1095): its ground at the planned spots (along, ground), merged into the
+        // replay profile (the chord samples alone leave 43 m gaps on the 214 m spans).
+        private static readonly float2[] Gd1408Plan =
+        {
+            new float2(50f, 957.60f), new float2(190f, 984.25f), new float2(400f, 1013.95f), new float2(595f, 1080.36f),
+            new float2(810f, 1130.90f), new float2(1005f, 1248.95f), new float2(1175f, 1327.04f), new float2(1195f, 1349.00f),
+            new float2(1400f, 1461.15f),
+        };
+
+        private static Profile Merge(Profile p, float2[] extra)
+        {
+            var pts = new List<float2>();
+            for (int i = 0; i < p.S.Count; i++)
+                pts.Add(new float2(p.S[i], p.G[i]));
+            pts.AddRange(extra);
+            pts.Sort((a, b) => a.x.CompareTo(b.x));
+            var q = new Profile();
+            for (int i = 0; i < pts.Count; i++)
+            {
+                if (q.S.Count > 0 && math.abs(pts[i].x - q.S[q.S.Count - 1]) < 0.5f)
+                    continue;   // the log's own value at the node wins
+                q.S.Add(pts[i].x);
+                q.G.Add(pts[i].y);
+            }
+            return q;
+        }
+
+        /// <summary>LP-21 (T128): the 1,408 m gondola with its 11 engine nodes. Before: Short (phase (c) alone re-assigned the free
+        /// plan's members greedily and broke the max rope height, log :1096 "MAX HEIGHT VIOLATED" x2); after: Moved and clear, and
+        /// the next re-fit of the written line is Kept with nothing to write (no loop). Plus the tram tool line Short by -0.1 m
+        /// (:2131): kept within KeepTolM.</summary>
+        private static void Lp21GondolaShortLoop()
+        {
+            const string W = "planner/LP-21";
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("gondola");
+            Profile p = Merge(Reconstruct(Gd1408), Gd1408Plan);
+            LiftTerrainSampler t = (s, l) => p.At(s);
+            float[] inner = InnerAlong(Gd1408);
+            const float ropeA = 941.58f, ropeB = 1471.15f;
+            LiftTowerFit fit = s_Planner.Fit(t, p.Length, ropeA, ropeB, c, inner, true, 250f, new int[inner.Length]);
+            s_Report.Add("LP-21 GD 1408 m, 11 engine nodes (log :1007 / :1096, Short x3 + loop guard) | Moved, clear, 11 towers | " + DescribeFit(fit));
+            Check(fit.Mode == LiftFitMode.Moved && fit.Plan.Clear, W, "the 1,408 m gondola is still Short / violated: " + DescribeFit(fit));
+            Check(fit.Plan.LineTowers == inner.Length, W, "node count changed: " + fit.Plan.LineTowers);
+            LiftTowerFit again = s_Planner.Fit(t, p.Length, ropeA, ropeB, c, InnerAlong(fit.Plan), true, 250f, MembersOf(fit.Plan));
+            int writes = 0;
+            for (int i = 1; i < fit.Plan.Nodes.Length - 1; i++)
+            {
+                LiftPlanNode a = fit.Plan.Nodes[i], b = again.Plan.Nodes[i];
+                float target = b.GroundM + LiftTowerEdit.ElevationM(c, b.Member);
+                float y = a.GroundM + LiftTowerEdit.ElevationM(c, a.Member);
+                if (a.Member != b.Member || math.abs(a.AlongM - b.AlongM) > 0.05f || LiftTowerEdit.HeightWrite(y, target))
+                    writes++;
+            }
+            s_Report.Add("LP-21 GD 1408 m re-fit of the written line | Kept, 0 writes | " + again.Mode + ", " + writes + " write(s)");
+            Check(again.Mode == LiftFitMode.Kept && writes == 0, W, "the re-fit is not identity: " + DescribeFit(again) + ", " + writes + " write(s)");
+
+            // The tram tool line (:2106 block, 1 tower T60 @925 m from the base; the tool planned it from the top: +0.2 m, :2095).
+            LogNode[] tram =
+            {
+                N(925f, 942.45f, 942.45f, 24.4f, 37.3f, 15.6f, 39.0f), N(1000f, 1353.80f, 1323.68f, 92.1f, 12.5f, 2.8f, 61.6f),
+                N(0f, 2053.46f, 2050.85f),
+            };
+            LiftTowerPlanConstants tc = LiftTowerPlanConstants.For("tram");
+            Profile tp = Reconstruct(tram);
+            LiftTerrainSampler tt = (s, l) => tp.At(s);
+            LiftTowerPlan standing = s_Planner.PlanFixed(tt, tp.Length, 968.70f, 2079.71f, tc, InnerAlong(tram), new[] { 2 }, null, assign: false);
+            LiftTowerFit tf = s_Planner.Fit(tt, tp.Length, 968.70f, 2079.71f, tc, InnerAlong(tram), false, 1000f, new[] { 2 });
+            s_Report.Add("LP-21 tram 1925 m tool line (log :2131, Short by -0.1 m) | Kept (within " + LiftTowerPlanner.KeepTolM.ToString("F1") +
+                         " m: the tool's grid ran from the other end) | standing " + LiftTowerPlan.Sg(standing.MinFloorMarginM) + " m on the replay profile (4 chord samples per 1,000 m span cannot show the -0.1 m spot; the tolerance itself is checked on flat ground below) -> " + tf.Mode);
+            Check(standing.MinFloorMarginM > -LiftTowerPlanner.KeepTolM ? tf.Mode == LiftFitMode.Kept : tf.Mode != LiftFitMode.Kept, W,
+                  "keep tolerance: standing " + standing.MinFloorMarginM.ToString("F2") + " m gave " + tf.Mode);
+            // The tolerance itself on a synthetic flat line: -0.4 m kept, -0.6 m not.
+            LiftTowerPlanConstants g = LiftTowerPlanConstants.For("gondola");
+            foreach (float drop in new[] { 0.4f, 0.6f })
+            {
+                // Rope over flat ground at 1000 m, the 200 m span's mid-span sag (4 x 0.004 x 200 x 1/4 = 0.8 m) added back: margin
+                // -drop at mid-span, the lowest point.
+                float rope = 1000f + g.CarrierDropM + g.FloorM - drop + g.SagRatio * 200f;
+                LiftTowerFit k = s_Planner.Fit((s, l) => 1000f, 200f, rope, rope, g, new float[0], false, 250f, new int[0]);
+                bool kept = k.Mode == LiftFitMode.Kept;
+                Check(kept == (drop < LiftTowerPlanner.KeepTolM), W, "keep tolerance at -" + drop + " m: " + k.Mode);
+            }
+        }
+
+        /// <summary>LP-22 (T126): the station clearance. Constants from the catalog's station geometry (StationRunM); no NEW tower inside
+        /// it on any free plan of this file's lines (both directions: the tool planned the gondola from the top, :1492 spans .../8 m);
+        /// a pin inside it is kept.</summary>
+        private static void Lp22StationClearance()
+        {
+            const string W = "planner/LP-22";
+            var want = new (string Type, float Clear)[] { ("fixedGrip", 12.2f), ("detachable", 25.6f), ("gondola", 25.4f), ("tram", 40f) };
+            var sb = new StringBuilder();
+            foreach (var w in want)
+            {
+                LiftTowerPlanConstants c = LiftTowerPlanConstants.For(w.Type);
+                sb.Append(w.Type).Append(' ').Append(c.StationClearM.ToString("F1")).Append(" m; ");
+                Check(math.abs(c.StationClearM - w.Clear) < 0.05f, W, w.Type + ": StationClearM " + c.StationClearM + ", want " + w.Clear +
+                      " (max(MinSpanM, the longest bullwheel / dock to stub run of its stations))");
+            }
+            s_Report.Add("LP-22 station clearance by type | max(MinSpanM, station rope run) | " + sb.ToString().TrimEnd(' ', ';'));
+
+            var lines = new (string Name, LogNode[] Log, float2[] Extra, string Type, float RopeA, float RopeB)[]
+            {
+                ("GD 1408 m (playthrough :1007)", Gd1408, Gd1408Plan, "gondola", 941.58f, 1471.15f),
+                ("FG 516 m (log :566)", Fg516, null, "fixedGrip", 947.84f, 1097.81f),
+                ("DQ 328 m (log :999)", Dq328, null, "detachable", 1194.16f, 1209.45f),
+                ("DQ 619 m (log :2155)", Dq619, null, "detachable", 960.62f, 1117.56f),
+                ("GD 619 m (log :2271)", Gd619, null, "gondola", 965.94f, 1113.06f),
+                ("tram 2292 m (log :4851)", Tram2292, null, "tram", 986.73f, 2132.94f),
+            };
+            foreach (var ln in lines)
+            {
+                Profile p = ln.Extra != null ? Merge(Reconstruct(ln.Log), ln.Extra) : Reconstruct(ln.Log);
+                LiftTowerPlanConstants c = LiftTowerPlanConstants.For(ln.Type);
+                for (int dir = 0; dir < 2; dir++)
+                {
+                    LiftTerrainSampler t = dir == 0 ? (LiftTerrainSampler)((s, l) => p.At(s)) : (s, l) => p.At(p.Length - s);
+                    float ra = dir == 0 ? ln.RopeA : ln.RopeB, rb = dir == 0 ? ln.RopeB : ln.RopeA;
+                    LiftTowerPlan plan = PlanAndReplan("LP-22/" + ln.Name + "/" + dir, t, p.Length, c, p.At(dir == 0 ? 0f : p.Length),
+                                                       p.At(dir == 0 ? p.Length : 0f), ra, rb);
+                    int inside = 0;
+                    for (int i = 1; i < plan.Nodes.Length - 1; i++)
+                    {
+                        LiftPlanNode nd = plan.Nodes[i];
+                        if (nd.AlongM >= c.StationClearM - 0.01f && nd.AlongM <= p.Length - c.StationClearM + 0.01f)
+                            continue;
+                        inside++;
+                        Check((nd.Flags & LiftPlanNodeFlags.NearStation) != 0, W, ln.Name + (dir == 0 ? "" : " (reversed)") +
+                              ": an unflagged tower inside the station clearance " + c.StationClearM + " m: " + Describe(plan));
+                    }
+                    if (ln.Name.StartsWith("GD 1408"))
+                        s_Report.Add("LP-22 " + ln.Name + (dir == 0 ? " from the base" : " from the top as the tool did (:1492, spans 50/.../185/8)") +
+                                     " | towers outside " + c.StationClearM.ToString("F1") + " m unless the ground leaves no clear plan (near-station) | " +
+                                     inside + " inside: " + Describe(plan));
+                    else
+                        Check(inside == 0, W, ln.Name + (dir == 0 ? "" : " (reversed)") + ": " + inside + " tower(s) inside the clearance: " + Describe(plan));
+                    Check(plan.Clear, W, ln.Name + (dir == 0 ? "" : " (reversed)") + ": not clear: " + Describe(plan));
+                }
+            }
+            // A pin inside the clearance stays (the player's choice), and nothing else is added inside it.
+            LiftTowerPlanConstants gc = LiftTowerPlanConstants.For("gondola");
+            var seed = new[] { new LiftPlanNode { AlongM = 10f, Member = 0, Flags = LiftPlanNodeFlags.Seed } };
+            LiftTowerPlan pinned = s_Planner.Plan((s, l) => 1000f + 0.3f * s, 600f, 1000f + gc.RopeAboveBase(0), 1180f + gc.RopeAboveBase(0), gc, seed);
+            bool kept = false;
+            for (int i = 1; i < pinned.Nodes.Length - 1; i++)
+            {
+                if (math.abs(pinned.Nodes[i].AlongM - 10f) < 0.01f)
+                    kept = true;
+                else
+                    Check(pinned.Nodes[i].AlongM >= gc.StationClearM - 0.01f && pinned.Nodes[i].AlongM <= 600f - gc.StationClearM + 0.01f, W,
+                          "a planner tower inside the clearance next to a pin: " + Describe(pinned));
+            }
+            Check(kept, W, "the pin at 10 m (inside the clearance) was dropped: " + Describe(pinned));
+        }
+
+        /// <summary>LP-23 (T127): the fit's ground is the player's, not our own cut. Pure UncutGround cases, then the 1,408 m gondola
+        /// model: the natural ground (the replay profile) cut by the vanilla line's own edges (ceiling = edge y + 6 - 2 over the
+        /// piece width), the fit with the raw cascade sampler stands towers in the trench (pivot below the natural ground by more
+        /// than the 4 m that keeps a node's own cut alive = a pit), the UncutSampler stands none there.</summary>
+        private static void Lp23OwnCut()
+        {
+            const string W = "planner/LP-23";
+            // UncutGround: at the ceiling with uncut ground beside -> the plane; a valley under the rope (below the ceiling) -> raw; at
+            // the ceiling but the ground beside is no higher -> raw; a cross slope reconstructs linearly.
+            float g1 = LiftTowerEdit.UncutGround(100f, 100.1f, 108f, 108f, 0f, 12f, out bool c1);
+            float g2 = LiftTowerEdit.UncutGround(95f, 100f, 108f, 108f, 0f, 12f, out bool c2);
+            float g3 = LiftTowerEdit.UncutGround(100f, 100f, 99f, 100.2f, 0f, 12f, out bool c3);
+            float g4 = LiftTowerEdit.UncutGround(100f, 100f, 104f, 112f, 6f, 12f, out bool c4);
+            Check(c1 && math.abs(g1 - 108f) < 1e-3f, W, "at the ceiling: " + g1);
+            Check(!c2 && g2 == 95f, W, "below the ceiling (a valley): " + g2);
+            Check(!c3 && g3 == 100f, W, "uncut beside: " + g3);
+            Check(c4 && math.abs(g4 - 110f) < 1e-3f, W, "cross slope plane at +6 of ±12: " + g4);
+
+            // The model. Natural ground = the replay profile, flat across; the vanilla line's own cut (its 13 node points, straight
+            // edges, gondola net m_Hanging 0, ceiling = edge y + 4) applies within the piece half width + 2 m; beyond, natural.
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("gondola");
+            Profile p = Merge(Reconstruct(Gd1408), Gd1408Plan);
+            int n = Gd1408.Length;
+            var pts = new float3[n];
+            var cum = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                cum[i] = i == 0 ? 0f : cum[i - 1] + Gd1408[i - 1].SpanXz;
+                pts[i] = new float3(cum[i], Gd1408[i].Y, 0f);
+            }
+            var off = new float[n - 1];
+            for (int i = 0; i < off.Length; i++)
+                off[i] = 6f + LiftTowerEdit.PieceMinHeightOffsetM;
+            float cutHalf = c.HalfWidthM + 2f;
+            LiftTerrainSampler natural = (s, l) => p.At(s);
+            LiftTerrainSampler cascade = (s, l) =>
+            {
+                float g = p.At(s);
+                if (math.abs(l) > cutHalf)
+                    return g;
+                int seg = 0;
+                while (seg < n - 2 && s > cum[seg + 1])
+                    seg++;
+                float t = math.saturate((s - cum[seg]) / math.max(cum[seg + 1] - cum[seg], 1e-3f));
+                return math.min(g, LiftTowerEdit.HangingY(pts[seg], pts[seg + 1], 0f, t) + off[seg]);
+            };
+            int cutSamples = 0;
+            LiftTerrainSampler uncut = LiftTowerEdit.UncutSampler(cascade, pts, cum, 0f, off, c.HalfWidthM + LiftTowerEdit.CutFarMarginM, _ => cutSamples++);
+            float[] inner = InnerAlong(Gd1408);
+            int Pits(LiftTerrainSampler sampler, out string worst)
+            {
+                LiftTowerFit f = s_Planner.Fit(sampler, p.Length, 941.58f, 1471.15f, c, inner, true, 250f, new int[inner.Length]);
+                int pits = 0;
+                float deepest = 0f;
+                worst = "none";
+                for (int i = 1; i < f.Plan.Nodes.Length - 1; i++)
+                {
+                    LiftPlanNode nd = f.Plan.Nodes[i];
+                    float sunk = natural(nd.AlongM, 0f) - nd.GroundM;   // pivot = the fit's ground (top-anchored), vs the player's ground
+                    if (sunk > 6f + LiftTowerEdit.PieceMinHeightOffsetM)
+                        pits++;
+                    if (sunk > deepest)
+                    {
+                        deepest = sunk;
+                        worst = "@" + nd.AlongM.ToString("F0") + " m " + sunk.ToString("F1") + " m under";
+                    }
+                }
+                return pits;
+            }
+            int before = Pits(cascade, out string wb);
+            int after = Pits(uncut, out string wa);
+            s_Report.Add("LP-23 GD 1408 m in its own trench (model: vanilla edges cut to edge y + 4) | raw sampler stands towers in the trench, " +
+                         "the T127 sampler none | raw: " + before + " tower(s) > 4 m under the natural ground (deepest " + wb + "); T127: " + after +
+                         " (deepest " + wa + "), " + cutSamples + " sample(s) reconstructed");
+            Check(before > 0, W, "the model does not reproduce a sunken tower with the raw sampler (deepest " + wb + ")");
+            Check(after == 0, W, "the T127 sampler still stands " + after + " tower(s) in the trench (deepest " + wa + ")");
+            // Natural ground and no cut: the T127 sampler is the identity.
+            int idCut = 0;
+            LiftTerrainSampler same = LiftTowerEdit.UncutSampler(natural, pts, cum, 0f, new float[] { 40f }, 12f, _ => idCut++);
+            Check(same(500f, 0f) == natural(500f, 0f) && idCut == 0, W, "uncut ground changed by the T127 sampler");
+        }
+
+        /// <summary>LP-24 (T123): tower numbers 1..N base to top by distance along the line; reversed when the distances run from the
+        /// top; ties keep the input order; an edit renumbers only the towers after it.</summary>
+        private static void Lp24TowerNumbers()
+        {
+            const string W = "planner/LP-24";
+            int[] a = LiftTowerNumbering.Numbers(new[] { 300f, 50f, 120f, 600f });
+            Check(a[0] == 3 && a[1] == 1 && a[2] == 2 && a[3] == 4, W, "base first: " + string.Join(",", a));
+            int[] r = LiftTowerNumbering.Numbers(new[] { 300f, 50f, 120f, 600f }, baseIsFirst: false);
+            Check(r[0] == 2 && r[1] == 4 && r[2] == 3 && r[3] == 1, W, "from the top: " + string.Join(",", r));
+            int[] tie = LiftTowerNumbering.Numbers(new[] { 100f, 100f });
+            Check(tie[0] == 1 && tie[1] == 2, W, "tie: " + string.Join(",", tie));
+            Check(LiftTowerNumbering.Numbers(new float[0]).Length == 0 && LiftTowerNumbering.Numbers(null).Length == 0, W, "empty");
+            // A section edit: the tower at 300 m moves to 310 m (same order) -> no number changes; a tower added at 200 m -> only the
+            // towers beyond it shift by one.
+            int[] moved = LiftTowerNumbering.Numbers(new[] { 310f, 50f, 120f, 600f });
+            Check(string.Join(",", moved) == string.Join(",", a), W, "a move in place renumbered: " + string.Join(",", moved));
+            int[] added = LiftTowerNumbering.Numbers(new[] { 300f, 50f, 120f, 600f, 200f });
+            Check(added[1] == 1 && added[2] == 2 && added[4] == 3 && added[0] == 4 && added[3] == 5, W, "insert: " + string.Join(",", added));
+            s_Report.Add("LP-24 tower numbers | base -> top by distance, dense, an edit shifts only the towers after it | " +
+                         "{300,50,120,600} -> " + string.Join(",", a) + "; from the top " + string.Join(",", r) + "; + a tower at 200 -> " + string.Join(",", added));
         }
 
         private static int[] MembersOf(LiftTowerPlan p)

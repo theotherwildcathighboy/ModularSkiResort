@@ -41,8 +41,10 @@
 // CompleteDependency). Nothing is scanned while a structural recompute is already pending.
 //
 // WHAT IT DOES: SkiResortAttractivenessSystem.RequestRecompute(reason) — a structural request (a flag and
-// a reason), nothing else. The recompute runs on that system's next 16-frame tick in GameSimulation, so
-// not while the game is paused (the tile follows once the game runs again). Bindings, the lift census,
+// a reason). The recompute runs on that system's next 16-frame tick in GameSimulation; T120 (2026-10-20): while
+// the game is PAUSED (SimulationSystem.selectedSpeed 0, no GameSimulation frame) this watcher runs it at once through
+// RecomputeWhilePaused, so a lodge placed while paused links to its sign and the hub stops asking for one (it used to
+// wait for the game to run: 87 wall minutes of "No lodge" in the 2026-10-20 playthrough). Bindings, the lift census,
 // ratings, run open states, settings, sign efficiency, lodge on/off and lift power raise no tag; the
 // attractiveness system compares them on its own tick (ch1 §10.1).
 //
@@ -74,6 +76,7 @@ namespace SkiResortMod.Systems
         internal const string ReasonBoth = "buildings and ski runs changed";
 
         private SkiResortAttractivenessSystem m_Attractiveness;
+        private Game.Simulation.SimulationSystem m_Simulation;   // T120: selectedSpeed 0 = paused
         private EntityQuery m_BuildingEvents;
         private EntityQuery m_AreaEvents;
         // L1 (code review 2026-10-19): while ResortPresence says no sign, run or lift of ours exists, only a CREATED
@@ -94,6 +97,7 @@ namespace SkiResortMod.Systems
         {
             base.OnCreate();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
+            m_Simulation = World.GetOrCreateSystemManaged<Game.Simulation.SimulationSystem>();   // T120
             m_BuildingEvents = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -206,6 +210,10 @@ namespace SkiResortMod.Systems
                 Triggers++;
                 // The first request of each reason per load is logged there (ch1 §13), so not here.
                 m_Attractiveness.RequestRecompute(reason);
+                // T120: paused, GameSimulation runs no tick, so run the request here (links a new lodge / school / patrol hut
+                // to its sign at once; the hub's "No lodge" and the Buildings-tab dot follow without unpausing).
+                if (m_Simulation.selectedSpeed == 0f)
+                    m_Attractiveness.RecomputeWhilePaused();
             }
             catch (Exception e)
             {
