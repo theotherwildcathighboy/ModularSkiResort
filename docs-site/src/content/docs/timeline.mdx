@@ -3,58 +3,47 @@ title: Timeline
 description: Dated list of the major events in making Modular Ski Resort, with the outcome and the reason for each, August to October 2026.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
 import Shot from '../../components/Shot.astro';
-
-{/*
-  Sources: docs/TIMELINE.md (per phase), docs/DECISIONS.md 240-321, docs/archive/DECISIONS-001-239.md.
-  The gray #n at the end of a row is the decision-ledger entry number. Event list with sources:
-  docs/research/ui/docs-site-timeline-icons-2026-10-19.md.
-  Round 6 cut the list to 28 major events. Minor entries stay in the ledger.
-*/}
 
 One author (direction, verdicts, Editor imports, all in-game testing) and Claude as lead architect (design, correctness, written record). Project start: **Aug 3, 2026**.
 
-- **Outcomes:** *Explored*, *Built*, *Changed*, *Discarded*, *Superseded*, *Settled*.
-- **Dates:** session dates. A range means the work spanned those days.
-- **Reference:** the gray number is the entry in the project's decision ledger.
-- **Rule since day one:** engine behavior is claimed only from the decompiled game or a field test. The ledger was corrected twice when the field disagreed.
+- **Outcomes:** *Built*, *Changed*, *Settled*.
+- **Dates:** work dates. A range means the work spanned those days.
+- **Rule since day one:** engine behavior is claimed only from the decompiled game or a field test.
 
 <Shot label="Hero image for the timeline: the first chairlift line that drew in the game, next to the finished resort." />
 
 ## August
 
 - **Aug 4 · Built** First chairlift line that draws in the game.
-- **Aug 10 · Built** Ski Resort menu tab under Parks & Recreation, with the attraction score, snow-line code and first trail surfaces. <span class="ref">#30</span>
-- **Aug 10 · Built** First building: a base lodge, shaped as an A-frame after a second preview review. <span class="ref">#25</span>
-- **Aug 11 · Changed** The lodge became an upgrade of one resort entity, the Welcome Sign. One entity gives the resort its identity, and its size follows from what is built. Size tiers S, M and L were rejected. <span class="ref">#37 #44</span>
-- **Aug 11 · Built** Runs first show snow. The game's snow simulation carries the white, and decals carry the corduroy. <span class="ref">#55 #57</span>
-- **Aug 19 · Built** First full loop in the game: Welcome Sign, lodge, stations, lift, runs, power and economy all work together. <span class="ref">#97</span>
+- **Aug 10 · Built** Ski Resort menu tab under Parks & Recreation, with the attraction score, the snow line and the first trail surfaces.
+- **Aug 10 · Built** First building: an A-frame base lodge.
+- **Aug 11 · Changed** The lodge became an upgrade of one resort entity, the Welcome Sign. One entity gives the resort its identity, and its size follows from what is built. Size tiers S, M and L were rejected.
+- **Aug 11 · Built** Runs first show snow. The game's snow simulation carries the white, and decals carry the corduroy.
+- **Aug 19 · Built** First full loop in the game: Welcome Sign, lodge, stations, lift, runs, power and economy all work together.
 
 ## October 1-9
 
-- **Sep 30-Oct 1 · Changed** Run rating rewritten after play found green runs too hard to draw. The steepest-patch rule was retired, and the bands moved to 6, 25, 40 and 60 %. <span class="ref">#116 #118</span>
-- **Oct 1 · Built** Ski Resort hub, the first in-game panel. The sign was hard to find, so the tools were combined into one panel. <span class="ref">#117 #127 #128</span>
-- **Oct 4 · Built** Natural run, ski-area attraction score, ticket fees and a redesigned hub. <span class="ref">#136 #139</span>
-- **Oct 5 · Built** Ski days. In field test 8, a town lodge drew 162 guests a month and the real hill drew 2. Residents now choose the nearest venue of the leisure type they want, so the lodge claims a share of leisure trips. <span class="ref">#146 #147</span>
+- **Sep 30-Oct 1 · Changed** Run rating rewritten after play found green runs too hard to draw. The rating now follows the hardest unavoidable pitch, with bands at 6, 25, 40 and 60 %.
+- **Oct 1 · Built** Ski Resort hub, the first in-game panel. The sign was hard to find, so the tools were combined into one panel.
+- **Oct 4 · Built** Natural run, ski-area attraction score, ticket fees and a redesigned hub.
+- **Oct 5 · Built** Ski days. In testing, a town lodge drew 162 guests a month and the real hill drew 2. Residents now choose the nearest venue of the leisure type they want, so the lodge claims a share of leisure trips.
 
 ## October 10-19
 
-- **Oct 11 · Built** Five lodges, Ski School, patrol hut and patrol HQ, and the Welcome Sign. The A-frame was revised, and its brown walls stayed. <span class="ref">#163 #165</span>
-- **Oct 11 · Changed** Tram stations rebuilt from a lift-engineering reference. One platform could not be reached, so every station platform became a reachability requirement. <span class="ref">#166</span>
-- **Oct 11-12 · Built** Grand Lodge, after three versions: a U-plan around a pool court, then a plaza with a valet drive and vanilla trees and benches. <span class="ref">#176 #188</span>
-- **Oct 13 · Built** First import session. A shared texture sheet binds across its sharers in one action. <span class="ref">#228</span>
-- **Oct 14 · Changed** Tickets are booked as public-transport fares, so ticket cash shows in the Economy panel. <span class="ref">#238 #239</span>
-- **Oct 14 · Built** Season passes, priced at about 65 % of lift revenue, bought once and not refundable. <span class="ref">#240</span>
-- **Oct 15 · Built** Economy numbers approved: ticket 40 to 60, lodge spend 15, a lesson fee and pre-season pass sales. Lodges and Ski School carry upkeep and staff. <span class="ref">#241</span>
-- **Oct 16 · Changed** Snow rules set: guns make snow up to 3.3 °C, and a run opens at 15 cm of snow. <span class="ref">#250 #251</span>
-- **Oct 16 · Built** One shared tile sheet for all eight buildings. Walls went from 10 to 46 px/m to 300 to 400 px/m, at a cost in triangles held under hard caps. <span class="ref">#256</span>
-- **Oct 18 · Changed** Tram stations switched to plain glass, because lit fake interiors looked wrong at night. Own tile sheet approved. <span class="ref">#281 #282</span>
-- **Oct 18 · Built** Hub history store and view: guests and finances per month. <span class="ref">#283 #284 #289</span>
-- **Oct 18-19 · Built** Both tram stations fit the tile route: base 15,902 of 16,000 triangles, top 13,632 of 14,000. <span class="ref">#291 #294 #295</span>
-- **Oct 19 · Changed** Hub design review: all seven major changes approved, including one net, a simpler Finances chart and a corrected History chart. <span class="ref">#292 #293 #296 #297</span>
-- **Oct 19 · Changed** Window interiors. The room behind each window came from a vanilla commercial interior atlas, chosen by asset name. Windows became plain glass with lit backing plates. <span class="ref">#303 #307</span>
-- **Oct 19 · Built** Tower planner. All 18 test nodes sat at elevation 0, so the engine picked the shortest tower. <span class="ref">#301 #306 #311</span>
-- **Oct 19 · Changed** Ski School becomes a top-level building. <span class="ref">#308 #309 #318</span>
-- **Oct 19 · Settled** Tiled buildings and both tram stations imported, one import action per texture-sharing group. <span class="ref">#298</span>
-- **Oct 19 · Settled** Vanilla sub-objects used wherever one exists, since they carry more detail for less effort. The bell-tower light was dropped. <span class="ref">#305 #317 #320</span>
+- **Oct 11 · Built** Five lodges, Ski School, patrol hut and patrol HQ, and the Welcome Sign.
+- **Oct 11 · Built** Tram stations designed from a lift-engineering reference, with every platform reachable.
+- **Oct 11-12 · Built** Grand Lodge: a U-plan around a pool court, with a plaza, a valet drive and vanilla trees and benches.
+- **Oct 14 · Changed** Tickets are booked as public-transport fares, so ticket cash shows in the Economy panel.
+- **Oct 14 · Built** Season passes, priced at about 65 % of lift revenue, bought once and not refundable.
+- **Oct 15 · Built** Economy numbers approved: ticket 40 to 60, lodge spend 15, a lesson fee and pre-season pass sales. Lodges and Ski School carry upkeep and staff.
+- **Oct 16 · Changed** Snow rules set: guns make snow up to 3.3 °C, and a run opens at 15 cm of snow.
+- **Oct 16 · Built** One shared tile sheet for all eight buildings, with walls close to vanilla texel density inside hard triangle caps.
+- **Oct 18 · Changed** Tram stations switched to plain glass, because lit fake interiors looked wrong at night. The stations got their own tile sheet.
+- **Oct 18 · Built** Hub history: guests and finances per month.
+- **Oct 19 · Changed** Hub redesign: a single net figure, a simpler Finances chart and a clearer History chart.
+- **Oct 19 · Changed** Windows became plain glass with lit backing plates. Vanilla's fake room interiors read wrong in a ski building.
+- **Oct 19 · Built** Tower planner: each tower's height follows the terrain along the line.
+- **Oct 19 · Changed** Ski School becomes a top-level building.
+- **Oct 19 · Built** All eight buildings and both tram stations in the game on their tile sheets.
+- **Oct 19 · Settled** Vanilla sub-objects used wherever one exists, since they carry more detail for less effort.

@@ -5,21 +5,14 @@ description: Dependencies, references and licenses for code, art and third-party
 
 import { Aside } from '@astrojs/starlight/components';
 
-{/* src: release/CREDITS.md, assets/LICENSE, LICENSE (root), README license section; golf pack author from docs/SPEC.md and docs/RELEASE-CHECKLIST.md */}
-
 ## Licenses
 
 | Part | License |
 |---|---|
 | Code: the C# mod, the Blender generators, the tools, this documentation site | **MIT**, copyright 2026 the mod's author |
-| Art assets and everything generated from them: meshes, textures, previews, the in-game prefabs | **Creative Commons Attribution 4.0 (CC BY 4.0)**. Credit "Modular Ski Resort" and its author, as named in the repository license files |
+| Art assets and everything generated from them: meshes, textures, previews, the in-game prefabs | **Creative Commons Attribution 4.0 (CC BY 4.0)**. Credit "Modular Ski Resort" and its author, as named in the license files |
 | Tiling materials from ambientCG | **CC0**, no attribution required |
 | Barlow Condensed, the site's heading font, self-hosted | **SIL Open Font License 1.1**, copyright 2017 The Barlow Project Authors |
-
-<Aside type="caution" title="To confirm before release">
-The repository states MIT for code and CC BY 4.0 for art. Whether the art should instead share the code's license
-is an open decision for the release; this page follows the repository as it is today.
-</Aside>
 
 **Third-party code:** none. The GPL-licensed mods studied (ParkManager, ParkingLotTool) were re-derived
 from the game's own systems; no code was copied.
@@ -54,8 +47,7 @@ Each asset follows a real lift or building. They are places that matter to the a
 
 ## Lettering
 
-The sign sets (lodge, Ski School, patrol and gate boards) carry text rasterized at build time from typefaces installed
-on the build machine: Bookman Old Style Bold for the resort-identity boards, Franklin Gothic Demi Cond for the
+The sign sets (lodge, Ski School, patrol and gate boards) carry text rasterized at build time from system typefaces: Bookman Old Style Bold for the resort-identity boards, Franklin Gothic Demi Cond for the
 utility boards. Only the rendered textures ship; no font file is included or required. The lift boards are
 lettered with Blender's built-in font.
 

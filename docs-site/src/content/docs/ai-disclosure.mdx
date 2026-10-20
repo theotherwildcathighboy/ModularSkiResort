@@ -3,8 +3,6 @@ title: AI Disclosure
 description: Which parts of Modular Ski Resort were written by Claude, which models were used, and how the work was checked.
 ---
 
-{/* src: DECISIONS 306 (Gemini defaults document), 211 (two-stage fleets), 292 and 314 (adversarial reviews); docs/PIPELINE.md Gates; assets/LICENSE; release/CREDITS.md. Model versions as stated by the author 2026-10-19; earlier phases deliberately unnamed (unverified). */}
-
 The mod is a one-person project built with Claude (Anthropic) as the working partner.
 
 ## Authorship
@@ -12,7 +10,7 @@ The mod is a one-person project built with Claude (Anthropic) as the working par
 The code, the Blender asset generators, the documentation and this site were written by Claude under the author's direction.
 
 - **Author:** sets direction, makes every design verdict, does every Editor import and every in-game test, reviews the previews before anything is exported.
-- **Claude:** reads the decompiled game, designs and writes the code and generators, runs the checks, keeps the decision ledger.
+- **Claude:** reads the decompiled game, designs and writes the code and generators, runs the checks, keeps the written decision record.
 
 ## Models
 
@@ -25,18 +23,17 @@ All work ran through Claude Code in the Claude desktop app, with one linked sess
 - Claude Opus 4.8
 - Claude Sonnet 5.5
 - Claude Haiku 5.5 (documentation writing)
-- One planning document drafted with Google Gemini and reviewed before use.
 
 - **Earlier phases:** August to early October 2026 ran on earlier Claude models.
-- **Other AI:** one document of tower-planner defaults (real-world span table and design phases) was drafted with Google Gemini and reviewed before use ([Timeline](/timeline/), Oct 19).
+- **Other AI:** one document of tower-planner defaults (real-world span table and design phases) was drafted with Google Gemini and reviewed before use.
 
 ## Process
 
 - **Preview gate:** every asset is previewed and approved before export. Nothing is imported without a verdict.
-- **Decision ledger:** each decision is a dated entry with its cause. The [Timeline](/timeline/) is built from it.
+- **Decision record:** each decision is a dated entry with its cause. The [Timeline](/timeline/) is built from it.
 - **Reviews:** design and code reviews run as adversarial sessions separate from the ones that built the work.
-- **Checks:** test hosts and build gates are listed on [Asset Pipeline](/asset-pipeline/#gates).
-- **Evidence:** a claim about engine behavior needs the decompiled game or a field test. The ledger was corrected twice when a test disagreed.
+- **Checks:** automated tests and build checks, summarized on [Asset Pipeline](/asset-pipeline/#review-loop).
+- **Evidence:** a claim about engine behavior needs the decompiled game or a field test. The record was corrected twice when a test disagreed.
 
 ## Assets
 

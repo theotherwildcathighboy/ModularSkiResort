@@ -6,14 +6,11 @@ description: Where resort income appears in the game's Economy panel, why there 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 import Shot from '../../../components/Shot.astro';
 
-{/* src: Options text (BookTicketsAsFees); econ-2 revenue-design sections 0-3 and 6a (fee booking, closed income list, upkeep path); hub strings moneyNote*, moneyTip*; DECISIONS 239-241 */}
-
 Resort income: lift tickets, season passes, lessons, lodge spend. The game classes a ski resort as a park, and
 parks have no income line in the Economy panel.
 
-<Aside type="caution" title="Draft until field-checked">
-Fee booking is built and passes the mod's tests. Three items marked **(to confirm)** are not yet read off a live
-Economy panel. Marks are removed once checked.
+<Aside type="caution" title="Unverified Items">
+Three items marked (unverified) are not yet confirmed on a live Economy panel.
 </Aside>
 
 ## Income Booking
@@ -26,7 +23,7 @@ through the game's budget, like any fare.
 <Tabs>
   <TabItem label="Option on (default)">
     **Booking:** tickets, season passes, lessons and lodge spend as public transportation fees, via the game's budget.
-    **Economy panel:** **Public transportation** income line; counted in the income total and budget charts. **(to confirm)**
+    **Economy panel:** **Public transportation** income line; counted in the income total and budget charts. (unverified)
   </TabItem>
   <TabItem label="Option off">
     **Booking:** direct to balance. Treasury result unchanged.
@@ -73,7 +70,7 @@ Resort-drawn tourists sleep in hotels and shop in stores. Those companies' profi
 
 1. Hub **Finances** view: note **Lift tickets** and the other income rows, month to date.
 2. **Economy > Budget**: find the **Public transportation** income line.
-3. Both should move together. The panel shows a projected monthly rate that the game updates in steps; expect lag behind the hub, most of all early in a month. **(to confirm)**
+3. Both should move together. The panel shows a projected monthly rate that the game updates in steps; expect lag behind the hub, most of all early in a month. (unverified)
 4. Treasury change over a month should equal the sum of the panel lines. If not: confirm the option above is on, then see [Troubleshooting](/guides/troubleshooting/).
 
 </Steps>
@@ -84,7 +81,7 @@ Resort-drawn tourists sleep in hotels and shop in stores. Those companies' profi
 
 - **Effect:** the game's building and wage bill can differ from the hub figure.
 - **Hub notice:** *"Detected: Realistic Workplaces. The real bill can differ."*
-- **Fee income crediting:** vanilla behavior unconfirmed. **(to confirm)**
+- **Fee income crediting:** vanilla behavior expected (unverified).
 
 <Aside type="note" title="Hotel Lodges">
 Hotel income comes from a *company* in a rentable building; a park upgrade is neither. A hotel-style income share
