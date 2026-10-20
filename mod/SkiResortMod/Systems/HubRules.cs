@@ -118,7 +118,7 @@
 //
 // PHASE D (2026-10-11, docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §2.6, D9, seam S3; rules group):
 // Richard's re-ruling, DECISIONS 171 — an unpowered lift of every type carries no guests, so it shows no capacity (Richard's
-// O2 tram gate generalised to every type):
+// O2 tram gate generalized to every type):
 //   LiftCapacityShown(capacity, carries) — capacity when the lift carries (LiftServedRule.Carries: complete, powered at its
 //                     base station, not closed), else −1 (the UI's "–", LiftTable.tsx). A carrying row returns its argument
 //                     bit for bit (ResortBatch HK-1), so a powered lift's number and the area sum are unchanged. Status

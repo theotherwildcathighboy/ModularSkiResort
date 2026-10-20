@@ -3,7 +3,7 @@
 // (docs/research/run-feedback-spec.md §6; amended by run-binding-glade-spec.md §3.5, Round O1,
 // 2026-10-01). It owns no binding logic: on a qualifying frame it calls
 // SkiRunOwnershipSystem.SweepNow, the same idempotent sweep (SkiRunBindingRules table) the
-// 64-sim-frame cadence runs. Setting off → exactly the cadence-only behaviour.
+// 64-sim-frame cadence runs. Setting off → exactly the cadence-only behavior.
 //
 // FRAME ANATOMY (1.6.0f1; 1.6.2 shifts noted). The click that finishes a run runs
 // ApplyAreasSystem.Create inside ToolUpdate's ApplyTool phase (ApplyAreasSystem
@@ -476,7 +476,7 @@ namespace SkiResortMod.Systems
         /// <paramref name="sign"/> — the smallest "Ski area N" no OTHER live sign's custom name uses
         /// (the auto-name's own rule, so the vanilla panel and the hub keep showing one name instead of
         /// the vanilla default vs. a hub fallback label). Null when none is free or on an exception (then
-        /// the caller removes the name, the vanilla behaviour; one "!!!" line per load). Event time only,
+        /// the caller removes the name, the vanilla behavior; one "!!!" line per load). Event time only,
         /// main thread (the hub's UIUpdate).</summary>
         internal string PickSignName(Entity sign)
         {

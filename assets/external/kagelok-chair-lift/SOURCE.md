@@ -5,7 +5,7 @@
 | Title | Chair Lift |
 | Author | Kagelok - https://sketchfab.com/Kagelok |
 | Source | https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236 |
-| Licence | CC BY 4.0 (CC Attribution) - https://creativecommons.org/licenses/by/4.0/ (verified via the Sketchfab API `v3/models/afd305cdd4cb450f80b59f24b4b3e236` and Richard's download-page screenshot, `Desktop\ski resort assets reference images\3d model of detachable quad\Screenshot 2026-10-10 230048.png`) |
+| License | CC BY 4.0 (CC Attribution) - https://creativecommons.org/licenses/by/4.0/ (verified via the Sketchfab API `v3/models/afd305cdd4cb450f80b59f24b4b3e236` and Richard's download-page screenshot, `Desktop\ski resort assets reference images\3d model of detachable quad\Screenshot 2026-10-10 230048.png`) |
 | Published | 2017-09-02 (the .blend is the uploaded file: its name stamp is 10 s before Sketchfab's `createdAt`) |
 | Downloaded | 2026-10-10, by theotherwildcathighboy |
 | Archived | 2026-10-11: copied (not moved) from `Desktop\ski resort assets reference images\3d model of detachable quad\` |

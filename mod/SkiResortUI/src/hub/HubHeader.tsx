@@ -15,7 +15,7 @@
  *     so every button here stops mousedown exactly like the vanilla close button does
  *     (`onMouseDown:e=>{e.preventDefault(),e.stopPropagation()}`, @686490). The caption and the
  *     "N / COUNT" do NOT stop it: the panel still drags by them (the name is a button since P1).
- *   - `.title` = `.title_SVH .title_zQN` (index.css@57050 / @55900): flex:1, centred, uppercase,
+ *   - `.title` = `.title_SVH .title_zQN` (index.css@57050 / @55900): flex:1, centered, uppercase,
  *     `max-height: 2.4em` with `coh-font-fit-mode: shrink`. Our root therefore sets
  *     `text-transform: none`, `flex: 1 1 0; min-width: 0` and its own fixed row height
  *     (hub.module.scss .switcher), so the title's fit-shrink has nothing to shrink.
@@ -56,7 +56,7 @@
  *     selectResort(sign | Null), exactly like the arrows. Under the list RESORT_MENU_NOTE (what a map selection does,
  *     SkiResortHubUISystem.MapWorldSelection). Tooltip of the closed selector: RESORT_TIP, the one rule (Not linked:
  *     UNLINKED_HINT). With one entry the list still opens: it is where the rule and the counts are read.
- *   - The Not linked entry (warning colour) has no sign: its pen and fly buttons keep their space
+ *   - The Not linked entry (warning color) has no sign: its pen and fly buttons keep their space
  *     (visibility hidden) so nothing moves when switching.
  *   - Rename: pen -> RenameField in the selector's place; commit -> rename(sign, text) (C# trims, cuts to 64, writes
  *     NameSystem.SetCustomName, logs `Hub [rename]`). Switching resort while typing commits first
@@ -67,13 +67,13 @@
  *     panel renders PlainTitle instead).
  *   - T114 (2026-10-20, field report item 2, crop docs/research/field/2026-10-20/shots/_hub-crop-23.10.43.png; Richard: the dropdown "is
  *     ugly", "possibly an error on the display"; docs/research/ui/hub-round-t114-2026-10-20.md): SUPERSEDES the vanilla Dropdown above.
- *     In game its toggle drew a light box in the dark title bar with our name text in the panel's light text colour on it, so the name
+ *     In game its toggle drew a light box in the dark title bar with our name text in the panel's light text color on it, so the name
  *     read as faded white on white (the "display error"), and "Ski area" + box + arrows + position + pen + fly left the name little
  *     room. Now the row is `‹ [name ▾] › N / COUNT [pen] [fly]`: the name is a cs2/ui Button styled as the panel's own bold text
  *     (.areaName, no box until hover) between the two arrows, the caption moved into the list's title; a click toggles the local
  *     hubState.areaListOpen$, and the LIST is AreaList below, drawn by HubPanel as an overlay at the top of the content (inside our
  *     body, position absolute: no Portal, nothing for the title bar to clip, no drag guard on a portal). The list keeps T97's facts:
- *     every entry in the arrows' order, "N runs · N lodges", the shown one highlighted, Not linked in warning colour, the map note;
+ *     every entry in the arrows' order, "N runs · N lodges", the shown one highlighted, Not linked in warning color, the map note;
  *     picking = selectResort(entrySign(r)), then the list closes; a click on the dimmed backdrop closes it. R15: the name button
  *     passes FOCUS_DISABLED like the other header buttons (the list's buttons are content buttons).
  */

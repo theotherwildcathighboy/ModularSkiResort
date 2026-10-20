@@ -11,8 +11,8 @@ Layout gates (no bake, seconds):
       replace, every other tile rect and every flag-off palette rect unchanged (the renamed keys' "~f" excepted), the new
       flat keys appended, no rect overlap, palette <= 64;
   S3  slots: frame = slot 3, trim_grain_s2 = slot 2 (strip band 1), lux_glulam_s2 / lux_balrail_s2 = slot 2, the
-      accent_* and metal_roof_lt / _dk keys slot 0 and their fixed colour = lin(RECOLOR_ALBEDO) x lin(old default) (the game
-      reads a VariationSet colour as sRGB, BatchDataSystem.cs:716-718); slot_default_for inverts fixed_srgb;
+      accent_* and metal_roof_lt / _dk keys slot 0 and their fixed color = lin(RECOLOR_ALBEDO) x lin(old default) (the game
+      reads a VariationSet color as sRGB, BatchDataSystem.cs:716-718); slot_default_for inverts fixed_srgb;
       slots_v2_trim_remap keeps L4 / L5 boards on band 0;
   S4  glass: the three interior keys appended, lit / dim emissive, dark none; lodge.asset_name drops the keyword under
       gls and raises if it is kept; the default build path (glass win, slots v1) never registers a v2 key.
@@ -131,7 +131,7 @@ def check_slots(v2):
         m = M[k]
         assert m.slot == 0 and not m.recolor, k
         lin = np.asarray(K.srgb_to_linear(np.asarray(m.target_srgb, np.float64)))
-        want = rl * np.asarray(K.srgb_to_linear(np.asarray(t, np.float64)))   # the game multiplies lin(colour)
+        want = rl * np.asarray(K.srgb_to_linear(np.asarray(t, np.float64)))   # the game multiplies lin(color)
         assert np.allclose(lin, want, atol=2e-4), (k, lin, want)
     assert M["metal_roof"].slot == 3, "metal_roof itself must stay as it was (flag-off builds)"
     for t in ((0.2, 0.09, 0.04), (0.5, 0.5, 0.5)):

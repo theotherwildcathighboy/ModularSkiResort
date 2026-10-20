@@ -173,7 +173,7 @@
 // PHASE D (2026-10-11; docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §1.2-§1.3, §4.2-§4.3, D2-D3, with
 // round-4-contract-skeptic.md S-6 and S-7; movers group; report code-round-4/build-movers.md). Richard's re-ruling,
 // DECISIONS 171: an unpowered lift of every type carries no guests and its carriers stop; a lift's power is read at its
-// BASE station only. The top station needs none (it is fed through the modelled lift power line and has no
+// BASE station only. The top station needs none (it is fed through the modeled lift power line and has no
 // ElectricityConsumer at all: ServiceConsumption 0 on SkiTopStationBuilding, ConsumptionData.cs:21-26 adds the consumer
 // only above 0) and is never read. ReadLiftPower stays THE reader and every caller passes a census row's Base, the
 // Base-ROLE station (LiftCensus.cs:639-647): CopyServeLifts, ComputePowerSignature, SkiLiftChargeSystem, the tram, and now
@@ -549,7 +549,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Catalog Phase B (round-2-contract §6.3, D11): the top station's stub-tip xz in the last build (the
-        /// TerminalsOnly rule's centre and SummitServed's); NaN when the row has no top or it is not in the last build. No
+        /// TerminalsOnly rule's center and SummitServed's); NaN when the row has no top or it is not in the last build. No
         /// new Transform read: the census station's StubTip (per row StubTipLocalZ).</summary>
         private float2 TopXZOf(EntityRef top)
         {

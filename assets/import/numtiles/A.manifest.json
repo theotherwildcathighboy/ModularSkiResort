@@ -1,0 +1,363 @@
+{
+ "tiles": [
+  {
+   "name": "SkiNumTileT1BlankA",
+   "prefab": "SkiNumTileT1Blank",
+   "class": "T1",
+   "glyph": null,
+   "w": 0.2,
+   "h": 0.148,
+   "shares": null
+  },
+  {
+   "name": "SkiNumTileT1N0A",
+   "prefab": "SkiNumTileT1N0",
+   "class": "T1",
+   "glyph": 0,
+   "w": 0.0667,
+   "h": 0.148,
+   "shares": "SkiNumTileT1BlankA"
+  },
+  {
+   "name": "SkiNumTileT1N1A",
+   "prefab": "SkiNumTileT1N1",
+   "class": "T1",
+   "glyph": 1,
+   "w": 0.0667,
+   "h": 0.148,
+   "shares": "SkiNumTileT1BlankA"
+  },
+  {
+   "name": "SkiNumTileT1N2A",
+   "prefab": "SkiNumTileT1N2",
+   "class": "T1",
+   "glyph": 2,
+   "w": 0.0667,
+   "h": 0.148,
+   "shares": "SkiNumTileT1BlankA"
+  },
+  {
+   "name": "SkiNumTileT1N3A",
+   "prefab": "SkiNumTileT1N3",
+   "class": "T1",
+   "glyph": 3,
+   "w": 0.0667,
+   "h": 0.148,
+   "shares": "SkiNumTileT1BlankA"
+  },
+  {
+   "name": "SkiNumTileT1N4A",
+   "prefab": "SkiNumTileT1N4",
+   "class": "T1",
+   "glyph": 4,
+   "w": 0.0667,
+   "h": 0.148,
+   "shares": "SkiNumTileT1BlankA"
+  },
+  {
+   "name": "SkiNumTileT1N5A",
+   "prefab": "SkiNumTileT1N5",
+   "class": "T1",
+   "glyph": 5,
+   "w": 0.0667,
+   "h": 0.148,
+   "shares": "SkiNumTileT1BlankA"
+  },
+  {
+   "name": "SkiNumTileT1N6A",
+   "prefab": "SkiNumTileT1N6",
+   "class": "T1",
+   "glyph": 6,
+   "w": 0.0667,
+   "h": 0.148,
+   "shares": "SkiNumTileT1BlankA"
+  },
+  {
+   "name": "SkiNumTileT1N7A",
+   "prefab": "SkiNumTileT1N7",
+   "class": "T1",
+   "glyph": 7,
+   "w": 0.0667,
+   "h": 0.148,
+   "shares": "SkiNumTileT1BlankA"
+  },
+  {
+   "name": "SkiNumTileT1N8A",
+   "prefab": "SkiNumTileT1N8",
+   "class": "T1",
+   "glyph": 8,
+   "w": 0.0667,
+   "h": 0.148,
+   "shares": "SkiNumTileT1BlankA"
+  },
+  {
+   "name": "SkiNumTileT1N9A",
+   "prefab": "SkiNumTileT1N9",
+   "class": "T1",
+   "glyph": 9,
+   "w": 0.0667,
+   "h": 0.148,
+   "shares": "SkiNumTileT1BlankA"
+  },
+  {
+   "name": "SkiNumTileT2BlankA",
+   "prefab": "SkiNumTileT2Blank",
+   "class": "T2",
+   "glyph": null,
+   "w": 0.24,
+   "h": 0.188,
+   "shares": null
+  },
+  {
+   "name": "SkiNumTileT2N0A",
+   "prefab": "SkiNumTileT2N0",
+   "class": "T2",
+   "glyph": 0,
+   "w": 0.08,
+   "h": 0.188,
+   "shares": "SkiNumTileT2BlankA"
+  },
+  {
+   "name": "SkiNumTileT2N1A",
+   "prefab": "SkiNumTileT2N1",
+   "class": "T2",
+   "glyph": 1,
+   "w": 0.08,
+   "h": 0.188,
+   "shares": "SkiNumTileT2BlankA"
+  },
+  {
+   "name": "SkiNumTileT2N2A",
+   "prefab": "SkiNumTileT2N2",
+   "class": "T2",
+   "glyph": 2,
+   "w": 0.08,
+   "h": 0.188,
+   "shares": "SkiNumTileT2BlankA"
+  },
+  {
+   "name": "SkiNumTileT2N3A",
+   "prefab": "SkiNumTileT2N3",
+   "class": "T2",
+   "glyph": 3,
+   "w": 0.08,
+   "h": 0.188,
+   "shares": "SkiNumTileT2BlankA"
+  },
+  {
+   "name": "SkiNumTileT2N4A",
+   "prefab": "SkiNumTileT2N4",
+   "class": "T2",
+   "glyph": 4,
+   "w": 0.08,
+   "h": 0.188,
+   "shares": "SkiNumTileT2BlankA"
+  },
+  {
+   "name": "SkiNumTileT2N5A",
+   "prefab": "SkiNumTileT2N5",
+   "class": "T2",
+   "glyph": 5,
+   "w": 0.08,
+   "h": 0.188,
+   "shares": "SkiNumTileT2BlankA"
+  },
+  {
+   "name": "SkiNumTileT2N6A",
+   "prefab": "SkiNumTileT2N6",
+   "class": "T2",
+   "glyph": 6,
+   "w": 0.08,
+   "h": 0.188,
+   "shares": "SkiNumTileT2BlankA"
+  },
+  {
+   "name": "SkiNumTileT2N7A",
+   "prefab": "SkiNumTileT2N7",
+   "class": "T2",
+   "glyph": 7,
+   "w": 0.08,
+   "h": 0.188,
+   "shares": "SkiNumTileT2BlankA"
+  },
+  {
+   "name": "SkiNumTileT2N8A",
+   "prefab": "SkiNumTileT2N8",
+   "class": "T2",
+   "glyph": 8,
+   "w": 0.08,
+   "h": 0.188,
+   "shares": "SkiNumTileT2BlankA"
+  },
+  {
+   "name": "SkiNumTileT2N9A",
+   "prefab": "SkiNumTileT2N9",
+   "class": "T2",
+   "glyph": 9,
+   "w": 0.08,
+   "h": 0.188,
+   "shares": "SkiNumTileT2BlankA"
+  },
+  {
+   "name": "SkiNumTileT3BlankA",
+   "prefab": "SkiNumTileT3Blank",
+   "class": "T3",
+   "glyph": null,
+   "w": 0.3,
+   "h": 0.248,
+   "shares": null
+  },
+  {
+   "name": "SkiNumTileT3N0A",
+   "prefab": "SkiNumTileT3N0",
+   "class": "T3",
+   "glyph": 0,
+   "w": 0.1,
+   "h": 0.248,
+   "shares": "SkiNumTileT3BlankA"
+  },
+  {
+   "name": "SkiNumTileT3N1A",
+   "prefab": "SkiNumTileT3N1",
+   "class": "T3",
+   "glyph": 1,
+   "w": 0.1,
+   "h": 0.248,
+   "shares": "SkiNumTileT3BlankA"
+  },
+  {
+   "name": "SkiNumTileT3N2A",
+   "prefab": "SkiNumTileT3N2",
+   "class": "T3",
+   "glyph": 2,
+   "w": 0.1,
+   "h": 0.248,
+   "shares": "SkiNumTileT3BlankA"
+  },
+  {
+   "name": "SkiNumTileT3N3A",
+   "prefab": "SkiNumTileT3N3",
+   "class": "T3",
+   "glyph": 3,
+   "w": 0.1,
+   "h": 0.248,
+   "shares": "SkiNumTileT3BlankA"
+  },
+  {
+   "name": "SkiNumTileT3N4A",
+   "prefab": "SkiNumTileT3N4",
+   "class": "T3",
+   "glyph": 4,
+   "w": 0.1,
+   "h": 0.248,
+   "shares": "SkiNumTileT3BlankA"
+  },
+  {
+   "name": "SkiNumTileT3N5A",
+   "prefab": "SkiNumTileT3N5",
+   "class": "T3",
+   "glyph": 5,
+   "w": 0.1,
+   "h": 0.248,
+   "shares": "SkiNumTileT3BlankA"
+  },
+  {
+   "name": "SkiNumTileT3N6A",
+   "prefab": "SkiNumTileT3N6",
+   "class": "T3",
+   "glyph": 6,
+   "w": 0.1,
+   "h": 0.248,
+   "shares": "SkiNumTileT3BlankA"
+  },
+  {
+   "name": "SkiNumTileT3N7A",
+   "prefab": "SkiNumTileT3N7",
+   "class": "T3",
+   "glyph": 7,
+   "w": 0.1,
+   "h": 0.248,
+   "shares": "SkiNumTileT3BlankA"
+  },
+  {
+   "name": "SkiNumTileT3N8A",
+   "prefab": "SkiNumTileT3N8",
+   "class": "T3",
+   "glyph": 8,
+   "w": 0.1,
+   "h": 0.248,
+   "shares": "SkiNumTileT3BlankA"
+  },
+  {
+   "name": "SkiNumTileT3N9A",
+   "prefab": "SkiNumTileT3N9",
+   "class": "T3",
+   "glyph": 9,
+   "w": 0.1,
+   "h": 0.248,
+   "shares": "SkiNumTileT3BlankA"
+  }
+ ],
+ "classes": {
+  "T1": {
+   "plate": [
+    0.36,
+    0.16
+   ],
+   "win_u": 0.074,
+   "win_w": 0.2,
+   "win_h": 0.148,
+   "cap_max": 0.131,
+   "field": 0.851,
+   "ink": 0.051,
+   "metal": 0.0,
+   "smooth": 0.555,
+   "src": "lift_tower.plate_raster",
+   "cell_w": 0.0667,
+   "cap": 0.1138,
+   "em": 0.1626,
+   "gap_m": 0.0053
+  },
+  "T2": {
+   "plate": [
+    0.44,
+    0.2
+   ],
+   "win_u": 0.09,
+   "win_w": 0.24,
+   "win_h": 0.188,
+   "cap_max": 0.146,
+   "field": 0.851,
+   "ink": 0.039,
+   "metal": 0.349,
+   "smooth": 0.55,
+   "src": "tram_tower.plate_layout gondola",
+   "cell_w": 0.08,
+   "cap": 0.1366,
+   "em": 0.1951,
+   "gap_m": 0.0064
+  },
+  "T3": {
+   "plate": [
+    0.56,
+    0.26
+   ],
+   "win_u": 0.12,
+   "win_w": 0.3,
+   "win_h": 0.248,
+   "cap_max": 0.197,
+   "field": 0.851,
+   "ink": 0.039,
+   "metal": 0.349,
+   "smooth": 0.555,
+   "src": "tram_tower.plate_layout tram",
+   "cell_w": 0.1,
+   "cap": 0.1707,
+   "em": 0.2439,
+   "gap_m": 0.008
+  }
+ },
+ "condense": 0.82,
+ "tile_depth_m": 0.004,
+ "layer_m": 0.003
+}

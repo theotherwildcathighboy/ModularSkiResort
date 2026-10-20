@@ -1135,7 +1135,7 @@ namespace ResortBatch
             check(got == expected, w, $"WalkerKindOf({aboard}, {flags}, {divert}, {pathBad}) = {got}, expected {expected}");
         }
 
-        // ── ST41 WithinXZ(p, centre, radius) (7) ──────────────────────────────────────────────────
+        // ── ST41 WithinXZ(p, center, radius) (7) ──────────────────────────────────────────────────
         private static void WithinRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST41";
@@ -1146,7 +1146,7 @@ namespace ResortBatch
             Wx(check, w, new Unity.Mathematics.float2(70.72f, 70.72f), o, 100f, false);    // 10,002.6
             Wx(check, w, new Unity.Mathematics.float2(float.NaN, 0f), o, 100f, false);
             Wx(check, w, o, new Unity.Mathematics.float2(float.NaN, 0f), 100f, false);
-            Wx(check, w, o, o, 0f, true);                                                    // radius 0 at the centre
+            Wx(check, w, o, o, 0f, true);                                                    // radius 0 at the center
         }
 
         private static void Wx(Func<bool, string, string, bool> check, string w, Unity.Mathematics.float2 p, Unity.Mathematics.float2 c, float r,

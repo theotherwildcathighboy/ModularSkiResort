@@ -20,7 +20,7 @@ Parts:
   dq_train                         the gantry (DQ / ETDQ / GD / ETGD) train of both lanes: sheaves + liners,
                                    sub rockers + pins, main rockers + pins, the yoke, links for a lone middle
                                    sub, the hanger to the girder - every carrier INBOARD of the sheaves
-  dq_centres                       the gantry train's sheave centres (sag parabola)
+  dq_centres                       the gantry train's sheave centers (sag parabola)
   bevel_parts / chamfer_long_edges the tower finish of these parts (BEVEL_W bevel by prefix table; the FG
                                    1-segment long-edge chamfer of rocker_sub_ / sheave_arm_)
   TRAIN_BEVEL / TRAIN_CHAMFER      the towers' bevel / chamfer tables restricted to the train's parts
@@ -71,7 +71,7 @@ TRAIN_CHAMFER = {"FG": (("rocker_sub_", (1.0, 0.0, 0.0)), ("sheave_arm_", (0.0, 
 # consistent on every tower. Different pulley housings make sense." Build note:
 # docs/research/field/2026-10-15/build/T62-sheave-wheels.md.
 # The DQ20O wheel (census, section 1 there) = lite_sheave_parts with the default V-groove (depth max(0.02, 0.18 r),
-# a 5-point axis-closed profile), 12 segments, side discs (galv) closed by a centre vertex, the groove flanks as a rubber
+# a 5-point axis-closed profile), 12 segments, side discs (galv) closed by a center vertex, the groove flanks as a rubber
 # liner, NO axle cap, no hub bolts (its hub is the towers' normal-map ring, lift_tower.detail_marks). Round 1 built
 # exactly that (round 2 below replaces it); a family keeps its radius / width (WHEEL_FAMILY). WHEELS "v2" (default) routes every tower head, every
 # station train and the tram haul rollers through `wheel`; "v1" rebuilds the pre-T62 wheels byte for byte (FG axle
@@ -131,8 +131,8 @@ WHEEL_LOD = {1: dict(segs=8, form="flat band on the crest rings + 2 n-gon discs 
                      tris=2 * 8 + 2 * (8 - 2)),                                          # 28
              2: dict(segs=0, form="no wheel", tris=0)}
 WHEEL_KEY = "wheelsteel"
-# satin painted / galvanised steel, plain colour (no photo set: the generators' Metal032 roots differ, prefiltered or not,
-# and a wheel must read the same on every asset): sRGB ~0.58 neutral grey (linear 0.29; vanilla galvanised luma 0.51-0.84,
+# satin painted / galvanised steel, plain color (no photo set: the generators' Metal032 roots differ, prefiltered or not,
+# and a wheel must read the same on every asset): sRGB ~0.58 neutral gray (linear 0.29; vanilla galvanised luma 0.51-0.84,
 # painted utility 0.18-0.73), metal 0.30, smoothness 0.40 (inside vanilla's painted band, under its 0.47-0.62 bare-metal one)
 WHEEL_MATERIAL = dict(albedo=(0.285, 0.290, 0.297), metal=0.30, rough=0.60, projection="box")
 # Per family (LOD0): r / w kept from the family's v1 wheel; every family the same 16-segment wheel (segs / ngon kept as
@@ -167,7 +167,7 @@ def wheel_spec(family):
 
 
 def wheel_profile(r, w):
-    """The v2 wheel's profile numbers (metres) for radius r, width w: groove root depth gd, rim chamfer c (0 since round
+    """The v2 wheel's profile numbers (meters) for radius r, width w: groove root depth gd, rim chamfer c (0 since round
     3), half width hw, crest |y| hc = hw - c, boss base / top radius rb / rt, boss height h, boss segments bs, groove
     root segments rs."""
     P = WHEEL_PROFILE
@@ -204,7 +204,7 @@ def wheel_key(v1_key="galv"):
 # --------------------------------------------------------------------------------------
 
 def _box_uv_bm(bm, layer):
-    """Per-face dominant-axis projection in metres with u x v = +normal axis (never mirrored)."""
+    """Per-face dominant-axis projection in meters with u x v = +normal axis (never mirrored)."""
     bm.normal_update()
     for f in bm.faces:
         n = f.normal
@@ -279,7 +279,7 @@ def lite_sheave(name, r, w, loc, segs=12, groove=None):
 def lite_sheave_parts(name, liner, r, w, loc, segs=12, groove=None):
     """
     lite_sheave split in two parts (design 3.1 `liner_`): `name` keeps the two side discs (the
-    C1 / C2 / C9 measurements read its bbox centre: unchanged), `liner` the rope faces - the
+    C1 / C2 / C9 measurements read its bbox center: unchanged), `liner` the rope faces - the
     V-groove flanks (4 x segs tris) or the flat band (2 x segs) - in material rubber. Same
     vertices, windings and tri count as lite_sheave; remove_doubles welds the two at the join.
     Returns [(discs, "galv"), (liner, LINER_KEY)].
@@ -534,7 +534,7 @@ def _world_co(o):
 def boss_visibility(parts):
     """
     T62 round 3: how hidden each hub boss of the v2 wheels in `parts` is - {discs name: {-1: share, +1: share}}, the
-    share of 17 rays (the boss top's centre, 8 at rt / 2, 8 at rt) that hit another (non-wheel) part within
+    share of 17 rays (the boss top's center, 8 at rt / 2, 8 at rt) that hit another (non-wheel) part within
     BOSS_HIDDEN["dist"] of the boss top, cast along the outward axle (-1 = the wheel's -Y face, +1 = +Y). A ray that
     starts inside a part (a boss reaching into a rocker plate) hits that part's far side. The frame comes from the liner
     (two crest rings + the root ring, symmetric), so a boss already removed does not move it.
@@ -607,7 +607,7 @@ def cull_hidden_bosses(parts, label=""):
     hidden (>= BOSS_HIDDEN["share"] of its rays blocked within BOSS_HIDDEN["dist"]; 22 tris a face saved where a rocker
     plate / bar covers it) and move the SEEN bosses out of the discs part into their own part hub_name(discs) (same
     material key), appended to `parts`: the discs part stays symmetric about the wheel's mid-plane, so every contract
-    that reads a rim's bbox centre (C1 / C2, lattice C3, tram C4, the stations' ST1 / M21) reads the axle as before.
+    that reads a rim's bbox center (C1 / C2, lattice C3, tram C4, the stations' ST1 / M21) reads the axle as before.
     Stamps: discs and hub obj["cs2_wheel_bosses"] = the faces kept ("-+", "-", "+" or ""); hub obj["cs2_wheel_hub"] =
     the discs name. v1: no-op. Returns {discs name: kept}.
     """
@@ -709,7 +709,7 @@ def fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span, 
                   arm_t=FG_ARM_T, hanger=FG_HANGER, ins=FG_HANGER_INSET, prefix="", inboard=0.0):
     """
     The Yan (FG / ET) rocker tree of ONE lane (`tag` "n" / "p", `s` -1 / +1, the lane at `y`), hanging
-    below its carrier (lift_tower: the crossarm; its centre = main_z + hanger): the hanger (its top `ins`
+    below its carrier (lift_tower: the crossarm; its center = main_z + hanger): the hanger (its top `ins`
     inside a carrier `arm_t` deep), the main rocker at main_z, per sub rocker a pivot pin, the sub rocker at
     sub_z and two sheave arms down to the sheaves on axle_z (lite_sheave_parts: discs + liner) with an
     outboard axle cap each. lift_tower.fg_parts' loop body verbatim (the same expressions, the same part
@@ -803,7 +803,7 @@ def dq_train(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y, main_
              hz, link=DQ_LINK, prefix="", ngon=False):
     """
     The gantry sheave trains of both lanes with every carrier INBOARD of the sheaves (towers-v2 4.2, F9):
-    lift_tower._dq_train's body verbatim. `centres_of(s)` = the [(x, y, z)] sheave centres of the side s
+    lift_tower._dq_train's body verbatim. `centres_of(s)` = the [(x, y, z)] sheave centers of the side s
     (-1 / +1; dq_centres), n sheaves per side (even), `axle` the train's reference height (the main rockers,
     pins, yoke and hanger sit at axle + their tower offsets), `sub_y` / `main_y` the |y| of the sub / main
     rocker plates and the yoke, `pin_s` the sub pins' length, `hanger_box` {x, y0, y1, z0, z1} (z about the
@@ -960,7 +960,7 @@ class LodWheels:
     crest ring + one n-gon disc per side; LOD2 = deleted. UVs come from ONE source face per new face (the disc n-gon's
     own corners; the band from the -side flank face of its segment, squashed 2x along the rim) so no new face spans two
     UV islands of the repacked atlas. Wheels are found by name (WHEEL_LOG pairs present in the part table); the frame
-    (centre, axle, phase) from the geometry, so it works in any frame (net, station-rotated, chord-tilted).
+    (center, axle, phase) from the geometry, so it works in any frame (net, station-rotated, chord-tilted).
     """
 
     def __init__(self):

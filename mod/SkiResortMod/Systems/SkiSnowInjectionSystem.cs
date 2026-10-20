@@ -100,14 +100,14 @@
 //     snow map that is valid THIS load (m_Readback of the previous real pass, or the measure-only copy;
 //     ChooseSnapshot). Injected runs are measured inside the fold: its routing moved VERBATIM into
 //     FoldRowsJob.RouteTexel (`continue` → `return 0f`, `cold = true` after the decay branch, nothing
-//     else), so the field-tuned look cannot move. NATURAL RUNS (SkiRunNaturalA, D16) are rasterised for
+//     else), so the field-tuned look cannot move. NATURAL RUNS (SkiRunNaturalA, D16) are rasterized for
 //     measurement only, on a second chain after the injected one (MeasureRowsJob): never injected,
 //     decayed or billed, never in the mask, decay or ramp planes, never in MeanRunSnowDepthM or the
 //     per-run active-texel map; texels an injected run manages this pass are excluded from them.
 //   * OPEN STATE (ch3 §5): per run a hysteretic label (open >= 60 %, closed < 40 %), a multiplier that
 //     ramps 0 → 1 between 40 % and 60 % (deviation E1-S2) published through a 0.05 dead band, a
 //     generation counter (RunSnowGeneration) and THE read API GetRunSnow (table entry, else an
-//     on-the-spot estimate from the 24-hour mean temperature, labelled Estimated). SnowSettled holds the
+//     on-the-spot estimate from the 24-hour mean temperature, labeled Estimated). SnowSettled holds the
 //     score's first write of a load until every run is measured or 256 sim frames have passed (R4).
 //   * MEASURE-ONLY READBACK (ch3 §6, D29): when no write pass refreshes the snapshot (a natural-only
 //     city, every injected run unbound or off the map), a NON-blocking AsyncGPUReadback into its own
@@ -332,7 +332,7 @@ namespace SkiResortMod.Systems
             // and the packed skip both read it, so they cannot disagree); unchanged, 0.02 m.
             public const float PackGuardMeanDepthM = RunSnowRules.PackGuardMeanDepthM;
 
-            // Cadence: melt between top-ups is millimetres against a 250-350 mm target
+            // Cadence: melt between top-ups is millimeters against a 250-350 mm target
             // (doc §4 — even 256 frames would stay invisible), so 64 sim frames carries
             // ~4x headroom. The mask is also rebuilt every top-up: at ~14 m/texel the CPU
             // rasterization is trivial, and it makes polygon edits self-heal within one
@@ -377,7 +377,7 @@ namespace SkiResortMod.Systems
         private static readonly string[] SnowmakingSurfaceNames = { "SkiRunSnowmakingA" };
         private static readonly string[] GroomedSurfaceNames = { "SkiRunGroomedA" };
         private static readonly string[] NightSurfaceNames = { "SkiRunNightA" };
-        // E1 (D16, ch3 §4.5): natural runs are rasterised for measurement only — never injected,
+        // E1 (D16, ch3 §4.5): natural runs are rasterized for measurement only — never injected,
         // decayed or billed (no mask, decay or ramp texel, no active texels, no MeanRunSnowDepthM).
         private static readonly string[] NaturalSurfaceNames = { "SkiRunNaturalA" };
         // The sign test lives in SkiRunOwnershipSystem since Round O1 (IsRunBound → IsBound):
@@ -796,11 +796,11 @@ namespace SkiResortMod.Systems
 
         /// <summary>E1 ch3 §4.5: measure-only pass over one natural run. Writes ONLY its own partials — never
         /// Mask, DecayMask, RampMask. Texels owned by an injected run this pass are excluded (their snow may be
-        /// managed), and their weight is reported. Neighbour exclusion: the fold writes only texels inside its
+        /// managed), and their weight is reported. Neighbor exclusion: the fold writes only texels inside its
         /// own raster and routes each to the decay plane (too warm), the mask (cold, passes the noise) or
         /// nowhere (cold, dropped by the noise); only mask texels are raised and only decay texels lowered, so
         /// managed snow lives exactly on `Mask > 0 || DecayMask > 0 || ProtectMask > 0` texels of this pass's footprint. The mask
-        /// is this pass's and the snapshot one window older: when a neighbour is redrawn, a few edge texels
+        /// is this pass's and the snapshot one window older: when a neighbor is redrawn, a few edge texels
         /// can be misattributed for one window (accepted).</summary>
         [BurstCompile]
         private struct MeasureRowsJob : IJobFor
@@ -1391,7 +1391,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>E1 ch3 §8: the depth the decal dress and the props' snow follow. Managed — today's
         /// MeanRunSnowDepthM (bound injected runs, last real pass this load). NaturalMeasured — the
-        /// coverage-weighted mean depth over Measured natural runs (neighbour texels excluded), when no
+        /// coverage-weighted mean depth over Measured natural runs (neighbor texels excluded), when no
         /// managed measurement exists this load. Natural texels never enter MeanRunSnowDepthM.</summary>
         internal bool TryGetDressDepth(out float depthM, out RunDressSource source)
         {
@@ -2784,7 +2784,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>T09: the run's snow ledger (cubic metres this season and in total; made by guns or grooming, and held by
+        /// <summary>T09: the run's snow ledger (cubic meters this season and in total; made by guns or grooming, and held by
         /// protection). False before the run has gained anything this load. Main thread. The catalog's DUMP row prints it.</summary>
         internal bool TryGetRunLedger(Entity run, out RunSnowRules.RunLedger ledger)
         {

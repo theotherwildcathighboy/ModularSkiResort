@@ -16,7 +16,7 @@
 //   - a class whose name contains "blind" declares height: 0 and visibility: hidden (rule 9);
 //   - our own classes only (css-loader prefixes them "sr-<name>_<hash>"); vanilla components get
 //     our classes through className / contentClassName / theme props; no vanilla class map is
-//     extended or overridden. Colours and sizes are the game's global CSS variables (installed
+//     extended or overridden. Colors and sizes are the game's global CSS variables (installed
 //     index.css :root: --warningColor #ffa42d @9388, --positiveColor @9364, --lockedColor @8331,
 //     --sectionBackgroundColor @8044, --selectedColor @7300, --fontSizeXS/S/M/L @5298-5554 ...);
 //   - our stylesheet is linked after the game's index.css, so on equal specificity our rule wins
@@ -33,9 +33,9 @@
 //     fixed-height text box sets its own line-height; no flex-wrap: wrap, position: sticky, dashed
 //     borders, gradients, transforms other than the diamond rotate(45deg), fractional flex-grow or
 //     non-ASCII characters here;
-//   - dim text colours are LITERAL (deviation U1): rgba(240, 251, 255, 0.7) dim, rgba(240, 251, 255,
+//   - dim text colors are LITERAL (deviation U1): rgba(240, 251, 255, 0.7) dim, rgba(240, 251, 255,
 //     0.5) dimmer - the game's --textColorDim / --textColorDimmer are white in :root (installed
-//     index.css @2587, @3184; Dimmer is white in the dark-grey-orange style too, @12464).
+//     index.css @2587, @3184; Dimmer is white in the dark-gray-orange style too, @12464).
 // Round F7 (2026-10-04, implementer 4; docs/research/field-test-7-fixes.md D1, D2, D6): .runState and
 // .runRowClosed (the Runs view's state word, closed rows dimmed) replace .openSlot; .infoLabelBox /
 // .infoLabelText / .infoMark (the Info glyph after a header label); .problemRowOn (the band's background
@@ -44,7 +44,7 @@
 // .note3 is gone with the Money view's note area.
 // Round S1 (2026-10-05, stream E; docs/research/ski-days/spec/ch4-hub.md sections D, F): .viewSlot clips the
 // width samples' hidden text below the last row and .tileRow keeps 10 rem clear on the right (the scrollbar over
-// the fifth tile); .statusHintOn (the "Powder day" hint in the normal colour). The Guests view's ski-day lines
+// the fifth tile); .statusHintOn (the "Powder day" hint in the normal color). The Guests view's ski-day lines
 // reuse .infoLine and .subLine.
 
 // ---- panel frame ---------------------------------------------------------------------------
@@ -246,8 +246,8 @@
   text-transform: none;
 }
 
-// The name inside the toggle's label div: its own ellipsis and colour (the toggle theme sets the button's colour, so the Not
-// linked warning colour sits here).
+// The name inside the toggle's label div: its own ellipsis and color (the toggle theme sets the button's color, so the Not
+// linked warning color sits here).
 .selectorLabel {
   min-width: 0rem;
   overflow: hidden;
@@ -399,7 +399,7 @@
 }
 
 // "On" state of a flat button (tool active, chosen segment). Listed with :hover so the vanilla flat
-// hover colour does not hide it (same specificity, our sheet comes later).
+// hover color does not hide it (same specificity, our sheet comes later).
 .buttonOn,
 .buttonOn:hover {
   background-color: var(--selectedColor);
@@ -415,7 +415,7 @@
   opacity: 0.45;
 }
 
-// A game glyph as a mask (Glyph, src/hub/parts.tsx); the colour class sets background-color.
+// A game glyph as a mask (Glyph, src/hub/parts.tsx); the color class sets background-color.
 .glyph {
   flex-grow: 0;
   flex-shrink: 0;
@@ -736,7 +736,7 @@
 }
 
 // Fixer round (findings u2-data-05 / u2-panel-5): band -2, "cannot be rated" - a hollow circle in
-// the warning colour (final, unlike the dim "being rated" circle). Border longhands only.
+// the warning color (final, unlike the dim "being rated" circle). Border longhands only.
 .bandUnrateable {
   border-radius: 50%;
   background-color: rgba(0, 0, 0, 0);
@@ -827,7 +827,7 @@
 
 // Contract 3 (ch6 8.3): the Runs view's header row - piste-map toggle, then the Lift / Length / Drop
 // labels - in XS, 1.6 em high, with the run row's paddings so its cells line up with RunLine's. The
-// labels are dim by the literal colour (U1; the old opacity 0.75 would also dim the toggle).
+// labels are dim by the literal color (U1; the old opacity 0.75 would also dim the toggle).
 .listHeader {
   display: flex;
   flex-direction: row;
@@ -863,7 +863,7 @@
 }
 
 // Run type marker: a vertical bar. Groomed = solid snow white, Snowmaking = cyan outline,
-// Night = solid floodlight amber (the Build strip's run stripes use the same colours); natural =
+// Night = solid floodlight amber (the Build strip's run stripes use the same colors); natural =
 // two short bars (.kindNatural, hub-v3 block below).
 .runMarker {
   flex-grow: 0;
@@ -973,7 +973,7 @@
   position: relative;
   display: flex;
   // T31: icon over its short label (was icon only, 44 tall).
-  // T96 (field 2026-10-19 item 1, shot 22.08.59): the run stripe sat ON the icon. Cause: content was centred in a 50 x fontScale
+  // T96 (field 2026-10-19 item 1, shot 22.08.59): the run stripe sat ON the icon. Cause: content was centered in a 50 x fontScale
   // box, leaving (8 x fontScale - 4) / 2 = 2 rem above the icon at 100 %, while the stripe is absolute at top 2, height 4 (and
   // Gameface may size the box content-box: the same overlap, 2 rem). Now the stripe has its OWN band: border-box, content from
   // the top under an 8 rem band (2 air + 4 stripe + 2 air, fixed rem like the stripe itself), then 28 icon + 14 label + 2 air
@@ -1056,7 +1056,7 @@
   border-radius: 4rem;
 }
 
-// Run kind stripe along the tile's top edge (the run list's marker colours), in the tile's 8 rem top band (T96: never over the icon).
+// Run kind stripe along the tile's top edge (the run list's marker colors), in the tile's 8 rem top band (T96: never over the icon).
 .buildStripe {
   position: absolute;
   left: 6rem;
@@ -1262,7 +1262,7 @@
   background-color: var(--activeColorNormal);
 }
 
-// The chosen option (listed with :hover so the hover colour does not hide it; the .buttonOn idiom).
+// The chosen option (listed with :hover so the hover color does not hide it; the .buttonOn idiom).
 .pickerChipOn,
 .pickerChipOn:hover {
   color: var(--normalTextColor);
@@ -1286,9 +1286,9 @@
 }
 
 // ---- hub v3 (Round E1, ch6-hub-ui.md section 8): the checked reference hub-v3-additions.scss --------
-// Dim text: literal colours, NOT --textColorDim / --textColorDimmer (both resolve to white in the
-// game's :root, and Dimmer is white in the dark-grey-orange style: installed index.css @2587, @3184,
-// @11454, @12464). Precedent for a literal text colour: .listRowUnbound.
+// Dim text: literal colors, NOT --textColorDim / --textColorDimmer (both resolve to white in the
+// game's :root, and Dimmer is white in the dark-gray-orange style: installed index.css @2587, @3184,
+// @11454, @12464). Precedent for a literal text color: .listRowUnbound.
 
 // Round S1 F (docs/research/ski-days/spec/ch4-hub.md section F; field test 8's scrollbar over the fifth tile).
 // Cause [likely]: the .blind width samples are height 0 but overflow visible, so their text hangs one line
@@ -1365,13 +1365,13 @@
   text-overflow: ellipsis;
 }
 
-// Round S1 D29: "Powder day" in the hint slot reads in the normal text colour, not dim (same slot and size).
+// Round S1 D29: "Powder day" in the hint slot reads in the normal text color, not dim (same slot and size).
 // Declared after .statusHint: on equal specificity this rule wins.
 .statusHintOn {
   color: var(--normalTextColor);
 }
 
-// T82 B5a: a warning season hint (Thawing, Waiting for snow, Too warm) keeps the slot in the warning colour; declared after .statusHintOn.
+// T82 B5a: a warning season hint (Thawing, Waiting for snow, Too warm) keeps the slot in the warning color; declared after .statusHintOn.
 .statusHintWarn {
   color: var(--warningColor);
 }
@@ -1622,7 +1622,7 @@
    so nothing moves when it appears); the absolute .tileMark overlapped the last digit at 130-150 %.
    E1 fixer (e1-spec 8.9 F13): a flex row of [caption | fixed-width mark] instead of an inline-block
    span - inline-block is unproven in Gameface (our bundle and the game's index.css use none), and a
-   collapsed empty span would let the centred caption shift when the mark toggles. */
+   collapsed empty span would let the centered caption shift when the mark toggles. */
 .tileCaptionRow {
   display: flex;
   flex-direction: row;
@@ -1727,7 +1727,7 @@
   margin-left: 6rem;
 }
 
-// T80 (2026-10-18, Richard item 3): InfoLine `flag` - the word after the Warning glyph ("No ski school"), warning colour.
+// T80 (2026-10-18, Richard item 3): InfoLine `flag` - the word after the Warning glyph ("No ski school"), warning color.
 .flagText {
   flex-grow: 0;
   flex-shrink: 1;
@@ -2421,7 +2421,7 @@
 }
 
 // -- History view (T78 build 2, contract 10; src/hub/HistoryView.tsx, HistoryChart.tsx) ----------------------------------------
-// The tile's value: our HistoryGlyph.svg (T82 B8, three bars on a baseline; a mask in the tile's text colour), about a tile number's height.
+// The tile's value: our HistoryGlyph.svg (T82 B8, three bars on a baseline; a mask in the tile's text color), about a tile number's height.
 .tileGlyph {
   width: 1.2em;
   height: 1.2em;
@@ -2542,7 +2542,7 @@
   position: relative;
 }
 
-// One scale value at its y: top-aligned (the top value), centred on the zero line ("0"), bottom-aligned (the bottom value).
+// One scale value at its y: top-aligned (the top value), centered on the zero line ("0"), bottom-aligned (the bottom value).
 .histScaleLabel {
   position: absolute;
   right: 0rem;
@@ -2584,7 +2584,7 @@
   color: rgba(240, 251, 255, 0.7);
 }
 
-// One equal cell per bucket; the label may overflow its cell (centred, labels are spaced by labelStep).
+// One equal cell per bucket; the label may overflow its cell (centered, labels are spaced by labelStep).
 .histAxisCell {
   display: flex;
   flex-direction: row;
@@ -2741,7 +2741,7 @@
   position: relative;
 }
 
-// Header (HubHeader.tsx): "‹ [name ▾] › N / COUNT" - the name is a plain text button in the panel's own text colour (the vanilla
+// Header (HubHeader.tsx): "‹ [name ▾] › N / COUNT" - the name is a plain text button in the panel's own text color (the vanilla
 // Dropdown toggle drew a light box with faded text in the title bar: field 2026-10-20, crop 23.10.43).
 .areaName {
   display: flex;

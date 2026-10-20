@@ -13,7 +13,7 @@ contracts; this test asserts the numbers one asset hands to another:
      prefab, re-parsed now (sha256 of the canonical JSON). A missing folder is skipped with a note.
   3. GEOMETRY on the SHIPPED FBXs (cm, raw frame (y, z, x) of authoring):
      H1 hang: the 6M chair's top - lowest point == 2.400 (+-1e-4); its cushion 0.15 over the lowest.
-     H2 the station's rope torus centre == WheelLocal (+-2 mm) and r == lane (+-5 mm).
+     H2 the station's rope torus center == WheelLocal (+-2 mm) and r == lane (+-5 mm).
      H3 seat height: the shipped chair at the UP-lane tangent (grip top = the lane, ChairPinSystem),
         cushion over the shipped surface below it (base: carpet, top: crest) in [0.45, 0.55].
      S8 hosted seam: the shipped ET68O / ET62O (LOD0, LOD1) at the hosted pose (0, 0, -6.9 / -4.9),
@@ -24,7 +24,7 @@ contracts; this test asserts the numbers one asset hands to another:
         in the code chord's frame, the lane = lift_terminal.chord_z) - with lift_chair.carrier_sweep on
         BOTH spins (facing -s: the stations' spin, its right outboard; +s: the opposite) and
         carrier_verdict "yan" (nothing crossed but the F10 set - rims, liners, sheave arms, axle caps -
-        and every other part >= CARRIER_CLEAR_M). The fixed grip is centred (only its spring housing
+        and every other part >= CARRIER_CLEAR_M). The fixed grip is centered (only its spring housing
         reaches +Y), so it passes either way: the 6M keeps its frame (no mirror).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_fg_family_seams.py

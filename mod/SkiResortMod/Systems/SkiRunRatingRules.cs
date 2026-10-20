@@ -1,13 +1,13 @@
 // SkiRunRatingRules — the PURE decisions of the built-run rating cache in SkiRunCatalogSystem
 // (docs/research/hub-u2-spec.md §3.5 as amended in the fixer round, see below). Created 2026-10-03
-// (U2/L1/M1 fixer round, findings u2-data-01, behaviour-2 and u2-data-05/u2-panel-5); the catalog calls
+// (U2/L1/M1 fixer round, findings u2-data-01, behavior-2 and u2-data-05/u2-panel-5); the catalog calls
 // these and tests/ResortBatch links this file, so the cache's key, queue and band rules are tested
 // headless. Nothing here reads the game.
 //
 // THE CACHE KEY (finding u2-data-01; deviation from spec §3.5 :550, :557, reported):
 //   * Key  = FNV-1a over every node's x and z float bits, then the node count. These are the ONLY node
 //     values the rating reads: SkiSlopeClassifier.PlanCore reads a node's y only for its finiteness
-//     check (SkiSlopeClassifier.cs:803-805) and rasterises x and z (:835-845); SkiRunRater passes the
+//     check (SkiSlopeClassifier.cs:803-805) and rasterizes x and z (:835-845); SkiRunRater passes the
 //     nodes only to Plan (SkiRunRater.cs:266) and to ShoelaceArea (plan area). The rated heights come
 //     from the terrain lattice, never from the nodes.
 //   * YKey = FNV-1a over every node's y float bits, then the count. It changes when GroundHeightSystem
@@ -22,7 +22,7 @@
 //     node xyz, so every re-snap during a terrain brush stroke flipped the run to "pending", wrote a
 //     "Catalog [rebuild] (area edited)" line and started a full front rating — up to once per frame.
 //
-// THE QUEUE (finding behaviour-2): FRONT reasons are bind and edit (no duty cycle); warm-up, terrain
+// THE QUEUE (finding behavior-2): FRONT reasons are bind and edit (no duty cycle); warm-up, terrain
 // and backstop are BACKGROUND (duty-cycled). A run already queued keeps its place unless the new reason
 // is a front reason and the queued one is not — EXCEPT that a queued WARM-UP entry is never promoted by
 // a BIND: every rebuild after the warm-up seed re-asks for every row with no rating as "bind", and the

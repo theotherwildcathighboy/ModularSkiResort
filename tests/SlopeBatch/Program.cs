@@ -10,8 +10,8 @@
 // TERRAIN STAND-IN (test-local; the classifier only ever sees it through the public
 // Plan -> Need -> Heights -> Classify contract): a 3.5 m texel lattice (14336/4096,
 // Game.Simulation/TerrainSystem.cs:2618-2620 in 1.6.0f1, :2630-2632 in 1.6.2f1) anchored at
-// the default map's texel centres (-7166.25 + 3.5k: ToWorldSpace TerrainUtils.cs:35-38 with
-// the -0.5 texel offset of TerrainSystem.cs:2621-2622), heights quantised to 4096/65535 m
+// the default map's texel centers (-7166.25 + 3.5k: ToWorldSpace TerrainUtils.cs:35-38 with
+// the -0.5 texel offset of TerrainSystem.cs:2621-2622), heights quantized to 4096/65535 m
 // (the default height scale), sampled with the float bilinear of
 // TerrainUtils.SampleHeightInternal (TerrainUtils.cs:121-137: heightmap space, floor,
 // saturate, lerp along x per row, then along z).
@@ -24,10 +24,10 @@
 // ring-mode classification this host makes (plus RandomOracleTests' random polygons/terrains)
 // and recomputes, by brute force and with its own data structures, the end zones (sorted bin
 // table), the exact minimax (binary search over the sorted distinct per-cell values, a plain
-// flood fill per threshold: 8-neighbour, or R2b's diagonal rule), the expected rating (the largest value of the
+// flood fill per threshold: 8-neighbor, or R2b's diagonal rule), the expected rating (the largest value of the
 // minimax's bucket below 200 %, the exact minimax in the open last bucket — R2 fixer round),
 // P90, Connected, and the EXACT crux cell from an independent BFS written from the §9.3
-// traversal contract (row-major seeds, row-major neighbour order, stop on discovery, largest o
+// traversal contract (row-major seeds, row-major neighbor order, stop on discovery, largest o
 // nearest the top; R2 fixer round — before, it only checked that the crux lay on some path).
 // OracleCheck takes the per-cell values (CellGrade) as given; they are pinned separately:
 // KthCase asserts CellGrade of EVERY Mask cell against a per-cell oracle (20/15/10/7 m row
@@ -77,7 +77,7 @@
 // max(LengthRect, AxisLength), zeros on a non-rating status), OracleCheck pins AxisLength to the
 // oracle's key range + step, CaptureTests prints a length column and asserts each capture's
 // Length (regression, ±0.1 %) and LengthRect against the spec's skeptic values (±1 m), and
-// LengthTests runs 11 synthetic shapes (regression ±0.1 %, error vs the designed centreline as
+// LengthTests runs 11 synthetic shapes (regression ±0.1 %, error vs the designed centerline as
 // INFO). "Every existing rating bit-identical" is proven by the rating fingerprint (FNV-1a over
 // every PostCheck'd classification outside LengthTests, printed before SUMMARY): the pre-R3
 // classifier and the R3 classifier both give 34,058 classifications, 0x3FAEB2F59B9897D1 (R3
@@ -973,13 +973,13 @@ namespace SlopeBatch
         private static long s_OracleFallKey, s_OracleHeightKey, s_OracleDiag, s_OracleGateAmbiguous, s_OracleCohKey;
         private static double s_OracleMaxAbove, s_OracleFallLineWorstDeg, s_OracleMeanGradWorst, s_OracleCohWorst;
 
-        // Connectivity of the oracle's flood fills (R2b §9.8): 8-neighbour (step multiple 1, R2),
-        // 4-neighbour (report-only evidence), and the DiagonalRule (4-neighbour plus a diagonal
+        // Connectivity of the oracle's flood fills (R2b §9.8): 8-neighbor (step multiple 1, R2),
+        // 4-neighbor (report-only evidence), and the DiagonalRule (4-neighbor plus a diagonal
         // only when both orthogonally shared cells are outside the Mask; step multiple >= 2).
         private const int Conn8 = 0, Conn4 = 1, ConnDiag = 2;
 
         /// <summary>True when the oracle's connectivity lets (i, j) step to (i + di, j + dj)
-        /// (a neighbour, already range-checked).</summary>
+        /// (a neighbor, already range-checked).</summary>
         private static bool OStep(SlopeGrid g, int conn, int i, int j, int di, int dj)
         {
             if (di == 0 || dj == 0 || conn == Conn8)
@@ -1220,7 +1220,7 @@ namespace SlopeBatch
         /// (as pinned in the R2 fixer round) with its own data structures: BFS seeds = the
         /// top-zone traversable cells in row-major scan order (a seed that is also in the bottom
         /// zone is the crux at once); traversable = Mask cells with o &lt;= limit (the rating);
-        /// the neighbours expanded in row-major order (dj = -1, 0, 1 outer; di = -1, 0, 1
+        /// the neighbors expanded in row-major order (dj = -1, 0, 1 outer; di = -1, 0, 1
         /// inner), under `conn` (R2b: ConnDiag skips a diagonal past an inside orthogonal cell);
         /// the search stops when the first bottom-zone cell is DISCOVERED; walk the parents back
         /// from it and take the largest o, the cell nearest the top on ties. Returns the flat
@@ -1315,7 +1315,7 @@ namespace SlopeBatch
                 // is a fraction of Σ|g|, so the direction tolerance scales with 1 / coherence
                 // (|Σg| / Σ|g|; a cone or saddle cancels to ~0.2 %).
                 double dot = r.FallLine.x * oz.FallX + r.FallLine.y * oz.FallZ, cross = r.FallLine.x * oz.FallZ - r.FallLine.y * oz.FallX;
-                double deg = Math.Atan2(Math.Abs(cross), dot) * 180.0 / Math.PI;   // atan2: acos of a float-normalised dot reads ~0.01° on equal vectors
+                double deg = Math.Atan2(Math.Abs(cross), dot) * 180.0 / Math.PI;   // atan2: acos of a float-normalized dot reads ~0.01° on equal vectors
                 double coh = oz.SumAbs > 0.0 ? oz.MeanGrad * n / oz.SumAbs : 1.0;
                 double tolDeg = Math.Min(180.0, 1e-4 / Math.Max(coh, 1e-9) * 180.0 / Math.PI);
                 if (coh >= 0.05)
@@ -2399,7 +2399,7 @@ namespace SlopeBatch
             // 20.5 % instead of ~14 %"); all Green.
             { "inv xl ridge m2", 0.070 },           // worst +6.45 %
             // R2b fixer round (ZoneDepthTests, WARN SPEC-GAP against §9.8's "~20 m of run whatever
-            // the width"): zone depth in METRES down (up) the run from a narrowing top (bottom) end,
+            // the width"): zone depth in METERS down (up) the run from a narrowing top (bottom) end,
             // measured worst + one step (3.5 m) over the 8 frames. The depth cap is a cell count
             // from the MEAN width, so a 20 m end of a 106.7 m-mean run gets ~5× EndZoneDepthM.
             { "zone depth trail top 20 m -> 150 m bowl, 45% pitch s20-80", 110.2 },              // 103.0-106.7 m
@@ -3325,7 +3325,7 @@ namespace SlopeBatch
 
             // Per-cell value o (CellGrade — what the crux and the heat-map read) for EVERY Mask
             // cell, from the spec text (R2 fixer round, review finding tests-1): on a z-invariant
-            // profile the box gradient is along ±x, so o = the longest centred row window of
+            // profile the box gradient is along ±x, so o = the longest centered row window of
             // {20, 15, 10, 7} m (a length only when >= 2 steps; 20 always) whose nodes
             // round(-half) .. round(+half) are all inside, else |g| of the 5×5 box =
             // |h(i+3) + h(i+2) - h(i-2) - h(i-3)| / (10·step) on the row.
@@ -3923,13 +3923,13 @@ namespace SlopeBatch
                 (s, t) => 1000.0 - 0.15 * s + KValley * Math.Max(0.0, t));
         }
 
-        // C-run geometry (local s = x, t = z): two straight 150 m arms 40 m wide on centrelines
+        // C-run geometry (local s = x, t = z): two straight 150 m arms 40 m wide on centerlines
         // s = +60 (the first arm, run descends +t) and s = -60 (the last arm, descends -t), joined
-        // by a half-annulus bend of centreline radius 60 m around (0, 150).
+        // by a half-annulus bend of centerline radius 60 m around (0, 150).
         private const double CArmLen = 150.0, CRad = 60.0, CWidth = 40.0;
 
-        /// <summary>The C-run's position along its centreline u (m from the start) and its
-        /// outward distance d from the centreline (away from the hill), for local (s, t).</summary>
+        /// <summary>The C-run's position along its centerline u (m from the start) and its
+        /// outward distance d from the centerline (away from the hill), for local (s, t).</summary>
         private static double2 CRunUd(double s, double t)
         {
             if (t <= CArmLen)
@@ -3941,7 +3941,7 @@ namespace SlopeBatch
         /// <summary>Known and deliberate (§9.8): a C-run 180° around a convex hill. The run climbs
         /// down the first arm at 40 % for its first 120 m (the steep first arm), then 12 % through
         /// the rest of the arm, the bend and the last arm (the run ends beside its own start); the
-        /// hill falls 10 % away from the run's centreline outward everywhere, so the fall line
+        /// hill falls 10 % away from the run's centerline outward everywhere, so the fall line
         /// turns with the run. The arms' along-run fall lines (+t, -t) cancel in the mean, which
         /// therefore points along +t (the steep arm wins): the fall-line key puts BOTH arms'
         /// south ends (the run's start and its end) in the top zone and the bend in the bottom
@@ -4791,7 +4791,7 @@ namespace SlopeBatch
         // ================================================================== §9.6 item 4: tooltip line 4 rule
 
         /// <summary>SkiSlopeClassifier.SteepestPatchShown (R2 fixer round; review findings
-        /// feedback-tooltip-line4-quantisation-margin and feedback-tooltip-disconnected-labels).
+        /// feedback-tooltip-line4-quantization-margin and feedback-tooltip-disconnected-labels).
         /// (a) unit cases; (b) near-threshold planes — nothing to avoid, so the line must NEVER
         /// show, with the shown band = the raw band (first recompute) and the hysteresis-held
         /// band below it; (c) the field case and R2-a — it MUST show; (d) a hair-thin hourglass
@@ -5351,7 +5351,7 @@ namespace SlopeBatch
         /// fixtures of the computed Length (±0.1 %, values recorded from this round's first run),
         /// plus a cross-check of LengthRect against the spec's skeptic-recomputed values (§5.1:
         /// "092600 434 / 510 m (max), 093404 1,011 / 1,031, 093455 and 093534 240 / 309, 093640
-        /// 833, 093940 2,170, 094240 2,666, 095100 826 / 864"; whole metres, so ±1 m). A capture
+        /// 833, 093940 2,170, 094240 2,666, 095100 826 / 864"; whole meters, so ±1 m). A capture
         /// that is not in the table (a new file) is reported, not failed.</summary>
         private static void CaptureLengthCheck(string w, string name, SlopeResult r)
         {
@@ -5785,22 +5785,22 @@ namespace SlopeBatch
         // ================================================================== R3 run length (§5.1)
         //
         // run-binding-glade-spec.md §5.1: Length = max(LengthRect, AxisLength) in ring mode,
-        // horizontal metres (D14); LengthRect = (P + sqrt(max(0, P² − 16A))) / 4 over the
+        // horizontal meters (D14); LengthRect = (P + sqrt(max(0, P² − 16A))) / 4 over the
         // sanitized ring; AxisLength = the fall-line key range + step when ZoneByFallLine, else 0;
         // polyline = arc length. LengthCheck (every PostCheck) and OracleCheck (AxisLength vs the
         // oracle's key range) pin the DEFINITION on every classification of this host; this
         // section pins the VALUES: 11 synthetic shapes and the 8 field captures are REGRESSION
         // fixtures of the computed Length (±0.1 %, values recorded from this round's first run on
-        // CoreCLR, frame 0 of each shape), each shape's error against its designed centreline
+        // CoreCLR, frame 0 of each shape), each shape's error against its designed centerline
         // length is INFO only (asserting ±2 % against the true length would fail the funnel and
         // the height-key diamond by design — the two known limits in the classifier header). The
         // constant-width bands (rectangles, the mitred L and dogleg) additionally assert
         // LengthRect against the true length (±0.01 %): the closed form is exact for them.
 
-        /// <summary>A mitred constant-width band of width w around a centreline polyline:
+        /// <summary>A mitred constant-width band of width w around a centerline polyline:
         /// left offsets forward, right offsets back. Interior vertices sit on the bisector at
-        /// (w / 2) / cos(θ / 2), so the band's area is centreline × w and its perimeter 2 ×
-        /// centreline + 2w — the case where LengthRect is exact.</summary>
+        /// (w / 2) / cos(θ / 2), so the band's area is centerline × w and its perimeter 2 ×
+        /// centerline + 2w — the case where LengthRect is exact.</summary>
         private static double2[] MitredBand(double2[] c, double w)
         {
             int n = c.Length;
@@ -5857,9 +5857,9 @@ namespace SlopeBatch
             return s;
         }
 
-        /// <summary>The C-run of the length fixtures: two straight `arm` m arms (centre lines at
-        /// t = ±r) joined by a 180° bend of centre radius r around (arm, 0), width w, arcs at 1°
-        /// vertex spacing. Designed centreline = 2·arm + π·r.</summary>
+        /// <summary>The C-run of the length fixtures: two straight `arm` m arms (center lines at
+        /// t = ±r) joined by a 180° bend of center radius r around (arm, 0), width w, arcs at 1°
+        /// vertex spacing. Designed centerline = 2·arm + π·r.</summary>
         private static double2[] CRunRing(double arm, double r, double w)
         {
             List<double2> p = new List<double2>();
@@ -5880,7 +5880,7 @@ namespace SlopeBatch
             public string Name;
             public double2[] Ring;
             public LocalHeight H;
-            public double True;     // designed centreline length (m)
+            public double True;     // designed centerline length (m)
             public bool ExactBand;  // constant-width band: LengthRect == True (±0.01 %)
             public float Want;      // regression value of Length at frame 0 (this round's first run)
         }
@@ -5901,7 +5901,7 @@ namespace SlopeBatch
             return new[]
             {
                 // Want = R3 first run (CoreCLR), frame 0 (rotation 17°). A straight run reads up to
-                // ~one cell long through AxisLength (key range of cell CENTRES + step).
+                // ~one cell long through AxisLength (key range of cell CENTERS + step).
                 new LenShape { Name = "rect 600x60 @20%", Ring = LRect(600, 60), H = slope20, True = 600, ExactBand = true, Want = 603.3069f },
                 new LenShape { Name = "trail 1500x20 @20%", Ring = LRect(1500, 20), H = slope20, True = 1500, ExactBand = true, Want = 1503.4326f },
                 new LenShape { Name = "wide 400x150 @20%", Ring = LRect(400, 150), H = slope20, True = 400, ExactBand = true, Want = 403.39972f },
@@ -6114,7 +6114,7 @@ namespace SlopeBatch
                     string rule = g.DiagonalRule ? "diagonal rule" : "8-nbr";
                     if (g.DiagonalRule)
                     {
-                        // R2b: the same crux pass with R2's 8-neighbour path, for the per-neighbour
+                        // R2b: the same crux pass with R2's 8-neighbor path, for the per-neighbor
                         // union's cost (report only; CruxForTest re-reads the grid's rule).
                         g.DiagonalRule = false;
                         double t8 = CruxMs(g, r, reps);
@@ -6167,8 +6167,8 @@ namespace SlopeBatch
             s_OracleOn = true;
         }
 
-        /// <summary>A C-shaped run: an annulus sector of centre radius r and width w over
-        /// `sweepDeg` degrees, its gap centred on +x, 1° vertex spacing.</summary>
+        /// <summary>A C-shaped run: an annulus sector of center radius r and width w over
+        /// `sweepDeg` degrees, its gap centered on +x, 1° vertex spacing.</summary>
         private static double2[] CShape(double cx, double cz, double r, double w, double sweepDeg)
         {
             List<double2> p = new List<double2>();

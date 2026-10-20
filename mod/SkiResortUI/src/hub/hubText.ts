@@ -219,6 +219,10 @@ export const HUB_LOC = {
   liftToolTip: ["SkiResort.Hub.LIFT_TOOL_TIP", "Plan a lift line between two stations: Ctrl+Shift+L"],
   liftToolTipOn: ["SkiResort.Hub.LIFT_TOOL_TIP_ON", "On: click a station, then the other station of the lift. Click again to stop."],
   liftToolUnavailable: ["SkiResort.Hub.LIFT_TOOL_UNAVAILABLE", "Available once a city is loaded."],
+  // Contract 14 (T139): the cat track grading chip on the Runs tab (CatTrackGradeToolSystem); unavailable reads LIFT_TOOL_UNAVAILABLE.
+  gradeTool: ["SkiResort.Hub.GRADE_TOOL", "Grade cat track"],
+  gradeToolTip: ["SkiResort.Hub.GRADE_TOOL_TIP", "Grade the ground for a cat track, never steeper than the max grade: Ctrl+Shift+K"],
+  gradeToolTipOn: ["SkiResort.Hub.GRADE_TOOL_TIP_ON", "On: click points up the hill, then press Enter to grade. Click again to stop."],
   patrolGroup: ["SkiResort.Hub.BUILD_GROUP[Patrol]", "Ski patrol"],
 
   // ---- tiles (6.4) ----
@@ -257,7 +261,7 @@ export const HUB_LOC = {
   /** Contract 6: the school's line of the RECEIPT_PARTS tooltip (shown while ResortLive.schoolValue > 0). */
   receiptTipSchool: ["SkiResort.Hub.RECEIPT_TIP[School]", "A ski school adds its value while a green run counts."],
   receiptTipVariety: ["SkiResort.Hub.RECEIPT_TIP[Variety]", "× 1.15 while a green, a blue and a black or harder run all count, else × 1."],
-  /** T80 (Richard item 4): each term of the "Runs, lifts and school" section is its own labelled row; the full equation is the
+  /** T80 (Richard item 4): each term of the "Runs, lifts and school" section is its own labeled row; the full equation is the
    *  section header's tooltip (RECEIPT_PARTS[_SCHOOL] + RECEIPT_ROOT). */
   receiptRowRuns: ["SkiResort.Hub.RECEIPT_ROW[Runs]", "Runs"],
   receiptRowLifts: ["SkiResort.Hub.RECEIPT_ROW[Lifts]", "Lifts"],

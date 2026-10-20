@@ -1,5 +1,5 @@
 """
-Launcher glyph candidates (Round S1 F9): a one-colour white glyph for the hub's floating button,
+Launcher glyph candidates (Round S1 F9): a one-color white glyph for the hub's floating button,
 drawn the way the game draws every other button in the top-left row (cs2/ui FloatingButton with the
 default tint: a white mask on the accent plate).
 
@@ -339,7 +339,7 @@ def chamfer(src):
     h, w = src.shape
     big = 1e9
     d = np.where(src, 0.0, big)
-    for y in range(h):                       # forward pass, row-vectorised where possible
+    for y in range(h):                       # forward pass, row-vectorized where possible
         if y:
             up = d[y - 1]
             d[y] = np.minimum(d[y], up + 3)
@@ -528,7 +528,7 @@ def make_sheet(row_png, cands, path, rejected=None):
             cv.paste(img, x, y + (120 - s) // 2)
             cv.text(lab, x, y + 126, 1, INK)
             x += max(s, 84) + 22
-        # raw glyph on dark grey (what the PNG holds)
+        # raw glyph on dark gray (what the PNG holds)
         g = render_alpha(prims, 120)[..., None]
         cv.paste(np.asarray((60, 66, 74), np.float64) * (1 - g) + 255 * g, x, y)
         cv.text("THE GLYPH ITSELF", x, y + 126, 1, INK)
@@ -550,7 +550,7 @@ def make_sheet(row_png, cands, path, rejected=None):
 
 
 def make_detail(cands, path):
-    """Review aid (not a deliverable): per candidate the 256 px glyph on grey, the 80 px button x2
+    """Review aid (not a deliverable): per candidate the 256 px glyph on gray, the 80 px button x2
     and the 40 px button x4, normal and selected."""
     keys = list(cands)
     cell_h = 300

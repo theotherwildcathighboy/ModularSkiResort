@@ -450,7 +450,7 @@ function run(srcDir) {
     R.schoolState({ schoolValue: 0, summer: true }, [], S1, R.schoolBuiltOf([{ id: "school", locked: true, reason: AB }])), "waiting");
   eq("T19.6 the views pass the lock", [fs.readFileSync(path.join(srcDir, "hub", "OverviewView.tsx"), "utf8").includes("schoolBuiltOf(build)"), fs.readFileSync(path.join(srcDir, "hub", "MoneyView.tsx"), "utf8").includes("schoolBuiltOf(build)")], [true, true]);
   // T96 (field 2026-10-19 item 1): the run stripe has its own band: .buildTile lays out from the top under an 8 rem padding (the
-  // stripe is absolute at top 2, height 4), border-box, height 12 rem + 44 rem x fontScale; never centred content again.
+  // stripe is absolute at top 2, height 4), border-box, height 12 rem + 44 rem x fontScale; never centered content again.
   {
     const scss = fs.readFileSync(path.join(srcDir, "hub", "hub.module.scss"), "utf8");
     const tile = (scss.match(/\n\.buildTile \{[^}]*\}/) || [""])[0].replace(/\/\/[^\n]*/g, "");

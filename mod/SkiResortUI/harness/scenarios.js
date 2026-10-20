@@ -156,13 +156,14 @@
 
   const glade = { available: true, active: false, level: 4, treeLine: false, reason: "" };
 
-  const base = { hubOpen: false, contract: 13, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 14, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
-    liftLine: { available: true, active: false, state: "PickBase" } };   // contract 12; 13 = T136 RunLive.snowDepthCm / gunWhy
+    liftLine: { available: true, active: false, state: "PickBase" },   // contract 12; 13 = T136 RunLive.snowDepthCm / gunWhy
+    grade: { available: true, active: false, state: "" } };            // contract 14 (T139): the Runs tab's grading chip
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
-    "contract mismatch (DLL 12, UI 13)": Object.assign({}, base, { contract: 12, hubOpen: true }),
+    "contract mismatch (DLL 13, UI 14)": Object.assign({}, base, { contract: 13, hubOpen: true }),
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),

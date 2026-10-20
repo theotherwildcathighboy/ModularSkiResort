@@ -203,8 +203,8 @@ namespace SkiResortMod.Systems
     /// RULES. Interior side from the shoelace sign (CCW in x,z = interior on the LEFT of travel, the glade planner's
     /// convention): inward(d) = ccw ? (-d.z, d.x) : (d.z, -d.x). At a corner the two edges' inward normals are summed
     /// (the miter direction; a cusp, sum shorter than CuspMinLen, falls back to the outgoing edge's normal). Downhill
-    /// bias: s = mean of the two edges' fall rate along travel (positive = travelling along the border loses height);
-    /// the aim is inward + clamp(s / SlopeFull, -1, 1) × tan(BiasMaxDeg) × tangent, normalised, so on a border along the
+    /// bias: s = mean of the two edges' fall rate along travel (positive = traveling along the border loses height);
+    /// the aim is inward + clamp(s / SlopeFull, -1, 1) × tan(BiasMaxDeg) × tangent, normalized, so on a border along the
     /// fall line the lamps lean up to BiasMaxDeg toward downhill and across a contour line they aim straight in. The
     /// 25 deg downward pitch stays the prefab's (EffectSource rotation x 0.21644 w 0.976296 on all three masts).
     /// Deterministic: a function of the node ring only.</summary>

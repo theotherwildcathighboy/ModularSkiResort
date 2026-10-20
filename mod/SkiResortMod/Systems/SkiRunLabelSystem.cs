@@ -1,5 +1,5 @@
 // SkiRunLabelSystem — the run names on the hill (ticket T37, 2026-10-16; docs/research/field/2026-10-15/build/
-// T37-run-labels.md). Each of our runs gets its name written flat on the ground at the run's centre, in the piste-map colour
+// T37-run-labels.md). Each of our runs gets its name written flat on the ground at the run's center, in the piste-map color
 // of its difficulty, at the zoom range where the piste map reads, faded in and out like the district names. Default on
 // (option ShowRunNamesOnTheHill, Richard's ruling T37). A summer player sees where the runs are and what they are called.
 //
@@ -10,10 +10,10 @@
 //     draw it with a per-area-type NAME material (AreaTypePrefab.m_NameMaterial, set up :816-821; drawn AreaRenderSystem :81-100).
 //   * The area path cannot be pointed at a run: runs are Surface areas; the LabelVertex / LabelExtents buffers exist only in the
 //     DistrictPrefab archetype (DistrictPrefab.cs:30-31); UpdateLabelVertices walks EVERY area of the type and indexes the
-//     buffer accessor (:1033-1036), which would need the buffer on every building's grass sub-area; the colour is one
+//     buffer accessor (:1033-1036), which would need the buffer on every building's grass sub-area; the color is one
 //     AreaNameData per PREFAB (:481-492), not per run; and the name material belongs to the vanilla Surface AreaTypePrefab.
 //   * OverlayRenderSystem.Buffer.DrawText(entity, pos, cameraFace) (:189-198) is the public text path (GuideLinesSystem uses it for
-//     water-source names), but it has no colour, no scale (the matrix is TRS(pos, identity, 1), :193) and no ground orientation.
+//     water-source names), but it has no color, no scale (the matrix is TRS(pos, identity, 1), :193) and no ground orientation.
 // SO this system builds its labels the way those two do and reuses everything below the per-entity buffer:
 //   * the game's own TextMeshPro text mesh and font: OverlayRenderSystem.GetTextMesh() (:641), the same size / alignment settings
 //     (:708-712, AreaBufferSystem :1017-1019), the same mesh copy (FillMeshFromTMPMeshInfo :674-698);
@@ -25,19 +25,19 @@
 //     it as the point INSIDE the area that is furthest from every edge (Game.Areas/GeometrySystem.cs:520-585, the best
 //     CheckCenterPositionCandidate), so a concave run's label never lands outside it — no centroid fix-up needed. The catalog row
 //     already carries it (RunRow.CenterX / CenterZ); y is the terrain height + LiftM.
-// What is OURS: the per-run mesh (colour and fade in the vertex colours), the fade rule (RunLabelRules.FadeAlpha — the vanilla
+// What is OURS: the per-run mesh (color and fade in the vertex colors), the fade rule (RunLabelRules.FadeAlpha — the vanilla
 // district fade is inside its shader, which the decompile does not show), and the draw (Graphics.DrawMesh, the camera of the game).
 //
 // GATES (cheapest first): option ShowRunNamesOnTheHill; Game mode armed; RenderingSystem.hideOverlay (photo mode / screenshot hides
 // the district names the same way, AreaRenderSystem :81); the fade (zoom outside the range → nothing, nothing rebuilt); a tool
 // working on runs — the area tool holding one of our run prefabs or the tree (glade) tool active → no labels at all; any other tool
 // with Temp copies of runs (an edit of an existing run) → just that run's label is skipped. The game has no general "show names"
-// setting for areas (searched Game.Settings and the interface settings: none); hideOverlay is the one switch it honours.
+// setting for areas (searched Game.Settings and the interface settings: none); hideOverlay is the one switch it honors.
 //
 // THE CACHE. Rebuilt only when the catalog moved (SkiRunCatalogSystem.Revision, or Rebuilds — a pure move of a run keeps the
-// Revision hash, the rows' centres are refreshed by every catalog rebuild) AND the labels are about to be drawn. A rebuild reads
-// the rows (entity, name, band, centre, outline), samples the terrain once per label, and rebuilds a label's text mesh only when
-// its (clean text, band) changed. The fade is vertex alpha: rewritten for every label only when the quantised step moves.
+// Revision hash, the rows' centers are refreshed by every catalog rebuild) AND the labels are about to be drawn. A rebuild reads
+// the rows (entity, name, band, center, outline), samples the terrain once per label, and rebuilds a label's text mesh only when
+// its (clean text, band) changed. The fade is vertex alpha: rewritten for every label only when the quantized step moves.
 //
 // PHASE: Rendering, but NOT anchored to OverlayRenderSystem (nothing is written to its buffers: this is Graphics.DrawMesh).
 // COST: option off / out of zoom range / hidden = a bool read, a zoom read and a return. Drawn and unchanged = one DrawMesh per
@@ -70,7 +70,7 @@ namespace SkiResortMod.Systems
     {
         private static class Tuning
         {
-            public const float LiftM = 1.5f;          // label height above the terrain at the run's centre
+            public const float LiftM = 1.5f;          // label height above the terrain at the run's center
             public const float ScaleK = 0.7f;         // x AreaUtils.CalculateLabelScale (districts are ~1.0): runs are smaller than districts
             public const float FontSize = 200f;       // = OverlayRenderSystem.GetTextRenderItems / AreaBufferSystem.UpdateLabelVertices
             public const float SizeW = 250f, SizeH = 100f;
@@ -82,8 +82,8 @@ namespace SkiResortMod.Systems
         {
             public Mesh Mesh;
             public Material Material;
-            public Color32[] Colours;   // the vertex colours at alpha 255 (rgb = the band colour)
-            public Color32[] Scratch;   // the colours with the current alpha step applied
+            public Color32[] Colours;   // the vertex colors at alpha 255 (rgb = the band color)
+            public Color32[] Scratch;   // the colors with the current alpha step applied
         }
 
         private sealed class Label
@@ -345,7 +345,7 @@ namespace SkiResortMod.Systems
                 m_Draw.Add(kv.Value);
         }
 
-        /// <summary>The game's TextMeshPro text mesh -> one Mesh per atlas page, vertex colours = the band colour. Mirrors
+        /// <summary>The game's TextMeshPro text mesh -> one Mesh per atlas page, vertex colors = the band color. Mirrors
         /// OverlayRenderSystem.GetTextRenderItems / FillMeshFromTMPMeshInfo (:706-735, :674-698).</summary>
         private void BuildMeshes(Label label)
         {

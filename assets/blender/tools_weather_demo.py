@@ -37,13 +37,13 @@ Outputs (assets/preview/weather/, never assets/import/):
     <Name>_{before,after}_{arrival_3q,back_3q}.png   pbr renders (cs2_preview, noon), 0.35
     <Name>_ab_{arrival_3q,back_3q}.png               before | after side by side
     <Name>_ab_closeup_arrival_3q.png                 central half of 2x renders, 1:1
-    <Name>_masks.png    atlas false colour: left R edge, G grime, B rust; right R scuff,
+    <Name>_masks.png    atlas false color: left R edge, G grime, B rust; right R scuff,
                         G snow (L2: the snow 0.6 run), B protected texels; raw masks before
                         the intensity / role factors, max-pooled to <= 1024 px
     <Name>_crops.png    1:1 atlas crops (tinted sRGB), rows: largest door, wall ground
                         band, roof edge, strongest rust streak; each row before | after
     SkiLodgeHutCommercialLowB_after_snow060_arrival_3q.png
-    ladder/<Name>_ladder_arrival_3q.png          BEFORE | 0.35 | 0.50 | 0.70 (labelled)
+    ladder/<Name>_ladder_arrival_3q.png          BEFORE | 0.35 | 0.50 | 0.70 (labeled)
     ladder/<Name>_ladder_closeup_arrival_3q.png  the same at 2x (central half, 1:1)
     ladder/SkiSchoolCommercialLowA_slotwear_{arrival_3q,closeup_arrival_3q}.png
                                                  BEFORE | BOUNDED 0.50 | FREE 0.50
@@ -164,7 +164,7 @@ def jsonable(o):
 
 
 def tinted_srgb(base_srgb, ctl, tint):
-    """BaseColor x mix(1, slot rgb, ControlMask), linear maths (cs2_preview.py:428-454)."""
+    """BaseColor x mix(1, slot rgb, ControlMask), linear math (cs2_preview.py:428-454)."""
     lin = cs2_preview._srgb_to_linear(base_srgb[..., :3])
     for ch, rgb in enumerate(cs2_preview._tint_colours(tint)):
         m = np.clip(ctl[..., ch], 0.0, 1.0)[..., None]

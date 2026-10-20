@@ -12,7 +12,7 @@
 // WHAT CHANGED IN U2 (docs/research/hub-u2-spec.md §3.5, 2026-10-03, implementer I-1): the rating
 // path itself — ShoelaceArea, StepMultiple, DiagonalRule, Plan, FillHeights (height reuse included),
 // Classify — moved into the pure SkiRunRater, so the hub's built-run rating cache
-// (SkiRunCatalogSystem) rates with exactly this code. Behaviour and numbers are unchanged: the
+// (SkiRunCatalogSystem) rates with exactly this code. Behavior and numbers are unchanged: the
 // bodies moved verbatim, the terrain read is TerrainHeightSampler (bottom of this file, the same
 // 2-arg SampleHeight at the same world point), and tests/SlopeBatch proves bit parity on every
 // field capture and against a verbatim copy of the old FillHeights. This system keeps the
@@ -51,16 +51,16 @@
 //    refused click is read within the throttle window), and logs `RunFeedback [validation] …` once per CHANGE
 //    of the (error types, warning types, tags) set — the type names, new/edit, node count, open/complete,
 //    and what it was before; a clean start says nothing, a return to clean says "clear". The lines go through
-//    a LogWindow (ValidationLogWindowS): a cursor sliding along a neighbour can flip it every recompute, so a
+//    a LogWindow (ValidationLogWindowS): a cursor sliding along a neighbor can flip it every recompute, so a
 //    burst is folded into one summary with the UNION of the types seen; the fold is written when the window
 //    passes, when the run leaves the cursor (Invalidate) and in OnDestroy — silence is impossible. The
 //    DUMP and the dev tab show the current state. Known limit: like the whole system it follows "Show run
 //    difficulty while drawing" (UpdateCore step 1). A throw in the watch logs one `!!!` and switches only the
 //    watch off until the next load; the heat-map keeps working.
 //  * C2, F7 fixer (review of the round): (1) ELSEWHERE. The click is refused when ANY entity carries Error
-//    (ToolBaseSystem.cs:313, :533-540), and moving a corner shared with a neighbour run gives that neighbour its
+//    (ToolBaseSystem.cs:313, :533-540), and moving a corner shared with a neighbor run gives that neighbor its
 //    own Modify Temp (one definition per area on the moved position, AreaToolSystem.cs:1542-1560), whose
-//    InvalidShape names only the neighbour (m_TempEntity = it, no m_PermanentEntity; ValidationHelpers.cs:887-943).
+//    InvalidShape names only the neighbor (m_TempEntity = it, no m_PermanentEntity; ValidationHelpers.cs:887-943).
 //    The eligible Temp (the one with most nodes) then reads clear while the click is refused. So, on the same
 //    recompute frames, the watch also reads every other Error carrier (m_ErrorQuery = the tool's own query; one
 //    IsEmptyIgnoreFilter when none): the union of their error types, their count and the lowest-index one's prefab
@@ -72,7 +72,7 @@
 //    include OverlapExisting, else "the run the game marks with this error". (2) TRAILING FOLD. The fold's TrailingDue is also tested on hold frames (eligible Temp, no
 //    recompute; one int test while nothing is folded), so a folded summary is written once its window passes even
 //    while the cursor rests — not only at the next recompute, Invalidate, load or quit.
-//  * C3 (a double-black colour change) was CANCELLED by the owner (2026-10-04, field-test-7-notes-OWNER.md):
+//  * C3 (a double-black color change) was CANCELED by the owner (2026-10-04, field-test-7-notes-OWNER.md):
 //    double black stays red; BandColors are unchanged from the pre-round build.
 //
 // WHAT CHANGED IN R3 AND WHY (run-binding-glade-spec.md; field test 2, DECISIONS 121):
@@ -82,7 +82,7 @@
 //    sign is LIVE (the old Owner test did not check the sign). Temps never carry SkiRunBinding
 //    (Game.Tools/GenerateAreasSystem.cs:256-273 builds them from the archetype plus
 //    Owner/OwnerDefinition only), so the test always resolves the Temp's original first. The
-//    new-run branch is unchanged (TryNearestGate on the Temp's centre), except (fixer round,
+//    new-run branch is unchanged (TryNearestGate on the Temp's center), except (fixer round,
 //    finding r3-plumbing-02) that it reads false while ownership cannot bind a new run this
 //    load (ownership.BindsNewRuns), so the "will stay unbound" warning shows; DUMP says why.
 //  * FEEDBACK GATE (fixer round, r3-plumbing-02): step 1 requires ownership.PrefabSetsReady, not
@@ -115,7 +115,7 @@
 //    and step (field log 1123-1132). ResetPublishedState() now clears every published field
 //    first in OnGameLoadingComplete, and the DUMP says "rating: none since load" while
 //    m_GoodGrid is null.
-//  * RUN LENGTH (§5.1, D14): Readout.Length = SlopeResult.Length (horizontal metres; ring =
+//  * RUN LENGTH (§5.1, D14): Readout.Length = SlopeResult.Length (horizontal meters; ring =
 //    max(equivalent rectangle, fall-line extent), polyline = arc length — SkiSlopeClassifier
 //    header "RUN LENGTH"); DUMP prints Length / LengthRect / AxisLength; dev-tab row.
 //  * DUMP HOTKEY (§5.2): SkiGladeHotkeySystem calls DumpToLog() from UIUpdate (Ctrl+Alt+G by
@@ -225,7 +225,7 @@
 // GRADE comes from height differences on a lattice, never from triangle planes: area triangles
 // are not terrain-conformed between nodes (GeometrySystem.cs:101-113) and the 3-argument
 // SampleHeight normal is in raw heightmap units (TerrainUtils.cs:139-157). The lattice is
-// anchored to the WORLD heightmap: texel centre i sits at world i / scale.x - offset.x
+// anchored to the WORLD heightmap: texel center i sits at world i / scale.x - offset.x
 // (TerrainUtils.cs:35-38; offset includes the half-texel shift, TerrainSystem.cs:2621-2622), so
 // origin = -hd.offset.xz and texel = 1 / hd.scale.x = 3.5 m on a 4096-wide heightmap
 // (TerrainSystem.cs:2618-2620; 1.6.2 :2630-2632). Step = integer multiple m of the texel
@@ -274,11 +274,11 @@
 //     wider copy of them is SkiRunOutlineSystem's, from the same Temp areas). Whether
 //     roundness (0,0) gives perfectly square strip ends is unverified (shader not traced).
 //   * Crux ring: DrawCircle overload :138 (→ DrawCircleImpl :159-187; Projected → FitBox
-//     :300-310, which replaces the centre's y by the terrain range, so the ring's y does not
-//     matter). Ring style = vanilla range circles: fill = the outline colour with alpha 0
+//     :300-310, which replaces the center's y by the terrain range, so the ring's y does not
+//     matter). Ring style = vanilla range circles: fill = the outline color with alpha 0
 //     (EffectRangeRenderSystem.cs:166-169; GuideLinesSystem.cs:3124-3128); direction (0, 1) as
-//     AreaBorderRenderSystem.cs:517. That the outline width is in metres is unverified (shader
-//     not traced; vanilla passes metre-scaled values, e.g. radius · 0.02 at
+//     AreaBorderRenderSystem.cs:517. That the outline width is in meters is unverified (shader
+//     not traced; vanilla passes meter-scaled values, e.g. radius · 0.02 at
 //     EffectRangeRenderSystem.cs:169).
 //   * BURST. Vanilla runs the same DrawLine / DrawCircle (including Color.linear → the
 //     Mathf.GammaToLinearSpace internal call, checked in UnityEngine.CoreModule with Cecil) inside
@@ -344,9 +344,9 @@ namespace SkiResortMod.Systems
         /// 20 m window (polyline mode); SteepestGrade = the R1 statistic, "the steepest patch,
         /// avoidable or not" (set equal to RatingGrade in polyline mode, where a line has one
         /// path); Connected = false when the run's Mask fell apart and the rating fell back to
-        /// P90. Grades are fractions (0.15 = 15 %), Drop in metres. Length (R3,
-        /// run-binding-glade-spec.md §5.1) = SlopeResult.Length, horizontal metres. GateInRange:
-        /// new run = a live sign within the tether of the Temp's centre; edited run (R3 §3.8) =
+        /// P90. Grades are fractions (0.15 = 15 %), Drop in meters. Length (R3,
+        /// run-binding-glade-spec.md §5.1) = SlopeResult.Length, horizontal meters. GateInRange:
+        /// new run = a live sign within the tether of the Temp's center; edited run (R3 §3.8) =
         /// ownership.IsBound(Temp.m_Original).</summary>
         public struct Readout
         {
@@ -410,7 +410,7 @@ namespace SkiResortMod.Systems
             /// step) (spec §9.5 "Crux marker").</summary>
             public const float CruxRingMinDiameterM = 14f;
             public const float CruxRingStepFactor = 3f;
-            /// <summary>Crux ring outline width passed to DrawCircle (metres assumed, unverified —
+            /// <summary>Crux ring outline width passed to DrawCircle (meters assumed, unverified —
             /// see header OVERLAY).</summary>
             public const float CruxRingOutlineM = 1f;
             /// <summary>F7 C2 (header ROUND F7): at most one `RunFeedback [validation]` line per this many
@@ -418,7 +418,7 @@ namespace SkiResortMod.Systems
             public const float ValidationLogWindowS = 10f;
         }
 
-        /// <summary>Band colours, index = (int)SlopeBand (spec §4 "Strips"), alpha = FillAlpha.</summary>
+        /// <summary>Band colors, index = (int)SlopeBand (spec §4 "Strips"), alpha = FillAlpha.</summary>
         private static readonly UnityEngine.Color[] BandColors =
         {
             new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.FillAlpha),   // Flat
@@ -564,8 +564,8 @@ namespace SkiResortMod.Systems
         // Draw job (spec §9.5 measure 4; header OVERLAY)
         // ─────────────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>One Projected strip: segment a → b, width (m), colour (spec §9.5 "a, b,
-        /// width, colour").</summary>
+        /// <summary>One Projected strip: segment a → b, width (m), color (spec §9.5 "a, b,
+        /// width, color").</summary>
         private struct Strip
         {
             public float3 A, B;
@@ -726,8 +726,8 @@ namespace SkiResortMod.Systems
         private uint m_ValFoldErrors, m_ValFoldWarnings, m_ValFoldInfos;   // union over the folded changes
         private readonly LogWindow m_ValLog = new LogWindow(Tuning.ValidationLogWindowS);
         // F7 fixer (header ROUND F7, "elsewhere"): the click is refused when ANY entity carries Game.Tools.Error
-        // (ToolBaseSystem.cs:313, :533-540), and a moved shared corner gives the neighbour run its own Temp whose
-        // InvalidShape names only that neighbour (AreaToolSystem.cs:1542-1560; ValidationHelpers.cs:887-943). So the
+        // (ToolBaseSystem.cs:313, :533-540), and a moved shared corner gives the neighbor run its own Temp whose
+        // InvalidShape names only that neighbor (AreaToolSystem.cs:1542-1560; ValidationHelpers.cs:887-943). So the
         // watch also reads the Error carriers other than the eligible Temp: their error types (union), their count
         // and the prefab of the lowest-index one — part of the change key and of the line.
         private EntityQuery m_ErrorQuery;
@@ -774,7 +774,7 @@ namespace SkiResortMod.Systems
             });
             // Register Geometry as a read type of this system so CompleteDependency() also waits
             // for GeometrySystem's 2B job (GeometrySystem.cs:810 base.Dependency). Standard
-            // Entities behaviour (type handles add reader dependencies), unverified in Game.dll;
+            // Entities behavior (type handles add reader dependencies), unverified in Game.dll;
             // EntityManager.GetComponentData completes writers anyway.
             GetComponentTypeHandle<Game.Areas.Geometry>(isReadOnly: true);
             // F7 fixer: the tool's own refusal set (ToolBaseSystem.cs:313, m_ErrorQuery). Read on recompute frames
@@ -1373,7 +1373,7 @@ namespace SkiResortMod.Systems
             }
 
             float texel = 1f / hd.scale.x;                            // TerrainSystem.cs:2619-2620
-            var origin = new double2(-hd.offset.x, -hd.offset.z);    // texel centres, TerrainUtils.cs:35-38
+            var origin = new double2(-hd.offset.x, -hd.offset.z);    // texel centers, TerrainUtils.cs:35-38
 
             // Ping-pong (measure 3): plan into the grid that is NOT the last good one, so the
             // reuse source and the capture stay intact whatever this recompute does.
@@ -1535,7 +1535,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Crux marker (spec §9.5): ring mode with CruxValid only. World position of
         /// grid-local cell (CruxI, CruxJ) = Origin + (I0 + i, J0 + j)·Step (the lattice node the
-        /// cell is centred on, spec §2); diameter max(14 m, 3·step).</summary>
+        /// cell is centered on, spec §2); diameter max(14 m, 3·step).</summary>
         private void UpdateCrux(bool polyline)
         {
             SlopeResult r = m_Result;
@@ -1572,8 +1572,8 @@ namespace SkiResortMod.Systems
             m_CapValid = true;
         }
 
-        /// <summary>New run: a live gate within the tether of the Temp's centre
-        /// (ownership.TryNearestGate, a managed scan — recompute only). Centre =
+        /// <summary>New run: a live gate within the tether of the Temp's center
+        /// (ownership.TryNearestGate, a managed scan — recompute only). Center =
         /// Geometry.m_CenterPosition (valid after 2B, the same point the bind sweep uses,
         /// GeometrySystem.cs:509-576) for >= 3 nodes, else the node mean. Edited run (R3,
         /// run-binding-glade-spec.md §3.8; was "the original has Owner", spec §4 step 7):
@@ -1731,7 +1731,7 @@ namespace SkiResortMod.Systems
                 i = int.MinValue;
             }
 
-            // Pass complete: every Need height equalled a sample taken at or after the pass start.
+            // Pass complete: every Need height equaled a sample taken at or after the pass start.
             m_GoodVerifiedAt = m_VerifyPassStart;
             Verifies++;
             ResetVerifyCursor();
@@ -2078,7 +2078,7 @@ namespace SkiResortMod.Systems
 
             if (grid.PolylineMode)
             {
-                // One segment per polyline segment, band colour, PolylineWidthM wide.
+                // One segment per polyline segment, band color, PolylineWidthM wide.
                 float3[] pts = grid.Points;
                 int segs = r.SegmentCount;
                 byte[] segBand = r.SegmentBand;
@@ -2151,14 +2151,14 @@ namespace SkiResortMod.Systems
 
         /// <summary>Ring-mode strips at row stride s into the strip stage. Lattice rows are
         /// grouped by RowGroup; each group is drawn from its MIDDLE row's same-band run-length
-        /// merge, centred on the group's z-centre, width = group rows × Step (s·Step; the last
+        /// merge, centered on the group's z-center, width = group rows × Step (s·Step; the last
         /// group may be shorter). s = 1 is the full-resolution layout (one group per row, width =
-        /// Step, centre = the row). Returns false when the strips do not fit Tuning.MaxStrips —
+        /// Step, center = the row). Returns false when the strips do not fit Tuning.MaxStrips —
         /// the stage then holds the first MaxStrips strips (the truncated list).</summary>
         private bool BuildRingStrips(SlopeGrid grid, SlopeResult r, int s)
         {
             m_StripCount = 0;
-            // Row run-length merge of same-band inside cells. Cell (i, j) is centred on the
+            // Row run-length merge of same-band inside cells. Cell (i, j) is centered on the
             // lattice node x = Origin.x + (I0 + i) * Step (spec §2), spanning ± Step / 2; a
             // strip runs from the first cell's west edge to the last cell's east edge,
             // y = mean of the two end heights (at the representative row).
@@ -2186,7 +2186,7 @@ namespace SkiResortMod.Systems
             {
                 RowGroup(g, s, nz, out int lo, out int hi, out int j);
                 int row = j * nx;
-                // Group z-centre and height; s = 1 gives exactly the row centre and Step.
+                // Group z-center and height; s = 1 gives exactly the row center and Step.
                 float wz = (float)(r.Origin.y + (r.J0 + 0.5 * (lo + hi)) * step);
                 float width = (float)((hi - lo + 1) * step);
                 int k0 = 0, k1 = 1;                  // full walk: one pseudo-run [0, nx - 1]

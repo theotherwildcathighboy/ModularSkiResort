@@ -2,7 +2,7 @@
 cs2_kitrows.py - the dressing kit's ROW PATH on a station host, shared (fine-detail step 3c, 2026-10-12;
 docs/research/art/assets-2026-10/build/fine-detail-step3c-tram-pali.md).
 
-The dressing kit (props letter B, build/dress-kit.md) replaces host-modelled dressing (racks, hose reels,
+The dressing kit (props letter B, build/dress-kit.md) replaces host-modeled dressing (racks, hose reels,
 extinguishers, e-stops, tools) with "mod" sub-object rows (fine_detail.kit_row / kit_lean_row, written by
 cs2_liftdress.sub_object_rows(fine=True)). This module holds what every station generator needs for those
 rows, frame-agnostic:
@@ -14,7 +14,7 @@ rows, frame-agnostic:
     kit_ledge_offset(mesh, h0, h1)   a leaning prop against a LEDGE: how far its rest plane sits behind the
                                  ledge face so the prop just touches the ledge's top edge
     check_kit_rows(...)          contract F1 (mount, contact, access, real-mesh clearance, envelopes,
-                                 keep-outs, rows, lot) - the step-3b F1 of lift_terminal_detach, generalised
+                                 keep-outs, rows, lot) - the step-3b F1 of lift_terminal_detach, generalized
     augment(co, tris, names, rows, to_host)   the station arrays + the placed kit meshes (named kitrow_*), so a
                                  route / sweep / reachability contract keeps counting what left the mesh
     probe_object(t, rows, game_to_world)      the same as a temporary part-tagged object (contracts that read
@@ -162,7 +162,7 @@ def kit_ledge_offset(mesh, h0, h1, step=0.001):
 def kit_tube_offset(mesh, hc, r, step=0.001):
     """A leaning kit prop against a horizontal TUBE (a railing's top rail: axis at height hc above the floor,
     radius r, running along the wall plane): the distance d >= 0 its rest plane (prefab z = rest_z) sits behind the
-    tube's inner face (the tube surface at its equator) so the prop just touches the tube - the tube centre goes
+    tube's inner face (the tube surface at its equator) so the prop just touches the tube - the tube center goes
     where the prop's cross-section, sliced every `step` over hc -+ r, first meets the circle:
     z_c = min over h of (the kit faces' min prefab z at h - sqrt(r^2 - (h - hc)^2)), d = z_c + r - rest_z."""
     km = load_kit_mesh(mesh)
@@ -210,16 +210,16 @@ def check_kit_rows(specs, rows, co, tris, names, to_host, *, all_names, keepouts
                    vboxes=(), lot=None, code="F1", access=ACCESS, grade_z=0.0):
     """F1 on every kit row, in the generator's z-up HOST frame (co (N, 3), tris (T, 3) ints, names = one part
     name per triangle; `to_host` maps game-local arrays into it). `specs[i]` belongs to `rows[i]`:
-    {"prop", "pos" (host: ground = foot centre, wall = the mount point ON the wall face at the prop's bottom,
+    {"prop", "pos" (host: ground = foot center, wall = the mount point ON the wall face at the prop's bottom,
     lean = the wall / ledge face point at the floor), "normal" (host, horizontal: the facing / the wall's
     outward normal), "mount" (ground | wall | lean), "grade" (bool: stands on the ground, no mesh under it),
     "removed" (part-name prefixes the row replaces), "was", optional "ledge" (h0, h1)}. Checks:
-      - the row's CID is the staged object-prefab CID (fine_detail.staged_cid) of an uncoloured prop or the
-        colour-set VARIANT's seeded CID of a coloured one (fine_detail.row_colour_error) and no part of `all_names`
+      - the row's CID is the staged object-prefab CID (fine_detail.staged_cid) of an uncolored prop or the
+        color-set VARIANT's seeded CID of a colored one (fine_detail.row_colour_error) and no part of `all_names`
         starts with a `removed` prefix;
-      - mount: ground props have a floor face <= MOUNT_GAP under the foot centre and every AABB bottom corner
+      - mount: ground props have a floor face <= MOUNT_GAP under the foot center and every AABB bottom corner
         (inset 3 cm; grade props stand at grade_z exactly); wall props have a wall face <= MOUNT_GAP behind the
-        centre and every corner of their silhouette, and `access` m of free space in front (no station
+        center and every corner of their silhouette, and `access` m of free space in front (no station
         triangle, no vanilla box, no other kit row); lean props keep the foot-line rule (|lean_rest_gap| <=
         fine_detail.FOOT_TOL), the mesh moved MOUNT_GAP toward the wall meets a station face (contact) and the
         floor is under the feet;
@@ -248,8 +248,8 @@ def check_kit_rows(specs, rows, co, tris, names, to_host, *, all_names, keepouts
     out, kboxes, bad = [], [], []
     for i, (s, r) in enumerate(zip(specs, rows)):
         tag = f"{s['prop']}@{s['pos'][0]:.2f},{s['pos'][1]:.2f}"
-        # the CID: KIT's staged one for an uncoloured prop, the colour-set VARIANT's for a coloured one
-        # (kit colour variants 2026-10-12; fine_detail.row_colour_error)
+        # the CID: KIT's staged one for an uncolored prop, the color-set VARIANT's for a colored one
+        # (kit color variants 2026-10-12; fine_detail.row_colour_error)
         cerr = FD.row_colour_error(r)
         if cerr or r["prefab"] != s["prop"]:
             raise KitRowError(f"{code} {tag}: CID {r['m_Object']}: {cerr or 'prefab ' + str(r['prefab'])}")

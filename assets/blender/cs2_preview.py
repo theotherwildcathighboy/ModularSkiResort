@@ -10,10 +10,10 @@ Contract
 
     lod_switch_table(bbox_size_xyz, tris_by_level, lod_factor=652.0, area=None) -> dict
 
-`obj` is the FINISHED LOD0 object in metres (Blender Z-up, already net-oriented), `asset_dir`
+`obj` is the FINISHED LOD0 object in meters (Blender Z-up, already net-oriented), `asset_dir`
 holds the four shipped maps `<name>_{BaseColor,Normal,MaskMap,ControlMask}.png` (optionally
 `<name>_Emissive.png`). The rig never touches the export path: everything it adds to the
-scene (camera, sun, ground, world, materials, images, colour attributes, imported previous-
+scene (camera, sun, ground, world, materials, images, color attributes, imported previous-
 generation meshes) is removed again and the object's material slots and every object's
 `hide_render` flag are restored, so a generator can call it right before `export_fbx`.
 
@@ -26,16 +26,16 @@ Modes (file names are `<name>_<mode>_<view>.png` unless stated):
            multiplies), Normal -> NormalMap, MaskMap R -> Metallic, 1 - A -> Roughness,
            G -> Coat Weight, `_Emissive` -> Emission strength 5.
   dusk     the same rig at sun elevation 4 deg / lamp 0.4 (the frame that shows emissive).
-  normals  Workbench MATCAP, single colour: faceting, bevels and shading seams only.
+  normals  Workbench MATCAP, single color: faceting, bevels and shading seams only.
   lod      for every LOD k: LOD0 and LODk rendered as silhouettes from the same camera at
            the predicted switch distance d_k (lod_switch_table) and at d_k / 2; written as
            `<name>_lod<k>_<d>m_xor<pct>pct.png` = [LOD0 | LODk | XOR] cropped to the union
            silhouette, the XOR percentage (xor / union) in the file name.
   density  per-face shipped px/m (layer "UVUnique" if present, else the active layer) on a
-           log colour ramp (blue 25 - cyan 50 - green 100 - yellow 200 - red 400 px/m)
+           log color ramp (blue 25 - cyan 50 - green 100 - yellow 200 - red 400 px/m)
            multiplied by a 4-texel checker, rendered unlit; a per-part table is printed.
   ab       `prev_generation` (an asset FOLDER holding `<prev>.fbx` + its maps, or the FBX
-           path) is re-imported (cm Y-up -> metres Z-up, as cs2_asset.export_fbx bakes it),
+           path) is re-imported (cm Y-up -> meters Z-up, as cs2_asset.export_fbx bakes it),
            given the same pbr material recipe from ITS maps and rendered with the camera
            framed on the NEW asset; written side by side as `<name>_ab_<view>.png` = [new | prev].
 
@@ -78,7 +78,7 @@ DEFAULT_VIEWS = (
 SKY_ROTATION_DEG = 135.0
 SKY_ALTITUDE_M = 1800.0
 #: Background strength on the Nishita sky. Blender's sky is physical (noon sky-only ground
-#: radiance ~2.4 at strength 1 on a 0.5 grey) while the SUN lamp uses the 4.0 W/m^2 preview
+#: radiance ~2.4 at strength 1 on a 0.5 gray) while the SUN lamp uses the 4.0 W/m^2 preview
 #: convention (0.64 on the same ground): 0.07 puts diffuse sky at ~26 % of direct sun on a
 #: horizontal surface, the real clear-noon ratio. Measured 2026-09-22, Blender 5.2.2.
 SKY_STRENGTH = 0.07
@@ -153,7 +153,7 @@ def lod_switch_table(bbox_size_xyz, tris_by_level, lod_factor=652.0, area=None):
 # --------------------------------------------------------------------------------------
 
 def _load_rgba(path, is_data=False):
-    """(h, w, 4) float32, Blender's bottom-up row order, raw (no colour transform)."""
+    """(h, w, 4) float32, Blender's bottom-up row order, raw (no color transform)."""
     img = bpy.data.images.load(path)
     try:
         if is_data:
@@ -192,7 +192,7 @@ def _linear_to_srgb(c):
 
 
 def _hstack(panels, pad=4):
-    """Side-by-side composite of (h, w, 4) arrays of equal height, on a mid-grey gutter."""
+    """Side-by-side composite of (h, w, 4) arrays of equal height, on a mid-gray gutter."""
     h = max(p.shape[0] for p in panels)
     parts = []
     for i, p in enumerate(panels):
@@ -427,7 +427,7 @@ def _tint_colours(tint):
 
 def _tinted_base_image(rig, asset_dir, name, tint):
     """
-    In-memory BaseColor with the recolour tints multiplied in (linear-space maths):
+    In-memory BaseColor with the recolor tints multiplied in (linear-space math):
     base_lin x mix(1, R_rgb, ctl.R) x mix(1, G_rgb, ctl.G) x mix(1, B_rgb, ctl.B).
     """
     base_path = os.path.join(asset_dir, f"{name}_BaseColor.png")
@@ -447,7 +447,7 @@ def _tinted_base_image(rig, asset_dir, name, tint):
     out[..., :3] = _linear_to_srgb(lin)
     out[..., 3] = 1.0
     img = rig.track_data(bpy.data.images, bpy.data.images.new(f"{name}_PreviewTinted", w, h, alpha=True))
-    # colourspace BEFORE the pixel write: changing it afterwards regenerates the buffer
+    # colorspace BEFORE the pixel write: changing it afterwards regenerates the buffer
     # (measured: the tinted image came back all zeros).
     img.colorspace_settings.name = "sRGB"
     img.pixels.foreach_set(np.ascontiguousarray(out).ravel())
@@ -556,7 +556,7 @@ def face_texel_density(obj, A, uv_layer=None):
 
 
 def _density_material(rig, obj, A, name):
-    """Unlit face-colour ramp x 4-texel checker on the shipped UV layer."""
+    """Unlit face-color ramp x 4-texel checker on the shipped UV layer."""
     dens, uv_layer = face_texel_density(obj, A)
     me = obj.data
     attr_name = "cs2_preview_density"
@@ -601,7 +601,7 @@ def _density_material(rig, obj, A, name):
 
 
 class _ColourAttrRemover:
-    """Adapter so the rig's datablock cleanup can drop a mesh colour attribute by name."""
+    """Adapter so the rig's datablock cleanup can drop a mesh color attribute by name."""
 
     def __init__(self, mesh):
         self.mesh = mesh
@@ -711,7 +711,7 @@ def _mode_lod(rig, cam, obj, name, out_dir, lods, resolution, view_dir):
                 p[..., :3] = np.where(p[..., 3:4] > 0.5, p[..., :3], 0.18)
                 p[..., 3] = 1.0
             comp = _hstack([p0[y0:y1, x0:x1], pk[y0:y1, x0:x1], viz[y0:y1, x0:x1]])
-            # nearest-neighbour upscale so the far-distance crop stays legible (the
+            # nearest-neighbor upscale so the far-distance crop stays legible (the
             # on-screen size at d is what the crop's pixel count reports, not this)
             up = max(1, int(math.ceil(LOD_MIN_PANEL_PX / max(comp.shape[0], 1))))
             if up > 1:
@@ -737,7 +737,7 @@ def import_generation(fbx_path):
     """
     Re-import an FBX written by cs2_asset.export_fbx and undo its bake: vertices are cm,
     Y-up, (x, y, z)_blender -> (x, z, -y); the inverse is (X, Y, Z) -> (X, -Z, Y) / 100.
-    Returns the imported mesh object in metres, Z-up, identity transform.
+    Returns the imported mesh object in meters, Z-up, identity transform.
     """
     before = set(bpy.data.objects)
     op = bpy.ops.wm.fbx_import if hasattr(bpy.ops.wm, "fbx_import") else bpy.ops.import_scene.fbx
@@ -795,7 +795,7 @@ def preview(obj, asset_dir, name, out_dir,
     `views`: iterable of (name, (x, y, z) camera direction) - default DEFAULT_VIEWS.
     `lods`: LOD objects (LOD1, LOD2, ...) for the lod mode; None = look up `<name>_LOD<k>`.
     `prev_generation`: previous letter's asset folder (or FBX) for the ab mode; None skips it.
-    `tint`: {"R"|"G"|"B": rgb} overrides of the recolour slots (defaults steel / pad / white).
+    `tint`: {"R"|"G"|"B": rgb} overrides of the recolor slots (defaults steel / pad / white).
     `samples`: override the EEVEE (32) / Cycles fallback (16) sample count (tests).
     """
     os.makedirs(out_dir, exist_ok=True)

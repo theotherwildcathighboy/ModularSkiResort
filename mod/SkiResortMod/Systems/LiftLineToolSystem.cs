@@ -22,7 +22,7 @@
 //     already reach it) and restored when it closes — the CursorAimSystem precedent (a prefab-entity data write, logged). The
 //     vanilla net tool keeps its own split (LiftBatch LP-20: a permanent raise cut tonight's DQ 328 m line to one engine node).
 //   * CalculateElevation re-derives each node's Elevation from the terrain beside it (CourseSplitSystem.cs:3549-3647); the fit
-//     system then writes Elevation = (E, E) exactly (the T48 step 3 ladder rule), recognising the line as a TOOL LINE through
+//     system then writes Elevation = (E, E) exactly (the T48 step 3 ladder rule), recognizing the line as a TOOL LINE through
 //     ToolLines (LiftLineEdit.cs LiftToolLines): heights only, with the tool's members, never moved — a pinned node is never
 //     snapped.
 //   * Apply: the frame after the emission the Temps exist and are validated (CourseSplit PostTool, GenerateNodes Modification1,

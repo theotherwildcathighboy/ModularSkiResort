@@ -13,8 +13,8 @@ Asserts:
   3. window_bay: panes = lights x rows (x 2 with a transom), each ONE quad facing the
      wall normal at +0.05; roof_slab(wall_line) splits the underside into soffit_;
      prism_gable(eave_z1) heights; chimney_top rule; no kit column named post_;
-  4. split_rooms on a synthetic 3-storey x 6-bay facade + one tall pane: <= 25 ids, hard
-     neighbours differ, same room same id, equal ids only beyond 3 m, first-vertex decode
+  4. split_rooms on a synthetic 3-story x 6-bay facade + one tall pane: <= 25 ids, hard
+     neighbors differ, same room same id, equal ids only beyond 3 m, first-vertex decode
      == id on every polygon, the tall pane uncut, one UV layer; _Win + _LOD1_Win +
      _LOD2_Win written from one mesh;
   5. cull_hidden: a wall visible only through a 3 deg slot under an eave is KEPT (walls
@@ -25,7 +25,7 @@ Asserts:
      check: Planks021 on a 24 x 12 m wall at ~20 px/m keeps the baked texel std within
      1.3x of the box-filtered reference (skeptic MUST-CHANGE 6);
   7. materials: every set has Color / NormalGL / Roughness, image aspect == tile aspect
-     (after uv_rot), targets in [0, 1], recolour materials have slot > 0; colour
+     (after uv_rot), targets in [0, 1], recolor materials have slot > 0; color
      transfer round trip; paint_cross_disc encodes its declared sRGB red; retile keeps
      UVTile isotropic and rotates vertical boards;
   8. lod_level keeps every ground edge (protected collapse) and the planar pass;
@@ -357,7 +357,7 @@ def check_rooms():
     clear()
     parts = []
     wall = WallRef("+X", 0.0)
-    # 3 storeys x 6 bays, bays 2.4 m apart (gap 1.0 m < 3 m -> hard neighbours)
+    # 3 stories x 6 bays, bays 2.4 m apart (gap 1.0 m < 3 m -> hard neighbors)
     for s in range(3):
         for b in range(6):
             u0 = -7.2 + 2.4 * b
@@ -365,7 +365,7 @@ def check_rooms():
                                   lights=2), room=f"s{s}b{b}")
     # far bay on the same floor 10 m away (no merge possible -> may reuse)
     parts += K.window_bay("far", wall, 9.0, 11.0, WinSpec(1.4, 1.4, 1.0, lights=1), room="far")
-    # one tall pane (two storeys)
+    # one tall pane (two stories)
     parts += K.pane_quad("win_tall_tall0", WallRef("-X", -6.0), -1.0, 1.0, 0.5, 6.5)
     parts += K.storey("body", -6.0, 0.0, -9.0, 12.0, 0.0, 9.0, "timber_lap", ground=True)
     table = cs2_asset.tag_parts(parts)
@@ -789,7 +789,7 @@ def check_curved_braces():
     closed shell (every edge on exactly two faces: no gap or notch at any joint), CURVE_SEGS equal segments turning
     by equal angles (a circular arc), the section 0.7 x member square to the member in every segment, every corner
     edge parallel to its segment (exact mitre), the frame brace bulging away from the king post with both ends on the
-    tie / rafter centre lines; each brace its own part (grain along it). Flag off: the old one-part truss."""
+    tie / rafter center lines; each brace its own part (grain along it). Flag off: the old one-part truss."""
     clear()
     n = K.CURVE_SEGS
     m, span, eave, uc = 0.30, 5.6, 15.0, 0.0
@@ -836,7 +836,7 @@ def check_curved_braces():
                 s = rings[i][k + 1] - rings[i][k]
                 s = s - dn * s.dot(dn)
                 assert abs(s.length - w) < 1e-4, (o.name, i, k, s.length, w)        # w x w square to the member
-    # the frame brace: ends on the tie / rafter centre lines, the arc bulges away from the king post
+    # the frame brace: ends on the tie / rafter center lines, the arc bulges away from the king post
     tp = 1.0
     for k, (o, _m) in enumerate(fr[1:]):
         V = [o.matrix_world @ v.co for v in o.data.vertices]

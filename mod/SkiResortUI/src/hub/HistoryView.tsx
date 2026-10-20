@@ -27,7 +27,7 @@
  *   - B3: lines end at the last whole month (historyRules.linePoints); gap months hatched; the scale in a left gutter with "0" on
  *     the zero line (HistoryChart); the Net headline shows the change in money, the Guests headline the %, both followed by
  *     "vs <short month> <year>" (HISTORY_VS) naming the month they compare with.
- *   - B4 ranges: 12 months · This season vs last (this season's 12 months July-June in colour, last season's same months grey
+ *   - B4 ranges: 12 months · This season vs last (this season's 12 months July-June in color, last season's same months gray
  *     behind them, compareOf; the hover tip adds last season's figure) · By season (one bar per season = the average month over
  *     its whole months; tip: "{N} of 12 months · the average month" and the Season total). "5 years" and "All" are gone.
  *   - B7a: Whole city has no Attraction checkbox and no strip (each ski area has its own score; HISTORY_TIP[Scope] says so). In area

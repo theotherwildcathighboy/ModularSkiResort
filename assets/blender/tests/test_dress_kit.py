@@ -20,13 +20,13 @@ skeptic (FS3: one 1024^2 set, DK6 >= 250 px/m), each with a NEGATIVE that must f
   determinism  two child processes (--export --no-staging --no-subobj): the four PNGs and all
        eleven settings.json byte-identical, the FBX geometry + UVs equal (--quick skips it)
   parity  every A-frame gear item = cs2_bldg.ski_rack_frame's own (vertex sets), the wall-rack
-       slot maths = cs2_liftdress.ski_rack's, every rigid copy = its library item (<= 1e-5 m)
+       slot math = cs2_liftdress.ski_rack's, every rigid copy = its library item (<= 1e-5 m)
   DK8  no bindings: ski pair 32 tris, board 28, pole pair 44 (cs2_bldg.ski_gear default)
   validator  owner folder 0 errors; every sharer 0 errors as the importer resolves it
   FS12 cs2_asset.write_settings untouched: regenerated shipped settings.json byte-identical
-  staging  the five UNCOLOURED object prefab templates parse as JSON; no coloured base prefab is staged
-  DK9  kit colour variants (2026-10-12, build/kit-colour-variants.md): seeded CIDs; kit_row refuses a
-       coloured prop without a set / an unknown set / an uncoloured prop with a set; every shipped host
+  staging  the five UNCOLORED object prefab templates parse as JSON; no colored base prefab is staged
+  DK9  kit color variants (2026-10-12, build/kit-colour-variants.md): seeded CIDs; kit_row refuses a
+       colored prop without a set / an unknown set / an uncolored prop with a set; every shipped host
        = ONE set = the palette; staging = exactly the used variants, each complete (object prefab naming
        its mesh CID, .cid files, a FIXED ColorProperties: 1 set, no external channel, ranges 0); the six
        Parent base prefabs archived; kit-variants.json; the kit manifests say no Parent; the mesh-prefab
@@ -140,9 +140,9 @@ def fbx_signature(path):
 
 
 
-# -- DK9 kit colour variants (2026-10-12, build/kit-colour-variants.md) ---------------------------------------
+# -- DK9 kit color variants (2026-10-12, build/kit-colour-variants.md) ---------------------------------------
 
-#: the palette (one set per building, Richard's 18:50 ruling as built): shipped host -> colour set
+#: the palette (one set per building, Richard's 18:50 ruling as built): shipped host -> color set
 PALETTE = {"SkiSchoolCommercialLowA": "blue", "SkiLodgeAFrameCommercialLowB": "orange",
            "SkiLodgeHutCommercialLowB": "red", "SkiLodgeChaletCommercialLowB": "green",
            "SkiLodgeSwankyBottomCommercialLowB": "red", "SkiPatrolHutCommercialLowA": "red",
@@ -450,7 +450,7 @@ def main():
             for spec in D.PROPS:
                 d = os.path.join(D.STAGING, spec["obj"])
                 pf = os.path.join(d, f"{spec['obj']}.Prefab")
-                if spec["colour"] == "variants":       # kit colour variants: the Parent base prefab is retired
+                if spec["colour"] == "variants":       # kit color variants: the Parent base prefab is retired
                     ok(not os.path.exists(d), f"staging {spec['obj']}: coloured base prefab NOT staged (retired)")
                     continue
                 if not os.path.isfile(pf):

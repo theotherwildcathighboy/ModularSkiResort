@@ -27,13 +27,13 @@ What it proves (one PASS line, exit 1 on any failure):
   4. UV layers (skeptic MC3): the ingested parts arrive with the Maya "map1" layer, leave
      the ingest with exactly ["UVMap"], every part (ingested + kit) carries exactly
      ["UVMap"] before material_sources, and the shipped mesh carries only "UVUnique", no
-     material, no colour attribute.
+     material, no color attribute.
   5. Ingest facts: shell 739 -> 571 tris after clean, doors 114 + 114, the plug closes 3
      loops with 17 tris (0 boundary / non-manifold edges), the material split counts.
   6. Determinism per kind: two builds in one process hash identically (vertices, faces,
      UVUnique on every LOD) and write byte-identical PNGs. Draft bakes by default; --full
      repeats it with the shipped --finish bake (1024 / 2048, AO 32 / 48, relief). Both bakes
-     also prove the recolour level: BaseColor p95 0.78-0.82 under every present ControlMask
+     also prove the recolor level: BaseColor p95 0.78-0.82 under every present ControlMask
      channel, ControlMask R + G + B <= 1, A 0 (review minor 6).
   7. Nothing is written into the repo: without --export every asset folder lives under
      <tempdir>/lift_cabin.
@@ -51,11 +51,11 @@ What it proves (one PASS line, exit 1 on any failure):
      normal) raises CAP; lifting the frame-lip angle cap re-creates the C3 head fold and
      raises G11 in soften_shell; a shell face deleted raises G11; the grip stem pushed back
      flush raises G12; the crossbar ends pushed back flush with the uprights raise T12.
- 10. Revision 2 (tram, 2026-10-11: centred outward-opening sliding double doors + gondola detail
-     parity): T13 on LOD0 / LOD1 (4 leaves meeting at the centre, 0.75-0.90 wide, faces proud of
+ 10. Revision 2 (tram, 2026-10-11: centered outward-opening sliding double doors + gondola detail
+     parity): T13 on LOD0 / LOD1 (4 leaves meeting at the center, 0.75-0.90 wide, faces proud of
      the wall, sill at the boarding floor, hardware present, bounds still +-1.880 / +-4.030);
      the door kit's rollers / grab bars keep their segment counts. Negatives: a leaf pushed back
-     flush with the wall raises T12 + T13, a leaf slid off the centre raises T5 + T13, the grab
+     flush with the wall raises T12 + T13, a leaf slid off the center raises T5 + T13, the grab
      bars deleted raise T13. Determinism covers the new parts (same two-build hash).
 """
 
@@ -153,7 +153,7 @@ def _mesh_verts(obj):
 
 
 def _fbx_verts(path):
-    """Raw FBX vertices (metres) of an exported LOD, read with the validator's temp import."""
+    """Raw FBX vertices (meters) of an exported LOD, read with the validator's temp import."""
     import cs2_validate
     objs = cs2_validate.import_fbx_temp(path)
     try:
@@ -529,7 +529,7 @@ def stamp_checks(res, label, kind):
 
 
 def mask_levels(res, label):
-    """Light albedo ships under the recolour masks (review minor 6): BaseColor p95 0.78-0.82
+    """Light albedo ships under the recolor masks (review minor 6): BaseColor p95 0.78-0.82
     (sRGB of the 0.604 linear slot albedo) under every present ControlMask channel; R + G + B
     <= 1 and A 0 on the ControlMask."""
     d, n = res["asset_dir"], res["name"]
@@ -621,7 +621,7 @@ def main():
     dims = L.tram_dims(10.50)
     clamps = [part_tris(tr["name"], (f"clamp_haul{k}_", f"bolt_haul{k}_")) for k in range(4)]
     check(clamps == [48] * 4, f"tram: 4 haul clamps x 48 tris (skeptic MC6) {clamps}")
-    # Revision 2 door kit: 8 rubber-tyred rollers (8 segments + the outer fan cap: 16 + 8 tris),
+    # Revision 2 door kit: 8 rubber-tired rollers (8 segments + the outer fan cap: 16 + 8 tris),
     # 4 grab bars (6 segments, no caps: 12 tris), 2 safety-yellow thresholds (5 faces: 10)
     m = L.Mesh(bpy.data.objects[tr["name"]])
     rollers = [part_tris(tr["name"], n) for n in m.table if n.startswith("doorroller_")]

@@ -18,7 +18,7 @@
 //     vertical with and without stations, lift / lodge counts, snow cover %, season, HasAny, and
 //     the per-resort lift ordinals (top height descending, no-top last, ties by Id).
 //   * FIXER ROUND (2026-10-03): SkiRunRatingRules (u2-data-01: a node re-snap moves only the y-key
-//     and asks a background "terrain" re-rate, an x/z move asks a front "edit"; behaviour-2: a
+//     and asks a background "terrain" re-rate, an x/z move asks a front "edit"; behavior-2: a
 //     queued warm-up is never promoted by "bind", an edit still promotes it — with a 20-run queue
 //     replay; u2-data-05: band -1 pending vs -2 cannot be rated), the aggregate's Unrateable count and
 //     verticalApprox (only pending runs), and the resort names (u2-data-02: SmallestFreeOrdinal,
@@ -639,7 +639,7 @@ namespace ResortBatch
             Check(HubCameraRules.AlreadyOn(sign, 150f, sign, out d) && d == 0f, W, $"pivot on the sign, zoom 150: d {d}");
             Check(HubCameraRules.AlreadyOn(sign, 150f, sign), W, "the 3-argument form disagrees (identical points)");
 
-            // Inside: 42 m off-centre at zoom 180 (keep 54 m).
+            // Inside: 42 m off-center at zoom 180 (keep 54 m).
             Check(HubCameraRules.AlreadyOn(sign + new float2(0f, 42f), 180f, sign, out d) && d == 42f, W, $"42 m at zoom 180: d {d}");
 
             // On the edge (inclusive): a 180 / 240 offset is exactly 300 m; zoom 1000 keeps exactly 300 m.

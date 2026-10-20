@@ -33,7 +33,7 @@ joined LOD0 (authoring frame after the X_SHIFT, i.e. the shipped one):
   - the tower deck (`deck_tw`) top at SW.DK_Z and touching the tower base on all four sides;
     the stair treads run from the plaza to the deck top;
   - four racks carry real gear (`skirack_pz*g*` parts), nine bistro tops (`cafetop_`);
-  - clock: every dial centre at SW.CT_CLOCK_Z_L5, the dials on the shaft below the stage, and
+  - clock: every dial center at SW.CT_CLOCK_Z_L5, the dials on the shaft below the stage, and
     from the PREVIEW cameras (cs2_preview framing: bounding sphere, 45 deg, 1300 x 1000,
     margin 1.12) of every arrival-side view, >= 99 % of the samples of each dial that faces
     the camera see it (no part in between); clock_tower() defaults keep the section-5 dial
@@ -45,7 +45,7 @@ the blockout manifest, shipped frame):
     reaching the podium wall; podium steps `stairblk_w` from the plaza up to under the deck;
   - the road side is the valet forecourt: drive `deck_e0` at SW.DRIVE_T to within 1 m of the
     road edge, walks `deck_e1` at SW.SLAB_T, island `deck_e2` at SW.ISLAND_T;
-  - no modelled tree / bench / bin / table / chair / umbrella / lamp post / planter / bollard
+  - no modeled tree / bench / bin / table / chair / umbrella / lamp post / planter / bollard
     part is left; four racks carry gear, and each rack's gear part face counts equal a
     bindings=False kit build and differ from a bindings=True one (no bindings, proven on the
     mesh);
@@ -81,7 +81,7 @@ face; the fire pits and hanging lanterns kept; the --no-fine racks still carry n
 sign set SkiSignSetGrandB: SG1 UVs = the `l5.name` rect, SG2 its board = the --no-signset host's
 own label quad +-1 mm, SG3 the face in no host LOD / labels, SG4 one identity row, SG5 in the lot,
 SG6 tris; the manifest's kit rows = KIT_ROWS. check_l4_fine: the fine L4 = the --no-fine L4 vertex
-for vertex except the 12-seg flue pots; no sign set, no kit rows (none was modelled).
+for vertex except the 12-seg flue pots; no sign set, no kit rows (none was modeled).
 Revision-4 guards (check_r4_guards, each shown to FAIL on the wrong build): L5 with
 PC_GABLE_INFILL False raises G1; L4 with PORCH_UNDER_EAVE False raises E1; a door on a probe wall
 without cut_recess fails D1 (with it passes); a wall light 0.10 m off its wall fails S1.
@@ -94,7 +94,7 @@ WeatherObject, and its GUID = the PrefabsMap harvest's (docs/research/field/2026
 recipe is loaded first so the entry is there. check_l4_r1 also runs l4_swanky_top.check_fire_pit's numbers (T59).
 Pane guards (buildings-review-geometry F1-F3): L5 with the old 1.0 m cross-gable bays must
 raise F1; check_pane_clearance must raise on a roof part 0.3 m in front of a pane.
-Pass 2 (skeptic MUST-CHANGE 6: Blender runs with hash randomisation on, so one process cannot
+Pass 2 (skeptic MUST-CHANGE 6: Blender runs with hash randomization on, so one process cannot
 see set-order nondeterminism): each recipe's --blockout in TWO separate Blender processes ->
 identical manifest mesh hashes (LOD0 pre-bake, _Win) and room cells; unless --fast, L4 reduced
 finish (--tex 1024 --ao-samples 4) in two processes -> identical PNG sha1s and LOD hashes.
@@ -237,10 +237,10 @@ def check_cells(win):
 
 def coplanar_overlaps(obj, table, tol=1e-3):
     """Pairs of DIFFERENT parts with same-facing coplanar overlapping faces (z-fighting) on
-    the joined mesh: every face's centre is tested against the faces within `tol`; a
-    parallel (n . n' > 0.999) face whose plane holds the centre and whose surface is within
+    the joined mesh: every face's center is tested against the faces within `tol`; a
+    parallel (n . n' > 0.999) face whose plane holds the center and whose surface is within
     `tol` of it overlaps. Adjacent coplanar faces (bisected wall strips) only meet at an
-    edge, which is farther than `tol` from a face centre."""
+    edge, which is farther than `tol` from a face center."""
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     bm.transform(obj.matrix_world)
@@ -330,7 +330,7 @@ def check_l5_r1(r, obj, table):
 
 def _preview_cam(obj, direction):
     """cs2_preview._frame / lift_tower.frame_camera: bounding-sphere fit at the 45 deg lens,
-    1300 x 1000, margin 1.12, camera along `direction` from the bounds centre."""
+    1300 x 1000, margin 1.12, camera along `direction` from the bounds center."""
     import math
     W = K._world_coords(obj)
     lo, hi = W.min(0), W.max(0)
@@ -766,7 +766,7 @@ def check_l5_fine(tmp, r, racks):
         Gw = KP @ np.array(Quaternion((0.7071068, 0.0, 0.7071068, 0.0)).to_matrix(), np.float64).T + \
             np.array(e["position"])
         assert max(float(np.min(np.linalg.norm(Gw - q, axis=1))) for q in OG) > 0.05, "H1 negative: yaw 90 matched"
-    # H1 road-face wall lights: at the removed lantern's mount point (lens centre - 0.22 m along +X)
+    # H1 road-face wall lights: at the removed lantern's mount point (lens center - 0.22 m along +X)
     lights = [e for e in rec.sub_objects if not isinstance(e, dict) and e[2] in
               [SW.to_game(*row[1:4]) for row in SW.FINE_ROWS]]
     assert len(lights) == 4 and all(e[0] == "WallLightShortRangeRandom01" for e in lights), lights
@@ -794,7 +794,7 @@ def check_l5_fine(tmp, r, racks):
 def check_l4_fine():
     """Fine-detail step 3e on L4: a FineRecipe with no sign set and no kit rows; `legacy` = revision 1's
     notes; the fine parts = the --no-fine parts vertex for vertex except the 4 flue pots (8 -> 12-seg,
-    22 -> 34 tris, same heights / centres)."""
+    22 -> 34 tris, same heights / centers)."""
     import fine_detail as FD
     rec = R.get_recipe("L4")
     assert isinstance(rec, FD.FineRecipe) and rec.fine_detail and rec.sign_set is None, type(rec)
@@ -858,8 +858,8 @@ def check_l5_r3(r, obj, table, man, racks):
     assert abs(dr[:, 2].max() - SW.DRIVE_T) < 1e-4 and abs(wk[:, 2].max() - SW.SLAB_T) < 1e-4 \
         and abs(il[:, 2].max() - SW.ISLAND_T) < 1e-4, (dr[:, 2].max(), wk[:, 2].max(), il[:, 2].max())
     assert dr[:, 0].max() >= SW.HX - 1.0, f"drive ends {SW.HX - dr[:, 0].max():.2f} m short of the road"
-    # (3) the vanilla rule: no modelled stand-in left; racks with gear and NO bindings (fine-detail
-    # step 3e: the racks are dressing-kit rows, none is modelled; the --no-fine racks' gear is proven
+    # (3) the vanilla rule: no modeled stand-in left; racks with gear and NO bindings (fine-detail
+    # step 3e: the racks are dressing-kit rows, none is modeled; the --no-fine racks' gear is proven
     # bindings-free in check_l5_fine)
     gone = ("cafe", "bench_", "bin_", "planter_", "shrub_", "conifer_", "bollard_", "lounger_",
             "umbstand_", "umbpole_", "umbcanopy_", "post_pl", "post_fc", "post_pz", "post_tw")
@@ -951,7 +951,7 @@ def check_l5_r3(r, obj, table, man, racks):
             if w < worst[0]:
                 worst = (round(float(w), 3), round(float(y), 2), zz)
     assert worst[0] >= SW.CORRIDOR_MIN, f"valet corridor past the deck {worst}"
-    # (6) the clock: dial centres, on the shaft below the stage, sightline from the previews
+    # (6) the clock: dial centers, on the shaft below the stage, sightline from the previews
     faces_ct = {}
     for p in obj.data.polygons:
         nm = names[p.index]
@@ -1301,7 +1301,7 @@ def _fbx_bounds(path):
     before = set(bpy.data.objects)
     bpy.ops.import_scene.fbx(filepath=path)
     new = [o for o in bpy.data.objects if o not in before]
-    # import_scene.fbx keeps the file's raw centimetres (export_fbx bakes x100)
+    # import_scene.fbx keeps the file's raw centimeters (export_fbx bakes x100)
     pts = np.concatenate([_basis_coords(o) for o in new if o.type == "MESH"])         / cs2_validate.RAW_UNITS_PER_M
     for o in new:
         bpy.data.objects.remove(o, do_unlink=True)
@@ -1361,7 +1361,7 @@ def pass3():
         # T53: the shipped export predates the T14 x-sign N rule-T mirror (2026-10-16, DECISIONS 245: _want_rows is the
         # game frame, the shipped rows still have x un-negated), so it is stale until the next export. If the shipped
         # rows equal the recipe rows with x negated, SKIP (loud). Any other difference still fails. (T26's parasol
-        # normalisation is gone: the parasols are back in the recipes and in the shipped manifest, 2026-10-17.)
+        # normalization is gone: the parasols are back in the recipes and in the shipped manifest, 2026-10-17.)
         so_np = so
         got_rows = _got_rows(so_np)[:len(want)]
         pre_t14 = [(p, g, _t14_pos(pos), par) for p, g, pos, par in want]

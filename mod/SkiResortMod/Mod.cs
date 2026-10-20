@@ -1,6 +1,6 @@
 // Modular Ski Resort — code mod entry point.
 //
-// The mod is a hybrid (asset pack + this DLL). The DLL owns the *dynamic* behaviour only:
+// The mod is a hybrid (asset pack + this DLL). The DLL owns the *dynamic* behavior only:
 // slope classification, snow gating and size-scaled attractiveness (SPEC §6/§7).
 // Architectural rule (SPEC §4.1): no Harmony, no reflection into other mods. Everything is
 // done with our own ECS systems registered through the game's own UpdateSystem extension point.
@@ -31,7 +31,7 @@ namespace SkiResortMod
         public static SkiResortSettings Settings { get; private set; }
 
         /// <summary>True when Meapy's CS2 Tourism Overhaul is loaded alongside us (SPEC §9 rule 3:
-        /// detect and log only — no reflection into its types, no behaviour change).</summary>
+        /// detect and log only — no reflection into its types, no behavior change).</summary>
         public static bool TourismOverhaulDetected { get; private set; }
 
         /// <summary>Directory containing the deployed mod DLL (and its Textures\ payload);
@@ -413,7 +413,7 @@ namespace SkiResortMod
             // (CleanUpSystem.cs:53). A plain UpdateAt sorts after every vanilla UpdateAt of the
             // phase (mods register after SystemOrder.Initialize; add-index order,
             // UpdateSystem.cs:39-47), so every vanilla Modification system has already run, the
-            // run's Geometry centre is final (2B), and — since O1 — the bind adds only our own
+            // run's Geometry center is final (2B), and — since O1 — the bind adds only our own
             // SkiRunBinding, a structural change that raises no tag, so vanilla systems still see
             // nothing (no Owner, no SubArea; run-binding-glade-spec.md §3.5, §3.9). Since O1 the
             // sign arm reacts to a Created sign only (no Updated arm: the sign has no SubArea
@@ -582,6 +582,17 @@ namespace SkiResortMod
             updateSystem.UpdateAt<LiftLineToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<LiftLineHotkeySystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.UpdateAfter<LiftLineTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
+
+            // T139 (DECISIONS 363; docs/research/field/2026-10-20/grading-tool-build.md): the cat track GRADING tool, the lift tool's
+            // skeleton and the same three phases for the same reasons. ToolUpdate: ToolSystem enables only the active tool
+            // (ToolSystem.cs:312-327) and the overlay must be drawn before OverlayRenderSystem clears its lists in Rendering
+            // (OverlayRenderSystem.cs:738-790); its apply writes the base heightmap on the main thread there (no ECS output but the
+            // cleared trees' Deleted through ToolOutputBarrier, played back before Modification). UIUpdate: the hotkey poller (an
+            // inactive tool never ticks) also runs the dev-tab probe's follow-up checks. UITooltip after the vanilla cost tooltip
+            // (TooltipUISystem clears the mouse group first, TooltipUISystem.cs:48-55). Order between the three is not load-bearing.
+            updateSystem.UpdateAt<CatTrackGradeToolSystem>(SystemUpdatePhase.ToolUpdate);
+            updateSystem.UpdateAt<CatTrackGradeHotkeySystem>(SystemUpdatePhase.UIUpdate);
+            updateSystem.UpdateAfter<CatTrackGradeTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
 
             // Lift park emitter (§5.3 OD-6 (a); I-2's fix of a spec error, registration added by the
             // integrator 2026-10-03). The census (4B) only QUEUES the surviving sections of an opened lift:

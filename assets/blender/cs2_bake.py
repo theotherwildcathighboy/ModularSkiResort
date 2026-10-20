@@ -7,9 +7,9 @@ WHY
 The only bake in the tree is lift_tower.apply_finish_textures (lift_tower.py:848-1091): ONE
 bake material that re-projects the asset's own four PNGs from "UVAtlas" onto a unique
 layout. The 2026-10 round brings meshes with N source materials (the Kagelok chair and grip,
-the gondola cabin shell: one texture set or flat colour per material) and procedural
+the gondola cabin shell: one texture set or flat color per material) and procedural
 buildings that want tiling CC0 sets per material (the never-built art-pipeline-v2
-section 3.3/3.4 route). This module is that finish pass generalised to N SOURCE MATERIALS,
+section 3.3/3.4 route). This module is that finish pass generalized to N SOURCE MATERIALS,
 plus a Cycles selected-to-active bake for a high-poly source, with the same output contract:
 four PNGs (+ `_Emissive`), one UV layer, no materials, ready for cs2_asset.export_fbx.
 
@@ -19,7 +19,7 @@ Contract
               metal=0.0, slot=0, recolor_albedo=None, emissive=None,
               uv=None, tint=1.0, mask=None, control=None, height_depth_m=0.004)
         One source material (pipeline-gap.md section 3.3). `base` is a path or LINEAR rgb;
-        never None (no silent mid-grey). recolor_albedo None = auto: True when slot > 0
+        never None (no silent mid-gray). recolor_albedo None = auto: True when slot > 0
         and no `control` image (PIPELINE section 1: light 0.80 under every mask, because
         the tint multiplies; a slot set after match_texture_sets cannot forget the flag).
         An explicit False under a mask prints a WARN when the masked albedo averages below
@@ -48,8 +48,8 @@ Contract
            material ids (margin 0 and margin m), optional Emissive, then AO
            (`ao_samples`, self-occlusion with every other object hidden from render) or,
            with `high`, the selected-to-active normal + AO of bake_high_to_low.
-        4. Linear-space compose: recolour slots (slot > 0 and recolor_albedo) are
-           desaturated and luminance-normalised to cs2_asset.RECOLOR_ALBEDO (0.80 as
+        4. Linear-space compose: recolor slots (slot > 0 and recolor_albedo) are
+           desaturated and luminance-normalized to cs2_asset.RECOLOR_ALBEDO (0.80 as
            written to the PNG) because the vanilla tint MULTIPLIES (PIPELINE.md section 1);
            height / high normals blended with cs2_compose.blend_rnm; reserved rects restored
            1:1 from A x A source images; AO multiplied (occ = ao*0.92 + 0.08); then
@@ -60,7 +60,7 @@ Contract
            <= 128 turns the whole surface DefaultCutout), ControlMask A 0, MaskMap B 0;
            writes <name>_{BaseColor,Normal,MaskMap,ControlMask}.png (+ _Emissive).
         6. Removes every UV layer but "UVUnique" and every material slot; removes every
-           datablock it created; restores every render / bake / Cycles / tool / colour-
+           datablock it created; restores every render / bake / Cycles / tool / color-
            management setting it touched, the selection, the active object and hide_render.
         Raises on any failure after restoring the mesh (UV layers, layer name, materials).
         `share=None` (detail pass 1, lifts): bay sharing, passed through to
@@ -112,7 +112,7 @@ Derived from (file:line)
         unrestored use_uv_select_sync / mesh_select_mode this module restores)
     compose: cs2_compose.py:60-85 (height_to_normal, GL: G = 0.5 - k*dh/dv), :88-102
         (blend_rnm), :460-475 (rasterise_face_fields), :503-598 (compose_maps)
-    recolour: cs2_asset.py:446 (RECOLOR_ALBEDO, PNG-encoded value), PIPELINE.md section 1
+    recolor: cs2_asset.py:446 (RECOLOR_ALBEDO, PNG-encoded value), PIPELINE.md section 1
     writers / export: cs2_asset.py:283-293 (_write_png_raw), :1192-1218 (export_fbx and
         the __src rename: this module creates no Object or Mesh datablock and removes
         every Image / Material it makes, prefix CS2BAKE_)
@@ -163,7 +163,7 @@ EMIT_SAMPLES = 1                # texture-space reprojection: one sample is exac
 BAKE_MARGIN_TYPE = "EXTEND"     # art-pipeline-v2.md:220 (the 5.2 factory default is ADJACENT_FACES)
 AO_FLOOR = 0.08                 # occ = ao * 0.92 + 0.08 (lift_tower.py:1054)
 ROUGH_DEFAULT = 0.6             # cs2_asset.make_texture_set_atlas fallback without a map
-HEIGHT_DEPTH_M = 0.004          # 0..1 height swing -> metres (DetailSpec bolt height)
+HEIGHT_DEPTH_M = 0.004          # 0..1 height swing -> meters (DetailSpec bolt height)
 ID_DIV = 256.0                  # material id emitted as (i + 1) / ID_DIV in a float target
 LUMA = np.array((0.2126, 0.7152, 0.0722), dtype=np.float32)   # Rec.709, linear
 SLOT_RGB = {0: (0.0, 0.0, 0.0), 1: (1.0, 0.0, 0.0), 2: (0.0, 1.0, 0.0), 3: (0.0, 0.0, 1.0)}
@@ -198,7 +198,7 @@ class SourceSet:
     rough: object = None                # path | float | None (ROUGH_DEFAULT)
     metal: object = 0.0                 # path | float
     slot: int = 0                       # ControlMask 0 none, 1 R, 2 G, 3 B
-    recolor_albedo: object = None       # neutral grey at RECOLOR_ALBEDO; None = slot > 0
+    recolor_albedo: object = None       # neutral gray at RECOLOR_ALBEDO; None = slot > 0
     emissive: object = None             # path (sRGB) | linear (r, g, b) | None
     uv: object = None                   # UV layer to sample (None: the bake's source layer)
     tint: object = 1.0                  # linear multiply on the albedo (float or rgb)
@@ -410,7 +410,7 @@ def _setup_cycles(scene):
 
 
 def _isolate(scene, keep):
-    """Only `keep` renders: AO is self-occlusion, never the neighbouring LOD or high-poly."""
+    """Only `keep` renders: AO is self-occlusion, never the neighboring LOD or high-poly."""
     keep = {o.name for o in keep if o is not None}
     for o in scene.objects:
         want = o.name not in keep
@@ -869,7 +869,7 @@ def _load_rgba(path, A, what):
 def _restore_reserved(mesh, reserved, srcs, src_layer, A, base, nrm, msk, ctl, layer_of):
     """
     Copy each reserved rect 1:1 from the A x A source images of the material whose
-    pinned faces sit in it (lift_tower.py:1022-1049 generalised). Constants bake exactly
+    pinned faces sit in it (lift_tower.py:1022-1049 generalized). Constants bake exactly
     already and are left alone. `layer_of` is bake_unique's SourceSet -> sampled layer map
     (uv None or the source layer's ORIGINAL name both mean the packed source layer).
     Returns [(rect, material index, channels copied)].
@@ -1035,7 +1035,7 @@ def bake_unique(obj, asset_dir, name, A, sources, *, reserved=(), margin_px=None
         faces = np.bincount(_polygon_material_indices(mesh), minlength=n_slots)
         recolour_lin = float(cs2_preview._srgb_to_linear(np.float32(cs2_asset.RECOLOR_ALBEDO)))
         in_rect = np.zeros((A, A), dtype=bool)       # stamped strips: restored 1:1 below,
-        for r in reserved:                           # so they never steer the recolour mean
+        for r in reserved:                           # so they never steer the recolor mean
             in_rect[cs2_compose._rect_slices(r, A)] = True
         for i, s in srcs.items():
             cov = ids0 == i
@@ -1286,8 +1286,8 @@ def project_world_uv(obj, metres_per_tile, kind="box", layer=TILE_LAYER):
               negated on negative faces - no mirrored islands; walls get v = world Z.
       planar  per-face plane frame: u horizontal in the face, v up the slope (roofs: no
               1/cos stretch, rows run along the eaves).
-      cyl     angle about world Z through the part's bbox centre x mean radius, v = z,
-              per-face unwrap about the face's own centre angle; caps (|n.z| > 0.7) planar.
+      cyl     angle about world Z through the part's bbox center x mean radius, v = z,
+              per-face unwrap about the face's own center angle; caps (|n.z| > 0.7) planar.
     Creates `layer` if needed without changing the active layer (unless it is the first).
     """
     if kind not in PROJECTIONS:

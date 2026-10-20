@@ -1,10 +1,10 @@
 """
-cs2_subobj.py - vanilla-prop sub-object rows -> labelled review stand-ins (DECISIONS 183).
+cs2_subobj.py - vanilla-prop sub-object rows -> labeled review stand-ins (DECISIONS 183).
 
 WHY
 ---
 Standing rule (Richard, 2026-10-11 ~22:05): vanilla props are REFERENCED as ObjectSubObjects rows
-(prefab GUID, position, rotation, m_ParentMesh) and never modelled. A review pack that shows only
+(prefab GUID, position, rotation, m_ParentMesh) and never modeled. A review pack that shows only
 our own mesh hides them, so Richard never sees where the benches, bins, lamps and tables go.
 `cs2_review.write_pack` calls this module: every row becomes one semi-transparent BOX of the prop's
 union bounds, with a text label, in the pack's SUB collection. Nothing is exported (the pack
@@ -49,10 +49,10 @@ Block shapes read (tests/test_review_subobjects.py reads every shipped manifest)
                                            prefab name (the kit's 11 entries) or the row's own
                                            "bounds"; role "signset" rows get NO box (the pack shows
                                            the real textured sign-set mesh, cs2_review extra_meshes).
-                                           A kit row with "colour_set" (kit colour variants, 2026-10-12)
+                                           A kit row with "colour_set" (kit color variants, 2026-10-12)
                                            is TINTED with its set (colour_set_rgb: the set's slot-2 value
                                            x RECOLOR_ALBEDO 0.80, what the 0.80 accent texels show) and
-                                           labelled with its variant name (SkiDressSkiRackV2_Red)
+                                           labeled with its variant name (SkiDressSkiRackV2_Red)
 
 FRAMES (verified by ray-casting every shipped row onto its pack's LOD0, 2026-10-12)
 -----------------------------------------------------------------------------------
@@ -121,7 +121,7 @@ _FAMILY_RULES = (
     ("trees", re.compile(r"tree|bush|shrub|hedge|plant|flower|conifer|foliage|spruce|birch|palm", re.I)),
     ("fences", re.compile(r"fence|railing|guardrail|barrier|gate|bollard|palisade", re.I)),
 )
-#: display colours (linear-ish sRGB triples), distinct per family
+#: display colors (linear-ish sRGB triples), distinct per family
 FAMILY_RGB = {
     "lights": (1.00, 0.80, 0.15),     # warm yellow
     "bins": (0.20, 0.85, 0.35),       # green
@@ -136,12 +136,12 @@ RECOLOR_ALBEDO = 0.80                # cs2_asset.RECOLOR_ALBEDO: the kit accent 
 
 
 def colour_set_rgb(key):
-    """The review tint of a kit colour set (fine_detail.COLOUR_SETS): its slot-2 VariationSet value x the 0.80
-    accent albedo = what the gear accent / akja shell show (linear; the in-game colour space is unverified)."""
+    """The review tint of a kit color set (fine_detail.COLOUR_SETS): its slot-2 VariationSet value x the 0.80
+    accent albedo = what the gear accent / akja shell show (linear; the in-game color space is unverified)."""
     import fine_detail as FD
     return tuple(round(float(v) * RECOLOR_ALBEDO, 4) for v in FD.COLOUR_SETS[key].rgb)
 LABEL_SIZE = 0.30                    # m (small packs; larger packs scale it, see label_size)
-LABEL_REL = 0.016                    # label size per metre of the pack's LOD0 bounding-box diagonal
+LABEL_REL = 0.016                    # label size per meter of the pack's LOD0 bounding-box diagonal
 LABEL_MAX = 0.60                     # m
 LABEL_FACES = 4                      # one text object per 90 degrees of azimuth: whichever way Richard
 #                                    # orbits, a face within 45 degrees of the camera reads un-mirrored
@@ -250,7 +250,7 @@ def _norm_row(e, source, index):
                "parent": int(parent if parent is not None else 0), "mount": e.get("mount"),
                "source": source, "index": int(index)}
         if e.get("colour_set"):
-            # kit colour variants (2026-10-12): the stand-in is tinted with the set, labelled by the variant
+            # kit color variants (2026-10-12): the stand-in is tinted with the set, labeled by the variant
             row["colour_set"] = str(e["colour_set"])
             row["variant"] = str(e.get("variant") or prefab)
         b = e.get("bounds")
@@ -570,7 +570,7 @@ def _fresh_tree(mat):
 
 def _box_material(name, rgb):
     mat = bpy.data.materials.new(name)
-    mat.diffuse_color = tuple(rgb) + (STANDIN_ALPHA,)                 # solid-mode viewport colour
+    mat.diffuse_color = tuple(rgb) + (STANDIN_ALPHA,)                 # solid-mode viewport color
     nt, out = _fresh_tree(mat)
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.inputs["Base Color"].default_value = tuple(rgb) + (1.0,)
@@ -663,7 +663,7 @@ def add_standins(name, rows, root, sub_coll, info=None, ref_size=None):
         mod = r.get("kind") == "mod"
         fam = "mod" if mod else family_of(prefab)
         cset = r.get("colour_set") if mod else None
-        mkey = f"{fam}_{cset}" if cset else fam               # kit colour variants: one material per set
+        mkey = f"{fam}_{cset}" if cset else fam               # kit color variants: one material per set
         bounds, bsrc = lookup_bounds(prefab, guid, r.get("own_bounds"))
         if bsrc == "unknown":
             summary["unknown"] += 1

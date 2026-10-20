@@ -58,7 +58,7 @@
 // PHASE D (2026-10-11, docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §1.2-§1.3, D1-D3, with
 // round-4-contract-skeptic.md MUST-4 and S-7; rules group). Richard's re-ruling, DECISIONS 171: an unpowered lift of every
 // type carries no guests, does nothing for the resort and its carriers stop; a lift is powered from its BASE station only
-// (the top is fed through the modelled lift power line and is never read). Additive: nothing above changes.
+// (the top is fed through the modeled lift power line and is never read). Additive: nothing above changes.
 //   * Carries(complete, power, closed) — THE run predicate: complete AND IsPowered(power) AND NOT closed. The new call
 //     sites use it (ChairPin's hold gate through LiftLoopHold.GateOf, the hub's capacity through HubRules.LiftCapacityShown,
 //     the tram's Held gate). The older equivalent expressions (Lift.Serves' power factor above, SkiMoneyRules.LiftOperating,
@@ -370,7 +370,7 @@ namespace SkiResortMod.Systems
 
         // ── Round T06 (2026-10-16, docs/research/field/2026-10-15/build/T06-served-links.md): runs that connect to a served run ──
 
-        /// <summary>T06: two runs of the SAME ski area are linked when any outline node of one lies within this many metres
+        /// <summary>T06: two runs of the SAME ski area are linked when any outline node of one lies within this many meters
         /// (xz, inclusive) of any outline node of the other, or their outlines overlap (an edge crossing, or a node inside the
         /// other's ring). 25 m: a connector is drawn from a node placed on or beside the run it leaves, so the nodes of the
         /// two outlines meet within a brush width or two; 26 m apart is not linked (ServedLinkTests). Richard's design intent:
@@ -462,7 +462,7 @@ namespace SkiResortMod.Systems
                         }
                     }
                 }
-                // CSR: counts, prefix sums, fill. The order of a run's neighbours is a function of the inputs alone.
+                // CSR: counts, prefix sums, fill. The order of a run's neighbors is a function of the inputs alone.
                 m_Start.Clear();
                 m_Fill.Clear();
                 for (int i = 0; i <= n; i++)
@@ -580,8 +580,8 @@ namespace SkiResortMod.Systems
         /// served run (servedRoot[i] = that directly served run, the nearest by link count, ties to the lower run index;
         /// servedVia[i] = the run it was reached through, one link nearer the root). Unserved: both -1. Output lists are
         /// cleared and filled; allocation-free once grown.
-        /// T54 probe 1 (cat-track-run.md §1, D2): <paramref name="leafRuns"/> (null = none, the old behaviour) marks LEAF runs
-        /// by index. A leaf may be served (directly by a lift, or through a link from a served neighbour) but is never
+        /// T54 probe 1 (cat-track-run.md §1, D2): <paramref name="leafRuns"/> (null = none, the old behavior) marks LEAF runs
+        /// by index. A leaf may be served (directly by a lift, or through a link from a served neighbor) but is never
         /// expanded by the pass: it never passes service on, so a cat track that crosses a black run does not "serve" it.
         /// A list shorter than the run count reads false for the missing indices.</summary>
         public static void AssignLinked(List<float3> runTops, RunLinks links, List<Lift> lifts, List<Chord> chords,
@@ -613,7 +613,7 @@ namespace SkiResortMod.Systems
             {
                 int r = queue[head];
                 if (leafRuns != null && r < leafRuns.Count && leafRuns[r])
-                    continue;   // T54 probe 1: a leaf is served at most; it never serves its neighbours
+                    continue;   // T54 probe 1: a leaf is served at most; it never serves its neighbors
                 links.NeighboursOf(r, out int first, out int count);
                 for (int k = 0; k < count; k++)
                 {

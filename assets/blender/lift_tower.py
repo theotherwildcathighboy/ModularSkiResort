@@ -58,7 +58,7 @@ QUAD_CONCRETE, QUAD_GALV, QUAD_PAINT = 0, 1, 3
 
 @dataclass
 class TowerParams:
-    """All tower dimensions in metres. CS2 uses 1 unit = 1 metre, same as Blender default."""
+    """All tower dimensions in meters. CS2 uses 1 unit = 1 meter, same as Blender default."""
 
     # Foundation
     pad_size: float = 1.8
@@ -248,12 +248,12 @@ def build_tip_deflector(p: TowerParams):
     Tip-deflector collar as a WRAPPED PLATE, not a closed cone (K clash fix).
 
     The J-generation collar was a full 360-degree frustum (radius 0.62 flaring down from
-    0.40 over 0.50 m, centred at axle - 0.42); its skirt passed straight through the
+    0.40 over 0.50 m, centered at axle - 0.42); its skirt passed straight through the
     service ladder, whose rails run up the -X face at x = -(mast_radius + 0.10) = -0.48.
     The assembly drawing's real part is a bent plate bolted AROUND the mast - and on a
     real tower it stops at the ladder, exactly like our crash pad's open back.
 
-    So: a conical shell arc of 280 degrees, gap centred on -X. The gap's 80-degree
+    So: a conical shell arc of 280 degrees, gap centered on -X. The gap's 80-degree
     sector keeps every plate texel at least ~0.13 m clear of the ladder envelope
     (rails at y +/-0.245, rungs inside them): at the widest radius (0.62, bottom) the
     plate edge sits at (-0.475, +/-0.399) while the ladder corridor spans |y| <= 0.245.
@@ -323,7 +323,7 @@ def build_head_details(p: TowerParams):
 
     # LIFTING FRAME - the signature Yan tower-top (assembly drawing: a slim rectangular
     # steel frame standing proud above the crossarm, used to jack sheave trains during
-    # maintenance). Two posts on the arm's centreline plus a top bar spanning them.
+    # maintenance). Two posts on the arm's centerline plus a top bar spanning them.
     lf_h, lf_y = 0.62, 1.15
     for side in (-1, 1):
         parts.append((add_box(
@@ -363,7 +363,7 @@ def build_head_details(p: TowerParams):
     parts.append((build_tip_deflector(p), QUAD_PAINT))
 
     # COMM-LINE INSULATORS - two small vertical posts on top of the arm near the
-    # centreline (img_6914: the comm/power line rides over every tower top; the wire
+    # centerline (img_6914: the comm/power line rides over every tower top; the wire
     # itself is prefab-side, we only supply the hardware).
     for side in (-1, 1):
         y = side * 0.45
@@ -379,7 +379,7 @@ def set_pad_uvs(obj):
     Hand-set UVs mapping the crash pad into the reserved strip of the glass quadrant
     (cs2_asset.PAD_*), same pattern as the terminal's tension-scale plates. The OUTER
     wall unrolls arc -> u, height -> v, so the warning triangle stamped at the strip's
-    centre lands exactly on the +X (uphill) face. Inner wall, rims and end caps map to
+    center lands exactly on the +X (uphill) face. Inner wall, rims and end caps map to
     the strip's left margin, which paint_pad_strip keeps plain orange.
     """
     cp = cs2_asset.CRASHPAD
@@ -421,7 +421,7 @@ def build_crash_pad():
     cylindrical shell (cs2_asset.CRASHPAD contract) around the mast base. The 90-degree
     opening faces DOWNHILL (-X, where the chairs approach and the ladder lives); the
     padding protects the uphill face and flanks that a skier can actually hit. Textured
-    via the pad strip - recolourable on its own slot (2), default orange-red, with the
+    via the pad strip - recolorable on its own slot (2), default orange-red, with the
     white warning triangle on the uphill face.
     """
     cp = cs2_asset.CRASHPAD
@@ -498,7 +498,7 @@ def build_crash_pad():
 # so it does NOT need density protection through the finish repack.
 #
 # MIP-BLEED CONTRACT (the M round's first cut failed this): quad 2's glass above
-# v 0.5 is near-black, and bilinear/mip filtering averages neighbours across the quad
+# v 0.5 is near-black, and bilinear/mip filtering averages neighbors across the quad
 # boundary, so the block must never MAP against it. The band is painted up to
 # PIER_V1 = 0.4995, but geometry maps only into PIER_MV0..PIER_MV1 (top 0.4900) - the
 # painted rows above the mapped window are same-tone padding absorbing early mips.
@@ -537,7 +537,7 @@ def paint_pier_strip(base, nrm, msk, ctl, A):
     shows soil staining when a float exposes it; the top stays vanilla-clean, per the
     N verdict: display-space multipliers land ~gamma-squared in linear, so 0.86 here
     is ~0.72 linear). The PATCH zone (pad walking surface + hidden caps) is clean
-    noise only. Not recolourable (ctl zeroed).
+    noise only. Not recolorable (ctl zeroed).
     """
     import numpy as np
     rng = np.random.default_rng(31)
@@ -802,7 +802,7 @@ def build_tower(p: TowerParams, finish=False, pier=False):
     bpy.ops.mesh.remove_doubles(threshold=0.0005)
     bpy.ops.object.mode_set(mode="OBJECT")
 
-    # join() inherits the origin of the first object joined - the foundation pad, whose centre
+    # join() inherits the origin of the first object joined - the foundation pad, whose center
     # sits 7.5 cm below ground. Pin the origin to the world origin instead, so the asset's pivot
     # is exactly the base of the mast at ground level, as documented at the top of this file.
     bpy.context.scene.cursor.location = (0.0, 0.0, 0.0)
@@ -959,7 +959,7 @@ def apply_finish_textures(tower, asset_dir, name, atlas_size,
             # v-scale+offset is island-safe (linear map). With the historical top strips
             # (crash pad / tension scale, v >= 0.945) the tallest free band is v 0..0.945
             # and, with the 0.005 margin, this reproduces the original v * 0.94 squeeze
-            # exactly. MID-ATLAS strips (the lodge's wood/stone bands) are honoured too:
+            # exactly. MID-ATLAS strips (the lodge's wood/stone bands) are honored too:
             # packed islands can no longer land inside a rect where the 1:1 restore
             # below would stomp them, and the AO bake never sees overlapped islands.
             v_edges = sorted({0.0, 1.0} | {r[1] for r in reserved} | {r[3] for r in reserved})
@@ -1136,7 +1136,7 @@ def frame_camera(cam, obj, direction, resolution, margin=1.12):
 
     Uses the bounding SPHERE and the narrower of the two field-of-view angles, which
     guarantees a fit regardless of view direction. Sensor fit is pinned to VERTICAL so
-    the FOV maths is unambiguous rather than depending on Blender's AUTO heuristics.
+    the FOV math is unambiguous rather than depending on Blender's AUTO heuristics.
     """
     center, size = world_bounds(obj)
     radius = size.length / 2.0
@@ -1360,11 +1360,11 @@ def main():
     # diffuse term at all and renders as pure environment reflection.
     # noise 0.012 rather than the default 0.03: at 1024 over a 8 m object the coarser grain
     # read as granite rather than painted steel.
-    # Shared lift atlas: dark painted steel (recolourable slot 1) for mast/crossarm/rockers,
+    # Shared lift atlas: dark painted steel (recolorable slot 1) for mast/crossarm/rockers,
     # galvanized photo steel for sheaves/ladder, tinted concrete for the pad. Matches the
     # stations so the whole lift line reads as one machine.
     # post=paint_pad_strip: the crash-pad material + warning triangle live in the strip
-    # reserved out of the glass quadrant (authored in cs2_asset, slot-2 recolourable).
+    # reserved out of the glass quadrant (authored in cs2_asset, slot-2 recolorable).
     tex_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "textures")
     quad_sets, control_quads = cs2_asset.lift_atlas_quads(tex_root)
 
@@ -1437,7 +1437,7 @@ def main():
 #
 # The v2 path: cs2_kit parts tagged with tag_parts, joined, remove_doubles, weighted
 # shade_by_angle(66), geometry contracts asserted in code (C1-C17 below; a wrong build
-# raises), material bake through cs2_bake (Concrete034 / Metal032 tiling + recolourable
+# raises), material bake through cs2_bake (Concrete034 / Metal032 tiling + recolorable
 # paint and pad, one 1024 unique set, AO 48), authored LOD chain, cs2_preview + targeted
 # views, cs2_review pack, manifest, validation.
 #
@@ -1534,10 +1534,10 @@ DQ_RAIL_GAP = 0.20                     # F10: rail runs stop |X| >= 0.20 short o
 DQ_SUB_Y = S.DQ_SUB_Y                  # 2.512, F9: 2.517 moved 5 mm inboard (outer face 2.545)
 DQ_MAIN_Y = S.DQ_MAIN_Y                # 2.44
 # Revision 1c (revision1b-check-gd-towers section B; Richard's verdict 7 on the tram tower, "the
-# rollers are not attached to any upper stabilising mechanism"): a sub-rocker no main rocker
+# rollers are not attached to any upper stabilizing mechanism"): a sub-rocker no main rocker
 # carries - the lone MIDDLE sub of an odd train (GD: 10 sheaves = 5 subs, _sub_pairs) - hangs from
 # the yoke on a LINK in the main rockers' section (DQ_MAIN_Y, 0.072 thick, paint, 1-segment bevel)
-# from the mains' bottom (sub centre - 0.10) up into the yoke (buried 0.02); its own pivot pin runs
+# from the mains' bottom (sub center - 0.10) up into the yoke (buried 0.02); its own pivot pin runs
 # through the link's lug as through a main. It was 0.125 m below the yoke with an open pin. DQ /
 # ETDQ trains pair every sub (even counts): no link, unchanged. C21 (check_sub_hangers) asserts it.
 DQ_LINK = S.DQ_LINK                    # w 0.15, t 0.072, below 0.10, bury 0.02; None = the pre-Revision-1c build (test)
@@ -1646,7 +1646,7 @@ GD_STUB_LANES = {"hv": ("SkiGondolaHaulRope", "UnityGUID:5d88ac45a40b30341a79535
 #       flat flange faces planar, exactly isotropic) .................................. _uv_*
 DP1_TOWER_DEPTH = 0.006                # plate front quad proud of its host face (DT-C6: 4-8 mm)
 DP1_PLATE_BURY = 0.002                 # rim quads reach this far INTO the host (DT-C6: 1-3 mm)
-DP1_PLATE = {"FG": (0.36, 0.16), "DQ": (0.36, 0.16), "GD": (0.36, 0.16)}   # w x h, metres
+DP1_PLATE = {"FG": (0.36, 0.16), "DQ": (0.36, 0.16), "GD": (0.36, 0.16)}   # w x h, meters
 DP1_CONDUIT = dict(r=0.025, standoff=0.05, jbox=(0.22, 0.12, 0.28), fg_foot_z=1.85,
                    fg_top_below_mast=0.50, dq_top_below_deck=0.12, theta_deg=90.0)
 DP1_DATAPLATE = dict(w=0.25, h=0.15, z=2.30, theta_deg=45.0)   # M9c: 45 deg off the conduit
@@ -1679,7 +1679,7 @@ TOWER_MATERIALS = {
                   rough=0.55, projection="box"),
     "pad": dict(albedo=(0.604, 0.604, 0.604), slot=2, recolor_albedo=True, metal=0.0,
                 rough=0.75, projection="box"),
-    # detail pass 1: the sheave rope liners and the tower plates (fixed colours, no slot)
+    # detail pass 1: the sheave rope liners and the tower plates (fixed colors, no slot)
     "rubber": dict(albedo=(0.035, 0.035, 0.038), metal=0.0, rough=0.80, projection="box"),
     "plate": dict(albedo=(0.69, 0.69, 0.69), metal=0.0, rough=0.45, projection="box"),
 }
@@ -1999,7 +1999,7 @@ def _check(cond, label, detail=""):
 
 
 def _planar_uv_bm(bm, layer, ref=(0.0, 0.0, 1.0)):
-    """Per-face planar projection in metres, unmirrored (u x v = +normal), u along the face
+    """Per-face planar projection in meters, unmirrored (u x v = +normal), u along the face
     plane's projection of `ref` rotated a quarter turn (v = ref's projection: 'up')."""
     bm.normal_update()
     rv = _unit(ref)
@@ -2056,7 +2056,7 @@ def plate_parts(tag, centre, normal, size, depth=None, bury=None):
     front = [f + right * x + up * y for x, y in corners]
     back = [b + right * x + up * y for x, y in corners]
     plate = _quad_part(f"plate_{tag}", [front])
-    # the front quad's UV: right / up in metres (identical to _planar_uv_bm's frame here)
+    # the front quad's UV: right / up in meters (identical to _planar_uv_bm's frame here)
     rims = []
     for k in range(4):
         k1 = (k + 1) % 4
@@ -2125,7 +2125,7 @@ def _outward(quads, centre):
 
 def arrest_part(lx, rung_half, z0, z1):
     """
-    Fall-arrest rail (design 3.1): a 3-face channel 0.040 wide x 0.020 deep centred on the
+    Fall-arrest rail (design 3.1): a 3-face channel 0.040 wide x 0.020 deep centered on the
     ladder (y 0), its open back 2 mm INTO the rung fronts (the rung's outer face at
     lx - rung_half, the climber's side = -X), from z0 to z1. 6 tris. Authoring frame.
     """
@@ -2164,7 +2164,7 @@ def gusset_apex_parts(spec, z_beam_bottom):
 
 
 def _drop_faces_where(obj, pred):
-    """Delete the faces of a part (world = mesh coords) for which pred(normal, centre) holds.
+    """Delete the faces of a part (world = mesh coords) for which pred(normal, center) holds.
     Used BEFORE the join for hidden contact faces the kit has no flag for (design 3.1)."""
     bm = bmesh.new()
     bm.from_mesh(obj.data)
@@ -2322,7 +2322,7 @@ def _part_bbox_centre(obj):
 
 
 def uv_rule(name, spec, obj=None):
-    """(kind, axis, centre-on-origin) of the M11 metric UV a part takes, or None (kit UVs kept:
+    """(kind, axis, center-on-origin) of the M11 metric UV a part takes, or None (kit UVs kept:
     boxes are box-projected in their local frame, isotropic; crashpad_outer is metric already).
     The small detail parts take ONE strip island each (plate rims, arrest channel, junction
     box sides): every island costs its 6 px pack margin all round (measured: per-face rims at
@@ -2481,7 +2481,7 @@ def sheave_ngon(spec):
 
 # -- T27 ROPE ON THE CROWN (2026-10-17, docs/research/field/2026-10-15/build/T27-rope-path.md) -------------------------
 # Richard (playtest items 25 / 27): "the cable passes straight through pulleys/rollers". The shipped contract (D6) puts
-# the LANE on the sheave AXLE, so the vanilla rope drawn on the lane runs through the wheel centres. ROPE_ON_CROWN True =
+# the LANE on the sheave AXLE, so the vanilla rope drawn on the lane runs through the wheel centers. ROPE_ON_CROWN True =
 # the lane rides the train: a SUPPORT head (rope above the sheaves: every line tower, ET62 / ET68) lane = axle + seat, a
 # COMPRESSION head (ETDQ / ETGD, rope under) lane = axle - seat, seat = rope_seat() (the vanilla HV cable hexagon resting
 # in the groove). The tower MESH does not change with the flag: only the lane numbers the manifest hands to the surgery
@@ -2590,7 +2590,7 @@ def crashpad_z0(spec):
 def crashpad_parts(z0=None, radius=None):
     """
     CRASHPAD shell (cs2_asset.CRASHPAD contract, open sector on -X) split in two parts:
-    `crashpad_outer` = the outer wall only, UVMap u = R * theta, v = z in metres (theta
+    `crashpad_outer` = the outer wall only, UVMap u = R * theta, v = z in meters (theta
     -135..+135 deg, unmirrored seen from outside: the warning-triangle island keeps its 3D
     aspect through the unique pack); `crashpad` = inner wall, rims and end caps, box UVs.
     Windings are explicit (outward), 28 + 88 tris. `z0` overrides CRASHPAD["z0"] (0.15): the
@@ -2986,11 +2986,11 @@ def dq_parts(spec, head, kagelok=None):
 
 
 def ingest_beam_faces(gantry, spec):
-    """The Kagelok gantry_00 beam's two TRAVEL faces at the centreline (design 3.1; skeptic M1
+    """The Kagelok gantry_00 beam's two TRAVEL faces at the centerline (design 3.1; skeptic M1
     / M10: plane AND normal measured, the ingest gantry is sheared): faces with |n.x| > 0.9
     whose y extent reaches |y| <= 0.3 (the beam is two half-shells meeting at y 0: measured
-    faces x -0.151 / +0.149, z A + 1.691 .. A + 1.925, unbevelled) and centre z A + 1.70 ..
-    A + 1.93. Returns {+1 / -1: (centre on the face plane at y 0 and the faces' mid height,
+    faces x -0.151 / +0.149, z A + 1.691 .. A + 1.925, unbevelled) and center z A + 1.70 ..
+    A + 1.93. Returns {+1 / -1: (center on the face plane at y 0 and the faces' mid height,
     unit normal, (z0, z1), (y0, y1))}."""
     A = spec.axle
     me = gantry.data
@@ -3087,7 +3087,7 @@ def _untilt_matrix(axis_vec, pivot):
 def ingest_gantry(spec, path):
     """
     The Kagelok LINE head kit: gantry island + its 4 end plates, onto our axle and gauge.
-    Measures P0 from the source (end-sheave chord mid, gantry x centre, tube y centre),
+    Measures P0 from the source (end-sheave chord mid, gantry x center, tube y center),
     then: translate -P0 -> x0.30 -> reframe (+Y travel -> +X) -> shear_level on the GANTRY
     PART ONLY (M1) -> stretch_gauge -> +A -> clean -> smart-project UVMap. Raises
     TowerContractError on any section 6.2 assert (the caller ships rebuild then).
@@ -3380,7 +3380,7 @@ def _frame_axes(frame):
 
 
 def sheave_centres(pv, frame):
-    """[(name, travel, gauge, z)] of every sheave rim (bbox centre: the rims are symmetric)."""
+    """[(name, travel, gauge, z)] of every sheave rim (bbox center: the rims are symmetric)."""
     ti, ts, gi = _frame_axes(frame)
     out = []
     for nm in sorted(pv):
@@ -3685,7 +3685,7 @@ def assert_tower_contracts(obj, spec, frame, head):
     tag = f"[{spec.key} {frame}]"
     full = frame == "authoring"
 
-    # C1 axle: the two centre sheaves of each side
+    # C1 axle: the two center sheaves of each side
     sc = sheave_centres(pv, frame)
     _check(len(sc) == 2 * spec.sheaves, f"{tag} sheave count", f"({len(sc)} = 2 x {spec.sheaves})")
     tol1 = 1e-4 if spec.sag == 0.0 else 2e-3
@@ -3712,7 +3712,7 @@ def assert_tower_contracts(obj, spec, frame, head):
     _check(abs(zmin + spec.pier) <= 1e-4, f"{tag} C4 bounds min = -pier {spec.pier}", f"({zmin:.5f})")
     res["top"] = zmax
     res["min"] = zmin
-    # C5 mast centre, pad top
+    # C5 mast center, pad top
     m = pv["mast"]
     mc = (m.min(axis=0) + m.max(axis=0)) / 2.0
     _check(abs(mc[0]) <= 1e-4 and abs(mc[1]) <= 1e-4, f"{tag} C5 mast centred on the origin",
@@ -4035,7 +4035,7 @@ def paint_warning_triangle(rect, base, ctl):
     """
     The legacy crash-pad stamp (cs2_asset.paint_pad_strip) on the crashpad_outer island:
     T = 0.62 h, W = 1.12 T (no anisotropy pre-stretch: the unique island keeps its 3D
-    aspect), base row 0.16 h, centred on the island (theta 0 = the +X uphill face). White
+    aspect), base row 0.16 h, centered on the island (theta 0 = the +X uphill face). White
     display 0.92, exclamation bar + dot display 0.10. ControlMask R and G zeroed under it.
     (Pre-pass painter, kept for the record; the shipping hook calls paint_pad_stamps.)
     """
@@ -4061,7 +4061,7 @@ def paint_warning_triangle(rect, base, ctl):
 
 
 def _ss_grid(h, w, ss):
-    """Sub-sample centres (rows, cols) in texel units of an (h, w) raster, ss x ss per texel."""
+    """Sub-sample centers (rows, cols) in texel units of an (h, w) raster, ss x ss per texel."""
     o = (np.arange(ss) + 0.5) / ss
     ys = (np.arange(h)[:, None] + o[None, :]).ravel()
     xs = (np.arange(w)[:, None] + o[None, :]).ravel()
@@ -4106,7 +4106,7 @@ def hazard_coverage(h, w, pad_h, ss=4):
 
 def make_pad_painter(pad_h):
     """crashpad_outer painter: the anti-aliased warning triangle + the hazard band. ControlMask
-    R and G scale by (1 - coverage), 0 at >= 0.99 (the decal stamp rule): fixed colours."""
+    R and G scale by (1 - coverage), 0 at >= 0.99 (the decal stamp rule): fixed colors."""
     white = _srgb_to_lin(0.92)
     dark = _srgb_to_lin(0.10)
     yel = np.array([_srgb_to_lin(c) for c in DP1_YELLOW], dtype=np.float32)
@@ -4198,7 +4198,7 @@ def make_plate_painter(spec, log):
 
 
 def data_plate_decals(spec):
-    """The data plate (design 3.4, M9c): a 0.25 x 0.15 m galv-grey plate with 4 dark text bars
+    """The data plate (design 3.4, M9c): a 0.25 x 0.15 m galv-gray plate with 4 dark text bars
     (no brand) on the mast at z 2.30, 45 deg off the conduit (+Y) toward the uphill +X face.
     Authoring frame; the hook maps it to the net frame (cs2_compose.transform_marks)."""
     d = DP1_DATAPLATE
@@ -4225,23 +4225,23 @@ def data_plate_decals(spec):
 
 
 # -- Follow-up 2026-10-11, integration finding F3 (+ F3b): black-sampled sub-texel faces -------
-# A face whose UV footprint contains NO texel centre (deck kick_deck* end faces, the 6 mm
-# platerim_ strips, rail end caps, gusset edges) gets no EMIT sample; where no neighbouring
+# A face whose UV footprint contains NO texel center (deck kick_deck* end faces, the 6 mm
+# platerim_ strips, rail end caps, gusset edges) gets no EMIT sample; where no neighboring
 # island's bake margin reaches it, it samples BLACK in game (DQ18 24 faces / 243 cm2, GD16 32 /
 # 326 cm2, GD12 14, GD20 4, ETGD 4, DQ12 / DQ14 / DQ16 4-6 in the 18:01-18:10 exports). The
 # lattice towers fixed the same defect generator-locally (tram_tower.fill_subtexel_faces:
 # 8-164 black faces before, 0-2 after); this is the same fill, ported: the uncovered texels of
-# the face's 1-texel footprint take its part's mean COVERED colour (BaseColor, MaskMap,
+# the face's 1-texel footprint take its part's mean COVERED color (BaseColor, MaskMap,
 # ControlMask - the slot tint still applies), or, for a part with no covered texel at all (a
 # part made only of such faces), the mean of its material's parts. Covered texels are never
-# touched; geometry and UVs do not change (a flat colour fill: the UV merge / pad options of
+# touched; geometry and UVs do not change (a flat color fill: the UV merge / pad options of
 # the finding would move islands in a packer that is byte-stable on 16 shipped variants).
 # One deliberate difference from the lattice fill: it repairs the F3 DEFECT, not every face
-# without a texel centre. A face is filled only if its UV area is under SUBTEXEL_TEXEL2 AND its
+# without a texel center. A face is filled only if its UV area is under SUBTEXEL_TEXEL2 AND its
 # uncovered footprint holds a black texel (SUBTEXEL_ONLY_BLACK). The other variants - whose
-# no-centre faces are covered by a neighbour's margin and read a plausible colour - keep their
+# no-center faces are covered by a neighbor's margin and read a plausible color - keep their
 # approved, shipped PNGs byte-for-byte (the unconditional fill rewrote 5-187 faces on all 16:
-# FG8 5 ... GD20 187). Set SUBTEXEL_ONLY_BLACK False for the lattice behaviour.
+# FG8 5 ... GD20 187). Set SUBTEXEL_ONLY_BLACK False for the lattice behavior.
 # The unit is the TRIANGLE the game draws: cs2_asset.export_fbx writes use_triangles (bmesh
 # triangulate, default BEAUTY), so a quad whose area is fine can still split into a 2-texel
 # triangle with a black centroid; both the fill and the contract run on uv_triangles(), the
@@ -4252,17 +4252,17 @@ def data_plate_decals(spec):
 # long one-texel slivers (UV area >= 4 texel2 but shortest altitude < 1 texel: the fall-arrest
 # channel's 2 cm side walls, gusset_apex, kick_deck, platerim edges) sampled BLACK as well - 16
 # of 17 variants had 2-22 of them (DQ20 2 / 3,681 cm2, GD16 22 / 5,538 cm2) - because they hold
-# no texel centre either (FG8's platerim strips even have centres exactly ON an edge: the bake
+# no texel center either (FG8's platerim strips even have centers exactly ON an edge: the bake
 # left them black, and the part mean of those covered-but-black texels is black too). The
 # corrected rule is area-free: AFTER the F3 pass (so every F3 texel is exactly the shipped one)
 # a second pass takes EVERY triangle of any UV area and paints each BLACK texel its square
 # overlaps (exact separating-axis test, SUBTEXEL_OVERLAP_EPS slack, so whatever 400-sample grid a
-# counter lays on the triangle lands on a texel that is not black) with the mean colour of the
+# counter lays on the triangle lands on a texel that is not black) with the mean color of the
 # part's BAKED (non-black) covered texels, or its material's. Only black texels are written, so
 # every texel that was not black is unchanged. A face whose part and material have no baked
 # texel is counted in `slivers_unfilled` and the contract fails. SUBTEXEL_TEXEL2 now only
 # limits the F3 footprint fill; it is no longer a limit on what the contract covers.
-SUBTEXEL_TEXEL2 = 4.0          # F3 footprint-fill class: UV area under 2 x 2 texels (every no-centre
+SUBTEXEL_TEXEL2 = 4.0          # F3 footprint-fill class: UV area under 2 x 2 texels (every no-center
                                # face measured black is 1-4 texel2; the "under 1 texel" faces are margin-covered)
 SUBTEXEL_BLACK = 0.02          # sRGB max(rgb) under this = black (tram_tower test black_faces)
 SUBTEXEL_BLACK_LIN = SUBTEXEL_BLACK / 12.92   # the same threshold on the linear maps (c < 0.04045)
@@ -4296,7 +4296,7 @@ def _tri_area_texel2(q):
 
 
 def _tri_texel_overlap(q, X, Y, eps=SUBTEXEL_OVERLAP_EPS):
-    """Texels whose unit square (centre X, Y, in texels) intersects the UV triangle q (3, 2), touching
+    """Texels whose unit square (center X, Y, in texels) intersects the UV triangle q (3, 2), touching
     included: exact separating-axis test (the two square axes + the three edge normals), `eps` texels of
     slack. Every sample point of the triangle, on any grid, lies in one of these texels."""
     m = ((X + 0.5 >= q[:, 0].min() - eps) & (X - 0.5 <= q[:, 0].max() + eps)
@@ -4318,12 +4318,12 @@ def _tri_texel_overlap(q, X, Y, eps=SUBTEXEL_OVERLAP_EPS):
 def fill_subtexel_faces(base, msk, ctl, mesh, A, part_map, table, part_material, uv_layer="UVUnique"):
     """tram_tower.fill_subtexel_faces for the tube towers, on the exported TRIANGLES (arrays are
     linear (A, A, 4), bottom-up rows; `part_map` = cs2_compose.rasterise_face_fields, 1-based
-    table indices, 0 = gutter). Pass 1 (F3, the shipped behaviour): triangles under SUBTEXEL_TEXEL2
-    with no texel centre inside get their uncovered 1-texel footprint painted when it holds a black
+    table indices, 0 = gutter). Pass 1 (F3, the shipped behavior): triangles under SUBTEXEL_TEXEL2
+    with no texel center inside get their uncovered 1-texel footprint painted when it holds a black
     texel (SUBTEXEL_ONLY_BLACK). Pass 2 (F3b): every triangle, any UV area, gets each black texel
-    it overlaps painted with the mean BAKED colour of its part (material fallback). Returns the stats
+    it overlaps painted with the mean BAKED color of its part (material fallback). Returns the stats
     {faces, texels, by_class (pass 1), f3b_faces, f3b_texels, f3b_by_class (pass 2), slivers_unfilled
-    (triangles that still overlap a black texel for want of any baked colour: must be {})}."""
+    (triangles that still overlap a black texel for want of any baked color: must be {})}."""
     pid = cs2_compose.part_indices(mesh)
     pm = np.asarray(part_map)
     cov = pm > 0
@@ -4352,9 +4352,9 @@ def fill_subtexel_faces(base, msk, ctl, mesh, A, part_map, table, part_material,
         acc = by_mat.get(mat_of.get(p_))
         return None if acc is None else list(acc[1] / acc[0])
 
-    # both colour sets are taken BEFORE any fill: pass 1 = every covered texel (the shipped F3 colours),
+    # both color sets are taken BEFORE any fill: pass 1 = every covered texel (the shipped F3 colors),
     # pass 2 = the covered texels that are not black (a texel the bake sampled but left black, e.g. a
-    # centre on a sliver's edge, must not darken the part's colour)
+    # center on a sliver's edge, must not darken the part's color)
     cnt1, means1, by_mat1 = part_means(cov)
     cnt2, means2, by_mat2 = part_means(cov & (base[..., 0:3].max(axis=-1) >= SUBTEXEL_FILL_LIN))
     tris = uv_triangles(mesh, uv_layer)
@@ -4387,7 +4387,7 @@ def fill_subtexel_faces(base, msk, ctl, mesh, A, part_map, table, part_material,
         if not tgt.any():
             continue
         if SUBTEXEL_ONLY_BLACK and not (tgt & (base[sl][..., 0:3].max(axis=-1) < SUBTEXEL_BLACK_LIN)).any():
-            continue                                    # margin-covered: reads a colour, not black
+            continue                                    # margin-covered: reads a color, not black
         p_ = int(pid[orig])
         vals = colour(p_, cnt1, means1, by_mat1)
         if vals is None:
@@ -4439,7 +4439,7 @@ def subtexel_black_faces(mesh, base_px, uv_layer=None, max_texel2=float("inf")):
     texel which samples black (sRGB max(rgb) < SUBTEXEL_BLACK) - so a 400-sample or any other grid on
     the triangle cannot land on black. `base_px` = cs2_validate.load_png_pixels (bottom-up rows, the
     UV v order). Returns [(parent polygon index, uv area in texel2, area cm2)]; mesh coordinates are
-    metres (net frame)."""
+    meters (net frame)."""
     A = base_px.shape[0]
     layer = uv_layer or mesh.uv_layers.active.name
     mx = base_px[..., :3].max(axis=-1)
@@ -4471,7 +4471,7 @@ def make_post_compose_v2(obj, table, spec=None, info=None):
     (paint mottle + chalk, galv bloom), then the stamps - the crash pad's anti-aliased triangle
     and hazard band, the two tower plates PER PART (M3: plate_n, plate_p) and the data-plate
     decal on the mast. Records: hook.relief / tone / tone_gate (M7) / plates / decal_rects.
-    spec None = the pre-pass FG8 behaviour is NOT reproduced (tests use spec)."""
+    spec None = the pre-pass FG8 behavior is NOT reproduced (tests use spec)."""
     spec = spec or VARIANTS["FG8"]
     info = info or {}
     part_material = info.get("part_material") or {}
@@ -4510,7 +4510,7 @@ def make_post_compose_v2(obj, table, spec=None, info=None):
         nrm[..., 0:3] = n * 0.5 + 0.5
         nrm[uncovered, 0:3] = (0.5, 0.5, 1.0)
         nrm[..., 3] = 1.0
-        # F3: faces with no texel centre would sample black; fill BEFORE the stamps and the weather layer
+        # F3: faces with no texel center would sample black; fill BEFORE the stamps and the weather layer
         hook.subtexel = fill_subtexel_faces(base, msk, ctl, mesh, A, part_map, table, part_material)
         pad_h = cs2_asset.CRASHPAD["z1"] - crashpad_z0(spec)
         pad = make_pad_painter(pad_h)

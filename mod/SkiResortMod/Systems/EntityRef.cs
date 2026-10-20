@@ -117,7 +117,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>True when a run of this kind is injected, measured or billed by the snow system. The cat track is none of
-        /// these: it opens by the day-mean estimate alone (RunSnowRules.ThresholdC) and is never rasterised.</summary>
+        /// these: it opens by the day-mean estimate alone (RunSnowRules.ThresholdC) and is never rasterized.</summary>
         public static bool HasSnowInjection(int kind)
         {
             return kind == (int)RunKind.Groomed || kind == (int)RunKind.Snowmaking || kind == (int)RunKind.Night;

@@ -38,7 +38,7 @@
 //   * activeInfoview (ToolSystem.cs:133-143) is null for an invalid view.
 //
 // THE RULE (spec §6.2, with ONE refinement — see DEVIATION):
-//   on an activePrefab change: clear the latch; playerHadIt = the view at our previous update equalled
+//   on an activePrefab change: clear the latch; playerHadIt = the view at our previous update equaled
 //   the new tool's infoview AND that view was not opened by a tool.
 //   then, when the prefab is a target (SkiChairliftHV), activeInfoview != null, activeInfoview ==
 //   activeTool.infoview and the latch is clear:
@@ -46,16 +46,16 @@
 //     else        → ToolSystem.infoview = null, latch, Closed++, "Infoview [close]" line.
 //   Re-opening the view by hand during the same activation is kept (latched).
 // DEVIATION (reported to the integrator): the spec's literal test is "the view at the previous UIUpdate
-// already equalled the new tool's infoview (the player had it open)". That is also true when the
+// already equaled the new tool's infoview (the player had it open)". That is also true when the
 // PREVIOUS TOOL opened it — the base station tool opens Electricity (:290), and the field order was
 // base → line → top (field log 407-437, 810-818) — so the literal test would keep the view open for
 // exactly the case OD-11 (a) wants closed. We therefore track who opened the current view: a view
 // change seen in the same update as a tool/prefab change, equal to the tool's own infoview, is
 // tool-opened; any other view change is the player's. playerHadIt requires a player-opened view.
-// Expected cost: a one-frame Electricity overlay flash per activation (colours recompute in the next
+// Expected cost: a one-frame Electricity overlay flash per activation (colors recompute in the next
 // ToolUpdate, ToolSystem.cs:369-373) [likely, unverified in game].
 //
-// RESTORE (fixer round, findings m1-hub-csharp-1 / behaviour-1; a refinement of spec §6.2, whose
+// RESTORE (fixer round, findings m1-hub-csharp-1 / behavior-1; a refinement of spec §6.2, whose
 // mechanism missed this effect of ToolSystem's cache). Our close goes through the public setter, which
 // changes only m_CurrentInfoview (SetInfoview, ToolSystem.cs:377-399); ToolSystem's private
 // m_LastToolInfoview keeps Electricity — it is written only inside ToolUpdate's
@@ -75,7 +75,7 @@
 // supplemental ones are not (:388) — what the vanilla infoview MENU does when it opens a view
 // (InfoviewsUISystem.cs:431-439); the next ToolUpdate's re-apply arm (:343-367) then reconciles the
 // supplemental / optional modes against the lift tool's last list. Not headless-testable (it is four
-// reference compares on game objects whose behaviour lives in ToolSystem); FIELD-TEST covers it: lift
+// reference compares on game objects whose behavior lives in ToolSystem); FIELD-TEST covers it: lift
 // line → the Base station tile directly → Electricity is open.
 //
 // PHASE (Mod.cs): UpdateBefore<SkiPlacementInfoviewSystem, Game.UI.InGame.InfoviewsUISystem>(UIUpdate)

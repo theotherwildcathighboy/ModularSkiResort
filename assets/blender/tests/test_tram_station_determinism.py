@@ -29,10 +29,10 @@ skeptic's MUST-CHANGEs and ROUND-SPEC R27-R31).
       (SGPOST0_DEG 70: 0.574 m), an undeclared standable slab, and the design's tram-top bench on the
       diamond-plate boxes (C16) each FAIL.
       C17 gate span vs cabin door - revision 1e (revision2-check-tram-cabin section C): T2 asserts on
-      every variant that all four berth edges leave a clear 1.90 m opening (>= 1.70) centred on the
+      every variant that all four berth edges leave a clear 1.90 m opening (>= 1.70) centered on the
       cabin's door seam (DOCK_Z -5.50, read from lift_cabin.py and its manifest) with no post or leaf in
       the door span (z -6.35..-4.65). T2n: the 1d fence grid (GATES_AT_DOOR False: base post -6.20 +
-      leaf off centre, top post -5.60 at the seam), an injected post, an injected closed leaf across the
+      leaf off center, top post -5.60 at the seam), an injected post, an injected closed leaf across the
       door, an opening under the minimum, an opening 0.04 m off the seam, an opening wider than the leaves
       beside it can close, and a cabin manifest that hosts the cabin elsewhere each FAIL C17. T4 asserts
       the C17 block of the exported manifest.
@@ -752,7 +752,7 @@ def expect_c17(label, argv, must, inject=None, attr=None, value=None):
 def t2_negative_c17(work=None):
     """Revision 1e: the 1d fence grid and four injected faults each FAIL C17 (gate span vs cabin door)."""
     B, T = ["--role", "base"], ["--role", "top"]
-    # the shipped 1d grids: the base post at z -6.20 and the leaf 0.30 m off the door centre, the top
+    # the shipped 1d grids: the base post at z -6.20 and the leaf 0.30 m off the door center, the top
     # post at -5.60 with its two leaves across the doorway (revision2-check-tram-cabin section C)
     expect_c17("the 1d base grid (post -6.20 inside the door span, leaf off centre)", B,
                ("inside the door span", "gatepost_0_1 z -6.24..-6.16", "gate_0_1 z -6.15..-4.25"),
@@ -772,7 +772,7 @@ def t2_negative_c17(work=None):
                ("opening 1.900 m < 2.00",), attr="C17_OPEN_MIN", value=2.0)
     expect_c17("an opening 0.04 m off the door seam (GATE_DOOR_Z -5.46)", B, ("off the door seam -5.5",),
                attr="GATE_DOOR_Z", value=-5.46)
-    # the door centre is read from the cabin manifest: a manifest that hosts the cabin elsewhere fails
+    # the door center is read from the cabin manifest: a manifest that hosts the cabin elsewhere fails
     tmp = tempfile.mkdtemp(prefix="c17_manifest_")
     try:
         with open(ts.CABIN_MANIFEST, encoding="utf-8") as fh:
@@ -803,7 +803,7 @@ def t3_t4_t5(work):
     for role in ("base", "top"):
         od = os.path.join(work, "export")
         t0 = time.perf_counter()
-        # base bakes with AO 4 so the recolour-level check below also sees baked AO (review
+        # base bakes with AO 4 so the recolor-level check below also sees baked AO (review
         # minor 6); top stays AO 0
         ao = "4" if role == "base" else "0"
         try:
@@ -834,7 +834,7 @@ def t3_t4_t5(work):
         ctl = cs2_validate.load_png_pixels(os.path.join(d, f"{name}_ControlMask.png"))
         em = cs2_validate.load_png_pixels(os.path.join(d, f"{name}_Emissive.png"))
         A = ctl.shape[0]
-        # light albedo ships under every recolour mask (review minor 6): p95 0.78-0.82 (sRGB of
+        # light albedo ships under every recolor mask (review minor 6): p95 0.78-0.82 (sRGB of
         # the 0.604 linear slot albedo), ControlMask R + G + B <= 1, A 0
         check(float(ctl[..., :3].sum(axis=-1).max()) <= 1.0 + 1e-3 and float(ctl[..., 3].max()) < 1e-3,
               f"T3 {role}: ControlMask R + G + B <= 1, A 0")
@@ -1127,9 +1127,9 @@ CELL = 0.02
 
 
 def cabin_sweep_mask(fbx):
-    """Rasterise the exported cabin (raw FBX cm = prefab-local) onto its X-Y cross-section
+    """Rasterize the exported cabin (raw FBX cm = prefab-local) onto its X-Y cross-section
     (2 cm cells); each cell keeps the largest travel coordinate Z covering it, i.e. how far
-    ahead of the cabin centre that part of the silhouette reaches."""
+    ahead of the cabin center that part of the silhouette reaches."""
     objs = cs2_validate.import_fbx_temp(fbx)
     try:
         o = [x for x in objs if x.type == "MESH"][0]
@@ -1184,7 +1184,7 @@ def t8_cabin_sweep():
         t, _win, _tb, _r = ts.build_checked(argv)
         tri, names = ts.triangles(t)
         # fine-detail step 3c: the dressing-kit rows' REAL meshes (placed by their rows, prefab = game frame) are
-        # swept against too - the kit props stand where the modelled dressing stood
+        # swept against too - the kit props stand where the modeled dressing stood
         kit = ts.fd_kit_rows(argv[1])
         if kit:
             kt = [KR.host_mesh(r, lambda G: np.asarray(G, dtype=np.float64)) for r in kit]

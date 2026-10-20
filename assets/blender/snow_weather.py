@@ -28,7 +28,7 @@ STEP 1 (`step=1`, Richard's "one variable at a time"): resolution + repack + par
                   islands squeezed into small atlas rects (median 1.4 : 1, p90 3.5 : 1, lance tube
                   28 : 1), so its scale and direction were accidents; at the REDO densities it would
                   read as stripes and noise. Concrete keeps its photo at CONCRETE_DETAIL contrast.
-  N1 normal detail  panel seams, bolt heads, weld beads, moulded ribs, a lid panel and a world-
+  N1 normal detail  panel seams, bolt heads, weld beads, molded ribs, a lid panel and a world-
                   anchored grating, drawn as height by cs2_compose.detail_height (the existing
                   height -> normal path) ONLY where the feature spans >= 3 texels
                   (NORMAL_TEXEL_FLOOR); per class in NORMAL_DETAIL_CLASSES / normal_detail_specs.
@@ -39,7 +39,7 @@ STEP 1 (`step=1`, Richard's "one variable at a time"): resolution + repack + par
 STEP 2 (`step=2`): step 1 + LOW-FREQUENCY soiling only (soil_overlays):
   S1 grade        smooth darkening from grade to 0.5 m (<= 12 % sRGB luma), broken by 0.6 m noise
   S2 pad top      broad soft dirt on the concrete pad tops (<= 12 %)
-  S3 lid top      broad soft dirt on hydrant lid tops (<= 10 %, a recolourable slot: bounded)
+  S3 lid top      broad soft dirt on hydrant lid tops (<= 10 %, a recolorable slot: bounded)
   S4 collar run   at most ONE soft run >= 10 cm wide below a collar (tower mast, lance column; 8 %)
   The grade ramp is a tonal gradient, capped by its own luma limit; the STAINS (S2-S4) carry the
   coverage budget (a 0.5 m ramp alone covers most of a 0.35 m hydrant box or a 0.45 m fan chassis,
@@ -50,7 +50,7 @@ STEP 2 (`step=2`): step 1 + LOW-FREQUENCY soiling only (soil_overlays):
   SKIPPED, never shrunk; the hook re-checks that nothing was painted where the feature spans
   < 6 texels.
 
-Contract rules kept in code (guards raise): recolourable texels keep a LIGHT albedo (slot mean
+Contract rules kept in code (guards raise): recolorable texels keep a LIGHT albedo (slot mean
 >= SLOT_KEEP of the bake's, dirt clamped at DIRT_FLOOR); BaseColor alpha 1; MaskMap G = B = 0;
 ControlMask alpha 0 and channels exclusive (only ever copied); metal only on galvanised.
 
@@ -129,7 +129,7 @@ GATE_TEXELS = (6.0, 10.0)    # ... and none under 8 texels: weight smoothstep(6,
 GATE_SKIP_MEAN = 0.5         # an overlay whose mean gate weight is below this is skipped whole
 COVERAGE_MAX = 0.10          # area-weighted mean STAIN weight (S2-S4) per class
 AO_DENOISE = True            # 5 x 5 binomial blur of the baked occlusion over covered texels
-# per-channel weight of the sRGB darkening (luma-normalised: the luma drop is exactly k x w): warm, dusty
+# per-channel weight of the sRGB darkening (luma-normalized: the luma drop is exactly k x w): warm, dusty
 GRIME_TINT = np.array((0.90, 1.0, 1.15), np.float64) / float(np.dot(LUMA, (0.90, 1.0, 1.15)))
 
 
@@ -175,7 +175,7 @@ def _zone_of(uv, zones):
 
 
 def build_fields(me, A, matrix=None, uv_layer="UVUnique", atlas_layer="UVAtlas"):
-    """Rasterise `me` into an A x A grid of its `uv_layer`. Returns Fields."""
+    """Rasterize `me` into an A x A grid of its `uv_layer`. Returns Fields."""
     M = np.array(matrix if matrix is not None else np.eye(4), dtype=np.float64).reshape(4, 4)
     R3 = M[:3, :3]
     nv, nl, npoly = len(me.vertices), len(me.loops), len(me.polygons)
@@ -454,7 +454,7 @@ def _dilate(arrays, cov, steps=10):
 
 def albedo_hf(base_srgb, F):
     """Per zone: area-weighted RMS of (sRGB luma - its 3x3 box mean) over texels whose whole 3x3
-    neighbourhood lies on the SAME face (island edges and face seams do not count). The vanilla
+    neighborhood lies on the SAME face (island edges and face seams do not count). The vanilla
     EU house measures 0.010 (vanilla-detail-benchmark section 2.2)."""
     A = F.A
     lum = (np.asarray(base_srgb)[..., :3].reshape(A, A, 3) @ LUMA).astype(np.float64)
@@ -481,7 +481,7 @@ def albedo_hf(base_srgb, F):
 
 
 def _denoise_occ(F, occ):
-    """5 x 5 binomial normalised convolution of the per-texel occlusion over covered texels."""
+    """5 x 5 binomial normalized convolution of the per-texel occlusion over covered texels."""
     img = _scatter(F, occ.astype(np.float32)).astype(np.float64)
     m = F.cov.astype(np.float64)
     k = (1.0, 4.0, 6.0, 4.0, 1.0)
@@ -681,7 +681,7 @@ def normal_detail_specs(F, key):
 
 
 def normal_detail(mesh, F, key, matrix):
-    """Height field (metres) of the class's N1 features at >= NORMAL_TEXEL_FLOOR texels, the
+    """Height field (meters) of the class's N1 features at >= NORMAL_TEXEL_FLOOR texels, the
     encoded detail normal over the covered texels, and the drawn / skipped counts."""
     import cs2_compose as C
     specs = normal_detail_specs(F, key)
@@ -721,7 +721,7 @@ def overlay_gate(F, sel, name, feature_m, soft_m):
 
 
 def _n01(F, cells, name, effect):
-    """Single-octave world-metre value noise in [0, 1]: cells >= 0.3 m, no texel-scale octave."""
+    """Single-octave world-meter value noise in [0, 1]: cells >= 0.3 m, no texel-scale octave."""
     return uniform(fbm(F.P, cells, F.ppm, _seed(name, effect), octaves=1))
 
 
@@ -744,7 +744,7 @@ def soil_overlays(F, name, key, exempt, is_strip):
     ramp = 1.0 - smoothstep(0.0, 0.5, z)
     add("S1_grade", live & (z < 0.5), ramp * (0.75 + 0.25 * _n01(F, 0.6, name, "grade")), 0.12, 0.5, 0.5)
     up = Nz > 0.65
-    # S2 pad tops: a soft ring about the pad's own centre + broad 0.5 m patches (>= 30 cm, soft 0.15)
+    # S2 pad tops: a soft ring about the pad's own center + broad 0.5 m patches (>= 30 cm, soft 0.15)
     pad = (F.zone == "concrete") & up & live
     if pad.any():
         shape = np.zeros(n)

@@ -31,6 +31,8 @@
  * holds the type chips and, after them, the LIFT_TOOL toggle (LiftToolSet: reads liftLine$, fires hubTriggers.liftLineToggle, which C#
  * turns into LiftLineToolSystem.TryActivate("hub") / Deactivate()). Ok panel only (FooterInfo.liftTool): on a contract mismatch the
  * strip reads CORE only and the toggle is not drawn.
+ * Contract 14 (T139, 2026-10-20, DECISIONS 363): the Runs family row holds, after the tree tool, a "Grade cat track" chip over the
+ * night and cat-track tiles (GradeToolSet: reads grade$, fires hubTriggers.gradeToggle -> CatTrackGradeToolSystem). Ok panel only.
  * T129 (2026-10-20, field notes 14-16): no tile says it joins or goes near the Welcome Sign any more (T113 made every building top-level;
  * the player does not need the link rule). A building tile's tooltip shows what the building draws, vanilla's way (the asset panel's
  * Upkeep / Electricity / Water / Garbage rows, only the ones above 0, units by the game's unit setting) plus Workers, from
@@ -56,7 +58,7 @@
  *     line the session a second tier or type is imported (risk R-n), never during play.
  *   - Icon-only tiles: the prefab icon; a step badge on the lift tiles; a kind stripe on the run
  *     tiles (natural: two short bars, the dashed outline's echo; groomed white, snowmaking cyan
- *     outline, night amber: the run list's colours); the ONE amber dot (D37, design 7.4) on the tile
+ *     outline, night amber: the run list's colors); the ONE amber dot (D37, design 7.4) on the tile
  *     FooterInfo.dot names (hubRules.dotItem: "sign" with no sign, else the buildItem of the shown
  *     area's first band row) - never from build[].hint any more. Contract 6: a dot on an alternative
  *     that is not chosen shows on its picker chip (hubRules.dotTarget).
@@ -102,7 +104,7 @@ import { bindLocalValue, useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { build$, follow$, glade$, hubTriggers, liftLine$, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
+import { build$, follow$, glade$, grade$, hubTriggers, liftLine$, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
 import type { BuildItem, BuildItemId, RunKind } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
@@ -133,7 +135,8 @@ export interface FooterInfo {
   next: NextVariant;
   /** D36 notice: the shown area's name while the 6 s notice runs, else null. */
   followName: string | null;
-  /** Contract 12: draw the lift generator toggle (ok panel only; it reads the non-CORE liftLine binding). */
+  /** Contract 12: draw the lift generator toggle (ok panel only; it reads the non-CORE liftLine binding). Contract 14: also the
+   *  Runs tab's "Grade cat track" chip (the non-CORE grade binding). */
   liftTool?: boolean;
 }
 
@@ -406,7 +409,7 @@ function LiftToolSet({ t }: { t: Translate }): JSX.Element {
 
 /** T31: the Runs tab's family row: the glade (tree) tool's on / off, the same trigger as the Runs view's "Tree tool" button
  *  (TreeControls.tsx; reads the CORE glade binding only). */
-function TreeToolSet({ t }: { t: Translate }): JSX.Element {
+function TreeToolSet({ t, grade }: { t: Translate; grade?: boolean }): JSX.Element {
   const g = useValue(glade$);
   const available = !!g?.available;
   const active = !!g?.active;
@@ -430,8 +433,42 @@ function TreeToolSet({ t }: { t: Translate }): JSX.Element {
           </Tip>
         </div>
       </div>
-      <div className={styles.pickerSet} style={{ flexGrow: 3 }} />
+      {grade ? (
+        <>
+          <div className={styles.pickerSet} style={{ flexGrow: 1 }} />
+          <GradeToolSet t={t} />
+        </>
+      ) : (
+        <div className={styles.pickerSet} style={{ flexGrow: 3 }} />
+      )}
     </>
+  );
+}
+
+/** Contract 14 (T139): the Runs tab's "Grade cat track" chip, over the night and cat-track tiles (the lift generator's pattern: reads
+ *  the non-CORE grade binding, fires hubTriggers.gradeToggle, which C# turns into CatTrackGradeToolSystem.TryActivate("hub") /
+ *  Deactivate()). Ok panel only (FooterInfo.liftTool). */
+function GradeToolSet({ t }: { t: Translate }): JSX.Element {
+  const g = useValue(grade$);
+  const available = !!g?.available;
+  const active = !!g?.active;
+  const tip = active ? t(HUB_LOC.gradeToolTipOn) : !available ? t(HUB_LOC.liftToolUnavailable) : t(HUB_LOC.gradeToolTip);
+  return (
+    <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 2 }}>
+      <div className={styles.pickerCell}>
+        <Tip tip={<TipLines lines={[t(HUB_LOC.gradeTool), tip]} />}>
+          <Button
+            focusKey={FOCUS_DISABLED}
+            disabled={!available && !active}
+            theme={{ button: cx(styles.pickerChip, active && styles.pickerChipOn) }}
+            selected={active}
+            onSelect={() => hubTriggers.gradeToggle()}
+          >
+            <div className={styles.pickerLabel}>{t(HUB_LOC.gradeTool)}</div>
+          </Button>
+        </Tip>
+      </div>
+    </div>
   );
 }
 
@@ -551,7 +588,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
           {tab === "lifts" && sets.lift.length > 0 && <PickerSetView set="lift" options={sets.lift} chosen={eff.lift} dot={dot} t={t} onPick={onPick} />}
           {tab === "lifts" && info.liftTool && <LiftToolSet t={t} />}
           {tab === "buildings" && <GroupCaptions groups={groups} t={t} />}
-          {tab === "runs" && <TreeToolSet t={t} />}
+          {tab === "runs" && <TreeToolSet t={t} grade={info.liftTool} />}
         </div>
       )}
       <div className={styles.buildRow}>

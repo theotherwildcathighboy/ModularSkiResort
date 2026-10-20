@@ -32,7 +32,7 @@ Seams (S#):
   S9 manifests: tower datum / stubs / UtilityObject; station levels, stubs, docks and hosted
      poses (base only, identity, m_ParentMesh 0; top hosts none); cabin contract rows; the
      cabin's hosted-pose formula (pivot = deck - 0.30) == the stations' deck / pivot.
-  S10 lift_terminal_detach --gondola's carrier envelope (GD_ENV: per height band, off-centre
+  S10 lift_terminal_detach --gondola's carrier envelope (GD_ENV: per height band, off-center
      OUTBOARD by the 6th field) encloses every vertex of the shipped SkiGondolaCabin8A
      LOD0/1/2. A FAIL once stations/gondola/A is exported (a NOTE before).
   S12 gondola stations (draft 1, 2026-10-11) vs cabin, towers and catalog: the shipped
@@ -50,13 +50,13 @@ Seams (S#):
      never compared (fixer 2026-10-11, review finding 1). lift_cabin, tram_tower and tram_station
      read the rows with no drift.
   S13 bay gates vs the cabin doors (revision 1e): lift_cabin's door (leaves -+T["door"]["x_out"] 0.850
-     about the cabin centre = TRAM_STATION dock z = the cabin manifest's hosted z_bay = tram_station
+     about the cabin center = TRAM_STATION dock z = the cabin manifest's hosted z_bay = tram_station
      DOCK_Z = GATE_DOOR_Z) against tram_station's fence layout (gate_layout, nothing built) on both
-     stations: no post or leaf in the door span (1.70 m), a clear opening >= 1.70 centred on the seam
+     stations: no post or leaf in the door span (1.70 m), a clear opening >= 1.70 centered on the seam
      with leaves beside it long enough to close on the seam (each >= half the opening),
      the gate line outside the cabin's lateral bound; the 1d grid (GATES_AT_DOOR False) would fail the
      same predicate (self-check); the shipped station manifests' C17 blocks carry the same door and four
-     centred openings.
+     centered openings.
   S14 the tram top's haul loop (revision 2, design 8 / skeptic MC9): recomputed HERE from tram_station's
      constants (the internal tangent of the foot sheave and the bullwheel, the lane wheel's top and back points),
      every tangent point of tram_station.haul_route_top() lies on its lane-wheel / foot-sheave / bullwheel rope
@@ -74,8 +74,8 @@ Seams (S#):
      cross the rocker mains of each. Builds 4 towers + the gondola top (~1 min); `-- --no-s15` skips it (quick runs).
   Nitpick B2 (2026-10-13, build/nitpick-b2-tram-ramps.md): the tram base's lot 6 x 3 moved its building 4.00 m toward
      -X; its manifest's prefab_contract.axis_x (-4.00) is the line axis, and S9 / S14 compare the base's stubs, hosted
-     cabins and wheel centres RELATIVE to it (the seams are relative: lane gauge, hang, haul offset, wheel geometry).
-  INFO: the parked wheel float over the stations' thinner modelled track rope.
+     cabins and wheel centers RELATIVE to it (the seams are relative: lane gauge, hang, haul offset, wheel geometry).
+  INFO: the parked wheel float over the stations' thinner modeled track rope.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_gondola_tram_seams.py
 """
@@ -152,7 +152,7 @@ def manifest(rel, name):
 
 
 def fbx_verts(rel, name, lod=""):
-    """Raw FBX vertices in metres = prefab-local (x lateral, y up, z travel)."""
+    """Raw FBX vertices in meters = prefab-local (x lateral, y up, z travel)."""
     p = os.path.join(IMPORT, rel, name, f"{name}{lod}.fbx")
     if not os.path.isfile(p):
         return None
@@ -439,7 +439,7 @@ def manifest_seams():
 
 def gate_span_report(role):
     """The fence of one berth edge for `role` against lift_cabin's door span: (parts overlapping the
-    span, opening width, opening centre, posts bounding it, the lengths of the two leaves beside the
+    span, opening width, opening center, posts bounding it, the lengths of the two leaves beside the
     opening). Pure arithmetic on tram_station.gate_layout."""
     c, half = float(LC.TRAM_STATION["dock_z"]), float(LC.T["door"]["x_out"])
     lo_s, hi_s = c - half, c + half
@@ -473,7 +473,7 @@ def gate_door_seams():
           f"{2 * half:.2f}, 0.10 m of clear on each side of the leaves")
     # the gate line stands outside the cabin's lateral bound: the door faces are at lane -+ y_front
     for ex in TS.GATE_EDGES:
-        gap = abs(abs(ex) - TS.TRACK_X)                            # berth edge to the lane centre
+        gap = abs(abs(ex) - TS.TRACK_X)                            # berth edge to the lane center
         check(gap - float(door["y_front"]) >= 0.40,
               f"S13 gate line x {ex}: {gap:.2f} m from the lane centre, {gap - float(door['y_front']):.3f} m "
               f"outside the door face ({door['y_front']})")
@@ -574,7 +574,7 @@ def haul_loop_seams():
         e = max(abs(math.dist(p, c) - r) for p in (ap[0], ap[-1]))
         check(e <= tol, f"S14 base haul loop: the {nm}'s tangent points on its rope circle", f"({e * 1000:.3f} mm)")
     check(abs(TS.BASE_DS_X + TS.BASE_DS_RR - hx) <= tol, "S14 base deflection sheaves' outer tangent at x +-HAUL_X")
-    # the shipped manifests carry the same wheel centres
+    # the shipped manifests carry the same wheel centers
     for role, want in (("top", {"bullwheel": ([0.0, TS.BULL_Y, TS.BULL_Z], TS.BULL_RR),
                                 "deflection": [([s * hx, TS.DW_Y, TS.DW_Z], TS.DW_RR) for s in (-1, 1)],
                                 "foot_sheaves": [([s * TS.FS_X, TS.FS_Y, TS.BULL_Z], TS.FS_RR) for s in (-1, 1)]}),
@@ -585,7 +585,7 @@ def haul_loop_seams():
         if not m:
             continue
         wc = m["prefab_contract"]["wheel_centres"]
-        ax = float(m["prefab_contract"].get("axis_x", 0.0))    # nitpick B2: wheel centres relative to the line axis
+        ax = float(m["prefab_contract"].get("axis_x", 0.0))    # nitpick B2: wheel centers relative to the line axis
         bad = []
         for key, w in want.items():
             got = wc.get(key)

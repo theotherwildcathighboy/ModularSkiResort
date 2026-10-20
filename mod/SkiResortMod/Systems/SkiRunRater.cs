@@ -259,7 +259,7 @@ namespace SkiResortMod.Systems
 
             // R2b (run-feedback-spec.md §9.8): the crux connectivity follows the step multiple —
             // the classifier does not know it, so the caller sets SlopeGrid.DiagonalRule
-            // (8-neighbour at m = 1, R2's rule; the diagonal rule at m >= 2). Set on the target
+            // (8-neighbor at m = 1, R2's rule; the diagonal rule at m >= 2). Set on the target
             // before every Plan; Plan leaves it untouched.
             if (target != null)
                 target.DiagonalRule = m >= 2;

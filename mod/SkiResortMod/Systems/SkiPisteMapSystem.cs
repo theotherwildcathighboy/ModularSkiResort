@@ -1,6 +1,6 @@
 // SkiPisteMapSystem — the piste-map overlay (Round E1, decision D19; docs/research/econ-round/spec/
 // ch5-hub-csharp.md §8): while the hub is open with its Piste map toggle on (and the tree tool off), the
-// shown ski area's run outlines are drawn on the ground, draped on the terrain, in their difficulty colours;
+// shown ski area's run outlines are drawn on the ground, draped on the terrain, in their difficulty colors;
 // natural runs are dashed, the run the mouse is over in the hub's run list is drawn twice as wide and fully
 // opaque. Created as a stage-0 shell (S0, e1-spec I-22); written 2026-10-04 (Round E1, stream S5).
 //
@@ -8,7 +8,7 @@
 // uiHello with contract 3, the hub open, the toggle on), ShownSign and HoveredRun; SkiGladeToolSystem
 // .IsActive (C15: the tree tool draws its own outlines on the same edges, so the piste map steps aside);
 // SkiRunCatalogSystem rows (Gate, Kind, Band; the catalog runs with the hub closed since E1, ch2 §2, and its
-// Revision hash includes the band, so a rating recolours within a frame) and each run's Game.Areas.Node
+// Revision hash includes the band, so a rating recolors within a frame) and each run's Game.Areas.Node
 // buffer. Nothing else: no ECS write, no component of ours.
 //
 // THE CACHE (§8.5): the outlines are cut ONCE into a managed stage of straight segments
@@ -28,7 +28,7 @@
 // uploads and clears the lists (:738-741, :781, :790). Each segment: Buffer.DrawLine(outline, fill,
 // outlineWidth, StyleFlags.Projected, Line3.Segment, width, roundness (1, 1)) (:207-211; Projected drapes on
 // the terrain, :99-104). Width = BaseWidthM × PisteMapRules.WidthScale(camera zoom) (× HoverWidthFactor for
-// the hovered run, whose colours go fully opaque). Colours are the hub's band colours (hub.module.scss
+// the hovered run, whose colors go fully opaque). Colors are the hub's band colors (hub.module.scss
 // .band*), sRGB / 255: OverlayRenderSystem converts with Color.linear (F7). The job reads no ECS data, so
 // base.Dependency is neither an input nor assigned.
 //
@@ -77,7 +77,7 @@ namespace SkiResortMod.Systems
         {
             public const float BaseWidthM = 3f;              // outline width at zoom ≤ RefZoomM (× PisteMapRules.WidthScale)
             public const float HoverWidthFactor = 2f;        // the hovered run
-            public const float DashM = 20f, GapM = 12f;      // natural runs (world metres along the outline)
+            public const float DashM = 20f, GapM = 12f;      // natural runs (world meters along the outline)
             public const float OutlineBlackM = 0.6f;         // white edge of black runs (× width scale)
             public const float OutlineDoubleBlackM = 1.0f;   // white edge of double-black runs
             public const float BackstopS = 5f;               // rebuild the cache at least this often while drawn (a pure move keeps the catalog hash)
@@ -130,8 +130,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // Colours by (int)PisteStyle (Pending, Unrateable, Flat, Green, Blue, Black, DoubleBlack): the hub's band
-        // colours, sRGB / 255 (ch5 §8.3). Outline = fill and width 0 except the black runs' white edge.
+        // Colors by (int)PisteStyle (Pending, Unrateable, Flat, Green, Blue, Black, DoubleBlack): the hub's band
+        // colors, sRGB / 255 (ch5 §8.3). Outline = fill and width 0 except the black runs' white edge.
         private static readonly UnityEngine.Color[] s_Fill =
         {
             Rgb(255, 255, 255, 0.45f), Rgb(220, 150, 60, 0.9f), Rgb(170, 180, 190, 0.9f), Rgb(76, 175, 80, 0.95f),

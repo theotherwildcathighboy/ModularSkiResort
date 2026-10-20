@@ -47,7 +47,7 @@ namespace SkiResortMod.Systems
         /// until the first measurement, so a load in deep winter never flashes the plumes.</summary>
         public enum GunState : byte { Unknown = 0, Stopped = 1, Running = 2 }
 
-        /// <summary>The merge's at-target tolerance in metres (half a 16-bit quantum of the 8 m scale, 0.06 mm).</summary>
+        /// <summary>The merge's at-target tolerance in meters (half a 16-bit quantum of the 8 m scale, 0.06 mm).</summary>
         public const float AtTargetToleranceM = RunSnowRules.HalfQuantum * RunSnowRules.SnowHeightScaleM;
 
         /// <summary>The pack at or above which the guns stop.</summary>
@@ -70,7 +70,7 @@ namespace SkiResortMod.Systems
         /// dropped silently, :224). The plume system WARNs once per load when more guns than this want a plume.</summary>
         public const int PlumeMaxCount = 256;
 
-        /// <summary>The run's pack in metres on the stop-depth scale (header THE PACK MEASURE); NaN when nothing was
+        /// <summary>The run's pack in meters on the stop-depth scale (header THE PACK MEASURE); NaN when nothing was
         /// measured (targetSum not above zero, or a non-finite sum).</summary>
         public static float PackDepthM(double targetSum, double packSum)
         {

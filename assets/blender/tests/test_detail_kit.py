@@ -41,7 +41,7 @@ K9  detail pass 1b (Richard, ninth look, 2026-10-11): (a) every gear item on the
     = pole +-0.30 to 1.80 + canopy tier = union footprint from 1.80, as recipes/l5), no box
     overlap but a pole in its own table set; bounds / GUIDs re-derived from the dump when present.
     Fine-detail step 3a: run on the SHIPPING L1 (the FineRecipe of recipes/lodge_aframe_fine.py): its
-    first 22 rows, + the 6 kit racks boxed, + no modelled rack / porch-lantern part left.
+    first 22 rows, + the 6 kit racks boxed, + no modeled rack / porch-lantern part left.
 K10 fine-detail step 3a, L1 (`-- --no-k10` skips): the kit rack rows = the removed rack frames vertex
     for vertex (identity; yaw 90 negative), loadouts alternate, the leaning singles kept (FS6), the
     rail-F lanterns kept, the porch wall lights on the column faces at the old lens, the flag mast fine,
@@ -301,7 +301,7 @@ def _label_mesh(side, turn, mirror, w=2.0, h=0.5, A=1024):
     up = Vector((0.0, 0.0, 1.0))
     right = (-n).cross(up)
     lay = me.uv_layers.new(name=cs2_uv.UNIQUE_LAYER)
-    k = 0.40 / max(w, h)                           # UV units per metre
+    k = 0.40 / max(w, h)                           # UV units per meter
     cen = sum((me.vertices[i].co for i in me.polygons[0].vertices), Vector()) / 4.0
     for li in me.polygons[0].loop_indices:
         P = me.vertices[me.loops[li].vertex_index].co - cen
@@ -458,7 +458,7 @@ def k3_metrics():
 # of the 1b re-base, the 19:45 L1 / 10:20 L3 exports):
 #   L1 520cea17ca2e: db9e6e963b39 / 49730cc8149f / bf6c6dddc948 / fa020fae48f8
 #   L3 5150d42da15b: e9768df6c4e9 / adca88d938fd / 9f7ec8bc8400 / 024b3c4ae79a
-# What moved and why: L1 = the 10 modelled umbrellas (30 parts), the porch bench (2) and bin (1)
+# What moved and why: L1 = the 10 modeled umbrellas (30 parts), the porch bench (2) and bin (1)
 # left for vanilla sub-objects (blockout LOD0 10,591 -> 9,913); L3 = the stair-foot lamp post
 # (col_lampTS + lamp_terrstair + arm) left for a vanilla GardenLight (6,976 -> 6,914). `Win` moved
 # on both through the `part` attribute only (the pane parts' ids shift down when earlier parts
@@ -479,7 +479,7 @@ def k3_metrics():
 # measured on recipes/l5_swanky_bottom.py 4c5a7eb4d3ed in two separate processes (equal); before
 # (the 1b re-base of revision 2):
 #   L5 a8ac79fa142f: 6f15489ad0a7 / 927ee60aeaae / 5226eac33be0 / a45b9a3f2b5c
-# What moved and why: everything - the road plaza and its modelled dressing left (vanilla rows now),
+# What moved and why: everything - the road plaza and its modeled dressing left (vanilla rows now),
 # the slope plaza, the valet drive / walks / island and the stair on the deck's +Y edge came, the
 # build moved X_SHIFT -4 -> +4 (LOD0 24,383; the revision-2 export shipped 28,285); `Win` moved through the shift and
 # the `part` ids (cells and ids unchanged: 21 rooms).
@@ -502,7 +502,7 @@ K4_TABLE = {
     # for two ground-following BarrelRandom01 rows (blockout LOD0 4,435 -> 4,227); RE-BASED for the five re-exported
     # hosts only (L2, L3, L4, L5, school), measured on the edited sources (scratchpad ncl/scripts/k4_probe.py). Before:
     #   L2 6e6577c37747: 9feb866f1ed0 / a18af35b7148 / e934cdedfc97 / 293415625a4c (the step-3a row; its source had
-    #   already moved to 82a480203b82 with the kit colour variants, so the row was being SKIPPED, geometry unchanged)
+    #   already moved to 82a480203b82 with the kit color variants, so the row was being SKIPPED, geometry unchanged)
     # `lodge.py --lodge L2 --no-fine --blockout` still reproduces aec16fdc1359's 93c9b746b2fc / c240f5239068 /
     # 2f413682db4b / 70c5833b8a91. `Win` unchanged (the fuel station has no pane).
     "L2": ("recipes/lodge_hut.py", "fdf6eb5f5272", "00d64047d71a", "a18af35b7148", "957caf54482c", "048ca311c2aa"),
@@ -511,16 +511,16 @@ K4_TABLE = {
     # (was 600882ce1bfb / bf7f67511d3d / eb05d8fa5cfb / ab6fee160814 / eb2855857a0f = what
     # `lodge.py --lodge L3 --no-fine --blockout` still reproduces); `Win` moved through the `part` ids only
     # nitpick C: the three pictogram boards are blank boards (labels only: the blockout and its LODs are unchanged);
-    # only the source key moved (cf5c8ce290e3 -> the kit colour variants' b2a76689ae38, skipped since -> this edit)
+    # only the source key moved (cf5c8ce290e3 -> the kit color variants' b2a76689ae38, skipped since -> this edit)
     "L3": ("recipes/lodge_chalet.py", "e254f8eef22c", "6ef1c2370beb", "1bd6d50e4213", "291364c2d737", "ed36571c1c3f"),
     # L4 revision 1 / L5 revision 4 (2026-10-12, eighteenth look; build/lodges-swanky.md "Revision 1 (vanilla
     # pass, cantilevered deck, terrace door, gutter)" / "Revision 4 (gable infill, pool-side doors)"): ONLY
     # these two rows re-based, measured in two separate processes (equal). Before:
     #   L4 8c72e376dfec: 2566625f42aa / 3c18b6ed0f19 / f287996cc220 / e7cc614fa9b6
     #   L5 4c5a7eb4d3ed: 7800f44149ad / 1c1da10f6160 / aec0eb5356de / 593e4a487f90
-    # What moved: L4 = vanilla rows for its modelled dressing, the 5.3 m deck cantilever, the dining
+    # What moved: L4 = vanilla rows for its modeled dressing, the 5.3 m deck cantilever, the dining
     # door, the porch under the eave (blockout LOD0 8,397 -> 8,056); L5 = the porte-cochere gable
-    # infill, three terrace doors in recessed openings, the re-centred / new podium flights, six LOD2
+    # infill, three terrace doors in recessed openings, the re-centered / new podium flights, six LOD2
     # deletes (LOD0 24,383 -> 24,937); `Win` moved with the door lites / sidelights (cells unchanged:
     # L4 23 rooms, L5 21)
     # fine-detail step 3e (2026-10-12, twenty-third look; build/fine-detail-step3e-swanky.md): L4 and L5 opt in
@@ -534,7 +534,7 @@ K4_TABLE = {
     # `part` ids only (cells unchanged: 21 rooms); L4's `Win` is equal.
     # nitpick C: L4's forecourt board is blank (labels only: hashes unchanged); L5 not edited (its GRAND LODGE
     # lettering lives on the sheet). Only the source keys moved (e4f246edcee6 / f623d6e6e2e5 were stale since the
-    # kit colour variants edited l5_swanky_bottom.py: skipped; the hashes measured equal on the current sources)
+    # kit color variants edited l5_swanky_bottom.py: skipped; the hashes measured equal on the current sources)
     "L4": ("recipes/l4_swanky_top.py+recipes/l5_swanky_bottom.py", "7d462e7c1110", "e11882c5b498", "694abbbc3453",
            "a6122de761b8", "f90147e54090"),
     "L5": ("recipes/l5_swanky_bottom.py", "2ae6a82b8990", "f9526ae3a44a", "6249bf89e4dd", "963789b32ff2", "cbfb9dbcdcbd"),
@@ -559,7 +559,7 @@ K4_TABLE = {
     # with the taller back panes (2 x 2 lights) and the shift (cells unchanged: 4 rooms)
     # nitpick C: the school's SKI SCHOOL / STAFF ONLY / NO SLEDDING lettering lives on the sheet (cs2_signset): the
     # recipe is not edited, the hashes measured equal; only the stale source key (72187a210775, skipped since the kit
-    # colour variants) re-based
+    # color variants) re-based
     "school": ("recipes/school.py", "15fc26957408", "2ea888e2824f", "48b4eeca676d", "662c3f45b7e4", "aafa64874c54"),
 }
 # fine-detail step 3d (2026-10-12): the sign's default build is the fine one (the SKI AREA header in the sign set
@@ -841,7 +841,7 @@ def k9_rack_reach():
                 assert length >= reach - 1e-9, \
                     f"{key} rack {name}: a {kind} of {length} m stops short of the {reach:.3f} m lean"
                 n += 1
-    # L5 (not this pass's file): every (slot, side, kind, colour, length) tuple of a rack table
+    # L5 (not this pass's file): every (slot, side, kind, color, length) tuple of a rack table
     l5 = _recipe_module("recipes/l5_swanky_bottom.py")
     short = 0
     for v in vars(l5).values():
@@ -905,7 +905,7 @@ def k9_l1_tables():
     # those), then the 2 porch wall lights (K10) and the 6 kit racks (boxed here too, on the lot)
     rec = R.get_recipe("L1")
     ums = R.AFRAME_L1["UMBRELLAS"]
-    # T26 2026-10-16 dropped the parasols (12 rows); restored 2026-10-17 (Richard: vanilla props, random colours
+    # T26 2026-10-16 dropped the parasols (12 rows); restored 2026-10-17 (Richard: vanilla props, random colors
     # accepted): the deck / porch rows are 10 tables + 10 parasols + 2 porch = 22 again
     rows = tuple(rec.sub_objects[:22])
     kit = tuple((e["prefab"], e["m_Object"], tuple(e["position"]), tuple(e["rotation"]), e["m_ParentMesh"])

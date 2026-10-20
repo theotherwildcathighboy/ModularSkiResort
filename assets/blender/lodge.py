@@ -4,7 +4,7 @@ lodge.py - the building recipe engine (lodges L1-L5, ski school, patrol P1/P2).
 Contract: docs/research/art/assets-2026-10/design/bldg-kit.md sections 1, 8, 9, 11-17 with
 design/bldg-kit-skeptic.md applied (MUST-CHANGE 1 src_uv="UVTile" + stripped part UV
 layers; 2 lot-fit / facing between apply_yaw and orient_for_net; 3 plinth stairs below
-grade; 4 ground-band hygiene; 5 height-aware cull; 6 CC0 prefilter; 7 colour spaces;
+grade; 4 ground-band hygiene; 5 height-aware cull; 6 CC0 prefilter; 7 color spaces;
 8 kept-area texel prediction + full-level LOD dry run). Recipes are data in
 bldg_recipes.py and recipes/*.py; the kit is cs2_bldg.py.
 
@@ -44,7 +44,7 @@ cs2_weather (wrap_weather: roles by material index, label rects protected); reci
 override the kit's density weights (part_weights); recipe.sub_objects and the
 DisplayPainter numbers go into the manifest (sub_objects, labels, weather blocks).
 Nitpick C (2026-10-13, build/nitpick-c-lodges.md): a FineRecipe build lists its Write Everywhere targets (every
-host label painted by fine_detail.blank_board, every lit or blank sign-set face: centre / normal / right / up in
+host label painted by fine_detail.blank_board, every lit or blank sign-set face: center / normal / right / up in
 the game frame + size, cs2_signset.face_record) in the manifest `we_boards` block (absent when there are none).
 Exit code 1 on any exception; last line
     PASS lodge: <Name> LOD0 n, chain [n1, n2], rooms k, engine base <verdict>, tex A, px/m med
@@ -357,7 +357,7 @@ def _wall_of(v, side):
 
 
 def layout_facade(rule, volume):
-    """[(token, u0, u1)]: n = len(pattern) bays of rule.bay_w centred in the wall span
+    """[(token, u0, u1)]: n = len(pattern) bays of rule.bay_w centered in the wall span
     minus `margin` each side; asserts bay >= win.w + 0.6 (W tokens) and fit."""
     wall = _wall_of(volume, rule.side)
     span0, span1 = wall.u0 + rule.margin, wall.u1 - rule.margin
@@ -428,7 +428,7 @@ def aframe_parts(c, opts):
     `aframe` recipe): `KNEE_H` (bldg_recipes.aframe_knee; absent = 0 = the base_lodge port)
     is the vertical wall added under the eaves - every literal height above the old eave
     moves with it (roof windows, loft bands, clerestory, chimney top = RIDGE_Z + 1.16); the
-    prow storey starts at the main +X wall (its -X face contact-culls against the main
+    prow story starts at the main +X wall (its -X face contact-culls against the main
     wall, bisected at the prow's y, instead of standing 15 m inside the hall); the porch
     roof runs back to the main wall over the cap ledge; DECK_X1 past the cap ring builds a
     `deck_ext` strip on `col_deckext` posts (closed, from GROUND_LIFT) + `beam_deckext` +
@@ -455,7 +455,7 @@ def aframe_parts(c, opts):
     K.bisect_part(cap[0][0], [((BX0, 0, 0), (1, 0, 0)), ((BX1, 0, 0), (1, 0, 0)),
                               ((0, BY0, 0), (0, 1, 0)), ((0, BY1, 0), (0, 1, 0))])
     P += cap
-    # ---- timber storey (+ KNEE_H knee walls) + gable walls --------------------------------
+    # ---- timber story (+ KNEE_H knee walls) + gable walls --------------------------------
     main = K.storey("main", S2X0, S2X1, BY0, BY1, S1_Z, S2_Z, "timber_lap", drop=("-Z", "+Z"),
                     cut_z=(S1_Z + 0.17, DTOP))
     K.bisect_part(main[0][0], [((0, PY0, 0), (0, 1, 0)), ((0, PY1, 0), (0, 1, 0))])
@@ -563,7 +563,7 @@ def aframe_parts(c, opts):
     # ---- umbrellas (slot 2) -------------------------------------------------------------------
     # PARASOLS_VANILLA (L1, fifteenth look 2026-10-11, Richard: no house-made umbrellas): the
     # deck parasols are vanilla ParasolRandom01 sub-objects (bldg_recipes.L1_PARASOLS), none
-    # modelled; params without the key keep the base_lodge port's modelled umbrellas
+    # modeled; params without the key keep the base_lodge port's modeled umbrellas
     umbrellas = () if c.get("PARASOLS_VANILLA") else (
         c.get("UMBRELLAS") or ((8.6, -17.0), (11.9, -12.7), (8.8, -9.9), (9.0, 13.2), (11.9, 17.2)))
     for k, (ux, uy) in enumerate(umbrellas):
@@ -615,7 +615,7 @@ def aframe_parts(c, opts):
     #                                         the eave no longer covers the cap ledge)
     if v2:                                  # ridge v2: same pitch, slabs end +-RIDGE_GAP past y 0, flashing on top
         pt = (5.295 - 2.85) / 2.65
-        pz = 5.295 - 0.05 * pt              # the slab centre plane at y 0
+        pz = 5.295 - 0.05 * pt              # the slab center plane at y 0
         P += K.roof_slab("porchS", "X", -17.4, pb, -2.6, 2.85, g_, pz + g_ * pt, thick=0.20,
                          mat="metal_roof", ridge_x=g_)
         P += K.roof_slab("porchN", "X", -17.4, pb, 2.6, 2.85, -g_, pz + g_ * pt, thick=0.20,
@@ -662,7 +662,7 @@ def aframe_parts(c, opts):
     for i, y in enumerate((-16.0, -8.0, 0.0, 8.0, 16.0)):
         # T101 r2 found the placeholder ACVentRoofRandom01 too steep for this 53-degree roof (one seat for five
         # variants); T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): the specific ACVentRoof03 passes the gate, so fittings v1 = five
-        # vanilla rows 0.5 m down the W slope (cs2_fittings ROWS["L1"]["roof"]), no modelled stack
+        # vanilla rows 0.5 m down the W slope (cs2_fittings ROWS["L1"]["roof"]), no modeled stack
         if K.FITTINGS.get("version", 0) < 1:
             P += K.vent_stack(f"ridge{i}", spec, RX, y)
     P += K.snow_guard("W", spec, "-X")
@@ -677,7 +677,7 @@ def aframe_parts(c, opts):
     fit = K.FITTINGS.get("version", 0) >= 1
     # close look (2026-10-17, coordinator's choices): the slope-side pipes no longer drop from the eave in front of
     # the side rail; they run on the main wall 0.4 m inside the rail line (y +-20.6, behind it, beside its wall
-    # post) and stand on the deck. The park-side pipes land on the base storey's flat top (A-Basin's lower storey is
+    # post) and stand on the deck. The park-side pipes land on the base story's flat top (A-Basin's lower story is
     # a flat-roofed deck, the A-frame sheds onto it) and that ledge gets a scupper and a pipe of its own to grade.
     ex, ey = (S2X1 + 0.06, 20.6) if fit else (S2X1 + OVER + 0.25, 20.9)
     for nm, x, y, nrm, zb in (("WS", wsx, -20.8, "-X", 0.05), ("WN", wsx, 20.8, "-X", 0.05),
@@ -718,7 +718,7 @@ WINDOW_MODE = {"L2": "lean", "L5": "lean"}
 # head-board rule override per recipe ("family" = the family's own): L2 has 208 tris of LOD0
 # headroom, so only its arrival facade gets the head board (the rest the U casing)
 WINDOW_LINTEL = {"L2": "none"}
-# extra flat-detail prefixes (cs2_tilesheet flat_prefixes: the material's mean colour, no tile
+# extra flat-detail prefixes (cs2_tilesheet flat_prefixes: the material's mean color, no tile
 # cuts) that pay for kit v2 where the cap is tight: L2's timber guard rails (604 tris tiled)
 WINDOW_FLAT_EXTRA = {}
 # wall holes per recipe: "all" | "arrival" (the other facades get SURFACE openings: glass just
@@ -770,7 +770,7 @@ def door_kit_cfg(recipe, args):
             "mode": mode, "arrival": (math.cos(a), math.sin(a))}
 
 
-# fittings v1: modelled fitting parts named fit_* draw their material's flat colour (no tile cuts);
+# fittings v1: modeled fitting parts named fit_* draw their material's flat color (no tile cuts);
 # the shoes ride inside downspout_ and the new snow fences are snowguard_ (both flat already)
 FITTINGS_FLAT = ("fit_",)
 # close look (2026-10-17): thin fittings never hide another part's face in cull_hidden (thin_occluders)
@@ -841,7 +841,7 @@ PLATE_MERGE_GAP_SURFACE = 0.08   # surface lights: bars only (a plate across two
 PLATE_HIDE_REACH = 0.35     # a margin corner must hit main mesh within this along +n (behind a wall / casing)
 PLATE_FAR_PROUD = 0.02      # far set: the plate 2 cm proud of the unholed wall, 3 cm behind the far glass (+0.05)
 INTERIOR_SHARE = (("interior_lit", 12), ("interior_dim", 5), ("interior_dark", 3))   # of 20, by group name hash
-# T89: today's accent colour becomes a fixed key per building (the old slot-2 default)
+# T89: today's accent color becomes a fixed key per building (the old slot-2 default)
 SLOTS_V2_ACCENT = {"school": "accent_orange", "P1": "accent_orange", "L1": "accent_orange",
                    "L2": "accent_red", "L3": "accent_red", "L5": "accent_green"}
 # the X mesh prefabs' ColorProperties (slot 1 / 2 / 3), gamedata-mirror 2026-10-19 (surgery-x-b section 2)
@@ -1090,7 +1090,7 @@ def unrecess_plates(far, depth, plates):
         c = M @ p.center
         n = (R3 @ p.normal).normalized()
         want = [r["delta_m"] + dd for dd in depths]
-        dist = None                     # centre + four inset samples: a mullion / bar in front of one is not the wall
+        dist = None                     # center + four inset samples: a mullion / bar in front of one is not the wall
         for q in [c] + [c + ((M @ me.vertices[vi].co) - c) * 0.6 for vi in p.vertices]:
             loc, _nn, _i, dd_ = bvh.ray_cast(q + n * 0.002, n, 1.0)
             if loc is not None and min(abs(dd_ + 0.002 - w) for w in want) <= 0.02:
@@ -1123,7 +1123,7 @@ def unrecess_plates(far, depth, plates):
 
 def slots_v2_report(recipe, layout, lod0, sdir, sname, keys, ctl_rgb):
     """T89: the default VariationSet that reproduces the X look and the composed ControlMask per key at the LOD0 face
-    centroids (`ctl_rgb`, read before the tiling attributes were dropped). Colours are sRGB as ColorProperties stores
+    centroids (`ctl_rgb`, read before the tiling attributes were dropped). Colors are sRGB as ColorProperties stores
     them; the game multiplies their linear value (TS.slot_default_for, BatchDataSystem.cs:716-718)."""
     import cs2_tilesheet as TS
     s1, s2x, s3x = SLOTS_X[recipe.key]
@@ -1532,7 +1532,7 @@ def sub_objects_block(recipe):
                      "rotation": [round(float(v), 7) + 0.0 for v in gq],
                      "m_ParentMesh": int(parent)})
     if isinstance(recipe, FD.FineRecipe):
-        FD.check_kit_colours(recipe)        # one colour set per building (kit colour variants), after the row checks
+        FD.check_kit_colours(recipe)        # one color set per building (kit color variants), after the row checks
     block = {"target_prefab": recipe.prefab,
              "frame": "game local (gx, gy, gz) = (-y, z, x) of authoring, gx NEGATED (x-sign gate N, 2026-10-15); "
                       "rotation (x, y, z, w); recipes design rows in the old +y frame, written through rule T "
@@ -1552,8 +1552,8 @@ def _mod_row_block(recipe, e):
     if len(cid) != 32 or any(c not in "0123456789abcdef" for c in cid):
         raise ValueError(f"{recipe.key}: mod row {e.get('prefab')!r} CID {cid!r} (32 hex)")
     kit = FD.KIT.get(str(e.get("prefab")))
-    # kit colour variants (2026-10-12): a coloured kit prop names its colour-set VARIANT's CID
-    # (fine_detail.row_colour_error), an uncoloured one the staged KIT CID
+    # kit color variants (2026-10-12): a colored kit prop names its color-set VARIANT's CID
+    # (fine_detail.row_colour_error), an uncolored one the staged KIT CID
     if e.get("role") != "signset" and (kit is None or FD.row_colour_error(e)):
         raise ValueError(f"{recipe.key}: mod row {e.get('prefab')!r} CID {cid} is neither a dressing-kit "
                          f"object prefab (fine_detail.KIT / its colour variant: "
@@ -1703,7 +1703,7 @@ def remove_stale_maps(asset_dir, name, written):
 def _we_boards(parts, recipe, spec):
     """Nitpick C (2026-10-13): the Write Everywhere targets of a build - every host label painted by a
     fine_detail.blank_board (role "blank", drawn in the host atlas) and every sign-set face whose sheet kind is
-    lit (role "name") or painted blank (role "blank") - each as cs2_signset.face_record (centre / normal / right
+    lit (role "name") or painted blank (role "blank") - each as cs2_signset.face_record (center / normal / right
     / up in the game frame, size). Read from the parts BEFORE the sign set routes its faces out. [] when none
     (plain Recipes, hosts without such boards: the manifest then has no `we_boards` key)."""
     if not isinstance(recipe, FD.FineRecipe):
@@ -2183,7 +2183,7 @@ def run(recipe, args):
                   "letter": letter, "tint": tint, "lot_cells": list(recipe.lot)},
             out_dir=args.review or args.review_out or None,
             # vanilla props (DECISIONS 183): the manifest is written after this call, so hand the
-            # rows over; the pack shows one labelled stand-in box per row (pack only, not exported)
+            # rows over; the pack shows one labeled stand-in box per row (pack only, not exported)
             manifest={"sub_objects": sub_objects_block(recipe)} if recipe.sub_objects else {},
             **({"extra_meshes": {"SignSet": (signset["obj"], *result["sign_set"]["texture"])}}
                if signset is not None and result["sign_set"].get("texture") else {}))
@@ -2356,7 +2356,7 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
                  ground_prefixes=tuple(recipe.ground_prefixes) if recipe.base_mode == "engine" else (),
                  label_ppm=TS.LABEL_PPM * SA / 4096.0,
                  flat_prefixes=TS.flat_detail_prefixes(trim) + tuple(getattr(recipe, "tiled_flat", ()) or ())
-                 # kit v2: the window parts draw their material's mean colour (no tile cuts)
+                 # kit v2: the window parts draw their material's mean color (no tile cuts)
                  + ((K.KIT2_PARTS + WINDOW_FLAT_EXTRA.get(recipe.key, ()))
                     if getattr(args, "window_kit", "v1") == "v2" else ())
                  # door kit v2: its parts (exact names) draw flat too
@@ -2695,7 +2695,7 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
                                "sign_set": ss or None,
                                "rows": (data.get("sub_objects") or {}).get("kinds")}
     cs2_validate.write_manifest(asset_dir, name, data)
-    # kit colour variants (2026-10-12): a shipping export stages the variants its kit rows name
+    # kit color variants (2026-10-12): a shipping export stages the variants its kit rows name
     import dress_kit
     dress_kit.stage_from_manifest(asset_dir, name)
 

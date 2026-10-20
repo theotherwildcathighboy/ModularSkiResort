@@ -1,0 +1,8 @@
+{
+  "sharedAssets": {
+    "SkiNumTileT1N9A_BaseColor.png": "../SkiNumTileT1BlankA/SkiNumTileT1BlankA_BaseColor.png",
+    "SkiNumTileT1N9A_ControlMask.png": "../SkiNumTileT1BlankA/SkiNumTileT1BlankA_ControlMask.png",
+    "SkiNumTileT1N9A_MaskMap.png": "../SkiNumTileT1BlankA/SkiNumTileT1BlankA_MaskMap.png",
+    "SkiNumTileT1N9A_Normal.png": "../SkiNumTileT1BlankA/SkiNumTileT1BlankA_Normal.png"
+  }
+}

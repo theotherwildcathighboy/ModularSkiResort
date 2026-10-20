@@ -19,7 +19,7 @@ the lodge only. The top-left button is not rendered in the gamepad layout, and w
 game's mod panel shows the hub there is unverified; accepted (DECISIONS 130: gamepad is not a design
 constraint).
 
-Licence: MIT, like the rest of the mod. Every file here was written for this repo. The official
+License: MIT, like the rest of the mod. Every file here was written for this repo. The official
 Colossal Order template (game install, `Cities2_Data/Content/Game/.ModdingToolchain/
 npx-create-csii-ui-mod/template/`) was read only as a reference for the settings the game
 requires; each config file says in its header what it derives from. Nothing comes from

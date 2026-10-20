@@ -8,11 +8,11 @@ to be one straight segment running along +X.
 Run headless:
     blender --background --factory-startup --python lift_cable.py -- --out ../import
 
-Follows the same import contract as lift_tower.py (see SPEC 11.0): centimetres, Y-up, both baked
+Follows the same import contract as lift_tower.py (see SPEC 11.0): centimeters, Y-up, both baked
 into the vertices, no underscore in the asset name, no material.
 
 Orientation matches the tower generator: +X is the direction of travel, +Z up (converted to Y-up
-on export). The rope sits centred on the origin so the lane can position it.
+on export). The rope sits centered on the origin so the lane can position it.
 """
 
 import bpy

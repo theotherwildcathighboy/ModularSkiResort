@@ -10,7 +10,7 @@
  * types/api.d.ts), LocalizedString placeholder substitution, LocalizedNumber unit formats as the
  * hub expects them (src/hub/parts.tsx header), Panel / PanelFoldout / Button / FloatingButton /
  * Tooltip props the hub uses. What is NOT: the game's own component styling (vanilla panel chrome,
- * fonts, sounds, focus / gamepad), its full number localisation, and anything C# computes. The
+ * fonts, sounds, focus / gamepad), its full number localization, and anything C# computes. The
  * harness only answers the triggers a C# HubSystem would answer trivially (toggleHub, setHubOpen,
  * selectResort, setPisteMap, glade*, rename); everything else is logged.
  *
@@ -104,6 +104,7 @@
     selectResort: (sign) => set("selectedResort", sign || { index: 0, version: 0 }),
     setPisteMap: (on) => set("pisteMap", !!on),
     liftLineToggle: () => { const g = get("liftLine"); if (g) set("liftLine", Object.assign({}, g, { active: !g.active, state: "PickBase" })); },   // contract 12
+    gradeToggle: () => { const g = get("grade"); if (g) set("grade", Object.assign({}, g, { active: !g.active, state: g.active ? "" : "Empty" })); },   // contract 14
     gladeToggle: () => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { active: !g.active })); },
     gladeSetLevel: (level) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { level })); },
     gladeSetTreeLine: (treeLine) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { treeLine: !!treeLine })); },

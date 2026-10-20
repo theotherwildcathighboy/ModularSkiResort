@@ -13,7 +13,7 @@ L1 only: base_lodge.py parsed with `ast` (never imported: it mutates
 cs2_asset.QUAD_RESERVED_TOP at import, base_lodge.py:107) - every AFRAME constant equal,
 the derived MAIN_PITCH 1.32558 / 52.97 deg, S2_Z 6.758, PROW_PITCH 1.325, S2P_Z 6.625,
 DECK_TOP 4.66 within 1e-3 of both base_lodge's expressions and aframe_derived, and the
-main W slab's CENTRE plane passes through (S2_X0 - OVER, EAVE_Z) and (RIDGE_AT_X, RIDGE_Z)
+main W slab's CENTER plane passes through (S2_X0 - OVER, EAVE_Z) and (RIDGE_AT_X, RIDGE_Z)
 pre-yaw (25c: wall plates derived from the roof).
 Prefab names (buildings-review-pipeline 3; the prefab name is save identity): every
 registered recipe's `prefab`, welcome_sign.PREFAB and the `prefab` of every exported building
@@ -206,7 +206,7 @@ def check_l1_constants():
     print(f"ok L1: {len(R.AFRAME)} AFRAME constants == base_lodge.py (ast); derived "
           f"MAIN_PITCH {d['MAIN_PITCH']:.5f} ({d['MAIN_PITCH_DEG']:.2f} deg), S2_Z {d['S2_Z']:.3f}, "
           f"PROW_PITCH {d['PROW_PITCH']:.3f}, S2P_Z {d['S2P_Z']:.3f}, DECK_TOP {d['DECK_TOP']:.2f}")
-    # the W slab centre plane through the eave tip and the ridge line (pre-yaw parts)
+    # the W slab center plane through the eave tip and the ridge line (pre-yaw parts)
     lodge.clear_scene()
     parts = lodge.aframe_parts(R.AFRAME, {})
     slab = next(o for o, _ in parts if o.name == "roof_mainW")

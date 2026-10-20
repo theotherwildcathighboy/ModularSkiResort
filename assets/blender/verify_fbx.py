@@ -2,7 +2,7 @@
 Round-trip check: import an FBX back into a clean Blender scene and report its size.
 
 Purpose is to confirm what is actually IN the file, rather than trusting export settings.
-CS2 reads FBX vertex data as centimetres, so a 10.5 m asset must contain ~1050 units.
+CS2 reads FBX vertex data as centimeters, so a 10.5 m asset must contain ~1050 units.
 
     blender --background --factory-startup --python verify_fbx.py -- --fbx <path>
 """

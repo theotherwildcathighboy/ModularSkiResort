@@ -27,16 +27,16 @@ constants below; the build report has the command).
      reference-vocabulary kinds (vocab) are on NO station's label table and declare their fine print;
      ControlMask 0 and alpha 1 over the rect; deterministic; "IW" reads I-left-of-W and "L" keeps its
      foot at the bottom (rows bottom-up = the stamp frame, unmirrored); a circle pictogram stays round
-     in METRES at anisotropic px/m; the LED board's dots are >= 4 texels; stamp_on_face painter wrapper.
+     in METERS at anisotropic px/m; the LED board's dots are >= 4 texels; stamp_on_face painter wrapper.
   K9 the redraw's glyph primitives: the bar clears the rider's head in both states, the lowered
      cross-bar sits at chest height in front of the torso, the raised bar above the head; the ski is
      one thin line with its tip curved up (no blocks); every pictogram stroke >= 12 canvas units.
-     2026-10-12 nit fix (kit colour-variant fleet): the LOWER BAR hoop is loose (>= 18 units over the
+     2026-10-12 nit fix (kit color-variant fleet): the LOWER BAR hoop is loose (>= 18 units over the
      head top and ahead of the face), every arrow (LOWER / RAISE / TIPS UP) clears the ring's inner
      edge (in the shipped 0.225 m circle at 400 px/m) and the figure by >= 9 canvas units (3 texels);
      negatives: the pre-fix arrow (x 212 / 214, head 30) and the pre-fix hoop fail.
   K4 share_identical: translation copies grouped; a rotated and a mirrored copy rejected; a
-     different material rejected; size cap / whitelist / never-list honoured; an ACTIVE
+     different material rejected; size cap / whitelist / never-list honored; an ACTIVE
      DetailSpec prefix excluded (MC6) and the same prefix shared when inactive; pinned
      faces excluded; deterministic; pack_unique(share=...) stacks every dup loop on its
      canonical loop's UV, passes the layout contract, reports shared_faces, packs fewer
@@ -348,7 +348,7 @@ def k1_gear_equality():
             bpy.data.objects.remove(o, do_unlink=True)
         for o, _m in parts:
             bpy.data.objects.remove(o, do_unlink=True)
-    # materials: the dress keys ARE the building kit's look (accent = the slot-2 recolour)
+    # materials: the dress keys ARE the building kit's look (accent = the slot-2 recolor)
     for k in ("accent", "trim_white", "ski_black", "ski_blue", "ski_red"):
         bm_, dm = KB.BLDG_MATERIALS[k], LD.DRESS_MATERIALS[k]
         alb = KB.srgb_to_linear(bm_.target_srgb)
@@ -359,7 +359,7 @@ def k1_gear_equality():
               f"K1 gear material {k}: rough / metal / slot {dm} vs {bm_}")
     check(LD.DRESS_MATERIALS["accent"]["slot"] == 2, "K1 gear: accent is the slot-2 recolour")
     check(not {"ski_a", "ski_b", "ski_c"} & set(LD.DRESS_MATERIALS), "K1 gear: the old ski_a/b/c remain")
-    # a rack whose pitch cannot hold two neighbours across is refused
+    # a rack whose pitch cannot hold two neighbors across is refused
     try:
         LD.ski_rack("tight", 0.0, 1.6, 0.0, 0.30, pairs=3, boards=3)
         check(False, "K1 gear: a 0.17 m pitch next to a board did not raise")
@@ -414,7 +414,7 @@ def k1_ladder_compat():
         check(L["rungs"] == 9, f"K1 tram ladder: {L['rungs']} rungs")
         check(abs(L["pitch"] - 0.30) < 1e-3, f"K1 tram ladder: pitch {L['pitch']}")
         check(abs(L["foot_y"] - 3.62) < 1e-3, f"K1 tram ladder: foot {L['foot_y']}")
-        # walk_ladders takes the rung's bbox centre: a 3-seg rung's bbox sits r / 4 above its
+        # walk_ladders takes the rung's bbox center: a 3-seg rung's bbox sits r / 4 above its
         # axis (the shipped pcat ladder has the same bias), hence the 6 mm tolerance
         check(abs(L["first"] - 0.28) < 0.006, f"K1 tram ladder: first rung {L['first']}")
         check(abs(L["plane"] - (-8.62)) < 1e-3, f"K1 tram ladder: rung plane {L['plane']}")
@@ -544,7 +544,7 @@ def k3_painters():
     widest = int(np.argmax(widths))
     check(widest - rows.min() < 0.25 * (rows.max() - rows.min()),
           f"K3 'L': widest row {widest} not at the bottom ({rows.min()}..{rows.max()}) - flipped?")
-    # a circle pictogram stays round in METRES at anisotropic px/m (220 x 200 px over 0.55 x 0.55 m)
+    # a circle pictogram stays round in METERS at anisotropic px/m (220 x 200 px over 0.55 x 0.55 m)
     pu, pv = 220 / 0.55, 200 / 0.55
     col = np.empty((200, 220, 3), np.float32)
     col[...] = np.asarray(LD.INK["yellow"], np.float32)

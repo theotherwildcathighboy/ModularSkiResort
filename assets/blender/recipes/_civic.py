@@ -467,7 +467,7 @@ class GlyphPainter:
     (`prims` = function name, e.g. "cand_d" the skier on a slope) drawn white at `frac`
     of the face, oriented by the face's UV -> world frame (N5: the glyph is asymmetric;
     the host material may carry uv_rot 90). Paints only the glyph: stamp_on_face then
-    zeroes ControlMask R under it, the background keeps the host's slot colour."""
+    zeroes ControlMask R under it, the background keeps the host's slot color."""
 
     def __init__(self, face_prefix, prims="cand_d", frac=0.85, fg_srgb=0.92):
         self.face = face_prefix
@@ -499,11 +499,11 @@ class GlyphPainter:
 
 
 class BarsPainter:
-    """P1 info board: white field and three horizontal colour bars (blue, green, short
+    """P1 info board: white field and three horizontal color bars (blue, green, short
     blue), left-aligned as the viewer sees the board (contract 3.5)."""
 
     BARS = ((0.78, 1.00, (0.05, 0.20, 0.45)), (0.52, 0.80, (0.05, 0.30, 0.12)),
-            (0.26, 0.55, (0.05, 0.20, 0.45)))     # (centre height 0..1, length, LINEAR rgb)
+            (0.26, 0.55, (0.05, 0.20, 0.45)))     # (center height 0..1, length, LINEAR rgb)
 
     def __init__(self, face_prefix, white_srgb=0.90):
         self.face = face_prefix

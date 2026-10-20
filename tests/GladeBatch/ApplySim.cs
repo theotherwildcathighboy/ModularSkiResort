@@ -7,7 +7,7 @@
 // tool's census bands: interior = GladeMinSpacing, tree line = BeltDepth + BeltMinSpacing;
 // Existing sorted by (x, z, id) like the tool) → PlanKey → the skip set learned for that key →
 // Compose(level, target) → STAND-IN VALIDATOR (a 12 m blocked strip across the run cancels planted
-// trees inside it, and a plant within 4 m of a tree still standing is cancelled; cancelled slots
+// trees inside it, and a plant within 4 m of a tree still standing is canceled; canceled slots
 // are learned into the skip set, like the tool's first ready preview frame, §4.6) → mutate the
 // world (fell, remove, plant members tagged layer / variant 0 / PlanGeneration).
 //
@@ -52,10 +52,10 @@
 // level walks of WalkSteps steps, interior and tree line interleaved), updown, nested, repair,
 // holes, moved, foreign, edit (each perturbation then settled at L1 and L2 too, so level 1 and
 // the keep order run with off-stream members — finding compose-2), editoor (the run widened 8 m
-// after a tree line, narrowed 8 m / 12 m after an interior: findings compose-1 / behaviour-1),
+// after a tree line, narrowed 8 m / 12 m after an interior: findings compose-1 / behavior-1),
 // others (Other tags removed first of all), cap800k, fellcap, saturated, capsat, cache — on
 // run284k, run127k, saturated, run800k, L, rect100x300 and the two field-sized fixtures run124k
-// (266 wild) and run140k (652 wild, a neighbour run 3 m away).
+// (266 wild) and run140k (652 wild, a neighbor run 3 m away).
 
 using System;
 using System.Collections.Generic;
@@ -97,7 +97,7 @@ namespace GladeBatch
         private const uint OracleSaltThin = 0x7A1B3C5Du;
 
         /// <summary>Stand-in validator: a planted tree this close (xz, m) to a tree that still
-        /// stands after the apply is cancelled (vanilla tree collision bounds are unverified;
+        /// stands after the apply is canceled (vanilla tree collision bounds are unverified;
         /// 4 m is below both MinSpacings, so a stream slot never trips it — only plants next to
         /// off-stream members after an edit / a new occupant do).</summary>
         private const double StandInCollisionM = 4.0;
@@ -229,7 +229,7 @@ namespace GladeBatch
             public readonly long[,] Misplaced = new long[2, 2];
             public readonly long[] L1OffStream = new long[2];
             public long SharedResultChecks, EditOorWiden, EditOorNarrow, EditOorBeyondInteriorBand;
-            public long L8HeadroomUsed;   // interior L8 settles that reached T despite cancelled spots
+            public long L8HeadroomUsed;   // interior L8 settles that reached T despite canceled spots
         }
 
         private static SimAgg s_Sim = new SimAgg();
@@ -326,7 +326,7 @@ namespace GladeBatch
                 new double2(-30, 120), new double2(130, 120), 120, 15, 2));
             // Field test 3 (spec §8.1/§8.5; log 634-648): 124,000 m² with 266 wild (run 80962, 21 /
             // ha; a dogleg with a reflex vertex) and 140,000 m² with 652 wild (run 80792, 47 / ha;
-            // a neighbouring bound run 3 m away = one exclusion ring, as in the field log).
+            // a neighboring bound run 3 m away = one exclusion ring, as in the field log).
             runs.Add(MakeSimRun("run124k", D2(0, 0, 98, 0, 98, 700, 160, 1250, 76, 1305, 0, 722), 12, new double2(4200, 3100), null,
                 new double2(-40, 400), new double2(140, 400), 266, 32, 2));
             runs.Add(MakeSimRun("run140k", D2(0, 0, 110, 0, 110, 1275, 0, 1275), -23, new double2(-3800, -1500),
@@ -889,7 +889,7 @@ namespace GladeBatch
             return sb.Length == 0 ? null : sb.ToString();
         }
 
-        /// <summary>Mitre offset of a simple ring by d metres (d > 0 outward, every edge moves by
+        /// <summary>Mitre offset of a simple ring by d meters (d > 0 outward, every edge moves by
         /// exactly d; d &lt; 0 inward). Test-local; y re-sampled from the test ground.</summary>
         private static float3[] OffsetRing(float3[] ring, double d)
         {
@@ -1549,7 +1549,7 @@ namespace GladeBatch
                 Check(r.Shortfall > 0, where, "settled with N " + r.Inside + " < T " + r.Target + " without a Shortfall (stall)");
             if (level == 1)
             {
-                // G3 fixer round (findings compose-1 / behaviour-1): EVERY tree of this run the
+                // G3 fixer round (findings compose-1 / behavior-1): EVERY tree of this run the
                 // target's census sees, any layer, any tag — not the region-only count Compose
                 // itself uses (that hid our own trees standing in a widened / narrowed run).
                 if (target == SimTarget.Interior)
@@ -1644,7 +1644,7 @@ namespace GladeBatch
                 foreach (ApplyReport rep in reps)
                     cancelled |= rep.Cancelled > 0;
                 if (cancelled)
-                    s_Sim.L8HeadroomUsed++; // finding behaviour-2: blocked spots replaced from the stream's tail
+                    s_Sim.L8HeadroomUsed++; // finding behavior-2: blocked spots replaced from the stream's tail
             }
             if (reps.Count > 0 && reps[0].R.Plant.Count + reps[0].Cancelled > 0 && reps[0].R.Other == 0)
             {
@@ -2219,7 +2219,7 @@ namespace GladeBatch
             Settle(w, run, target, 2, Caps(TCap), where + "-L2", book);
         }
 
-        /// <summary>Findings compose-1 / behaviour-1 (the G2 edit-oor case, restored for G3): a run
+        /// <summary>Findings compose-1 / behavior-1 (the G2 edit-oor case, restored for G3): a run
         /// edit that moves the edge past this run's own trees. WIDEN 8 m (> BeltGap) after a tree
         /// line at L8: belt members end up inside the run. NARROW 8 m and 12 m (> InnerMargin)
         /// after an interior at L6: interior members end up outside (12 m: some beyond the
@@ -2327,7 +2327,7 @@ namespace GladeBatch
                 }
                 else
                 {
-                    // G3 fixer round (behaviour-2): an un-clamped apply is followed by another only
+                    // G3 fixer round (behavior-2): an un-clamped apply is followed by another only
                     // to replace the spots it lost to the blocked strip (ApplySim learns them at
                     // apply time; the stream's headroom has the replacements).
                     Check(r.Cancelled > 0, where, "plant apply " + i + " was not clamped and lost no spot, yet another apply followed");

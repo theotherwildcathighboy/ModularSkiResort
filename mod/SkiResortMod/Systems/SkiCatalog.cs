@@ -11,7 +11,7 @@
 //
 // EXPECTED / PENDING (contract D5, skeptic MUST 5): every NAME carries its own Expected flag. false = "pending": the
 // prefab is designed and named but not imported yet (its NAMES line ends ", pending"). A MISSING pending name is an
-// Info line, never a WARN; a FOUND pending name works exactly like an expected one (behaviour never keys on the flag)
+// Info line, never a WARN; a FOUND pending name works exactly like an expected one (behavior never keys on the flag)
 // and SkiPrefabCatalogSystem writes one "[pending-found]" WARN per load so the import commit flips it. A ROW's Expected
 // (LiftTypeDef.Expected, StationDef.Expected, …) is DERIVED: true when every name of the row is expected. A family
 // imported over two sessions (line one day, carrier the next) flips name by name, so no WARN window opens between them.
@@ -51,9 +51,9 @@
 // NITPICK B2 (2026-10-13, docs/research/art/assets-2026-10/build/nitpick-b2-tram-ramps.md; additive): StationDef
 // .StubTipLocalX = the lift LINE AXIS in prefab x (the HV stub tip is (StubTipLocalX, 0, StubTipLocalZ); StationAlign
 // .StubTip's 4-argument overload). 0 everywhere but the tram base: its lot grew 5 x 3 -> 6 x 3 on the clock-tower (+X)
-// side for the 1:8 ramp, a CS2 lot is centred on the prefab origin, so the building moved 4.00 m toward -X - axis -4.00,
+// side for the 1:8 ramp, a CS2 lot is centered on the prefab origin, so the building moved 4.00 m toward -X - axis -4.00,
 // docks (-9.50 / 1.50, 16.00, -5.50) (SkiTramBaseStationA.manifest.json prefab_contract.axis_x / docks). Sanity: a
-// Shuttle station's docks are centred on its axis.
+// Shuttle station's docks are centered on its axis.
 // T14 / S1b-N (2026-10-16): the game negates FBX x on import; the prefab rows are mirrored (x -> -x), so in the GAME
 // frame the tram base's axis is +4.00 and its docks A / B (9.50 / -1.50, 16.00, -5.50); the manifest numbers quoted above
 // are the authoring frame (-x). The tram top (axis 0, docks -5.50 / 5.50) maps onto itself and is unchanged.
@@ -282,7 +282,7 @@ namespace SkiResortMod.Systems
         public readonly StationRole Role;
         public readonly string LiftTypeId;     // the LiftTypeDef.Id this terminal belongs to
         public readonly int LiftTypeIndex;     // SkiCatalog.Lifts index; −1 = unknown (a Problems entry)
-        public readonly float3 WheelLocal;     // bullwheel centre at rope height, prefab-local; NaN = no bullwheel arc (Shuttle)
+        public readonly float3 WheelLocal;     // bullwheel center at rope height, prefab-local; NaN = no bullwheel arc (Shuttle)
         public readonly float StubTipLocalZ;   // HV stub's outer node, prefab-local z — PER ROW since Phase B (−16 DQ / gondola)
         public readonly int BuildCost;         // informational mirror of PlaceableObject.m_ConstructionCost (the hub reads the prefab)
         public readonly string BuildItemId;    // "baseStation", "topStationDetachable", …
@@ -297,7 +297,7 @@ namespace SkiResortMod.Systems
         /// <summary>Nitpick B2 (2026-10-13, docs/research/art/assets-2026-10/build/nitpick-b2-tram-ramps.md): the lift LINE
         /// AXIS, prefab-local x - the HV stub tip is (StubTipLocalX, 0, StubTipLocalZ) and the docks sit about it. 0 on
         /// every station but the tram base, whose lot grew 5 x 3 -> 6 x 3 on its clock-tower (+X) side: a CS2 lot is
-        /// centred on the prefab origin, so the building moved 4.00 m toward -X (SkiTramBaseStationA.manifest.json
+        /// centered on the prefab origin, so the building moved 4.00 m toward -X (SkiTramBaseStationA.manifest.json
         /// prefab_contract.axis_x = -4.0).</summary>
         public readonly float StubTipLocalX;
 
@@ -680,7 +680,7 @@ namespace SkiResortMod.Systems
         public static readonly IReadOnlyList<RunDef> Runs;
         /// <summary>The ONE build-item table (25 rows, strip order; the BUILD-ITEMS block below).</summary>
         public static readonly IReadOnlyList<BuildItemDef> BuildItems;
-        /// <summary>The static initialiser's sanity findings (§1.7). EMPTY when sane. The initialiser NEVER throws.</summary>
+        /// <summary>The static initializer's sanity findings (§1.7). EMPTY when sane. The initializer NEVER throws.</summary>
         public static readonly IReadOnlyList<string> Problems;
         /// <summary>Names whose flag is Expected / pending (computed: 30 / 0 since the S1 lift flip of 2026-10-13, round-2-contract
         /// §10.1, build/s1-fix-codeflip.md; 25 / 5 after the first S1 flip, build/s1-fix-codefix.md; 11 / 19 before both).</summary>
@@ -847,7 +847,7 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < specs.Length; i++)
                     lifts[i] = new LiftTypeDef(i, specs[i]);
 
-                // ── station rows (§1.4). Wheel = bullwheel centre at rope height, prefab-local (x, y = rope, z); NaN = no
+                // ── station rows (§1.4). Wheel = bullwheel center at rope height, prefab-local (x, y = rope, z); NaN = no
                 //    loop (Shuttle). FG: lift_terminal.py drive (0.2, 3.5) + 0.05 / return 3.7 at the origin, authoring
                 //    (x, y, z) → (-y, z, x) in the game frame since T14 (it was (y, z, x); the wheel y = 0 so these rows do not move)
                 //    (was ChairPinSystem.cs:346-350). DQ: SkiDQ{Base,Top}StationA.manifest.json

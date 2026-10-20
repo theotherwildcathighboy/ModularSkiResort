@@ -165,7 +165,7 @@ namespace LiftBatch
 
         // ================================================================== synthetic world
 
-        /// <summary>A tiny editable lift world, materialised into the census input lists.</summary>
+        /// <summary>A tiny editable lift world, materialized into the census input lists.</summary>
         internal sealed class World
         {
             private struct St { public bool IsBase; public float3 Pos; public quaternion Rot; }
@@ -177,7 +177,7 @@ namespace LiftBatch
             private readonly SortedDictionary<int, Ed> m_Edges = new SortedDictionary<int, Ed>();
 
             public readonly LiftCensus Census = new LiftCensus();
-            /// <summary>Catalog Phase B seam (LiftTypeTests): called with the materialised census input right before
+            /// <summary>Catalog Phase B seam (LiftTypeTests): called with the materialized census input right before
             /// Census.Build, so a test can set per-edge / per-station fields (lift types) the World does not model.</summary>
             public Action<List<LiftCensus.Edge>, List<LiftCensus.Node>, List<LiftCensus.Station>> BeforeBuild { get; set; }
             public readonly List<LiftCensus.Event> Events = new List<LiftCensus.Event>();

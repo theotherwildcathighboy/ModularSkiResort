@@ -2,12 +2,12 @@
 Review sheet for the Build-strip icons drawn by ski_icons.py (the preview gate of docs/PIPELINE.md
 section 2 for icons): the nine icons large, the hub's Build strip mocked at the real 1080p sizes
 (text scale 100 / 130 / 150 %: icons 30 / 39 / 45 px) with an active (blue) tile, a locked tile
-and the step digits, the 30 px strip in greyscale, before / after against the installed icons,
-the bilinear-without-mipmaps worst case, 4K (60 px), and x3 zooms. Also prints the mean greyscale
+and the step digits, the 30 px strip in grayscale, before / after against the installed icons,
+the bilinear-without-mipmaps worst case, 4K (60 px), and x3 zooms. Also prints the mean grayscale
 difference between the four run icons at 30 px (the "tell the run types apart" check).
 
 The strip mock follows hub.module.scss (.buildFooter / .buildGroup / .buildCell / .buildTile /
-.buildIcon / .buildStripe / .buildStep / .buildLock) and the installed UI colours. The game's own
+.buildIcon / .buildStripe / .buildStep / .buildLock) and the installed UI colors. The game's own
 downscale filter is unverified: the sheet shows an area average and a bilinear worst case.
 
     "<blender>\\<ver>\\python\\bin\\python.exe" ski_icons_sheet.py --out <dir> [--live <root>]
@@ -21,14 +21,14 @@ Ported 2026-10-04 from the session generator of the style-E round (ski_icons_e2.
 --launcher (Round F7 E1, 2026-10-04 night) writes the hub launcher's review sheet instead
 (docs/research/art/icons-2026-10-04/launcher/sheet.png): SkiResortTab.png large and next to the
 nine tiles, the floating button at 1080p (button 40 px, icon 33 px) and 4K (80 / 68 px) as
-measured in docs/research/field/2026-10-04/20.23.05.92.png, area average and bilinear, greyscale,
+measured in docs/research/field/2026-10-04/20.23.05.92.png, area average and bilinear, grayscale,
 zoomed, before / after. --before = the old launcher PNG (default: the retired copy).
 
     ... ski_icons_sheet.py --contact --out <dir> [--name build-strip.png]
 
 --contact (round 2, 2026-10-11; docs/research/art/assets-2026-10/build/icons-round-2.md) writes the
 contact sheet of all 25 Build-strip tiles instead: every tile at 64 px on an 88 px hub tile in
-BUILD_GROUPS order with step digits and run stripes, the round-2 tiles labelled in amber; the
+BUILD_GROUPS order with step digits and run stripes, the round-2 tiles labeled in amber; the
 strip at the real 1080p size (30 px) as the pickers draw it for five lodge-tier / lift-type pairs,
 actual size and zoomed x3; and the 16 round-2 tiles at 160 px.
 """
@@ -44,7 +44,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ski_icons as si  # noqa: E402
 
-# UI colours (measured in docs/research/field/2026-10-03b/20.45.49.96.png, 4K; installed index.css)
+# UI colors (measured in docs/research/field/2026-10-03b/20.45.49.96.png, 4K; installed index.css)
 FOOTER_BG = (21, 32, 44)
 TILE_BG = (53, 80, 95)
 TILE_ACTIVE = (30, 131, 170)        # --selectedColor #1e83aa
@@ -70,14 +70,14 @@ LAUNCHER_BEFORE = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(
                                                 "..", "gamedata-mirror", "retired",
                                                 "2026-10-04-launcher-pre-edit", "SkiResortTab.png"))
 # The launcher's surroundings, measured in docs/research/field/2026-10-04/20.23.05.92.png (4K):
-# floating button 80 px, colour (231, 252, 254), the icon 68 px inside it; snowy terrain behind.
+# floating button 80 px, color (231, 252, 254), the icon 68 px inside it; snowy terrain behind.
 BUTTON_BG = (231, 252, 254)
 TERRAIN_BG = (227, 229, 225)
 NEIGHBOUR = (0, 247, 253)           # the other mods' buttons on the same row (plain squares here)
 
 
 def decode_png(path):
-    """Minimal PNG reader (8 bit, colour type 2 or 6, not interlaced) for the sheet's before-strip
+    """Minimal PNG reader (8 bit, color type 2 or 6, not interlaced) for the sheet's before-strip
     of the live icons. Returns RGBA uint8."""
     data = open(path, "rb").read()
     assert data[:8] == b"\x89PNG\r\n\x1a\n", path
@@ -159,7 +159,7 @@ def area_weights(n_in, n_out):
 
 
 def bilin_weights(n_in, n_out):
-    """Bilinear sampling at the output pixel centres, no mipmaps (the worst case the field
+    """Bilinear sampling at the output pixel centers, no mipmaps (the worst case the field
     screenshot pointed to; game filter unverified)."""
     w = np.zeros((n_out, n_in))
     sc = n_in / n_out
@@ -433,7 +433,7 @@ def make_sheet(icons, path, live=None, live_note="", title=DEFAULT_TITLE):
         panel, _ = strip_geometry(s, u)
         strip_imgs[s] = (sy0, int(np.ceil(h)), int(np.ceil(panel)))
         y += int(np.ceil(h)) + 16
-    # 3) greyscale copy of the 30 px strip, actual size
+    # 3) grayscale copy of the 30 px strip, actual size
     sy0, sh, sw = strip_imgs[1.0]
     cv.text("THE 30 PX STRIP IN GREYSCALE (LUMINANCE ONLY), ACTUAL SIZE", 20, y, 2, (236, 240, 244))
     y += 22
@@ -464,7 +464,7 @@ def make_sheet(icons, path, live=None, live_note="", title=DEFAULT_TITLE):
     y += 22
     h = draw_strip(cv, icons, 20, y, 1.0, 2, active="SkiAFrameDayLodge", locked="SkiRunNaturalA")
     y += int(np.ceil(h)) + 24
-    # 5) the 30 px strip zoomed x3 (nearest), colour and grey
+    # 5) the 30 px strip zoomed x3 (nearest), color and gray
     z = 3
     col = cv.rgb[sy0:sy0 + sh, 20:20 + sw]
     cv.text("THE 30 PX STRIP ZOOMED X3 (NEAREST NEIGHBOUR): COLOUR, THEN GREY", 20, y, 2,
@@ -487,7 +487,7 @@ def make_sheet(icons, path, live=None, live_note="", title=DEFAULT_TITLE):
 
 def launcher_button(icon, btn, isz, kind_rs="area"):
     """The floating launcher button as the field screenshot shows it: a light rounded square of
-    btn px, the icon isz px centred in it. Returns an RGB float image (btn x btn)."""
+    btn px, the icon isz px centered in it. Returns an RGB float image (btn x btn)."""
     b = Canvas(btn, btn, TERRAIN_BG)
     b.rect(0, 0, btn, btn, btn * 0.1, BUTTON_BG)
     o = (btn - isz) // 2
@@ -496,7 +496,7 @@ def launcher_button(icon, btn, isz, kind_rs="area"):
 
 
 def launcher_row(cv, icon, x, y, btn, isz, kind_rs="area"):
-    """The game's top-left button row around the launcher (neighbours as plain squares)."""
+    """The game's top-left button row around the launcher (neighbors as plain squares)."""
     gap = max(2, btn // 8)
     w = 4 * btn + 5 * gap
     cv.rect(x, y, x + w, y + btn + 2 * gap, 0, TERRAIN_BG)
@@ -524,7 +524,7 @@ def make_launcher_sheet(icons, launcher, before, path):
     cv.text("A SNOWY PEAK, ONE RED CHAIR ON A DIAGONAL CABLE, ON THE STYLE-E PLATE; EVERY MARK KEEPS "
             "22 PX TO THE PLATE EDGE.", 20, y, 2, sub)
     y += 30
-    # 1) before / after at 256 px, actual size, on the button colour
+    # 1) before / after at 256 px, actual size, on the button color
     cv.text("256 PX, ACTUAL SIZE, ON THE BUTTON COLOUR", 20, y, 2, hd)
     y += 22
     x = 20
@@ -537,7 +537,7 @@ def make_launcher_sheet(icons, launcher, before, path):
         cv.text(lab, x + 2, y + 280, 2, (214, 222, 230))
         x += 272 + 24
     y += 272 + 44
-    # 2) next to the nine Build-strip tiles at 160 px on the tile colour
+    # 2) next to the nine Build-strip tiles at 160 px on the tile color
     cv.text("NEXT TO THE NINE BUILD-STRIP TILES, 160 PX ON THE TILE COLOUR", 20, y, 2, hd)
     y += 22
     big = 160
@@ -577,7 +577,7 @@ def make_launcher_sheet(icons, launcher, before, path):
         cv.text("BEFORE", 20 + w4 + 30, y + h4 + 12 + 36, 2, sub)
         h4 = 2 * h4 + 12
     y += h4 + 24
-    # 5) greyscale, then zoomed x6 (nearest): before, after, after bilinear, after grey
+    # 5) grayscale, then zoomed x6 (nearest): before, after, after bilinear, after gray
     cv.text("THE 33 PX BUTTON IN GREYSCALE (LUMINANCE ONLY), ACTUAL SIZE: BEFORE, AFTER", 20, y, 2,
             hd)
     y += 22
@@ -667,7 +667,7 @@ def draw_tile(cv, icon, name, x, y, s, u, kind_rs="area"):
 
 def draw_groups(cv, icons, groups, x0, y0, s, u, gap_cell=4.0, gap_group=12.0, labels=False,
                 kind_rs="area"):
-    """Tiles in groups on the hub footer colour, optional labels under each tile (round-2 tiles in
+    """Tiles in groups on the hub footer color, optional labels under each tile (round-2 tiles in
     amber). Returns (w, h)."""
     tw = 44.0 * s * u
     lab_h = 22 if labels else 0
@@ -751,7 +751,7 @@ def make_contact_sheet(icons, path):
 
 
 def grey_contrast(icons):
-    """Mean absolute luminance difference between the run icons at 30 px on the tile colour."""
+    """Mean absolute luminance difference between the run icons at 30 px on the tile color."""
     runs = [n for n in STRIP_ORDER if n in KIND]
     lum = {}
     for n in runs:

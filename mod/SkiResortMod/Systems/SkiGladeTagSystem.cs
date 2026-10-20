@@ -81,7 +81,7 @@
 // (LayerContract below).
 //
 // OUTPUT: one census line per Apply — "Glade: tagged N trees for run X — Interior L4 (Open
-// glade), glade layer, variant 0, gen …; ApplyObjectsSystem create path N, cancelled C (not
+// glade), glade layer, variant 0, gen …; ApplyObjectsSystem create path N, canceled C (not
 // created), delete D, update U, already deleted K" — the apply census source for planted trees
 // (spec §6, §8.4 "tag lines name the level"); also kept in LastCensus for the dev tab. A create
 // path count that differs from the tagged count is a WARN on the spot.

@@ -81,7 +81,7 @@ BAKED_NUMERAL = {"T1": "12", "T2": "25", "T3": "30"}   # what the preview's "bef
 MAX_DIGITS = 3            # numbers 1..200 (DECISIONS 358); the code wraps 201 -> 1
 TILE_DEPTH_M = 0.004      # Blank / 3-digit tiles: in front of the plate's FRONT face (dynamic-numbers.md §5)
 LAYER_M = 0.003           # digits in front of the Blank tile (1-2 digit numbers)
-CONDENSE = 1.0            # glyph x scale; 1.0 = the baked plate's font unchanged (variant B of the preview: 0.82)
+CONDENSE = 0.82           # glyph x scale: Richard's verdict B (2026-10-20, DECISIONS 361: "B for tiles"); 1.0 = the baked font (A)
 ATLAS = 512               # texture floor (PIPELINE / blender-build: 512^2)
 COLS, ROWS = 6, 2         # cells 0-9 = digits, 10 = Blank (plain field), 11 = spare (plain field)
 SS = 4                    # coverage supersampling
@@ -227,14 +227,14 @@ def tile_size(cls, glyph):
     return (c["win_w"] if glyph is None else L["cell_w"]), c["win_h"]
 
 
-def build_tile(cls, glyph):
+def build_tile(cls, glyph, name=None):
     """One quad, Blender XZ plane facing -Y (see FRAME), origin at its centre, UVs on its atlas cell."""
     w, h = tile_size(cls, glyph)
     c0, r0, cw, chh = cell_rect(cls, 10 if glyph is None else glyph)
     inset = 4.0 if glyph is None else 0.0           # the Blank samples the plain field well inside its cell
     u0, u1 = (c0 + inset) / ATLAS, (c0 + cw - inset) / ATLAS
     v0, v1 = (r0 + inset) / ATLAS, (r0 + chh - inset) / ATLAS
-    name = tile_name(cls, glyph)
+    name = name or tile_name(cls, glyph)        # the FBX mesh name = the asset name (textures bind by it)
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     vs = [bm.verts.new((x, 0.0, z)) for x, z in ((-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2))]
@@ -456,35 +456,96 @@ def measure_plates(import_root, out_json):
 
 
 # -- export (after the verdict) --------------------------------------------------------------------------------------
+def manifest_path(out_dir):
+    """numtiles/<LETTER>.manifest.json: BESIDE the letter folder, never inside it (the Editor's Assets folder holds asset
+    folders only, like every other letter folder)."""
+    d = os.path.normpath(out_dir)
+    return os.path.join(os.path.dirname(d), os.path.basename(d) + ".manifest.json")
+
+
 def export(out_dir):
     """One import folder: per class the Blank tile owns the atlas (4 PNG), the ten digits share it (settings.json
-    sharedAssets, DECISIONS 298: import the whole folder in ONE action). LOD0 only (2 tris)."""
+    sharedAssets, DECISIONS 298: import the whole folder in ONE action). LOD0 only (2 tris). Mesh asset names carry the
+    generation letter (= the folder name, e.g. SkiNumTileT1N7A); the hand-made prefabs (surgery) drop it (SkiNumTileT1N7)."""
     os.makedirs(out_dir, exist_ok=True)
+    letter = os.path.basename(os.path.normpath(out_dir))
+    if not (len(letter) == 1 and letter.isupper()):
+        raise SystemExit(f"--out must end in a generation letter folder, got {letter!r}")
     rows = []
     for cls in CLASSES:
         maps, _ink = atlas_maps(cls)
-        owner = tile_name(cls, None)
+        owner = tile_name(cls, None) + letter
         for glyph in [None] + list(range(10)):
-            name = tile_name(cls, glyph)
+            name = tile_name(cls, glyph) + letter
             cs2_asset.validate_asset_name(name)
             d = os.path.join(out_dir, name)
             os.makedirs(d, exist_ok=True)
-            ob = build_tile(cls, glyph)
+            ob = build_tile(cls, glyph, name)
             cs2_asset.export_fbx(ob, os.path.join(d, name + ".fbx"))
             if glyph is None:
                 for m, arr in maps.items():
                     rgba = arr if arr.ndim == 3 else np.repeat(arr[..., None], 4, axis=2)
-                    cs2_asset._write_png(os.path.join(d, f"{name}_{m}.png"), f"{name}_{m}", rgba, ATLAS, is_data=True)
+                    # rows here are bottom-up (UV v = 0 at row 0); _write_png flips a TOP-DOWN array, so hand it one
+                    cs2_asset._write_png(os.path.join(d, f"{name}_{m}.png"), f"{name}_{m}", np.flipud(rgba), ATLAS, is_data=True)
                 cs2_asset.write_settings(d, name)
             else:
                 cs2_asset.write_settings(d, name, shared_from=f"../{owner}/{owner}")
             w, h = tile_size(cls, glyph)
-            rows.append({"name": name, "class": cls, "glyph": glyph, "w": round(w, 4), "h": round(h, 4)})
-    with open(os.path.join(out_dir, "numtiles.manifest.json"), "w", encoding="utf-8") as fh:
+            rows.append({"name": name, "prefab": tile_name(cls, glyph), "class": cls, "glyph": glyph,
+                         "w": round(w, 4), "h": round(h, 4), "shares": None if glyph is None else owner})
+    with open(manifest_path(out_dir), "w", encoding="utf-8") as fh:
         json.dump({"tiles": rows, "classes": {k: {**v, **{kk: round(vv, 4) for kk, vv in layout(k).items()}}
                                                for k, v in CLASSES.items()},
-                   "tile_depth_m": TILE_DEPTH_M, "layer_m": LAYER_M}, fh, indent=1)
+                   "condense": CONDENSE, "tile_depth_m": TILE_DEPTH_M, "layer_m": LAYER_M}, fh, indent=1)
     return rows
+
+
+def verify_export(out_dir):
+    """Round trip of the written folder (raises on a miss): every FBX re-imported faces +Z in the PREFAB frame with its text
+    (UV u) running along -X and the measured tile size; every owner's BaseColor reads the field byte 217 (sRGB 0.851) at a
+    Blank texel and ink in a digit cell. The same frame rule the plate measurement used: game = (-fx, fy, fz) / 100."""
+    from mathutils import Vector
+    with open(manifest_path(out_dir), encoding="utf-8") as fh:
+        man = json.load(fh)
+    out = []
+    for row in man["tiles"]:
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        bpy.ops.import_scene.fbx(filepath=os.path.join(out_dir, row["name"], row["name"] + ".fbx"), axis_forward="Y",
+                                 axis_up="Z", global_scale=1.0)
+        ob = [o for o in bpy.context.scene.objects if o.type == "MESH"][0]
+        me = ob.data
+        if len(me.polygons) != 2 and len(me.polygons) != 1:
+            raise RuntimeError(f"{row['name']}: {len(me.polygons)} faces")
+        p = me.polygons[0]
+        uvl = me.uv_layers.active.data
+        vs = [ob.matrix_world @ me.vertices[i].co for i in p.vertices]
+        t = [Vector(uvl[li].uv) for li in p.loop_indices]
+        n = (ob.matrix_world.to_3x3() @ p.normal).normalized()
+        e1, e2, d1, d2 = vs[1] - vs[0], vs[2] - vs[0], t[1] - t[0], t[2] - t[0]
+        T = ((e1 * d2.y - e2 * d1.y) / (d1.x * d2.y - d2.x * d1.y)).normalized()
+        g = lambda v: Vector((-v.x, v.y, v.z))
+        allv = [ob.matrix_world @ v.co for v in me.vertices]
+        w = (max(v.x for v in allv) - min(v.x for v in allv)) / 100.0
+        h = (max(v.y for v in allv) - min(v.y for v in allv)) / 100.0
+        ok = g(n).z > 0.999 and g(T).x < -0.999 and abs(w - row["w"]) < 1e-3 and abs(h - row["h"]) < 1e-3
+        if not ok:
+            raise RuntimeError(f"{row['name']}: normal {tuple(g(n))} text axis {tuple(g(T))} size {w:.4f} x {h:.4f} "
+                               f"(want +Z, -X, {row['w']} x {row['h']})")
+        out.append(row["name"])
+    for cls in CLASSES:
+        owner = next(r["name"] for r in man["tiles"] if r["class"] == cls and r["glyph"] is None)
+        im = bpy.data.images.load(os.path.join(out_dir, owner, owner + "_BaseColor.png"))
+        a = np.array(im.pixels[:], np.float32).reshape(ATLAS, ATLAS, 4)      # Blender: rows bottom-up
+        bpy.data.images.remove(im)
+        c0, r0, cw, chh = cell_rect(cls, 10)
+        field = a[r0 + chh // 2, c0 + cw // 2, 0]
+        c0, r0, cw, chh = cell_rect(cls, 8)
+        ink = a[r0:r0 + chh, c0:c0 + cw, 0].min()
+        if abs(field * 255 - 217) > 1.0 or ink > 0.10:
+            raise RuntimeError(f"{owner}_BaseColor: Blank texel {field * 255:.1f} (want 217), digit-8 cell min {ink:.3f}")
+        out.append(f"{owner}_BaseColor field {field * 255:.0f} ink {ink * 255:.0f}")
+    print(f"[number_tiles] VERIFY PASS: {len(man['tiles'])} FBX (+Z, text along -X, sizes) and {len(CLASSES)} atlases")
+    return out
 
 
 def main():
@@ -506,6 +567,7 @@ def main():
             raise SystemExit("--export needs --out <letter folder>")
         bpy.ops.wm.read_factory_settings(use_empty=True)
         export(a.out)
+        verify_export(a.out)
     if not (a.measure_plates or a.preview or a.export):
         ap.print_help()
 

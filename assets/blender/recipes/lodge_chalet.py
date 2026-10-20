@@ -37,14 +37,14 @@ reference host, build/fine-detail-step2-engine.md section 12). RECIPE is a fine_
                       m_ParentMesh -1), alternating the three loadouts, identity (long axis along
                       authoring Y, parallel to the arcade)
     no sign set       L3's boards are pictograms only (restaurant x 2, kiosk info: no lettering), so
-                      they stay in the host atlas (design C.1); the kiosk and the gazebo stay modelled
+                      they stay in the host atlas (design C.1); the kiosk and the gazebo stay modeled
                       (approved; vanilla Kiosk / GazeboRandom01 exist: PLACEHOLDERS in the report)
 Row frame: every row, old and new, is game (gx, gy, gz) = authoring (y, z, x), gx NOT negated
 (fine_detail.X_CONVENTION, the chalet's existing convention; probe X2 decides, S1b mirrors on N).
 
 NITPICK C (2026-10-13; Richard, twenty-fifth look: "not loving the SIGN of the FORK AND KNIFE ... leave it blank or
 keep it simple, and people can paste their own labels on it?"; build/nitpick-c-lodges.md): the three pictogram
-boards are BLANK boards (NC_LABELS: their own ground + a thin trim-colour rim, fine_detail.blank_board), listed in
+boards are BLANK boards (NC_LABELS: their own ground + a thin trim-color rim, fine_detail.blank_board), listed in
 the manifest's `we_boards` block for an optional Write Everywhere layout; `--no-fine` keeps the pictograms
 (PICTO_LABELS, legacy). Geometry unchanged: only the three label rects of the atlas repaint.
 
@@ -71,7 +71,7 @@ from bldg_recipes import PARASOL_OFFSET, Budget, Recipe   # noqa: E402
 from fine_detail import AFRAME_RACKS, FineRecipe, blank_board, kit_row   # noqa: E402
 
 # ======================================================================================
-# Constants (authoring frame, metres) - lodges-basic 5.2
+# Constants (authoring frame, meters) - lodges-basic 5.2
 # ======================================================================================
 
 LOT = (5, 4)                       # (W, D): |y| <= 20, |x| <= 16
@@ -101,8 +101,8 @@ WIN = (1.2, 1.4)                   # standard window w x h, sill floor + 0.9
 GDOOR = (1.0, 2.2)                 # glazed door w x h, sill floor + 0.10
 # T60 (2026-10-18, module docstring): the kiosk door + the patio double door. False = the pre-T60 chalet (byte-identical)
 T60_DOORS = True
-KIOSK_DOOR = (-13.70, 1.0, 2.1)    # (x centre on the -Y gable, w, h): the gable's centre, L3's single-door size
-PATIO_DOOR = (-1.0, 1.6, 2.2)      # (y centre on B -X, w, h): bW1's spot, 2 leaves (chalet double_min 1.5)
+KIOSK_DOOR = (-13.70, 1.0, 2.1)    # (x center on the -Y gable, w, h): the gable's center, L3's single-door size
+PATIO_DOOR = (-1.0, 1.6, 2.2)      # (y center on B -X, w, h): bW1's spot, 2 leaves (chalet double_min 1.5)
 
 ROOMS = {"bGE": (1, 0), "bGS": (2, 0), "bF1S": (3, 0), "bF1E": (4, 0), "bF1W": (0, 1),
          "bGN": (1, 1), "bF1N": (2, 1), "aW0": (3, 1), "aW1": (4, 1), "aGS": (0, 2),
@@ -132,10 +132,10 @@ PICTO_LABELS = (("sign_boardB_face", "paint_pictogram",
 # nitpick C (2026-10-13; Richard, twenty-fifth look, L3: "not loving the SIGN of the FORK AND KNIFE, that looks
 # quite bad. I wonder if we just leave it blank or keep it simple, and people can paste their own labels on it?";
 # build/nitpick-c-lodges.md): the three pictogram boards become BLANK boards - the board's own ground (red / dark)
-# with a thin rim in the chalet's trim colour (slot 1 (0.0625, 0.3125, 0.25) as shown on the 0.80 trim paint:
+# with a thin rim in the chalet's trim color (slot 1 (0.0625, 0.3125, 0.25) as shown on the 0.80 trim paint:
 # lin_to_srgb(srgb_to_lin(0.80) x slot)), no pictogram. The kiosk's stretched info bars go too (same board family,
 # same stretch). The faces stay flat and unobstructed; lodge.py lists them in the manifest's `we_boards` block
-# (centre / normal / size) for an optional Write Everywhere layout. Rim 0.056 m at the label density (71.4 px/m
+# (center / normal / size) for an optional Write Everywhere layout. Rim 0.056 m at the label density (71.4 px/m
 # measured: label w 3.0 x the chalet's 23.8 px/m w = 1) = 4.0 texels (0.04 m gave 2.86, under the 4 px floor).
 L3_TRIM_SRGB = (0.214, 0.472, 0.425)
 NC_LABELS = tuple(
@@ -156,7 +156,7 @@ NC_LABELS = tuple(
 #     canopy (z -0.73..3.06) over the table. On the table pivots (the design) the canopy hung 1.2 m
 #     off the tables and the one over the (-1.0, -4.5) table went through Mass B's -X wall, eave and
 #     door heads. Now beside four tables (_PARASOL_TABLES): three of the design's, and the one at
-#     (-1.0, -4.5) moved to its neighbour (-4.5, -4.5): any 3.5 m canopy over that table reaches
+#     (-1.0, -4.5) moved to its neighbor (-4.5, -4.5): any 3.5 m canopy over that table reaches
 #     Mass B's -X fascia / gutter (x 0.60-0.79, z 5.7-6.1);
 #   - the three DeckChairRandom01 (2.39 m loungers, yaw 180) on the 1.32 m deep A -X balcony ran
 #     through the balustrade, the L2 wall and two window sills: ChairCommercialRandom01 (single
@@ -164,7 +164,7 @@ NC_LABELS = tuple(
 #     at the same spots, facing the slope;
 #   - the two LightpoleParkRandom01 (lamp arm to local z +0.83) reached 3 cm past the road-side lot
 #     edge (x 16.03): x 15.2 -> 15.1;
-#   - the modelled lamp post at the terrace stair foot (col_lampTS + lamp_terrstair) is a seventh
+#   - the modeled lamp post at the terrace stair foot (col_lampTS + lamp_terrstair) is a seventh
 #     GardenLightRandom01 (lit bollard) on its spot.
 _TABLE_AT = ((-4.5, 3.45, -11.5), (-4.5, 3.45, -8.0), (-4.5, 3.45, -4.5), (-4.5, 3.45, -1.0),
              (-1.0, 3.45, -11.5), (-1.0, 3.45, -4.5), (-1.0, 3.45, -1.0), (3.0, 3.45, -4.5))
@@ -172,7 +172,7 @@ _TABLE_AT = ((-4.5, 3.45, -11.5), (-4.5, 3.45, -8.0), (-4.5, 3.45, -4.5), (-4.5,
 # across y, clear of the A wall at y -7.0), the north table +X, the middle one -Y (its canopy fits
 # between the rows' canopies; along x it would touch them)
 _PARASOL_TABLES = (((-4.5, 3.45, -8.0), 0), ((-4.5, 3.45, -4.5), 180), ((3.0, 3.45, -4.5), 0),
-                   ((-1.0, 3.45, -4.5), -90))   # T26 2026-10-16 emptied this; restored 2026-10-17 (random colours accepted)
+                   ((-1.0, 3.45, -4.5), -90))   # T26 2026-10-16 emptied this; restored 2026-10-17 (random colors accepted)
 
 
 def _parasol_at(table, yaw):
@@ -218,7 +218,7 @@ def _yaw_q(deg):
 SUB_OBJECTS = tuple((nm, guid, tuple(float(v) for v in p), _yaw_q(yaw), -1 if p[1] == 0.0 else 0)
                     for nm, guid, pts, yaw in PROPS for p in pts)
 
-# ---- fine-detail pass step 3a (module docstring): the rows that replace modelled parts --------------
+# ---- fine-detail pass step 3a (module docstring): the rows that replace modeled parts --------------
 # (same frame and tuple form as SUB_OBJECTS; GUIDs = cs2_liftdress.SUBOBJ, dump-verified)
 _WALL_SHORT = "cfc12fde01d9da24b86ddedd657eaae1"      # WallLightShortRangeRandom01 (mount wall, 138 tris)
 _ROOF_LIGHT = "b0ea4a4915b28f14a826bb809e02db7a"      # RoofLightRandom01 (mount ceiling, 380 tris)
@@ -238,7 +238,7 @@ FINE_LAMPS = (
     ("kiosk", (KI_X0, 10.75, 1.80), 180),                              # kiosk -X wall (u -10.75)
 )
 #: the gazebo's hanging lantern -> RoofLightRandom01 hung at the foot of its rod (the rod stays,
-#: trim_gzrod): the plan centre of the four posts, z = the rod foot 7.60 + 0.225
+#: trim_gzrod): the plan center of the four posts, z = the rod foot 7.60 + 0.225
 GZ_LAMP = (0.5 * (GZ_POSTS[0][0] + GZ_POSTS[1][0]), 0.5 * (GZ_POSTS[0][1] + GZ_POSTS[2][1]), 7.60 + 0.225)
 FINE_SUB_OBJECTS = tuple(
     ("WallLightShortRangeRandom01", _WALL_SHORT, (round(y, 4), round(z, 4), round(x, 4)), _yaw_q(yaw), 0)
@@ -259,7 +259,7 @@ T60_SUB_OBJECTS = tuple(
     for _tag, (x, y, z), yaw in T60_LAMPS) if T60_DOORS else ()
 #: the planned SKI_RACK_SPOTS (never placed: L3 had no racks) as kit rows on the flattened lot in front
 #: of Mass A's arcade, alternating the three loadouts (FS6), identity (long axis along authoring Y)
-#: kit colour variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the chalet's trim green (slot 1,
+#: kit color variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the chalet's trim green (slot 1,
 #: "one resort, one trim"); L1 next door is orange
 KIT_COLOUR_SET = "green"
 KIT_ROWS = tuple(
@@ -359,7 +359,7 @@ def _gazebo(K, fine=False):
     cy = 0.5 * (GZ_POSTS[0][1] + GZ_POSTS[2][1])
     t = math.tan(math.radians(GZ_PITCH))
     ov = 0.60
-    plate = GZ_TIP_Z + t * ov                                 # 8.47 centre plane at the posts
+    plate = GZ_TIP_Z + t * ov                                 # 8.47 center plane at the posts
     under = plate - 0.5 * 0.16 * math.sqrt(1 + t * t)         # slab underside at the post line
     beam_top = round(under - 0.02, 3)
     beam_bot = beam_top - 0.22
@@ -593,7 +593,7 @@ def build_chalet(recipe, opts):
         P += _win(K, f"pN{k}", wPN, -x, *WIN, gs, "podN")
     P += K.entry("podN", wPN, 3.0, w=1.0, h=2.1, sidelights=0, lamps=0 if fine else 1, room="podN")
     P += K.sign_board("boardP", wPN, 3.0, 2.60, 4.0, 0.6, mat="timber_heavy")
-    # ---- corner boards on the timber storeys ------------------------------------------------------
+    # ---- corner boards on the timber stories ------------------------------------------------------
     cb = [(x, y, G_TOP, L1_TOP) for x, y in ((B_X1, B_Y0), (B_X1, B_Y1), (B_X0, B_Y1))] + \
          [(x, y, L1_TOP, L2_TOP) for x, y in ((A2_X0, A2_Y0), (A2_X0, A2_Y1), (A_X1, A2_Y0),
                                                (A_X1, A2_Y1))]

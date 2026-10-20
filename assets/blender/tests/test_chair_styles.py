@@ -23,7 +23,7 @@ dq-chair-skeptic.md applied: T1 determinism, T2 contracts, T3 trace, T4 full bui
      revision1-check-chairs 2e; this replaces the Revision 1
      pin "wheels entirely above the rope"): the two running wheels sit BESIDE the jaw on
      the inboard side (wholly inboard of the jaw and the rope, within the jaw's length),
-     centres within 0.04 of rope height and at the Kagelok D05 roller lateral (0.363 u x
+     centers within 0.04 of rope height and at the Kagelok D05 roller lateral (0.363 u x
      S_VERT inboard), tops well below the carriage top, each on an axle running from inside
      the jaw into the wheel; the carriage's top-face and fore / aft edges are chamfered; the
      friction comb (<= 24 tris) sits on the carriage top inside its footprint, its top
@@ -32,11 +32,11 @@ dq-chair-skeptic.md applied: T1 determinism, T2 contracts, T3 trace, T4 full bui
   2c. The dq restraint: Revision 2's parts (Richard's second look 2026-10-11, item 2') at
      Revision 3's numbers (verdict 2'' "too high", the rider photos; lift_chair PHOTO_*),
      measured on LOD0: the Revision 1 restraint parts are gone; two coaxial hinge bosses
-     (~0.06 across), one per hoop leg (outer end at the side frame, centre on the leg line),
+     (~0.06 across), one per hoop leg (outer end at the side frame, center on the leg line),
      at the AL photo's pivot height (0.43-0.51 over the cushion, 0.05-0.15 under the backrest
      top), well below the top bar; the lap bar (the U's lateral run) in LAP_WINDOW_M and
      within 0.02 of the photo's 0.20 over the cushion, its back face ahead of the RIDER knee
-     line, its centre 0.10-0.25 ahead of the cushion front; the arms >= 0.55 m from the hinge
+     line, its center 0.10-0.25 ahead of the cushion front; the arms >= 0.55 m from the hinge
      to the lap bar axis, above the armrests; the U inside the side frames (no cantilever);
      two inverted T's (foot bar 0.35-0.55 long at y +-0.60, bottom z 0, its top - the boots -
      0.35-0.45 below the cushion, 0.10-0.35 ahead of the seat front and not behind the lap
@@ -333,7 +333,7 @@ def test_revision1():
     wy_trace = -L.KAGELOK_U["roller_inboard"] * L.S_VERT
     wc_all = []
     for k in (0, 1):
-        # Revision 1b: BESIDE the jaw on the inboard side, centre near rope height (Kagelok
+        # Revision 1b: BESIDE the jaw on the inboard side, center near rope height (Kagelok
         # D05 rollers, skeptic claim 4) - was "entirely above the rope" in Revision 1
         w0, w1 = pbo(chair, f"wheel_{k}")
         wc = (w0 + w1) / 2.0
@@ -618,7 +618,7 @@ def test_trace():
         g = _co(by["D05"])
         got["grip_top_z"], got["grip_bottom_z"] = g[:, 2].max(), g[:, 2].min()
         # D05's two 36-vertex rollers (skeptic claim 4; the dq wheels' Revision 1b trace):
-        # their lateral offset from the rope is KAGELOK_U roller_inboard, centres at rope height
+        # their lateral offset from the rope is KAGELOK_U roller_inboard, centers at rope height
         rol = [(g[i].min(axis=0), g[i].max(axis=0)) for i in _islands(by["D05"]) if len(i) == 36]
         check(len(rol) == 2, f"trace: {len(rol)} D05 rollers")
         if rol:

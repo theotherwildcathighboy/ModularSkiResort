@@ -1,7 +1,7 @@
 // LoopHoldTests — Phase D (docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §7.1, rules group, with
 // round-4-contract-skeptic.md S-10): the pure arithmetic of a chairlift loop that stops and resumes (LiftLoopHold.cs).
 // Where-tags `loop-hold/…`. The chair clock is ChairPinSystem's: s = (offset + speed × TimeS) % L (ChairPinSystem.cs:1072-1076,
-// :1140-1143), modelled here with the same double expressions.
+// :1140-1143), modeled here with the same double expressions.
 //   LH-1  Rebase, 10,000 seeded cases with frozen ∈ [0, 2e5] s and 10,000 with frozen ∈ [0, 7.16e7] s (the whole uint frame
 //         clock / 60, S-10); offset ∈ [0, L), L ∈ [50, 5,000] m, speed ∈ {2.5, 5.0, 5.5, 10.0}, now ∈ [frozen, frozen + 1e5]:
 //         the result is in [0, L) and the circular distance between (r + speed × now) % L and (offset + speed × frozen) % L

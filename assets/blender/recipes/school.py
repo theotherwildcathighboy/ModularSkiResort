@@ -21,7 +21,7 @@ Pictogram: the field `emblem_school_face` (siding_paint, coplanar in the tower f
 gets ski_launcher_glyph.cand_d (skier on a slope) white at 0.85 of the field through
 _civic.GlyphPainter, which reads the face's UV -> world frame at bake time (N5).
 
-Authoring frame: +X = road / arrival (game +Z), origin = lot centre at grade. No bpy at
+Authoring frame: +X = road / arrival (game +Z), origin = lot center at grade. No bpy at
 import (recipe modules must be import-safe): geometry is built in build(recipe, opts), which
 loads recipes/_civic.py lazily.
 
@@ -45,7 +45,7 @@ the original "palisades ski school.jpg" + 8 Google Street View screenshots, 12:0
             above the back door (svc; 120856 shows it beside a back door), and a red fire-alarm
             bell high on the wall above-left of the tower door (original photo). The placards
             are sign-set faces (cs2_signset kinds school.markstaff / school.marknosled, vector
-            font); the bell is modelled (fire_red, LOD0 only).
+            font); the bell is modeled (fire_red, LOD0 only).
     ROOF    the UF roof is a MONOPITCH (shed) roof rising from the road side to the hill side
             at ROOF_PITCH_DEG 13.5 (measured on 121022, report section 1.2): front eave at the
             old band (top 6.75 at the UF front wall), back wall 8.49 m to the soffit, a 1.80 m
@@ -102,7 +102,7 @@ def load_civic():
 
 
 # ======================================================================================
-# Constants. BUILDING FRAME (BF): authoring metres of the building as approved (contract
+# Constants. BUILDING FRAME (BF): authoring meters of the building as approved (contract
 # 2.2); the lot frame = BF + (OX, 0, 0). Yard constants (marked LOT) are in the lot frame.
 # ======================================================================================
 
@@ -154,11 +154,11 @@ SPIRE_TOP = 15.00
 BELL = (12.30, 13.00, 0.45, 0.18)    # z0, z1, r bottom, r top
 GLOW_Z = 13.10
 LANTERN_Z = (12.52, 12.74)           # T87c: the lantern lens z0 / z1, hung from the cross beam (underside 13.18) on a rod
-LANTERN_DX = 0.75                    # T87c: lantern x offset from the tower centre (the bell hangs at the centre, r 0.45)
+LANTERN_DX = 0.75                    # T87c: lantern x offset from the tower center (the bell hangs at the center, r 0.45)
 # pictogram field (tower front, 3.2 m square)
 FIELD = (-0.6, 2.6, 4.6, 7.8)        # y0, y1, z0, z1
 FIELD_FRAC = 0.85
-TC = (0.5 * (TW[0] + TW[1]), 0.5 * (TW[2] + TW[3]))    # tower centre (1.5, 1.0)
+TC = (0.5 * (TW[0] + TW[1]), 0.5 * (TW[2] + TW[3]))    # tower center (1.5, 1.0)
 
 # windows (contract 2.2): WinSpec(w, h, sill, lights, rows); u along the wall
 WIN6 = (0.95, 1.15)                  # 6-light 3 x 2
@@ -181,7 +181,7 @@ MARK_PROUD = 0.004                   # placard 4 mm proud of the leaf; the wall 
 MARK_STAFF = (0.44, 0.36)            # cs2_signset school.markstaff (white "STAFF / ONLY" on red)
 MARK_NOSLED = (0.76, 0.36)           # cs2_signset school.marknosled ("NO / SLEDDING", white rim)
 MARK_DOORS = (("markL", "wingl"), ("markM", "main"))     # placards on these door leaves
-MARK_CZ = 1.45                       # placard centre above the leaf bottom (photo: ~1.4 m)
+MARK_CZ = 1.45                       # placard center above the leaf bottom (photo: ~1.4 m)
 NOSLED_Z0 = 2.40                     # bottom of the NO SLEDDING sign over the svc door
 ALARM_BELL = (-0.30, 2.75, 0.11, 0.07)   # (y, z, r, depth) on the tower front, above-left of main
 
@@ -189,7 +189,7 @@ ALARM_BELL = (-0.30, 2.75, 0.11, 0.07)   # (y, z, r, depth) on the tower front, 
 GRADE = 0.12                         # 12 % = 6.84 deg, both carpets
 BELT_W, BELT_Z0 = 0.80, 0.20         # belt width; belt surface height at the loading end
 RAMP_L, DECK_L, COVER_H = 0.60, 2.00, 0.08
-# carpets: (tag, centre y, loading-end x, belt length, side cover width, top deck width, bubble)
+# carpets: (tag, center y, loading-end x, belt length, side cover width, top deck width, bubble)
 CARPETS = (("a", -10.0, -5.75, 12.0, 0.20, 2.40, False),
            ("b", 10.5, -1.75, 16.0, 0.35, 2.60, True))
 GALLERY = (0.72, 1.20, 0.80, 2.0)    # half width, side height, arc rise, frame spacing (bubble)
@@ -319,10 +319,10 @@ RACKS = (
         (3, -1, "ski", (_K, _W), 1.62), (5, -1, "poles", _K, 1.38),
         (7, -1, "ski", (_B, _K), 1.44))),
 )
-# kit colour variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): blue, the school's lesson /
+# kit color variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): blue, the school's lesson /
 # trail-board blue (TRAIL_BLUE); the brown siding has no slot-2 surface to match
 KIT_COLOUR_SET = "blue"
-# the kit rows at the racks' own centres (on grade: m_ParentMesh -1), facing game +Z (identity)
+# the kit rows at the racks' own centers (on grade: m_ParentMesh -1), facing game +Z (identity)
 KIT_ROWS = tuple(kit_row(KIT_RACKS[i % len(KIT_RACKS)], _bf((y, 0.0, x)), parent=-1,
                          note=f"replaces skirack_{nm} (ski_rack_frame slots 8 along Y at BF "
                               f"({x}, {y}) = lot ({x + OX}, {y}))", colour_set=KIT_COLOUR_SET)
@@ -453,7 +453,7 @@ def glulam_parts(C):
 
 def marking_parts(K, C):
     """Revision 2 red markings (BF): placard faces on the two white door leaves, the NO
-    SLEDDING sign over the back door (sign-set faces, mat label) and the modelled alarm bell."""
+    SLEDDING sign over the back door (sign-set faces, mat label) and the modeled alarm bell."""
     from cs2_bldg import WallRef
     P = []
     doors = {d[0]: d for d in DOORS}
@@ -482,7 +482,7 @@ def detail_parts(K, C, fine=False):
     """Detail pass 1 dressing ON THE BUILDING (BF; design/detail-pass-1.md 3.1 as corrected by
     the skeptic) + the revision-2 markings. LOD rules: `sign_` boards to LOD1 (kit
     LOD2_DELETE), `emblem_schoolflag` LOD0 only (LOD1_EXTRA), stripes / flag mast / lamps
-    LOD0 only (kit LOD1_DELETE). fine: the kit's fine=True geometry and NO modelled racks
+    LOD0 only (kit LOD1_DELETE). fine: the kit's fine=True geometry and NO modeled racks
     (KIT_ROWS replace them)."""
     from cs2_bldg import WallRef
     P = []
@@ -531,7 +531,7 @@ def detail_parts(K, C, fine=False):
     for k, (y, z) in enumerate(SIGN_LAMPS):
         if K.FITTINGS.get("version", 0) >= 1:
             # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): the sign lamps are a matched pair of vanilla WallLight03
-            # goosenecks (cs2_fittings ROWS["school"]["wall"]); the modelled gooseneck (T102 r2) is out
+            # goosenecks (cs2_fittings ROWS["school"]["wall"]); the modeled gooseneck (T102 r2) is out
             continue
         else:
             lp, _pt = K.lantern(f"sign{k}", (TW[1], y, z), "+X", kind="wall", h=0.18, w=0.25)
@@ -607,7 +607,7 @@ def gallery_parts(C, c, gls=False):
     `galleryrib_<t>` white stiles on the sides + frame strips over the arc.
     gls (T95, cad-review-2026-10-19 section 6; lodge.py --glass gls): the most CAD-looking object of the resort
     (a white plastic tube, shot 22.17) becomes a clear tunnel: `gallery_side` / `gallery_roof` go to the plain-glass
-    `_Gls` sub-mesh (RECIPE.gls_extra, DECISIONS 281), the ribs `galv` aluminium hoops, and the opaque inner skin
+    `_Gls` sub-mesh (RECIPE.gls_extra, DECISIONS 281), the ribs `galv` aluminum hoops, and the opaque inner skin
     `gallery_in` is dropped (the double-sided glass shows the belt). The arc has the review's 12 facets (15 deg
     steps, +252 LOD0 tris): T101 (DECISIONS 317) moved the rooftop units to vanilla rows, which pays for it under the
     7,000 cap at weather level 0 (the integration build had kept 6 facets: 7,170 with 12)."""
@@ -879,7 +879,7 @@ def build(recipe, opts):
         # bell: a rod from the beam (underside 13.18) into a cone cap, an 8-seg lens 0.18 m across x 0.22 m (0.124 m2 lit,
         # the scale of a vanilla wall-light lens; the prefab keeps the vanilla house intensity 0.6, prop-emissive-lights.md
         # section 1.1) and a base plate. The old 0.5 x 0.5 m lit quad floated at 13.10 and the 2.4 m lit floor + balustrade
-        # faces (together 9.0 m2) are gone with it (above). z0 / z1 = LANTERN_Z; every piece overlaps its neighbour by >= 1 cm
+        # faces (together 9.0 m2) are gone with it (above). z0 / z1 = LANTERN_Z; every piece overlaps its neighbor by >= 1 cm
         pass
     else:
         P += C.quads_part("lamp_glow", [([(cx - 0.25, cy - 0.25, GLOW_Z), (cx + 0.25, cy - 0.25, GLOW_Z),
@@ -960,7 +960,7 @@ def build(recipe, opts):
     for k, (x, y) in enumerate(HVAC):
         if K.FITTINGS.get("version", 0) >= 1:
             # T101 (DECISIONS 305 / 317, vanilla props first): only the level curb is ours; the unit on it is a vanilla
-            # ACMachineRoofRandom01 row (cs2_fittings ROWS["school"]["curb"]). T87b's modelled unit
+            # ACMachineRoofRandom01 row (cs2_fittings ROWS["school"]["curb"]). T87b's modeled unit
             # (cs2_bldg.rooftop_unit, 284 tris) stays in the kit, unused here.
             # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): no curb either (Richard: "vanilla only, never ours"; the units sit on
             # the roof with no gap: cs2_fittings ROWS["school"]["roof"] seats ACMachineRoof02 / 03 on the 13.5-deg slope)

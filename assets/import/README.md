@@ -12,14 +12,14 @@ Export/import staging for CS2 Editor assets, organized `<category>/<generation l
 - **chairs/** — carriers. Chair1–5 in `legacy/` (pre-letter numbering); J = swan-neck Chair6.
   `M/` holds the fixed-grip triple (`SkiLiftChair6M`) and the detachable quad (`SkiLiftChairDQ4M`);
   the gondola and tram cabins are in the `cabins/` sibling.
-- **cables/legacy/** — obsolete modelled-rope-era assets (the drawn line's anchored lanes
+- **cables/legacy/** — obsolete modeled-rope-era assets (the drawn line's anchored lanes
   replaced them). Kept for history.
 - **props/** — piste-edge decoration placed automatically by the vanilla per-vertex
   border spawner on our run surfaces (DECISIONS 71/73; spec in
   `docs/research/art/snowmaking-props-spec.md`). Snow guns (tower / lance / carriage),
   hydrant + standpipe clutter, marker poles, hoses, B-net, trail signs, parked groomer.
   These are plain StaticObjectPrefabs — no utility or net components. Origin sits at
-  ground level on the machine's own footprint centre; per-instance offset and yaw come
+  ground level on the machine's own footprint center; per-instance offset and yaw come
   from the prefab's SubObject transform, NOT from baked mesh offsets.
 
 - **lodges/** — resort lodges from `assets/blender/lodge.py` (recipe engine on the
@@ -48,6 +48,9 @@ Export/import staging for CS2 Editor assets, organized `<category>/<generation l
   tram carriers.
 - **tramtowers/** - `A/SkiTramTower{30,45,60}A` (`tram_tower.py`): the aerial tram's lattice
   towers, a separate category from the shared `towers/`.
+- **numtiles/** - `A/SkiNumTile{T1,T2,T3}{Blank,N0..N9}A` (`number_tiles.py`, T123): the tower number tiles the code
+  mod hangs on every line tower; per class the BlankA owns the texture set, the digits share it (import all 33 in ONE
+  action); `A.manifest.json` beside the letter folder. Import note: docs/research/lifts/tower-numbers-build-2026-10-20.md §5.2.
 - **surfaces/** - `A/SkiRunGroomedA`, `A/SkiRunSnowmakingA` (`ski_surface.py`): run-surface
   textures plus hand-made SurfacePrefab staging; see `surfaces/A/README.md`.
 
@@ -55,7 +58,7 @@ Current generation per category (nothing from the 2026-10 round is imported yet,
 chairs **M**, stations **A** (detachable, gondola, tram) and **M** (fixedgrip), towers **O**,
 tramtowers **A**, cabins **A**, lodges **B**, buildings **A**, signs **A** (welcome sign) and
 **B** (sign sets), props **A** (snow guns, floodlights, hydrant boxes, the red beacon) and **B**
-(dressing kit), probes **B** (import-behaviour probes, not shipped), fences **A**, surfaces **A**.
+(dressing kit), probes **B** (import-behavior probes, not shipped), fences **A**, surfaces **A**.
 Generator `--out` paths must target the letter folder, e.g. `--out ../import/towers/N`.
 Never reuse a generation letter (the Editor mints a new mesh CID per import; hand-made
 prefabs repoint by CID — see docs/PIPELINE.md).

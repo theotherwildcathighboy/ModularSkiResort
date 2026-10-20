@@ -176,10 +176,10 @@ namespace SkiResortMod.Systems
             // "impossible to tell it exists", so it KEEPS a visible corduroy lane — and
             // a machine-cut edge is what grooming actually looks like. RGB untouched;
             // alpha scaled in-place at load, same mechanism as the summer set.
-            // T23 (Ash Flat item 91, 2026-10-16): Richard read the groomed run as grey next to the whiter snowmaking
+            // T23 (Ash Flat item 91, 2026-10-16): Richard read the groomed run as gray next to the whiter snowmaking
             // run. The groomed decal's mean RGB is 153/149/143 (beige) against snowmaking's 186/190/198, so at 0.55
             // the beige showed through the snow; 0.35 keeps the corduroy lane readable while the pack's white wins.
-            // The prefab tint (SkiRunGroomedA m_BaseColor) was raised too; if still grey, the bake (ski_decal.py
+            // The prefab tint (SkiRunGroomedA m_BaseColor) was raised too; if still gray, the bake (ski_decal.py
             // build_groomed `beige`) is the next knob (build/T17-T23-T25-dressing.md).
             public const float GroomedWinterAlphaScale = 0.35f;
             public const float SnowmakingWinterAlphaScale = 0.10f;

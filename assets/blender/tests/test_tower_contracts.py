@@ -4,7 +4,7 @@ skeptic's MUST-CHANGE items), checked INDEPENDENTLY of the generator's own asser
 
 1. All eleven variants - Revision 1 added FG20 / DQ16 (Richard's verdict 5) - (DQ line variants
    with both heads when the Kagelok .blend is present),
-   no bake: axle = mast - 0.96 (FG), lanes from the sheave centres in the NET frame
+   no bake: axle = mast - 0.96 (FG), lanes from the sheave centers in the NET frame
    (gauge = X: +-1.8 / +-2.6), bounds top per variant from a hard-coded table (the
    top-anchor spec y; DQ ingest 1.9501 above the axle, M7), bounds min = -pier, post-orient
    lateral +-1.91 FG / +-2.993 DQ (+-0.01), LOD1 = 0 and LOD2 bounds-top drift (FG 0 with
@@ -314,7 +314,7 @@ def variant_case(key, head=None):
     rep = cs2_validate._Report(NAMES[key])
     cs2_validate.lint_asset_name(NAMES[key], rep)
     check(not any(f[0] == "ERROR" for f in rep), f"{tag} lint_asset_name clean")
-    # axle + lanes from the sheave centres (net frame: gauge = X, travel = -Y)
+    # axle + lanes from the sheave centers (net frame: gauge = X, travel = -Y)
     rims = [(n, (v.min(axis=0) + v.max(axis=0)) / 2.0) for n, v in pv.items()
             if n.startswith("sheave_") and n.endswith("_rim")]
     check(len(rims) == 2 * spec.sheaves, f"{tag} {len(rims)} sheave rims = 2 x {spec.sheaves}")
@@ -434,7 +434,7 @@ def variant_case(key, head=None):
 def sub_hanger_case(tag, pv, spec):
     """Revision 1c, independent of C21: in the NET frame (gauge = X, travel = -Y), every
     sub pivot pin's outboard end lies in its rocker_sub_ box and its inboard end in a
-    rocker_main_ / rocker_link_ box (each within 2 cm laterally, the pin centre inside the box
+    rocker_main_ / rocker_link_ box (each within 2 cm laterally, the pin center inside the box
     in travel and height), and that inboard box reaches its side's yoke (a link overlapping
     it, a main within the 0.05 m gap its own pivot pin bridges)."""
     def bb(n):
@@ -1214,7 +1214,7 @@ def fbx_black_tris(asset_dir, name, lod=0):
 
 # F3 / F3b cases: (variant, F3 footprint pass fills something, F3b any-area pass fills something). The
 # 18:01-18:10 exports had black triangles on DQ18 (24 small + 2 slivers), GD16 (32 + 22), DQ20 (new,
-# 2 slivers after the F3 pass); FG8 has only the 16 platerim slivers (whose centres sit ON an edge, so the
+# 2 slivers after the F3 pass); FG8 has only the 16 platerim slivers (whose centers sit ON an edge, so the
 # part mean of its covered texels is black); ET68 has no defect at all and must stay untouched.
 # T62 round 3: the round-3 wheel's UV layout moved DQ18's long slivers away (its F3b pass now has nothing to fill)
 F3_CASES = (("DQ18", True, False), ("GD16", True, True), ("DQ20", True, True), ("FG8", False, True),

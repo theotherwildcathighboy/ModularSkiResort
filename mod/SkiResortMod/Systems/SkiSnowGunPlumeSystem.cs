@@ -19,7 +19,7 @@
 //     BuildingExtensionData, and ValidationSystem gives a PERMANENT colliding object Error (Game.Objects/ValidationHelpers.cs
 //     CheckOverlap: m_PermanentEntity = the other object, severity Error by default; AddError in ValidationSystem) while the
 //     player drags a road or a prop over a gun, and GenerateObjectsSystem copies Extension from an original to its Temp copy.
-//     A missing-component lookup in a Burst job with safety checks off is undefined behaviour (a crash class). The research
+//     A missing-component lookup in a Burst job with safety checks off is undefined behavior (a crash class). The research
 //     doc §3 has the full chain.
 //   * A write: set the gun's EarlyDisasterWarningDuration (added once, then SetComponentData) and, only when the visible
 //     state flips, add Game.Common.EffectsUpdated: EffectControlSystem's updated query takes it (:1087-1097), its job queues

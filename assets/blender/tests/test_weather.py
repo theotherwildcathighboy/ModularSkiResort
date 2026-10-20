@@ -8,7 +8,7 @@ Fixture: a "kit cube" built with bmesh-free from_pydata parts (no cs2_bldg impor
 with cs2_asset.tag_parts / store_part_table, with a hand-made isotropic UVUnique (one
 axis-aligned island per face, one island rotated 90 deg, uniform rho px/m; hidden faces at
 0.1 rho, one steel plate at 1.6 rho and one at 0.5 rho; skyline-packed with every rect corner
-on a texel EDGE, so no texel centre sits on a face boundary at rho 40 or 80, and the
+on a texel EDGE, so no texel center sits on a face boundary at rho 40 or 80, and the
 RESERVED_RECT kept free):
     wall_t       3.6 x 3.0 x 2.5 m closed timber box on z 0 (top face removed, as cull)
     gable_t0/1   gable triangles;  roof_tS / roof_tN  25 deg slabs, 0.24 m thick, 0.6 m
@@ -141,7 +141,7 @@ def _face_frame(n):
 class _Kit:
     def __init__(self):
         self.parts = []        # (obj, key)
-        self.records = []      # (obj, face index, local (n, 2) metres x factor)
+        self.records = []      # (obj, face index, local (n, 2) meters x factor)
 
     def add(self, name, key, verts, faces, flags=None):
         """faces: list of vertex-index tuples; flags: {face index: (rho factor, rotate)}."""
@@ -214,8 +214,8 @@ def _pack(records, A, rho):
             raise RuntimeError(f"kit cube UV pack overflow at A {A} (rect {w} x {h})")
         x, y = best
         # rect corners on texel EDGES (integer coords): at rho 40 and rho 80 alike the
-        # first texel centre sits half a texel inside every face, so no texel centre lies
-        # on a face boundary where float rounding decides its face (T7 metre parity)
+        # first texel center sits half a texel inside every face, so no texel center lies
+        # on a face boundary where float rounding decides its face (T7 meter parity)
         out[i] = (np.array((float(x), float(y))) - lo * rho, rho)
         top = max(top, y + h)
         x1 = x + w + M                        # [x, x1) rises to y + h + M
@@ -241,7 +241,7 @@ def _pack(records, A, rho):
 
 
 def build_kit_cube(name="WeatherKitCube", with_uvmap=False):
-    """Build the fixture; returns (obj, part table). UVs are normalised (A-independent):
+    """Build the fixture; returns (obj, part table). UVs are normalized (A-independent):
     rho = 40 px/m at A 512, 80 at A 1024, ..."""
     clear_scene()
     K = _Kit()
@@ -276,7 +276,7 @@ def build_kit_cube(name="WeatherKitCube", with_uvmap=False):
                                             (-4.6, -1.0, 2.9)], [(0, 1, 2, 3)], {0: (1.6, False)})
     K.add("steelplate_lo", "steel_paint", [(-3.4, 1.0, 0.5), (-4.6, 1.0, 0.5), (-4.6, 1.0, 2.9),
                                             (-3.4, 1.0, 2.9)], [(0, 1, 2, 3)], {0: (0.5, False)})
-    # UVs: pack at A0 / RHO0, store normalised
+    # UVs: pack at A0 / RHO0, store normalized
     placed, used_h = _pack(K.records, A0, RHO0)
     by_obj = {}
     for i, (obj, fi, loc) in enumerate(K.records):
@@ -702,7 +702,7 @@ def t7_density(obj):
     both = allf & covc.reshape(A0, A0)
     # the edge band's 3-texel floor (fix pass 1) widens it on purpose where it binds
     # everywhere on a part, and on parts thinner than two bands (step risers, door leaf,
-    # trim board: the band covers their faces, so the widening shows 1:1); metre parity is
+    # trim board: the band covers their faces, so the widening shows 1:1); meter parity is
     # asserted on the remaining parts
     ppm_c = np.bincount(fc.tpart, fc.ppm.reshape(-1)[fc.idx], minlength=len(fc.part_names) + 1) \
         / np.maximum(np.bincount(fc.tpart, minlength=len(fc.part_names) + 1), 1)
@@ -840,13 +840,13 @@ def textured(maps, f0, cov=0.25, seed=0x5EED):
     """The synthetic maps with a CC0-like albedo variation: base x (1 + cov * f), f a
     unit-variance hashed fbm of the texel's world position (0.15 m cells), clipped to
     +-2 sigma. VL4 measures wear against the texture variation already there (design 8);
-    the flat synthetic colours have none (D10 floors std at 10 % of the mean), so the
+    the flat synthetic colors have none (D10 floors std at 10 % of the mean), so the
     budget is asserted on this variant - the shipped L2 parts measure CoV 0.18-1.3."""
     f = W.fbm(f0.pos.astype(np.float64), 0.15, f0.ppm.reshape(-1)[f0.idx], seed)
     k = 1.0 + cov * np.clip(f.astype(np.float64), -2.0, 2.0)
     base = maps.base.copy()
     bf = base.reshape(-1, 4)
-    slot = maps.ctl.reshape(-1, 4)[f0.idx, 0] > 0           # recolour texels stay flat
+    slot = maps.ctl.reshape(-1, 4)[f0.idx, 0] > 0           # recolor texels stay flat
     k = np.where(slot, 1.0, k)
     bf[f0.idx, :3] = np.clip(bf[f0.idx, :3] * k[:, None], 0.0, 1.0)
     return W.WeatherMaps(base, maps.nrm, maps.msk, maps.ctl, maps.ao)

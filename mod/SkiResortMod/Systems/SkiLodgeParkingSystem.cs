@@ -32,7 +32,7 @@
 //      Game.Net.ParkingLane: d = MathUtils.Distance(curve xz, lodge xz); restricted = SkiParkingRules.IsRestricted(
 //      m_AccessRestriction set and not our sign or lodge, the lane's AllowEnter | AllowExit) — ParkingLaneDataSystem
 //      sets the restriction to the owning building for every building lane (:383-398) and the two allow flags
-//      from its Restricted* building flags (:225-279), which is what the pathfinder honours (PathUtils.cs:1195,
+//      from its Restricted* building flags (:225-279), which is what the pathfinder honors (PathUtils.cs:1195,
 //      :1220-1225); verdict SkiParkingRules.ClassifyLane. Count → NetUtils.GetParkingSlotCount (NetUtils.cs:954-957,
 //      the roads info view's own count, RoadsInfoviewUISystem.cs:134-173) and the LaneObjects that are ParkedCars;
 //      the owner walk (≤ MaxOwnerDepth) splits street (no building on the chain) from lots (any building: a

@@ -28,7 +28,7 @@ Contract
 
 `lod_objs` = {0: LOD0 obj, 1: LOD1 obj, 2: LOD2 obj} (levels may be missing except 0),
 `submeshes` = {suffix: obj} (e.g. {"Win": obj}); all are the generator's already-built,
-finished objects in metres, Z-up, net-oriented. The pack holds DUPLICATES only:
+finished objects in meters, Z-up, net-oriented. The pack holds DUPLICATES only:
 
     CS2R_<Name>                     collection, custom props below
       LOD0 / LOD1 / LOD2 / SUB      child collections (always all four; prop cs2r_role)
@@ -47,11 +47,11 @@ cs2r_extra = texture_name) with its own PBR material from <texture_dir>/<texture
 (the sheet owner's maps); listed in the collection prop `extra_meshes`. SUB_NOPROPS keeps them
 (they are the asset's look, not stand-ins).
 
-Vanilla-prop stand-ins (DECISIONS 183: props are REFERENCED as sub-objects, never modelled):
+Vanilla-prop stand-ins (DECISIONS 183: props are REFERENCED as sub-objects, never modeled):
 write_pack reads the asset's manifest sub-object rows (cs2_subobj.collect_rows: the explicit
 `manifest=` dict, else <asset_dir>/<name>.manifest.json; every block shape the generators write,
-plus the beacon addendum rows of a tower) and adds one labelled box of the prop's union bounds per
-row at its position / rotation, coloured per family (lights, bins, seating, trees, fences, other).
+plus the beacon addendum rows of a tower) and adds one labeled box of the prop's union bounds per
+row at its position / rotation, colored per family (lights, bins, seating, trees, fences, other).
 Pack-only: nothing is exported, no manifest or PNG changes. Collection props: n_prop_standins,
 prop_families (JSON), prop_bounds_unknown, subobj_source, subobj_replaced. A failure here is
 printed and never stops the pack.
@@ -59,11 +59,11 @@ printed and never stops the pack.
 Material (one per pack, shared by every LOD - the importer maps LOD textures to LOD0,
 cs2_asset.write_settings): BaseColor x mix(1, slotRGB, ControlMask R/G/B), multiplied in
 linear space like cs2_preview.py:428-454 (the in-game picker tint multiplies). Each slot
-colour is an RGB node named "Slot1".."Slot3" (defaults SLOT_DEFAULTS) overridden per placed
+color is an RGB node named "Slot1".."Slot3" (defaults SLOT_DEFAULTS) overridden per placed
 instance by an INSTANCER Attribute node reading the instancing empty's custom property
 "cs2r_slot<k>" (3 floats; missing -> Alpha 0 -> the node default; probed on 5.2.2, plain
-3-float array only - a 4-float or COLOR-subtype property reads back grey). That is how
-review_live.tint() recolours a LINKED, read-only material. The defaults are the PNG preview
+3-float array only - a 4-float or COLOR-subtype property reads back gray). That is how
+review_live.tint() recolors a LINKED, read-only material. The defaults are the PNG preview
 rig's (cs2_preview._tint_colours, cs2_preview.py:421-425: cs2_asset.STEEL_DEFAULT_RGB /
 PAD_RGB / white), because the live view is there to match those previews (pipeline-gap.md
 section 6); the prefab's "compensated" steel 0.25/0.26/0.275 (PIPELINE.md:113) is an
@@ -161,7 +161,7 @@ PACK_VERSION = 1
 PACK_PREFIX = "CS2R_"
 ROLES = ("LOD0", "LOD1", "LOD2", "SUB")
 
-#: recolour slot defaults (linear multipliers): the PNG preview rig's, so the live view
+#: recolor slot defaults (linear multipliers): the PNG preview rig's, so the live view
 #: matches the previews (cs2_preview.py:421-425; cs2_asset.STEEL_DEFAULT_RGB is the single
 #: source of truth, cs2_asset.py:445). Slot 3 is reserved and defaults to white.
 SLOT_DEFAULTS = {1: tuple(cs2_asset.STEEL_DEFAULT_RGB), 2: tuple(cs2_asset.PAD_RGB),
@@ -195,7 +195,7 @@ SHEET_DIR_PREFIX = "_SkiTileSheet"
 FBX_TO_BLENDER = (mathutils.Matrix(((1.0, 0.0, 0.0, 0.0), (0.0, 0.0, -1.0, 0.0),
                                     (0.0, 1.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0)))
                   @ mathutils.Matrix.Scale(1.0 / cs2_asset.CS2_UNIT_SCALE, 4))
-#: manifest extent_game_m vs the re-imported LOD0 (m): an axis or scale slip is metres off
+#: manifest extent_game_m vs the re-imported LOD0 (m): an axis or scale slip is meters off
 EXTENT_TOL_M = 0.05
 
 #: ID collections snapshotted before and diffed after write_pack (anything new is removed)
@@ -553,7 +553,7 @@ def texture_sets(name, asset_dir, manifest=None):
 
 def pbr_material(name, asset_dir, uv_name, slot_defaults, *, maps=None, mat_name=None,
                  img_tag=None):
-    """The recolour material described in the module docstring. `maps` ({Map: path}; default
+    """The recolor material described in the module docstring. `maps` ({Map: path}; default
     <asset_dir>/<name>_<Map>.png) and `mat_name` (default CS2R_<name>_PBR) select the set; images
     are named CS2R_<name>_<img_tag_><Map>."""
     mat = bpy.data.materials.new(mat_name or f"{PACK_PREFIX}{name}_PBR")
@@ -1046,7 +1046,7 @@ def _is_identity(m, eps=1e-6):
 
 def import_exported_fbx(path):
     """
-    Import one FBX written by cs2_asset.export_fbx and return it in metres, Z-up, identity
+    Import one FBX written by cs2_asset.export_fbx and return it in meters, Z-up, identity
     transform, named after the file stem. Blender 5.x wm.fbx_import keeps the raw vertices
     (cm, Y-up: export baked (x, y, z) -> (x, z, -y) x 100, cs2_asset.py:1300-1302) and an
     identity object matrix (probed on 5.2.2: SkiLodgeHutCommercialLowW raw y -720..880 = the
@@ -1089,7 +1089,7 @@ def import_exported_fbx(path):
 
 def _check_extent(obj, manifest, label):
     """The re-imported LOD0 against the manifest's extent_game_m (game axes: y up, z = -Blender
-    y). An axis or unit slip is metres off; returns a note or raises."""
+    y). An axis or unit slip is meters off; returns a note or raises."""
     ext = (manifest or {}).get("extent_game_m")
     if not isinstance(ext, dict):
         return "no extent_game_m in the manifest: orientation not cross-checked"

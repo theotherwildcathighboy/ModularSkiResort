@@ -23,7 +23,7 @@
  *     names another stamp; SkiDeployPlugin (npm run dev) checks it before every copy.
  *
  * What it checks (each failure is one line naming the file and the rule):
- *   1. build/ holds exactly SkiResortMod.mjs + SkiResortMod.css (+ the extracted-licence .txt,
+ *   1. build/ holds exactly SkiResortMod.mjs + SkiResortMod.css (+ the extracted-license .txt,
  *      SkiResortMod-img/*.png|svg, the .ui-stamp file and the .gate-pass marker) - a second .mjs,
  *      a .js chunk, a .map or a .json (the asset database turns *.json in a mod folder into
  *      Metadata assets, DefaultAssetFactory.cs:242 [1.6.2f1 Colossal.IO.AssetDatabase, ilspycmd]) fails.
@@ -1084,7 +1084,7 @@ function readLocaleEntries(file) {
   return map;
 }
 
-/** Normalised TypeScript type text. */
+/** Normalized TypeScript type text. */
 function typeText(sf, node) {
   return node ? node.getText(sf).replace(/\s+/g, " ").trim() : "?";
 }
@@ -1770,7 +1770,7 @@ const EDGE_SLOTS = new Set(["header", "footer"]);
  * FAILS too (F6 fixer, EDGE_SECTIONS): a cs2/ui PanelSection / PanelFoldout / PanelSectionRow there
  * without a literal `disableFocus` (bare, or ={true}), with a spread after it, or - PanelSectionRow -
  * with `link` or any spread (a spread could carry link). Also FAILS when src/ has no Panel header /
- * footer at all (the rule would check nothing). Followed: JSX tags (capitalised), and (F6 fixer)
+ * footer at all (the rule would check nothing). Followed: JSX tags (capitalized), and (F6 fixer)
  * helper functions - the callee of a call in the slot (`{tile(...)}`) and a function passed by name
  * as a call argument (`.map(tile)`) - each when it is a local declaration of the same file or a
  * relative import (its exported declaration; a default import = the whole file); cs2/*, react and
@@ -2463,7 +2463,7 @@ async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
   if (!info.author) errors.push("banner: no Author line");
   if (info.version === null) errors.push(`banner: Version ${JSON.stringify(info.versionRaw)} does not parse as System.Version`);
   if (stamp && info.extra.Build !== stamp) errors.push(`banner: Build ${JSON.stringify(info.extra.Build)} differs from build/${STAMP_FILE} "${stamp}"`);
-  // The banner must not hinge on a third-party licence comment (src/index.tsx header).
+  // The banner must not hinge on a third-party license comment (src/index.tsx header).
   const licence = path.join(buildDir, `${MOD.id}.mjs.LICENSE.txt`);
   const licenceText = fs.existsSync(licence) ? fs.readFileSync(licence, "utf8") : "";
   if (!licenceText.includes(BANNER_ANCHOR)) errors.push(`banner: our "/*! ${BANNER_ANCHOR} ..." comment (src/index.tsx, on hasCSS) was not extracted - the banner now depends on a third-party licence comment`);

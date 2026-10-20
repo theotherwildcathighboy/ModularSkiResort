@@ -21,7 +21,7 @@
  * portalled, index.js@540726), so the Universal Mod Panel grid still sees the button itself as
  * its child [L: field test 3].
  * Icon (Round S1 F9, docs/research/ski-days/spec/ch5-launcher.md): SkiLauncherGlyph.svg, a white
- * one-colour glyph bundled by webpack into SkiResortMod-img/ and drawn by the game as a tinted
+ * one-color glyph bundled by webpack into SkiResortMod-img/ and drawn by the game as a tinted
  * mask on the accent plate, like every other button in the top-left row (TintedIcon:
  * style.maskImage = url(src), installed index.js@633525; .tinted-icon_iKo fills it with
  * --iconColor rgb(250,250,250), index.css@28104 / @75970). FloatingButton tints by default

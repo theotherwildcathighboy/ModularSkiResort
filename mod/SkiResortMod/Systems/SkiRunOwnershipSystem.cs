@@ -6,7 +6,7 @@
 //   THE GAP (entry 90; amended for Round M1, docs/research/hub-u2-spec.md §6.1 e / OD-12): our run
 //   SurfacePrefabs NO LONGER carry Game.Prefabs.ServiceUpgrade — M1 removes it, so runs are not in
 //   the sign's upgrade strip any more and are launched from the Ski Resort hub only. Even while
-//   they carried it, every downstream upgrade behaviour was Object-gated in vanilla: no owner (a
+//   they carried it, every downstream upgrade behavior was Object-gated in vanilla: no owner (a
 //   drawn run never gets Owner in game mode, AreaToolSystem.cs:2105-2111 editor-only, 1.6.2
 //   :2112-2118), no cost (Temp.m_Cost is written on the object path only), no InstalledUpgrade,
 //   no tether. Nothing in this mod ever read ServiceUpgrade on a run (runs are found by prefab
@@ -1251,7 +1251,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Fills m_Plan with every live run of ours, its facts and its decision. Call
         /// CollectGates first (SignInTether reads m_Gates). Two loops: the chunk walk only
-        /// copies (entity, prefab, centre); the per-run EntityManager reads happen after the
+        /// copies (entity, prefab, center); the per-run EntityManager reads happen after the
         /// chunk arrays are released.</summary>
         private void CollectRuns(bool loadPass)
         {

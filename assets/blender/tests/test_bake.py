@@ -13,10 +13,10 @@ Exit code 1 on any failure; prints one PASS line on success. 256 px bakes, AO 16
       * MaskMap R = metal, A = 1 - rough; ControlMask R/G/B exclusive, R on slot-1 faces,
         A 0; BaseColor and Normal alpha 255 everywhere;
       * one UV layer ("UVUnique"), no material slots, no CS2BAKE_/CS2SRC_ datablocks left;
-      * every render / bake / Cycles / tool / colour setting, the selection, the active
+      * every render / bake / Cycles / tool / color setting, the selection, the active
         object and hide_render equal their values before the bake.
 (2) Two identical bakes in one process write byte-identical PNGs.
-(3) recolor_albedo: slot-1 faces ship RECOLOR_ALBEDO (0.80 -> 204) neutral grey (the
+(3) recolor_albedo: slot-1 faces ship RECOLOR_ALBEDO (0.80 -> 204) neutral gray (the
     reserved strip does not steer the mean); a constant emissive lands in `_Emissive`
     (alpha 255); an "unknown" normal is dropped and rebuilt from a height ramp (G < 0.5).
 (4) bake_high_to_low from a bevelled cube onto a plain cube: a non-flat normal map whose
@@ -580,7 +580,7 @@ def test_ramp_sign(out_dir):
     n = read_png(npath)[8:-8, 8:-8].reshape(-1, 4)[:, 0:3] / 255.0
     ppm = A / 2.0
     rows = np.arange(A, dtype=np.float32)[:, None] * np.ones((1, A), np.float32)
-    ramp = math.tan(theta) * rows / ppm                      # metres, rising with v
+    ramp = math.tan(theta) * rows / ppm                      # meters, rising with v
     ref = cs2_compose.height_to_normal(ramp, ppm)[8:-8, 8:-8].reshape(-1, 3)
     g_bake, g_ref = float(n[:, 1].mean()), float(ref[:, 1].mean())
     r_bake = float(n[:, 0].mean())

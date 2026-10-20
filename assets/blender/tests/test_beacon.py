@@ -15,14 +15,14 @@ Checks (exit 1 on any failure; --quick skips the two child processes):
                five maps with mips <= 0.5 MB uncompressed.
   emissive     _Emissive.png: every texel covered by a lens face (eroded 1 texel) is red (R >= 0.75,
                G and B <= 0.2); every texel covered by a non-lens face is black (their UVs sit on
-               texel centres 0.5 texel inside their rects, so bilinear never reaches the lens);
+               texel centers 0.5 texel inside their rects, so bilinear never reaches the lens);
                BaseColor of the lens texels is red-dominant too (the unlit look between flashes).
   contracts    beacon.contracts() holds (ground, 0.26 m rim, cage clearance, outward normals, UV
                rules, lens faces inside the lens block).
   validator    cs2_validate.validate_asset_folder_ex(kind prop, lod0_cap 100): 0 errors on the
                temp export and on the shipped folder assets/import/props/A/SkiBeaconRedA (when
                present).
-  measure      beacon.measure_anchors() on the shipped tower FBX: 7 rows, centre hit normal +y,
+  measure      beacon.measure_anchors() on the shipped tower FBX: 7 rows, center hit normal +y,
                footprint flat <= 5 mm, nothing inside the beacon envelope (a row SKIPs when its FBX
                is missing).
 """
@@ -97,7 +97,7 @@ def sub_mesh(obj, keep_lens):
 
 
 def dilate(mask):
-    """Boolean dilation by one texel (8-neighbourhood), no wrap-around at the atlas edges."""
+    """Boolean dilation by one texel (8-neighborhood), no wrap-around at the atlas edges."""
     p = np.pad(mask, 1, constant_values=False)
     out = np.zeros_like(mask)
     h, w = mask.shape

@@ -11,7 +11,7 @@
 //      meeting at a tower sheave or station bullwheel stub share a bitwise-identical
 //      PathNode. Chain direction is per-lane (m_Start/m_End orientation is NOT
 //      consistent along one drawn lift — never assume node order).
-//   2. Recognises STATION TERMINALS by PathNode owner index == station entity index
+//   2. Recognizes STATION TERMINALS by PathNode owner index == station entity index
 //      (the anchor PathNode is owned by the station building; PathNode.GetOwnerIndex
 //      is public) — and the walk STOPS at station anchors. Load-bearing (review
 //      finding, entry 98): two lifts sharing a station also share that station's stub
@@ -32,7 +32,7 @@
 // degradation, never an exception.
 //
 // All lengths run in double (loop phase accumulates speed * frameIndex; float32 would
-// quantize at metre scale by frame ~1e7). Per-segment lengths use the same metric as
+// quantize at meter scale by frame ~1e7). Per-segment lengths use the same metric as
 // MathUtils.ClampLength (Curve.m_Length for lanes, exact pi*r for arcs), so sampling
 // never runs past a segment end.
 //
@@ -52,7 +52,7 @@
 //     lanes of Loop-mover types only). Loop.m_TypeIndex = the common type of its member lanes, else −1 with a build
 //     note "loop between stations S and T mixes lift types — not moving" (ChairPinSystem gives such a loop no roster:
 //     its chairs static-pin). Loop.m_SpeedMps is set by ChairPinSystem from the row (the mover's per-loop clock).
-//   * UP LANE (addendum 1, dq-family-review-geometry.md F2): chain A — the one travelled base → top — is the cable on
+//   * UP LANE (addendum 1, dq-family-review-geometry.md F2): chain A — the one traveled base → top — is the cable on
 //     the RIGHT looking uphill (StationAlign.UpLaneIsSecond on the two chains' midpoints, base → top by the stations'
 //     positions), instead of "the first chain found" (was this file :286, kv.Value[0]). A carrier faces its travel
 //     direction with its hanger at local +x, so the hanger stays OUTBOARD of the tower decks on both sides. Two chains
@@ -552,7 +552,7 @@ namespace SkiResortMod.Systems
         /// terminal ~10 m; anything beyond is a mis-located wheel — fall back).</summary>
         private const float MaxWheelRunMeters = 30f;
 
-        /// <summary>The turnaround at a station (entry 103). With a known bullwheel centre W
+        /// <summary>The turnaround at a station (entry 103). With a known bullwheel center W
         /// (rope height, station-local from the terminal generator, mapped to world): a
         /// straight run from the terminal to the wheel's tangent point, a half-circle of
         /// the rope gauge around W bulging into the station, and a straight run back out to
@@ -770,7 +770,7 @@ namespace SkiResortMod.Systems
             var t = new Bounds1(0f, 1f);
             if (seg.m_Reversed)
             {
-                // d metres of travel from the t=1 end toward t=0.
+                // d meters of travel from the t=1 end toward t=0.
                 MathUtils.ClampLengthInverse(seg.m_Bezier, ref t, d);
                 position = MathUtils.Position(seg.m_Bezier, t.min);
                 travelTangent = -MathUtils.Tangent(seg.m_Bezier, t.min);

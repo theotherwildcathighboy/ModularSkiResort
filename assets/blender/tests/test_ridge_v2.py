@@ -93,7 +93,7 @@ def main():
     checks = []
     spec = RoofSpec("gable", -4.0, 4.0, -6.0, 6.0, 3.0, 40.0, axis="Y", overhang=0.6, rake_over=0.4, thick=0.24,
                     mat="slate")
-    # R1: flag off == v1 (compare against an explicit RIDGE version 1, the pre-T95 behaviour)
+    # R1: flag off == v1 (compare against an explicit RIDGE version 1, the pre-T95 behavior)
     p0 = K.gable_roof("o", spec, walls=False)
     a = {o.name: sorted(verts(o)) for o, _m in p0}
     r0 = tris(part(p0, "ridge_o"))

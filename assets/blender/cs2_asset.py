@@ -11,7 +11,7 @@ Every asset is a FOLDER, not a loose FBX. The importer expects:
         <Name>_BaseColor.png        albedo            (sRGB)
         <Name>_Normal.png           tangent normals   (linear)
         <Name>_MaskMap.png          packed PBR        (linear)
-        <Name>_ControlMask.png      colour variation  (linear)
+        <Name>_ControlMask.png      color variation  (linear)
         settings.json
         [<Name>_LOD1.fbx, <Name>_LOD2.fbx ...]        optional, supplied LODs
         [<Name>_Gls.fbx / _Win.fbx / _Wat.fbx]        optional material sub-meshes
@@ -84,7 +84,7 @@ def validate_asset_name(name):
 
     Proven side by side in one scene: "SkiTowerRed" -> 171-byte Surface + 4 textures, renders
     red. "SkiTower_RED", same generator and same geometry -> 56-byte Surface, no textures,
-    renders default grey.
+    renders default gray.
 
     Consistent with all shipped content - no official ExampleAssets name and no name in the
     Modular Golf Course Pack contains an underscore.
@@ -150,12 +150,12 @@ def make_texture_set(out_dir, name, size=1024, base_rgb=(0.52, 0.53, 0.55),
 
     ControlMask alpha is zero in every official asset (an earlier version wrongly set 1.0).
 
-    RECOLOURING (`control_rgb`): the ControlMask RGB channels are REGION MASKS for the game's
-    custom-colour system - measured from ExampleColorMaskFirehouse, whose mask has three hard
+    RECOLORING (`control_rgb`): the ControlMask RGB channels are REGION MASKS for the game's
+    custom-color system - measured from ExampleColorMaskFirehouse, whose mask has three hard
     binary regions (R ~32% of texels, G ~10%, B ~20%) over a desaturated BaseColor. Each channel
-    marks the texels tinted by one of the three colour slots. `control_rgb=(1,0,0)` makes the
-    whole surface recolourable via slot 1 - the right default for our uniform procedural
-    textures. Keep `base_rgb` greyish on recolourable assets so the tint reads true.
+    marks the texels tinted by one of the three color slots. `control_rgb=(1,0,0)` makes the
+    whole surface recolorable via slot 1 - the right default for our uniform procedural
+    textures. Keep `base_rgb` grayish on recolorable assets so the tint reads true.
     """
     os.makedirs(out_dir, exist_ok=True)
     rng = np.random.default_rng(seed)
@@ -187,7 +187,7 @@ def make_texture_set(out_dir, name, size=1024, base_rgb=(0.52, 0.53, 0.55),
     _write_png(os.path.join(out_dir, f"{name}_MaskMap.png"), f"{name}_MaskMap",
                msk, size, is_data=True)
 
-    # --- ControlMask: RGB = recolour region masks (see docstring), alpha always zero
+    # --- ControlMask: RGB = recolor region masks (see docstring), alpha always zero
     ctl = np.zeros((size, size, 4), dtype=np.float32)
     ctl[:, :, 0] = control_rgb[0]
     ctl[:, :, 1] = control_rgb[1]
@@ -304,9 +304,9 @@ def make_texture_set_atlas(out_dir, name, quad_sets, quad_size=1024,
     Build the CS2 four-map pack as a 2x2 atlas of real PBR sets.
 
     quad_sets: {quad_index: path_to_ambientCG_set_dir} - quads 0..3 (BL, BR, TL, TR).
-               A missing quad is filled with mid-grey.
-    control_quads: per-quad ControlMask R value (recolour slot 1 coverage). Painted parts
-               get 1.0 (recolourable), raw concrete/steel get 0.0.
+               A missing quad is filled with mid-gray.
+    control_quads: per-quad ControlMask R value (recolor slot 1 coverage). Painted parts
+               get 1.0 (recolorable), raw concrete/steel get 0.0.
     post:      optional callback (base, nrm, msk, ctl, atlas_size) invoked after the quads
                are painted but before the PNGs are written - lets one asset stamp bespoke
                detail (e.g. the terminal's painted tension-scale numbers) into ITS copy of
@@ -432,18 +432,18 @@ def paint_panel_detail(base_sl, nrm_sl, msk_sl, S, rng,
 
 
 # --------------------------------------------------------------------------------------
-# Recolour contract (K generation)
+# Recolor contract (K generation)
 #
-# The vanilla recolour UI MULTIPLIES the picked colour against the albedo, so recolourable
+# The vanilla recolor UI MULTIPLIES the picked color against the albedo, so recolorable
 # regions must keep LIGHT, DESATURATED albedo or every tint collapses toward black (the
-# J-round bug: picker colours barely read against the near-black steel). Vanilla's own
+# J-round bug: picker colors barely read against the near-black steel). Vanilla's own
 # convention: masked regions ship light-neutral albedo and the DEFAULT look is supplied by
-# the prefab's default colour VariationSet. The authored default paint colours therefore
+# the prefab's default color VariationSet. The authored default paint colors therefore
 # move prefab-side; they are recorded here as the single source of truth:
 # --------------------------------------------------------------------------------------
 
 STEEL_DEFAULT_RGB = (0.20, 0.21, 0.22)   # the dark Pali steel paint - slot 1 prefab default
-RECOLOR_ALBEDO = 0.80                    # light neutral gray under every recolour mask
+RECOLOR_ALBEDO = 0.80                    # light neutral gray under every recolor mask
 
 # T27 (2026-10-17, docs/research/field/2026-10-15/build/T27-rope-path.md section 1): the station rope = the LINE rope.
 # Every lift line draws the vanilla HV / LV cable lane mesh (463c051d... / bbb9724d..., DECISIONS 243); both use ONE
@@ -466,17 +466,17 @@ ROPE_MATERIAL_PRE_T27 = dict(albedo=(0.30, 0.30, 0.32), metal=0.9, rough=0.65)
 def lift_atlas_quads(tex_root):
     """
     The ONE standard atlas for every lift asset (stations, towers, chairs), so the whole
-    system shares a palette and every painted part answers to the same recolour slot:
+    system shares a palette and every painted part answers to the same recolor slot:
 
-        0 concrete   (pads, plinths, ramps)     photo, tinted down    not recolourable
-        1 galvanized (sheaves, grips, ladders)  photo Metal032        not recolourable
-        2 dark glass (liftie hut window band)   procedural            not recolourable
+        0 concrete   (pads, plinths, ramps)     photo, tinted down    not recolorable
+        1 galvanized (sheaves, grips, ladders)  photo Metal032        not recolorable
+        2 dark glass (liftie hut window band)   procedural            not recolorable
           - top of quad 2 is RESERVED for the crash-pad strip, see PAD_* below
         3 painted    (masts, frames, chairs)    procedural light-neutral steel,
-                                                RECOLOURABLE (slot 1)
+                                                RECOLORABLE (slot 1)
 
-    K: quad 3 albedo is RECOLOR_ALBEDO gray, not the dark Pali paint - recolour tints
-    multiply, so the region must stay light for picker colours to read true. The grain,
+    K: quad 3 albedo is RECOLOR_ALBEDO gray, not the dark Pali paint - recolor tints
+    multiply, so the region must stay light for picker colors to read true. The grain,
     panel seams and grime detail are kept (they multiply, so they survive any tint). The
     shipped dark look comes from STEEL_DEFAULT_RGB in each prefab's default VariationSet.
 
@@ -496,7 +496,7 @@ def lift_atlas_quads(tex_root):
 # --------------------------------------------------------------------------------------
 # Crash-pad strip (J follow-up)
 #
-# The tower mast pads are RECOLOURABLE ON THEIR OWN SLOT (ControlMask G = slot 2),
+# The tower mast pads are RECOLORABLE ON THEIR OWN SLOT (ControlMask G = slot 2),
 # default orange-red, so a player can restyle pads independently of the black steel
 # (slot 1). The pad material lives in a horizontal strip reserved out of the top of the
 # GLASS quadrant (quad 2 - procedural, mostly headroom). Both halves of the contract are
@@ -543,7 +543,7 @@ def paint_pad_strip(base, nrm, msk, ctl, A):
     Paint the crash-pad material strip + white warning triangle into an atlas.
     Signature matches make_texture_set_atlas `post` hooks so callers can compose it.
 
-    ControlMask: G=1 (recolour slot 2) across the strip, EXCEPT under the triangle
+    ControlMask: G=1 (recolor slot 2) across the strip, EXCEPT under the triangle
     markings, which are painted symbols and must not tint (same rule as the terminal's
     tension-scale digits).
 
@@ -557,7 +557,7 @@ def paint_pad_strip(base, nrm, msk, ctl, A):
     r0, r1 = int(PAD_V0 * A), int(PAD_V1 * A)
     h, w = r1 - r0, c1 - c0
 
-    # Matte vinyl: flat colour with faint grain, dielectric, low smoothness
+    # Matte vinyl: flat color with faint grain, dielectric, low smoothness
     grain = rng.normal(0.0, 0.012, (h, w, 1)).astype(np.float32)
     for ch in range(3):
         base[r0:r1, c0:c1, ch] = np.clip(RECOLOR_ALBEDO + grain[..., 0], 0.0, 1.0)
@@ -565,16 +565,16 @@ def paint_pad_strip(base, nrm, msk, ctl, A):
     msk[r0:r1, c0:c1, 0] = 0.0
     msk[r0:r1, c0:c1, 3] = PAD_SMOOTH
     ctl[r0:r1, c0:c1, 0] = 0.0
-    ctl[r0:r1, c0:c1, 1] = 1.0                      # recolour slot 2
+    ctl[r0:r1, c0:c1, 1] = 1.0                      # recolor slot 2
 
     # Warning triangle on the uphill face. The outer wall maps arc -> u and height -> v,
-    # so horizontal texels/metre exceed vertical by `aniso`; stretch width accordingly.
+    # so horizontal texels/meter exceed vertical by `aniso`; stretch width accordingly.
     arc_len = math.radians(CRASHPAD["arc_deg"]) * CRASHPAD["radius"]
     pad_h = CRASHPAD["z1"] - CRASHPAD["z0"]
     aniso = (w / arc_len) / (h / pad_h)
     T = int(h * 0.62)                               # triangle height in texels
     W = int(T * 1.12 * aniso)                       # pre-stretched width
-    cx = c0 + w // 2                                # strip centre = arc centre = +X face
+    cx = c0 + w // 2                                # strip center = arc center = +X face
     y_base = r0 + int(h * 0.16)
     white, dark = (0.92, 0.92, 0.92), (0.10, 0.10, 0.10)
     for row in range(T):
@@ -598,15 +598,15 @@ def paint_pad_strip(base, nrm, msk, ctl, A):
 # re-imports. Quads 0 and 1 are deliberately byte-identical to the lift recipe (same
 # Concrete034 at tint 0.58, same Metal032) so the pack still reads as one machine shop;
 # quad 2 is re-cut into rubber / grate / safety-plastic zones, and quad 3 is split into a
-# recolourable livery rect and a recolourable accent rect, because every documented
+# recolorable livery rect and a recolorable accent rect, because every documented
 # manufacturer livery is two-tone.
 #
 # Why this exists: snow guns need materials the lift atlas has no slot for. The first draft
-# of snow_props.py put TYRES, HOSES AND THE FAN INTAKE on the glass quad at 0.92 smoothness
-# (mirror-finish rubber) and the ORANGE HYDRANT LID on recolour slot 1, so the safety cap
-# would have recoloured with the manufacturer livery.
+# of snow_props.py put TIRES, HOSES AND THE FAN INTAKE on the glass quad at 0.92 smoothness
+# (mirror-finish rubber) and the ORANGE HYDRANT LID on recolor slot 1, so the safety cap
+# would have recolored with the manufacturer livery.
 #
-# Recolour slots: R = livery paint, G = safety orange (PAD_RGB, unchanged), B = accent.
+# Recolor slots: R = livery paint, G = safety orange (PAD_RGB, unchanged), B = accent.
 # --------------------------------------------------------------------------------------
 
 RUBBER_RGB  = (0.055, 0.055, 0.060)
@@ -682,7 +682,7 @@ def snow_prop_atlas_quads(tex_root):
 
     control_quads writes ControlMask R across quad 3; snow_prop_post then ZEROES R over the
     accent rect and sets B there instead, so the two paint zones answer to different
-    recolour slots from one quad.
+    recolor slots from one quad.
     """
     quad_sets = {
         0: {"set": os.path.join(tex_root, "Concrete034"), "tint": 0.58},
@@ -705,7 +705,7 @@ def snow_prop_post(base, nrm, msk, ctl, A):
         r0, r1, c0, c1 = _rect_px(Z[name], A)
         return (slice(r0, r1), slice(c0, c1)), (r1 - r0, c1 - c0)
 
-    # ---- rubber: tyres, hoses, intake shadow. Matte, dielectric, faint moulding ribs.
+    # ---- rubber: tires, hoses, intake shadow. Matte, dielectric, faint molding ribs.
     s, (h, w) = sl("rubber")
     for ch in range(3):
         base[s][..., ch] = np.clip(RUBBER_RGB[ch] + rng.normal(0, 0.006, (h, w)), 0, 1)
@@ -731,7 +731,7 @@ def snow_prop_post(base, nrm, msk, ctl, A):
     ctl[s][..., 0] = 0.0
     height_to_normal(-holes * 0.05, nrm[s], strength=3.5)
 
-    # ---- plastic: hydrant lids, valve handwheels, marker caps. RECOLOUR SLOT 2 (orange).
+    # ---- plastic: hydrant lids, valve handwheels, marker caps. RECOLOR SLOT 2 (orange).
     s, (h, w) = sl("plastic")
     for ch in range(3):
         base[s][..., ch] = np.clip(RECOLOR_ALBEDO + rng.normal(0, 0.010, (h, w)), 0, 1)
@@ -741,12 +741,12 @@ def snow_prop_post(base, nrm, msk, ctl, A):
     ctl[s][..., 0] = 0.0
     ctl[s][..., 1] = 1.0
     pebble = rng.normal(0.0, 0.010, (h, w)).astype(np.float32)
-    pebble[int(h * 0.32):int(h * 0.36), :] += 0.05      # two moulded ribs
+    pebble[int(h * 0.32):int(h * 0.36), :] += 0.05      # two molded ribs
     pebble[int(h * 0.64):int(h * 0.68), :] += 0.05
     height_to_normal(pebble, nrm[s], strength=3.0)
 
     # ---- accent: second livery tone. Quad 3 already carries R=1 from control_quads;
-    #      hand this rect to slot 3 instead so chassis and housing recolour separately.
+    #      hand this rect to slot 3 instead so chassis and housing recolor separately.
     s, (h, w) = sl("accent")
     ctl[s][..., 0] = 0.0
     ctl[s][..., 2] = 1.0
@@ -840,11 +840,11 @@ def make_snow_prop_emissive(out_dir, name, quad_size, lit=None):
         the linear profile. So it is written is_data=False.
       * It must be **RGBA**. A 3-channel PNG skips BC compression entirely
         (CompressBC returns early when channels != 4).
-      * It is **emitted colour, not a mask**: the shader multiplies this by the
+      * It is **emitted color, not a mask**: the shader multiplies this by the
         EmissiveProperties intensity (0.6, which the bake scales x100 to a shader
         multiplier of 60). Black means "not emissive".
 
-    `lit` maps zone name -> (r, g, b) emitted colour. Default lights the two lens zones:
+    `lit` maps zone name -> (r, g, b) emitted color. Default lights the two lens zones:
     the floodlight lens at full cool white, the amber beacon dimmer because a beacon is a
     marker rather than a source. Everything else stays black.
     """
@@ -875,7 +875,7 @@ def unwrap_into_rect(obj, rect, A, inset_px=3):
     """
     Smart-project one object's UVs and squeeze them into an arbitrary atlas rect.
 
-    Generalises unwrap_into_quadrant (left untouched for lift assets). The inset is in
+    Generalizes unwrap_into_quadrant (left untouched for lift assets). The inset is in
     TEXELS rather than UV, so a small rect on a small atlas keeps a real bilinear guard
     band instead of a sub-pixel one.
     """
@@ -1284,8 +1284,8 @@ def write_settings(out_dir, name, supplied_lods=(), dedicated_texture_lods=(), *
 # FBX export
 # --------------------------------------------------------------------------------------
 
-# CS2's FBXImporter reads vertex data as CENTIMETRES and ignores the FBX header's unit
-# scale factor. Blender works in metres, so everything must be multiplied by 100 on export.
+# CS2's FBXImporter reads vertex data as CENTIMETERS and ignores the FBX header's unit
+# scale factor. Blender works in meters, so everything must be multiplied by 100 on export.
 #
 # Measured, not guessed: exporting at global_scale=1.0 produced a prefab whose m_Bounds were
 # 0.0194 x 0.0382 x 0.1091 for a tower that is 1.94 x 3.82 x 10.91 m - exactly 1/100. The
@@ -1304,7 +1304,7 @@ def export_fbx(obj, path, unit_scale=CS2_UNIT_SCALE):
     in at 1/100 with global_scale=100. Baking the scale with transform_apply is the only thing
     the importer cannot ignore.
 
-    Work happens on a temporary duplicate so the caller's object stays in metres for previews,
+    Work happens on a temporary duplicate so the caller's object stays in meters for previews,
     measurement and LOD generation.
     """
     orig_name = obj.name

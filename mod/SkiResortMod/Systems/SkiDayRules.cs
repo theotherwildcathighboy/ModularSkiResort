@@ -567,7 +567,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>D16 / D17 (ch1 §3.6): base = min(cap, pct/100 × share × D), share A/100 residents, A/200
         /// tourists (ch1 §11 N-1); × W × P × confidence outside the cap (powder and price always act). Knobs
-        /// clamped; every input sanitised, so the result is in [0, 0.6] residents, [0, 0.45] tourists.
+        /// clamped; every input sanitized, so the result is in [0, 0.6] residents, [0, 0.45] tourists.
         /// = Chance(…, ticketPrice, 0, 1.0, confidence, knobs) bit for bit (Catalog Phase B).</summary>
         public static double Chance(GuestKind who, int attraction, double distanceKm, double openShare, double powder,
                                     int ticketPrice, double confidence, in Knobs knobs)
@@ -1006,7 +1006,7 @@ namespace SkiResortMod.Systems
 
         // ── Round M1 "measure first" (m1-spec §1.5; measure only, no rule reads these) ─────────────
 
-        /// <summary>M4 distance band (straight line, metres): &lt; 1 km → 0; &lt; 3 → 1; &lt; 5 → 2; &lt; 7 → 3; else 4;
+        /// <summary>M4 distance band (straight line, meters): &lt; 1 km → 0; &lt; 3 → 1; &lt; 5 → 2; &lt; 7 → 3; else 4;
         /// NaN or negative → 0.</summary>
         public static int DistanceBand(double m)
         {

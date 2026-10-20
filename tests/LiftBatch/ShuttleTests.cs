@@ -16,7 +16,7 @@
 //   SH-8  CapacityPerHour(2, 100, 1000) = 2086.9565217391305, one cabin 1043.4782608695652, 0 cabins / 0 seats → −1;
 //         a → ∞: 2,250 at 1 km and 1,000 at 3 km (code-economy A.2's L/v + dwell figures).
 //   SH-9  invalid inputs (L, v, a ≤ 0 or NaN, dwell < 0, t NaN / ∞) → u 0, DwellBase (FractionA and HoldFractionA).
-//   SH-10 (skeptic F4, additive) QuantizeLengthM rounds to 1 cm; two lengths within one centimetre bucket give the same
+//   SH-10 (skeptic F4, additive) QuantizeLengthM rounds to 1 cm; two lengths within one centimeter bucket give the same
 //         period bit for bit; the catalog's float tram row (0.8f) stays within 1e-5 s of the double oracle.
 //   SH-11 (T02, 2026-10-16, field 2026-10-15 item 80) the tram's terminal reach, on LiftLoopTopology (a Shuttle station
 //         owns a terminal within MaxDockRunM of a dock, not only within 20 m of its origin): rope tips ~29 / 30 m from the

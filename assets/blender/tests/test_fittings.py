@@ -232,7 +232,7 @@ def check_audit_gate():
 def check_p2_build():
     """P2 (gutter, leader pipe, shoe, stove vent) through lodge.run with fittings v1 and the audit in RAISE mode. Since
     DECISIONS 320 (T101 r3) the stovepipe under fittings v1 is the vanilla ACVentRoof03 row, seated by the roof gate: the
-    check asserts no modelled stovepipe is left and the row's base has no air (the stovepipe builder itself, cap on its
+    check asserts no modeled stovepipe is left and the row's base has no air (the stovepipe builder itself, cap on its
     collar, stays covered by test_t87_t91_fixtures)."""
     import lodge
     import tempfile

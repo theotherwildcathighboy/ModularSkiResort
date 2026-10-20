@@ -4,7 +4,7 @@
  * Written for this repo (MIT). Derived from: docs/research/resort-hub-understand.md section
  * 2.A.1 "Typings" and 2.A.3 item 5. The declarations ship ONLY inside the game install, at
  *   <CSII_INSTALLATIONPATH>/Cities2_Data/Content/Game/.ModdingToolchain/npx-create-csii-ui-mod/template/types
- * (10 .d.ts files + validateTypes.ts on 1.6.2f1). That scaffold carries no licence text, so we
+ * (10 .d.ts files + validateTypes.ts on 1.6.2f1). That scaffold carries no license text, so we
  * never commit the files: they are copied at build time, every build, which also makes a game
  * patch's new typings arrive automatically (patch-day checklist, research section 2.A.5).
  *

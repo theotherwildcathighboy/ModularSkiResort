@@ -7,7 +7,7 @@
  * Contract:
  *   - Pure presentation of historyRules buckets: <BarChart> draws one slot per bucket. Stacked bars: `up` series above the zero line,
  *     `down` series below it (costs, shown positive in the data); one optional line (`line`: ski days or the net) through the
- *     slot centres, broken where historyRules.linePoints has no point. ONE axis (no dual scale): the line shares the bars' scale.
+ *     slot centers, broken where historyRules.linePoints has no point. ONE axis (no dual scale): the line shares the bars' scale.
  *     Each <BarChart> is its own chart; the attraction strip is a separate <LineStrip> with its own scale.
  *   - Marks: bars 70 % of a slot (a slot gap of at least 2 rem between bars), a 2 rem surface gap between stacked segments, a
  *     line 2 rem wide. Partial buckets are drawn faded (fill opacity 0.45), the month in progress also with a dashed outline.
@@ -24,12 +24,12 @@
  *   - B3 gaps (F8): a slot with `gap` gets a faint band hatched at 45 deg (the dataviz texture channel), no bar. Empty slots
  *     without `gap` (before the area existed, the rest of this season) stay blank.
  *   - B3 line ends (F4): lines take historyRules.linePoints (null = no point): they end at the last whole month.
- *   - B4 "This season vs last": `behind` draws last season's same months grey (HISTORY_COLOR.lastSeason) as wide bars behind this
- *     season's narrower coloured ones (totals only: one grey bar up, one down), plus its line in grey.
- *   - B2 colours: the Finances chart is income (blue) above zero, costs (red) below, the net as a near-white line. Validated with the
+ *   - B4 "This season vs last": `behind` draws last season's same months gray (HISTORY_COLOR.lastSeason) as wide bars behind this
+ *     season's narrower colored ones (totals only: one gray bar up, one down), plus its line in gray.
+ *   - B2 colors: the Finances chart is income (blue) above zero, costs (red) below, the net as a near-white line. Validated with the
  *     dataviz validator against the panel surface #2a3753 (dark): income / costs pass every check (CVD dE 23.6 protan, normal 31.9,
  *     contrast >= 3:1); the guests set blue / aqua / yellow passes every check (all pairs). The net line #f0fbff and the last-season
- *     grey #646c7e are neutrals, not categorical hues (band / chroma "FAIL" by design); grey vs blue normal dE 16.0, vs red CVD dE 8.3,
+ *     gray #646c7e are neutrals, not categorical hues (band / chroma "FAIL" by design); gray vs blue normal dE 16.0, vs red CVD dE 8.3,
  *     contrast 2.25:1 (WARN: relief = the "Last season" legend label and its number in the tooltip).
  */
 import type { ReactNode } from "react";
@@ -40,7 +40,7 @@ import { bucketAt } from "./historyRules";
 /** viewBox width (rem at 100 %, about the chart column's width). */
 export const VIEW_W = 400;
 
-/** Series colours (dataviz reference palette, dark steps; header). */
+/** Series colors (dataviz reference palette, dark steps; header). */
 export const HISTORY_COLOR = {
   tourists: "#3987e5",
   residents: "#199e70",
@@ -62,7 +62,7 @@ export interface ChartSeries {
   value: (i: number) => number;
 }
 
-/** A line: its colour and one point per slot (null = no point; historyRules.linePoints). */
+/** A line: its color and one point per slot (null = no point; historyRules.linePoints). */
 export interface ChartLine {
   key: string;
   color: string;
@@ -115,7 +115,7 @@ function hatchPath(x0: number, w: number, h: number, step: number): string {
   return d;
 }
 
-/** A line path through the slot centres, broken at null points. */
+/** A line path through the slot centers, broken at null points. */
 function linePath(points: ReadonlyArray<number | null>, slotW: number, y: (v: number) => number): string {
   let path = "";
   let pen = false;
@@ -175,7 +175,7 @@ export function BarChart({ slots, up, down, line, behind, scale, height, hover, 
   down: readonly ChartSeries[];
   /** One line on the same scale (e.g. ski days, the net); null = none. Values below zero draw below the zero line. */
   line: ChartLine | null;
-  /** Last season, grey behind (B4); null = none. */
+  /** Last season, gray behind (B4); null = none. */
   behind: ChartBehind | null;
   scale: ChartScale;
   /** Plot height in rem (viewBox units). */
@@ -313,7 +313,7 @@ export function AxisRow({ labels }: { labels: ReadonlyArray<string> }): JSX.Elem
   );
 }
 
-/** The legend: a swatch and a name per series (identity never by colour alone). */
+/** The legend: a swatch and a name per series (identity never by color alone). */
 export function Legend({ items }: { items: ReadonlyArray<{ key: string; color: string; label: string; line?: boolean }> }): JSX.Element {
   return (
     <div className={styles.histLegend}>

@@ -110,7 +110,7 @@ namespace ResortBatch
             LaneCase(check, w, 0x2000u, 1, 5.5f, 10f, false, V.Closed, "parking disabled");
             LaneCase(check, w, 0x0u, 1, 0f, 10f, false, V.NoSlots, "slot interval 0");
             LaneCase(check, w, 0x0u, 1, float.NaN, 10f, false, V.NoSlots, "slot interval NaN");
-            // Fixer pass (review TL-X1): one two-fault row per neighbouring pair, so every swap of the order fails
+            // Fixer pass (review TL-X1): one two-fault row per neighboring pair, so every swap of the order fails
             // (only the DUMP's not-counted buckets depend on it; car spaces do not).
             LaneCase(check, w, 0x200u, 1, 5.5f, 300.01f, false, V.TooFar, "too far before virtual");
             LaneCase(check, w, 0x10200u, 1, 5.5f, 10f, false, V.Virtual, "virtual before service");
@@ -136,7 +136,7 @@ namespace ResortBatch
             GarageCase(check, w, 0x100u, 1, 40, 10f, true, V.Private, "restricted");
             GarageCase(check, w, 0x4100u, 1, 40, 10f, false, V.Closed, "disabled");
             GarageCase(check, w, 0x100u, 1, 0, 10f, false, V.NoSlots, "capacity 0");
-            // Fixer pass (review TL-X1): the order, one row per neighbouring pair.
+            // Fixer pass (review TL-X1): the order, one row per neighboring pair.
             GarageCase(check, w, 0x4100u, 0x10, 0, 301f, true, V.TooFar, "too far before everything");
             GarageCase(check, w, 0x4100u, 0x10, 0, 10f, true, V.NotCar, "not-car before private");
             GarageCase(check, w, 0x4100u, 1, 0, 10f, true, V.Private, "private before closed");

@@ -3,13 +3,13 @@ ski_probes.py - four tiny CS2 probe assets that convert unverified engine rows i
 decisions before any hero asset depends on them (art-pipeline-v2.md section 7, Round L
 spec "ski_probes.py"). Each probe is a normal importable asset folder:
 
-    SkiProbeLodA   2 m sphere-ish object with THREE colour-coded LOD levels
+    SkiProbeLodA   2 m sphere-ish object with THREE color-coded LOD levels
                    LOD0 = 400 tris, UVs in the RED band of the main 512 set
                    LOD1 = 120 tris, UVs in the GREEN band (shares LOD0's set via sharedAssets)
                    LOD2 =  24 tris, DEDICATED 512 set that is uniformly BLUE; its UVs sit in
                           the band that is MAGENTA in LOD0's set, so in game: blue at
                           distance = dedicated set bound, magenta = fell back to LOD0's set,
-                          grey = no texture bound. settings.json is written by this script
+                          gray = no texture bound. settings.json is written by this script
                           with identity entries for LOD2 (ExampleBakedAlphaFence pattern).
                    Proves: lod_factor 652 / 45 deg fov switch distances (pops expected at
                    ~20/40/80/160 m), and dedicated_texture_lods binding.
@@ -22,9 +22,9 @@ spec "ski_probes.py"). Each probe is a normal importable asset folder:
                    Proves: whether MaskMap G (coat) reaches the shader at all.
     SkiProbeFndA   two 3 x 3 x 1 m boxes on ONE asset: box "A" (at -X) is OPEN-BOTTOM with its
                    side-face bottom edges exactly at z = 0 -> engine base expected; box "B"
-                   (at +X) is closed with a 0.5 m modelled skirt welded below z = 0 (the K
+                   (at +X) is closed with a 0.5 m modeled skirt welded below z = 0 (the K
                    station pattern) -> no engine base expected. "A"/"B" painted on the tops.
-                   Proves: BatchMeshHelpers.AddBaseLines behaviour (spec "engine facts").
+                   Proves: BatchMeshHelpers.AddBaseLines behavior (spec "engine facts").
                    MUST be imported with the Building preset: MeshFlags.Base is only set for
                    a building object without BaseProperties (ObjectInitializeSystem.cs:1426-1430).
 
@@ -142,10 +142,10 @@ def apply_transform(obj):
 
 def project_faces(obj, rect_for_face, bounds_for_face=None):
     """
-    Planar-project every face along its dominant normal axis (extents normalised to 0..1
+    Planar-project every face along its dominant normal axis (extents normalized to 0..1
     over the object bbox, or over `bounds_for_face(poly)` -> (lo, hi) when given) and
     squeeze it into the rect returned by `rect_for_face(poly)`. Faces sharing a rect
-    overlap - fine for a flat-colour probe main mesh (the legacy atlas practice).
+    overlap - fine for a flat-color probe main mesh (the legacy atlas practice).
     """
     me = obj.data
     if not me.uv_layers:
@@ -169,7 +169,7 @@ def project_faces(obj, rect_for_face, bounds_for_face=None):
 
 
 def remap_uv(obj, rect):
-    """Affine-map the existing 0..1 UVs of `obj` into `rect` (LOD colour bands)."""
+    """Affine-map the existing 0..1 UVs of `obj` into `rect` (LOD color bands)."""
     u0, v0, u1, v1 = rect
     for l in obj.data.uv_layers.active.data:
         u, v = l.uv
@@ -218,7 +218,7 @@ def write_set(out_dir, name, base, msk=None, smooth=0.35, seed=3, grain=0.02):
     """
     Write the four maps for `name` from a bottom-up BaseColor buffer (+ optional MaskMap).
     Normal flat GL (0.5, 0.5, 1); MaskMap R 0 / G 0 / B 0 / A smooth unless given;
-    ControlMask all zero (no recolour slot - the probes must show their painted albedo).
+    ControlMask all zero (no recolor slot - the probes must show their painted albedo).
     """
     os.makedirs(out_dir, exist_ok=True)
     A = base.shape[0]
@@ -430,7 +430,7 @@ def build_coat_probe(out_root, name="SkiProbeCoatA"):
     asset_dir = os.path.join(out_root, name)
     os.makedirs(asset_dir, exist_ok=True)
 
-    # -X half of the slab -> u 0.02..0.48, +X half -> u 0.52..0.98 (each half normalised
+    # -X half of the slab -> u 0.02..0.48, +X half -> u 0.52..0.98 (each half normalized
     # over its OWN x range, so u 0.48 / 0.52 are the x = 0 seam). Seam line 2 texels wide
     # on each side of the seam; labels in the far (+Y) corners: "0" at -X, "25" at +X.
     L = (0.02, 0.02, 0.48, 0.98)
@@ -499,7 +499,7 @@ def build_fnd_probe(out_root, name="SkiProbeFndA"):
             return (u0 + 0.06, 0.54, u0 + 0.44, 0.96)
         return (u0 + 0.06, 0.04, u0 + 0.44, 0.46)
 
-    def bounds(poly):                       # each box normalised over its own extents
+    def bounds(poly):                       # each box normalized over its own extents
         return ((-3.5, -1.5, 0.0), (-0.5, 1.5, 1.0)) if poly.center.x < 0 else \
                ((0.5, -1.5, -0.5), (3.5, 1.5, 1.0))
     project_faces(obj, rect, bounds)
@@ -551,7 +551,7 @@ def export_all(asset_dir, objs):
 def verify_fbx(path, expect_dims_m, name):
     """
     Re-import one FBX into the current (cleared) scene and assert: object name == stem,
-    raw vertex extents == expected metres x 100 with Y up, custom normals present.
+    raw vertex extents == expected meters x 100 with Y up, custom normals present.
     """
     bpy.ops.import_scene.fbx(filepath=path)
     imp = [o for o in bpy.context.selected_objects if o.type == "MESH"]
@@ -578,7 +578,7 @@ def verify_fbx(path, expect_dims_m, name):
 
 
 def check_textures(asset_dir, name, lod_sets=()):
-    """Every declared PNG exists and is 512 x 512 RGBA (IHDR colour type 6)."""
+    """Every declared PNG exists and is 512 x 512 RGBA (IHDR color type 6)."""
     stems = [name] + [f"{name}_LOD{k}" for k in lod_sets]
     for stem in stems:
         for m in MAPS:

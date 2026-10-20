@@ -127,7 +127,7 @@ def sweep_cloud(spec):
 
 
 def obstacle_points(co, tris, names, extra):
-    """Plan points of everything in the hip band (the M18 band footprint, rasterised every STEP / 2)."""
+    """Plan points of everything in the hip band (the M18 band footprint, rasterized every STEP / 2)."""
     keep = [i for i, n in enumerate(names) if not n.startswith(FLOOR)]
     A, B, C, who = LT._band_footprints_m(co, tris[keep], [names[i] for i in keep], BAND[0], BAND[1],
                                          (-30.0, 30.0, -30.0, 30.0))
@@ -298,7 +298,7 @@ def measure():
 def render(asset_dir, tag, out_dir, views=("1_shot_angle", "2a_ramp_eye", "2b_approach_eye", "3_plan", "4_20m"),
            res=(1600, 1000)):
     """The shipped-format asset in `asset_dir` (FBX + _Win + the four maps, as main_m writes it) back in the
-    authoring frame, with what stands beside it in game: the dressing-kit rows (real meshes, flat colours), the frozen
+    authoring frame, with what stands beside it in game: the dressing-kit rows (real meshes, flat colors), the frozen
     SkiPisteFloodlightLow row (its shipped FBX + maps), the vanilla trash bin (a box of its union bounds: stand-in),
     two 6M chairs (shipped LOD0 + maps: at the load tangent and at the back of the arc) and 1.8 m skier stand-ins.
     The cs2_preview rig: EEVEE, Nishita sky (noon), the 4.0 sun, AgX, 60 m ground."""
@@ -312,7 +312,7 @@ def render(asset_dir, tag, out_dir, views=("1_shot_angle", "2a_ramp_eye", "2b_ap
     LT.clear_scene()
     name = os.path.basename(os.path.normpath(asset_dir))
     def raw_of(o):
-        """The FBX's own frame in metres (x, y up, z): cs2_preview.import_generation un-bakes it only when its
+        """The FBX's own frame in meters (x, y up, z): cs2_preview.import_generation un-bakes it only when its
         y-up guess fires (it does not on this station), so read the up axis from the data (min z or min y = 0)."""
         V = np.array([v.co[:] for v in o.data.vertices])
         return V if abs(V[:, 1].min()) <= abs(V[:, 2].min()) else np.stack([V[:, 0], V[:, 2], -V[:, 1]], axis=1)
@@ -377,7 +377,7 @@ def render(asset_dir, tag, out_dir, views=("1_shot_angle", "2a_ramp_eye", "2b_ap
         mesh_obj(f"kit_{i}", A, kt, flat(f"pv_kit{i}", col))
     # the frozen floodlight row (game (3.4, 0.3, 5.6), yaw 190) with its own maps
     fo = rig.track(CP.import_generation(FLOOD_FBX))
-    pre = raw_of(fo)                                            # prefab (x, y up, z), metres
+    pre = raw_of(fo)                                            # prefab (x, y up, z), meters
     G = KR.place_game(pre, {"rotation": [0.0, 0.9961947, 0.0, -0.0871557], "position": [3.4, 0.3, 5.6]})
     set_co(fo, LT.m_host(G))
     CP._assign(fo, CP._pbr_material(rig, os.path.dirname(FLOOD_FBX), "SkiPisteFloodlightLowA", None,

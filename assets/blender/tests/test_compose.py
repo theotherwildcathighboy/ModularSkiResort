@@ -173,7 +173,7 @@ def test_detail_height():
     check(h.shape == (A, A) and h.dtype == np.float32, f"shape {h.shape} {h.dtype}")
     # wall_hi: x = 0 .. 2.4 m spans cols 25 .. 145 (50 px/m); seams at x = 0, 1.2, 2.4 ->
     # cols 25, 85, 145.  Width max(0.012 m, 1 texel) = 1 texel -> the interior seam lands
-    # on the single column whose centre is within 0.5 texel of 85.0 (col 84 or 85).
+    # on the single column whose center is within 0.5 texel of 85.0 (col 84 or 85).
     band = h[30:70, :]
     cols = np.where(band.min(axis=0) < -1e-6)[0]
     check(len(cols) > 0, f"seam columns present: {cols.tolist()}")
@@ -524,7 +524,7 @@ def pre_pass_tower_specs(D):
 
 
 def _pre_pass_warning_triangle(rect, base, ctl):
-    """lift_tower.paint_warning_triangle as shipped before detail pass 1 (verbatim maths)."""
+    """lift_tower.paint_warning_triangle as shipped before detail pass 1 (verbatim math)."""
     def lin(c):
         return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
     r0, r1, c0, c1 = rect

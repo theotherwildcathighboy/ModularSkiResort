@@ -29,13 +29,13 @@ Detail pass 1 (2026-10-11, build/detail-pass-1-lifts-detach.md): the DQ builds n
 soffit, the base's MC4 roof route) and their first build also runs R2e / R2f / R2g (one reachability
 rule, MC3-MC5) and D8 / D9 (every dressing part and vanilla footprint box-tested, MC10); the gondola
 roles carry the real door openings (G3) and the explicit G7 sign test. The hashes cover all of it
-(the dressing's names, the seeded label rects and the ski colours by crc32 included).
+(the dressing's names, the seeded label rects and the ski colors by crc32 included).
 Gondola revision 1 (2026-10-11, the long glazed hall, build/gondola-stations-rev1.md): the gondola
 roles' first build runs G1-G10 (G5 the glazed hall and its room ids, G6 the real hosted entry tower,
 G9 the 3 x 4 lot, G10 part clash + vanilla footprints); the DQ roles' hashes must not move.
 DQ follow-up (2026-10-11, build/dq-stations-followup.md): ALL FOUR roles change on purpose (DQ: flood masts out,
 SLOW boards on posts, the top's STAY SEATED before the unload line, D11 board order in the first build; gondola: the
-doors' centre post out, the door-head transom 2.60 -> 2.64, G3 clear-opening rays + the standable-top census).
+doors' center post out, the door-head transom 2.60 -> 2.64, G3 clear-opening rays + the standable-top census).
 The gate still compares two builds per role; the new hashes are recorded in the build report, none is pinned here.
 Fine-detail step 3b (2026-10-12, build/fine-detail-step3b-stations.md): ALL FOUR roles change on purpose again
 (FINE_DETAIL on by default: the kit's dressing leaves the host for "mod" rows, the DQ box lamps for vanilla rows, the

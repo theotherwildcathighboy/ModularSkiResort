@@ -192,7 +192,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Range-checked writes into the measure rows (m1-spec E4: Release builds run Burst without
-        /// collection checks, so an index past a row would write into a neighbour's memory). Burst-callable.</summary>
+        /// collection checks, so an index past a row would write into a neighbor's memory). Burst-callable.</summary>
         private static class MeasureWrite
         {
             public static void Bump(NativeArray<int> a, int i)
@@ -1458,7 +1458,7 @@ namespace SkiResortMod.Systems
             /// <summary>M4 car reserve × mode, counted once when a QUEUED car claim resolves (arrival or failure; E2).
             /// Invariant: the block's sum = the queued car claims that resolved this month (not CarsEnqueued, which counts
             /// claims made). Round M2 D2: HeldAtHome is never set (bucket 0 cannot fill) and the fixer-R4 bump of
-            /// RM.CarLeftFirstLook is gone (it always equalled every queued claim: all had left at our first look); the
+            /// RM.CarLeftFirstLook is gone (it always equaled every queued claim: all had left at our first look); the
             /// slots stay in the layout.</summary>
             private void CarReserveAtEnd(in SkiDayClaim c, int mb)
             {

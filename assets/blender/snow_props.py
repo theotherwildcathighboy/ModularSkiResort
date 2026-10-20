@@ -37,11 +37,11 @@ THREE CONVENTIONS THAT ARE LOAD-BEARING
      spawner puts local +Z along the run border (SecondaryObjectSystem.cs:2990-2992), so
      "forward" here means "along the piste edge".
   2. NEVER AIM A BARREL HARD PERPENDICULAR. Polygon winding is recorded but never
-     normalised (area-prop-variation.md C2), so which side the piste sits on flips with
+     normalized (area-prop-variation.md C2), so which side the piste sits on flips with
      the direction the player drew the run. A perpendicular barrel fires into the trees on
      half of all runs. Guns get GunParams.yaw_deg of 15-30 off the border tangent, which
      reads plausibly either way.
-  3. BASE-PIVOTED, origin at ground level on the machine's own footprint centre. Geometry
+  3. BASE-PIVOTED, origin at ground level on the machine's own footprint center. Geometry
      below z=0 is treated as underground and clipped (the lesson lift_chair paid for).
 
 TEXTURE BUDGET — the top risk in the pipeline plan. quad_size is picked per asset from its
@@ -73,21 +73,21 @@ import lift_tower  # noqa: E402  — make_lod, frame_camera, pick_engine
 # Atlas ZONES — cs2_asset.snow_prop_zones, the family-private recipe
 # (docs/research/art/snow-prop-materials.md). Parts are tagged with a zone NAME, not a
 # quad index, because quads 2 and 3 are sub-divided: quad 2 into rubber / grate / safety
-# plastic, quad 3 into livery paint (recolour slot 1) and accent paint (slot 3).
+# plastic, quad 3 into livery paint (recolor slot 1) and accent paint (slot 3).
 #
 # Two material bugs the materials plan caught in the first draft, fixed here:
-#   * tyres, castor, hoses and the fan intake were on the GLASS quad at 0.92 smoothness —
+#   * tires, castor, hoses and the fan intake were on the GLASS quad at 0.92 smoothness —
 #     mirror-finish rubber. They are now on `rubber` at 0.18.
-#   * the orange hydrant lid and handwheel were on recolour slot 1, so the safety cap
-#     would have recoloured with the manufacturer livery. They are now on `plastic`,
+#   * the orange hydrant lid and handwheel were on recolor slot 1, so the safety cap
+#     would have recolored with the manufacturer livery. They are now on `plastic`,
 #     which is slot 2 (safety orange) — a separate picker.
 Z_CONCRETE = "concrete"   # pads, plinths
 Z_GALV     = "galv"       # masts, frames, ladders, hardware
-Z_LIVERY   = "livery"     # housing paint, recolour slot 1
-Z_ACCENT   = "accent"     # chassis/trim paint, recolour slot 3
-Z_RUBBER   = "rubber"     # tyres, hoses, conduit
+Z_LIVERY   = "livery"     # housing paint, recolor slot 1
+Z_ACCENT   = "accent"     # chassis/trim paint, recolor slot 3
+Z_RUBBER   = "rubber"     # tires, hoses, conduit
 Z_GRATE    = "grate"      # intake mesh, platform grating, louvres
-Z_PLASTIC  = "plastic"    # safety plastic, recolour slot 2 (orange)
+Z_PLASTIC  = "plastic"    # safety plastic, recolor slot 2 (orange)
 Z_AMBER    = "amber"      # beacon lens (snow guns)
 Z_FLOODLENS = "floodlens" # cool-white floodlight lens (night-skiing masts)
 
@@ -492,7 +492,7 @@ class TowerParams:
     deck: tuple = (0.80, 0.90)       # x (fore-aft) x y; x starts just past the ladder
     deck_x0: float = -0.24           # deck edge on the ladder side (ladder plane -0.30)
     rail_h: float = 1.10             # EN ISO 14122-3 top rail
-    ladder_x: float = -0.30          # rung centreline: 0.19 m clear of the mast skin
+    ladder_x: float = -0.30          # rung centerline: 0.19 m clear of the mast skin
     ladder_w: float = 0.40           # stile spacing (anatomy C3)
     cabinet: tuple = (0.60, 0.26, 0.95)   # W(lateral) x D x H — compressor/control cabinet
     cabinet_off: float = 0.45
@@ -503,7 +503,7 @@ class TowerParams:
 class LanceParams:
     """TechnoAlpin TL8: 4.50 / 7.17 / 10.06 m working heights. Default 7.0."""
     height: float = 7.0
-    pipe_r: float = 0.030            # 0.06 dia aluminium tube
+    pipe_r: float = 0.030            # 0.06 dia aluminum tube
     # Anatomy study corrects the lean: real working lances sit at 25-40 degrees off
     # vertical, not the 15 the first spec assumed.
     lean_deg: float = 30.0
@@ -530,12 +530,12 @@ class FanParams:
     barrel_len: float = 1.60         # T20: TR10 close-up reads ~1.5x the body diameter
     barrel_r_muzzle: float = 0.50    # collar 1.10x -> 1.10 dia
     barrel_r_throat: float = 0.45
-    barrel_z: float = 1.65           # centreline height
+    barrel_z: float = 1.65           # centerline height
     pitch_deg: float = 30.0
     yaw_deg: float = 20.0            # see convention 2
     wheel_r: float = 0.30
     wheel_w: float = 0.20
-    track_w: float = 1.20            # between rail centres; wheels sit outboard
+    track_w: float = 1.20            # between rail centers; wheels sit outboard
     frame_w: float = 0.06
     drawbar_len: float = 0.90
     castor_r: float = 0.10
@@ -550,7 +550,7 @@ class FanParams:
 class FloodlightParams:
     """
     Piste floodlight for night skiing (docs/research/art/piste-floodlight-spec.md).
-    Dimensions from dimensioned German catalogue drawings (megamast.de 12 m mast).
+    Dimensions from dimensioned German catalog drawings (megamast.de 12 m mast).
 
     THE DESIGN GOAL IS TELLING IT APART FROM THE SNOW-GUN TOWER AT A GLANCE, and the
     spec's answer is INVERTED MASS DISTRIBUTION: this mast's widest point is its CROWN
@@ -561,7 +561,7 @@ class FloodlightParams:
     base access door.
     """
     height: float = 12.0             # light point height; variants 8 / 12 / 16
-    # Taper rule that holds at any height: ~10 mm of diameter per metre of mast.
+    # Taper rule that holds at any height: ~10 mm of diameter per meter of mast.
     r_base: float = 0.114            # 0.228 dia at ground
     r_top: float = 0.054             # 0.108 dia at the top
     pad: tuple = (0.90, 0.90, 0.20)
@@ -635,7 +635,7 @@ def add_cabinet(name, size, centre, z0, facing, zone, door=True, louvres=True,
     Folded-sheet cabinet (T20 de-CAD; Richard: "a folded-sheet look, door seam, hinges,
     louvre band, slight overhang"): a chamfered body, a lid that overhangs on all sides,
     a door leaf standing 5 mm proud (its outline is the seam) with two hinge barrels on one
-    edge and a handle off-centre on the other, and a band of louvre slats low on the side.
+    edge and a handle off-center on the other, and a band of louvre slats low on the side.
     size = (depth along `facing`, width, height); facing = +-1 along X (door side).
     Returns [(obj, zone)].
     """
@@ -654,7 +654,7 @@ def add_cabinet(name, size, centre, z0, facing, zone, door=True, louvres=True,
             parts.append((add_tube(f"Hinge{name}{k}", 0.012, 0.07,
                                    (fx + facing * 0.010, hy, hz), segments=6, caps=False),
                           Z_GALV))
-        # handle off-centre, on the opening edge (asymmetry is the point)
+        # handle off-center, on the opening edge (asymmetry is the point)
         ry = cy + (w / 2.0 - 0.07)
         parts.append((add_bar(f"Handle{name}", (fx + facing * 0.022, ry, z0 + h * 0.52),
                               (fx + facing * 0.022, ry, z0 + h * 0.52 + 0.11), 0.016, 0.016),
@@ -681,7 +681,7 @@ def build_gun_head(prefix, origin, r_muzzle, r_throat, length, pitch_deg, yaw_de
                    segments=14, ring_bolts=4, bell_segments=8, blades=7):
     """
     Barrel along +X before aiming, then pitched nose-up and yawed off the border.
-    Returns (parts, anchors); origin is the barrel's centre (the trunnion axis).
+    Returns (parts, anchors); origin is the barrel's center (the trunnion axis).
 
     T20 detail pass (snow-props-detail-2026-10-16.md). The A head was a 16-sided cone with
     FILLED caps: from the front it read as a flat lid with studs on it, never as a gun.
@@ -732,7 +732,7 @@ def build_gun_head(prefix, origin, r_muzzle, r_throat, length, pitch_deg, yaw_de
                              blades, R), Z_GALV))
 
     # Nozzle studs on the collar face (the TR10 close-up: a ring of nozzle bodies on the
-    # aluminium annulus), the inner nucleator row, and bolt heads between the nozzles.
+    # aluminum annulus), the inner nucleator row, and bolt heads between the nozzles.
     for i in range(nozzles):
         a = 2.0 * math.pi * i / nozzles
         base = M @ mathutils.Vector((xf, R * 0.93 * math.cos(a), R * 0.93 * math.sin(a)))
@@ -753,7 +753,7 @@ def build_gun_head(prefix, origin, r_muzzle, r_throat, length, pitch_deg, yaw_de
                "fwd": fwd, "side": side, "perp": perp, "hose": None}
 
     if compressor:
-        # Compressor / water module slung under the housing, a second colour — the yellow
+        # Compressor / water module slung under the housing, a second color — the yellow
         # box under the white TF10 in the "fan gun on tower arm" photograph.
         rcm = body_radius_at(0.16 * L, L, R, Rt)
         cpos = centre + fwd * (0.16 * L) - perp * (rcm + 0.13)
@@ -819,7 +819,7 @@ def build_tower(p: TowerParams):
     has no ladder, DECISIONS 75). T20 rebuilt the access, after the A mesh shipped with:
       * cage hoops made of CAPPED cylinders = solid 0.72 m discs threaded on the mast, which
         read in game as platforms the ladder passes through (Richard, Ash Flat item 30);
-      * the cage centred 0.30 m off the ladder so it wrapped the mast, and its top hoop and
+      * the cage centered 0.30 m off the ladder so it wrapped the mast, and its top hoop and
         two straps cutting through the deck, a rail post and the kick plate;
       * a rail closed on all four sides (no way onto the deck) and stiles stopping at deck
         level (EN ISO 14122-4 wants them 1.1 m above it as grab rails);
@@ -1000,10 +1000,10 @@ def build_tower(p: TowerParams):
 
 def build_lance(p: LanceParams):
     """
-    T20: a lance is a light aluminium tube HINGED on a short galvanised column (the
+    T20: a lance is a light aluminum tube HINGED on a short galvanised column (the
     "lance snow gun" photograph: a bracket and pin, the tube's tail running past the pivot
     to the water inlet). The jacket covers only the lower column so the pivot reads; the
-    tube is galvanised aluminium (Richard: "aluminium tubes"); the machine-coloured parts
+    tube is galvanised aluminum (Richard: "aluminum tubes"); the machine-colored parts
     are the nucleator head and the sensor box.
     De-CAD: a cast foot with nuts replaces the square plate, the column is one open tube
     into it with a weld collar under the cheeks, the jacket is a lathe with a rolled top
@@ -1139,7 +1139,7 @@ def build_fan(p: FanParams):
     trunnions) over a turntable, a bent-tube A-frame drawbar to the groomer push plate
     (anatomy #26/#27; the TR10 close-up shows the bent galvanised tubes), and the services
     moved off the barrel's path.
-    De-CAD: real wheel profiles (rounded tyre shoulders, dished hub with a cap) instead of
+    De-CAD: real wheel profiles (rounded tire shoulders, dished hub with a cap) instead of
     capped 12-gon discs, chassis and cross members of different sections so their faces
     no longer coincide (A/B1: 4 x 108 cm2 coplanar overlaps), round axle stubs, a cast foot
     under the pedestal, folded-sheet cabinet and compressor, everything that stands on the
@@ -1292,7 +1292,7 @@ def build_floodlight(p: FloodlightParams):
     pitch = math.radians(p.lum_pitch_deg)
     lw, ld, lh = p.lum
     for i in range(p.lum_count):
-        # Spread across the arm; odd counts put one on centre.
+        # Spread across the arm; odd counts put one on center.
         t = (i - (p.lum_count - 1) / 2.0) / max(1.0, (p.lum_count - 1) / 2.0)
         y = t * (p.arm_span / 2.0 - 0.10)
         z = p.height + 0.16
@@ -1326,15 +1326,15 @@ def build_hydrant(p: HydrantParams):
     in background" photograph), and the hose now lies COILED as the asset description
     says; A laid a straight stub.
     De-CAD: the lid sits 3 mm into the body (A: face on face), two hinge barrels on its back
-    edge and a pull handle off-centre on the front; the standpipe stands in a cast foot and
+    edge and a pull handle off-center on the front; the standpipe stands in a cast foot and
     is an open tube under the handwheel; the outlets start inside the pipe wall (B1: their
-    end caps overlapped at the pipe centre).
+    end caps overlapped at the pipe center).
     """
     parts = []
     bw, bd, bh = p.box
     body_h = bh - p.lid_h
     parts.append((add_box("Body", (bd, bw, body_h), (0, 0, body_h / 2.0)), Z_GALV))
-    # Lid and handwheel are SAFETY plastic (recolour slot 2, orange by default) — not the
+    # Lid and handwheel are SAFETY plastic (recolor slot 2, orange by default) — not the
     # manufacturer livery slot.
     parts.append((add_box("Lid", (bd * 1.06, bw * 1.06, p.lid_h),
                           (0, 0, body_h + p.lid_h / 2.0 - 0.003)), Z_PLASTIC))
@@ -1378,7 +1378,7 @@ def build_hydrant(p: HydrantParams):
 
 # Long thin tubes whose smart-project island is a sliver: unwrap_into_rect keeps the
 # island's 7 m : 0.19 m aspect, so the lance tube got ~4 px of atlas around its
-# circumference, the finish repack kept that, and mip filtering bled the neighbouring
+# circumference, the finish repack kept that, and mip filtering bled the neighboring
 # LIVERY islands onto it (half the B tube rendered yellow in the first preview). Stretching
 # the island across its zone rect costs nothing visible (the zone swatch is plain metal)
 # and gives the repack a full-width island.
@@ -1637,7 +1637,7 @@ def texture_size(key, quad_size, repack=False, override=None):
 # rev 3 (2026-10-17, snow-props-weather-2026-10-17.md section 4): the B finish pass kept each
 # part's atlas-time UV scale, so the painted shells shipped at 12-40 px/m while nuts got
 # 200-1,450 px/m. `--repack` replaces the finish bake's pack step (lift_tower.apply_finish_textures
-# packer=): islands equalised to 3D area, translation-identical copies stacked
+# packer=): islands equalized to 3D area, translation-identical copies stacked
 # (cs2_liftdress.share_identical), weighted per TIER, packed concave. LODs are decimated from the
 # finished mesh, so LOD1/LOD2 keep sharing this layout.
 # REDO (wiki style, 2026-10-17, the "Redo" section of the same doc), four changes:
@@ -1708,7 +1708,7 @@ def _face_zones(mesh, A):
 # mip-safe margin each sliver pays 2 x margin across its whole length: at 16 px the tower's fill
 # fell to 0.07 (margin study in the write-up). `_unfold_islands` rebuilds the UVUnique start layout
 # by UNFOLDING each part's faces across shared edges whose dihedral is <= UNFOLD_MAX_DEG: every
-# face is placed exactly (rotated about the shared edge into its neighbour's plane: isometric, no
+# face is placed exactly (rotated about the shared edge into its neighbor's plane: isometric, no
 # stretch), a face that would overlap the island already laid out starts a new island. Prism
 # sides become one strip, boxes become nets, cones / cylinder bands unroll; a face is never
 # mirrored (the 2-D frame keeps the face's own winding). Pinned (stamp strip) faces are untouched.
@@ -1756,7 +1756,7 @@ def _sat_overlap(p, q, eps=UNFOLD_EPS):
 
 
 def _unfold_islands(mesh, pinned):
-    """Write an unfolded start layout (metres) into the active UVUnique layer (see the block
+    """Write an unfolded start layout (meters) into the active UVUnique layer (see the block
     comment above). Returns {"islands": n, "faces": n_placed}. Deterministic: faces are visited
     in index order, roots are each part's largest unplaced face (ties -> lowest index)."""
     import math
@@ -1917,7 +1917,7 @@ def _unfold_islands(mesh, pinned):
 # at the islands' pre-pack scale), SCALED ignored it (2 px gaps); margin study in the write-up.
 # `_shelf_layout` packs each island's minimum-area bounding rectangle (rotating calipers on its
 # hull, long side horizontal) first-fit-decreasing-height into full-width shelves: every island
-# keeps exactly `margin` texels to its neighbours and margin / 2 to the band edges, the DARK
+# keeps exactly `margin` texels to its neighbors and margin / 2 to the band edges, the DARK
 # islands fill the shelves from the bottom of the band, the light ones start DARK_GAP_MARGINS
 # margins above the last dark shelf, and ONE scale (binary search, the largest that fits) is
 # shared by both, so the tier weights hold exactly. Rotation is safe because
@@ -2068,7 +2068,7 @@ def _pack_once(obj, mesh, A, reserved, density_layer, share=None, dark_face=None
     if share:
         dup, src, dst = cs2_uv._share_loops(mesh, share, pinned)
         hold |= dup
-    if not UNFOLD:                           # unfolded islands are already true metres
+    if not UNFOLD:                           # unfolded islands are already true meters
         cs2_uv._select_unpinned(obj, mesh, hold)
         bpy.ops.uv.average_islands_scale()
         bpy.ops.object.mode_set(mode="OBJECT")
@@ -2266,7 +2266,7 @@ def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=Fa
     # TEXTURE BUDGET GUARD. The first version divided quad_size by the LONGEST DIMENSION,
     # which is not the metric the budget was set with and passed everything trivially
     # (the tower scored 69 and sailed through while actually running 250). The budget is
-    # atlas_px / sqrt(surface_area) — texels per metre of SKIN, not of bounding box.
+    # atlas_px / sqrt(surface_area) — texels per meter of SKIN, not of bounding box.
     area = mesh_area(obj)
     px_per_m = (quad_size * 2) / math.sqrt(max(area, 1e-3))
     print(f"[{key}]   atlas {quad_size * 2}px over {area:.1f} m^2 -> {px_per_m:.0f} px/m")
@@ -2315,10 +2315,10 @@ def export_one(key, obj, name, out_root, quad_size, do_finish=False, weather=Fal
 # Preview: one lineup image beats four separate renders when judging VARIETY
 # --------------------------------------------------------------------------------------
 
-# Manufacturer liveries as TARGET colours (slot 1 housing, slot 2 safety, slot 3 accent).
+# Manufacturer liveries as TARGET colors (slot 1 housing, slot 2 safety, slot 3 accent).
 # Art direction read off product photography, not certified brand fact — see
 # snowmaking-props-spec.md section 6.1. Every channel caps at RECOLOR_ALBEDO (0.80):
-# recolour tints MULTIPLY a light-neutral albedo, so 0.80 is the brightest reachable value.
+# recolor tints MULTIPLY a light-neutral albedo, so 0.80 is the brightest reachable value.
 LIVERIES = [
     ("technoalpin", (0.80, 0.62, 0.04), (0.80, 0.24, 0.09), (0.22, 0.23, 0.25)),
     ("legacyblue",  (0.10, 0.30, 0.70), (0.80, 0.24, 0.09), (0.72, 0.74, 0.76)),
@@ -2329,12 +2329,12 @@ LIVERIES = [
 
 def make_tinted_preview(asset_dir, name, out_dir, livery):
     """
-    Bake the recolour tints into a PREVIEW-ONLY BaseColor.
+    Bake the recolor tints into a PREVIEW-ONLY BaseColor.
 
-    In game the albedo under every recolour mask is light-neutral RECOLOR_ALBEDO grey and
-    the picker tint multiplies it, so a straight preview render shows grey machines and
+    In game the albedo under every recolor mask is light-neutral RECOLOR_ALBEDO gray and
+    the picker tint multiplies it, so a straight preview render shows gray machines and
     tells you nothing about livery. This reproduces what CS2 will actually display:
-    read the ControlMask, build a per-texel tint from the three slot colours, multiply.
+    read the ControlMask, build a per-texel tint from the three slot colors, multiply.
     Tint = target / RECOLOR_ALBEDO, exactly the compensation the prefab VariationSet needs.
     Never called on the export path — the shipped textures stay light-neutral.
     """
@@ -2367,7 +2367,7 @@ def make_tinted_preview(asset_dir, name, out_dir, livery):
 
 
 def _set_base_color(mat, rgba):
-    """Node lookup by TYPE, not by name — the shader node's name is localisation- and
+    """Node lookup by TYPE, not by name — the shader node's name is localization- and
     version-dependent, and a silent KeyError here just leaves the default white."""
     for node in mat.node_tree.nodes:
         if node.type == "BSDF_PRINCIPLED":
@@ -2513,7 +2513,7 @@ def render_row(objs_by_key, out_dir, stem="SnowPropsRow", vertices=11, seed=7):
 
     # Weighted by TYPE first (tower 45 / lance 30 / carriage 25), then uniformly among
     # that type's height/pose variants — which is exactly what a placeholder spawn group
-    # does, so this preview is a faithful rehearsal of the shipped behaviour.
+    # does, so this preview is a faithful rehearsal of the shipped behavior.
     weights = [("tower", 45), ("lance", 30), ("fan", 25)]
     pool = [k for k, w in weights for _ in range(w)]
     by_type = {}
@@ -2587,7 +2587,7 @@ def render_row(objs_by_key, out_dir, stem="SnowPropsRow", vertices=11, seed=7):
 # --------------------------------------------------------------------------------------
 
 # Preview tint = the TechnoAlpin livery row of LIVERIES as picker multipliers
-# (target / RECOLOR_ALBEDO, the make_tinted_preview maths): yellow machine, orange safety,
+# (target / RECOLOR_ALBEDO, the make_tinted_preview math): yellow machine, orange safety,
 # dark accent.
 DETAIL_TINT = {"R": (1.0, 0.775, 0.05), "G": (1.0, 0.30, 0.11), "B": (0.275, 0.29, 0.31)}
 # Camera directions in the net frame (machine forward = -Y after orient_for_net). The
@@ -2633,7 +2633,7 @@ def _muzzle_shot(obj, asset_dir, name, out_path, tint, pitch_deg, yaw_deg, dist)
 
 def _far_shot(obj, asset_dir, name, out_path, tint, label):
     """Render `obj` alone at FAR_M through the cs2_preview rig, noon. Writes
-    [full frame | 4x nearest crop of the centre] so the pixels the object really gets at
+    [full frame | 4x nearest crop of the center] so the pixels the object really gets at
     150 m are visible next to the frame they live in."""
     import numpy as np
     import cs2_preview as P
@@ -2890,8 +2890,8 @@ def main():
                 by_key[f"{k}:{idx}"] = obj
         print(f"[lineup] family total: {total} tris across {len(objs)} assets")
         # Preview materials, ONE PER LIVERY. The shipped albedo is light-neutral because
-        # recolour tints multiply, so a raw preview shows grey machines and says nothing
-        # about colour. make_tinted_preview bakes each livery's tint through the
+        # recolor tints multiply, so a raw preview shows gray machines and says nothing
+        # about color. make_tinted_preview bakes each livery's tint through the
         # ControlMask exactly as CS2 will at runtime, and assets are dealt round-robin so
         # the row shows a mixed-manufacturer fleet — which is what a real resort looks
         # like after twenty years of buying whatever was on sale.

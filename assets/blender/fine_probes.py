@@ -44,7 +44,7 @@ THE FIVE PROBE ASSETS (assets/import/probes/B/<Name>/; letter B, PIPELINE.md:21 
                           lodge, green = its own fallback (no source).
 
 FRAMES (measured 2026-10-12, see build/probes-b.md section 2)
-    FBX-raw metres = what export_fbx writes: (x_B, z_B, -y_B) of the Blender authoring frame, y up.
+    FBX-raw meters = what export_fbx writes: (x_B, z_B, -y_B) of the Blender authoring frame, y up.
     THE GAME NEGATES X ON IMPORT: the deployed mesh prefabs' m_Bounds read x in -(raw x range) with
     z and y unchanged (SkiLiftBaseStationK raw x -3.80..6.10 -> m_Bounds -6.10..3.80; SkiAFrameDayLodge
     raw -22.12..22.75 -> -22.75..22.12; both FBX older than their import, untouched since). So the
@@ -182,14 +182,14 @@ R_CARD_B = (16, 224, 416, 304)                      # 1.000 x 0.200 m at 400 px/
 R_EDGE = (16, 16, 80, 80)
 CARD_PPM = 400.0
 LETTER_CAP_M = 0.20
-EMISSIVE_SRGB = (1.00, 0.90, 0.70)                  # warm white lettering (emitted colour)
+EMISSIVE_SRGB = (1.00, 0.90, 0.70)                  # warm white lettering (emitted color)
 EMISSIVE_INTENSITY_SURGERY = 0.2                    # vanilla shop sign (design C.2)
 
 # Rack: 256^2
 RA = 256
 R_GALV = (0, 0, 256, 128)
 R_ACCENT = (0, 128, 256, 256)
-RACK_OWN_SLOT2 = (0.15, 0.75, 0.20)                 # fallback colour: GREEN = Parent not resolved
+RACK_OWN_SLOT2 = (0.15, 0.75, 0.20)                 # fallback color: GREEN = Parent not resolved
 LODGE_SLOT2_DEFAULT = (0.85, 0.25, 0.10)            # deployed lodge mesh VariationSet channel 1
 
 INSET = 0.5
@@ -233,7 +233,7 @@ class _MeshBuf:
         self.verts, self.faces, self.uvs = [], [], []
 
     def quad(self, c, n, up, hw, hh, rect):
-        """Planar quad centred on c, outward normal n, 'up' in-plane, half sizes; UV rect
+        """Planar quad centered on c, outward normal n, 'up' in-plane, half sizes; UV rect
         laid upright as seen from outside (never mirrored)."""
         c, n, up = (mathutils.Vector(v) for v in (c, n, up))
         right = (-n).cross(up)
@@ -251,7 +251,7 @@ class _MeshBuf:
         self.uvs.append([_uvr(rect, 0, 0), _uvr(rect, 1, 0), _uvr(rect, 0.5, 1)])
 
     def box(self, c, size, rects, skip=()):
-        """Axis-aligned box (Blender frame) centred c, size (sx, sy, sz); rects: face -> rect
+        """Axis-aligned box (Blender frame) centered c, size (sx, sy, sz); rects: face -> rect
         ('px','nx','py','ny','pz','nz', or 'all'); skip: faces to omit (e.g. 'nz' bottom)."""
         c = mathutils.Vector(c)
         sx, sy, sz = (s / 2.0 for s in size)
@@ -294,7 +294,7 @@ class _MeshBuf:
 
 
 def _finish(parts, name):
-    """Tag, join, weld, shade -> the LOD0 object (metres, Z up)."""
+    """Tag, join, weld, shade -> the LOD0 object (meters, Z up)."""
     if bpy.context.object is not None and bpy.context.object.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
     table = cs2_asset.tag_parts([(p, None) for p in parts])
@@ -341,7 +341,7 @@ def bounds_prefab(obj):
 
 
 # --------------------------------------------------------------------------------------
-# Colour / painting helpers (arrays (A, A, 4), rows bottom-up = UV v)
+# Color / painting helpers (arrays (A, A, 4), rows bottom-up = UV v)
 # --------------------------------------------------------------------------------------
 
 def srgb_to_lin(c):
@@ -521,7 +521,7 @@ def build_user(name=USER):
     """Two-post billboard: board 2.40 x 1.20 x 0.05 m at y 0.60-1.80; front upper half = SKI
     SCHOOL vector (true 300 px/m), lower half = 5x7 (true ~71 px/m); back = tile C."""
     bd = _MeshBuf("board", S)
-    yc_up, yc_lo = 1.50, 0.90                       # game y centres of the two front halves
+    yc_up, yc_lo = 1.50, 0.90                       # game y centers of the two front halves
     front = (0.0, -1.0, 0.0)                        # +z game
     bd.quad((0.0, -0.025, yc_up), front, (0, 0, 1), 1.20, 0.30, R_SCHOOL_VEC)
     bd.quad((0.0, -0.025, yc_lo), front, (0, 0, 1), 1.20, 0.30, R_SCHOOL_5X7)
@@ -540,7 +540,7 @@ def build_user(name=USER):
 
 def build_late(name=LATE):
     """A-frame sandwich board 0.90 wide, 1.10 tall, base 0.70 deep: front = tile D, back =
-    tile A; triangular sides grey; open bottom."""
+    tile A; triangular sides gray; open bottom."""
     m = _MeshBuf("aframe", S)
     hw, H, D = 0.45, 1.10, 0.35
     L = math.hypot(H, D)
@@ -560,7 +560,7 @@ def build_late(name=LATE):
 # --------------------------------------------------------------------------------------
 
 def _load_fbx_bvh(path):
-    """BVH of an exported FBX in PREFAB metres (raw cm Y-up vertices / 100, read as stored)."""
+    """BVH of an exported FBX in PREFAB meters (raw cm Y-up vertices / 100, read as stored)."""
     from mathutils.bvhtree import BVHTree
     objs = cs2_validate.import_fbx_temp(path)
     try:
@@ -664,7 +664,7 @@ def measure_card(bvh, card, names=None):
 
 
 def measure_lodge(bvh):
-    """Down-casts at the corners + centre of each lodge row footprint: miss, or ground <= 0.05."""
+    """Down-casts at the corners + center of each lodge row footprint: miss, or ground <= 0.05."""
     V = mathutils.Vector
     rows = []
     for asset, pos, (fx, fz) in LODGE_ROWS:

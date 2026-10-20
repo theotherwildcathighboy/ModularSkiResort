@@ -33,7 +33,7 @@ Reference set (web round, user green-lit): A-Basin's base lodge is the steep A-F
 base; Colorado lodge grammar (stone bases carrying expansive decks, deep eaves,
 banded openings) - stone course, overhangs, window rhythm.
 
-Recolour language matches the lift family: slot 1 (quad 3, light 0.80 albedo) = trim,
+Recolor language matches the lift family: slot 1 (quad 3, light 0.80 albedo) = trim,
 fascia, barge/rake boards, corner boards, doors, window frames + mullions, deck
 railing - the accent kit; slot 2 (pad-strip texels, ControlMask G) = the deck
 UMBRELLAS' canopies, default pad-orange via the prefab VariationSet. Timber cladding
@@ -142,12 +142,12 @@ STONE_Z0, STONE_Z1 = -3.0, 4.4         # skirt bottom .. base story top
 CHIM_SPAN_U = 3.6                      # widest chimney face (shoulder 3.4 m + margin)
 CHIM_Z0, CHIM_Z1 = -1.0, 17.6          # chimney z range (C: taller ridge to clear)
 # D: per-axis run origins for the chimney mapping (shoulder/stack faces stay course-
-# aligned). Mirror build_lodge's chimney placement: centre (RIDGE_AT_X = -4.5, 21.55),
+# aligned). Mirror build_lodge's chimney placement: center (RIDGE_AT_X = -4.5, 21.55),
 # shoulder 3.4 x 2.4 - so x0 = -4.5 - 1.7, y0 = 21.55 - 1.2.
 CHIM_X0, CHIM_Y0 = -6.2, 20.35
 
 # Umbrella canopies map into the crash-pad strip's quiet left margin (slot 2 texels,
-# clear of the warning triangle stamped at the strip's centre).
+# clear of the warning triangle stamped at the strip's center).
 UMB_U0, UMB_U1 = 0.012, 0.150
 UMB_V0, UMB_V1 = 0.948, 0.996
 
@@ -318,7 +318,7 @@ def map_to_stone(obj):
     Base walls / skirt -> stone band zone A. D: the walls are pre-cut into STONE_SEG
     (8 m) bays by segment_stone_walls; each vertical face maps ITS OWN bay across the
     full zone-A width, which is what buys the ~8x horizontal density. The bay index
-    comes from the FACE CENTRE, its corners map 0..1 relative to that bay - so a
+    comes from the FACE CENTER, its corners map 0..1 relative to that bay - so a
     corner shared by two bays gets u=1 on the left face and u=0 on the right face,
     and the wrap-continuous paint makes that seam invisible. v spans the whole
     masonry range (skirt bottom -3.0 .. base top 4.4) so coursing runs unbroken
@@ -413,7 +413,7 @@ def paint_wood_band(base, nrm, msk, ctl, A):
     Author the timber cladding into the band: dark-stained lap siding. Horizontal
     plank courses (~0.42 m at wall density) with per-course tone variation, fine
     grain noise, dark seam rows, and a matching normal groove per seam so the laps
-    catch light. Not recolourable. Course height derives from the band's texel
+    catch light. Not recolorable. Course height derives from the band's texel
     density - the vertical world range grows with the building.
     """
     import numpy as np
@@ -458,7 +458,7 @@ def paint_stone_band(base, nrm, msk, ctl, A):
     game distance. Per-stone tone jitter (slightly warm/cool), per-texel noise, and
     a height-field normal so joints sit in grooves. Two zones (see STONE_U*): zone A
     at 8 m bay density, zone B with shorter course rows for the chimney's taller
-    z range. Not recolourable.
+    z range. Not recolorable.
 
     D: each zone is painted WRAP-CONTINUOUS horizontally. Stones tile the zone width
     circularly (a stone crossing the right edge continues on the left), every course
@@ -550,7 +550,7 @@ def paint_stone_band(base, nrm, msk, ctl, A):
 # The building (round C massing - the true A-frame)
 # ---------------------------------------------------------------------------------
 
-# Massing constants (metres, authoring frame). The A-frame discipline: pick the eave
+# Massing constants (meters, authoring frame). The A-frame discipline: pick the eave
 # height and the pitch, DERIVE everything else. Wall plates fall out of the roof
 # planes, ridge heights fall out of the pitch - nothing is free to disagree.
 S1_Z = 4.4                          # top of the stone story
@@ -558,7 +558,7 @@ EAVE_Z = 5.30                       # eave tips - down at deck level (C1)
 BASE_X0, BASE_X1 = -13.0, 14.0      # footprint depth  27 m (narrowed with the mass)
 BASE_Y0, BASE_Y1 = -21.0, 21.0      # footprint length 42 m
 S2_X0, S2_X1 = -12.0, 3.0           # A-frame mass depth (deck takes +X of this)
-RIDGE_AT_X = -4.5                   # main ridge x (centred between the eave tips)
+RIDGE_AT_X = -4.5                   # main ridge x (centered between the eave tips)
 OVER = 1.1                          # horizontal eave overhang
 RIDGE_Z = 16.7                      # main ridge; with these eaves = 53.0 degrees
 MAIN_PITCH = (RIDGE_Z - EAVE_Z) / (RIDGE_AT_X - (S2_X0 - OVER))     # 1.326
@@ -662,7 +662,7 @@ def build_lodge(finish=False):
 
     # ---- roofs: open A-frame SLABS with ridge caps + rake boards -----------------
     # Slabs run 0.35 PAST the ridge line so the pair overlaps under the cap; the
-    # ridge-end z is extended along the same pitch so the centre planes still cross
+    # ridge-end z is extended along the same pitch so the center planes still cross
     # exactly at the ridge - extending the edge without the z flattens the pitch
     # and opens a gap under the cap (learned in round B).
     parts.append((add_roof_slab("roofmainW", "y", -22.0, 22.0,
@@ -750,7 +750,7 @@ def build_lodge(finish=False):
     rail_run("S", (4.6, -DECK_Y), (DECK_X1, -DECK_Y), 4)
     rail_run("N", (4.6, DECK_Y), (DECK_X1, DECK_Y), 4)
 
-    # deck umbrellas (slot-2 canopies - the pop of colour). C3: NO modeled tables -
+    # deck umbrellas (slot-2 canopies - the pop of color). C3: NO modeled tables -
     # deck furniture comes from reused vanilla props at prefab level; the umbrellas
     # stand on small weighted bases, grouped into the two wings clear of the prow
     # roof plan (canopy r 1.55 vs prow eave fascia at y -7.06 / +11.06).
@@ -790,7 +790,7 @@ def build_lodge(finish=False):
         mid = (bay[i] + bay[i + 1]) / 2
         parts.append((add_box(f"mullprowlt_{i}", (0.16, 0.09, 2.20),
                               (PROW_X1 + 0.08, mid, 5.95)), QUAD_PAINT))
-    # clerestory: centre bay reaches toward the ridge, flanks step down with the
+    # clerestory: center bay reaches toward the ridge, flanks step down with the
     # gable; outermost bays stay timber (the roof is already at head height there)
     clere = ((bay[1], bay[2], 10.4), (bay[2], bay[3], 13.7), (bay[3], bay[4], 10.4))
     for i, (cy0, cy1, top) in enumerate(clere):
@@ -994,7 +994,7 @@ def render_previews(obj, out_dir, stem):
             bpy.data.objects.remove(bounce, do_unlink=True)
 
     # ---- scale reference: an 8 m fixed-grip line tower stand-in beside the lodge -
-    # Preview-only theatre: built, framed, rendered, deleted. The tower's quadrant
+    # Preview-only theater: built, framed, rendered, deleted. The tower's quadrant
     # UVs read the lodge's atlas copy correctly (same shared layout), so it borrows
     # the lodge's preview material.
     tower = lift_tower.build_tower(lift_tower.TowerParams())      # mast 8.0

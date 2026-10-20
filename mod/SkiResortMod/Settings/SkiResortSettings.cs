@@ -95,7 +95,7 @@
 //     disables the losing mod action). Ctrl+Alt+G vs our Alt+G: an Allow-modifiers composite
 //     gets a prohibition processor for every supported modifier the binding does not use
 //     (InputManager.cs:2104-2112), so Alt+G should not fire on Ctrl+Alt+G (the Unity-side
-//     processor behaviour is unverified). The spec's lens proposal Ctrl+Shift+D was rejected:
+//     processor behavior is unverified). The spec's lens proposal Ctrl+Shift+D was rejected:
 //     D is vanilla's camera-right key (input-asset data, unverified) and a press would pan the
 //     camera off the run being dumped. Another installed mod on Ctrl+Alt+G: unverified (mod
 //     vs mod conflicts both fire, InputConflictResolution.cs:138-198).
@@ -117,7 +117,7 @@
 // file and its texts). Group "Ski days" after Balance, four int sliders, persisted under these property names —
 // never rename: SkiDayLocalsPct (0-50 step 5, default 25), SkiDayTouristsPct (0-100 step 5, default 50),
 // SkiDayReachKm (2-12 step 1, default 7; unit "integer" with "(km)" in the label, Game.UI/Unit.cs:5, because
-// "length" would read the value as metres) and SkiDayPowderPct (0-200 step 10, default 100). The Default / Min /
+// "length" would read the value as meters) and SkiDayPowderPct (0-200 step 10, default 100). The Default / Min /
 // Max constants are ALIASES of SkiDayRules' (s1-spec N8: one source of the numbers; tests/ResortBatch links
 // SkiDayRules.cs, not this file). Read only through the clamped readers SkiDayLocalsPctOf, SkiDayTouristsPctOf,
 // SkiDayReachKmOf and SkiDayPowderPctOf(Mod.Settings) — null settings give the default; main thread only (the
@@ -166,6 +166,7 @@ namespace SkiResortMod.Settings
     [SettingsUIKeyboardAction(ActDumpDiagnostics)]
     [SettingsUIKeyboardAction(ActToggleLiftLine)]
     [SettingsUIKeyboardAction(ActBuildLiftLine)]
+    [SettingsUIKeyboardAction(ActToggleCatTrackGrade)]
     public sealed class SkiResortSettings : ModSetting
     {
         public const string SectionMain = "Main";
@@ -189,7 +190,8 @@ namespace SkiResortMod.Settings
         public const string ActGladeNextMode = "GladeNextMode";
         public const string ActDumpDiagnostics = "DumpDiagnostics";   // R3 (spec §5.2) — persisted, never rename
         public const string ActToggleLiftLine = "ToggleLiftLineTool";  // T48 round 2 (lift-line tool) — persisted, never rename
-        public const string ActBuildLiftLine = "BuildLiftLine";        // T48 round 2 — persisted, never rename
+        public const string ActBuildLiftLine = "BuildLiftLine";        // T48 round 2 — persisted, never rename; T139: also grades in the grading tool
+        public const string ActToggleCatTrackGrade = "ToggleCatTrackGradeTool";   // T139 (grading tool) — persisted, never rename
 
         // Round E1 (e1-spec §2.3; econ-round spec ch1 §11.1, ch3 §9): the one copy of each default.
         public const int DefaultAttractivenessScaleK = 4;
@@ -336,7 +338,7 @@ namespace SkiResortMod.Settings
         public int SkiDayTouristsPct { get; set; }
 
         /// <summary>D14: the longest ski-day trip in km, straight line to the lodge. Unit "integer" with "(km)"
-        /// in the label (Game.UI/Unit.cs:5; "length" would read metres). Read by SkiDaySystem through
+        /// in the label (Game.UI/Unit.cs:5; "length" would read meters). Read by SkiDaySystem through
         /// SkiDayReachKmOf.</summary>
         [SettingsUISlider(min = SkiDayReachKmMin, max = SkiDayReachKmMax, step = 1f, unit = "integer")]
         [SettingsUISection(SectionMain, GroupSkiDays)]
@@ -421,14 +423,14 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool ShowSnowLineWhilePlacing { get; set; }
 
-        /// <summary>T37 (2026-10-16): write each ski run's name flat on the ground at the run's centre, in the piste-map colour of its
+        /// <summary>T37 (2026-10-16): write each ski run's name flat on the ground at the run's center, in the piste-map color of its
         /// difficulty, while the camera is at piste-map distance (SkiRunLabelSystem). Read live every frame. Default on (Richard's
         /// ruling). Persisted under this property name — never rename.</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool ShowRunNamesOnTheHill { get; set; }
 
         /// <summary>Round F7 C1 (was E1 addendum A1): the thickness of SkiRunOutlineSystem's overlay — line
-        /// width and corner-dot diameter 0.3 × this many metres — on the run areas the game outlines while
+        /// width and corner-dot diameter 0.3 × this many meters — on the run areas the game outlines while
         /// the area tool or the bulldozer works on them; 0 = none (the game's thin outline only). Read every
         /// frame. It no longer writes AreaGeometryData.m_SnapDistance, so snapping and the corner rule are
         /// the game's (0.75 m / 0.375 m for a Surface area, AreaUtils.cs:55-58, :410-421). Persisted under
@@ -457,6 +459,34 @@ namespace SkiResortMod.Settings
         /// name — never rename.</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool SnowGunPlumes { get; set; }
+
+        // --- Cat track grading tool (T139, DECISIONS 363): read live by CatTrackGradeToolSystem.ReadParams (clamped there; a change
+        // re-solves the open plan). Persisted under these property names — never rename.
+
+        /// <summary>T139: the steepest grade the grading tool lets a cat track climb, percent (5-25, default 25 = the blue-run crux).</summary>
+        [SettingsUISlider(min = 5f, max = 25f, step = 1f, unit = "percentage")]
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public int CatTrackGradeMaxPct { get; set; }
+
+        /// <summary>T139: the flat top of a graded cat track, meters (4-16, default 8 = the cat-track run's default width).</summary>
+        [SettingsUISlider(min = 4f, max = 16f, step = 1f, unit = "integer")]
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public int CatTrackGradeWidthM { get; set; }
+
+        /// <summary>T139: cut side slope, meters out per meter down (1.0-3.0, default 1.5 = 1:1.5).</summary>
+        [SettingsUISlider(min = 1f, max = 3f, step = 0.5f, unit = "floatSingleFraction")]
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public float CatTrackGradeCutRun { get; set; }
+
+        /// <summary>T139: fill side slope, meters out per meter up (1.0-4.0, default 2 = 1:2).</summary>
+        [SettingsUISlider(min = 1f, max = 4f, step = 0.5f, unit = "floatSingleFraction")]
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public float CatTrackGradeFillRun { get; set; }
+
+        /// <summary>T139: off (default) = Follow ground, the least earthwork under the grade limit; on = Constant grade, one straight
+        /// ramp between the two ends.</summary>
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public bool CatTrackGradeConstant { get; set; }
 
         // --- Lifts (Round L1, hub-u2-spec.md §2.1 / §2.4) ------------------------------------
         // Persisted under this property name — never rename.
@@ -532,6 +562,12 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding BuildLiftLineBinding { get; set; }
 
+        /// <summary>T139: toggles the cat track grading tool (default Ctrl+Shift+K). Polled by CatTrackGradeHotkeySystem in a loaded
+        /// city; the tool grades with the BuildLiftLine key (Enter).</summary>
+        [SettingsUIKeyboardBinding(BindingKeyboard.K, ActToggleCatTrackGrade, ctrl: true, shift: true)]
+        [SettingsUISection(SectionMain, GroupKeybindings)]
+        public ProxyBinding ToggleCatTrackGradeToolBinding { get; set; }
+
         public override void SetDefaults()
         {
             AttractivenessScaleK = DefaultAttractivenessScaleK;         // E1 (e1-spec §2.3)
@@ -560,6 +596,11 @@ namespace SkiResortMod.Settings
             SnowGunDensityPct = RunPropDensityRules.PctDefault;      // M2 density (look only)
             FloodlightDensityPct = RunPropDensityRules.PctDefault;   // M2 density (look only)
             SnowGunPlumes = DefaultSnowGunPlumes;                    // T46 (look only, default on)
+            CatTrackGradeMaxPct = 25;                                // T139 (DECISIONS 363): 25 %
+            CatTrackGradeWidthM = 8;                                 // T139: the cat-track run default width
+            CatTrackGradeCutRun = 1.5f;                              // T139: cut 1:1.5
+            CatTrackGradeFillRun = 2f;                               // T139: fill 1:2
+            CatTrackGradeConstant = false;                           // T139: Follow ground
             ShowHubButton = true;                 // resort-hub-understand.md §5.1 OD2 (default on)
             OpenHubOnSignSelect = true;           // §5.1 / §5.2 item 2 (default on)
             LiftBuildAids = true;                 // hub-u2-spec.md §2.4 (default on)

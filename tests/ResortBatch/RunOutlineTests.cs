@@ -1,5 +1,5 @@
 // RunOutlineTests — Round F7 test file for tests/ResortBatch (docs/research/field-test-7-fixes.md item C1: "Tests:
-// RunOutlineRules (width and dot size from size, Temp and dot eligibility, colour order, closing side) with literal
+// RunOutlineRules (width and dot size from size, Temp and dot eligibility, color order, closing side) with literal
 // values"). Written 2026-10-04 (Round F7, implementer 2). The e1-spec R9 convention: `public static class
 // RunOutlineTests` with `public static void Run(Func<bool, string, string, bool> check)` and its own Near;
 // Program.Main calls RunOutlineTests.Run(Check).
@@ -16,7 +16,7 @@
 //   F  ClosingSide (:243, :487) and the shared-edge keys AddKey / DrawKey (:221-262, :457-498) for both windings;
 //   G  the walks AddEdges / DrawArea on hand-built shapes, with the exact draw sequence: an open 3-node Temp (dot,
 //      side, dot, side, dot), the same closed, a 2-node line, a 1-node cursor, an empty buffer, no dots for a
-//      Delete copy, and two 10 m squares sharing a side (both clockwise; then the neighbour stored counter-clockwise
+//      Delete copy, and two 10 m squares sharing a side (both clockwise; then the neighbor stored counter-clockwise
 //      with its flag) — the shared side drawn by neither, its two corners dotted once; a square that only touches a
 //      corner keeps all its sides.
 //   H  (F7 fixer) SizeChangeDue, the size-change log rule: a switch to 0 is due once a frame would draw; a clamped
@@ -313,18 +313,18 @@ namespace ResortBatch
             Check(CountOps(s7.Ops, 'D') == 6, w, $"two squares sharing a side: {CountOps(s7.Ops, 'D')} dots, want 6 (corners 10,0 and 10,10 once)");
             Check(s7.Borders.Count == 8, w, $"filed sides {s7.Borders.Count}, want 8");
 
-            // The neighbour stored counter-clockwise (nodes reversed, CounterClockwise flag): the same result.
+            // The neighbor stored counter-clockwise (nodes reversed, CounterClockwise flag): the same result.
             TestNodes bCcw = Shape(10, 0, 20, 0, 20, 10, 10, 10);
             TestSink s8 = Frame(new[] { a, bCcw }, new byte[] { 1, 3 }, new[] { true, true });
             Check(!s8.Ops.Contains("L 10,10>10,0") && !s8.Ops.Contains("L 10,0>10,10"), w, "CCW neighbour, shared side drawn: " + Join(s8.Ops));
             Check(CountOps(s8.Ops, 'L') == 6 && CountOps(s8.Ops, 'D') == 6, w, "CCW neighbour: " + Join(s8.Ops));
 
-            // A neighbour stored counter-clockwise WITHOUT its flag walks the side the same way as A: not a shared
+            // A neighbor stored counter-clockwise WITHOUT its flag walks the side the same way as A: not a shared
             // key, both draw it (the game's rule keys on the flag, not on geometry).
             TestSink s9 = Frame(new[] { a, bCcw }, new byte[] { 1, 1 }, new[] { true, true });
             Check(CountOps(s9.Ops, 'L') == 8, w, $"unflagged reversed neighbour: {CountOps(s9.Ops, 'L')} lines, want 8");
 
-            // An open Temp whose last side lies on a complete neighbour's side, opposite sense: dropped while open
+            // An open Temp whose last side lies on a complete neighbor's side, opposite sense: dropped while open
             // too (the game files open areas' sides, :221-242).
             TestNodes open = Shape(0, 20, 10, 10, 10, 0);   // its side 10,10 > 10,0 is A's
             TestSink s10 = Frame(new[] { a, open }, new byte[] { 1, 0 }, new[] { false, true });
@@ -414,7 +414,7 @@ namespace ResortBatch
             Check(Near(RunOutlineRules.NodeRimWidth(1), 0.12, 1e-5), w, "rim at size 1 floors at 0.12 m");
             Check(Near(RunOutlineRules.NodeRimWidth(99), 0.48, 1e-5), w, "rim at a clamped size 99 = size 16's");
 
-            // Neighbour dots (item 41): window = drawn bounds grown by 150 m, edges inclusive, xz only.
+            // Neighbor dots (item 41): window = drawn bounds grown by 150 m, edges inclusive, xz only.
             float4 none = RunOutlineRules.EmptyBounds();
             Check(!RunOutlineRules.HasBounds(none) && !RunOutlineRules.InWindow(none, new float3(0f, 0f, 0f), 150f), w, "empty bounds: no window");
             float4 b = RunOutlineRules.Extend(RunOutlineRules.Extend(none, new float3(100f, 7f, 200f)), new float3(140f, -3f, 260f));

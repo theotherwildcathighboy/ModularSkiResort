@@ -970,7 +970,7 @@ namespace SkiResortMod.Systems
 
             if (!last)
                 return;
-            // O1 signal (e1-spec §7.3 O1): at most once per ski area per load; no behaviour change.
+            // O1 signal (e1-spec §7.3 O1): at most once per ski area per load; no behavior change.
             foreach (var pair in m_LocalsPaidThis)
             {
                 if (pair.Value <= Tuning.LocalTicketsNotePerMonth || m_O1Noted.Contains(pair.Key))

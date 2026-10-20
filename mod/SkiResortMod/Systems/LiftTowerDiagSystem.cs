@@ -604,7 +604,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The point <paramref name="along"/> metres (xz) along the node polyline, <paramref name="lateral"/> metres to the
+        /// <summary>The point <paramref name="along"/> meters (xz) along the node polyline, <paramref name="lateral"/> meters to the
         /// right of its local direction (y = 0); <paramref name="right"/> = that unit right vector.</summary>
         internal static float3 PolylineAt(float3[] pts, float[] cum, float along, float lateral, out float3 right)
         {

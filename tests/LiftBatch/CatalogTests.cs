@@ -2,7 +2,7 @@
 // phase-a-contract.md §6.1) created CT-1..CT-10; Catalog Phase B (docs/research/art/assets-2026-10/code-round-2/
 // round-2-contract.md §11.1 with round-2-contract-skeptic.md MUST 2, 5, 7, 8) updates them and adds CT-11..CT-16.
 // Core builder, 2026-10-11. Where-tags `catalog-…`.
-//   CT-1  SkiCatalog.Problems is empty (the static initialiser never throws; it reports here).
+//   CT-1  SkiCatalog.Problems is empty (the static initializer never throws; it reports here).
 //   CT-2  AllPrefabNames(): 30 entries (30 expected, 0 pending since the S1 lift flip, 2026-10-13; 25 / 5 before it, 11 / 19 before S1), unique,
 //         "Ski…", one of the four PrefabID types,
 //         kind ↔ type, 25 item ids unique; ExpectedNameCount / PendingNameCount.
@@ -772,7 +772,7 @@ namespace LiftBatch
                      "tram base DockLocalA.y − (HangM − GripTopAboveRopeM) = the hosted pivot y 6.00");
             // Nitpick B2 (2026-10-13, build/nitpick-b2-tram-ramps.md): the line axis per row (StubTipLocalX), literal oracle:
             // -4.00 on the tram base (its 6 x 3 lot), 0 elsewhere; a Shuttle station's docks sit +-lane about it (the
-            // relative geometry the 1e manifests froze: 2 x 5.50 apart, centred on the axis); the legacy constructors 0.
+            // relative geometry the 1e manifests froze: 2 x 5.50 apart, centered on the axis); the legacy constructors 0.
             for (int i = 0; i < SkiCatalog.Stations.Count; i++)
             {
                 StationDef s = SkiCatalog.Stations[i];

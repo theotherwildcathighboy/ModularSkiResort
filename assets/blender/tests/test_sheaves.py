@@ -118,8 +118,8 @@ def _geom(o):
 
 
 def _axle_frame_co(co):
-    """(centre, axle unit) of a wheel from its discs' vertices: the bbox mid (the discs + chamfers + bosses are symmetric
-    about the centre) and the direction of least extent (PCA)."""
+    """(center, axle unit) of a wheel from its discs' vertices: the bbox mid (the discs + chamfers + bosses are symmetric
+    about the center) and the direction of least extent (PCA)."""
     c = (co.min(0) + co.max(0)) / 2.0
     _u, _s, vt = np.linalg.svd(co - co.mean(0), full_matrices=False)
     return c, vt[-1] / np.linalg.norm(vt[-1])

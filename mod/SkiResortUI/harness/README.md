@@ -44,7 +44,7 @@ game; not its chrome, flip-up or focus), the game's
 the page defaults to a fixed 1 rem = 1 px so a small window stays readable).
 
 Not faithful: the game's own component chrome (vanilla panel frame, buttons, dropdown, sounds, focus and gamepad
-hints), full number localisation (currency symbol, unit system), and everything C# computes. The harness answers
+hints), full number localization (currency symbol, unit system), and everything C# computes. The harness answers
 only the trivial triggers (`toggleHub`, `setHubOpen`, `selectResort`, `setPisteMap`, `glade*`, `launch`, `rename`)
 by editing the bindings; the rest is logged. Sample data in `scenarios.js` is plausible, not measured: do not read
 sim numbers off it.

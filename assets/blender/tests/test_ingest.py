@@ -13,18 +13,18 @@ ref-models-skeptic verdicts 1, 4, 5, 7, 8, 12, 14, miss 9):
                    animated / hidden, 39,870 tris; chair "05" world extent 6.72 x 2.51 x
                    8.50 u (+-1 %); grip D05 top - chair 05 lowest = 9.091 u (+-0.5 %); the
                    line + entry tower head kits present (line kit 2,058 tris, its 16
-                   sheaves centred at x = +-7.5 u).
+                   sheaves centered at x = +-7.5 u).
   textures         30 of 33 used materials matched; exactly cable / gouttiere / val cenis
                    tex unmatched; keep= raises for them, an override clears it; the
                    aliases, the "et" drop, case-only collisions and truncated _DIS names
                    resolve; every one of the 117 files belongs to exactly one set and no
                    set borrows another set's roughness (the cs2_asset._load_map glob trap);
-                   grey, grey+alpha, palette, RGB and RGBA PNGs load as (h, w, 4).
+                   gray, gray+alpha, palette, RGB and RGBA PNGs load as (h, w, 4).
   gondola .fbx     522 meshes / 36,557 tris, 187 empties dropped; the cabin.001 subtree
                    filter; fence calibration factor 27 +-10 %; body "cabin" x27 =
                    2.62 x 2.31 x 1.82 m and the cabin.001 subtree x27 = 2.63 x 2.36 x 1.98 m.
   clean            chair 05: 0 n-gons (25 triangulated), 1 Material Output per material
-                   targeting ALL, no colour attributes, extents unchanged; gondola body:
+                   targeting ALL, no color attributes, extents unchanged; gondola body:
                    the FBX custom normals and sharp_edge marks are cleared.
   frame / parts    reframe puts the lowest point at z 0 and the grip on the Z axis;
                    rescale 0.30 m/u gives a 2.727 m drop; to_parts splits 15 + 7 loose

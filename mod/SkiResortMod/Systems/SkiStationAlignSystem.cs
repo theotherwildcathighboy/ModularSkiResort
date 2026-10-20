@@ -40,7 +40,7 @@
 // overlay lists are consumed and cleared by OverlayRenderSystem.OnUpdate later in the same phase,
 // OverlayRenderSystem.cs:781, :790 per Mod.cs:349-356): the partner's axis DASHED from its stub tip
 // to max(along + PartnerAxisExtraM, PartnerAxisMinM); the subject's axis SOLID SubjectAxisM; a
-// perpendicular tick from the subject tip to its foot on the partner's axis. Colour: neutral, amber
+// perpendicular tick from the subject tip to its foot on the partner's axis. Color: neutral, amber
 // when within NearOffsetM and NearYawDeg (and in front), green when aligned. Lines are Projected
 // (draped on the terrain, OverlayRenderSystem.StyleFlags.Projected = 2, :99-104). Buffer use is the
 // main-thread pattern of SkiGladeToolSystem: GetBuffer(out deps) then deps.Complete() before writing

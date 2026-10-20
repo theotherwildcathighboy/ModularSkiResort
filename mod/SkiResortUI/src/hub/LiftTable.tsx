@@ -11,7 +11,7 @@
  *     (hubRules.liftMark: Running filled, No power filled warning, Chairs stopped filled dimmer,
  *     Section missing ring warning, Unfinished ring dimmer; design 5.3) · the name · the status word
  *     in a StableWidth of the five LIFT_STATUS words (so the name never moves; NoPower and
- *     SectionMissing in the warning colour, ChairsStopped and Unfinished dim). While renaming, the fly
+ *     SectionMissing in the warning color, ChairsStopped and Unfinished dim). While renaming, the fly
  *     part is a plain `div.liftFly` with the RenameField in the name slot (U7). The pen is a sibling.
  *   - T77 (2026-10-18, Richard item 8): line 2 reads "1.2 km · rise 300 m · 4.1 min ride · 2,400 skiers/h · 3 runs" and the
  *     tooltip pair "Capacity  2,400 skiers/h" (was "4.1 min · 2,400/h design", label "Design capacity (riders an hour ...)").

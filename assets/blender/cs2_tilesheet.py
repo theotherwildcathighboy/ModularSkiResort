@@ -21,7 +21,7 @@ LAYOUTS (LAYOUTS[name]; `grid` cells per side, a swatch spans 1 or 2 cells)
     "rollout"  the family sheet for all eight buildings: an 8 x 8 grid of A/8 cells; 8 HERO
                materials (the big walls and roofs) on 2 x 2 cells (A/4 swatches, ~300-400 px/m
                at 4096), 14 more materials and 15 WEATHERED variants ("<key>~w") on single cells
-               (A/8, ~150-310 px/m), one palette cell (8 x 8 flat colours) and a 2 x 1 label
+               (A/8, ~150-310 px/m), one palette cell (8 x 8 flat colors) and a 2 x 1 label
                region split into fixed per-building rects (LABEL_ALLOC). `alias` maps a key onto
                another key's swatch (lux_slate = slate: same CC0 set, tile and tint);
                `palette_extra` draws a set material as a flat cell (plaster: 5 m2 in total).
@@ -32,7 +32,7 @@ WHAT (behind Recipe.tiled / lodge.py --tiled; nothing else calls this module)
     sheet_layout(A, layout="rollout", repeats=None) -> layout dict (rects only, no pixels)
     build_sheet(out_dir, name, A, layout, repeats, cache_dir) -> layout + maps (linear arrays)
         Swatches from the CC0 sets (prefilter_set box-filtered to the swatch content, tint =
-        lin(target) / set mean, recolour slots luminance-normalised, DetailSpec "ribs" baked into
+        lin(target) / set mean, recolor slots luminance-normalized, DetailSpec "ribs" baked into
         the normal), a weathered variant per "<key>~w" entry (weather_overlay: rule-free tile
         content + a periodic overlay, so clean and weathered pieces of one wall continue the same
         boards / courses), smoothness from the measured vanilla table (SMOOTH_TARGET).
@@ -42,7 +42,7 @@ WHAT (behind Recipe.tiled / lodge.py --tiled; nothing else calls this module)
         Normal OpenGL, MaskMap R metal / A smoothness, ControlMask R/G/B slots, A 0).
     tile_mesh(obj, uvtile, keys, layout, ..., weather=None) -> report
         Replaces obj.data by a re-meshed copy: every face of a tiled key is CLIPPED at the
-        integer lines of its UVTile coordinates (world metres / tile) so each piece maps inside
+        integer lines of its UVTile coordinates (world meters / tile) so each piece maps inside
         ONE swatch's content square (main textures import with Clamp wrap: no repeat);
         T-junctions are closed by inserting every split point into every polygon that shares
         the original edge. With `weather` (TileWeather) faces are also cut at the band lines of
@@ -93,12 +93,12 @@ SWATCH = 1024
 PAD = 32
 W_SUFFIX = "~w"
 F_SUFFIX = "~f"
-# thin details drawn flat (their material's mean colour) on every tiled building
+# thin details drawn flat (their material's mean color) on every tiled building
 FLAT_DETAIL_PREFIXES = ("gutter_", "downspout_", "snowguard_", "ridge_")
 SHEET_VERSION = "rollout-1"
 
 # ---- T70 `--trim v1` (2026-10-18, docs/research/art/trim-swatch-plan-2026-10-18.md) -----------------
-# Roof-edge trims (rake / fascia / deck fascia) stop drawing a flat palette colour: they sample a grain
+# Roof-edge trims (rake / fascia / deck fascia) stop drawing a flat palette color: they sample a grain
 # swatch STRIP-MAPPED along each board (u = the member's long axis over the swatch width, v = across
 # inside a band), no tile cuts, so the LOD0 tris equal the flat build's. The ridge cap keeps its key
 # (galv) and is strip-mapped onto its own swatch. Everything here is inert unless sheet_layout(trim=True)
@@ -179,7 +179,7 @@ LABEL_ALLOC = {
     "L4": (768, 384, 128, 128), "L2": (896, 384, 128, 128),
 }
 
-# Flat-colour tiles (BldgMat.set None) that still tile with a procedural detail normal
+# Flat-color tiles (BldgMat.set None) that still tile with a procedural detail normal
 FLAT_TILE_M = {"metal_roof": 3.0, "metal_roof_s1": 3.0}
 
 # MaskMap A targets, measured on vanilla (texture-parity-2026-10-16.md section 3; area-weighted
@@ -282,7 +282,7 @@ def register_trim_materials():
     """The two strip keys, registered ONLY under --trim v1 (both carry a set, so they never join the
     palette list; the far set (LOD1 / LOD2 bake) draws them as WoodSiding009, BOX-projected like the flat
     trim it replaces: "along" gave L5's near-degenerate trim slivers their own zero-area UVTile islands and
-    the far pack raised, R2 2026-10-18): trim_grain = slot-1 recolour (band 0), trim_grain_w = fixed warm
+    the far pack raised, R2 2026-10-18): trim_grain = slot-1 recolor (band 0), trim_grain_w = fixed warm
     white (band 1, the school)."""
     K.BLDG_MATERIALS.setdefault("trim_grain", K.BldgMat(
         "WoodSiding009", (2.4, 1.2), None, smooth=TRIM_SMOOTH["trim_grain"], slot=1, recolor=True,
@@ -312,10 +312,10 @@ def trim_remap(parts, remap=None):
 
 
 # ---- T89 `--slots v2` + T85 `--glass gls` (2026-10-19, docs/research/field/2026-10-19/fix-T85-T89.md) ------------
-# Three recolour slots on every building: R = the paint colour (as today), G = trim boards / wood trim, B = window
-# casings. Today's G (accent) and B (metal_roof) leave the recolour: they become FIXED keys that bake today's default
-# colour. The game reads a VariationSet colour as sRGB and multiplies its LINEAR value (BatchDataSystem.cs:716-718
-# 1.6.0f1: meshColor.m_ColorSet.m_Channel0.linear), so a fixed key = lin(RECOLOR_ALBEDO) x lin(old colour), and a default
+# Three recolor slots on every building: R = the paint color (as today), G = trim boards / wood trim, B = window
+# casings. Today's G (accent) and B (metal_roof) leave the recolor: they become FIXED keys that bake today's default
+# color. The game reads a VariationSet color as sRGB and multiplies its LINEAR value (BatchDataSystem.cs:716-718
+# 1.6.0f1: meshColor.m_ColorSet.m_Channel0.linear), so a fixed key = lin(RECOLOR_ALBEDO) x lin(old color), and a default
 # that reproduces a linear target t is srgb(t / lin(RECOLOR_ALBEDO)) (slot_default_for). Everything here is inert
 # unless sheet_layout / build_sheet get slots=True / glass=True or register_slot_materials / register_glass_materials
 # run: flag off is byte-identical.
@@ -355,14 +355,14 @@ def _recolor_lin():
 
 
 def fixed_srgb(colour):
-    """sRGB albedo that reproduces a recolour region (RECOLOR_ALBEDO) under the VariationSet `colour` as the game draws
-    it: lin(base) x lin(colour) (the colour is sRGB-encoded, BatchDataSystem.cs:716-718)."""
+    """sRGB albedo that reproduces a recolor region (RECOLOR_ALBEDO) under the VariationSet `colour` as the game draws
+    it: lin(base) x lin(color) (the color is sRGB-encoded, BatchDataSystem.cs:716-718)."""
     lin = np.clip(_recolor_lin() * np.asarray(K.srgb_to_linear(np.asarray(colour, np.float64))), 0.0, 1.0)
     return tuple(round(float(x), 5) for x in K.linear_to_srgb(lin))
 
 
 def slot_default_for(target_lin):
-    """The VariationSet colour (sRGB, as stored in ColorProperties) that turns a RECOLOR_ALBEDO region into the linear
+    """The VariationSet color (sRGB, as stored in ColorProperties) that turns a RECOLOR_ALBEDO region into the linear
     albedo `target_lin` (the inverse of fixed_srgb); clipped to [0, 1]."""
     c = np.clip(np.asarray(target_lin, np.float64) / _recolor_lin(), 0.0, 1.0)
     return tuple(round(float(x), 4) for x in K.linear_to_srgb(c))
@@ -370,8 +370,8 @@ def slot_default_for(target_lin):
 
 def slots_v2_rename():
     """{old key: v2 key} drawn from the old key's cell. The balcony walls (lux_balrail) join slot 2 only while they share
-    the glulam's colour (one wood constant, T90's TRIM_WOOD_LIN): one slot = one default colour, so a different
-    balcony colour stays fixed. HEAD f43ac56 (= export X): glulam (0.50, 0.24, 0.10) != balcony (0.22, 0.10, 0.045)."""
+    the glulam's color (one wood constant, T90's TRIM_WOOD_LIN): one slot = one default color, so a different
+    balcony color stays fixed. HEAD f43ac56 (= export X): glulam (0.50, 0.24, 0.10) != balcony (0.22, 0.10, 0.045)."""
     ensure_materials()
     out = dict(SLOTS_V2_RENAME_ALL)
     gl, br = K.BLDG_MATERIALS.get("lux_glulam"), K.BLDG_MATERIALS.get("lux_balrail")
@@ -385,7 +385,7 @@ def strip_keys(slots=False):
 
 
 def register_slot_materials():
-    """--slots v2 keys. metal_roof_lt (the fixed light roof: same seam detail, no recolour) draws in metal_roof's hero
+    """--slots v2 keys. metal_roof_lt (the fixed light roof: same seam detail, no recolor) draws in metal_roof's hero
     cell, so L1's 3,435 m2 roof keeps its density; metal_roof_dk takes a retired weathered cell. Only NEW keys are
     added (BLDG_MATERIALS, WEATHER_ROLES_EXTRA); every existing entry and every module table stays as it was."""
     from dataclasses import replace as _rp
@@ -399,7 +399,7 @@ def register_slot_materials():
     K.BLDG_MATERIALS.setdefault("metal_roof_dk", _rp(mr, target_srgb=fixed_srgb(METAL_ROOF_DARK), slot=0,
                                                      recolor=False))
     ren = slots_v2_rename()
-    for a in ("lux_glulam", "lux_balrail"):     # the slot-2 wood (balcony walls only when they share the glulam colour)
+    for a in ("lux_glulam", "lux_balrail"):     # the slot-2 wood (balcony walls only when they share the glulam color)
         if a in ren:
             K.BLDG_MATERIALS.setdefault(ren[a], _rp(K.BLDG_MATERIALS[a], slot=2, recolor=True))
     K.BLDG_MATERIALS.setdefault(FRAME_KEY, K.BldgMat(None, None, (0.80, 0.80, 0.80), smooth=0.35, slot=3,
@@ -435,7 +435,7 @@ def slots_v2_trim_remap(recipe_key):
 
 
 def slots_v2_remap(parts, recipe_key, accent_key, no_frame=()):
-    """(parts, {part: [old, new]}): window casings -> FRAME_KEY (slot 3), accent -> its fixed colour key, metal_roof ->
+    """(parts, {part: [old, new]}): window casings -> FRAME_KEY (slot 3), accent -> its fixed color key, metal_roof ->
     metal_roof_dk on the dark-roof buildings (else metal_roof_lt), lux_glulam / lux_balrail -> their slot-2 keys.
     `no_frame`: exact part names the casing rule skips (the door kit's liners: a door is not a window casing)."""
     no_frame = set(no_frame)
@@ -618,7 +618,7 @@ def layout_hash(layout):
 
 def _ribs_height(C, tile_m, spec, along_u):
     """DetailSpec 'ribs' grooves (lines of constant horizontal coordinate) as an (C, C) height
-    field in metres. along_u True: the horizontal in-plane axis is u (columns vary along u)."""
+    field in meters. along_u True: the horizontal in-plane axis is u (columns vary along u)."""
     s = (np.arange(C) + 0.5) / C * tile_m
     pitch = float(spec.seams_m)
     w = float(getattr(spec, "seam_width_m", 0.012) or 0.012)
@@ -687,7 +687,7 @@ def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
     return base, np.asarray(nrm, np.float64), metal, sm, int(m.slot), info
 
 
-# ---- weathering overlays (periodic: a weathered piece continues its clean neighbours' tile) --
+# ---- weathering overlays (periodic: a weathered piece continues its clean neighbors' tile) --
 
 def _pnoise(C, scale_px, seed, beta=2.0, aniso=(1.0, 1.0)):
     """Periodic (C x C) fractal noise, zero mean / unit std: white noise shaped by 1/f^beta
@@ -723,7 +723,7 @@ def _streaks(C, seed, width_px, vertical_cols):
 def weather_overlay(key, base, nrm, metal, sm, seed):
     """(base, metal, sm) of the "~w" variant: the clean tile with a PARTIAL overlay (never a
     uniform tone shift, so a clean / weathered boundary reads as the edge of a stain, and the
-    overlay stays sparse). Classes (W_CLASS): stone damp + lichen, timber silver-greying + water
+    overlay stays sparse). Classes (W_CLASS): stone damp + lichen, timber silver-graying + water
     marks, paint dirt, metal-roof streaks, slate moss, concrete drip stains, deck / paver scuff.
     Linear albedo; deterministic per key."""
     cls = _bt(W_CLASS, base_key(key))
@@ -826,7 +826,7 @@ def _board_interiors(lum, C):
 
 def _strip_maps(C, cache_dir=None, slots=False):
     """The STRIP_CELL content (C x C, plan section 2.2): two v-bands of H = C / 2 rows, bottom-up
-    band 0 = slot-1 stain / paint (luminance-normalised to RECOLOR_ALBEDO, light fade streaks), band 1 =
+    band 0 = slot-1 stain / paint (luminance-normalized to RECOLOR_ALBEDO, light fade streaks), band 1 =
     fixed warm white paint (the same grain at +-4 % luminance). Columns (u) run ALONG the grain.
     Authored from WoodSiding009 at STRIP_PPM: board interiors (no lap seams) stacked with mirrored v and
     cross-fades, the lap shading removed (low-frequency row detrend), the full 2.4 m source period
@@ -901,8 +901,8 @@ def _strip_maps(C, cache_dir=None, slots=False):
         sm = 1.0 - R_
         if b == 0:
             # light weathering (plan 2.2): low-frequency +-8 % fade along u, ~10 % of the columns -12 %
-            # (drips run across the board = down a fascia face); colour re-normalised after, so every
-            # building keeps its approved trim colour mean-for-mean
+            # (drips run across the board = down a fascia face); color re-normalized after, so every
+            # building keeps its approved trim color mean-for-mean
             fade = _pnoise(C, C / 2.5, seed, 2.2)[:H]
             st = _streaks(C, seed + 3, C / 60.0, True)[:H]
             lum_b = g * (1.0 + 0.08 * np.clip(fade, -1.5, 1.5)) * (1.0 - 0.12 * st)
@@ -1157,7 +1157,7 @@ def paste_labels(layout, npz_path):
 @dataclass(frozen=True)
 class TileWeather:
     """Rule set for LOD0 weathering on the tile sheet (rollout doc section 3). Heights in
-    metres; per-side dicts keyed front (the arrival / road side, -Y after orient_for_net) /
+    meters; per-side dicts keyed front (the arrival / road side, -Y after orient_for_net) /
     side / back. "North" cannot be known at authoring time (the player rotates the lot), so
     the BACK facade plays the weather side: it gets the most."""
     base_h: dict = field(default_factory=lambda: {"front": 0.5, "side": 0.8, "back": 1.1})
@@ -1733,7 +1733,7 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
         and any(part_name(int(fpart[i])).startswith(f) for f in strip_prefixes)))
         for i in range(len(fpart))], bool)
     # flat details (FLAT_DETAIL_PREFIXES + recipe.tiled_flat): a tiled key drawn as its swatch's
-    # mean colour from a palette cell "<key>~f" (no cuts), the vanilla way of texturing gutters,
+    # mean color from a palette cell "<key>~f" (no cuts), the vanilla way of texturing gutters,
     # ridges, snow guards and other thin trims
     is_flatp = np.array([(not is_label[i]) and (not is_strip[i]) and skey[i] in tiles and (skey[i] + F_SUFFIX) in pal
                          and any(part_name(int(fpart[i])).startswith(f) for f in flat_prefixes)
@@ -1763,7 +1763,7 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
             continue
         mpt = np.array([(tile_m_of(skey[i]) * tiles[skey[i]].get("repeat", 1)) if skey[i] in tiles else 1.0
                         for i in np.flatnonzero(sel)])
-        uvm = np.concatenate([tuv[i] * m for i, m in zip(np.flatnonzero(sel), mpt)])   # metres
+        uvm = np.concatenate([tuv[i] * m for i, m in zip(np.flatnonzero(sel), mpt)])   # meters
         kk = np.bincount(fmat[sel]).argmax()
         ext[pre] = (uvm.min(0), uvm.max(0), keys[int(kk)])
     gut = 8
@@ -2459,7 +2459,7 @@ def weather_stats(obj, keys, mat_attr="cs2ts_mat"):
 
 def fill_label_backgrounds(layout, label_rects, margin=6):
     """PROBE layout: give every label rect its host material's mean look before the painter
-    runs (a recolour slot keeps its ControlMask, so a painted field still takes the tint)."""
+    runs (a recolor slot keeps its ControlMask, so a painted field still takes the tint)."""
     mp = layout["maps"]
     for pre, L in label_rects.items():
         key = L["key"]

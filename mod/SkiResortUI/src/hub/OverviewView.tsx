@@ -39,7 +39,7 @@
  *     × vertical" (SkiResortScore.cs:468 S), and a second SubLine RECEIPT_ROOT "{K} × the square root of the line above = {TERRAIN}"
  *     closes the equation (HubRules.Terrain = K × sqrt(S); TERRAIN = ResortLive.terrain, the row's own value; nothing computed here).
  *   - T80 (2026-10-18, Richard round 2, PIPELINE section 0 "Hub UI design rule"): layered. "Runs, lifts and school" is the section
- *     total; its terms are labelled sub rows (Runs + the open-share SubLine, Lifts, Ski school, Variety × , Vertical × , Square root ×
+ *     total; its terms are labeled sub rows (Runs + the open-share SubLine, Lifts, Ski school, Variety × , Vertical × , Square root ×
  *     scale K); T77's two equation lines moved into the total's tooltip. The School row flags its 0 (hubRules.schoolState: "No ski
  *     school" / "No green run" with the Warning glyph). MOUNTAIN: snow is two rows, Snow depth (cm) and Run coverage (%), "≈" while
  *     estimated. Supersedes the T77 SubLines and the "Snow now" row above.
@@ -293,7 +293,7 @@ function Receipt({ row, l, city, problems, build, t }: {
         ]} />}
       />
       {/* T80 (Richard item 4): the section total, its full equation one layer down (the header's tooltip: RECEIPT_PARTS[_SCHOOL] +
-          RECEIPT_ROOT, T77's two lines), then one labelled row per term. Every number is C#'s (D10). */}
+          RECEIPT_ROOT, T77's two lines), then one labeled row per term. Every number is C#'s (D10). */}
       <Fold
         view="overview"
         id="terrain"

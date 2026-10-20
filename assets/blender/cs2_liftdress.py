@@ -51,7 +51,7 @@ Rules every builder keeps
 - material keys are DRESS_MATERIALS keys or the generators' own "galv" / "darksteel" /
   "rubber" (DRESS_MATERIALS carries DQ-identical definitions of those three).
 
-Determinism: no RNG, no clock; ski colours by zlib.crc32. Text: welcome_sign.text_triangles
+Determinism: no RNG, no clock; ski colors by zlib.crc32. Text: welcome_sign.text_triangles
 (Bfont, lazy import, the lift_terminal_detach.digit_triangles path); pictograms: signed
 distance primitives of ski_launcher_glyph (its ("line"|"fill"|"disk"|"ring"|"rect") list on a
 256 canvas, y down); the resort glyph is ski_launcher_glyph.cand_c. Never imports lodge or
@@ -173,7 +173,7 @@ def _obj(name, bm, loc=(0.0, 0.0, 0.0), rot=(0.0, 0.0, 0.0), uv="box"):
 
 
 def _box(name, size, loc, rot=(0.0, 0.0, 0.0), drop=()):
-    """Box of `size` (sx, sy, sz) centred on loc, local axes rotated by `rot`; `drop` deletes
+    """Box of `size` (sx, sy, sz) centered on loc, local axes rotated by `rot`; `drop` deletes
     faces by LOCAL direction keys ("+X" ... "-Z") before the rotation."""
     bm = cs2_kit._box_bm(tuple(float(s) for s in size), tuple(drop))
     return _obj(name, bm, loc, rot)
@@ -208,7 +208,7 @@ def _cyl(name, r, p0, p1, segs, caps="none", r2=None):
 
 
 def _quad(name, centre, right, up, w, h, uv01=True):
-    """One quad centred on `centre` (local origin), u = right, v = up, normal = right x up.
+    """One quad centered on `centre` (local origin), u = right, v = up, normal = right x up.
     UVMap 0..1 with u along `right`, v along `up` (the stamp frame, DQ check_sign_uv)."""
     R, U = Vector(right).normalized(), Vector(up).normalized()
     bm = bmesh.new()
@@ -304,7 +304,7 @@ DRESS_MATERIALS = {
                        emissive=(0.90, 0.93, 1.00)),
     # the ski gear's keys = cs2_bldg.BLDG_MATERIALS' (ski_rack delegates to cs2_bldg.ski_gear,
     # 2026-10-11; replaces the old ski_a / ski_b / ski_c): flat paints, rough = 1 - smooth;
-    # `accent` is the slot-2 recolour (the station's slot-2 colour set), the rest are fixed
+    # `accent` is the slot-2 recolor (the station's slot-2 color set), the rest are fixed
     "accent": dict(albedo=GREY80_LIN, metal=0.0, rough=0.75, slot=2, recolor_albedo=True),
     "trim_white": dict(albedo=_lin((0.85, 0.85, 0.85)), metal=0.0, rough=0.60),
     "ski_black": dict(albedo=_lin((0.06, 0.06, 0.065)), metal=0.0, rough=0.45),
@@ -467,10 +467,10 @@ def swing_gate(name, hinge, latch, z0, h=0.90, panel=False, tube=0.025, *, fine=
 
 def board(name, centre, facing, w, h, mount="wall", post_z0=None, rods_to=None, t=0.02,
           mat="galv", label_mat="label", post_r=0.035, *, fine=False):
-    """Sign board. `centre` = centre of the LABEL face (what the viewer reads), `facing` its
+    """Sign board. `centre` = center of the LABEL face (what the viewer reads), `facing` its
     outward normal (horizontal). board_<n> backing w x h x t behind it (back face dropped on a
     wall); label_<n> ONE quad LABEL_PROUD in front of the backing (u right, v up); mounts:
-    "wall" (the backing's back sits on the wall at centre - facing (t + LABEL_PROUD)), "post"
+    "wall" (the backing's back sits on the wall at center - facing (t + LABEL_PROUD)), "post"
     (board_<n>_post 6-seg r 0.035 from post_z0 to the board top - 0.02, behind the backing),
     "hang" (board_<n>_rod0/1 4-seg r 0.010 from the board top up to rods_to).
     fine=True (design B.1, opt-in): a 12-seg capped post, 6-seg rods; backing / label unchanged."""
@@ -517,7 +517,7 @@ def flat_label(name, x0, x1, y0, y1, z, read_up=(1.0, 0.0), mat="label"):
 
 
 def stripe(name, p0, p1, width, z, mat="safety_yellow", t=0.006):
-    """Painted line as geometry (stripes are geometry: flat colour, 0 texels): stripe_<n>, a
+    """Painted line as geometry (stripes are geometry: flat color, 0 texels): stripe_<n>, a
     box p0 -> p1 (plan) `width` across, from z to z + t, underside dropped."""
     a = Vector((float(p0[0]), float(p0[1]), z + t / 2.0))
     b = Vector((float(p1[0]), float(p1[1]), z + t / 2.0))
@@ -619,7 +619,7 @@ def extinguisher(name, mount, facing, z, r=0.08, h=0.45):
 
 
 def hose_reel(name, mount, facing, z, r=0.30, w=0.18):
-    """Fire hose reel on a wall point `mount` (x, y), centre height z: hosereel_<n>_plate
+    """Fire hose reel on a wall point `mount` (x, y), center height z: hosereel_<n>_plate
     (0.70 square, 0.02, back dropped), hosereel_<n>_drum (8-seg r 0.6 r, axis = facing),
     hosereel_<n>_fl0 (wall side, outer face only) / _fl1 (front, both faces), all fire_red."""
     n, right = _plan(facing)
@@ -671,7 +671,7 @@ def tools(name, foot, facing, z0, lean_deg=75.0, gap=0.35):
 # way preferred"; ninth look: "I don't think we need to render the bindings"): the rack's
 # items are cs2_bldg's gear (a ski PAIR base to base with sidecut and curled tips, a snowboard
 # with kick and graphic bands; NO bindings), in cs2_bldg's materials (accent = the slot-2
-# recolour + trim_white / ski_black / ski_blue / ski_red). Colours are (body, tip) / (top,
+# recolor + trim_white / ski_black / ski_blue / ski_red). Colors are (body, tip) / (top,
 # stripe) pairs picked by zlib.crc32 (no RNG), as the lodges' racks.
 GEAR_SKI_COLOURS = (("trim_white", "ski_blue"), ("accent", "ski_black"), ("ski_red", "ski_black"),
                     ("ski_blue", "trim_white"), ("ski_black", "accent"), ("trim_white", "ski_red"))
@@ -681,7 +681,7 @@ GEAR_LEAN_PAD = 0.02        # the rail's half size: the item's back plane touche
 
 
 def gear_pick(name, tag, kind):
-    """Deterministic (colour pair, length) of item `tag` of rack `name` (zlib.crc32): skis
+    """Deterministic (color pair, length) of item `tag` of rack `name` (zlib.crc32): skis
     1.62-1.76 m, boards 1.46-1.58 m (the lodges' racks hold 1.46-1.80)."""
     c = zlib.crc32(f"{name}:{tag}".encode("utf-8"))
     if kind == "board":
@@ -691,7 +691,7 @@ def gear_pick(name, tag, kind):
 
 def _adopt(o, name):
     """A cs2_bldg part (world-space verts, cross-net UV layers) -> a liftdress part (local
-    frame at its bounding-box centre, box-projected "UVMap", this module's `_obj`); the source
+    frame at its bounding-box center, box-projected "UVMap", this module's `_obj`); the source
     object and mesh are removed."""
     me = o.data
     bm = bmesh.new()
@@ -717,7 +717,7 @@ def ski_rack(name, x0, x1, y, z0, pairs=7, boards=2, side=-1.0, h=1.30, stand_of
     snowboards standing on z0 `stand_off` m out on the `side` (-1: -y), their backs leaning on
     the top rail's outer top edge. The items are cs2_bldg.ski_gear's (ONE call, the lodges'
     gear: no bindings), parts ski_<n>_<code> one per matkey (cs2_bldg.GEAR_CODE: A accent,
-    W trim_white, K ski_black, B ski_blue, R ski_red). Neighbours may not overlap across
+    W trim_white, K ski_black, B ski_blue, R ski_red). Neighbors may not overlap across
     (cs2_bldg.GEAR_W): ValueError."""
     import cs2_bldg as K    # lazy: the dressing kit stays importable without the building kit
     out = []
@@ -757,10 +757,10 @@ def ski_rack(name, x0, x1, y, z0, pairs=7, boards=2, side=-1.0, h=1.30, stand_of
 def aframe_rack(name, x, y, skis, z0=0.0, along="Y"):
     """The A-frame KIT rack (cs2_bldg.ski_rack_frame: 8 slots, gear=True, no bindings) - ONE rack look
     project-wide (Richard, eleventh look 2026-10-11: "the A-frame ones way preferred (sans bindings)").
-    Centre (x, y) in the Blender authoring frame, standing on z0, long axis `along` ("X" | "Y"); `skis` =
-    cs2_bldg gear entries (slot, side, kind[, colour[, length]]). Parts `skirack_<name>` (the galv frame) and
+    Center (x, y) in the Blender authoring frame, standing on z0, long axis `along` ("X" | "Y"); `skis` =
+    cs2_bldg gear entries (slot, side, kind[, color[, length]]). Parts `skirack_<name>` (the galv frame) and
     `skirack_<name>g<code>` (one per gear matkey), each passed through _adopt like ski_rack's gear (tram rev 2
-    skeptic MC5: liftdress-normalised - local frame at its bbox centre, box-projected UVMap, no net layers);
+    skeptic MC5: liftdress-normalized - local frame at its bbox center, box-projected UVMap, no net layers);
     names and tri counts are the kit call's. Added for tram stations revision 2; `ski_rack` is unchanged
     (its other callers switch at their owners' next re-export)."""
     import cs2_bldg as K    # lazy, as in ski_rack
@@ -825,9 +825,9 @@ LADDER_STYLES = ("dq", "tram")
 
 
 def fixed_ladder(name, line, climb, rung_z, rail_z, width=0.48, style="dq", standoffs=()):
-    """Fixed ladder. `line` = (x, y) of the rung centreline's middle; `climb` = the plan unit
+    """Fixed ladder. `line` = (x, y) of the rung centerline's middle; `climb` = the plan unit
     direction from the rungs toward the climber (the climbing side); rungs across it at the
-    heights `rung_z`; rails from rail_z[0] to rail_z[1], `width` apart (centres).
+    heights `rung_z`; rails from rail_z[0] to rail_z[1], `width` apart (centers).
     style "dq"   -> lrail_<n>0/1 (r 0.03, 6-seg, cap top) + lrung_<n>NN (r 0.015, 4-seg, 01..),
                     standoffs lstand_<n><k>: lift_terminal_detach._ladder's parts exactly
                     (climb_room / C7 / C8 read these prefixes);
@@ -861,7 +861,7 @@ def fixed_ladder(name, line, climb, rung_z, rail_z, width=0.48, style="dq", stan
     for i, z in enumerate(rungs):
         a, b = L - across * half, L + across * half
         if style == "dq":
-            # lift_terminal_detach._ladder / _ladder_x exactly: length 2 half - 0.02, centred,
+            # lift_terminal_detach._ladder / _ladder_x exactly: length 2 half - 0.02, centered,
             # the same euler (so the 4-gon's corners land where the generator's do)
             mid = (L.x, L.y, z)
             if abs(across.y) > 0.999:
@@ -886,7 +886,7 @@ def fixed_ladder(name, line, climb, rung_z, rail_z, width=0.48, style="dq", stan
 
 
 def hatch_frame(name, centre, size=0.80, frame_w=0.06, frame_d=0.04):
-    """Roof / soffit hatch seen from below, on a DOWN-facing surface at centre z: the ring
+    """Roof / soffit hatch seen from below, on a DOWN-facing surface at center z: the ring
     hatch_<n>_frame (frame_w wide, frame_d deep, its top against the surface, no top face)
     and hatch_<n>_leaf (darksteel, 0.01 thick, recessed 0.005 below the surface)."""
     cx, cy, z = (float(v) for v in centre)
@@ -925,7 +925,7 @@ def bridge(name, x0, x1, y0, y1, z, rails=(), t=0.06, beam_d=0.20, post_every=1.
 
 
 def beacon(name, centre, r=0.10, h=0.20, mat="lamp_red"):
-    """Obstruction / warning beacon lens: lamp_<n> (8-seg, both caps), base centre (x, y, z)."""
+    """Obstruction / warning beacon lens: lamp_<n> (8-seg, both caps), base center (x, y, z)."""
     c = Vector(tuple(float(v) for v in centre))
     return [(_cyl(f"lamp_{name}", r, c, c + Vector((0, 0, h)), 8, "both"), mat)]
 
@@ -949,7 +949,7 @@ def gauge(name, mount, facing, z, size=0.30, needle_deg=20.0):
     """Wall gauge: gauge_<n>_case (darksteel, size + 0.02 square, 0.04 deep, back dropped),
     label_<n> dial quad LABEL_PROUD in front of it (paint_board kind "tension" draws the
     scale), gauge_<n>_ptr (darksteel needle, 0.42 size, LABEL_PROUD in front of the dial),
-    rotated needle_deg clockwise from straight up (the painted green band is centred on 0)."""
+    rotated needle_deg clockwise from straight up (the painted green band is centered on 0)."""
     n, right = _plan(facing)
     m = Vector((float(mount[0]), float(mount[1]), float(z)))
     rot = _frame_rot(n, right, Vector((0, 0, 1)))
@@ -1226,7 +1226,7 @@ def g_chair(hx, hy, top_y):
 def g_bar(hx, hy, state):
     """Restraint bar, side view: a bent tube from its pivot on the hanger - forward ABOVE the head,
     a round bend, the down-tube ahead of the face, the cross-bar across the CHEST (never through the
-    head). 'down' = lowered (ride position): kit colour-variant fleet 2026-10-12, the checker's nit "the
+    head). 'down' = lowered (ride position): kit color-variant fleet 2026-10-12, the checker's nit "the
     LOWER BAR bracket sits tight around the head" - a LOOSER hoop: pivot 8 units higher, bend radius 20,
     down-tube 6 units further forward = 20 canvas units over the head top (was 12), 24 ahead of the face
     (was 18); the cross-bar end is unchanged (chest height, 6 off the torso). 'up' = the original tube
@@ -1289,7 +1289,7 @@ def g_pole():
 
 def g_footprint(cx, top, tilt=0.0, L=128.0):
     """One shoe print, toe up: ONE sole silhouette (round toe, the ball widest, a narrow waist, the
-    heel) tilted `tilt` deg about its centre - a split heel reads as '!'."""
+    heel) tilted `tilt` deg about its center - a split heel reads as '!'."""
     def prof(t):
         if t < 0.20:
             return 25.0 * math.sqrt(max(0.0, 1.0 - ((0.20 - t) / 0.20) ** 2))
@@ -1328,7 +1328,7 @@ def g_question():
 # the rider's hip in the circle: the bar signs sit lower (room for the raised bar above the head)
 BAR_HIP = (104.0, 182.0)
 TIPS_HIP = (104.0, 168.0)
-# the arrow beside the rider (kit colour-variant fleet 2026-10-12, the checker's nit "arrowheads fuse with the
+# the arrow beside the rider (kit color-variant fleet 2026-10-12, the checker's nit "arrowheads fuse with the
 # ring on LOWER / RAISE / TIPS UP": at x 212 / 214 with a 30-unit head the head corner sat 0.7-1.4 units INSIDE
 # the ring's inner edge, R 115): x 204 and a 24-unit head keep >= 10 units (3.5 texels in the shipped 0.225 m
 # circle at 400 px/m) to the ring and >= 10 to the rider / bar / ski (test_liftdress K9 asserts both)
@@ -1357,7 +1357,7 @@ def _picto_tipsup():
 
 
 # Circle pictograms: [(layer, prims)]; layer "ink" (the board's ink), "red" (INK red), "field" (the
-# board's field colour, punched). "ask" is the ref 03 white disc with a field-coloured "?" (words).
+# board's field color, punched). "ask" is the ref 03 white disc with a field-colored "?" (words).
 PICTOS = {
     "lowerbar": _picto_bar("down"),
     "raisebar": _picto_bar("up"),
@@ -1369,7 +1369,7 @@ PICTOS = {
     "pole": [("ink", g_pole())],
     "feet": [("ink", g_feet())],
     "seatheight": [("ink", g_seat_height())],
-    # the tram: track rope, hanger, carriage, cabin (windows punched in the field colour); the LED
+    # the tram: track rope, hanger, carriage, cabin (windows punched in the field color); the LED
     # departure board draws it in dots (unchanged)
     "tram": [("ink", [("line", [(4, 34), (252, 34)], 9), ("rect", 96, 24, 160, 48, 6),
                       ("line", [(128, 46), (128, 98)], 12), ("rect", 54, 96, 202, 226, 20)]),
@@ -1383,7 +1383,7 @@ PICTOS = {
 #   placard   the whole label is one portrait placard (the reference vocabulary)
 #   landscape border, circle pictogram left, words right (WAIT HERE on the gate)
 #   row       border, the resort glyph left, words right (LIFT OPS)
-#   words     border, words centred (SLOW, TICKETS)
+#   words     border, words centered (SLOW, TICKETS)
 #   stn       the station board: border, resort glyph, tram pictogram over the name
 #   digit     a seat-position plate: border, one bold digit
 #   dots / dial  the LED departure board / the tension dial (unchanged by the redraw)
@@ -1468,8 +1468,8 @@ def text_width(body, cap):
 
 
 def _text_cov(body, cap, cx, cy, cond, W, H, w, h):
-    """(h, w) coverage (rows bottom-up) of `body` at cap height `cap`, centred on (cx, cy)
-    board metres, x scaled by `cond`, on a W x H m board drawn into w x h texels."""
+    """(h, w) coverage (rows bottom-up) of `body` at cap height `cap`, centered on (cx, cy)
+    board meters, x scaled by `cond`, on a W x H m board drawn into w x h texels."""
     import welcome_sign
     tris, _w = _text_tris(body, cap)
     ox, oy = cx - W / 2.0, cy - H / 2.0
@@ -1530,7 +1530,7 @@ def _one_flags(body, weight, track, lo, hi, stem):
 
 def _bref(weight=SIGN_WEIGHT, track=SIGN_TRACK):
     """(cap bottom, cap top, stem) of 'H' / 'I' at this weight (font units): the cap box every
-    line is scaled and centred on, so lines with Q's tail or a comma keep their baseline."""
+    line is scaled and centered on, so lines with Q's tail or a comma keep their baseline."""
     k = (round(weight, 6), round(track, 6))
     if k not in _BREF:
         th = np.array([p for t in _font_tris("H", weight, track) for p in t])
@@ -1540,7 +1540,7 @@ def _bref(weight=SIGN_WEIGHT, track=SIGN_TRACK):
 
 
 def btext_tris(body, cap, weight=SIGN_WEIGHT, track=SIGN_TRACK):
-    """Sign-bold caps: (triangles in metres centred on the line's width and the cap box, width_m,
+    """Sign-bold caps: (triangles in meters centered on the line's width and the cap box, width_m,
     stem_m) at cap height `cap` (the bold 'H' is exactly `cap` tall)."""
     key = (body, round(float(cap), 9), round(weight, 6), round(track, 6))
     if key not in _BTEXT:
@@ -1565,8 +1565,8 @@ def bstem_ratio():
 
 
 def _btext_cov(body, cap, cx, cy, cond, W, H, w, h):
-    """(h, w) coverage (rows bottom-up) of sign-bold `body` at cap `cap`, centred on (cx, cy) board
-    metres, x scaled by `cond` (8 x 8 samples per texel, the _text_cov path)."""
+    """(h, w) coverage (rows bottom-up) of sign-bold `body` at cap `cap`, centered on (cx, cy) board
+    meters, x scaled by `cond` (8 x 8 samples per texel, the _text_cov path)."""
     import welcome_sign
     tris, _w, _s = btext_tris(body, cap)
     ox, oy = cx - W / 2.0, cy - H / 2.0
@@ -1576,8 +1576,8 @@ def _btext_cov(body, cap, cx, cy, cond, W, H, w, h):
 
 def _sdf_cov(prims, x0, y0, S, w, h, pu, pv, ss=SDF_SS):
     """(h, w) coverage (rows bottom-up) of 256-canvas primitives drawn into the board square
-    [x0, x0 + S] x [y0, y0 + S] metres (canvas y down = metres y up); anisotropic-safe: the
-    square stays square in METRES whatever pu / pv are."""
+    [x0, x0 + S] x [y0, y0 + S] meters (canvas y down = meters y up); anisotropic-safe: the
+    square stays square in METERS whatever pu / pv are."""
     import ski_launcher_glyph as slg
     cov = np.zeros((h, w), dtype=np.float32)
     j0, j1 = max(0, int(math.floor(x0 * pu))), min(w, int(math.ceil((x0 + S) * pu)))
@@ -1597,9 +1597,9 @@ def _sdf_cov(prims, x0, y0, S, w, h, pu, pv, ss=SDF_SS):
 
 
 def _cov_m(prims, w, h, pu, pv, box=None, ss=SDF_SS):
-    """(h, w) coverage (rows bottom-up) of primitives in BOARD METRES (x right, y up): the
+    """(h, w) coverage (rows bottom-up) of primitives in BOARD METERS (x right, y up): the
     ski_launcher_glyph kinds plus ("rrline", x0, y0, x1, y1, r, width) = a round-rect outline
-    stroked on its centreline. `box` (x0, y0, x1, y1) limits the work to that area."""
+    stroked on its centerline. `box` (x0, y0, x1, y1) limits the work to that area."""
     import ski_launcher_glyph as slg
     cov = np.zeros((h, w), np.float32)
     if box is None:
@@ -1629,7 +1629,7 @@ def _over(col, cov, rgb):
 
 
 def _fit_line(body, cap, box_w):
-    """(condense, fits) for one line at cap in box_w metres."""
+    """(condense, fits) for one line at cap in box_w meters."""
     w = text_width(body, cap)
     if w <= box_w:
         return 1.0, True
@@ -1655,10 +1655,10 @@ def _glyph_prims():
     return slg.cand_c()
 
 
-# -- the redraw's layout pieces (board metres, y up) ------------------------------------
+# -- the redraw's layout pieces (board meters, y up) ------------------------------------
 
 class _Canvas:
-    """One label being painted: linear colour (h, w, 3) rows bottom-up, its size in metres and
+    """One label being painted: linear color (h, w, 3) rows bottom-up, its size in meters and
     texel density, the metrics collected on the way."""
 
     def __init__(self, col, W, H, pu, pv):
@@ -1672,7 +1672,7 @@ class _Canvas:
         _over(self.col, _cov_m(prims, self.w, self.h, self.pu, self.pv, box=box), INK[key])
 
     def words(self, lines, cap, cond, cx, ytop, key, gap=SIGN_LINE_GAP):
-        """Sign-bold lines from the cap-box top `ytop` down, centred on cx."""
+        """Sign-bold lines from the cap-box top `ytop` down, centered on cx."""
         y = ytop - cap / 2.0
         stem = btext_tris("I", cap)[2]
         for s in lines:
@@ -1698,7 +1698,7 @@ class _Canvas:
 
     def circle(self, name, cx, cy, D, spec, field, ink):
         """The circle pictogram: the ring (RING_FRAC x D, >= 4.4 texels) and the glyph layers
-        clipped to its inside; picto 'ask' = a filled disc with a field-coloured '?'."""
+        clipped to its inside; picto 'ask' = a filled disc with a field-colored '?'."""
         x0, y0 = cx - D / 2.0, cy - D / 2.0
         ring = max(RING_FRAC * D, STROKE_T2_PX * 1.1 / self.ppm)
         rc = ring / D * 256.0
@@ -1749,9 +1749,9 @@ def _block_h(n, cap):
 
 
 def _placard(cv, x0, y0, PW, PH, spec):
-    """A real-style portrait placard (ref 03 / 04 / 05) at (x0, y0), PW x PH metres: field to the
+    """A real-style portrait placard (ref 03 / 04 / 05) at (x0, y0), PW x PH meters: field to the
     rounded edge, inset border line, a bolt top and bottom, the circle pictogram, the bold caps
-    centred under it (largest cap <= CAP_T2 that fits; the circle shrinks to PLACARD_D_MIN first)."""
+    centered under it (largest cap <= CAP_T2 that fits; the circle shrinks to PLACARD_D_MIN first)."""
     field, ink = board_colours(spec)
     ppm = cv.ppm
     line = max(PLACARD_LINE * PW, STROKE_T2_PX * 1.1 / ppm)
@@ -1781,7 +1781,7 @@ def _placard(cv, x0, y0, PW, PH, spec):
 
 def _lay_plate(cv, spec):
     """The 0.70 x 0.55 boards: the label face is the dark backer plate (a light rim, two bolts at
-    mid-height on its flanks) with ONE real-size 2:3 placard bolted on, centred."""
+    mid-height on its flanks) with ONE real-size 2:3 placard bolted on, centered."""
     W, H = cv.W, cv.H
     cv.col[...] = np.asarray(INK["backer"], np.float32)
     cv.fill([("rrline", 0.003, 0.003, W - 0.003, H - 0.003, 0.004, 0.004)], "backer_rim")
@@ -1838,7 +1838,7 @@ def _lay_row(cv, spec):
 
 
 def _lay_words(cv, spec):
-    """SLOW / TICKETS: border close to the edge, bolts, the word(s) centred at the spec's cap
+    """SLOW / TICKETS: border close to the edge, bolts, the word(s) centered at the spec's cap
     (SLOW keeps 0.28 m: its T1 claim) or the largest that fits."""
     field, ink, (ix0, iy0, ix1, iy1), (cx0, cx1) = _landscape_blank(cv, spec, edge=0.008, radius=0.016)
     lines = list(spec["words"])
@@ -1917,7 +1917,7 @@ def paint_board(kind, rect, ppm, base, ctl, *, size_m=None, words=None):
     """Paint one label of `kind` (BOARDS) into texel rect (row0, row1, col0, col1) of the
     LINEAR, rows-bottom-up maps `base` / `ctl` - either the full (A, A, 4) arrays or the
     in-place slices over the rect (cs2_compose.stamp_on_face hands slices). The label's size
-    in metres is `size_m` (default BOARDS[kind]["size"]); `ppm` (scalar or (pu, pv)) is only
+    in meters is `size_m` (default BOARDS[kind]["size"]); `ppm` (scalar or (pu, pv)) is only
     checked against rect / size (None: derived). ControlMask 0 over the whole rect (a label is
     never tinted), BaseColor alpha 1. `words` overrides the kind's word lines.
     Returns the metrics dict (also on paint_board.last): kind, rect, px_per_m (pu, pv),
@@ -1992,14 +1992,14 @@ paint_board.last = None
 
 def _paint_dots(col, spec, W, H, w, h, pu, pv):
     """Amber dot matrix (design TB1): lit dots where the words / pictogram cover the dot
-    centre, unlit dots dim; dot pitch / diameter in metres (0.02 m = 4 texels at 200 px/m)."""
+    center, unlit dots dim; dot pitch / diameter in meters (0.02 m = 4 texels at 200 px/m)."""
     p, dd, rows = float(spec["dot_pitch"]), float(spec["dot_d"]), int(spec["dot_rows"])
     m = 0.05
     S = H - 2 * m
     nx, ny = int(math.floor((W - 2 * m) / p)), int(math.floor((H - 2 * m) / p))
     gx0 = (W - nx * p) / 2.0
     gy0 = (H - ny * p) / 2.0
-    # design coverage at dot-grid resolution: rasterise into a (ny, nx) "texel" grid of pitch p
+    # design coverage at dot-grid resolution: rasterize into a (ny, nx) "texel" grid of pitch p
     lit = np.zeros((ny, nx), dtype=np.float32)
     cap = rows * p
     tx0 = m + S + m
@@ -2009,7 +2009,7 @@ def _paint_dots(col, spec, W, H, w, h, pu, pv):
     for ln in lines:
         k, _ok = _fit_line(ln, cap, box)
         cond = min(cond, k)
-    # render words and pictogram on the dot grid (one sample per dot = the dot's centre)
+    # render words and pictogram on the dot grid (one sample per dot = the dot's center)
     gW, gH = nx * p, ny * p
     yc = [gy0 + gH - (gH - len(lines) * cap - (len(lines) - 1) * 2 * p) / 2.0 - cap / 2.0]
     for _ in lines[1:]:
@@ -2024,7 +2024,7 @@ def _paint_dots(col, spec, W, H, w, h, pu, pv):
             lit = np.minimum(lit, 1.0 - _sdf_cov(prims, m - gx0, m - gy0, S, nx, ny, 1.0 / p, 1.0 / p,
                                                   ss=1))
     on = lit >= DOT_ON
-    # draw every dot as a disc (SDF in metres), lit amber / unlit dim
+    # draw every dot as a disc (SDF in meters), lit amber / unlit dim
     X, Y = np.meshgrid((np.arange(w) + 0.5) / pu, (np.arange(h) + 0.5) / pv)
     ix = np.clip(np.floor((X - gx0) / p).astype(int), 0, nx - 1)
     iy = np.clip(np.floor((Y - gy0) / p).astype(int), 0, ny - 1)
@@ -2608,7 +2608,7 @@ def sub_object_rows(target_prefab, rows, *, fine=False, x_convention=None):
     byte for byte as before and refuses mod rows): `rows` may also hold OUR OWN props, the dicts
     fine_detail.kit_row / kit_lean_row build ({"kind": "mod", "m_Object": <32-hex object-prefab CID>,
     "prefab", "mesh", "position", "rotation", "m_ParentMesh"[, "lean", "note", "role", "colour_set", "variant"]});
-    a coloured kit prop's CID is its colour-set variant's (build/kit-colour-variants.md); each is written
+    a colored kit prop's CID is its color-set variant's (build/kit-colour-variants.md); each is written
     {"kind": "mod", "ref": "CID", "prefab", "mesh", "guid": "CID:<cid>", "pos", "rot", "parent"[, ...]}
     (the surgery pastes $fstrref:"<guid>" for both kinds; cs2_subobj reads the CID from "guid"), and the
     block gains "x_convention" (default STATION_X_CONVENTION) and "kinds" {vanilla, mod}."""
@@ -2628,7 +2628,7 @@ def sub_object_rows(target_prefab, rows, *, fine=False, x_convention=None):
             o = {"kind": "mod", "ref": "CID", "prefab": str(r["prefab"]), "mesh": str(r["mesh"]),
                  "guid": "CID:" + cid, "pos": [round(float(v), 4) for v in pos],
                  "rot": [round(float(v), 7) for v in rot], "parent": parent}
-            for k in ("role", "lean", "note", "colour_set", "variant"):    # + the kit colour variant (2026-10-12)
+            for k in ("role", "lean", "note", "colour_set", "variant"):    # + the kit color variant (2026-10-12)
                 if k in r:
                     o[k] = r[k]
             objs.append(o)

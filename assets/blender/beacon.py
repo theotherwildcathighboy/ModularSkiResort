@@ -12,13 +12,13 @@ sub-objects (2026-10-11)".
     blender --background --factory-startup --python-exit-code 1 --python beacon.py -- \
         --out ../import/props/A --export --preview ../preview/props --review
     blender ... --python beacon.py -- --measure [--json <path>]
-        the anchor table, RE-MEASURED on the shipped tower FBX: ray-cast down at the tower centre,
+        the anchor table, RE-MEASURED on the shipped tower FBX: ray-cast down at the tower center,
         the plate footprint, and a clearance probe of the beacon envelope. Run it again after any
         tower re-export; the surgery rows take its numbers.
     blender ... --python beacon.py -- --scale-preview ../preview/props
         the beacon on a scratch copy of GD16's FBX at the measured anchor (nothing is exported).
 
-THE ASSET (prefab-local metres: x lateral, y up, z travel; origin = base-plate bottom centre)
+THE ASSET (prefab-local meters: x lateral, y up, z travel; origin = base-plate bottom center)
     plate    galvanised square base plate 0.14 x 0.14 x 0.016, open bottom (it sits on a beam)
     mast     galvanised 50 x 50 square stub mast, plate -> 0.27 (its top hides inside the housing)
     housing  dark cast funnel r 0.024 @ 0.240 -> r 0.130 @ 0.285: closes the shell underneath
@@ -41,11 +41,11 @@ ONE LOD, ON PURPOSE (no LOD1 / LOD2)
     unconditionally. reach_table() prints the cull distance per bias (formula, lodFactor 652
     unverified until the SkiProbeLodA verdict).
 
-THE EMISSIVE COLOUR LIVES IN THE _Emissive MAP, NOT IN BaseColor
-    The pipeline's `_Emissive` is sRGB EMITTED COLOUR (cs2_asset.make_snow_prop_emissive docstring;
+THE EMISSIVE COLOR LIVES IN THE _Emissive MAP, NOT IN BaseColor
+    The pipeline's `_Emissive` is sRGB EMITTED COLOR (cs2_asset.make_snow_prop_emissive docstring;
     cs2_bake SourceSet `emissive=` path | rgb; prop-emissive-lights.md 1.3): emission ~ texel.rgb x
     EmissiveProperties.color.linear x intensity*100 x LightState.m_Intensity. BaseColor is not in
-    that product, so white texels with colour (1,1,1,1) would flash WHITE. The lens texels are red
+    that product, so white texels with color (1,1,1,1) would flash WHITE. The lens texels are red
     in _Emissive (EMISSIVE_SRGB) and red glass in BaseColor (the unlit look between flashes); every
     other surface's _Emissive texels are black. Equivalent at surgery: white texels + `color`
     (0.95, 0.12, 0.08, 1). Not used: vanilla single lights keep `color` white and put the hue in the
@@ -96,7 +96,7 @@ VALIDATE_SPEC = {"kind": "prop", "lod0_cap": LOD0_CAP, "min_texture": 128,
                  "expected_lods": (0,)}
 
 # --------------------------------------------------------------------------------------
-# Geometry (metres, Blender Z up; Blender x = prefab x lateral, Blender -y = prefab z travel)
+# Geometry (meters, Blender Z up; Blender x = prefab x lateral, Blender -y = prefab z travel)
 # --------------------------------------------------------------------------------------
 
 PLATE_HALF, PLATE_H = 0.070, 0.016
@@ -122,13 +122,13 @@ R_POST_SIDES = (32, 0, 80, 40)    # 12 strips 4 px wide (4 posts x 3 faces)
 R_POST_CAPS = (80, 32, 96, 36)    # 4 caps 4 x 4 px
 R_PLATE_SIDES = (32, 40, 96, 48)
 R_PLATE_TOP = (96, 16, 128, 48)
-INSET = 0.5                       # texels: UVs land on edge-texel centres (bilinear-safe at mip 0)
+INSET = 0.5                       # texels: UVs land on edge-texel centers (bilinear-safe at mip 0)
 
 # --------------------------------------------------------------------------------------
 # Materials (BaseColor / _Emissive sRGB as written; MaskMap R metal, A smoothness, linear)
 # --------------------------------------------------------------------------------------
 
-GALV_SRGB = (0.50, 0.53, 0.565)   # Metal032 colour mean (0.491, 0.535, 0.578): the towers' galv set
+GALV_SRGB = (0.50, 0.53, 0.565)   # Metal032 color mean (0.491, 0.535, 0.578): the towers' galv set
 GALV_METAL, GALV_SMOOTH = 1.0, 0.57   # Metal032 metalness 1.0, roughness 0.41
 HOUSING_SRGB = (0.165, 0.170, 0.175)
 HOUSING_METAL, HOUSING_SMOOTH = 0.0, 0.40
@@ -162,7 +162,7 @@ TOWERS = (
     ("SkiGondolaLattice40", "SkiGondolaLattice40O", "towers/O",     40.000, "head beam top"),
     ("SkiTramTower60",      "SkiTramTower60A",      "tramtowers/A", 59.960, "gantryx_1"),
 )
-FOOTPRINT_TOL = 0.005             # plate corners must hit within 5 mm of the centre hit
+FOOTPRINT_TOL = 0.005             # plate corners must hit within 5 mm of the center hit
 ENVELOPE = (0.135, 0.455)         # clearance probe: half-width (x, z) and height above the anchor
 
 
@@ -303,7 +303,7 @@ def _post(k):
 
 
 def build_beacon(name=NAME):
-    """Build, tag, join, weld, shade. Returns the finished LOD0 object (metres, Z up)."""
+    """Build, tag, join, weld, shade. Returns the finished LOD0 object (meters, Z up)."""
     if bpy.context.object is not None and bpy.context.object.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
     parts = [_plate(), _mast(), _housing(), _lens()] + [_post(k) for k in range(CAGE["n"])]
@@ -449,7 +449,7 @@ def contracts(obj):
 
 
 def bounds_prefab(obj):
-    """Bounds in prefab-local metres (x lateral, y up, z travel) = the m_Bounds the import writes."""
+    """Bounds in prefab-local meters (x lateral, y up, z travel) = the m_Bounds the import writes."""
     co = np.array([v.co[:] for v in obj.data.vertices])
     x, y, z = co[:, 0], co[:, 2], -co[:, 1]
     return {"min": [round(float(x.min()), 4), round(float(y.min()), 4), round(float(z.min()), 4)],
@@ -494,7 +494,7 @@ def paint_maps():
     base = np.zeros((A, A, 4), np.float32)
     nrm = np.zeros((A, A, 4), np.float32)
     msk = np.zeros((A, A, 4), np.float32)
-    ctl = np.zeros((A, A, 4), np.float32)            # no recolour slot anywhere, alpha 0
+    ctl = np.zeros((A, A, 4), np.float32)            # no recolor slot anywhere, alpha 0
     emi = np.zeros((A, A, 4), np.float32)
     base[..., 3] = 1.0
     emi[..., 3] = 1.0
@@ -575,7 +575,7 @@ def _tower_fbx(row):
 
 
 def _raw_metres(path):
-    """Vertices (prefab-local metres: x lateral, y up, z travel) and polygons of an exported FBX.
+    """Vertices (prefab-local meters: x lateral, y up, z travel) and polygons of an exported FBX.
     The FBX holds raw cm Y-up vertices (cs2_asset.export_fbx); mesh data is read as stored."""
     objs = cs2_validate.import_fbx_temp(path)
     try:
@@ -595,7 +595,7 @@ def _raw_metres(path):
 
 
 def measure_one(row):
-    """Ray-cast the shipped FBX of one host tower. Returns the anchor row (prefab-local metres)."""
+    """Ray-cast the shipped FBX of one host tower. Returns the anchor row (prefab-local meters)."""
     from mathutils.bvhtree import BVHTree
     V = mathutils.Vector
     path = _tower_fbx(row)
@@ -742,7 +742,7 @@ def export(out_root, preview_dir=None, review=False, measure=True, args=None):
 # --------------------------------------------------------------------------------------
 
 def _import_tower_metres(fbx):
-    """Import an exported tower FBX and bake it to metres, Z up (the inverse of export_fbx). Not
+    """Import an exported tower FBX and bake it to meters, Z up (the inverse of export_fbx). Not
     cs2_preview.import_generation: its y-up test misreads a below-grade pier (cs2_review.py:43)."""
     objs = cs2_validate.import_fbx_temp(fbx)
     meshes = [o for o in objs if o.type == "MESH"]

@@ -27,7 +27,7 @@ chain, the export and settings.json only ran at export time).
        band (scaled with the atlas), the emblem's full-coverage texels (D.emblem_alpha) are
        MARK_WHITE with ControlMask B = R = 0, its zero-coverage texels stay slot 3 (B), every
        plate texel has ControlMask 0; Revision 1b (polish, 2026-10-11, vector digits): the
-       plate border is the dark colour and every plate-field texel is the linear-light mix
+       plate border is the dark color and every plate-field texel is the linear-light mix
        of light and dark by D.digit_coverage (the Bfont outline, anti-aliased), the coverage
        sum is 80-120 % of the outline area x (px/m)^2 and equals the manifest's, the edge
        shows >= D.DIGIT_AA_LEVELS_MIN partial levels and the PNG has in-between texels (no
@@ -69,9 +69,9 @@ chain, the export and settings.json only ran at export time).
      n's sign rect, the labels pinned, the weathering step, the vanilla sub-object rows (verified
      GUIDs, parent 0, 4 lamp posts), the lot [3, 4] and the hosted tower seam record (base).
      DQ follow-up (2026-10-11, build/dq-stations-followup.md; rev-1 checker F3 / F4): two more G3 negatives -
-     revision 1's fixed centre post back in the +Y double door (the clear-opening rays count the fixed
+     revision 1's fixed center post back in the +Y double door (the clear-opening rays count the fixed
      frame) and an undeclared 1 x 1 m flat top (the standable-top census); the smoke checks the manifest's
-     clear opening (1.80 x 2.30, no centre post, head 2.60) and the declared not-walkable tops with reasons.
+     clear opening (1.80 x 2.30, no center post, head 2.60) and the declared not-walkable tops with reasons.
      Detail pass 1 (DQ): the sign band +Y shares the -Y rect (one stamp: sign_band holds
      signband_n with shared_with signband_p), the base's front ladder is 0.48 wide (MC4), the
      manifest's detail1 block carries the labels (pinned rects), the weathering ladder, bay
@@ -87,8 +87,8 @@ chain, the export and settings.json only ran at export time).
      The top build gets the channel / T2 / T3 / T5 / T6 checks as well.
 
 ControlMask G (slot-2 pedestal pads) is held to >= 0.45 only: the canopy's baked AO multiplies
-the recoloured 0.80 down to ~0.54 under the canopy (pipeline review finding 4, open: a cs2_bake
-AO floor on recolour texels or a DECISIONS acceptance). Raise the G bound to 0.75 when it lands.
+the recolored 0.80 down to ~0.54 under the canopy (pipeline review finding 4, open: a cs2_bake
+AO floor on recolor texels or a DECISIONS acceptance). Raise the G bound to 0.75 when it lands.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_terminal_detach_bake.py
 """
@@ -280,7 +280,7 @@ def check_folder(p, name, asset_dir):
     files = sorted(os.listdir(asset_dir))
     with open(os.path.join(asset_dir, f"{name}.manifest.json"), encoding="utf-8") as fh:
         man = json.load(fh)
-    # 2026-10-12: the _Emissive map exists only while a modelled lamp_ part does (lift_terminal_detach.
+    # 2026-10-12: the _Emissive map exists only while a modeled lamp_ part does (lift_terminal_detach.
     # has_emissive_map): the fine-detail DQ stations ship FOUR maps, the gondola (lamp_eave*) five
     n_lamps = int(((man.get("contract") or {}).get("emissive") or {}).get("lamps", 1))
     has_emi = n_lamps > 0
@@ -325,7 +325,7 @@ def check_folder(p, name, asset_dir):
     check(ctl[..., 3].max() < 1e-6, f"{tag} ControlMask A = 0")
     check(ctl[..., 0:3].sum(axis=-1).max() <= 1.0 + 1e-3,
           f"{tag} ControlMask R + G + B <= 1 (exclusive)")
-    # fine-detail step 3b: the DQ's modelled box lamps are vanilla rows now (no lamp_ part left), so its
+    # fine-detail step 3b: the DQ's modeled box lamps are vanilla rows now (no lamp_ part left), so its
     # _Emissive would be lit nowhere - 2026-10-12: it is not baked or shipped at all (folder check above); the
     # gondola keeps its linear soffit lights (lamp_eave*) and their map
     if has_emi:
@@ -341,7 +341,7 @@ def check_folder(p, name, asset_dir):
         p95[ch] = float(np.percentile(lum[sel], 95)) if sel.any() else None
     print(f"[bake-test] {tag} p95 BaseColor under ControlMask {p95}")
     # detail pass 1 (DECISIONS 171, slot_wear "free"): the weathering's edge wear lifts worn slot
-    # texels above the 0.80 recolour albedo (measured p95 0.855 on the 512 smoke): a weathered build's
+    # texels above the 0.80 recolor albedo (measured p95 0.855 on the 512 smoke): a weathered build's
     # upper bound is P95_RB_WEATHERED
     wblk = man.get("detail1") or man.get("rev1") or {}
     rb = P95_RB_WEATHERED if (wblk.get("weather") or {}).get("intensity") else P95_RB
@@ -711,7 +711,7 @@ def check_gondola_rev1(p, name, asset_dir, man, g, doors):
     tag = name
     check(doors["n"].get("opening_m") == list(D.GD_SIDE_DOOR) and doors["p"].get("opening_m") == list(D.GD_SIDE_DOOR),
           f"{tag} G3 revision 1 skier entries are {D.GD_SIDE_DOOR} m double doors")
-    # DQ follow-up (rev-1 checker F3 / F4): the clear opening proved with the fixed frame counted (no centre post,
+    # DQ follow-up (rev-1 checker F3 / F4): the clear opening proved with the fixed frame counted (no center post,
     # head at the platform + 2.30), and the standable-top census declared
     check(all(doors[s_].get("clear_opening_m") == list(D.GD_SIDE_DOOR) and doors[s_].get("clear_rays", 0) >= 54
               and doors[s_].get("centre_post") is False

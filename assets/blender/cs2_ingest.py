@@ -43,13 +43,13 @@ CONTRACT (pipeline-gap.md sec 3.3, corrected by its skeptic verdict 3 and miss 4
     match_texture_sets(materials, tex_dir, overrides=None, keep=None)
         -> ({material name: SourceSet}, [unmatched material names])
         Every returned set HAS a base map. `keep` (names, or True for all) RAISES
-        ValueError for a kept material without one: no silent mid-grey. Never calls
+        ValueError for a kept material without one: no silent mid-gray. Never calls
         cs2_asset._load_map (its *_Roughness glob matches *_Albedo_Roughness first).
-    load_map(path, size=None) -> (h, w, 4) float32, raw stored values (palette, grey and
-        grey + alpha PNGs expand to RGBA)
-    rescale_by_reference(objs, ref, axis, metres) -> factor     (scales about the origin)
+    load_map(path, size=None) -> (h, w, 4) float32, raw stored values (palette, gray and
+        gray + alpha PNGs expand to RGBA)
+    rescale_by_reference(objs, ref, axis, meters) -> factor     (scales about the origin)
     reframe(objs, forward, up, pivot="base", pivot_ref=None) -> Matrix
-        +X travel, +Z up; "base" puts the lowest point at z = 0 and the ref's XY centre on
+        +X travel, +Z up; "base" puts the lowest point at z = 0 and the ref's XY center on
         the Z axis (lift_chair.py:551-569: base pivot, grip at the top).
     to_parts(objs, rename, classify=None) -> [(obj, None), ...]   loose parts "<prefix>_NN";
         classify(part, source_name, (lo, hi)) -> prefix | None re-prefixes single loose
@@ -67,23 +67,23 @@ CONTRACT (pipeline-gap.md sec 3.3, corrected by its skeptic verdict 3 and miss 4
     Helpers: world_bounds, used_materials, colour_sets, material_key, discard.
 
 ORDER
-    load_external -> rescale_by_reference (foreign units -> metres) -> reframe -> clean ->
+    load_external -> rescale_by_reference (foreign units -> meters) -> reframe -> clean ->
     to_parts -> cs2_asset.tag_parts -> join -> cs2_asset.store_part_table -> reduce (only
     over budget) -> cs2_asset.shade_by_angle(obj, 66) (PIPELINE sec 1: every joined mesh is
     shaded weighted at 66 deg; reduce already ends with exactly that call).
     clean's distances are in the object's CURRENT units: rescale the gondola (imported
-    metres, a bolt is ~0.2 mm there) before cleaning it.
+    meters, a bolt is ~0.2 mm there) before cleaning it.
 
 Derived from (file:line):
     load / bake      ref-models.md sec 1.2, sec 4 (unhide, frame_set(1), update); skeptic verdict 1
     FBX              ref-models.md sec 2.1; skeptic verdict 11 (import_scene.fbx refuses ASCII)
-    name normaliser  ref-models.md sec 1.6; ref-models-skeptic verdict 8 (9 exact + 19 + 2
+    name normalizer  ref-models.md sec 1.6; ref-models-skeptic verdict 8 (9 exact + 19 + 2
                      manual + 3 untextured); pipeline-gap-skeptic miss 4 (case-only prefix
                      collisions, Therm_Bas_Haut HAS a full set, St_Verre_Haut albedo only)
     _load_map trap   cs2_asset.py:262-280; pipeline-gap-skeptic verdict 3
-    PNG formats      ref-models-skeptic miss 9 (57 RGBA, 51 grey, 6 grey+alpha, 2 palette, 1 RGB)
+    PNG formats      ref-models-skeptic miss 9 (57 RGBA, 51 gray, 6 gray+alpha, 2 palette, 1 RGB)
     Material Output  ref-models-skeptic verdict 7 / miss 6 (two outputs per material)
-    colour attrs     cs2_validate.py:587-589 (the importer reads Color as window/emissive IDs)
+    color attrs     cs2_validate.py:587-589 (the importer reads Color as window/emissive IDs)
     parts            cs2_asset.py:984-1047 (tag_parts / canonical_order / store_part_table);
                      lift_chair.py:83-84 ("<family>_" LOD-delete prefixes)
     reduce           cs2_asset.py:1075-1133 (make_lod_chain: tagged-part delete, COLLAPSE,
@@ -98,7 +98,7 @@ Credits (CC BY 4.0, ROUND-SPEC sec 8; full lines in assets/external/<id>/SOURCE.
     "Chair Lift" by Kagelok - https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236
     "Ski gongola and lift station detailed drafts" by Wilin_Amaurea -
     https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db
-    Licence: https://creativecommons.org/licenses/by/4.0/
+    License: https://creativecommons.org/licenses/by/4.0/
 
 No top-level side effects; nothing here renders, bakes or exports. Deterministic: sorted
 iteration everywhere, no randomness, canonical part order via cs2_asset.tag_parts.
@@ -150,7 +150,7 @@ MAP_SUFFIXES = (
     ("base", re.compile(r"_albedo$")),
 )
 
-# Material key -> texture-set key where no normalisation can bridge the spelling
+# Material key -> texture-set key where no normalization can bridge the spelling
 # (ref-models.md sec 1.6: "Fennetre Rectangle" -> fenetre_rect, "socle betton" -> socle_beton).
 NAME_ALIASES = {"fennetrerectangle": "fenetrerect", "soclebetton": "soclebeton"}
 
@@ -179,7 +179,7 @@ class SourceSet:
     slot: int = 0                        # ControlMask 0 none, 1 R, 2 G, 3 B
     recolor_albedo: Optional[bool] = None    # None = auto: True when slot > 0 (cs2_bake)
     emissive: Union[str, Tuple[float, float, float], None] = None
-    key: str = ""                        # normalised set key the files were grouped by
+    key: str = ""                        # normalized set key the files were grouped by
 
     def paths(self):
         """The file paths this set references (sorted, de-duplicated)."""
@@ -344,7 +344,7 @@ def load_external(path, objects=None, report=None):
             hide_set) and evaluated at BAKE_FRAME, so FOLLOW_PATH / COPY_ROTATION land
             where Sketchfab showed them.
     .fbx:   bpy.ops.wm.fbx_import; the 0.01 root scale and the Y-up turn are part of the
-            baked world matrix (vertices end in "imported metres").
+            baked world matrix (vertices end in "imported meters").
     Then: modifiers applied from the evaluated object, shared meshes made single-user,
     parents cleared, constraints + animation removed, sorted by name; non-mesh objects
     and unrequested dependencies deleted with their orphaned data.
@@ -590,7 +590,7 @@ def _join_tokens(tokens):
 
 def material_key(name):
     """
-    Normalised key of a material name: strip Blender's ".NNN" FIRST (a second load makes
+    Normalized key of a material name: strip Blender's ".NNN" FIRST (a second load makes
     "si<e-grave>ge.001"), NFKD accent strip, casefold, split on [ _]+, drop "et" between
     haut/bas, join without separators, then NAME_ALIASES.
     "pil st haut bas 01" -> "pilsthautbas01"; "Fennetre Rectangle" -> "fenetrerect".
@@ -650,7 +650,7 @@ def match_texture_sets(materials, tex_dir, overrides=None, keep=None):
     materials: Material datablocks or names (duplicates collapse).
     overrides: {material name or key: SourceSet | str}; a str names the texture set
                (file stem prefix, e.g. "fenetre_rect"), a SourceSet is used as given
-               (e.g. a constant base colour for an untextured "cable").
+               (e.g. a constant base color for an untextured "cable").
     keep:      material names (or True = all) that MUST resolve to a base map; any that
                does not raises ValueError naming its key. None = only report.
     Returns ({material name: SourceSet}, sorted unmatched material names). Every returned
@@ -705,8 +705,8 @@ def match_texture_sets(materials, tex_dir, overrides=None, keep=None):
 def load_map(path, size=None):
     """
     One texture as (h, w, 4) float32, Blender's bottom-up order, RAW stored values
-    (colour space Non-Color: an sRGB albedo stays sRGB-encoded). Palette, grey and
-    grey + alpha PNGs expand to RGBA (grey alpha = 1). `size` resamples to size x size.
+    (color space Non-Color: an sRGB albedo stays sRGB-encoded). Palette, gray and
+    gray + alpha PNGs expand to RGBA (gray alpha = 1). `size` resamples to size x size.
     """
     img = bpy.data.images.load(path, check_existing=False)
     try:
@@ -755,7 +755,7 @@ def _principled_of(mat):
 
 def colour_sets(materials):
     """
-    {material name: SourceSet} for FLAT-COLOUR sources (gondola.fbx: 44 materials, no
+    {material name: SourceSet} for FLAT-COLOR sources (gondola.fbx: 44 materials, no
     images): base = the Principled Base Color (linear RGB) or diffuse_color, rough /
     metal = the Principled constants.
     """
@@ -804,7 +804,7 @@ def reframe(objs, forward, up, pivot="base", pivot_ref=None):
     """
     Rotate `objs` into the authoring frame - `forward` -> +X (travel), `up` -> +Z,
     lateral = up x forward -> +Y - and, with pivot="base", translate so the lowest point
-    sits at z = 0 and the XY centre of `pivot_ref` (Object / list; default: all `objs`)
+    sits at z = 0 and the XY center of `pivot_ref` (Object / list; default: all `objs`)
     sits on the Z axis: lift_chair's base pivot, grip on top (lift_chair.py:551-569).
     pivot=None rotates only. `forward` / `up` are "+X".."-Z" or vectors; `forward` is
     made orthogonal to `up`. Returns the 4x4 applied (reuse it on related objects).
@@ -883,7 +883,7 @@ def to_parts(objs, rename, classify=None):
     Split every object into its loose parts and name them for the part vocabulary:
     `rename` maps a SOURCE name (SRC_NAME_PROP, else the name without ".NNN") to an ASCII
     prefix such as "seat_" / "grip_"; parts become "<prefix>_00", "<prefix>_01", ...,
-    numbered per prefix across all objects in canonical order (rounded centre, then
+    numbered per prefix across all objects in canonical order (rounded center, then
     size), so make_lod_chain delete prefixes and cs2_asset.tag_parts (which canonical-
     orders each part) see a stable list. Unmapped objects raise ValueError. The source
     objects are replaced (only once every part exists: an error - a bad classify prefix -
@@ -1058,7 +1058,7 @@ def _recalc_normals(bm, recalc):
     components (every edge has exactly two faces), where outward is intrinsic and so
     pose-invariant; open shells and non-manifold components keep the source winding,
     because recalc_face_normals guesses there and the guess depends on the pose the mesh
-    was baked in (P0a review). "all": every component (the old behaviour). "none": none.
+    was baked in (P0a review). "all": every component (the old behavior). "none": none.
     Returns (components, closed, recalculated, flipped, [(component, faces, flipped)]).
     """
     comps = _face_components(bm)
@@ -1110,7 +1110,7 @@ def clean(obj, merge_dist=MERGE_DIST, recalc=RECALC_DEFAULT):
     dissolve degenerate geometry and zero-area slivers; triangulate n-gons (BEAUTY);
     recalc outward normals per `recalc` (RECALC_MODES, module docstring: "manifold" =
     closed components only, the source winding elsewhere); clear foreign custom normals
-    and sharp_edge marks; drop colour attributes (cs2_validate.py:587-589: the importer
+    and sharp_edge marks; drop color attributes (cs2_validate.py:587-589: the importer
     reads Color as window/emissive IDs); drop unused material slots; keep ONE Material
     Output per material. Returns a report dict; raises if n-gons remain.
     """

@@ -7,7 +7,7 @@ both in assets/import/buildings/A.
 Contract: docs/research/art/assets-2026-10/design/civic-sign.md section 3 with
 civic-sign-skeptic.md applied (skeptic wins), ROUND-SPEC R21 (complexity 1), R22 (P2 lot
 2 x 2), R25 (kit API wins):
-    M1  P1 fence rolls moved inside the lot: centres x <= 3.20 (max x 3.42 <= 3.75);
+    M1  P1 fence rolls moved inside the lot: centers x <= 3.20 (max x 3.42 <= 3.75);
         G3 (|x|, |y| <= half lot - 0.25) asserted on the parts.
     M2  P1 glazing is `_Win` (one cell (2, 2) = 12, _LOD1_Win + _LOD2_Win), the interior
         keyword CommercialLow is in the FILE name (no Richard ruling for frosted panes).
@@ -71,16 +71,16 @@ recipes are fine_detail.FineRecipe (fine_detail=True, sign_set=..., legacy = the
             P1 / P2 rects painted in vector Bfont at 300 px/m; name boards lit 0.2, H2). The board
             frames, discs, roof crosses, flag cloths and the log-ends decal stay in the host.
     kit     every leaning akja / spine board is a SkiDressAkja / SkiDressSpineBoard row resting on the
-            SAME support as the modelled part did (CONTRACT LEAN on the real kit mesh,
+            SAME support as the modeled part did (CONTRACT LEAN on the real kit mesh,
             recipes/_lean.check_rows); the P1 rack's top bar sits at the spine board's rest line and the
             rack akja is pitched 2.8 deg further back to share it (the kit props are built at 75 / 85 deg);
-            P2's fire-hose reel is a SkiDressHoseReel row. The toboggan racks stay modelled (no vanilla /
+            P2's fire-hose reel is a SkiDressHoseReel row. The toboggan racks stay modeled (no vanilla /
             kit equivalent) as 8-seg round bars.
     vanilla the door lanterns -> WallLightShortRangeRandom01 rows (H4).
     geom    radio masts 12-seg, P2's flag mast 12-seg + ball finial, log posts / plates / frames 8-seg,
             the bamboo poles 6-sided (phase 90 deg: the lean_pole vertex rule holds), the P1 bench planked.
 
-Authoring frame: +X = road / arrival (game +Z), origin = lot centre at grade. No bpy at
+Authoring frame: +X = road / arrival (game +Z), origin = lot center at grade. No bpy at
 import: geometry is built in the builders, which load recipes/_civic.py lazily.
 """
 
@@ -133,7 +133,7 @@ KIT_INTERNAL = (("jamb_", "sill_"), ("jamb_", "head_"), ("post_", "rail_"), ("ro
 GREEN = (0.16, 0.26, 0.275)          # patrol livery slot 1 = fascia sRGB (0.13, 0.21, 0.22) / 0.8
 SLOTS = {1: GREEN, 2: PAD_RGB}
 
-# detail pass 1: label colours (encoded sRGB literals: recipe modules import no bpy; equal to
+# detail pass 1: label colors (encoded sRGB literals: recipe modules import no bpy; equal to
 # cs2_bldg.PATROL_RED_SRGB / WHITE_SRGB)
 PATROL_RED = (0.72, 0.09, 0.08)
 WHITE = (0.92, 0.92, 0.92)
@@ -157,7 +157,7 @@ def ridge_cap_half(ridge_w):
 def rest_foot(lean_deg, z_foot, bar_face, bar_top, gap, outward):
     """Foot coordinate (along the wall normal) of an akja / board leaning at lean_deg whose
     back line passes `gap` in front of a bar face at the bar's top: the back line moves
-    toward the wall by cot(lean) per metre of rise. outward = the wall normal's sign."""
+    toward the wall by cot(lean) per meter of rise. outward = the wall normal's sign."""
     run = (bar_top - z_foot) / math.tan(math.radians(lean_deg))
     return bar_face + outward * (gap + run)
 
@@ -173,7 +173,7 @@ def lean_pole(C, name, foot_xy, wall_x, top_z, r, mat, gap=0.005):
     """Lean fix: a 4-seg pole (_civic.cyl_part) leaning on a +X-facing wall at x = wall_x:
     its back-most top vertex `gap` off the wall, its lowest vertex at GROUND_LIFT. For an
     axis a = (ax, 0, az) the cylinder ring (cyl_into, ref X) puts one vertex at r(-az, 0, ax)
-    from each end centre: the back-most and the lowest one (ax < 0: the top leans to -X)."""
+    from each end center: the back-most and the lowest one (ax < 0: the top leans to -X)."""
     fx, fy = foot_xy
     tx, fz = wall_x + gap + r, 0.02 + r
     for _ in range(4):
@@ -207,7 +207,7 @@ KIT_REST = {"SkiDressAkja": (1.8801, -0.7108), "SkiDressSpineBoard": (1.843, -0.
 KIT_GAP = 0.004              # rest line this far in front of its support face (LEAN reads ~+0.005..0.007 m)
 LEAN_SAMPLE = 0.005          # _lean.measure_part samples the contact 5 mm down the part's axis
 KIT_LEAN_DEG = {"SkiDressAkja": 75.0, "SkiDressSpineBoard": 85.0}   # dress_kit AKJA / SPINE "lean"
-#: kit colour variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the akja shells in rescue red
+#: kit color variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the akja shells in rescue red
 #: (the red cross, cs2_bldg.PATROL_RED_SRGB); P1 and P2 alike
 KIT_COLOUR_SET = "red"
 
@@ -250,12 +250,12 @@ def _qmul(a, b):
 def lean_row(prop, support, normal, plane, along, floor_y, pitch_deg=0.0, gap=KIT_GAP, replaces=None,
              note=None):
     """A dressing-kit LEAN row (game local, the hosts' (y, z, x) convention, m_ParentMesh 0: the prop
-    stands in the building's own frame like the modelled part it replaces). normal = the support face's
+    stands in the building's own frame like the modeled part it replaces). normal = the support face's
     outward game axis ("+X" / "-X" / "+Z" / "-Z"), plane = that face's game coordinate along it, along = the
-    prop centre's game coordinate along the face, floor_y = the foot height. The rest line lands `gap` in
+    prop center's game coordinate along the face, floor_y = the foot height. The rest line lands `gap` in
     front of the face; the prop's +Z turns to the normal (its top leans back onto the support), pitched
     `pitch_deg` further back about its foot line. `support` = the host part it must rest on (recorded;
-    recipes/_lean.check_rows asserts it); `replaces` = the modelled part the row stands in for."""
+    recipes/_lean.check_rows asserts it); `replaces` = the modeled part the row stands in for."""
     sgn = 1.0 if normal[0] == "+" else -1.0
     axis = normal[1].upper()
     n = (sgn, 0.0) if axis == "X" else (0.0, sgn)
@@ -300,17 +300,17 @@ def wall_row(prop_or_vanilla, pos, normal, parent=0, note=None):
 P1_LOT = (1, 1)
 P1_X = (-2.0, 2.0)
 P1_Y = (-2.725, 2.725)
-P1_EAVE = 2.35                       # wall top = roof centre plane at the wall line
+P1_EAVE = 2.35                       # wall top = roof center plane at the wall line
 P1_PITCH = 14.0
 P1_OVER, P1_RAKE_OVER, P1_SLAB, P1_FASCIA = 0.35, 0.34, 0.10, 0.17
 P1_RIDGE_CAP = (0.30, 0.08)
 P1_POST_R, P1_POST_TOP = 0.10, 2.40
 P1_PLATE_R, P1_PLATE_Z = 0.09, 2.21
-P1_DOOR = (-1.30, 0.85, 1.97)        # y centre, w, h (head meets the log plate)
+P1_DOOR = (-1.30, 0.85, 1.97)        # y center, w, h (head meets the log plate)
 P1_STEP = (2.0, 2.6, -1.8, -0.8, 0.15)
-P1_WIN = (1.60, 0.86, 1.43, 0.65)    # y centre, w, h, sill (head 2.08 under the plate)
-P1_DISC = (-0.25, 1.70, 0.70)        # y, z centre, D (front-only face, M3)
-P1_BOARD = (0.50, 1.125, 0.55, 0.85)  # y centre, z bottom, w, h
+P1_WIN = (1.60, 0.86, 1.43, 0.65)    # y center, w, h, sill (head 2.08 under the plate)
+P1_DISC = (-0.25, 1.70, 0.70)        # y, z center, D (front-only face, M3)
+P1_BOARD = (0.50, 1.125, 0.55, 0.85)  # y center, z bottom, w, h
 P1_RAIL = ((2.9, -2.4, 0.0), (2.9, -0.4, 0.0))
 P1_ROLLS = tuple((x, y) for x in (2.70, 3.20) for y in (0.75, 1.30, 1.85))   # M1
 P1_ROLL_R, P1_ROLL_H = 0.22, 0.32
@@ -350,7 +350,7 @@ LOG_SEGS_FINE = 8                    # log posts / plates / door-frame logs (wer
 P1_RACK_BAR_TOP_FINE = round(contact_z("SkiDressSpineBoard"), 4)                       # 1.838
 P1_RACK_AKJA_PITCH = pitch_for_rest_height("SkiDressAkja", KIT_REST["SkiDressSpineBoard"][0])
 P1_RACK_FACE = P1_X[0] - P1_RACK_DEPTH - P1_RACK_BAR / 2      # authoring x of the bar's front (-2.14)
-P1_LEANING_FINE = tuple(f"pole_{k}" for k in range(6))         # the modelled leaning parts left
+P1_LEANING_FINE = tuple(f"pole_{k}" for k in range(6))         # the modeled leaning parts left
 P1_SIGN_SET = SignSetSpec(prop="SkiSignSetPatrolHut", letter="B", host="p1", owner=False,
                           faces=(("sign_p1name_face", "p1.name"), ("sign_p1info_face", "p1.info")))
 
@@ -425,7 +425,7 @@ def build_p1(recipe, opts):
         yy = dy + sg * (dw / 2 + 0.06 + 0.08 + 0.04)
         P += C.cyl_part(f"logframe_{k}", (x1 + 0.06, yy, 0.02), (x1 + 0.06, yy, P1_PLATE_Z),
                         0.08, "timber_heavy", segs=lsegs)
-    # window -> _Win (M2), frame members varnished log colour, no head board (the plate)
+    # window -> _Win (M2), frame members varnished log color, no head board (the plate)
     wy, ww, wh, ws = P1_WIN
     P += K.window_bay("p1", front, wy - ww / 2, wy + ww / 2, WinSpec(ww, wh, ws, lights=2, rows=3),
                       room="hut", head_board=False)
@@ -469,7 +469,7 @@ def build_p1(recipe, opts):
 
 def p1_detail(K, spec, fine=False):
     """Detail pass 1 dressing of P1 (design 3.3 as corrected; see the module docstring). fine
-    (fine-detail step 3d): the rack's round top bar at the kit props' rest line, no modelled akja /
+    (fine-detail step 3d): the rack's round top bar at the kit props' rest line, no modeled akja /
     spine board (kit rows), 12-seg radio mast, planked bench."""
     from cs2_bldg import WallRef
     x0, _x1 = P1_X
@@ -602,7 +602,7 @@ P2_COLLAR_Z = 5.04
 # ---- detail pass 1 (design 3.4 / 5.2; skeptic M4 / M6 / M7 / M8 / M9 / S6; kit report 5) ----
 P2_NAME = (0.7, 2.20, 4.60, 1.40)    # +Y wall board: u (x -0.7), z, w, h (M4 fix b: T1 at w
 #                                      2.25; x -3.00..1.60, clear of the knee brackets)
-P2_CROSS = (2.20, (-0.70, 2.97))     # +Y slope roof cross: side, plan centre (y 2.00..3.94)
+P2_CROSS = (2.20, (-0.70, 2.97))     # +Y slope roof cross: side, plan center (y 2.00..3.94)
 P2_MAST = (-4.40, 1.30, 3.6, 8.6)    # back gable: 0.14 m outside the rake board (x -4.22)
 P2_MAST_BR = (4.2, 5.0)
 P2_FLAG = (3.55, 4.75, 7.3, (1.2, 0.8))   # deck NE corner: x, y, h (top on grade), cloth
@@ -618,7 +618,7 @@ P2_TOBOGGANS = (("a", 0.55), ("b", 1.35))   # lean fix: x of the two toboggans t
 P2_TOBOGGAN = (72.0, 2.2, 0.65)      # lean, length, width (unchanged): top z 2.11 on wall_hqs
 P2_LEANING = ("akja_hqa", "akja_hqb", "akja_hqc", "gear_hqboard")
 P2_BACKBOARD = (2.37, 3.52, 88.0)    # foot x, y, lean (M9 "+X"; top 5 mm off the wall)
-P2_REEL = (-1.95, 1.75)              # +Y wall: u (x 1.95), centre z (the design's u -1.80 / z
+P2_REEL = (-1.95, 1.75)              # +Y wall: u (x 1.95), center z (the design's u -1.80 / z
 #                                      1.90 flange cut the 4.6 m board frame's corner)
 P2_LOGS = (2.33, 2.73, -0.6, 2.4, 1.75)   # x0, x1, y0, y1, top: 0.05 under the sill BOARD
 #                                      (sill_hqw z 1.80..1.96 reaches x 2.45)
@@ -631,7 +631,7 @@ P2_VENT = (-2.5, 2.4)                # -Y wall (x, z)
 P2_BENCH = (3.30, 3.50)               # deck (x, y): T94 moved +Y (to the right facing the front) from y 1.0 so it clears the log pile (y -0.6..2.4); bench 2.12 m long -> y 2.44..4.56, 0.04 clear of the logs, 0.19 of the flag mast (y 4.75)
 # ---- fine-detail step 3d (module docstring) ------------------------------------------------------------
 # the front rack's bar at the kit akja's contact height on the deck (native 75 deg; was 3.18 for the
-# modelled 1.9 m / 82 deg akja); the kit akja's top 3.239 stays 0.05 under the lean-to slab (>= 3.29)
+# modeled 1.9 m / 82 deg akja); the kit akja's top 3.239 stays 0.05 under the lean-to slab (>= 3.29)
 P2_RACK_BAR_FINE = round(P2_FLOOR[1] + contact_z("SkiDressAkja"), 4)                   # 3.1753
 P2_RACK_FACE = P2_X[1] + P2_RACK_DEPTH + P2_RACK_BAR / 2      # authoring x of the bar's front (2.44)
 # the kit hose reel's plate (0.70 m square, pivot = plate bottom on the wall) under the name board's frame
@@ -658,10 +658,10 @@ def _p2_rows():
         lean_row("SkiDressAkja", "wall_hqs", "-X", P2_Y[0], P2_TOBOGGANS[1][1], 0.0, replaces="akja_hqb"),
         # the front rack's akja on the deck, its top on the rack bar (authoring +X = game +Z)
         lean_row("SkiDressAkja", "tobrack_hq", "+Z", P2_RACK_FACE, P2_AKJA[0], f1, replaces="akja_hqc"),
-        # the spine board on the front gable, on the deck (the kit board leans 85 deg; the modelled 88)
+        # the spine board on the front gable, on the deck (the kit board leans 85 deg; the modeled 88)
         lean_row("SkiDressSpineBoard", "gable_hqfront", "+Z", P2_X[1], P2_BACKBOARD[1], f1,
                  replaces="gear_hqboard"),
-        # the fire-hose reel on the +Y wall (authoring +Y = game +X), x 1.95 as the modelled reel
+        # the fire-hose reel on the +Y wall (authoring +Y = game +X), x 1.95 as the modeled reel
         wall_row("SkiDressHoseReel", (P2_Y[1], P2_REEL_FINE_Y0, -P2_REEL[0]), "+X",
                  note="replaces hosereel_hq (+Y wall; plate bottom 1.35, under the name board frame)"),
     )
@@ -676,8 +676,8 @@ def p2_roof_numbers():
     t = math.tan(math.radians(P2_PITCH))
     half = 0.5 * P2_SLAB / math.cos(math.radians(P2_PITCH))
     y0, y1 = P2_Y
-    eave0 = P2_APEX_TOP - (P2_RIDGE_Y - y0) * t - half          # centre plane at y0
-    eave1 = P2_APEX_TOP - (y1 - P2_RIDGE_Y) * t - half          # centre plane at y1
+    eave0 = P2_APEX_TOP - (P2_RIDGE_Y - y0) * t - half          # center plane at y0
+    eave1 = P2_APEX_TOP - (y1 - P2_RIDGE_Y) * t - half          # center plane at y1
     return dict(t=t, half=half, eave0=eave0, eave1=eave1,
                 under0=eave0 - half, under1=eave1 - half, under_apex=P2_APEX_TOP - 2 * half)
 
@@ -824,7 +824,7 @@ def build_p2(recipe, opts):
 def p2_detail(K, spec, fine=False):
     """Detail pass 1 dressing of P2 (design 3.4 as corrected; see the module docstring). fine
     (fine-detail step 3d): 12-seg radio mast, 12-seg flag mast + finial, the rack's round bar at the kit
-    akja's rest line, no modelled akja / spine board / hose reel (kit rows)."""
+    akja's rest line, no modeled akja / spine board / hose reel (kit rows)."""
     fk = {"fine": True} if fine else {}
     from cs2_bldg import WallRef
     x0, x1 = P2_X

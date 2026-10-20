@@ -130,6 +130,8 @@ const SHOTS = [
   ["lifts-tab-generator-1080", 1080, { scenario: ASH, view: 0, tab: "lifts" }],
   ["lifts-tab-generator-1440-fs125", 1440, { scenario: ASH, view: 0, tab: "lifts", fs: 1.25 }],
   ["buildings-tab-2160-fs125", 2160, { scenario: ASH, view: 0, tab: "buildings", fs: 1.25 }],
+  ["runs-tab-grade-1080", 1080, { scenario: ASH, view: 0, tab: "runs" }],                 // T139: the "Grade cat track" chip
+  ["runs-tab-grade-1440-fs125", 1440, { scenario: ASH, view: 0, tab: "runs", fs: 1.25 }],
 ];
 const BEFORE = [
   ["before-attraction-field-case-1080", 1080, { scenario: FIELD, view: 0 }],

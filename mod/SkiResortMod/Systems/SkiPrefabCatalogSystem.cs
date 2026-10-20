@@ -6,7 +6,7 @@
 //
 // CATALOG PHASE B (docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §2, D5, D9; skeptic MUST 5):
 //   * 30 names (4 lift types, 8 stations, 5 lodges, the school, 2 patrol huts, the sign, 4 runs, the marker); each NAME
-//     is Expected or pending (SkiCatalog header). Severity only, never behaviour: a FOUND pending name works exactly like
+//     is Expected or pending (SkiCatalog header). Severity only, never behavior: a FOUND pending name works exactly like
 //     an expected one; a MISSING pending name is listed in the [arm] line's "pending (not imported yet)" list and never
 //     turns the line WARN; one "[pending-found]" WARN per load names every FOUND pending name so the import commit flips it.
 //   * New live views: LiftLineTypes, CarrierTypes, LodgeDefs, SchoolPrefabSet / SchoolDefs, PatrolPrefabSet /

@@ -1,5 +1,5 @@
 // RunLabelRules — the PURE part of SkiRunLabelSystem (ticket T37, 2026-10-16; docs/research/field/2026-10-15/build/
-// T37-run-labels.md): the zoom fade, the band colours, the text clean-up and the size / distance rules of the run-name
+// T37-run-labels.md): the zoom fade, the band colors, the text clean-up and the size / distance rules of the run-name
 // labels drawn on the hill. Tested by tests/ResortBatch RunLabelTests (literal oracles).
 //
 // RULES:
@@ -8,9 +8,9 @@
 //               ZoomFullToM, linear 1 → 0 over ZoomFullToM..ZoomHideAboveM. The same camera zoom the piste map reads
 //               (IGameCameraController.zoom, PisteMapRules.WidthScale), so "labels visible" and "outline widened for
 //               the distance" describe the same view.
-//   AlphaStep   the fade quantised to AlphaSteps (0 = hidden). The label meshes' vertex alpha is rewritten only when the
+//   AlphaStep   the fade quantized to AlphaSteps (0 = hidden). The label meshes' vertex alpha is rewritten only when the
 //               step moves (at most AlphaSteps times per zoom sweep), never per frame.
-//   BandRgb     the piste-map fill colours of SkiPisteMapSystem.s_Fill (the hub's band colours), by catalog RunRow.Band:
+//   BandRgb     the piste-map fill colors of SkiPisteMapSystem.s_Fill (the hub's band colors), by catalog RunRow.Band:
 //               -2 cannot be rated, -1 pending, 0 flat, 1 green, 2 blue, 3 black, 4 double black.
 //   CleanText   TextMeshPro mark-up characters out ('<', '>'), control characters out, runs of spaces collapsed, trimmed,
 //               at most MaxChars (cut + "..."): a run named "<b>x" must not turn the label into mark-up.
@@ -76,7 +76,7 @@ namespace SkiResortMod.Systems
             return (byte)Math.Round(255.0 * step / AlphaSteps);
         }
 
-        /// <summary>The piste map's fill colour of a catalog band (SkiPisteMapSystem.s_Fill, alpha dropped).</summary>
+        /// <summary>The piste map's fill color of a catalog band (SkiPisteMapSystem.s_Fill, alpha dropped).</summary>
         public static void BandRgb(int band, out byte r, out byte g, out byte b)
         {
             switch (band)

@@ -191,11 +191,11 @@ foreach ($f in $files) {
 
     $exp = $Exposure
     if ($Auto) {
-        # Grey-world: put the MEDIAN at classic 18% mid-grey.
+        # Gray-world: put the MEDIAN at classic 18% mid-gray.
         #
         # Anchoring on the 99.5th percentile instead looks correct in theory but comes out far
         # too dark in practice - in a game screenshot that percentile is bright UI chrome or a
-        # specular hit, so normalising to it drags the whole scene down. The median tracks what
+        # specular hit, so normalizing to it drags the whole scene down. The median tracks what
         # the image is actually *of*.
         if ($p50 -gt 0.0001) { $exp = 0.18 / $p50 } else { $exp = 1.0 }
 

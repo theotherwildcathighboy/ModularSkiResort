@@ -394,6 +394,49 @@ namespace SkiResortMod.Settings
                     "the gun and the run's snow below the depth where the guns stop. Look only: snow and upkeep do not " +
                     "change. Default on."
                 },
+                // T139 (2026-10-20): the cat track grading tool's knobs.
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackGradeMaxPct)),
+                    "Cat track grading: max grade"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackGradeMaxPct)),
+                    "The steepest a graded cat track may climb. A track that cannot stay under it turns red and asks for " +
+                    "more length (a switchback). Default 25 %."
+                },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackGradeWidthM)),
+                    "Cat track grading: flat width (m)"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackGradeWidthM)),
+                    "Width of the flat top the grading tool cuts and fills. Default 8 m, the cat-track run's width."
+                },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackGradeCutRun)),
+                    "Cat track grading: cut slope"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackGradeCutRun)),
+                    "Meters out per meter down where the track cuts into the hill. Lower is steeper. Default 1.5."
+                },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackGradeFillRun)),
+                    "Cat track grading: fill slope"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackGradeFillRun)),
+                    "Meters out per meter up where the track is built up. Lower is steeper. Default 2."
+                },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackGradeConstant)),
+                    "Cat track grading: constant grade"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackGradeConstant)),
+                    "Off: the track follows the ground and moves as little earth as the max grade allows. On: one even " +
+                    "slope from end to end. Default off."
+                },
 
                 // --- Lifts (Round L1, docs/research/hub-u2-spec.md §2.4; texts are the spec's) -------
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupLifts), "Lifts" },
@@ -472,10 +515,22 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.BuildLiftLineBinding)),
                     "Builds the line the lift-line tool shows, with exactly the towers on screen. Only while the tool " +
-                    "is open. Default Enter."
+                    "is open. In the cat track grading tool it grades the track shown. Default Enter."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActBuildLiftLine), "Build lift line" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActBuildLiftLine), "Build line" },
+                // T139: the cat track grading tool.
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ToggleCatTrackGradeToolBinding)),
+                    "Cat track grading tool: toggle"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleCatTrackGradeToolBinding)),
+                    "Opens or closes the cat track grading tool: click points up the mountain, drag a point to move it, " +
+                    "right click to step back, Enter to grade the terrain. Default Ctrl+Shift+K."
+                },
+                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleCatTrackGrade), "Toggle cat track grading tool" },
+                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleCatTrackGrade), "Grading tool" },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleGlade), "Toggle glade tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleGlade), "Glade tool" },
                 // Round G3 (run-binding-glade-spec.md §8.3): the two persisted actions keep their

@@ -584,7 +584,7 @@ else {
 # BRIGHTNESS (T119): 33 / 34 have NO day / night gate on a static object (ObjectInterpolateSystem.cs:1089-1096; the night
 # factor reaches only colossal_BuildingState, the `_Win` path, BatchDataSystem.cs:643-699 + :2644-2648), so a building mesh
 # glows by day at its intensity. Vanilla DecorativeLight meshes (dump scan 2026-10-20, field/2026-10-20/lights-round-2.md):
-# 44 of 64 at 0.05, 54 of 64 within 0.02-0.5; >= 1 only on coloured accents (parking, airport, carousel) and garage signs (5,
+# 44 of 64 at 0.05, 54 of 64 within 0.02-0.5; >= 1 only on colored accents (parking, airport, carousel) and garage signs (5,
 # the importer's default). A 33 / 34 light above 1 on a mesh a BuildingPrefab points at WARNs.
 # Only mesh prefabs a hand-made prefab points at today: superseded letters stay on disk (never delete, rule 4) and are not judged.
 $emRefd = @{}
@@ -626,7 +626,7 @@ $rows.Add("OK    EMISSIVE  $emOk owned mesh prefab(s) with an emissive block, no
 
 # ---- 12. USENGLISH: US spelling in every player-facing text (T130, 2026-10-20; DECISIONS 350) --------------------------------
 # tools/check-us-english.js (word list inside) scans the locale sources, the hub's locale tuples, the mod's log calls and the
-# docs-site prose; any British spelling is a FAIL. Its --self-test proves the word list still catches its fixtures.
+# docs-site prose, and (T130 part 2) the comments of every source file and the prose of docs/; any British spelling is a FAIL. Its --self-test proves the word list still catches its fixtures.
 $usJs = Join-Path $PSScriptRoot "check-us-english.js"
 $usOut = @(& node $usJs 2>&1)
 $usExit = $LASTEXITCODE

@@ -13,8 +13,8 @@ override hook). `lodge.py --lodge L1 --no-fine` rebuilds the approved pre-pass L
 (byte-identical, proven in the build report); bldg_recipes.L1 itself is that pre-pass recipe.
 
 WHAT CHANGES (fine=True)
-    D   kit rows      the 6 modelled A-frame racks (ski_rack slots 8 along Y) -> SkiDressSkiRack / V2 / V3
-                      rows alternating the three loadouts (FS6) at the old rack centres on the lot
+    D   kit rows      the 6 modeled A-frame racks (ski_rack slots 8 along Y) -> SkiDressSkiRack / V2 / V3
+                      rows alternating the three loadouts (FS6) at the old rack centers on the lot
                       (m_ParentMesh -1), IDENTITY: the kit frame placed by the row = the removed frame
                       vertex for vertex (the A-frame is symmetric under the 180-degree yaw, so the kit's
                       +Z front faces the old side -1: both sides carry gear)
@@ -23,7 +23,7 @@ WHAT CHANGES (fine=True)
                       WallLightShortRangeRandom01 rows (H4) at the old lens (y, z) on the column face
                       (lodge.aframe_parts skips them through PORCH_LAMPS_VANILLA in the params)
     B.1 kit geometry  the deck flag mast 12-seg + ball finial (flag_mast fine=True)
-    kept modelled     the 4 rail-F post lanterns lamp_railF0-3 (no vanilla post lantern: GardenLight is a
+    kept modeled     the 4 rail-F post lanterns lamp_railF0-3 (no vanilla post lantern: GardenLight is a
                       0.62 m bollard, a wall light needs a wall face), the 4 festoon strings (no vanilla
                       string light), the menu board (no sheet slot: a 0.75 x 0.95 m kind needs 225 x 285 px;
                       the only free run that tall leaves the sheet < 200 free rows, the SS1 append reserve;
@@ -55,9 +55,9 @@ def _fine_extra(e):
     return e
 
 
-#: the base extras without the 6 modelled racks (kit rows now), the flag mast fine
+#: the base extras without the 6 modeled racks (kit rows now), the flag mast fine
 FINE_EXTRAS = tuple(_fine_extra(e) for e in BASE.extras if e.fn != "ski_rack")
-#: lodge.aframe_parts: PORCH_LAMPS_VANILLA = no modelled porch lanterns (WallLightShortRange rows)
+#: lodge.aframe_parts: PORCH_LAMPS_VANILLA = no modeled porch lanterns (WallLightShortRange rows)
 FINE_PARAMS = dict(BASE.params, PORCH_LAMPS_VANILLA=True)
 # the porch lanterns as lodge.aframe_parts builds them: lantern(f"porch{tag}", (-16.61, py, 0.52 + 2.2),
 # "-X", kind="wall") on the porch columns (col_porch<tag> at x -16.5, 0.22 square: entry face x -16.61)
@@ -69,10 +69,10 @@ FINE_SUB_OBJECTS = tuple(
     ("WallLightShortRangeRandom01", _WALL_SHORT, (round(-py, 4), round(PORCH_LAMP_Z, 4), round(-PORCH_LAMP_X, 4)),
      (0.0, 0.0, 0.0, 1.0), 0)
     for py, _tag in PORCH_LAMPS)
-#: kit colour variants (Richard 2026-10-12 ~18:50: "a colour that makes sense for that building";
+#: kit color variants (Richard 2026-10-12 ~18:50: "a colour that makes sense for that building";
 #: build/kit-colour-variants.md): the A-frame's own slot-2 orange accent (PAD_RGB: the umbrellas / flag of L1)
 KIT_COLOUR_SET = "orange"
-#: the 6 racks as kit rows at the old centres (pre-yaw (x, y) -> game (-y, 0, -x)), on the lot, identity,
+#: the 6 racks as kit rows at the old centers (pre-yaw (x, y) -> game (-y, 0, -x)), on the lot, identity,
 #: alternating SkiDressSkiRack / V2 / V3
 KIT_ROWS = tuple(
     kit_row(AFRAME_RACKS[i % len(AFRAME_RACKS)], (round(-y, 4), 0.0, round(-x, 4)), parent=-1,

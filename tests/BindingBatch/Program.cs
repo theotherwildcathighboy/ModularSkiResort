@@ -6,7 +6,7 @@
 // Environment.ExitCode = failures (the GladeBatch conventions).
 //
 // What is proven here is the PURE decision only. The ECS effects (Owner removal, SubArea entry
-// removal, AddComponentData, Charge) live in SkiRunOwnershipSystem and are modelled below by a
+// removal, AddComponentData, Charge) live in SkiRunOwnershipSystem and are modeled below by a
 // test-local effect function (ApplyEffect) that restates §3.3's "Effect" column; the model is
 // what the idempotence and money assertions run against, not the mod's ECS code.
 //

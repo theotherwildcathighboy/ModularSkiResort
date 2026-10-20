@@ -5,8 +5,8 @@
 //           leaf for the cat track only, snow injection for groomed / snowmaking / night only; an unknown kind counts nothing.
 //   CT54-2  THE LEAF RULE (LiftServedRule.AssignLinked, optional leaf mask): a cat track crossing a served run and an unserved
 //           run is served through the first and does NOT serve the second; a directly served leaf serves nobody; a null mask,
-//           an empty mask and an all-false mask are the old behaviour bit for bit; a short mask reads false past its end; a
-//           leaf is served at most (servedVia stays a real neighbour, never itself).
+//           an empty mask and an all-false mask are the old behavior bit for bit; a short mask reads false past its end; a
+//           leaf is served at most (servedVia stays a real neighbor, never itself).
 //   CT54-3  THE UNSUITABLE RULE: SkiRunRatingRules.CatTrackUnsuitable on the ROW band (-2 unrateable, -1 pending: not
 //           unsuitable; 0 flat, 1 green: fine; 2 blue .. 4 double black: unsuitable) and HubRules.CatTrackOpenState (the new
 //           RunOpenState.Unsuitable = 3 beats any open factor; otherwise OpenStateOf as a member).
@@ -142,7 +142,7 @@ namespace ResortBatch
         {
             const string W = "cattrack/leaf";
 
-            // The old behaviour (no mask): the chain A -> C -> B serves all three.
+            // The old behavior (no mask): the chain A -> C -> B serves all three.
             Scene s = Crossing(out int a, out int c, out int b).Solve(null);
             Check(s.Served(a) && s.Served(c) && s.Served(b), W, "without a mask the chain must serve A, C and B");
             Check(s.Root[a] == a && s.Root[c] == a && s.Root[b] == a, W, "without a mask every root must be A");
@@ -155,7 +155,7 @@ namespace ResortBatch
             Check(s.Served(c) && s.Root[c] == a && s.Via[c] == a, W, "the leaf C is still served, through A (root " + s.Root[c] + ", via " + s.Via[c] + ")");
             Check(!s.Served(b) && s.Root[b] == -1 && s.Via[b] == -1, W, "B must NOT be served through the leaf (root " + s.Root[b] + ")");
 
-            // A directly served leaf serves no neighbour: C is served directly, A is not, B is linked to C only.
+            // A directly served leaf serves no neighbor: C is served directly, A is not, B is linked to C only.
             s = new Scene();
             int c2 = s.Add(Served1, Rect(90f, 190f, 700f, 210f));          // the cat track, directly served
             int a2 = s.Add(Far, Rect(90f, 100f, 130f, 200f));              // linked to C, not served itself
@@ -170,7 +170,7 @@ namespace ResortBatch
             s.Solve(null);
             Check(s.Served(a2) && s.Served(b2), W, "the same scene without a mask serves both neighbours (the old behaviour)");
 
-            // Null, empty and all-false masks are the old behaviour, bit for bit.
+            // Null, empty and all-false masks are the old behavior, bit for bit.
             Scene none = Crossing(out _, out _, out _).Solve(null);
             Scene empty = Crossing(out _, out _, out _).Solve(new List<bool>());
             Scene falses = Crossing(out _, out _, out _).Solve(new List<bool> { false, false, false });

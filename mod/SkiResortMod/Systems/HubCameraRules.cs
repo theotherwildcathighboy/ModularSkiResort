@@ -9,19 +9,19 @@
 //     zoom = the active camera's zoom
 //     already on  ⇔  zoom ≤ KeepMaxZoomM  ∧  d ≤ KeepZoomFraction × zoom      (both inclusive)
 //   * pivot and zoom: IGameCameraController.pivot / .zoom (Game.Rendering/IGameCameraController.cs:8-10).
-//     The pivot is the point the camera looks at, the centre of the screen: the gameplay camera's m_Pivot
+//     The pivot is the point the camera looks at, the center of the screen: the gameplay camera's m_Pivot
 //     (Game/CameraController.cs:176-186), the orbit camera's anchor (Game/OrbitCameraController.cs:75-85),
 //     which a follow glides onto the followed entity within 0.5 s (:262-266: the remaining offset is scaled
 //     by smoothstep(0.5, 0, timer)). zoom is ≈ the camera-to-pivot distance (CameraController.cs:224-234,
 //     GetCameraPos :476-479 with the offset dir × zoom :405; the orbit camera sits at zoom + radius,
 //     OrbitCameraController.cs:272) — an approximation, good enough for a keep radius (ui-small
 //     Verification, correction 4). All four game files are identical in 1.6.2f1.
-//   * Zoom-relative, not a fixed radius: zoomed in at 150 m, a sign 100 m off-centre is at the screen's
-//     edge; zoomed out at 1,000 m, 300 m off-centre is still near the middle.
-//   * Screen centre, not "anywhere on screen": the hub panel covers the right quarter of the screen and
+//   * Zoom-relative, not a fixed radius: zoomed in at 150 m, a sign 100 m off-center is at the screen's
+//     edge; zoomed out at 1,000 m, 300 m off-center is still near the middle.
+//   * Screen center, not "anywhere on screen": the hub panel covers the right quarter of the screen and
 //     can be dragged (C# does not know where), so a viewport test would call a sign hidden under the
-//     panel "in view". The pivot is at the centre, which the panel never covers.
-//   * The zoom cap: zoomed out over the whole map the sign is a few pixels even at the centre, so above
+//     panel "in view". The pivot is at the center, which the panel never covers.
+//   * The zoom cap: zoomed out over the whole map the sign is a few pixels even at the center, so above
 //     KeepMaxZoomM the move zooms in.
 //   * Unknown camera state flies: a non-finite pivot, sign or zoom, or zoom ≤ 0 → false.
 //   KeepZoomFraction and KeepMaxZoomM are PLANNING ESTIMATES (tunable, unmeasured): the game's field of

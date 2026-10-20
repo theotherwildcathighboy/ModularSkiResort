@@ -50,8 +50,8 @@ boards / hose reel / door lanterns as rows; SPEC below lists the fine parts) and
       sign-set identity row lodge appends; every vanilla GUID as listed, every mod CID = fine_detail.KIT's
   D3  host labels only (the routed boards are gone); the boards' T1 is read from the sheet (owner manifest)
   D10 also the kit hose reel (its shipped bounds_m) and pairwise: no two rows' boxes overlap
-  D11 LEAN on the 6 P1 poles (modelled) AND on every kit lean row's REAL mesh (recipes/_lean.check_rows): the
-      declared support (the part the modelled akja / board leaned on), foot on grade / the deck, no host
+  D11 LEAN on the 6 P1 poles (modeled) AND on every kit lean row's REAL mesh (recipes/_lean.check_rows): the
+      declared support (the part the modeled akja / board leaned on), foot on grade / the deck, no host
       overlap; negatives: a row moved 0.10 m off / lifted 0.05 m / pushed 0.03 m into its support / with a
       foreign declared support raises; the builder fails the build with the rows 0.10 m off
   D12 sign set: SG1 UV = the painted rect, SG2 boards within 1 mm of the --no-fine host's label quads, SG3
@@ -163,7 +163,7 @@ SPEC = {
         frames_ppm=20.0),
 }
 # D11: leaning part / kit row -> the part it must rest on (lean fix, Richard's fifteenth look; step 3d: the
-# kit rows keep the modelled parts' supports)
+# kit rows keep the modeled parts' supports)
 SPEC["P1"]["lean"] = {f"pole_{k}": "wall_p1" for k in range(6)}
 SPEC["P1"]["lean_rows"] = {"akja_p1": "wall_p1", "akja_p1b": "tobrack_p1", "gear_p1board": "tobrack_p1"}
 SPEC["P1"]["lean_foot"] = ("grade",)
@@ -257,7 +257,7 @@ def g2a(v):
 
 
 def _tri_box(tri, c, axes, h):
-    """SAT: does the triangle (3, 3) intersect the oriented box (centre c, unit axes (3, 3),
+    """SAT: does the triangle (3, 3) intersect the oriented box (center c, unit axes (3, 3),
     half extents h)?"""
     T = (tri - c) @ axes.T                     # box-local
     e = [T[1] - T[0], T[2] - T[1], T[0] - T[2]]
@@ -368,7 +368,7 @@ def d2_emissive(key, rec, res, man, obj, table, pngs):
         c0, c1 = int(math.floor(x.min())), int(math.ceil(x.max()))
         r0, r1 = int(math.floor(y.min())), int(math.ceil(y.max()))
         allowed[max(0, r0 - margin - 1):r1 + margin + 1, max(0, c0 - margin - 1):c1 + margin + 1] = True
-        # texel centres inside the face (crossing test in UV texels)
+        # texel centers inside the face (crossing test in UV texels)
         cc, rr_ = np.meshgrid(np.arange(c0, c1) + 0.5, np.arange(r0, r1) + 0.5)
         ins = np.zeros(cc.shape, bool)
         k = len(x)
@@ -677,7 +677,7 @@ def _shift_row(e, d=0.0, lift=0.0):
 
 
 def d11_rows(key, rec, parts, L):
-    """The kit lean rows on the REAL kit mesh: declared support = the modelled part's, gap <= GAP_MAX over
+    """The kit lean rows on the REAL kit mesh: declared support = the modeled part's, gap <= GAP_MAX over
     >= COVER, foot on grade / the deck, no host overlap; negatives (each must raise CONTRACT LEAN)."""
     sp = SPEC[key]
     rows = PT.lean_rows(rec)

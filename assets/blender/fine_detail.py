@@ -13,7 +13,7 @@ code path of this module, so every host that does not opt in regenerates byte-id
     FineRecipe(Recipe)          a Recipe with three more fields (bldg_recipes.py is NOT edited:
                                 its sha1 guards the L1 row of test_detail_kit K4):
         fine_detail  bool       the host's builders take fine=True (design B.1 / FS6) and the
-                                recipe's vanilla / kit swaps replace the modelled parts
+                                recipe's vanilla / kit swaps replace the modeled parts
         sign_set     SignSetSpec | None   the host's label faces leave the host atlas for ONE
                                 sign-set prop drawing from the shared building sign sheet
                                 (cs2_signset.py, design C as cut by FS5 / FS14 / FS15 / FS16)
@@ -36,11 +36,11 @@ ROW KINDS in a host manifest's `sub_objects.objects` block (lodge.sub_objects_bl
              the same component either way). role "signset" = the host's sign-set identity row.
     kit_row(prop, pos, ...) / kit_lean_row(...) build mod rows of the dressing kit (props/B,
     build/dress-kit.md section 3: pivots, the lean props' rest planes); sign_set_row(...) the
-    sign-set identity row. A COLOURED kit prop (racks, akja) takes colour_set=<COLOUR_SETS key>:
-    its row names the colour VARIANT's object-prefab CID and adds "colour_set" / "variant"
-    (build/kit-colour-variants.md; the Parent-coloured base prefabs do not ship).
+    sign-set identity row. A COLORED kit prop (racks, akja) takes colour_set=<COLOUR_SETS key>:
+    its row names the color VARIANT's object-prefab CID and adds "colour_set" / "variant"
+    (build/kit-colour-variants.md; the Parent-colored base prefabs do not ship).
 
-FRAMES. Rows are prefab-local "game" metres: (gx, gy, gz) = (-y, z, x) of authoring; FBX-raw is
+FRAMES. Rows are prefab-local "game" meters: (gx, gy, gz) = (-y, z, x) of authoring; FBX-raw is
 (x, z, -y) of the net-oriented export (= authoring (y, z, x)) and the game NEGATES FBX x on import
 (build/probes-b.md section 2), so game x = -authoring y: gx NEGATED. Settled N by the 2026-10-15
 playtest (DECISIONS 201 S1b-N, applied 2026-10-16 / T14; analysis-assets.md section 3).
@@ -73,7 +73,7 @@ X_CONVENTION = ("game (gx, gy, gz) = (-y, z, x) of authoring; gx NEGATED (x-sign
 
 
 def rule_t_pos(p):
-    """Rule T on a position: a design-frame row (gx = +authoring y) -> game, x -> -x (-0.0 normalised)."""
+    """Rule T on a position: a design-frame row (gx = +authoring y) -> game, x -> -x (-0.0 normalized)."""
     return (-float(p[0]) + 0.0, float(p[1]), float(p[2]))
 
 
@@ -128,8 +128,8 @@ class FineRecipe(Recipe):
     fine_detail: bool = False
     sign_set: object = None
     legacy: tuple = ()
-    #: kit colour variants (2026-10-12, build/kit-colour-variants.md): the COLOUR_SETS key every coloured
-    #: kit row of this host names (check_kit_colours asserts it); None = the host has no coloured kit row
+    #: kit color variants (2026-10-12, build/kit-colour-variants.md): the COLOUR_SETS key every colored
+    #: kit row of this host names (check_kit_colours asserts it); None = the host has no colored kit row
     kit_colour_set: object = None
 
 
@@ -183,16 +183,16 @@ class KitProp:
     prop: str                   # object prefab (letterless)
     mesh: str                   # mesh asset (import folder)
     cid: str                    # object-prefab CID, hand-minted once (assets/staging/prefabs/props/B); for a
-    #                             COLOURED prop the base CID is RETIRED (never shipped): rows name a variant
+    #                             COLORED prop the base CID is RETIRED (never shipped): rows name a variant
     mount: str                  # "ground" | "wall" | "lean"
     rest_z: float = 0.0         # lean props: prefab z of the plane that rests on the wall (< 0)
     tris: int = 0
     coloured: bool = False      # gear accent / akja shell texels on ControlMask G (slot 2, channel 1)
 
 
-#: object prefab -> KitProp. CIDs = the staged .cid files of the UNCOLOURED props (tests/test_signset.py KIT
-#: asserts it, so a re-mint cannot drift silently); the six coloured props' base CIDs are retired with their
-#: staged base prefabs (kit colour variants, 2026-10-12). rest_z = the shipped FBX min z of the three leaning
+#: object prefab -> KitProp. CIDs = the staged .cid files of the UNCOLORED props (tests/test_signset.py KIT
+#: asserts it, so a re-mint cannot drift silently); the six colored props' base CIDs are retired with their
+#: staged base prefabs (kit color variants, 2026-10-12). rest_z = the shipped FBX min z of the three leaning
 #: props (dress-kit.md 3: tools -0.393 "the foot-line rule", akja -0.711, spine board -0.161).
 KIT = {
     "SkiDressSkiRack": KitProp("SkiDressSkiRack", "SkiDressSkiRackB", "56fd40887e144eb3b01f270044f47271", "ground", tris=692, coloured=True),
@@ -210,13 +210,13 @@ KIT = {
 
 
 # --------------------------------------------------------------------------------------
-# Kit colour variants (Richard 2026-10-12 ~18:50: "I don't think we want the accents to follow the parent
-# colour. I think they should stay a colour that makes sense for that building." -> FS7 Parent DROPPED;
+# Kit color variants (Richard 2026-10-12 ~18:50: "I don't think we want the accents to follow the parent
+# color. I think they should stay a color that makes sense for that building." -> FS7 Parent DROPPED;
 # build/kit-colour-variants.md). ENGINE FACT (decompile 1.6.0f1): ColorProperties is a RenderPrefab
 # component (ColorProperties.cs:12-16 ComponentMenu RenderPrefab / CharacterOverlay; GetPrefabComponents
 # adds the ColorVariation buffer to the MESH prefab entity, :137-140) and MeshColorSystem picks an
-# instance colour from the ColorVariation buffer of each SubMesh's MESH prefab (MeshColorSystem.cs:470-471,
-# 541), never from the object prefab. So a colour variant = its own object prefab + its own mesh prefab
+# instance color from the ColorVariation buffer of each SubMesh's MESH prefab (MeshColorSystem.cs:470-471,
+# 541), never from the object prefab. So a color variant = its own object prefab + its own mesh prefab
 # (a hand-made RenderPrefab clone of the imported base mesh prefab: the SAME geometry and surface assets,
 # a new name / CID and a FIXED ColorProperties with ONE VariationSet, no external channel, ranges 0), both
 # minted by dress_kit.py's registry. One VariationSet at probability 100 is always the pick (the loop at
@@ -229,7 +229,7 @@ class ColourSet:
     key: str                    # registry key ("red")
     label: str                  # variant-name suffix ("Red" -> SkiDressSkiRackV2_Red)
     rgb: tuple                  # the slot-2 VariationSet value (channel 1), the hosts' own picker space: the
-    #                             kit accent texels are RECOLOR_ALBEDO 0.80 grey under the mask, like every
+    #                             kit accent texels are RECOLOR_ALBEDO 0.80 gray under the mask, like every
     #                             host slot texel, so a set equal to a host slot value renders as that slot
     source: str                 # where the value comes from
 
@@ -258,7 +258,7 @@ def is_coloured(prop):
 
 
 def variant_name(prop, colour_set):
-    """The variant object prefab of a coloured kit prop: SkiDressSkiRackV2 + red -> SkiDressSkiRackV2_Red."""
+    """The variant object prefab of a colored kit prop: SkiDressSkiRackV2 + red -> SkiDressSkiRackV2_Red."""
     if prop not in KIT or not KIT[prop].coloured:
         raise ValueError(f"variant_name: {prop!r} is not a coloured kit prop")
     if colour_set not in COLOUR_SETS:
@@ -282,8 +282,8 @@ def variant_cids(name):
 
 
 def kit_cid(prop, colour_set=None):
-    """The object-prefab CID a row of `prop` names: the colour-set VARIANT's for a coloured prop (colour_set
-    required: no Parent colour ships), KIT[prop].cid for an uncoloured one (colour_set must be None)."""
+    """The object-prefab CID a row of `prop` names: the color-set VARIANT's for a colored prop (colour_set
+    required: no Parent color ships), KIT[prop].cid for an uncolored one (colour_set must be None)."""
     k = KIT[prop]
     if k.coloured:
         if colour_set is None:
@@ -314,17 +314,17 @@ def staged_cid(prop, letter="B", kind="props"):
 
 def staged_kit_cid(prop, colour_set=None):
     """The staged object-prefab CID of what a row of `prop` names: the variant folder
-    (assets/staging/prefabs/props/B/<Variant>/<Variant>.Prefab.cid, dress_kit.stage_variant) of a coloured
-    prop, the base folder of an uncoloured one; None if not staged."""
+    (assets/staging/prefabs/props/B/<Variant>/<Variant>.Prefab.cid, dress_kit.stage_variant) of a colored
+    prop, the base folder of an uncolored one; None if not staged."""
     if KIT[prop].coloured:
         return staged_cid(variant_name(prop, colour_set)) if colour_set in COLOUR_SETS else None
     return staged_cid(prop)
 
 
 def row_colour_error(row):
-    """None if a kit "mod" row names the right object prefab, else the reason: a coloured prop needs a known
-    colour set, CID = its variant's seeded CID and "variant" = its name, and a staged variant .cid (when one
-    exists) equal to it; an uncoloured prop has no colour set and CID = KIT's = the staged base .cid."""
+    """None if a kit "mod" row names the right object prefab, else the reason: a colored prop needs a known
+    color set, CID = its variant's seeded CID and "variant" = its name, and a staged variant .cid (when one
+    exists) equal to it; an uncolored prop has no color set and CID = KIT's = the staged base .cid."""
     prop, cs = row.get("prefab"), row.get("colour_set")
     if prop not in KIT:
         return f"{prop!r} is not a kit prop"
@@ -346,8 +346,8 @@ def row_colour_error(row):
 
 
 def check_kit_colours(recipe):
-    """Every coloured kit row of a FineRecipe names the recipe's kit_colour_set (one set per building, Richard
-    2026-10-12); raises ValueError. Uncoloured rows and sign-set rows pass."""
+    """Every colored kit row of a FineRecipe names the recipe's kit_colour_set (one set per building, Richard
+    2026-10-12); raises ValueError. Uncolored rows and sign-set rows pass."""
     want = getattr(recipe, "kit_colour_set", None)
     bad = []
     for e in getattr(recipe, "sub_objects", ()) or ():
@@ -395,20 +395,20 @@ def _row(kind_prop, cid, mesh, pos, rot, parent, role=None, extra=None):
 
 
 def _colour_extra(prop, colour_set):
-    """The row keys a coloured kit prop adds (after the existing ones): its colour set and variant name."""
-    kit_cid(prop, colour_set)               # raises the explicit message (missing / forbidden colour set)
+    """The row keys a colored kit prop adds (after the existing ones): its color set and variant name."""
+    kit_cid(prop, colour_set)               # raises the explicit message (missing / forbidden color set)
     if not KIT[prop].coloured:
         return {}
     return {"colour_set": str(colour_set), "variant": variant_name(prop, colour_set)}
 
 
 def kit_row(prop, pos, facing=(0.0, 1.0), parent=-1, rot=None, note=None, colour_set=None):
-    """A dressing-kit row: `pos` game-local (the prop's pivot: foot centre for ground props,
+    """A dressing-kit row: `pos` game-local (the prop's pivot: foot center for ground props,
     plate bottom on the wall plane for wall props), `facing` = the game direction (dx, dz) the
     prop's +Z (its front / out of the wall) turns to (default (0, 1) = game +Z = identity), or an
     explicit quaternion `rot`. parent -1 on the lot (snaps to terrain), 0 on the main mesh.
-    colour_set: a COLOUR_SETS key, REQUIRED for a coloured prop (racks, akja): the row then names that
-    variant's CID and carries "colour_set" / "variant"; forbidden for an uncoloured one."""
+    colour_set: a COLOUR_SETS key, REQUIRED for a colored prop (racks, akja): the row then names that
+    variant's CID and carries "colour_set" / "variant"; forbidden for an uncolored one."""
     k = KIT[prop]
     q = tuple(rot) if rot is not None else yaw_quat(facing)
     extra = dict({"note": note} if note else {}, **_colour_extra(prop, colour_set))
@@ -466,7 +466,7 @@ def sign_set_row(spec, cid, bounds=None):
 # loving the SIGN of the FORK AND KNIFE, that looks quite bad. I wonder if we just leave it blank or keep
 # it simple, and people can paste their own labels on it?"; L4: "Same issue with the sign outside as the
 # chalet." A pictogram board becomes a plain panel with a thin rim (a draw callable for cs2_bldg's
-# "display" painter and the sheet's "blank" kind); lodge.py records every blank board's face (centre /
+# "display" painter and the sheet's "blank" kind); lodge.py records every blank board's face (center /
 # normal / size, game frame) in the host manifest's `we_boards` block for an optional Write Everywhere
 # layout (another fleet's job): the face stays flat and unobstructed.
 # ======================================================================================

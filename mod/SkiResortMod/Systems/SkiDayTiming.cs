@@ -668,7 +668,7 @@ namespace SkiResortMod.Systems
         /// one game hour = FramesFor(1) (Round M2, D5).</summary>
         public const uint FollowWatchFrames = 10922;
 
-        /// <summary>Walkers within this many metres (xz) of a lodge's centre are counted (D5).</summary>
+        /// <summary>Walkers within this many meters (xz) of a lodge's center are counted (D5).</summary>
         public const float NearLodgeM = 100f;
 
         // Game.Creatures.ResidentFlags literals (ResidentFlags.cs:11, :13, :14, :22 (=)), so this file needs no Game type:
@@ -786,7 +786,7 @@ namespace SkiResortMod.Systems
             return (residentFlags & ResidentHangaround) != 0u ? WalkerKind.Hangaround : WalkerKind.Walking;
         }
 
-        /// <summary>D5: |p − centre|² ≤ radius² in xz (float2.y = world z); false when either point is NaN (the compare
+        /// <summary>D5: |p − center|² ≤ radius² in xz (float2.y = world z); false when either point is NaN (the compare
         /// is false).</summary>
         public static bool WithinXZ(float2 p, float2 centre, float radius)
         {
@@ -833,7 +833,7 @@ namespace SkiResortMod.Systems
         public enum SpeedEvidence : byte { None = 0, Exact = 1, Bound = 2 }
 
         /// <summary>The one "upper bound" predicate (R10): the guest had left (departed), stood on the road
-        /// (Place.Road) and was not seen turning back, so it travelled the whole time and the elapsed hours bound its
+        /// (Place.Road) and was not seen turning back, so it traveled the whole time and the elapsed hours bound its
         /// speed from above. A guest who never left, came back home or sits in a building gives no information.</summary>
         private static bool TravelledThroughout(bool departed, Place place, bool turnedBack)
         {

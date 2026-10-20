@@ -137,7 +137,7 @@
 // TOURISM OVERHAUL (ch1 §7.6): presence re-checked at game load (Mod.RefreshTourismOverhaulDetection). D27
 // brings visitors on site, so TO's crowding / park gate can damp our lodges: when TO is present, a lodge whose
 // provider reads below written − max(1, written / 10) on 16 consecutive ticks is logged once and counted in
-// the DUMP. No behaviour change; nothing to fold in.
+// the DUMP. No behavior change; nothing to fold in.
 //
 // COST (ch1 §14): nothing per frame (the watcher keeps its two IsEmptyIgnoreFilter checks). Per 16-frame tick:
 // five int compares, one bool, three settings reads, the anchored writes (+ one provider read per lodge with TO).
@@ -556,7 +556,7 @@ namespace SkiResortMod.Systems
         private readonly List<float3> m_RunTops = new List<float3>(32);
         // T06 (LiftServedRule.AssignLinked): per run the outline xz (the catalog row's array, by reference), its area slot, and the
         // link graph (self-validating: rebuilt only when an outline array, a slot or the run set changed). ServedRoot / ServedVia:
-        // the directly served run a run is served through, and the neighbour it was reached through (-1 none).
+        // the directly served run a run is served through, and the neighbor it was reached through (-1 none).
         private readonly List<float2[]> m_RunOutlines = new List<float2[]>(32);
         private readonly List<int> m_RunAreas = new List<int>(32);
         private readonly LiftServedRule.RunLinks m_RunLinks = new LiftServedRule.RunLinks();

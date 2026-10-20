@@ -42,7 +42,7 @@ namespace GladeBatch
                   SkiGladeCompose.InteriorDensity(9) == SkiGladeCompose.InteriorDensity(8) && SkiGladeCompose.BeltFactor(99) == 1f &&
                   SkiGladeCompose.ClampLevel(0) == 1 && SkiGladeCompose.ClampLevel(255) == 8, "compose/levels", "levels are not clamped to 1..8");
             Check(SkiGladeCompose.InteriorDensity(8) == OracleD8, "compose/levels", "level-8 density is not 143/10000");
-            // §8.2 as amended in the G3 fixer round (finding behaviour-2): the stream holds 1.10 × level 8.
+            // §8.2 as amended in the G3 fixer round (finding behavior-2): the stream holds 1.10 × level 8.
             Check(SkiGladeCompose.StreamDensityPerM2 == OracleStreamD && Math.Abs(SkiGladeCompose.StreamDensityPerM2 / OracleD8 - 1.10) < 1e-6,
                 "compose/levels", "stream density " + F(SkiGladeCompose.StreamDensityPerM2) + " is not 1.10 × level 8 (157.3/10000)");
 
@@ -223,7 +223,7 @@ namespace GladeBatch
                 ", other-layer occupants " + r.OccupantsOtherLayer);
         }
 
-        /// <summary>G3 fixer round (findings compose-1 / behaviour-1): this run's members outside
+        /// <summary>G3 fixer round (findings compose-1 / behavior-1): this run's members outside
         /// their own layer's region are Other for the target that sees them — removed first, never
         /// X / M / occupants — and a correctly placed other-layer member stays an occupant.</summary>
         private static void MisplacedUnitTests()

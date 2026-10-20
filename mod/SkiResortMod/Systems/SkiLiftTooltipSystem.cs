@@ -67,7 +67,7 @@
 //    below 100°). The installed UI formats both units with Xc (1.6.2f1 index.js@508526): ONE decimal
 //    below 100 with a trailing ".0" dropped, WHOLE numbers from 100 up, and any non-zero |v| < 0.1
 //    shown as 0.1. "angle" calls Xc with one decimal (@507953), so a yaw of −179.6° prints "−180 °";
-//    metric "length" uses Xc in metres below 1,000 m and kilometres with one decimal from 1,000 m
+//    metric "length" uses Xc in meters below 1,000 m and kilometers with one decimal from 1,000 m
 //    (@504557); unit names from @501249. Values are therefore rounded to 0.1 here and |v| < 0.05 is
 //    sent as 0.
 //    No partner → ALIGN_NO_PARTNER on the MOUSE (StringTooltip, Warning) — only for a TOP station

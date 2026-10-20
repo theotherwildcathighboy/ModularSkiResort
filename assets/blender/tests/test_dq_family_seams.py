@@ -31,8 +31,8 @@ Seams (S#) as checked:
   S8 hosted ETDQ vs the base station GEOMETRY (review F1, dq-family-review-geometry.md): the
      ETDQ placed at the station's hosted pose (0, 0, -11.0), 180 deg about y; BVH triangle
      overlap of ETDQ LOD0 / LOD1 against station LOD0 / LOD1 (all four pairings: the two
-     switch at different distances), minus the station's modelled haul ropes (`haulrope_`;
-     the drawn rope runs through the sheave centres by convention, review F10), must be
+     switch at different distances), minus the station's modeled haul ropes (`haulrope_`;
+     the drawn rope runs through the sheave centers by convention, review F10), must be
      EMPTY. Code layer: both generators build (bevels on; station LOD1 = LOD0 minus
      LOD1_DELETE, its target is the after-delete count; tower LOD1 = lod_chain_v2). Export
      layer: the shipped FBXs (cm, prefab frame), haul-rope faces found geometrically (every
@@ -56,7 +56,7 @@ Seams (S#) as checked:
      train is GATED since nitpick A3 (D1: its axle ON the lane, the towers' convention; the nitpick-A2
      rope-on-the-rims nose, axle 0.278 m under the lane, is a negative: the grip's wheels / axles cross
      its mains). Nitpick A4 adds the DOCUMENTED LIMIT: every number is a level lane at the axle's height; the
-     same sweep with the lane pitched about the nose centre / raised above the axle is re-measured and must
+     same sweep with the lane pitched about the nose center / raised above the axle is re-measured and must
      equal lift_terminal_detach.NOSE_LANE_PITCH_LIMIT (the shipped manifest's sheave_trains.lane_pitch_limit;
      a NOTE carries the numbers). Exports: the shipped DQ4M LOD0 FBX is the code build (vertex multiset,
      0.1 mm) and its hanger's vertical run sits at FBX x < 0 (authoring -Y).
@@ -466,7 +466,7 @@ def s9_code(top):
     check(bad, f"S9 DQ top nose: negative - the nitpick-A2 nose (NOSE_AXLE_LEGACY, rope on the rims, axle "
                f"{axle_leg:.3f}) puts the shipped grip's wheels / axles through its mains (D1)", f"({_s9_line(vl)})")
     # nitpick A4 (A3 check 1c): the DOCUMENTED LIMIT. Every number above is a LEVEL lane at the axle's height. The same
-    # sweep with the lane pitched about the nose centre / raised above the axle is re-measured here and must equal
+    # sweep with the lane pitched about the nose center / raised above the axle is re-measured here and must equal
     # lift_terminal_detach.NOSE_LANE_PITCH_LIMIT (the manifest's sheave_trains.lane_pitch_limit): a geometry or
     # sweep change that moves the limit fails here instead of leaving a stale note.
     lim = LTD.NOSE_LANE_PITCH_LIMIT

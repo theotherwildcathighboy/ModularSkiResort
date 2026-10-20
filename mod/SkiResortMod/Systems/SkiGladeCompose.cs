@@ -28,7 +28,7 @@
 //   "Current" = Variant == input.Variant && PlanGen == PlanGeneration (Variant is always 0 for
 //   new plantings, §8.2). Every other member of the target layer is OTHER-TAGGED (another variant
 //   or generation, v1 tags included).
-//   MISPLACED (amended in the G3 fixer round, findings compose-1 / behaviour-1): a member of EITHER
+//   MISPLACED (amended in the G3 fixer round, findings compose-1 / behavior-1): a member of EITHER
 //   layer of this run that stands outside its OWN layer's region — an interior member outside the
 //   polygon, a tree-line member inside it, or (tree-line target only, which owns that test) a
 //   current tree-line member farther than BeltDepth + MinSpacing from every edge — because a run
@@ -71,7 +71,7 @@
 // THE PLAN STREAM P (one per layer; level-INDEPENDENT, so PlanKey, skip sets and cached plans are
 // shared by all eight levels). Interior: the planner's GLADE layer with GladeDensity =
 // StreamDensityPerM2 = 157.3 / ha, 10 % above the level-8 density (amended in the G3 fixer round,
-// finding behaviour-2: G3-A built it at exactly InteriorDensity(8), so its raw bound T8 − W − X
+// finding behavior-2: G3-A built it at exactly InteriorDensity(8), so its raw bound T8 − W − X
 // was exactly what level 8 needs and every learned blocked spot left an L8 run k trees short for
 // good — "Trees now 1794 / Target 1809" reading complete; the headroom lets L8 replace up to ~14
 // blocked spots per hectare from the stream's tail). The stream's own target raw = round(157.3e-4
@@ -503,7 +503,7 @@ namespace SkiResortMod.Systems
         public const int Levels = 8;
         public const byte DefaultLevel = 4;
 
-        /// <summary>G3 fixer round (finding behaviour-2; header THE PLAN STREAM): density of the
+        /// <summary>G3 fixer round (finding behavior-2; header THE PLAN STREAM): density of the
         /// interior plan stream, trees per m² — 1.10 × the level-8 density (157.3 vs 143 per ha),
         /// so a level-8 run replaces learned blocked spots from the stream's tail. A compile-time
         /// constant on purpose (no runtime float product: Mono and CoreCLR must read the same
@@ -1398,7 +1398,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The raw ring on xz in double, for boundary distances (inside-ness comes from
         /// the probe). Consecutive / closing duplicates are harmless: a zero-length edge's
-        /// distance equals a neighbouring edge's endpoint distance.</summary>
+        /// distance equals a neighboring edge's endpoint distance.</summary>
         private struct RingGeo
         {
             public double2[] V;

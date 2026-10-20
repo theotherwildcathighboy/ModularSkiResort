@@ -51,13 +51,13 @@ TRAM `SkiTramCabinA` (cabins.md section 4 as reconciled by R27-R30)
         dz -0.40.
     R29 front/back AND left/right symmetric (doors on both long sides, mirror-asserted), parked
         identity in both base bays, pivot at the floor underside, never yawed 180: so the
-        haul grips sit on both sides and the hanger is laterally symmetric - ONE centred
+        haul grips sit on both sides and the hanger is laterally symmetric - ONE centered
         box-section column on the roof fin, forked below the saddle band into two uprights
         that pass the rope outside the tower keep-out and meet the carriage above the rope.
     R30 at saddle height the carriage/hanger half-width is <= 1.10 (uprights 0.82..1.08); the
         carrier leaves the tower its envelope: nothing at |dy| < 0.36 for dz -0.80..-0.05 and
         nothing at |dy| < 0.80 for dz -3.80..-0.70 (crossbar below dz -3.80).
-    Body ~8.0 x 3.7 x 3.0 rounded-rectangle loft (JH bands), mullions, one centred double door
+    Body ~8.0 x 3.7 x 3.0 rounded-rectangle loft (JH bands), mullions, one centered double door
     per long side (Revision 2), 6 logos, roof equipment + gratings + 2 hatches, ladder, end
     bumpers; 2048 set. LOD1 AUTHORED (details deleted, the eight
     16-segment wheels swapped for 8-segment wheels at the same seats, UVs snapped; COLLAPSE on
@@ -89,12 +89,12 @@ closed (asserted in soften_shell and as G11); C4 grip stem, fork crossbar ends a
 REVISION 2 (2026-10-11, tram only; the gondola build is untouched): Richard, after approving both
 looks - "gondola has some details that the tram doesn't now (door handles, bolts etc), also a tram
 would have a pair of sliding doors on each side in the middle, opening outwards". tram_door_kit: one
-outward-opening sliding (plug) double door per long side, centred, CLOSED: leaves 0.838 wide from
+outward-opening sliding (plug) double door per long side, centered, CLOSED: leaves 0.838 wide from
 the threshold (0.32 = the station boarding deck + 2 cm) to the glazing head (2.38), faces 15 mm
 PROUD of the wall (the exported lateral bound 1.880 is the mullions'), rubber jamb seals and meeting
 nosings (the gap line), leaf windows in rubber gaskets 25 mm behind the face, grab bars in recessed
-pockets, release pulls, a header runner box with two rubber-tyred hanger rollers per leaf, a safety-
-yellow threshold nosing, a drip rail, intercom boxes; the main-row centre mullion became the seam,
+pockets, release pulls, a header runner box with two rubber-tired hanger rollers per leaf, a safety-
+yellow threshold nosing, a drip rail, intercom boxes; the main-row center mullion became the seam,
 +-1.25 moved to +-1.70, the side logo moved to the panes either side (2 per side). Gondola parity:
 EVERY Revision 1 tram bolt row was below the 2-texel floor (509 faces skipped, measured): tram-scale
 heads + heavier density weights draw them now; hanger pin boss + nut on the carriage head; roof
@@ -180,7 +180,7 @@ NAMES = {"gondola": "SkiGondolaCabin8A", "tram": "SkiTramCabinA"}
 SPLIT_CARRIAGE_NAME = "SkiTramCarriageA"
 CATALOG_KEY = {"gondola": "gd8", "tram": "tram"}
 
-FRAME_PROP = "cabin_frame"       # "net" once orient_for_net has run (contract maths undo it)
+FRAME_PROP = "cabin_frame"       # "net" once orient_for_net has run (contract math undo it)
 PART_TABLE_PROP = cs2_asset.PART_TABLE_PROP
 
 #: The two rows this generator owns (cabins.md section 9; R27-R31). catalog/carriers.json is
@@ -269,7 +269,7 @@ GLYPH_RGB = (0.85, 0.85, 0.85)          # linear white of the stamped logos
 #: square of the stamp stripe (PIPELINE section 3: stamped strips keep their UVs, copied 1:1),
 #: >= 4x the shipped edge length; the glyph alpha is rendered at the square's own pixel size.
 LOGO_SHIPPED_PX = {"gondola": 95.0, "tram": 135.0}
-PLATE_LIGHT_SRGB = (0.90, 0.90, 0.86)   # lift_chair plate colours (sRGB-encoded there)
+PLATE_LIGHT_SRGB = (0.90, 0.90, 0.86)   # lift_chair plate colors (sRGB-encoded there)
 PLATE_DARK_SRGB = (0.08, 0.08, 0.09)
 PLATE_CELL_M = 0.0105                   # 5x7 glyph cell on the plate (lift_chair.py:93)
 
@@ -322,7 +322,7 @@ MATERIALS = {
     "rubber":      {"albedo": (0.035, 0.035, 0.035), "slot": 0, "metal": 0.0, "rough": 0.80},
     "plate":       {"albedo": (0.75, 0.75, 0.75), "slot": 0, "metal": 0.0, "rough": 0.50},
     # Revision 2 (tram only): the "stand clear" stripe on the door threshold nosing (fixed
-    # safety yellow, never recoloured); unused keys never reach a bake (build_lod0 takes
+    # safety yellow, never recolored); unused keys never reach a bake (build_lod0 takes
     # only the keys its parts carry), so the gondola build is unchanged
     "safety":      {"albedo": (0.78, 0.47, 0.02), "slot": 0, "metal": 0.0, "rough": 0.60},
 }
@@ -345,8 +345,8 @@ G = dict(
     hang=4.500, rope=4.420,                    # C5: grip_top_above_rope 0.08
     wilin_mount_m=(1.217, 1.267, 0.560),       # skeptic verdict 3 / MC6 (source column)
     # Revision 1 hanger: ONE smooth 12-segment tube (tube_along, bend rings) instead of the
-    # box-section sweep + flat gussets. The arm rests on both roof rails (centre 0.085 above the
-    # 2.52 rail top, 1 cm seated); the stalk centre moves 0.68 -> 0.655 so the tube sits inside
+    # box-section sweep + flat gussets. The arm rests on both roof rails (center 0.085 above the
+    # 2.52 rail top, 1 cm seated); the stalk center moves 0.68 -> 0.655 so the tube sits inside
     # its hanger head; every point stays inside tram_tower.CARRIER_GD (seams S6, both pin frames).
     hanger_a=(0.0, -0.58, 2.595), hanger_b=(0.0, 0.655, 2.595), hanger_d=(0.0, 0.655, 3.98),
     hanger_r=0.085, hanger_segs=12, hanger_fillet=0.40, hanger_bend_rings=6, roller_segs=10,
@@ -400,7 +400,7 @@ G_DENSITY = {
 }
 
 #: VariationSets (surgery; ColorProperties channels 0/1/2 = slot 1 body / 2 roof / 3 trim).
-#: ONE set since 2026-10-16 (T29, field item 51: four random sets made the line read as colour groups):
+#: ONE set since 2026-10-16 (T29, field item 51: four random sets made the line read as color groups):
 #: station accent body, station galvanized roof, dark trim; jitter 0 (m_VariationRanges below).
 G_SETS = (
     ("Station livery", (0.85, 0.25, 0.10), (0.25, 0.26, 0.275), (0.07, 0.07, 0.08)),
@@ -443,7 +443,7 @@ T = dict(
                    (0.150, 0.100), (0.150, 0.030), (0.065, 0.030)),
     bogie_x=(-1.50, 1.50), wheel_dx=(-0.75, -0.25, 0.25, 0.75),
     # lighter bogie side plate: outline (x, dz above the rope), chamfered ends and a raised
-    # centre arch; its foot stays 0.02 above the rope (T3 / T11a clear by construction)
+    # center arch; its foot stays 0.02 above the rope (T3 / T11a clear by construction)
     bogie_outline=((-1.05, 0.31), (1.05, 0.31), (1.05, 0.17), (0.92, 0.02), (0.14, 0.02),
                    (0.06, 0.11), (-0.06, 0.11), (-0.14, 0.02), (-0.92, 0.02), (-1.05, 0.17)),
     plate_dy=0.14, carbeam_dy=0.50, carbeam_len=5.60, tie_x=(-2.70, 2.70),
@@ -451,7 +451,7 @@ T = dict(
     extents=dict(x=4.05, y=1.90),
     tex=2048, ao=48, margin=32, lod0_cap=8000, lod2_cap=500, lod2_target=460,
     logo_frac=576.0 / 2048.0,                  # logo square edge / A (576 px at 2048 = 4.3x)
-    logo_zc=0.71,                              # band centre above the rounded band foot
+    logo_zc=0.71,                              # band center above the rounded band foot
     # T7 projections (+-10 %): Revision 2 measured builds (RS section 4 target 6,000, cap 8,000;
     # Revision 1 was 4,758 / split 2,000 + 2,760)
     lod0_projection=5678, split_projection={"cabin": 2830, "carriage": 2848},
@@ -474,13 +474,13 @@ T = dict(
     split_tex=1024,
     # ---- Revision 2 (Richard 2026-10-11: "a tram would have a pair of sliding doors on each
     # side in the middle, opening outwards"; "gondola has some details that the tram doesn't")
-    # One outward-opening sliding (plug) double door per long side, centred on the cabin length
-    # (R29 symmetric), modelled CLOSED: two leaves meeting at x 0, each 0.838 wide, from the
+    # One outward-opening sliding (plug) double door per long side, centered on the cabin length
+    # (R29 symmetric), modeled CLOSED: two leaves meeting at x 0, each 0.838 wide, from the
     # threshold (0.32, the station boarding deck = pivot + 0.30, +2 cm) to the main glazing
     # head (2.38). Leaves stand 15 mm PROUD of the 1.85 wall (front 1.865; the exported
     # lateral bound 1.880 is the mullions' and leaves 15 mm for hardware), their edge faces run
     # back to the glazing plane (1.803), dark rubber jamb seals outline the opening and rubber
-    # nosings meet at the centre (the gap line), the leaf windows sit 25 mm behind the leaf
+    # nosings meet at the center (the gap line), the leaf windows sit 25 mm behind the leaf
     # face in rubber gaskets. Grab bars sit in recessed dark pockets (the 15 mm to the bound
     # leaves no room for a stand-off bar); a release pull on the meeting stile; a header
     # runner box over the opening + slide travel with two hanger rollers per leaf on brackets;
@@ -494,9 +494,9 @@ T = dict(
               roller_r=0.020, roller_w=0.016, roller_y=1.861, roller_dx=0.25,
               hanger_y=(1.853, 1.863), drip=(1.00, 1.848, 1.874, 2.822, 2.840),
               intercom=(0.95, 1.05, 0.66, 0.82, 1.872)),
-    # long-side mullions: the centre one (main row) is now the door seam; +-1.25 move to +-1.70
+    # long-side mullions: the center one (main row) is now the door seam; +-1.25 move to +-1.70
     # so the panes either side of the door are 0.79 / 0.72 m (not 0.35); the transom keeps a
-    # centre mullion above the door, standing on the runner box
+    # center mullion above the door, standing on the runner box
     mullion_main_x=(-2.50, -1.70, 1.70, 2.50), mullion_transom_x=(-2.50, -1.70, 0.0, 1.70, 2.50),
     logo_side_x=(-2.10, 2.10),            # the side logos flank the doors (one per side pane)
     bumper=dict(size=(0.11, 0.40, 0.32), y=1.10, zc=0.62, r=0.025),
@@ -624,7 +624,7 @@ def _orient_faces_outward(bm, centre):
 
 
 def _planar_uv(bm, layer, scale=1.0):
-    """Per-face dominant-axis projection in metres (no mirrored islands)."""
+    """Per-face dominant-axis projection in meters (no mirrored islands)."""
     bm.normal_update()
     for f in bm.faces:
         n = f.normal
@@ -680,7 +680,7 @@ def prism(name, bottom, top, drop=()):
 
 
 def _sweep_samples(pts, bend_rings, fillet):
-    """Centreline samples of a polyline with Hermite fillets at the bends (tube_along's rule)."""
+    """Centerline samples of a polyline with Hermite fillets at the bends (tube_along's rule)."""
     P = [Vector(p) for p in pts]
     dirs = []
     for a, b in zip(P, P[1:]):
@@ -789,7 +789,7 @@ def box_along(name, pts, w, d, side=(1.0, 0.0, 0.0), chamfer=0.0, bend_rings=8, 
     corners may carry a 1-segment `chamfer` (8-vertex ring, the 0.02 m finish bevel) or, with
     corner_segs >= 2, a rounded corner of radius `chamfer` (Revision 1). Fillets as
     cs2_kit.tube_along. caps in none/both/start/end (n-gon caps, triangulated). UVMap = one
-    strip (u = perimeter metres, v = arc metres) + planar caps. Returns the object with
+    strip (u = perimeter meters, v = arc meters) + planar caps. Returns the object with
     obj["rings"] = ring count.
     """
     if caps not in ("none", "both", "start", "end"):
@@ -859,7 +859,7 @@ def rrect_ring(L, W, r, segs, z):
 
 def loft_band(name, ring_a, ring_b, relief="geo"):
     """L4: one band of quads between two rings of equal length (a below b): outward normals,
-    UVMap strip u = perimeter metres along ring a, v = slant metres."""
+    UVMap strip u = perimeter meters along ring a, v = slant meters."""
     n = len(ring_a)
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
@@ -924,7 +924,7 @@ def extrude_profile(name, profile, a0, a1, axis="X"):
     """A closed prism: the CCW polygon `profile` [(p, q), ...] in the plane normal to `axis`
     (X: (p, q) = (y, z); Y: (p, q) = (x, z)) swept from a0 to a1 along the axis; concave
     outlines allowed (caps triangulated by polyfill on their own normals, Revision 1b C1 / C2:
-    triangulate_caps + cap_check). UVMap: one strip (u = perimeter metres, v = axis metres) +
+    triangulate_caps + cap_check). UVMap: one strip (u = perimeter meters, v = axis meters) +
     planar caps. Normals outward."""
     def P(p, q, a):
         return (a, p, q) if axis == "X" else (p, a, q)
@@ -971,7 +971,7 @@ def extrude_profile(name, profile, a0, a1, axis="X"):
 
 def rrect_loft(name, specs, cap_top=True, cap_bottom=False, segs=3):
     """One closed rounded-rectangle loft [(z, L, W, r), ...] (bottom -> top, `segs` corner
-    segments) as ONE object: strip UVs (u = ring metres, v = cumulative slant) + planar caps."""
+    segments) as ONE object: strip UVs (u = ring meters, v = cumulative slant) + planar caps."""
     rings = [rrect_ring(L, W, r, segs, z) for z, L, W, r in specs]
     n = len(rings[0])
     bm = bmesh.new()
@@ -1056,8 +1056,8 @@ def quad_rim(quad_obj, rim_name, depth):
 def wheel_rim(name, profile, segs, loc):
     """Revision 1 'real wheel profile': a revolved (radius, axial) profile about the axis Y
     at `loc` (dished web, flanges, V groove), built ring by ring in a fixed order (no spin, so
-    no element-order variance), one strip UV island (u = mean circumference metres, v =
-    profile metres on the tread / groove; planar annuli on the web and flange faces). Open at
+    no element-order variance), one strip UV island (u = mean circumference meters, v =
+    profile meters on the tread / groove; planar annuli on the web and flange faces). Open at
     the bore: the axle fills it."""
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
@@ -1124,8 +1124,8 @@ def wheel_rim(name, profile, segs, loc):
 
 def cyl_uv(obj):
     """Metric UVMap for a cs2_kit.add_cyl part (axis = local Z, before apply_transform):
-    side faces u = arc metres (angle x radius), v = z metres - one strip island, seam at the
-    back; caps planar x / y metres. cs2_kit's create_cone UVs map a 5.6 cm x 5 cm roller side
+    side faces u = arc meters (angle x radius), v = z meters - one strip island, seam at the
+    back; caps planar x / y meters. cs2_kit's create_cone UVs map a 5.6 cm x 5 cm roller side
     face to a 0.1 x 0.5 UV cell (5x anisotropic texels; Revision 1 "stretched texels")."""
     me = obj.data
     lay = me.uv_layers.get("UVMap") or me.uv_layers.new(name="UVMap")
@@ -1297,7 +1297,7 @@ def box_uv(obj):
     """
     One UV island per axis-aligned box part (kit add_box, open-bottom / dropped faces too):
     the side faces unrolled into one strip around the box's LONGEST axis a (u = perimeter
-    metres of the b x c cross-section, v = metres along a) and both a-caps attached to the
+    meters of the b x c cross-section, v = meters along a) and both a-caps attached to the
     +b side's ends. Every face keeps a non-mirrored frame (u x v = the face normal). Returns
     False (layout untouched) unless every face is an axis-aligned quad and there are <= 6.
     Six islands per box under cs2_uv's 1/64 margin starved the unique pack (14 % coverage).
@@ -1550,7 +1550,7 @@ def soften_shell(parts, report):
 
 def door_reveal_and_handles(parts, report):
     """Revision 1 doors: each leaf (body / trim / glass / hw of one side) shrinks G door_reveal
-    per side about its own x centre, so the dark door plug (the opening behind the leaves)
+    per side about its own x center, so the dark door plug (the opening behind the leaves)
     shows as a recessed reveal round both leaves and in the meeting seam; a grab handle (bar on
     two stand-offs, galv) sits on each leaf beside the seam, on the leaf's outer surface found
     by ray cast."""
@@ -1917,9 +1917,9 @@ TRAM_UV_GROUPS = (("chamfer",), ("band",), ("trim",), ("reveal_lo",), ("glass_ma
 
 def _run_piece(name, rings, i0, i1, v_at, u_ref):
     """One piece of a run: quads between consecutive rings over ring points i0..i1 (wrapping
-    the 20-point ring). UV u = metres along the group's reference ring `u_ref` (the same u for
+    the 20-point ring). UV u = meters along the group's reference ring `u_ref` (the same u for
     a column on every ring: per-ring arcs shear the strip - the boat-bottom rings shrink 1.6 m
-    end to end over a 0.34 m slant), v = v_at[j][i] (cumulative slant metres down each COLUMN:
+    end to end over a 0.34 m slant), v = v_at[j][i] (cumulative slant meters down each COLUMN:
     the boat ends slope 2x steeper than the sides)."""
     n = len(rings[0])
     idx = [(i0 + k) % n for k in range(((i1 - i0) % n) + 1)]
@@ -1986,7 +1986,7 @@ def tram_body_parts():
 
 
 #: Revision 2: right-handed planar UV frames (u x v = the face normal) per dominant normal axis
-#: and sign, metres. _planar_uv mirrors the +-Y faces; these never mirror a texel.
+#: and sign, meters. _planar_uv mirrors the +-Y faces; these never mirror a texel.
 _RH_FRAMES = {(0, 1): ((0, 1, 0), (0, 0, 1)), (0, -1): ((0, -1, 0), (0, 0, 1)),
               (1, 1): ((-1, 0, 0), (0, 0, 1)), (1, -1): ((1, 0, 0), (0, 0, 1)),
               (2, 1): ((1, 0, 0), (0, 1, 0)), (2, -1): ((1, 0, 0), (0, -1, 0))}
@@ -1994,9 +1994,9 @@ _RH_FRAMES = {(0, 1): ((0, 1, 0), (0, 0, 1)), (0, -1): ((0, -1, 0), (0, 0, 1)),
 
 def poly_part(name, polys, split=False):
     """Revision 2: one part from explicit planar polygons [(corners, outward normal), ...].
-    Corners at the same position (1e-7 m) are ONE vertex, so neighbouring polygons (and parts,
+    Corners at the same position (1e-7 m) are ONE vertex, so neighboring polygons (and parts,
     after the join's remove_doubles) share edges; every face is wound to its outward normal;
-    UVMap = right-handed planar metres per dominant axis (_RH_FRAMES), so the faces of one plane
+    UVMap = right-handed planar meters per dominant axis (_RH_FRAMES), so the faces of one plane
     form one non-mirrored island. split=True gives every face its own island (a frame annulus
     packs as four tight strips instead of one box around the window hole)."""
     bm = bmesh.new()
@@ -2055,7 +2055,7 @@ def _side_box(name, x0, x1, y0, y1, z0, z1, s, t=1, drop=()):
 
 def tram_door_kit():
     """Revision 2: the outward-opening sliding (plug) double door on BOTH long sides (R29),
-    centred on the cabin length, CLOSED, plus its hardware. Built per side s (y) and leaf t (x)
+    centered on the cabin length, CLOSED, plus its hardware. Built per side s (y) and leaf t (x)
     from one canonical leaf (+x, +y); every part is mirror-exact (T5) and its UVs right-handed.
     The body behind the leaves is the unchanged Revision 1 body (no hole), so LOD2, which drops
     every door part, is the Revision 1 LOD2.
@@ -2065,7 +2065,7 @@ def tram_door_kit():
     frame, pinned with the frames), doorgasket_ (rubber window reveal), doorglass_ (25 mm behind
     the leaf face), doorpocket_ (rubber-lined), doorgrab_ (galv bar in the pocket), doorpull_
     (release pull on the meeting stile), doorseal_ (rubber nosing on the meeting edge), 2 x
-    doorroller_ (rubber-tyred) on 2 x doorhanger_ brackets riding under the header, doorjamb_
+    doorroller_ (rubber-tired) on 2 x doorhanger_ brackets riding under the header, doorjamb_
     (rubber outline on the outer edge), intercom_ (call / intercom box beside the door). Per
     door: doorsill_ (the threshold nosing in safety yellow: the "stand clear" stripe),
     doorheader_ (runner box over the opening + the slide travel), doordrip_ (drip rail above
@@ -2184,8 +2184,8 @@ def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola
     # wall; ends y 0 (slanted with the end lean); 1 cm into the sill / head (no coplanar faces)
     prof = T["profile"]
     spans = ((prof[3][0] - 0.01, prof[4][0] + 0.01), (prof[5][0] - 0.01, prof[6][0] + 0.01))
-    # Revision 2: the main-row centre mullion is the door seam now and +-1.25 move to +-1.70
-    # (T mullion_*_x); the transom's centre mullion stands 1 cm into the door's runner box
+    # Revision 2: the main-row center mullion is the door seam now and +-1.25 move to +-1.70
+    # (T mullion_*_x); the transom's center mullion stands 1 cm into the door's runner box
     n = 0
     z_hdr_top = T["door"]["header"][4]
     for s in (-1, 1):
@@ -2206,12 +2206,12 @@ def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola
                    (e * (hb - gi), 0.04, zb)]
             out.append((prism(f"mullion_{n}", bot, top, drop=("s3",)), "paint_frame"))
             n += 1
-    # Revision 2 doors: ONE outward-opening sliding double door per long side, centred (R29:
+    # Revision 2 doors: ONE outward-opening sliding double door per long side, centered (R29:
     # both long sides), closed, with its hardware (tram_door_kit; replaces the two 1.00 m
     # proud boxes per side at x +-1.875 of Revision 1)
     out += tram_door_kit()
     # logos: plaques (4 mm proud + 6 mm rim into the wall); long sides 0.70, ends 0.60.
-    # Revision 2: the doors take the band's centre, so each long side carries two logos, one
+    # Revision 2: the doors take the band's center, so each long side carries two logos, one
     # under each pane beside the door (x +-2.10); all six quads share the one pinned square
     zl = T["logo_zc"]
     up = Vector((0.0, 0.0, 1.0))
@@ -2275,7 +2275,7 @@ def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola
                                     (sx * (xe - 0.01 + bx / 2.0), sy * B["y"], B["zc"]), B["r"],
                                     segs=1, drop=("-X" if sx > 0 else "+X",)), "rubber"))
             n += 1
-    # hanger: ONE centred rounded column on the fin (R29 symmetric), ends sunk into the fin
+    # hanger: ONE centered rounded column on the fin (R29 symmetric), ends sunk into the fin
     # and the crossbar (no coplanar caps) ...
     cw, cd = T["column_wd"]
     col_len = dims["fork_bot"] - dims["fin_top"]
@@ -2335,7 +2335,7 @@ def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola
     head["relief"] = "map:bolts"
     out.append((head, "galv"))
     # Revision 2 (gondola parity: its hanger head pivot): the hanger pin through the carriage
-    # head's centre, along the travel axis (the cabin's lateral swing), a boss + hex nut on each
+    # head's center, along the travel axis (the cabin's lateral swing), a boss + hex nut on each
     # travel face. Inside CARRIER_TRAM's carriage box (|y| <= 0.55, dz -0.05..0.50); the
     # uprights' box allows no protrusion, so no pin bosses sit on the uprights themselves
     Pv = T["pivot"]
@@ -2463,7 +2463,7 @@ def build_lod0(parts, name, density, table_out):
 
 
 # ======================================================================================
-# Contract maths (all in the AUTHORING frame: x travel, y lateral outboard, z up)
+# Contract math (all in the AUTHORING frame: x travel, y lateral outboard, z up)
 # ======================================================================================
 
 class Mesh:
@@ -2558,7 +2558,7 @@ def mirror_symmetric(co, axis, tol=1e-4):
 
 
 def _welded_ids(co, q=1e-5):
-    """Vertex ids welded by position (q metres): FBX-style split vertices count as one."""
+    """Vertex ids welded by position (q meters): FBX-style split vertices count as one."""
     _u, inv = np.unique(np.round(co / q).astype(np.int64), axis=0, return_inverse=True)
     return inv.reshape(-1)
 
@@ -2647,7 +2647,7 @@ def coplanar_overlaps(obj, tol_d=0.0005, ang_deg=1.0, min_m2=1e-5):
             for a, b in zip((ii + s0).tolist(), jj.tolist()):
                 ta, tb = int(keep[a]), int(keep[b])
                 if len(set(vid[ta].tolist()) & set(vid[tb].tolist())) >= 2:
-                    continue                          # shared edge: neighbours, no area overlap
+                    continue                          # shared edge: neighbors, no area overlap
                 o, ex = P[ta, 0], P[ta, 1] - P[ta, 0]
                 ex = ex / np.linalg.norm(ex)
                 ey = np.cross(n[a], ex)
@@ -2898,7 +2898,7 @@ def tram_contracts(obj, level, dims, part_role="whole"):
     if level == 0:
         check_coplanar(c, "T12", obj)       # Revision 1b: no z-fight overlap (C2 / C4)
     if part_role != "carriage" and level in (0, 1):
-        door_contract(c, m, W, level)        # Revision 2: centred plug double doors, closed
+        door_contract(c, m, W, level)        # Revision 2: centered plug double doors, closed
     return c.raise_if_failed()
 
 
@@ -2908,7 +2908,7 @@ T_BOUNDS = {"lat": 1.880, "travel": 4.030}
 
 
 def door_contract(c, m, W, level):
-    """T13 (Revision 2): on each long side two door leaves meet at x 0 (centred on the cabin
+    """T13 (Revision 2): on each long side two door leaves meet at x 0 (centered on the cabin
     length, R29), each 0.75..0.90 wide and >= 2.0 m tall, their faces PROUD of the 1.85 wall
     by >= 10 mm (a real reveal, never flush: T12 catches a flush leaf too) and inside the
     1.880 lateral bound, the sill within 5 cm above the cabin interior floor = the station
@@ -3305,8 +3305,8 @@ def glyph_alpha(size):
 
 
 def _island_boxes(me, lay, uv, faces, start, total):
-    """[(faces, loop idx, uv lo, metres per uv unit, size in metres)] of the UV islands of
-    `faces` (each island scaled to its own true metres: uniform density after placement)."""
+    """[(faces, loop idx, uv lo, meters per uv unit, size in meters)] of the UV islands of
+    `faces` (each island scaled to its own true meters: uniform density after placement)."""
     isl = cs2_uv.uv_islands(me, lay, faces=faces)
     wa = cs2_uv.face_world_areas(me)
     ua = cs2_uv.face_uv_areas(me, uv, start, total)
@@ -3340,7 +3340,7 @@ def _pack_boxes(boxes, s_cap, W, H, m):
 
 
 def _place_boxes(uv, boxes, pos, s, x0, y0, m, A):
-    """Write the packed island UVs: island i at (x0 + x, y0 + y) + m/2, `s` px per metre,
+    """Write the packed island UVs: island i at (x0 + x, y0 + y) + m/2, `s` px per meter,
     turned islands rotated +90 deg (never mirrored). Returns the number turned."""
     turned_n = 0
     for (_I, idx, lo, k, bb), (x, y, turned) in zip(boxes, pos):
@@ -3546,7 +3546,7 @@ def _srgb_to_lin(c):
 
 
 def _quad_frame(obj, table, prefix):
-    """UV -> world affine of a single-quad part and its viewer frame (right, up, centre)."""
+    """UV -> world affine of a single-quad part and its viewer frame (right, up, center)."""
     me = obj.data
     faces = cs2_compose.faces_of_prefix(me, table, prefix)
     if len(faces) != 1 or me.polygons[faces[0]].loop_total != 4:
@@ -3683,7 +3683,7 @@ def make_post_compose(obj, cfg, quality, stamps, plate_number):
             cs2_compose.stamp_on_face(base, ctl, mesh, table, "plate_face",
                                       make_plate_painter(obj, table, plate_number, A, pw, ph))
         report["stamps"] = sorted(stamps) + (["plate_face"] if plate_number is not None else [])
-        # Revision 1: a gutter texel the bake margin averaged from two recolour slots (e.g.
+        # Revision 1: a gutter texel the bake margin averaged from two recolor slots (e.g.
         # roof G 0.17 + trim B 0.83) is meaningless and encodes to R+G+B 1.004 in 8 bits; keep
         # its dominant slot only (sum <= 1 by construction, no mixed tints in the gutters)
         c = ctl[..., 0:3]

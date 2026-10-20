@@ -40,7 +40,7 @@ GEOMETRY CONVENTIONS
     - `facing` (door, hatch) is "+X" "-X" "+Y" "-Y" or an (dx, dy) vector: the OUTWARD wall
       normal; the part is built for +X and yawed.
     - Every part gets a "UVMap" layer: cylinders/cubes use bmesh calc_uvs, custom shells a
-      per-face dominant-axis box projection in metres, tube_along its strip
+      per-face dominant-axis box projection in meters, tube_along its strip
       (u = k / segments with the seam on ring vertex 0, v = arc length / (2 pi r)).
       Generators normally overwrite these with cs2_asset.unwrap_into_quadrant.
     - No top-level side effects; nothing here shades, tags, joins or exports.
@@ -126,7 +126,7 @@ def _new_obj(name, bm, loc=(0, 0, 0), rot=(0, 0, 0), relief="geo"):
 
 
 def _box_project_uv(bm, layer=None, scale=1.0):
-    """Per-face dominant-axis planar projection in metres (no mirrored islands)."""
+    """Per-face dominant-axis planar projection in meters (no mirrored islands)."""
     layer = layer or bm.loops.layers.uv.get("UVMap") or bm.loops.layers.uv.new("UVMap")
     bm.normal_update()
     for f in bm.faces:
@@ -177,7 +177,7 @@ def _box_bm(size, drop=()):
         v.co = (v.co.x * sx, v.co.y * sy, v.co.z * sz)
     bm.normal_update()
     _drop_faces(bm, drop)
-    # metres-scale projection so the default UVs keep 3D proportions after the scale
+    # meters-scale projection so the default UVs keep 3D proportions after the scale
     _box_project_uv(bm)
     return bm
 
@@ -185,7 +185,7 @@ def _box_bm(size, drop=()):
 def _ring_bm(outer, inner, d0, d1, map_fn, faces=("outer", "inner", "top", "bottom")):
     """
     Rectangular ring (frame) in a (u, v, d) frame mapped to local XYZ by `map_fn`:
-    outer/inner are (w, h) rectangles centred on the origin, d0..d1 the depth extent.
+    outer/inner are (w, h) rectangles centered on the origin, d0..d1 the depth extent.
     Face groups: outer walls, inner walls, "top" (d1 rim) and "bottom" (d0 rim).
     """
     bm = bmesh.new()
@@ -249,7 +249,7 @@ def _mesh_world_bounds(obj):
 
 def add_cyl(name, r, depth, loc, rot=(0, 0, 0), segments=12, caps="both", r2=None):
     """
-    Cylinder (or cone when r2 differs) along local Z centred on `loc`, bmesh create_cone
+    Cylinder (or cone when r2 differs) along local Z centered on `loc`, bmesh create_cone
     with FAN caps (no n-gon). caps in {"both", "top", "bottom", "none"}: drop the caps
     that end up buried (rungs, posts, links, legs inside other parts). Rule of thumb from
     the plan: r < 0.02 m -> segments=4.
@@ -260,7 +260,7 @@ def add_cyl(name, r, depth, loc, rot=(0, 0, 0), segments=12, caps="both", r2=Non
 
 def add_box(name, size, loc, rot=(0, 0, 0), open_bottom=False, drop=()):
     """
-    Axis-aligned box of `size` (sx, sy, sz) centred on `loc`. open_bottom=True deletes the
+    Axis-aligned box of `size` (sx, sy, sz) centered on `loc`. open_bottom=True deletes the
     -Z face so the side-face bottom edges become engine-base edges (place with
     loc.z = sz / 2 for a ground part). `drop` is an extra set of face keys
     ("+X", "-X", "+Y", "-Y", "+Z", "-Z") to delete for buried faces.
@@ -329,7 +329,7 @@ def tube_along(name, pts, radius, segments=8, caps="none", bend_rings=8, fillet=
     before the corner and rejoins the outgoing one `f` after it, carrying `bend_rings`
     rings (both fillet ends included); straight runs get no intermediate rings.
     `f` = min(fillet, 0.5 * shorter adjacent span) with fillet=None meaning the fillets of
-    neighbouring bends meet (a continuous sweep, e.g. the chair J-stem). Ring frames are
+    neighboring bends meet (a continuous sweep, e.g. the chair J-stem). Ring frames are
     parallel-transported (no twist, no up-vector singularity).
     Ring count on a path with b bends and no touching fillets = 2 + b * bend_rings.
     UV strip: u = k / segments (seam on ring vertex 0), v = arc length / (2 pi radius).
@@ -343,7 +343,7 @@ def tube_along(name, pts, radius, segments=8, caps="none", bend_rings=8, fillet=
     P = [Vector(p) for p in pts]
     if len(P) < 2:
         raise ValueError(f"{name}: tube_along needs >= 2 points")
-    # centreline samples (position, tangent)
+    # centerline samples (position, tangent)
     dirs = []
     for a, b in zip(P, P[1:]):
         d = b - a
@@ -443,7 +443,7 @@ def tube_along(name, pts, radius, segments=8, caps="none", bend_rings=8, fillet=
 def flange(name, r, t=0.03, bolts=8, segs=16, loc=(0, 0, 0), axis="Z", bolt_geo=False,
            quad=QUAD_PAINT, quad_bolt=QUAD_GALV, caps="both"):
     """
-    Base / collar flange: a disc of radius r, thickness t, centred on `loc` with its axis
+    Base / collar flange: a disc of radius r, thickness t, centered on `loc` with its axis
     along `axis`. The bolt circle is painted (relief "map:bolts") unless bolt_geo=True,
     which adds `bolts` real 6-seg studs 0.03 m proud of the +axis face (ground-level leg
     and mast flanges only). Names: flange_<name>, bolt_<name>_<k>.
@@ -467,7 +467,7 @@ def flange(name, r, t=0.03, bolts=8, segs=16, loc=(0, 0, 0), axis="Z", bolt_geo=
 def gusset(name, a, b, t=0.02, loc=(0, 0, 0), rot=(0, 0, 0), quad=QUAD_PAINT):
     """
     Triangular web plate: right triangle in the local XZ plane with legs a (along +X) and
-    b (along +Z), thickness t across Y (centred). Place `loc` at the inside corner (the
+    b (along +Z), thickness t across Y (centered). Place `loc` at the inside corner (the
     beam/leg junction) and `rot` it into the joint. 8 tris. Name: gusset_<name>.
     """
     bm = bmesh.new()
@@ -564,7 +564,7 @@ def handrail(name, path_pts, h=1.10, knee=0.55, kick=0.10, post_every=1.5, segs=
 
 def grating(name, w, l, t=0.03, loc=(0, 0, 0), quad=QUAD_GALV, lip=0.03):
     """
-    OPAQUE catwalk grating w (X) by l (Y) by t, centred on `loc`: a top + bottom plate
+    OPAQUE catwalk grating w (X) by l (Y) by t, centered on `loc`: a top + bottom plate
     (relief "map:grate" - the holes are painted/normal-mapped; a see-through cutout would
     flip the whole surface to DefaultCutout) framed by a `lip`-wide rectangular rim ring.
     28 tris. Names: grate_<name>, grate_<name>_lip.
@@ -647,7 +647,7 @@ def sheave(name, r, w, loc, axis, segs=12, quad_rim=QUAD_GALV, quad_hub=QUAD_GAL
 def door(name, w=0.85, h=1.95, reveal=0.04, loc=(0, 0, 0), facing="+X", quad=QUAD_GALV,
          quad_frame=None):
     """
-    Personnel door on a wall: `loc` is the bottom-centre of the opening ON the wall face,
+    Personnel door on a wall: `loc` is the bottom-center of the opening ON the wall face,
     `facing` the outward wall normal. Frame = 2 jambs + head, 0.06 wide, `reveal` proud
     of the wall; the leaf sits 0.02 proud (recessed reveal - 0.02 behind the frame face,
     back face open against the wall; relief "map:seams" for the panel pressing), sill gap
@@ -685,7 +685,7 @@ def door(name, w=0.85, h=1.95, reveal=0.04, loc=(0, 0, 0), facing="+X", quad=QUA
 
 def hatch(name, w, h, reveal=0.03, loc=(0, 0, 0), facing="+X", quad=QUAD_GALV):
     """
-    Louvred access hatch on a wall: `loc` is the centre of the hatch ON the wall face,
+    Louvred access hatch on a wall: `loc` is the center of the hatch ON the wall face,
     `facing` the outward normal. A rectangular frame ring `reveal` proud, the panel 0.01
     proud inside it (relief "map:louvre", back face open) and two hinge blocks on one
     side. Names: hatch_<name>_panel / _frame / _hinge0 / _hinge1.
@@ -737,7 +737,7 @@ def drip_edge(box_obj, drop=0.06, t=0.02, quad=QUAD_GALV, lip=0.01):
 
 def axle_cap(name, r, loc, axis, quad=QUAD_GALV, studs_geo=True, segs=8, t=0.02):
     """
-    Axle end cap: `segs`-gon disc of radius r and thickness t whose BASE centre sits at
+    Axle end cap: `segs`-gon disc of radius r and thickness t whose BASE center sits at
     `loc`, growing outward along `axis` (signed, e.g. "-Y" for the far side of a sheave
     arm); only the outer cap face is built. Four studs (4-seg, caps top) when
     studs_geo=True, else the disc carries relief "map:bolts". Names: axlecap_<name>,

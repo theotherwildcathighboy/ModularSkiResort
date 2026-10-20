@@ -267,7 +267,7 @@ export function windowOf(area: HistoryArea | null, range: HistoryRange): History
   }
 }
 
-/** "seasonVs": last season's same 12 months (July-June), drawn grey behind this season's; null for the other ranges. */
+/** "seasonVs": last season's same 12 months (July-June), drawn gray behind this season's; null for the other ranges. */
 export function compareOf(area: HistoryArea | null, range: HistoryRange): HistoryBucket[] | null {
   if (!area || lengthOf(area) === 0 || effectiveRange(area, range) !== "seasonVs") return null;
   const s = seasonOf(lastKeyOf(area)) - 1;

@@ -36,7 +36,7 @@
 // COUNTS. Until the preview is validated (the frame after emission) the tool's PlannedPlant /
 // PlannedFell / PlannedRemove (what it emitted) are shown; from then on the census: plant =
 // PreviewPlant − PreviewCancelled (what an Apply plants), fell = PreviewThin, remove =
-// PreviewRemove (Round G3: both count only Delete Temps without Cancel — a cancelled delete keeps
+// PreviewRemove (Round G3: both count only Delete Temps without Cancel — a canceled delete keeps
 // its tree, ApplyObjectsSystem.cs:337-340, 474-482). "Trees now" counts every tree inside the run
 // that the census sees, including trees the game keeps hidden as Overridden (the §8.1 defect fix,
 // SkiGladeToolSystem header), so it can exceed what the eye counts.
@@ -59,7 +59,7 @@
 // ZERO ALLOCATION PER FRAME. Widgets are built once in OnCreate (vanilla: TempCostTooltipSystem.cs
 // :44-56). StringTooltip.value compares with object.Equals on the LocalizedString struct
 // (StringTooltip.cs:18 — boxes), so the target, level-name and status values are assigned only
-// when they change; a status line swaps value + colour on one widget, as vanilla
+// when they change; a status line swaps value + color on one widget, as vanilla
 // CityPolicyTooltipSystem.cs:139-159 does. NumberTooltip<int>.value compares through
 // IEquatable<int> (NumberTooltip.cs:24, no box) and IconTooltip.color is an enum compare
 // (IconTooltip.cs:31-39), so those are assigned every frame. LocalizedString.Id(key) is a struct
@@ -90,7 +90,7 @@ namespace SkiResortMod.Systems
         public const string KeyComplete = "SkiResort.GladeTooltip.COMPLETE";
         /// <summary>G3 fixer round (finding tool-2): complete below the target, spots blocked.</summary>
         public const string KeyCompleteBlocked = "SkiResort.GladeTooltip.COMPLETE_BLOCKED";
-        /// <summary>G3 fixer round (finding behaviour-2): complete above the target, nothing fellable.</summary>
+        /// <summary>G3 fixer round (finding behavior-2): complete above the target, nothing fellable.</summary>
         public const string KeyCompleteFixed = "SkiResort.GladeTooltip.COMPLETE_FIXED";
         public const string KeyClamped = "SkiResort.GladeTooltip.CLAMPED";
         public const string KeySaturated = "SkiResort.GladeTooltip.SATURATED";
@@ -115,7 +115,7 @@ namespace SkiResortMod.Systems
         /// <summary>Built once; index = level − 1 (LEVEL_NAME[1] … LEVEL_NAME[8]).</summary>
         private static readonly LocalizedString[] LevelNameText = BuildLevelNames();
 
-        // Status line (one widget, value + colour swapped on change). Index constants:
+        // Status line (one widget, value + color swapped on change). Index constants:
         private const int StHint = 0, StUnbound = 1, StBlocked = 2, StComplete = 3, StClamped = 4,
                           StSaturated = 5, StMoney = 6, StCompleteBlocked = 7, StCompleteFixed = 8;
 
@@ -361,7 +361,7 @@ namespace SkiResortMod.Systems
 
             if (state == GladePlanState.Complete)
             {
-                // G3 fixer round (findings tool-2 / behaviour-2): "already at this tree density"
+                // G3 fixer round (findings tool-2 / behavior-2): "already at this tree density"
                 // only when it is true. Plain int compares, no allocation.
                 bool counts = m_Tool.PlanHasCounts;
                 if (counts && m_Tool.PlanNow < m_Tool.PlanTarget && m_Tool.PlanShortfall > 0)
@@ -423,7 +423,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>One status widget; value and colour written only when the status changes.</summary>
+        /// <summary>One status widget; value and color written only when the status changes.</summary>
         private void ShowStatus(int status)
         {
             if (status != m_ShownStatus)

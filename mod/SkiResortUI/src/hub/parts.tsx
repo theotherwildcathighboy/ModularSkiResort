@@ -32,12 +32,12 @@
  *   - Vanilla's stable-width idiom: FullWidthDigits renders each number twice, the second copy
  *     with every digit replaced by "0" in a `.blind` child (index.js@1007800; index.css@127211
  *     `.blind_u0R{height:0;visibility:hidden}`): the cell is as wide as the widest digit string
- *     and never jitters. StableWidth / NumCell generalise it to several sample strings.
+ *     and never jitters. StableWidth / NumCell generalize it to several sample strings.
  *   - cs2/ui Tooltip (@564782) attaches listeners to its single child through a ref; use it for
  *     every hint (a Button's own `tooltipLabel` shows only while the content overflows).
  *   - Masked glyphs: vanilla's TintedIcon is a div with `mask-image: url(<src>)` and the icon
- *     colour as background (index.js@633525; index.css@28104 `.tinted-icon_iKo`). Glyph does
- *     the same with our own class, so the colour is ours (warning, lock) and not --iconColor.
+ *     color as background (index.js@633525; index.css@28104 `.tinted-icon_iKo`). Glyph does
+ *     the same with our own class, so the color is ours (warning, lock) and not --iconColor.
  */
 import { isValidElement, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -97,7 +97,7 @@ export function AssetIcon({ src, className }: { src: string; className: string }
   return <img src={src} className={className} onError={() => setFailed(true)} />;
 }
 
-/** A game glyph (Media/Glyphs/*.svg) drawn as a mask, coloured by `className`'s background. */
+/** A game glyph (Media/Glyphs/*.svg) drawn as a mask, colored by `className`'s background. */
 export function Glyph({ src, className }: { src: string; className?: string }): JSX.Element {
   return <div className={cx(styles.glyph, className)} style={{ maskImage: `url(${src})` }} />;
 }
@@ -243,9 +243,9 @@ export function NumCell({ samples, kind, fallbackClass, className, children }: {
 
 /**
  * Difficulty marker (spec 4.4 last paragraph; research 2.F.2): CSS shapes in em, outlines with
- * border longhands. Flat = hollow grey circle, green circle, blue square, black diamond (rotated
+ * border longhands. Flat = hollow gray circle, green circle, blue square, black diamond (rotated
  * square with a light outline), double black = two diamonds, pending (-1) = hollow at 0.4 opacity,
- * cannot be rated (-2, fixer round) = a hollow circle in the warning colour.
+ * cannot be rated (-2, fixer round) = a hollow circle in the warning color.
  */
 export function BandMarker({ band }: { band: number }): JSX.Element {
   let inner: JSX.Element;
@@ -300,7 +300,7 @@ export function InfoLine({ label, value, tip, mark, header, sub, info, flag, fla
   tip?: ReactNode;
   /** Render the "≈" slot (null = an empty slot of the same width; undefined = no slot). */
   mark?: "≈" | "…" | null;
-  /** Section title row (upper case, normal colour). */
+  /** Section title row (upper case, normal color). */
   header?: boolean;
   /** Indented sub-row (Money rows under RUNNING COSTS). */
   sub?: boolean;
@@ -310,7 +310,7 @@ export function InfoLine({ label, value, tip, mark, header, sub, info, flag, fla
    *  Gameface, ViewTiles.tsx E1 fixer F13). */
   info?: boolean;
   /** T80 (Richard item 3): a row whose 0 has a cause says it after the label, the problem band's Warning glyph + a short
-   *  warning-coloured word ("No ski school"), instead of a tooltip sentence. Same flex box as `info`. */
+   *  warning-colored word ("No ski school"), instead of a tooltip sentence. Same flex box as `info`. */
   flag?: string;
   /** T86 (field 2026-10-19): the flag is a state, not a fault ("No run counts yet"): the dim Info glyph and dim text. */
   flagDim?: boolean;
@@ -359,7 +359,7 @@ export function Divider(): JSX.Element {
   return <div className={styles.divider} />;
 }
 
-/** Run-type stripe (the U1 colours; natural = two stacked bars, the dashed outline's echo). */
+/** Run-type stripe (the U1 colors; natural = two stacked bars, the dashed outline's echo). */
 export function KindStripe({ kind }: { kind: number }): JSX.Element {
   if (kind === 3) {
     return (

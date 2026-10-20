@@ -119,7 +119,7 @@ TEXT_FILL = 0.85                      # a line's width <= TEXT_FILL x the face w
 TEXT_CAP_FRAC = 0.55                  # single line cap <= 0.55 x face height
 TIER_T1 = (0.40, 4.0)                 # cap >= m, stroke >= px (design 2.0)
 
-# encoded sRGB colours (cs2_bldg constants, recipes/school.py, recipes/lodge_hut.py)
+# encoded sRGB colors (cs2_bldg constants, recipes/school.py, recipes/lodge_hut.py)
 WHITE = 0.92
 BOARD_BROWN = (0.20, 0.14, 0.10)
 SCHOOL_RED = (0.62, 0.10, 0.08)
@@ -140,7 +140,7 @@ def _seed(face):
 class Kind:
     key: str            # "<host>.<board>"
     host: str           # school | hut | p1 | p2 | l5 | tram
-    size: tuple         # (w, h) metres of the face
+    size: tuple         # (w, h) meters of the face
     rect: tuple         # (x0, y0, x1, y1) texels
     state: str          # "painted" | "reserved"
     lit: bool = False   # name sign: Emissive letters
@@ -225,7 +225,7 @@ SHEET = SHEET + (
 PATROL_RED = (0.72, 0.09, 0.08)       # recipes/patrol.PATROL_RED = cs2_bldg.PATROL_RED_SRGB
 PATROL_WHITE = 0.92                   # recipes/patrol.WHITE
 #: the P1 info board (recipes/_civic.BarsPainter, contract 3.5): white field, three LINEAR-rgb bars
-#: (centre height 0..1 from the bottom, length share), left-aligned as the viewer sees the board
+#: (center height 0..1 from the bottom, length share), left-aligned as the viewer sees the board
 INFO_BARS_LIN = ((0.78, 1.00, (0.05, 0.20, 0.45)), (0.52, 0.80, (0.05, 0.30, 0.12)),
                  (0.26, 0.55, (0.05, 0.20, 0.45)))
 _PATROL_PAINT = {
@@ -245,11 +245,11 @@ SHEET = tuple(replace(k, state="painted", draws=_PATROL_PAINT[k.key][0], note=_P
 # 4.00 x 0.60 m header (1,200 px) fits only in the top rows and would leave 72 free rows (SS1 keeps >= 200 for
 # appends), so the header face is split where it is plain field (y +-1.30, between the letters' +-1.21 and the
 # snowflakes' +-1.47): the 2.60 m lettering panel (780 px, the last shelf's free run x 1260-2040) and two
-# 0.70 m snowflake end panels that share ONE rect (the flake is centred in each; free space above the lessons).
-# Field = the colour the host band's slot-1 field shows: welcome_sign.SLOTS[1] (0.15, 0.31, 0.225) multiplied into
+# 0.70 m snowflake end panels that share ONE rect (the flake is centered in each; free space above the lessons).
+# Field = the color the host band's slot-1 field shows: welcome_sign.SLOTS[1] (0.15, 0.31, 0.225) multiplied into
 # the band's 0.80 albedo in LINEAR space (cs2_preview._tinted_base_image's model, the look Richard reviews), so the
 # panel meets the beam trim without a step; ControlMask 0 here (the gate has one VariationSet). [U] how the game
-# applies a VariationSet colour (as linear like the preview, or decoded from sRGB, which would read darker on the
+# applies a VariationSet color (as linear like the preview, or decoded from sRGB, which would read darker on the
 # host) decides the in-game match; the field is one constant, repaintable before the first import.
 GATE_FIELD = (0.333, 0.47, 0.404)     # lin_to_srgb(srgb_to_lin(0.80) x (0.15, 0.31, 0.225))
 GATE_CREAM = (0.93, 0.89, 0.78)       # welcome_sign.CREAM_SRGB
@@ -431,7 +431,7 @@ def _LD():
 
 def _canvas(base_l, rect, size, last):
     """A cs2_bldg.DisplayCanvas over the texel rect of the LINEAR (A, A, 4) array (rows =
-    UV v, bottom-up): x right / y down from the face's top-left, in face metres."""
+    UV v, bottom-up): x right / y down from the face's top-left, in face meters."""
     K = _K()
     x0, y0, x1, y1 = rect
     w, h = x1 - x0, y1 - y0
@@ -456,8 +456,8 @@ def _tier(cap, stroke_px):
 
 
 def word_cov(body, cap, cx, cy, W, H, w, h):
-    """(h, w) coverage (rows bottom-up) of one word at cap height `cap` centred on (cx, cy) face
-    metres (y up from the bottom edge). Bfont's "1" is a bare stem that reads as I / l, so a lone
+    """(h, w) coverage (rows bottom-up) of one word at cap height `cap` centered on (cx, cy) face
+    meters (y up from the bottom edge). Bfont's "1" is a bare stem that reads as I / l, so a lone
     "1" is the lift boards' flagged one (cs2_liftdress.ONE_PRIMS, the seat-plate digit)."""
     LD = _LD()
     if body == "1":
@@ -468,7 +468,7 @@ def word_cov(body, cap, cx, cy, W, H, w, h):
 
 def draw_text_vec(lines, fg=WHITE, bg=None, fill=TEXT_FILL, cap_frac=TEXT_CAP_FRAC, pitch=1.45):
     """Words in the VECTOR font (Bfont, cs2_liftdress._text_cov, 8 x 8 supersampled): each line
-    centred, the block centred; cap = cap_frac x the face height / the line stack, shrunk so the
+    centered, the block centered; cap = cap_frac x the face height / the line stack, shrunk so the
     widest line is <= fill x the face width. Records cap / stroke (Bfont stem ratio x cap) /
     tier; the coverage also feeds the Emissive of a lit kind."""
     lines = (lines,) if isinstance(lines, str) else tuple(lines)
@@ -498,7 +498,7 @@ def draw_text_vec(lines, fg=WHITE, bg=None, fill=TEXT_FILL, cap_frac=TEXT_CAP_FR
 
 def draw_bibs_vec(n=8, seed=0, colours=None, num_fg=WHITE, bg=BOARD_BROWN):
     """cs2_bldg.draw_bibs (the school bib board) with VECTOR numbers: same vests, same seeded
-    colour order, same cap (min(0.55 x bib width, 0.30 x bib height))."""
+    color order, same cap (min(0.55 x bib width, 0.30 x bib height))."""
     def draw(cv):
         K, LD = _K(), _LD()
         cols = colours or K.BIB_SRGB
@@ -555,7 +555,7 @@ def draw_frame(width=0.02, inset=0.0, fg=WHITE):
 
 def draw_bars(bars_lin=INFO_BARS_LIN, white=0.90):
     """Fine-detail step 3d: the P1 info board (recipes/_civic.BarsPainter's design, contract 3.5): a white
-    field and horizontal colour bars (centre height 0..1 from the bottom, length share of 0.72 W from 0.14 W,
+    field and horizontal color bars (center height 0..1 from the bottom, length share of 0.72 W from 0.14 W,
     half height 0.065 H), LINEAR rgb converted to the canvas' sRGB. No text."""
     def draw(cv):
         cv.fill(white)
@@ -569,7 +569,7 @@ def draw_bars(bars_lin=INFO_BARS_LIN, white=0.90):
 
 def draw_flake(d=0.36, fg=(0.93, 0.89, 0.78), bg=None):
     """Fine-detail step 3d: the welcome sign's snowflake ornament (welcome_sign.paint_band: ski_launcher_glyph
-    snowflake(128, 128, 112, 24, bw=18) rendered 8 x 8 supersampled) at diameter `d` m, centred on the face."""
+    snowflake(128, 128, 112, 24, bw=18) rendered 8 x 8 supersampled) at diameter `d` m, centered on the face."""
     def draw(cv):
         import ski_launcher_glyph as G
         if bg is not None:
@@ -592,7 +592,7 @@ def draw_flake(d=0.36, fg=(0.93, 0.89, 0.78), bg=None):
 # as the swanky lodge on the fonts". The sheet's lettered boards are drawn in INSTALLED Windows
 # typefaces through the SAME vector path as Bfont (a Blender FONT curve with the TTF loaded ->
 # triangulated outline -> 8 x 8 supersampled coverage, welcome_sign._tri_coverage): only the rendered
-# texels ship. The TTF files are NEVER copied into the repo or shipped (Windows font licences allow
+# texels ship. The TTF files are NEVER copied into the repo or shipped (Windows font licenses allow
 # rendering into our bitmaps, not redistribution of the file); TYPEFACES pins each file's sha1 so a
 # changed / missing system font stops the paint loudly instead of silently repainting the sheet.
 # ======================================================================================
@@ -726,7 +726,7 @@ def _xsect(tris, axis, at):
 
 
 def ttf_ref(tf):
-    """(cap bottom, cap top, stem, thin) in font units: the cap box of 'H' (every line is scaled and centred
+    """(cap bottom, cap top, stem, thin) in font units: the cap box of 'H' (every line is scaled and centered
     on it, so a Q tail or a comma never moves the baseline); stem = the 'I' cut at mid cap height (the
     vertical stroke, serifs excluded); thin = the thinnest of the 'H' crossbar and the 'O' bowl at its top
     and bottom (the horizontal hairlines of a serif face) - SS3 checks the THINNER of stem and thin."""
@@ -748,7 +748,7 @@ def ttf_ref(tf):
 
 
 def ttf_line(body, cap, tf, track=1.0):
-    """One line in `tf` at cap height `cap` (m): (triangles in metres centred on the ink's width and on the
+    """One line in `tf` at cap height `cap` (m): (triangles in meters centered on the ink's width and on the
     cap box, width_m, stem_m, thin_m)."""
     lo, hi, stem, thin = ttf_ref(tf)
     s = float(cap) / (hi - lo)
@@ -766,7 +766,7 @@ def track_for(tf, tracking_cap):
 
 
 def ttf_cov(tris, cx, cy, W, H, w, h):
-    """(h, w) coverage (rows bottom-up) of metre triangles centred on (cx, cy) face metres (y up)."""
+    """(h, w) coverage (rows bottom-up) of meter triangles centered on (cx, cy) face meters (y up)."""
     import welcome_sign
     ox, oy = cx - W / 2.0, cy - H / 2.0
     tt = [tuple((x + ox, y + oy) for x, y in t) for t in tris]
@@ -776,7 +776,7 @@ def ttf_cov(tris, cx, cy, W, H, w, h):
 def draw_type(lines, face, fg=WHITE, bg=None, fill=TEXT_FILL, cap_frac=TEXT_CAP_FRAC, pitch=1.45,
               tracking=0.0, flank=None, flank_frac=0.42, flank_gap=0.55, cap_max=None):
     """Nitpick C: words in an installed TYPEFACE (TYPEFACES[face]) through the vector path. Layout as
-    draw_text_vec (each line centred, the block centred; cap = cap_frac x the face height / the line stack,
+    draw_text_vec (each line centered, the block centered; cap = cap_frac x the face height / the line stack,
     shrunk so the widest line + its ornaments is <= fill x the face width; cap_max caps it) plus letter
     spacing `tracking` (x the cap) and `flank` = "diamond": a small lozenge (flank_frac x the cap) each side
     of a single line, flank_gap x the cap from the ink - the lodge-sign ornament. Records the face, file,
@@ -816,7 +816,7 @@ def draw_type(lines, face, fg=WHITE, bg=None, fill=TEXT_FILL, cap_frac=TEXT_CAP_
             if flank != "diamond":
                 raise ValueError(f"draw_type: flank {flank!r}")
             r = 0.5 * flank_frac * cap
-            cyd = 0.5 * cv.H                           # one line: centred (canvas y is DOWN from the top)
+            cyd = 0.5 * cv.H                           # one line: centered (canvas y is DOWN from the top)
             xo = 0.5 * widths[0] + flank_gap * cap + r
             m = np.zeros(cv.x.shape, bool)
             for sx in (-1.0, 1.0):
@@ -890,7 +890,7 @@ def _dilate(arr, rect, d=DILATE):
 
 def paint_sheet(kinds=SHEET, A=SHEET_A):
     """{map: (array, is_data)} of the whole sheet + {kind key: metrics}. BaseColor painted
-    LINEAR then encoded sRGB (the importer reads the PNG as colour), Emissive = lit letters x
+    LINEAR then encoded sRGB (the importer reads the PNG as color), Emissive = lit letters x
     EMISSIVE_SRGB (encoded), ControlMask 0, MaskMap (0, 0, 0, SMOOTH), Normal flat. Reserved
     rects stay the background (blank)."""
     base_l = np.zeros((A, A, 4), np.float32)
@@ -986,7 +986,7 @@ def _face_frame(obj):
 
 
 def build_sign_set(faces, spec, yaw_deg=0.0, kinds=SHEET, A=SHEET_A, size_tol=0.002):
-    """The sign-set object (metres, Z up, the host's NET-ORIENTED frame, not linked to the
+    """The sign-set object (meters, Z up, the host's NET-ORIENTED frame, not linked to the
     scene): one quad per routed face at its own world position, UV layer "UVMap" = its sheet
     rect upright as seen from outside; face attribute "part" + the part table (face names).
     Raises when a face's size differs from its sheet kind by more than size_tol."""
@@ -1039,7 +1039,7 @@ def build_sign_set(faces, spec, yaw_deg=0.0, kinds=SHEET, A=SHEET_A, size_tol=0.
 
 def face_record(obj, yaw_deg=0.0):
     """Nitpick C: a single-quad label face as a Write Everywhere target (another fleet lays the WE layout out):
-    centre, outward normal, right / up (as seen from outside: right = -n x up, the DisplayPainter frame) in the
+    center, outward normal, right / up (as seen from outside: right = -n x up, the DisplayPainter frame) in the
     prefab-local GAME frame through the SAME chain as build_sign_set (the host's yaw, orient_for_net's -90 deg
     about Z, export_fbx (x, y, z) -> (x, z, -y), then the game's x negation): game x = -authoring y (fine_detail.
     X_CONVENTION; gx NEGATED, x-sign gate settled N 2026-10-15; the x of every vector is negated too), and the

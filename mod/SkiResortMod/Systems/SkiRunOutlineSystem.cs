@@ -22,18 +22,18 @@
 //     side our run shares with another outlined area is dropped by us exactly when the game drops it; the DOT set
 //     (nodeMap) holds our own dots, one per corner position per frame (Verification fact 16: mirrored, not waived);
 //   * only areas whose PrefabRef is one of our four run prefab entities are DRAWN;
-//   * colours: the RenderingSettingsData singleton with the game's fallbacks (:666-680), dots white at alpha 0.5 in the game
+//   * colors: the RenderingSettingsData singleton with the game's fallbacks (:666-680), dots white at alpha 0.5 in the game
 //     (:408) UNDER ours; T36 (2026-10-16): OUR dots are opaque white with a thin dark rim (RunOutlineRules.NodeDot*), so the
 //     corner to connect to is found on snow, grass and forest; line width and dot diameter both 0.3 × RunOutlineSize m
 //     (8 → 2.4 m, 16 → 4.8 m); while a run is drawn / edited the same dots also mark the nodes of our EXISTING run
 //     areas within RunOutlineRules.NeighbourMarginM (150 m) of the drawn bounds (item 41: the corner to connect to);
 //     StyleFlags.Projected (the piste-map choice) so a long side lies on the terrain instead of cutting through a
 //     ridge, where the game draws surfaces as straight 3D lines (styleFlags 0, :363). The game's own thin line and
-//     dots still draw underneath in the same colour; which one is on top is unverified (cosmetic).
-//   * Not mirrored, none applies to a run: the Lot half colour, MapTile dashes, the infoview pass, editor mode
+//     dots still draw underneath in the same color; which one is on top is unverified (cosmetic).
+//   * Not mirrored, none applies to a run: the Lot half color, MapTile dashes, the infoview pass, editor mode
 //     (we arm in Game mode only; the editor keeps the game's thin outline).
 // Which runs show: exactly the ones the game outlines — Temp areas flagged Create / Delete / Select / Modify /
-// Replace / Parent (not Hidden), and any area carrying Error or Warning (an untouched neighbour shows nothing
+// Replace / Parent (not Hidden), and any area carrying Error or Warning (an untouched neighbor shows nothing
 // unless hovered or flagged); corner dots only for Create / Modify; a 1-node Temp (the cursor before the first
 // click) draws one dot; the closing side only when the run is complete.
 //
@@ -211,7 +211,7 @@ namespace SkiResortMod.Systems
                 }
                 if (!ours)
                     return;
-                // T36 follow-up: the drawn areas' bounds (Temp Create / Modify of ours), and the room for the neighbour dots.
+                // T36 follow-up: the drawn areas' bounds (Temp Create / Modify of ours), and the room for the neighbor dots.
                 float4 bounds = DrawnBounds();
                 bool neighbours = RunOutlineRules.HasBounds(bounds);
                 if (neighbours)
@@ -380,7 +380,7 @@ namespace SkiResortMod.Systems
         private OverlayRenderSystem m_Overlay;
         private PrefabSystem m_PrefabSystem;
         private EntityQuery m_PrefabScanQuery;
-        private EntityQuery m_RunAreaQuery;           // T36: our existing run areas (neighbour dots)
+        private EntityQuery m_RunAreaQuery;           // T36: our existing run areas (neighbor dots)
         private EntityQuery m_BorderQuery;            // the game's (header WHAT IT DRAWS)
         private EntityQuery m_SurfaceQuery;           // THE GUARD
         private EntityQuery m_RenderingSettingsQuery;
@@ -659,7 +659,7 @@ namespace SkiResortMod.Systems
         private void Draw(int size)
         {
             long t0 = Stopwatch.GetTimestamp();
-            // AreaBorderRenderSystem.cs:666-680: the game's fallbacks, then the singleton's four colours.
+            // AreaBorderRenderSystem.cs:666-680: the game's fallbacks, then the singleton's four colors.
             var hovered = new UnityEngine.Color(0.5f, 0.5f, 1f, 0.5f);
             var error = new UnityEngine.Color(1f, 0.25f, 0.25f, 0.5f);
             var warning = new UnityEngine.Color(1f, 1f, 0.25f, 0.5f);

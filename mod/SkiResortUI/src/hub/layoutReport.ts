@@ -35,7 +35,7 @@
  *     when scrollHeight - 1 > offsetHeight (installed index.js@638418), so a short view that logs over=0
  *     shows no bar (field test 9: every view at 100 %). Same reads as the other fields, no extra pass.
  *   - WHEN IT MEASURES (Round F7, D6; field test 7 log-audit D12 and hub-ux §5 item 10 with its
- *     Verification claim 17: from L529 to L648 every `viewH` equalled the PREVIOUS view's height, and
+ *     Verification claim 17: from L529 to L648 every `viewH` equaled the PREVIOUS view's height, and
  *     `list=0 rows=3` - one animation frame after the change, Gameface had not laid out the new view
  *     yet [cause unverified: Gameface computes layout after the frame's script, likely]). A measure now
  *     starts on the SECOND animation frame after the change and repeats once a frame until two

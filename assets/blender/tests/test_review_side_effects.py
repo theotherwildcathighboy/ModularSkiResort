@@ -36,7 +36,7 @@ without it, and cs2_review.write_pack leaves the build session exactly as it fou
      (Nothing is saved; the real review file is only copied.)
   5. Vanilla-prop stand-ins (DECISIONS 183): tests/test_review_subobjects.py runs in this process before part 4
      (its own file, also runnable alone in ~2 s): a pack whose manifest holds N sub-object rows gets N
-     labelled boxes of the right bounds in SUB, every shipped manifest row maps through the generators' own
+     labeled boxes of the right bounds in SUB, every shipped manifest row maps through the generators' own
      box test, review_live.props() swaps SUB <-> SUB_NOPROPS. A failure there fails this test too.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_review_side_effects.py

@@ -82,7 +82,7 @@ namespace ResortBatch
                   $"CW corner (0,20) aims ({ax:F4},{az:F4}), want (0.7071,-0.7071)");
             Check(MastAimRules.Aim(rx, ry, rz, 4, 3, out ax, out az) && Near(ax, s2, 1e-4) && Near(az, -s2, 1e-4), w,
                   $"CCW corner (0,20) aims ({ax:F4},{az:F4}), want (0.7071,-0.7071) (winding-proof)");
-            // Every corner of both windings aims toward the centre (10,10).
+            // Every corner of both windings aims toward the center (10,10).
             bool allIn = true;
             for (int k = 0; k < 4; k++)
             {

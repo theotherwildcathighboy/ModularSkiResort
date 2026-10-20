@@ -181,11 +181,11 @@
 // round-4-contract-skeptic.md MUST-2, hub group; Richard's ruling DECISIONS 171: an unpowered lift of every type carries no
 // guests; contract 6 unchanged — no field, binding or enum value is new):
 //   * capacity −1 ("–") for EVERY lift row that does not carry: after the power block (not moved), capacity =
-//     HubRules.LiftCapacityShown(capacity, LiftServedRule.Carries(complete, powered, closed: false)). O2 generalised: the
+//     HubRules.LiftCapacityShown(capacity, LiftServedRule.Carries(complete, powered, closed: false)). O2 generalized: the
 //     tram keeps its own `shuttle.State == Running` test as well (both must hold). The area total sums capacity ≥ 0 only, so
 //     "Design capacity, all lifts" drops by the lift's share and reads "–" when no lift of the area carries.
 //   * `powered` is the census's one reading of the lift's BASE station (ruling 3: the top station needs no power, it is
-//     fed through the modelled lift line; nothing here reads a station's consumer): the score's LiftScoreView.Powered, else
+//     fed through the modeled lift line; nothing here reads a station's consumer): the score's LiftScoreView.Powered, else
 //     the hub's own CopyServeLifts read — both through LiftCensusSystem.ReadLiftPower and its flicker guard.
 //   * Status (LiftStatusOf(state, powered): "No power"), the chairs count and the ride time are unchanged; a powered
 //     (carrying) row computes the same float as before (LiftCapacityShown(c, true) == c). Upkeep is not this file's: power
@@ -564,7 +564,7 @@ namespace SkiResortMod.Systems
         private readonly List<int> m_LiftOrder = new List<int>(8);
         private readonly List<int> m_LiftOrdinals = new List<int>(8);
         private readonly Dictionary<Entity, int> m_BaseUse = new Dictionary<Entity, int>();
-        private readonly Dictionary<Entity, int> m_TopUse = new Dictionary<Entity, int>();        // fixer round, behaviour-4
+        private readonly Dictionary<Entity, int> m_TopUse = new Dictionary<Entity, int>();        // fixer round, behavior-4
         private readonly List<string> m_SignCustomNames = new List<string>(4);                   // fixer round, u2-data-02
         private readonly List<int> m_SignFallbackN = new List<int>(4);
         private readonly HashSet<string> m_NameScratch = new HashSet<string>(StringComparer.Ordinal);
@@ -1710,7 +1710,7 @@ namespace SkiResortMod.Systems
             // the attraction's view, this call fills servedBy: a linked run shows the lift of the run it is served through.
             m_RunLinks.Build(m_RunOutlines, m_RunAreas);
             // T54 probe 1 (cat-track-run.md §1, D2): a cat track is a LEAF of the link pass (served at most, never serves a
-            // neighbour), so one that crosses a black run does not serve it.
+            // neighbor), so one that crosses a black run does not serve it.
             m_LeafRuns.Clear();
             bool anyLeaf = false;
             for (int i = 0; i < m_RunsNext.Count; i++)
@@ -1843,7 +1843,7 @@ namespace SkiResortMod.Systems
                 int chairs = c.Chairs;
                 if (shuttleRow)
                 {
-                    // Richard's ruling O2 (2026-10-11, DECISIONS 171; round-3-review-behaviour #2 fix text): a Held (unpowered)
+                    // Richard's ruling O2 (2026-10-11, DECISIONS 171; round-3-review-behavior #2 fix text): a Held (unpowered)
                     // tram carries nobody (the cabins stand at their terminals), so it adds NO capacity to the area total while
                     // its status reads No power. Status (LiftStatusOf) and the cabins count (2/2) are untouched.
                     capacity = state == 0 && shuttle.State == ShuttleState.Running
@@ -1875,7 +1875,7 @@ namespace SkiResortMod.Systems
                     }
                 }
                 // Phase D (round-4-contract §2.6 step 2, D9; inserted after the power block, which stays where it was:
-                // round-4-contract-skeptic.md MUST-2; DECISIONS 171 ruling 1 generalises O2 to every lift type): a lift that does
+                // round-4-contract-skeptic.md MUST-2; DECISIONS 171 ruling 1 generalizes O2 to every lift type): a lift that does
                 // not carry (LiftServedRule.Carries: complete, powered at its BASE station — ruling 3, the census reads only the
                 // base's consumer — and not closed) has no capacity: −1 ("–"), left out of the area total below. Status, chairs
                 // and ride time are untouched. capacity is first read after this line (the area sum, CapacityPerHour), so both
@@ -1967,7 +1967,7 @@ namespace SkiResortMod.Systems
                 LiftStats l = m_LiftsNext[k];
                 LiftCensus.Row c = m_CensusRows[k];
                 string defaultName = LiftDefault(m_LiftOrdinals[k]);
-                // Header "lift names" (amended, behaviour-4): live base's name, else an unshared live top's.
+                // Header "lift names" (amended, behavior-4): live base's name, else an unshared live top's.
                 Entity baseE = ToEntity(c.Base), topE = ToEntity(c.Top);
                 string custom = null;
                 bool fromBase = false;

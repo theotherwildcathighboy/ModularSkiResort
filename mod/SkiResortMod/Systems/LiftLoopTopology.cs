@@ -66,10 +66,10 @@ namespace SkiResortMod.Systems
         /// (LC-REF). Default false; LiftLoopCache.BuildShuttles sets it true (the only Shuttle-mode caller).</summary>
         public bool ShuttleDockReach;
 
-        /// <summary>Shuttle gap window, metres (inclusive): two track ropes 2 × GaugeHalfM apart (tram 11 m, R28).</summary>
+        /// <summary>Shuttle gap window, meters (inclusive): two track ropes 2 × GaugeHalfM apart (tram 11 m, R28).</summary>
         public const float ShuttleGapMinM = 4f, ShuttleGapMaxM = 24f;
 
-        /// <summary>Longest dock run, metres (= LiftLoopCache.MaxWheelRunMeters :459, the same reasoning: the tram's
+        /// <summary>Longest dock run, meters (= LiftLoopCache.MaxWheelRunMeters :459, the same reasoning: the tram's
         /// stub tip sits 6.5 m out from its dock; anything beyond 30 m is a mis-located dock).</summary>
         public const float MaxDockRunM = 30f;
 
@@ -445,7 +445,7 @@ namespace SkiResortMod.Systems
         /// The tram's line terminal is the HV stub tip's track rope: lateral ± GaugeHalfM off the line axis, at rope height
         /// (AxleM 26.25 m on the tower stubs), 12 m out - 28.9 / 30.4 m from the station ORIGIN, past the 20 m
         /// StationTerminalRadius that fits a chair stub (field 2026-10-15: "nearest station 30m"/"29m"), though it is a few
-        /// metres from the station's own docks. A terminal belongs to a station when it is within StationTerminalRadius of
+        /// meters from the station's own docks. A terminal belongs to a station when it is within StationTerminalRadius of
         /// the origin (as before) OR within MaxDockRunM of either finite dock: the same distance the dock step already
         /// tolerates (a longer run is refused there), and the docks come from the catalog row, so the reach follows the
         /// prefab (T14's x mirror moves stub and docks together). The nearest station by that reach wins; ties keep the
@@ -459,7 +459,7 @@ namespace SkiResortMod.Systems
             {
                 float dOrigin = math.distance(position, stations[i].Position);
                 float dDock = DockReachM(stations[i], position);
-                // Score 1 = exactly at the edge of the reach; the smaller of the two normalised distances.
+                // Score 1 = exactly at the edge of the reach; the smaller of the two normalized distances.
                 float scoreOrigin = dOrigin / StationTerminalRadius;
                 float scoreDock = float.IsNaN(dDock) ? float.MaxValue : dDock / MaxDockRunM;
                 bool viaDock = scoreDock < scoreOrigin;

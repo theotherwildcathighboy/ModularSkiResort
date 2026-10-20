@@ -7,7 +7,7 @@ skeptic FS12 SG7). Every gate runs on the real school build AND on a mutated inp
 
 SHEET (cs2_signset.SHEET / paint_sheet)
   SS1 layout       rects inside the 2048^2 sheet, >= 6 px gutters, no overlap, size x 300 px/m
-                   (negatives: an overlapping copy, a rect 3 px from a neighbour, one off the sheet)
+                   (negatives: an overlapping copy, a rect 3 px from a neighbor, one off the sheet)
   SS2 vector only  paint_sheet with cs2_bldg._font5x7 trapped (raises if called) succeeds
                    (negative: the 5x7 draw_text on a canvas trips the same trap)
   SS3 stroke       every word / number >= 4 px stroke; SKI SCHOOL and RESTAURANT tier T1
@@ -259,7 +259,7 @@ def ss8_typography(metrics):
 
 
 def ss9_blank(maps, metrics):
-    """SS9: hut.picto is a BLANK board: inside the rim the rect is one flat colour (no pictogram), the rim is the
+    """SS9: hut.picto is a BLANK board: inside the rim the rect is one flat color (no pictogram), the rim is the
     hut trim, no emissive. Negative: the old fork-and-knife draw on the same rect leaves pictogram texels."""
     base = maps["BaseColor"][0]
     emi = maps["Emissive"][0][..., :3].max(axis=-1)
@@ -459,8 +459,8 @@ def sg7():
 # ======================================================================================
 
 def rows():
-    # kit colour variants (2026-10-12): the UNCOLOURED props' CIDs = their staged .cid files; the six COLOURED
-    # props' base prefabs are retired from staging (no Parent colour ships) and every staged variant's .cid = its
+    # kit color variants (2026-10-12): the UNCOLORED props' CIDs = their staged .cid files; the six COLORED
+    # props' base prefabs are retired from staging (no Parent color ships) and every staged variant's .cid = its
     # seeded CID
     bad = [p for p, k in FD.KIT.items() if not k.coloured and FD.staged_cid(p) != k.cid]
     ok(not bad, f"KIT {sum(1 for k in FD.KIT.values() if not k.coloured)} uncoloured kit CIDs = the staged .cid "
@@ -531,7 +531,7 @@ def rows():
        "REJ negative (building): a school cone row on either rejected mixed-spawn GUID raises")
     ok(bool(e3) and "not dump-verified" in e3, "REJ negative (building): an unverified GUID raises")
     ok(bool(e4) and "dressing-kit" in e4, "REJ negative (building): a kit row with a foreign CID raises")
-    # kit colour variants (2026-10-12): the retired Parent base CID and a colour set that is not the variant's raise
+    # kit color variants (2026-10-12): the retired Parent base CID and a color set that is not the variant's raise
     rk = sch0.sub_objects[rack]
     e5 = _raises(rack, m_Object=FD.KIT[rk["prefab"]].cid)
     e6 = _raises(rack, colour_set="green")

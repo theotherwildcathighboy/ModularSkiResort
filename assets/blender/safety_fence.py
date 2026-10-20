@@ -9,13 +9,13 @@ safety_fence_stage.py (pure Python, no bpy).
     blender --background --factory-startup --python-exit-code 1 --python safety_fence.py -- \
         --out ../import/fences/A --export [--preview ../preview/fences/A] [--review] [--stage]
 
-THE ASSETS (prefab-local metres: x lateral, y up, z travel along the lane)
+THE ASSETS (prefab-local meters: x lateral, y up, z travel along the lane)
     SkiSafetyNetA       the LANE MESH tile the vanilla curve shader repeats along a drawn fence
                         (the FenceIndustrialPieceHigh01 Mesh pattern: posts baked into the tile).
                         One 4.000 m tile, z in [-2, +2], two 2 m bays, vertex columns every 0.5 m so
                         TilingCount 2 / 4 / 8 all clip on columns (clipping collapses vertices; it
                         cannot cut a triangle). Posts: 6-sided, circumradius 17.5 mm, y -0.15 .. 1.55
-                        (15 cm in the snow), flats facing the travel axis, centre 0.020 m after each
+                        (15 cm in the snow), flats facing the travel axis, center 0.020 m after each
                         bay start (z = -1.98 and +0.02) so post AND cap lie inside [s, s + 0.040].
                         Caps: black 6-sided, circumradius 22.5 mm, y 1.52 .. 1.58. Net: one plane per
                         bay at x = +0.020 (tied to one side of the posts), hem y -0.10 (buried), top
@@ -35,7 +35,7 @@ TEXTURES (SkiSafetyNetA 1024 px; LOD1 shares LOD0's maps through sharedAssets)
     post strip  rows 0..319, alpha 255: post band (6 x 16 rows; LOD1 3 x 32), dark clip marks at
                 y 0.20 / 1.20, black cap block.
     ControlMask net G = 1 (slot 2), posts B = 1 (slot 3), caps / clips 0, A = 0. MaskMap R = G = B = 0,
-    A smoothness net 0.35 / posts 0.45 / caps 0.30. Normal flat. Recolour texels RGB 0.80
+    A smoothness net 0.35 / posts 0.45 / caps 0.30. Normal flat. Recolor texels RGB 0.80
     (cs2_asset.RECOLOR_ALBEDO): the orange comes from the mesh prefab's ColorProperties (PAD_RGB).
     settings.json: sharedAssets (LOD1 -> LOD0 maps), LOD1 Skip and the Surface block
     {"materialTemplate": "CurvedHashedCutout", "needsAlphaClip": true, "alphaCutoff": 0.54}
@@ -103,7 +103,7 @@ POST_R, POST_SIDES = 0.0175, 6
 CAP_R = 0.0225
 POST_Y = (-0.15, 1.55)
 CAP_Y = (1.52, 1.58)
-POST_AT = 0.020                   # post centre after the bay start (cap flats: [0.0005, 0.0395])
+POST_AT = 0.020                   # post center after the bay start (cap flats: [0.0005, 0.0395])
 POST_WINDOW = 0.040               # contract C4
 LOD1_POST_SIDES = 3
 NODE_POST_Y = (0.0, 1.55)         # SkiNetPostA body; its cap is CAP_Y
@@ -123,7 +123,7 @@ CLIP_HALF_PX = 8
 R_POST_BAND_P = (4, 32, 252, 128)  # SkiNetPostA (256 px): u = height (NODE_POST_Y)
 R_CAP_P = (16, 160, 80, 224)
 CLIP_HALF_PX_P = 3
-INSET = 0.5                        # texels: strip UVs sit on texel centres
+INSET = 0.5                        # texels: strip UVs sit on texel centers
 
 RECOLOR = cs2_asset.RECOLOR_ALBEDO     # 0.80
 STRAND_SHADE = 0.02                    # core +0.02 / edge -0.02 around RECOLOR
@@ -135,7 +135,7 @@ SEED = 20261013
 PREVIEW_DISTANCES = (2.0, 10.0, 50.0)
 PREVIEW_VIEWS = ("front", "oblique", "backlit")
 #: preview-only A/B: a deeper "fluo" orange for slot 2 / 3 (the shipped default stays PAD_RGB;
-#: the in-game VariationSet colour space is unverified, so this is a JSON knob to show Richard)
+#: the in-game VariationSet color space is unverified, so this is a JSON knob to show Richard)
 ALT_TINT = (1.0, 0.15, 0.02)
 
 
@@ -311,7 +311,7 @@ def build_tile(name=NAME, lod=0):
 
 
 def build_post(name=POST_NAME):
-    """SkiNetPostA: post y 0 .. 1.55 + cap 1.52 .. 1.58, centred, net-oriented."""
+    """SkiNetPostA: post y 0 .. 1.55 + cap 1.52 .. 1.58, centered, net-oriented."""
     if bpy.context.object is not None and bpy.context.object.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
     parts = [_prism_sides("post_0", 0.0, POST_R, POST_SIDES, NODE_POST_Y[0], NODE_POST_Y[1], 30.0,
@@ -466,7 +466,7 @@ def write_maps(asset_dir, name, maps, size):
 # --------------------------------------------------------------------------------------
 
 def _prefab_co(obj):
-    """Vertices in prefab-local metres (x lateral, y up, z travel) = what export_fbx bakes."""
+    """Vertices in prefab-local meters (x lateral, y up, z travel) = what export_fbx bakes."""
     co = np.empty(len(obj.data.vertices) * 3, dtype=np.float64)
     obj.data.vertices.foreach_get("co", co)
     co = co.reshape(-1, 3)
@@ -494,7 +494,7 @@ def _signed_area(pts):
 
 
 def tile_contracts(obj, lod, maps=None):
-    """C2-C7 on a finished tile (metres; the FBX-side C2 is re-checked in the test)."""
+    """C2-C7 on a finished tile (meters; the FBX-side C2 is re-checked in the test)."""
     fails = []
     me = obj.data
     P = _prefab_co(obj)

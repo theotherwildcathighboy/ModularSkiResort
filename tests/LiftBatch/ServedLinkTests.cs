@@ -1,8 +1,8 @@
 // ServedLinkTests — Round T06 (docs/research/field/2026-10-15/build/T06-served-links.md; Items 76 / 80 of the 2026-10-15 field
 // test): a run connected to a served run is served. LiftServedRule.RunLinks.Build + AssignLinked, the one rule both the
 // attraction path and the stats path call. Where-tags `served-link/…`.
-//   SL-1  connector between two served runs → served (via the lower-indexed neighbour, root = that served run);
-//   SL-2  a run whose only neighbour is unserved → unserved, and so is the neighbour; a lift without power serves nothing, linked or not;
+//   SL-1  connector between two served runs → served (via the lower-indexed neighbor, root = that served run);
+//   SL-2  a run whose only neighbor is unserved → unserved, and so is the neighbor; a lift without power serves nothing, linked or not;
 //   SL-3  chain A(served) - B - C → C served (root A, via B), B served via A; the end of a chain with a gap stays unserved;
 //   SL-4  distance: 24.99 m and exactly 25 m linked (inclusive), 25.01 m and 26 m not; the nodes are compared, not the edges;
 //   SL-5  a run of another ski area with coinciding nodes → not linked; area id < 0 never links;
@@ -137,7 +137,7 @@ namespace LiftBatch
             var s = new Scene();
             int d = s.Add(Far, Rect(1000f, 100f, 1040f, 200f));
             int e = s.Add(new float3(1100f, 200f, 200f), Rect(1050f, 100f, 1090f, 200f));   // 10 m from D, also unserved
-            int f = s.Add(TooHigh, Rect(40f, 150f, 80f, 250f));                                // near the chord but too high; no neighbour
+            int f = s.Add(TooHigh, Rect(40f, 150f, 80f, 250f));                                // near the chord but too high; no neighbor
             s.Solve();
             Check(!s.Served(d) && !s.Served(e), W, "two linked runs, neither near a lift: both unserved");
             Eq(1, s.Links.LinkCount, W, "D-E linked");
@@ -334,7 +334,7 @@ namespace LiftBatch
             Eq(N, served, W, "a cycle of linked runs: all served");
             Eq(-1, c.Via[0], W, "the directly served run has no via");
 
-            // Cost shape: 200 runs on a 20 x 10 grid, 120 nodes each, neighbours 30 m apart (nodes within 25 m only along shared sides).
+            // Cost shape: 200 runs on a 20 x 10 grid, 120 nodes each, neighbors 30 m apart (nodes within 25 m only along shared sides).
             var big = new Scene();
             for (int gx = 0; gx < 20; gx++)
             {
@@ -355,7 +355,7 @@ namespace LiftBatch
             Console.WriteLine(string.Format(System.Globalization.CultureInfo.InvariantCulture,
                 "INFO  served-link/SL-8 cost: 200 runs x 120 nodes, graph build + assign {0:F2} ms, {1} links", ms, big.Links.LinkCount));
             Check(ms < 1000.0, W, "200 runs x 120 nodes under a second (" + ms.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " ms)");
-            // 40 m between neighbouring ring nodes' centres minus 2 x 20 m radius = 20 m gap: every grid neighbour is linked; Served1 is run 0.
+            // 40 m between neighboring ring nodes' centers minus 2 x 20 m radius = 20 m gap: every grid neighbor is linked; Served1 is run 0.
             int bigServed = 0;
             for (int i = 0; i < big.Tops.Count; i++)
                 if (big.Served(i)) bigServed++;

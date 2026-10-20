@@ -12,14 +12,14 @@ SkiLiftTowerET62 at the return, standing at x -6.9 / -4.9 with the anchor at axl
 contract between the two halves. Stations also moved to a 4096 atlas (quad_size=2048).
 
 L (art pipeline v2, DECISIONS 103/104): the baked static chairs are GONE - the live chairs
-now dive from the entry tower, round the bullwheel and climb back out on the modelled rope
+now dive from the entry tower, round the bullwheel and climb back out on the modeled rope
 (ChairPinSystem), so a static chair would duplicate a moving one. Every part is smooth-shaded
 by angle with weighted normals (cs2_asset.shade_by_angle - the flat primitive default reached
 the game as lit facets), parts are tagged before the join, and --lods ships an authored
 LOD1/LOD2 chain decimated from the finished mesh (cs2_asset.make_lod_chain).
 
 L full v2 (roundL-spec, 2026-09-22):
-  * ENGINE BASE instead of the modelled 3 m skirts: pad / hut base / knoll ramps + crest are
+  * ENGINE BASE instead of the modeled 3 m skirts: pad / hut base / knoll ramps + crest are
     OPEN-BOTTOM parts with their side-face bottom edges exactly at z = 0 (cs2_kit.add_box /
     add_wedge open_bottom=True). BatchMeshHelpers.AddBaseLines builds the foundation skirt
     from those edges and DROPS any edge that touches a face lying at/below y = 0, which is
@@ -27,7 +27,7 @@ L full v2 (roundL-spec, 2026-09-22):
     the acceptance check (main() refuses to export when the pad / hut base are not "OK").
   * Parts kit v1 (cs2_kit): leg flanges with real studs, portal gussets, rail stiffener
     rings, groove-profile bank sheaves and bullwheel rim (rope torus 1.82 and the wheel
-    centre unchanged), cable clamps, catwalk grating + handrail, hut doors, louvred
+    center unchanged), cable clamps, catwalk grating + handrail, hut doors, louvred
     hatches, roof drip edges; return station: mast base/collar flanges, knoll handrails.
   * `_Win` sub-meshes: the hut and cabin glass bands leave the main mesh (cs2_submesh,
     room cells (2,1) hut / (3,2) cabin) and ship as <Name>_Win.fbx + <Name>_LOD1_Win.fbx.
@@ -39,10 +39,10 @@ L full v2 (roundL-spec, 2026-09-22):
     pbr / dusk / normals / lod / ab vs K).
 
 Atlas quadrants:
-    0 concrete   (pad)                          not recolourable
-    1 galvanized (columns, shaft, cabinet)      not recolourable
-    2 plates     (bullwheel)                    not recolourable
-    3 painted    (housing, hut)                 RECOLOURABLE (ControlMask R = 1)
+    0 concrete   (pad)                          not recolorable
+    1 galvanized (columns, shaft, cabinet)      not recolorable
+    2 plates     (bullwheel)                    not recolorable
+    3 painted    (housing, hut)                 RECOLORABLE (ControlMask R = 1)
 
     blender --background --factory-startup --python lift_terminal.py -- --out ../import --kind drive --preview ../preview
 
@@ -75,7 +75,7 @@ TEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "textures")
 
 QUAD_CONCRETE, QUAD_GALV, QUAD_GLASS, QUAD_PAINT = 0, 1, 2, 3
 # The atlas definition moved to cs2_asset.lift_atlas_quads so towers and chairs share the
-# exact same palette and recolour slot. Concrete is tinted down there (rendered near-white
+# exact same palette and recolor slot. Concrete is tinted down there (rendered near-white
 # in game), painted steel stays the dark Pali look.
 QUAD_SETS, CONTROL_QUADS = cs2_asset.lift_atlas_quads(TEX)
 
@@ -186,7 +186,7 @@ def build_spoked_wheel(cx, cy, cz, prefix=""):
 
     L: the rim is the cs2_kit.sheave groove profile spun 32 times (r 1.80, width 0.40,
     groove 0.06 deep, inner radius 1.55 so the spokes bury in it) instead of the K torus;
-    outer edge still 1.80, centre untouched. Name: sheave_<prefix>bull_rim.
+    outer edge still 1.80, center untouched. Name: sheave_<prefix>bull_rim.
     """
     parts = []
     parts.extend(cs2_kit.sheave(f"{prefix}bull", 1.80, 0.40, (cx, cy, cz), "Z", segs=32,
@@ -230,7 +230,7 @@ def stamp_tension_scale(base, nrm, msk, ctl, A):
     """
     make_texture_set_atlas `post` hook: paint 1..16 in white into the scale strip.
     The pixel buffer is bottom-up, so higher rows = higher V. ControlMask R is zeroed
-    under every painted texel so the digits stay white when the player recolours the
+    under every painted texel so the digits stay white when the player recolors the
     black steel (they are painted markings, not steel).
 
     Every pixel measure scales with `sc` (J: the stations moved to a 4096 atlas, which
@@ -322,7 +322,7 @@ SHADE_ANGLE = 66.0
 # collapse-decimated to an absolute triangle target (LOD1 = 45 % of LOD0, LOD2 = 500 drive /
 # 400 return). Level 1 drops sub-pixel hardware (L: + every kit stud, clamp, drip edge,
 # hatch, handrail post and kick plate); level 2 keeps only the masses that make a terminal
-# recognisable at 300 m: pad, legs, beams, rails, housing, cabin, hut, wheel rim.
+# recognizable at 300 m: pad, legs, beams, rails, housing, cabin, hut, wheel rim.
 # NOTE the kit's rail prefix: the catwalk / knoll handrails are "rail_catwalk_*" /
 # "rail_knoll_*" - never a bare "rail_", which would also match the main tube rails.
 LOD1_DELETE = ("raillug_", "cabmull_", "stovepipe", "wx", "lrung_", "post_",
@@ -351,7 +351,7 @@ ATLAS_QUAD_PX = 1024
 FINISH_ATLAS = 2048
 AO_SAMPLES = 48
 # Island margin for the unique repack, in texels. cs2_uv's default max(16, A // 64) is
-# 32 px at 2048 (64 px between neighbours): with ~300-960 smart-projected islands that
+# 32 px at 2048 (64 px between neighbors): with ~300-960 smart-projected islands that
 # packed the stations at a median 36 px/m (12 px: 35 px/m - the gap, not the margin
 # formula, dominates at this island count). 6 px = 12 px gap = 1.5 texels at mip 3,
 # the same gap-per-mip K shipped at 4096 (margin 0.004); the bake margin (8 px EXTEND)
@@ -401,7 +401,7 @@ def detail_specs():
 def make_post_compose(obj, reserved, specs=None):
     """
     lift_tower.apply_finish_textures `post_compose` hook (linear space, after the AO
-    multiply): rasterise the relief layer on the unique layout, composite it through
+    multiply): rasterize the relief layer on the unique layout, composite it through
     cs2_compose.compose_maps (per-part value noise, RNM detail normal, gloss variation,
     channel rules; ao=None because the finish pass already multiplied its AO in), print
     the density report while both UV layers still exist, then give the uncovered gutter
@@ -464,7 +464,7 @@ def build_return_simple(p: TerminalParams, finish=False):
     ground rises to meet the chair - a built-up unload knoll like every real top station.
     Chair seat arrives ~0.6 m above the knoll crest: stand up, ski off down the run-out.
     The old angled strut is gone: at this height its only footing would be in the middle
-    of the unload run-out, so the wheel sits on a stout centre mast on the crest instead
+    of the unload run-out, so the wheel sits on a stout center mast on the crest instead
     (inside the chairs' swing circle, radius < 0.6 m).
     """
     parts = []
@@ -504,10 +504,10 @@ def build_return_simple(p: TerminalParams, finish=False):
     def z_rampdown(x):
         return crest_z * (2.6 - x) / 1.3
 
-    # Stout centre mast on a plinth. Liftblog img_6900 (the real Pali summit): one FAT
+    # Stout center mast on a plinth. Liftblog img_6900 (the real Pali summit): one FAT
     # clean tube, no gussets, wheel right on top - so the old thin mast+fin cluster is
     # replaced by a thicker tube with a collar flange under the wheel bearing.
-    # Everything stays inside r=0.6 of centre - the chairs' swing circle.
+    # Everything stays inside r=0.6 of center - the chairs' swing circle.
     parts.append((cs2_kit.add_box("plinth", (0.9, 0.9, 0.35), (0, 0, crest_z + 0.175),
                                   open_bottom=True), QUAD_CONCRETE))
     parts.append((add_cyl("mast", 0.42, wheel_z - 0.17 - crest_z,
@@ -554,7 +554,7 @@ def build_return_simple(p: TerminalParams, finish=False):
     parts.append((_torus, QUAD_PAINT))
 
     # L: NO baked chairs. The live chairs (ChairPinSystem, DECISIONS 103) dive from the
-    # entry tower, round this wheel and climb back out on exactly the rope modelled above;
+    # entry tower, round this wheel and climb back out on exactly the rope modeled above;
     # a static chair here duplicated a moving one and faced against travel on its side.
 
     # L kit: guard rails along both knoll edges (h 1.10), from the up-ramp to the run-out,
@@ -671,7 +671,7 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
     parts = []
 
     rope_y = 1.8                     # lane offset, as everywhere
-    wheel_x, wheel_z = 0.2, 3.5      # bullwheel centre - loading height (INVARIANT)
+    wheel_x, wheel_z = 0.2, 3.5      # bullwheel center - loading height (INVARIANT)
     rail_len = 10.0                  # frame front at -5.0, back at +5.0
     rail_y, rail_r, rail_z = 1.25, 0.30, 4.95
     leg_y = 3.35                     # legs fully outside the chair corridor (y 0.6..3.0)
@@ -689,7 +689,7 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
     # beam whose top carries the rails. Saddle blocks make the rail/beam joints read
     # heavy instead of tangent. L kit: bolted base flanges (8 real studs each, ground
     # level) replace the legfoot boxes; twin gusset webs tie every leg to its beam.
-    beam_z = 4.55                    # beam centre; beam spans z 4.35..4.75
+    beam_z = 4.55                    # beam center; beam spans z 4.35..4.75
     for lx in (front_x, back_x):
         for ly in (-leg_y, leg_y):
             parts.append((add_cyl(f"leg_{lx:.0f}_{ly:.0f}", 0.30, beam_z - 0.2 - pad[2],
@@ -759,7 +759,7 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
     # Counterweight drum under the rails behind the carriage (img_6867: a fat black
     # cylinder on cables). Cables run from the carriage yoke back along the frame, over
     # the back end member and down to the drum. Drum nearest point sits 3.3 m from the
-    # wheel centre - outside the chairs' swing annulus around the wrap (max 2.9 m).
+    # wheel center - outside the chairs' swing annulus around the wrap (max 2.9 m).
     cw_x, cw_top = 4.2, 2.85
     parts.append((add_cyl("cweight", 0.72, 1.5, (cw_x, 0, cw_top - 0.75),
                           segments=16), QUAD_PAINT))
@@ -795,7 +795,7 @@ def build_terminal_pali(p: TerminalParams, kind: str, finish=False):
     # DIVES steeply to a depression-sheave bank hung from the UNDERSIDE of the front
     # cross beam (rope contact at sheave BOTTOM - the sheaves press the rope down), then
     # runs nearly level to the bullwheel tangent. Angled guard plates flank each bank.
-    bank_z = 4.28                    # sheave axle height; rope centre below at 4.06
+    bank_z = 4.28                    # sheave axle height; rope center below at 4.06
     rope_at_bank = bank_z - 0.17 - 0.05
     tan_x, tan_z = wheel_x - 0.1, wheel_z + 0.05
     d_x0, d_z0 = px - cant + 0.75, axle_z + 0.12
@@ -1182,7 +1182,7 @@ M_SPECS = {
 # False (default) = the deployed K anchors: the HV sub-lane on the hosted ET68 / ET62 sheave AXLE (5.84 / 5.24), so the
 # line rope runs through the end tower's wheels. True (set_m_rope_on_crown, CLI --rope-on-crown) = both anchor ends on
 # the ET train's CROWN (axle + lift_tower.crown_seat = + 0.278: the vanilla HV cable resting in the FG V-groove); the
-# code chord (chord_z), the modelled ropechord_, the hold-down train and every sweep follow spec.anchor_in; the bullwheel
+# code chord (chord_z), the modeled ropechord_, the hold-down train and every sweep follow spec.anchor_in; the bullwheel
 # (WheelLocal) does not move. M1 then checks the deployed prefab against M_SPECS_SHIPPED and reports the surgery rows.
 M_ROPE_ON_CROWN = False
 M_SPECS_SHIPPED = dict(M_SPECS)
@@ -1270,16 +1270,16 @@ M_BADGE_EMB = 0.36                             # the badge's emblem square (X11:
 # frame (game x = -authoring y, M_X_CONVENTION; x-sign gate settled N 2026-10-15: the A family now matches); the maze, swing gate and
 # post boards take the kit builders' fine geometry; the base cabinet loses its finish bevel and gains a lid lip.
 # Contract F1 (cs2_kitrows.check_kit_rows) tests every kit row on the REAL kit mesh; M3 (the chair sweep), M7
-# (crossings) and M18 (bay routes) count the kit meshes as dressing / obstacles. Stays modelled: the LIFT boards,
+# (crossings) and M18 (bay routes) count the kit meshes as dressing / obstacles. Stays modeled: the LIFT boards,
 # the painted 1-16 tension scale, the badge and the sign (FS5: the host atlas), the top's weather mast (FS1), the
 # tension gauge, the maze / gate / stakes, the propane tank, the stop arm. Every lamp is already a vanilla row.
 FINE_DETAIL_M = True
 M_X_CONVENTION = ("game (gx, gy, gz) = authoring (-y, z, x) (lift_terminal.m_to_game, S1): gx = -authoring y; gx "
                   "NEGATED (x-sign gate settled N, 2026-10-15 playtest; the DQ / gondola / tram / building rows "
                   "follow it since S1b-N, 2026-10-16: cs2_liftdress.blender_to_game is the same map)")
-#: kit colour variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the colour set
-#: (fine_detail.COLOUR_SETS) of the coloured kit rows per kind - yellow, the Yan black / yellow (the stations' safety
-#: yellow, the yellow / black placards); the return station has no coloured row
+#: kit color variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the color set
+#: (fine_detail.COLOUR_SETS) of the colored kit rows per kind - yellow, the Yan black / yellow (the stations' safety
+#: yellow, the yellow / black placards); the return station has no colored row
 FD_M_KIT_COLOUR = {"drive": "yellow", "return": "yellow"}
 FD_M_WALL_RACK = "SkiDressSkiRackWallV2"       # the base's 3.0 m wall rack: loadout W2 (6 pairs + 1 board + 1 pole
 #                                                pair) - the wall racks alternate by station (DQ base W1, gondola W2 / W1)
@@ -1364,7 +1364,7 @@ def _lin_m(rgb):
 
 def materials_m():
     """The M material table (cs2_bake.MaterialSpec; rough = 1 - smooth). paint1 = the slot-1
-    recolour (the K mesh prefab's ColorProperties slot 1 (0.25, 0.26, 0.275) = Pali black);
+    recolor (the K mesh prefab's ColorProperties slot 1 (0.25, 0.26, 0.275) = Pali black);
     signband = the same slot (the sign panel, the badge emblem and the tension-scale plates sit
     in reserved rects, one material per rect) - the Pali logo / numbers are WHITE on the black
     steel, so the FG panel is slot 1, not the DQ's slot 3 (white by default here). galv /
@@ -1653,7 +1653,7 @@ def _half_torus(name, cx, cz, R, r, majors=12, minors=6):
             k1 = (k + 1) % minors
             bm.faces.new((rings[i][k], rings[i + 1][k], rings[i + 1][k1], rings[i][k1]))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-    # outward: the face centre minus its ring centre must point along the normal
+    # outward: the face center minus its ring center must point along the normal
     for f in bm.faces:
         cen = f.calc_center_median()
         a = math.atan2(cen.y, cen.x - cx)
@@ -1665,7 +1665,7 @@ def _half_torus(name, cx, cz, R, r, majors=12, minors=6):
 
 def _oval_plate(name, centre, facing_x, w, h, t, segs=16):
     """An elliptical plaque w (along y) x h (z), t thick toward -facing (its back on the face
-    plane), front at centre; facing_x = -1 / +1 (the plaque faces -x / +x)."""
+    plane), front at center; facing_x = -1 / +1 (the plaque faces -x / +x)."""
     bm = bmesh.new()
     cx, cy, cz = centre
     front, back = [], []
@@ -1717,7 +1717,7 @@ def _frame_ring(name, plane, c, n_sign, u0, u1, v0, v1, w=0.04, d=0.025):
             f.normal_flip()
         elif abs(f.normal.dot(nrm)) < 0.5:
             a, b = (cen.y, cen.z) if plane == "x" else (cen.x, cen.z)
-            # outer sides point away from the pane centre, the reveal sides toward it
+            # outer sides point away from the pane center, the reveal sides toward it
             outer = (a < u0 - w / 2 or a > u1 + w / 2 or b < v0 - w / 2 or b > v1 + w / 2)
             radial = _V((0, a - cu, b - cv)) if plane == "x" else _V((a - cu, 0, b - cv))
             want = radial if outer else -radial
@@ -1880,7 +1880,7 @@ def m_base():
 # Both FINE_DETAIL_M modes (the DQ STAY SEATED precedent): --no-fine is the approved station minus these changes.
 M_HOLD_TRAIN = True            # False = the pre-2026-10-13 plain hold-down / counterweight cylinders (A-B, negatives)
 M_BASE_CORRAL = False          # True = the pre-2026-10-13 rope maze + swing gate + WAIT HERE on the gate panel
-M_WAITHERE_POST = (1.55, 3.30, 1.75)   # WAIT HERE board centre: off the deck's +y edge beside the ramp top, facing +X
+M_WAITHERE_POST = (1.55, 3.30, 1.75)   # WAIT HERE board center: off the deck's +y edge beside the ramp top, facing +X
 M_HOLD = dict(xc=-4.60, n=4, prefix="sheave_hold_", boom_w=0.15, boom_rear=-0.30, boom_front_x=-3.30,
               saddle_x=(-3.44, -3.24), saddle_w=0.18)
 M_HOLD_MAT = {"paint": "paint1", "galv": "galv", "rubber": "rubber",   # tower key -> M key (Pali black steel)
@@ -1912,7 +1912,7 @@ def hold_train_layout_m(spec):
     axle_z = r + M_ROPE_R                         # the sheave bottoms on the rope's top (hold-down: rope underneath)
     sub_z = axle_z + S.FG_SUB_TO_AXLE
     main_z = sub_z + S.FG_MAIN_TO_SUB
-    arm_c = main_z + S.FG_HANGER                  # the boom's centre (the tower crossarm's)
+    arm_c = main_z + S.FG_HANGER                  # the boom's center (the tower crossarm's)
     return dict(n=H["n"], r=r, w=w, pitch=pitch, n_sub=n_sub, sub_span=sub_span, main_span=main_span,
                 axle_z=axle_z, sub_z=sub_z, main_z=main_z, arm_c=arm_c, arm_t=S.FG_ARM_T,
                 half_len=round(main_span / 2.0 + sub_span / 2.0 + r, 6))
@@ -1938,7 +1938,7 @@ def build_hold_train_m(spec):
             o.data.update()
             out.append((o, M_HOLD_MAT[k]))
         # the boom: the crossarm's 0.22 depth, boom_w wide, along the rope from boom_rear (behind the hanger) to
-        # boom_front_x (its centre line), in the chord frame
+        # boom_front_x (its center line), in the chord frame
         a1 = (H["boom_front_x"] - M[0][3] - nv.x * T["arm_c"]) / u.x
         boom = _mbox(f"holdboom_{tag}", H["boom_rear"], a1, y - H["boom_w"] / 2.0, y + H["boom_w"] / 2.0,
                      T["arm_c"] - T["arm_t"] / 2.0, T["arm_c"] + T["arm_t"] / 2.0)
@@ -1960,7 +1960,7 @@ def build_hold_train_m(spec):
 
 def hold_train_numbers_m(spec):
     """Manifest block `sheave_trains` (base): the tower head copied, counts, gauge, the chord frame, the sheave
-    centres (authoring) and the rope tangent."""
+    centers (authoring) and the rope tangent."""
     T = hold_train_layout_m(spec)
     O, u, nv, M = hold_train_frame_m(spec, M_HOLD["xc"])
     xs = [(-T["main_span"] / 2.0 + i * (T["main_span"] / max(1, T["n_sub"] - 1)) if T["n_sub"] > 1 else 0.0) + d
@@ -1983,7 +1983,7 @@ def hold_train_numbers_m(spec):
 
 def _cw_sheave_m(name, r, loc):
     """A counterweight sheave as the towers' wheel (cs2_sheaves.lite_sheave_parts: V-groove discs `name` + rubber
-    liner `name`_liner, 12 segments, about the y axle) - same centre / radius as the plain cylinder it replaces.
+    liner `name`_liner, 12 segments, about the y axle) - same center / radius as the plain cylinder it replaces.
     T62 v2: cs2_sheaves.wheel (the same geometry: the 12-segment V wheel at r / M_CW_SHEAVE_W, stamped)."""
     import cs2_sheaves as S
     if S.wheels_v2():
@@ -2205,7 +2205,7 @@ def build_base_m():
         y = s * 0.30
         if M_HOLD_TRAIN:
             # nitpick A (2026-10-13, Richard S-2): the counterweight's head + deflection sheaves are the towers'
-            # wheels (cs2_sheaves.lite_sheave_parts: V-groove discs + rubber liner, 12 segments), same centres / radii
+            # wheels (cs2_sheaves.lite_sheave_parts: V-groove discs + rubber liner, 12 segments), same centers / radii
             # (the counterweight ropes keep their tangent points), w 0.10
             parts += _cw_sheave_m(f"sheave_cwhead_{side}", 0.35, (mhx, y, hz))
             parts += _cw_sheave_m(f"sheave_cwdefl_{side}", 0.20, (B["defl_x"], y, 4.45))
@@ -2301,7 +2301,7 @@ def _drop_bottom(obj):
 
 def _wheel_m(cx, cz):
     """The open spoked bullwheel (PAL-10 / img_6900): groove-profile rim outer 1.74 (A4), 12
-    flat-bar spokes (A12), hub; centre = the code WheelLocal."""
+    flat-bar spokes (A12), hub; center = the code WheelLocal."""
     parts = _kit_m(cs2_kit.sheave("bull", M_RIM_OUT, 0.40, (cx, 0.0, cz), "Z", segs=32, hub=False,
                                   groove=0.04, r_hub=1.50), "paint1")
     for k in range(12):
@@ -2511,7 +2511,7 @@ def build_top_m():
                       "fire_red" if k % 2 == 0 else "trim_white"))
     # the sign on the bay's -x retaining face, toward the arriving line (one 1.750 m panel)
     lay = sign_layout_m()
-    ys0 = (by0 + by1) / 2.0 + lay["W"] / 2.0 - 0.125     # centred on the W face, 0.125 m toward the back (the first build's offset)
+    ys0 = (by0 + by1) / 2.0 + lay["W"] / 2.0 - 0.125     # centered on the W face, 0.125 m toward the back (the first build's offset)
     ys1 = ys0 - lay["W"]
     xs = bx0 - 0.012
     parts.append((_mquad("signboard", [(xs, ys0, 0.06), (xs, ys1, 0.06), (xs, ys1, 0.06 + lay["H"]),
@@ -2571,7 +2571,7 @@ def _dress_top_m():
 def subobjects_m(kind):
     """Vanilla sub-objects (cs2_liftdress.SUBOBJ, GUIDs verified against the dump): (prefab,
     authoring position, authoring facing or None, mount). MC1: the lamp posts replace the
-    modelled flood masts; X14: wall lights instead of modelled lamps (no modelled lamp left). T17 lamp part
+    modeled flood masts; X14: wall lights instead of modeled lamps (no modeled lamp left). T17 lamp part
     (DECISIONS 247): the lamp post row is our SkiPisteFloodlightLow (M_FLOOD, a "mod" row at yaw 190, facing None)."""
     if kind == "drive":
         B = m_base()
@@ -2633,7 +2633,7 @@ def m_host(G):
 def fd_kit_specs_m(kind):
     """The dressing-kit rows of this station in the AUTHORING frame, one per removed builder call (design A.2 /
     D, build/dress-kit.md 3 pivots): dict(prop, pos, facing (authoring), mount, removed (old part prefixes), was
-    [, ledge]). ground: pos = the foot centre on its floor; wall: pos = the old mount point ON the wall face at the
+    [, ledge]). ground: pos = the foot center on its floor; wall: pos = the old mount point ON the wall face at the
     prop's bottom (extinguisher: the old bottom z); lean: pos = the wall (or ledge) face point at the floor, facing
     = its outward normal (fine_detail.kit_lean_row: the 0.3925 m foot-line rule). [] with FINE_DETAIL_M off."""
     if not FINE_DETAIL_M:
@@ -2666,7 +2666,7 @@ def fd_kit_specs_m(kind):
     hx0, hx1, hy0, hy1 = T["hut"]
     bx0, bx1, by0, by1 = T["bay"]
     tx, ty, tf = T["tools"]
-    # the builder pair's centre (cs2_liftdress.tools lays the 2nd tool gap 0.35 to the right of `foot`): the kit pair
+    # the builder pair's center (cs2_liftdress.tools lays the 2nd tool gap 0.35 to the right of `foot`): the kit pair
     # stands there (the M18 negatives that move M_TOP tools move it too)
     nx_, ny_ = _M_NORMAL[tf]
     tx, ty = round(tx - ny_ * 0.175, 4), round(ty + nx_ * 0.175, 4)
@@ -2684,8 +2684,8 @@ def fd_kit_specs_m(kind):
 
 def fd_kit_rows_m(kind, colour_set=None):
     """fine_detail.kit_row / kit_lean_row dicts in the GAME frame through m_to_game (game x = -authoring y),
-    m_ParentMesh 0 like M's vanilla rows; yaw = fine_detail.yaw_quat(m_dir_game(facing)). Coloured props (the
-    wall rack) name the kind's colour set (`colour_set` or FD_M_KIT_COLOUR[kind])."""
+    m_ParentMesh 0 like M's vanilla rows; yaw = fine_detail.yaw_quat(m_dir_game(facing)). Colored props (the
+    wall rack) name the kind's color set (`colour_set` or FD_M_KIT_COLOUR[kind])."""
     import fine_detail as FD
     import cs2_kitrows as KR
     rows = []
@@ -2914,7 +2914,7 @@ def orientation_m(co, tris, names, kind):
     """M20 (nitpick A, 2026-10-13; Richard twenty-fifth look S-1): the station is laid out round ONE up lane
     (UP_LANE_Y: the base LOADS the departing chairs on +y, the top UNLOADS the arriving chairs on -y - the same
     physical lane, the right one looking uphill in this authoring frame) and the liftie's hut / booth, the load
-    (unload) surface and line and the rider boards stand on THAT lane's side (centre y sign), the lane boards facing
+    (unload) surface and line and the rider boards stand on THAT lane's side (center y sign), the lane boards facing
     the riders (label normal = the opposite of the chairs' travel: the base's departing chairs travel -x, the top's
     arriving ones +x). Measured on the built faces. Returns the report."""
     L = UP_LANE_Y[kind]
@@ -2946,8 +2946,8 @@ def orientation_m(co, tris, names, kind):
 def sheave_trains_m(co, tris, names, kind):
     """M21 (nitpick A, 2026-10-13; Richard S-2): the base's hold-down trains are the towers' rocker tree - per lane
     M_HOLD n rims, each rim's lowest point on the code chord's top (rope tangent, 2 mm: the sheaves press the rope
-    from above), centred on its lane (1 mm); every train part above the rope and in front of the portal beam's front
-    face (the beam / house never touched but by the saddle); the counterweight wheels on their old centres. The top
+    from above), centered on its lane (1 mm); every train part above the rope and in front of the portal beam's front
+    face (the beam / house never touched but by the saddle); the counterweight wheels on their old centers. The top
     station has no rope-guide wheel group besides its bullwheel (the hosted ET62O carries the entry train): reported."""
     if kind != "drive":
         return {"note": "no rope-guiding wheel group besides the bullwheel (the hosted ET62O carries the entry "
@@ -2967,7 +2967,7 @@ def sheave_trains_m(co, tris, names, kind):
         ys = -FG_LANE if s == "n" else FG_LANE
         for nm in lst:
             c, _idx = _part_centre_m(co, tris, names, nm)
-            # the rim centre's distance from the rope axis (the straight code chord) along the chord normal: the
+            # the rim center's distance from the rope axis (the straight code chord) along the chord normal: the
             # vertical offset to the chord under it times n.z (the chord is a line: P0 = (x_c, chord_z(x_c)))
             d = float((c[2] - chord_z(spec, float(c[0]))) * nv.z)
             dt = abs(d - (T["r"] + M_ROPE_R))
@@ -3463,7 +3463,7 @@ def m1_frozen(kind):
 
 
 def m2_rope(co, tris, names, spec):
-    """M2: the rope torus centre = WheelLocal +- 0.002, its radius 1.80 +- 0.005; the rim outer
+    """M2: the rope torus center = WheelLocal +- 0.002, its radius 1.80 +- 0.005; the rim outer
     <= 1.745; every ropechord_ vertex within 0.06 of the analytic chord."""
     wx, _wy, wz = spec.wheel
 
@@ -3473,7 +3473,7 @@ def m2_rope(co, tris, names, spec):
     T = verts("wheelrope")
     rad = np.hypot(T[:, 0] - wx, T[:, 1])
     ring = np.hypot(rad - M_TORUS_R, T[:, 2] - wz)
-    # the ring centre circle: radial mean of (rad), the height mean
+    # the ring center circle: radial mean of (rad), the height mean
     R_fit = float(0.5 * (rad.max() + rad.min()))
     z_fit = float(0.5 * (T[:, 2].max() + T[:, 2].min()))
     rim = verts("sheave_bull")
@@ -4103,7 +4103,7 @@ def route_width_m(co, tris, names, kind):
 def windows_m(co, tris, names, kind):
     """M10 (geometry half, before the split): >= 1 pane on each of the house's four sides
     (base), the hut / booth glazed on 3 sides + a door lite, and no pane looks into a wall
-    within 0.5 m (a ray from each pane centre along its normal hits no other part)."""
+    within 0.5 m (a ray from each pane center along its normal hits no other part)."""
     pane_pfx = tuple(M_WIN_CELLS[kind])
     keep = [i for i, n in enumerate(names) if not n.startswith(pane_pfx)]
     b = _bvh(co, tris[keep])
@@ -4271,7 +4271,7 @@ def stamp_scale_m(base, ctl, me, table):
     """M11 tension scale (A9): white VECTOR digits 1..16 (Bfont outlines, welcome_sign
     .text_triangles / _tri_coverage at 8 x 8 samples - the DQ digit path) and a tick per cell
     into the scale rect at 400 px/m; ControlMask R zeroed by coverage (the digits stay white when
-    the steel is recoloured). scale_n owns the rect, scale_p shares it; each reads left to
+    the steel is recolored). scale_n owns the rect, scale_p shares it; each reads left to
     right from its own side (u = viewer right). Replaces the K / L 3 x 5 bitmap."""
     import welcome_sign as WS
     LTD = _LTD()
@@ -4292,7 +4292,7 @@ def stamp_scale_m(base, ctl, me, table):
     for i in range(1, 17):
         tris = scale_digit_tris_m(str(i))
         cx, cy = (i - 0.5) * cell, 0.5 * M_SCALE_H + 0.012
-        # strip-centred metres (the _tri_coverage frame: origin = the rect centre)
+        # strip-centered meters (the _tri_coverage frame: origin = the rect center)
         allt += [tuple((x + cx - 0.5 * M_SCALE_LEN, y + cy - 0.5 * M_SCALE_H) for x, y in tri)
                  for tri in tris]
         area += sum(0.5 * abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]))
@@ -4841,7 +4841,7 @@ def main_m(args):
         "orientation": contracts.get("M20"), "sheave_trains": contracts.get("M21"),
         "contracts": contracts,
     })
-    # kit colour variants (2026-10-12): a shipping export stages the variants its kit rows name
+    # kit color variants (2026-10-12): a shipping export stages the variants its kit rows name
     import dress_kit
     dress_kit.stage_from_manifest(asset_dir, name)
 

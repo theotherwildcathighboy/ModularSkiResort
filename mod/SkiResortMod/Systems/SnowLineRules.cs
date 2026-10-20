@@ -99,7 +99,7 @@ namespace SkiResortMod.Systems
             return (float)(sum / n);
         }
 
-        /// <summary>Elevation (world metres) where the local temperature equals <paramref name="thresholdC"/> for a
+        /// <summary>Elevation (world meters) where the local temperature equals <paramref name="thresholdC"/> for a
         /// sea-level (reference-elevation) temperature <paramref name="meanC"/>: base + (T − threshold) / lapse.
         /// NaN when the lapse is not positive or the temperature is not finite (no usable line).</summary>
         public static float ElevationAt(float baseHeight, float meanC, float thresholdC, float lapsePerM)
@@ -116,7 +116,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Grid origin that keeps the lattice world-anchored (a multiple of the cell size), so the contour
-        /// does not shimmer as the pivot moves. The grid is centred on <paramref name="centre"/>.</summary>
+        /// does not shimmer as the pivot moves. The grid is centered on <paramref name="centre"/>.</summary>
         public static float Origin(float centre, int side, float cell)
         {
             return (float)(Math.Floor((centre - side * 0.5f * cell) / cell) * cell);
@@ -158,7 +158,7 @@ namespace SkiResortMod.Systems
                         case 10:   // 10 and 01 above
                             {
                                 bool centreAbove = (h00 + h10 + h11 + h01) * 0.25f >= level;
-                                // 5 with the centre above (or 10 with it below): the BELOW corners 10 and 01 are cut off.
+                                // 5 with the center above (or 10 with it below): the BELOW corners 10 and 01 are cut off.
                                 bool cutBelowCorners = (mask == 5) == centreAbove;
                                 if (cutBelowCorners)
                                 {

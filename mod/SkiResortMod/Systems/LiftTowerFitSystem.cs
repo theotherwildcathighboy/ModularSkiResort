@@ -8,7 +8,7 @@
 //   node needs a new course: step 3c); per inner node this system sets
 //     * its POSITION along the line: kept, or slid to the planner's spot when heights alone cannot clear the line and the line is
 //       straight in xz (power-line edges are straight, NetInitializeSystem.cs:2195 StraightEdges);
-//     * its HEIGHT: node y = centre ground + E and Game.Net.Elevation = (E, E), E = TopM[member] - TopM[0] (LiftTowerEdit): the vanilla
+//     * its HEIGHT: node y = center ground + E and Game.Net.Elevation = (E, E), E = TopM[member] - TopM[0] (LiftTowerEdit): the vanilla
 //       ladder then scores the planned member exactly 1 (SubObjectSystem.cs:980, :2189-2199) and, top-anchored (:2464-2469,
 //       :2477-2482), stands it on the ground; the rope lane rides node y + lane y (LaneSystem.cs:4112-4115). E = 0 removes the component (the engine adds
 //       it only for a non-zero elevation, GenerateNodesSystem.cs:1497-1499);
@@ -180,7 +180,7 @@ namespace SkiResortMod.Systems
             public Entity Node;
             public float3 Old, New;
             public int OldMember, NewMember;
-            public float Elevation;   // LiftTowerEdit.ElevationM(NewMember): node y - centre ground, written as Elevation (E, E)
+            public float Elevation;   // LiftTowerEdit.ElevationM(NewMember): node y - center ground, written as Elevation (E, E)
             public bool Write;
         }
 

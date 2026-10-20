@@ -29,7 +29,7 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortTourism.cs" Link="SkiResortTourism.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortAggregate.cs" Link="SkiResortAggregate.cs" />
     <!-- U2 fixer round (2026-10-03): the rating cache's key / queue / band rules (findings u2-data-01,
-         behaviour-2, u2-data-05). -->
+         behavior-2, u2-data-05). -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunRatingRules.cs" Link="SkiRunRatingRules.cs" />
     <!-- Round F6 (2026-10-03, implementer A): the hub's "camera already on the sign" rule (A1 / A2). -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\HubCameraRules.cs" Link="HubCameraRules.cs" />

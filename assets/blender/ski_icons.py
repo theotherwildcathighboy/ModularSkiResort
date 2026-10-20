@@ -4,7 +4,7 @@ Deterministic Build-strip icon generator for the Modular Ski Resort mod, style E
 Draws the 25 icons of the hub's Build strip (256x256 RGBA PNG + 32-hex .png.cid sidecar each): the
 nine of the 2026-10-04 style-E round and, since 2026-10-11 (round 2), the 16 tiles of contract 6
 (lodge tiers, school, patrol, detachable / gondola / tram) listed after the nine below.
-Style E ("a small flat colour picture fills a rounded plate") was chosen by Richard on 2026-10-04
+Style E ("a small flat color picture fills a rounded plate") was chosen by Richard on 2026-10-04
 from the options sheet docs/research/art/icons-2026-10-04/run-icon-options.png (rows A to F; his
 verdict: E, with the snow gun throwing its snow UP and over, never "puking it out"). The final set
 and its review sheet: docs/research/art/icons-2026-10-04/final-e/final/ (sheet.png). Design notes
@@ -23,7 +23,7 @@ Tiles (file name = the prefab icon the hub shows; keeping a name keeps its .cid)
     SkiRunGroomedA           four corduroy stripes along the slope, empty sky
     SkiRunSnowmakingA        a fan gun (barrel on a swivel post) throwing a jet UP that widens,
                              thins into mist at the top of its arc and drifts down as flakes onto
-                             the run lower right; no corduroy (groomed vs snowmaking in greyscale:
+                             the run lower right; no corduroy (groomed vs snowmaking in grayscale:
                              stripes vs gun + plume)
     SkiRunNightA             dark sky, low moon, steel floodlight mast with amber lamps, corduroy
 Round 2 (2026-10-11; verdict B2 of docs/research/art/assets-2026-10/verdicts-2026-10-11.md; build
@@ -33,14 +33,14 @@ record docs/research/art/assets-2026-10/build/icons-round-2.md; each after its a
     SkiLodgeMid              chalet: a taller gable-front wing behind, the long stone-and-timber
                              dining hall in front, the gazebo on the terrace
     SkiLodgeSummit           stone house (gable front, tall chimney) above a glass dining room
-                             cantilevered over a pier, on a grey crag with snow ledges
+                             cantilevered over a pier, on a gray crag with snow ledges
     SkiLodgeGrand            redrawn 2026-10-11 for L5 revision 1 (verdict B1, the 10 x 8 U-plan),
                              seen from the slope side: two king-post wing gables with balcony
                              stacks in front, the cross gable and the long roof stepping up behind,
                              the clock tower (red spire) and two chimneys over the ridge, the pool
                              terrace (turquoise lagoon, hot tub) between the wings
     SkiSchool                timber school: low wing, tower with the open lantern, the skier sign
-                             and a red flag, two-storey wing; a child on the magic carpet
+                             and a red flag, two-story wing; a child on the magic carpet
     SkiPatrolHut             dark-timber hut, teal metal roof, door and lamp, the patrol disc (white
                              cross on red, the tile's only red)
     SkiPatrolHQ              the HQ on posts with its deck, saltbox roof, gridded window, patrol
@@ -97,7 +97,7 @@ LargeParks, Trees, ParksAndRecreation, Electricity): flat fills, no outlines, tw
 (lit face / shade face, light from the upper left), muted natural palette, a soft shadow ellipse
 under things that stand on the ground. No text in the icons.
 
-No Blender/bpy dependency: pure numpy SDF rasterisation (analytic per-sample coverage at 4x
+No Blender/bpy dependency: pure numpy SDF rasterization (analytic per-sample coverage at 4x
 supersampling, premultiplied compositing, box downsample) plus a minimal PNG encoder, so it runs
 directly on Blender's bundled python.exe:
 
@@ -114,7 +114,7 @@ Install, launcher (--only SkiResortTab, into its own --out folder): only the PNG
 ImportedData\\SkiResortCategory\\; its installed .cid already holds the KEEP_CID value. The prefabs reference an icon as
 "m_Icon": "assetdb://global/<cid>" (UIObject), and the hub copies the same URL into
 mod/SkiResortUI/src/hub/buildItems.ts BUILD_ITEM_ICON. Review sheet (strip mock at the real
-1080p / 4K sizes, greyscale, before / after): ski_icons_sheet.py next to this file.
+1080p / 4K sizes, grayscale, before / after): ski_icons_sheet.py next to this file.
 
 Everything is deterministic (no randomness, no clock, no downloads), including the .cid sidecars:
 each cid is the md5 hex digest of a fixed salt + png name, so re-running the script never churns
@@ -195,7 +195,7 @@ X = Y = None
 
 
 def build_grid():
-    """Supersampled pixel-centre coordinate grids (canvas units) for the current SS."""
+    """Supersampled pixel-center coordinate grids (canvas units) for the current SS."""
     global X, Y
     n = CANVAS * SS
     c = (np.arange(n, dtype=np.float64) + 0.5) / SS
@@ -248,7 +248,7 @@ def sd_round_rect(x0, y0, x1, y1, r, x=None, y=None):
 
 
 def sd_orect(cx, cy, ux, uy, hl, hw, r=0.0):
-    """Rounded rectangle centred at (cx, cy), long axis along the unit vector (ux, uy), half
+    """Rounded rectangle centered at (cx, cy), long axis along the unit vector (ux, uy), half
     length hl along it and half width hw across it."""
     lx = (X - cx) * ux + (Y - cy) * uy
     ly = -(X - cx) * uy + (Y - cy) * ux
@@ -331,10 +331,10 @@ def vgrad(c0, c1, y0, y1):
 
 
 # ---------------------------------------------------------------------------------------------
-# Layers + rasteriser
+# Layers + rasterizer
 # ---------------------------------------------------------------------------------------------
 class L:
-    """A paint layer: SDF, colour (RGB or (n,n,3) array), alpha (scalar or array), and whether it
+    """A paint layer: SDF, color (RGB or (n,n,3) array), alpha (scalar or array), and whether it
     is a MARK (kept >= MARGIN from the plate edge, measured) or a FIELD (sky / snow / terrain)."""
 
     def __init__(self, sdf, col, a=1.0, mark=True):
@@ -342,7 +342,7 @@ class L:
 
 
 def two_tone(sdf, lit_region, lit, shade, mark=True):
-    """Shade colour on the whole shape, lit colour on its part inside lit_region (an SDF)."""
+    """Shade color on the whole shape, lit color on its part inside lit_region (an SDF)."""
     return [L(sdf, shade, mark=mark), L(inter(sdf, lit_region), lit, mark=mark)]
 
 
@@ -595,7 +595,7 @@ def icon_lodge():
 
 
 ROPE_W = 8.0                        # both rope strands at the terminals (>= 7 px rule)
-ROPE_SEP = 20.0                     # haul / return strand spacing (centre to centre, across)
+ROPE_SEP = 20.0                     # haul / return strand spacing (center to center, across)
 
 # Terminal layout, one dict per station. hood = (x0, x1, top, height); wheel = (cx, cy, r);
 # column = (x0, x1); booth = (x0, x1, top); theta = rope angle (deg) from the wheel to the tower,
@@ -915,7 +915,7 @@ def snow_gun(gx, gy, aim_deg, scale=1.0):
 def drag_path(mx, my, aim_deg, v0, g, k, wind=0.0, dt=1.0, n=600):
     """Thrown snow with air drag in a light breeze: leaves the nozzle at aim_deg with speed v0,
     rises, slows, arcs over and then drifts down and downwind (terminal velocity (wind, g / k)).
-    Points (x, y, distance travelled); stops at the snow surface."""
+    Points (x, y, distance traveled); stops at the snow surface."""
     ang = np.radians(aim_deg)
     vx, vy = v0 * np.cos(ang), -v0 * np.sin(ang)
     x, y, s = mx, my, 0.0
@@ -939,7 +939,7 @@ def path_at(pts, s):
 
 # gun foot x on the slope and how far below the skyline it stands, gun scale, aim (deg above +x),
 # angle step between the five fan paths, launch speed, gravity, drag; jet radius at the nozzle and
-# its growth per px travelled; the solid jet ends at cone x (path length to the apex) and starts
+# its growth per px traveled; the solid jet ends at cone x (path length to the apex) and starts
 # fading at fade x (its own length).
 PLUME_SPEC = dict(gx=78.0, below=66.0, gun=1.4, aim=60.0, spread=5.0, v0=4.2, g=0.090,
                   k=0.030, wind=0.9, r0=5.0, grow=0.13, cone=0.90, fade=0.68)
@@ -1079,7 +1079,7 @@ def icon_run_night():
 
 # T38: cat track = a level groomed ribbon crossing the slope (clipped to the snow, so it ends where it meets
 # the skyline) with transverse tread marks, and a red snowcat with a push blade on it. The ribbon is the cat
-# track's own surface (a traverse), not a road: no centre dashes, no tarmac.
+# track's own surface (a traverse), not a road: no center dashes, no tarmac.
 CAT_RIBBON_Y, CAT_RIBBON_W, CAT_K = 168.0, 50.0, 1.3
 CAT_BAND, CAT_TREAD = (62, 140, 84), (30, 88, 52)
 
@@ -1094,7 +1094,7 @@ def icon_run_cattrack():
                 (150, 214, 160), mark=False))
     ticks = union(*[sd_round_rect(x - 4.0, y0 - 11.0, x + 4.0, y0 + 13.0, 2.0) for x in np.arange(2.0, 270.0, 19.0)])
     ly.append(L(inter(ribbon, ticks), CAT_TREAD, mark=False))
-    # the snowcat, facing right, on the ribbon, scaled by CAT_K about (110, ribbon centre)
+    # the snowcat, facing right, on the ribbon, scaled by CAT_K about (110, ribbon center)
     k = CAT_K
 
     def sx(v):
@@ -1138,12 +1138,12 @@ def _cable_y(x, p0, p1, sag):
 
 
 def icon_launcher():
-    """The hub launcher: one snowy peak fills the plate (lit left face, blue-grey shade face right
+    """The hub launcher: one snowy peak fills the plate (lit left face, blue-gray shade face right
     of a ridge line, two rock wedges under the summit, a paler range behind it on the right) and a
     red chair hangs from a diagonal cable that rises to the right across it. Drawn to read at the
     launcher's ~33 px: the white peak against the dark sky top, the cable as one dark line, the
-    chair as the only warm colour. The cable ends in the open sky on both sides (no towers: a
-    tower at 33 px is a grey stub that crowds the chair - draft D)."""
+    chair as the only warm color. The cable ends in the open sky on both sides (no towers: a
+    tower at 33 px is a gray stub that crowds the chair - draft D)."""
     ly = [sky()]
     ly += far_range([(120, 210), (150, 120), (196, 74), (232, 104), (270, 96)])
     sx, sy = LAUNCH_SUMMIT
@@ -1176,7 +1176,7 @@ def icon_launcher():
 # ones we have already decided on and like"). The lodge tiers (mountain hut, chalet, summit,
 # grand), the ski school, the patrol hut and HQ, and base / top / line for the detachable,
 # gondola and tram lift types. Same plate, mark margin, step-digit corner, finish and palette
-# rules as the nine; red stays the one accent colour (roofs, terminal housings, chairs and
+# rules as the nine; red stays the one accent color (roofs, terminal housings, chairs and
 # cabins, the school's flag, the patrol disc). Each picture follows its asset's previews
 # (assets/preview/lodges, buildings, stations, cabins, chairs). Build record:
 # docs/research/art/assets-2026-10/build/icons-round-2.md.
@@ -1406,7 +1406,7 @@ def icon_lodge_summit():
     """Summit lodge (L4, SkiLodgeSummit): stepped glass and stone on a crag - the glass dining room
     (flat snowy roof, thin dark mullions) cantilevered low on the left over a stone pier and a
     strut, the stone house above it on the right with its gable to the front and a tall stone
-    chimney; the grey crag below (lit and shaded rock faces, snow on its ledges), the ranges low
+    chimney; the gray crag below (lit and shaded rock faces, snow on its ledges), the ranges low
     behind (it is the top of the hill)."""
     ly = [sky()]
     ly += far_range([(-14, 196), (30, 172), (76, 192), (128, 160), (178, 188), (226, 166),
@@ -1556,7 +1556,7 @@ def icon_lodge_grand():
 # --- school and patrol -----------------------------------------------------------------------
 def icon_school():
     """Ski school (SkiSchool): the timber school house with flat snowy roofs - a low wing, the
-    tower with the open lantern on top and the skier sign on its face, a two-storey wing - a red
+    tower with the open lantern on top and the skier sign on its face, a two-story wing - a red
     flag over the lantern, and in front a child riding the magic carpet (the static conveyor
     beside the school, verdict B3)."""
     gfn = _flat(200.0, 4.0)
@@ -1565,7 +1565,7 @@ def icon_school():
     _, g = ground(gfn, 180)
     ly.append(g)
     ly.append(shadow(140, 205, 80, 6))
-    # two-storey wing (right)
+    # two-story wing (right)
     rw = box(142, 118, 214, 201)
     ly += two_tone(rw, left_of(196), WOOD_LIT, WOOD_SHADE)
     for row in (128.0, 160.0):
@@ -2011,7 +2011,7 @@ def icon_gd_line():
 # --- tram ------------------------------------------------------------------------------------
 def icon_tram_base():
     """Tram base station (SkiTramBaseStationBuilding): the tram hall - stone base, a glazed upper
-    storey behind steel X-bracing, the snowy shed roof - with the brick clock tower in front, the
+    story behind steel X-bracing, the snowy shed roof - with the brick clock tower in front, the
     two track ropes leaving the hall up to a lattice tower, the big cabin on them."""
     ly = [sky(), step_corner()]
     ly += far_range([(-14, 168), (34, 132), (84, 170), (124, 150), (170, 190)])

@@ -16,8 +16,8 @@ and only after every check has run, so one run reports everything that is wrong.
     validate_asset_folder_ex(asset_dir, name, spec=None) -> (findings, summary)
         the same checks without raising; summary = tris per LOD, texture sizes, verdict.
     validate_mesh(obj, kind="prop"|"building"|other, contracts=None) -> findings
-        in-scene checks on a Blender object (metres, Z up): naming, loose geometry, UV
-        layer count/range/zero-area/mirrored islands, colour attributes, prop ground
+        in-scene checks on a Blender object (meters, Z up): naming, loose geometry, UV
+        layer count/range/zero-area/mirrored islands, color attributes, prop ground
         contact, building `ground_ring_report`, caller contracts. Never raises.
     ground_ring_report(obj, band=0.01, table=None) -> dict
         the engine-base acceptance check (BatchMeshHelpers.AddBaseLines): edges in the
@@ -33,7 +33,7 @@ and only after every check has run, so one run reports everything that is wrong.
 `spec` (all keys optional): kind ("prop" | "building" | "hanging"), cutout (bool),
 min_texture (512: the wiki floor, ERROR below for every kind), max_texture (4096), hero (legacy,
 now covered by the floor), lod0_cap,
-lod1_ratio (0.5), lod2_cap (500), extent_m ((x, y, z) Blender metres, 2 % tolerance),
+lod1_ratio (0.5), lod2_cap (500), extent_m ((x, y, z) Blender meters, 2 % tolerance),
 expected_lods (tuple), expected_submeshes (tuple of suffixes).
 
 Command line (used by tools\\assets-check.ps1):
@@ -41,7 +41,7 @@ Command line (used by tools\\assets-check.ps1):
             [--asset-dir <dir>]... [--kind auto|prop|building|hanging] [--json <out>]
     prints one `[assets-check] ...` line per folder and exits 1 when any folder has an ERROR.
 
-Engine facts relied on (decompile 1.6.2): FBX vertices read as centimetres, Y up, normals
+Engine facts relied on (decompile 1.6.2): FBX vertices read as centimeters, Y up, normals
 verbatim; textures paired by `<Model node name>_<map>.png`; BaseColor alpha != 255 flips
 the surface to DefaultCutout; MaskMap B and ControlMask A are zero in every shipped asset.
 """
@@ -364,7 +364,7 @@ def validate_texture_set(asset_dir, prefix, rep, spec, coverage=None):
 
 
 # --------------------------------------------------------------------------------------
-# UV rasteriser (overlap + coverage)
+# UV rasterizer (overlap + coverage)
 # --------------------------------------------------------------------------------------
 
 def _mesh_uv_triangles(me, uv_layer=None):
@@ -385,7 +385,7 @@ def _mesh_uv_triangles(me, uv_layer=None):
 
 def uv_coverage(me, res=256, uv_layer=None):
     """
-    Rasterise every triangle of `me` on a res x res grid of texel centres; returns int32
+    Rasterize every triangle of `me` on a res x res grid of texel centers; returns int32
     hit counts with row 0 = v 0 (bottom-up, matching Image.pixels). Overlap = count > 1.
     """
     tris = _mesh_uv_triangles(me, uv_layer)
@@ -402,13 +402,13 @@ def uv_coverage(me, res=256, uv_layer=None):
         area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
         if abs(area) < 1e-9:
             continue
-        if area < 0:                      # normalise to CCW so the edge functions are positive inside
+        if area < 0:                      # normalize to CCW so the edge functions are positive inside
             (bx, by), (cx, cy) = (cx, cy), (bx, by)
         xs = np.arange(x0, x1, dtype=np.float64) + 0.5
         ys = np.arange(y0, y1, dtype=np.float64) + 0.5
         gx, gy = np.meshgrid(xs, ys)
         inside = np.ones(gx.shape, dtype=bool)
-        # top-left fill rule: a texel centre exactly on a shared edge belongs to ONE triangle
+        # top-left fill rule: a texel center exactly on a shared edge belongs to ONE triangle
         for (px_, py_), (qx, qy) in (((ax, ay), (bx, by)), ((bx, by), (cx, cy)), ((cx, cy), (ax, ay))):
             dx, dy = qx - px_, qy - py_
             w = dx * (gy - py_) - dy * (gx - px_)
@@ -420,7 +420,7 @@ def uv_coverage(me, res=256, uv_layer=None):
 
 
 def _erode(mask):
-    """Boolean erosion by one texel (8-neighbourhood); edges of the grid count as uncovered."""
+    """Boolean erosion by one texel (8-neighborhood); edges of the grid count as uncovered."""
     out = mask.copy()
     out[0, :] = out[-1, :] = out[:, 0] = out[:, -1] = False
     c = mask
@@ -521,7 +521,7 @@ def ground_ring_report(obj, band=GROUND_BAND_M, table=None, matrix=None):
 def part_density(me, A, units_per_m=RAW_UNITS_PER_M):
     """
     Texel density per connected component of `me` (raw FBX units, cm): list of dicts
-    {area_m2, px_per_m, tris, centre_m (raw axes, metres)} sorted by px/m, density =
+    {area_m2, px_per_m, tris, centre_m (raw axes, meters)} sorted by px/m, density =
     sqrt(sum UV area * A^2 / sum 3D area). Stacked (shared) islands count for every copy.
     """
     nv = len(me.vertices)
@@ -650,7 +650,7 @@ def _run_contracts(obj, contracts, rep):
 
 def validate_mesh(obj, kind="prop", contracts=None):
     """
-    In-scene checks on a Blender mesh object (metres, Z up). `kind`: "prop" requires
+    In-scene checks on a Blender mesh object (meters, Z up). `kind`: "prop" requires
     world min z == 0 +- 1e-4; "building" runs the engine-base ring report (ERROR when
     BLOCKED); any other value skips the ground rule. `contracts`: dict label -> callable(obj)
     returning bool or (bool, detail), or a list of callables. Returns findings, never raises.
@@ -755,7 +755,7 @@ _IMPORT_MATRIX = None
 
 
 def _import_matrix():
-    """Raw FBX (cm, Y up) -> Blender metres, Z up: the inverse of export_fbx's bake."""
+    """Raw FBX (cm, Y up) -> Blender meters, Z up: the inverse of export_fbx's bake."""
     global _IMPORT_MATRIX
     if _IMPORT_MATRIX is None:
         from mathutils import Matrix
@@ -855,7 +855,7 @@ def inspect_fbx(path, expected_stem, rep, spec, kind_hint=None, part_table=None)
         rep.error("fbx-extent", f"{fname}: raw extent {ext.max():.1f} units; expected "
                                 f"centimetres (x100 bake missing or doubled?)")
     if spec.get("extent_m") is not None and expected_stem == spec.get("_name"):
-        # Blender (x, y, z) metres -> raw (x, z, y) cm
+        # Blender (x, y, z) meters -> raw (x, z, y) cm
         ex = np.array(spec["extent_m"], dtype=np.float32) * RAW_UNITS_PER_M
         want = np.array([ex[0], ex[2], ex[1]])
         if np.any(np.abs(ext - want) > 0.02 * np.maximum(want, 1.0)):
@@ -1134,7 +1134,7 @@ def validate_asset_folder_ex(asset_dir, name, spec=None):
                     rep.warn("lod-bounds", f"LOD{lvl} bounds drift {drift / RAW_UNITS_PER_M:.3f} m "
                                            f"vs LOD0 (LOD prefabs carry their own m_Bounds)")
 
-        # engine base on buildings (re-imported LOD0, mapped back to metres / Z up)
+        # engine base on buildings (re-imported LOD0, mapped back to meters / Z up)
         main0 = imported.get(("lod", 0))
         if main0 is not None and kind == "building":
             r = _report_ground_ring(main0["obj"], rep, table=None, matrix=_import_matrix())

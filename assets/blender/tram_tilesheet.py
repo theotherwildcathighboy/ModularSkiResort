@@ -27,7 +27,7 @@ ROUTES (plan 2.2, rules after the table): per part and key -
     stack    a planar patch under one swatch maps whole into one cell (cs2_tilesheet.shift_patches: 0 tris)
     strip    a long thin member on a strip key (steel, plain galv; concrete <= 0.6 m wide; roof fascias) mapped
              whole-length along u over the swatch width (T70's strip path: 0 tris)
-    palette  only keys that are a flat colour today (glass, rope, safety, trim red, wheels, lamps ...)
+    palette  only keys that are a flat color today (glass, rope, safety, trim red, wheels, lamps ...)
     label    dials, pictograms and boards in the role's label rect (dials and the two pictograms stacked)
     _Gls     the hall glazing leaves the main mesh (DECISIONS 281: clear plain glass); `_Win` panes unchanged
 WEATHER (Q4: a weathered swatch per EXISTING piece, no band cuts): after tile_mesh, whole pieces chosen by
@@ -140,7 +140,7 @@ def register_materials(step=0):
         else:
             m = K.BldgMat(None, None, (0.80, 0.80, 0.80), smooth=float(d["smooth"]), metal=float(d["metal"]),
                           slot=int(d["slot"]), recolor=bool(d["recolor"]))
-            TS.FLAT_TILE_M[key] = T          # flat swatches: tile_mesh divides metres by this (T per step)
+            TS.FLAT_TILE_M[key] = T          # flat swatches: tile_mesh divides meters by this (T per step)
         K.BLDG_MATERIALS.setdefault(key, m)
     for k, c in W_CLASS.items():
         TS.W_CLASS.setdefault(k, c)
@@ -258,7 +258,7 @@ def _procedural(proc, key, b, n, sm, C, T, seed):
     """Swatch-specific detail on top of cs2_tilesheet._swatch_maps (base linear, normal 0..1, smooth). Rows = v,
     columns = u. Returns (base, nrm, sm, hole mask or None, metal override or None)."""
     ppm = C / T
-    s = (np.arange(C) + 0.5) / ppm                     # metres along one axis
+    s = (np.arange(C) + 0.5) / ppm                     # meters along one axis
     U, V = np.meshgrid(s, s)                           # U varies along columns (u), V along rows (v)
     holes = None
     if proc == "paint":
@@ -435,7 +435,7 @@ def design_frame(obj, dx):
 
 
 def box_uv(P, n):
-    """Unmirrored box projection in the design frame (metres): walls u = the viewer's right, v = up (courses level
+    """Unmirrored box projection in the design frame (meters): walls u = the viewer's right, v = up (courses level
     round corners); floors / roofs u = X, v = -Z from above (+Z from below)."""
     ax = int(np.argmax(np.abs(n)))
     sg = 1.0 if n[ax] >= 0 else -1.0
@@ -547,8 +547,8 @@ def label_groups(table):
 
 
 def uvtile_for(obj, keys, fkey, table, dx, groups, targets, ts):
-    """(n_loops, 2) UVTile per loop: tiled keys = box projection / their material tile (flat swatches: metres, tile_mesh
-    divides by FLAT_TILE_M), palette keys metres, label faces in their upright frame (metres, centred per part so a
+    """(n_loops, 2) UVTile per loop: tiled keys = box projection / their material tile (flat swatches: meters, tile_mesh
+    divides by FLAT_TILE_M), palette keys meters, label faces in their upright frame (meters, centered per part so a
     stacked group overlaps) pre-scaled by target / LABEL_PPM0."""
     me = obj.data
     P, N = design_frame(obj, dx)
@@ -565,7 +565,7 @@ def uvtile_for(obj, keys, fkey, table, dx, groups, targets, ts):
         g = next((q for q in groups if nm.startswith(q)), None)
         if g is not None:
             grp_of[p] = g
-    # label part centres (world) for stacking
+    # label part centers (world) for stacking
     cen = {}
     Mw = np.array(obj.matrix_world, np.float64)
     co = np.zeros(len(me.vertices) * 3); me.vertices.foreach_get("co", co)
@@ -690,7 +690,7 @@ def apply_weather_pieces(obj, layout, keys, table, dx, step, grid_offset, tile_p
 
 def close_glass_backs(obj, table):
     """Fill every open boundary loop of the GLASS_BACKED parts (their back faces were dropped against the wall,
-    which is clear glass under --tiled), the new face oriented away from the part's centre. {part: tris added}."""
+    which is clear glass under --tiled), the new face oriented away from the part's center. {part: tris added}."""
     ids = {table.index(n) + 1: n for n in table if n.startswith(GLASS_BACKED)}
     if not ids:
         return {}

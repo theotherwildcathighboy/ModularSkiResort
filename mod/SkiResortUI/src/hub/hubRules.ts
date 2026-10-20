@@ -742,7 +742,7 @@ export function buildingsAndWages(live: ResortLive): number {
   return live.buildingsMonth < 0 || live.wagesMonth < 0 ? -1 : live.buildingsMonth + live.wagesMonth;
 }
 
-/** Hectares from square metres (display; one decimal by the unit). */
+/** Hectares from square meters (display; one decimal by the unit). */
 export function hectares(m2: number): number {
   return Number.isFinite(m2) && m2 > 0 ? m2 / 10000 : 0;
 }
@@ -913,7 +913,7 @@ export function liftCostReason(row: LiftRow): LiftCostReason {
 
 export type LiftTone = "normal" | "warn" | "dim";
 
-/** Mark shape and colour of a lift status (design 5.3). */
+/** Mark shape and color of a lift status (design 5.3). */
 export function liftMark(status: number): { ring: boolean; tone: LiftTone } {
   switch (status) {
     case LIFT_STATUS.Running: return { ring: false, tone: "normal" };

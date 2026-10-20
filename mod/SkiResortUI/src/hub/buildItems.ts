@@ -29,7 +29,7 @@
  *     JSONs, gamedata-mirror/ImportedData/<Prefab>/<Prefab>.Prefab "m_Icon", lines below). Round E1
  *     (D20) gives the natural and the night run their own icons (art awaiting Richard's verdict,
  *     chapter 2 section 7.3 is the two-line revert); run tiles keep a kind stripe in the run list's
- *     marker colours (hub.module.scss .stripe*, the natural run's two short bars). If an icon fails
+ *     marker colors (hub.module.scss .stripe*, the natural run's two short bars). If an icon fails
  *     to load the tile draws a CSS square instead (AssetIcon, src/hub/parts.tsx). Round M1 deletes
  *     the SkiResortCategory prefab but keeps SkiResortTab.png (aed39078...), which is no longer
  *     drawn: the launchers use SkiLauncherGlyph.svg since S1 F9 (HubLauncher.tsx HUB_GLYPH; HUB_ICON is

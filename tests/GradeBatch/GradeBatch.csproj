@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Headless test host for the PURE half of the Cat Track Grading tool (T139b, DECISIONS 362 / 363; build note
+    docs/research/field/2026-10-20/grading-tool-build.md): mod/SkiResortMod/Systems/CatTrackGrade.cs (path, profile,
+    cross-section raster, guards, undo, edit model, input rules). Run from the ModularSkiResort root:
+      see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
+    Clone of tests/LiftBatch/LiftBatch.csproj: lives OUTSIDE mod/SkiResortMod (the mod csproj globs **/*.cs), LangVersion
+    pinned to the mod's 9.0, UnityMathematics.NoDeps 1.3.2 = the toolchain's com.unity.mathematics@1.3.2.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <RootNamespace>GradeBatch</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\CatTrackGrade.cs" Link="CatTrackGrade.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />
+  </ItemGroup>
+</Project>

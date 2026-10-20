@@ -4,7 +4,7 @@ Richard's reference photos have and the eight buildings lacked. `lodge.py --fitt
 What lives where:
   * cs2_bldg (inside `cs2_bldg.fittings()`): the downspout SHOE (every downspout() call unless shoe=False), the
     hidden bracket tops of snow_guard(), and the builders snow_pads() / chimney_shroud().
-  * the recipes (gated on `cs2_bldg.FITTINGS["version"] >= 1`): recipe-local modelled fittings (L5 downpipes and
+  * the recipes (gated on `cs2_bldg.FITTINGS["version"] >= 1`): recipe-local modeled fittings (L5 downpipes and
     snow fences, L3 snow pads, L2's no-shoe drain pipes).
   * this module, build(): recipe-independent additions read off the built parts: the chimney shrouds (from the
     `chimcap_<name>` crown bounds) and the VANILLA SUB-OBJECT ROWS (vanilla props first: entry wall lights, canopy
@@ -18,10 +18,10 @@ previews, the door-kit door groups and docs/research/art/fittings-2026-10-17.dat
 rows: school wingL lamp identity on a -y wall, L3 Bn lamp game q (0, -0.707, 0, 0.707) on a +x wall).
 
 Gates (all raise): a wall prop must hit a non-glass wall face within 1.5 m whose normal is within 25 deg of the
-asked normal; a ceiling prop must hit a downward face within 4 m; a roof prop's four footprint corners and centre
+asked normal; a ceiling prop must hit a downward face within 4 m; a roof prop's four footprint corners and center
 must all land on roof_ / ridge_ faces, it is seated so that EVERY variant's base rings touch or sink into the roof
 (close look: fittings_vanilla_bases.json), every variant must show >= 60 % of its body above the roof at the
-centre, and its above-roof box must not meet another part's box (a chimney, a vent stack, a dormer, a snow rail).
+center, and its above-roof box must not meet another part's box (a chimney, a vent stack, a dormer, a snow rail).
 
 Close look (2026-10-17, docs/research/art/fittings-2026-10-17.md section 11): build() first runs the FIX pass
 (closelook: refit_gutters, route_downspouts, clip_runs) and last the CONTACT + INTERSECTION audit (audit), which
@@ -74,7 +74,7 @@ POT_SHOW_M = 0.85                                   # how much of a sunk chimney
 # The tables (FINAL frame). wall: (prefab, (x, y, z) near the wall face, (nx, ny) outward normal, note);
 # ceiling: (prefab, (x, y, z_from) cast up, note); roof: (prefab, (x, y), note);
 # curb (T101): (prefab, part name, (x, y) or None, note): the prop stands on that part's closed top (a level curb, a
-#   deck), yawed so that EVERY variant's base ring lands on it (_place_curb); None = the part's centre;
+#   deck), yawed so that EVERY variant's base ring lands on it (_place_curb); None = the part's center;
 # crown (T101 r3): (prefab, crown part, (x, y), note): a chimney pot sunk into the stack so POT_SHOW_M stands above
 #   the crown, its footprint inside the crown top (_place_crown);
 # ground_wall (T101 r3): (prefab, (x, y) at the wall, (nx, ny) outward normal, note): a unit on grade, its back on the
@@ -90,7 +90,7 @@ ROWS = {
                  # (x 8.1-9.4 / 10.6-11.9) and below their sills (4.24); they were on the 13.5-deg monopitch at x 6 / 11
                  (AC_UNIT_A, (8.75, -14.6), "rooftop AC unit, flat front roof (was hvac_a)"),
                  (AC_UNIT_B, (11.25, -14.6), "rooftop AC unit, flat front roof (was hvac_b)")),
-        # the sign lamps over the name board: a matched pair of vanilla goosenecks (were modelled, T102 r2); z 4.45 =
+        # the sign lamps over the name board: a matched pair of vanilla goosenecks (were modeled, T102 r2); z 4.45 =
         # the back plate (from -0.06) clears the sign frame top 4.26 and sits flat on the tower wall
         "wall": ((GOOSENECK, (-0.40, -16.0, 4.45), (0.0, -1.0), "sign lamp over the name board (left)"),
                  (GOOSENECK, (2.40, -16.0, 4.45), (0.0, -1.0), "sign lamp over the name board (right)")),
@@ -102,7 +102,7 @@ ROWS = {
     # shows air under its base (the gate below), CommercialACVentRoof04 kept only 0.32 of its 0.54 m above the
     # 60-degree ridge. T101 (2026-10-19): the placeholder VENT x 5 0.5 m down the 52.97-deg W slope failed the same
     # gate (one seat for five variants: 01 / 02 / 05 buried); T101 r3: the specific capped pipe ACVentRoof03 alone
-    # seats with ~0.65 m of the 0.36 m needed above the roof, so the five modelled vent stacks go (lodge.py, fittings
+    # seats with ~0.65 m of the 0.36 m needed above the roof, so the five modeled vent stacks go (lodge.py, fittings
     # v1). The four rail-top kit lanterns become vanilla deck lights on the deck by the rail (the rail top is 7 cm).
     "L1": {
         "roof": tuple((PIPE_VENT, (x, -5.0), f"plumbing vent on the W slope, was vent_ridge{i}")
@@ -135,7 +135,7 @@ ROWS = {
         "roof": ((KITCHEN, (-5.0, 9.0), "kitchen exhaust on the dining wing's low roof"),
                  (VENT, (8.5, -4.0), "plumbing vent, main rear slope (east of dormer u3)"),
                  (VENT, (-6.0, -4.0), "plumbing vent, main rear slope (east of dormer u2)")),
-        # T101 r3: the four modelled flue pots become vanilla domed pots sunk into the two stacks
+        # T101 r3: the four modeled flue pots become vanilla domed pots sunk into the two stacks
         "crown": ((CHIMNEY_POT, "chimcap_u1", (-15.8, -7.5), "chimney pot, was flue_u0"),
                   (CHIMNEY_POT, "chimcap_u1", (-15.8, -8.5), "chimney pot, was flue_u1"),
                   (CHIMNEY_POT, "chimcap_u2", (3.55, -8.0), "chimney pot, was flue_u2"),
@@ -305,7 +305,7 @@ def _place_roof(sc, recipe, prefab, bounds, pf, note):
     # close look (2026-10-17): seat it so that EVERY variant's base rings (its skirt bottom, a flashing plate) touch
     # or sink into the roof at every ring point (v1 sank the union bounds' 0.33 m below the lowest corner, which
     # left ACVentRoof04's plate 24-30 cm and CommercialACVentRoof02's 37 cm over the roof); then every variant must
-    # still show >= 60 % of its body (top minus its highest base ring) above the roof at the centre
+    # still show >= 60 % of its body (top minus its highest base ring) above the roof at the center
     variants = _vanilla_bases().get(prefab, {})
     if not variants:
         raise RuntimeError(f"fittings: no variant bases for {prefab} in fittings_vanilla_bases.json")
@@ -342,7 +342,7 @@ def _place_roof(sc, recipe, prefab, bounds, pf, note):
 
 def _place_curb(sc, recipe, prefab, curb, note, at=None):
     """T101: a prop on the closed top of part `curb` (a level rooftop curb, a deck; `at` = a FINAL (x, y) on it, None =
-    the part's centre). Tries the yaws 90 / 0 / 270 / 180 deg and
+    the part's center). Tries the yaws 90 / 0 / 270 / 180 deg and
     takes the first for which EVERY variant's base-frame ring (fittings_vanilla_bases.json) lands on `curb` (rays down
     from above); origin z = min(top z - ring y) - 3 mm so every frame touches or sinks 3 mm; then the box over the curb
     (the props' union footprint radius, up to the union top) must not meet another part. Returns (FINAL point, q, yaw,
@@ -394,7 +394,7 @@ def _place_curb(sc, recipe, prefab, curb, note, at=None):
 
 def _place_crown(sc, recipe, prefab, crown, pf, note):
     """T101 r3: a vanilla chimney pot (its own stack included) sunk into our stack so POT_SHOW_M of it stands above the
-    crown slab `crown`: the 4 corners of its footprint (union bounds, game x / z) and its centre must hit the crown's
+    crown slab `crown`: the 4 corners of its footprint (union bounds, game x / z) and its center must hit the crown's
     top face (rays down), and the box over the crown must not meet another part. Returns (FINAL point, parts)."""
     if crown not in sc.boxes:
         raise RuntimeError(f"fittings {recipe.key} {prefab} ({note}): no crown {crown!r}")
@@ -570,7 +570,7 @@ def build(recipe, parts, opts):
 # on a violation; AUDIT_MODE "report" only records it (the before-table of docs/research/art/fittings-2026-10-17.md
 # section 11). PIPELINE.md section 1 idiom: "nothing floats: every fitting proves contact".
 #
-# Units: metres, authoring frame (before yaw); reports carry FINAL-frame centres (auth_to_final) for the doc.
+# Units: meters, authoring frame (before yaw); reports carry FINAL-frame centers (auth_to_final) for the doc.
 # Shells: each fitting part is split into its connected shells (a downspout = pipe + elbow + shoe; a bracket part
 # = one shell per bracket; a pad part = one shell per pad) and every shell is audited.
 #   contact   every shell reaches the building (non-fitting geometry, or grade: the lifted grade plane GROUND_LIFT
@@ -615,7 +615,7 @@ EMBEDS = (
      "a chimney built into its wall: the wall, its belt and its plinth cap die into the stack"),
 )
 # declared joints between two fittings (prefix a, prefix b, reason); "same: ..." = only the same chimney / rail /
-# pipe name (a bracket into ITS rail, not a neighbour's)
+# pipe name (a bracket into ITS rail, not a neighbor's)
 JOINTS = (
     ("downspout_", "gutter_", "outlet: the elbow / drop enters its gutter"),
     ("gutter_", "gutter_", "a corner: two runs meet"),
@@ -1203,7 +1203,7 @@ class _World:
         self.plo, self.phi = np.array(plo), np.array(phi)
 
     def inside_part(self, p):
-        """p inside ONE part (tested against that part alone: a neighbour's faces cannot block its rays)."""
+        """p inside ONE part (tested against that part alone: a neighbor's faces cannot block its rays)."""
         q = np.asarray(tuple(p))
         for i in np.where(np.all(self.plo - 1e-4 <= q, 1) & np.all(q <= self.phi + 1e-4, 1))[0]:
             if i not in self._pb:
@@ -1290,8 +1290,8 @@ def refit_gutters(recipe, parts, W, report):
 
         def P(t, u, v):
             return B0 + A * t + O * u + Vector((0, 0, v))
-        # blocked stations: the cross-section centre / front inside a wall, bay, another roof
-        # every profile point (pulled 1 cm off the back face it seats on, 3 mm in from the outer skin) and the centre
+        # blocked stations: the cross-section center / front inside a wall, bay, another roof
+        # every profile point (pulled 1 cm off the back face it seats on, 3 mm in from the outer skin) and the center
         # a grid over the whole cross-section (u every ~2.5 cm, v every ~2.5 cm inside the profile, 3 mm in from
         # its skin, 1 cm off the face it seats on): a crossing board that clips only the top or the lip still cuts
         def _vbot(u):
@@ -1587,7 +1587,7 @@ def route_downspouts(recipe, parts, W, runs, grade, report):
                     W_up = W0 + nw * (max(upper) + 0.5 * s + 0.003)
                     z_split, jog_mode = z_feat, "over"
                 elif lower and not upper and z_fbot > z_lo + 0.6 and max(lower) < p_all - 0.04:
-                    # the proud part is the top of the run (L3's jettied upper storey): the pipe runs down it, jogs
+                    # the proud part is the top of the run (L3's jettied upper story): the pipe runs down it, jogs
                     # in under it and on down the wall below
                     W_lo = W0 + nw * (max(lower) + 0.5 * s + 0.003)
                     z_split, jog_mode = z_fbot, "under"
@@ -1606,11 +1606,11 @@ def route_downspouts(recipe, parts, W, runs, grade, report):
             if near is not None and near[0] - 0.5 * s > CONTACT_M:
                 W_lo = W_up = W0 + near[1] * (near[0] - 0.5 * s - 0.003)
         elif nw is not None and R["shoe"]:
-            # a pipe half past a corner board: slide it along the wall until a wall stands behind its centre
+            # a pipe half past a corner board: slide it along the wall until a wall stands behind its center
             tw = nw.cross(Vector((0, 0, 1)))
             zs_ = [R["z_bottom"] + 0.2 + (zt - 0.6 - R["z_bottom"]) * k / 15.0 for k in range(16)]
 
-            def behind(Wq):                       # a solid (not glass) face behind the centre over >= 85 % of the run
+            def behind(Wq):                       # a solid (not glass) face behind the center over >= 85 % of the run
                 ok_ = 0
                 for z in zs_:
                     h = W.cast(Vector((Wq.x, Wq.y, z)) - nw * (0.5 * s), -nw, 0.4)
@@ -1723,7 +1723,7 @@ def route_downspouts(recipe, parts, W, runs, grade, report):
 
 
 def _ledge_drain(g, W, recipe, grade, Wu, nw, zl, s, clips):
-    """The ledge an upper pipe lands on is a flat roof (L1: the base storey's top; A-Basin's lower storey is a
+    """The ledge an upper pipe lands on is a flat roof (L1: the base story's top; A-Basin's lower story is a
     flat-roofed deck the A-frame sheds onto): a scupper through its outer edge, a drop under it, a 45-degree neck
     back to the wall below, and a pipe of its own down to grade with clips and a shoe. Returns where it stands."""
     Z = Vector((0.0, 0.0, 1.0))
@@ -1807,7 +1807,7 @@ def closelook(recipe, parts, opts):
 # =====================================================================================================================
 # STRUCTURE (T58, 2026-10-18; Richard's Blender review: "a pass on all buildings for what is structurally unrealistic";
 # docs/research/art/structure-2026-10-18.md): the fittings close look extended to every DECLARED STRUCTURAL PART.
-# Same frame and units as the fittings audit (authoring frame, before yaw; metres; 5 mm contact). A part is declared
+# Same frame and units as the fittings audit (authoring frame, before yaw; meters; 5 mm contact). A part is declared
 # by its name (`struct_role`: prefix / suffix rules, plus STRUCT_DECLARE per recipe for the exceptions, each with a
 # reason) and split into connected shells (a boxes_part of six posts = six posts). Per role:
 #   post   (post_, col_, logpost_, stilt_, gazebocol_, lanterncol_, logframe_, the kit rails' `trail_<n>p`; pier_ /
@@ -2027,7 +2027,7 @@ class _SWorld:
                 r = self._pb[i].ray_cast(Vector(tuple(p)), d, reach)
                 if r[0] is not None and r[1].dot(d) > 0.0:
                     back += 1
-            if back >= 2:                          # one back face alone is a curved sheet's neighbour facet
+            if back >= 2:                          # one back face alone is a curved sheet's neighbor facet
                 return self.names[i]
         return None
 
@@ -2321,7 +2321,7 @@ LAST_GLASS = {}
 
 def audit_glass(recipe, parts):
     """The round-2 glass gate (see the block comment). Returns {"panes", "shells", "violations": [(part#shell,
-    pane, depth mm, final-frame centre of the overlap)]}."""
+    pane, depth mm, final-frame center of the overlap)]}."""
     bpy.context.view_layer.update()
     key = recipe.key
     panes, shells = [], []
@@ -2599,7 +2599,7 @@ def structure_fix(recipe, parts):
                 v = best[1] / max(np.linalg.norm(best[1]), 1e-9)
                 s = best[0] + STRUCT_SEAT_M
                 if len(sps) == 1 and len(sps[0]) == 4:
-                    # a single face standing off a parallel surface (a frame strip modelled as the board's front):
+                    # a single face standing off a parallel surface (a frame strip modeled as the board's front):
                     # moving it would bury it, so it gets the board's four sides down onto the surface (+8 tris)
                     A = sc[list(sps[0])]
                     nrm = np.cross(A[1] - A[0], A[2] - A[0])

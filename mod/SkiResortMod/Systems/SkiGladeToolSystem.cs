@@ -35,7 +35,7 @@
 // Activation is TryActivate() → ToolSystem.activeTool = this (ToolSystem.cs:84-98), called by
 // SkiGladeHotkeySystem, the "Ski Glades" dev tab and, since Round U1, the Ski Resort hub
 // (SkiResortHubUISystem: TryActivate("hub") / Deactivate, SetLevel / SetTreeLine, and
-// UnavailableReasonKey to grey its buttons out with the tool's own reason).
+// UnavailableReasonKey to gray its buttons out with the tool's own reason).
 //
 // BOUND (O1, spec §3, §3.8). A run is bound iff SkiRunOwnershipSystem.IsBound(run): it carries our
 // serialized SkiRunBinding and its sign is live. Runs no longer carry the vanilla Owner(sign)
@@ -149,17 +149,17 @@
 // G3 fixer round: this run's trees standing outside their own layer's region after a run edit
 // (an interior tree outside the polygon, a tree-line tree inside it) are MISPLACED — Compose
 // removes them first of all on the next apply of either target whose census sees them
-// (SkiGladeCompose header MISPLACED; findings compose-1 / behaviour-1), and the plan line names
+// (SkiGladeCompose header MISPLACED; findings compose-1 / behavior-1), and the plan line names
 // them. Apply takes the held preview only while it is the plan of the CURRENT level and target
 // (finding tool-1, UpdateFrame "planCurrent").
-//   * SKIP SET: on the ready frame every cancelled planted Temp maps back to its slot through
+//   * SKIP SET: on the ready frame every canceled planted Temp maps back to its slot through
 //     m_EmittedSlots (definition positions are written verbatim, GenerateObjectsSystem.cs:1253)
 //     and joins m_SkipSlots[PlanKey] (<= SkipKeysMax keys, oldest evicted). LIFETIME: ONE
 //     ACTIVATION — cleared in OnStartRunning and at load (fixer round, finding g2-tool-3,
 //     amending spec §4.6 "cleared at load"): PlanKey hashes trees, vertex obstacles, exclusion
 //     rings and params but no road, building or map tile, so a per-load set kept a slot skipped
 //     after its blocker was bulldozed or its tile bought, and the run read "complete" until a
-//     reload. Re-learning costs one all-cancelled ready frame (and one extra plan line) per
+//     reload. Re-learning costs one all-canceled ready frame (and one extra plan line) per
 //     affected run per activation (learned → immediate re-plan, never a false Complete).
 //     Nothing is learned when money may be short (PlayerMoney.money < PreviewPlant ×
 //     MaxTreeCost: ValidationSystem also cancels Optional Temps for money,
@@ -167,7 +167,7 @@
 //     — with per-activation sets a complete run with blocked spots shows MoneyShort on each
 //     activation in a city that short of money (accepted). Round G3: whenever a ready preview
 //     LEARNS new slots the tool re-plans at once (G2: only when nothing else was applicable),
-//     and Apply waits for that preview — under the count rule a cancelled spot leaves the run
+//     and Apply waits for that preview — under the count rule a canceled spot leaves the run
 //     below T, so without it the re-plan after the Apply would plant replacements (spec §8.6
 //     step 3: "nothing to change" right after any apply). DEVIATION from G2 §4.6, reported.
 //   * PLAN CACHE: SkiGladeCompose's GladePlanCache (PlanCacheEntries = 4, keyed by PlanKey): a
@@ -184,7 +184,7 @@
 // (self-heal, logged once per plan). Felled trees get a red ring, removed members (this run's
 // planted trees: the count rule's removals and other-variant / other-generation tags) an orange one
 // (OUTLINE only: a Projected fill would paint every mesh in its column). Planted trees keep the
-// vanilla outline. Warning/Override recolouring is NOT used: on Apply ToolApplySystem deletes
+// vanilla outline. Warning/Override recoloring is NOT used: on Apply ToolApplySystem deletes
 // Warning entities and marks Override ones Overridden + Updated (ToolApplySystem.cs:50-57,
 // :118-126). FALLBACK (spec §4.8 last sentence, for when Hidden misbehaves in the field): the dev
 // tab toggles hiding off; Delete Temps then stay visible (reused hidden ones are un-hidden) and
@@ -226,7 +226,7 @@
 //   * Every Temp the create path DOES create is a Temp our tag system saw and tagged on the same
 //     ApplyTool phase (it runs UpdateBefore ApplyObjectsSystem, SystemOrder.cs:714, 1.6.2 :715;
 //     Create keeps the entity, :670-687): field log 537/538 and 645/646 — "planted 1738 (6
-//     cancelled)" / "tagged 1738 … skipped 6 cancelled", 1633/8 likewise — and the re-plan found
+//     canceled)" / "tagged 1738 … skipped 6 canceled", 1633/8 likewise — and the re-plan found
 //     exactly those members ("same 1738", "same 1633").
 // What actually produces the 3 and 5 extra trees (likely — the only engine path found; whether
 // those map trees were Overridden is not observable in the old log): OVERRIDDEN map trees that
@@ -248,7 +248,7 @@
 // tree. That fits every count: of the 3 / 5 revealed trees one each was not selected by the G2
 // thin hash (the +1 occupant, which also shifted the plan stream: "matched 1735 / 939"), the
 // others were (fell 2 / fell 4); the Corridor apply on run 80848 (181 felled) and the second
-// 80962 apply (4 felled) revealed none. The 6 / 8 cancelled spots are a coincidence of the
+// 80962 apply (4 felled) revealed none. The 6 / 8 canceled spots are a coincidence of the
 // log's shape, not the cause. All files cited in this paragraph are unchanged in 1.6.2 except
 // ObjectInitializeSystem.cs, ValidationHelpers.cs (lines given) and SystemOrder.cs (:715 only).
 // FIX (Round G3): the census counts Overridden trees (above), so a tree that reappears was
@@ -266,12 +266,12 @@
 //
 // APPLY CHECK (Round G3, the log line that would have exposed the defect). On the Apply frame the
 // tool snapshots the census it planned from (the entities of every non-member tree and which of
-// them were Overridden, this run's member count), the planted spots validation cancelled and the
+// them were Overridden, this run's member count), the planted spots validation canceled and the
 // live fell / remove counts. The first re-plan after the apply (any run, or none) re-takes the
 // census of the APPLIED run and writes ONE line "Glade: apply check — …": trees created by the
 // apply (the tag system's create-path count) vs tagged, own members now vs before − removed +
 // tagged, non-member trees now vs before − felled, NEW untagged trees classified as "at a
-// cancelled planted spot" (would mean a cancelled Temp was created — the spec's hypothesis),
+// canceled planted spot" (would mean a canceled Temp was created — the spec's hypothesis),
 // "near a felled tree" or "elsewhere", vanished trees, and trees un-overridden since the apply.
 // INFO when every count balances, WARN "APPLY MISMATCH" otherwise. One extra census per apply.
 //
@@ -364,7 +364,7 @@ namespace SkiResortMod.Systems
             };
 
             /// <summary>Round G3 apply check: a new untagged tree within this xz distance (m) of a
-            /// planted spot validation cancelled counts as "at a cancelled spot" (definition
+            /// planted spot validation canceled counts as "at a cancelled spot" (definition
             /// positions are written verbatim, GenerateObjectsSystem.cs:1253).</summary>
             public const float CheckSpotRadiusM = 0.5f;
             /// <summary>Round G3 apply check: "near a felled tree" radius (m) — a tree the
@@ -388,7 +388,7 @@ namespace SkiResortMod.Systems
             /// <summary>G2, new: price of the dearest planted tree (Adult, glade-tool-spec §0) —
             /// the money-short test of the skip-set learning (spec §4.6).</summary>
             public const int MaxTreeCost = 50;
-            /// <summary>G2, new: candidate-ring alpha factor on the vanilla hover colour.</summary>
+            /// <summary>G2, new: candidate-ring alpha factor on the vanilla hover color.</summary>
             public const float CandidateAlpha = 0.4f;
             /// <summary>G2, new: candidate-ring copy refresh period (s). Not an order-version
             /// gate: the area tool rewrites the Node buffer in place, and binding changes raise
@@ -399,7 +399,7 @@ namespace SkiResortMod.Systems
             /// <summary>G2, new: plan keys with a learned skip set (oldest evicted).</summary>
             public const int SkipKeysMax = 16;
 
-            /// <summary>G2 ring colours (spec §4.8; explicit because RenderingSettingsPrefab's
+            /// <summary>G2 ring colors (spec §4.8; explicit because RenderingSettingsPrefab's
             /// m_ErrorColor code default is a faint salmon, RenderingSettingsPrefab.cs:17).</summary>
             public static readonly UnityEngine.Color FellRingColor = new UnityEngine.Color(0.95f, 0.20f, 0.15f, 0.90f);
             public static readonly UnityEngine.Color ReplaceRingColor = new UnityEngine.Color(1.00f, 0.55f, 0.10f, 0.90f);
@@ -421,7 +421,7 @@ namespace SkiResortMod.Systems
 
         // Round U1 (docs/research/resort-hub-understand.md §5.2 item 3 "Trees", implementer U1-B,
         // 2026-10-01): the hub's tree controls go through the tool's own entry points — TryActivate /
-        // Deactivate (above / below), SetLevel / SetTreeLine (below) — and grey out with the tool's
+        // Deactivate (above / below), SetLevel / SetTreeLine (below) — and gray out with the tool's
         // own reason. Locale keys (root LocaleEN.cs); "" when the tool can be activated.
         public const string ReasonKeyDisabled = "SkiResort.Hub.GLADE_REASON[Disabled]";
         public const string ReasonKeyNotInGame = "SkiResort.Hub.GLADE_REASON[NotInGame]";
@@ -488,12 +488,12 @@ namespace SkiResortMod.Systems
         /// runs; seeded from the ownership census at activation). Tooltip NO_RUNS detail.</summary>
         public int CityBoundRuns => m_CityBoundRuns;
 
-        /// <summary>Distance (m) from the last hovered unbound run's centre to the nearest Welcome
+        /// <summary>Distance (m) from the last hovered unbound run's center to the nearest Welcome
         /// Sign, computed on the transition; +inf = no sign; -1 = not computed.</summary>
         public float UnboundNearestSignM => m_UnboundNearestSignM;
 
         // Last preview census (plain fields; the dev tab reads them at 10 Hz). Round G3:
-        // PreviewThin / PreviewRemove count only Delete Temps WITHOUT Cancel (a cancelled delete
+        // PreviewThin / PreviewRemove count only Delete Temps WITHOUT Cancel (a canceled delete
         // Temp keeps its original, ApplyObjectsSystem.cs:337-340, 474-482); those with Cancel are
         // PreviewDeleteCancelled.
         public int PreviewPlant, PreviewThin, PreviewCancelled, PreviewCost;
@@ -712,7 +712,7 @@ namespace SkiResortMod.Systems
         private float m_CandidateNextRefresh;
         private UnityEngine.Color m_HoverColor = new UnityEngine.Color(0.5f, 0.5f, 1f, 0.5f);
         private UnityEngine.Color m_CandidateColor = new UnityEngine.Color(0.5f, 0.5f, 1f, 0.2f);
-        // T30: glade outline colours come from RunOutlineRules.GladeOutlineColour (the one place); dashed candidate pieces are
+        // T30: glade outline colors come from RunOutlineRules.GladeOutlineColour (the one place); dashed candidate pieces are
         // cut on the CPU at each candidate refresh (PisteMapRules.DashRing, the piste map's cutter).
         private static readonly UnityEngine.Color s_GladeColor = new UnityEngine.Color(
             RunOutlineRules.GladeOutlineColour.x, RunOutlineRules.GladeOutlineColour.y, RunOutlineRules.GladeOutlineColour.z,
@@ -813,7 +813,7 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Deleted>(),
                 },
             });
-            // Vanilla hover colour source (Game.Rendering/AreaBorderRenderSystem.cs:657-676).
+            // Vanilla hover color source (Game.Rendering/AreaBorderRenderSystem.cs:657-676).
             m_RenderingSettingsQuery = GetEntityQuery(ComponentType.ReadOnly<RenderingSettingsData>());
             m_PrefabScanQuery = GetEntityQuery(ComponentType.ReadOnly<PrefabData>());
 
@@ -1007,7 +1007,7 @@ namespace SkiResortMod.Systems
         }
 
         // Spec §4.6: base requires no Error entity unless ignoreErrors and no deleted originals
-        // (ToolBaseSystem.cs:533-540); a preview of only cancelled Temps (blocked spots before
+        // (ToolBaseSystem.cs:533-540); a preview of only canceled Temps (blocked spots before
         // they are learned) is not applicable.
         protected override bool GetAllowApply()
         {
@@ -2468,7 +2468,7 @@ namespace SkiResortMod.Systems
             return treeLine ? SkiGladeCompose.LayerBelt : SkiGladeCompose.LayerGlade;
         }
 
-        /// <summary>Density of the PLAN STREAM (Round G3; G3 fixer round, finding behaviour-2:
+        /// <summary>Density of the PLAN STREAM (Round G3; G3 fixer round, finding behavior-2:
         /// SkiGladeCompose.StreamDensityPerM2 = 1.10 × the densest level's, so the stream does not
         /// depend on L (spec §8.4) and a level-8 run replaces learned blocked spots from its tail).
         /// SkiGladeCompose sets it itself (its header PLAN STREAM: Params.Mode, ThinFraction,
@@ -2806,16 +2806,16 @@ namespace SkiResortMod.Systems
         /// <summary>Planted tree (glade-tool-spec §4.4). NO owner (§6: Owner(run) is reconciled
         /// by SubObjectSystem.RelocateSubObjects on any run Updated, SubObjectSystem.cs:1360-1533).
         /// Optional → TempFlags.Optional (GenerateObjectsSystem.cs:1090-1093): a collision becomes
-        /// a cancelled Temp instead of an Apply-blocking Error (ValidationHelpers.cs:166-181,
+        /// a canceled Temp instead of an Apply-blocking Error (ValidationHelpers.cs:166-181,
         /// ValidationSystem.cs:1636, 1667-1712; vanilla tree brush, ObjectToolBaseSystem.cs:1024,
-        /// 1.6.2 :1027), and over-budget Optionals are cancelled to fit
+        /// 1.6.2 :1027), and over-budget Optionals are canceled to fit
         /// (ValidationSystem.cs:1434-1449). m_IsDecoration = true leaves the archetype's
         /// Decoration enabled (GenerateObjectsSystem.cs:1311-1317, TreeObject.cs:25-29): the tree
         /// never ages (TreeGrowthSystem.cs:268-273) and counts no wood. y is sampled here because
         /// the pipeline never terrain-snaps (GenerateObjectsSystem.cs:1253; vanilla
         /// ObjectToolBaseSystem.SampleTransform :1040-1072, 1.6.2 :1043). The slot is recorded
         /// by xz key: the Temp's Transform is the definition position verbatim (:1253; reuse
-        /// path :1116), which is how a cancelled Temp maps back to its slot (skip set).</summary>
+        /// path :1116), which is how a canceled Temp maps back to its slot (skip set).</summary>
         private bool EmitPlant(EntityCommandBuffer ecb, ref TerrainHeightData heightData, PlantedTree tree, int slot)
         {
             int species = tree.Species;
@@ -2827,7 +2827,7 @@ namespace SkiResortMod.Systems
                 return false;
             // SampleTransform ground branch (:1052-1055): terrain height + placement offset.
             // Trees are not Hovering/Shoreline/Floating (unverified per species; the vanilla
-            // water branches are not replicated — water hits are Optional-cancelled anyway).
+            // water branches are not replicated — water hits are Optional-canceled anyway).
             pos.y = TerrainUtils.SampleHeight(ref heightData, pos) + m_SpeciesOffsetY[species];
             quaternion rot = quaternion.RotateY(tree.Rotation);
 
@@ -3199,7 +3199,7 @@ namespace SkiResortMod.Systems
             {
                 // Round G3 (spec §8.6 step 3, §8.1 "a re-plan right after an apply must read
                 // complete"): re-plan with the skip set NOW, whether or not something else is
-                // applicable. Under the G3 count rule a cancelled spot leaves the run below T, so
+                // applicable. Under the G3 count rule a canceled spot leaves the run below T, so
                 // without this the re-plan after the Apply would plant replacements at the next
                 // stream slots ("Trees to plant k" instead of "nothing to change"). With the skip
                 // set the new preview already takes those slots, and the Apply reaches T in one
@@ -3222,7 +3222,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>planted = create Temps (m_Original Null, not Delete), cancelled = those with
+        /// <summary>planted = create Temps (m_Original Null, not Delete), canceled = those with
         /// TempFlags.Cancel (ValidationSystem.cs:1705-1712), thin / remove = Delete Temps WITHOUT
         /// Cancel whose original is not / is one of the emitted remove originals (Round G3: a
         /// Delete Temp with Cancel takes ApplyObjectsSystem's Cancel path first and keeps its

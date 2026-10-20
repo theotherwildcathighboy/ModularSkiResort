@@ -1,6 +1,6 @@
 """
 Vanilla-prop stand-ins in the live-review packs (DECISIONS 183: props are REFERENCED as
-sub-objects, never modelled, so the review shows them as labelled boxes).
+sub-objects, never modeled, so the review shows them as labeled boxes).
 
   A. READER: for every shipped manifest under assets/import, cs2_subobj.rows_from_manifest returns
      exactly as many rows as the manifest's own block holds (counted here by hard-coded paths,
@@ -13,7 +13,7 @@ sub-objects, never modelled, so the review shows them as labelled boxes).
      `box` too.
   C. PACK: a synthetic asset with N rows in three block shapes (+ one unknown prop) is written with
      cs2_review.write_pack: N boxes + N text labels in SUB with the right bounds, positions,
-     rotations, family colours (distinct), semi-transparent material, a "(ground)" tag for
+     rotations, family colors (distinct), semi-transparent material, a "(ground)" tag for
      m_ParentMesh -1, a 0.5 m cube and "?" for unknown bounds, SUB_NOPROPS holding the sub-meshes
      only, collection props (n_prop_standins ...), a night_subobjects WarningLight replaced by the
      beacon addendum row on a beacon host, and the build session left exactly as it was (every ID
@@ -410,9 +410,9 @@ def test_synthetic_pack(work):
 # E: our own props by CID ("kind": "mod", fine-detail pass) + the sign set as an extra mesh
 # --------------------------------------------------------------------------------------
 
-KIT_CID = "e8c76b0b9f9340a08f728e6d992d4692"      # SkiDressHoseReel (fine_detail.KIT; uncoloured: the cyan box)
+KIT_CID = "e8c76b0b9f9340a08f728e6d992d4692"      # SkiDressHoseReel (fine_detail.KIT; uncolored: the cyan box)
 SET_CID = "1" * 32
-#: kit colour variants (2026-10-12): a coloured rack row names its variant and is TINTED with the set
+#: kit color variants (2026-10-12): a colored rack row names its variant and is TINTED with the set
 RED_VARIANT = "SkiDressSkiRackV2_Red"
 
 
@@ -459,7 +459,7 @@ def test_mod_pack(work, review_dir):
               f"E kit box {[dict(b.items()) for b in kit]}")
         labs = [lb for lb in got["labels"] if lb["cs2r_prop_index"] == kit[0]["cs2r_prop_index"]]
         check(all(lb.data.body == "SkiDressHoseReel (ground)" for lb in labs), "E kit label = the full prop name")
-        # kit colour variants: the coloured rack is tinted with its set and labelled with its variant
+        # kit color variants: the colored rack is tinted with its set and labeled with its variant
         red = [b for b in mods if b.get("cs2r_colour_set")]
         rcol = tuple(round(c, 3) for c in red[0].data.materials[0].node_tree.nodes["Principled BSDF"]
                      .inputs["Base Color"].default_value[:3]) if red else None

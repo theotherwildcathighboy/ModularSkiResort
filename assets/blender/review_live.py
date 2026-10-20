@@ -45,7 +45,7 @@ the world (or "no world": stored as "") and the view transform it replaced. Came
 cs2_preview.DEFAULT_VIEWS (cs2_preview.py:72-76) + "back" (lift_terminal.py:1291), field
 cameras at the pack's predicted LOD switch distances and at the Round L acceptance
 distances 30/140/280/600 m, and a turntable empty rotating 360 deg over 240 frames.
-props(name=None, on=None) shows / hides the VANILLA-PROP STAND-INS (DECISIONS 183): the labelled,
+props(name=None, on=None) shows / hides the VANILLA-PROP STAND-INS (DECISIONS 183): the labeled,
 semi-transparent boxes cs2_review.write_pack puts in a pack's SUB collection, one per manifest
 sub-object row (benches, bins, lamps, tables ...; pack only, never exported). SUB's other contents
 (`_Win` glass) stay: the SUB instance swaps between the pack's SUB and SUB_NOPROPS collections.
@@ -53,7 +53,7 @@ load() / status() / stand_ins() report the stand-in count per pack ("props").
 labels() puts an upright "<cell>  <name>" sign in front of every loaded pack (CS2R_Labels);
 people() stands a 1.8 m mannequin beside each (CS2R_People, one shared CS2R_Mannequin180 mesh)
 (Richard 2026-10-17: a person for scale, a sign to tell the cell).
-stand_ins() adds a 3 m storey ruler (the `_Win` slice height) and the shipped
+stand_ins() adds a 3 m story ruler (the `_Win` slice height) and the shipped
 SkiLiftTowerFG8N into Review_Scale as a COLLECTION instance of its own review pack
 (<review_dir>/SkiLiftTowerFG8N.blend, LOD0), built HEADLESS by
 `blender --background --factory-startup --python assets/blender/cs2_review.py -- --stand-in`
@@ -455,7 +455,7 @@ def _new_camera(name, coll, parent, loc, target):
 
 
 def _make_ruler(coll):
-    """3 m storey ruler: three 1 m bands, alternating light / red, on a 0.12 m square."""
+    """3 m story ruler: three 1 m bands, alternating light / red, on a 0.12 m square."""
     import bmesh
     me = bpy.data.meshes.new(RULER_NAME)
     bm = bmesh.new()
@@ -768,7 +768,7 @@ def lod(name, level=0):
 
 def props(name=None, on=None):
     """
-    Show / hide the vanilla-prop stand-ins (DECISIONS 183): the labelled boxes cs2_review.write_pack
+    Show / hide the vanilla-prop stand-ins (DECISIONS 183): the labeled boxes cs2_review.write_pack
     puts in SUB, one per manifest sub-object row. on=None toggles; True / False sets ("on" / "off"
     and 1 / 0 work too). name=None: every loaded pack. SUB's other contents (`_Win` glass) stay -
     the SUB instance swaps between the pack's SUB and SUB_NOPROPS collections. A pack without
@@ -805,7 +805,7 @@ def props(name=None, on=None):
 
 
 def tint(name, slot, rgb=None):
-    """Recolour slot 1/2/3 (or "R"/"G"/"B", "steel"/"pad") of this asset's instances to
+    """Recolor slot 1/2/3 (or "R"/"G"/"B", "steel"/"pad") of this asset's instances to
     `rgb` (3 floats, linear like the prefab VariationSet); rgb=None restores the default."""
     name = _clean(name)
     s = SLOT_NAMES.get(str(slot).upper())
@@ -862,7 +862,7 @@ def night(on=True, windows=True):
 
 def stand_ins(name=None, tower=True, review_dir=None):
     """
-    Scale stand-ins in Review_Scale: the 3 m storey ruler and (when its pack exists) the
+    Scale stand-ins in Review_Scale: the 3 m story ruler and (when its pack exists) the
     shipped SkiLiftTowerFG8N, an instance of the headless stand-in pack
     <review_dir>/SkiLiftTowerFG8N.blend (STANDIN_CMD builds it; no import runs live).
     Created once; with `name` both move beside that asset's cell, else beside the existing

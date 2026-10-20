@@ -159,7 +159,7 @@
 //     name being removed — removing it left the vanilla panel on the vanilla default while the hub showed
 //     a fallback label that could equal another sign's name (finding u2-data-02; RENAME_TIP's "an empty
 //     name restores the default" still holds). Runs and stations: "" removes the name as before.
-//   * a STATION shared by two or more lift rows is labelled "<name> → <top label>" (§3.7) and the rename
+//   * a STATION shared by two or more lift rows is labeled "<name> → <top label>" (§3.7) and the rename
 //     field starts from that label; a trailing " → <top label>" of one of its rows is dropped before
 //     storing (StripSharedBaseSuffix; findings m1-hub-csharp-2 / u2-panel-3 — an in-place edit stored
 //     the label and the suffix compounded). No contract change: the UI still sends the edited text.
@@ -227,7 +227,7 @@
 //     signs, cancels to the default tool with a "!!!" line (another of our signs: follows it, logged).
 //     The lodge stays a ServiceUpgrade of the sign (hub-u2-spec §6.1 g — a constraint for every round).
 //     (6) T97 P3 (2026-10-19, DECISIONS 308; docs/research/ui/hub-selector-p1-p3-2026-10-19.md): when the launch ENDS
-//     (placement ended, the resort switch ended it, the verify failed, the watch cancelled it), the sign is deselected —
+//     (placement ended, the resort switch ended it, the verify failed, the watch canceled it), the sign is deselected —
 //     ONLY when step (3) is what selected it (m_LaunchSelectedSign) and the world selection is still that sign. Vanilla
 //     keeps the owner selected after its own upgrade placement: ObjectToolSystem never writes ToolSystem.selected (it only
 //     reads it, :3246, :3318, :4198; 1.6.2 the same, no write), it ends itself only after a ForbidMultiple / extension apply
@@ -455,8 +455,11 @@ namespace SkiResortMod.Systems
         /// hub-u2-spec.md §2 (Rounds U2/M1). 12 = T114 + the lift generator (2026-10-20, docs/research/ui/hub-round-t114-2026-10-20.md
         /// section 10): the `liftLine` value binding (HubLiftLineState) and the `liftLineToggle` trigger (LiftLineToolSystem on / off).
         /// 13 = T136 (2026-10-20, docs/research/field/2026-10-20/playthrough/sim-snow-build.md): RunLive appends snowDepthCm and gunWhy
-        /// (the run tooltip says why a run is open or closed and why its snow guns run or not).</summary>
-        public const int HubContract = 13;
+        /// (the run tooltip says why a run is open or closed and why its snow guns run or not).
+        /// 14 = T139 (2026-10-20, docs/research/field/2026-10-20/grading-tool-build.md): the `grade` value binding (HubLiftLineState
+        /// reused: available / active / state) and the `gradeToggle` trigger (CatTrackGradeToolSystem on / off), the Runs tab's
+        /// "Grade cat track" chip.</summary>
+        public const int HubContract = 14;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed
         /// after the one-shot "!!!" until the next load (amended 2026-10-01, U1 fixer round, finding
@@ -854,6 +857,7 @@ namespace SkiResortMod.Systems
             SelectResort, Rename, FocusLift, FocusBuilding, Layout,
             SetPisteMap, TogglePisteMap,   // Round E1 (ch5 §4.2): appended; TogglePisteMap is the dev tab's only
             LiftLineToggle,                // contract 12: appended
+            GradeToggle,                   // contract 14 (T139): appended
         }
 
         private struct Request
@@ -896,6 +900,7 @@ namespace SkiResortMod.Systems
         private SkiPlacementInfoviewSystem m_Infoview;
         private SkiGladeToolSystem m_GladeTool;
         private LiftLineToolSystem m_LiftLineTool;   // contract 12: the Lifts tab's lift generator (public API only; the lift session owns it)
+        private CatTrackGradeToolSystem m_GradeTool; // contract 14 (T139): the Runs tab's grading chip (public API only)
         private SkiPisteMapSystem m_PisteMap;        // DUMP only (ch5 §4.9)
         private SkiSignUtilityHookSystem m_SignUtilityHook;   // DUMP only (Round F7 D7; contract A3)
         private LodgeRoadSystem m_LodgeRoad;                  // DUMP only (Round F7 D7; contract B3)
@@ -910,6 +915,7 @@ namespace SkiResortMod.Systems
         private RawValueBinding m_Build;
         private ValueBinding<HubGladeState> m_Glade;
         private ValueBinding<HubLiftLineState> m_LiftLine;   // contract 12
+        private ValueBinding<HubLiftLineState> m_Grade;      // contract 14 (T139): the same shape, the grading tool's state
         private RawValueBinding m_Resorts;
         private RawValueBinding m_ResortLive;
         private ValueBinding<Entity> m_SelectedBinding;
@@ -1085,6 +1091,10 @@ namespace SkiResortMod.Systems
             // Contract 12: the lift generator. Its OnCreate resolves ToolOutputBarrier, TerrainSystem, OverlayRenderSystem, LiftCensusSystem
             // and SkiPrefabCatalogSystem, never this system, so a GetOrCreate here cannot recurse (Mod.cs registers its update phase).
             m_LiftLineTool = World.GetOrCreateSystemManaged<LiftLineToolSystem>();
+            // Contract 14 (T139): the grading tool. Its OnCreate resolves Overlay / Terrain / Water / ToolOutputBarrier /
+            // SkiPrefabCatalogSystem / Objects.SearchSystem / CameraUpdateSystem, never this system (it reads SkiRunCatalogSystem with
+            // GetExisting at load), so a GetOrCreate here cannot recurse.
+            m_GradeTool = World.GetOrCreateSystemManaged<CatTrackGradeToolSystem>();
             // m_PisteMap (DUMP only) is resolved at DUMP time with GetExistingSystemManaged: SkiPisteMapSystem's
             // OnCreate resolves THIS system, and a GetOrCreate both ways would create one inside the other's OnCreate.
             m_CitizenQuery = GetEntityQuery(new EntityQueryDesc
@@ -1154,10 +1164,13 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<bool>(Group, "setPisteMap", OnSetPisteMap));
             AddBinding(new TriggerBinding<Entity>(Group, "hoverRun", OnHoverRun));
             AddBinding(new TriggerBinding(Group, "liftLineToggle", OnLiftLineToggle));   // contract 12
+            AddBinding(m_Grade = new ValueBinding<HubLiftLineState>(Group, "grade",
+                new HubLiftLineState(false, false, "")));   // contract 14 (T139): panel binding, no Demand
+            AddBinding(new TriggerBinding(Group, "gradeToggle", OnGradeToggle));   // contract 14 (T139)
 
             Mod.Log.Info($"{nameof(SkiResortHubUISystem)} created — group '{Group}', contract {HubContract}, " +
-                         $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 17 value bindings, " +
-                         "17 triggers");
+                         $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 18 value bindings, " +
+                         "18 triggers");
         }
 
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
@@ -1294,13 +1307,13 @@ namespace SkiResortMod.Systems
                              "showHubButton (always observed), build, glade, resorts, resortLive, selectedResort, runs, " +
                              "runLive, lifts, problems, city (panel bindings: catalog and stats Demand follow them, nothing " +
                              "is computed while closed), pisteMap and follow (panel values, no Demand), liftLine (contract 12: the Lifts " +
-                             "tab toggle, no Demand), history (contract 10: " +
+                             "tab toggle, no Demand), grade (contract 14: the Runs tab's grading chip, no Demand), history (contract 10: " +
                              "the History view only, no Demand; pushed when a stored month or the area set changed, the month " +
                              $"in progress at most every {Tuning.HistoryProgressPushS:0.#} s, HistoryProgressPushS); arrays pushed per " +
                              "stats revision (slow rows and live rows apart), logged only when a row count changes; triggers " +
                              "toggleHub, setHubOpen, uiHello, uiError, launch, focusRun, gladeToggle, gladeSetLevel, " +
                              "gladeSetTreeLine, dumpHub, selectResort, rename, focusLift, focusBuilding, uiLayout, setPisteMap " +
-                             "liftLineToggle (contract 12) (queued, applied in OnUpdate, one line each; uiLayout only when changed) and hoverRun (a field " +
+                             "liftLineToggle (contract 12), gradeToggle (contract 14) (queued, applied in OnUpdate, one line each; uiLayout only when changed) and hoverRun (a field " +
                              "write, validated next update, counted; first per load logged); settings " +
                              $"ShowHubButton={Mod.Settings == null || Mod.Settings.ShowHubButton} OpenHubOnSignSelect=" +
                              $"{Mod.Settings == null || Mod.Settings.OpenHubOnSignSelect}; {itemText}; {catalogItems}; item " +
@@ -1441,6 +1454,8 @@ namespace SkiResortMod.Systems
             Trigger("uiLayout", new Request { Kind = RequestKind.Layout, Text = layout });
 
         private void OnLiftLineToggle() => Trigger("liftLineToggle", new Request { Kind = RequestKind.LiftLineToggle });
+
+        private void OnGradeToggle() => Trigger("gradeToggle", new Request { Kind = RequestKind.GradeToggle });   // contract 14
 
         private void OnSetPisteMap(bool on) =>
             Trigger("setPisteMap", new Request { Kind = RequestKind.SetPisteMap, Bool = on });
@@ -1628,6 +1643,9 @@ namespace SkiResortMod.Systems
                     break;
                 case RequestKind.LiftLineToggle:
                     ApplyLiftLineToggle(r.Source);
+                    break;
+                case RequestKind.GradeToggle:
+                    ApplyGradeToggle(r.Source);
                     break;
             }
         }
@@ -2314,7 +2332,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Header RENAME (fixer round, findings m1-hub-csharp-2 / u2-panel-3): a base station
-        /// shared by two or more lift rows is LABELLED "&lt;name&gt; → &lt;top label&gt;" (§3.7,
+        /// shared by two or more lift rows is LABELED "&lt;name&gt; → &lt;top label&gt;" (§3.7,
         /// SkiResortStatsSystem.LiftNameSeparator), and the rename field starts from that label. When
         /// <paramref name="name"/> ends with the separator + top label of one of that station's rows,
         /// the suffix is dropped, so an in-place edit stores the name, not the label (it compounded on
@@ -2594,7 +2612,7 @@ namespace SkiResortMod.Systems
             LastTriggerText = $"launch {id}: {(ok ? "ok" : "no tool took it")} -> {ToolId(tool)}";
         }
 
-        /// <summary>Header LODGE, generalised to every upgrade item (Catalog Phase B §8.2: lodge tiers, school, patrol huts;
+        /// <summary>Header LODGE, generalized to every upgrade item (Catalog Phase B §8.2: lodge tiers, school, patrol huts;
         /// was LaunchLodge for the one ItemLodge). Picks the sign, re-checks AlreadyBuilt on THAT sign (MUST 6:
         /// the hub's lock read the shown sign only, and none in the Not linked view), flies, then hands the prefab to the
         /// object tool in Upgrade mode and verifies it two UI updates later.</summary>
@@ -3231,6 +3249,44 @@ namespace SkiResortMod.Systems
             return new HubLiftLineState(inGame, t.IsActive, state);
         }
 
+        // ── grading tool (contract 14, T139) ──────────────────────────────────────────────────────────
+
+        /// <summary>The Runs tab's "Grade cat track" chip, like ApplyLiftLineToggle: Deactivate() when the grading tool is active, else
+        /// TryActivate("hub" + source), which owns the gating and logs its own refusal.</summary>
+        private void ApplyGradeToggle(string source)
+        {
+            if (m_GradeTool == null)
+            {
+                Mod.Log.Warn($"Hub [grade] toggle — no CatTrackGradeToolSystem in this world ({source})");
+                LastTriggerText = "gradeToggle: no tool";
+                return;
+            }
+            if (m_GradeTool.IsActive)
+            {
+                Mod.Log.Info($"Hub [grade] toggle — closing the grading tool ({source})");
+                m_GradeTool.Deactivate();
+                LastTriggerText = "gradeToggle: off";
+                return;
+            }
+            bool ok = m_GradeTool.TryActivate("hub" + SourceSuffix(source));
+            Mod.Log.Info($"Hub [grade] toggle — activate {(ok ? "ok" : "refused")} ({source})");
+            LastTriggerText = $"gradeToggle: {(ok ? "on" : "refused")}";
+        }
+
+        private static readonly string[] s_GradeStepNames = Enum.GetNames(typeof(GradeStep));
+
+        /// <summary>available = in a game and the tool usable (armed, not disabled); state = the GradeStep name while open.</summary>
+        private HubLiftLineState GradeNow()
+        {
+            CatTrackGradeToolSystem t = m_GradeTool;
+            if (t == null)
+                return new HubLiftLineState(false, false, "");
+            bool active = t.IsActive;
+            int i = (int)t.Step;
+            string state = active && i >= 0 && i < s_GradeStepNames.Length ? s_GradeStepNames[i] : "";
+            return new HubLiftLineState(t.Usable, active, state);
+        }
+
         private HubGladeState GladeNow()
         {
             SkiGladeToolSystem t = m_GladeTool;
@@ -3273,6 +3329,8 @@ namespace SkiResortMod.Systems
                 m_Glade.Update(GladeNow());   // ValueBinding dedups (struct, IEquatable)
             if (m_LiftLine.active)
                 m_LiftLine.Update(LiftLineNow());   // contract 12; dedups like glade
+            if (m_Grade.active)
+                m_Grade.Update(GradeNow());         // contract 14 (T139); dedups like glade
             // pisteMap / follow: ValueBinding.Update at the event (ApplyPisteMap, ApplyFollow); a subscribe
             // pushes the current value (ValueBinding.cs:24-35). Nothing per frame.
 

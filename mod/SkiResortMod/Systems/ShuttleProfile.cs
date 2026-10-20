@@ -74,7 +74,7 @@ namespace SkiResortMod.Systems
             return 2.0 * Math.Sqrt(lengthM / accelMps2);
         }
 
-        /// <summary>Metres travelled tS seconds after leaving a dock (tS clamped to [0, trip]); 0 when invalid.</summary>
+        /// <summary>Meters traveled tS seconds after leaving a dock (tS clamped to [0, trip]); 0 when invalid.</summary>
         public static double DistanceAt(double tS, double lengthM, double speedMps, double accelMps2)
         {
             double trip = TripTimeS(lengthM, speedMps, accelMps2);

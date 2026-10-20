@@ -4,7 +4,7 @@
  * Written for this repo (MIT). Created 2026-10-01 (Round U1, implementer U1-A).
  * The "/*!" comment on `hasCSS` below is load-bearing: terser-webpack-plugin writes the manifest
  * banner only when it extracted at least one comment (research 2.A.2), so it keeps the banner
- * independent of react/jsx-runtime's licence comment. It sits on a statement that is always
+ * independent of react/jsx-runtime's license comment. It sits on a statement that is always
  * emitted (a comment on the type-only import at the top would be dropped with the import).
  * tools/check-bundle.js checks that it reached SkiResortMod.mjs.LICENSE.txt and that the banner
  * is intact, on every build.
@@ -37,7 +37,7 @@ import { HubFloatingButton, HubLauncherSquare } from "./hub/HubLauncher";
 import { HubRoot } from "./hub/HubRoot";
 import { queueRegistrarError } from "./hub/report";
 
-/*! SkiResortMod UI module - Modular Ski Resort for Cities: Skylines II (MIT licence). */
+/*! SkiResortMod UI module - Modular Ski Resort for Cities: Skylines II (MIT license). */
 // Read by the game's module loader: fetch SkiResortMod.css (index.js@2306554).
 export const hasCSS = true;
 

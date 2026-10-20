@@ -60,9 +60,9 @@ class Budget:
 
 @dataclass(frozen=True)
 class Volume:
-    """A stack of storeys: storeys = ((height_m, wall_matkey), ...) bottom-up. Part names:
-    storey 0 `wall_<name>`, storey i > 0 `wall_<name>s<i>`. ground -> storey 0 open-bottom
-    from z0 = 0 (engine mode); roofed -> the top storey's +Z face is dropped."""
+    """A stack of stories: stories = ((height_m, wall_matkey), ...) bottom-up. Part names:
+    story 0 `wall_<name>`, story i > 0 `wall_<name>s<i>`. ground -> story 0 open-bottom
+    from z0 = 0 (engine mode); roofed -> the top story's +Z face is dropped."""
     name: str
     x0: float
     x1: float
@@ -77,10 +77,10 @@ class Volume:
 
 @dataclass(frozen=True)
 class FacadeRule:
-    """Tokens along one side of a Volume storey: W window (window_bay, WinSpec.sill is
-    RELATIVE to the storey floor), D entry (storey 0: cs2_bldg.entry; above: a door),
+    """Tokens along one side of a Volume story: W window (window_bay, WinSpec.sill is
+    RELATIVE to the story floor), D entry (story 0: cs2_bldg.entry; above: a door),
     G curtain-wall bay, S sign board (sign kwargs in `sign`), B blank. n = len(pattern)
-    bays of bay_w centred in the wall span minus `margin` (asserts bay_w >= win.w + 0.6).
+    bays of bay_w centered in the wall span minus `margin` (asserts bay_w >= win.w + 0.6).
     room: "bay" (one room per window), "row" (one per rule) or a fixed alphanumeric tag."""
     volume: str
     side: str
@@ -160,7 +160,7 @@ class Recipe:
     #   shared, so the family sheet takes max(r) over all recipes for a key (lodge._sheet_repeats).
     # tiled_weather: None = the default rule set (cs2_tilesheet.TileWeather, fallback ladder by
     #   tris); or {"level": n} to pin a ladder level, {"off": True} for no LOD0 weathering.
-    # tiled_flat: extra part-name prefixes drawn as their material's flat mean colour (palette
+    # tiled_flat: extra part-name prefixes drawn as their material's flat mean color (palette
     #   cell, no cuts) on top of cs2_tilesheet.FLAT_DETAIL_PREFIXES (gutters, downspouts, snow
     #   guards, ridges): the second per-recipe lever for the LOD0 cap (L5: soffits, trims)
     tile_scale: tuple = ()
@@ -215,7 +215,7 @@ def aframe_knee(c, knee_h, **over):
     base"). The eave EAVE_Z rises by knee_h; the ridges FOLLOW from the unchanged pitches
     (25c: RIDGE_Z = EAVE_Z + MAIN_PITCH x run, PROW_RIDGE likewise), so aframe_derived keeps
     MAIN_PITCH / PROW_PITCH and derives the wall plates S2_Z / S2P_Z = old + knee_h. S1_Z
-    (stone storey) and DECK_TOP do not move. `over` sets the non-derived keys (SILL_Z,
+    (stone story) and DECK_TOP do not move. `over` sets the non-derived keys (SILL_Z,
     HEAD_Z, DECK_X1, DECK_Y, UMBRELLAS, RIBBON_TRANSOM). The base set AFRAME itself stays
     the verbatim base_lodge port (test_lodge_contracts parses base_lodge.py against it)."""
     d = aframe_derived(c)
@@ -240,13 +240,13 @@ PAD_RGB = (0.85, 0.25, 0.10)            # cs2_asset.PAD_RGB (slot 2 default, umb
 # ---- Revision 1 (Richard's first live review 2026-10-11, verdicts-2026-10-11.md item 12) --
 # Knee walls: 2.40 m of vertical timber wall under the eaves (eave 5.30 -> 7.70, ridge 16.7 ->
 # 19.1, prow ridge 15.9 -> 18.3, wall plates S2_Z 9.158 / S2P_Z 9.025; pitches unchanged).
-# Visible wall deck -> fascia 2.77 m (A-Basin: one clad storey above the deck under the eave).
+# Visible wall deck -> fascia 2.77 m (A-Basin: one clad story above the deck under the eave).
 # Ribbon windows 5.25-7.05 with a transom at 6.55 (fascia bottom 7.43). Deck +1.5 m on the
 # slope side on posts (DECK_X1 13.6 -> 15.1, slab to 15.3 past the cap 14.2) and to the full
 # base width (rails at y +-21.0, slab +-21.2). Umbrellas respaced into two staggered rows per
 # wing, clear of the prow roof plan (|y - 2| > 10.05 inside x 13.15) and 1.70 m off the rails.
 # Fifteenth look (2026-10-11, vanilla retrofit): UMBRELLAS = the TABLE spots (one vanilla table set
-# + one vanilla parasol each, L1_TABLES / L1_PARASOLS); PARASOLS_VANILLA = no modelled umbrella.
+# + one vanilla parasol each, L1_TABLES / L1_PARASOLS); PARASOLS_VANILLA = no modeled umbrella.
 # The outer rows' first two spots moved toward the wall (6.5 / 10.0 -> 5.6 / 9.5): three vanilla
 # canopies (union 3.78 m along their facing axis) do not fit 3.4-3.5 m apart (see L1_PARASOLS).
 KNEE_H = 2.40
@@ -258,7 +258,7 @@ AFRAME_L1 = aframe_knee(
                (5.6, 17.6), (9.5, 17.6), (13.4, 17.6), (8.25, 13.0), (11.75, 13.0)),
 )
 # Ski racks (Richard: "ski racks around the base - not a prop in the game so add it to the
-# asset"): modelled A-frame racks (cs2_bldg.ski_rack slots=, 8 slots x 0.20 m per side,
+# asset"): modeled A-frame racks (cs2_bldg.ski_rack slots=, 8 slots x 0.20 m per side,
 # 1.70 m), pre-yaw frame: two flank the porch (arrival), four stand in front of the deck
 # posts on the slope side, clear of the deck stair (x 15.6-17.0, y -5.8..3.0). Skis / boards
 # = slot-2 slabs, (slot, side, kind); LOD0 only (`skirack_` is on LOD1_DELETE).
@@ -269,9 +269,9 @@ AFRAME_L1 = aframe_knee(
 # Rack contents are REAL gear (cs2_bldg.ski_rack_frame gear=True): ski pairs base to base
 # (sidecut, curled tips), snowboards (rounded nose / tail, kick, two graphic bands), pole
 # pairs; NO bindings (Richard, ninth look: "they just come out as blocks and looks bad");
-# colours = accent (slot 2, recolours with the umbrellas) +
+# colors = accent (slot 2, recolors with the umbrellas) +
 # white / black / blue / red paint, (body, tip) or (top, stripe). Entries (slot, side, kind,
-# colour, length). Pre-yaw frame as above; LOD0 only (`skirack_` is on LOD1_DELETE).
+# color, length). Pre-yaw frame as above; LOD0 only (`skirack_` is on LOD1_DELETE).
 # Every item must span the rack's lean, cs2_bldg.rack_reach() = 1.33 m (detail pass 1
 # integration F1): the six pole pairs were 1.18-1.28 m and stopped 0.05-0.15 m short of the
 # rail; now 1.35-1.40 m (the tip passes the lean point by 0.02-0.07 m).
@@ -316,7 +316,7 @@ L1_SKI_RACKS = (
 )
 # Leaning singles: against the stone base either side of the arrival racks, and against the
 # slope-side deck posts (col_deckext at x 15.05, faces 15.15; y +-16.76 / +-20.95), clear of
-# the racks, the flag and the deck stair. (kind, foot, lean_to, colour, length).
+# the racks, the flag and the deck stair. (kind, foot, lean_to, color, length).
 L1_LEANING = (
     ("ski", (-13.62, -9.40, 0.04), (-13.0, -9.40, 1.48), (_W, _B), 1.72),
     ("board", (-13.52, -10.0, 0.04), (-13.0, -10.0, 1.30), (_B, _W), 1.52),
@@ -354,7 +354,7 @@ _PX1, _PRY, _BX0 = AFRAME_L1["PROW_X1"], AFRAME_L1["PROW_RIDGE_Y"], AFRAME_L1["B
 # Position = the umbrella's (x, y) on the deck top; GAME local (gx, gy, gz) = (-y, z, -x) of
 # the pre-yaw authoring point (yaw_deg 180, then lodge.apply_yaw / orient_for_net / the FBX
 # axes: gx = y', gz = x'); identity rotation (the chairs sit on the game z axis).
-# Fifteenth look: the modelled umbrellas are gone; a vanilla parasol stands beside each table
+# Fifteenth look: the modeled umbrellas are gone; a vanilla parasol stands beside each table
 # (L1_PARASOLS) and two outer-row spots moved (AFRAME_L1 comment).
 _TABLE_GUID = "fc058a3d03b337e4794c432a84170316"
 L1_TABLES = tuple(
@@ -362,7 +362,7 @@ L1_TABLES = tuple(
      (0.0, 0.0, 0.0, 1.0), 0)
     for ux, uy in AFRAME_L1["UMBRELLAS"])
 # ---- Vanilla retrofit (fifteenth look, 2026-10-11; Richard: "are we gonna use our house-made
-# umbrellas?" -> no). The ten modelled umbrellas (umbstand_ / umbpole_ / umbcanopy_) are vanilla
+# umbrellas?" -> no). The ten modeled umbrellas (umbstand_ / umbpole_ / umbcanopy_) are vanilla
 # ParasolRandom01 (Parasol01-03, base game, 241 buildings place it; GUID re-derived from the dump:
 # PlaceholderObject, 3 variants, union bounds x +-1.75, y 0..2.641, z -0.726..3.056 = an OFFSET
 # canopy). Placement = the vanilla convention measured on the dump (442 parasol / table-set pairs
@@ -384,12 +384,12 @@ L1_PARASOLS = tuple(
     ("ParasolRandom01", PARASOL_GUID,
      (round(-uy, 4), round(_DTOP, 4), round(-(ux - f * PARASOL_OFFSET), 4)), _Q_AUTH_X[f], 0)
     for (ux, uy), f in zip(AFRAME_L1["UMBRELLAS"], L1_PARASOL_FACING))
-# The porch bench and bin (detail pass 1, modelled) are vanilla too: GardenBenchRandom01
+# The porch bench and bin (detail pass 1, modeled) are vanilla too: GardenBenchRandom01
 # (GardenBench01-04, 1,065 buildings; union x +-1.059, z +-0.496, h 1.054) with its back to the
 # stone base, the sitter facing away from it (the variants' ActivityLocation seats are at identity
 # rotation = local +Z = game +Z = authoring -X), pivot its half depth + 0.05 m off the wall face;
 # TrashbinRandom01 (Trashbin01-04, 689 buildings; Empty / Full meshes +-0.355 x +-0.364, h 1.04) on
-# the modelled bin's spot. Both on the flattened lot: m_ParentMesh -1, gy 0 (the school's ground
+# the modeled bin's spot. Both on the flattened lot: m_ParentMesh -1, gy 0 (the school's ground
 # rows). Same y as before (bench 4.35, bin -3.55).
 L1_PORCH = (
     ("GardenBenchRandom01", "8df0703be09426948b5bc3262d86bc04", (-4.35, 0.0, round(-(_BX0 - 0.546), 4)),
@@ -440,9 +440,9 @@ L1 = Recipe(
                                         skis=s, ski_mat="accent", gear=True))
                  for n, x, y, s in L1_SKI_RACKS) + L1_DETAIL,
     rooms="auto", interior="CommercialLow",
-    # VariationSet values = target / RECOLOR_ALBEDO 0.80 (section 18.3; colour space as the
-    # shipped steel set, unverified): trim green, umbrellas pad orange, roof grey (fifteenth
-    # look: no modelled umbrella; slot 2 still drives the accent gear and the flag cloth).
+    # VariationSet values = target / RECOLOR_ALBEDO 0.80 (section 18.3; color space as the
+    # shipped steel set, unverified): trim green, umbrellas pad orange, roof gray (fifteenth
+    # look: no modeled umbrella; slot 2 still drives the accent gear and the flag cloth).
     slots={1: (0.0625, 0.3125, 0.25), 2: PAD_RGB, 3: (0.69, 0.69, 0.675)},
     # ground parts (open bottom, z 0 edges): stone base, porch steps, chimney shoulder,
     # deck-stair stringers, landing columns (skeptic MUST-CHANGE 4 + the stair stringers)
@@ -457,9 +457,9 @@ L1 = Recipe(
     lod2_keep=(),
     labels=L1_LABELS,
     # detail pass 1b: a vanilla table set at each umbrella spot; fifteenth look: a vanilla parasol
-    # beside each (no modelled umbrella), the porch bench + bin vanilla (22 rows)
+    # beside each (no modeled umbrella), the porch bench + bin vanilla (22 rows)
     # T26 2026-10-16 dropped the parasols (random yellow); Richard 2026-10-17 ("bring the umbrellas
-    # back ... vanilla props, worst case people delete them") restored them: random colours accepted
+    # back ... vanilla props, worst case people delete them") restored them: random colors accepted
     sub_objects=L1_TABLES + L1_PARASOLS + L1_PORCH,
     cull_ok=("ridge_main", "ridge_prow", "soffit_mainE"),   # caps inside the slab X; the E
     # soffit faces the wall over the deck (no camera position sees it)

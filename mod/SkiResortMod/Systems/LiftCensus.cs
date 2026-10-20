@@ -189,7 +189,7 @@ namespace SkiResortMod.Systems
             public int PrevRow;    // ADDITIVE: index into PreviousRows; −1 = the row is new
         }
 
-        /// <summary>Smallest focus radius (a station-only row, a one-section lift), metres.</summary>
+        /// <summary>Smallest focus radius (a station-only row, a one-section lift), meters.</summary>
         public const float MinFocusRadiusM = 40f;
 
         // ── keys ───────────────────────────────────────────────────────────────────────────────

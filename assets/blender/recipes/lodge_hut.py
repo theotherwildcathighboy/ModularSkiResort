@@ -44,26 +44,26 @@ fine_detail.FineRecipe (fine_detail=True, sign_set=SIGN_SET); `lodge.py --no-fin
 approved pre-pass hut from `legacy` (byte-identical, proven in the build report):
     B.1 kit geometry  flag mast 12-seg + ball finial; the cradle drum 16-seg with chimes and the
                       6-seg pump (drum / fuel_cradle fine=True)
-    A.2 vanilla       the 2 modelled benches -> GardenBenchRandom01 (back 0.06 m off the cap
+    A.2 vanilla       the 2 modeled benches -> GardenBenchRandom01 (back 0.06 m off the cap
                       ring: the L1 rule + 0.01); the upright drum -> BarrelRandom01 on its timber crib
                       (the crib stays); the 2 entry wall lanterns lamp_hut0/1 ->
                       WallLightShortRangeRandom01 (H4) on the +X wall at the old lens (y, z)
-    D   kit rows      the 2 modelled wing racks -> SkiDressSkiRack / V2 rows (alternating
-                      loadouts, FS6) at the old rack centres, IDENTITY: the 8-slot kit rack (1.70 m)
+    D   kit rows      the 2 modeled wing racks -> SkiDressSkiRack / V2 rows (alternating
+                      loadouts, FS6) at the old rack centers, IDENTITY: the 8-slot kit rack (1.70 m)
                       does not fit along X on the 1.57 m clear wing run, so it stands along Y
                       (long axis prefab x = game x = authoring y), its +Z (front) uphill
     C   sign set      RESTAURANT (hut.name, lit), the pictogram (hut.picto) and the chalk menu
                       (hut.menu) leave the atlas for SkiSignSetHutB, a SHARER of the building sheet
                       owned by SkiSignSetSchoolB (cs2_signset; same import round S2 ->
                       `../SkiSignSetSchoolB/...`); the frames stay in the host (FS1)
-    kept modelled     the 2 deck-corner post-top lanterns lamp_deckSW / NW (a wall light needs a
+    kept modeled     the 2 deck-corner post-top lanterns lamp_deckSW / NW (a wall light needs a
                       wall face >= 0.28 m wide; the rail post is 0.07 m: no vanilla post lantern),
                       the string lights (no vanilla festoon), the fuel cradle + drum, the crib
 Row frame: every row, old and new, is game (gx, gy, gz) = authoring (y, z, x), gx NOT negated
 (fine_detail.X_CONVENTION, the hut's existing convention; probe X2 decides, S1b mirrors on N).
 
 NITPICK C (2026-10-13; Richard, twenty-fifth look: "The GRILL (?) on the left side of the entrance may end up
-in mid-air depending on terrain. Otherwise good. I like how this one can be moulded into the terrain.";
+in mid-air depending on terrain. Otherwise good. I like how this one can be molded into the terrain.";
 build/nitpick-c-lodges.md): the fuel station (cradle drum + pump, the crib and its barrel) was the only
 DRESSING standing on grade outside the plinth; on the fine build it leaves the mesh for two ground-following
 BarrelRandom01 rows (FUEL_ROWS, m_ParentMesh -1: the engine snaps them to the terrain). `--no-fine` still
@@ -82,24 +82,24 @@ from bldg_recipes import Budget, Recipe   # noqa: E402
 from fine_detail import AFRAME_RACKS, FineRecipe, SignSetSpec, kit_row   # noqa: E402
 
 # ======================================================================================
-# Constants (authoring frame, metres) - lodges-basic 4.2 unless noted
+# Constants (authoring frame, meters) - lodges-basic 4.2 unless noted
 # ======================================================================================
 
 LOT = (3, 3)                       # (W, D) cells: |y| <= 12, |x| <= 12
 ANCHOR_X = 4.0 * LOT[1]            # 12.0: lot front edge = the placement-height sample
 SLOPE = 0.35                       # design slope falling toward -X
 
-PL_X0, PL_X1, PL_Y = -5.15, 8.15, 5.65          # stone plinth (incl. basement storey)
+PL_X0, PL_X1, PL_Y = -5.15, 8.15, 5.65          # stone plinth (incl. basement story)
 PL_TOP = 0.45
 PL_DEPTH = 6.00                                  # = 0.35 x (12 + 5.15) = 6.0025 (asserted 1 cm)
 CAP_Z0, CAP_PROUD = 0.30, 0.08                   # plinth cap ring 0.30-0.45, 0.08 proud
 
-FL_X0, FL_X1, FL_Y = -5.0, 8.0, 5.5              # timber storey FL1 + knee wall
+FL_X0, FL_X1, FL_Y = -5.0, 8.0, 5.5              # timber story FL1 + knee wall
 FL1_Z = PL_TOP                                   # 0.45
-PLATE_Z = 4.45                                   # 3.0 storey + 1.0 knee wall
+PLATE_Z = 4.45                                   # 3.0 story + 1.0 knee wall
 RIDGE_RISE = 2.92
 PITCH_DEG = math.degrees(math.atan(RIDGE_RISE / FL_Y))   # 27.97 (C5)
-RIDGE_Z = PLATE_Z + RIDGE_RISE                   # 7.37 (slab centre plane at the ridge)
+RIDGE_Z = PLATE_Z + RIDGE_RISE                   # 7.37 (slab center plane at the ridge)
 EAVE_OVER, RAKE_OVER, ROOF_T = 1.20, 1.00, 0.22
 
 DECK_TOP, DECK_T = 0.43, 0.25                    # wrap deck slab 0.18-0.43
@@ -125,7 +125,7 @@ BAS_LAND_X0 = PL_X0 - 1.50                       # landing -6.65 .. -5.15 (the p
 BAS_LAND_Y = 1.00                                # landing y -1.00 .. +1.00
 BAS_LAND_T = 0.20
 BAS_STAIR_W = 1.20
-BAS_STAIR_X = PL_X0 - 0.75                       # stair centre line x -5.90
+BAS_STAIR_X = PL_X0 - 0.75                       # stair center line x -5.90
 BAS_STAIR_RISE, BAS_STAIR_RUN = 0.18, 0.28
 BAS_STAIR_FOOT_Z = round(-SLOPE * (ANCHOR_X - BAS_STAIR_X) - 0.05, 3)   # -6.315
 BAS_STAIR_N = math.ceil((BAS_DOOR_Z0 - BAS_STAIR_FOOT_Z) / BAS_STAIR_RISE - 1e-9)   # 21
@@ -156,8 +156,8 @@ STOVE_XY, STOVE_TOP = (1.50, -3.20), 8.60
 # ---- detail pass 1 (design 3.2; positions in the authoring frame) ------------------------
 INSET = 0.05                                     # rail line inside a deck edge (as the wrap deck)
 BENCH_Y = -(PL_Y + CAP_PROUD)                    # -5.73: H1 bench back line = the cap-ring face
-BENCHES = (("hutS0", -3.0, 3.4), ("hutS1", 1.5, 1.8))   # (name, x centre, length) on the S deck
-#   hutS1 is 1.8 m (design 2.0) and centred at 1.5: clear of the deck chair at x 0 (0.40) and
+BENCHES = (("hutS0", -3.0, 3.4), ("hutS1", 1.5, 1.8))   # (name, x center, length) on the S deck
+#   hutS1 is 1.8 m (design 2.0) and centered at 1.5: clear of the deck chair at x 0 (0.40) and
 #   the firewood pile (x >= 2.58, FirewoodPile02) by >= 0.18 m
 FESTOON_X = (-4.0, 0.6, 5.2)                     # H2 string-light poles on the S deck
 FESTOON_Y, FESTOON_Z = -8.30, 2.93               # 0.15 inside the rail; wire anchors 2.93
@@ -166,17 +166,17 @@ WING_X0, WING_Y = 9.30, 3.80                     # H3 ski-deck wings x 9.30..10.
 WING_POSTS_X = (9.40, 10.86)                     # col_ski at |y| 3.70, 0.20 sq, to BRIDGE_POST_Z0
 RACK_X, RACK_Y, RACK_SLOTS = 10.13, 2.60, 6      # H4 racks (6 slots, 1.30 m) on the wings
 FUEL_X, FUEL_Y, FUEL_Y2 = 11.0, -4.9, -5.9       # H5 fuel station, uphill side S of the steps
-FUEL_ZC, FUEL_LEG_TO = 0.80, -0.90               # drum centre; cradle legs below the design grade
+FUEL_ZC, FUEL_LEG_TO = 0.80, -0.90               # drum center; cradle legs below the design grade
 CRIB_Z0, CRIB_TOP, CRIB_HALF = -0.60, 0.12, 0.40   # timber crib under the upright drum
 DS_S_Y = -(PL_Y + CAP_PROUD + 0.07)              # H6 -5.80: S downspouts (mirror of the +Y pair)
-NAME_SIGN = dict(u=0.0, z=3.30, w=5.0, h=0.80)   # H7 RESTAURANT, -X storey knee band
+NAME_SIGN = dict(u=0.0, z=3.30, w=5.0, h=0.80)   # H7 RESTAURANT, -X story knee band
 MENU_SIGN = dict(u=1.30, z=1.10, w=0.55, h=0.80)  # H8 menu, +X between entry and E1 shutter
 FLAG_XY, FLAG_H, FLAG_CLOTH = (5.75, -8.25), 7.5, (1.4, 0.9)   # H9 S deck SE corner
-STRIPE_IN = 0.045                                # H10 stripe centre inside the nosing (0.02 bevel)
-# label colours (encoded sRGB; = cs2_bldg BOARD_BROWN_SRGB / HUT_RED_SRGB / CHALK_SRGB)
+STRIPE_IN = 0.045                                # H10 stripe center inside the nosing (0.02 bevel)
+# label colors (encoded sRGB; = cs2_bldg BOARD_BROWN_SRGB / HUT_RED_SRGB / CHALK_SRGB)
 BOARD_BROWN, HUT_RED, CHALK = (0.20, 0.14, 0.10), (0.62, 0.10, 0.08), (0.10, 0.22, 0.16)
 # Real ski gear on the wing racks (cs2_bldg.ski_rack_frame gear=True, M10 / L1 verdict 12'):
-# (slot, side, kind, colour, length); side +1 = -Y (toward the bridge), -1 = +Y on an X rack.
+# (slot, side, kind, color, length); side +1 = -Y (toward the bridge), -1 = +Y on an X rack.
 _A, _W, _K, _B, _R = "accent", "trim_white", "ski_black", "ski_blue", "ski_red"
 # 9 items on 2 x 6 slots: the M10 cap (LOD0 about 5,300) - the first build with 7 slots and 11
 # items came to 5,390 (racks 956 tris of the 1,711 new). Detail pass 1b (2026-10-11): no
@@ -221,7 +221,7 @@ def _yaw_q(deg):
 # (y, z, x); rotation (x, y, z, w); m_ParentMesh 0 = on our mesh: every L2 prop stands on a
 # deck or hangs on a wall, nothing on the unflattened terrain). lodges-basic 4.7 (parasol yaw
 # 180: Parasol01 reaches 2.83 m along local +Z) + detail pass 1 (design 3.2, 8 -> 16; the two
-# ski-rack spots are gone: the racks are modelled, H4). Placement deltas against the design
+# ski-rack spots are gone: the racks are modeled, H4). Placement deltas against the design
 # (render bounds of every variant from %TEMP%\pltar\dump.zip, build report section 3):
 #   - FirewoodPile at authoring y -6.45 (design -6.10): FirewoodPile03 is +-0.65 deep and
 #     would reach y -5.45, 5 cm into the S wall and its window sill board; at -6.45 it ends
@@ -260,11 +260,11 @@ SUB_OBJECTS = (
     ("ACVentWallRandom01", _VENT, (5.5, 3.5, 3.25), _yaw_q(90), 0),
 )
 
-# ---- fine-detail pass step 3a (module docstring): the rows that replace modelled parts ----------
+# ---- fine-detail pass step 3a (module docstring): the rows that replace modeled parts ----------
 # (same frame and tuple form as SUB_OBJECTS; every GUID in cs2_liftdress.SUBOBJ, dump-verified)
 _GBENCH, _BARREL = "8df0703be09426948b5bc3262d86bc04", "fb4247f7a6f75b1478d9dd01ac88ce86"
 GBENCH_HALF_DEPTH = 0.496          # GardenBenchRandom01 union z +-0.496 (x +-1.059, h 1.054)
-# bench x: hutS0 on the old centre -3.0; hutS1 at 1.49 (old 1.5) = the middle of the free run
+# bench x: hutS0 on the old center -3.0; hutS1 at 1.49 (old 1.5) = the middle of the free run
 # between DeckChair #5 (x <= 0.40) and the FirewoodPile (x >= 2.58): the 2.12 m vanilla bench clears
 # both by 0.031 m (union bounds of every variant)
 GBENCH_X = (("hutS0", -3.0), ("hutS1", 1.49))
@@ -272,13 +272,13 @@ GBENCH_X = (("hutS0", -3.0), ("hutS1", 1.49))
 # box clears the cap ring's face): 0.01 m in front of the removed benches' back plane (-5.78)
 GBENCH_Y = round(BENCH_Y - 0.06 - GBENCH_HALF_DEPTH, 4)      # -6.286
 ENTRY_LAMP_U = 0.6 + 0.2 + 0.35    # cs2_bldg.entry: lamps at u +-(w / 2 + 0.2 + 0.35), w 1.2
-ENTRY_LAMP_Z = FL1_Z + 2.2         # 2.65: the old lens centre height (entry lamps at z + 2.2)
+ENTRY_LAMP_Z = FL1_Z + 2.2         # 2.65: the old lens center height (entry lamps at z + 2.2)
 # nitpick C (2026-10-13; Richard, twenty-fifth look, L2: "The GRILL (?) on the left side of the entrance may end up
 # in mid-air depending on terrain. Otherwise good."; build/nitpick-c-lodges.md): the snow-cat fuel station (H5: the
 # horizontal drum on its cradle + pump, read as a grill, and the upright barrel on its timber crib) stood on GRADE
 # left of the entry steps (seen from the arrival), held below the 35 % DESIGN grade by fixed legs / an open-bottom
 # crib: on any other slope it floats or sinks (the hut itself is plinth mode, no flatten). It leaves the mesh for
-# two GROUND-FOLLOWING vanilla barrels at the old drum centres: m_ParentMesh -1 sets SubObjectFlags.OnGround and the
+# two GROUND-FOLLOWING vanilla barrels at the old drum centers: m_ParentMesh -1 sets SubObjectFlags.OnGround and the
 # engine drops each onto the terrain under it (SubObjectSystem.cs 2523-2545 + ObjectUtils.AdjustPosition; static
 # props get GeometryFlags.Overridable, ObjectInitializeSystem.cs 610; decompile 1.6.2f1) [U: first in-game look].
 # gy 0 (OnGround discards the local y). The crib's barrel row (parent 0 on the crib top 0.12) is the second one.
@@ -289,7 +289,7 @@ FINE_SUB_OBJECTS = tuple(
     ("WallLightShortRangeRandom01", _WALLLIGHT, (sg * ENTRY_LAMP_U, ENTRY_LAMP_Z, FL_X1), _yaw_q(0), 0)
     for sg in (-1.0, 1.0)                                                         # lamp_hut0 / 1
 )
-# kit colour variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the hut red
+# kit color variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the hut red
 # (cs2_bldg.HUT_RED_SRGB) against the green trim and dark timber
 KIT_COLOUR_SET = "red"
 # the wing racks (wingN = +Y, wingS = -Y) as kit rows on the wing decks, alternating loadouts
@@ -505,7 +505,7 @@ def build_hut(recipe, opts):
     fine = bool(getattr(recipe, "fine_detail", False))     # fine-detail step 3a (docstring)
     P = []
 
-    # ---- stone plinth (open bottom, top under the timber storey) + cap ring ------------
+    # ---- stone plinth (open bottom, top under the timber story) + cap ring ------------
     P += K.plinth("hut", PL_X0, PL_X1, -PL_Y, PL_Y, PL_DEPTH, PL_TOP, "stone_rubble",
                   built_on=True)
     cx0, cx1, cy = PL_X0 - CAP_PROUD, PL_X1 + CAP_PROUD, PL_Y + CAP_PROUD
@@ -513,7 +513,7 @@ def build_hut(recipe, opts):
     K.bisect_part(cap[0][0], [((FL_X0, 0, 0), (1, 0, 0)), ((FL_X1, 0, 0), (1, 0, 0)),
                               ((0, -FL_Y, 0), (0, 1, 0)), ((0, FL_Y, 0), (0, 1, 0))])
     P += cap
-    # ---- timber storey (3.0) + knee wall (1.0) as one storey; gables come with the roof ----
+    # ---- timber story (3.0) + knee wall (1.0) as one story; gables come with the roof ----
     P += K.storey("hut", FL_X0, FL_X1, -FL_Y, FL_Y, FL1_Z, PLATE_Z, "timber_lap",
                   drop=("-Z", "+Z"))
     corners = [(x, y) for x in (FL_X0, FL_X1) for y in (-FL_Y, FL_Y)]
@@ -688,7 +688,7 @@ RECIPE = FineRecipe(
     massing="custom", builder=build_hut,
     rooms=ROOMS, interior="CommercialLow",
     # one resort, one trim (lodges-basic Q6): slot 1 = L1's shipped green VariationSet;
-    # slot 2 house orange (no slot-2 surface on L2); slot 3 slate grey (entry canopy only)
+    # slot 2 house orange (no slot-2 surface on L2); slot 3 slate gray (entry canopy only)
     slots={1: (0.0625, 0.3125, 0.25), 2: (0.85, 0.25, 0.10), 3: (0.30, 0.31, 0.325)},
     ground_prefixes=("plinth_", "pier_", "deck_"),
     arrival_prefixes=("entry_", "deck_bridge", "step_"),
@@ -699,7 +699,7 @@ RECIPE = FineRecipe(
     lod2_extra=("col_", "step_", "roof_hutcanopy", "stair_bas", "bench_"),
     lod2_keep=("stovepipe_hut",),
     labels=(
-        # the existing restaurant pictogram, drawn in a centred square (was stretched 4:1 on
+        # the existing restaurant pictogram, drawn in a centered square (was stretched 4:1 on
         # the 2.4 x 0.6 board: buildings-review-pipeline finding 1)
         ("sign_hut_face", "display",
          {"draws": (("pictogram", {"kind": "restaurant", "square": True, "bg": BOARD_BROWN}),)}),

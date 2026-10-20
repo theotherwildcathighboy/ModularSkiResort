@@ -16,7 +16,7 @@ Groups (lattice-towers.md section 14, adapted to the R27-R31 rulings):
                   gondola family 12/16/20 (provisional tubular) + 25/32/40
   5 bake smoke    tram 30 through cs2_bake at 256 px with --beacon (emissive only on the lens) and the
                   shipping path (no beacon, no _Emissive) on gondola 25: maps, channel rules (R + G + B
-                  <= 1), recolour level p95 0.78-0.82 under every present mask; temp folder removed
+                  <= 1), recolor level p95 0.78-0.82 under every present mask; temp folder removed
 
 Revision 1 (Richard's verdicts 7 / 8, 2026-10-11; build/tram_tower.md "Revision 1"):
   2r ladder       both families: rails from below grade (revision 1c: the pier depth with rungs on the
@@ -27,13 +27,13 @@ Revision 1 (Richard's verdicts 7 / 8, 2026-10-11; build/tram_tower.md "Revision 
                   >= 0.70, one side basket per flight break (never over the flight below: corridor
                   clear), flights <= 10.5; C11 exempts only the ladder prefixes
   2r tram head    curved saddle girder (L 4.8, tip drop >= 0.20, depth 0.70); >= 6 haul sheaves per
-                  saddle on the haul line, no straight roller beam; upper stabilising frame: 4 hanger
+                  saddle on the haul line, no straight roller beam; upper stabilizing frame: 4 hanger
                   posts crossarm -> top beam, main diagonals inner-post top -> crossarm end, top-beam
-                  tips overhang each lane with a lug centred on it; a crane jib per side reaching over
-                  its lane with its hook block centred over it
-  2r gondola head lugs under both gantry-beam tips, centred on the lanes
+                  tips overhang each lane with a lug centered on it; a crane jib per side reaching over
+                  its lane with its hook block centered over it
+  2r gondola head lugs under both gantry-beam tips, centered on the lanes
   2r frozen       bounds lateral / travel within +-0.2 of the integration table; m_LegSize as shipped
-  3r negatives    a centred landing over a flight, flights not offset, a ladder that stops short of
+  3r negatives    a centered landing over a flight, flights not offset, a ladder that stops short of
                   the deck, rails that end at grade (the revision-1 build, F1: tram 60 and, revision
                   1c N7, gondola 40), the 1b ladder on a floatable 30A / 32O (rails to the 1b sink only)
                   and a floatable 30A with bare rails below grade (no rungs) must each FAIL C7
@@ -88,7 +88,7 @@ BOUNDS_INT = {("tram", 30): (6.0, 5.7), ("tram", 45): (6.2, 6.2), ("tram", 60): 
 # it, over the family's elevation range (tram 0..30, gondola 0..28; 0.01 sweep)
 FLOAT_WANT = {("tram", 30): 10.0, ("tram", 45): 10.0, ("tram", 60): 0.0,
               ("gondola", 25): 4.66, ("gondola", 32): 5.33, ("gondola", 40): 0.0}
-# revision 1d (revision1c-check-tram-ladder R2): lowest below-grade rung centre on the never-floaters
+# revision 1d (revision1c-check-tram-ladder R2): lowest below-grade rung center on the never-floaters
 SINK_RUNG_WANT = {("tram", 60): -1.85, ("gondola", 40): -2.15}
 LEGSIZE = {("tram", 30): [11.4, 17.35, 11.4], ("tram", 45): [12.4, 29.2, 12.4], ("tram", 60): [13.4, 44.2, 13.4],
            ("gondola", 25): [4.5, 17.5, 4.5], ("gondola", 32): [5.3, 24.5, 5.3], ("gondola", 40): [6.1, 32.5, 6.1]}
@@ -324,7 +324,7 @@ for family in tt.FAMILIES:
             nsh = len([n for n in table if n.startswith("haulroll_p_")])
             check(nsh >= 6 and not any(n.startswith("haulbeam_") for n in table),
                   f"{name} haul rope on a row of {nsh} sheaves per saddle (JH-15: >= 6), no straight roller beam")
-            # V7b upper stabilising frame
+            # V7b upper stabilizing frame
             hang = [n for n in table if n.startswith("sbrkhang_") and not n.startswith("sbrkhang_t")]
             ok = len(hang) == 4
             for n in hang:
@@ -342,7 +342,7 @@ for family in tt.FAMILIES:
                       f"over each lane under each tip")
             check(len([n for n in table if n.startswith("sbrkdiag_")]) == 4,
                   f"{name} 4 main diagonals inner-post top -> crossarm end")
-            # V8c evacuation cranes: jib over its lane, hook block centred over the lane, above the carriage
+            # V8c evacuation cranes: jib over its lane, hook block centered over the lane, above the carriage
             ok = True
             for tag, s in (("p", 1), ("n", -1)):
                 jv = mv.verts(f"cranejib_{tag}")
@@ -382,7 +382,7 @@ for family in tt.FAMILIES:
         rl = np.concatenate([mv.verts(f"lrail_{len(plan['flights']) - 1}_{t_}") for t_ in "pn"])
         # revision 1c (revision1b-check-tram N1 / N2): a variant the score floats runs rails AND rungs
         # to the pier depth; the others keep rails to the (raised) sink - and, revision 1d
-        # (revision1c-check-tram-ladder R2), rungs down it to SINK_RUNG_WANT (centre; vertex 0.016 lower)
+        # (revision1c-check-tram-ladder R2), rungs down it to SINK_RUNG_WANT (center; vertex 0.016 lower)
         fl_want = FLOAT_WANT[(family, H)]
         depth = pier if fl_want > 0 else tt.LADDER_FAM[family]["sink"]
         rung_lo = min(float(mv.verts(n_)[:, 2].min()) for n_ in mv.names("rung_0_"))
@@ -530,7 +530,7 @@ expect_fail(neg_buried_saddle, "C3", "saddle above the rope (burial)")
 
 # Revision 1 negatives (verdicts 7 / 8): each must FAIL C7
 def neg_landing_over_flight():
-    """The verdict-8 defect: a centred 1.4 x 1.4 landing across the flight below."""
+    """The verdict-8 defect: a centered 1.4 x 1.4 landing across the flight below."""
     tt.clear_scene()
     spec = tt.make_spec("tram", 30)
     parts, _lay = tt.build_parts(spec)

@@ -2,7 +2,7 @@
 // build-contract.md §5.11 and §6.11; builder B2, 2026-10-10): the names and texts of the game's six trip systems whose
 // ComponentSystemBase.Enabled SkiDaySystem reads at every Game load and every armed pass, and of the two known
 // trip-planner swaps, detected by assembly name only (SkiOtherMods.Refresh ORs BitOfAssembly over every loaded
-// assembly; DECISIONS 150: a label and log lines, never a behaviour). The one behaviour, ArmVerdict.SystemOff, is
+// assembly; DECISIONS 150: a label and log lines, never a behavior). The one behavior, ArmVerdict.SystemOff, is
 // SkiDayRules' and reads vanilla facts only (the Enabled bits), never this file's planner mask.
 //
 // Bits of a "found" / "on" mask are SkiDayRules' (TripLeisure 1, TripBehavior 2, TripNeeded 4, TripResidentAI 8,

@@ -23,7 +23,7 @@
 //
 //   * ExpectsLoop — T116 (2026-10-20 field log 23:14:34): only a Loop-mover lift owes ChairPin a closed station-to-station
 //     loop. A Shuttle (the tram, Phase C) is never harvested by ChairPin (TramShuttleSystem moves it), so the "complete
-//     lift(s) did not close into a station-to-station loop" WARN must skip it; untyped (null) rows keep the old behaviour.
+//     lift(s) did not close into a station-to-station loop" WARN must skip it; untyped (null) rows keep the old behavior.
 //   * HeldSuffix — T116: the rebuild signature's held count names WHY the loops are held. Before, every held loop printed
 //     "held (no power)" though the gate also holds a CLOSED lift (T13: no open run); the FG lift of 2026-10-19 was
 //     "Running → Held (closed)" (log line 588) and read "1 held (no power)" for sixteen minutes.

@@ -25,7 +25,7 @@ Contract (docs/research/art/art-pipeline-v2.md 3.3, round L spec "cs2_uv.py"):
     pack_unique(..., share=None) / _pack_layout(..., share=None)   (detail pass 1, lifts)
         Bay sharing: `share` = [(canon_polys, [dup_polys, ...]), ...] (polygon index lists,
         pairwise the same length and loop counts; cs2_liftdress.share_identical builds it).
-        Dup faces are held back with the pinned set for steps 2-5 (not equalised, weighted,
+        Dup faces are held back with the pinned set for steps 2-5 (not equalized, weighted,
         packed or squeezed); after step 5 every dup loop takes its canonical loop's UV
         (loop k of dup poly j = loop k of canon poly j), so the copies stack on ONE island.
         The report gains "shared_faces" / "shared_groups". share=None (the default) runs the
@@ -397,7 +397,7 @@ def _pack_layout(obj, mesh, A, reserved, margin_px=None, equalise=True,
         dup, share_src, share_dst = _share_loops(mesh, share, pinned)
         hold = pinned | dup
     _select_unpinned(obj, mesh, hold)
-    # 2. equalise: UV area proportional to 3D area
+    # 2. equalize: UV area proportional to 3D area
     if equalise:
         bpy.ops.uv.average_islands_scale()
     bpy.ops.object.mode_set(mode="OBJECT")
@@ -482,7 +482,7 @@ def finish_packer(obj, mesh, A, reserved):
     Packer hook for lift_tower.apply_finish_textures(packer=finish_packer).
 
     Replaces its step 1 pack+squeeze: "UVUnique" already exists (copied from "UVAtlas")
-    and is active; pins stamped-strip islands by deselection, equalises, applies
+    and is active; pins stamped-strip islands by deselection, equalizes, applies
     density_w, packs once and squeezes into the reserved-free v-band. Returns None and
     leaves the object in OBJECT mode with "UVUnique" active, exactly as the inline code did.
     """

@@ -63,7 +63,7 @@ const CAPTION: Readonly<Record<HubView, LocEntry>> = {
 };
 
 /** The History tile's value: our own flat glyph, three bars on a baseline (T82 B8: the game's CityStatistics.svg is isometric and
- *  masked flat read as a blob at tile size), drawn as a mask in the tile's text colour. coui://ui-mods/SkiResortMod-img/HistoryGlyph.svg
+ *  masked flat read as a blob at tile size), drawn as a mask in the tile's text color. coui://ui-mods/SkiResortMod-img/HistoryGlyph.svg
  *  (webpack asset/resource, like SkiLauncherGlyph.svg). */
 const HISTORY_GLYPH: string = historyGlyph;
 

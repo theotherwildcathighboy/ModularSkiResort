@@ -22,12 +22,12 @@ point, footrest down). The LANE height Z_ROPE is the height ChairPinSystem pins 
 GRIP TOP to today (bounds.max.y, ChairPinSystem.cs header "HOW A CHAIR IS PINNED" 4):
     Z_ROPE = DECK_H 0.30 + LOAD_CLEAR + hang_m,  LOAD_CLEAR = SEAT_OVER_DECK 0.50 - seat_top_m
            = 0.30 + 0.10 + 3.30 = 3.70  (DQ)   |  0.30 + 0.05 (step-in) + 4.50 = 4.85 (gondola)
-The modelled haul rope, the rope torus, the wheel table y, the HV anchors and the hosted-tower
+The modeled haul rope, the rope torus, the wheel table y, the HV anchors and the hosted-tower
 rope height all sit at Z_ROPE (the +0.05 Pali wheel quirk is dropped, skeptic claim 3). Seat top
 over the deck: 0.50 today; 0.72 if dq-chair Q1 (pin the rope point, Phase B) lands - every
 clearance contract (C8) is checked at both heights.
 
-FRAMES (MUST-CHANGE 8). Authoring: metres, origin = lot centre on the ground, -X = nose / line
+FRAMES (MUST-CHANGE 8). Authoring: meters, origin = lot center on the ground, -X = nose / line
 side, +X = back end, Y lateral, Z up. orient_for_net maps (x, y, z) -> (y, -x, z) and the export
 bake then gives FBX-raw (y, z, x); the game negates x on import, so prefab-local game = (-y, z, x)
 (cs2_liftdress.blender_to_game; x-sign gate N, 2026-10-15). Contracts C1-C3, C6-C10 and C13 run on the joined mesh in
@@ -129,15 +129,15 @@ weathering at the station preset's highest budget-clean step; previews with the 
 stand-ins (render_gd_previews: arrival, portal, platform, glazed_side (+ x-ray), night).
 
 DQ follow-up (2026-10-11, Richard's eleventh / fourteenth / fifteenth looks + the gondola rev-1 checker;
-build report build/dq-stations-followup.md). DQ: the two modelled 8 m flood masts per station are gone -
+build report build/dq-stations-followup.md). DQ: the two modeled 8 m flood masts per station are gone -
 four VANILLA LightpoleParkRandom01 rows per station on the deck (D1_LAMPS, box-tested in D8 against the
 mesh, the dressing, the C8 chair / rider envelope, the hosted ETDQ keep-out and the other rows); the SLOW
 boards stand on two short posts of their own (D1_SLOW); the top's STAY SEATED hung BEFORE the unload
 point (D1_HANG_BOARDS; REMOVED 2026-10-12, see the last paragraph) and D11 (assert_board_order) gates the
-board order along the chair's travel on both stations, measured on the built faces. Gondola: the skier doors lose their fixed centre post and the
+board order along the chair's travel on both stations, measured on the built faces. Gondola: the skier doors lose their fixed center post and the
 head transom sits on the 2.60 door head (GD_DOOR_HEAD: 1.80 x 2.30 m clear), G3 adds a clear-opening ray
 grid that counts the fixed frame, and a standable-top census (gd_flat_tops: every flat top on a route or
-declared in GD_NOT_WALKABLE with its reason). Previews: the vanilla rows as the review packs' labelled
+declared in GD_NOT_WALKABLE with its reason). Previews: the vanilla rows as the review packs' labeled
 stand-in boxes (subobj_standins) in the gondola views and the DQ close-ups, + follow-up close-ups
 (FU_CLOSEUP_DIR). Follow-up resume (2026-10-12, after the first attempt died at the usage limit): the two
 +Y-facing apron lamp posts move out to y -7.10 (their heads stood 0.09 m off band_n's face); D8 gates every
@@ -150,7 +150,7 @@ design/fine-detail-pass-skeptic.md FS1 / FS5 / FS6 / FS7 / FS15). FINE_DETAIL (d
 approved pre-pass station byte for byte): (1) the dressing the shared kit replaces (assets/import/props/B)
 leaves the host and becomes "kind": "mod" rows by object-prefab CID (fine_detail.kit_row / kit_lean_row through
 cs2_liftdress.sub_object_rows(fine=True)) - the one-sided ski rack (frame + gear), hose reels, extinguishers,
-e-stops and the scraper + shovel (the 0.393 m foot-line rule); (2) fine geometry for what stays modelled: the
+e-stops and the scraper + shovel (the 0.393 m foot-line rule); (2) fine geometry for what stays modeled: the
 maze (8-seg capped posts, 6-sided ropes), the load gate (8-seg stiles, 6-sided rails), the boards' 12-seg posts
 and 6-seg rods, and the control cabinets lose their finish bevel strips for a 2 cm lid lip (no bevel strips,
 benchmark 2.2); (3) the DQ box lamps go vanilla: the soffit lenses lamp_s0-3 -> RoofLightRandom01 rows, the door
@@ -209,10 +209,10 @@ rope 4.85, stubs, hosted ETGDO, lot 3 x 4, bounds).
 
 Nitpick A3 (2026-10-13; orchestrator rulings D1 / F1 / F2 on build/nitpick-a2-hanger-gondola.md;
 build/nitpick-a3-cabin-nose.md). (D1) The DQ top's nose train sits with its AXLE ON THE LANE, the towers' convention
-(NOSE_AXLE_ON_LANE["DQ"]): the code lane / modelled rope runs through the sheave centres as on every DQ tower and the
+(NOSE_AXLE_ON_LANE["DQ"]): the code lane / modeled rope runs through the sheave centers as on every DQ tower and the
 hosted ETDQ (dq-family-review-geometry F10), so the mirrored DQ chair's grip clears the nose mains as it clears the
 towers' (11.5 mm; the rope-on-the-rims train put the axle 0.278 m under the lane and the grip's wheels through the
-mains). ST1 reads the rule per head: DQ = rim centres on the lane (1 mm), the gondola's GD head keeps the rope tangent on
+mains). ST1 reads the rule per head: DQ = rim centers on the lane (1 mm), the gondola's GD head keeps the rope tangent on
 the rims (unchanged). NOSE_AXLE_LEGACY = True rebuilds the nitpick-A2 DQ top. (F1) The gondola cabin is mirrored to
 OUTBOARD -Y (lift_cabin.GD_OUTBOARD); its pose here (load_gd_cabin: G8, the previews; G1 / G2 / GD_ENV are written
 outboard-positive) reads catalog/carriers.json gd8 "outboard": u = sign * raw x (outboard +), t = sign * raw z - a
@@ -226,7 +226,7 @@ Nitpick A4 (2026-10-13; orchestrator ruling on build/nitpick-a3-check.md items 1
 and their girder stubs move 0.08 m outboard, NOSE_BEAM_IN) and the hanger boxes vs the detach rails (the hangers move to
 their yokes' x, NOSE_HANGER_AT_YOKE; cs2_sheaves.dq_train had left them at the tower's x 0, 11 m behind). NEW contract C14
 (assert_nose_clash): in the nose zone (NOSE_CLASH_SET) every intersecting part pair is a declared contact (NOSE_CONTACTS,
-the rope-through-the-sheave-centres F10 pairs among them) or an exact NOSE_KNOWN_OPEN finding, none contained in another
+the rope-through-the-sheave-centers F10 pairs among them) or an exact NOSE_KNOWN_OPEN finding, none contained in another
 part's closed volume; ST1 gates the hanger x. The pitched-lane case is a documented limit (NOSE_LANE_PITCH_LIMIT, manifest
 sheave_trains.lane_pitch_limit, S9 note). DQ top only; the DQ base, the gondola stations and every frozen number
 (bounds, rows, tris, wheel) are unchanged. NOSE_A4_LEGACY = True rebuilds the nitpick-A3 DQ top byte for byte.
@@ -382,7 +382,7 @@ SIGN_BEVEL_M = 0.016           # rounded edge round the whole panel (the quad is
 SIGN_BEVEL_H_M = 0.005         # ... 5 mm high: profile 1 - (1 - d / bevel)^2, 32 deg at the edge
 PLATE_STEP_M = 0.008           # the number plate's own edge ...
 PLATE_STEP_H_M = 0.002         # ... standing 2 mm proud of the panel
-SIGN_BEAD_INSET_M = 0.026      # a pressed bead (embossed rim) round the emblem panel: centre inset,
+SIGN_BEAD_INSET_M = 0.026      # a pressed bead (embossed rim) round the emblem panel: center inset,
 SIGN_BEAD_W_M = 0.010          # width (cosine profile) and ...
 SIGN_BEAD_H_M = 0.0015         # ... height; the glyph keeps >= 60 mm from the panel border
 SIGN_EDGE_AO = 0.14            # emblem panel occlusion at its border (BaseColor x 0.86) ...
@@ -390,9 +390,9 @@ SIGN_EDGE_AO_M = 0.045         # ... fading (smoothstep) to none 45 mm inside (c
 WIN_W, WIN_H, WIN_R = 1.30, 0.95, 0.14         # housing window pane (Collins ~1.37 : 1)
 WIN_CORNER_SEGS = 3
 WIN_FRAME = 0.05               # dark gasket ring width
-WIN_DX = 3.0                   # pane centres at x_mid +- WIN_DX
+WIN_DX = 3.0                   # pane centers at x_mid +- WIN_DX
 WIN_CELL_HOUSING = (3, 2)      # room id 13 (the operator cabin keeps (2, 1) = 7)
-SIGN_Z_C_ABOVE_FILLET = 1.05   # sign / window centre line = z_soffit + FILLET_R + this
+SIGN_Z_C_ABOVE_FILLET = 1.05   # sign / window center line = z_soffit + FILLET_R + this
 # -- Revision 2 (Richard's second look, verdicts-2026-10-11.md "Second look" 3', 2026-10-11):
 # "front ladder good; it must EXTEND TO THE GROUND". The nose ladder keeps its line (x_nose -
 # 0.22, y -0.70) and continues straight down the nose face to a concrete footing at z 0, on
@@ -422,7 +422,7 @@ ETDQ_INBOARD_X = -8.612        # hosted ETDQ inboard end in this frame (S6 / S8,
 # (|y| <= 0.55) and the hosted ETDQ's deck strips (|y| 0.695-2.15, from x -8.612) sit 0.33-0.39 m
 # behind it, and both stay (S8). So the base's ground flight moves SIDEWAYS to the landing's +Y edge
 # and turns 90 deg: a THROUGH ladder (rungs along X, rails inside the landing's x span) whose climber
-# stands outboard (+Y), faces the station centreline and steps between the rails onto the landing;
+# stands outboard (+Y), faces the station centerline and steps between the rails onto the landing;
 # the rails run on GF_EXT above it as the guard and grab rails at that edge (the rail gap). Its
 # climbing side is open air between the landing and the +Y chair lane (C8 bench edge |y| 1.25).
 # The landing's +Y wing is trimmed to the step-across, the ladder-way closes and the front (nose)
@@ -431,14 +431,14 @@ ETDQ_INBOARD_X = -8.612        # hosted ETDQ inboard end in this frame (S6 / S8,
 # R2c GATES the climbing room (climb_room): station mesh, the hosted ETDQ keep-out and the C8 boxes.
 GF_ON_BASE = True              # False = the Revision 2 straight run on the base (the test negative)
 GF_Y = 0.60                    # base ground flight: the rung line's y (rails along X)
-GF_X_IN = (0.02, 0.05)         # rail centres inside the landing's outer (-X) / nose (+X) edges:
+GF_X_IN = (0.02, 0.05)         # rail centers inside the landing's outer (-X) / nose (+X) edges:
 #                                c/c 0.48, 0.42 clear (OSHA's 16 in minimum, unverified); the nose
 #                                band (x >= x_nose) 0.02 behind the +X rail's surface
 GF_STEP = 0.18                 # step-across: rung line -> the landing's trimmed +Y edge (7 in)
 GF_EXT = 1.07                  # rails above the landing (42 in), no rungs above it (step-through)
 GF_FOOT_Y = (-0.10, 0.37)      # footing about the rung line (the climber stands on +Y)
-GF_FOOT_X = (0.05, 0.04)       # footing past the rail centres (-X; +X stays 1 cm off the deck face)
-CLIMB_MIN = 0.61               # climbing room, rung centreline -> nearest obstruction (24 in)
+GF_FOOT_X = (0.05, 0.04)       # footing past the rail centers (-X; +X stays 1 cm off the deck face)
+CLIMB_MIN = 0.61               # climbing room, rung centerline -> nearest obstruction (24 in)
 CLIMB_TOP_FLOOR = 0.61         # was 0.60 (the top's no-regression floor); detail pass 1 (MC3):
 #                                one rule, the top's nose ladder is gated at CLIMB_MIN as well
 CLIMB_HEAD = 1.90              # climbing zone above the step-off rung (a climber standing on it)
@@ -463,7 +463,7 @@ SLOT_HALF = 0.55
 # curve; the sign (emblem + vector "8", 448 px/m) on the PORTAL face and on both side walls (the
 # two side quads share the "p" reserved rect), lamps for the night read, the stone base all round.
 # The glazed back curtain stays (D10). Authoring frame as above; on a lane OUTBOARD = away from the
-# centreline = the cabin's door + hanger side = the carrier's RIGHT facing its travel (nitpick A3: the
+# centerline = the cabin's door + hanger side = the carrier's RIGHT facing its travel (nitpick A3: the
 # cabin ships with them on its authoring -Y, carriers.json gd8 outboard; load_gd_cabin reads the sign).
 GD_W_HALF = 6.25               # outer wall faces (interior +-6.00; platforms 1.58 m wide)
 GD_Z_TOP = {"base": 8.00, "top": 7.60}     # eave: machinery deck 5.60 + >= 2.0 m headroom
@@ -508,7 +508,7 @@ GD_WAIT_LEGACY = False
 def gd_wait_side():
     """The authoring y sign of the gondola WAIT HERE board (both stations): the loading entry (+Y)."""
     return -1.0 if GD_WAIT_LEGACY else GD_LOAD_SIDE
-GD_SIGN_NOSE_Z = {"base": 6.40, "top": 6.14}   # portal-face sign centre (below the nose band, above
+GD_SIGN_NOSE_Z = {"base": 6.40, "top": 6.14}   # portal-face sign center (below the nose band, above
 #                                the slots); top 6.40 -> 6.14 in detail pass 1: G7 (now a ray test)
 #                                found draft 1's top sign 0.24 m up behind the nose band (7.60 - 1.0)
 GD_COMM_Y = 1.15               # comm cable drop line on the central pier (sign |y| <= 0.875)
@@ -532,7 +532,7 @@ GD_PORTAL = {"u_lo": -1.45, "u_hi": 1.50, "z_sh": 3.15, "r_sh": 0.40, "z_body": 
              "s_lo": -0.45, "s_hi": 1.10, "r_cc": 0.20, "z_slot": 5.35, "r_sl": 0.25}
 # Carrier envelope of the gondola (S10 in tests/test_gondola_tram_seams.py checks it encloses every
 # vertex of the shipped SkiGondolaCabin8A LOD0/1/2): (label, travel, lateral width, h0, h1, lateral
-# centre outboard), cabin frame = h above the underside. Measured 2026-10-11 on the shipped LOD0 +
+# center outboard), cabin frame = h above the underside. Measured 2026-10-11 on the shipped LOD0 +
 # LOD1 + LOD2 FBX vertices by height band (underside 0 .. grip top 4.50; the hanger stalk, carriage
 # and grip sit OUTBOARD of the lane), +5 mm on every side.
 GD_ENV = (("body", 2.370, 2.154, -0.005, 2.005, 0.0220),       # u -1.050..1.094, |t| 1.180
@@ -560,8 +560,8 @@ GD_ROOF_RISE = 0.95            # shallow segmental standing-seam roof: crown = e
 GD_RAKE_BACK = 0.60            # back gable overhang (the nose keeps ROOF_END 0.15: the nose ladder)
 GD_SILL = 1.26                 # stone plinth 1.20 + a 0.06 coping: the glazing starts here
 # DQ follow-up (rev-1 checker F3, Richard's "slightly bigger openings"): the skier doors' head is the
-# platform 0.30 + the 2.30 clear height = 2.60, and the first transom sits ON it (centre 2.64, underside
-# 2.60); revision 1 had the transom centred on 2.60, its underside at 2.56 (2.26 m clear)
+# platform 0.30 + the 2.30 clear height = 2.60, and the first transom sits ON it (center 2.64, underside
+# 2.60); revision 1 had the transom centered on 2.60, its underside at 2.56 (2.26 m clear)
 GD_DOOR_HEAD = 2.60           # = DECK_H + GD_SIDE_DOOR[1]
 GD_TRANSOMS = (2.64, 5.60)     # door head transom / first tier top; the machinery-deck line (hides its edge)
 GD_HEAD_DROP = 0.35            # side / back curtain head = ring beam underside at z_top - this
@@ -577,9 +577,9 @@ GD_NOTCH_HALF = 1.00           # plinth / coping / stone notch at a door: x_door
 GD_CANOPY = (3.00, 1.80, 2.80, 0.15)       # entry canopy: width, depth, underside z, thickness
 GD_RAMP_L = 2.00               # entry ramp 0 -> 0.30 (15 %), 2.00 wide
 GD_NOSE_BAYS = (-6.0, -4.5, -3.0, -1.15, 1.15, 3.0, 4.5, 6.0)   # nose glazing bays (|y| <= wi); the
-#                                centre bay is the sign spandrel; +-1.15 carries the comm cable
+#                                center bay is the sign spandrel; +-1.15 carries the comm cable
 GD_BACK_BAYS = (-6.0, -4.0, -2.0, 0.0, 2.0, 4.0, 6.0)
-GD_SIDE_SIGN_Z = 4.10          # side signs: centre z on a plate across one bay (tier 2.60 .. 5.60)
+GD_SIDE_SIGN_Z = 4.10          # side signs: center z on a plate across one bay (tier 2.60 .. 5.60)
 GD_SNOW_IN = 0.55              # snow-guard rail this far in from the eave edge
 GD_EAVE_LAMP = (0.18, 0.30)    # linear soffit lights (no vanilla equivalent): |y| - W2 range
 # weathering (DECISIONS 171): the station preset; the gondola stands on grade (no deck datum)
@@ -594,7 +594,7 @@ GD_WEATHER = dict(
         ("stonebase_", {"rust": 0.0, "grime": 0.5, "scale": 0.6}), ("coping_", {"rust": 0.0}),
         ("wall_", {"rust": 0.0}), ("door_", {"rust": 0.0}),
         # the slim painted frame: little edge wear (free slot wear lifts worn slot-1 edges above the 0.80
-        # recolour albedo; on 0.08-0.10 m members the 3-texel edge band is the whole member)
+        # recolor albedo; on 0.08-0.10 m members the 3-texel edge band is the whole member)
         ("mull_", {"edge": 0.25}), ("transom_", {"edge": 0.25}), ("outrig_", {"edge": 0.3}),
         ("ringbeam_", {"edge": 0.4}), ("gable_", {"edge": 0.4}), ("canopy_", {"edge": 0.5}),
         ("lrail_", {"role": "galv", "edge": 1.5}), ("lrung_", {"role": "galv", "scuff": 1.0}),
@@ -612,7 +612,7 @@ DETAIL1 = True                 # the DQ dressing / labels / weathering / bay sha
 # the landing (0.33 m deep in front of the rungs) and, past a 0.062 m gap, the hosted ETDQ's -Y deck
 # strip (ETDQ:grate_deckp, top 3.404 = the stop + 0.054)
 ROOF_ROUTE_D1 = True           # False = the 1c front ladder (y -0.70, the closed outer rail): R2e fails
-NOSE_LADDER_Y_D1 = -0.875      # base front ladder rung-line centre y (MC4)
+NOSE_LADDER_Y_D1 = -0.875      # base front ladder rung-line center y (MC4)
 NOSE_LADDER_HALF_D1 = 0.24     # rails 0.48 apart (0.42 clear, OSHA 16 in, unverified)
 GANG_KICK_X0_D1 = -8.88        # the gangplank's -Y kick plate starts here (outside the 0.61 zone)
 # MC5: the pedestal (pf) ladder and its soffit hatch move off spine_main (|y| <= 0.30, z 2.75-3.35)
@@ -620,12 +620,12 @@ GANG_KICK_X0_D1 = -8.88        # the gangplank's -Y kick plate starts here (outs
 # 0.30 grid from 0.30 above the deck to 0.05 under the hatch (lrung_pf09 is no longer in the spine);
 # the climber stands on +X; the hatch opening is cut into soffit_tongue and closed by its leaf
 PF_OFF_SPINE = True            # False = the 1c pf ladder on the spine, no hatch: R2f fails
-PF_Y = 0.77                    # pf rung-line centre y and hatch centre y
+PF_Y = 0.77                    # pf rung-line center y and hatch center y
 PF_X_OFF = {"base": 1.35, "top": 1.90}     # rung line at ped_f + this (top: the hatch frame 0.115 m
 #                                            clear of beam_2t, the rails 0.245 m)
 PF_HALF = 0.28                 # rails 0.56 apart (the 1c _ladder width)
 PF_HATCH = 0.80                # hatch opening (cs2_liftdress.hatch_frame size, frame 0.06)
-PF_HATCH_DX = 0.30             # hatch centre x = rung line + this (the opening spans the climber)
+PF_HATCH_DX = 0.30             # hatch center x = rung line + this (the opening spans the climber)
 # MC3: ONE reachability rule, the house numbers (C15 / 1c climb_room): climbing depth AND corridor
 # width >= 0.61, the C8 chair envelopes count, the zone runs from the lowest rung to the terminus +
 # 1.80 (a climber standing at the stop); the top's ladder-way grows 0.60 -> 0.62 (WELL_DEPTH_MAX) so
@@ -666,7 +666,7 @@ D1_CLOSEUP_DIR = "detail1-closeups-2026-10-11"
 D1_CLOSEUP_RES = (2600, 2000)
 # -- DQ follow-up (2026-10-11; Richard's eleventh + fourteenth looks; build/dq-stations-followup.md) ------
 # (1) "Lights on top of posts are looking a little square - there should be in-game vanilla lamp posts
-# we could use": the detail pass's two modelled 8 m flood masts per station are GONE; four VANILLA
+# we could use": the detail pass's two modeled 8 m flood masts per station are GONE; four VANILLA
 # LightpoleParkRandom01 rows per station stand on the deck instead (cs2_liftdress.SUBOBJ, GUID verified
 # against the dump; union bounds 0.53 x 3.27 m, the arm + head 0.83 m toward the prop's local +Z =
 # `facing`; parent 0). Every footprint is box-tested in assert_detail1 (D8: mesh, dressing, C8 chair /
@@ -762,7 +762,7 @@ D1_TRAVEL = {"base": dict(dir=-1.0, lane=1.0, seq=("waithere", "carpet", "load",
 # board_<kind>* / label_<kind>* raises D11 (the DQ top: no STAY SEATED, Richard's nineteenth look)
 D1_AT_LINE = 0.50
 D1_UNLOAD_X = 0.0              # the top's unload line (stripe_unload across the -Y lane)
-# follow-up close-ups (lamp posts as the review packs' labelled stand-in boxes + the board sequence)
+# follow-up close-ups (lamp posts as the review packs' labeled stand-in boxes + the board sequence)
 FU_CLOSEUP_DIR = "followup-2026-10-11"
 # -- Fine-detail pass, step 3b (2026-10-12; build/fine-detail-step3b-stations.md; see the module docstring) -----
 # False = the approved pre-pass stations byte for byte (CLI --no-fine; main() sets it from its args every run) -
@@ -778,7 +778,7 @@ FD_KIT_ROOT = os.path.join(REPO, "assets", "import", "props", "B")
 #: cannot take the kit's 0.70 m plate there; the engine room's -Y face is fronted by cabinet_0 / _1 (0.45 m off
 #: it) and the cabin's -Y face by the queue maze (its back rope 0.20 m off it): no access (F1's access box). The
 #: kit reel hangs on the operator CABIN's +X face (the open-ground side, beside the door), under the cabin
-#: extinguisher - a fire point: plate centre at y FD_DQ_REEL[0], FD_DQ_REEL[1] above grade (0.65 over the
+#: extinguisher - a fire point: plate center at y FD_DQ_REEL[0], FD_DQ_REEL[1] above grade (0.65 over the
 #: opbase; the DQ top's reel hangs at 0.92, 0.77 over it)
 FD_DQ_REEL = (7.45, 0.80)
 FD_ACCESS = 0.40               # F1: wall props keep this much free space in front of their face (no station face,
@@ -786,9 +786,9 @@ FD_ACCESS = 0.40               # F1: wall props keep this much free space in fro
 #: wall-rack loadouts alternate by station (FS6: dress-kit W1 = the 7 pairs + 2 boards the station racks held)
 FD_WALL_RACK = {("dq", "base"): "SkiDressSkiRackWall", ("gd", "base"): "SkiDressSkiRackWallV2",
                 ("gd", "top"): "SkiDressSkiRackWall"}
-#: kit colour variants (Richard 2026-10-12 ~18:50: the accents stay "a colour that makes sense for that building";
-#: build/kit-colour-variants.md): the colour set (fine_detail.COLOUR_SETS) of every COLOURED kit row of a station
-#: = its slot-2 accent, the PAD orange of the crash pads (pad2) / GD_TINT G. The DQ top has no coloured row.
+#: kit color variants (Richard 2026-10-12 ~18:50: the accents stay "a colour that makes sense for that building";
+#: build/kit-colour-variants.md): the color set (fine_detail.COLOUR_SETS) of every COLORED kit row of a station
+#: = its slot-2 accent, the PAD orange of the crash pads (pad2) / GD_TINT G. The DQ top has no colored row.
 FD_KIT_COLOUR = {("dq", "base"): "orange", ("dq", "top"): "orange", ("gd", "base"): "orange",
                  ("gd", "top"): "orange"}
 
@@ -917,7 +917,7 @@ def _lin(rgb):
     return tuple(float(cs2_preview._srgb_to_linear(np.float32(c))) for c in rgb)
 
 
-GREY80 = _lin((0.80, 0.80, 0.80))      # normalised to RECOLOR_ALBEDO by the bake anyway
+GREY80 = _lin((0.80, 0.80, 0.80))      # normalized to RECOLOR_ALBEDO by the bake anyway
 _MS = cs2_bake.MaterialSpec
 MATERIALS = {
     "accent3": _MS(albedo=GREY80, metal=0.10, rough=0.50, slot=3, recolor_albedo=True),
@@ -940,7 +940,7 @@ MATERIALS = {
     "signband": _MS(albedo=GREY80, metal=0.10, rough=0.50, slot=3, recolor_albedo=True),
     "stone": _MS(albedo=(0.55, 0.50, 0.45), metal=0.0, rough=0.80),
     # gondola draft 1: the boarding-edge safety stripe (fixed safety yellow, sRGB ~(0.93, 0.74,
-    # 0.10); not a recolour slot - the platform edge reads the same in every colour set)
+    # 0.10); not a recolor slot - the platform edge reads the same in every color set)
     "stripe": _MS(albedo=(0.85, 0.52, 0.01), metal=0.0, rough=0.60),
 }
 CANOPY_RGB = (0.16, 0.30, 0.20)        # proposal green (linear), slot 1 + slot 3 one-tone default
@@ -1343,7 +1343,7 @@ def _sweep(name, W, ddir, tdir, t0, t1, outer, inner, caps=(False, False), cap_f
 
 def build_band_ring(p):
     """The loaf's lower band as one welded ring: two long sides, the back end and the nose
-    (centre panel + two side panels around the chair notches + two lintels over them).
+    (center panel + two side panels around the chair notches + two lintels over them).
     Corners are 45 deg mitres sharing their profile vertices (remove_doubles welds them)."""
     outer, inner = band_profile(p)
     W2, xn, xb = p.w_half, p.x_nose, p.x_back
@@ -1377,7 +1377,7 @@ def plate_digits(p):
 
 
 def sign_layout(digits):
-    """Revision 1 (e): one sign panel per side, viewer frame (s right, t up, metres from the
+    """Revision 1 (e): one sign panel per side, viewer frame (s right, t up, meters from the
     panel's lower-left corner): the emblem square on the left, the number plate on the
     right. The text box keeps the 5x7 cell grid's size (SIGN_CELL 0.10: 0.50 m wide per
     digit, 0.70 m tall), so the quad, the reserved rect and the plate are unchanged; since
@@ -1400,7 +1400,7 @@ def sign_rects(p):
     2048 and 512. bake_unique pins the faces inside and squeezes everything else into the
     v-band below (cs2_uv.free_v_band treats a rect as full width)."""
     lay = sign_layout(plate_digits(p))
-    k = SIGN_PX_PER_M / float(ATLAS)            # UV per metre
+    k = SIGN_PX_PER_M / float(ATLAS)            # UV per meter
     v1 = 1.0 - SIGN_STRIP_TOP_PX / float(ATLAS)
     v0 = v1 - lay["H"] * k
     shared = sign_shared(p)
@@ -1427,14 +1427,14 @@ def sign_shared(p):
 
 
 def sign_z_centre(p):
-    """The sign / window centre line on the band (DQ) or on the gondola wall-top band."""
+    """The sign / window center line on the band (DQ) or on the gondola wall-top band."""
     if p.gondola:
         return p.z_top - 0.5
     return p.z_soffit + FILLET_R + SIGN_Z_C_ABOVE_FILLET
 
 
 def build_signbands(p, y_face):
-    """signband_n / signband_p: ONE quad per side, 0.012 proud of the band, centred at the
+    """signband_n / signband_p: ONE quad per side, 0.012 proud of the band, centered at the
     band's mid-length. Its UVSeed is the reserved rect (seed_parts), u -> viewer right."""
     lay = sign_layout(plate_digits(p))
     W, H = lay["W"], lay["H"]
@@ -1452,7 +1452,7 @@ def build_signbands(p, y_face):
 
 def _round_rect(xc, zc, w, h, r, segs):
     """(x, z) outline of a rounded rectangle, 4 corners x (segs + 1) points in angle order
-    (the _MB builder winds each face to its hint). Corner centres do not depend on r, so
+    (the _MB builder winds each face to its hint). Corner centers do not depend on r, so
     the outline of (w + 2f, h + 2f, r + f) is the same shape offset by f (the gasket)."""
     pts = []
     for cx, cz, a0 in ((xc + w / 2 - r, zc + h / 2 - r, 0.0), (xc - w / 2 + r, zc + h / 2 - r, 90.0),
@@ -1667,7 +1667,7 @@ def z_ped_top(p):
 
 
 def build_pedestals(p):
-    """Two galvanized pedestals on the centreline in front of the wheel (D5): open-bottom
+    """Two galvanized pedestals on the centerline in front of the wheel (D5): open-bottom
     plinth, bolted flange, frustum column, slot-2 crash pad, 4 head gussets, crosshead."""
     zt = z_ped_top(p)
     out = []
@@ -1778,7 +1778,7 @@ def build_machine(p):
         out.append((_box(f"railhang_{k}", cx - 0.03, cx + 0.03, cy - 0.03, cy + 0.03,
                          zr + 0.05, p.z_ceil, drop=("+Z", "-Z")), "galv"))
         k += 1
-    # deceleration tyres in the nose zone: 6 per lane, 2 bank housings per lane
+    # deceleration tires in the nose zone: 6 per lane, 2 bank housings per lane
     zt = zr + 0.15
     for s, tag in ((-1.0, "n"), (1.0, "p")):
         yt = s * (R + 0.25)
@@ -1827,7 +1827,7 @@ def build_machine(p):
 # NOSE_TRAIN_N sheaves with rubber liners on the towers' pitch, two sub rockers + pins, a main rocker + pin, the yoke and
 # the hanger, every carrier INBOARD of the sheaves (the DQ head on the DQ top: r 0.223 V-groove, carriers at 2.512 /
 # 2.44; the GD head on the gondola top: r 0.25 flat rims, carriers + 0.39), bevelled / finished as the towers
-# (cs2_sheaves.finish_train). The rope runs ON the sheave tops (axle = z_rope - ROPE_R - r: here the modelled rope IS
+# (cs2_sheaves.finish_train). The rope runs ON the sheave tops (axle = z_rope - ROPE_R - r: here the modeled rope IS
 # the code lane, the towers draw theirs on the axle line); the outer rim tip stays at the old guide frame's end
 # (anchor_x - 0.10 = the frozen prefab z min). The hanger hangs off a girder stub on the guide beam out of the nose
 # (the old guideframe_ line: |y| lane - 0.60 / - 0.70; the gondola's still hangs from the portal lintel). Parts in the
@@ -1840,7 +1840,7 @@ NOSE_TRAIN_MAT = {"paint": "darksteel", "galv": "galv", "rubber": "rubber",   # 
 NOSE_GIRDER_X = 0.186          # lift_tower.DQ_GIRDER x: the girder stub's width along travel
 NOSE_CARRIER_IN = 0.03         # ST1: every carrier vertex |y| <= lane - this (the towers' heads: 0.039 DQ / 0.064 GD)
 # Nitpick A3 (2026-10-13; orchestrator ruling D1 on build/nitpick-a2-hanger-gondola.md): the axle rule per head. True =
-# the AXLE ON THE LANE, the towers' convention (the code lane / modelled rope through the sheave centres, F10; every DQ
+# the AXLE ON THE LANE, the towers' convention (the code lane / modeled rope through the sheave centers, F10; every DQ
 # tower and the hosted ETDQ carry the lane so): the DQ top, so the mirrored dq grip (lift_chair.DQ_OUTBOARD -1) clears
 # the nose mains as it clears the towers' (S9: 11.5 mm). False = the rope tangent on the rim tops (axle = z_rope -
 # ROPE_R - r, nitpick A's rule; the gondola top keeps it: the -Y cabin clears its mains by 0.12 m, S15).
@@ -1850,21 +1850,21 @@ NOSE_AXLE_LEGACY = False
 
 
 def nose_axle_on_lane(family):
-    """True when the `family` ("DQ" / "GD") nose train carries the lane through its sheave centres."""
+    """True when the `family` ("DQ" / "GD") nose train carries the lane through its sheave centers."""
     return bool(NOSE_AXLE_ON_LANE[family]) and not NOSE_AXLE_LEGACY
 
 
 # T27 ROPE ON THE CROWN (2026-10-17, docs/research/field/2026-10-15/build/T27-rope-path.md; lift_tower.ROPE_ON_CROWN).
 # False (default) = the shipped stations byte for byte (the HV sub-lane anchors at z_rope: base = the hosted ETDQ / ETGD
 # compression AXLE, DQ top = the nose train's axle (rope through the sheaves, nitpick A3 D1), gondola top = on its rim
-# tops for the 0.055 modelled rope). True (CLI --rope-on-crown): the rope rides every train it meets, and z_rope (the
+# tops for the 0.055 modeled rope). True (CLI --rope-on-crown): the rope rides every train it meets, and z_rope (the
 # loading height: deck + clearance + hang) never moves - a first try that moved the anchors instead failed C8 (the DQ /
 # gondola base chairs drag on the deck when the anchor drops under the compression train, the DQ top's chairs hit the
 # RAISE BAR / UNLOAD boards when it rises onto the support crowns). So: base = the hosted compression tower's train
 # rises (lift_tower.set_rope_on_crown: ETDQ / ETGD axle + crown_seat; a tower re-export, no station change); DQ top = the
 # nose train turns hold-down (compression, NOSE "hold_down": axle = z_rope + seat, the rope under the sheaves - the line
 # dives into the station, so a hold-down is also the right side); gondola top = unchanged train, the anchor on the rim
-# tops for the VANILLA cable (axle + r + h = z_rope + 0.032; the modelled rope is 0.055, the vanilla 0.0866 high).
+# tops for the VANILLA cable (axle + r + h = z_rope + 0.032; the modeled rope is 0.055, the vanilla 0.0866 high).
 ROPE_ON_CROWN = False
 
 
@@ -1910,14 +1910,14 @@ def rope_on_crown_block(p):
 
 # Nitpick A4 (2026-10-13; orchestrator ruling on build/nitpick-a3-check.md items 1c / 1d and N3). A BVH part-pair scan of
 # the joined DQ top LOD0, A3 vs A2 (NOSE_AXLE_LEGACY), found 16 nose pairs the +0.278 rise created: 12 are the intended
-# rope-through-the-sheave-centres ones (haulrope x liner / sub pin, declared in C14 below), 4 are real:
+# rope-through-the-sheave-centers ones (haulrope x liner / sub pin, declared in C14 below), 4 are real:
 #  (a) clamp_comm0_l / _u x guideframe_p. The comm cable drops down the nose face at |y| 1.95 with its first clamp at the
 #      middle of the drop (z 4.035). The guide beams rose to z 3.950..4.120 at |y| 1.94..2.06, so the clamps (|y| to
 #      1.985) and the cable itself (to 1.969) sat inside the beam's inboard skin. The beam and its girder stub move
-#      OUTBOARD: centre line lane - 0.52 (was - 0.60), inner face |y| 2.02 = 0.035 m clear of the clamps, 0.05 m of the
+#      OUTBOARD: center line lane - 0.52 (was - 0.60), inner face |y| 2.02 = 0.035 m clear of the clamps, 0.05 m of the
 #      cable; the beam's end still sockets 3 cm into the nose band's edge (|y| 2.05).
 #  (b) detrail_n_1 / detrail_p_1 x sheave_guide_hanger_n / _p. cs2_sheaves.dq_train places the hanger box at x 0, the
-#      TOWER's centre (the tower's train is centred there); the station's train is shifted to x0 -10.99 (centres, yoke,
+#      TOWER's center (the tower's train is centered there); the station's train is shifted to x0 -10.99 (centers, yoke,
 #      pins, girder stub), so the hangers stood 11 m behind their yokes, floating at the lane mid-station, where the rope
 #      side detach rails cross them since the A3 rise. The hanger moves to its yoke's x (build_nose_train); ST1 gates it.
 # DQ only: the gondola top's nose train keeps its beams and hangers as they were (its export is not part of A4; the same
@@ -1925,7 +1925,7 @@ def rope_on_crown_block(p):
 # DQ top (hangers at x 0, beams at lane - 0.60) byte for byte; ST1 reads the layout's own hanger x, C14 is skipped.
 NOSE_A4_LEGACY = False
 NOSE_HANGER_AT_YOKE = {"DQ": True, "GD": False}
-NOSE_BEAM_IN = {"DQ": 0.52, "GD": 0.70}              # the guide beam's centre line = lane - this
+NOSE_BEAM_IN = {"DQ": 0.52, "GD": 0.70}              # the guide beam's center line = lane - this
 NOSE_BEAM_IN_A3 = {"DQ": 0.60, "GD": 0.70}           # nitpick A3 (NOSE_A4_LEGACY)
 
 
@@ -1939,7 +1939,7 @@ def nose_hanger_at_yoke(family):
 # Every clearance number in this family (S9: the shipped dq grip vs the rocker mains, 11.5 mm on DQ10-DQ20, the ETDQ and
 # this nose) is measured on a LEVEL lane at the axle's height. The gap is a vertical one (the grip's wheels beside the
 # main rockers): it closes 1:1 with the lane's height above the axle and ~10.6 mm per 1 % of lane pitch about the nose
-# centre. No geometry change: the towers carry the same margin. Units: metres, nearest wheel / rocker_main_ pair, both
+# center. No geometry change: the towers carry the same margin. Units: meters, nearest wheel / rocker_main_ pair, both
 # lanes equal, 0.1 mm; "crossed" = the wheel's triangles cross the main's. S9's gate is 0.010.
 NOSE_LANE_PITCH_LIMIT = {
     "limit": ("the 11.5 mm wheel / rocker_main clearance holds on a level lane at the axle's height only: the gate (>= 10 mm) "
@@ -1967,7 +1967,7 @@ NOSE_LANE_PITCH_LIMIT = {
 def nose_train_layout(p):
     """The top's nose train numbers (authoring): the tower head it copies, sheaves / pitch / r / w / segs / groove,
     the axle (nitpick A3: ON the lane for the DQ head - the towers' convention; the rope tangent on the sheave tops
-    for the GD head), the centre x (outer rim tip = anchor_x - 0.10), the carriers' |y|, the hanger box, the beam and
+    for the GD head), the center x (outer rim tip = anchor_x - 0.10), the carriers' |y|, the hanger box, the beam and
     the girder stub (both hung off the axle: they move with it)."""
     import cs2_sheaves as S
     gd = bool(p.gondola)
@@ -2023,7 +2023,7 @@ def build_nose_train(p):
     raw = S.dq_train(cents, T["n"], T["axle"], T["r"], T["w"], T["segs"], T["groove"], T["sub_y"], T["main_y"],
                      T["pin_s"], T["hanger"], T["hz"], link=T["link"], prefix=pre, ngon=T["ngon"])
     for o, _k in raw:
-        # nitpick A4 (b): dq_train puts the hanger boxes at x 0 (the tower's centre); the station's yokes stand at x0
+        # nitpick A4 (b): dq_train puts the hanger boxes at x 0 (the tower's center); the station's yokes stand at x0
         if o.name in (f"{pre}hanger_n", f"{pre}hanger_p"):
             o.location.x = T["hanger_x"]
     S.finish_train(raw, "DQ", prefix=pre)
@@ -2193,10 +2193,10 @@ def ground_flight(p):
 
 def pf_layout(p):
     """Detail pass 1 (MC5): the pedestal ladder beside spine_main (None = the 1c ladder on the
-    spine). Rung line along Y at x = ped_f + PF_X_OFF, centre y PF_Y, rails PF_HALF either side,
+    spine). Rung line along Y at x = ped_f + PF_X_OFF, center y PF_Y, rails PF_HALF either side,
     climber on +X; rungs every 0.30 from 0.30 above the deck to 0.05 under the soffit (the stop),
     rails from the deck to 0.02 under the soffit (inside the hatch opening, below its leaf);
-    the hatch (cs2_liftdress.hatch_frame, PF_HATCH opening) centred PF_HATCH_DX in front of the
+    the hatch (cs2_liftdress.hatch_frame, PF_HATCH opening) centered PF_HATCH_DX in front of the
     rung line on soffit_tongue's underside, its opening cut into the soffit (build_soffit)."""
     if p.gondola or not (DETAIL1 and PF_OFF_SPINE):
         return None
@@ -2374,7 +2374,7 @@ TOP_CAB_LEGACY = False         # True = the pre-2026-10-13 top cabin on +Y (the 
 
 def cab_layout(p):
     """The operator cabin of this station (DQ): x0, x1, y0, y1 (walls), zf (floor), lane_y (the face toward the
-    lane: its window sill / LIFT OPS board), out_y (the outer face), door_y (the +X door centre, at the lane end),
+    lane: its window sill / LIFT OPS board), out_y (the outer face), door_y (the +X door center, at the lane end),
     s (the side: +1 = +Y, -1 = -Y). Base and the legacy top: the +Y cabin beside the bullwheel (x_wheel - 3.5 ..
     x_wheel - 0.5, y 5.60 .. 7.80, on the opbase 0.15); the top since 2026-10-13: TOP_CAB on the -Y apron."""
     if p.kind == "base" or TOP_CAB_LEGACY:
@@ -2481,8 +2481,8 @@ def build_soffit_lamps(p):
 
 
 def fd_soffit_lights(p):
-    """Fine-detail (DQ): the vanilla rows that replace the modelled soffit lenses lamp_s0-3 - RoofLightRandom01
-    on the lens centres (x_wheel - 1.5 / - 4.5, +-3.6) on the soffit, in lamp_s order (design A.2)."""
+    """Fine-detail (DQ): the vanilla rows that replace the modeled soffit lenses lamp_s0-3 - RoofLightRandom01
+    on the lens centers (x_wheel - 1.5 / - 4.5, +-3.6) on the soffit, in lamp_s order (design A.2)."""
     out = []
     for dx in (1.5, 4.5):
         for s in (-1.0, 1.0):
@@ -2515,7 +2515,7 @@ def build_comm(p):
                (jb[0], 1.95, zc), (jb[0], 0.0, zc), (jb[0], 0.0, jb[2] + 0.40)]
         clamp_at = [(1, 2, 0.5), (3, 4, 0.5), (4, 5, 0.5)]
     else:
-        # gondola draft 1: the portal-face sign sits on the centreline below the bracket, so
+        # gondola draft 1: the portal-face sign sits on the centerline below the bracket, so
         # the cable steps sideways to y GD_COMM_Y (between the sign and the +Y portal trim)
         # and drops to the junction box on the central pier, above the stone base
         yc = GD_COMM_Y
@@ -2656,7 +2656,7 @@ def build_detail(p):
     def post_board(nm, xy, facing, z0, w, h):
         """DQ follow-up: a free-standing board on TWO short galv posts (r 0.035, 0.15 in from each
         end, from the deck to the board top - 0.02, behind the closed backing: seen from behind too).
-        The kit's one centre post (cs2_liftdress.board mount "post") is replaced by the pair."""
+        The kit's one center post (cs2_liftdress.board mount "post") is replaced by the pair."""
         n, r = LD._plan(facing)
         c = (xy[0], xy[1], z0 + h / 2.0)
         parts = []
@@ -2800,8 +2800,8 @@ def dq_subobjects(p):
     # floodlights are "mod" rows (d1_flood_rows, appended by subobject_rows), so no SUBOBJ box test lists them
     lamps = []
     # fine-detail step 3b (design A.2 / FS15): the cabin / engine-room WallLightShortRange rows MOVE onto the
-    # modelled door lamps they replace (lamp_cab over the cabin door, y cy0 + 0.75; lamp_eng over the engine
-    # door, y (cy0 + cy1) / 2; lens centre z zf + 2.23 = 2.38), and RoofLights take the soffit lenses
+    # modeled door lamps they replace (lamp_cab over the cabin door, y cy0 + 0.75; lamp_eng over the engine
+    # door, y (cy0 + cy1) / 2; lens center z zf + 2.23 = 2.38), and RoofLights take the soffit lenses
     # (appended, so every earlier row keeps its index)
     cy0, cy1 = 5.60, 7.80
     wl_cab = (6.35, 2.38) if FINE_DETAIL else (7.25, 2.40)
@@ -2820,7 +2820,7 @@ def dq_subobjects(p):
                 ("WallLightShortRangeRandom01", (p.x_wheel - 6.6 - 0.02, wl_eng[0], wl_eng[1]), "-X", "wall")] \
             + lamps + soffit
     # nitpick A (2026-10-13): the top's cabin stands on the -Y apron (cab_layout); its door lamp row moves with the
-    # door (+X face, the door's centre y, the lens 2.23 over the cabin floor)
+    # door (+X face, the door's center y, the lens 2.23 over the cabin floor)
     CL = cab_layout(p)
     if CL["s"] > 0:
         wl_top = (p.x_wheel - 0.5 + 0.02, wl_cab[0], wl_cab[1])
@@ -2844,10 +2844,10 @@ def _FD():
 def fd_kit_specs(p):
     """Fine-detail step 3b: this station's dressing-kit rows in the AUTHORING frame, one per removed builder
     call (design A.2 / D, dress-kit.md 3 pivots): dict(prop (KIT object prefab), pos, facing (authoring),
-    mount, removed (the old parts' name prefixes), was). mount "ground": pos = the foot centre on its floor
+    mount, removed (the old parts' name prefixes), was). mount "ground": pos = the foot center on its floor
     (deck 0.30 / platform 0.30 / grade 0); "wall": pos = the old mount point ON the wall face at the prop's
-    bottom (hose reel: the old centre height - 0.35, the plate bottom; extinguisher: the old bottom), facing =
-    the wall's outward normal; "lean": pos = the old pair's centre ON the wall face at the floor z, facing = the
+    bottom (hose reel: the old center height - 0.35, the plate bottom; extinguisher: the old bottom), facing =
+    the wall's outward normal; "lean": pos = the old pair's center ON the wall face at the floor z, facing = the
     wall's outward normal (kit_lean_row: the rest plane on the face, the pivot 0.3925 m out - the foot-line
     rule). [] with FINE_DETAIL off."""
     if not FINE_DETAIL:
@@ -2952,14 +2952,14 @@ _KIT_LEDGE = {}
 
 
 def fd_kit_colour(p, colour_set=None):
-    """The station's kit colour set: `colour_set` if given, else FD_KIT_COLOUR[(family, kind)]."""
+    """The station's kit color set: `colour_set` if given, else FD_KIT_COLOUR[(family, kind)]."""
     return colour_set or FD_KIT_COLOUR[("gd" if p.gondola else "dq", p.kind)]
 
 
 def fd_kit_rows(p, colour_set=None):
     """The kit rows (fine_detail.kit_row / kit_lean_row dicts, game local = blender_to_game) of fd_kit_specs,
     m_ParentMesh 0 like every row of these stations; yaw = facing_quat(facing, authoring) - the prop's +Z (its
-    front / out of the wall) to the old part's facing. Coloured props (the wall racks) name the station's colour
+    front / out of the wall) to the old part's facing. Colored props (the wall racks) name the station's color
     set (fd_kit_colour: FD_KIT_COLOUR or `colour_set`)."""
     FD, LD = _FD(), _LD()
     rows = []
@@ -3469,12 +3469,12 @@ def gd_roof_z(p, y, inner=False):
 
 def gd_hall_layout(p):
     """Every number of the revision-1 hall (authoring frame). Side bays [(x0, x1, kind)] between the
-    corner columns: the front run to the door bay, the door bay (GD_DOOR_BAY, centred on the side door
+    corner columns: the front run to the door bay, the door bay (GD_DOOR_BAY, centered on the side door
     at x_wheel - 3.0), the run to the operator room's -X wall and the operator bay (its first tier is
     the room's window on +Y). Tiers sill -> transoms -> ring beam. The `_Win` panes [(part, room,
     plane, rect)]: one room per bay (all its tiers), the operator room's own room "opr" (side + back
-    first tier), the nose bays above the portal lintel (the centre bay is the sign spandrel), the back
-    bays. Panes run edge to edge between mullion centre lines (the mullions stand proud in front)."""
+    first tier), the nose bays above the portal lintel (the center bay is the sign spandrel), the back
+    bays. Panes run edge to edge between mullion center lines (the mullions stand proud in front)."""
     W2, wt = p.w_half, WALL_T
     wi = W2 - wt
     xn, xb, X = p.x_nose, p.x_back, p.x_wheel
@@ -3511,7 +3511,7 @@ def gd_hall_layout(p):
     xg = round(xn + 0.10, 6)
     for k, (y0, y1) in enumerate(zip(GD_NOSE_BAYS, GD_NOSE_BAYS[1:])):
         if abs(y0 + y1) < 1e-9:
-            continue                          # the centre bay: the sign spandrel
+            continue                          # the center bay: the sign spandrel
         panes.append((f"win_f{k}_f{k}", f"f{k}", ("x", xg, -1.0), (y0, y1, GD_LINTEL_Z, z_nose_head)))
     xk = round(xb - GD_GLASS_IN, 6)
     for k, (y0, y1) in enumerate(zip(GD_BACK_BAYS, GD_BACK_BAYS[1:])):
@@ -3625,7 +3625,7 @@ def build_gd_gables(p):
 def build_gd_entry(p, s, tag, L):
     """A skier entry (Richard: "slightly bigger openings for the skiers to enter into"): double glass
     doors with GD_SIDE_DOOR clear (1.80 x 2.30 m; draft 1 had one 0.85 x 1.95 leaf) in the door bay -
-    a frame of two jambs (no centre post: the two leaves meet at the middle, so the whole 1.80 m is one
+    a frame of two jambs (no center post: the two leaves meet at the middle, so the whole 1.80 m is one
     passage when both stand open; the rev-1 checker's F3), two glass leaves in darksteel stile frames
     with push bars - a 2.00 m ramp from grade to the platform top, a steel canopy on two tie rods to
     the door bay's mullions. The head is GD_DOOR_HEAD (the first transom's underside). Every door part
@@ -3829,7 +3829,7 @@ def build_gd_roof(p):
 
 def build_gd_eaves(p):
     """Under and on the deep eaves: tapered steel outriggers at every mullion (0.30 deep at the ring
-    beam, 0.12 at the eave), linear soffit lights between them (the modelled lamps kept: no vanilla
+    beam, 0.12 at the eave), linear soffit lights between them (the modeled lamps kept: no vanilla
     linear light exists), a snow-guard rail on posts GD_SNOW_IN in from each eave edge, the eave
     gutters and four downspouts routed back under the eave to the wall at the corners."""
     L = gd_hall_layout(p)
@@ -3931,7 +3931,7 @@ def gd_flood_spots(p):
 
 def gd_subobjects(p):
     """Revision 1 vanilla sub-objects (cs2_liftdress.SUBOBJ GUIDs, verified against the dump): the lamp
-    posts are VANILLA LightpolePark props (Richard, eleventh look: no modelled post lights), the
+    posts are VANILLA LightpolePark props (Richard, eleventh look: no modeled post lights), the
     wall / ceiling lights vanilla WallLight / RoofLight. Rows (prefab, authoring position, facing in the
     authoring frame or None, mount): at each portal a WallLight over the slot and a LightpolePark at the
     portal-face corner; at each entry a RoofLight under the canopy, a LightpolePark beside the ramp, a
@@ -4351,7 +4351,7 @@ def envelope_boxes(p, inflate=0.0):
     """Every carrier-envelope placement (contract C8): straights every 1.0 m from the
     anchor to the wheel on both lanes, the turn every 10 deg; at today's pin height and,
     when the carrier row has a grip offset, 0.22 higher (dq-chair Q1 / Phase B).
-    Gondola draft 1: straights every 0.5 m and the turn every 5 deg, boxes off-centre
+    Gondola draft 1: straights every 0.5 m and the turn every 5 deg, boxes off-center
     OUTBOARD by their 6th field (the hanger side: +-Y on the straights, radially out in
     the turn), every box grown by `inflate` (C8 runs it at GD_CLEAR)."""
     if not p.gondola:
@@ -4375,7 +4375,7 @@ def envelope_boxes(p, inflate=0.0):
                                   p.lowest_abs + dz + z0 + dzr, p.lowest_abs + dz + z1 + dzr))
         return boxes
     dzs = [0.0] + ([float(p.grip_above_rope)] if p.grip_above_rope else [])
-    places = []                     # (centre, travel axis, lateral axis, outboard sign)
+    places = []                     # (center, travel axis, lateral axis, outboard sign)
     n = int(math.floor((p.x_wheel - p.anchor_x) / 0.5)) + 1
     xs = [p.anchor_x + 0.5 * i for i in range(n)] + [p.x_wheel]
     for s in (-1.0, 1.0):
@@ -4458,7 +4458,7 @@ def assert_revision1(me, table, fparts, co, p):
             if float(v[:, 1].mean()) * s <= 0:
                 raise ContractError(f"R1e signband_{tag} on the wrong side")
     else:
-        # gondola draft 1: n on the PORTAL face (x = x_nose - 0.012, centred), p / q on the
+        # gondola draft 1: n on the PORTAL face (x = x_nose - 0.012, centered), p / q on the
         # +Y / -Y wall-top bands
         v = _pv(me, table, fparts, co, "signband_n")
         _near(float(np.ptp(v[:, 1])), lay["W"], 1e-3, "R1e signband_n width")
@@ -4615,7 +4615,7 @@ def _keepouts(p, with_subobjects=True):
 
 def climb_room(me, table, fparts, co, p, own, rung, d, half, z0, z1, depth):
     """Revision 1c: the climbing room of one ladder flight (AUTHORING frame). `rung` = (x, y)
-    of the rung centreline's mid point, `d` = the climbing direction (+-X or +-Y, unit), `half`
+    of the rung centerline's mid point, `d` = the climbing direction (+-X or +-Y, unit), `half`
     = half the width across the rails (outer faces), [z0, z1] = the climbed heights, `own` =
     the flight's part prefixes (ignored). Returns (hits, room): `hits` = what stands inside the
     zone `depth` deep on the climbing side (station parts by face overlap or vertex, the hosted
@@ -5655,11 +5655,11 @@ def fd_kit_boxes(p):
 
 def assert_kit_rows(t, me, table, fparts, co, p):
     """F1 (fine-detail step 3b, C16-style; AUTHORING frame): every dressing-kit row of fd_kit_specs -
-      - its CID is the staged object-prefab CID (fine_detail.staged_cid) of an uncoloured prop or the colour-set
-        VARIANT's seeded CID of a coloured one (fine_detail.row_colour_error), and the parts it replaces are gone;
-      - mount: ground props have a floor face <= FD_MOUNT_GAP under the foot centre and every AABB bottom corner
+      - its CID is the staged object-prefab CID (fine_detail.staged_cid) of an uncolored prop or the color-set
+        VARIANT's seeded CID of a colored one (fine_detail.row_colour_error), and the parts it replaces are gone;
+      - mount: ground props have a floor face <= FD_MOUNT_GAP under the foot center and every AABB bottom corner
         (inset 3 cm; grade rows of the gondola stand at z 0 exactly), wall props have a wall face <= FD_MOUNT_GAP
-        behind the centre and every corner of their back rectangle (the whole plate on the wall: no corner over
+        behind the center and every corner of their back rectangle (the whole plate on the wall: no corner over
         a door, an edge or air), lean props keep the foot-line rule (|fine_detail.lean_rest_gap| <=
         fine_detail.FOOT_TOL), every rest-plane vertex has a wall face <= FD_MOUNT_GAP behind it, and the floor
         is under the feet;
@@ -5714,7 +5714,7 @@ def assert_kit_rows(t, me, table, fparts, co, p):
     out, kboxes, bad = [], [], []
     for s, r in zip(specs, rows):
         tag = f"{s['prop']}@{s['pos'][0]:.2f},{s['pos'][1]:.2f}"
-        # the CID: KIT's staged one (uncoloured) or the colour-set VARIANT's (coloured; kit colour variants)
+        # the CID: KIT's staged one (uncolored) or the color-set VARIANT's (colored; kit color variants)
         cerr = FD.row_colour_error(r)
         if cerr:
             raise ContractError(f"F1 {tag}: CID {r['m_Object']}: {cerr}")
@@ -5984,7 +5984,7 @@ def load_gd_cabin(path=GD_CABIN_FBX, outboard=None):
 def gd_cabin_placements(p, step=0.25, astep=3.0):
     """Cabin poses along the loop: both straights from 1 m outside the anchor to the wheel
     (cabins arrive from the line THROUGH the portals and run along the platforms), then round
-    the bullwheel. (label, centre (x, y), outboard unit, travel unit) - a proper rotation, the
+    the bullwheel. (label, center (x, y), outboard unit, travel unit) - a proper rotation, the
     -Y lane is the +Y pose turned 180 deg. The "travel unit" (s, 0) on lane s runs AGAINST the stations'
     spin (both stations depart on +Y toward -X); load_gd_cabin's t = sign * raw z makes the -Y cabin
     (nitpick A3) face its real travel in these poses (the mover's yaw)."""
@@ -6082,7 +6082,7 @@ def gd_cabin_sweep(t, table, p, lim=None):
 
 def gd_door_openings(p, me, table, fparts, co):
     """G3 (checker F1): every gondola door is a real opening. Per door 3 x 3 rays across the
-    opening (x / y +-0.30 about its centre, z 0.45 / 1.25 / 2.05 above the platform), each from
+    opening (x / y +-0.30 about its center, z 0.45 / 1.25 / 2.05 above the platform), each from
     0.30 m outside the wall face through the wall to 0.30 m inside it, against every part but the
     door's own (door_<tag>_*: leaf, frame, handle, kick). Raises when any ray meets a wall."""
     W2, wi = p.w_half, p.w_half - WALL_T
@@ -6118,7 +6118,7 @@ def gd_door_openings(p, me, table, fparts, co):
         if GD_REV1 and tag in ("n", "p"):
             # DQ follow-up (rev-1 checker F3): the CLEAR opening - 9 across x 6 up rays over the whole
             # GD_SIDE_DOOR (2 cm in from the jambs, 2 cm under the head) against everything but the
-            # leaves, their stiles and push bars (they open): the fixed frame (jambs, a centre post)
+            # leaves, their stiles and push bars (they open): the fixed frame (jambs, a center post)
             # and the head transom count, so a post or a low head fails here
             dw_, dh_ = opening
             movable = tuple(f"door_{tag}_{k}" for k in ("leaf", "stile", "bar"))
@@ -6221,7 +6221,7 @@ def gd_flat_tops(me, table, fparts, co):
 
 
 def gd_sign_nose_z(p):
-    """The portal-face sign's centre z (GD_SIGN_NOSE_Z per kind; G7 keeps it between the slot tops
+    """The portal-face sign's center z (GD_SIGN_NOSE_Z per kind; G7 keeps it between the slot tops
     and the nose band)."""
     return GD_SIGN_NOSE_Z[p.kind]
 
@@ -6323,7 +6323,7 @@ def gd_glazing(t, me, table, fparts, co, p):
     between the corner columns from the coping to the ring beam; the mullions are <= 0.12 m wide; the
     nose carries glazing above the portal lintel, the back is glazed, the operator room keeps its own
     room. Rooms -> `_Win` ids by cs2_bldg.room_graph / assign_rooms (Room.Merge 2 m, the conservative
-    3 m slice: ids are REUSED beyond NEIGHBOUR_M, never between hard neighbours), <= 25 distinct ids from
+    3 m slice: ids are REUSED beyond NEIGHBOUR_M, never between hard neighbors), <= 25 distinct ids from
     the 1..23 pool, re-checked here pair by pair. Returns (message, numbers)."""
     import cs2_bldg as B
     L = gd_hall_layout(p)
@@ -6668,7 +6668,7 @@ def assert_gondola(t, me, table, fparts, co, p):
     routes.append({"surface": "grate_dka / grate_dkb (machinery deck)", "y": GD_DECK_Z,
                    "from": "grate_stl", "by": f"stair flight 2 ({S['n']} risers of {r2:.3f}, "
                                               f"goings {g2:.3f}) to the deck edge y {fy * S['yb']}"})
-    # stair headroom: a ray up from every tread / the landing centre to the first other part
+    # stair headroom: a ray up from every tread / the landing center to the first other part
     own = ("stread_", "stringer_", "stpost", "rail_st", "post_st", "grate_stl")
     hb, _np = _part_bvh(me, table, fparts, co, lambda n: not n.startswith(own))
     head = math.inf
@@ -6823,13 +6823,13 @@ def assert_gondola(t, me, table, fparts, co, p):
 def assert_nose_train(me, table, fparts, co, p):
     """ST1 (nitpick A, 2026-10-13; top stations with NOSE_TRAIN): the nose rope guides are the towers' sheave train,
     measured on the built faces (AUTHORING frame): per lane NOSE_TRAIN_N rims, each rim on its head's axle rule
-    (nitpick A3, NOSE_AXLE_ON_LANE): DQ = the rim CENTRE on the lane (rim z mid = z_rope, 1 mm; the rim top r above
-    it, 2 mm: the code lane / modelled rope through the sheave centres, as on every tower), GD = the rim's top on the
-    rope's underside (axle + r = z_rope - ROPE_R, 2 mm: the modelled rope stays tangent); every rim centred on its lane
+    (nitpick A3, NOSE_AXLE_ON_LANE): DQ = the rim CENTER on the lane (rim z mid = z_rope, 1 mm; the rim top r above
+    it, 2 mm: the code lane / modeled rope through the sheave centers, as on every tower), GD = the rim's top on the
+    rope's underside (axle + r = z_rope - ROPE_R, 2 mm: the modeled rope stays tangent); every rim centered on its lane
     (1 mm); every carrier part (rockers, pins, yoke, links, hanger, girder stub) INBOARD of its lane's sheave inner face
     (the towers' F9 rule: the carrier hanger passes outboard); the whole train and the beam at x >= anchor_x - 0.10 (the
     frozen prefab z min) and the haul rope over every sheave. Nitpick A4 (NOSE_HANGER_AT_YOKE, DQ): each hanger box stands
-    at its yoke's x (centre, 1 mm) and inside its girder stub's x span - cs2_sheaves.dq_train's tower-centred x 0 left
+    at its yoke's x (center, 1 mm) and inside its girder stub's x span - cs2_sheaves.dq_train's tower-centered x 0 left
     them 11 m behind the yokes. Returns ({"ST1": msg}, numbers)."""
     T = nose_train_layout(p)
     pre = NOSE_TRAIN_PREFIX
@@ -6927,10 +6927,10 @@ def assert_nose_train(me, table, fparts, co, p):
 # The tram's C14 idiom (tram_station.check_part_clashes: a BVH triangle-pair test per bbox-overlapping pair; an
 # intersecting pair must be a DECLARED contact or an exact KNOWN_OPEN finding, else it fails; a part wholly inside
 # another's closed volume fails too), scoped to the parts the nitpick A rise touched: the nose train, the guide
-# beams and girder stubs, the modelled haul ropes, and the comm cable / clamps / bracket that run past them. Every
+# beams and girder stubs, the modeled haul ropes, and the comm cable / clamps / bracket that run past them. Every
 # intersecting pair in that zone must be one of the rules below, each with its reason; anything else raises. Part
 # names are matched with the CUT_PIECES suffix removed (haulrope_n_2 -> haulrope_n, soffit_tongue_0 -> soffit_tongue).
-# The rope rule is the F10 convention (dq-family-review-geometry F10): the drawn rope runs through the sheave centres,
+# The rope rule is the F10 convention (dq-family-review-geometry F10): the drawn rope runs through the sheave centers,
 # so it may cross exactly what the chair may cross - lift_chair.CARRIER_PASS["gantry"] with the station prefix
 # (test_detail_detach asserts the two sets are equal).
 NOSE_CLASH_SET = ("sheave_guide_", "guideframe_", "haulrope_", "clamp_comm", "commcable_nose", "commbracket_nose")
@@ -7160,7 +7160,7 @@ def assert_orientation_gd(me, table, fparts, co, p):
     if bad:
         raise ContractError(f"G11: not on the up lane's side (y sign {L:+.0f}, {p.kind}): {bad}")
     # nitpick A3 (ruling F2): WAIT HERE at the LOADING entry - the departing lane's side (GD_LOAD_SIDE +Y on both
-    # stations), board + label centred there and the label facing the skiers coming in through that entry
+    # stations), board + label centered there and the label facing the skiers coming in through that entry
     wl = float(GD_LOAD_SIDE)
     wait = {n: cy(n) for n in ("board_waitn", "label_waitn")}
     lw = [i for i, fp in enumerate(fparts) if table[fp - 1].startswith("label_waitn")]
@@ -7350,8 +7350,8 @@ def digit_triangles(lay):
     """Revision 1b: the plate number as VECTOR outlines. welcome_sign.text_triangles (a bpy
     FONT curve in the builtin Bfont -> mesh -> triangles; the civic sign header's path,
     reused, never copied) at a cap height of lay["digit_h_m"], shrunk only if the string is
-    wider than the text box, centred in the box. Returns {"tris": triangles ((s, t) x 3) in
-    sign metres, "bbox": (s0, s1, t0, t1), "area_m2", "w_m", "h_m", "scale", "n_tris"};
+    wider than the text box, centered in the box. Returns {"tris": triangles ((s, t) x 3) in
+    sign meters, "bbox": (s0, s1, t0, t1), "area_m2", "w_m", "h_m", "scale", "n_tris"};
     cached per layout (the FONT object lives for a few ms, before the bake: R1e runs first
     and make_hook warms the cache)."""
     tx0, tx1, ty0, ty1 = lay["text"]
@@ -7396,13 +7396,13 @@ def digit_coverage(lay, w, h, pu, pv, ss=DIGIT_SS):
 
 def sign_relief(lay, h, w, pu, pv):
     """Revision 1b plate edge over one sign rect (rows bottom-up = +t, cols = +s):
-    (height (h, w) metres, occ (h, w)). Height: a rounded bevel SIGN_BEVEL_M wide and
+    (height (h, w) meters, occ (h, w)). Height: a rounded bevel SIGN_BEVEL_M wide and
     SIGN_BEVEL_H_M high round the whole panel (profile 1 - (1 - d / bevel)^2, steepest at the
     edge, flat inside), a pressed bead (cosine, SIGN_BEAD_*) round the emblem panel, and the
     number plate PLATE_STEP_H_M proud of the panel on its own PLATE_STEP_M edge. occ: the
     emblem panel's soft edge occlusion, 1 - SIGN_EDGE_AO at its
     border (the outer edges and the plate's step) rising (smoothstep) to 1 at SIGN_EDGE_AO_M
-    inside; 1 on the plate (its colours stay exact)."""
+    inside; 1 on the plate (its colors stay exact)."""
     S, T = np.meshgrid((np.arange(w) + 0.5) / pu, (np.arange(h) + 0.5) / pv)
     W, H = lay["W"], lay["H"]
     ps0, ps1, pt0, pt1 = lay["plate"]
@@ -7450,7 +7450,7 @@ def paint_sign(base_sl, ctl_sl, lay):
     # plate
     ps0, ps1, pt0, pt1 = lay["plate"]
     tx0, tx1, ty0, ty1 = lay["text"]
-    sc = (np.arange(w) + 0.5) / pu                      # texel centres, metres
+    sc = (np.arange(w) + 0.5) / pu                      # texel centers, meters
     tc = (np.arange(h) + 0.5) / pv
     S, T = np.meshgrid(sc, tc)                          # (h, w)
     plate = (S >= ps0) & (S <= ps1)
@@ -7625,7 +7625,7 @@ def relief_signbands(nrm, stamps, p):
 
 
 def make_hook(t, table, p):
-    """post_compose = lift_terminal.make_post_compose (density report, rasterised relief
+    """post_compose = lift_terminal.make_post_compose (density report, rasterized relief
     with THIS generator's detail_specs, compose_maps, normal renormalise) with the sign
     strip as its reserved rects (compose_maps keeps those texels exactly as baked: no part
     noise, relief or gloss variation under the sign), then the two sign stamps and
@@ -7713,7 +7713,7 @@ def density_classes(t, table, A, reserved=()):
 
 
 def has_emissive_map(table):
-    """The `_Emissive` map exists only while a MODELLED lamp does (a `lamp_` part; the lodge.py rule, the L3
+    """The `_Emissive` map exists only while a MODELED lamp does (a `lamp_` part; the lodge.py rule, the L3
     precedent): fine-detail DQ stations have none left (the box lamps are RoofLight / WallLight rows), so
     their map was all black (0 lit texels, 5.59 MB raw at 2048) and is dropped (2026-10-12, orchestrator
     ruling on the step-3b open item). The gondola (lamp_eave*) and a DQ `--no-fine` build keep it."""
@@ -7725,7 +7725,7 @@ NO_EMISSIVE_WHY = ("no lamp_ part left: every DQ light is a vanilla sub-object r
 
 
 def emissive_stats(asset_dir, name, thr=0.02):
-    """Lit texels of the shipped _Emissive (any channel > thr) and the flood heads' colour check
+    """Lit texels of the shipped _Emissive (any channel > thr) and the flood heads' color check
     (cool white: mean B >= mean R over the lit texels that are bluer than the warm lamps). No map (the
     fine-detail DQ stations, has_emissive_map False): zero lit texels and the reason, no file read."""
     path = os.path.join(asset_dir, f"{name}_Emissive.png")
@@ -7793,7 +7793,7 @@ def detail1_block(t, table, p, A, asset_dir, name, dq_hook, hook, share, report)
 
 def fine_detail_block(p, name, table, fine_nums):
     """The manifest block "fine_detail" (step 3b): the switch, the row frame, the rows by kind, the kit rows
-    with their F1 numbers, what left the host (and why), what stays modelled and why."""
+    with their F1 numbers, what left the host (and why), what stays modeled and why."""
     LD = _LD()
     blk = subobject_rows(p, name) or {}
     kit_removed = sorted({pre for s in fd_kit_specs(p) for pre in s["removed"]})
@@ -8032,7 +8032,7 @@ def _post(v):
 
 def gd_preview_poses(p):
     """Render-only cabin poses (authoring): entering the -Y portal, on both platforms, in
-    the turn (label, centre, outboard unit, travel unit)."""
+    the turn (label, center, outboard unit, travel unit)."""
     X, xn, L = p.x_wheel, p.x_nose, p.lane_y
     out = [("in -Y portal", (xn - 1.4, -L), (0.0, -1.0), (-1.0, 0.0)),
            ("+Y nose", (xn + 2.6, L), (0.0, 1.0), (1.0, 0.0)),
@@ -8245,7 +8245,7 @@ def d1_closeup_shots(p):
 
 def fu_closeup_shots(p):
     """DQ follow-up close-ups (authoring frame: name, target, eye), the vanilla lamp posts as the review
-    packs' labelled stand-in boxes: per DQ station the board sequence along the chair's travel (base:
+    packs' labeled stand-in boxes: per DQ station the board sequence along the chair's travel (base:
     from the maze lane past WAIT HERE on the gate and the carpet to LOWER BAR / SKI TIPS UP; top: from
     the nose along the arrival lane, RAISE BAR -> UNLOAD at the unload line; STAY SEATED was removed
     2026-10-12) and the lamp posts from outside (base: the back ramp, the maze entrance and the plaza with
@@ -8263,7 +8263,7 @@ def fu_closeup_shots(p):
 def render_d1_closeups(t, asset_dir, name, out_dir, p, tint, win=None, shots=None, tag="d1"):
     """Detail pass 1: the d1_closeup_shots (or `shots`) at D1_CLOSEUP_RES (2x the close-up size), noon,
     the `_Win` panes as dark glass; no chair stand-ins (the dressing reads on its own). DQ follow-up: the
-    vanilla sub-objects drawn as the review packs' labelled boxes (subobj_standins) in every frame."""
+    vanilla sub-objects drawn as the review packs' labeled boxes (subobj_standins) in every frame."""
     rig = cs2_preview._Rig(t, None)
     written = []
     os.makedirs(out_dir, exist_ok=True)
@@ -8301,7 +8301,7 @@ def render_d1_closeups(t, asset_dir, name, out_dir, p, tint, win=None, shots=Non
 
 def render_fu_gondola(t, asset_dir, name, out_dir, p, tint, win):
     """DQ follow-up close-up of a gondola station (FU_CLOSEUP_DIR): the +Y skier entry from outside -
-    the double glass doors with NO centre post (1.80 x 2.30 m clear), the ramp and the canopy - with the
+    the double glass doors with NO center post (1.80 x 2.30 m clear), the ramp and the canopy - with the
     `_Win` day glass, the vanilla stand-in boxes and the hall light, at D1_CLOSEUP_RES."""
     L = gd_hall_layout(p)
     xd, W2 = L["xd"], p.w_half
@@ -8387,8 +8387,8 @@ def gd_glass_standin(rig, win, mode):
 
 def subobj_standins(rig, p, name):
     """DQ follow-up (Richard, fifteenth look: "stand-ins are great, much easier to see - let's do that for
-    all assets"): the review packs' labelled semi-transparent BOXES (cs2_subobj.add_standins: the prop's
-    variant-union bounds, colour per family, the prefab name above it) for every vanilla sub-object row of
+    all assets"): the review packs' labeled semi-transparent BOXES (cs2_subobj.add_standins: the prop's
+    variant-union bounds, color per family, the prefab name above it) for every vanilla sub-object row of
     this station, as render-only objects in the preview rig (never exported; the rig removes them, their
     text curves, materials and collections). The rows are the manifest's own (subobject_rows), so the
     previews show exactly what the surgery round places. Returns the add_standins summary."""
@@ -8422,7 +8422,7 @@ def subobj_standins(rig, p, name):
 
 def gd_vanilla_standins(rig, p, night=False, name=None):
     """Render-only stand-ins of the vanilla sub-objects (gd_subobjects). DQ follow-up: drawn as the review
-    packs' labelled boxes (subobj_standins; the revision-1 pole + arm + box head read as the square-headed
+    packs' labeled boxes (subobj_standins; the revision-1 pole + arm + box head read as the square-headed
     posts Richard rejected - rev-1 checker F6); returns the light points [(post-frame location, watts)] for
     the night views (approximate vanilla pools)."""
     LD = _LD()
@@ -8443,7 +8443,7 @@ def gd_vanilla_standins(rig, p, night=False, name=None):
 
 
 def gd_tower_standin(rig, p):
-    """The base's hosted SkiLiftTowerETGDO (the real LOD0, galvanised grey) as a render-only stand-in."""
+    """The base's hosted SkiLiftTowerETGDO (the real LOD0, galvanised gray) as a render-only stand-in."""
     if not p.hosted_tower:
         return None
     lods = load_gd_tower()
@@ -9011,7 +9011,7 @@ def main(argv=None):
     # 6 px at 2048 (lift_terminal PACK_MARGIN_PX); scaled with A, because ~1,250 islands at a
     # 512 blockout with a 6 px margin leave the margins ~70 % of the square (measured ~1 px/m)
     margin = max(2, int(round(PACK_MARGIN_PX * A / 2048.0)))
-    # 2026-10-12: the _Emissive map only while a modelled lamp_ part exists (fine-detail DQ: none, the map was
+    # 2026-10-12: the _Emissive map only while a modeled lamp_ part exists (fine-detail DQ: none, the map was
     # all black). The bake never deletes a file, so a stale <name>_Emissive.png from an earlier export goes now
     # (else it would stay in the folder and in the manifest's `files`, the L3 lesson).
     emis_map = has_emissive_map(table)
@@ -9221,7 +9221,7 @@ def main(argv=None):
         "contract": nums,
         "params": asdict(p),
     })
-    # kit colour variants (2026-10-12): a shipping export stages the variants its kit rows name
+    # kit color variants (2026-10-12): a shipping export stages the variants its kit rows name
     import dress_kit
     dress_kit.stage_from_manifest(asset_dir, name)
 

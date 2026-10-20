@@ -5,7 +5,7 @@
 | Title | Ski gongola and lift station detailed drafts (sic) |
 | Author | Wilin_Amaurea - https://sketchfab.com/wilinamaurea |
 | Source | https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db |
-| Licence | CC BY 4.0 (CC Attribution) - https://creativecommons.org/licenses/by/4.0/ (Sketchfab API `v3/models/a8fabd3e955643a2a9e9f09bd46635db`; Richard confirmed Sketchfab CC BY on 2026-10-11, ROUND-SPEC finding 12 / Q8) |
+| License | CC BY 4.0 (CC Attribution) - https://creativecommons.org/licenses/by/4.0/ (Sketchfab API `v3/models/a8fabd3e955643a2a9e9f09bd46635db`; Richard confirmed Sketchfab CC BY on 2026-10-11, ROUND-SPEC finding 12 / Q8) |
 | Published | 2020-06-09 (faceCount 36,557 = this file's triangle count; tag `xyz-school-draftpunk-3`) |
 | Downloaded | 2026-10-10, by theotherwildcathighboy |
 | Archived | 2026-10-11: copied (not moved) from `Desktop\ski resort assets reference images\gondolas\source\` |
@@ -39,7 +39,7 @@ in-game description, assets/LICENSE carve-out, README.md):
 
 - Loader: `assets/blender/cs2_ingest.py` (`load_external`, `colour_sets`); test
   `assets/blender/tests/test_ingest.py`.
-- Facts (scale about 27 x imported metres = 0.27 m per file unit, +-10 %; groups and tri
+- Facts (scale about 27 x imported meters = 0.27 m per file unit, +-10 %; groups and tri
   counts): `docs/research/art/assets-2026-10/understand/ref-models.md` §2.
 - Route (ROUND-SPEC finding 12): reuse the cabin shell (739 tris); rebuild hanger, yoke and
   carriage; the `mechanism` station is layout reference only.

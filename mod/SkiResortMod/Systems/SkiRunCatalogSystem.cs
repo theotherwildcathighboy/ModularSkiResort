@@ -113,8 +113,8 @@
 //     SkiResort.Hub.RUN_DEFAULT[<kind>] with "{N}" replaced (vanilla precedent for reading the
 //     active dictionary: NameSystem.cs:250, same in 1.6.2), English if the key is missing.
 //     U2 (OD-3): N counts per (Gate, kind) — "Groomed run 1" in each resort; Not linked runs are
-//     numbered among themselves — ordered by Geometry.m_Bounds.max.y descending, then centre x,
-//     then centre z, then entity index/version (research §2.B.5: values that exist immediately;
+//     numbered among themselves — ordered by Geometry.m_Bounds.max.y descending, then center x,
+//     then center z, then entity index/version (research §2.B.5: values that exist immediately;
 //     numbers shift when a run above is added or removed — accepted, OD7). Formatted names are
 //     cached per (kind, N) and the cache is dropped when the dictionary changes
 //     (LocalizationManager.onActiveDictionaryChanged, subscribed in OnCreate and removed in
@@ -158,7 +158,7 @@
 //     being seeded, else at the FRONT as "bind" (a run that appeared after the warm-up: drawn, or
 //     linked); a Key mismatch at the FRONT as "edit"; a YKey mismatch or an entry from an older
 //     terrain epoch at the BACK as "terrain". A row already queued as WARM-UP is never moved to the
-//     front by "bind" (fixer round, finding behaviour-2: every rebuild after the seed re-asks every
+//     front by "bind" (fixer round, finding behavior-2: every rebuild after the seed re-asks every
 //     unrated row as bind, and the promotion used to drain the whole warm-up at the front with no duty
 //     cycle); an edit still promotes it. At most ONE rating per UIUpdate frame; BACKGROUND ratings
 //     (warm-up, terrain, backstop) also obey a duty cycle: they start only when now >= last start +
@@ -191,7 +191,7 @@
 //     per RateLineWindowS window — a terraform that re-snaps many runs must not flood; the next logged
 //     line says how many were not logged); warm-up, terrain and backstop ratings are counted, not
 //     logged; one `Catalog [rate-warmup] N run(s) in F frames, total T ms, max M ms … — rating
-//     service ready` per load — when the seeded warm-up set has really been rated (behaviour-2) —
+//     service ready` per load — when the seeded warm-up set has really been rated (behavior-2) —
 //     or, E1, one `Catalog [rate-warmup] WARN: warm-up not finished 90 s after the load …` first.
 //     E1 also writes the panel-closed `Catalog [rebuild] (run changed (panel closed))` lines (the
 //     same window as every signature rebuild) and `Catalog [rate] … (bind)` lines with the hub closed.
@@ -760,6 +760,14 @@ namespace SkiResortMod.Systems
             if (m_LastTool is TerrainToolSystem && !(tool is TerrainToolSystem))
                 m_TerrainEpochDueFrame = m_Frame + Tuning.TerrainEpochDelayFrames;
             m_LastTool = tool;
+        }
+
+        /// <summary>T139: our own terrain write (CatTrackGradeToolSystem grade / undo) schedules the same terrain epoch bump as
+        /// leaving the vanilla terrain tool, so every run is re-rated on the new ground. Field writes only; never throws.</summary>
+        public void NoteTerrainChanged(string why)
+        {
+            m_TerrainEpochDueFrame = m_Frame + Tuning.TerrainEpochDelayFrames;
+            Mod.Log.Info($"{nameof(SkiRunCatalogSystem)}: terrain changed ({why}) — terrain epoch bump in {Tuning.TerrainEpochDelayFrames} frames");
         }
 
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
@@ -1632,7 +1640,7 @@ namespace SkiResortMod.Systems
             }
 
             float texel = 1f / hd.scale.x;                            // TerrainSystem.cs:2619-2620
-            var origin = new double2(-hd.offset.x, -hd.offset.z);    // texel centres, TerrainUtils.cs:35-38
+            var origin = new double2(-hd.offset.x, -hd.offset.z);    // texel centers, TerrainUtils.cs:35-38
             var sampler = new TerrainHeightSampler(hd);
             RateStatus status = SkiRunRater.Rate(m_RateNodes, n, origin, ref sampler, texel, 0, m_RateGrid, null, m_RateResult,
                 out int m, out float _, out float _, out RateDetail detail);
@@ -1875,7 +1883,7 @@ namespace SkiResortMod.Systems
 
         // ── ordering ────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>Top height descending, then centre x, centre z, entity index, version.</summary>
+        /// <summary>Top height descending, then center x, center z, entity index, version.</summary>
         private static int Spatial(in RunRow a, in RunRow b)
         {
             int c = b.TopY.CompareTo(a.TopY);

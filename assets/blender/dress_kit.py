@@ -2,7 +2,7 @@
 dress_kit.py - the shared DRESSING KIT prop set, letter B (fine-detail pass, design section D as
 corrected by its skeptic FS1-FS16). Design: docs/research/art/assets-2026-10/design/fine-detail-pass.md
 section D + design/fine-detail-pass-skeptic.md (FS1 weather mast stays in the stations: 8 parts;
-FS3 one shared 1024^2 set >= 250 px/m; FS6 loadout variants; FS7 Parent colour on the racks;
+FS3 one shared 1024^2 set >= 250 px/m; FS6 loadout variants; FS7 Parent color on the racks;
 FS10 installed cull formula; FS12 nothing existing changes). Build report:
 docs/research/art/assets-2026-10/build/dress-kit.md.
 
@@ -11,10 +11,10 @@ docs/research/art/assets-2026-10/build/dress-kit.md.
         --out ../import/props/B --export --preview ../preview/props/B --review
     blender ... --python dress_kit.py -- --out <tmp> --export --no-staging --no-subobj   (tests)
     blender ... --python dress_kit.py -- --settings-proof     (FS12: write_settings byte identity)
-    blender ... --python dress_kit.py -- --variants           (kit colour variants: stage / table / kit manifests)
+    blender ... --python dress_kit.py -- --variants           (kit color variants: stage / table / kit manifests)
     blender ... --python dress_kit.py -- --variant-surgery <ImportedData>   (S1, game closed)
 
-THE KIT (8 parts, 11 meshes; prefab-local metres x lateral, y up, z out / front)
+THE KIT (8 parts, 11 meshes; prefab-local meters x lateral, y up, z out / front)
     SkiDressSkiRackB / V2B / V3B   A-frame rack, 3 loadouts     cs2_bldg.ski_rack_frame + ski_gear
     SkiDressSkiRackWallB / V2B     station wall rack, 2 loadouts cs2_liftdress.ski_rack + ski_gear
     SkiDressHoseReelB              wall hose reel                 dims of cs2_liftdress.hose_reel
@@ -51,21 +51,21 @@ ONE SHARED SET
     (round lows are circumscribed: vertex radius r / cos(pi / n)), cage extrusion 3 mm, max ray
     40 mm; a ray never starts inside hi geometry.
 
-COLOUR (kit colour variants, 2026-10-12, build/kit-colour-variants.md; FS7 Parent DROPPED by Richard ~18:50:
-    "I think they should stay a colour that makes sense for that building")
+COLOR (kit color variants, 2026-10-12, build/kit-colour-variants.md; FS7 Parent DROPPED by Richard ~18:50:
+    "I think they should stay a color that makes sense for that building")
     Ski-rack gear `accent` texels and the akja shell are ControlMask G (slot 2, channel 1), albedo 0.80
     under the mask. ColorProperties lives on the MESH prefab (RenderPrefab; decompile: ColorProperties.cs
-    ComponentMenu, MeshColorSystem reads the SubMesh's mesh prefab), so each colour SET of a coloured prop
+    ComponentMenu, MeshColorSystem reads the SubMesh's mesh prefab), so each color SET of a colored prop
     is a VARIANT = its own object prefab + its own mesh prefab (a RenderPrefab clone of the imported base
     mesh prefab: same geometry + surface assets, a fixed ColorProperties with ONE VariationSet, no external
     channel, ranges 0). The registry below (stage_variant / sync_variants / variant_surgery) mints them
     ON DEMAND (only the (prop, set) pairs a shipped host manifest names), CIDs seeded from the name
-    (fine_detail.variant_cids). The six coloured base object prefabs and their Parent blocks do not ship.
+    (fine_detail.variant_cids). The six colored base object prefabs and their Parent blocks do not ship.
     Every other prop has no ControlMask texel and no ColorProperties (beacon rule).
 
 PREFABS (surgery, beacon pattern)
     assets/staging/prefabs/props/B/<Object>/<Object>.Prefab + .Prefab.cid (hand-minted ONCE, never
-    re-minted: an existing .cid is kept) for the five UNCOLOURED props; for every used colour variant
+    re-minted: an existing .cid is kept) for the five UNCOLORED props; for every used color variant
     <Variant>/<Variant>.Prefab (complete: names the variant mesh CID) + .Prefab.cid + "<Variant> Mesh.Prefab.cid"
     + "<Variant> Mesh.components.json", and the table kit-variants.json.
 
@@ -126,8 +126,8 @@ STAGING = os.path.join(REPO, "assets", "staging", "prefabs", "props", LETTER)
 SUBOBJ_JSON = os.path.join(HERE, "subobj_bounds.json")
 
 #: the 11 meshes. cap = design D.1 / DK1 cap of the PART; kind: ground | wall | lean;
-#: colour "variants" = coloured (ControlMask G accent texels): ships ONLY as fixed colour-set VARIANTS (kit
-#: colour variants, 2026-10-12; the FS7 Parent block and the base object prefab are retired); rows = design D.1
+#: color "variants" = colored (ControlMask G accent texels): ships ONLY as fixed color-set VARIANTS (kit
+#: color variants, 2026-10-12; the FS7 Parent block and the base object prefab are retired); rows = design D.1
 #: approved / pending instances.
 PROPS = (
     dict(code="R1", name="SkiDressSkiRackB", obj="SkiDressSkiRack", part="SkiDressSkiRack",
@@ -175,8 +175,8 @@ PROPS = (
 BY_CODE = {p["code"]: p for p in PROPS}
 
 # --------------------------------------------------------------------------------------
-# Gear library + loadouts (FS6). Colour pairs are cs2_liftdress.GEAR_SKI_COLOURS /
-# GEAR_BOARD_COLOURS entries; one length per colourway so the tips of a row do not line up.
+# Gear library + loadouts (FS6). Color pairs are cs2_liftdress.GEAR_SKI_COLOURS /
+# GEAR_BOARD_COLOURS entries; one length per colorway so the tips of a row do not line up.
 # --------------------------------------------------------------------------------------
 
 GEAR = {
@@ -200,7 +200,7 @@ AFRAME_LOADOUTS = {
     "R3": {+1: ("B1", "S2", None, "S4", "P1", None, "S3", "S1"),          # 8 + 2 + 2, gaps
            -1: ("S1", None, "B2", "S2", None, "P1", "S4", "S3")},
 }
-#: wall rack (3.0 m, one side, items toward prefab +Z), cs2_liftdress.ski_rack slot maths
+#: wall rack (3.0 m, one side, items toward prefab +Z), cs2_liftdress.ski_rack slot math
 WALL_LOADOUTS = {
     "W1": ("S2", "S4", "B2", "S1", "S3", "S1", "B1", "S2", "S4"),       # design: 7 pairs + 2 boards
     "W2": ("S1", "S3", "P1", "S2", "B1", "S4", "S2", "S3"),             # 6 + 1 board + 1 poles
@@ -212,7 +212,7 @@ AF = dict(slots=8, h=1.20, spread=0.40, bar=0.035, pitch=0.20, zb=0.35)
 # wall rack = cs2_liftdress.ski_rack defaults on a 3.0 m run (x0 -1.5, x1 1.5, y 0, z0 0)
 WR = dict(x0=-1.5, x1=1.5, y=0.0, z0=0.0, h=1.30, stand_off=0.40, side=-1.0)
 
-# hero parts (prop-local Blender metres; wall plane y = 0, prop toward -y = prefab +Z)
+# hero parts (prop-local Blender meters; wall plane y = 0, prop toward -y = prefab +Z)
 HOSE = dict(r=0.30, w=0.18, plate=0.70, plate_t=0.02, coil_r=0.25, hose_r=0.022, cz=0.35)
 EXT = dict(r=0.08, h=0.45, off=0.02)
 ESTOP = dict(r=0.04, h=1.00, box=(0.16, 0.12, 0.14), lid=(0.17, 0.13, 0.02), btn_r=0.035)
@@ -324,11 +324,11 @@ def _move(obj, offset):
 
 
 # ======================================================================================
-# Low-poly mesh builder with explicit UVs (metres, positive winding, isotropic)
+# Low-poly mesh builder with explicit UVs (meters, positive winding, isotropic)
 # ======================================================================================
 
 class LowMesh:
-    """Vertices, faces and per-face-loop UVs (metres). Faces are given in the order whose
+    """Vertices, faces and per-face-loop UVs (meters). Faces are given in the order whose
     right-hand normal is the outward normal; every helper below assigns UVs whose winding is
     positive with respect to that normal (no mirrored islands, DK5)."""
 
@@ -350,7 +350,7 @@ class LowMesh:
         """Quads between consecutive rings (lists of points, equal counts). Face k,i =
         (r_k[i], r_k[i+1], r_k+1[i+1], r_k+1[i]); normal = t_u x t_v with u along the ring
         order and v along the ring sequence: order the rings / ring points for the side you
-        want. UV u = arc length along each ring, v = cumulative mean ring spacing (metres).
+        want. UV u = arc length along each ring, v = cumulative mean ring spacing (meters).
         Returns the vertex index rings."""
         idx = [[self.v(p) for p in ring] for ring in rings]
         n = len(rings[0])
@@ -427,7 +427,7 @@ class LowMesh:
 
         def keyof(ax, sg):
             return ("+" if sg > 0 else "-") + names[ax]
-        # (a, b, c) = (k, i, j) local coordinates in metres from the low corner
+        # (a, b, c) = (k, i, j) local coordinates in meters from the low corner
         faces = []
         if keyof(j_, 1) not in drop:                       # +c: u = a, v = b
             faces.append(([(-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1)],
@@ -753,7 +753,7 @@ def _bar_net_uv(obj):
 
 
 def _net_uv(obj):
-    """cs2_bldg cross-net loop layers (netu / netv, metres) -> "UVMap" (one island per box)."""
+    """cs2_bldg cross-net loop layers (netu / netv, meters) -> "UVMap" (one island per box)."""
     me = obj.data
     nu, nv, nf = me.attributes.get("netu"), me.attributes.get("netv"), me.attributes.get("netf")
     if nu is None or nv is None or nf is None:
@@ -1171,7 +1171,7 @@ def build_aframe(code, lib, gear):
 
 def build_wall_rack(code, lib, gear):
     """Wall rack variant `code`: cs2_liftdress.ski_rack's legs + rails (pairs 0: frame only) and
-    the loadout placed with the builder's slot maths; feet on z 0."""
+    the loadout placed with the builder's slot math; feet on z 0."""
     import cs2_liftdress as LD
     parts = []
     built = LD.ski_rack(f"dk{code}w", WR["x0"], WR["x1"], WR["y"], WR["z0"], pairs=0, boards=0,
@@ -1604,9 +1604,9 @@ def akja_profile(u_scale, w_scale, s, n=6, inset=0.0, bump=False, m=None):
         u, w = a_ * math.cos(th), b_ * math.sin(th)
         if bump and 0.1 < s < 1.48:
             rise = 0.0
-            arc = math.radians(1.0) * 0.26                 # ~ metres per degree on the hull
-            for c in (45.0, 60.0, 75.0, 90.0, 105.0, 120.0, 135.0):   # moulded ribs, 2 cm tops
-                dm = abs(math.degrees(th) - c) * arc        # metres from the rib centre
+            arc = math.radians(1.0) * 0.26                 # ~ meters per degree on the hull
+            for c in (45.0, 60.0, 75.0, 90.0, 105.0, 120.0, 135.0):   # molded ribs, 2 cm tops
+                dm = abs(math.degrees(th) - c) * arc        # meters from the rib center
                 if dm < 0.016:
                     rise = max(rise, 0.0024 * min(1.0, (0.016 - dm) / 0.006))
             for sc in (0.25, 0.55, 0.85, 1.15, 1.45):      # transverse strakes, 3 cm, steep flanks
@@ -1757,7 +1757,7 @@ def build_spine_board(code):
               bevel=0.0008, segs=1)
         g.box(P(0.12, s0, B["t"] / 2.0), (side, up, out), (0.022, 0.03, B["t"] / 2.0 + 0.0024),
               bevel=0.001, segs=1)
-    # moulded front: a raised border lip just inside the edge and two long stiffening ribs
+    # molded front: a raised border lip just inside the edge and two long stiffening ribs
     wl = B["t"] + 0.0006
     ring = [(u, s) for u, s in oct_]
     for i in range(len(ring)):
@@ -1780,7 +1780,7 @@ def build_spine_board(code):
         for s_a, s_b in ((0.24, 0.37), (0.45, 0.92), (1.0, 1.47)):
             g.box(P(u0, 0.5 * (s_a + s_b), wl), (side, up, out), (0.006, 0.5 * (s_b - s_a), 0.0009),
                   bevel=0.0005, segs=1)
-    for u0 in (-0.13, 0.13):                        # moulded runners on the back
+    for u0 in (-0.13, 0.13):                        # molded runners on the back
         g.box(P(u0, Ln / 2.0, -0.0008), (side, up, out), (0.02, Ln / 2.0 - 0.12, 0.0009),
               bevel=0.0005, segs=1)
     for su in (1.0, -1.0):
@@ -1798,8 +1798,8 @@ def build_spine_board(code):
     return parts
 
 
-HANDHOLDS = (0.16, 0.60, 0.82, 1.22, 1.70)  # spine-board slot centres along the board (m)
-STRAPS = (0.40, 0.95, 1.50)                 # strap centres (m), 0.05 wide
+HANDHOLDS = (0.16, 0.60, 0.82, 1.22, 1.70)  # spine-board slot centers along the board (m)
+STRAPS = (0.40, 0.95, 1.50)                 # strap centers (m), 0.05 wide
 
 BUILDERS = {"R": build_aframe, "W": build_wall_rack, "HR": build_hose_reel,
             "EX": build_extinguisher, "ES": build_estop, "TL": build_tools,
@@ -1852,7 +1852,7 @@ def parity_aframe(code):
 
 def parity_wall():
     """cs2_liftdress.ski_rack(pairs 7, boards 2) vs ski_gear at wall_pose for the same kinds:
-    per slot the foot (lowest vertex z and the x centre of the lowest 5 mm) must agree."""
+    per slot the foot (lowest vertex z and the x center of the lowest 5 mm) must agree."""
     import cs2_bldg as K
     import cs2_liftdress as LD
     kinds = ["ski"] * 7 + ["board"] * 2
@@ -2115,8 +2115,8 @@ def _part_polys(me, n_parts):
 
 
 def layout_unique(bake, table, allparts, size=A, margin=MARGIN_PX):
-    """Build "UVUnique" from "UVMap": every island of every canonical / unique part, in metres
-    (island scale = sqrt(3D area / UV area)), at D x w texels per metre (w = the part's density
+    """Build "UVUnique" from "UVMap": every island of every canonical / unique part, in meters
+    (island scale = sqrt(3D area / UV area)), at D x w texels per meter (w = the part's density
     weight), skyline-packed with `margin` texels between islands; D = the largest density that
     fits (binary search). Rigid copies take their canonical part's loops (share keys). The
     rotation is free here: no source normal map is re-projected (bake_high_to_low bakes the
@@ -2253,7 +2253,7 @@ def compose_kit(bake, table, matkey_of, size, n_path, a_path, owner_dir, offsets
     base, nrm, msk, ctl = cs2_compose.compose_maps(
         base, nrm, msk, ctl, ao, None, 0.0,
         {"reserved": [], "part_map": pmap, "noise_amp": 0.03, "seed": 0, "gloss_var": 0.02})
-    # gutter: every map extends its covered texels `margin` texels out (deterministic 4-neighbour
+    # gutter: every map extends its covered texels `margin` texels out (deterministic 4-neighbor
     # propagation, left / right / down / up priority); the rest is neutral
     filled = cov.copy()
     for _k in range(int(margin)):
@@ -2302,7 +2302,7 @@ def compose_kit(bake, table, matkey_of, size, n_path, a_path, owner_dir, offsets
 
 def compose_materials():
     """{key: albedo (linear rgb), metal, rough, slot} for compose_kit: DRESS_MATERIALS' flat paints
-    (read-only), the kit keys, and a FLAT galvanised steel (Metal032's mean colour, the beacon's
+    (read-only), the kit keys, and a FLAT galvanised steel (Metal032's mean color, the beacon's
     values) instead of the CC0 tiling set (no source texture is sampled on this route)."""
     tab = material_table()
     out = {}
@@ -2444,7 +2444,7 @@ def density_stats(obj, size=A, layer="UVUnique"):
 
 
 def box_blur(a, r):
-    """vanilla-detail-benchmark.data/scripts/nmstats.py box_blur (verbatim maths)."""
+    """vanilla-detail-benchmark.data/scripts/nmstats.py box_blur (verbatim math)."""
     k = 2 * r + 1
     p = np.pad(a, ((r, r), (r, r), (0, 0)), mode="edge")
     c = np.cumsum(p, axis=0, dtype=np.float64)
@@ -2523,7 +2523,7 @@ def cull_estimate(obj, tris):
 
 def pivot_check(obj, spec):
     """DK4: ground z 0 everywhere; wall props: back on the wall plane (Blender y max 0); ground
-    props centred on the origin; leaning props: foot line on the origin."""
+    props centered on the origin; leaning props: foot line on the origin."""
     co = _local_co(obj.data)
     lo, hi = co.min(axis=0), co.max(axis=0)
     fails = []
@@ -2666,10 +2666,10 @@ def _num(v):
 
 
 def colour_components_json():
-    """RETIRED 2026-10-12 (FS7 Parent dropped by Richard; kit colour variants): never written any more, kept so
+    """RETIRED 2026-10-12 (FS7 Parent dropped by Richard; kit color variants): never written any more, kept so
     the archived staging (assets/staging/archive/superseded-parent-2026-10-12) stays reproducible.
     The mesh prefab's `components` block (FS7): ColorProperties, ExternalColorSource Parent (1),
-    channel 1 external, 0 / 2 not; 4 fallback VariationSets (slot-2 colour / RECOLOR_ALBEDO,
+    channel 1 external, 0 / 2 not; 4 fallback VariationSets (slot-2 color / RECOLOR_ALBEDO,
     clamped; channels 0 / 2 white: no R / B texels). Type ids 1-9; the importer tail renumbers to
     10 (AssetReference[]), 11 (Bounds3), 12 (float3) exactly as SkiHydrantBoxA Mesh."""
     sets = []
@@ -2735,7 +2735,7 @@ def colour_components_json():
 
 def write_staging(spec, bounds):
     """assets/staging/prefabs/props/B/<Object>/: <Object>.Prefab (template), <Object>.Prefab.cid
-    (minted once) - UNCOLOURED props only. A coloured prop ships as colour-set variants (stage_variant), its
+    (minted once) - UNCOLORED props only. A colored prop ships as color-set variants (stage_variant), its
     base object prefab is retired: the record says so and nothing is written. Returns the record."""
     if spec["colour"] == "variants":
         return retired_base_record(spec)
@@ -2810,23 +2810,23 @@ def settings_proof():
 
 
 # ======================================================================================
-# Kit colour variants: the registry (2026-10-12, build/kit-colour-variants.md)
+# Kit color variants: the registry (2026-10-12, build/kit-colour-variants.md)
 # ======================================================================================
 #
 # Richard (verdicts 2026-10-11, ~18:50): "Sorry, I don't think we want the accents to follow the parent
-# colour. I think they should stay a colour that makes sense for that building." -> FS7 Parent DROPPED.
+# color. I think they should stay a color that makes sense for that building." -> FS7 Parent DROPPED.
 # ENGINE (decompile 1.6.0f1, unchanged in 1.6.2f1): ColorProperties is a RenderPrefab component
 # (ColorProperties.cs:12-16 ComponentMenu RenderPrefab / CharacterOverlay; :137-140 puts the ColorVariation
 # buffer on the MESH prefab entity); MeshColorSystem.cs:410-471 walks the object prefab's SubMesh buffer and
 # SetColor(.., subMesh.m_SubMesh, ..) reads m_ColorVariations of that MESH prefab (:541). An object prefab
-# cannot carry its own colour: a colour variant needs its own mesh prefab. Hence per (prop, set):
+# cannot carry its own color: a color variant needs its own mesh prefab. Hence per (prop, set):
 #   <Variant>.Prefab              StaticObjectPrefab, one ObjectMeshInfo -> CID of the variant mesh (staged, complete)
 #   <Variant> Mesh.Prefab         RenderPrefab built AT SURGERY from the imported base mesh prefab
 #                                 (<SEED>\<Mesh>\<Mesh> Mesh_<hash>.Prefab): same m_GeometryAsset, m_SurfaceAssets,
 #                                 bounds and counts; name "<Variant> Mesh"; components = the fixed ColorProperties
 #                                 (clone_mesh_prefab; variant_surgery writes both into <ID>\<Variant>\)
 #   .Prefab.cid of both           seeded md5 of the names (fine_detail.variant_cids): stable across runs
-# ONE VariationSet at probability 100 with ranges 0 and no external channel = one deterministic colour
+# ONE VariationSet at probability 100 with ranges 0 and no external channel = one deterministic color
 # (MeshColorSystem.cs:560-702, 742-857). [U] a hand-made RenderPrefab sharing an imported geometry asset: no
 # precedent of ours; the funicular pack ships two NetPiecePrefabs (RenderPrefab subclasses) on ONE geometry +
 # surface (docs/research/funicular-network-vehicle.md 3.4); S1 is the first proof.
@@ -2837,7 +2837,7 @@ RETIRED_DIR = os.path.join(STAGING_ARCHIVE, "superseded-parent-2026-10-12", "pre
 UNUSED_DIR = os.path.join(STAGING_ARCHIVE, "unused-variants", "prefabs", "props", LETTER)
 IMPORT_ROOT = os.path.join(REPO, "assets", "import")
 EDITOR_SEED = "c030ee3ff256df91"
-#: the six coloured props (ControlMask G texels): they ship only as variants
+#: the six colored props (ControlMask G texels): they ship only as variants
 COLOURED = tuple(s["obj"] for s in PROPS if s["colour"] == "variants")
 BY_OBJ = {s["obj"]: s for s in PROPS}
 
@@ -2861,7 +2861,7 @@ def colour_record(spec):
 
 
 def retired_base_record(spec):
-    """kit["staging"] entry of a coloured prop: no base object prefab ships."""
+    """kit["staging"] entry of a colored prop: no base object prefab ships."""
     return {"object_prefab": None, "retired_base_object_prefab": spec["obj"],
             "retired_base_cid": _fd().KIT[spec["obj"]].cid,
             "retired_to": os.path.relpath(os.path.join(RETIRED_DIR, spec["obj"]), REPO).replace("\\", "/"),
@@ -2870,7 +2870,7 @@ def retired_base_record(spec):
 
 def variant_components_json(rgb):
     """The variant MESH prefab's `components` block: ColorProperties with ONE VariationSet (channel 0 white,
-    channel 1 = the set's slot-2 colour, channel 2 white: the kit has no R / B ControlMask texel), every
+    channel 1 = the set's slot-2 color, channel 2 white: the kit has no R / B ControlMask texel), every
     m_CanBeModifiedByExternal false (ColorVariation.hasExternalChannels false: FindExternalSource never runs),
     m_VariationRanges / m_AlphaRanges 0 (no RandomizeColor), m_ExternalColorSource 0 (= Brand; ColorSourceType
     has no None - with no external channel the field is never read; the deployed SkiHydrantBoxA Mesh shape).
@@ -3001,7 +3001,7 @@ def _mod_rows(o, out):
 
 def used_variants(import_root=IMPORT_ROOT):
     """{variant name: {"prop", "colour_set", "hosts": [..], "rows": n}} from every shipped host manifest's kit
-    "mod" rows that name a colour set (the ON-DEMAND set: only what a host uses)."""
+    "mod" rows that name a color set (the ON-DEMAND set: only what a host uses)."""
     FD = _fd()
     used = {}
     for path, name in _iter_manifests(import_root):
@@ -3024,7 +3024,7 @@ def used_variants(import_root=IMPORT_ROOT):
 
 
 def stage_variants_for_rows(rows):
-    """ON DEMAND from a host build: stage every (coloured prop, colour set) pair its kit rows name."""
+    """ON DEMAND from a host build: stage every (colored prop, color set) pair its kit rows name."""
     out = []
     for r in rows or ():
         if isinstance(r, dict) and r.get("kind") == "mod" and r.get("colour_set"):
@@ -3065,7 +3065,7 @@ def _move_keep(src, dst):
 
 
 def retire_base_staging():
-    """Move the six coloured BASE object-prefab folders (Parent ColorProperties) out of the staging set."""
+    """Move the six colored BASE object-prefab folders (Parent ColorProperties) out of the staging set."""
     moved = {}
     for obj in COLOURED:
         r = _move_keep(os.path.join(STAGING, obj), os.path.join(RETIRED_DIR, obj))
@@ -3086,7 +3086,7 @@ def staged_variant_names(staging=STAGING):
 
 
 def write_variant_table(path=VARIANT_TABLE, import_root=IMPORT_ROOT):
-    """kit-variants.json: the colour sets, every STAGED variant (name, CIDs, base mesh, set, rgb, the shipped
+    """kit-variants.json: the color sets, every STAGED variant (name, CIDs, base mesh, set, rgb, the shipped
     hosts that use it), the retired base CIDs and the S1 surgery steps. Deterministic (no clock)."""
     FD = _fd()
     used = used_variants(import_root)
@@ -3137,7 +3137,7 @@ def write_variant_table(path=VARIANT_TABLE, import_root=IMPORT_ROOT):
 
 def sync_variants(import_root=IMPORT_ROOT):
     """`--variants`: stage every variant a shipped host uses, archive staged variants no host uses any more,
-    retire the six base object prefabs, rewrite kit-variants.json and patch the six coloured kit manifests'
+    retire the six base object prefabs, rewrite kit-variants.json and patch the six colored kit manifests'
     `colour` / `row_spec` (+ the owner's kit_report.staging). Returns the summary."""
     used = used_variants(import_root)
     staged = [stage_variant(u["prop"], u["colour_set"]) for u in used.values()]
@@ -3168,7 +3168,7 @@ def _dump_like(path, data):
 
 
 def patch_kit_manifests(out_root):
-    """In place, only for the six coloured props: `colour` (colour_record) and `row_spec` (row_spec), and the
+    """In place, only for the six colored props: `colour` (colour_record) and `row_spec` (row_spec), and the
     owner's kit_report.staging entries of the six (retired_base_record). Every other key / byte unchanged (the
     step-3a precedent: only row_spec strings changed). A manifest whose dump does not round-trip is refused."""
     patched = []
@@ -3684,8 +3684,8 @@ def export(out_root, preview_dir=None, review=False, staging=True, subobj=True, 
 
 
 def row_spec(spec, pr, staging):
-    """How a host writes the ObjectSubObjects row for this prop (host integration is a later step). A coloured
-    prop (kit colour variants, 2026-10-12) is written by colour-set VARIANT: its row names the variant."""
+    """How a host writes the ObjectSubObjects row for this prop (host integration is a later step). A colored
+    prop (kit color variants, 2026-10-12) is written by color-set VARIANT: its row names the variant."""
     if spec["colour"] == "variants":
         m_obj = ('per colour set: $fstrref:"CID:<the variant object-prefab CID>" (fine_detail.kit_row(..., '
                  'colour_set=<COLOUR_SETS key>) = fine_detail.kit_cid(prop, set); assets/staging/prefabs/props/B/'

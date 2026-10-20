@@ -15,9 +15,9 @@
  *     STATUS_TIP_VISUALS when the game's snow visuals are off (ch3 E1-S3).
  *   - T82 UI round (2026-10-19; docs/research/ui/hub-design-review-2026-10-18.md B5a, F10a): the hint slot shows the snow,
  *     STATUS_SNOW "64 cm · 88 %" (ResortLive.snowDepthCm / snowPct, "–" for an unknown part; "≈" in a cell before it while
- *     snowEstimated, normal colour), where it said "Snow season"; hubRules.statusHint "snow". The SEASON_HINT word moves into the tooltip (above its
+ *     snowEstimated, normal color), where it said "Snow season"; hubRules.statusHint "snow". The SEASON_HINT word moves into the tooltip (above its
  *     SEASON_TIP) unless it is a warning (SEASON_HINT_WARN: Thawing, Waiting for snow, Too warm: "warn", the word stays, warning
- *     colour) or "Powder day" holds the slot (D29); then the tooltip carries the snow pair (Snow depth, Run coverage).
+ *     color) or "Powder day" holds the slot (D29); then the tooltip carries the snow pair (Snow depth, Run coverage).
  *   - Problems band `div.problems` (ref problemsRef): ALWAYS three `div.problemSlotRow` of 1.45 em,
  *     so a value or problem change never changes its height (D33). Slot i shows bandSlots(rows)
  *     .slots[i] (C# ranks and caps the rows; hubRules.bandRowsOf keeps every code the band knows,
@@ -63,7 +63,7 @@
  *         lodge", LodgeNotSlopeside (22, dim) "Lodge is far from the runs" (29, 25, 26 characters: shorter
  *         than LodgeNoRoad's 46, which fits every slot at every size); each tooltip is its PROBLEM_TIP and
  *         PROBLEM_CLICK_FLY;
- *       - D29: the hint slot shows POWDER_DAY "Powder day" (normal text colour, `.statusHintOn`) when
+ *       - D29: the hint slot shows POWDER_DAY "Powder day" (normal text color, `.statusHintOn`) when
  *         hubRules.statusHint says "powder" (skiDaysPowderPct >= 50), else the SEASON_HINT word as before;
  *         same slot, same height, and "Powder day" (10 characters) is shorter than "Too warm for snow"
  *         (17). The status tooltip adds STATUS_TIP_POWDER after the season tip while powder > 0.
@@ -380,7 +380,7 @@ export function StatusBlock({ statusRef, problemsRef }: {
   const factors = factorRowsOf(problems, sign);
   const { slots, more } = bandSlots(band);
   const popOpen = useValue(problemsOpen$) && more > 0;
-  // Round S1 D29: "Powder day" in the hint slot (normal colour), else the SEASON_HINT word; same slot, same height.
+  // Round S1 D29: "Powder day" in the hint slot (normal color), else the SEASON_HINT word; same slot, same height.
   const hintKind = statusHint(row, l);
   const powder = hintKind === "powder";
   const warn = hintKind === "warn";

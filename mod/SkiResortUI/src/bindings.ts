@@ -106,13 +106,15 @@ export const GROUP = "skiResort";
  * build-contract.md section 8.1; contract 4 was Round S1, ski days: docs/research/ski-days/spec/
  * ch4-hub.md section A; contract 3 was Round E1, D32). Contract 12 (T114 + the lift generator, 2026-10-20,
  * docs/research/ui/hub-round-t114-2026-10-20.md section 10): the `liftLine` value binding (LiftLineState) and the `liftLineToggle`
- * trigger (LiftLineToolSystem on / off from the Lifts tab). C#: SkiResortHubUISystem.HubContract.
+ * trigger (LiftLineToolSystem on / off from the Lifts tab). Contract 14 (T139, 2026-10-20,
+ * docs/research/field/2026-10-20/grading-tool-build.md): the `grade` value binding (LiftLineState reused) and the `gradeToggle`
+ * trigger (CatTrackGradeToolSystem on / off from the Runs tab). C#: SkiResortHubUISystem.HubContract.
  * Bump both whenever a binding, trigger, field or meaning below changes (tools/check-bundle.js
  * fails a change without a bump, against tools/contract.lock). The panel renders the resort views
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree
  * controls (CORE only) and says why (spec 4.5).
  */
-export const HUB_CONTRACT = 13;   // 13 = T136: RunLive.snowDepthCm and RunLive.gunWhy appended
+export const HUB_CONTRACT = 14;   // 14 = T139: the grade binding and the gradeToggle trigger; 13 = T136: RunLive.snowDepthCm, gunWhy
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -763,6 +765,7 @@ export const BINDING = {
   follow: "follow",
   history: "history",
   liftLine: "liftLine",   // contract 12
+  grade: "grade",         // contract 14 (T139)
 } as const;
 
 /** Trigger names (UI -> C#): 17 in contract 3. */
@@ -785,6 +788,7 @@ export const TRIGGER = {
   setPisteMap: "setPisteMap",
   hoverRun: "hoverRun",
   liftLineToggle: "liftLineToggle",   // contract 12
+  gradeToggle: "gradeToggle",         // contract 14 (T139)
 } as const;
 
 /**
@@ -839,6 +843,7 @@ export const FALLBACK = {
   follow: 0,
   history: EMPTY_HISTORY,
   liftLine: { available: false, active: false, state: "" } as LiftLineState,
+  grade: { available: false, active: false, state: "" } as LiftLineState,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -858,6 +863,8 @@ export const build$: ValueBinding<readonly BuildItem[]> = bindValue<readonly Bui
 export const glade$: ValueBinding<GladeState> = bindValue<GladeState>(GROUP, BINDING.glade, FALLBACK.glade);
 /** The lift-line generator (contract 12). Panel only: the Build strip's Lifts tab, ok panel only (never on a mismatch). */
 export const liftLine$: ValueBinding<LiftLineState> = bindValue<LiftLineState>(GROUP, BINDING.liftLine, FALLBACK.liftLine);
+/** The cat track grading tool (contract 14, T139; state = C# GradeStep name while open). Panel only: the Runs tab, ok panel only. */
+export const grade$: ValueBinding<LiftLineState> = bindValue<LiftLineState>(GROUP, BINDING.grade, FALLBACK.grade);
 /** One row per sign, then the Not linked row (always last). Panel only. */
 export const resorts$: ValueBinding<readonly ResortRow[]> = bindValue<readonly ResortRow[]>(GROUP, BINDING.resorts, FALLBACK.resorts);
 /** The moving values of each `resorts` row (contract 3). Panel only: read by leaf components only. */
@@ -912,6 +919,8 @@ export const hubTriggers = {
   gladeToggle: (): void => fire(TRIGGER.gladeToggle),
   /** Lift-line generator on / off (contract 12): C# LiftLineToolSystem.TryActivate("hub") / Deactivate(). */
   liftLineToggle: (): void => fire(TRIGGER.liftLineToggle),
+  /** Cat track grading tool on / off (contract 14, T139): C# CatTrackGradeToolSystem.TryActivate("hub") / Deactivate(). */
+  gradeToggle: (): void => fire(TRIGGER.gradeToggle),
   /** Tree density level, clamped 1..8 here and again in C#. */
   gladeSetLevel: (level: number): void => fire(TRIGGER.gladeSetLevel, clampGladeLevel(level)),
   /** false = run interior, true = tree line. */

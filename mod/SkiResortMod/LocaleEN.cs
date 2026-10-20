@@ -130,6 +130,7 @@
 // LiftNoPower|LiftSectionMissing], TILE_TIP_POWERED, PAGE_POSITION, PAGE_PREV, PAGE_NEXT, PROBLEM_MORE_CLICK, BUILD_GROUP[Lodges|Patrol]; TILE_TIP[Lifts],
 // BUILD_TAB_TIP[Buildings] and BUILD_LABEL[Sign|School|PatrolHut|PatrolHQ] changed in place.
 // Contract 12 (lift generator, 2026-10-20): new LIFT_TOOL, LIFT_TOOL_TIP, LIFT_TOOL_TIP_ON, LIFT_TOOL_UNAVAILABLE.
+// Contract 14 (T139 cat track grading, 2026-10-20): new GRADE_TOOL, GRADE_TOOL_TIP, GRADE_TOOL_TIP_ON.
 // T129 / T130 hub text round (2026-10-20, field test notes 14-16, 18, 21, 31; docs/research/ui/hub-text-round-2026-10-20.md has the
 // before / after table; gate R4 with src/hub/hubText.ts; HUB_CONTRACT unchanged): no text says a building joins or goes near the
 // Welcome Sign; the build tiles show the draws instead (vanilla's own Properties.* labels + new BUILD_TIP_WORKERS) and a terrain line
@@ -339,7 +340,7 @@ namespace SkiResortMod
                 { "Assets.DESCRIPTION[SkiTramHVProtoH]", "A one-off test line for a field test. Remove it when the test is done." },
 
                 // --- Building dressing: names pass 2026-10-13 ---------------------------------------------------------------
-                // The kit (props/B): one object prefab per loadout and colour set; the buildings place them as sub-objects,
+                // The kit (props/B): one object prefab per loadout and color set; the buildings place them as sub-objects,
                 // and Find It users can place them anywhere. Freestanding racks are 1.7 m and double-sided, wall racks 2.9 m.
                 // Rack names carry the loadout (NAMES check R3; build/dress-kit.md 1.2): V1 = R1 10 pairs + 3 boards + 2 pole pairs,
                 // V2 = R2 12 pairs + 2 boards, V3 = R3 8 pairs + 2 boards + 2 pole pairs; wall V1 = W1 7 pairs + 2 boards, wall
@@ -518,7 +519,7 @@ namespace SkiResortMod
                 // The pitch / drop / patch labels sit in front of IntTooltip values whose units ("percentage",
                 // "length") the UI formats, so they carry no number or unit themselves.
                 // R2 (DECISIONS 116): the rating is the crux of the easiest line, so
-                // STEEPEST_PITCH ("Steepest 20 m pitch") is retired in favour of CRUX_PITCH;
+                // STEEPEST_PITCH ("Steepest 20 m pitch") is retired in favor of CRUX_PITCH;
                 // STEEPEST_PATCH labels the old statistic when it is shown as an avoidable patch.
                 // APPROX_PITCH (R2 fixer round) replaces CRUX_PITCH when the run outline falls
                 // apart (Readout.Connected false): the number is then the P90 fallback, not an
@@ -539,7 +540,7 @@ namespace SkiResortMod
                 // T35 / T44 (2026-10-16): the drawing tooltip's live grade; AD / AP = average in degrees / percent, SD / SP = steepest.
                 { "SkiResort.Tooltip.SLOPE_AVG_MAX", "Avg {AD} ({AP}) · steepest {SD} ({SP})" },
                 // T44 (2026-10-16): the same line plus the deciding factor of the difficulty layer (SkiRunRater.NoteLine). W = width in
-                // metres (unit "length", converted by the UI), SS / ST = steep share and its threshold in percent.
+                // meters (unit "length", converted by the UI), SS / ST = steep share and its threshold in percent.
                 { "SkiResort.Tooltip.SLOPE_AVG_MAX_NARROW", "Avg {AD} ({AP}) · steepest {SD} ({SP}) · narrow {W} at the crux" },
                 { "SkiResort.Tooltip.SLOPE_AVG_MAX_WIDE", "Avg {AD} ({AP}) · steepest {SD} ({SP}) · wide {W} at the crux" },
                 { "SkiResort.Tooltip.SLOPE_AVG_MAX_SHARE", "Avg {AD} ({AP}) · steepest {SD} ({SP}) · only {SS} of the run is steeper than {ST}" },
@@ -568,7 +569,7 @@ namespace SkiResortMod
                 // REMOVE: G2's "Planted trees to replace" became "Planted trees to remove" (G3
                 // removes members to lower the density; nothing is replaced), and COMPLETE: "this
                 // layout is already planted" became "the run is already at this tree density"
-                // (level 1 plants nothing). G3 fixer round (findings tool-2 / behaviour-2; texts
+                // (level 1 plants nothing). G3 fixer round (findings tool-2 / behavior-2; texts
                 // are the fixer's, Richard may edit them): COMPLETE_BLOCKED for a complete plan
                 // below its target (learned blocked spots used up the stream) and COMPLETE_FIXED
                 // for one above it (the trees left inside may not be felled), so COMPLETE is shown
@@ -657,7 +658,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SECTION_FAILED", "This part of the panel failed. Details are in the mod log." },
                 { "SkiResort.Hub.PLACE_SIGN", "Place Welcome Sign" },
                 // SIGNS, RUNS_BOUND, RUNS_UNBOUND, LIFTS: removed in contract 2 (hub-u2-spec.md §2.4
-                // "Removed": the `summary` binding they labelled is gone; the resort rows replace it).
+                // "Removed": the `summary` binding they labeled is gone; the resort rows replace it).
                 { "SkiResort.Hub.AREA", "Skiable area" },
                 { "SkiResort.Hub.BUILD_EMPTY", "No building tools were reported. See SkiResortMod.Mod.log." },
                 { "SkiResort.Hub.BUILD_ACTIVE", "In use: click again to stop" },
@@ -711,6 +712,10 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_TOOL_TIP", "Plan a lift line between two stations: Ctrl+Shift+L" },
                 { "SkiResort.Hub.LIFT_TOOL_TIP_ON", "On: click a station, then the other station of the lift. Click again to stop." },
                 { "SkiResort.Hub.LIFT_TOOL_UNAVAILABLE", "Available once a city is loaded." },
+                // Contract 14 (T139): the cat track grading chip on the Runs tab.
+                { "SkiResort.Hub.GRADE_TOOL", "Grade cat track" },
+                { "SkiResort.Hub.GRADE_TOOL_TIP", "Grade the ground for a cat track, never steeper than the max grade: Ctrl+Shift+K" },
+                { "SkiResort.Hub.GRADE_TOOL_TIP_ON", "On: click points up the hill, then press Enter to grade. Click again to stop." },
                 { "SkiResort.Hub.RESORT_DEFAULT", "Ski area {N}" },
                 { "SkiResort.Hub.RESORT_FLY", "Fly to the Welcome Sign" },
                 { "SkiResort.Hub.RESORT_TIP", "Click to pick the ski area the panel shows." },
@@ -746,7 +751,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_CAPACITY", "Capacity" },
                 { "SkiResort.Hub.LIFT_TOWER_REMOVED", "A tower was removed by another tool. Redraw a section next to it to restore it." },
                 { "SkiResort.Hub.LIFT_STRAIGHT", "Stations straight (180°)" },
-                // Fixer round (finding behaviour-4): a lift without a base station stores its name on the top.
+                // Fixer round (finding behavior-4): a lift without a base station stores its name on the top.
                 { "SkiResort.Hub.LIFT_NAME_TIP", "The name is stored on the base station, or on the top station while there is no base." },
                 { "SkiResort.Hub.LIFT_SIGN_TIP", "A lift belongs to the ski area of its base station; a run keeps the ski area it was drawn for." },
                 // Build strip (§4.2 BuildStrip, §5.8).
@@ -870,7 +875,7 @@ namespace SkiResortMod
                 // Catalog Phase B: the school's line of the receipt's parts tooltip (shown while ResortLive.schoolValue > 0).
                 { "SkiResort.Hub.RECEIPT_TIP[School]", "A ski school adds its value while a green run counts." },
                 { "SkiResort.Hub.RECEIPT_TIP[Variety]", "× 1.15 while a green, a blue and a black or harder run all count, else × 1." },
-                // T80 (2026-10-18, Richard item 4): one labelled row per term of the "Runs, lifts and school" section; item 3: a
+                // T80 (2026-10-18, Richard item 4): one labeled row per term of the "Runs, lifts and school" section; item 3: a
                 // school row / lessons row whose 0 has a cause says it with the warning glyph.
                 { "SkiResort.Hub.RECEIPT_ROW[Runs]", "Runs" },
                 { "SkiResort.Hub.RECEIPT_ROW[Lifts]", "Lifts" },
@@ -1367,7 +1372,7 @@ namespace SkiResortMod
                 { "SkiResort.LiftTooltip.BULLDOZE_COUNT", "Sections removed" },
                 { "SkiResort.LiftTooltip.BULLDOZE_LENGTH", "Length removed" },
                 // T32 (2026-10-16): SkiSnowLineTooltipSystem, the one line under the cursor while a run or the Welcome Sign is
-                // placed. {SNOW_LINE} and {GUN_LINE} are integer elevations in world metres (LocalizedNumber<int>, unit "integer");
+                // placed. {SNOW_LINE} and {GUN_LINE} are integer elevations in world meters (LocalizedNumber<int>, unit "integer");
                 // "≈" and "·" are on the research §2.F.2 safe-glyph list.
                 { "SkiResort.Tooltip.SNOW_LINE", "Winter snow line ≈ {SNOW_LINE} m · guns work above ≈ {GUN_LINE} m" },
             };

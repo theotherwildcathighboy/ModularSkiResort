@@ -1,6 +1,6 @@
 # SkiResortMod — code-mod half of Modular Ski Resort
 
-C# code mod for Cities: Skylines II. This DLL owns the *dynamic* behaviour of the hybrid mod
+C# code mod for Cities: Skylines II. This DLL owns the *dynamic* behavior of the hybrid mod
 (SPEC §7): slope-classified trails, snow-gated operation, and size-scaled resort
 attractiveness. The placeable pieces live in the asset pack, authored separately in the
 in-game Editor.

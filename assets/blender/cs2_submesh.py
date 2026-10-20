@@ -259,7 +259,7 @@ def split_submesh(parent, table, prefixes, suffix, win_cell=None):
     bm.to_mesh(parent.data)
     bm.free()
 
-    # Sub-mesh rules: parent's transform, no material, one UV layer, no colour attributes.
+    # Sub-mesh rules: parent's transform, no material, one UV layer, no color attributes.
     sub.matrix_world = parent.matrix_world.copy()
     sub.data.materials.clear()
     for attr in list(sub.data.color_attributes):

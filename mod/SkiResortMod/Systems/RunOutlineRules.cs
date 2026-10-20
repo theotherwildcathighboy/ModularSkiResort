@@ -8,14 +8,14 @@
 //   Outlined     AddBorders :157-187 = DrawBorders :388-437: a chunk with Error or Warning outlines every area in
 //                it; a chunk with only Temp outlines an area whose Temp flags hold Create, Delete, Select, Modify,
 //                Replace or Parent and not Hidden; a chunk with neither draws nothing; a Slave area never.
-//   ColourOf     :388-426: Error before Warning before the Temp-only hovered colour; Parent (Temp-only chunks
-//                only) takes the owner colour.
+//   ColourOf     :388-426: Error before Warning before the Temp-only hovered color; Parent (Temp-only chunks
+//                only) takes the owner color.
 //   Dots         :427-432: corner dots only for a Temp area flagged Create or Modify (so not for the
 //                bulldozer's Delete copy, nor for a permanent area that only carries Error or Warning).
 //   ClosingSide  :243, :487: the side from the last node back to the first only when the area is Complete.
 //   AddKey / DrawKey  the shared-edge rule (Verification fact 16): AddBorders (:221-262) files every outlined
 //                area's edges in one rotational sense (a CounterClockwise area's edges reversed); DrawBorders
-//                (:457-465, :490-498) skips an edge when the REVERSED key is filed. Two neighbouring outlined
+//                (:457-465, :490-498) skips an edge when the REVERSED key is filed. Two neighboring outlined
 //                areas walk their common edge in opposite senses, so the game draws it for neither, and neither
 //                do we.
 //   AddEdges / DrawArea  the two walks of one area in the game's order: AddEdges = AddBorders' loop; DrawArea =
@@ -26,7 +26,7 @@
 //                RunOutlineSize × 0.3 for both (8 → 2.4 m, the look of field test 7), the size clamped 0..16
 //                (the Options slider's range); 0 = off.
 //   SizeChangeDue  not a game rule: when SkiRunOutlineSystem writes its "size a -> b" line (F7 fixer).
-// Deliberately NOT mirrored (none applies to a ski run): the Lot first-side half colour (:472-474), the MapTile
+// Deliberately NOT mirrored (none applies to a ski run): the Lot first-side half color (:472-474), the MapTile
 // dashes and projection (:367-380), the infoview pass (:117-128). The game draws surfaces with style flags 0
 // (straight 3D lines, :363); ours are Projected (draped on the terrain) — a choice of the overlay system, not a rule.
 //
@@ -35,7 +35,7 @@
 // test host links it alone), so SkiRunOutlineSystem.OnCreate compares each constant with the game's enum and
 // refuses to arm (one WARN) if a patch changed one.
 //
-// T30 / T36 (2026-10-16): the glade outline colour + dash and the run node dot colours / rim live at the "run visuals"
+// T30 / T36 (2026-10-16): the glade outline color + dash and the run node dot colors / rim live at the "run visuals"
 // constants block below (one place); SkiGladeToolSystem and SkiRunOutlineSystem read them.
 //
 // PURE FILE: `using Unity.Mathematics;` only (the ResortBatch host links it with UnityMathematics.NoDeps). The walks
@@ -46,7 +46,7 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>Which of the game's outline colours an area takes (RenderingSettingsData fields).</summary>
+    /// <summary>Which of the game's outline colors an area takes (RenderingSettingsData fields).</summary>
     public enum OutlineColour : byte { Hovered = 0, Owner = 1, Warning = 2, Error = 3 }
 
     /// <summary>The nodes of one area, in buffer order (Game.Areas.Node.m_Position).</summary>
@@ -91,9 +91,9 @@ namespace SkiResortMod.Systems
         public const byte AreaCounterClockwise = 2;
         public const byte AreaSlave = 8;
 
-        // ── T22-T36 run visuals: the colours and sizes live HERE and nowhere else ───────────────────────────────────
-        // T30 (field test 2026-10-15, item 46): the tree (glade) tool's outlines. A violet-magenta no band colour, no game
-        // outline colour (hovered blue, owner green, warning yellow, error red) and no glade ring colour (red / orange)
+        // ── T22-T36 run visuals: the colors and sizes live HERE and nowhere else ───────────────────────────────────
+        // T30 (field test 2026-10-15, item 46): the tree (glade) tool's outlines. A violet-magenta no band color, no game
+        // outline color (hovered blue, owner green, warning yellow, error red) and no glade ring color (red / orange)
         // uses; opaque enough to read on snow, grass and forest floor. SkiGladeToolSystem.DrawOverlay reads these.
         // Candidate runs (every bound run, while nothing is hovered) are DASHED, the hovered / pending run is SOLID.
         public static readonly float4 GladeOutlineColour = new float4(0.86f, 0.30f, 1.00f, 0.95f);   // sRGB, as Overlay takes it
@@ -107,7 +107,7 @@ namespace SkiResortMod.Systems
         public static readonly float4 NodeDotFill = new float4(1f, 1f, 1f, 1f);
         public static readonly float4 NodeDotRim = new float4(0.04f, 0.04f, 0.06f, 0.95f);
         public const float NodeRimFraction = 0.10f;            // rim width = this × the dot diameter ...
-        public const float NodeRimMinM = 0.12f;                // ... but at least this (metres)
+        public const float NodeRimMinM = 0.12f;                // ... but at least this (meters)
 
         // T36 follow-up (item 41): while a run is drawn / edited (Temp Create or Modify), the nodes of EXISTING run areas of ours
         // within NeighbourMarginM (xz) of the drawn area's bounds get the same dots, so the corner to connect to is found.
@@ -146,10 +146,10 @@ namespace SkiResortMod.Systems
         /// <summary>0 draws nothing: only the game's own thin outline remains.</summary>
         public static bool IsOn(int size) => ClampSize(size) > 0;
 
-        /// <summary>Line width in metres: 0.3 × the clamped size.</summary>
+        /// <summary>Line width in meters: 0.3 × the clamped size.</summary>
         public static float LineWidth(int size) => WidthPerSize * ClampSize(size);
 
-        /// <summary>Corner dot diameter in metres: 0.3 × the clamped size (the game: the same factor, :517).</summary>
+        /// <summary>Corner dot diameter in meters: 0.3 × the clamped size (the game: the same factor, :517).</summary>
         public static float DotDiameter(int size) => WidthPerSize * ClampSize(size);
 
         /// <summary>The size-change log rule (F7 fixer): the line "RunOutline: size a -> b" is due when the clamped

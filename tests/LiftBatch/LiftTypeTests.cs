@@ -663,7 +663,7 @@ namespace LiftBatch
             Eq(1, w.Census.NewSplits.Count, W, "announced again after Reset (new load)");
 
             // Same type at a shared node still unions: a second gondola line snapped on is ONE component (Open/Complex
-            // rules unchanged) - the pre-T05 behaviour for same-type edges.
+            // rules unchanged) - the pre-T05 behavior for same-type edges.
             var w2 = Program.StraightLift();
             w2.Node(210, new float3(40f, 20f, 240f));
             w2.Edge(106, 202, 210);                          // a fixed-grip spur (same type 0)

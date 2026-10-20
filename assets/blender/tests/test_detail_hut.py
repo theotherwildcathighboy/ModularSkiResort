@@ -8,7 +8,7 @@ entry lanterns are ROWS (GardenBench / kit racks / BarrelRandom01 / WallLightSho
 label faces live in the sign set SkiSignSetHutB (a sharer of the building sheet). NITPICK C (2026-10-13,
 build/nitpick-c-lodges.md; Richard: "The GRILL (?) on the left side of the entrance may end up in mid-air depending
 on terrain"): the fuel station (cradle drum + legs + pump, the timber crib, the barrel on it) left the host for two
-GROUND-FOLLOWING BarrelRandom01 rows (m_ParentMesh -1) at the old drum centres; D13 audits every part whose foot is
+GROUND-FOLLOWING BarrelRandom01 rows (m_ParentMesh -1) at the old drum centers; D13 audits every part whose foot is
 on grade outside the plinth (structure / access only: no dressing).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_detail_hut.py
@@ -49,9 +49,9 @@ D10 sub-objects: deck props at the deck top (ray down hits a deck at gy +- 0.01)
     prop box clear of the new dressing; new / moved props clear of each other
 D11 fine-detail H1 / H9 (step 3a): every new row at the part it replaced, measured on the
     PRE-PASS hut (`--no-fine` builder parts): benches' back plane = the removed bench's back plane
-    +-15 mm (built 0.01 m out) and x within 0.015 m of its centre; the two ground barrels (nitpick C) on the
-    removed cradle drum's / crib drum's plan centres +-0.01, parent -1, gy 0; the entry wall lights on the wall plane at the old lens (y, z) +-0.01; each kit
-    rack at the removed rack frame's plan centre +-0.01 on the wing deck, its box inside the wing
+    +-15 mm (built 0.01 m out) and x within 0.015 m of its center; the two ground barrels (nitpick C) on the
+    removed cradle drum's / crib drum's plan centers +-0.01, parent -1, gy 0; the entry wall lights on the wall plane at the old lens (y, z) +-0.01; each kit
+    rack at the removed rack frame's plan center +-0.01 on the wing deck, its box inside the wing
     slab (negative: the 90-degree yaw the old along-X rack would need overhangs the wing); host lot
     bbox = the pre-pass one +-0.005 (H9)
 D12 sign set (SkiSignSetHutB, a sharer): SG1 UV rects, SG2 each board within 1 mm of the pre-pass
@@ -161,7 +161,7 @@ PROP_BOUNDS = {
 # T26 2026-10-16 dropped the parasol row (index 3); restored 2026-10-17, so the indices are the original (24 rows)
 NEW_OR_MOVED = (5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23)
 BOX_SKIP = ("ParasolRandom01",)      # an offset canopy: its AABB is mostly air over the rail
-# a row standing on a modelled part other than a deck: prefab -> (part, top z) (nitpick C: none left; the barrels
+# a row standing on a modeled part other than a deck: prefab -> (part, top z) (nitpick C: none left; the barrels
 # are ground rows)
 STANDS = {}
 GROUND_ROWS = ("BarrelRandom01",)     # m_ParentMesh -1 (nitpick C)
@@ -355,7 +355,7 @@ def d1_parts(recipe, mod, me, M, label):
             parent[find(v)] = find(vs[0])
     comps = {find(v) for p in fs for v in p.vertices}
     assert len(comps) == BULBS, f"D1: {len(comps)} bulbs (want {BULBS})"
-    # H11: no gable face looks into the building (normals toward the storey centre)
+    # H11: no gable face looks into the building (normals toward the story center)
     V = auth_coords(me, M)
     cx, cy = 0.5 * (mod["FL_X0"] + mod["FL_X1"]), 0.0
     inward = 0.0
@@ -379,7 +379,7 @@ def d1_parts(recipe, mod, me, M, label):
     assert not bad, f"D1: unknown GUIDs {bad}"
     allowed, rejected = lodge.verified_guids()
     assert all(r[1] in allowed and r[1] not in rejected for r in van), "D1: a GUID is not dump-verified"
-    # kit colour variants (2026-10-12): the racks name the hut's colour-set variant (recipe.kit_colour_set)
+    # kit color variants (2026-10-12): the racks name the hut's color-set variant (recipe.kit_colour_set)
     assert len(kit) == 2 and all(FD.kit_cid(r[0], recipe.kit_colour_set) == r[1]
                                  == FD.staged_kit_cid(r[0], recipe.kit_colour_set) for r in kit), kit
     assert [r[0] for r in kit] == list(FD.AFRAME_RACKS[:2]), f"D1: kit loadouts {[r[0] for r in kit]} do not alternate"
@@ -487,7 +487,7 @@ def d8_lot(recipe, mod, res, me, M, parts=None):
 
 def d8_coplanar_inside(mod, parts):
     """recipes/_civic check_coplanar / check_inside on the builder parts: coplanar same-facing
-    overlaps where at least one part is new; new faces inside the storey / plinth boxes."""
+    overlaps where at least one part is new; new faces inside the story / plinth boxes."""
     import importlib.util
     spec = importlib.util.spec_from_file_location("_civic_t", os.path.join(HERE, "recipes", "_civic.py"))
     C = importlib.util.module_from_spec(spec)
@@ -646,7 +646,7 @@ def d11_fine(recipe, mod, lp, lot):
             f"D11 H1: bench row {tag} back {gx + half:.3f} vs {back:.3f}, x off {d_x:.3f}"
     barrel = [r for r in rows if r[0] == "BarrelRandom01"]
     assert len(barrel) == 2, barrel
-    # nitpick C: the two ground barrels at the removed cradle drum's and crib drum's plan centres, parent -1, gy 0
+    # nitpick C: the two ground barrels at the removed cradle drum's and crib drum's plan centers, parent -1, gy 0
     for tag, r in zip(("drum_hutfuel", "drum_hutfuel2"), barrel):
         P = lp[tag]
         cx, cy = 0.5 * (P[:, 0].min() + P[:, 0].max()), 0.5 * (P[:, 1].min() + P[:, 1].max())

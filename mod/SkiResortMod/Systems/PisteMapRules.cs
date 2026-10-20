@@ -6,11 +6,11 @@
 //
 // RULES:
 //   StyleOf      band −2 Unrateable, −1 Pending, 0..4 Flat..DoubleBlack, anything else Pending (the catalog's
-//                RunRow.Band, SkiRunCatalogSystem; the hub's band colours, hub.module.scss .band*)
+//                RunRow.Band, SkiRunCatalogSystem; the hub's band colors, hub.module.scss .band*)
 //   IsDashed     kind == RunKind.Natural (3): the natural run draws nothing on the ground (DV20), so its
 //                outline is dashed to say "a surface, not a groomed piste"
 //   WidthScale   1 up to RefZoomM of camera zoom, then zoom / RefZoomM, at most MaxWidthScale (a projected
-//                line keeps its width in metres, so a far camera needs wider lines to see them)
+//                line keeps its width in meters, so a far camera needs wider lines to see them)
 //   SolidRing    one piece per edge of the closed ring (closing edge included), ends finite, xz length
 //                >= MinPieceM
 //   DashRing     (C3) dashes cut on the CPU along the whole xz perimeter from node 0, dashM on and gapM off,
@@ -31,7 +31,7 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>D19 outline style by difficulty (the hub's band colours, hub.module.scss .band*).</summary>
+    /// <summary>D19 outline style by difficulty (the hub's band colors, hub.module.scss .band*).</summary>
     public enum PisteStyle : byte { Pending = 0, Unrateable = 1, Flat = 2, Green = 3, Blue = 4, Black = 5, DoubleBlack = 6 }
 
     /// <summary>The overlay's pure rules (ch5 §6.3). Header RULES.</summary>

@@ -110,7 +110,7 @@ namespace SkiResortMod.Systems
         /// (every StationDef carries the same value; tests/LiftBatch CatalogTests CT-6).</summary>
         public const float StubTipLocalZ = SkiCatalog.StubTipLocalZ;
 
-        /// <summary>OD-9 (a) offset tolerance, metres.</summary>
+        /// <summary>OD-9 (a) offset tolerance, meters.</summary>
         public const float AlignedOffsetM = 0.5f;
 
         /// <summary>OD-9 (a) yaw tolerance, degrees.</summary>
@@ -162,9 +162,9 @@ namespace SkiResortMod.Systems
             public float AlongM;
             /// <summary>Signed angle from −f_p to f_s, degrees in (−180, 180]; + counter-clockwise.</summary>
             public float YawDeg;
-            /// <summary>Horizontal tip-to-tip distance, metres.</summary>
+            /// <summary>Horizontal tip-to-tip distance, meters.</summary>
             public float DistanceM;
-            /// <summary>Subject tip height minus partner tip height, metres.</summary>
+            /// <summary>Subject tip height minus partner tip height, meters.</summary>
             public float RiseM;
             /// <summary>atan2(|lateral|, along) in degrees, [0, 180].</summary>
             public float BearingErrorDeg;

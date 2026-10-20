@@ -5,11 +5,11 @@ welcome_sign.py - the resort Welcome Sign (timber-and-stone portal) -> SkiWelcom
 Contract: docs/research/art/assets-2026-10/design/civic-sign.md section 4 (+ 1, 5) with
 civic-sign-skeptic.md applied (skeptic wins) and ROUND-SPEC R14, R18, R24, R25:
     plank   the name plank front `plankfront_sign` is EXACTLY ONE quad, 7.50 x 1.50 m,
-            facing authoring +X = game +Z (the road), centre / width / height exported as
+            facing authoring +X = game +Z (the road), center / width / height exported as
             constants (PLANK_CENTRE_GAME, PLANK_W, PLANK_H) and as the manifest "we" block
             (S6); plain walnut boards on its own island, density 1.8.
     header  "SKI AREA" (--header) from a Blender FONT curve (builtin Bfont: NOT Inter,
-            skeptic claim 4; DejaVu-derived, unverified) rasterised 4 x 4 supersampled
+            skeptic claim 4; DejaVu-derived, unverified) rasterized 4 x 4 supersampled
             into the reserved BAND, cream on the slot-1 field, ControlMask 0 under the
             letters (S5), routed 3 mm (normal from height); two snowflake ornaments.
     emblem  disc D 1.50 on the gable, ski_launcher_glyph.cand_c (the shipped launcher
@@ -56,7 +56,7 @@ pre-pass sign vertex for vertex (the shipped 2026-10-11 export):
     lamps   the two post lanterns -> WallLightShortRangeRandom01 rows on the post fronts (H4): no lamp_
             part is left, so no _Emissive map (a stale one is removed, lodge.remove_stale_maps).
     masts   12-seg masts and finials (were 8 / 6); the flags unchanged. FlagPole01 / 02 have no offline
-            GUID (Editor harvest, H5): the masts stay modelled (PLACEHOLDER).
+            GUID (Editor harvest, H5): the masts stay modeled (PLACEHOLDER).
     rows    the manifest gains a sub_objects block (target SkiResortGate, the hosts' (y, z, x) convention).
 """
 
@@ -115,7 +115,7 @@ PREFAB = "SkiResortGate"
 SPEC_TAG = "civic-sign-2026-10"
 
 # ======================================================================================
-# Constants (authoring metres; contract 4.1; lot 2 x 1 -> X +-4, Y +-8)
+# Constants (authoring meters; contract 4.1; lot 2 x 1 -> X +-4, Y +-8)
 # ======================================================================================
 
 LOT = (2, 1)                          # (W, D) cells: game X = authored Y = 16 m, Z = 8 m
@@ -127,7 +127,7 @@ PIER = (1.20, 0.35, 2.50)             # width, shaft z0, z1
 PLINTH = (1.36, 0.35)                 # width, height (ground part, open bottom)
 CAP = (1.40, 2.50, 2.62)              # width, z0, z1
 POST = (0.35, 2.62, 4.45)             # size, z0, z1
-BEAM_D = 0.30                         # beam depth (x), centred on PORTAL_X
+BEAM_D = 0.30                         # beam depth (x), centered on PORTAL_X
 BEAM_Y = 5.45
 LOWER_BEAM = (3.45, 3.75)
 HEADER_BEAM = (3.85, 4.45)
@@ -161,18 +161,18 @@ FOOTING = (0.50, 0.12)
 MASTS = {0: (), 2: ((PORTAL_X, 6.50), (PORTAL_X, -6.50)),
          3: ((PORTAL_X, 6.50), (PORTAL_X, -6.50), (-3.00, 0.00))}
 FLAG = (1.10, 0.75, 7.85, 0.06)       # length (flying -Y), height, top z, wave amplitude
-LANTERN_AT = (PORTAL_X + POST[0] / 2, 3.15)     # (post front x, lens centre z)
+LANTERN_AT = (PORTAL_X + POST[0] / 2, 3.15)     # (post front x, lens center z)
 HEADER_TEXT = "SKI AREA"
 HEADER_CAP = 0.42                     # letter cap height, m
 ORNAMENT_Y, ORNAMENT_D = 1.65, 0.36
 CREAM_SRGB = (0.93, 0.89, 0.78)
-FIELD_SRGB = 0.80                     # cs2_asset.RECOLOR_ALBEDO under the recolour masks
+FIELD_SRGB = 0.80                     # cs2_asset.RECOLOR_ALBEDO under the recolor masks
 EMBLEM_GLYPH_FRAC = 0.70
 EMBLEM_RING = (0.06, 0.01)            # ring width, inset from the disc edge
 ROUTE_DEPTH = 0.003
 BAND_SMOOTH = 0.45
 
-# WE constants (game frame: lot-centre origin, +Z road; manifest "we" block, S6)
+# WE constants (game frame: lot-center origin, +Z road; manifest "we" block, S6)
 WE_MARGIN = 0.45
 WE_STANDOFF = 0.004
 PLANK_CENTRE_AUTH = (PLANK_FRONT_X, 0.0, 0.5 * (PLANK_Z[0] + PLANK_Z[1]))
@@ -371,7 +371,7 @@ def build_parts(args, fine=False):
     half_c = 0.5 * ROOF_T / math.cos(math.radians(GABLE_PITCH))
 
     def centre_z(y_signed, side):
-        # centre plane of the `side` slab (side -1 rises toward +y) at across-coordinate y
+        # center plane of the `side` slab (side -1 rises toward +y) at across-coordinate y
         return GABLE_APEX + half_c + TAN30 * (-side * y_signed)
     for tag, side in (("L", -1.0), ("R", 1.0)):
         e = side * EAVE_Y
@@ -457,7 +457,7 @@ def projection_specs(keys):
 
 
 def native_ppm(mat):
-    """Source px per metre of a set material's Color map over its image tile (PNG header);
+    """Source px per meter of a set material's Color map over its image tile (PNG header);
     None when unknown. cs2_bldg.prefilter_set has no cap and UPsamples past it (kit need)."""
     p = cs2_bake.find_set_map(cs2_bake._set_dir(mat.set), "Color")
     if p is None or not p.lower().endswith(".png"):
@@ -516,7 +516,7 @@ def bake_sources(keys, base_ppm, band_paths):
 # ======================================================================================
 
 def _tri_coverage(tris, w, h, ppu, ppv, ss=4):
-    """Coverage (h, w) bottom-up of 2D triangles (metres, origin = rect centre)."""
+    """Coverage (h, w) bottom-up of 2D triangles (meters, origin = rect center)."""
     W, H = w * ss, h * ss
     cov = np.zeros((H, W), np.float32)
     xs = ((np.arange(W) + 0.5) / ss - w / 2.0) / ppu
@@ -540,8 +540,8 @@ def _tri_coverage(tris, w, h, ppu, ppv, ss=4):
 
 
 def text_triangles(body, cap_m):
-    """FONT curve (builtin Bfont) -> triangulated mesh -> 2D triangles in metres, scaled so
-    the cap height (bbox height of an all-caps line) is `cap_m`, centred on the origin.
+    """FONT curve (builtin Bfont) -> triangulated mesh -> 2D triangles in meters, scaled so
+    the cap height (bbox height of an all-caps line) is `cap_m`, centered on the origin.
     Returns (tris, width_m)."""
     cu = bpy.data.curves.new("CivicSignTextCurve", type="FONT")
     cu.body = body
@@ -570,7 +570,7 @@ def text_triangles(body, cap_m):
 
 
 def _place(dst, cov_topdown, cx_px, cy_px):
-    """Max-blend a top-down coverage square into the bottom-up array `dst`, centred at
+    """Max-blend a top-down coverage square into the bottom-up array `dst`, centered at
     (cx_px, cy_px) in dst's (column, row-from-bottom) pixels."""
     s = cov_topdown.shape[0]
     src = cov_topdown[::-1]
@@ -732,7 +732,7 @@ def _bvh_without(obj, table, exclude_prefixes):
 def contracts_authoring(obj, table, args):
     """S1, S2 (M8), S4, S7 (M5), G3, G4 on the joined mesh BEFORE orient_for_net."""
     rep = {}
-    # S1: plankfront = ONE quad, +X, 7.50 x 1.50, centre (-0.46, 0, 2.55)
+    # S1: plankfront = ONE quad, +X, 7.50 x 1.50, center (-0.46, 0, 2.55)
     fs = _faces_of(obj, table, FRONT_PROBE)
     if len(fs) != 1 or len(fs[0].vertices) != 4:
         raise RuntimeError(f"S1: {FRONT_PROBE} has {len(fs)} polygons "
@@ -819,7 +819,7 @@ def contracts_authoring(obj, table, args):
 
 
 def contracts_oriented(obj, table):
-    """G4 after orient_for_net (plank normal Blender -Y) and S6 (game-frame plank centre
+    """G4 after orient_for_net (plank normal Blender -Y) and S6 (game-frame plank center
     = PLANK_CENTRE_GAME via the export map (x, y, z) -> (-x, z, -y): the game negates FBX x)."""
     f = _faces_of(obj, table, FRONT_PROBE)[0]
     n = obj.matrix_world.to_3x3() @ f.normal
@@ -967,7 +967,7 @@ def _we_mock_object(obj, text, A):
     return mock
 
 
-# T72 (review 9): close-ups for the stone / roof density check. (name, part prefixes the camera centres on, camera
+# T72 (review 9): close-ups for the stone / roof density check. (name, part prefixes the camera centers on, camera
 # direction in the ORIENTED Blender frame (-y = the road side, as the "front" view), distance m)
 CLOSEUP_SHOTS = (("stone", ("pier_r", "piercap_r", "tpost_r"), (0.50, -1.0, 0.30), 5.0),
                  ("roof", ("roof_signR",), (0.55, -1.0, 0.85), 6.5))

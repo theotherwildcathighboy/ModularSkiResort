@@ -17,7 +17,7 @@ Exit 1 on any failure; --quick skips the two child processes (C12 fresh-process 
   C6   every net triangle has a coincident opposite-normal twin (tile_contracts).
   C7   UVs in [0, 1]; net faces in the net region; post / cap faces on alpha-255 texels.
   C8   written BaseColor: RGBA, alpha < 255 only in the net region, mean 0.40-0.50, selvedges
-       >= 10 rows, alpha-0 RGB within 0.02 of the strand RGB, recolour texels 0.80 +- 0.05.
+       >= 10 rows, alpha-0 RGB within 0.02 of the strand RGB, recolor texels 0.80 +- 0.05.
   C9   ControlMask net G = 1, post band B = 1, caps 0, A = 0, R+G+B <= 1; MaskMap B = 0.
   C10  settings.json exactly the design's (key order too); SkiNetPostA settings {} (no Surface).
   C11  cs2_validate (kind hanging, NO cutout flag) reads Surface.alphaCutoff and passes 0 / 0;

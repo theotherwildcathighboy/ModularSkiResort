@@ -261,7 +261,7 @@ def run():
         check("ground" in codes(f_float), "floating prop not caught")
         print("[test] engine-base rule: closed BLOCKED, open OK, skirt BLOCKED; prop ground rule")
 
-        # -- 4. uv rasteriser sanity ---------------------------------------------------
+        # -- 4. uv rasterizer sanity ---------------------------------------------------
         cov = cs2_validate.uv_coverage(opened.data, 64)
         check(cov.max() >= 1 and cov.shape == (64, 64), "coverage raster empty")
         covered, over, frac = cs2_validate.uv_overlap_fraction(opened.data, 64)

@@ -20,7 +20,7 @@
  *     error, after the report, inside its own try/catch, so the owner can react (HubRoot closes the
  *     hub: the panel's X / Escape unmounted with the crashed subtree).
  *   - tools/check-bundle.js's smoke test requires every appended component to return this class
- *     (it recognises static getDerivedStateFromError / prototype.componentDidCatch).
+ *     (it recognizes static getDerivedStateFromError / prototype.componentDidCatch).
  */
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";

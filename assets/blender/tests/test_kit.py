@@ -142,7 +142,7 @@ def main():
     assert tube_rings == 2 + 8, tube_rings
     assert len(tube.data.vertices) == (2 + 8) * 8, len(tube.data.vertices)
     assert len(tube.data.polygons) == (2 + 8 - 1) * 8
-    # every vertex sits at exactly `radius` from the ring centre: check both ends
+    # every vertex sits at exactly `radius` from the ring center: check both ends
     for p in (Vector((0, 5, 1)), Vector((1, 5, 2))):
         near = [v for v in tube.data.vertices if (v.co - p).length < 0.03 + 1e-4]
         assert len(near) == 8, f"end ring at {tuple(p)} has {len(near)} verts"

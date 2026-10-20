@@ -2,7 +2,7 @@
 // docs/research/field/2026-10-19/tower-planner-build-1.md). While a lift line is the selected entity (ToolSystem.selected,
 // ToolSystem.cs:101: a section edge, a node, or an object whose Owner is one, e.g. a tower), it draws the line's PLANNED towers and
 // rope as LiftTowerDiagSystem planned them on the real terrain (the "Towers [plan]" block of the same line):
-//   * the planned rope, sample by sample (5 m; tram 10 m), coloured by the lowest carrier point's floor margin:
+//   * the planned rope, sample by sample (5 m; tram 10 m), colored by the lowest carrier point's floor margin:
 //     green >= 2 m, amber 0-2 m, red < 0 (below the floor), violet = rope above the max rope height;
 //   * each planned tower: a ring on the ground at its base (draped, StyleFlags.Projected) and a cross-bar at the planned rope height
 //     (white; taller members wider), plus a ring at the rope point; the two station ends get a ring at the rope.
@@ -10,7 +10,7 @@
 // DrawCurveImpl drops anything under 0.01 m (:269), so a vertical line never renders.
 // It changes nothing: no command buffer, no component write. Gated by Settings ▸ Lifts ▸ LiftBuildAids like the align aid.
 // Buffer use = the main-thread pattern of SkiStationAlignSystem: GetBuffer(out deps), deps.Complete() (OverlayRenderSystem.cs:603).
-// LOGS: one "Towers [overlay]" line when a newly selected line starts drawing (planned towers, colour counts) and one when the
+// LOGS: one "Towers [overlay]" line when a newly selected line starts drawing (planned towers, color counts) and one when the
 // selected entity is a lift line whose plan is being made; nothing per frame.
 //
 // Mod.cs: UpdateBefore<LiftTowerPlanOverlaySystem, OverlayRenderSystem>(Rendering) — the overlay lists are consumed and cleared by
@@ -34,7 +34,7 @@ namespace SkiResortMod.Systems
     internal sealed class LiftPlanDraw
     {
         public string TypeId;
-        public float3[] Base;         // tower base on the centre ground (stations: the end node point at ground)
+        public float3[] Base;         // tower base on the center ground (stations: the end node point at ground)
         public float3[] Rope;         // rope point
         public float3[] Right;        // unit right of the line at the node
         public bool[] IsStation;

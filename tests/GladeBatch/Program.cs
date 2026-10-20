@@ -384,7 +384,7 @@ namespace GladeBatch
             float3[][] rectExcl = new float3[][]
             {
                 MakeRing(D2(40, 140, 60, 140, 60, 160, 40, 160), 0, zero),            // island run inside
-                MakeRing(D2(103, -50, 180, -50, 180, 350, 103, 350), 0, zero),       // neighbour 3 m to the east
+                MakeRing(D2(103, -50, 180, -50, 180, 350, 103, 350), 0, zero),       // neighbor 3 m to the east
             };
             Fixture fe = Fx("rect_excl", "rect", MakeRing(rect, 0, zero), null, rectExcl);
             fe.DensityCheck = false; // exclusions remove sampling area the target does not know about
@@ -602,7 +602,7 @@ namespace GladeBatch
                     s2 ^= 0x10u;
                 if (SkiGladePlanner.ThinSelect(p, s1, 0.5f) != SkiGladePlanner.ThinSelect(p, s2, 0.5f))
                     seedDis++;
-                // centre of cell (i, j) vs cell (i+1, j), same seed
+                // center of cell (i, j) vs cell (i+1, j), same seed
                 float cx = ((float)Math.Floor(p.x * 8f) + 0.5f) / 8f, cz = ((float)Math.Floor(p.z * 8f) + 0.5f) / 8f;
                 bool c0 = SkiGladePlanner.ThinSelect(new float3(cx, 0f, cz), s1, 0.5f);
                 if (c0 != SkiGladePlanner.ThinSelect(new float3(cx + 0.125f, 0f, cz), s1, 0.5f))
@@ -616,7 +616,7 @@ namespace GladeBatch
             double cellRateZ = cellDisZ / (double)nDis, meterRate = meterDis / (double)nDis;
             Check(Math.Abs(seedRate - 0.5) <= 0.01, "thinselect/seed", "two seeds disagree on " + F(seedRate) + " of points (expect 0.5 ± 0.01)");
             // Spatial independence. Before the Fmix32 finalizer math.hash(uint4) was linear in
-            // its lanes: x-neighbours disagreed 0.477, z-neighbours 0.431, 1 m apart 0.171 —
+            // its lanes: x-neighbors disagreed 0.477, z-neighbors 0.431, 1 m apart 0.171 —
             // a stripe lattice instead of a random 60 % felling.
             Check(Math.Abs(cellRate - 0.5) <= 0.01, "thinselect/spatial_x", "neighbouring 1/8 m cells (x) disagree on " + F(cellRate) + " (expect 0.5 ± 0.01)");
             Check(Math.Abs(cellRateZ - 0.5) <= 0.01, "thinselect/spatial_z", "neighbouring 1/8 m cells (z) disagree on " + F(cellRateZ) + " (expect 0.5 ± 0.01)");

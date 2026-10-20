@@ -200,12 +200,12 @@ def check(parts, lean_prefixes, label, expect=None):
 # ======================================================================================
 # Fine-detail step 3d: the same contract on dressing-kit ROWS (build/fine-detail-step3d-patrol-sign.md)
 # ======================================================================================
-# A host that replaces a modelled leaning part with a dressing-kit "mod" row (SkiDressAkja,
+# A host that replaces a modeled leaning part with a dressing-kit "mod" row (SkiDressAkja,
 # SkiDressSpineBoard, SkiDressTools: fine_detail.KIT mount "lean") keeps the contract's semantics: the
 # REAL kit mesh (the shipped props/B FBX, prefab frame) placed by the row is measured exactly like a
-# modelled leaning part (measure_part: the top of its back face on a SOLID face <= GAP_MAX behind it over
+# modeled leaning part (measure_part: the top of its back face on a SOLID face <= GAP_MAX behind it over
 # >= COVER of its width, its foot on grade / a solid face), against the host's own parts, and it must rest
-# on the SAME support part the row declares (row["lean"]["support"], the part the modelled one leaned
+# on the SAME support part the row declares (row["lean"]["support"], the part the modeled one leaned
 # on). On top (the step-3b F1 idea): the placed kit mesh may overlap no host triangle except its support
 # and the surface its foot stands on.
 # Frames: rows are game local (gx, gy, gz) = authoring (y, z, x), gx NOT negated (fine_detail.X_CONVENTION);

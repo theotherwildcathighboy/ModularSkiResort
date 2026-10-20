@@ -115,7 +115,7 @@
 //   DUMP "Lodge [road]": per lodge / school / patrol hut, which road edge Building.m_RoadEdge holds (entity, prefab name,
 //      "= CAT TRACK" when it is SkiCatTrack), the distance from the building's front point to that edge's boundary curves
 //      (the RoadConnectionSystem.CheckEdge test, limit 8.4 m, RoadConnectionSystem.cs:88, :353-385; edge geometry only,
-//      node geometry ignored) and to its centre curve, and, when the edge is NOT a cat track, the nearest cat-track edge
+//      node geometry ignored) and to its center curve, and, when the edge is NOT a cat track, the nearest cat-track edge
 //      in reach (so a lodge beside a cat track that a vanilla road beat, or that the Raised/Lowered rule dropped, shows).
 
 using System;
@@ -690,7 +690,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>One "Lodge [road]" header (counts, the W3 state, how many SkiCatTrack edges exist) and one line per lodge /
         /// school / patrol hut: the road edge Building.m_RoadEdge holds (entity, prefab name, "= CAT TRACK"), the distance of the
-        /// building's front point to that edge's boundary and centre curves, and the nearest cat-track edge when the holding
+        /// building's front point to that edge's boundary and center curves, and the nearest cat-track edge when the holding
         /// edge is not one. Reads only; main thread, event time.</summary>
         private void AppendRoadDetail(StringBuilder sb, List<Entity> lodges, List<Entity> others)
         {
@@ -795,7 +795,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Distance (xz) from <paramref name="p"/> to the nearest of the edge geometry's four boundary curves (the
-        /// CheckDistance rule without node geometry) and to its centre curve (t = nearest parameter).</summary>
+        /// CheckDistance rule without node geometry) and to its center curve (t = nearest parameter).</summary>
         private bool EdgeDistances(Entity edge, float3 p, out float boundary, out float centre, out float t)
         {
             boundary = 0f;

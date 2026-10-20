@@ -8,7 +8,7 @@ Every map here is a numpy float array in LINEAR space, laid out BOTTOM-UP: row 0
 so d/drow == dh/dv.  cs2_asset._write_png_raw writes such buffers as-is, and Cycles bake
 targets read back through Image.pixels are already bottom-up.  Callers do the sRGB encode
 of BaseColor afterwards (lift_tower.apply_finish_textures:1038-1048) - nothing in this
-module touches colour spaces.
+module touches color spaces.
 
     height_to_normal(height_m, ppm, strength=1.0) -> (H, W, 3) float 0..1
         THE single height -> tangent-normal implementation (CA-03 / P-08).  OpenGL sign:
@@ -17,11 +17,11 @@ module touches colour spaces.
         Reoriented normal blend (Barre-Brisebois / Hill) of two encoded 0..1 maps.
         blend_rnm(flat, x) == x, blend_rnm(x, flat) == x.
     DetailSpec
-        Per-part feature description in METRES.  detail_height keys it by the INT face
+        Per-part feature description in METERS.  detail_height keys it by the INT face
         attribute "part" -> part name (json table in me[cs2_asset.PART_TABLE_PROP]) ->
         longest matching prefix in `specs`.
-    detail_height(me, A, specs, uv_layer="UVUnique") -> (A, A) float metres
-        Rasterises seams / bolt rows / corrugation / helix / grate per face into a height
+    detail_height(me, A, specs, uv_layer="UVUnique") -> (A, A) float meters
+        Rasterizes seams / bolt rows / corrugation / helix / grate per face into a height
         field.  Features are anchored to the face's WORLD coordinates (the two world axes
         most orthogonal to the face normal, projected to UV through the face's affine
         UV -> 3D map), so a seam grid is continuous across the faces of one part.  The
@@ -45,7 +45,7 @@ Detail pass 1 (towers, design/detail-pass-1-towers.md section 2; additive - with
 fields / opts unset every function above is byte-identical to round L):
     DetailSpec.edge_round_m / edge_round_deg / edge_round_tilt_deg
         normal-map round on the part's own convex creases (detail_height)
-    DetailSpec.marks + Mark(kind, centre, ...)
+    DetailSpec.marks + Mark(kind, center, ...)
         world-space plate / slot / bolts / ring / boltring / band relief (detail_height)
     DetailSpec.mottle_m / mottle_amp / mottle_smooth / mottle_stretch / chalk_amp / chalk_smooth
     detail_tone(me, A, specs, ...) -> (dl, ds)
@@ -73,16 +73,16 @@ import cs2_asset
 
 
 # --------------------------------------------------------------------------------------
-# Normal maths
+# Normal math
 # --------------------------------------------------------------------------------------
 
 def height_to_normal(height_m, ppm, strength=1.0):
     """
-    Height field (metres, bottom-up rows) -> tangent-space normal map, encoded 0..1,
+    Height field (meters, bottom-up rows) -> tangent-space normal map, encoded 0..1,
     OpenGL convention.
 
-    `ppm` is texels per metre: a scalar or an (H, W) array (per-texel density from
-    rasterise_face_fields).  np.gradient returns metres per texel along rows (dh/dv) and
+    `ppm` is texels per meter: a scalar or an (H, W) array (per-texel density from
+    rasterise_face_fields).  np.gradient returns meters per texel along rows (dh/dv) and
     columns (dh/du); multiplying by ppm gives the dimensionless slope.  The unnormalised
     normal is (-dh/du, -dh/dv, 1), so after the 0.5 + 0.5*n encode
 
@@ -131,7 +131,7 @@ FLAT_NORMAL = (0.5, 0.5, 1.0)
 @dataclass
 class DetailSpec:
     """
-    Relief features for one part prefix, all sizes in metres.  A feature is active when
+    Relief features for one part prefix, all sizes in meters.  A feature is active when
     its pitch/period is not None.  Fields beyond the spec's list carry defaults the
     plan's pseudo-code hard-wired (seam width 0.012, bolt offset 0.15, bolt height
     0.004, 3 strands) plus the axis choice for seams.
@@ -149,7 +149,7 @@ class DetailSpec:
 
     Detail pass 1 (towers, design/detail-pass-1-towers.md section 2) - trailing fields, all
     off by default, so positional construction and every existing map are unchanged:
-    edge_round_m        normal-map round on the part's own convex creases (radius, metres;
+    edge_round_m        normal-map round on the part's own convex creases (radius, meters;
                         never on a prefix that already has a geometric bevel)
     edge_round_deg      min dihedral (angle between face normals) for a crease, default 30
     edge_round_tilt_deg normal tilt at the crease, default 50
@@ -362,9 +362,9 @@ def iter_face_rasters(me, A, uv_layer="UVUnique", dilate_px=0.0, matrix=None):
     Yield, per polygon with a non-degenerate UV footprint inside the A x A atlas:
         (poly, sl, mask, X, Y, q, P, ppm)
     sl = (rows, cols) slices of the face's texel bbox (bottom-up), mask = bool (h, w) of
-    texel centres inside the (dilated) UV polygon, X/Y = texel-centre coordinates
+    texel centers inside the (dilated) UV polygon, X/Y = texel-center coordinates
     (texels), q = UV polygon in texels (n, 2), P = 3D vertices (n, 3), ppm = texels per
-    metre of this face (A * sqrt(uv_area / area3d)).
+    meter of this face (A * sqrt(uv_area / area3d)).
     """
     uvs = read_uvs(me, uv_layer)
     co, lv = _read_geometry(me, matrix)
@@ -405,7 +405,7 @@ def _affine_uv_to_world(q, P):
 
 
 def _world_coord_field(axis, X, Y, qm, Pm, Mt):
-    """Metre coordinate along unit 3D `axis` at every texel centre of the raster."""
+    """Meter coordinate along unit 3D `axis` at every texel center of the raster."""
     g = Mt @ axis                                       # d(axis . P) / d(u_tex, v_tex)
     return float(Pm @ axis) + (X - qm[0]) * g[0] + (Y - qm[1]) * g[1]
 
@@ -448,15 +448,15 @@ def _seam_lines(s, pitch, half_w, depth):
 def detail_height(me, A, specs, uv_layer="UVUnique", part_table=None, matrix=None,
                   dilate_px=1.0, verbose=True):
     """
-    Rasterise the relief features of `specs` (dict part_prefix -> DetailSpec) into an
-    (A, A) float32 height field in METRES on the unique layout of `me`.
+    Rasterize the relief features of `specs` (dict part_prefix -> DetailSpec) into an
+    (A, A) float32 height field in METERS on the unique layout of `me`.
 
     Keyed by the INT face attribute "part" -> `part_table[part-1]` (explicit list or the
     json custom prop written by cs2_asset.store_part_table) -> longest matching prefix.
     Faces whose part has no spec, or whose feature is below the 2-texel floor at that
     face's px/m, contribute nothing.  `dilate_px` grows every face footprint so the
     height (and thus the normal) reaches 1 texel into the gutter, matching the bake
-    margin's EXTEND behaviour.  `matrix` (4x4) transforms the vertices first when the
+    margin's EXTEND behavior.  `matrix` (4x4) transforms the vertices first when the
     object carries an unapplied transform.
 
     Detail pass 1 relief (DetailSpec.edge_round_m / .marks, section 2.2 / 2.3) is written
@@ -572,7 +572,7 @@ def detail_height(me, A, specs, uv_layer="UVUnique", part_table=None, matrix=Non
 def rasterise_face_fields(me, A, uv_layer="UVUnique", matrix=None):
     """
     (part_map int32 (A, A), ppm_map float32 (A, A)): per texel the 1-based part index
-    (0 = uncovered gutter) and the covering face's texels-per-metre (0 = uncovered).
+    (0 = uncovered gutter) and the covering face's texels-per-meter (0 = uncovered).
     compose_maps uses part_map for the per-part noise and ppm_map for height_to_normal.
     """
     parts = part_indices(me)
@@ -618,7 +618,7 @@ def compose_maps(base, nrm, msk, ctl, ao, height_m, ppm_map, opts=None):
     (base, nrm, msk, ctl) float32 (A, A, 4) arrays.
 
     Inputs: base/msk/ctl (A, A, 4); nrm (A, A, 3|4); ao (A, A) or (A, A, >=1) channel 0
-    (None skips AO); height_m (A, A) metres or None; ppm_map scalar or (A, A).
+    (None skips AO); height_m (A, A) meters or None; ppm_map scalar or (A, A).
     opts keys (all optional):
         reserved     [(u0, v0, u1, v1)] rects restored 1:1 in every map and excluded
                      from AO (occ = 1 there)
@@ -759,7 +759,7 @@ def stamp_on_face(base, ctl, me, part_table, prefix, painter, uv_layer="UVUnique
     Paint a label onto the faces of one part group, at the host face's shipped density.
     `painter(rect_px, base_slice, ctl_slice)` receives (row0, row1, col0, col1) and
     IN-PLACE views of BaseColor / ControlMask over that UV bbox and paints what it
-    likes.  Texels whose BaseColor changed get ControlMask R zeroed (no steel recolour
+    likes.  Texels whose BaseColor changed get ControlMask R zeroed (no steel recolor
     over the label) and BaseColor alpha forced to 1 (labels are painted, never
     alpha-clipped).  Returns None.
     """
@@ -822,22 +822,22 @@ def _unit(v, what):
 @dataclass(frozen=True)
 class Mark:
     """
-    One world-space relief mark drawn by detail_height (DetailSpec.marks), metres.
+    One world-space relief mark drawn by detail_height (DetailSpec.marks), meters.
 
     kind      plate | slot | bolts | ring | boltring | band
-    centre    world point (the plate centre, the ring / band axis point)
+    center    world point (the plate center, the ring / band axis point)
     u, v      in-plane axes of plate / slot / bolts (v is orthonormalised against u);
               u also sets the boltring phase
     n         ring / boltring face normal and band axis; None = u x v
     Faces:  plate / slot / bolts / ring / boltring draw on faces whose normal is within
     `ang_deg` of u x v (ring / boltring: of n) - signed, so a back face never matches -
-    AND whose plane lies within `reach_m` of the centre.  band draws on any face of the
+    AND whose plane lies within `reach_m` of the center.  band draws on any face of the
     part (normal-free) whose texels are within |(p - c).n| <= half_w and radial distance
     from the axis <= r_max (r_max <= 0 = unlimited).
     Shapes (h = height, default +0.004; slot is always recessed, -|h|):
       plate     raised rectangle +-half_u x +-half_v, 1-texel smoothstep rim
       slot      recessed rounded rectangle (corner radius 0.5 * min half), 1-texel rim
-      bolts     domes of radius bolt_r on a grid centred in the rectangle: per axis
+      bolts     domes of radius bolt_r on a grid centered in the rectangle: per axis
                 max(1, floor(2 * half / pitch)) bolts at pitch spacing (half 0 = one row)
       ring      annulus r_in..r_out about n (r_in 0 = disc), 1-texel rim
       boltring  `count` domes of radius bolt_r on a circle of `radius`, the first on +u
@@ -913,7 +913,7 @@ def _mark_frame(mk):
 def transform_marks(items, matrix):
     """
     Map Marks / Decals authored in one frame into the bake-time mesh frame (RIGID
-    transforms: half sizes, radii and pitches are not rescaled): centre by the 4x4 affine
+    transforms: half sizes, radii and pitches are not rescaled): center by the 4x4 affine
     `matrix` (any 4x4 / 3x4 nested sequence, e.g. a mathutils.Matrix), u / v / n by its
     3x3 part.  Example: the generators bake AFTER cs2_asset.orient_for_net, i.e. in the
     net frame (x, y, z) -> (y, -x, z); marks written in the authoring frame go through
@@ -942,7 +942,7 @@ def _smoothstep(e0, e1, x):
 
 
 def _world_points(X, Y, qm, Pm, Mt, dx=0.0, dy=0.0):
-    """(h, w, 3) world point of every texel centre (+ (dx, dy) texels) via the face's
+    """(h, w, 3) world point of every texel center (+ (dx, dy) texels) via the face's
     affine UV -> 3D map."""
     return (Pm + (X + dx - qm[0])[..., None] * Mt[0]
             + (Y + dy - qm[1])[..., None] * Mt[1])
@@ -965,9 +965,9 @@ def _write_core_priority(dsts, own, sl, mask, core, vals):
 class _EdgeTopology:
     """
     Welded-mesh adjacency for edge rounding (section 2.2): per polygon the crease
-    segments it shares with a neighbour of the SAME part whose normal differs by >= deg
+    segments it shares with a neighbor of the SAME part whose normal differs by >= deg
     and that lies behind this face's plane (convex).  Boundary edges (no same-part
-    neighbour: an open prism end buried in a joint) are never creases.
+    neighbor: an open prism end buried in a joint) are never creases.
     """
 
     def __init__(self, me, parts, matrix=None):
@@ -1055,7 +1055,7 @@ def _edge_round_field(p, segs, cen, n, r, tilt_deg):
 
 
 def _grid_offset(a, half, pitch):
-    """Offset of `a` from the nearest of max(1, floor(2*half/pitch)) grid points centred
+    """Offset of `a` from the nearest of max(1, floor(2*half/pitch)) grid points centered
     on 0 at `pitch` spacing (one point at 0 when pitch <= 0)."""
     if pitch <= 0:
         return a
@@ -1149,7 +1149,7 @@ def _mark_field(mk, p, n_face, Pm, ppm, mask, floor_ok):
 
 
 def _relief_new_field(spec, pidx, X, Y, q, P, n, qm, Pm, Mt, ppm, mask, topo, floor_ok, drawn):
-    """Edge rounding + marks of one face (metres, float64 (h, w))."""
+    """Edge rounding + marks of one face (meters, float64 (h, w))."""
     f = np.zeros(X.shape, dtype=np.float64)
     p = _world_points(X, Y, qm, Pm, Mt)
     if spec.edge_round_m is not None and topo is not None:
@@ -1170,7 +1170,7 @@ def _relief_new_field(spec, pidx, X, Y, q, P, n, qm, Pm, Mt, ppm, mask, topo, fl
 # -- tone (section 2.4) ----------------------------------------------------------------
 
 def _fmix32(h):
-    """murmur3 finaliser on uint64 arrays holding 32-bit values."""
+    """murmur3 finalizer on uint64 arrays holding 32-bit values."""
     h = h ^ (h >> np.uint64(16))
     h = (h * np.uint64(0x85EBCA6B)) & _M32
     h = h ^ (h >> np.uint64(13))
@@ -1220,7 +1220,7 @@ def detail_tone(me, A, specs, uv_layer="UVUnique", part_table=None, matrix=None,
     wins) may be the detail_height dict or a separate one keyed by material class.
 
     Mottle (spec.mottle_m set, amp or smooth non-zero): hashed trilinear value noise in
-    WORLD metres (murmur3 fmix32 of the int lattice, seed = crc32(prefix) ^ seed), cell
+    WORLD meters (murmur3 fmix32 of the int lattice, seed = crc32(prefix) ^ seed), cell
     mottle_m across and mottle_m * mottle_stretch along the face's longest edge (the
     member axis; the stretch is sign-free, so the facets of one member share it), 2
     octaves mapped to [-1, 1] (std MOTTLE_STD): dl += amp * n1, ds += smooth * n2 (n2
@@ -1295,8 +1295,8 @@ class Decal:
     A painted rectangle projected along w = u x v onto the faces of one part prefix.
     alpha  (H, W) coverage 0..1, BOTTOM-UP like every map here: row 0 = the -v edge,
            col 0 = the -u edge (so a raster of text drawn bottom-up reads along +u)
-    rgb    LINEAR colour painted at alpha 1
-    reach_m  slab half-thickness along w around the centre
+    rgb    LINEAR color painted at alpha 1
+    reach_m  slab half-thickness along w around the center
     min_cos  faces with n . w below this are skipped (0.5 = within 60 deg: a faceted
              cylinder takes the decal on its front facets)
     ctl_zero ControlMask R and G scaled by (1 - alpha), exactly 0 where alpha >= 0.99
@@ -1328,7 +1328,7 @@ class Decal:
 
 def _bilinear_zero(pad, col, row):
     """Bilinear sample of a 1-texel zero-padded image at (col, row) of the UNPADDED
-    image (texel centres at integers); 0 outside."""
+    image (texel centers at integers); 0 outside."""
     Hp, Wp = pad.shape
     x = col + 1.0
     y = row + 1.0

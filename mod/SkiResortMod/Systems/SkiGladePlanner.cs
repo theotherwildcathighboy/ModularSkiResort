@@ -853,7 +853,7 @@ namespace SkiResortMod.Systems
                         b.w = math.max(b.w, v[i].y);
                     }
                     if (!ok)
-                        continue; // a broken neighbour never blocks the plan
+                        continue; // a broken neighbor never blocks the plan
                     m_Rings.Add(v);
                     m_Bounds.Add(b);
                 }

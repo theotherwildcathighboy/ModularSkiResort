@@ -2,6 +2,8 @@
 //   ToggleLiftLineTool (default Ctrl+Shift+L) → LiftLineToolSystem.TryActivate("hotkey") / Deactivate, in a loaded city;
 //   BuildLiftLine (default Enter) → LiftLineToolSystem.RequestBuild(), live ONLY while the tool is active (shouldBeEnabled follows
 //   the tool every frame, so Enter is never taken from the game otherwise).
+//   T139: the cat track grading tool shares the Build key. This system stays its ONE writer of shouldBeEnabled (live while the lift
+//   tool OR the grading tool is open; two writers would fight every frame); CatTrackGradeHotkeySystem reads the press for its tool.
 // Why a separate system and the action plumbing: the SkiGladeHotkeySystem header (an inactive tool never ticks, ToolSystem.cs:312-327;
 // mod actions exist after Mod.OnLoad's RegisterKeyBindings, ModSetting.cs:141-231, GetAction is null before, :289-292; they start
 // disabled, ProxyAction.cs:322-349; a key lost to a vanilla action is disabled by the conflict pass, InputConflictResolution.cs:138-198).
@@ -25,6 +27,7 @@ namespace SkiResortMod.Systems
         private const int ProbeDelayFrames = 120;
 
         private LiftLineToolSystem m_Tool;
+        private CatTrackGradeToolSystem m_Grade;   // T139: shares the Build key (header)
         private ProxyAction m_Toggle, m_Build;
         private bool m_Armed, m_Disabled, m_ErrorLogged;
         private int m_Probe = -1;
@@ -33,6 +36,7 @@ namespace SkiResortMod.Systems
         {
             base.OnCreate();
             m_Tool = World.GetOrCreateSystemManaged<LiftLineToolSystem>();
+            m_Grade = World.GetOrCreateSystemManaged<CatTrackGradeToolSystem>();
             Mod.Log.Info($"{nameof(LiftLineHotkeySystem)} created");
         }
 
@@ -80,8 +84,9 @@ namespace SkiResortMod.Systems
                 if (gm == null || gm.isGameLoading)
                     return;
                 bool active = m_Tool.IsActive;
-                if (m_Build.shouldBeEnabled != active)
-                    m_Build.shouldBeEnabled = active;
+                bool buildLive = active || m_Grade.IsActive;   // T139: the grading tool grades with the same key
+                if (m_Build.shouldBeEnabled != buildLive)
+                    m_Build.shouldBeEnabled = buildLive;
                 if (m_Probe > 0 && --m_Probe == 0 && !m_Toggle.enabled)
                     Mod.Log.Warn($"LiftLine [keys]: {SkiResortSettings.ActToggleLiftLine} is not live {ProbeDelayFrames} frames after the " +
                                  "load (probable key conflict with a vanilla action, InputConflictResolution.cs:138-198) — rebind it");

@@ -74,8 +74,8 @@
 // PER-AREA BOOKING (T78 P3, DECISIONS 283; docs/research/ui/hub-history-build-1-2026-10-18.md): every debit is also booked
 // per ski area into the guest counter's SkiResortLedger (Month.RunUpkeep, AddRunUpkeep), so the history store keeps each
 // area's real run cost, not a rate. Rule = the hub's per-run rule (SkiResortStatsSystem.CollectRuns): weight of an area =
-// Σ over its bound, catalogued, non-natural runs with active texels of BilledHa × CostPerHaMonth(kind); unbound runs and the
-// part of the bill no catalogued run explains (a run one catalog rebuild behind, billed uncapped) go to Not linked
+// Σ over its bound, cataloged, non-natural runs with active texels of BilledHa × CostPerHaMonth(kind); unbound runs and the
+// part of the bill no cataloged run explains (a run one catalog rebuild behind, billed uncapped) go to Not linked
 // (EntityRef.Null). SkiResortHistory.SplitDebit makes the parts sum exactly to the debit with a per-area carry, so no area
 // drifts. DebitedThisLoad and the money taken are unchanged; the hub's this-month run-cost lines are still the stats
 // system's RATE (CostGroomed/Snowmaking/NightMonth), their meaning is unchanged. Cost: one more catalog pass per charge
@@ -154,7 +154,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>F7 E2 (header PLAN-AREA CAP): the hectares a run is billed for — its active mask texels
         /// × the texel area in ha, never more than its plan area (m², Geometry.m_SurfaceArea). Texels on
-        /// the outline count whole, so the raw product reads a few per cent over the run. A plan area that
+        /// the outline count whole, so the raw product reads a few percent over the run. A plan area that
         /// is not a finite positive number leaves the raw value (nothing to cap against). Pure.</summary>
         public static float BilledHa(int activeTexels, float texelHa, float planAreaM2)
         {
@@ -445,7 +445,7 @@ namespace SkiResortMod.Systems
             if (m_Counter == null || debit <= 0)
                 return;
             // Weights: the stats system's per-run rule (SkiResortStatsSystem.CollectRuns): BilledHa × CostPerHaMonth(kind) for
-            // every catalogued non-natural run with active texels, grouped by its gate. Cat tracks are in no mask (rate 0).
+            // every cataloged non-natural run with active texels, grouped by its gate. Cat tracks are in no mask (rate 0).
             m_SplitSigns.Clear();
             double bound = 0.0, unbound = 0.0;
             int rows = m_Catalog.RowCount;
@@ -505,7 +505,7 @@ namespace SkiResortMod.Systems
             Array.Resize(ref m_SplitParts, size);
         }
 
-        /// <summary>F7 E2 (header PLAN-AREA CAP): takes each catalogued run's texel hectares above its plan
+        /// <summary>F7 E2 (header PLAN-AREA CAP): takes each cataloged run's texel hectares above its plan
         /// area off its kind's total; returns the hectares taken off. Runs the catalog does not list, natural
         /// runs and runs without an entry in the per-run map are left as they are. Each total stays >= 0.
         /// Main thread; no allocation.</summary>

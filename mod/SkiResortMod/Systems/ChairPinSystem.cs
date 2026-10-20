@@ -21,7 +21,7 @@
 //     the queries — the chair-prefab set filter was always the real selector. Supersedes
 //     DECISIONS #19c's premise.
 //   * CLOCK: phase_m = speed * (RenderingSystem.frameIndex + frameTime) / 60, in double
-//     (frameIndex ~1e7+ in mature saves; float32 would quantize at metre scale). That clock
+//     (frameIndex ~1e7+ in mature saves; float32 would quantize at meter scale). That clock
 //     is what vanilla interpolation itself consumes: it freezes on pause (RenderingSystem.cs
 //     :187-190 sets frameDelta=0), slews smoothly toward the sim clock at any speed
 //     (:193-222, atan-clamped), and resnaps to the SERIALIZED SimulationSystem.frameIndex on
@@ -70,10 +70,10 @@
 //     anyway) or whose grip point is farther than ApproachPinDistanceCeiling from its own lane (a
 //     rider: after a game load the saved chairs stand anywhere on the loop) sends the whole loop
 //     back to the entity-index grid, as do all other non-identity rebuilds (chairs that were
-//     already riding keep today's behaviour, OD-7 (b)).
+//     already riding keep today's behavior, OD-7 (b)).
 //
 // ROUND F6 (2026-10-03, item B4; docs/research/field/2026-10-03b/findings/log-audit.md A3 and its
-// Verification) — LOGGING ONLY, no behaviour change: the west lift of field test 6 fell back to the
+// Verification) — LOGGING ONLY, no behavior change: the west lift of field test 6 fell back to the
 // grid on 2 of its closures (log 562, 1671) and nothing said why. A refused seeding now writes ONE
 // line per rebuild, `ChairPinSystem [moving] OD-7: N loop(s) could not restart from where their
 // chairs stood …`, naming per loop (at most SeedRefusalLoopsLogged) its stations, the first failing
@@ -88,7 +88,7 @@
 //     gone (extensibility.md §1 rows 1 and 3, F5). The names live in the PURE SkiCatalog.cs and
 //     SkiPrefabCatalogSystem resolves them: CarrierGripTops (carrier → bounds.max.y; the bounds read moved
 //     there), LiftLinePrefabSet (an explicit whitelist of lift lines) and StationDefs (station → its row,
-//     with the bullwheel centre that was StationWheelLocal here, row 4). Each view is fetched ONCE before a
+//     with the bullwheel center that was StationWheelLocal here, row 4). Each view is fetched ONCE before a
 //     chunk loop (contract §2.1, skeptic M4).
 //   * LIFETIME (contract §8 N1): resolved per LOAD and revalidated at the first catalog call of each frame,
 //     where this file resolved once per APP RUN. So the prefab lines below are written per load, and a prefab
@@ -129,7 +129,7 @@
 //      CarrierDef.Expected, LiftTypeDef.LineExpected); pending names are listed in the Info line.
 //   9. UP LANE (addendum 1): LiftLoopCache makes chain A the cable on the RIGHT looking uphill; this system writes
 //      "ChairPinSystem [loop] up lane = right looking uphill: …" once per loop (station pair) per load.
-// NOT BEHAVIOUR-IDENTICAL for a fixed-grip city: item 9 can reverse a lift's direction of travel versus "the first
+// NOT BEHAVIOR-IDENTICAL for a fixed-grip city: item 9 can reverse a lift's direction of travel versus "the first
 // chain found" (each chair still faces its travel and rides the same loop); everything else is identical.
 //
 // PHASE D (2026-10-11; docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §3.1-§3.2, §4.2-§4.3, §5, D4-D7,
@@ -185,7 +185,7 @@
 //      SkiPrefabCatalogSystem (SkiCatalog Lifts[*].CarrierPrefabs; Catalog Phase A).
 //      NOT Secondary — see the milestone-2 discovery correction above.
 //   2. Owner is the lift EDGE entity; its Game.Net.SubLane buffer holds the lanes. Cable lanes
-//      are recognised structurally, not by name: lane PrefabRef → UtilityLaneData with the
+//      are recognized structurally, not by name: lane PrefabRef → UtilityLaneData with the
 //      HighVoltageLine flag (0x40). This skips the LV comm lane (LowVoltageLine, x 0) and works
 //      unchanged if the HV lane is ever swapped for a custom haul-rope clone that keeps the
 //      utility class (lane-chairs.md "custom haul-rope re-skin").
@@ -268,7 +268,7 @@ namespace SkiResortMod.Systems
         // ── Round L1 accessors (hub-u2-spec.md §2.1) ─────────────────────────────────────
         /// <summary>The moving-chairs kill switch (MovingChairs above; the developer tab flips it).</summary>
         internal static bool MovingChairsOn => MovingChairs;
-        /// <summary>Chair speed along the loop, metres per second of the render clock.</summary>
+        /// <summary>Chair speed along the loop, meters per second of the render clock.</summary>
         internal const float ChairSpeedMps = ChairSpeedMetersPerSecond;
         // Catalog Phase A (ext row 2; was ChairPinSystem.cs:172-174 SeatsPerChair = 4, "by the prefab name"):
         // removed. Its only reader, SkiResortStatsSystem's lift capacity, reads SkiCatalog.FixedGrip.SeatsPerCarrier.
@@ -326,7 +326,7 @@ namespace SkiResortMod.Systems
         private int m_DiagGridLoops;               // non-identity loops given the entity-index grid
 
         // Moving-mode tuning. Bounds refresh: chairs' CullingInfo/search-tree entries are
-        // refreshed (one Updated tag per riding chair) every this-many metres of loop travel;
+        // refreshed (one Updated tag per riding chair) every this-many meters of loop travel;
         // 2 m keeps stale bounds inside a chair's own extents at any sim speed (distance per
         // SIM frame is speed-independent). Rebuild cooldown: cache rebuild requests (lift
         // edits, reconnect pokes — DECISIONS 40's poke storms) are debounced to at most one
@@ -338,7 +338,7 @@ namespace SkiResortMod.Systems
         // ── v1.1 final-span guards ───────────────────────────────────────────────────────
         // On the FINAL edge (last tower → station) the cable lane is NOT the edge curve:
         // LaneSystem moves the lane's endpoints onto the anchor stubs (tower sheave tips /
-        // the station's bullwheel stubs, which sit several metres past the edge node inside
+        // the station's bullwheel stubs, which sit several meters past the edge node inside
         // the station) and then rebuilds the bezier as straight-line-plus-droop between the
         // ANCHORS. Near the station that lane can diverge laterally/vertically from the
         // chair row's spawn line, so projecting chairs onto it produced visibly wrong
@@ -350,7 +350,7 @@ namespace SkiResortMod.Systems
         //     gripTop + margin the geometry is degenerate (or a wrong-side match: the far
         //     lane is ≥ √(3.6² + gripTop²) ≈ 4.3 m away, above the threshold by
         //     construction) — leave the chair at its tidy vanilla spawn placement.
-        //   * EndClampMeters — keep the pin parameter this many metres of arc away from the
+        //   * EndClampMeters — keep the pin parameter this many meters of arc away from the
         //     lane's extreme ends so no chair ever sits ON an anchor stub / bullwheel point.
         // Note: station bullwheel wrap-arc sublanes can NEVER be candidates here — we only
         // walk the chair's owner EDGE SubLane buffer, and the wrap arcs live on the station
@@ -413,7 +413,7 @@ namespace SkiResortMod.Systems
         private const int MoverCostPassesToLog = 600;   // ~10 s of moving frames at 60 fps
         private int m_RebuildCooldown;
         private int m_EmptyRosterRetries;
-        // Catalog Phase B (§5.2 items 2, 6; were m_LastMovePhase / m_LastBoundsPhase in metres of the one fixed-grip
+        // Catalog Phase B (§5.2 items 2, 6; were m_LastMovePhase / m_LastBoundsPhase in meters of the one fixed-grip
         // phase): the render clock in SECONDS — each loop's phase is its speed × this clock.
         private double m_LastMoveTimeS = -1.0;     // seconds; -1 forces the first mover pass
         private double m_LastBoundsTimeS;          // seconds at the last bounds-refresh burst
@@ -451,7 +451,7 @@ namespace SkiResortMod.Systems
         }
         private string m_LastError;                // message + stack of the tripping exception
         private int m_DiagProbeUpdatedChairs;      // chairs matched by the change probe, last pass
-        private double m_DiagLastTimeS;            // derived clock, last mover pass (seconds; Catalog Phase B, was metres)
+        private double m_DiagLastTimeS;            // derived clock, last mover pass (seconds; Catalog Phase B, was meters)
         private int m_DiagLastMoved, m_DiagLastInPlace, m_DiagLastMissing, m_DiagLastRiding;
         private int m_DiagPassesWithMoves;         // mover passes that wrote ≥1 Transform
         private int m_DiagPausedSkips;             // mover passes skipped (phase unchanged)
@@ -464,16 +464,16 @@ namespace SkiResortMod.Systems
         private int m_DiagEnrolled;                // InterpolatedTransform enrollments, last rebuild
         private readonly List<string> m_DiagStationLines = new List<string>(); // per-station census, last rebuild
 
-        // ── Bullwheel centres per station prefab (entry 103), station-local, rope height ──
+        // ── Bullwheel centers per station prefab (entry 103), station-local, rope height ──
         // Catalog Phase A (ext row 4; was ChairPinSystem.cs:337-350 StationWheelLocal, keyed by prefab name):
-        // the centres are SkiCatalog.Stations[*].WheelLocal now — base (0, 3.55, 0.2), top (0, 3.75, 0) —
+        // the centers are SkiCatalog.Stations[*].WheelLocal now — base (0, 3.55, 0.2), top (0, 3.75, 0) —
         // read through the catalog's StationDefs view in BuildLoopCache. Provenance (unchanged):
         // assets/blender/lift_terminal.py — build_terminal_pali (drive): wheel_x, wheel_z = 0.2, 3.5
         // "bullwheel centre - loading height (INVARIANT)"; build_return_simple (return): wheel_z = 3.7
         // at the origin; rope over the wheel is wheel_z + 0.05; wheel radius 1.8 = half the 3.6 m rope
         // gauge. Authoring frame (+X travel, Y lateral, Z up) → prefab-local (X lateral, Y up, Z travel)
         // (cs2_asset.py rotate-then-bake), so authoring (x, y, z) lands at (-y, z, x) in the game frame since T14 (the game negates
-        // FBX x on import, rule T; it was (y, z, x) before — the wheel centres here have y = 0, so they do not move). A new terminal
+        // FBX x on import, rule T; it was (y, z, x) before — the wheel centers here have y = 0, so they do not move). A new terminal
         // generation adds a StationDef; a non-finite WheelLocal falls back to the plain terminal
         // semicircle (LiftLoopCache.AppendTerminalTurn).
 
@@ -1253,7 +1253,7 @@ namespace SkiResortMod.Systems
             // The derived clock: frozen on pause (RenderingSystem holds frameIndex/frameTime
             // when selectedSpeed ~ 0), smooth at any sim speed, save-continuous. Double is
             // mandatory — frameIndex reaches 1e7+ in mature saves and float32 would quantize
-            // speed * time at metre scale. Catalog Phase B (§5.2 item 2): the clock is in seconds and each loop's
+            // speed * time at meter scale. Catalog Phase B (§5.2 item 2): the clock is in seconds and each loop's
             // phase is its own speed × this clock (PhaseOf); the pause test compares the clock (was the one phase).
             double timeS = TimeS();
 
@@ -1438,13 +1438,13 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The derived clock in seconds (see the milestone-2 header): (frameIndex + frameTime) / 60 in double.
-        /// Catalog Phase B (§5.2 item 2; was CurrentPhase() = ChairSpeedMetersPerSecond × this, in metres).</summary>
+        /// Catalog Phase B (§5.2 item 2; was CurrentPhase() = ChairSpeedMetersPerSecond × this, in meters).</summary>
         private double TimeS()
         {
             return ((double)m_RenderingSystem.frameIndex + m_RenderingSystem.frameTime) / 60.0;
         }
 
-        /// <summary>A loop's phase in metres: its speed × the clock — one formula for the mover and the OD-7 seeding, so
+        /// <summary>A loop's phase in meters: its speed × the clock — one formula for the mover and the OD-7 seeding, so
         /// a seeded chair lands exactly where it stood. For a fixed-grip loop (m_SpeedMps = (double)2.5f) this is the
         /// former CurrentPhase() bit for bit: the same double product of the same operands.</summary>
         private static double PhaseOf(LiftLoopCache.Loop loop, double timeS)
@@ -1584,7 +1584,7 @@ namespace SkiResortMod.Systems
                         stations.Add(entities[i]);
                         stationPositions.Add(transforms[i].m_Position);
 
-                        // Bullwheel centre (entry 103): rope height over the wheel, in
+                        // Bullwheel center (entry 103): rope height over the wheel, in
                         // station-local space, from the terminal generator's INVARIANT wheel
                         // placement (lift_terminal.py: drive wheel_x/z 0.2/3.5, return 0/3.7,
                         // rope = wheel + 0.05; authoring +X = travel maps to prefab +Z) — the

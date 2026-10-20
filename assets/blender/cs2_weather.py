@@ -18,7 +18,7 @@ hook (lift_terminal_detach.py:2541-2555 idiom):
 
 The maps are LINEAR there, rows bottom-up (row 0 = v 0), AO already multiplied into base,
 reserved rects already restored; bake_unique clips, sets the channel invariants and does
-the sRGB encode afterwards (cs2_bake step 5). Nothing here touches colour spaces.
+the sRGB encode afterwards (cs2_bake step 5). Nothing here touches color spaces.
 
 Public API
 ----------
@@ -44,10 +44,10 @@ Public API
 
 Fix pass 1 (2026-10-11, build report "Fix pass 1"): visibility retune (edge band >= 3
 texels, 0.6 m deeper ground band, large-scale tone, AO-aware eave grime), slot_wear
-"bounded" | "free" (Richard's Q2 is one spec field), scuffs fixed in metres and oriented
+"bounded" | "free" (Richard's Q2 is one spec field), scuffs fixed in meters and oriented
 by the part axis (no radial sunburst), gutter deltas slot-bounded, tower preset keeps the
 concrete foundation `pad` out of the crash-pad role, `protect_px` for painter sub-rects.
-    hash3 / vnoise3 / fbm / uniform   world-metre hashed value noise (no tiling, no seams)
+    hash3 / vnoise3 / fbm / uniform   world-meter hashed value noise (no tiling, no seams)
     ROLES, ROLE_COEFF, MAT_ROLES, PREFIX_ROLES   the role tables (design section 3.3)
 
 Masks are COMPACT: one value per covered texel, in the order of fields.idx (flat row-major
@@ -109,7 +109,7 @@ SCUFF_GREY = 0.25
 SCUFF_LIFT = 0.60
 
 TEXEL_FLOOR = cs2_compose.TEXEL_FLOOR    # 2 texels: band widths never go below this
-KAPPA0 = 20.0               # 1/m: a groove of ~5 cm radius normalises normal-map curvature
+KAPPA0 = 20.0               # 1/m: a groove of ~5 cm radius normalizes normal-map curvature
 CELL_M = 0.10               # cover grid (section 4.4)
 COVER_K = 6                 # lowest down-facing layers kept per cell
 COVER_EPS_M = 0.02          # a layer must be this far above the texel to count as cover
@@ -122,7 +122,7 @@ AO_FLOOR = 0.08             # occ = ao * 0.92 + 0.08 (cs2_bake.AO_FLOOR)
 COMPOSE_CONTACT_AMP = 0.06  # compose_maps' ground band: base *= 1 - 0.06 * contact
 COMPOSE_CONTACT_BAND_M = 0.4
 
-# noise scales (metres) - see the build report for the ones retuned from the design
+# noise scales (meters) - see the build report for the ones retuned from the design
 EDGE_WIDTH_CELL_M = 0.30
 #: edge band (fix pass 1): b = max(edge_band_m * (0.7 + 0.6 u), EDGE_MIN_TEXELS / ppm),
 #: full weight out to EDGE_CORE * b, smoothstep to 0 at b. No area renormalisation where
@@ -176,7 +176,7 @@ GEO_LONG_M = 0.50           # sources longer than this across the streak drip at
 DRIP_CELL_M = 0.40
 DRIP_LO, DRIP_HI = 0.55, 0.75
 SNOW_CELL_M = 0.50
-#: scuffs (fix pass 1, F3): cells FIXED in metres - along the part's principal axis,
+#: scuffs (fix pass 1, F3): cells FIXED in meters - along the part's principal axis,
 #: across, z. Octave 0 is never faded and octaves k >= 1 fade with the texel density
 #: (fbm), so a 2048 -> 4096 rebake keeps the same lattice (it used to floor the across
 #: cell at 2 texels, which moved every scuff)
@@ -271,7 +271,7 @@ EDGE_KAPPA_ROLES = ("timber", "deck", "masonry")
 
 
 # --------------------------------------------------------------------------------------
-# Small maths
+# Small math
 # --------------------------------------------------------------------------------------
 
 def smoothstep(e0, e1, x):
@@ -286,7 +286,7 @@ def smoothstep(e0, e1, x):
 
 
 def _erf(x):
-    """Vectorised erf, Abramowitz & Stegun 7.1.26 (|error| < 1.5e-7)."""
+    """Vectorized erf, Abramowitz & Stegun 7.1.26 (|error| < 1.5e-7)."""
     x = np.asarray(x, dtype=np.float64)
     s = np.sign(x)
     a = np.abs(x)
@@ -306,7 +306,7 @@ def luma(rgb):
 
 
 # --------------------------------------------------------------------------------------
-# Noise (section 5): hashed lattice value noise in world metres
+# Noise (section 5): hashed lattice value noise in world meters
 # --------------------------------------------------------------------------------------
 
 _H1 = np.uint32(0x8DA6B343)
@@ -364,7 +364,7 @@ def vnoise3(p, seed):
 def fbm(coords, cells_m, ppm, seed, octaves=4):
     """
     Zero-mean, unit-variance fractal value noise at world coordinates `coords` (N, 3) in
-    metres. `cells_m`: scalar, (3,) or (N, 3) cell size per axis (anisotropic cells make
+    meters. `cells_m`: scalar, (3,) or (N, 3) cell size per axis (anisotropic cells make
     streaks); axes 0 and 1 are the in-plane axes for the density fade. Octave k uses
     cells / 2^k and amplitude 0.5^k; octaves k >= 1 fade with smoothstep(2, 4, cell * ppm)
     (cells under 2 texels add nothing) and the sum is renormalised by sqrt(sum (w a)^2), so a
@@ -751,7 +751,7 @@ def build_fields(me, A, spec, maps=None, *, uv_layer="UVUnique", matrix=None, pa
                  protect_px=()):
     """
     Per-texel fields of mesh `me` on its `uv_layer` at A x A (section 4). One pass over
-    cs2_compose.iter_face_rasters (the rasteriser of rasterise_face_fields, so part / ppm
+    cs2_compose.iter_face_rasters (the rasterizer of rasterise_face_fields, so part / ppm
     agree texel for texel); everything else is derived from the mesh: world position, the
     face normal and gravity frame, distance to convex edges (dihedral-weighted), cover above
     (top-down peel of down-facing faces), rust sources (DetailSpec lattice + geometric),
@@ -773,7 +773,7 @@ def build_fields(me, A, spec, maps=None, *, uv_layer="UVUnique", matrix=None, pa
     kE = _convex_edges(co, ev, le, loop_face, fn, fc, spec)
     stats = {"faces": int(len(ls)), "parts": int(P), "convex_edges": int((kE > 0).sum())}
 
-    # -- pass 1: the rasteriser of rasterise_face_fields ---------------------------------
+    # -- pass 1: the rasterizer of rasterise_face_fields ---------------------------------
     face_map = np.full((A, A), -1, dtype=np.int32)
     part_map = np.zeros((A, A), dtype=np.int32)
     ppm_map = np.zeros((A, A), dtype=np.float32)
@@ -1117,7 +1117,7 @@ def _geo_rust(src, p, n, g, l, Pv, ppm, spec):
     lat = 1.0 - smoothstep(0.0, fall, out)
     if a1 - a0 > GEO_LONG_M:
         # a long source (snow-guard rail, ridge cap, gutter) drips at points, not along its
-        # whole length: 1D hashed value noise along the across axis (world metres, so it
+        # whole length: 1D hashed value noise along the across axis (world meters, so it
         # is continuous over faces sharing l) keeps ~1/4 of it (build-report D8)
         gp = np.stack([ta / DRIP_CELL_M, np.full_like(ta, float(_part) * 7.31),
                        np.zeros_like(ta)], axis=1)
@@ -1198,7 +1198,7 @@ def _lattice_rust(ds, e_h, e_v, Xs, Ys, qm, Pm, Mt, Pv, ppm, spec):
 
 def _cover_heights(co, ls, lt, lv, fn, pos, ngeo):
     """Section 4.4: distance up to the nearest down-facing surface above (inf = sky).
-    Each cell keeps the K lowest down-facing planes (height at the cell centre + slope),
+    Each cell keeps the K lowest down-facing planes (height at the cell center + slope),
     evaluated exactly at the texel's look-up point."""
     N = len(pos)
     stats = {"down_faces": 0, "cover_overflow_cells": 0}
@@ -1372,7 +1372,7 @@ def _doors_and_traffic(fl, table, spec, co, lv, loop_face, poly_part, fn, farea,
 
 def _kappa(nrm, part_map, ppm_map, covered):
     """Section 4.5: kappa = (dn_x/du + dn_y/dv) * ppm on the input normal map (1/m, +
-    convex); 0 where any 4-neighbour is uncovered or belongs to another part."""
+    convex); 0 where any 4-neighbor is uncovered or belongs to another part."""
     n = nrm[..., :3] * 2.0 - 1.0
     _gr, gx_col = np.gradient(n[..., 0])
     gy_row, _gc = np.gradient(n[..., 1])
@@ -1440,7 +1440,7 @@ def compute_masks(maps, fields, spec, *, compose_contact=False):
     out = {}
 
     # tone (fix pass 1): signed large-scale luminance variation on walls and roofs (no
-    # undersides), continuous in world metres across parts and islands
+    # undersides), continuous in world meters across parts and islands
     tn = np.zeros(N)
     tsel = act & np.isin(role, [ROLE_ID[r] for r in TONE_ROLES]) & (nz > -0.2)
     if tsel.any():
@@ -1569,7 +1569,7 @@ def compute_masks(maps, fields, spec, *, compose_contact=False):
     # 6.5 scuffs: streaks along the part's principal axis on traffic texels (no radial
     # direction: F5), an isotropic worn patch within SCUFF_ISO_M of a threshold, density
     # falling off isotropically with the distance to the door; horizontal on pads. Every
-    # cell is FIXED in metres (F3): octave 0 never fades, octaves k >= 1 fade by density
+    # cell is FIXED in meters (F3): octave 0 never fades, octaves k >= 1 fade by density
     sc = np.zeros(N)
     tr = F.traffic.astype(np.float64)
     tsel = act & (np.abs(tr).sum(axis=1) > 0.5)
@@ -1748,7 +1748,7 @@ def apply_weathering(maps, fields, spec, *, compose_contact=False, gutter_px=3, 
 
 
 def _neutral_on_slot(b0, b1, slot):
-    """slot_wear "free": on recolour-slot texels the change becomes a pure luminance ratio
+    """slot_wear "free": on recolor-slot texels the change becomes a pure luminance ratio
     of the input (b0 * L(b1) / L(b0)), mixed in by the slot weight, so the vanilla picker
     tint (a multiply under ControlMask) still reads on worn paint and rust turns into a
     neutral darkening instead of a tinted orange. ControlMask itself is never written."""
@@ -1762,7 +1762,7 @@ def _neutral_on_slot(b0, b1, slot):
 
 def _gutter(base_in, base, msk_in, msk, F, steps, ctl=None, spec=None):
     """Spread the base RGB / metal / smoothness deltas `steps` texels into uncovered texels
-    by masked 4-neighbour mean passes (never into protect rects, no wrap at the border).
+    by masked 4-neighbor mean passes (never into protect rects, no wrap at the border).
     Gutter texels under ControlMask (real bakes dilate it into the gutter) obey the same
     slot guard as covered texels (fix pass 1, F6): +-slot_bound / slot per channel when
     spec.slot_wear is "bounded", the neutral luminance ratio when it is "free"."""
@@ -1820,7 +1820,7 @@ def _gutter(base_in, base, msk_in, msk, F, steps, ctl=None, spec=None):
 # --------------------------------------------------------------------------------------
 
 VL_BUDGET = dict(VL1=0.05, VL2=0.08, VL3_lo=-0.06, VL3_hi=0.01, VL3_abs=0.30, VL4=0.5)
-VL4_STD_FLOOR = 0.10        # std(L) floored at 10 % of the part's mean L (flat-colour parts)
+VL4_STD_FLOOR = 0.10        # std(L) floored at 10 % of the part's mean L (flat-color parts)
 #: perceptual delta (fix pass 1): texels more than this far below ground_z are not
 #: "visible" (L2's plinth runs to z -7.2 m; the terrain covers it in game)
 VIS_BELOW_M = 0.5
@@ -1855,7 +1855,7 @@ def visible_texels(fields, spec, ao=None):
 
 
 def _tint_rgbs(tint):
-    """Slot 1/2/3 multiply colours from {"R"|1: rgb, "G"|2: rgb, "B"|3: rgb} or a list."""
+    """Slot 1/2/3 multiply colors from {"R"|1: rgb, "G"|2: rgb, "B"|3: rgb} or a list."""
     out = [np.ones(3), np.ones(3), np.ones(3)]
     if not tint:
         return out

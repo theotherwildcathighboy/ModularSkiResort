@@ -185,7 +185,7 @@ namespace SkiResortMod.Systems
         public static bool IsShortMonth(uint framesSimulated, int daysPerYear)
             => (double)framesSimulated < (double)FullMonthShare * MonthFrames(daysPerYear);
 
-        /// <summary>The share of a month simulated in whole per cent: min(100, floor(100 × frames / MonthFrames)).</summary>
+        /// <summary>The share of a month simulated in whole percent: min(100, floor(100 × frames / MonthFrames)).</summary>
         public static int SimulatedPct(uint framesSimulated, int daysPerYear)
             => (int)math.min(100.0, math.floor(100.0 * framesSimulated / MonthFrames(daysPerYear)));
 

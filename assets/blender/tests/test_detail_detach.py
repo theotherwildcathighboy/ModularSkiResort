@@ -53,7 +53,7 @@ amended by design/detail-pass-1-lifts-skeptic.md MC1-MC11; build report build/de
       without the ledge offset (they cut the coping), the DQ base rack pushed into the ParkInfosign's box, a kit CID drift.
   F2  H1 placement against the removed parts (a FINE_DETAIL-off build): the kit wall rack's frame = the removed one-sided
       frame vertex for vertex (<= 1 mm after the measured foot drop), the e-stop post axis and foot, the extinguisher body
-      axis and bottom, the hose-reel plate (same size: corners <= 1 mm; DQ base moved / gondola resized: centre reported),
+      axis and bottom, the hose-reel plate (same size: corners <= 1 mm; DQ base moved / gondola resized: center reported),
       the tools = the removed pair + the foot-line move (n x 0.0725 m on a plain wall; the gondola ledge case reported)
       vertex for vertex.
   F3  fine geometry: maze posts 24 tris (8-seg, fan cap; was 12), ropes 12 (6-sided, was 8), gate stiles 24, the SLOW posts 36
@@ -163,7 +163,7 @@ def flood_rows_ok(objs_all, want):
                     and all(abs(a - b) < 1e-6 for a, b in zip(o["pos"], pw))
                     and all(abs(a - b) < 1e-6 for a, b in zip(o["rot"], qw))
                     for o, (pw, qw) in zip(fl, want)))
-KIT_H1_TOL = 0.001                  # F2: kit vs removed part, metres
+KIT_H1_TOL = 0.001                  # F2: kit vs removed part, meters
 
 
 def check(cond, label):
@@ -275,7 +275,7 @@ def _counts_and_frozen_one(kind, fine):
               f"{rows['target_prefab']}; kinds {rows.get('kinds')}")
         if fine:
             import fine_detail as FD
-            # kit colour variants (2026-10-12): a coloured prop's row names its colour-set variant's CID
+            # kit color variants (2026-10-12): a colored prop's row names its color-set variant's CID
             # (T17-DQ 2026-10-16: the SkiPisteFloodlightLow "mod" rows are not kit props; asserted literally above)
             kit_mods = [o for o in mods if o["prefab"] != FLOOD_PREFAB]
             check(all(o["guid"] == "CID:" + FD.kit_cid(o["prefab"], o.get("colour_set"))
@@ -297,7 +297,7 @@ def _counts_and_frozen_one(kind, fine):
                   f"{sorted(round(o['pos'][2], 2) for o in soff)}), the wall-light rows moved onto lamp_cab / lamp_eng "
                   f"{[o['pos'] for o in wl]}")
         # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): no vanilla LightpoleParkRandom01 row,
-        # two floodlight "mod" rows on the deck top, no modelled flood mast
+        # two floodlight "mod" rows on the deck top, no modeled flood mast
         lamps = [o for o in objs if o["prefab"] == "LightpoleParkRandom01"]
         floods = [o for o in objs_all if o["prefab"] == FLOOD_PREFAB]
         check(len(lamps) == D9_LAMPS and flood_rows_ok(objs_all, D9_FLOODS[kind_])
@@ -582,7 +582,7 @@ def shipped():
         em = d.get("emissive") or {}
         fd = m.get("fine_detail")
         if fd:
-            # fine-detail step 3b: no modelled lamp left (lamp_s0-3 -> RoofLight rows, lamp_cab / lamp_eng -> the
+            # fine-detail step 3b: no modeled lamp left (lamp_s0-3 -> RoofLight rows, lamp_cab / lamp_eng -> the
             # moved WallLightShortRange rows): the _Emissive was all black. 2026-10-12: the map is DROPPED - not on
             # disk, not in the manifest's files, the blocks say "no map", settings.json never lists Emissive
             emis_png = os.path.join(folder, f"{name}_Emissive.png")

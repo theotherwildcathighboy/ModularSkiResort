@@ -23,14 +23,14 @@
   Sign shows the ski area's name through a layout file we ship (`K45_WE/`), and the lodge and school
   name boards become writable through the same folder; nothing of Write Everywhere is included and
   the mod never requires it.
-- **Lettering** — the sign sets (lodge, school, patrol and gate boards) carry text rasterised at build
+- **Lettering** — the sign sets (lodge, school, patrol and gate boards) carry text rasterized at build
   time from typefaces installed on the build machine (Bookman Old Style Bold for the resort-identity
   boards, Franklin Gothic Demi Cond for the utility boards). Only the rendered textures ship; no font
   file is included or required. The lift boards are lettered with Blender's built-in font.
 
 ## Third-party 3D models (CC BY 4.0)
 
-The following models were used as modelling references and, where stated, as mesh sources. Each is
+The following models were used as modeling references and, where stated, as mesh sources. Each is
 licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/) and
 was modified for Cities: Skylines II (re-scaled, re-topologised, re-UV'd and re-textured; see
 `assets/external/*/SOURCE.md` for exactly what was reused).

@@ -264,7 +264,7 @@ namespace SkiResortMod.Systems
         // T133: the groomer lays made snow too ("made or natural"), so the groomed ceiling is the gun stop depth (was 0.25 m: a
         // groomed run could never open on its own under the 3 ft bar). Its gate stays freezing + 0 (GroomedMarginC).
         public const float GroomedTargetDepthM = GunStopDepthM;
-        public const float RampPerTopupM = 0.004f;     // metres per top-up window at rate 1 and gun output 1
+        public const float RampPerTopupM = 0.004f;     // meters per top-up window at rate 1 and gun output 1
         public const float RampRateMin = 0.25f;        // per-texel noise rate range: Min .. Min + Span
         public const float RampRateSpan = 1.75f;
         public const float RampChillSpanC = 4f;        // degrees below the threshold for full gun output
@@ -315,7 +315,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Degrees of aspect: 1 on flat ground or an east-west face, up to ProtectNorthFactor on a steep north
         /// face and down to ProtectSouthFactor on a steep south face. <paramref name="dhdx"/> and <paramref name="dhdz"/>
-        /// are the terrain slope components (metres per metre, central differences); +Z is north (UNVERIFIED: the sun is
+        /// are the terrain slope components (meters per meter, central differences); +Z is north (UNVERIFIED: the sun is
         /// computed in local coordinates from the latitude, PlanetarySystem.cs:455-463); <paramref name="northSign"/> is
         /// -1 for a southern-hemisphere latitude, else 1. A slope faces the way it descends, so it faces north when the
         /// height falls toward +Z.</summary>
@@ -458,20 +458,20 @@ namespace SkiResortMod.Systems
             return d >= SeasonRolloverDate ? year : year - 1;
         }
 
-        /// <summary>Volume in cubic metres of a summed normalized depth gain over texels of the given area.</summary>
+        /// <summary>Volume in cubic meters of a summed normalized depth gain over texels of the given area.</summary>
         public static double VolumeM3(double normalizedDepthSum, float texelAreaM2)
         {
             return normalizedDepthSum * SnowHeightScaleM * texelAreaM2;
         }
 
-        /// <summary>The same volume as centimetre-texels (1 cm over one texel).</summary>
+        /// <summary>The same volume as centimeter-texels (1 cm over one texel).</summary>
         public static double CmTexels(double volumeM3, float texelAreaM2)
         {
             return texelAreaM2 > 0f ? volumeM3 / texelAreaM2 * 100.0 : 0.0;
         }
 
         /// <summary>Snow a run's guns made (raised toward the gun target) and snow protection put back (held against melt),
-        /// this season and in total, in cubic metres.</summary>
+        /// this season and in total, in cubic meters.</summary>
         public struct RunLedger
         {
             public bool HasSeason;

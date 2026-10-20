@@ -2,7 +2,7 @@
 // econ-round/spec/ch4-money.md §5.9, §6.5): Realistic Workplaces And Households (assembly "RWH", RWH.csproj
 // <AssemblyName>, measurable-stats.md V5) and Meapy's Tourism Overhaul (Mod's existing scan,
 // Mod.DetectTourismOverhaul). Assembly NAMES only (AppDomain, GetName().Name) — no type of another mod is
-// touched (rule 1). No behaviour depends on it: it only switches hub notes (CityStats.RealisticWorkplaces,
+// touched (rule 1). No behavior depends on it: it only switches hub notes (CityStats.RealisticWorkplaces,
 // ch5 §5.4).
 // Round M2 (D15 under R9, 2026-10-10, builder B3; docs/research/round-m2/decisions.md R9, build-contract.md §5.11,
 // §6.11): also the known trip-planner swaps, by assembly name (SkiTripSystems.BitOfAssembly: RealisticPathFinding =

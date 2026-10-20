@@ -30,7 +30,7 @@ by its skeptic MC1-MC11; build report build/detail-pass-1-lifts-tram.md).
   Revision 2 (design/tram-stations-rev2.md section 8 with the skeptic's MC1-MC9; build/tram-stations-rev2.md):
       D1 the base rack is EXACTLY a direct cs2_bldg.ski_rack_frame("t", 11.20, 10.80, slots=8, gear=True, ...) call
       (part names and tri counts: one rack look project-wide) - the stale "6 + 9" rack count (the old leaning rack)
-      is gone; no modelled post lamp / lamp head / hut lamp / entrance lantern / pendant box is built; the top has
+      is gone; no modeled post lamp / lamp head / hut lamp / entrance lantern / pendant box is built; the top has
       the three trail boards + labels, the frame-only wheel guard, the roof-mast dish and panel. D2 the top's
       emissive band re-based on the measured revision-2 export (-15 % / +25 %: the square lamp heads and the hut
       cube are gone). D3 the trail labels at 200 px/m (L2 graphics). D6 the top bound 20.70 (ruling Q3). D8 / D9
@@ -185,7 +185,7 @@ def _d1_counts(fine):
                                                              gear=True, skis=ts.TRAM_RACK_GEAR,
                                                              z0=ts.TRAM_RACK_AT[1], along="Y", mat="galv",
                                                              ski_mat="accent")}
-    # skeptic MC5: aframe_rack hands back liftdress-normalised parts (its own UVMap, no cross-net layers)
+    # skeptic MC5: aframe_rack hands back liftdress-normalized parts (its own UVMap, no cross-net layers)
     ts.clear_scene()
     ar = LD.aframe_rack("t", ts.TRAM_RACK_AT[2], ts.TRAM_RACK_AT[0], ts.TRAM_RACK_GEAR, z0=ts.TRAM_RACK_AT[1], along="Y")
     norm = [(o.name, "UVMap" in o.data.uv_layers,
@@ -228,7 +228,7 @@ def _d1_counts(fine):
         # LOD1_DELETE dressing families name dressing parts only (no station part shares the prefix)
         clash = sorted(n for n in names0 if n.startswith(DRESS_FAMILIES))
         check(not clash, f"D1 {role}: dressing LOD families collide with station parts {clash[:6]}")
-        # revision 2: no modelled lamp a vanilla row replaced (L1 / L3 / B2); the rev-2 top parts are built
+        # revision 2: no modeled lamp a vanilla row replaced (L1 / L3 / B2); the rev-2 top parts are built
         gone = sorted(n for n in names if n.startswith(("lamp_post_", "lamp_head_", "lamp_hut", "lamp_ent_"))
                       or re.fullmatch(r"lamp_\d+", n))
         new2 = {"top": {"cwguard_postL", "cwguard_postR", "cwguard_top", "cwguard_mid", "antdish", "antpanel",
@@ -243,7 +243,7 @@ def _d1_counts(fine):
 
 def d2_emissive():
     # revision 2 (design 7 "Emissive"): the top band re-based on the measured revision-2 export (930 lit texels:
-    # the four 0.30 m lamp heads and the hut cube, modelled emissive, are vanilla rows now) -15 % / +25 %; the
+    # the four 0.30 m lamp heads and the hut cube, modeled emissive, are vanilla rows now) -15 % / +25 %; the
     # base (205,875 after its six pendant and two lantern boxes went) stays inside its detail-pass band
     # nitpick B (JH_DETAILS): the base's canopy, boards and frames take atlas (w = 1 25.82 -> 24.81 px/m), so the same
     # lit faces cover fewer texels (201,041 -> 188,468 measured): the base floor re-based -15 % of the measured (the
@@ -507,7 +507,7 @@ def d10_resolution():
 # Fine-detail step 3c (build/fine-detail-step3c-tram-pali.md): F0 the switch, F1 the kit rows' contract (+ negatives),
 # F2 H1 placement against the removed parts, F3 fine geometry, F4 the shipped fine block
 # --------------------------------------------------------------------------------------
-KIT_H1_TOL = 0.001                      # F2: kit vs removed part, metres
+KIT_H1_TOL = 0.001                      # F2: kit vs removed part, meters
 
 
 def _blockout(role, fine):
@@ -844,7 +844,7 @@ def _files(folder, name):
 def fbx_equiv(pa, pb, tol=1e-6):
     """(equal, note) of two FBX exports from DIFFERENT processes: every element identical except (a) the tangent /
     binormal arrays, ulp noise <= tol (the mikktspace pass, test_tram_station_determinism.fbx_equal_except_tspace),
-    (b) the object UIDs (int64 props: Blender's exporter derives them from Python's per-process randomised str hash),
+    (b) the object UIDs (int64 props: Blender's exporter derives them from Python's per-process randomized str hash),
     which must map one-to-one, and (c) CreationTime / FileId. Measured R1: the zlib-compressed tangent arrays make
     the files' bytes and lengths differ while everything else is equal."""
     import io_scene_fbx.parse_fbx as pf

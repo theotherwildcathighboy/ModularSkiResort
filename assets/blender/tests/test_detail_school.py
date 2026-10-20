@@ -38,7 +38,7 @@ D9  LOD: new dressing absent from LOD1 except the `sign_` frames / post signs, e
 D10 sub-object placement: a wall prop's pivot within 0.05 m of one of our faces facing its +Z, its
     box >= 0.05 m clear of every other face of ours; a grade prop (vanilla or kit) on grade and
     >= 0.30 m clear of every mesh part; the new rows' boxes overlap no other row's box.
-D11 fine-detail H1 / H9: every new row at its removed part (cones' plan centre +-0.01 m, entry
+D11 fine-detail H1 / H9: every new row at its removed part (cones' plan center +-0.01 m, entry
     lamps on the wall plane at the old lens (y, z) +-0.01 m, each kit rack's frame = the removed
     rack's frame vertex for vertex +-1 mm, 2 cm lower: the kit foot is on y 0); host lot bounds =
     the pre-pass school's +-0.005 m (H9, design FS1).
@@ -321,7 +321,7 @@ def _game_to_auth(v):
 
 
 def _prop_box(o):
-    """(centre, axes 3x3 rows = local x / y / z in authoring, lo, hi local) of a prop."""
+    """(center, axes 3x3 rows = local x / y / z in authoring, lo, hi local) of a prop."""
     lo, hi = row_bounds(o)
     x, y, z, w = o["rotation"]
     q = Quaternion((w, x, y, z))
@@ -332,7 +332,7 @@ def _prop_box(o):
 
 
 def _tri_box_overlap(T, c, h):
-    """Bool per triangle (N, 3, 3) (box-local coords) overlapping the AABB centred c, half h
+    """Bool per triangle (N, 3, 3) (box-local coords) overlapping the AABB centered c, half h
     (Akenine-Moeller SAT: 3 box axes, the triangle normal, 9 edge cross products)."""
     v = T - c
     e = [v[:, 1] - v[:, 0], v[:, 2] - v[:, 1], v[:, 0] - v[:, 2]]
@@ -425,14 +425,14 @@ def d11_fine(man, verts_fine, legacy):
     """H1 (rows at the removed parts) and H9 (lot bounds), design G.2 / skeptic FS1."""
     objs = man["sub_objects"]["objects"]
     _lp, _lk, _lz, _lT, _ln, lverts, _lnt = legacy
-    # cones: plan centre of the removed cone_k = the row's (gx, gz) -> authoring (gz, gx)
+    # cones: plan center of the removed cone_k = the row's (gx, gz) -> authoring (gz, gx)
     cones = [o for o in objs if o["prefab"] == "SafetyConeRandom01"]
     for k, o in enumerate(cones):
         V = lverts[f"cone_{k}"]
         cx, cy = 0.5 * (V[:, 0].min() + V[:, 0].max()), 0.5 * (V[:, 1].min() + V[:, 1].max())
         d = math.hypot(o["position"][2] - cx, o["position"][0] - cy)
         assert d <= 0.01 and o["m_ParentMesh"] == -1, f"D11 H1: cone row {k} {o['position']} vs ({cx:.3f}, {cy:.3f})"
-    # entry lamps: the old lens centre (y, z) on the wall plane x = TW[1]
+    # entry lamps: the old lens center (y, z) on the wall plane x = TW[1]
     lamps = [o for o in objs if o["prefab"] == "WallLightShortRangeRandom01"
              and abs(o["position"][1] - SCH["ENTRY_LAMP_Z"]) < 1e-6]
     for (tag, _y), o in zip(SCH["ENTRY_LAMPS"], lamps):
@@ -480,7 +480,7 @@ def d11_fine(man, verts_fine, legacy):
 
 def _placard_problems(V, leaf, cz_want):
     """[] when a placard quad V (4, 3) lies MARK_PROUD in front of the +X door leaf `leaf` (its
-    vertex array), inside it (0.05 m margin) with its centre MARK_CZ above the leaf bottom."""
+    vertex array), inside it (0.05 m margin) with its center MARK_CZ above the leaf bottom."""
     bad = []
     fx = leaf[:, 0].max()
     if np.abs(V[:, 0] - (fx + SCH["MARK_PROUD"])).max() > 1e-4:

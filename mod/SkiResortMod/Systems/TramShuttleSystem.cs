@@ -67,7 +67,7 @@
 //                                                    CarrierDef.GripTopAboveRopeM (0.50) = 10.00 (R27: placed by the ROPE,
 //                                                    never by bounds.max.y); the pivot (floor underside) hangs 10 m below
 //   rotation   = NetUtils.GetNodeRotation(-t_up, the parked rotation)   (C4) NetUtils.cs:316-324 (=1.6.2) zeroes
-//                tangent.y: level cabins, the hanger modelled plumb; -t_up, never the travel direction, so no 180-degree
+//                tangent.y: level cabins, the hanger modeled plumb; -t_up, never the travel direction, so no 180-degree
 //                turn at a reversal (R29: the cabin is front / back symmetric); at the base dock -t_up = station +Z, so
 //                the running pose there equals the hosted identity pose (rope 16.00 - 10.00 = pivot 6.00)
 //   idempotence: distance² < 1e-6 and |dot(q, q')| > 0.99999 -> no write (ChairPinSystem.cs:1168-1171);
@@ -139,7 +139,7 @@
 //   load); per station per load the cabin-count WARNs (0, 1 or > 2 hosted cabins; a base starting two lines); per prefab
 //   per load the no-drop WARN; [state] transitions (Info, a 10 s LogWindow per shuttle, flushed on load and quit),
 //   including "<state> → Parked (no shuttle path)" when a known shuttle vanishes from a rebuild and "Parked → <state>" when
-//   that pair gets a shuttle back (round-3 behaviour review #1; one transient set of vanished pairs, cleared per load);
+//   that pair gets a shuttle back (round-3 behavior review #1; one transient set of vanished pairs, cleared per load);
 //   "[moving] pass alive" once per load; the slow-pass WARN (a mover pass over 1.0 ms) once per load; an exception ->
 //   "!!! TramShuttleSystem disabled for this load" with the stack, once per load, re-armed on the next load; the
 //   watchdog WARN when a watchdog rebuild changed the signature (once per load). The dev tab (C17) and AppendDump read
@@ -322,10 +322,10 @@ namespace SkiResortMod.Systems
         private bool m_MovingAliveLogged, m_SlowWarned, m_WatchdogWarned;
         private readonly HashSet<string> m_Warned = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<Entity> m_CabinWarned = new HashSet<Entity>();
-        // Behaviour review #5: the "starts N tram lines" WARN has its own once-per-base set, so a base that ALSO hosts a wrong
+        // Behavior review #5: the "starts N tram lines" WARN has its own once-per-base set, so a base that ALSO hosts a wrong
         // number of cabins (m_CabinWarned) still gets both lines.
         private readonly HashSet<Entity> m_TwoLinesWarned = new HashSet<Entity>();
-        // Behaviour review #1 (transient, per load, never saved): pairs whose known Run vanished from a rebuild; the pair's
+        // Behavior review #1 (transient, per load, never saved): pairs whose known Run vanished from a rebuild; the pair's
         // next Run logs "Parked → <state>" (a new Run has no previous state of its own).
         private readonly HashSet<(Entity, Entity)> m_VanishedPairs = new HashSet<(Entity, Entity)>();
 
@@ -352,7 +352,7 @@ namespace SkiResortMod.Systems
         /// true with CabinsOnPath 0 (the hub reads them ChairsStopped).</summary>
         internal bool TryGetShuttle(Entity stationA, Entity stationB, out ShuttleView view)
         {
-            // Behaviour review #4: after an exception the system is disabled for the load and its cabins stand where they
+            // Behavior review #4: after an exception the system is disabled for the load and its cabins stand where they
             // were; the last Run would still read "Running". No path -> Stats reads state 1 (ChairsStopped).
             Run run = m_Disabled ? null : FindRun(stationA, stationB);
             if (run == null)
@@ -1707,7 +1707,7 @@ namespace SkiResortMod.Systems
             int chain = bay == run.BayOfA ? 0 : 1;
             run.Cabin[chain] = cabin;
             run.Drop[chain] = drop;
-            // Behaviour review #3: a cabin with no usable drop (Drop <= 0) is only ever parked, so it is not counted among the
+            // Behavior review #3: a cabin with no usable drop (Drop <= 0) is only ever parked, so it is not counted among the
             // cabins on the path (hub capacity, "cabin(s) riding"); it stays a rider of this run (never ParkTheRest's).
             if (drop > 0f)
                 run.Cabins++;

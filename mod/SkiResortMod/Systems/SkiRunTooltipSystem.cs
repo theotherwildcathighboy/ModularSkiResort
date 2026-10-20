@@ -8,13 +8,13 @@
 //                                              RatingGrade, the crux of the easiest line (§9.3).
 //      or, when the run's Mask fell apart (Readout.Connected false; the rating is the P90
 //      fallback, not a crux): "Typical steep pitch (run outline broken, rating approximate): 32 %",
-//      Warning colour, its own path (R2 fixer round)
+//      Warning color, its own path (R2 fixer round)
 //   3. "Length: 864 m"                         IntTooltip, unit "length" — R3: Readout.Length,
-//                                              HORIZONTAL metres (decision D14), round(Length);
+//                                              HORIZONTAL meters (decision D14), round(Length);
 //                                              ring = max(equivalent rectangle, fall-line
 //                                              extent), polyline = arc length
 //                                              (SkiSlopeClassifier header "RUN LENGTH")
-//   4. "Vertical drop: 140 m"                  IntTooltip, unit "length" (metres in; the UI
+//   4. "Vertical drop: 140 m"                  IntTooltip, unit "length" (meters in; the UI
 //                                              converts to m/km or yd/mi)
 //   4b. "Avg 18 ° (32 %) · steepest 31 ° (60 %)"  StringTooltip, path skiRunSlope (T35 / T44, 2026-10-16: the
 //                                              live grade, so the player sees why the run will rate as it does
@@ -35,7 +35,7 @@
 //                                              (§9.6 item 4)
 //   6. "No Ski Area Welcome Sign within 5 km"  StringTooltip, Warning — new runs only
 //   7. Run fee (one-time) — IntTooltip, money unit, Money icon; NEW runs only;
-//      SkiRunFees.Fee(kind, plan area), the same function the bind charges; Error colour when the
+//      SkiRunFees.Fee(kind, plan area), the same function the bind charges; Error color when the
 //      city has less money (vanilla TempCostTooltipSystem.cs:79-82). Round E1 (D21; econ-round spec
 //      ch2 §6.4; stream S2, 2026-10-04): label key SkiResort.Tooltip.RUN_FEE (root LocaleEN.cs), path
 //      "skiRunFee", inputs SkiRunDrawFeedbackSystem.TryGetFeeInputs. It shows even when the rating
@@ -62,7 +62,7 @@
 //    Connected, SteepestGrade >= RatingGrade + DisplayHysteresis (0.5 %), the two ROUNDED
 //    percentages differ, and BandOf(SteepestGrade) above the shown band. Without the margin a
 //    uniform 24.90 % plane read "Green / Hardest unavoidable pitch 25 % / Steepest patch
-//    (avoidable) 25 %" (quantisation puts SteepestGrade up to +0.29 % above the crux; 61-68 of
+//    (avoidable) 25 %" (quantization puts SteepestGrade up to +0.29 % above the crux; 61-68 of
 //    936 near-threshold plane cases fired). In polyline mode the feedback system publishes
 //    SteepestGrade == RatingGrade (a line has one path), so line 4 never shows there.
 //  * Readout.Connected is now read: with a broken Mask (a sub-cell neck, a bow-tie) the rating
@@ -99,8 +99,8 @@
 // AreaToolTooltipSystem.cs:78-95) and never subclassed — Widget.propertiesTypeName is
 // GetType().FullName (Widget.cs:74) and the JS renderer knows only the Game.UI.Tooltip.* names;
 // IntTooltip renders because NumberTooltip<T> overrides it (NumberTooltip.cs:80). TooltipColor
-// has only Info/Success/Warning/Error (TooltipColor.cs:3-9), so bands cannot be coloured
-// blue/black — the band NAME carries it. IntTooltip has a colour too (NumberTooltip<T> :
+// has only Info/Success/Warning/Error (TooltipColor.cs:3-9), so bands cannot be colored
+// blue/black — the band NAME carries it. IntTooltip has a color too (NumberTooltip<T> :
 // LabelIconTooltip : IconTooltip, NumberTooltip.cs:6, LabelIconTooltip.cs:7, IconTooltip.cs:31),
 // which the approximate-pitch line uses. A label is a LocalizedString compared with
 // object.Equals (LabelIconTooltip.cs:21, boxing), so each label lives on its own widget, set
@@ -175,7 +175,7 @@ namespace SkiResortMod.Systems
         private ToolSystem m_ToolSystem;
         private AreaToolSystem m_AreaTool;
         private SkiRunDrawFeedbackSystem m_Feedback;
-        private CitySystem m_CitySystem;   // E1: moneyAmount for the fee row's colour (CitySystem.cs:31)
+        private CitySystem m_CitySystem;   // E1: moneyAmount for the fee row's color (CitySystem.cs:31)
 
         private StringTooltip m_Grade;
         private IntTooltip m_Pitch;       // crux (RatingGrade), path kept as "skiRunPitch"
@@ -236,7 +236,7 @@ namespace SkiResortMod.Systems
             {
                 path = "skiRunDrop",
                 label = LocalizedString.Id(KeyDrop),
-                unit = "length",     // metres in (WaterSourceTooltipSystem.cs:51 height,
+                unit = "length",     // meters in (WaterSourceTooltipSystem.cs:51 height,
                                      // NetCourseTooltipSystem.cs:59 — both FloatTooltip; the
                                      // unit is JS-side, IntTooltip + "length" unverified in-game)
             };
@@ -360,7 +360,7 @@ namespace SkiResortMod.Systems
                         AddMouseTooltip(pitch);
                     }
 
-                    // 3. Run length (R3, spec §5.1), horizontal metres, between the pitch and the drop.
+                    // 3. Run length (R3, spec §5.1), horizontal meters, between the pitch and the drop.
                     //    Shown only when positive (a cleared result reads 0; Valid already excludes it).
                     if (math.isfinite(r.Length) && r.Length > 0f)
                     {
@@ -368,7 +368,7 @@ namespace SkiResortMod.Systems
                         AddMouseTooltip(m_Length);
                     }
 
-                    // 4. Vertical drop, metres.
+                    // 4. Vertical drop, meters.
                     if (math.isfinite(r.Drop))
                     {
                         m_Drop.value = (int)math.round(r.Drop);
@@ -439,7 +439,7 @@ namespace SkiResortMod.Systems
                 }
 
                 // 7. Run fee (one-time), E1 (D21): SkiRunFees.Fee — the function the bind charges — of
-                //    the kind and the plan area; Error colour when the city has less money (the vanilla
+                //    the kind and the plan area; Error color when the city has less money (the vanilla
                 //    rule, TempCostTooltipSystem.cs:79-82). value / color assignments allocate nothing.
                 if (fee)
                 {

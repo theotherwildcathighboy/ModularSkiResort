@@ -9,7 +9,7 @@ Checks (exit 1 on any failure):
                     exists; no sharer ships a PNG; the owner ships exactly four 2048^2 maps.
   FP2 sign cards    measure_all() on the CURRENT DQ base FBX: both spots OK (flat <= 6 mm, normal
                     <= 2 deg, 2 m clear); the exported card front planes sit CARD_T (0.020) off the
-                    measured wall +-1 mm, card centres at their (y, z) +-1 mm, every front face
+                    measured wall +-1 mm, card centers at their (y, z) +-1 mm, every front face
                     normal along the wall's outward normal (-x); the shipped manifest was measured on
                     the same FBX sha1 (stale-host guard).
   FP3 lodge rows    every lodge row is OK (no lodge geometry above 0.05 m in its footprint, inside
