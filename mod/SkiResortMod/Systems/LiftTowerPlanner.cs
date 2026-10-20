@@ -41,6 +41,13 @@
 //   (d) output: ordered nodes (along, ground, high side, member, rope y, flags) + per-span clearance profile, and AppendLog writes
 //       a "Towers [plan]" block in the "Towers [nodes]" format of LiftTowerDiagSystem so the two compare line by line.
 //
+// STEP 3 (T48, build note docs/research/field/2026-10-19-evening/t48-step3-build.md): the engine's node COUNT is fixed (equal split,
+//   CourseSplitSystem.cs:3485-3493), so LiftTowerFitSystem asks Fit: (1) PlanFixed = phase (c) only at the line's own nodes (each
+//   node gets its own profile sample); (2) else, on a straight line, the free plan with spans capped at the engine's max edge length,
+//   spare nodes at the longest spans' midpoints; (3) else Short (the better of the two, the tower count the line would need).
+//   LiftTowerEdit holds the engine-side numbers (node elevation per member, the vanilla score / top-anchored placement replica, the
+//   power-line edge curve). LiftBatch LP-11..LP-15.
+//
 // Deterministic: no randomness, no hash order, ties broken by the sample index.
 
 using System;
@@ -339,6 +346,89 @@ namespace SkiResortMod.Systems
         internal static string Sg(float v) => (v >= 0f ? "+" : string.Empty) + v.ToString("F1", CultureInfo.InvariantCulture);
     }
 
+    /// <summary>Step 3: how a line with a fixed node count was fitted (LiftTowerPlanner.Fit).</summary>
+    public enum LiftFitMode
+    {
+        Kept,    // heights only, at the nodes where they are
+        Moved,   // the planner's positions (spare nodes at span midpoints), heights by phase (c)
+        Short,   // no clear arrangement with this many nodes: the better of the two, violation reported
+    }
+
+    public sealed class LiftTowerFit
+    {
+        public LiftFitMode Mode;
+        public LiftTowerPlan Plan;    // the arrangement to build (Kept, Moved or the better of the two)
+        public LiftTowerPlan Kept;    // heights only at the current positions
+        public LiftTowerPlan Moved;   // null unless tried
+        public LiftTowerPlan Free;    // the planner's own line (its node count may differ)
+        public int Inner;             // line towers the line has (its inner nodes)
+        public int Needed;            // line towers the free plan uses
+    }
+
+    /// <summary>Step 3 (T48): the engine-side numbers of a fitted node, pure so LiftBatch checks them (LP-15). A tower node is raised
+    /// so that the vanilla placeholder ladder spawns exactly the planned member on the ground:
+    ///   node y = centre ground + E, Game.Net.Elevation = (E, E), E = TopM[member] - TopM[0];
+    ///   SubObjectSystem scores member m' with spare = m_Size.y - (cmin(Elevation) + spec y) (Game.Objects/SubObjectSystem.cs:980,
+    ///   :2189-2199; spec y = TopM[0] in all four line prefabs: FG 9.014, DQ 9.95, GD 12, tram 30), so the planned member has spare 0
+    ///   and score 1, every other member scores at most 1/(1 + step) — no tie, no random draw (:2346-2358); a node tagged Updated
+    ///   is re-scored (owner query All SubObject + Any Updated, :3936-3943);
+    ///   a Standalone pillar is placed TOP-anchored (AnchorTop + OnGround, :2464-2469): pivot = node y + spec y - member top
+    ///   (:2477-2482; the node-y-minus-elevation rule at :2521 skips AnchorTop rows) = ground + E + TopM[0] - TopM[m] = the ground;
+    ///   the rope lane = node y + lane y (LaneSystem.cs:4112-4115) = ground + TopM[m] - RopeBelowTopM = the planner's rope;
+    ///   the edge curve is the engine's own power-line curve between the two node points, NetUtils.StraightCurve(a, d, net
+    ///   m_Hanging) (NetUtils.cs:178-191, CourseSplitSystem.cs:1702-1704 for StrictNodes nets).</summary>
+    public static class LiftTowerEdit
+    {
+        public static float ElevationM(LiftTowerPlanConstants c, int member) =>
+            member <= 0 ? 0f : c.Ladder[member].TopM - c.Ladder[0].TopM;
+
+        /// <summary>Where the engine stands member <paramref name="member"/> at a node <paramref name="elevationM"/> above the ground:
+        /// its pivot above the ground (AnchorTop, :2477-2482: node y + spec y - top; spec y = TopM[0]). 0 = on the ground.</summary>
+        public static float EnginePivotAboveGround(LiftTowerPlanConstants c, int member, float elevationM) =>
+            elevationM + c.Ladder[0].TopM - c.Ladder[member].TopM;
+
+        /// <summary>SubObjectSystem placeholder score (Standalone pillar, :2189-2199) of a member with top <paramref name="topM"/>.</summary>
+        public static float EngineScore(float topM, float ownerElevationM, float specY)
+        {
+            float spare = topM - (ownerElevationM + specY);
+            return 1f / (1f + (spare >= 0f ? 2f * spare : -spare));
+        }
+
+        /// <summary>The member the engine spawns at an owner elevation (highest score; ties -> -1, the engine would draw).</summary>
+        public static int EngineWinner(LiftTowerPlanConstants c, float ownerElevationM, out float score)
+        {
+            float specY = c.Ladder[0].TopM;
+            int best = -1;
+            score = -1f;
+            bool tie = false;
+            for (int m = 0; m < c.Ladder.Length; m++)
+            {
+                float s = EngineScore(c.Ladder[m].TopM, ownerElevationM, specY);
+                if (s > score + 1e-6f)
+                {
+                    score = s;
+                    best = m;
+                    tie = false;
+                }
+                else if (math.abs(s - score) <= 1e-6f)
+                {
+                    tie = true;
+                }
+            }
+            return tie ? -1 : best;
+        }
+
+        /// <summary>NetUtils.StraightCurve(a, d, hanging) (NetUtils.cs:178-191): the inner control points of a power-line edge.</summary>
+        public static void HangingCurve(float3 a, float3 d, float hanging, out float3 b, out float3 c)
+        {
+            b = math.lerp(a, d, 1f / 3f);
+            c = math.lerp(a, d, 2f / 3f);
+            float drop = math.distance(a.xz, d.xz) * hanging * 1.3333334f;
+            b.y -= drop;
+            c.y -= drop;
+        }
+    }
+
     public sealed class LiftTowerPlanner
     {
         private const float Tol = 0.01f;
@@ -348,6 +438,7 @@ namespace SkiResortMod.Systems
         private float m_Length;
         private int m_N;                      // samples 0..m_N (m_N + 1 values), S[m_N] = length
         private float[] m_S = new float[0], m_Centre = new float[0], m_High = new float[0], m_Low = new float[0];
+        private readonly List<float> m_Along = new List<float>();
         private float m_RopeA, m_RopeB;
         private bool m_UseSag = true;
 
@@ -415,10 +506,35 @@ namespace SkiResortMod.Systems
         // Profile
         // ════════════════════════════════════════════════════════════════════════════════════════
 
-        private void Sample(LiftTerrainSampler terrain)
+        private void Sample(LiftTerrainSampler terrain) => Sample(terrain, null);
+
+        /// <summary>The profile: one sample every StepM (the last at the line's end), plus one at each of <paramref name="extra"/>
+        /// (fixed node positions, step 3: a node off the grid gets its own sample, so its tower base and rope are exact). Plan()
+        /// passes none, which keeps its grid (k · StepM) unchanged.</summary>
+        private void Sample(LiftTerrainSampler terrain, IList<float> extra)
         {
             float step = m_C.StepM;
-            m_N = math.max(1, (int)math.ceil(m_Length / step - 1e-4f));
+            int grid = math.max(1, (int)math.ceil(m_Length / step - 1e-4f));
+            m_Along.Clear();
+            for (int k = 0; k <= grid; k++)
+                m_Along.Add(k == grid ? m_Length : k * step);
+            if (extra != null)
+            {
+                for (int e = 0; e < extra.Count; e++)
+                {
+                    float s = extra[e];
+                    if (!(s > 1e-3f && s < m_Length - 1e-3f))
+                        continue;
+                    int at = m_Along.BinarySearch(s);
+                    if (at >= 0)
+                        continue;
+                    at = ~at;
+                    if ((at > 0 && s - m_Along[at - 1] < 1e-3f) || (at < m_Along.Count && m_Along[at] - s < 1e-3f))
+                        continue;
+                    m_Along.Insert(at, s);
+                }
+            }
+            m_N = m_Along.Count - 1;
             int count = m_N + 1;
             if (m_S.Length < count)
             {
@@ -430,7 +546,7 @@ namespace SkiResortMod.Systems
             float hw = m_C.HalfWidthM;
             for (int k = 0; k <= m_N; k++)
             {
-                float s = k == m_N ? m_Length : k * step;
+                float s = m_Along[k];
                 float c = terrain(s, 0f);
                 float l = hw > 0f ? terrain(s, -hw) : c;
                 float r = hw > 0f ? terrain(s, hw) : c;
@@ -439,6 +555,119 @@ namespace SkiResortMod.Systems
                 m_High[k] = math.max(c, math.max(l, r));
                 m_Low[k] = math.min(c, math.min(l, r));
             }
+        }
+
+        /// <summary>The sample index nearest <paramref name="along"/> (fixed-node mode: every node has its own sample).</summary>
+        private int SampleIndex(float along)
+        {
+            int at = m_Along.BinarySearch(along);
+            if (at >= 0)
+                return at;
+            at = ~at;
+            if (at <= 0)
+                return 0;
+            if (at > m_N)
+                return m_N;
+            return along - m_S[at - 1] <= m_S[at] - along ? at - 1 : at;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        // Step 3: fixed nodes (the engine's node count) — PlanFixed, Fit
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>Members for towers at FIXED positions <paramref name="innerAlongM"/> (metres from station A, ascending; the line's
+        /// existing nodes): phase (c) only, no node added or moved. <paramref name="members"/> given and <paramref name="assign"/>
+        /// false = evaluate those members as they stand (the "before" of a line). <paramref name="flags"/> are carried to the output
+        /// (default Seed).</summary>
+        public LiftTowerPlan PlanFixed(LiftTerrainSampler terrain, float lengthM, float ropeA, float ropeB, LiftTowerPlanConstants c,
+                                       IList<float> innerAlongM, IList<int> members = null, IList<LiftPlanNodeFlags> flags = null,
+                                       bool assign = true)
+        {
+            if (terrain == null || c == null || c.Ladder == null || c.Ladder.Length == 0 || innerAlongM == null)
+                throw new ArgumentException("LiftTowerPlanner.PlanFixed: terrain, constants, a ladder and the node positions are required");
+            m_C = c;
+            m_Length = math.max(lengthM, 0.1f);
+            m_RopeA = ropeA;
+            m_RopeB = ropeB;
+            Sample(terrain, innerAlongM);
+            m_K.Clear(); m_M.Clear(); m_F.Clear();
+            m_K.Add(0); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
+            m_K.Add(m_N); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
+            for (int i = 0; i < innerAlongM.Count; i++)
+            {
+                int k = SampleIndex(innerAlongM[i]);
+                if (k <= 0 || k >= m_N || IndexOf(k) >= 0)
+                    continue;
+                int m = members != null && i < members.Count ? math.clamp(members[i], 0, c.Ladder.Length - 1) : 0;
+                LiftPlanNodeFlags f = flags != null && i < flags.Count ? flags[i] & ~LiftPlanNodeFlags.Station : LiftPlanNodeFlags.Seed;
+                Insert(k, m, f);
+            }
+            m_UseSag = true;
+            if (assign)
+                AssignMembers();
+            return Build();
+        }
+
+        /// <summary>Step 3 (T48): fit a line whose node COUNT is fixed (the engine split it, CourseSplitSystem.cs:3485-3493; adding a node
+        /// needs a new course). (1) Kept: heights only at the current positions. (2) Moved (allowed on a straight line): the free plan
+        /// (spans capped at the engine's max edge length <paramref name="engineMaxSpanM"/>) when it needs no more towers than the line
+        /// has; the spare nodes go to the midpoints of the longest spans; heights by phase (c). (3) Short: neither is clear: the better
+        /// of the two by floor margin, and the tower count the free plan needs.</summary>
+        public LiftTowerFit Fit(LiftTerrainSampler terrain, float lengthM, float ropeA, float ropeB, LiftTowerPlanConstants c,
+                                IList<float> currentInnerAlongM, bool allowMove, float engineMaxSpanM)
+        {
+            var fit = new LiftTowerFit { Inner = currentInnerAlongM.Count };
+            LiftTowerPlanConstants cm = c;
+            if (engineMaxSpanM > 0f && engineMaxSpanM < c.MaxSpanM)
+                cm = c.With(maxSpanM: engineMaxSpanM, typicalSpanM: math.min(c.TypicalSpanM, engineMaxSpanM));
+            fit.Free = Plan(terrain, lengthM, ropeA, ropeB, cm);
+            fit.Needed = fit.Free.LineTowers;
+            fit.Kept = PlanFixed(terrain, lengthM, ropeA, ropeB, c, currentInnerAlongM);
+            if (fit.Kept.Clear)
+            {
+                fit.Mode = LiftFitMode.Kept;
+                fit.Plan = fit.Kept;
+                return fit;
+            }
+            if (allowMove && fit.Needed <= fit.Inner && fit.Inner > 0)
+            {
+                var along = new List<float>();
+                var flags = new List<LiftPlanNodeFlags>();
+                for (int i = 1; i < fit.Free.Nodes.Length - 1; i++)
+                {
+                    along.Add(fit.Free.Nodes[i].AlongM);
+                    flags.Add(fit.Free.Nodes[i].Flags);
+                }
+                // Spare nodes: the midpoint of the longest span, one at a time (ties: the first).
+                while (along.Count < fit.Inner)
+                {
+                    int best = 0;
+                    float bestLen = -1f, prev = 0f;
+                    for (int s = 0; s <= along.Count; s++)
+                    {
+                        float end = s < along.Count ? along[s] : lengthM;
+                        if (end - prev > bestLen + 1e-3f)
+                        {
+                            bestLen = end - prev;
+                            best = s;
+                        }
+                        prev = end;
+                    }
+                    float start = best == 0 ? 0f : along[best - 1];
+                    along.Insert(best, start + 0.5f * bestLen);
+                    flags.Insert(best, LiftPlanNodeFlags.Infill);
+                }
+                fit.Moved = PlanFixed(terrain, lengthM, ropeA, ropeB, c, along, null, flags);
+                if (fit.Moved.Clear)
+                {
+                    fit.Mode = LiftFitMode.Moved;
+                    fit.Plan = fit.Moved;
+                    return fit;
+                }
+            }
+            fit.Mode = LiftFitMode.Short;
+            fit.Plan = fit.Moved != null && fit.Moved.MinFloorMarginM > fit.Kept.MinFloorMarginM + Tol ? fit.Moved : fit.Kept;
+            return fit;
         }
 
         // ════════════════════════════════════════════════════════════════════════════════════════

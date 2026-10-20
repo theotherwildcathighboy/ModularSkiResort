@@ -457,6 +457,13 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupLifts)]
         public bool LiftBuildAids { get; set; }
 
+        /// <summary>T48 step 3: LiftTowerFitSystem fits every new or changed lift line once its edits settle (tower heights through
+        /// the node elevation, tower positions along a straight line) so the carriers keep their floor over the ground. Off = the
+        /// lines stay as the engine split them (the diagnostic still logs the plan). Read live by LiftTowerFitSystem. Persisted
+        /// under this property name — never rename.</summary>
+        [SettingsUISection(SectionMain, GroupLifts)]
+        public bool LiftTowerPlanner { get; set; }
+
         // --- Diagnostics (code review 2026-10-19, DECISIONS 314 D4 + D9) ---------------------
 
         /// <summary>Measurement scaffolding for field tests, OFF by default and for every player: (D4) the midday
@@ -533,6 +540,7 @@ namespace SkiResortMod.Settings
             ShowHubButton = true;                 // resort-hub-understand.md §5.1 OD2 (default on)
             OpenHubOnSignSelect = true;           // §5.1 / §5.2 item 2 (default on)
             LiftBuildAids = true;                 // hub-u2-spec.md §2.4 (default on)
+            LiftTowerPlanner = true;              // T48 step 3 (default on)
             DiagnosticMeasurements = DefaultDiagnosticMeasurements;   // D4 / D9: off
             // Key bindings deliberately absent: the base constructor generated them
             // (ModSetting.cs:43, 56-64) before this runs.

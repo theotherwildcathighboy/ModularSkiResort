@@ -231,7 +231,7 @@ namespace SkiResortMod.Systems
         // Components and signature (pure data)
         // ════════════════════════════════════════════════════════════════════════════════════════
 
-        private static List<List<LiftCensus.Edge>> Components(List<LiftCensus.Edge> edges)
+        internal static List<List<LiftCensus.Edge>> Components(List<LiftCensus.Edge> edges)
         {
             var result = new List<List<LiftCensus.Edge>>();
             int n = edges.Count;
@@ -283,7 +283,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Order-independent hash of the component's edge ids and node positions (0.1 m): a redraw, a moved node or
         /// a moved station gives a new signature; an unrelated build does not.</summary>
-        private static uint Signature(List<LiftCensus.Edge> comp)
+        internal static uint Signature(List<LiftCensus.Edge> comp)
         {
             uint h = 0;
             for (int i = 0; i < comp.Count; i++)
@@ -308,7 +308,7 @@ namespace SkiResortMod.Systems
         // One line -> one block
         // ════════════════════════════════════════════════════════════════════════════════════════
 
-        private struct Hop
+        internal struct Hop
         {
             public Entity Node;
             public Entity NextEdge;     // the edge to the following node in this path (Null at the path's end)
@@ -520,7 +520,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The point <paramref name="along"/> metres (xz) along the node polyline, <paramref name="lateral"/> metres to the
         /// right of its local direction (y = 0); <paramref name="right"/> = that unit right vector.</summary>
-        private static float3 PolylineAt(float3[] pts, float[] cum, float along, float lateral, out float3 right)
+        internal static float3 PolylineAt(float3[] pts, float[] cum, float along, float lateral, out float3 right)
         {
             int seg = 0;
             while (seg < pts.Length - 2 && cum[seg + 1] < along)
@@ -537,7 +537,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Walk the component into paths of nodes (start at a degree-1 node, lowest y first; branches restart at a
         /// visited node with an unvisited edge).</summary>
-        private List<List<Hop>> Paths(List<LiftCensus.Edge> comp)
+        internal List<List<Hop>> Paths(List<LiftCensus.Edge> comp)
         {
             var adj = new Dictionary<Entity, List<int>>();
             for (int i = 0; i < comp.Count; i++)

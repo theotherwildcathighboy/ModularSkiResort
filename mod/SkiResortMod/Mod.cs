@@ -553,6 +553,16 @@ namespace SkiResortMod
             // Gated by the LiftBuildAids setting inside the system.
             updateSystem.UpdateBefore<LiftTowerPlanOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
 
+            // T48 step 3 (docs/research/field/2026-10-19-evening/t48-step3-build.md): the tower FIT — writes each new / changed lift
+            // line's node positions, node y + Game.Net.Elevation and edge curves, and tags them Updated. Fed by LiftCensusSystem
+            // (OnCensusBuilt, 4B of an earlier frame). Phase is load-bearing: Modification1 is the first phase of the frame's
+            // modification chain, so every consumer of the Updated tag runs after the write in the SAME frame — GroundHeightSystem
+            // (Modification2, SystemOrder.cs:117), SubObjectSystem (2B, :131: re-scores the tower ladder), CompositionSelectSystem (3),
+            // Net.GeometrySystem and LaneSystem (4), the census and ChairPinSystem (4B) — before CleanUpSystem wipes the tag
+            // (Cleanup, :54). A write at 4B would lose the tag unseen. No ordering inside Modification1 is needed (its systems
+            // generate from tool definitions; none reads permanent lift nodes). Gated by the LiftTowerPlanner setting inside.
+            updateSystem.UpdateAt<LiftTowerFitSystem>(SystemUpdatePhase.Modification1);
+
             // Lift park emitter (§5.3 OD-6 (a); I-2's fix of a spec error, registration added by the
             // integrator 2026-10-03). The census (4B) only QUEUES the surviving sections of an opened lift:
             // EndFrameBarrier.CreateCommandBuffer throws at Modification4B (Game/SafeCommandBufferSystem.cs

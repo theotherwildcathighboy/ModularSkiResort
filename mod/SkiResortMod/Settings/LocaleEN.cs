@@ -395,6 +395,15 @@ namespace SkiResortMod.Settings
                     "Guide line and offset readout while placing a station; a warning on the bulldozer " +
                     "showing what a click on a lift removes"
                 },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LiftTowerPlanner)),
+                    "Plan lift towers"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTowerPlanner)),
+                    "After you draw or change a lift line, its towers are raised and moved along the line so the chairs " +
+                    "and cabins stay at least 3 m above the ground (trams 5 m). Off: the towers stay where the game puts them."
+                },
 
                 // --- Diagnostics (code review 2026-10-19, DECISIONS 314 D4 + D9) --------------------
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupDiagnostics), "Diagnostics" },

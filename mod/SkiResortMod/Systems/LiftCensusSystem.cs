@@ -243,6 +243,7 @@ namespace SkiResortMod.Systems
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private ChairPinSystem m_ChairPin;
         private Game.UI.NameSystem m_NameSystem;
+        private LiftTowerFitSystem m_TowerFit;     // T48 step 3: fits new / changed lines (writes at Modification1 of a later frame)
         private LiftTowerDiagSystem m_TowerDiag;   // T03 step 1: read-only tower log; fed after each build, printed on DumpCensus
 
         // ── queries ───────────────────────────────────────────────────────────────────────────────
@@ -756,6 +757,7 @@ namespace SkiResortMod.Systems
             m_ChairPin = World.GetOrCreateSystemManaged<ChairPinSystem>();
             m_NameSystem = World.GetOrCreateSystemManaged<Game.UI.NameSystem>();
             m_TowerDiag = World.GetOrCreateSystemManaged<LiftTowerDiagSystem>();
+            m_TowerFit = World.GetOrCreateSystemManaged<LiftTowerFitSystem>();
             // Phase D (round-4-contract §1.3): the guard's clock, the simulation frame (SimulationSystem.cs:68; the mod's
             // precedent: SkiLiftChargeSystem, SkiDaySystem, SkiResortStatsSystem).
             m_Simulation = World.GetOrCreateSystemManaged<Game.Simulation.SimulationSystem>();
@@ -1263,6 +1265,8 @@ namespace SkiResortMod.Systems
             // T03 step 1 (read-only diagnostic, LiftTowerDiagSystem header): hand it this build's line edges; it queues lines whose
             // signature is new and prints them after the census has been quiet. No ECS read here.
             m_TowerDiag?.OnCensusBuilt(m_Edges);
+            // T48 step 3 (LiftTowerFitSystem header): the same edges; it queues new signatures and fits them once the census is quiet.
+            m_TowerFit?.OnCensusBuilt(m_Edges);
         }
 
         private void Harvest()
