@@ -127,6 +127,7 @@ $KnownVanilla = @{
     # Both read from the vanilla dump (%TEMP%\pltar\00_BaseGame\...\WaterTower01 Viewing Deck.Prefab: ObjectSubAreas row 0 and the
     # ObjectSubObjects row at (0, 0, 15.5)) and name2guid.json; each is used by hundreds of vanilla prefabs (Hangaround Area: 1963 files).
     "eb0c6cfabb61428468ef54336829d021" = "Hangaround Area (vanilla area prefab, HangaroundArea + NavigationArea Pedestrian; T51 2026-10-16: SkiAFrameDayLodge ObjectSubAreas row; dump-verified WaterTower01 Viewing Deck)"
+    "c30226ded1fc8d64abee5d0bd2554bc4" = "Pedestrian Spawn Location (vanilla MarkerObjectPrefab, SpawnLocation ConnectionType Pedestrian; T51 step 2 2026-10-19: SkiSchool x4 door markers - a TOP-LEVEL building only, never a ServiceUpgrade child (Route P, 141/143; the SPAWN gate above checks that); asset-markers-spawners.md section a)"
     "d69b0d6310cb4f5469934fd93238e54b" = "Pedestrian Access Location (vanilla MarkerObjectPrefab, TakeoffLocation types 2/2; T51 2026-10-16: SkiAFrameDayLodge x4 ObjectSubObjects rows; dump-verified Game.Prefabs.MarkerObjectPrefab + WaterTower01 Viewing Deck)"
 }
 
