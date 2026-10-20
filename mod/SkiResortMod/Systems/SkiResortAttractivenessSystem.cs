@@ -180,18 +180,23 @@
 //   * Generation also moves when a published LodgeInfo list changes (SummitServed flips without a score
 //     change, e.g. in winter), so the hub's "summit lodge not lift-served" row follows.
 // No serialized state: a lodge's tier IS its PrefabRef; everything here is recomputed from live components.
-// TOP-LEVEL SCHOOL (T100, 2026-10-19; T10 D1 option A, DECISIONS 308; docs/research/lodges-top-level-spec.md (b) sites 1-2;
-// report docs/research/field/2026-10-19/school-top-level-t100.md). The SkiSchool prefab is a top-level building (no
-// ServiceUpgrade): it has no Owner and no sign lists it. The park walk (it keeps Park, D4) collects school buildings WITHOUT
-// Owner (an archetype test, chunk.Has) into m_TopSchools; after the child entries (ReadSign, unchanged: union-safe while
-// other prefabs are still children) LinkTopLevelSchools resolves each to the nearest live sign within TetherMeters over this
-// recompute's sign index (SchoolLinkRules.Resolve = SkiResortIndex.TryResolve, the lift rule; not sticky) and counts it
-// through SchoolLinkRules.Count — the same rule as a child entry, so slot.Schools / SchoolActive and every number after them
-// (Result.SchoolValue, the ski days' SchoolFactor, the lessons, problem 25) are those of the child (tests/SchoolBatch).
-// Active = Building.m_OptionMask (the bit vanilla mirrors into a child's entry). Positions: m_SchoolXz, the m_PatrolXz rule
-// (header SYNC POINTS). The poll hash mixes each top-level school's (entity, active) like a child entry. Logs: one
-// "School [link]" line per link change (linked / relinked / NOT LINKED / removed; SchoolLinkRules.Diff), all re-logged once
-// per load; DUMP "schools (top-level, T100)". Accessors TryGetSchoolLink / CopySchoolLinks (stats jobs and cost; the hub).
+// TOP-LEVEL BUILDINGS (T100 school 2026-10-19; T113 lodges + patrol huts 2026-10-20; T10 D1 option A, DECISIONS 308 / 309;
+// docs/research/lodges-top-level-spec.md (b) sites 1-3, 6-7; reports docs/research/field/2026-10-19/school-top-level-t100.md and
+// docs/research/field/2026-10-20/lodges-top-level-build.md). Every resort building prefab (5 lodges, the school, 2 patrol huts) is
+// top-level (no ServiceUpgrade): no Owner, no sign lists it. The park walk (they keep Park, D4) collects lodge, school and patrol
+// buildings WITHOUT Owner (an archetype test, chunk.Has) into m_TopLevel with their kind; after the child entries (ReadSign,
+// unchanged: union-safe, a restored ServiceUpgrade prefab still reads through the sign's buffer) LinkTopLevel resolves each to the
+// nearest live sign within TetherMeters over this recompute's sign index (SchoolLinkRules.Resolve = SkiResortIndex.TryResolve,
+// the lift rule; not sticky) and counts it by the child path's rule: a lodge into Active / ActiveInfo / Inactive (first sign
+// wins, m_LodgeClaimed; an unlinked lodge is an orphan: no provider), the school through SchoolLinkRules.Count, an active
+// patrol hut into PatrolEntities (tests/BuildingBatch: the invariant, the building gates). Active = Building.m_OptionMask (the
+// bit vanilla mirrors into a child's entry). D3 (309): a top-level lodge has its own Efficiency buffer (CityServiceBuilding);
+// the area's efficiency = the sign's x the active top-level lodges' mean weighted by tier base B (SchoolLinkRules.AreaEfficiency;
+// school and patrol weigh 0), the lodges' factors merged worst-per-factor into the area's list. Positions: m_TopXz, the
+// m_PatrolXz rule (header SYNC POINTS). The poll hash mixes each top-level building's (entity, active) like a child entry, and
+// a lodge's efficiency percent. Logs: one "School [link]" / "Lodge [link]" / "Patrol [link]" line per link change (linked /
+// relinked / NOT LINKED / removed; SchoolLinkRules.Diff), all re-logged once per load; DUMP "top-level buildings". Accessors
+// TryGetTopLevelLink / CopyTopLevelLinks (stats membership, jobs and cost; the hub's selection, locks and Not linked view).
 // ─────────────────────────────────────────────────────────────────────────────────────────
 
 using System;
@@ -310,6 +315,10 @@ namespace SkiResortMod.Systems
             public readonly List<int> ServeLifts = new List<int>(8);
             public bool SchoolActive;
             public int Schools;   // school entries listed (active or not; DUMP)
+            // T113 D3 (header TOP-LEVEL BUILDINGS): Σ tier weight × efficiency and Σ tier weight over the area's ACTIVE
+            // top-level lodges (SchoolLinkRules.AreaEfficiency); 0 / 0 = no top-level lodge (the sign's efficiency alone).
+            public double LodgeEffSum, LodgeWeightSum;
+            public int SignEfficiencyPct;   // the sign's own efficiency (before D3), DUMP
 
             public void Reset(Entity sign)
             {
@@ -336,6 +345,8 @@ namespace SkiResortMod.Systems
                 ServeLifts.Clear();
                 SchoolActive = false;
                 Schools = 0;
+                LodgeEffSum = LodgeWeightSum = 0.0;
+                SignEfficiencyPct = 100;
             }
         }
 
@@ -514,14 +525,19 @@ namespace SkiResortMod.Systems
         // Catalog Phase B (header CATALOG PHASE B): the same cache rule for the summit-served lodges and the patrol huts.
         private readonly Dictionary<Entity, float2> m_LodgeXz = new Dictionary<Entity, float2>();
         private readonly Dictionary<Entity, float2> m_PatrolXz = new Dictionary<Entity, float2>();
-        // T100 (header TOP-LEVEL SCHOOL): the park walk's top-level schools (no Owner), their cached xz (same rule as
-        // m_PatrolXz), the published links (school -> sign or Null) and this recompute's, and the log diff scratch.
-        private readonly List<Entity> m_TopSchools = new List<Entity>(2);
-        private readonly Dictionary<Entity, float2> m_SchoolXz = new Dictionary<Entity, float2>();
-        private Dictionary<EntityRef, SchoolLinkRules.Link> m_SchoolLinks = new Dictionary<EntityRef, SchoolLinkRules.Link>();
-        private Dictionary<EntityRef, SchoolLinkRules.Link> m_SchoolLinksNext = new Dictionary<EntityRef, SchoolLinkRules.Link>();
-        private readonly List<SchoolLinkRules.Change> m_SchoolLinkChanges = new List<SchoolLinkRules.Change>(2);
-        private int m_SchoolLinkLines;   // this load (DUMP)
+        // T100 / T113 (header TOP-LEVEL BUILDINGS): the park walk's top-level resort buildings (no Owner: lodges, the school,
+        // patrol huts) with their kind (parallel list), their cached xz (same rule as m_PatrolXz), the published links (building
+        // -> sign or Null) and this recompute's, each building's kind for the log (kept until its Removed line), the log diff
+        // scratch, and one lodge's efficiency factors (D3, reused).
+        private readonly List<Entity> m_TopLevel = new List<Entity>(8);
+        private readonly List<byte> m_TopKind = new List<byte>(8);
+        private readonly Dictionary<Entity, float2> m_TopXz = new Dictionary<Entity, float2>();
+        private Dictionary<EntityRef, SchoolLinkRules.Link> m_TopLinks = new Dictionary<EntityRef, SchoolLinkRules.Link>();
+        private Dictionary<EntityRef, SchoolLinkRules.Link> m_TopLinksNext = new Dictionary<EntityRef, SchoolLinkRules.Link>();
+        private readonly Dictionary<EntityRef, byte> m_TopKindOf = new Dictionary<EntityRef, byte>();
+        private readonly List<SchoolLinkRules.Change> m_TopLinkChanges = new List<SchoolLinkRules.Change>(4);
+        private int m_TopLinkLines;   // this load (DUMP)
+        private float[] m_LodgeFactorValues = new float[16];
         private readonly List<LiftServedRule.Lift> m_AreaServeLifts = new List<LiftServedRule.Lift>(8);   // one area's lifts (SummitServed)
         private bool m_PositionsReadThisRecompute;   // CollectAreas' verdict, for the lodge / patrol reads after it
         private bool m_PositionsDue = true;      // the backstop asks for a position read (header COST)
@@ -962,11 +978,13 @@ namespace SkiResortMod.Systems
             m_BaseXz.Clear();
             m_LodgeXz.Clear();       // Catalog Phase B
             m_PatrolXz.Clear();
-            m_TopSchools.Clear();    // T100: links are re-logged once per load (the first recompute links every school)
-            m_SchoolXz.Clear();
-            m_SchoolLinks.Clear();
-            m_SchoolLinksNext.Clear();
-            m_SchoolLinkLines = 0;
+            m_TopLevel.Clear();      // T100 / T113: links are re-logged once per load (the first recompute links every building)
+            m_TopKind.Clear();
+            m_TopXz.Clear();
+            m_TopLinks.Clear();
+            m_TopLinksNext.Clear();
+            m_TopKindOf.Clear();
+            m_TopLinkLines = 0;
             m_PositionsDue = true;   // the load's recompute is structural anyway
             m_PositionReads = m_PositionFallbacks = 0;
 
@@ -1156,7 +1174,7 @@ namespace SkiResortMod.Systems
             ulong hash = SkiRunRatingRules.FnvOffset;
             for (int s = 0; s < m_Cur.SlotCount; s++)
                 ReadSign(m_Cur.Slots[s].Sign, null, ref hash);
-            LinkTopLevelSchools(null, ref hash);   // T100: the top-level schools' on/off bits (the last walk's list)
+            LinkTopLevel(null, ref hash);   // T100 / T113: the top-level buildings' on/off bits and lodge efficiency (the last walk's list)
             hash = SkiRunRatingRules.Mix(hash, unchecked((uint)m_Census.ComputePowerSignature()));
             m_PollCount++;
             m_PollSumMs += (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
@@ -1211,13 +1229,13 @@ namespace SkiResortMod.Systems
             {
                 m_LodgeXz.Clear();    // Catalog Phase B: re-read when due, like m_BaseXz (header CATALOG PHASE B)
                 m_PatrolXz.Clear();
-                m_SchoolXz.Clear();   // T100
+                m_TopXz.Clear();      // T100 / T113
             }
             ulong stateHash = SkiRunRatingRules.FnvOffset;
             m_LodgeClaimed.Clear();
             for (int s = 0; s < next.SlotCount; s++)
                 ReadSign(next.Slots[s].Sign, next.Slots[s], ref stateHash);
-            LinkTopLevelSchools(next, ref stateHash);   // T100: top-level schools by distance (after the child entries)
+            LinkTopLevel(next, ref stateHash);   // T100 / T113: top-level buildings by distance (after the child entries)
             ReadPatrolPositions(next);   // Catalog Phase B (R13): each area's active patrol huts' xz
 
             // 2. Member runs (bound-run walk): rating, snow, top node.
@@ -1349,17 +1367,20 @@ namespace SkiResortMod.Systems
         private bool CollectAreas(Snapshot next, bool readPositions)
         {
             m_LiveLodges.Clear();
-            m_TopSchools.Clear();   // T100
+            m_TopLevel.Clear();   // T100 / T113
+            m_TopKind.Clear();
             if (!m_ParkQuery.IsEmptyIgnoreFilter)
             {
                 // Catalog Phase A (F10; was :1165 m_LodgePrefabs): the live lodge view, once before the chunk loop (M4).
                 HashSet<Entity> lodgePrefabs = m_PrefabCatalog.LodgePrefabSet;
                 HashSet<Entity> schoolPrefabs = m_PrefabCatalog.SchoolPrefabSet;   // T100
+                HashSet<Entity> patrolPrefabs = m_PrefabCatalog.PatrolPrefabSet;   // T113
                 EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
                 var entityHandle = GetEntityTypeHandle();
                 var prefabRefHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
-                // T100: Owner presence is an archetype fact (chunk.Has reads no component data, no sync): a school
-                // without Owner is TOP-LEVEL (header TOP-LEVEL SCHOOL); a child school stays with its sign's buffer.
+                // T100 / T113: Owner presence is an archetype fact (chunk.Has reads no component data, no sync): a lodge,
+                // school or patrol hut without Owner is TOP-LEVEL (header TOP-LEVEL BUILDINGS); a child stays with its
+                // sign's buffer (ReadSign).
                 var ownerHandle = GetComponentTypeHandle<Owner>(isReadOnly: true);
                 using (var chunks = m_ParkQuery.ToArchetypeChunkArray(Allocator.Temp))
                 {
@@ -1374,9 +1395,15 @@ namespace SkiResortMod.Systems
                             if (m_Ownership.IsGatePrefab(prefab))
                                 next.AddSlot(entities[i]);
                             else if (lodgePrefabs.Contains(prefab))
+                            {
                                 m_LiveLodges.Add(entities[i]);
+                                if (!owned)
+                                    AddTopLevel(entities[i], SchoolLinkRules.KindLodge);
+                            }
                             else if (!owned && schoolPrefabs.Contains(prefab))
-                                m_TopSchools.Add(entities[i]);
+                                AddTopLevel(entities[i], SchoolLinkRules.KindSchool);
+                            else if (!owned && patrolPrefabs.Contains(prefab))
+                                AddTopLevel(entities[i], SchoolLinkRules.KindPatrol);
                         }
                     }
                 }
@@ -1453,6 +1480,7 @@ namespace SkiResortMod.Systems
             {
                 slot.EfficiencyValue = efficiency;
                 slot.EfficiencyPct = pct;
+                slot.SignEfficiencyPct = pct;   // T113 D3: LinkTopLevel may fold the area's top-level lodges in
                 // Efficiency.CompareTo orders the highest value first (Efficiency.cs:36-43): reversed = worst first.
                 slot.Factors.Sort();
                 slot.Factors.Reverse();
@@ -1520,95 +1548,197 @@ namespace SkiResortMod.Systems
                    !EntityManager.HasComponent<Temp>(building);
         }
 
-        /// <summary>T100 (header TOP-LEVEL SCHOOL): each top-level school of the last park walk mixes (entity, active) into
-        /// <paramref name="hash"/> — the same three words ReadSign mixes for a child entry, so the poll and the recompute agree.
-        /// With <paramref name="next"/> (the recompute) it also resolves the school's sign (SchoolLinkRules.Resolve over this
-        /// recompute's sign index, TetherMeters), counts it into that area's slot through SchoolLinkRules.Count (the child
-        /// path's rule), and logs one line per link change (SchoolLinkRules.Diff), then publishes the links. Active = the
+        /// <summary>T113: one park-walk building without Owner into the top-level list, with its kind (SchoolLinkRules.Kind*).</summary>
+        private void AddTopLevel(Entity building, byte kind)
+        {
+            m_TopLevel.Add(building);
+            m_TopKind.Add(kind);
+        }
+
+        /// <summary>T100 / T113 (header TOP-LEVEL BUILDINGS): each top-level building of the last park walk mixes (entity, active)
+        /// into <paramref name="hash"/> — the same three words ReadSign mixes for a child entry, so the poll and the recompute
+        /// agree — and a top-level lodge also its efficiency percent (D3: staffing and utilities are its own now). With
+        /// <paramref name="next"/> (the recompute) it also resolves the building's sign (SchoolLinkRules.Resolve over this
+        /// recompute's sign index, TetherMeters) and counts it into that area's slot by the child path's rules: a lodge into
+        /// Active / ActiveInfo (tier = its PrefabRef) or Inactive and m_LodgeClaimed (first sign wins, as ReadSign), the school
+        /// through SchoolLinkRules.Count, an active live patrol hut into PatrolEntities. Then the D3 fold (an area with active
+        /// top-level lodges: efficiency = sign x their tier-weighted mean, SchoolLinkRules.AreaEfficiency; the factors merged,
+        /// worst per factor), one log line per link change (SchoolLinkRules.Diff), and the links are published. Active = the
         /// building's own Building.m_OptionMask not Inactive (BuildingUtils.cs:351-354); reading Building syncs its writers
-        /// (BuildingPoliciesSystem, RoadConnectionSystem), once per poll / recompute and only while a top-level school exists.</summary>
-        private void LinkTopLevelSchools(Snapshot next, ref ulong hash)
+        /// (BuildingPoliciesSystem, RoadConnectionSystem), once per poll / recompute and only while a top-level building exists.</summary>
+        private void LinkTopLevel(Snapshot next, ref ulong hash)
         {
             if (next != null)
-                m_SchoolLinksNext.Clear();
-            for (int i = 0; i < m_TopSchools.Count; i++)
+                m_TopLinksNext.Clear();
+            IReadOnlyDictionary<Entity, LodgeDef> lodgeDefs = m_PrefabCatalog.LodgeDefs;
+            for (int i = 0; i < m_TopLevel.Count; i++)
             {
-                Entity school = m_TopSchools[i];
-                bool live = IsLiveUpgrade(school);   // the poll walks the last recompute's list: a removed school reads not live
-                bool active = live && EntityManager.TryGetComponent(school, out Building building) &&
-                              !BuildingUtils.CheckOption(building, BuildingOption.Inactive);
+                Entity building = m_TopLevel[i];
+                byte kind = m_TopKind[i];
+                bool live = IsLiveUpgrade(building);   // the poll walks the last recompute's list: a removed building reads not live
+                bool active = live && EntityManager.TryGetComponent(building, out Building data) &&
+                              !BuildingUtils.CheckOption(data, BuildingOption.Inactive);
                 hash = SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(hash,
-                    unchecked((uint)school.Index)), unchecked((uint)school.Version)), active ? 1u : 0u);
+                    unchecked((uint)building.Index)), unchecked((uint)building.Version)), active ? 1u : 0u);
+                float efficiency = 1f;
+                if (kind == SchoolLinkRules.KindLodge && active)
+                {
+                    efficiency = ReadLodgeEfficiency(building, null);
+                    hash = SkiRunRatingRules.Mix(hash, unchecked((uint)(int)Math.Round(100.0 * efficiency)));
+                }
                 if (next == null)
                     continue;
+                EntityRef id = LiftCensusSystem.Ref(building);
+                m_TopKindOf[id] = kind;
                 SchoolLinkRules.Link link = new SchoolLinkRules.Link { Sign = EntityRef.Null, Distance = float.PositiveInfinity };
-                if (TryCachedXz(m_SchoolXz, school, out float2 xz))
+                if (TryCachedXz(m_TopXz, building, out float2 xz))
                     link = SchoolLinkRules.Resolve(m_SignIndex, xz, SkiRunOwnershipSystem.TetherMeters);
-                m_SchoolLinksNext[LiftCensusSystem.Ref(school)] = link;
-                if (link.Linked && next.TryGetSlot(LiftCensusSystem.Ent(link.Sign), out AreaSlot slot))
+                m_TopLinksNext[id] = link;
+                if (!link.Linked || !next.TryGetSlot(LiftCensusSystem.Ent(link.Sign), out AreaSlot slot))
+                    continue;
+                if (kind == SchoolLinkRules.KindSchool)
+                {
                     SchoolLinkRules.Count(ref slot.Schools, ref slot.SchoolActive, active, live);
+                }
+                else if (kind == SchoolLinkRules.KindPatrol)
+                {
+                    if (active)
+                        slot.PatrolEntities.Add(building);
+                }
+                else if (m_LiveLodges.Contains(building) && m_LodgeClaimed.Add(building))
+                {
+                    if (!active)
+                    {
+                        slot.Inactive.Add(building);
+                        continue;
+                    }
+                    slot.Active.Add(building);
+                    Entity prefab = EntityManager.TryGetComponent(building, out PrefabRef prefabRef) ? prefabRef.m_Prefab : Entity.Null;
+                    LodgeDef def = null;
+                    bool known = prefab != Entity.Null && lodgeDefs.TryGetValue(prefab, out def);
+                    slot.ActiveInfo.Add(new LodgeInfo { Lodge = building, LodgeIndex = (short)(known ? def.Index : 0), SummitServed = false });
+                    // D3: the tier base is the weight (SkiCatalog.Lodges B; the school and patrol huts weigh 0, DECISIONS 309).
+                    double weight = known ? def.B : 0.0;
+                    efficiency = ReadLodgeEfficiency(building, slot);
+                    slot.LodgeEffSum += weight * efficiency;
+                    slot.LodgeWeightSum += weight;
+                }
             }
             if (next == null)
                 return;
-            SchoolLinkRules.Diff(m_SchoolLinks, m_SchoolLinksNext, m_SchoolLinkChanges);
-            for (int i = 0; i < m_SchoolLinkChanges.Count; i++)
-                LogSchoolLink(m_SchoolLinkChanges[i]);
-            Dictionary<EntityRef, SchoolLinkRules.Link> swap = m_SchoolLinks;
-            m_SchoolLinks = m_SchoolLinksNext;
-            m_SchoolLinksNext = swap;
+            for (int s = 0; s < next.SlotCount; s++)
+            {
+                AreaSlot slot = next.Slots[s];
+                if (!(slot.LodgeWeightSum > 0.0))
+                    continue;
+                float area = SchoolLinkRules.AreaEfficiency(slot.EfficiencyValue, slot.LodgeEffSum, slot.LodgeWeightSum);
+                slot.EfficiencyValue = area;
+                slot.EfficiencyPct = (int)Math.Round(100.0 * area);
+                slot.Factors.Sort();      // worst first again after the lodge merge (Efficiency.CompareTo: highest first)
+                slot.Factors.Reverse();
+            }
+            SchoolLinkRules.Diff(m_TopLinks, m_TopLinksNext, m_TopLinkChanges);
+            for (int i = 0; i < m_TopLinkChanges.Count; i++)
+                LogTopLink(m_TopLinkChanges[i]);
+            Dictionary<EntityRef, SchoolLinkRules.Link> swap = m_TopLinks;
+            m_TopLinks = m_TopLinksNext;
+            m_TopLinksNext = swap;
         }
 
-        /// <summary>T100: the one line per link change (header LOGS; SchoolLinkRules header LOG DISCIPLINE).</summary>
-        private void LogSchoolLink(SchoolLinkRules.Change c)
+        /// <summary>T113 D3: a top-level lodge's efficiency (SkiResortScore.SignEfficiency over its own Efficiency buffer: a
+        /// top-level CityServiceBuilding has one, Park.cs:27-37; none → 1). With <paramref name="slot"/> its factors below 1 are
+        /// merged into the area's list, keeping the worst value per factor (the hub's Efficiency rows).</summary>
+        private float ReadLodgeEfficiency(Entity lodge, AreaSlot slot)
         {
-            m_SchoolLinkLines++;
-            string school = "ski school " + IdOf(LiftCensusSystem.Ent(c.School));
+            if (!EntityManager.TryGetBuffer(lodge, isReadOnly: true, out DynamicBuffer<Efficiency> factors))
+                return 1f;
+            int count = factors.Length;
+            if (m_LodgeFactorValues.Length < count)
+                m_LodgeFactorValues = new float[count];
+            for (int i = 0; i < count; i++)
+            {
+                Efficiency factor = factors[i];
+                m_LodgeFactorValues[i] = factor.m_Efficiency;
+                if (slot == null || !(factor.m_Efficiency < 1f))
+                    continue;
+                int at = -1;
+                for (int k = 0; k < slot.Factors.Count; k++)
+                {
+                    if (slot.Factors[k].m_Factor == factor.m_Factor)
+                    {
+                        at = k;
+                        break;
+                    }
+                }
+                if (at < 0)
+                    slot.Factors.Add(factor);
+                else if (factor.m_Efficiency < slot.Factors[at].m_Efficiency)
+                    slot.Factors[at] = factor;
+            }
+            return SkiResortScore.SignEfficiency(m_LodgeFactorValues, count);
+        }
+
+        /// <summary>T100 / T113: the one line per link change (header LOGS; SchoolLinkRules header LOG DISCIPLINE). The school keeps
+        /// its T100 words ("School [link] ski school …"); lodges and patrol huts say "Lodge [link] lodge …" / "Patrol [link] patrol
+        /// hut …".</summary>
+        private void LogTopLink(SchoolLinkRules.Change c)
+        {
+            m_TopLinkLines++;
+            m_TopKindOf.TryGetValue(c.School, out byte kind);
+            if (c.Kind == SchoolLinkRules.ChangeKind.Removed)
+                m_TopKindOf.Remove(c.School);
+            string tag = kind == SchoolLinkRules.KindSchool ? "School" : kind == SchoolLinkRules.KindPatrol ? "Patrol" : "Lodge";
+            string what = (kind == SchoolLinkRules.KindSchool ? "ski school " : kind == SchoolLinkRules.KindPatrol ? "patrol hut " : "lodge ") +
+                          IdOf(LiftCensusSystem.Ent(c.School));
+            string role = kind == SchoolLinkRules.KindSchool ? "the school" : kind == SchoolLinkRules.KindPatrol ? "the patrol hut" : "the lodge";
             string at = float.IsInfinity(c.After.Distance) ? "no position or no sign"
                 : Invariant($"nearest sign {c.After.Distance:F0} m");
             switch (c.Kind)
             {
                 case SchoolLinkRules.ChangeKind.Linked:
-                    Mod.Log.Info($"School [link] {school} -> Welcome Sign {IdOf(LiftCensusSystem.Ent(c.After.Sign))} ({at}; top-level, " +
+                    Mod.Log.Info($"{tag} [link] {what} -> Welcome Sign {IdOf(LiftCensusSystem.Ent(c.After.Sign))} ({at}; top-level, " +
                                  "nearest sign within 5000 m)");
                     break;
                 case SchoolLinkRules.ChangeKind.Relinked:
-                    Mod.Log.Info($"School [link] {school} -> Welcome Sign {IdOf(LiftCensusSystem.Ent(c.After.Sign))} ({at}; was " +
-                                 $"{IdOf(LiftCensusSystem.Ent(c.Before.Sign))}: a nearer sign takes the school)");
+                    Mod.Log.Info($"{tag} [link] {what} -> Welcome Sign {IdOf(LiftCensusSystem.Ent(c.After.Sign))} ({at}; was " +
+                                 $"{IdOf(LiftCensusSystem.Ent(c.Before.Sign))}: a nearer sign takes {role})");
                     break;
                 case SchoolLinkRules.ChangeKind.Unlinked:
-                    Mod.Log.Info($"School [link] {school} NOT LINKED ({at}; no Welcome Sign within 5000 m" +
+                    Mod.Log.Info($"{tag} [link] {what} NOT LINKED ({at}; no Welcome Sign within 5000 m" +
                                  (c.Before.Linked ? $", was {IdOf(LiftCensusSystem.Ent(c.Before.Sign))}" : "") +
                                  "): it counts for no ski area");
                     break;
                 default:
-                    Mod.Log.Info($"School [link] {school} removed" +
+                    Mod.Log.Info($"{tag} [link] {what} removed" +
                                  (c.Before.Linked ? $" (was linked to {IdOf(LiftCensusSystem.Ent(c.Before.Sign))})" : " (was not linked)"));
                     break;
             }
         }
 
-        /// <summary>T100: the published link of a TOP-LEVEL school (main thread, the last recompute): true when
-        /// <paramref name="school"/> is one; <paramref name="sign"/> is its Welcome Sign, Entity.Null = Not linked. False for a
-        /// child school (its sign is its Owner) or anything else. For the hub (world selection, the "not linked" state).</summary>
-        internal bool TryGetSchoolLink(Entity school, out Entity sign)
+        /// <summary>T100 / T113: the published link of a TOP-LEVEL resort building (lodge, school, patrol hut; main thread, the
+        /// last recompute): true when <paramref name="building"/> is one; <paramref name="sign"/> is its Welcome Sign, Entity.Null
+        /// = Not linked. False for a ServiceUpgrade child (its sign is its Owner) or anything else. For the hub (world selection,
+        /// the Not linked view) and the stats system.</summary>
+        internal bool TryGetTopLevelLink(Entity building, out Entity sign)
         {
             sign = Entity.Null;
-            if (!m_SchoolLinks.TryGetValue(LiftCensusSystem.Ref(school), out SchoolLinkRules.Link link))
+            if (!m_TopLinks.TryGetValue(LiftCensusSystem.Ref(building), out SchoolLinkRules.Link link))
                 return false;
             if (link.Linked)
                 sign = LiftCensusSystem.Ent(link.Sign);
             return true;
         }
 
-        /// <summary>T100: every top-level school of the last recompute with its sign (Entity.Null = Not linked), in the
-        /// published order; both lists cleared first (the stats system's jobs and cost sums, the hub).</summary>
-        internal void CopySchoolLinks(List<Entity> schools, List<Entity> signs)
+        /// <summary>T100 / T113: every top-level resort building of the last recompute (lodges, the school, patrol huts) with its
+        /// sign (Entity.Null = Not linked), in the published order; both lists cleared first (the stats system's membership, jobs
+        /// and cost sums; the hub's locks and Not linked count). Callers filter by PrefabRef when they need one kind.</summary>
+        internal void CopyTopLevelLinks(List<Entity> buildings, List<Entity> signs)
         {
-            schools.Clear();
+            buildings.Clear();
             signs.Clear();
-            foreach (KeyValuePair<EntityRef, SchoolLinkRules.Link> pair in m_SchoolLinks)
+            foreach (KeyValuePair<EntityRef, SchoolLinkRules.Link> pair in m_TopLinks)
             {
-                schools.Add(LiftCensusSystem.Ent(pair.Key));
+                buildings.Add(LiftCensusSystem.Ent(pair.Key));
                 signs.Add(pair.Value.Linked ? LiftCensusSystem.Ent(pair.Value.Sign) : Entity.Null);
             }
         }
@@ -2426,15 +2556,17 @@ namespace SkiResortMod.Systems
                   .Append(" ms, positions read ").Append(m_PositionReads).Append(" time(s) (structural or backstop; ")
                   .Append(m_PositionFallbacks).Append(" fallback read(s) on a soft recompute)")
                   .Append(", efficiency-only area lines skipped ").Append(m_EfficiencyLinesSkipped).Append('\n');   // Round S1 F4
-                // T100: the top-level schools and their published links.
-                sb.Append("  schools (top-level, T100): ").Append(m_SchoolLinks.Count);
-                foreach (KeyValuePair<EntityRef, SchoolLinkRules.Link> pair in m_SchoolLinks)
+                // T100 / T113: the top-level resort buildings (lodges, the school, patrol huts) and their published links.
+                sb.Append("  top-level buildings (T100 / T113): ").Append(m_TopLinks.Count);
+                foreach (KeyValuePair<EntityRef, SchoolLinkRules.Link> pair in m_TopLinks)
                 {
-                    sb.Append("; ").Append(IdOf(LiftCensusSystem.Ent(pair.Key))).Append(" -> ")
+                    m_TopKindOf.TryGetValue(pair.Key, out byte kind);
+                    sb.Append("; ").Append(kind == SchoolLinkRules.KindSchool ? "school " : kind == SchoolLinkRules.KindPatrol ? "patrol " : "lodge ")
+                      .Append(IdOf(LiftCensusSystem.Ent(pair.Key))).Append(" -> ")
                       .Append(pair.Value.Linked ? IdOf(LiftCensusSystem.Ent(pair.Value.Sign)) : "NOT LINKED")
                       .Append(float.IsInfinity(pair.Value.Distance) ? "" : " (" + pair.Value.Distance.ToString("F0", CultureInfo.InvariantCulture) + " m)");
                 }
-                sb.Append("; link lines this load ").Append(m_SchoolLinkLines).Append('\n');
+                sb.Append("; link lines this load ").Append(m_TopLinkLines).Append('\n');
 
                 for (int s = 0; s < m_Cur.SlotCount; s++)
                 {
@@ -2444,7 +2576,9 @@ namespace SkiResortMod.Systems
                     sb.Append("    area ").Append(IdOf(slot.Sign)).Append(": A ").Append(r.Attraction)
                       .Append(" (full ").Append(r.AttractionFullEfficiency).Append("), held ").Append(slot.Held)
                       .Append(" (").Append(holdTicks).Append(" ticks), efficiency ").Append(slot.EfficiencyPct)
-                      .Append(" % now, staffing factor used ").Append(slot.StaffingUsedPct)
+                      .Append(" % now (sign ").Append(slot.SignEfficiencyPct).Append(" %, top-level lodge weight ")   // T113 D3
+                      .Append(slot.LodgeWeightSum.ToString("0.#", CultureInfo.InvariantCulture))
+                      .Append("), staffing factor used ").Append(slot.StaffingUsedPct)
                       .Append(" %, lodges ").Append(r.ActiveLodges).Append('+').Append(r.InactiveLodges).Append(" × ").Append(r.PerLodge)
                       .Append(", runs ").Append(r.RunsCounted).Append('/').Append(r.Runs).Append(" (").Append(r.RunsOpen)
                       .Append(" open, ").Append(r.RunsPending).Append(" unrated), lifts ").Append(r.LiftsCounted).Append('/')

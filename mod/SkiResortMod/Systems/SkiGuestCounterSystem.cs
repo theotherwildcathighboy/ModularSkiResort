@@ -34,7 +34,9 @@
 // lodge listed in a live sign's InstalledUpgrade buffer (SkiResortAttractivenessSystem.IsLodgePrefab — since Catalog
 // Phase B (round-2-contract §7.4, Phase A review finding 1) its LodgePrefabSet fetched ONCE per rebuild, every lodge tier;
 // the school and the patrol huts are not targets — and
-// !BuildingUtils.CheckOption(entry, BuildingOption.Inactive), BuildingUtils.cs:356). Free-standing and
+// !BuildingUtils.CheckOption(entry, BuildingOption.Inactive), BuildingUtils.cs:356). T113 (2026-10-20): a TOP-LEVEL lodge
+// (no Owner) is a target of its published link (SkiResortAttractivenessSystem.CopyTopLevelLinks), active by its own
+// Building.m_OptionMask. Free-standing (not linked) and
 // out-of-service lodges are not targets (counted for the targets line only). The map building → sign is
 // rebuilt on the main thread between jobs when the Park query's entity count moves, when the attraction
 // model's Generation moves (a lodge switched on or off changes no count), every Tuning.MapBackstopTicks
@@ -228,6 +230,7 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_FirstTouristLeisure = new HashSet<Entity>();   // Round S1 (sign)
         private readonly HashSet<Entity> m_O1Noted = new HashSet<Entity>();
         private readonly HashSet<Entity> m_ListedScratch = new HashSet<Entity>();
+        private readonly List<Entity> m_TopScratch = new List<Entity>(8), m_TopSignScratch = new List<Entity>(8);   // T113
         private HashSet<Entity> m_Targets = new HashSet<Entity>();       // the map's keys (this rebuild / the previous one)
         private HashSet<Entity> m_TargetsPrev = new HashSet<Entity>();
         // Round M1 (M7 a2): residents counted through the leisure scan in the ledger's month in progress / the month
@@ -1189,6 +1192,29 @@ namespace SkiResortMod.Systems
                         m_TargetLodges++;
                         m_Targets.Add(lodge);
                     }
+                }
+            }
+            // T113 (spec (b) site 7): TOP-LEVEL lodges (no Owner, no buffer entry) by the attraction snapshot's published link
+            // (nearest live sign within the tether: the score's own membership, rebuilt on its Generation like the rest of this
+            // map); active = the lodge's own Building.m_OptionMask. A child listed above wins (m_ListedScratch).
+            m_Attractiveness.CopyTopLevelLinks(m_TopScratch, m_TopSignScratch);
+            for (int t = 0; t < m_TopScratch.Count; t++)
+            {
+                Entity lodge = m_TopScratch[t];
+                Entity sign = m_TopSignScratch[t];
+                if (sign == Entity.Null || !m_LiveSigns.Contains(Ref(sign)) || !EntityManager.Exists(lodge) ||
+                    EntityManager.HasComponent<Deleted>(lodge) || !EntityManager.TryGetComponent(lodge, out PrefabRef pr) ||
+                    !lodgePrefabs.Contains(pr.m_Prefab) || !m_ListedScratch.Add(lodge))
+                    continue;
+                if (!EntityManager.TryGetComponent(lodge, out Building building) || BuildingUtils.CheckOption(building, BuildingOption.Inactive))
+                {
+                    m_LodgesOff++;
+                    continue;
+                }
+                if (m_TargetSign.TryAdd(lodge, sign))
+                {
+                    m_TargetLodges++;
+                    m_Targets.Add(lodge);
                 }
             }
             // Per-target baseline (additive, notes-S4): a building that was not a target in the previous map

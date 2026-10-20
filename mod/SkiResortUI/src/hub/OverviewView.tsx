@@ -49,6 +49,9 @@
  *     the equation the total's tooltip spells out, not as a sum that does not add; Variety and Vertical show the bare multiplier
  *     (the "×" moved to the operator cell). The header shows the score alone ("44"; supersedes "A of 200" above), the cap 200 in
  *     its tooltip (SCORE_BAR_TIP, also the bar's); the bar has a third tick, park 10. The UI still multiplies nothing (D10).
+ *   - T114 (2026-10-20, "never a scrollbar", docs/research/ui/hub-round-t114-2026-10-20.md): "Runs, lifts and school" is a fold
+ *     (fit.tsx Fold, closed by default): its seven term rows show on a click; MOUNTAIN under the receipt is a fold too (its header
+ *     row shows the vertical). One fold of the view is open at a time, so the view always fits the panel.
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
@@ -63,6 +66,7 @@ import {
   BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, cx, numArg,
 } from "./parts";
 import { currentResort, resortEntries, runsOf } from "./resortData";
+import { Fold } from "./fit";
 import styles from "./hub.module.scss";
 
 const DASH = "–";
@@ -130,8 +134,10 @@ function DifficultyLegend({ row, unrateable, t }: { row: ResortRow; unrateable: 
 }
 
 /** MOUNTAIN: difficulty bar + legend, vertical, skiable area, snow now (sign and Not linked). */
-function MountainSection({ row, live, city, unrateable, t }: {
+function MountainSection({ row, live, city, unrateable, t, folded }: {
   row: ResortRow; live: ResortLive | null; city: CityStats; unrateable: number; t: Translate;
+  /** T114: under the receipt the section is a fold (closed by default); Not linked shows it open, it is the whole view there. */
+  folded?: boolean;
 }): JSX.Element {
   const counts = bandCounts(row);
   const pending = pendingCount(row, unrateable);
@@ -154,9 +160,8 @@ function MountainSection({ row, live, city, unrateable, t }: {
   const snowTip = (head: string, body: string): JSX.Element => (
     <TipLines lines={[head, body, how, city.snowVisualsOff && t(HUB_LOC.statusTipVisuals)]} />
   );
-  return (
+  const rows = (
     <>
-      <InfoLine header label={t(HUB_LOC.sectionMountain)} />
       <DifficultyBar row={row} unrateable={unrateable} tip={diffTip} />
       <DifficultyLegend row={row} unrateable={unrateable} t={t} />
       <InfoLine
@@ -182,6 +187,22 @@ function MountainSection({ row, live, city, unrateable, t }: {
         value={snowPct >= 0 ? <Num value={snowPct} unit={Unit.Percentage} /> : DASH}
         tip={snowTip(t(HUB_LOC.mountainSnowCover), t(HUB_LOC.mountainTipSnow))}
       />
+    </>
+  );
+  if (folded) {
+    // T114: closed, the header row carries the vertical (the section's headline number); the snow is on the status line above.
+    return (
+      <Fold view="overview" id="mountain" header label={t(HUB_LOC.sectionMountain)}
+        value={row.verticalM >= 0 ? <Num value={row.verticalM} unit={Unit.Height} /> : DASH}
+        tip={t(HUB_LOC.mountainTipVertical)}>
+        {rows}
+      </Fold>
+    );
+  }
+  return (
+    <>
+      <InfoLine header label={t(HUB_LOC.sectionMountain)} />
+      {rows}
     </>
   );
 }
@@ -270,7 +291,9 @@ function Receipt({ row, l, city, problems, build, t }: {
       />
       {/* T80 (Richard item 4): the section total, its full equation one layer down (the header's tooltip: RECEIPT_PARTS[_SCHOOL] +
           RECEIPT_ROOT, T77's two lines), then one labelled row per term. Every number is C#'s (D10). */}
-      <InfoLine
+      <Fold
+        view="overview"
+        id="terrain"
         label={t(HUB_LOC.receiptTerrain)}
         value={l && l.terrain >= 0 ? numArg(l.terrain, Unit.FloatSingleFraction, true) : DASH}
         tip={<TipLines lines={[
@@ -281,7 +304,7 @@ function Receipt({ row, l, city, problems, build, t }: {
           <LocText key="r" entry={HUB_FMT.receiptRoot} args={{ K, TERRAIN: l && l.terrain >= 0 ? numArg(l.terrain, Unit.FloatSingleFraction) : DASH }} />,
           <LocText key="k" entry={HUB_FMT.receiptTipTerrain} args={{ K }} />,
         ]} />}
-      />
+      >
       <InfoLine sub op="+" label={t(HUB_LOC.receiptRowRuns)} value={parts.RUNS}
         tip={<TipLines lines={[t(HUB_LOC.receiptRowRuns), t(HUB_LOC.receiptTipRuns)]} />} />
       <SubLine tip={<LocText entry={HUB_FMT.receiptTipOpen} args={{ FULL: numArg(l ? l.runsValueFull : -1, Unit.FloatSingleFraction) }} />}>
@@ -305,6 +328,7 @@ function Receipt({ row, l, city, problems, build, t }: {
           <LocText key="v" entry={HUB_FMT.receiptTipVertical} args={{ M: numArg(l ? l.scoreVerticalM : -1, Unit.Height) }} />]} />} />
       <InfoLine sub op="×" label={t(HUB_LOC.receiptRowScale)} value={K}
         tip={<TipLines lines={[t(HUB_LOC.receiptRowScale), t(HUB_LOC.receiptTipScale)]} />} />
+      </Fold>
       <InfoLine
         label={t(HUB_LOC.receiptEfficiency)}
         value={l && l.efficiencyPct >= 0 ? <LocText entry={HUB_FMT.receiptTimes} args={{ PCT: numArg(l.efficiencyPct, Unit.Percentage) }} /> : DASH}
@@ -369,7 +393,7 @@ export function OverviewView(): JSX.Element {
     <>
       <Receipt row={row} l={l} city={city} problems={problems} build={build} t={t} />
       <Divider />
-      <MountainSection row={row} live={l} city={city} unrateable={unrateable} t={t} />
+      <MountainSection row={row} live={l} city={city} unrateable={unrateable} t={t} folded />
     </>
   );
 }

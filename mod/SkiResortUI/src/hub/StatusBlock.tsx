@@ -67,6 +67,13 @@
  *         hubRules.statusHint says "powder" (skiDaysPowderPct >= 50), else the SEASON_HINT word as before;
  *         same slot, same height, and "Powder day" (10 characters) is shorter than "Too warm for snow"
  *         (17). The status tooltip adds STATUS_TIP_POWDER after the season tip while powder > 0.
+ *   - T114 (2026-10-20, field report items 2 and 9: "Lift 3 / 4 / 5 is unfinished +5" stacked three slots;
+ *     docs/research/ui/hub-round-t114-2026-10-20.md): the band shows hubRules.foldBandRows: two or more rows of one per-lift code
+ *     (LiftUnfinished, LiftNoPower, LiftSectionMissing) are ONE row, PROBLEM_GROUP "3 lifts unfinished: Lift 3, 4, 5"
+ *     (hubRules.liftNameList), its click opens the Lifts view, its tooltip lists every lift. The "+N" cell is a button: it opens
+ *     a popover (hubState.problemsOpen$), a card hanging under the band (.problems is its anchor) with one clickable row per
+ *     hidden band row (same click as in a slot, then it closes); the band keeps its three fixed slots, so nothing grows. The
+ *     shared backdrop (HubPanel OverlayBackdrop) closes it.
  */
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
@@ -77,10 +84,11 @@ import type { CityStats, ProblemRow, ResortLive, ResortRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
-  bandRowsOf, bandSlots, closedRuns, factorRowsOf, liveOf, problemClick, problemIcon, problemVariant,
+  bandRowsOf, bandSlots, closedRuns, factorRowsOf, foldBandRows, liftNameList, liveOf, problemClick, problemIcon, problemVariant,
   statusHint, statusVariant, statusWord,
 } from "./hubRules";
-import { view$ } from "./hubState";
+import type { BandRow, ProblemClick } from "./hubRules";
+import { problemsOpen$, view$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
 import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, numArg } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
@@ -195,6 +203,44 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
   }
 }
 
+/** T114: a folded band row's ONE text node ("3 lifts unfinished: Lift 3, 4, 5"); a plain row is ProblemText. */
+function BandText({ b, t }: { b: BandRow; t: Translate }): JSX.Element {
+  if (b.group.length < 2) return <ProblemText p={b.row} t={t} />;
+  const N = numArg(b.group.length, Unit.Integer);
+  const NAMES = liftNameList(b.group.map((p) => p.name));
+  switch (b.row.code) {
+    case PROBLEM.LiftUnfinished: return <LocText entry={HUB_FMT.problemGroupLiftUnfinished} args={{ N, NAMES }} />;
+    case PROBLEM.LiftNoPower: return <LocText entry={HUB_FMT.problemGroupLiftNoPower} args={{ N, NAMES }} />;
+    default: return <LocText entry={HUB_FMT.problemGroupLiftSectionMissing} args={{ N, NAMES }} />;
+  }
+}
+
+/** T114: a folded row opens the Lifts view (it names several lifts); a plain row clicks as before. */
+function bandClick(b: BandRow): ProblemClick {
+  return b.group.length >= 2 ? "liftsView" : problemClick(b.row);
+}
+
+function runClick(click: ProblemClick, p: ProblemRow): void {
+  if (click === "sign") hubTriggers.focusBuilding(p.subject);
+  else if (click === "lift") hubTriggers.focusLift(p.subject, p.subjectTop);
+  else if (click === "liftsView") view$.update("lifts");
+  else if (click === "runsView") view$.update("runs");
+}
+
+/** The tooltip of a band row; a folded row lists its lifts, one line each, then what a click does. */
+function bandTip(b: BandRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element {
+  if (b.group.length < 2) return problemTip(b.row, factors, live, t);
+  return (
+    <TipLines
+      lines={[
+        <BandText key="h" b={b} t={t} />,
+        ...b.group.map((p, i) => <ProblemText key={i} p={p} t={t} />),
+        t(HUB_LOC.problemClickList),
+      ]}
+    />
+  );
+}
+
 /** The tooltip body of a band row (design 6.3). */
 function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element {
   const PCT = numArg(p.pct, Unit.Percentage);
@@ -260,16 +306,24 @@ function ProblemIconEl({ p }: { p: ProblemRow | null }): JSX.Element {
 }
 
 /** One of the three fixed slots: always a `.problemSlotRow` (1.45 em); slot 3 carries the "+N" cell. */
-function ProblemSlot({ p, slot, more, hidden, factors, live, t, noneLine }: {
-  p: ProblemRow | null; slot: number; more: number; hidden: readonly ProblemRow[]; factors: readonly ProblemRow[];
-  live: ResortLive | null; t: Translate; noneLine: boolean;
+function ProblemSlot({ b, slot, more, hidden, factors, live, t, noneLine, popOpen }: {
+  b: BandRow | null; slot: number; more: number; hidden: readonly BandRow[]; factors: readonly ProblemRow[];
+  live: ResortLive | null; t: Translate; noneLine: boolean; popOpen: boolean;
 }): JSX.Element {
+  // T114: "+N" is a button that opens the popover under the band (its tooltip still names the hidden rows).
   const moreCell = slot !== 2 ? null : more > 0 ? (
-    <Tip tip={<TipLines lines={[t(HUB_LOC.problemMoreTip), ...hidden.map((h, i) => <ProblemText key={i} p={h} t={t} />)]} />}>
-      <div className={styles.problemMore}><LocText entry={HUB_FMT.problemMore} args={{ N: numArg(more, Unit.Integer) }} /></div>
-    </Tip>
+    <div className={styles.problemMore}>
+      <Tip tip={popOpen ? undefined : <TipLines lines={[t(HUB_LOC.problemMoreTip), ...hidden.map((h, i) => <BandText key={i} b={h} t={t} />),
+        t(HUB_LOC.problemMoreClick)]} />}>
+        <Button theme={{ button: cx(styles.problemMoreButton, popOpen && styles.problemMoreOn) }}
+          onSelect={() => problemsOpen$.update(!problemsOpen$.value)}>
+          <LocText entry={HUB_FMT.problemMore} args={{ N: numArg(more, Unit.Integer) }} />
+        </Button>
+      </Tip>
+    </div>
   ) : <div className={styles.problemMore} />;
-  if (!p) {
+  const p = b ? b.row : null;
+  if (!b || !p) {
     // An empty slot, or the None line in slot 1 (inert, dimmer check mark).
     return (
       <div className={styles.problemSlotRow}>
@@ -281,22 +335,17 @@ function ProblemSlot({ p, slot, more, hidden, factors, live, t, noneLine }: {
       </div>
     );
   }
-  const click = problemClick(p);
+  const click = bandClick(b);
   const content = (
     <>
       <ProblemIconEl p={p} />
-      <div className={styles.problemText}><ProblemText p={p} t={t} /></div>
+      <div className={styles.problemText}><BandText b={b} t={t} /></div>
     </>
   );
-  const onSelect = (): void => {
-    if (click === "sign") hubTriggers.focusBuilding(p.subject);
-    else if (click === "lift") hubTriggers.focusLift(p.subject, p.subjectTop);
-    else if (click === "liftsView") view$.update("lifts");
-    else if (click === "runsView") view$.update("runs");
-  };
+  const onSelect = (): void => runClick(click, p);
   return (
     <div className={cx(styles.problemSlotRow, styles.problemRowOn)}>
-      <Tip tip={problemTip(p, factors, live, t)}>
+      <Tip tip={bandTip(b, factors, live, t)}>
         {click ? (
           <Button theme={{ button: cx(styles.problemSlot, styles.problemClickable, p.severity <= 1 && styles.problemDim) }} onSelect={onSelect}>
             {content}
@@ -324,9 +373,10 @@ export function StatusBlock({ statusRef, problemsRef }: {
   const row = cur.row;
   const sign = row && row.kind === 1 ? null : row ? row.sign : null;
   const l = row ? liveOf(live, sign) : null;
-  const band = bandRowsOf(problems, sign);
+  const band = foldBandRows(bandRowsOf(problems, sign));   // T114: per-lift rows of one code fold into one
   const factors = factorRowsOf(problems, sign);
   const { slots, more } = bandSlots(band);
+  const popOpen = useValue(problemsOpen$) && more > 0;
   // Round S1 D29: "Powder day" in the hint slot (normal colour), else the SEASON_HINT word; same slot, same height.
   const hintKind = statusHint(row, l);
   const powder = hintKind === "powder";
@@ -350,11 +400,37 @@ export function StatusBlock({ statusRef, problemsRef }: {
           </div>
         </div>
       </Tip>
-      <div ref={problemsRef} className={styles.problems}>
-        {slots.map((p, i) => (
-          <ProblemSlot key={i} p={p} slot={i} more={i === 2 ? more : 0} hidden={band.slice(3)} factors={factors} live={l} t={t}
-            noneLine={i === 0 && band.length === 0} />
+      <div ref={problemsRef} className={cx(styles.problems, styles.problemsAnchor)}>
+        {slots.map((b, i) => (
+          <ProblemSlot key={i} b={b} slot={i} more={i === 2 ? more : 0} hidden={band.slice(3)} factors={factors} live={l} t={t}
+            noneLine={i === 0 && band.length === 0} popOpen={popOpen} />
         ))}
+        {popOpen && (
+          <div className={cx(styles.overlayCard, styles.overlayBelow)}>
+            <div className={styles.overlayTitle}>{t(HUB_LOC.problemMoreTip)}</div>
+            {band.slice(3).map((b, i) => {
+              const click = bandClick(b);
+              const row = (
+                <>
+                  <ProblemIconEl p={b.row} />
+                  <div className={styles.problemText}><BandText b={b} t={t} /></div>
+                </>
+              );
+              return (
+                <Tip key={i} tip={bandTip(b, factors, l, t)}>
+                  {click ? (
+                    <Button theme={{ button: cx(styles.popoverRow, b.row.severity <= 1 && styles.problemDim) }}
+                      onSelect={() => { problemsOpen$.update(false); runClick(click, b.row); }}>
+                      {row}
+                    </Button>
+                  ) : (
+                    <div className={cx(styles.popoverRow, b.row.severity <= 1 && styles.problemDim)}>{row}</div>
+                  )}
+                </Tip>
+              );
+            })}
+          </div>
+        )}
       </div>
     </>
   );

@@ -379,6 +379,22 @@ namespace SkiResortMod.Systems
     ///   m_Hanging) (NetUtils.cs:178-191, CourseSplitSystem.cs:1702-1704 for StrictNodes nets).</summary>
     public static class LiftTowerEdit
     {
+        /// <summary>A node this far BELOW its target (ground + E) is rewritten: the tower would sink into the ground.</summary>
+        public const float HeightBelowTolM = 0.25f;
+
+        /// <summary>A node up to this far ABOVE its target is left alone (T115). Every write re-curves the node's edges, the carve
+        /// (cut ceiling = edge y + m_HeightRange.min - 2, terrain-carving.md §2) follows the curve, and on the steep tram spans the
+        /// cut reaches the node: the ground under it sank 0.39 -> 0.33 -> 0.27 m per write (2026-10-20 log :1541 / :1655 / :1769,
+        /// node 345662:37; ratio ~0.85), so a fit that re-grounds on every 0.25 m wrote three times and hit the loop guard. The
+        /// write that caused the sink is ours; the tower base then stands at most this far above the carved ground.</summary>
+        public const float HeightAboveTolM = 1.0f;
+
+        /// <summary>T115: does a node at <paramref name="oldY"/> need a height write to reach <paramref name="targetY"/> (ground + E)
+        /// when its member and position are unchanged? One-sided: below by more than HeightBelowTolM, or above by more than
+        /// HeightAboveTolM.</summary>
+        public static bool HeightWrite(float oldY, float targetY) =>
+            oldY < targetY - HeightBelowTolM || oldY > targetY + HeightAboveTolM;
+
         public static float ElevationM(LiftTowerPlanConstants c, int member) =>
             member <= 0 ? 0f : c.Ladder[member].TopM - c.Ladder[0].TopM;
 
@@ -442,6 +458,17 @@ namespace SkiResortMod.Systems
         private float m_RopeA, m_RopeB;
         private bool m_UseSag = true;
 
+        /// <summary>T48 round 2 objective switch. false (default) = FEWEST TOWERS: an exact search for the fewest towers with every
+        /// span <= MaxSpanM and clear with its real sag, tall members wherever one saves a tower; then the fewest ladder steps; then
+        /// even spans. true = the 2026-10-19 objective (anchors, then infill at the TYPICAL span, shortest members), kept for the
+        /// before / after replays (LiftBatch LP-17) and as the fallback where no clear arrangement exists.</summary>
+        public bool LegacySpacing;
+
+        /// <summary>Lift-line tool (T48 step 4): spots the user removed a tower from (metres along). The fewest-towers search never
+        /// puts a NEW tower within ForbiddenRadiusM of one (a seed there is still kept). Null / empty = none.</summary>
+        public IList<float> Forbidden;
+        public float ForbiddenRadiusM = 10f;
+
         // The working node list: sample index, member (-1 station), flags. Kept sorted by sample.
         private readonly List<int> m_K = new List<int>();
         private readonly List<int> m_M = new List<int>();
@@ -477,22 +504,13 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // (a) anchors: split every violated span (station to station, or between seeds). The floor test ignores the sag here:
-            // a long station-to-station chord sags metres that its infilled spans will not (FG 0.03 x 300 m = 9 m).
-            m_UseSag = false;
+            // (a+b) fewest towers (round 2): per segment (station to station, or between seeds) the exact search; where it finds
+            // no clear arrangement, the 2026-10-19 phases (a) anchors / greedy split + (b) infill minimise what is left.
             for (int i = 0; i < m_K.Count - 1; )
             {
-                int added = Anchors(i, i + 1);
+                int added = LegacySpacing ? -1 : MinTowers(i, i + 1);
                 if (added < 0)
-                    added = Split(i, i + 1, 0);   // no clear arrangement exists: the greedy split minimises what is left
-                i += added + 1;
-            }
-            m_UseSag = true;
-
-            // (b) infill.
-            for (int i = 0; i < m_K.Count - 1; )
-            {
-                int added = Infill(i, i + 1);
+                    added = LegacySegment(i);
                 i += added + 1;
             }
 
@@ -614,7 +632,7 @@ namespace SkiResortMod.Systems
         /// has; the spare nodes go to the midpoints of the longest spans; heights by phase (c). (3) Short: neither is clear: the better
         /// of the two by floor margin, and the tower count the free plan needs.</summary>
         public LiftTowerFit Fit(LiftTerrainSampler terrain, float lengthM, float ropeA, float ropeB, LiftTowerPlanConstants c,
-                                IList<float> currentInnerAlongM, bool allowMove, float engineMaxSpanM)
+                                IList<float> currentInnerAlongM, bool allowMove, float engineMaxSpanM, IList<int> currentMembers = null)
         {
             var fit = new LiftTowerFit { Inner = currentInnerAlongM.Count };
             LiftTowerPlanConstants cm = c;
@@ -622,6 +640,20 @@ namespace SkiResortMod.Systems
                 cm = c.With(maxSpanM: engineMaxSpanM, typicalSpanM: math.min(c.TypicalSpanM, engineMaxSpanM));
             fit.Free = Plan(terrain, lengthM, ropeA, ropeB, cm);
             fit.Needed = fit.Free.LineTowers;
+            // T115 hysteresis: the members the line already carries win when they clear it as they stand. Phase (c) re-run on ground
+            // that moved a few decimetres (our own carve, rounding) can pick an equally clear but different assignment (the 1,223 m
+            // tram flipped {T30 x9, T45 x3} <-> {T30 x8, T45 x4} on every re-fit, 2026-10-20 log :3078-:3295); a clear line is final.
+            if (currentMembers != null && currentMembers.Count == currentInnerAlongM.Count)
+            {
+                LiftTowerPlan current = PlanFixed(terrain, lengthM, ropeA, ropeB, c, currentInnerAlongM, currentMembers, null, assign: false);
+                if (current.Clear)
+                {
+                    fit.Kept = current;
+                    fit.Mode = LiftFitMode.Kept;
+                    fit.Plan = current;
+                    return fit;
+                }
+            }
             fit.Kept = PlanFixed(terrain, lengthM, ropeA, ropeB, c, currentInnerAlongM);
             if (fit.Kept.Clear)
             {
@@ -794,6 +826,205 @@ namespace SkiResortMod.Systems
 
         private Cost[] m_Cost = new Cost[0];
         private bool[] m_Reached = new bool[0];
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        // (a+b) fewest towers (T48 round 2, Richard 2026-10-20: "I almost never saw our tallest towers")
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        private struct MinCost
+        {
+            public int Towers;      // line towers so far
+            public int Breaks;      // towers on the uphill sample of a convex crest (planner notes span table rule 1): more is better
+            public int Members;     // sum of ladder indices (fewer steps = shorter towers at the same count)
+            public float SumSq;     // sum of squared span lengths (even spans at the same count and steps)
+            public int Parent;      // state index (k * ladder + m), -1 = the segment's start node
+
+            public bool Better(MinCost o)
+            {
+                if (Towers != o.Towers) return Towers < o.Towers;
+                if (Breaks != o.Breaks) return Breaks > o.Breaks;
+                if (Members != o.Members) return Members < o.Members;
+                return SumSq < o.SumSq - 1e-3f;
+            }
+        }
+
+        private MinCost[] m_MinCost = new MinCost[0];
+
+        private bool IsForbidden(int k)
+        {
+            if (Forbidden == null)
+                return false;
+            for (int f = 0; f < Forbidden.Count; f++)
+                if (math.abs(m_S[k] - Forbidden[f]) < ForbiddenRadiusM - 1e-3f)
+                    return true;
+            return false;
+        }
+        private bool[] m_UphillOfCrest = new bool[0];
+
+        /// <summary>Marks, for samples i..j, the uphill neighbour of every convex crest (Curvature below -ConvexM and the most convex
+        /// within ±2 samples): a tower there is the real-world "tower just before a breakover" (planner notes span table rule 1).</summary>
+        private void MarkCrests(int i, int j)
+        {
+            if (m_UphillOfCrest.Length < m_N + 1)
+                m_UphillOfCrest = new bool[m_N + 1];
+            for (int k = i; k <= j; k++)
+                m_UphillOfCrest[k] = false;
+            for (int k = i + 1; k < j; k++)
+            {
+                float c = Curvature(k);
+                if (c >= -m_C.ConvexM)
+                    continue;
+                bool most = true;
+                for (int q = math.max(i + 1, k - 2); q <= math.min(j - 1, k + 2) && most; q++)
+                    if (q != k && (Curvature(q) < c - 1e-4f || (math.abs(Curvature(q) - c) <= 1e-4f && q < k)))
+                        most = false;
+                if (!most)
+                    continue;
+                int up = m_High[math.min(k + 1, m_N)] >= m_High[math.max(k - 1, 0)] ? k + 1 : k - 1;
+                if (up > i && up < j)
+                    m_UphillOfCrest[up] = true;
+            }
+        }
+
+        /// <summary>Between working nodes a and b = a + 1: the arrangement with the FEWEST towers such that every span is at most
+        /// MaxSpanM and clear with its real sag (floor over the high side, max rope height), every node keeps the floor over its own
+        /// high side; then the most towers just uphill of a convex crest (breakover rule, never at the cost of a tower); then the
+        /// fewest ladder steps; then the most even spans. Exact: a shortest-path search over samples x ladder
+        /// members (states k * L + m), each span's far-end rope interval from SpanInterval (one pass per span), so a tall member
+        /// wins wherever it lets a span reach further and saves a tower. Returns the nodes added (0 when the segment is already one
+        /// clear span), -1 when no clear arrangement exists (the caller falls back to LegacySegment).</summary>
+        private int MinTowers(int a, int b)
+        {
+            m_UseSag = true;
+            int i = m_K[a], j = m_K[b];
+            float ri = Rope(i, m_M[a]), rj = Rope(j, m_M[b]);
+            float maxSpan = m_C.MaxSpanM + 1e-3f;
+            if (m_S[j] - m_S[i] <= maxSpan && SpanViolation(i, ri, j, rj) <= Tol)
+                return 0;
+            int L = m_C.Ladder.Length;
+            int states = (m_N + 1) * L;
+            if (m_MinCost.Length < states)
+                m_MinCost = new MinCost[states];
+            if (m_Reached.Length < states)
+                m_Reached = new bool[states];
+            for (int q = i * L; q < (j + 1) * L && q < states; q++)
+                m_Reached[q] = false;
+            int minGap = MinGap();
+            MarkCrests(i, j);
+            bool endReached = false;
+            MinCost end = default;
+            for (int k = i; k < j; k++)
+            {
+                for (int m = 0; m < L; m++)
+                {
+                    MinCost from;
+                    float rk;
+                    if (k == i)
+                    {
+                        if (m > 0)
+                            break;
+                        from = new MinCost { Parent = -1 };
+                        rk = ri;
+                    }
+                    else
+                    {
+                        int st = k * L + m;
+                        if (!m_Reached[st])
+                            continue;
+                        from = m_MinCost[st];
+                        from.Parent = st;
+                        rk = Rope(k, m);
+                    }
+                    // To the segment's end node.
+                    float dEnd = m_S[j] - m_S[k];
+                    if (k > i && j - k >= minGap && dEnd <= maxSpan && SpanInterval(k, rk, j, out float lo, out float hi) &&
+                        rj >= lo - Tol && rj <= hi + Tol)
+                    {
+                        MinCost c = from;
+                        c.SumSq += dEnd * dEnd;
+                        if (!endReached || c.Better(end))
+                        {
+                            end = c;
+                            endReached = true;
+                        }
+                    }
+                    // To a tower (k2, m2).
+                    for (int k2 = k + minGap; k2 <= j - minGap && m_S[k2] - m_S[k] <= maxSpan; k2++)
+                    {
+                        if (IsForbidden(k2))
+                            continue;
+                        if (!SpanInterval(k, rk, k2, out float lo2, out float hi2))
+                            continue;
+                        float d = m_S[k2] - m_S[k];
+                        for (int m2 = 0; m2 < L; m2++)
+                        {
+                            float r2 = Rope(k2, m2);
+                            if (r2 < lo2 - Tol)
+                                continue;
+                            if (r2 > hi2 + Tol)
+                                break;   // ropes ascend with the ladder
+                            if (!MemberAllowed(k2, m2) || !NodeOk(k2, m2))
+                                continue;
+                            MinCost c = from;
+                            c.Towers += 1;
+                            c.Breaks += m_UphillOfCrest[k2] ? 1 : 0;
+                            c.Members += m2;
+                            c.SumSq += d * d;
+                            int st2 = k2 * L + m2;
+                            if (!m_Reached[st2] || c.Better(m_MinCost[st2]))
+                            {
+                                m_MinCost[st2] = c;
+                                m_Reached[st2] = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!endReached)
+                return -1;
+
+            // Walk back; every insert lands between a and the end node. Flags against the segment's straight chord: Shoulder (the
+            // ground pokes through it), Valley (it is too high above the ground), else Infill.
+            int added = 0;
+            int state = end.Parent;
+            float chordSlope = (rj - ri) / math.max(m_S[j] - m_S[i], 1e-3f);
+            float need = m_C.CarrierDropM + m_C.FloorM;
+            while (state >= 0)
+            {
+                int k = state / L, m = state % L;
+                float chordHere = ri + chordSlope * (m_S[k] - m_S[i]);
+                LiftPlanNodeFlags f = need + m_High[k] > chordHere ? LiftPlanNodeFlags.Shoulder
+                    : m_C.MaxRopeAboveGroundM > 0f && chordHere - m_Centre[k] > m_C.MaxRopeAboveGroundM ? LiftPlanNodeFlags.Valley
+                    : LiftPlanNodeFlags.Infill;
+                Insert(k, m, f);
+                added++;
+                state = m_MinCost[state].Parent;
+            }
+            BreakoverPass(a, a + added + 1);
+            return added;
+        }
+
+        /// <summary>The 2026-10-19 phases for the segment from working node a to a + 1: (a) anchors (exact search, else the greedy
+        /// split), then (b) infill of every anchor span. Returns the nodes added.</summary>
+        private int LegacySegment(int a)
+        {
+            // (a) The floor test ignores the sag here: a long chord sags metres that its infilled spans will not.
+            m_UseSag = false;
+            int anchors = Anchors(a, a + 1);
+            if (anchors < 0)
+                anchors = Split(a, a + 1, 0);   // no clear arrangement exists: the greedy split minimises what is left
+            m_UseSag = true;
+            int added = anchors;
+            int end = a + anchors + 1;
+            for (int i = a; i < end; )
+            {
+                int inf = Infill(i, i + 1);
+                end += inf;
+                added += inf;
+                i += inf + 1;
+            }
+            return added;
+        }
 
         /// <summary>Phase (a) between working nodes a and b = a + 1: the anchor set with the fewest towers (anchors + the infill (b)
         /// will add), then the fewest anchors, the shortest members, and anchors nearest the worst-intrusion sample, such that every
@@ -1037,7 +1268,9 @@ namespace SkiResortMod.Systems
         /// <summary>Sub-spans phase (b) will make of a span of <paramref name="len"/> metres, minus one = the infill towers it adds.</summary>
         private int InfillTowers(float len)
         {
-            int n = math.max((int)math.ceil(len / m_C.MaxSpanM - 1e-4f), (int)math.round(len / m_C.TypicalSpanM));
+            // Round 2: the fewest sub-spans that respect MaxSpanM; LegacySpacing keeps the typical-span count (2026-10-19).
+            int n = LegacySpacing ? math.max((int)math.ceil(len / m_C.MaxSpanM - 1e-4f), (int)math.round(len / m_C.TypicalSpanM))
+                                  : (int)math.ceil(len / m_C.MaxSpanM - 1e-4f);
             return math.max(0, n - 1);
         }
 
@@ -1119,7 +1352,7 @@ namespace SkiResortMod.Systems
             int prev = i0;
             float rPrev = Rope(i0, m_M[a]);
             float total = 0f;
-            float maxSub = math.min(m_C.MaxSpanM, 1.5f * m_C.TypicalSpanM - m_C.StepM);
+            float maxSub = LegacySpacing ? math.min(m_C.MaxSpanM, 1.5f * m_C.TypicalSpanM - m_C.StepM) : m_C.MaxSpanM;
             int minGap = MinGap();
             for (int r = n; r >= 2; r--)
             {

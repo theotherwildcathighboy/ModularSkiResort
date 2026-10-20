@@ -126,6 +126,10 @@
 // T100 hub school launch (2026-10-19, DECISIONS 309; HUB_CONTRACT 11 unchanged): new PROBLEM[SchoolsNotLinked] and its PROBLEM_TIP;
 // PROBLEM[LodgeNoRoad] / PROBLEM_TIP[LodgeNoRoad] changed in place (a road-less top-level school joins that row); removed
 // Assets.UPGRADE_NAME / UPGRADE_DESCRIPTION[SkiSchool] (the school is top-level: its panel reads Assets.NAME / DESCRIPTION).
+// T114 hub round (2026-10-20, docs/research/ui/hub-round-t114-2026-10-20.md; HUB_CONTRACT 11 unchanged): new PROBLEM_GROUP[LiftUnfinished|
+// LiftNoPower|LiftSectionMissing], TILE_TIP_POWERED, PAGE_POSITION, PAGE_PREV, PAGE_NEXT, PROBLEM_MORE_CLICK, BUILD_GROUP[Lodges|Patrol]; TILE_TIP[Lifts],
+// BUILD_TAB_TIP[Buildings] and BUILD_LABEL[Sign|School|PatrolHut|PatrolHQ] changed in place.
+// Contract 12 (lift generator, 2026-10-20): new LIFT_TOOL, LIFT_TOOL_TIP, LIFT_TOOL_TIP_ON, LIFT_TOOL_UNAVAILABLE.
 // Additional languages: further IDictionarySource implementations — see SPEC §13 Phase 6.
 
 using System.Collections.Generic;
@@ -690,6 +694,22 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RESORT_PREV", "Previous ski area" },
                 { "SkiResort.Hub.RESORT_NEXT", "Next ski area" },
                 { "SkiResort.Hub.RESORT_POSITION", "{N} / {COUNT}" },
+                // T114 hub round (2026-10-20): folded lift rows, the Lifts tile's power line, the pager, the +N popover, the lodge group.
+                { "SkiResort.Hub.PROBLEM_GROUP[LiftUnfinished]", "{N} lifts unfinished: {NAMES}" },
+                { "SkiResort.Hub.PROBLEM_GROUP[LiftNoPower]", "{N} lifts without power: {NAMES}" },
+                { "SkiResort.Hub.PROBLEM_GROUP[LiftSectionMissing]", "{N} lifts missing a section: {NAMES}" },
+                { "SkiResort.Hub.TILE_TIP_POWERED", "Running with power: {N}" },
+                { "SkiResort.Hub.PAGE_POSITION", "{N} / {COUNT}" },
+                { "SkiResort.Hub.PROBLEM_MORE_CLICK", "Click to list them." },
+                { "SkiResort.Hub.PAGE_PREV", "Previous page" },
+                { "SkiResort.Hub.PAGE_NEXT", "Next page" },
+                { "SkiResort.Hub.BUILD_GROUP[Lodges]", "Lodges" },
+                { "SkiResort.Hub.BUILD_GROUP[Patrol]", "Ski patrol" },
+                // Contract 12: the lift generator toggle on the Lifts tab.
+                { "SkiResort.Hub.LIFT_TOOL", "Lift generator" },
+                { "SkiResort.Hub.LIFT_TOOL_TIP", "Plan a lift line between two stations: Ctrl+Shift+L" },
+                { "SkiResort.Hub.LIFT_TOOL_TIP_ON", "On: click a station, then the other station of the lift. Click again to stop." },
+                { "SkiResort.Hub.LIFT_TOOL_UNAVAILABLE", "Available once a city is loaded." },
                 { "SkiResort.Hub.RESORT_DEFAULT", "Ski area {N}" },
                 { "SkiResort.Hub.RESORT_FLY", "Fly to the Welcome Sign" },
                 { "SkiResort.Hub.RESORT_TIP", "Everything you build belongs to a Welcome Sign. Click to pick the ski area shown." },
@@ -826,7 +846,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.TILE_TIP[Runs]", "Runs fully open now, out of all runs in this ski area." },
                 // Phase D (round-4-contract §4.4; was "... Without power the chairs still move, but the lift adds nothing."): the
                 // carriers stop without power (ChairPinSystem hold, the tram Held), CG-T8.
-                { "SkiResort.Hub.TILE_TIP[Lifts]", "Complete lifts with power at the base station, out of all complete lifts. Without power a lift stops and adds nothing." },
+                { "SkiResort.Hub.TILE_TIP[Lifts]", "Complete lifts out of every lift drawn, unfinished ones included. Without power a complete lift stops and adds nothing." },
                 { "SkiResort.Hub.TILE_TIP[Guests]", "Month of {MONTH}: tourists who arrived at the lodges or the Welcome Sign, and residents who visited a lodge." },
                 { "SkiResort.Hub.TILE_TIP_SINCE_LOAD", "Counted since you loaded the city." },
                 { "SkiResort.Hub.TILE_TIP[Money]", "Net of the month so far: all resort income booked, minus lifts, runs, buildings and wages. The Finances view's Net." },
@@ -1059,15 +1079,15 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_TAB[Buildings]", "Buildings" },
                 { "SkiResort.Hub.BUILD_TAB_TIP[Lifts]", "Lifts: build the two stations, then the line. Pick the lift type below." },
                 { "SkiResort.Hub.BUILD_TAB_TIP[Runs]", "Runs: draw a run from the top of a lift, or plan trees with the tree tool." },
-                { "SkiResort.Hub.BUILD_TAB_TIP[Buildings]", "Buildings: lodges, the ski school and patrol join this ski area's Welcome Sign. Pick the lodge below." },
+                { "SkiResort.Hub.BUILD_TAB_TIP[Buildings]", "Buildings: lodges, the ski school and patrol join this ski area's Welcome Sign. Each lodge has its own tile." },
                 { "SkiResort.Hub.BUILD_LABEL[Base]", "Base station" },
                 { "SkiResort.Hub.BUILD_LABEL[Top]", "Top station" },
                 { "SkiResort.Hub.BUILD_LABEL[Line]", "Lift line" },
-                { "SkiResort.Hub.BUILD_LABEL[Sign]", "Welcome Sign" },
+                { "SkiResort.Hub.BUILD_LABEL[Sign]", "Sign" },
                 { "SkiResort.Hub.BUILD_LABEL[Lodge]", "Lodge" },
-                { "SkiResort.Hub.BUILD_LABEL[School]", "Ski school" },
-                { "SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Patrol hut" },
-                { "SkiResort.Hub.BUILD_LABEL[PatrolHQ]", "Patrol HQ" },
+                { "SkiResort.Hub.BUILD_LABEL[School]", "School" },
+                { "SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Hut" },
+                { "SkiResort.Hub.BUILD_LABEL[PatrolHQ]", "HQ" },
                 { "SkiResort.Hub.BUILD_LABEL[Natural]", "Natural" },
                 { "SkiResort.Hub.BUILD_LABEL[Groomed]", "Groomed" },
                 { "SkiResort.Hub.BUILD_LABEL[Snowmaking]", "Snowmaking" },

@@ -78,6 +78,8 @@
  *     hidden only while it holds no money (hubRules.netRowShown), so the drawn rows still add up. Under the Net an "Also, not in the
  *     net" block: last month's tickets (when a whole month was counted), the season's pass sales + the pre-season part + pass holders
  *     skiing, the city-income estimate. Not linked: Lifts, Runs while it holds money, the Net. Every number is C#'s; the UI adds nothing.
+ *   - T114 (2026-10-20, "never a scrollbar", docs/research/ui/hub-round-t114-2026-10-20.md): RUNNING COSTS and ALSO are folds
+ *     (fit.tsx Fold, closed by default, one open at a time); the income rows and the Net stay on top.
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
@@ -95,6 +97,7 @@ import { HUB_FMT, HUB_LOC, LIFT_TYPE, monthName } from "./hubText";
 import { Divider, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, TipLines, numArg, useNumberSamples } from "./parts";
 import type { NumberSamples } from "./parts";
 import { currentResort, resortEntries, runsOf } from "./resortData";
+import { Fold } from "./fit";
 import styles from "./hub.module.scss";
 
 const DASH = "–";
@@ -380,8 +383,7 @@ function AlsoBlock({ l, city, samples, t }: { l: ResortLive | null; city: CitySt
   const cityRow = city.tourismOverhaul || cityIncomeShown(l, city);
   if (!last && !passes && !cityRow) return null;
   return (
-    <>
-      <InfoLine header label={t(HUB_LOC.sectionAlso)} />
+    <Fold view="money" id="also" header label={t(HUB_LOC.sectionAlso)}>
       {last && l && (
         <InfoLine
           label={<LocText entry={HUB_FMT.moneyTicketsLast} args={{ MONTH: monthName(city.month, t, 1), N: numArg(l.ticketPaidMonth, Unit.Integer) }} />}
@@ -390,7 +392,7 @@ function AlsoBlock({ l, city, samples, t }: { l: ResortLive | null; city: CitySt
       )}
       {passes && <PassRows l={l} month={monthName(city.month, t)} samples={samples} t={t} />}
       <CityIncomeRow l={l} city={city} samples={samples} t={t} />
-    </>
+    </Fold>
   );
 }
 
@@ -407,7 +409,7 @@ function SignMoney({ row, l, city, build, kinds, problems, samples, t }: {
       <LodgeSpendRow l={l} city={city} samples={samples} t={t} />
       <LessonRow l={l} city={city} school={schoolState(l, problems, row.sign, schoolBuiltOf(build))} month={month} samples={samples} t={t} />
       <PassesMonthRow l={l} city={city} samples={samples} t={t} />
-      <InfoLine header label={t(HUB_LOC.sectionCosts)} />
+      <Fold view="money" id="costs" header label={t(HUB_LOC.sectionCosts)}>
       <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />
       <RunsRow l={l} kinds={kinds} samples={samples} t={t} />
       <SoFarRow label={t(HUB_LOC.moneyRowBuildings)} value={l ? l.buildingsSoFar : -1} rateNow={l ? l.buildingsMonth : -1} l={l}
@@ -415,6 +417,7 @@ function SignMoney({ row, l, city, build, kinds, problems, samples, t }: {
       <SoFarRow label={t(HUB_LOC.moneyRowWages)} value={l ? l.wagesSoFar : -1} rateNow={l ? l.wagesMonth : -1} l={l}
         rwh={city.realisticWorkplaces} samples={samples} t={t} />
       {city.realisticWorkplaces && <SubLine tip={t(HUB_LOC.moneyTipRwh)}>{t(HUB_LOC.moneyNoteRwh)}</SubLine>}
+      </Fold>
       <Divider />
       <NetRow l={l} samples={samples} t={t} />
       <AlsoBlock l={l} city={city} samples={samples} t={t} />

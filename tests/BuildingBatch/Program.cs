@@ -1,8 +1,9 @@
-// SchoolBatch — T100 (the ski school as a TOP-LEVEL building; T10 D1 option A, DECISIONS 308;
-// docs/research/lodges-top-level-spec.md (b); report docs/research/field/2026-10-19/school-top-level-t100.md).
+// BuildingBatch — the TOP-LEVEL resort buildings (T10 D1 option A, DECISIONS 308; docs/research/lodges-top-level-spec.md (b)):
+// T100 the ski school (2026-10-19, created as tests/SchoolBatch; report docs/research/field/2026-10-19/school-top-level-t100.md),
+// T113 the five lodges and both patrol huts (2026-10-20, renamed; report docs/research/field/2026-10-20/lodges-top-level-build.md).
 // Run from the ModularSkiResort root:
-//   dotnet run --project tests/SchoolBatch
-// Exit 0 = every check passed. Created 2026-10-19.
+//   dotnet run --project tests/BuildingBatch
+// Exit 0 = every check passed.
 //
 //   L  attribution (SchoolLinkRules.Resolve = SkiResortIndex.TryResolve, TetherMeters 5000): L1 nearest sign, L2 5000.00 m in,
 //      L3 5000.01 m out, L4 NaN never links, L5 an exact tie goes to the lower (Index, Version), L6 the sign deleted -> not
@@ -14,9 +15,15 @@
 //      four fixtures (green counted / no counted green / no runs / school Inactive). I5: an unlinked school = no school.
 //   D  the link-log diff (SchoolLinkRules.Diff): Linked, Relinked, Unlinked (new and lost), Removed, distance-only = no
 //      line, stable order, empty before -> one line per school (the per-load re-log).
-//   P  the SkiSchool.Prefab mirror gate (gamedata-mirror): no ServiceUpgrade; ServiceObject (Parks and Recreation),
-//      PlaceableObject cost / XP = the catalog row's (80,000 / 150), CityServiceBuilding, Park kept (D4), Workplace 6 =
-//      the row's jobs, the mesh CID unchanged, ObjectSubObjects 27 rows, every declared $type id unique.
+//   E  T113 D3 (SchoolLinkRules.AreaEfficiency): E1 no top-level lodge = the sign's own, E2 the tier-weighted mean x the sign,
+//      E3 a lodge at 0 alone = 0, E4 the sign at 0 = 0, E5 rounding to 0.01 and the 0.01 floor, E6 the school / patrol weigh 0.
+//   P  the mirror gate PER BUILDING (gamedata-mirror; all eight: SkiAFrameDayLodge, SkiLodgeHut, SkiLodgeMid, SkiLodgeSummit,
+//      SkiLodgeGrand, SkiSchool, SkiPatrolHut, SkiPatrolHQ): P1 no ServiceUpgrade; P2 ServiceObject = Parks and Recreation;
+//      P3 PlaceableObject cost = the catalog row's BuildCost, XP = the old ServiceUpgrade XP; P4 CityServiceBuilding; P5 Park
+//      kept (D4); P6 Workplace = the row's jobs (jobs 0 = no Workplace block); P7 upkeep = the row's, and a roadless row
+//      (hut, summit, patrol huts) demands nothing (electricity, water, garbage 0); P8 the mesh CID resolves to a mesh prefab's
+//      .cid in the mirror; P9 the door spawn rows (Pedestrian Spawn Location, T51: school 4, A-frame 1, Mid 5, Grand 5, the
+//      roadless four 0) and the sub-object $rlength = the rows present; P10 every declared $type id unique.
 
 using System;
 using System.Collections.Generic;
@@ -27,7 +34,7 @@ using SkiResortMod.Systems;
 using Unity.Mathematics;
 using Score = SkiResortMod.Systems.SkiResortScore;
 
-namespace SchoolBatch
+namespace BuildingBatch
 {
     public static class Program
     {
@@ -51,8 +58,10 @@ namespace SchoolBatch
             CountRule();
             Invariant();
             DiffLog();
-            PrefabGate();
-            Console.WriteLine($"SchoolBatch: {s_Pass} passed, {s_Fail} failed");
+            EfficiencyRule();
+            foreach (Gate g in Gates)
+                PrefabGate(g);
+            Console.WriteLine($"BuildingBatch: {s_Pass} passed, {s_Fail} failed");
             return s_Fail == 0 ? 0 : 1;
         }
 
@@ -283,40 +292,124 @@ namespace SchoolBatch
                   "D5", "new linked school, removed school, not-linked -> linked; sorted by (Index, Version)");
         }
 
-        // ── P ────────────────────────────────────────────────────────────────────────────────
-        private static void PrefabGate()
+        // ── E ────────────────────────────────────────────────────────────────────────────────
+        private static bool Near(float a, float b) => Math.Abs(a - b) < 1e-5f;
+
+        private static void EfficiencyRule()
         {
-            string path = Path.Combine("gamedata-mirror", "ImportedData", "SkiSchool", "SkiSchool.Prefab");
-            if (!Check(File.Exists(path), "P0", "mirror file " + path + " (run from the ModularSkiResort root)"))
+            Check(Near(SchoolLinkRules.AreaEfficiency(0.87f, 0.0, 0.0), 0.87f), "E1", "no active top-level lodge: the sign's own efficiency");
+            // A-frame (B 20) at 0.60 + Grand (B 40) at 0.90: mean (12 + 36) / 60 = 0.80; x sign 0.95 = 0.76
+            float e2 = SchoolLinkRules.AreaEfficiency(0.95f, 20 * 0.60 + 40 * 0.90, 60.0);
+            Check(Near(e2, 0.76f), "E2", $"tier-weighted mean 0.80 x sign 0.95 = {e2} (0.76)");
+            Check(SchoolLinkRules.AreaEfficiency(1f, 20 * 0.0, 20.0) == 0f, "E3", "the only lodge at 0: area 0");
+            Check(SchoolLinkRules.AreaEfficiency(0f, 20 * 1.0, 20.0) == 0f, "E4", "sign at 0 (Destroyed, D9): area 0");
+            float e5a = SchoolLinkRules.AreaEfficiency(1f, 16 * 0.333, 16.0);
+            float e5b = SchoolLinkRules.AreaEfficiency(0.02f, 16 * 0.2, 16.0);
+            Check(Near(e5a, 0.33f) && Near(e5b, 0.01f), "E5", $"rounded to 0.01 ({e5a}), floored at 0.01 ({e5b})");
+            // E6: the school and patrol huts have no tier base (weight 0): with only them the area is the sign's.
+            Check(Near(SchoolLinkRules.AreaEfficiency(0.9f, 0.0 * 0.4, 0.0), 0.9f), "E6", "school / patrol weigh 0: the sign's efficiency");
+        }
+
+        // ── P ────────────────────────────────────────────────────────────────────────────────
+        private sealed class Gate
+        {
+            public string Prefab;
+            public int Xp, Doors;
+            public bool Roadless;
+            public Gate(string prefab, int xp, int doors, bool roadless) { Prefab = prefab; Xp = xp; Doors = doors; Roadless = roadless; }
+        }
+
+        // XP = the old ServiceUpgrade m_XPReward (unchanged by the conversion); doors = T51 Pedestrian Spawn rows.
+        private static readonly Gate[] Gates =
+        {
+            new Gate("SkiAFrameDayLodge", 100, 1, false),
+            new Gate("SkiLodgeHut", 100, 0, true),
+            new Gate("SkiLodgeMid", 200, 5, false),
+            new Gate("SkiLodgeSummit", 400, 0, true),
+            new Gate("SkiLodgeGrand", 400, 5, false),
+            new Gate("SkiSchool", 150, 4, false),
+            new Gate("SkiPatrolHut", 50, 0, true),
+            new Gate("SkiPatrolHQ", 50, 0, true),
+        };
+
+        private const string SpawnGuid = "c30226ded1fc8d64abee5d0bd2554bc4";   // Pedestrian Spawn Location (T51)
+        private static HashSet<string> s_MeshCids;
+
+        /// <summary>Every .Prefab.cid content under the mirror (the mesh prefabs' CIDs), read once.</summary>
+        private static HashSet<string> MeshCids()
+        {
+            if (s_MeshCids != null)
+                return s_MeshCids;
+            s_MeshCids = new HashSet<string>();
+            foreach (string f in Directory.EnumerateFiles(Path.Combine("gamedata-mirror", "ImportedData"), "*.Prefab.cid", SearchOption.AllDirectories))
+                s_MeshCids.Add(File.ReadAllText(f).Trim());
+            return s_MeshCids;
+        }
+
+        private static bool Row(string prefab, out int cost, out int jobs, out int upkeep)
+        {
+            cost = jobs = upkeep = -1;
+            for (int i = 0; i < SkiCatalog.Lodges.Count; i++)
+            {
+                if (SkiCatalog.Lodges[i].Prefab == prefab)
+                {
+                    cost = SkiCatalog.Lodges[i].BuildCost; jobs = SkiCatalog.Lodges[i].Jobs; upkeep = SkiCatalog.Lodges[i].Upkeep;
+                    return true;
+                }
+            }
+            SchoolDef s = SkiCatalog.SchoolByPrefab(prefab);
+            if (s != null) { cost = s.BuildCost; jobs = s.Jobs; upkeep = s.Upkeep; return true; }
+            PatrolDef p = SkiCatalog.PatrolByPrefab(prefab);
+            if (p != null) { cost = p.BuildCost; jobs = p.Jobs; upkeep = p.Upkeep; return true; }
+            return false;
+        }
+
+        private static string Num(string text, string field)
+        {
+            Match m = Regex.Match(text, "\"" + field + "\": (-?[0-9.]+)");
+            return m.Success ? m.Groups[1].Value : "?";
+        }
+
+        private static void PrefabGate(Gate g)
+        {
+            string id = g.Prefab + " ";
+            string path = Path.Combine("gamedata-mirror", "ImportedData", g.Prefab, g.Prefab + ".Prefab");
+            if (!Check(File.Exists(path), id + "P0", "mirror file " + path + " (run from the ModularSkiResort root)"))
                 return;
             string text = File.ReadAllText(path);
-            SchoolDef row = SkiCatalog.SchoolByPrefab(SkiCatalog.Names.School);
-            Check(row != null, "P0b", "catalog row SkiSchool");
-            if (row == null)
+            if (!Check(Row(g.Prefab, out int cost, out int jobs, out int upkeep), id + "P0b", "catalog row " + g.Prefab))
                 return;
-            Check(!text.Contains("Game.Prefabs.ServiceUpgrade, Game"), "P1", "no ServiceUpgrade component (top-level)");
+            string I(int v) => v.ToString(CultureInfo.InvariantCulture);
+            Check(!text.Contains("Game.Prefabs.ServiceUpgrade, Game"), id + "P1", "no ServiceUpgrade component (top-level)");
             Check(Regex.IsMatch(text, "Game\\.Prefabs\\.ServiceObject, Game\"[\\s\\S]{0,200}?UnityGUID:5c1f656a5ea20284197a71e4997b4187"),
-                  "P2", "ServiceObject = Parks and Recreation (5c1f656a...)");
+                  id + "P2", "ServiceObject = Parks and Recreation (5c1f656a...)");
             Match placeable = Regex.Match(text, "Game\\.Prefabs\\.PlaceableObject, Game\"[\\s\\S]{0,200}?\"m_ConstructionCost\": (\\d+),\\s*\"m_XPReward\": (\\d+)");
-            Check(placeable.Success && placeable.Groups[1].Value == row.BuildCost.ToString(CultureInfo.InvariantCulture) &&
-                  placeable.Groups[2].Value == "150", "P3",
-                  $"PlaceableObject cost {(placeable.Success ? placeable.Groups[1].Value : "?")} = row {row.BuildCost}, XP {(placeable.Success ? placeable.Groups[2].Value : "?")} = 150");
-            Check(text.Contains("Game.Prefabs.CityServiceBuilding, Game"), "P4", "CityServiceBuilding (D2: upkeep billed)");
-            Check(text.Contains("Game.Prefabs.Park, Game"), "P5", "Park kept (D4)");
-            Match work = Regex.Match(text, "\"m_Workplaces\": (\\d+)");
-            Check(work.Success && work.Groups[1].Value == row.Jobs.ToString(CultureInfo.InvariantCulture), "P6",
-                  $"Workplace {(work.Success ? work.Groups[1].Value : "?")} = row jobs {row.Jobs}");
-            Match upkeep = Regex.Match(text, "\"m_Upkeep\": (\\d+)");
-            Check(upkeep.Success && upkeep.Groups[1].Value == row.Upkeep.ToString(CultureInfo.InvariantCulture), "P7",
-                  $"ServiceConsumption upkeep {(upkeep.Success ? upkeep.Groups[1].Value : "?")} = row {row.Upkeep}");
-            Check(text.Contains("\"m_Mesh\": $fstrref:\"CID:b6da11948419194976357fa66602ffb9\""), "P8", "mesh CID unchanged (b6da1194...)");
+            Check(placeable.Success && placeable.Groups[1].Value == I(cost) && placeable.Groups[2].Value == I(g.Xp), id + "P3",
+                  $"PlaceableObject cost {(placeable.Success ? placeable.Groups[1].Value : "?")} = row {cost}, XP {(placeable.Success ? placeable.Groups[2].Value : "?")} = {g.Xp}");
+            Check(text.Contains("Game.Prefabs.CityServiceBuilding, Game"), id + "P4", "CityServiceBuilding (D2: upkeep billed)");
+            Check(text.Contains("Game.Prefabs.Park, Game"), id + "P5", "Park kept (D4)");
+            if (jobs == 0)
+                Check(!text.Contains("Game.Prefabs.Workplace, Game"), id + "P6", "row jobs 0: no Workplace block (demands no workers)");
+            else
+                Check(Num(text, "m_Workplaces") == I(jobs), id + "P6", $"Workplace {Num(text, "m_Workplaces")} = row jobs {jobs}");
+            bool upkeepOk = Num(text, "m_Upkeep") == I(upkeep);
+            string demand = Num(text, "m_ElectricityConsumption") + " / " + Num(text, "m_WaterConsumption") + " / " + Num(text, "m_GarbageAccumulation");
+            bool demandOk = !g.Roadless || demand == "0 / 0 / 0";
+            Check(upkeepOk && demandOk, id + "P7", $"upkeep {Num(text, "m_Upkeep")} = row {upkeep}; power / water / garbage {demand}" +
+                  (g.Roadless ? " (roadless: must be 0 / 0 / 0)" : ""));
+            Match mesh = Regex.Match(text, "\"m_Mesh\": \\$fstrref:\"CID:([0-9a-f]{32})\"");
+            Check(mesh.Success && MeshCids().Contains(mesh.Groups[1].Value), id + "P8",
+                  $"mesh CID {(mesh.Success ? mesh.Groups[1].Value.Substring(0, 8) : "?")}... resolves to a mesh prefab .cid in the mirror");
+            int doors = Regex.Matches(text, "UnityGUID:" + SpawnGuid).Count;
             Match subs = Regex.Match(text, "ObjectSubObjectInfo\\[\\], Game\",\\s*\"\\$rlength\": (\\d+)");
-            Check(subs.Success && subs.Groups[1].Value == "27", "P9", $"ObjectSubObjects rows {(subs.Success ? subs.Groups[1].Value : "?")} = 27");
+            int rows = Regex.Matches(text, "\"m_Object\": \\$fstrref:").Count;
+            Check(doors == g.Doors && subs.Success && subs.Groups[1].Value == I(rows), id + "P9",
+                  $"door spawn rows {doors} = {g.Doors}; sub-object $rlength {(subs.Success ? subs.Groups[1].Value : "?")} = rows {rows}");
             var ids = new HashSet<string>();
             bool unique = true;
             foreach (Match m in Regex.Matches(text, "\"\\$type\": \"(\\d+)\\|"))
                 unique &= ids.Add(m.Groups[1].Value);
-            Check(unique, "P10", $"{ids.Count} declared $type ids, each declared once");
+            Check(unique, id + "P10", $"{ids.Count} declared $type ids, each declared once");
         }
     }
 }

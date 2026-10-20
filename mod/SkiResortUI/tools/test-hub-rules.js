@@ -30,6 +30,8 @@
  * 0, netRowShown hides only a 0 income row, every harness live row adds up and equals its History month in progress, MoneyView
  * draws the contract-11 fields): 229 checks.
  * T97 P1 header selector (2026-10-19, contract 11): T24.1-T24.3 (resortCountsVariant, resortListCounts, the selector's source facts): 239 checks.
+ * T114 hub round (2026-10-20, contract 11): T12.4 / T12.5 / T12.16 now say every lodge tier is a tile; T24.3 the header's plain name button +
+ * AreaList; new T26.1-T26.8 (foldBandRows, liftNameList, liftsTile, the "never a scrollbar" source facts).
  * T100 hub school launch + review M12 (2026-10-19, contract 11): T25.1-T25.4 (code 26 variant / click, the school's hints and plain active
  * line, the M12 root-mounted guard): 243 checks.
  * A new rule in hubRules.ts adds its literal rows here (oracles are literals, never recomputed).
@@ -309,9 +311,10 @@ function run(srcDir) {
     ["baseStation", "lift", "lodge", "runGroomed", "runNatural", "runNight", "runSnowmaking", "sign", "topStation"]);
   const TWO_LODGES = FG_ONLY.concat(sent("lodgeMid"));
   eq("T12.3 two tiers sent: lodge set", R.pickerSets(TWO_LODGES, META).lodge, ["lodge", "lodgeMid"]);
-  eq("T12.4 default = the first option", [R.visibleIds(TWO_LODGES, META, NO).has("lodge"), R.visibleIds(TWO_LODGES, META, NO).has("lodgeMid")], [true, false]);
-  eq("T12.5 chosen tier drawn instead", [R.visibleIds(TWO_LODGES, META, { lodge: "lodgeMid", lift: "" }).has("lodge"),
-    R.visibleIds(TWO_LODGES, META, { lodge: "lodgeMid", lift: "" }).has("lodgeMid")], [false, true]);
+  // T114 (2026-10-20): every sent lodge tier is its own Buildings tile; the lodge choice no longer filters (was [true, false] / [false, true]).
+  eq("T12.4 T114: every sent tier drawn", [R.visibleIds(TWO_LODGES, META, NO).has("lodge"), R.visibleIds(TWO_LODGES, META, NO).has("lodgeMid")], [true, true]);
+  eq("T12.5 T114: a lodge choice hides no tier", [R.visibleIds(TWO_LODGES, META, { lodge: "lodgeMid", lift: "" }).has("lodge"),
+    R.visibleIds(TWO_LODGES, META, { lodge: "lodgeMid", lift: "" }).has("lodgeMid")], [true, true]);
   const THREE_LODGES = FG_ONLY.concat(sent("lodgeHut", "lodgeGrand"));
   eq("T12.6 three tiers, table order", R.pickerSets(THREE_LODGES, META).lodge, ["lodge", "lodgeHut", "lodgeGrand"]);
   eq("T12.7 a chosen tier that disappeared falls back to the first", R.effectiveSelection(R.pickerSets(THREE_LODGES, META), { lodge: "lodgeMid", lift: "gondola" }),
@@ -329,7 +332,7 @@ function run(srcDir) {
   eq("T12.14 optionOf", ["lodgeGrand", "liftGondola", "topStation", "sign", "school", "runNight", "bogus", null].map((id) => R.optionOf(id, META)),
     [{ set: "lodge", value: "lodgeGrand" }, { set: "lift", value: "gondola" }, { set: "lift", value: "fixedGrip" }, null, null, null, null, null]);
   eq("T12.15 dotTarget: drawn tile", R.dotTarget("topStation", FG_DQ, META, NO), { kind: "tile", id: "topStation" });
-  eq("T12.16 dotTarget: unchosen tier -> its chip", R.dotTarget("lodgeMid", TWO_LODGES, META, NO), { kind: "chip", set: "lodge", value: "lodgeMid" });
+  eq("T12.16 T114: dotTarget on a lodge tier -> its own tile (no lodge chips)", R.dotTarget("lodgeMid", TWO_LODGES, META, NO), { kind: "tile", id: "lodgeMid" });
   eq("T12.17 dotTarget: fixed-grip item while detachable is chosen -> the fixed-grip chip",
     R.dotTarget("baseStation", FG_DQ, META, { lodge: "", lift: "detachable" }), { kind: "chip", set: "lift", value: "fixedGrip" });
   eq("T12.18 dotTarget: nowhere (half-imported, not sent, none)", [R.dotTarget("baseStationDetachable", HALF_DQ, META, NO),
@@ -473,13 +476,53 @@ function run(srcDir) {
       R.resortListCounts(null), R.resortListCounts({ kind: 0, runs: -1, lodges: -1, freeLodges: 4 })],
     [{ runs: 5, lodges: 3 }, { runs: 1, lodges: 1 }, { runs: 0, lodges: 0 }, { runs: 0, lodges: 0 }]);
   {
+    // T114 (2026-10-20) supersedes the vanilla Dropdown: the name is a plain Button (FOCUS_DISABLED, drag guard) that opens AreaList, an
+    // overlay in the content (no Dropdown, no Portal); picking = selectResort(entrySign(r)); rule tip, note and caption (the list title) stay.
     const header = fs.readFileSync(path.join(srcDir, "hub", "HubHeader.tsx"), "utf8");
-    eq("T24.3 selector source: Dropdown + DropdownToggle with FOCUS_DISABLED, DropdownItem from cs2shim, selectResort(entrySign(r)), drag guard, rule tip, note, caption",
-      [/<Dropdown focusKey=\{FOCUS_DISABLED\}/.test(header), /<DropdownToggle focusKey=\{FOCUS_DISABLED\}/.test(header),
-        /import \{ DropdownItem \} from "\.\.\/cs2shim";/.test(header), /from "cs2\/ui";/.test(header) && !/import \{[^}]*DropdownItem[^}]*\} from "cs2\/ui"/.test(header),
-        header.includes("onChange={() => hubTriggers.selectResort(entrySign(r))}"), header.includes("<div className={styles.selector} onMouseDown={noDrag}>"),
-        header.includes("HUB_LOC.resortTip"), header.includes("HUB_LOC.resortMenuNote"), header.includes("HUB_LOC.resortCaption")],
-      [true, true, true, true, true, true, true, true, true]);
+    const panel = fs.readFileSync(path.join(srcDir, "hub", "HubPanel.tsx"), "utf8");
+    eq("T24.3 T114 selector source: no Dropdown, name Button with FOCUS_DISABLED + drag guard, AreaList in the panel body, selectResort(entrySign(r)), rule tip, note, caption",
+      [!/\bDropdown\b/.test(header.replace(/\/\*[\s\S]*?\*\//g, "")), /theme=\{\{ button: cx\(styles\.areaName/.test(header),
+        /focusKey=\{FOCUS_DISABLED\}\s*\n\s*theme=\{\{ button: cx\(styles\.areaName/.test(header), header.includes("hubTriggers.selectResort(entrySign(r))"),
+        /<AreaList \/>/.test(panel), header.includes("HUB_LOC.resortTip"), header.includes("HUB_LOC.resortMenuNote"), header.includes("HUB_LOC.resortCaption")],
+      [true, true, true, true, true, true, true, true]);
+  }
+
+  // T26 (T114 hub round, 2026-10-20; docs/research/ui/hub-round-t114-2026-10-20.md): folded per-lift band rows, the name list, the Lifts tile
+  // (built / drawn), and the source facts of "never a scrollbar" (folds closed by default and accordion, the pager always drawn).
+  {
+    const L = (code, name, sev = 2) => P(A, code, sev, { name });
+    const rows = [L(7, "Lift 3"), L(4, ""), L(7, "Lift 4"), L(5, "Lift 9"), L(7, "Lift 5"), L(12, "", 1)];
+    const folded = R.foldBandRows(rows);
+    eq("T26.1 foldBandRows: three LiftUnfinished -> one row at the first one's rank, lone codes untouched",
+      folded.map((b) => [b.row.code, b.group.length]), [[7, 3], [4, 1], [5, 1], [12, 1]]);
+    eq("T26.2 foldBandRows: group names in C#'s order", folded[0].group.map((p) => p.name), ["Lift 3", "Lift 4", "Lift 5"]);
+    eq("T26.3 foldBandRows: two no-power rows fold too; one row of a code never does",
+      R.foldBandRows([L(5, "Lift 1"), L(5, "Lift 2"), L(6, "Lift 7")]).map((b) => [b.row.code, b.group.length]), [[5, 2], [6, 1]]);
+    eq("T26.4 liftNameList", [R.liftNameList(["Lift 3", "Lift 4", "Lift 5"]), R.liftNameList(["Meadow Quad", "Lift 4"]),
+      R.liftNameList(["Lift 3"]), R.liftNameList(["Lift 3", "Gondola 4"]), R.liftNameList(["", "Lift 2"]), R.liftNameList([])],
+      ["Lift 3, 4, 5", "Meadow Quad, Lift 4", "Lift 3", "Lift 3, Gondola 4", "–, Lift 2", "–"]);
+    eq("T26.5 bandSlots over folded rows: 8 raw rows (3 unfinished) -> 6 band rows, +3", R.bandSlots(R.foldBandRows(rows.concat([L(9, ""), L(15, "", 1)]))).more, 3);
+    eq("T26.6 liftsTile: built / drawn; unknown -> null; drawn never below built",
+      [R.liftsTile({ liftRows: 5 }, { liftsComplete: 1 }), R.liftsTile({ liftRows: 5 }, null), R.liftsTile({ liftRows: 5 }, { liftsComplete: -1 }),
+        R.liftsTile({ liftRows: 1 }, { liftsComplete: 2 })],
+      [{ built: 1, drawn: 5 }, null, null, { built: 2, drawn: 2 }]);
+    const read = (n) => fs.readFileSync(path.join(srcDir, "hub", n), "utf8");
+    const fit = read("fit.tsx"), state = read("hubState.ts"), strip = read("BuildStrip.tsx"), tiles = read("ViewTiles.tsx");
+    eq("T26.7 never a scrollbar, source facts: folds closed by default + accordion, pager always drawn, folds in Attraction / Guests / Finances, pager in Runs / Lifts",
+      [/export const FOLD_DEFAULT: Readonly<Record<string, string>> = \{\};/.test(state), /open \? "" : id/.test(state),
+        /<div className=\{styles\.pagerRow\}>/.test(fit),
+        (read("OverviewView.tsx").match(/<Fold\b/g) || []).length, (read("GuestsView.tsx").match(/<Fold\b/g) || []).length,
+        (read("MoneyView.tsx").match(/<Fold\b/g) || []).length, /<Pager fit=\{fit\} \/>/.test(read("RunsView.tsx")), /<Pager fit=\{fit\} \/>/.test(read("LiftsView.tsx"))],
+      [true, true, true, 2, 3, 2, true, true]);
+    // T27 (contract 12, the lift generator): the Lifts-tab toggle mirrors the tree tool: liftLine$ + liftLineToggle, ok panel only.
+    const binds = fs.readFileSync(path.join(srcDir, "bindings.ts"), "utf8");
+    eq("T27.1 lift generator: contract 12, liftLine binding + liftLineToggle trigger, toggle on the Lifts tab only in the ok panel",
+      [BIND.HUB_CONTRACT, /liftLine: "liftLine"/.test(binds), /liftLineToggle: "liftLineToggle"/.test(binds), BIND.CORE_NAMES.indexOf("liftLine") < 0,
+        strip.includes("{tab === \"lifts\" && info.liftTool && <LiftToolSet t={t} />}"), strip.includes("onSelect={() => hubTriggers.liftLineToggle()}"),
+        /liftTool: true/.test(strip), !/liftTool: true/.test(strip.slice(strip.indexOf("MISMATCH_FOOTER"), strip.indexOf("MISMATCH_FOOTER") + 160))],
+      [12, true, true, true, true, true, true, true]);
+    eq("T26.8 Buildings tab: no lodge chips, the Lodges caption; Lifts tile = liftsTile",
+      [/set="lodge"/.test(strip), strip.includes("HUB_LOC.lodgeGroup"), tiles.includes("liftsTile(row, l)")], [false, true, true]);
   }
 
   // T25 (T100 hub school launch + review M12, 2026-10-19; docs/research/ui/hub-school-launch-2026-10-19.md): problem 26 (top-level

@@ -580,13 +580,24 @@ else {
 # is a Building with BuildingOption.Inactive clear - dark on every ServiceUpgrade child and on stations. The engine's own
 # importer gives an emissive map 34 = DecorativeLight @ 5 (AssetImportPipeline.cs:2259), which only needs electricity.
 # 71 = EffectSource (the beacon lens, driven by the effect) is allowed.
+# BRIGHTNESS (T119): 33 / 34 have NO day / night gate on a static object (ObjectInterpolateSystem.cs:1089-1096; the night
+# factor reaches only colossal_BuildingState, the `_Win` path, BatchDataSystem.cs:643-699 + :2644-2648), so a building mesh
+# glows by day at its intensity. Vanilla DecorativeLight meshes (dump scan 2026-10-20, field/2026-10-20/lights-round-2.md):
+# 44 of 64 at 0.05, 54 of 64 within 0.02-0.5; >= 1 only on coloured accents (parking, airport, carousel) and garage signs (5,
+# the importer's default). A 33 / 34 light above 1 on a mesh a BuildingPrefab points at WARNs.
 # Only mesh prefabs a hand-made prefab points at today: superseded letters stay on disk (never delete, rule 4) and are not judged.
 $emRefd = @{}
+$emBldg = @{}
 foreach ($p in $ownedPrefabs) {
     if ($p.Name -match ' Mesh_[0-9a-f]+\.Prefab$') { continue }
     try { $t0 = [IO.File]::ReadAllText($p.FullName) } catch { continue }
-    foreach ($m in [regex]::Matches($t0, '"m_Mesh": \$fstrref:"CID:([0-9a-f]{32})"')) { $emRefd[$m.Groups[1].Value] = $true }
+    $isBldg = $t0 -match '^\s*\{\s*"\$id": \d+,\s*"\$type": "\d+\|Game\.Prefabs\.BuildingPrefab,'
+    foreach ($m in [regex]::Matches($t0, '"m_Mesh": \$fstrref:"CID:([0-9a-f]{32})"')) {
+        $emRefd[$m.Groups[1].Value] = $true
+        if ($isBldg) { $emBldg[$m.Groups[1].Value] = $true }
+    }
 }
+$emBright = 0
 $emOk = 0
 foreach ($p in $ownedPrefabs) {
     if ($p.Name -notmatch ' Mesh_[0-9a-f]+\.Prefab$') { continue }
@@ -597,11 +608,20 @@ foreach ($p in $ownedPrefabs) {
     try { $txt = [IO.File]::ReadAllText($p.FullName) } catch { continue }
     if ($txt -notmatch '"purpose": ') { continue }
     $bad = [regex]::Matches($txt, '"purpose": (\d+)') | Where-Object { $_.Groups[1].Value -eq '72' }
+    $hot = @()
+    if ($emBldg.ContainsKey($cidVal)) {
+        foreach ($lm in [regex]::Matches($txt, '"purpose": (\d+),.*?"intensity": ([-0-9.eE]+)', 'Singleline')) {
+            $pv = $lm.Groups[1].Value; $iv = [double]::Parse($lm.Groups[2].Value, [Globalization.CultureInfo]::InvariantCulture)
+            if (($pv -eq '33' -or $pv -eq '34') -and $iv -gt 1) { $hot += "$pv @ $iv" }
+        }
+    }
     if ($bad.Count -gt 0) {
-        $rows.Add("WARN  EMISSIVE  $($p.Name): EmissiveProperties purpose 72 (BuildingActive) never lights a ServiceUpgrade child or a station - use 34 (DecorativeLight) @ 5, DECISIONS 336"); $warnings++
-    } else { $emOk++ }
+        $rows.Add("WARN  EMISSIVE  $($p.Name): EmissiveProperties purpose 72 (BuildingActive) never lights a ServiceUpgrade child or a station - use 34 (DecorativeLight) at a vanilla building intensity (0.05-0.5), DECISIONS 336 / T119"); $warnings++
+    } elseif ($hot.Count -gt 0) {
+        $rows.Add("WARN  EMISSIVE  $($p.Name): building mesh light $($hot -join ', ') - 33 / 34 glow by day too (no night gate on a static object); vanilla building lights run 0.02-0.5 (0.05 typical), the importer's 5 is for small signs; ours 0.1 (T119)"); $warnings++
+    } else { $emOk++; if ($emBldg.ContainsKey($cidVal)) { $emBright++ } }
 }
-$rows.Add("OK    EMISSIVE  $emOk owned mesh prefab(s) with an emissive block, none on purpose 72")
+$rows.Add("OK    EMISSIVE  $emOk owned mesh prefab(s) with an emissive block, none on purpose 72; $emBright building mesh(es) at <= 1")
 
 # ---- summary -------------------------------------------------------------------------
 $rows | ForEach-Object { Write-Output $_ }

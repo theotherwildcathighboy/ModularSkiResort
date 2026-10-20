@@ -21,8 +21,16 @@
 //     ChairPinSystem.cs:1410-1411, :1169-1171 in eb26ac3a). Every offset shifts by the same amount, so the spacing is kept
 //     (LH-3). No state: the caller keeps FrozenTimeS per held loop.
 //
-// PURE FILE: `using System;` and `using Unity.Mathematics;` only, + the pure sibling LiftServedRule.cs (LiftPower,
-// Carries). Static, allocation-free, Burst-safe. net48 traps avoided: no double.IsFinite (math.isfinite), no Math.Clamp.
+//   * ExpectsLoop — T116 (2026-10-20 field log 23:14:34): only a Loop-mover lift owes ChairPin a closed station-to-station
+//     loop. A Shuttle (the tram, Phase C) is never harvested by ChairPin (TramShuttleSystem moves it), so the "complete
+//     lift(s) did not close into a station-to-station loop" WARN must skip it; untyped (null) rows keep the old behaviour.
+//   * HeldSuffix — T116: the rebuild signature's held count names WHY the loops are held. Before, every held loop printed
+//     "held (no power)" though the gate also holds a CLOSED lift (T13: no open run); the FG lift of 2026-10-19 was
+//     "Running → Held (closed)" (log line 588) and read "1 held (no power)" for sixteen minutes.
+//
+// PURE FILE: `using System;` and `using Unity.Mathematics;` only, + the pure siblings LiftServedRule.cs (LiftPower,
+// Carries) and SkiCatalog.cs (LiftTypeDef, MoverKind). Static, Burst-safe except HeldSuffix (a log string, managed
+// callers only). net48 traps avoided: no double.IsFinite (math.isfinite), no Math.Clamp.
 
 using System;
 using Unity.Mathematics;
@@ -63,6 +71,24 @@ namespace SkiResortMod.Systems
             if (r >= lengthM)
                 r -= lengthM;
             return r;
+        }
+
+        /// <summary>T116: true when a complete lift of this type should have a ChairPin loop (Loop mover, or untyped);
+        /// false for a Shuttle (the tram: TramShuttleSystem's, never harvested by ChairPin).</summary>
+        public static bool ExpectsLoop(LiftTypeDef type)
+        {
+            return type == null || type.Mover != MoverKind.Shuttle;
+        }
+
+        /// <summary>T116: the rebuild signature's held part: "" when nothing is held; else ", N held (why)" where why
+        /// names the non-zero reasons: "no power", "closed", or "p no power, c closed". Negative counts read as 0.</summary>
+        public static string HeldSuffix(int heldForPower, int heldClosed)
+        {
+            int p = Math.Max(heldForPower, 0), c = Math.Max(heldClosed, 0);
+            if (p + c == 0)
+                return string.Empty;
+            string why = p > 0 && c > 0 ? p + " no power, " + c + " closed" : p > 0 ? "no power" : "closed";
+            return ", " + (p + c) + " held (" + why + ")";
         }
     }
 }

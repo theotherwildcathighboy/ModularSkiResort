@@ -37,6 +37,7 @@ import { CheckBox, Divider, Tip, useNumberSamples } from "./parts";
 import { RunHeader, RunLine } from "./RunList";
 import { TreeRows } from "./TreeControls";
 import { runsOf } from "./resortData";
+import { Pager, useFitPage } from "./fit";
 import styles from "./hub.module.scss";
 
 export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): JSX.Element {
@@ -77,6 +78,8 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   const onRenameClose = useCallback(() => setRenaming(null), []);
 
   const rows = runsOf(runs, selected);
+  // T114: as many rows as fit the panel, the rest on further pages (fit.tsx); a new area starts on page 1.
+  const fit = useFitPage(`runs|${selected ? entityId(selected) : ""}`, rows.length, listRef);
   const focusedId = focused.kind === "run" ? entityId(focused.entity) : "";
   const gating = city.snowGating;
   const backcountryPct = city.backcountryPct;
@@ -99,7 +102,8 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
         <div className={styles.dimLine}>{t(HUB_LOC.runsEmpty)}</div>
       ) : (
         <div ref={listRef} className={styles.list} onMouseLeave={() => sendHoverRun(NULL_ENTITY)}>
-          {rows.map((row, i) => {
+          {rows.slice(fit.start, fit.end).map((row, j) => {
+            const i = fit.start + j;
             const id = row.entity ? entityId(row.entity) : `row-${i}`;
             return (
               <RunLine
@@ -123,6 +127,7 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
           })}
         </div>
       )}
+      {rows.length > 0 && <Pager fit={fit} />}
     </>
   );
 }

@@ -1,4 +1,5 @@
-// SchoolLinkRules — which ski area a TOP-LEVEL ski school belongs to (T100, T10 D1 option A, DECISIONS 308;
+// SchoolLinkRules — which ski area a TOP-LEVEL resort building belongs to: the ski school (T100), the five lodges and both
+// patrol huts (T113, 2026-10-20; report docs/research/field/2026-10-20/lodges-top-level-build.md). T10 D1 option A, DECISIONS 308;
 // docs/research/lodges-top-level-spec.md (b), the school-first probe: docs/research/field/2026-10-19/school-top-level-t100.md).
 // Created 2026-10-19.
 //
@@ -15,13 +16,17 @@
 // top-level path its own Building.m_OptionMask (BuildingPoliciesSystem mirrors the same bit into the entry for a child,
 // BuildingPoliciesSystem.cs:100-130), so a linked top-level school yields the same AreaInput.SchoolActive as the child
 // did, and every number downstream (SkiResortScore SchoolValue, SkiDaySystem SchoolFactor, SkiLiftTicketSystem lessons,
-// HubProblemCode.SchoolNoGreenRun) follows from that one flag (tests/SchoolBatch).
+// HubProblemCode.SchoolNoGreenRun) follows from that one flag (tests/BuildingBatch).
 //
 // LOG DISCIPLINE (Diff): the system keeps the last published link per top-level school and writes ONE line per change:
 // Linked (new school, or was not linked), Relinked (another sign is nearer now), Unlinked (no sign within the tether:
 // sign bulldozed or school moved away), Removed (the building is gone). Stable order (school Index, Version).
 //
-// PURE FILE: System, System.Collections.Generic and Unity.Mathematics only (tests/SchoolBatch links it with EntityRef and
+// T113: the rule is the same for every kind (Kind* tags the log line and the count path; SkiResortAttractivenessSystem
+// .LinkTopLevel). AreaEfficiency is D3 (DECISIONS 309): the area's efficiency once its lodges carry their own staffing and
+// utilities = the sign's efficiency x the mean of its active top-level lodges' efficiency weighted by tier base (B).
+//
+// PURE FILE: System, System.Collections.Generic and Unity.Mathematics only (tests/BuildingBatch links it with EntityRef and
 // SkiResortIndex).
 
 using System;
@@ -46,6 +51,9 @@ namespace SkiResortMod.Systems
             public override bool Equals(object obj) => obj is Link other && Equals(other);
             public override int GetHashCode() => Sign.GetHashCode();
         }
+
+        /// <summary>T113: the kind of a top-level resort building (log words and the count path).</summary>
+        public const byte KindLodge = 0, KindSchool = 1, KindPatrol = 2;
 
         public enum ChangeKind : byte { Linked = 0, Relinked = 1, Unlinked = 2, Removed = 3 }
 
@@ -110,6 +118,22 @@ namespace SkiResortMod.Systems
                     output.Add(new Change { Kind = ChangeKind.Removed, School = pair.Key, Before = pair.Value, After = default(Link) });
             }
             output.Sort((a, b) => a.School.CompareTo(b.School));
+        }
+
+        /// <summary>T113 D3 (DECISIONS 309): the area efficiency the score's staffing factor reads. <paramref name="weightSum"/> &lt;= 0
+        /// (no active top-level lodge) returns <paramref name="signEfficiency"/> unchanged (the child path: the lodges' shortfalls
+        /// already sit on the sign). Else sign x (weightedSum / weightSum), rounded to 0.01 as vanilla's GetEfficiency
+        /// (SkiResortScore.SignEfficiency), floored at 0.01 unless it is 0 (a sign at 0, D9, or every weighted lodge at 0). Non-finite → 0.</summary>
+        public static float AreaEfficiency(float signEfficiency, double weightedSum, double weightSum)
+        {
+            if (!(weightSum > 0.0))
+                return signEfficiency;
+            double mean = weightedSum / weightSum;
+            double product = (double)signEfficiency * mean;
+            if (!(product > 0.0) || double.IsInfinity(product))
+                return 0f;
+            float rounded = (float)Math.Round(100.0 * product) / 100f;
+            return rounded > 0.01f ? rounded : 0.01f;
         }
     }
 }

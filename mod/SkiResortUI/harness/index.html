@@ -45,6 +45,9 @@
   #status.err { color: #ff8a80; }
 
   /* --- stand-ins for cs2/ui components (the game's own chrome is not available) --- */
+  /* T114: a <button> does not inherit the page font in a browser (the game renders cs2/ui Buttons in its own font): themed buttons
+     (tiles, chips, fold rows, the header name) read in Noto Sans here too. */
+  #stage button { font-family: inherit; }
   .h-btn { background: rgba(255,255,255,0.06); color: inherit; border: 1px solid rgba(255,255,255,0.12); border-radius: 4rem; padding: 6rem 12rem; margin: 2rem; cursor: pointer; font: inherit; }
   .h-btn:hover { background: var(--hoverColorNormal); }
   .h-btn.h-selected { background: var(--selectedColor); }
@@ -105,6 +108,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.development.js"></script>
 <script src="cs2-mock.js"></script>
 <script src="scenarios.js"></script>
+<script src="layout-check.js"></script>
 <script type="module">
   const H = window.SkiHarness, S = window.SkiScenarios;
   const status = document.getElementById("status");
@@ -171,6 +175,7 @@
     mount(document.getElementById("game"), slots.Game);
     mount(document.getElementById("topLeft"), slots.GameTopLeft);
     mount(document.getElementById("menu"), slots.UniversalModMenu);
+    if (window.SkiLayout) window.SkiLayout.boot();   // T114: ?layout=1 / screenshot parameters (harness/layout-check.js)
     status.textContent = `bundle ${bundleStamp || "?"} · hasCSS ${mod.hasCSS} · Game ${slots.Game.length}, TopLeft ${slots.GameTopLeft.length}, Menu ${slots.UniversalModMenu.length}` + (slots.other.length ? ` · UNEXPECTED targets ${slots.other.length}` : "");
   } catch (e) {
     status.textContent = "failed: " + (e && e.message || e); status.className = "err"; console.error(e);

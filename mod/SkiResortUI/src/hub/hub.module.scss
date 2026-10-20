@@ -54,15 +54,17 @@
 .panel {
   width: calc(440rem * (0.33333 + var(--fontScale) / 1.5) + 300rem * var(--fontScaleChange));
   max-width: 800rem;
-  max-height: 72vh;
+  max-height: 78vh;
 }
 
 // J6 (spec 4.1): a FIXED height while there is something to list, so DraggablePanel's
 // top = y * (viewport - height) (index.js@720659) does not move the header, X and footer whenever
 // the content changes. Declared after .panel: its max-height wins.
+// T114 (2026-10-20): 72vh / 780 rem -> 78vh / 845 rem, so an open fold of the Attraction / Finances views fits one page at text
+// scale 1.0 (it was 48 rem short); taller content pages (fit.tsx), never scrolls.
 .panelFixed {
-  height: 72vh;
-  max-height: 780rem;
+  height: 78vh;
+  max-height: 845rem;
 }
 
 // The Panel's content box (cs2/ui Panel contentClassName): shrinks under the panel's height so the
@@ -2641,4 +2643,323 @@
 
 .histControls .histSegNext {
   margin-left: 2rem;
+}
+
+// ---- T114 (2026-10-20, docs/research/ui/hub-round-t114-2026-10-20.md): "never a scrollbar" ---------------------------------------
+// Folds (src/hub/fit.tsx Fold): an InfoLine-sized button row with a chevron; one open per view (accordion).
+.foldRow {
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 4rem;
+  text-align: left;
+  color: var(--normalTextColor);
+  background-color: rgba(0, 0, 0, 0);
+  border-style: none;
+  border-radius: 3rem;
+}
+
+.foldRow:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.foldRowOpen {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.foldMark {
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 5rem;
+  opacity: 0.7;
+}
+
+.foldBody {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+// The list pager (fit.tsx Pager): ALWAYS drawn at this height, empty on one page, so paging never moves the rows above it.
+.pagerRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  height: calc(1.3em + 6rem);
+  font-size: var(--fontSizeS);
+}
+
+.pagerButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(26rem * var(--fontScale));
+  height: calc(20rem * var(--fontScale));
+  padding: 0rem;
+  background-color: var(--sectionBackgroundColor);
+  border-style: none;
+  border-radius: 3rem;
+}
+
+.pagerButton:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.pagerButtonOff,
+.pagerButtonOff:hover {
+  opacity: 0.35;
+  background-color: var(--sectionBackgroundColor);
+}
+
+.pagerGlyph {
+  width: 0.75em;
+  height: 0.75em;
+  background-color: var(--accentColorNormal);
+}
+
+.pagerText {
+  min-width: 3.4em;
+  margin-left: 6rem;
+  margin-right: 6rem;
+  text-align: center;
+  white-space: nowrap;
+  color: rgba(240, 251, 255, 0.7);
+}
+
+// The body is the anchor of the two overlays below (area list, problems popover): they are drawn over the content, inside our own
+// subtree (no Portal, so no clipping or coordinate question in Gameface).
+.bodyAnchor {
+  position: relative;
+}
+
+// Header (HubHeader.tsx): "‹ [name ▾] › N / COUNT" - the name is a plain text button in the panel's own text colour (the vanilla
+// Dropdown toggle drew a light box with faded text in the title bar: field 2026-10-20, crop 23.10.43).
+.areaName {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  height: calc(26rem * var(--fontScale));
+  margin-left: 2rem;
+  margin-right: 2rem;
+  padding: 0rem 6rem;
+  color: var(--normalTextColor);
+  background-color: rgba(0, 0, 0, 0);
+  border-style: none;
+  border-radius: 4rem;
+  text-transform: none;
+  pointer-events: auto;
+}
+
+.areaName:hover,
+.areaNameOpen {
+  background-color: var(--hoverColorNormal);
+}
+
+.areaNameText {
+  flex-grow: 0;
+  flex-shrink: 1;
+  min-width: 0rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--fontSizeM);
+  font-weight: bold;
+  color: var(--normalTextColor);
+}
+
+.areaNameText.warnText {
+  color: var(--warningColor);
+}
+
+.areaChevron {
+  width: 0.6em;
+  height: 0.6em;
+  margin-left: 6rem;
+  opacity: 0.8;
+}
+
+// The ski-area list: an overlay at the top of the content (areaListOpen$), over a dimming backdrop that closes it.
+.overlayBackdrop {
+  position: absolute;
+  left: 0rem;
+  top: 0rem;
+  right: 0rem;
+  bottom: 0rem;
+  z-index: 10;
+  background-color: rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+}
+
+.overlayTop {
+  top: 4rem;
+}
+
+// The +N popover hangs under the problems band (.problems is its anchor).
+.problemsAnchor {
+  position: relative;
+}
+
+.overlayBelow {
+  top: 100%;
+  left: 0rem;
+  right: 0rem;
+}
+
+.overlayCard {
+  position: absolute;
+  z-index: 20;
+  left: 6rem;
+  right: 10rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 4rem 0rem 4rem 0rem;
+  background-color: var(--panelColorNormal);
+  border-style: solid;
+  border-top-width: 1rem;
+  border-right-width: 1rem;
+  border-bottom-width: 1rem;
+  border-left-width: 1rem;
+  border-top-color: rgba(255, 255, 255, 0.15);
+  border-right-color: rgba(255, 255, 255, 0.15);
+  border-bottom-color: rgba(255, 255, 255, 0.15);
+  border-left-color: rgba(255, 255, 255, 0.15);
+  border-radius: 4rem;
+  box-shadow: 0rem 6rem 18rem rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+
+.overlayTitle {
+  padding: 4rem 10rem 4rem 10rem;
+  font-size: var(--fontSizeXS);
+  text-transform: uppercase;
+  color: rgba(240, 251, 255, 0.7);
+}
+
+.overlayItem {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  width: 100%;
+  box-sizing: border-box;
+  height: calc(1.3em + 10rem);
+  padding: 0rem 10rem;
+  font-size: var(--fontSizeS);
+  text-align: left;
+  color: var(--normalTextColor);
+  background-color: rgba(0, 0, 0, 0);
+  border-style: none;
+  border-radius: 0rem;
+}
+
+.overlayItem:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.overlayItemOn,
+.overlayItemOn:hover {
+  background-color: var(--selectedColor);
+}
+
+.overlayItemName {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.overlayItemCounts {
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-left: 12rem;
+  white-space: nowrap;
+  color: rgba(240, 251, 255, 0.7);
+}
+
+.overlayNote {
+  margin-top: 4rem;
+  padding: 6rem 10rem 2rem 10rem;
+  border-top-style: solid;
+  border-top-width: 1rem;
+  border-top-color: rgba(255, 255, 255, 0.1);
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  white-space: normal;
+  color: rgba(240, 251, 255, 0.7);
+}
+
+// The problems band's "+N": a button that opens the popover (problemsOpen$) with the rows the three slots do not show.
+.problemMoreButton {
+  padding: 0rem 4rem;
+  color: var(--accentColorNormal);
+  background-color: rgba(0, 0, 0, 0);
+  border-style: none;
+  border-radius: 3rem;
+}
+
+.problemMoreButton:hover,
+.problemMoreOn {
+  background-color: var(--hoverColorNormal);
+}
+
+.popoverRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  width: 100%;
+  box-sizing: border-box;
+  height: 1.45em;
+  padding: 0rem 8rem;
+  font-size: var(--fontSizeS);
+  line-height: 130%;
+  text-align: left;
+  color: var(--normalTextColor);
+  background-color: rgba(0, 0, 0, 0);
+  border-style: none;
+  border-radius: 0rem;
+}
+
+.popoverRow:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+// Build strip, Buildings tab: the fixed family row names the five lodge tiles ("Lodges" over their group), in the slot the lodge
+// chips used (T97); the row keeps its height so a tab switch never moves the tabs.
+.groupCaption {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  padding: 0rem 2rem 2rem 2rem;
+  font-size: var(--fontSizeXS);
+  white-space: nowrap;
+  overflow: hidden;
+  color: rgba(240, 251, 255, 0.7);
+  border-bottom-style: solid;
+  border-bottom-width: 1rem;
+  border-bottom-color: rgba(255, 255, 255, 0.2);
+}
+
+.groupCaptionNone {
+  border-bottom-width: 0rem;
+}
+
+// Contract 12: the lift generator toggle sits after the lift-type chips in the Lifts family row.
+.pickerSetNext {
+  margin-left: 8rem;
 }

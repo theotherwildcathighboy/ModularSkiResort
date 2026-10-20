@@ -1,15 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Headless test host for T100 (the ski school as a TOP-LEVEL building, T10 D1 option A, DECISIONS 308):
-    SchoolLinkRules.cs (attribution, the one count rule, the link-log diff) and the invariant "a linked top-level
-    school yields the same schoolValue / lessons / problem rows as the child did", plus the SkiSchool.Prefab
-    mirror gate (no ServiceUpgrade; ServiceObject + PlaceableObject + CityServiceBuilding + Park; cost / XP / jobs
-    equal to the catalog row). Run from the ModularSkiResort root:
+    Headless test host for the TOP-LEVEL resort buildings (T10 D1 option A, DECISIONS 308): T100 the ski school (2026-10-19,
+    as tests/SchoolBatch), T113 the five lodges and both patrol huts (2026-10-20, renamed BuildingBatch). SchoolLinkRules.cs
+    (attribution, the one count rule, the link-log diff, D3 AreaEfficiency) and the invariant "a linked top-level school
+    yields the same schoolValue / lessons / problem rows as the child did", plus the per-building mirror gate P1-P10 over
+    all eight prefabs (no ServiceUpgrade; ServiceObject + PlaceableObject + CityServiceBuilding + Park; cost / XP / jobs /
+    upkeep equal to the catalog row; roadless rows demand nothing; mesh CID resolves; door spawn rows). Run from the
+    ModularSkiResort root:
       see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
-    Clone of tests/ResortBatch/ResortBatch.csproj (own host: ResortBatch and LiftBatch belong to other sessions
-    on 2026-10-19). Lives OUTSIDE mod/SkiResortMod on purpose: the mod csproj globs **/*.cs. LangVersion pinned
-    to the mod's 9.0; net48 APIs are NOT gated here (the mod build is the net48 API gate).
-    Created 2026-10-19 (T100).
+    Own host (ResortBatch and LiftBatch belong to other sessions). Lives OUTSIDE mod/SkiResortMod on purpose: the mod
+    csproj globs **/*.cs. LangVersion pinned to the mod's 9.0; net48 APIs are NOT gated here (the mod build is the gate).
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -19,7 +19,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <RootNamespace>SchoolBatch</RootNamespace>
+    <RootNamespace>BuildingBatch</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>

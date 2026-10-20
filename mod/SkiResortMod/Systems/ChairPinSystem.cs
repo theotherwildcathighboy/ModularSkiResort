@@ -166,8 +166,11 @@
 //      chairs may shift once at a load (R-5, accepted by Richard).
 //   5. LOGS (§4.2): "[hold] power gate armed" once per load; "[state] … Running → Held (no power) — chairs stop at phase
 //      …", "Held → Running (power back) — chairs resume from phase … after N s held", "Held, re-frozen after a rebuild …"
-//      through a 10 s LogWindow (fold line; flushed on load and quit); the rebuild signature gains ", h held (no power)"
-//      only when h > 0; "[moving] pass alive" also fires on a held write (S-8), with ", c held (no power)" only when c > 0.
+//      through a 10 s LogWindow (fold line; flushed on load and quit); the rebuild signature gains ", h held (why)"
+//      only when h > 0; "[moving] pass alive" also fires on a held write (S-8), with ", c held (why)" only when c > 0.
+//      T116 (2026-10-20): "why" = "no power", "closed" or "p no power, c closed" (LiftLoopHold.HeldSuffix; before, every
+//      hold printed "no power"). The once-per-load "did not close into a station-to-station loop" WARN skips Shuttle
+//      rows (LiftLoopHold.ExpectsLoop): the tram has no ChairPin loop by design.
 //      A powered city's lines are unchanged except the one "[hold] power gate armed" line per load.
 //   POWERED LIFTS (§6, skeptic MUST-4): with no hold, the move pass, PhaseOf, TimeS, MoveChair, the bounds refresh and
 //   BuildLoopCache's slot assignment run exactly as before; the new work is read-only (the poll). The move loop gains a
@@ -543,6 +546,7 @@ namespace SkiResortMod.Systems
         private bool m_HoldInGame, m_HoldInEditor;                   // set per Game / Editor load, cleared at every preload
         private bool m_HoldArmLogged, m_HoldCensusWarned, m_HoldEditorLogged;
         private int m_HeldLoopCount, m_HeldChairCount;               // as of the last poll
+        private int m_HeldChairsForPower;                            // T116: of m_HeldChairCount, held for no power (rest: closed)
         private string m_HeldExitSuffix = string.Empty;              // "; n held (no power)" for m_DiagLastExit; "" at 0 held
         private int m_DiagHoldPolls, m_DiagHoldPowerReads, m_DiagHoldChanges, m_DiagHeldWrites, m_DiagHoldDropped;
         private double m_DiagHoldPollMs;
@@ -731,7 +735,7 @@ namespace SkiResortMod.Systems
             m_HoldInGame = mode == GameMode.Game;     // the census arms in game mode only
             m_HoldInEditor = mode == GameMode.Editor;
             m_HoldArmLogged = m_HoldCensusWarned = m_HoldEditorLogged = false;
-            m_HeldLoopCount = m_HeldChairCount = 0;
+            m_HeldLoopCount = m_HeldChairCount = m_HeldChairsForPower = 0;
             m_HeldExitSuffix = string.Empty;
             m_DiagHoldPolls = m_DiagHoldPowerReads = m_DiagHoldChanges = m_DiagHeldWrites = m_DiagHoldDropped = 0;
             m_DiagHoldPollMs = 0.0;
@@ -762,7 +766,7 @@ namespace SkiResortMod.Systems
             m_HoldInGame = m_HoldInEditor = false;
             m_Holds.Clear();
             m_HoldByLoop.Clear();
-            m_HeldLoopCount = m_HeldChairCount = 0;
+            m_HeldLoopCount = m_HeldChairCount = m_HeldChairsForPower = 0;
             m_HeldExitSuffix = string.Empty;
         }
 
@@ -1341,7 +1345,7 @@ namespace SkiResortMod.Systems
                 m_MovingAliveLogged = true;
                 Mod.Log.Info($"{nameof(ChairPinSystem)} [moving] pass alive — {riding} chair(s) riding " +
                              $"{m_LoopCache.m_Loops.Count} loop(s), {m_StaticFallbackChairs} static-fallback" +
-                             (m_HeldChairCount > 0 ? $", {m_HeldChairCount} held (no power)" : string.Empty));
+                             LiftLoopHold.HeldSuffix(m_HeldChairsForPower, m_HeldChairCount - m_HeldChairsForPower));
             }
 
             // Bounds refresh: CullingInfo + the static search tree only re-read Transform on
@@ -1953,12 +1957,14 @@ namespace SkiResortMod.Systems
             // Phase D (round-4-contract §4.2; was ChairPinSystem.cs:1628-1631): ", h held (no power)" appended only when
             // h > 0 — h = the loops of this rebuild whose pair is held as of the last poll (this frame's poll, right after
             // the rebuild, writes its own [state] lines), so a powered city's signature is unchanged.
-            int heldAtRebuild = CountHeldLoops();
+            // T116: the held part names its reason (LiftLoopHold.HeldSuffix): the FG lift of 2026-10-19 was held CLOSED
+            // and read "1 held (no power)".
+            int heldAtRebuild = CountHeldLoops(out int heldForPowerAtRebuild);
             string signature =
                 $"{m_LoopCache.m_Loops.Count} loop(s) ({totalLength:F0} m total), {riding} chair(s) riding, " +
                 $"{m_StaticFallbackChairs} static-fallback, " +
                 $"{m_LoopCache.m_ChainCount} chain(s)/{m_LoopCache.m_UnclosedChainCount} unclosed" +
-                (heldAtRebuild > 0 ? $", {heldAtRebuild} held (no power)" : string.Empty);
+                LiftLoopHold.HeldSuffix(heldForPowerAtRebuild, heldAtRebuild - heldForPowerAtRebuild);
             if (signature != m_LastBuildSignature)
             {
                 m_LastBuildSignature = signature;
@@ -2024,6 +2030,10 @@ namespace SkiResortMod.Systems
             {
                 LiftCensus.Row row = m_CensusScratch[i];
                 if (row.State != LiftCensus.State.Complete)
+                    continue;
+                // T116 (2026-10-20 log 23:14:34): a Shuttle lift (the tram) has no ChairPin loop by design —
+                // TramShuttleSystem moves it — so it is not a failed closure.
+                if (!LiftLoopHold.ExpectsLoop(SkiCatalog.LiftByIndex(row.Type)))
                     continue;
                 Entity b = LiftCensusSystem.Ent(row.Base), t = LiftCensusSystem.Ent(row.Top);
                 if (TryGetLoop(b, t, out _, out _))
@@ -2417,7 +2427,7 @@ namespace SkiResortMod.Systems
                 seen.Seen = false;
             m_HoldByLoop.Clear();
             bool changed = false;
-            int heldLoops = 0, heldChairs = 0;
+            int heldLoops = 0, heldChairs = 0, heldChairsForPower = 0;
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
             {
                 LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
@@ -2522,8 +2532,14 @@ namespace SkiResortMod.Systems
                 }
                 if (hold.Held)
                 {
+                    // T116: the reason follows the gate while the loop stays held (power back on a still-closed lift
+                    // reads "closed"; the resume line then says "open again"); only a read value moves it.
+                    if (gate == LoopGate.Hold && power != LiftPower.Unknown)
+                        hold.ForPower = !LiftServedRule.IsPowered(power);
                     heldLoops++;
                     heldChairs += loop.m_Chairs.Count;
+                    if (hold.ForPower)
+                        heldChairsForPower += loop.m_Chairs.Count;
                 }
             }
 
@@ -2547,9 +2563,13 @@ namespace SkiResortMod.Systems
             }
 
             m_HeldLoopCount = heldLoops;
-            if (heldChairs != m_HeldChairCount)
-                m_HeldExitSuffix = heldChairs > 0 ? $"; {heldChairs} held (no power)" : string.Empty;
+            // T116: the suffix names the reason (LiftLoopHold.HeldSuffix; was "; n held (no power)" for every hold).
+            if (heldChairs != m_HeldChairCount || heldChairsForPower != m_HeldChairsForPower)
+                m_HeldExitSuffix = heldChairs > 0
+                    ? "; " + LiftLoopHold.HeldSuffix(heldChairsForPower, heldChairs - heldChairsForPower).Substring(2)
+                    : string.Empty;
             m_HeldChairCount = heldChairs;
+            m_HeldChairsForPower = heldChairsForPower;
             m_DiagHoldPollMs = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
             if (changed)
                 m_DiagHoldChanges++;
@@ -2580,8 +2600,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Phase D: loops of the cache just built whose pair is held as of the last poll (the rebuild signature).</summary>
-        private int CountHeldLoops()
+        private int CountHeldLoops(out int heldForPower)
         {
+            heldForPower = 0;
             if (m_HeldLoopCount == 0)
                 return 0;
             int held = 0;
@@ -2589,7 +2610,11 @@ namespace SkiResortMod.Systems
             {
                 LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
                 if (m_Holds.TryGetValue(HoldKey(loop.m_BaseStation, loop.m_TopStation), out LoopHold hold) && hold.Held)
+                {
                     held++;
+                    if (hold.ForPower)
+                        heldForPower++;   // T116: the rest are held closed (no open run, T13)
+                }
             }
             return held;
         }

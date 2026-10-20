@@ -48,6 +48,11 @@
  *   - T97 P1 (2026-10-19, DECISIONS 308; docs/research/ui/hub-selector-p1-p3-2026-10-19.md): the header selector's item line
  *     "N runs · N lodges" picks its singular forms (resortCountsVariant) from the row's counts (resortListCounts: the Not linked
  *     row adds its free lodges). Oracles T24.1-T24.2.
+ *   - T114 (2026-10-20, field report items 2 and 9; docs/research/ui/hub-round-t114-2026-10-20.md): per-lift band rows of one code
+ *     fold into one row (foldBandRows: LiftUnfinished, LiftNoPower, LiftSectionMissing; two or more of a code), its names as one list
+ *     (liftNameList: "Lift 3, 4, 5" when the names share a prefix and end in a number); bandSlots is generic over that row type. The
+ *     Lifts tile reads built / drawn (liftsTile: liftsComplete of liftRows). The lodge tiers are no longer alternatives: visibleIds draws
+ *     every sent tier (one Buildings tile each), so dotTarget always lands on the lodge's own tile. Oracles T26.
  */
 import type { Entity } from "cs2/utils";
 import {
@@ -211,8 +216,63 @@ export function problemClick(p: ProblemRow): ProblemClick {
 }
 
 /** The three band slots and the "+N" count (design 3.1: slot 3 shows the third row plus "+N"). */
-export function bandSlots(rows: readonly ProblemRow[]): { slots: Array<ProblemRow | null>; more: number } {
+export function bandSlots<T>(rows: readonly T[]): { slots: Array<T | null>; more: number } {
   return { slots: [rows[0] ?? null, rows[1] ?? null, rows[2] ?? null], more: Math.max(0, rows.length - 3) };
+}
+
+// ---- T114: folded per-lift band rows ------------------------------------------------------------
+
+/** The per-lift codes whose rows fold into one band row when two or more of them are present. */
+export const FOLDED_PROBLEM_CODES: readonly number[] = [PROBLEM.LiftUnfinished, PROBLEM.LiftNoPower, PROBLEM.LiftSectionMissing];
+
+/** One band row as drawn: `row` (the first of its code, so the rank is C#'s) and `group` (every row it stands for, in C#'s
+ *  order; length 1 for a plain row). */
+export interface BandRow {
+  row: ProblemRow;
+  group: ProblemRow[];
+}
+
+/** Band rows after the fold: rows of a FOLDED_PROBLEM_CODES code that occurs two or more times become ONE row at the place of the
+ *  first; every other row stays as it is. */
+export function foldBandRows(rows: readonly ProblemRow[]): BandRow[] {
+  const byCode = new Map<number, ProblemRow[]>();
+  for (const p of rows) {
+    if (FOLDED_PROBLEM_CODES.indexOf(p.code) < 0) continue;
+    const g = byCode.get(p.code);
+    if (g) g.push(p); else byCode.set(p.code, [p]);
+  }
+  const out: BandRow[] = [];
+  const done = new Set<number>();
+  for (const p of rows) {
+    const g = byCode.get(p.code);
+    if (g && g.length >= 2) {
+      if (done.has(p.code)) continue;
+      done.add(p.code);
+      out.push({ row: p, group: g.slice() });
+    } else {
+      out.push({ row: p, group: [p] });
+    }
+  }
+  return out;
+}
+
+/** The names of a folded row as one list: "Lift 3, 4, 5" when every name is one shared prefix plus a number (the default
+ *  names), else the names joined ("Meadow Quad, Lift 4"); an empty name reads "–". */
+export function liftNameList(names: readonly string[]): string {
+  const clean = names.map((n) => (n && n.trim() !== "" ? n.trim() : "–"));
+  if (clean.length === 0) return "–";
+  const re = /^(.*\D)(\d+)$/;
+  const first = re.exec(clean[0]);
+  if (first && clean.length >= 2) {
+    const nums: string[] = [];
+    for (const n of clean) {
+      const m = re.exec(n);
+      if (!m || m[1] !== first[1]) { nums.length = 0; break; }
+      nums.push(m[2]);
+    }
+    if (nums.length === clean.length) return first[1] + nums.join(", ");
+  }
+  return clean.join(", ");
 }
 
 // ---- header selector (T97 P1) -------------------------------------------------------------------
@@ -399,8 +459,9 @@ export function effectiveSelection(sets: PickerSets, sel: PickerSelection | null
   return { lodge: pick(sets.lodge, sel ? sel.lodge : ""), lift: pick(sets.lift, sel ? sel.lift : "") };
 }
 
-/** The ids the strip draws (contract 6): every SENT id of the table except the lodge tiers other than the chosen one
- *  and the station / line items of every lift type other than the chosen one (a half-imported type is never drawn). */
+/** The ids the strip draws (contract 6): every SENT id of the table except the station / line items of every lift type other than
+ *  the chosen one (a half-imported type is never drawn). T114: every sent lodge tier is drawn (one Buildings tile each; the lodge
+ *  chips are gone), so the lodge selection no longer filters anything. */
 export function visibleIds(items: readonly BuildItem[] | null | undefined, meta: readonly PickerMeta[],
   sel: PickerSelection | null | undefined): Set<string> {
   const sent = sentIdSet(items);
@@ -408,7 +469,6 @@ export function visibleIds(items: readonly BuildItem[] | null | undefined, meta:
   const out = new Set<string>();
   for (const m of meta ?? []) {
     if (!m || !sent.has(m.id)) continue;
-    if (m.kind === "lodge" && m.id !== eff.lodge) continue;
     if (isLiftKind(m.kind) && m.liftType !== eff.lift) continue;
     out.add(m.id);
   }
@@ -862,6 +922,14 @@ export function liftMark(status: number): { ring: boolean; tone: LiftTone } {
     case LIFT_STATUS.SectionMissing: return { ring: true, tone: "warn" };
     default: return { ring: true, tone: "dim" };
   }
+}
+
+/** T114 (field 2026-10-20 item 9: "1 / 1" while five lines existed): the Lifts tile is built / drawn, liftsComplete of every census
+ *  row of the area (complete lifts, unfinished lines, lone stations). null = unknown (no live row, or liftsComplete -1). */
+export function liftsTile(row: ResortRow, live: ResortLive | null): { built: number; drawn: number } | null {
+  if (!live || !(live.liftsComplete >= 0)) return null;
+  const drawn = Math.max(row.liftRows | 0, live.liftsComplete);
+  return { built: live.liftsComplete, drawn };
 }
 
 /** Unfinished lines and lone stations of an area: lift rows minus complete lifts (never below 0).

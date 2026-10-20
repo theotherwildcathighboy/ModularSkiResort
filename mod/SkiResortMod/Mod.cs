@@ -563,6 +563,19 @@ namespace SkiResortMod
             // generate from tool definitions; none reads permanent lift nodes). Gated by the LiftTowerPlanner setting inside.
             updateSystem.UpdateAt<LiftTowerFitSystem>(SystemUpdatePhase.Modification1);
 
+            // T48 round 2 (docs/research/field/2026-10-20/t48-round2-build.md): the lift-line TOOL. ToolUpdate is where every
+            // vanilla tool lives (SystemOrder.cs:699-709), and the phase is load-bearing: its CreationDefinition + NetCourse entities
+            // (ToolOutputBarrier ECB) must exist before PostTool's CourseSplitSystem (CourseSplitSystem.cs:4034) and Modification1/2's
+            // GenerateNodes / GenerateEdges of the same frame; ToolSystem enables only the active tool (ToolSystem.cs:312-327).
+            // Its overlay preview is drawn from ToolUpdate (before OverlayRenderSystem in Rendering clears the lists,
+            // OverlayRenderSystem.cs:738-790). The hotkey poller runs at UIUpdate (every frame, paused or not: an inactive tool never
+            // ticks — the SkiGladeHotkeySystem reasoning); its Build request lands on the tool's next frame. The tooltip runs at
+            // UITooltip after the vanilla cost tooltip (the SkiLiftTooltipSystem anchor: TooltipUISystem clears the mouse group first,
+            // TooltipUISystem.cs:48-55). Order between these three is not load-bearing (each reaches the tool via GetOrCreate).
+            updateSystem.UpdateAt<LiftLineToolSystem>(SystemUpdatePhase.ToolUpdate);
+            updateSystem.UpdateAt<LiftLineHotkeySystem>(SystemUpdatePhase.UIUpdate);
+            updateSystem.UpdateAfter<LiftLineTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
+
             // Lift park emitter (§5.3 OD-6 (a); I-2's fix of a spec error, registration added by the
             // integrator 2026-10-03). The census (4B) only QUEUES the surviving sections of an opened lift:
             // EndFrameBarrier.CreateCommandBuffer throws at Modification4B (Game/SafeCommandBufferSystem.cs

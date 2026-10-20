@@ -241,8 +241,11 @@
 //     takes this path (m_ItemViaUpgrade, SkiPrefabCatalogSystem.IsUpgradePrefab, resolved per load). The converted ski
 //     school is top-level: ActivatePrefabTool like a station (no Upgrade mode, no 5 km circle), after the hub's soft checks
 //     (TopLevelUpgradeLaunchAllowed: a sign exists; the shown sign has no linked school yet, TopLevelConflict over
-//     SkiResortAttractivenessSystem.CopySchoolLinks); the launch line names the sign nearest the camera and its distance.
+//     SkiResortAttractivenessSystem.CopyTopLevelLinks); the launch line names the sign nearest the camera and its distance.
 //     ActiveItemIndex / UpgradeItemOnCursor / LodgeOnCursor use the same predicate, so the strip highlights it as a tool.
+//     (8) T113 (2026-10-20; docs/research/field/2026-10-20/lodges-top-level-build.md): the five lodges and both patrol huts are
+//     top-level too and take the same path with no change here (the predicate is per prefab). Their rows are not ForbidMultiple,
+//     so TopLevelConflict never locks them; world selection and the Not linked view read CopyTopLevelLinks / TryGetTopLevelLink.
 //
 // FOCUS (research §2.B.6, OD6: fly, never select). The DebugSystemSearch.FocusEntity recipe
 // (Game.Debug/DebugSystemSearch.cs:625-645, 1.6.2 :646-666) minus its selection, on the orbit camera
@@ -449,8 +452,9 @@ namespace SkiResortMod.Systems
         /// build-contract.md §8.1: CityStats.tripPlanner and tripPlannerBlocksSkiDays appended); 4 was Round S1, ski
         /// days, docs/research/ski-days/spec (ch4 §A: ten ResortLive fields appended; the six last-month guest fields
         /// also for a partial month); 3 was Round E1 (econ-round spec ch5 §4, design hub-v3-design.md §8); 2 was
-        /// hub-u2-spec.md §2 (Rounds U2/M1).</summary>
-        public const int HubContract = 11;
+        /// hub-u2-spec.md §2 (Rounds U2/M1). 12 = T114 + the lift generator (2026-10-20, docs/research/ui/hub-round-t114-2026-10-20.md
+        /// section 10): the `liftLine` value binding (HubLiftLineState) and the `liftLineToggle` trigger (LiftLineToolSystem on / off).</summary>
+        public const int HubContract = 12;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed
         /// after the one-shot "!!!" until the next load (amended 2026-10-01, U1 fixer round, finding
@@ -571,7 +575,7 @@ namespace SkiResortMod.Systems
         // converted top-level building (SkiSchool) is false: placed like a station. Set in ResolveItems (prefab data is fixed
         // for a load), read per frame by ActiveItemIndex / UpgradeItemOnCursor.
         private readonly bool[] m_ItemViaUpgrade = new bool[ItemCount];
-        // T100: CopySchoolLinks scratch (event time: locks, launches, Not linked check).
+        // T100 / T113: CopyTopLevelLinks scratch (event time: locks, launches, Not linked check).
         private readonly List<Entity> m_SchoolScratch = new List<Entity>(2);
         private readonly List<Entity> m_SchoolSignScratch = new List<Entity>(2);
         private readonly bool[] m_ItemLocked = new bool[ItemCount];
@@ -649,6 +653,49 @@ namespace SkiResortMod.Systems
                     h = h * 31 + Level;
                     h = h * 31 + (TreeLine ? 1 : 0);
                     return h * 31 + (Reason == null ? 0 : Reason.GetHashCode());
+                }
+            }
+        }
+
+        /// <summary>bindings.ts LiftLineState (contract 12): the lift-line generator's state for the Lifts tab toggle. State is the
+        /// LiftLineToolSystem.ToolState name (a cached enum string, reference-stable).</summary>
+        public struct HubLiftLineState : IJsonWritable, IEquatable<HubLiftLineState>
+        {
+            public bool Available;
+            public bool Active;
+            public string State;
+
+            public HubLiftLineState(bool available, bool active, string state)
+            {
+                Available = available;
+                Active = active;
+                State = state ?? "";
+            }
+
+            public void Write(IJsonWriter writer)
+            {
+                writer.TypeBegin("SkiResortMod.LiftLineState");
+                writer.PropertyName("available");
+                writer.Write(Available);
+                writer.PropertyName("active");
+                writer.Write(Active);
+                writer.PropertyName("state");
+                writer.Write(State ?? "");
+                writer.TypeEnd();
+            }
+
+            public bool Equals(HubLiftLineState other) =>
+                Available == other.Available && Active == other.Active && string.Equals(State, other.State, StringComparison.Ordinal);
+
+            public override bool Equals(object obj) => obj is HubLiftLineState other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int h = Available ? 1 : 0;
+                    h = h * 31 + (Active ? 1 : 0);
+                    return h * 31 + (State == null ? 0 : State.GetHashCode());
                 }
             }
         }
@@ -804,6 +851,7 @@ namespace SkiResortMod.Systems
             ToggleHub, SetHubOpen, Hello, UiError, Launch, Focus, GladeToggle, GladeLevel, GladeTreeLine, Dump,
             SelectResort, Rename, FocusLift, FocusBuilding, Layout,
             SetPisteMap, TogglePisteMap,   // Round E1 (ch5 §4.2): appended; TogglePisteMap is the dev tab's only
+            LiftLineToggle,                // contract 12: appended
         }
 
         private struct Request
@@ -845,6 +893,7 @@ namespace SkiResortMod.Systems
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private SkiPlacementInfoviewSystem m_Infoview;
         private SkiGladeToolSystem m_GladeTool;
+        private LiftLineToolSystem m_LiftLineTool;   // contract 12: the Lifts tab's lift generator (public API only; the lift session owns it)
         private SkiPisteMapSystem m_PisteMap;        // DUMP only (ch5 §4.9)
         private SkiSignUtilityHookSystem m_SignUtilityHook;   // DUMP only (Round F7 D7; contract A3)
         private LodgeRoadSystem m_LodgeRoad;                  // DUMP only (Round F7 D7; contract B3)
@@ -858,6 +907,7 @@ namespace SkiResortMod.Systems
         private ValueBinding<bool> m_ShowHubButton;
         private RawValueBinding m_Build;
         private ValueBinding<HubGladeState> m_Glade;
+        private ValueBinding<HubLiftLineState> m_LiftLine;   // contract 12
         private RawValueBinding m_Resorts;
         private RawValueBinding m_ResortLive;
         private ValueBinding<Entity> m_SelectedBinding;
@@ -1030,6 +1080,9 @@ namespace SkiResortMod.Systems
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();   // Catalog Phase A
             m_Infoview = World.GetOrCreateSystemManaged<SkiPlacementInfoviewSystem>();
             m_GladeTool = World.GetOrCreateSystemManaged<SkiGladeToolSystem>();
+            // Contract 12: the lift generator. Its OnCreate resolves ToolOutputBarrier, TerrainSystem, OverlayRenderSystem, LiftCensusSystem
+            // and SkiPrefabCatalogSystem, never this system, so a GetOrCreate here cannot recurse (Mod.cs registers its update phase).
+            m_LiftLineTool = World.GetOrCreateSystemManaged<LiftLineToolSystem>();
             // m_PisteMap (DUMP only) is resolved at DUMP time with GetExistingSystemManaged: SkiPisteMapSystem's
             // OnCreate resolves THIS system, and a GetOrCreate both ways would create one inside the other's OnCreate.
             m_CitizenQuery = GetEntityQuery(new EntityQueryDesc
@@ -1076,6 +1129,8 @@ namespace SkiResortMod.Systems
             AddBinding(m_PisteMapBinding = new ValueBinding<bool>(Group, "pisteMap", true));
             AddBinding(m_FollowBinding = new ValueBinding<int>(Group, "follow", 0));
             AddBinding(m_History);   // contract 10 (header HISTORY): panel binding, no Demand
+            AddBinding(m_LiftLine = new ValueBinding<HubLiftLineState>(Group, "liftLine",
+                new HubLiftLineState(false, false, "")));   // contract 12: panel binding, no Demand
 
             // Triggers (UI → C#): bindings.ts TRIGGER (§2.2).
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -1096,6 +1151,7 @@ namespace SkiResortMod.Systems
             // Round E1 (ch5 §4.1): the 15 of contract 2 above, then the two new ones.
             AddBinding(new TriggerBinding<bool>(Group, "setPisteMap", OnSetPisteMap));
             AddBinding(new TriggerBinding<Entity>(Group, "hoverRun", OnHoverRun));
+            AddBinding(new TriggerBinding(Group, "liftLineToggle", OnLiftLineToggle));   // contract 12
 
             Mod.Log.Info($"{nameof(SkiResortHubUISystem)} created — group '{Group}', contract {HubContract}, " +
                          $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 17 value bindings, " +
@@ -1235,13 +1291,14 @@ namespace SkiResortMod.Systems
                              $"bundled at build: {BuildStamp.UiBundled}); bindings hubOpen, contract, buildStamp, " +
                              "showHubButton (always observed), build, glade, resorts, resortLive, selectedResort, runs, " +
                              "runLive, lifts, problems, city (panel bindings: catalog and stats Demand follow them, nothing " +
-                             "is computed while closed), pisteMap and follow (panel values, no Demand), history (contract 10: " +
+                             "is computed while closed), pisteMap and follow (panel values, no Demand), liftLine (contract 12: the Lifts " +
+                             "tab toggle, no Demand), history (contract 10: " +
                              "the History view only, no Demand; pushed when a stored month or the area set changed, the month " +
                              $"in progress at most every {Tuning.HistoryProgressPushS:0.#} s, HistoryProgressPushS); arrays pushed per " +
                              "stats revision (slow rows and live rows apart), logged only when a row count changes; triggers " +
                              "toggleHub, setHubOpen, uiHello, uiError, launch, focusRun, gladeToggle, gladeSetLevel, " +
                              "gladeSetTreeLine, dumpHub, selectResort, rename, focusLift, focusBuilding, uiLayout, setPisteMap " +
-                             "(queued, applied in OnUpdate, one line each; uiLayout only when changed) and hoverRun (a field " +
+                             "liftLineToggle (contract 12) (queued, applied in OnUpdate, one line each; uiLayout only when changed) and hoverRun (a field " +
                              "write, validated next update, counted; first per load logged); settings " +
                              $"ShowHubButton={Mod.Settings == null || Mod.Settings.ShowHubButton} OpenHubOnSignSelect=" +
                              $"{Mod.Settings == null || Mod.Settings.OpenHubOnSignSelect}; {itemText}; {catalogItems}; item " +
@@ -1380,6 +1437,8 @@ namespace SkiResortMod.Systems
 
         private void OnUiLayout(string layout) =>
             Trigger("uiLayout", new Request { Kind = RequestKind.Layout, Text = layout });
+
+        private void OnLiftLineToggle() => Trigger("liftLineToggle", new Request { Kind = RequestKind.LiftLineToggle });
 
         private void OnSetPisteMap(bool on) =>
             Trigger("setPisteMap", new Request { Kind = RequestKind.SetPisteMap, Bool = on });
@@ -1565,6 +1624,9 @@ namespace SkiResortMod.Systems
                 case RequestKind.TogglePisteMap:
                     ApplyPisteMap(!m_PisteMapOn, r.Source);
                     break;
+                case RequestKind.LiftLineToggle:
+                    ApplyLiftLineToggle(r.Source);
+                    break;
             }
         }
 
@@ -1670,15 +1732,16 @@ namespace SkiResortMod.Systems
                 m_LastUserSelectAt = UnityEngine.Time.realtimeSinceStartup;
                 return;
             }
-            // T100 (school-top-level-t100.md section 4 item 3): a top-level ski school has no Owner; its sign is the published
-            // link (nearest live sign within the tether). Not linked: the Not linked view, with the reason in the line.
-            if (m_Attractiveness.TryGetSchoolLink(selected, out Entity schoolSign))
+            // T100 / T113 (school-top-level-t100.md section 4 item 3; lodges-top-level-build.md): a top-level lodge, ski school or
+            // patrol hut has no Owner; its sign is the published link (nearest live sign within the tether). Not linked: the Not
+            // linked view, with the reason in the line. Move It selections land here too.
+            if (m_Attractiveness.TryGetTopLevelLink(selected, out Entity schoolSign))
             {
                 if (schoolSign != Entity.Null && m_Ownership.IsLiveGate(schoolSign))
                     Select(schoolSign, $"world selection of {PrefabNameOf(selected)} {Ent(selected)}, linked to the sign " +
                                        $"{Ent(schoolSign)}", true);
                 else
-                    Select(Entity.Null, $"world selection of {PrefabNameOf(selected)} {Ent(selected)}: ski school not linked " +
+                    Select(Entity.Null, $"world selection of {PrefabNameOf(selected)} {Ent(selected)}: not linked " +
                                         $"(no Welcome Sign within {SkiRunOwnershipSystem.TetherMeters:F0} m)", true);
                 m_LastUserSelectAt = UnityEngine.Time.realtimeSinceStartup;
                 return;
@@ -2168,13 +2231,14 @@ namespace SkiResortMod.Systems
                 if ((int)r.Kind == ResortKindNotLinked && (r.Runs > 0 || r.LiftRows > 0 || r.Lodges > 0))
                     return true;
             }
-            return UnlinkedSchools() > 0;   // T100: a top-level school beyond every sign's tether belongs to Not linked
+            return UnlinkedSchools() > 0;   // T100 / T113: a top-level building beyond every sign's tether belongs to Not linked
         }
 
-        /// <summary>T100: live top-level schools linked to no sign (CopySchoolLinks, the last recompute). Event time only.</summary>
+        /// <summary>T100 / T113: live top-level resort buildings (lodges, the school, patrol huts) linked to no sign (CopyTopLevelLinks,
+        /// the last recompute). Event time only.</summary>
         private int UnlinkedSchools()
         {
-            m_Attractiveness.CopySchoolLinks(m_SchoolScratch, m_SchoolSignScratch);
+            m_Attractiveness.CopyTopLevelLinks(m_SchoolScratch, m_SchoolSignScratch);
             int n = 0;
             for (int k = 0; k < m_SchoolScratch.Count; k++)
             {
@@ -2644,7 +2708,7 @@ namespace SkiResortMod.Systems
         /// prefab is top-level (the ski school): the engine no longer refuses a second one (no ServiceUpgradeData, so no
         /// AlreadyUpgraded), and a second school adds nothing (SchoolActive is a flag). ReasonAlreadyBuilt when the row is
         /// ForbidMultiple (m_ItemForbidMultiple: the row decides without ServiceUpgradeData, ReadItemValues) and a live school of
-        /// the same prefab is linked to <paramref name="sign"/> (SkiResortAttractivenessSystem.CopySchoolLinks, the last
+        /// the same prefab is linked to <paramref name="sign"/> (SkiResortAttractivenessSystem.CopyTopLevelLinks, the last
         /// recompute). Event time only (RefreshLocks cadence, launches).</summary>
         private byte TopLevelConflict(Entity sign, int item, out Entity conflict)
         {
@@ -2652,7 +2716,7 @@ namespace SkiResortMod.Systems
             Entity prefab = m_ItemPrefabEntity[item];
             if (!m_ItemForbidMultiple[item] || prefab == Entity.Null)
                 return ReasonNone;
-            m_Attractiveness.CopySchoolLinks(m_SchoolScratch, m_SchoolSignScratch);
+            m_Attractiveness.CopyTopLevelLinks(m_SchoolScratch, m_SchoolSignScratch);
             for (int k = 0; k < m_SchoolScratch.Count; k++)
             {
                 Entity school = m_SchoolScratch[k];
@@ -2678,7 +2742,7 @@ namespace SkiResortMod.Systems
             bool anySign = m_Ownership.TryNearestGateEntity(at.xz, out Entity nearest, out float distance) && nearest != Entity.Null;
             if (!anySign)
             {
-                Mod.Log.Info($"Hub [launch] {id} refused — no Ski Area Welcome Sign in this city (place one first: a school links " +
+                Mod.Log.Info($"Hub [launch] {id} refused — no Ski Area Welcome Sign in this city (place one first: it links " +
                              $"to the nearest sign within {SkiRunOwnershipSystem.TetherMeters:F0} m) ({source})");
                 LastTriggerText = $"launch {id}: no sign";
                 return false;
@@ -3108,6 +3172,44 @@ namespace SkiResortMod.Systems
             LastTriggerText = $"gladeToggle: {(ok ? "on" : "refused: " + m_GladeTool.UnavailableReasonKey)}";
         }
 
+        // ── lift generator (contract 12) ─────────────────────────────────────────────────────────────────
+
+        /// <summary>The Lifts tab's toggle, like ApplyGladeToggle: Deactivate() when the lift tool is active, else
+        /// TryActivate("hub" + source), which owns the gating (armed in a game, not disabled) and logs its own refusal.</summary>
+        private void ApplyLiftLineToggle(string source)
+        {
+            if (m_LiftLineTool == null)
+            {
+                Mod.Log.Warn($"Hub [liftLine] toggle — no LiftLineToolSystem in this world ({source})");
+                LastTriggerText = "liftLineToggle: no tool";
+                return;
+            }
+            if (m_LiftLineTool.IsActive)
+            {
+                Mod.Log.Info($"Hub [liftLine] toggle — deactivating the lift generator ({source})");
+                m_LiftLineTool.Deactivate();
+                LastTriggerText = "liftLineToggle: off";
+                return;
+            }
+            bool ok = m_LiftLineTool.TryActivate("hub" + SourceSuffix(source));
+            Mod.Log.Info($"Hub [liftLine] toggle — activate {(ok ? "ok" : "refused")} ({source})");
+            LastTriggerText = $"liftLineToggle: {(ok ? "on" : "refused")}";
+        }
+
+        private static readonly string[] s_LiftLineStateNames = Enum.GetNames(typeof(LiftLineToolSystem.ToolState));
+
+        /// <summary>available = a city is loaded (this system only updates in Game mode) and the tool exists.</summary>
+        private HubLiftLineState LiftLineNow()
+        {
+            LiftLineToolSystem t = m_LiftLineTool;
+            if (t == null)
+                return new HubLiftLineState(false, false, "");
+            int i = (int)t.State;
+            string state = i >= 0 && i < s_LiftLineStateNames.Length ? s_LiftLineStateNames[i] : "";
+            bool inGame = GameManager.instance != null && GameManager.instance.gameMode == GameMode.Game;
+            return new HubLiftLineState(inGame, t.IsActive, state);
+        }
+
         private HubGladeState GladeNow()
         {
             SkiGladeToolSystem t = m_GladeTool;
@@ -3148,6 +3250,8 @@ namespace SkiResortMod.Systems
 
             if (m_Glade.active)
                 m_Glade.Update(GladeNow());   // ValueBinding dedups (struct, IEquatable)
+            if (m_LiftLine.active)
+                m_LiftLine.Update(LiftLineNow());   // contract 12; dedups like glade
             // pisteMap / follow: ValueBinding.Update at the event (ApplyPisteMap, ApplyFollow); a subscribe
             // pushes the current value (ValueBinding.cs:24-35). Nothing per frame.
 
@@ -4574,6 +4678,9 @@ namespace SkiResortMod.Systems
             sb.Append("  glade: available ").Append(g.Available).Append(", active ").Append(g.Active)
               .Append(", level ").Append(g.Level).Append(", tree line ").Append(g.TreeLine)
               .Append(", reason '").Append(g.Reason).Append("'\n");
+            HubLiftLineState ll = LiftLineNow();   // contract 12
+            sb.Append("  liftLine: available ").Append(ll.Available).Append(", active ").Append(ll.Active)
+              .Append(", state ").Append(ll.State).Append('\n');
             // The stats system's own dump: every area row with its live numbers and problems, every lift row,
             // city; then the piste map's one line (ch5 §4.9, e1-spec I-29: written once, here).
             sb.Append("  stats rows: ").Append(m_Stats.ResortCount).Append(" resort(s), ").Append(m_Stats.ResortLiveCount)

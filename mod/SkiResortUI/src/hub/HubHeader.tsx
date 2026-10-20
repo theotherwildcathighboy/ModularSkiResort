@@ -65,24 +65,34 @@
  *   - Mounted only while the panel is open, and only when the link is OK (contract 2): subscribes
  *     resorts$ and selectedResort$ (spec 4.5: on a mismatch only CORE bindings are read, and the
  *     panel renders PlainTitle instead).
+ *   - T114 (2026-10-20, field report item 2, crop docs/research/field/2026-10-20/shots/_hub-crop-23.10.43.png; Richard: the dropdown "is
+ *     ugly", "possibly an error on the display"; docs/research/ui/hub-round-t114-2026-10-20.md): SUPERSEDES the vanilla Dropdown above.
+ *     In game its toggle drew a light box in the dark title bar with our name text in the panel's light text colour on it, so the name
+ *     read as faded white on white (the "display error"), and "Ski area" + box + arrows + position + pen + fly left the name little
+ *     room. Now the row is `‹ [name ▾] › N / COUNT [pen] [fly]`: the name is a cs2/ui Button styled as the panel's own bold text
+ *     (.areaName, no box until hover) between the two arrows, the caption moved into the list's title; a click toggles the local
+ *     hubState.areaListOpen$, and the LIST is AreaList below, drawn by HubPanel as an overlay at the top of the content (inside our
+ *     body, position absolute: no Portal, nothing for the title bar to clip, no drag guard on a portal). The list keeps T97's facts:
+ *     every entry in the arrows' order, "N runs · N lodges", the shown one highlighted, Not linked in warning colour, the map note;
+ *     picking = selectResort(entrySign(r)), then the list closes; a click on the dimmed backdrop closes it. R15: the name button
+ *     passes FOCUS_DISABLED like the other header buttons (the list's buttons are content buttons).
  */
 import { useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import { useValue } from "cs2/api";
-import { Button, Dropdown, DropdownToggle, Tooltip } from "cs2/ui";
+import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { hubTriggers, isNullEntity, resorts$, selectedResort$ } from "../bindings";
 import type { ResortRow } from "../bindings";
-import { DropdownItem } from "../cs2shim";
 import { LOC, useT } from "../l10n";
 import type { Translate } from "../l10n";
 import { resortCountsVariant, resortListCounts } from "./hubRules";
+import { areaListOpen$ } from "./hubState";
 import { HUB_FMT, HUB_LOC } from "./hubText";
-import { LocText, Tip, TipLines, cx, numArg } from "./parts";
+import { Glyph, LocText, Tip, TipLines, cx, numArg } from "./parts";
 import { RenameField } from "./RenameField";
 import { currentResort, entryKey, entrySign, resortEntries, stepResort } from "./resortData";
-import type { CurrentResort, ResortEntries } from "./resortData";
 import styles from "./hub.module.scss";
 
 /** The vanilla close button's guard against the title bar's drag (index.js@686490). */
@@ -137,59 +147,65 @@ function ResortCounts({ row, t }: { row: ResortRow; t: Translate }): JSX.Element
   }
 }
 
-interface ResortSelectorProps {
-  e: ResortEntries;
-  cur: CurrentResort;
-  name: string;
-  unlinked: boolean;
-  t: Translate;
+
+/** T114: the area name as a plain text button with a chevron; a click opens / closes the AreaList overlay. */
+function AreaNameButton({ name, unlinked, t }: { name: string; unlinked: boolean; t: Translate }): JSX.Element {
+  const open = useValue(areaListOpen$);
+  return (
+    <Tip tip={open ? undefined : <TipLines lines={[unlinked ? t(HUB_LOC.unlinkedHint) : t(HUB_LOC.resortTip)]} />}>
+      <Button
+        focusKey={FOCUS_DISABLED}
+        theme={{ button: cx(styles.areaName, open && styles.areaNameOpen) }}
+        onMouseDown={noDrag}
+        onSelect={() => areaListOpen$.update(!areaListOpen$.value)}
+      >
+        <div className={cx(styles.areaNameText, unlinked && styles.warnText)}>{name}</div>
+        <Glyph src={open ? "Media/Glyphs/StrokeArrowUp.svg" : "Media/Glyphs/StrokeArrowDown.svg"} className={styles.areaChevron} />
+      </Button>
+    </Tip>
+  );
 }
 
-/** T97 P1: the area name as a vanilla Dropdown; the list of every area, the map note; picking one = selectResort. */
-function ResortSelector({ e, cur, name, unlinked, t }: ResortSelectorProps): JSX.Element {
-  // The rule tooltip is off while the list is open (it would cover the list). Not a Tip: Tip drops its Tooltip when the tip is
-  // empty, which would remount the Dropdown and close it. onToggle reports the toggle, an item and the barrier; a document
-  // mousedown outside closes without it (dropdown.tsx @716237), but our drag guard stops mousedowns inside, so only a click
-  // outside every portal could leave this true: the tooltip then stays off until the next open / close.
-  const [open, setOpen] = useState(false);
+/**
+ * T114: the ski-area list, drawn by HubPanel at the top of its content while areaListOpen$ is on (a panel file: resorts$,
+ * selectedResort$). Same entries and order as the arrows; picking one sends selectResort and closes the list; the backdrop closes it.
+ */
+export function AreaList(): JSX.Element | null {
+  const t = useT();
+  const open = useValue(areaListOpen$);
+  const resorts = useValue(resorts$);
+  const selected = useValue(selectedResort$);
+  if (!open) return null;
+  const e = resortEntries(resorts);
+  const cur = currentResort(e, selected);
   const curKey = cur.row ? entryKey(cur.row) : "";
-  const list = (
-    <div className={styles.selectorMenu}>
-      {e.entries.map((r) => {
-        const key = entryKey(r);
-        const isUnlinked = r.kind === 1;
-        return (
-          <DropdownItem<string>
-            key={key}
-            value={key}
-            selected={key === curKey}
-            className={styles.selectorItem}
-            onChange={() => hubTriggers.selectResort(entrySign(r))}
-          >
-            <div className={styles.selectorItemRow}>
-              <div className={cx(styles.selectorItemName, isUnlinked && styles.warnText)}>
+  const close = (): void => areaListOpen$.update(false);
+  return (
+    <>
+      <div className={cx(styles.overlayCard, styles.overlayTop)}>
+        <div className={styles.overlayTitle}>{t(HUB_LOC.resortCaption)}</div>
+        {e.entries.map((r) => {
+          const key = entryKey(r);
+          const isUnlinked = r.kind === 1;
+          const on = key === curKey;
+          return (
+            <Button key={key} theme={{ button: cx(styles.overlayItem, on && styles.overlayItemOn) }} selected={on}
+              onSelect={() => {
+                close();
+                if (!on) hubTriggers.selectResort(entrySign(r));
+              }}>
+              <div className={cx(styles.overlayItemName, isUnlinked && styles.warnText)}>
                 {isUnlinked ? t(HUB_LOC.unlinkedEntry) : r.name}
               </div>
-              <div className={cx(styles.selectorItemCounts, isUnlinked && styles.warnText)}>
+              <div className={cx(styles.overlayItemCounts, isUnlinked && styles.warnText)}>
                 <ResortCounts row={r} t={t} />
               </div>
-            </div>
-          </DropdownItem>
-        );
-      })}
-      <div className={styles.selectorNote}>{t(HUB_LOC.resortMenuNote)}</div>
-    </div>
-  );
-  return (
-    <Tooltip tooltip={<TipLines lines={[unlinked ? t(HUB_LOC.unlinkedHint) : t(HUB_LOC.resortTip)]} />} disabled={open}>
-      <div className={styles.selector} onMouseDown={noDrag}>
-        <Dropdown focusKey={FOCUS_DISABLED} content={list} onToggle={setOpen}>
-          <DropdownToggle focusKey={FOCUS_DISABLED} className={styles.selectorToggle}>
-            <div className={cx(styles.selectorLabel, unlinked && styles.warnText)}>{name}</div>
-          </DropdownToggle>
-        </Dropdown>
+            </Button>
+          );
+        })}
+        <div className={styles.overlayNote}>{t(HUB_LOC.resortMenuNote)}</div>
       </div>
-    </Tooltip>
+    </>
   );
 }
 
@@ -220,8 +236,6 @@ export function HubHeader(): JSX.Element {
   return (
     <div className={styles.switcher}>
       <HeaderButton src="Media/Glyphs/ThickStrokeArrowLeft.svg" tip={t(HUB_LOC.resortPrev)} inactive={single} onSelect={() => go(-1)} />
-      <HeaderButton src="Media/Glyphs/ThickStrokeArrowRight.svg" tip={t(HUB_LOC.resortNext)} inactive={single} onSelect={() => go(1)} />
-      <div className={styles.switcherCaption}>{t(HUB_LOC.resortCaption)}</div>
       {isRenaming ? (
         <div className={styles.switcherName}>
           <RenameField
@@ -236,8 +250,9 @@ export function HubHeader(): JSX.Element {
           />
         </div>
       ) : (
-        <ResortSelector e={e} cur={cur} name={name} unlinked={unlinked} t={t} />
+        <AreaNameButton name={name} unlinked={unlinked} t={t} />
       )}
+      <HeaderButton src="Media/Glyphs/ThickStrokeArrowRight.svg" tip={t(HUB_LOC.resortNext)} inactive={single} onSelect={() => go(1)} />
       <div className={styles.switcherPosition}>
         <LocText entry={HUB_FMT.resortPosition} args={{ N: String(position), COUNT: String(Math.max(count, 1)) }} />
       </div>
@@ -245,7 +260,7 @@ export function HubHeader(): JSX.Element {
         src="Media/Glyphs/Pen.svg"
         tip={<TipLines lines={[t(HUB_LOC.rename), t(HUB_LOC.renameTip)]} />}
         hidden={unlinked}
-        onSelect={() => setRenaming(isRenaming ? null : signKey)}
+        onSelect={() => { areaListOpen$.update(false); setRenaming(isRenaming ? null : signKey); }}
       />
       <HeaderButton
         src="Media/Game/Icons/MapMarker.svg"

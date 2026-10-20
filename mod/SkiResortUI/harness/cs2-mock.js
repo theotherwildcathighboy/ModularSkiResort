@@ -103,6 +103,7 @@
     setHubOpen: (open) => set("hubOpen", !!open),
     selectResort: (sign) => set("selectedResort", sign || { index: 0, version: 0 }),
     setPisteMap: (on) => set("pisteMap", !!on),
+    liftLineToggle: () => { const g = get("liftLine"); if (g) set("liftLine", Object.assign({}, g, { active: !g.active, state: "PickBase" })); },   // contract 12
     gladeToggle: () => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { active: !g.active })); },
     gladeSetLevel: (level) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { level })); },
     gladeSetTreeLine: (treeLine) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { treeLine: !!treeLine })); },

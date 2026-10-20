@@ -87,6 +87,11 @@
  * T100 hub school launch (2026-10-19, DECISIONS 309; docs/research/ui/hub-school-launch-2026-10-19.md; contract 11 unchanged): new
  * PROBLEM[SchoolsNotLinked] (HUB_FMT) and PROBLEM_TIP[SchoolsNotLinked]; PROBLEM[LodgeNoRoad] and its tip changed in place to read for a
  * school too ("Lodge or school", "entrance side").
+ * T114 hub round (2026-10-20, field report items 2 and 9; docs/research/ui/hub-round-t114-2026-10-20.md; contract 11 unchanged): new
+ * PROBLEM_GROUP[LiftUnfinished|LiftNoPower|LiftSectionMissing], TILE_TIP_POWERED, PAGE_POSITION (HUB_FMT), PROBLEM_MORE_CLICK, PAGE_PREV,
+ * PAGE_NEXT, BUILD_GROUP[Lodges|Patrol] (HUB_LOC); TILE_TIP[Lifts] (built of drawn), BUILD_TAB_TIP[Buildings] (no lodge picker) and the tile labels
+ * BUILD_LABEL[Sign|School|PatrolHut|PatrolHQ] (Sign, School, Hut, HQ: nine tiles share the Buildings row; the full names stay in the tooltips)
+ * changed in place.
  * Contract:
  *   - Every entry is a literal `[key, english]` tuple. tools/check-bundle.js rule R4 FAILS the build
  *     unless each key exists in root mod/SkiResortMod/LocaleEN.cs with IDENTICAL text, and WARNS
@@ -199,6 +204,17 @@ export const HUB_LOC = {
   problemMoreTip: ["SkiResort.Hub.PROBLEM_MORE_TIP", "Also needs attention:"],
   problemClickFly: ["SkiResort.Hub.PROBLEM_CLICK_FLY", "Click to fly there."],
   problemClickList: ["SkiResort.Hub.PROBLEM_CLICK_LIST", "Click to open the list."],
+  // T114 (2026-10-20): the band's +N popover, the list pager, the Buildings tab's lodge group caption.
+  problemMoreClick: ["SkiResort.Hub.PROBLEM_MORE_CLICK", "Click to list them."],
+  pagePrev: ["SkiResort.Hub.PAGE_PREV", "Previous page"],
+  pageNext: ["SkiResort.Hub.PAGE_NEXT", "Next page"],
+  lodgeGroup: ["SkiResort.Hub.BUILD_GROUP[Lodges]", "Lodges"],
+  // Contract 12: the lift generator toggle on the Lifts tab (LiftLineToolSystem).
+  liftTool: ["SkiResort.Hub.LIFT_TOOL", "Lift generator"],
+  liftToolTip: ["SkiResort.Hub.LIFT_TOOL_TIP", "Plan a lift line between two stations: Ctrl+Shift+L"],
+  liftToolTipOn: ["SkiResort.Hub.LIFT_TOOL_TIP_ON", "On: click a station, then the other station of the lift. Click again to stop."],
+  liftToolUnavailable: ["SkiResort.Hub.LIFT_TOOL_UNAVAILABLE", "Available once a city is loaded."],
+  patrolGroup: ["SkiResort.Hub.BUILD_GROUP[Patrol]", "Ski patrol"],
 
   // ---- tiles (6.4) ----
   tileAttraction: ["SkiResort.Hub.TILE[Attraction]", "Attraction"],
@@ -212,7 +228,7 @@ export const HUB_LOC = {
   tileTipHeld: ["SkiResort.Hub.TILE_TIP_HELD", "Checking runs and snow after loading. The game keeps the saved score meanwhile."],
   tileTipRuns: ["SkiResort.Hub.TILE_TIP[Runs]", "Runs fully open now, out of all runs in this ski area."],
   // Phase D (round-4-contract section 4.4, R4, CG-T8; was "... Without power the chairs still move, ..."): carriers stop.
-  tileTipLifts: ["SkiResort.Hub.TILE_TIP[Lifts]", "Complete lifts with power at the base station, out of all complete lifts. Without power a lift stops and adds nothing."],
+  tileTipLifts: ["SkiResort.Hub.TILE_TIP[Lifts]", "Complete lifts out of every lift drawn, unfinished ones included. Without power a complete lift stops and adds nothing."],
   tileTipSinceLoad: ["SkiResort.Hub.TILE_TIP_SINCE_LOAD", "Counted since you loaded the city."],
   tileTipMoney: ["SkiResort.Hub.TILE_TIP[Money]", "Net of the month so far: all resort income booked, minus lifts, runs, buildings and wages. The Finances view's Net."],
   tileTipEst: ["SkiResort.Hub.TILE_TIP_EST", "≈ Some income or costs are not counted yet; they read as 0."],
@@ -518,6 +534,12 @@ export const HUB_LOC = {
 /** Placeholder entries: ONLY as <LocText entry={HUB_FMT.x} args={...} /> (gate R5, R13). */
 export const HUB_FMT = {
   resortPosition: ["SkiResort.Hub.RESORT_POSITION", "{N} / {COUNT}"],
+  // T114 (2026-10-20): folded per-lift band rows (hubRules.foldBandRows), the Lifts tile's power line, the list pager.
+  problemGroupLiftUnfinished: ["SkiResort.Hub.PROBLEM_GROUP[LiftUnfinished]", "{N} lifts unfinished: {NAMES}"],
+  problemGroupLiftNoPower: ["SkiResort.Hub.PROBLEM_GROUP[LiftNoPower]", "{N} lifts without power: {NAMES}"],
+  problemGroupLiftSectionMissing: ["SkiResort.Hub.PROBLEM_GROUP[LiftSectionMissing]", "{N} lifts missing a section: {NAMES}"],
+  tileTipPowered: ["SkiResort.Hub.TILE_TIP_POWERED", "Running with power: {N}"],
+  pagePosition: ["SkiResort.Hub.PAGE_POSITION", "{N} / {COUNT}"],
   // T97 P1: a selector item's counts (hubRules.resortCountsVariant picks; "one" is HUB_LOC.resortCountsOne).
   resortCounts: ["SkiResort.Hub.RESORT_COUNTS[Many]", "{RUNS} runs · {LODGES} lodges"],
   resortCountsRunOne: ["SkiResort.Hub.RESORT_COUNTS[RunOne]", "1 run · {LODGES} lodges"],
@@ -835,7 +857,7 @@ export const BUILD_TAB: Readonly<Record<string, LocEntry>> = {
 export const BUILD_TAB_TIP: Readonly<Record<string, LocEntry>> = {
   lifts: ["SkiResort.Hub.BUILD_TAB_TIP[Lifts]", "Lifts: build the two stations, then the line. Pick the lift type below."],
   runs: ["SkiResort.Hub.BUILD_TAB_TIP[Runs]", "Runs: draw a run from the top of a lift, or plan trees with the tree tool."],
-  buildings: ["SkiResort.Hub.BUILD_TAB_TIP[Buildings]", "Buildings: lodges, the ski school and patrol join this ski area's Welcome Sign. Pick the lodge below."],
+  buildings: ["SkiResort.Hub.BUILD_TAB_TIP[Buildings]", "Buildings: lodges, the ski school and patrol join this ski area's Welcome Sign. Each lodge has its own tile."],
 };
 /** A tile's visible label by its role: base / top / line (every lift type), sign, lodge (the chosen tier), school, patrolHut,
  *  patrolHQ, and the four run kinds (short: the Runs tab already says "run"; the tooltip and footer keep RUN_TYPE). */
@@ -843,11 +865,11 @@ export const BUILD_LABEL: Readonly<Record<string, LocEntry>> = {
   base: ["SkiResort.Hub.BUILD_LABEL[Base]", "Base station"],
   top: ["SkiResort.Hub.BUILD_LABEL[Top]", "Top station"],
   line: ["SkiResort.Hub.BUILD_LABEL[Line]", "Lift line"],
-  sign: ["SkiResort.Hub.BUILD_LABEL[Sign]", "Welcome Sign"],
+  sign: ["SkiResort.Hub.BUILD_LABEL[Sign]", "Sign"],
   lodge: ["SkiResort.Hub.BUILD_LABEL[Lodge]", "Lodge"],
-  school: ["SkiResort.Hub.BUILD_LABEL[School]", "Ski school"],
-  patrolHut: ["SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Patrol hut"],
-  patrolHQ: ["SkiResort.Hub.BUILD_LABEL[PatrolHQ]", "Patrol HQ"],
+  school: ["SkiResort.Hub.BUILD_LABEL[School]", "School"],
+  patrolHut: ["SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Hut"],
+  patrolHQ: ["SkiResort.Hub.BUILD_LABEL[PatrolHQ]", "HQ"],
   run3: ["SkiResort.Hub.BUILD_LABEL[Natural]", "Natural"],
   run0: ["SkiResort.Hub.BUILD_LABEL[Groomed]", "Groomed"],
   run1: ["SkiResort.Hub.BUILD_LABEL[Snowmaking]", "Snowmaking"],

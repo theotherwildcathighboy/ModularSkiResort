@@ -71,6 +71,7 @@ namespace SkiResortMod.Systems
 
         private PrefabSystem m_PrefabSystem;
         private SkiPrefabCatalogSystem m_PrefabCatalog;
+        private SkiResortAttractivenessSystem m_Attractiveness;   // T113
         private EntityQuery m_BuildingQuery;
 
         private bool m_Armed, m_Disabled, m_ErrorLogged;
@@ -89,6 +90,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
+            m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();   // T113: a top-level lodge's sign
             m_BuildingQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -309,6 +311,8 @@ namespace SkiResortMod.Systems
             Counts c = CountSpots(lodge);
             bool hasT = EntityManager.TryGetComponent(lodge, out ObjTransform lodgeT);
             Entity sign = EntityManager.TryGetComponent(lodge, out Owner owner) ? owner.m_Owner : Entity.Null;
+            if (sign == Entity.Null)
+                m_Attractiveness.TryGetTopLevelLink(lodge, out sign);   // T113: top-level, the published link (Null = not linked)
             sb.Append("  lodge ").Append(Ent(lodge)).Append(" '").Append(PrefabNameOf(lodge)).Append("' (sign ").Append(Ent(sign)).Append(") at ")
               .Append(hasT ? Fmt(lodgeT.m_Position) : "?").Append(": registered ");
             AppendCounts(sb, c);

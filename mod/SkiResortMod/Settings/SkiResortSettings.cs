@@ -164,6 +164,8 @@ namespace SkiResortMod.Settings
     [SettingsUIKeyboardAction(ActGladeNextVariant)]
     [SettingsUIKeyboardAction(ActGladeNextMode)]
     [SettingsUIKeyboardAction(ActDumpDiagnostics)]
+    [SettingsUIKeyboardAction(ActToggleLiftLine)]
+    [SettingsUIKeyboardAction(ActBuildLiftLine)]
     public sealed class SkiResortSettings : ModSetting
     {
         public const string SectionMain = "Main";
@@ -186,6 +188,8 @@ namespace SkiResortMod.Settings
         public const string ActGladeNextVariant = "GladeNextVariant";
         public const string ActGladeNextMode = "GladeNextMode";
         public const string ActDumpDiagnostics = "DumpDiagnostics";   // R3 (spec §5.2) — persisted, never rename
+        public const string ActToggleLiftLine = "ToggleLiftLineTool";  // T48 round 2 (lift-line tool) — persisted, never rename
+        public const string ActBuildLiftLine = "BuildLiftLine";        // T48 round 2 — persisted, never rename
 
         // Round E1 (e1-spec §2.3; econ-round spec ch1 §11.1, ch3 §9): the one copy of each default.
         public const int DefaultAttractivenessScaleK = 4;
@@ -509,6 +513,18 @@ namespace SkiResortMod.Settings
         [SettingsUIKeyboardBinding(BindingKeyboard.G, ActDumpDiagnostics, ctrl: true, alt: true)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding DumpDiagnosticsBinding { get; set; }
+
+        /// <summary>T48 round 2: toggles the lift-line tool (default Ctrl+Shift+L): click a station, the other station, edit the
+        /// planned towers, Build. Polled by LiftLineHotkeySystem in a loaded city.</summary>
+        [SettingsUIKeyboardBinding(BindingKeyboard.L, ActToggleLiftLine, ctrl: true, shift: true)]
+        [SettingsUISection(SectionMain, GroupKeybindings)]
+        public ProxyBinding ToggleLiftLineToolBinding { get; set; }
+
+        /// <summary>T48 round 2: builds the line the lift-line tool is editing (default Enter). Live only while that tool is
+        /// active (LiftLineHotkeySystem).</summary>
+        [SettingsUIKeyboardBinding(BindingKeyboard.Enter, ActBuildLiftLine)]
+        [SettingsUISection(SectionMain, GroupKeybindings)]
+        public ProxyBinding BuildLiftLineBinding { get; set; }
 
         public override void SetDefaults()
         {

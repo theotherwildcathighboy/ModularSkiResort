@@ -29,6 +29,9 @@
  *   - T78 (contract 10): a sixth tile, History, after Finances: its value is a glyph (T82 B8: our HistoryGlyph.svg, three bars on
  *     a baseline, replaced the game's City Statistics glyph) (never a number: the
  *     tile must not subscribe `history`, which only the History view observes), its tooltip TILE_TIP[History].
+ *   - T114 (2026-10-20, field report item 9: "1 / 1" while five lines existed): the Lifts tile is built / drawn
+ *     (hubRules.liftsTile: liftsComplete of liftRows, every census row: complete lifts, unfinished lines, lone stations); the
+ *     powered count (liftsCounted) moved into its tooltip (TILE_TIP_POWERED), with the unfinished count as before.
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, city$ (T77: the month's name in the Guests
  *     tooltip, "Month of <name>"); local view$.
  */
@@ -41,7 +44,7 @@ import { city$, resortLive$, resorts$, selectedResort$ } from "../bindings";
 import type { ResortLive, ResortRow } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
-import { buildingsAndWages, liveOf, unfinishedLifts } from "./hubRules";
+import { buildingsAndWages, liftsTile, liveOf, unfinishedLifts } from "./hubRules";
 import { HUB_VIEWS, view$ } from "./hubState";
 import type { HubView } from "./hubState";
 import { HUB_FMT, HUB_LOC, monthName } from "./hubText";
@@ -88,10 +91,12 @@ function tileValue(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: b
       if (unlinked) return numArgEl(row.runs);
       return l && l.runsOpen >= 0
         ? <LocalizedFraction value={Math.max(0, l.runsOpen)} total={Math.max(0, row.runs | 0)} unit={Unit.Integer} /> : DASH;
-    case "lifts":
+    case "lifts": {
       if (unlinked) return numArgEl(row.liftRows);
-      return l && l.liftsComplete >= 0 && l.liftsCounted >= 0
-        ? <LocalizedFraction value={l.liftsCounted} total={l.liftsComplete} unit={Unit.Integer} /> : DASH;
+      // T114: built / drawn (every line counts, unfinished ones included).
+      const lt = liftsTile(row, l);
+      return lt ? <LocalizedFraction value={lt.built} total={lt.drawn} unit={Unit.Integer} /> : DASH;
+    }
     case "guests":
       return !unlinked && l && l.guestsThisMonth >= 0 ? numArgEl(l.guestsThisMonth) : DASH;
     case "history":
@@ -127,7 +132,9 @@ function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boo
       // E1 fixer (F11): hubRules.unfinishedLifts is 0 unless the live row knows the complete count.
       const n = unlinked ? 0 : unfinishedLifts(row, l);
       return <TipLines lines={[t(HUB_LOC.tileLifts), unlinked ? t(HUB_LOC.unlinkedNote) : t(HUB_LOC.tileTipLifts),
-        n > 0 && <LocText key="u" entry={HUB_FMT.tileTipUnfinished} args={{ N: numArg(n, Unit.Integer) }} />, open]} />;
+        n > 0 && <LocText key="u" entry={HUB_FMT.tileTipUnfinished} args={{ N: numArg(n, Unit.Integer) }} />,
+        !unlinked && l && l.liftsCounted >= 0 && <LocText key="p" entry={HUB_FMT.tileTipPowered} args={{ N: numArg(l.liftsCounted, Unit.Integer) }} />,
+        open]} />;
     }
     case "guests":
       // T77 (contract 9): this month and the one before by name (city.month).

@@ -22,6 +22,15 @@
  * the mouse. Every tile now draws its short name under the icon (BUILD_LABEL). The tabs only filter what is drawn: every launch
  * id, binding and trigger is unchanged. The ONE dot also shows on the tab that holds its tile. The sections below that talk of
  * ONE tile row and the picker row describe the strip before T31.
+ * T114 (2026-10-20, field report item 2, Richard: "the way you select different lodge levels is confusing, because the other
+ * buildings don't change"; docs/research/ui/hub-round-t114-2026-10-20.md): the Buildings tab draws EVERY sent lodge tier as its own
+ * tile (A-frame, Hut, Chalet, Summit, Grand: hubRules.visibleIds no longer filters lodges) between the sign and the school / patrol
+ * group; the lodge chips are gone. The family row keeps its fixed height and, on that tab, names the lodge group ("Lodges" over its
+ * tiles, BUILD_GROUP[Lodges]); the lift-type chips (Lifts) and the tree tool (Runs) are unchanged.
+ * Contract 12 (2026-10-20, Richard: a "Lift generator" button on the Lifts tab, done like the Runs tab's tree tool): the Lifts family row
+ * holds the type chips and, after them, the LIFT_TOOL toggle (LiftToolSet: reads liftLine$, fires hubTriggers.liftLineToggle, which C#
+ * turns into LiftLineToolSystem.TryActivate("hub") / Deactivate()). Ok panel only (FooterInfo.liftTool): on a contract mismatch the
+ * strip reads CORE only and the toggle is not drawn.
  * Contract:
  *   - Groups [sign, lodge tier] | [school, patrolHut, patrolHQ] | [lift type: base "1", top "2", line
  *     "3"] | [runNatural, runGroomed, runSnowmaking, runNight] (src/hub/buildItems.ts). ONE nowrap row;
@@ -91,7 +100,7 @@ import { bindLocalValue, useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { build$, follow$, glade$, hubTriggers, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
+import { build$, follow$, glade$, hubTriggers, liftLine$, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
 import type { BuildItem, BuildItemId, RunKind } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
@@ -123,12 +132,17 @@ export interface FooterInfo {
   next: NextVariant;
   /** D36 notice: the shown area's name while the 6 s notice runs, else null. */
   followName: string | null;
+  /** Contract 12: draw the lift generator toggle (ok panel only; it reads the non-CORE liftLine binding). */
+  liftTool?: boolean;
 }
 
 export const MISMATCH_FOOTER: FooterInfo = { lodgeShown: false, dot: null, next: "done", followName: null };
 
 /** How long the D36 notice stays (design 7.5). */
 export const FOLLOW_NOTICE_MS = 6000;
+
+/** T114: the Buildings-tab kinds that each draw as their own tile group. */
+const SPLIT_KINDS: readonly string[] = ["sign", "lodge", "school", "patrol"];
 
 /** Contract 6: the pickers' choice for the UI session (local value: nothing sent to C#; a UI reload resets it). */
 export const pick$ = bindLocalValue<PickerSelection>(NO_PICK);
@@ -293,7 +307,7 @@ function labelEntry(id: BuildItemId): LocEntry {
     case "station": return BUILD_LABEL[stationRole(id) === "top" ? "top" : "base"];
     case "line": return BUILD_LABEL.line;
     case "sign": return BUILD_LABEL.sign;
-    case "lodge": return LODGE_TIER[id] ?? BUILD_LABEL.lodge;   // T97: the tile names the chosen tier (the chip above it)
+    case "lodge": return LODGE_TIER[id] ?? BUILD_LABEL.lodge;   // T114: each tier is its own tile, named by its tier
     case "school": return BUILD_LABEL.school;
     case "patrol": return id === "patrolHQ" ? BUILD_LABEL.patrolHQ : BUILD_LABEL.patrolHut;
     default: return nameEntry(id);
@@ -326,6 +340,51 @@ function TabBarView({ tabs, tab, dotTab, t, onTab }: {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** T114: the Buildings tab's family row: "Lodges" over the lodge group and "Ski patrol" over the two huts (same flex-grow as the tile
+ *  groups below), empty over the sign and the school, so the five lodge tiles read as one choice and the row keeps its fixed height. */
+function GroupCaptions({ groups, t }: { groups: readonly OrderedBuildItem[][]; t: Translate }): JSX.Element {
+  return (
+    <>
+      {groups.map((g, gi) => {
+        const k = g.length > 0 ? kindOf(g[0].id) : "";
+        const caption = k === "lodge" ? t(HUB_LOC.lodgeGroup) : k === "patrol" && g.length > 1 ? t(HUB_LOC.patrolGroup) : "";
+        return (
+          <div key={gi} className={cx(styles.groupCaption, !caption && styles.groupCaptionNone, gi > 0 && styles.buildGroupNext)}
+            style={{ flexGrow: g.length }}>
+            {caption}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/** Contract 12: the Lifts tab's lift generator toggle (the tree tool's pattern): on / off, refused by C# when the tool is not armed. */
+function LiftToolSet({ t }: { t: Translate }): JSX.Element {
+  const g = useValue(liftLine$);
+  const available = !!g?.available;
+  const active = !!g?.active;
+  const tip = active ? t(HUB_LOC.liftToolTipOn) : !available ? t(HUB_LOC.liftToolUnavailable) : t(HUB_LOC.liftToolTip);
+  return (
+    // About one chip wide (the type chips keep their room; four types = 4 : 1.1).
+    <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 1.1 }}>
+      <div className={styles.pickerCell}>
+        <Tip tip={<TipLines lines={[t(HUB_LOC.liftTool), tip]} />}>
+          <Button
+            focusKey={FOCUS_DISABLED}
+            disabled={!available && !active}
+            theme={{ button: cx(styles.pickerChip, active && styles.pickerChipOn) }}
+            selected={active}
+            onSelect={() => hubTriggers.liftLineToggle()}
+          >
+            <div className={styles.pickerLabel}>{t(HUB_LOC.liftTool)}</div>
+          </Button>
+        </Tip>
+      </div>
     </div>
   );
 }
@@ -376,9 +435,19 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   const all = groupBuildItems(items);
   const tabs = drawnTabs(visible, BUILD_ITEMS);
   const tab = effectiveTab(tabs, storedTab, info.next);
-  const groups = all
-    .map((g) => g.filter((e) => visible.has(e.id) && tabOfItem(e.id, BUILD_ITEMS) === tab))
-    .filter((g) => g.length > 0);
+  // T114: on the Buildings tab the sign, the five lodges, the school and the two patrol huts are four groups (captions "Lodges" and
+  // "Ski patrol" over theirs); BUILD_GROUPS keeps its R16 shape, the split is drawing only. Lift and run groups are unchanged.
+  const groups: OrderedBuildItem[][] = [];
+  const splitKey = (id: BuildItemId): string => { const k = kindOf(id); return SPLIT_KINDS.indexOf(k) >= 0 ? k : "rest"; };
+  for (const g of all) {
+    let cur: OrderedBuildItem[] = [];
+    for (const e of g) {
+      if (!visible.has(e.id) || tabOfItem(e.id, BUILD_ITEMS) !== tab) continue;
+      if (cur.length > 0 && splitKey(cur[0].id) !== splitKey(e.id)) { groups.push(cur); cur = []; }
+      cur.push(e);
+    }
+    if (cur.length > 0) groups.push(cur);
+  }
   const dot = dotTarget(info.dot, items, BUILD_ITEMS, sel);
   const dotTab = tabOfDot(dot, BUILD_ITEMS);
 
@@ -467,7 +536,8 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
       {tabs.length > 0 && (
         <div className={styles.pickerRow}>
           {tab === "lifts" && sets.lift.length > 0 && <PickerSetView set="lift" options={sets.lift} chosen={eff.lift} dot={dot} t={t} onPick={onPick} />}
-          {tab === "buildings" && sets.lodge.length > 0 && <PickerSetView set="lodge" options={sets.lodge} chosen={eff.lodge} dot={dot} t={t} onPick={onPick} />}
+          {tab === "lifts" && info.liftTool && <LiftToolSet t={t} />}
+          {tab === "buildings" && <GroupCaptions groups={groups} t={t} />}
           {tab === "runs" && <TreeToolSet t={t} />}
         </div>
       )}
@@ -545,6 +615,7 @@ export function OkFooter(): JSX.Element {
     dot: dotItem(problems, sign, hasSign),
     next: nextVariant(hasSign, unlinked, l),
     followName: noticeOn && shown ? (unlinked ? t(HUB_LOC.unlinkedEntry) : shown.name) : null,
+    liftTool: true,   // contract 12: the ok panel draws the lift generator toggle
   };
   return <BuildStrip info={info} />;
 }

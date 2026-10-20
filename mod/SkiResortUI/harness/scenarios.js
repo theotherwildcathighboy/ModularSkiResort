@@ -156,12 +156,13 @@
 
   const glade = { available: true, active: false, level: 4, treeLine: false, reason: "" };
 
-  const base = { hubOpen: false, contract: 11, buildStamp: "", showHubButton: true, build: buildItems(), glade,
-    resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [] };
+  const base = { hubOpen: false, contract: 12, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+    resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
+    liftLine: { available: true, active: false, state: "PickBase" } };   // contract 12
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
-    "contract mismatch (DLL 10, UI 11)": Object.assign({}, base, { contract: 10, hubOpen: true }),
+    "contract mismatch (DLL 11, UI 12)": Object.assign({}, base, { contract: 11, hubOpen: true }),
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),
@@ -179,4 +180,49 @@
     "Ash Flat, school built, no run counts": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { summer: true, schoolValue: 0 }), live2],
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
   };
+
+  // T114 (2026-10-20): the stress case of "never a scrollbar" and the field's 1 / 1 + "Lift 3 / 4 / 5 is unfinished +5" (report items 2, 9):
+  // a long area name, 30 runs, 12 lift rows of which 5 are unfinished lines (liftsComplete 7, 5 of them powered), and nine band rows that
+  // fold to seven (three LiftUnfinished -> one, two LiftNoPower -> one). Plausible, not measured.
+  const BIG = E(105);
+  const bigRuns = [], bigRunLive = [];
+  for (let i = 0; i < 30; i++) {
+    const r = Object.assign({}, runs[i % 5], { entity: E(600 + i), name: i % 3 === 0 ? "Run " + (i + 1) : ["Glacier Bowl", "Lower Meadow Traverse", "Summit Chute"][i % 3] + " " + (i + 1),
+      sign: BIG, ordinal: i + 1, customName: i % 3 !== 0, servedBy: E(700 + (i % 7)) });
+    bigRuns.push(r);
+    bigRunLive.push(Object.assign({}, runLive[i % 5], { entity: E(600 + i) }));
+  }
+  const bigLifts = [];
+  for (let i = 0; i < 12; i++) {
+    const unfinished = [2, 3, 4, 9, 10].includes(i), noPower = [7, 8].includes(i);
+    bigLifts.push(Object.assign({}, lifts[unfinished ? 2 : noPower ? 1 : 0], { entity: E(700 + i), top: E(720 + i), sign: BIG, name: "Lift " + (i + 1), customName: false }));
+  }
+  const bigResorts = [
+    { sign: BIG, kind: 0, name: "Mount Saint Bernadette Backcountry Ski Area", customName: true, runs: 30, rated: 28, flat: 2, green: 8, blue: 10, black: 7, doubleBlack: 3,
+      areaM2: 1900000, verticalM: 1240, verticalApprox: false, lodges: 5, freeLodges: 0, liftRows: 12, liftLengthM: 14800, capacityPerHour: 14200 },
+    resorts[0], resorts[1], resorts[2],
+  ];
+  const bigLive = Object.assign({}, live, { sign: BIG, liftsComplete: 7, liftsCounted: 5, runsOpen: 24, runsPartly: 4 });
+  const bigProblems = [
+    { sign: BIG, code: 7, severity: 2, subject: E(702), subjectTop: E(722), name: "Lift 3", count: 1, pct: 0, factor: "", more: 0, detail: 0, ifFixed: -1, buildItem: "liftGondola" },
+    { sign: BIG, code: 4, severity: 2, subject: BIG, subjectTop: NULL, name: "", count: 1, pct: 62, factor: "ElectricitySupply", more: 2, detail: 0, ifFixed: 61, buildItem: "" },
+    { sign: BIG, code: 7, severity: 2, subject: E(703), subjectTop: E(723), name: "Lift 4", count: 1, pct: 0, factor: "", more: 0, detail: 0, ifFixed: -1, buildItem: "" },
+    { sign: BIG, code: 5, severity: 2, subject: E(707), subjectTop: E(727), name: "Lift 8", count: 1, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 3, buildItem: "" },
+    { sign: BIG, code: 7, severity: 2, subject: E(704), subjectTop: E(724), name: "Lift 5", count: 1, pct: 0, factor: "", more: 0, detail: 0, ifFixed: -1, buildItem: "" },
+    { sign: BIG, code: 5, severity: 2, subject: E(708), subjectTop: E(728), name: "Lift 9", count: 1, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 3, buildItem: "" },
+    { sign: BIG, code: 12, severity: 1, subject: E(610), subjectTop: NULL, name: "", count: 4, pct: 50, factor: "served", more: 0, detail: 0, ifFixed: 6, buildItem: "lift" },
+    { sign: BIG, code: 21, severity: 1, subject: E(401), subjectTop: NULL, name: "Day Lodge", count: 2, pct: 0, factor: "", more: 0, detail: 300, ifFixed: 0, buildItem: "" },
+    { sign: BIG, code: 22, severity: 1, subject: E(402), subjectTop: NULL, name: "", count: 1, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "" },
+  ];
+  window.SkiScenarios["Big resort (long name, 30 runs, 12 lifts, 5 unfinished)"] = Object.assign({}, base, { hubOpen: true, resorts: bigResorts,
+    resortLive: [bigLive, live, live2], selectedResort: BIG, runs: bigRuns.concat(runs), runLive: bigRunLive.concat(runLive), lifts: bigLifts.concat(lifts),
+    problems: bigProblems.concat(problems), history: [Object.assign({}, history[0], { sign: BIG }), history[0], history[1]], build: buildItems({ built: ["school"] }) });
+  // The field case (crop 23.10.43): one complete lift and four unfinished lines -> "1 / 5" (was "1 / 1"), one folded row "4 lifts unfinished".
+  const fieldLifts = [Object.assign({}, lifts[0], { name: "Lift 1", customName: false })]
+    .concat([2, 3, 4, 5].map((n) => Object.assign({}, lifts[2], { entity: E(800 + n), top: E(820 + n), name: "Lift " + n, customName: false })));
+  window.SkiScenarios["Field case: 1 complete lift, 4 unfinished"] = Object.assign({}, base, { hubOpen: true,
+    resorts: [Object.assign({}, resorts[0], { name: "test mountain", liftRows: 5 }), resorts[1], resorts[2]],
+    resortLive: [Object.assign({}, live, { liftsComplete: 1, liftsCounted: 1 }), live2], selectedResort: SIGN, runs, runLive, lifts: fieldLifts,
+    problems: [2, 3, 4, 5].map((n) => ({ sign: SIGN, code: 7, severity: 2, subject: E(800 + n), subjectTop: E(820 + n), name: "Lift " + n, count: 1, pct: 0,
+      factor: "", more: 0, detail: 0, ifFixed: -1, buildItem: "" })).concat([problems[2], problems[3], problems[4]]), history, build: buildItems({ built: ["school"] }) });
 })();

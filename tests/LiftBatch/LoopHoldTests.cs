@@ -42,7 +42,51 @@ namespace LiftBatch
             Lh3HoldResume();
             Lh4GateOf();
             Lh5ClosedRule();
+            Lh6ExpectsLoop();
+            Lh7HeldSuffix();
             s_Check = null;
+        }
+
+        /// <summary>LH-6 (T116, 2026-10-20 log 23:14:34): the tram (census row type = SkiCatalog index of "tram", Shuttle)
+        /// owes ChairPin no loop, so CompleteLiftsWithoutLoop skips it; every Loop type and an untyped row still do.</summary>
+        private static void Lh6ExpectsLoop()
+        {
+            const string W = "loop-hold/LH-6";
+            int seen = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                LiftTypeDef def = SkiCatalog.LiftByIndex(i);
+                if (!Check(def != null, W, "SkiCatalog.LiftByIndex(" + i + ") is a row"))
+                    continue;
+                seen++;
+                bool shuttle = def.Mover == MoverKind.Shuttle;
+                Eq(def.Id == "tram", shuttle, W, def.Id + " is the one Shuttle type");
+                Eq(!shuttle, LiftLoopHold.ExpectsLoop(def), W, def.Id + " expects a ChairPin loop");
+            }
+            Eq(4, seen, W, "four lift types");
+            Check(LiftLoopHold.ExpectsLoop(null), W, "an untyped row (NoType) keeps the WARN (as before T116)");
+            Check(LiftLoopHold.ExpectsLoop(SkiCatalog.LiftByIndex(255)) , W, "census NoType 255 resolves to null -> expects a loop");
+            // The log's case: the tram row 427911:31 -> 85587:31 is census-Complete with no ChairPin loop.
+            LiftTypeDef tram = null;
+            for (int i = 0; i < 4; i++)
+                if (SkiCatalog.LiftByIndex(i)?.Id == "tram")
+                    tram = SkiCatalog.LiftByIndex(i);
+            Check(tram != null && !LiftLoopHold.ExpectsLoop(tram), W,
+                  "replay 23:14:34: complete tram 427911:31 -> 85587:31 without a loop is not reported");
+        }
+
+        /// <summary>LH-7 (T116): the held count names its reason. Replays the 2026-10-19 FG lift (log 588: "Running → Held
+        /// (closed)", 1 loop of 110 chairs) that the old text printed as "1 held (no power)".</summary>
+        private static void Lh7HeldSuffix()
+        {
+            const string W = "loop-hold/LH-7";
+            Eq("", LiftLoopHold.HeldSuffix(0, 0), W, "nothing held: no suffix (a running city's line is unchanged)");
+            Eq(", 1 held (closed)", LiftLoopHold.HeldSuffix(0, 1), W, "FG 469677:11 replay: one loop held closed");
+            Eq(", 110 held (closed)", LiftLoopHold.HeldSuffix(0, 110), W, "FG replay, pass-alive chair count");
+            Eq(", 1 held (no power)", LiftLoopHold.HeldSuffix(1, 0), W, "one loop held for power: the old text, unchanged");
+            Eq(", 3 held (1 no power, 2 closed)", LiftLoopHold.HeldSuffix(1, 2), W, "mixed reasons");
+            Eq("", LiftLoopHold.HeldSuffix(-1, 0), W, "negative counts read as 0");
+            Eq(", 2 held (closed)", LiftLoopHold.HeldSuffix(-4, 2), W, "a negative power count is ignored");
         }
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);

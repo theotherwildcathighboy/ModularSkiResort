@@ -104,13 +104,15 @@ export const GROUP = "skiResort";
  * SkiCatalog table, PROBLEM 23-25, LiftRow.type / seats / speedMps, the ResortLive lodge-ladder fields;
  * contract 5 was Round M2 R9: CityStats.tripPlanner / tripPlannerBlocksSkiDays, docs/research/round-m2/
  * build-contract.md section 8.1; contract 4 was Round S1, ski days: docs/research/ski-days/spec/
- * ch4-hub.md section A; contract 3 was Round E1, D32). C#: SkiResortHubUISystem.HubContract.
+ * ch4-hub.md section A; contract 3 was Round E1, D32). Contract 12 (T114 + the lift generator, 2026-10-20,
+ * docs/research/ui/hub-round-t114-2026-10-20.md section 10): the `liftLine` value binding (LiftLineState) and the `liftLineToggle`
+ * trigger (LiftLineToolSystem on / off from the Lifts tab). C#: SkiResortHubUISystem.HubContract.
  * Bump both whenever a binding, trigger, field or meaning below changes (tools/check-bundle.js
  * fails a change without a bump, against tools/contract.lock). The panel renders the resort views
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree
  * controls (CORE only) and says why (spec 4.5).
  */
-export const HUB_CONTRACT = 11;
+export const HUB_CONTRACT = 12;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -306,6 +308,16 @@ export interface GladeState {
   treeLine: boolean;
   /** A locale key explaining `available == false`, or "". */
   reason: string;
+}
+
+/** `liftLine` (contract 12): the lift-line generator (LiftLineToolSystem, the lift planner as a tool; Ctrl+Shift+L). Panel only. */
+export interface LiftLineState {
+  /** A city is loaded and the tool exists (it may still refuse: not armed, disabled after an exception; C# logs why). */
+  available: boolean;
+  /** The tool is the active tool. */
+  active: boolean;
+  /** LiftLineToolSystem.ToolState name: PickBase, PickTop, Edit, Emitted, Applying ("" while unknown). */
+  state: string;
 }
 
 export const GLADE_LEVEL_MIN = 1;
@@ -743,6 +755,7 @@ export const BINDING = {
   pisteMap: "pisteMap",
   follow: "follow",
   history: "history",
+  liftLine: "liftLine",   // contract 12
 } as const;
 
 /** Trigger names (UI -> C#): 17 in contract 3. */
@@ -764,6 +777,7 @@ export const TRIGGER = {
   uiLayout: "uiLayout",
   setPisteMap: "setPisteMap",
   hoverRun: "hoverRun",
+  liftLineToggle: "liftLineToggle",   // contract 12
 } as const;
 
 /**
@@ -817,6 +831,7 @@ export const FALLBACK = {
   pisteMap: true,
   follow: 0,
   history: EMPTY_HISTORY,
+  liftLine: { available: false, active: false, state: "" } as LiftLineState,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -834,6 +849,8 @@ export const showHubButton$: ValueBinding<boolean> = bindValue<boolean>(GROUP, B
 export const build$: ValueBinding<readonly BuildItem[]> = bindValue<readonly BuildItem[]>(GROUP, BINDING.build, FALLBACK.build);
 /** The tree tool. Subscribe only while the panel is open. CORE. */
 export const glade$: ValueBinding<GladeState> = bindValue<GladeState>(GROUP, BINDING.glade, FALLBACK.glade);
+/** The lift-line generator (contract 12). Panel only: the Build strip's Lifts tab, ok panel only (never on a mismatch). */
+export const liftLine$: ValueBinding<LiftLineState> = bindValue<LiftLineState>(GROUP, BINDING.liftLine, FALLBACK.liftLine);
 /** One row per sign, then the Not linked row (always last). Panel only. */
 export const resorts$: ValueBinding<readonly ResortRow[]> = bindValue<readonly ResortRow[]>(GROUP, BINDING.resorts, FALLBACK.resorts);
 /** The moving values of each `resorts` row (contract 3). Panel only: read by leaf components only. */
@@ -886,6 +903,8 @@ export const hubTriggers = {
   focusRun: (run: Entity): void => fire(TRIGGER.focusRun, wire(run)),
   /** Tree tool on/off. */
   gladeToggle: (): void => fire(TRIGGER.gladeToggle),
+  /** Lift-line generator on / off (contract 12): C# LiftLineToolSystem.TryActivate("hub") / Deactivate(). */
+  liftLineToggle: (): void => fire(TRIGGER.liftLineToggle),
   /** Tree density level, clamped 1..8 here and again in C#. */
   gladeSetLevel: (level: number): void => fire(TRIGGER.gladeSetLevel, clampGladeLevel(level)),
   /** false = run interior, true = tree line. */

@@ -74,6 +74,9 @@
  *     or a pass sold / a holder skied), the row GUESTS_ROW[PassHolders] "of which pass holders" (this month / last month from
  *     passHoldersThisMonth / passHoldersLastMonth; tooltip GUESTS_TIP[PassHolders]). It is a subset of the residents row, not of the paid row.
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, city$.
+ *   - T114 (2026-10-20, "never a scrollbar", docs/research/ui/hub-round-t114-2026-10-20.md): the three groups (At the lodges, Ski-day
+ *     trips, Lift tickets) are folds (fit.tsx Fold, closed by default, one open at a time); the two month bars, the column heads and
+ *     the estimate stay on top.
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
@@ -91,6 +94,7 @@ import {
 } from "./parts";
 import type { NumberSamples } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
+import { Fold } from "./fit";
 import styles from "./hub.module.scss";
 
 const DASH = "–";
@@ -285,7 +289,7 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
         </StableWidth>
       </div>
       {/* T07: group 1, the people at the lodges (open or not), and the note that not all of them ski. */}
-      <InfoLine header label={t(HUB_LOC.guestsGroupLodges)} />
+      <Fold view="guests" id="lodges" header label={t(HUB_LOC.guestsGroupLodges)}>
       <GuestRow
         label={t(HUB_LOC.guestsRowTourists)} samples={samples}
         thisMonth={countCell(l ? l.touristsThisMonth : -1)} lastMonth={last(l?.touristsLastMonth)}
@@ -302,16 +306,18 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
         tip={rowTip(t(HUB_LOC.guestsRowResidents), t(HUB_LOC.guestsTipResidents))}
       />
       <SubLine>{t(HUB_LOC.guestsNoteNeverSki)}</SubLine>
+      </Fold>
       {/* Round S1 D27: the Ski days row and its one state line (T07: group 2). */}
-      <InfoLine header label={t(HUB_LOC.guestsGroupSent)} />
+      <Fold view="guests" id="sent" header label={t(HUB_LOC.guestsGroupSent)}>
       <GuestRow
         label={t(HUB_LOC.guestsRowSkiDays)} samples={samples}
         thisMonth={countCell(l ? l.skiDaysThisMonth : -1)} lastMonth={last(l?.skiDaysLastMonth)}
         tip={skiDaysTip}
       />
       <SubLine tip={skiDayLineTip(l, t, tripNote)}><SkiDayLineText l={l} t={t} trip={tripNote} tripName={tripName} /></SubLine>
+      </Fold>
       {/* T07: group 3, what the gate charged. */}
-      <InfoLine header label={t(HUB_LOC.guestsGroupTickets)} />
+      <Fold view="guests" id="tickets" header label={t(HUB_LOC.guestsGroupTickets)}>
       <GuestRow
         label={t(HUB_LOC.guestsRowPaid)} samples={samples}
         thisMonth={countCell(l ? l.paidThisMonth : -1)} lastMonth={last(l?.paidLastMonth)}
@@ -341,6 +347,7 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
         lastMonth={last(l?.ticketsLastMonth, true)}
         tip={rowTip(t(HUB_LOC.guestsRowTickets), t(HUB_LOC.guestsTipTickets))}
       />
+      </Fold>
       <Divider />
       {city.tourismOverhaul ? (
         <Tip tip={t(HUB_LOC.estToTip)}>

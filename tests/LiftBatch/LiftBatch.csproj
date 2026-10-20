@@ -62,6 +62,8 @@
     <!-- T48 step 1 (2026-10-19, docs/research/field/2026-10-19/tower-planner-build-1.md): the pure tower planner and its tests. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftTowerPlanner.cs" Link="LiftTowerPlanner.cs" />
     <Compile Include="LiftPlannerTests.cs" />
+    <!-- T48 round 2 (2026-10-20, docs/research/field/2026-10-20/t48-round2-build.md): the lift-line tool's pure edit model. -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLineEdit.cs" Link="LiftLineEdit.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />

@@ -419,14 +419,15 @@ export function HistoryView(): JSX.Element {
     </>
   ) : null;
 
+  // T114: flat rows (no wrapper), so the view pager (fit.tsx) can put the money chart on a second page at a large text scale.
   return (
-    <div className={styles.histView}>
+    <>
       {scopeRow}
       {rangeRow}
       {charts !== "money" && guestsBlock}
       {charts !== "guests" && moneyBlock}
       {attractionToggle}
       {attractionBlock}
-    </div>
+    </>
   );
 }

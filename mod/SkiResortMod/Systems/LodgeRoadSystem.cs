@@ -82,6 +82,14 @@
 //   LodgeRoad: prefab SkiLodgeHut BuildingData 0x… -> 0x… (NoRoadConnection off, RequireRoad off: mountain lodge); placement …
 // The Phase A A-frame line is unchanged word for word.
 //
+// TOP-LEVEL ROADLESS (T113, 2026-10-20; DECISIONS 308 option A; report docs/research/field/2026-10-20/lodges-top-level-build.md).
+// Every row is top-level now (no ServiceUpgradeData): Base rows are not written (the game's own RequireRoad from their demands,
+// T100). The hut, the summit lodge and both patrol huts demand nothing (power / water / garbage 0, no Workplace), so the game
+// sets no RequireRoad, but their Park component sets RequireAccess (BuildingInitializeSystem.cs:284-287), which arms the
+// pathfind-island warning (ConnectionWarningSystem.cs:612-631) on a lot with no road and no lane. W4 clears RequireAccess (and
+// RequireRoad, with a WARN, should a demand come back) on those prefab entities at every Game load; recorded in m_Written, so
+// an Editor load restores the game's value (RestoreOne). Park stays (the attraction walk and Tourism Overhaul need it, D4).
+//
 // WRITE SITES (acceptance gate A11): EntityManager.SetComponentData of vanilla BuildingData and
 // PlaceableObjectData on the lodge PREFAB entity (Apply; RestoreForEditor writes the game's values back). No component is added to or removed from any entity, nothing
 // is serialized by us, no prefab JSON change, no Harmony, no reflection.
@@ -382,7 +390,11 @@ namespace SkiResortMod.Systems
                 if (prefab != Entity.Null && !EntityManager.HasComponent<ServiceUpgradeData>(prefab))
                 {
                     topLevel.Add(row.Prefab);
-                    states.Add(row.Prefab + ": not written (top-level building: the game's own road rule, T100)");
+                    // T113 W4 (header TOP-LEVEL ROADLESS): a Mountain / None row demands nothing (option A), so the game set no
+                    // RequireRoad; its Park still sets RequireAccess (BuildingInitializeSystem.cs:284-287), cleared here.
+                    states.Add(row.Rule == LodgeRoadRule.Base
+                        ? row.Prefab + ": not written (top-level building: the game's own road rule, T100)"
+                        : row.Prefab + ": " + ApplyRoadless(row, prefab));
                     continue;
                 }
                 if (row.Rule != LodgeRoadRule.Base)
@@ -402,6 +414,40 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info($"LodgeRoad: top-level prefab(s) — nothing written, the game's own road rule applies (RequireRoad from " +
                              $"their power / water / garbage / worker demands): '{string.Join("', '", topLevel.ToArray())}' (T100)");
             m_State = string.Join("; ", states.ToArray());
+        }
+
+        /// <summary>T113 W4 (header TOP-LEVEL ROADLESS): on a top-level Mountain / None row's prefab clear RequireAccess and
+        /// RequireRoad from BuildingData.m_Flags (the warnings' only inputs: ConnectionWarningSystem.cs:612-631, the placement
+        /// warning and road icon read RequireRoad). Recorded in m_Written (no placement write) so the Editor gets the game's
+        /// value back. One line per row per load; a WARN when the game set RequireRoad (the prefab still demands something: a
+        /// utility or workers, against option A).</summary>
+        private string ApplyRoadless(RoadRow row, Entity prefab)
+        {
+            if (!EntityManager.TryGetComponent(prefab, out BuildingData building))
+                return "top-level, no BuildingData";
+            BuildingFlags old = building.m_Flags;
+            bool ours = m_Written.TryGetValue(prefab, out Written earlier);
+            if (!ours && (old & BuildingFlags.RequireRoad) != 0)
+                Mod.Log.Warn($"LodgeRoad: top-level {row.What} prefab {row.Prefab} has RequireRoad (0x{(uint)old:X}) — it still demands " +
+                             "power / water / garbage / workers, so the game wants a road; cleared anyway, but the building will lack " +
+                             "what it demands when roadless (T113 option A: demand nothing)");
+            BuildingFlags flags = old & ~(BuildingFlags.RequireAccess | BuildingFlags.RequireRoad);
+            if (flags != old)
+            {
+                building.m_Flags = flags;
+                EntityManager.SetComponentData(prefab, building);
+            }
+            m_Written[prefab] = new Written
+            {
+                GameFlags = ours ? earlier.GameFlags : old,
+                Flags = flags,
+                HasPlacement = false,
+            };
+            string state = flags != old
+                ? $"written 0x{(uint)old:X} -> 0x{(uint)flags:X} (top-level roadless {row.What}: RequireAccess / RequireRoad off, T113)"
+                : $"already 0x{(uint)flags:X} (top-level roadless {row.What}; written earlier this session)";
+            Mod.Log.Info($"LodgeRoad: prefab {row.Prefab} BuildingData {state}");
+            return state;
         }
 
         /// <summary>Catalog Phase B (code-economy-skeptic miss 3): a Mountain / None row whose prefab has CoverageData
@@ -511,9 +557,10 @@ namespace SkiResortMod.Systems
             for (int r = 0; r < rows.Count; r++)
             {
                 RoadRow row = rows[r];
-                if (row.Rule == LodgeRoadRule.None)
-                    continue;
                 Entity prefab = m_PrefabCatalog.EntityOf(row.Prefab);
+                // T113: a None row is restored only when W4 wrote it (a top-level patrol hut); never written otherwise.
+                if (row.Rule == LodgeRoadRule.None && (prefab == Entity.Null || !m_Written.ContainsKey(prefab)))
+                    continue;
                 if (prefab == Entity.Null && !SkiCatalog.IsExpected(row.Prefab))
                     continue;
                 RestoreOne(mode, row.Prefab, prefab);

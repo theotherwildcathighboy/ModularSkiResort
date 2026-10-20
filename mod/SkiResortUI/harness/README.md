@@ -22,6 +22,16 @@ Edit a component -> `npm run build` -> "Reload bundle" in the page.
 - Right: the "game viewport" with the three registrar targets mounted: `Game` (the hub root), `GameTopLeft`
   (floating button), `UniversalModMenu` (the square).
 
+## Layout check and screenshots (T114, 2026-10-20)
+
+`harness/layout-check.js` measures "never a scrollbar" in the page (`?layout=1`, or `window.SkiLayout.run()` in the console of a
+VISIBLE tab: a hidden tab stalls animation frames). It uses the game's rem rule and sets the text scale the way the game does
+(`--fontScale` and `--fontScaleChange`). `node tools/test-hub-layout.js` runs it in headless Chrome at 1920x1080, 2560x1440 and
+3840x2160 and fails on any overflow; `--shots=<dir>` writes the screenshot list in that file (URL parameters `scenario`, `view`, `fs`,
+`tab`, `fold`, `page`, `areas`, `problems`, `free`, `clean`: see the header of layout-check.js). Two scenarios exist for it: "Big resort"
+(long name, 30 runs, 12 lifts with 5 unfinished, nine band rows) and "Field case" (one complete lift, four unfinished: the 2026-10-20
+crop). Themed buttons get the page font here (`#stage button`), as cs2/ui Buttons get the game's font in game.
+
 ## What is faithful and what is not
 
 Faithful: `cs2/api` semantics (`bindValue` fallback, `useValue`, `bindLocalValue`, `trigger`), `LocalizedString`

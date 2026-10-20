@@ -362,7 +362,7 @@ namespace SkiResortMod.Systems
         public readonly int Capacity;            // skiers a day (ski-day capacity)
         public readonly int PriceTolerance;      // ticket price added before the ski-day price factor falls
         public readonly int Jobs;                // informational: the prefab's Workplace is the truth
-        public readonly int BuildCost;           // informational: ServiceUpgrade.m_UpgradeCost
+        public readonly int BuildCost;           // informational: PlaceableObject.m_ConstructionCost (ServiceUpgrade.m_UpgradeCost before T113)
         public readonly int Upkeep;              // informational: ServiceConsumption.m_Upkeep
         public readonly bool ForbidMultiple;     // ServiceUpgrade.m_ForbidMultiple (engine-validated per prefab per owner); false on every lodge tier
         public readonly bool Luxury;             // the luxury tiers (summit, grand): a LABEL for the tip's price-tolerance line and the logs. NO count limit
@@ -885,7 +885,9 @@ namespace SkiResortMod.Systems
                 // ── lodge ladder (§1.5; ROUND-SPEC §5 table, R11, R21 complexity 1 everywhere; bldg-kit §18.2). Jobs /
                 //    BuildCost / Upkeep are informational (the prefab is the truth; CT-12 compares an expected row). S1 import
                 //    flip (2026-10-13, §10.1): the four new tiers, the school and both patrol huts are Expected; their
-                //    m_UpgradeCost / m_ForbidMultiple / m_Workplaces / m_Upkeep in gamedata-mirror equal the rows below. ──
+                //    m_UpgradeCost / m_ForbidMultiple / m_Workplaces / m_Upkeep in gamedata-mirror equal the rows below.
+                //    T113 (2026-10-20): every row is top-level now (BuildCost = PlaceableObject.m_ConstructionCost); the hut, the
+                //    summit lodge and both patrol huts demand nothing (option A, DECISIONS 308): jobs 0 = no Workplace. ──
                 lodges = new[]
                 {
                     // Catalog Phase B (round-2-contract §1.5; was SkiCatalog.cs:296 { LodgeAFrame, 360, "lodge" }):
@@ -894,13 +896,13 @@ namespace SkiResortMod.Systems
                                  priceTolerance: 0, jobs: 6, buildCost: 40000, upkeep: 3000, forbidMultiple: false,
                                  luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.Base, expected: true),
                     new LodgeDef(1, "hut", Names.LodgeHut, "lodgeHut", b: 16, e: 4, mu: 0.5, muSummit: 0.75, capacity: 200,
-                                 priceTolerance: 0, jobs: 4, buildCost: 50000, upkeep: 3000, forbidMultiple: false,
+                                 priceTolerance: 0, jobs: 0, buildCost: 50000, upkeep: 3000, forbidMultiple: false,
                                  luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.Mountain, expected: true),
                     new LodgeDef(2, "mid", Names.LodgeMid, "lodgeMid", b: 30, e: 8, mu: 0.5, muSummit: 0.5, capacity: 720,
                                  priceTolerance: 20, jobs: 12, buildCost: 200000, upkeep: 8000, forbidMultiple: false,
                                  luxury: false, spendMultiplier: 1.5f, roadRule: LodgeRoadRule.Base, expected: true),
                     new LodgeDef(3, "summit", Names.LodgeSummit, "lodgeSummit", b: 40, e: 12, mu: 0.5, muSummit: 1.0, capacity: 480,
-                                 priceTolerance: 40, jobs: 8, buildCost: 1500000, upkeep: 18000, forbidMultiple: false,
+                                 priceTolerance: 40, jobs: 0, buildCost: 1500000, upkeep: 18000, forbidMultiple: false,
                                  luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Mountain, expected: true),
                     new LodgeDef(4, "grand", Names.LodgeGrand, "lodgeGrand", b: 40, e: 12, mu: 0.6, muSummit: 0.6, capacity: 1080,
                                  priceTolerance: 40, jobs: 18, buildCost: 1200000, upkeep: 20000, forbidMultiple: false,
@@ -917,10 +919,10 @@ namespace SkiResortMod.Systems
                 patrols = new[]
                 {
                     new PatrolDef(Names.PatrolHut, "patrolHut", Patrol.RadiusM, Patrol.ExpertFactor, Patrol.BackcountryServedMin,
-                                  jobs: 2, buildCost: 15000, upkeep: 1500, forbidMultiple: false, roadRule: LodgeRoadRule.None,
+                                  jobs: 0, buildCost: 15000, upkeep: 1500, forbidMultiple: false, roadRule: LodgeRoadRule.None,
                                   expected: true),
                     new PatrolDef(Names.PatrolHQ, "patrolHQ", Patrol.RadiusM, Patrol.ExpertFactor, Patrol.BackcountryServedMin,
-                                  jobs: 2, buildCost: 15000, upkeep: 1500, forbidMultiple: false, roadRule: LodgeRoadRule.None,
+                                  jobs: 0, buildCost: 15000, upkeep: 1500, forbidMultiple: false, roadRule: LodgeRoadRule.None,
                                   expected: true),
                 };
 

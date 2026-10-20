@@ -17,7 +17,9 @@
 //     (InstalledUpgrade, …), BuildingUtils.cs:356 — the attraction chapter's rule, ch1 §7.2): the live
 //     count feeds the problems band at once (C7), the Result's ActiveLodges feeds the tile.
 //   * School  (T100, top-level since 2026-10-19) = the attraction snapshot's link (SkiResortAttractivenessSystem
-//     .CopySchoolLinks: nearest live sign within the tether, SchoolLinkRules); its jobs (AddJobs) and its own
+//     .CopyTopLevelLinks: nearest live sign within the tether, SchoolLinkRules). T113 (2026-10-20): the five lodges and both
+//     patrol huts are top-level too: a lodge without Owner takes its link in CollectLodges (active = its own option bit), every
+//     linked top-level building adds its jobs and its own upkeep and wages, and the DUMP counts linked patrol huts. Its jobs (AddJobs) and its own
 //     upkeep and wages (BuildingCostSplit per building, CityServiceBuilding D2) are added to its area's Jobs /
 //     Buildings / Wages, where a child school's were merged into the sign's. Score facts (SchoolValue, row 25) come
 //     from the Result as before.
@@ -546,8 +548,8 @@ namespace SkiResortMod.Systems
         private readonly List<Entity> m_LodgeEntities = new List<Entity>(4);      // every live lodge building
         private readonly Dictionary<Entity, int> m_LodgeResort = new Dictionary<Entity, int>();   // lodge → resort index
         private readonly HashSet<Entity> m_LodgeActive = new HashSet<Entity>();                    // listed and not Inactive
-        private readonly List<Entity> m_TopSchools = new List<Entity>(2);       // T100: CopySchoolLinks, per rebuild
-        private readonly List<Entity> m_TopSchoolSigns = new List<Entity>(2);   // T100: the school's sign, Entity.Null = not linked
+        private readonly List<Entity> m_TopLevel = new List<Entity>(8);       // T100 / T113: CopyTopLevelLinks, per rebuild (CollectLodges)
+        private readonly List<Entity> m_TopLevelSigns = new List<Entity>(8);  // T100 / T113: the building's sign, Entity.Null = not linked
         private readonly HashSet<Entity> m_NoRoad = new HashSet<Entity>();                         // F7 D5: signs / lodges, m_RoadEdge Null
         private readonly Dictionary<Entity, int> m_ProviderOf = new Dictionary<Entity, int>();    // our signs / lodges → a
         private readonly HashSet<Entity> m_Ours = new HashSet<Entity>();
@@ -1431,13 +1433,18 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>§3.1 lodge rule: lodges listed in a live sign's InstalledUpgrade buffer belong to that
-        /// sign; every other live lodge building is free-standing (Not linked). Round E1 (ch5 §5.9): no lodge
+        /// sign; T113: a TOP-LEVEL lodge (no Owner) belongs to its published link (CopyTopLevelLinks: the attraction
+        /// snapshot's nearest live sign within the tether, the score's own membership; ACTIVE = its own Building.m_OptionMask);
+        /// every other live lodge building is free-standing (Not linked). Round E1 (ch5 §5.9): no lodge
         /// rows any more — the aggregate's LodgeIn (Score 0) and the live count of ACTIVE listed lodges
         /// (C7: the entry's BuildingOption.Inactive bit, BuildingUtils.CheckOption(InstalledUpgrade, …)).</summary>
         private void CollectLodges(int resorts)
         {
             m_LodgeResort.Clear();
             m_LodgeActive.Clear();
+            // T100 / T113: the top-level buildings and their signs (the attraction snapshot's links), once per rebuild; read by
+            // the lodge rule below, SchoolFacts, the jobs and cost sums (BuildResortRows) and the DUMP's patrol count.
+            m_Attractiveness.CopyTopLevelLinks(m_TopLevel, m_TopLevelSigns);
             // Catalog Phase B (Phase A review finding 1): the lodge set fetched once (was m_Attractiveness.IsLodgePrefab per
             // upgrade); school and patrol upgrades are not lodges and stay out of the lodge counts.
             HashSet<Entity> lodgePrefabs = m_PrefabCatalog.LodgePrefabSet;
@@ -1461,6 +1468,21 @@ namespace SkiResortMod.Systems
                     }
                 }
             }
+            // T113 (spec (b) site 3): top-level lodges by their published link; a child listed above wins (first sign wins).
+            for (int t = 0; t < m_TopLevel.Count; t++)
+            {
+                Entity lodge = m_TopLevel[t];
+                Entity linked = m_TopLevelSigns[t];
+                if (linked == Entity.Null || m_LodgeResort.ContainsKey(lodge) ||
+                    !EntityManager.TryGetComponent(lodge, out PrefabRef lodgeRef) || !lodgePrefabs.Contains(lodgeRef.m_Prefab))
+                    continue;
+                int at = m_Index.IndexOf(ToRef(linked));
+                if (at < 0)
+                    continue;   // a sign the attraction walk saw and this walk did not (a frame apart): free-standing this rebuild
+                m_LodgeResort[lodge] = at;
+                if (EntityManager.TryGetComponent(lodge, out Building building) && !BuildingUtils.CheckOption(building, BuildingOption.Inactive))
+                    m_LodgeActive.Add(lodge);
+            }
 
             for (int k = 0; k < m_LodgeEntities.Count; k++)
             {
@@ -1483,17 +1505,19 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>T100: the top-level ski schools linked to <paramref name="sign"/> (Entity.Null = linked to none) in the last
-        /// CopySchoolLinks (m_TopSchools, this rebuild): live ones (exists, not Deleted / Temp), those whose Building.m_RoadEdge is
+        /// CopyTopLevelLinks (m_TopLevel, this rebuild; T113: school prefabs only): live ones (exists, not Deleted / Temp), those whose Building.m_RoadEdge is
         /// Null, and the lowest (Index, Version) of each (stable subjects). Main thread, a handful of entities.</summary>
         private void SchoolFacts(Entity sign, out int count, out Entity first, out int noRoad, out Entity firstNoRoad)
         {
             count = noRoad = 0;
             first = firstNoRoad = Entity.Null;
-            for (int t = 0; t < m_TopSchools.Count; t++)
+            HashSet<Entity> schoolPrefabs = m_PrefabCatalog.SchoolPrefabSet;
+            for (int t = 0; t < m_TopLevel.Count; t++)
             {
-                Entity school = m_TopSchools[t];
-                if (m_TopSchoolSigns[t] != sign || school == Entity.Null || !EntityManager.Exists(school) ||
-                    EntityManager.HasComponent<Deleted>(school) || EntityManager.HasComponent<Temp>(school))
+                Entity school = m_TopLevel[t];
+                if (m_TopLevelSigns[t] != sign || school == Entity.Null || !EntityManager.Exists(school) ||
+                    EntityManager.HasComponent<Deleted>(school) || EntityManager.HasComponent<Temp>(school) ||
+                    !EntityManager.TryGetComponent(school, out PrefabRef schoolRef) || !schoolPrefabs.Contains(schoolRef.m_Prefab))
                     continue;
                 count++;
                 if (first == Entity.Null || Lower(school, first))
@@ -2051,8 +2075,6 @@ namespace SkiResortMod.Systems
 
             // Upkeep inputs (CityServiceBudgetSystem.cs:392-421), fetched once per rebuild.
             bool upkeepReady = PrepareUpkeep(out EconomyParameterData economy, out ResourcePrefabs resourcePrefabs);
-            // T100: the top-level schools and their signs (the attraction snapshot's links, the score's own membership).
-            m_Attractiveness.CopySchoolLinks(m_TopSchools, m_TopSchoolSigns);
 
             // Contract 8: the game's TouristIncome statistic, once per rebuild (GetStatisticValue completes the
             // statistics writers, a short sync); not read under Tourism Overhaul (the UI hides the row), -1 when unavailable.
@@ -2268,11 +2290,12 @@ namespace SkiResortMod.Systems
                 }
                 int jobs = 0, filled = 0;
                 AddJobs(sign, ref jobs, ref filled);
-                // T100 (spec (b) site 4): a linked top-level school's jobs are its own now (a child's merged into the sign).
-                for (int t = 0; t < m_TopSchools.Count; t++)
+                // T100 / T113 (spec (b) site 4): a linked top-level building's jobs are its own now (lodges, the school; patrol
+                // huts and the mountain lodges have none, DECISIONS 308 option A). A child's were merged into the sign.
+                for (int t = 0; t < m_TopLevel.Count; t++)
                 {
-                    if (m_TopSchoolSigns[t] == sign)
-                        AddJobs(m_TopSchools[t], ref jobs, ref filled);
+                    if (m_TopLevelSigns[t] == sign)
+                        AddJobs(m_TopLevel[t], ref jobs, ref filled);
                 }
                 live.Jobs = jobs;
                 live.JobsFilled = filled;
@@ -2408,12 +2431,12 @@ namespace SkiResortMod.Systems
                 {
                     buildingsF = b;
                     wagesF = w;
-                    // T100 (spec (b) site 5): a linked top-level school is billed on its own (CityServiceBuilding, D2): the
-                    // same game formula per building, summed. A child's upkeep and wages were merged into the sign's.
-                    for (int t = 0; t < m_TopSchools.Count; t++)
+                    // T100 / T113 (spec (b) site 5): a linked top-level building is billed on its own (CityServiceBuilding, D2):
+                    // the same game formula per building, summed. A child's upkeep and wages were merged into the sign's.
+                    for (int t = 0; t < m_TopLevel.Count; t++)
                     {
-                        Entity school = m_TopSchools[t];
-                        if (m_TopSchoolSigns[t] != sign || !EntityManager.TryGetComponent(school, out PrefabRef schoolRef))
+                        Entity school = m_TopLevel[t];
+                        if (m_TopLevelSigns[t] != sign || !EntityManager.TryGetComponent(school, out PrefabRef schoolRef))
                             continue;
                         if (BuildingCostSplit(school, schoolRef.m_Prefab, economy, resourcePrefabs, out float schoolB, out float schoolW))
                         {
@@ -3474,6 +3497,14 @@ namespace SkiResortMod.Systems
                     if (EntityManager.TryGetComponent(upgrades[u].m_Upgrade, out PrefabRef pr) && patrolPrefabs.Contains(pr.m_Prefab))
                         patrols++;
                 }
+            }
+            // T113 (spec (b) site 6): top-level patrol huts linked to this sign (the rebuild's CopyTopLevelLinks).
+            HashSet<Entity> topPatrolPrefabs = m_PrefabCatalog.PatrolPrefabSet;
+            for (int t = 0; t < m_TopLevel.Count; t++)
+            {
+                if (m_TopLevelSigns[t] == sign && EntityManager.TryGetComponent(m_TopLevel[t], out PrefabRef tpr) &&
+                    topPatrolPrefabs.Contains(tpr.m_Prefab))
+                    patrols++;
             }
             bool hasResult = m_Attractiveness.TryGetAreaScore(sign, out SkiResortAttractivenessSystem.AreaScoreView v);
             string bestName = "none";

@@ -188,6 +188,7 @@ const PANEL_BINDINGS = new Set([
   "resorts$", "resortLive$", "selectedResort$", "runs$", "runLive$", "lifts$", "problems$", "city$",
   "build$", "glade$", "pisteMap$", "follow$",
   "history$",   // contract 10 (T78): only the History view subscribes it (no Demand)
+  "liftLine$",  // contract 12 (lift generator): the Build strip's Lifts tab, ok panel only (no Demand)
 ]);
 /**
  * Rule R11 addition (code review 2026-10-19, L17): the always-mounted files (they render while the hub is closed) may import ONLY

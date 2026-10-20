@@ -57,11 +57,12 @@ namespace SkiResortMod.Systems
         internal const int MaxWrites = 3;
         internal const int GuardFrames = 600;
         private const float MoveEpsM = 0.05f;      // xz change that counts as a move
-        private const float HeightEpsM = 0.25f;    // y change worth a write when the member is unchanged (terrain sampling noise)
+        // Height writes with the member unchanged: LiftTowerEdit.HeightWrite (one-sided, T115: below 0.25 m / above 1.0 m).
         private const float StraightTolM = 0.5f;   // inner node off the end-to-end line: the line is bent, heights only
 
         private LiftTowerDiagSystem m_Diag;
         private TerrainSystem m_TerrainSystem;
+        private LiftLineToolSystem m_LineTool;
         private readonly LiftTowerPlanner m_Planner = new LiftTowerPlanner();
 
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_OffLogged;
@@ -76,6 +77,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_Diag = World.GetOrCreateSystemManaged<LiftTowerDiagSystem>();
             m_TerrainSystem = World.GetOrCreateSystemManaged<TerrainSystem>();
+            m_LineTool = World.GetOrCreateSystemManaged<LiftLineToolSystem>();
             Mod.Log.Info($"{nameof(LiftTowerFitSystem)} created");
         }
 
@@ -258,8 +260,16 @@ namespace SkiResortMod.Systems
                 oldMembers[i - 1] = MemberOf(c, e);
             }
             float engineMax = netGeo.m_EdgeLengthRange.max;
+            // T48 round 2: a line the lift-line tool built (every inner node a registered tool node, LiftToolLines.Match) is a TOOL
+            // LINE: heights only with the tool's members — never Moved, so a pinned node is never snapped.
+            var innerPts = new List<float3>(n - 2);
+            for (int i = 1; i < n - 1; i++)
+                innerPts.Add(pts[i]);
+            LiftToolLines.Line toolLine = m_LineTool.ToolLines.Match(innerPts, out int[] toolMembers, out _);
             LiftTowerPlan before = m_Planner.PlanFixed(sampler, length, ropeA, ropeB, c, inner, oldMembers, null, assign: false);
-            LiftTowerFit fit = m_Planner.Fit(sampler, length, ropeA, ropeB, c, inner, straight, engineMax);
+            // T115: the line's own members are passed in, so a line that clears as it stands is Kept unchanged (hysteresis).
+            LiftTowerFit fit = m_Planner.Fit(sampler, length, ropeA, ropeB, c, inner, straight && toolLine == null, engineMax,
+                                             toolLine != null ? toolMembers : oldMembers);
             LiftTowerPlan plan = fit.Plan;
             m_Fitted++;
             if (plan.Nodes.Length != n)
@@ -282,9 +292,14 @@ namespace SkiResortMod.Systems
                 float3 np = new float3(xz.x, pn.GroundM + elevation, xz.z);
                 bool moved = math.distance(np.xz, pts[i].xz) > MoveEpsM;
                 bool reMembered = pn.Member != oldMembers[i - 1];
-                bool drift = math.abs(np.y - pts[i].y) > HeightEpsM;
+                bool drift = LiftTowerEdit.HeightWrite(pts[i].y, np.y);
+                // The node's Elevation must be exactly (E, E) (the ladder rule, LiftTowerEdit): an engine-derived value (the tool's
+                // fresh nodes, CourseSplitSystem.CalculateElevation; a one-sided (7.93, 0)) is rewritten once.
+                bool elevOff = ElevationOff(path[i].Node, elevation);
+                if (elevOff && !moved && !reMembered && !drift)
+                    np.y = pts[i].y;   // only the component is off: keep the node where it stands (no carve chase, T115)
                 Target t = new Target { Node = path[i].Node, Old = pts[i], New = np, OldMember = oldMembers[i - 1], NewMember = pn.Member,
-                                        Elevation = elevation, Write = moved || reMembered || drift };
+                                        Elevation = elevation, Write = moved || reMembered || drift || elevOff };
                 if (t.Write)
                     writes++;
                 targets[i - 1] = t;
@@ -313,7 +328,9 @@ namespace SkiResortMod.Systems
               .Append(laneA ? " (rope lane)" : " (node + " + F(c.RopeAboveBase(0), "F2") + ")").Append(" / ").Append(F(ropeB, "F2"))
               .Append(laneB ? " (rope lane)" : " (node + " + F(c.RopeAboveBase(0), "F2") + ")").Append("; rules floor ").Append(F(c.FloorM, "F1"))
               .Append(" + drop ").Append(F(c.CarrierDropM, "F1")).Append(" over the high side (±").Append(F(c.HalfWidthM, "F1"))
-              .Append(" m), max rope ").Append(c.MaxRopeAboveGroundM > 0f ? F(c.MaxRopeAboveGroundM, "F0") : "none").Append('\n');
+              .Append(" m), max rope ").Append(c.MaxRopeAboveGroundM > 0f ? F(c.MaxRopeAboveGroundM, "F0") : "none")
+              .Append(toolLine != null ? $"; TOOL LINE (lift-line tool, {toolLine.Pins} pinned): heights only with the tool's members, never moved" : string.Empty)
+              .Append('\n');
             for (int i = 0; i < n; i++)
             {
                 LiftPlanNode pn = plan.Nodes[i];
@@ -466,6 +483,16 @@ namespace SkiResortMod.Systems
                 return fallback;
             fromLane = true;
             return best;
+        }
+
+        /// <summary>True when the node's Game.Net.Elevation is not exactly (E, E) for E = <paramref name="e"/> (0 = no component or
+        /// (0, 0)), within 0.05 m.</summary>
+        private bool ElevationOff(Entity node, float e)
+        {
+            bool has = EntityManager.TryGetComponent<Game.Net.Elevation>(node, out var el);
+            if (e <= 0f)
+                return has && math.any(math.abs(el.m_Elevation) > 0.05f);
+            return !has || math.any(math.abs(el.m_Elevation - e) > 0.05f);
         }
 
         /// <summary>The ladder member whose elevation (TopM - TopM[0]) matches <paramref name="elevationM"/> (0.05 m), else the

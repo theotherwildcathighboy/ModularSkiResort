@@ -77,6 +77,29 @@ export const historyRange$ = bindLocalValue<string>("months12");
 export const historyCharts$ = bindLocalValue<string>("both");
 export const historyAttraction$ = bindLocalValue<boolean>(false);
 
+/** T114 (2026-10-20, docs/research/ui/hub-round-t114-2026-10-20.md): "never a scrollbar". Local values only (nothing sent to C#):
+ *  - folds$: per view, the ONE open fold (parts.tsx Fold; accordion: opening one closes the other). A view absent from the map shows
+ *    FOLD_DEFAULT (all closed); "" = closed by the player. Survives closing the hub; a UI reload resets it.
+ *  - areaListOpen$: the header's ski-area list (HubHeader AreaList, drawn over the top of the content, not in a portal).
+ *  - problemsOpen$: the problems band's +N popover (StatusBlock). Both close when the panel mounts and on an area switch. */
+export const folds$ = bindLocalValue<Readonly<Record<string, string>>>({});
+export const FOLD_DEFAULT: Readonly<Record<string, string>> = {};
+export const areaListOpen$ = bindLocalValue<boolean>(false);
+export const problemsOpen$ = bindLocalValue<boolean>(false);
+
+/** The open fold of a view ("" = none). */
+export function openFold(folds: Readonly<Record<string, string>> | null | undefined, view: string): string {
+  const v = folds ? folds[view] : undefined;
+  return typeof v === "string" ? v : FOLD_DEFAULT[view] ?? "";
+}
+
+/** Toggle a fold of a view (accordion). */
+export function toggleFold(view: string, id: string): void {
+  const cur = folds$.value ?? {};
+  const open = openFold(cur, view) === id;
+  folds$.update(Object.assign({}, cur, { [view]: open ? "" : id }));
+}
+
 // ---- hoverRun (D19 emphasis; ch6 section 3.3) -----------------------------------------------------
 
 /** The last run sent with hoverRun (module level: one panel, one UI). */

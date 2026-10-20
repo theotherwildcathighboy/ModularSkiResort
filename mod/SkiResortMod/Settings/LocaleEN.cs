@@ -440,6 +440,31 @@ namespace SkiResortMod.Settings
                     "Welcome Sign to preview it at the chosen tree density (felled, removed and " +
                     "planted trees); left click applies. Works in a loaded city only. Default Ctrl+Shift+G."
                 },
+                // T48 round 2: the lift-line tool.
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ToggleLiftLineToolBinding)),
+                    "Lift-line tool: toggle"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleLiftLineToolBinding)),
+                    "Opens or closes the lift-line tool: click a lift station, then the other station of the same lift. " +
+                    "The planned towers appear (fewest towers, tall ones where they save a tower). Click on the line to " +
+                    "add a tower, drag a tower to move it, right click a tower to remove it, then press the Build key. " +
+                    "Esc drops the line. Default Ctrl+Shift+L."
+                },
+                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleLiftLine), "Toggle lift-line tool" },
+                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleLiftLine), "Lift-line tool" },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.BuildLiftLineBinding)),
+                    "Lift-line tool: build"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.BuildLiftLineBinding)),
+                    "Builds the line the lift-line tool shows, with exactly the towers on screen. Only while the tool " +
+                    "is open. Default Enter."
+                },
+                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActBuildLiftLine), "Build lift line" },
+                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActBuildLiftLine), "Build line" },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleGlade), "Toggle glade tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleGlade), "Glade tool" },
                 // Round G3 (run-binding-glade-spec.md §8.3): the two persisted actions keep their

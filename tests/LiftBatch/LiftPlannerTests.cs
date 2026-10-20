@@ -61,6 +61,11 @@ namespace LiftBatch
             Lp12FieldFits();
             Lp14Short();
             Lp15EngineNumbers();
+            Lp16TramRefit();
+            Lp17Objective();
+            Lp18ToolEmission();
+            Lp19Pins();
+            Lp20VanillaAfterPatch();
             s_Check = null;
         }
 
@@ -278,15 +283,16 @@ namespace LiftBatch
             Profile p = Reconstruct(DqGully);
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
             LiftTowerPlan plan = PlanAndReplan("LP-1", (s, l) => p.At(s), p.Length, c, p.Start, p.End);
-            AddReport("LP-1 DQ gully (log :628), catalog drop 3.3 + floor 3", "2 line towers, one tall (>= DQ16), clear", plan);
-            Check(plan.LineTowers == 2, W, "line towers " + plan.LineTowers + ", expected 2: " + Describe(plan));
+            // Round 2 (fewest towers): one tall tower spans the gully (the 2026-10-19 objective built 2 x DQ16, LP-17 prints both).
+            AddReport("LP-1 DQ gully (log :628), catalog drop 3.3 + floor 3", "1 line tower, tall (>= DQ16), clear", plan);
+            Check(plan.LineTowers == 1, W, "line towers " + plan.LineTowers + ", expected 1: " + Describe(plan));
             Check(MaxMember(plan) >= 3, W, "no tall member (>= DQ16): " + Describe(plan));
             Check(plan.Clear, W, "a span is violated: " + Describe(plan));
 
             // The analysis' assumption: rope >= 6.0 m above the ground (2.4-2.6 m carrier + ~3 m floor; analysis-towers.md §3).
             LiftTowerPlan plan6 = PlanAndReplan("LP-1b", (s, l) => p.At(s), p.Length, c.With(floorM: 6.0f - c.CarrierDropM), p.Start, p.End);
-            AddReport("LP-1b DQ gully, analysis' rope >= 6.0 m", "2 line towers, one taller than DQ10, clear (analysis §3 row L)", plan6);
-            Check(plan6.LineTowers == 2 && plan6.Clear && MaxMember(plan6) >= 1, W + "b", Describe(plan6));
+            AddReport("LP-1b DQ gully, analysis' rope >= 6.0 m", "1 line tower, taller than DQ10, clear (analysis §3 row L)", plan6);
+            Check(plan6.LineTowers == 1 && plan6.Clear && MaxMember(plan6) >= 1, W + "b", Describe(plan6));
         }
 
         private static void Lp2TramPitch()
@@ -323,14 +329,16 @@ namespace LiftBatch
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
                 float length = id == "tram" ? 2400f : 5f * c.TypicalSpanM;
                 LiftTowerPlan plan = PlanAndReplan("LP-4/" + id, (s, l) => 1000f, length, c, 1000f, 1000f);
-                int spans = (int)math.round(length / c.TypicalSpanM);
-                AddReport("LP-4 flat " + id + " " + length.ToString("F0") + " m", spans + " spans of " + c.TypicalSpanM.ToString("F0") + " m, shortest members, infill only", plan);
+                // Round 2 (fewest towers): the fewest spans the max span allows, even (within one sample), on flat ground.
+                int spans = (int)math.ceil(length / c.MaxSpanM - 1e-4f);
+                float even = length / spans;
+                AddReport("LP-4 flat " + id + " " + length.ToString("F0") + " m", spans + " spans of ~" + even.ToString("F0") + " m (max " + c.MaxSpanM.ToString("F0") + "), fewest towers, infill only", plan);
                 Check(plan.Spans.Length == spans, W, id + ": " + plan.Spans.Length + " spans, expected " + spans + ": " + Describe(plan));
                 for (int s = 0; s < plan.Spans.Length; s++)
-                    Check(math.abs(plan.Spans[s].LengthM - c.TypicalSpanM) <= c.StepM + 1e-3f, W,
-                          id + " span " + (s + 1) + " " + plan.Spans[s].LengthM.ToString("F0") + " m, expected " + c.TypicalSpanM);
-                // FG: m_Hanging 0.03 sags a 60 m span 1.8 m, so two FG8s (rope 7.04) leave the chair 2.84 m up (< 3 m floor): every
-                // other FG tower is an FG12 on flat ground. DQ / tram (0.004) keep the shortest member.
+                    Check(math.abs(plan.Spans[s].LengthM - even) <= c.StepM + 1e-3f, W,
+                          id + " span " + (s + 1) + " " + plan.Spans[s].LengthM.ToString("F0") + " m, expected ~" + even.ToString("F0"));
+                // FG: m_Hanging 0.03 sags a 75 m span 2.25 m, so FG8s (rope 7.04) leave the chair under the 3 m floor: the flat FG line
+                // stands on FG12s (a taller member that saves a tower vs 60 m spans). DQ / tram (0.004) keep the shortest member.
                 int maxMember = id == "fixedGrip" ? 1 : 0;
                 for (int i = 1; i < plan.Nodes.Length - 1; i++)
                     Check(plan.Nodes[i].Member <= maxMember && plan.Nodes[i].Flags == LiftPlanNodeFlags.Infill, W,
@@ -413,16 +421,18 @@ namespace LiftBatch
         {
             const string W = "planner/LP-7";
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("fixedGrip");
-            // A 50 % pitch rising to a plateau; the knee is rounded over 190-210 m (crest = the knee at 200 m).
+            // A 50 % pitch rising to a plateau; the knee is rounded over 160-180 m (crest = the knee at 170 m). Round 2: the rule is a
+            // tie-break after the tower count, so the knee sits where 260 m on 90 m spans allows its second tower (170-180 m); the
+            // 2026-10-19 knee at 190-210 m would cost a third tower and is reported in LP-17 instead.
             Func<float, float> g = s =>
             {
-                if (s <= 190f) return 1000f + 0.5f * s;
-                if (s >= 210f) return 1100f;
-                float u = s - 190f;                                   // 0..20: slope 0.5 -> 0
-                return 1095f + 0.5f * u - 0.0125f * u * u;
+                if (s <= 160f) return 1000f + 0.5f * s;
+                if (s >= 180f) return 1090f;
+                float u = s - 160f;                                   // 0..20: slope 0.5 -> 0
+                return 1080f + 0.5f * u - 0.0125f * u * u;
             };
             LiftTowerPlan plan = PlanAndReplan("LP-7", (s, l) => g(s), 260f, c, g(0f), g(260f));
-            AddReport("LP-7 FG pitch to plateau (knee 190-210 m)", "a Breakover node at the knee, uphill side (>= 200 m)", plan);
+            AddReport("LP-7 FG pitch to plateau (knee 160-180 m)", "a Breakover node at the knee, uphill side (170-185 m)", plan);
             int found = -1;
             for (int i = 1; i < plan.Nodes.Length - 1; i++)
                 if ((plan.Nodes[i].Flags & LiftPlanNodeFlags.Breakover) != 0)
@@ -430,7 +440,7 @@ namespace LiftBatch
             if (Check(found > 0, W, "no Breakover node: " + Describe(plan)))
             {
                 float at = plan.Nodes[found].AlongM;
-                Check(at >= 200f && at <= 215f, W, "breakover node at " + at.ToString("F0") + " m, expected on the uphill side of the knee (200-215 m)");
+                Check(at >= 170f && at <= 185f, W, "breakover node at " + at.ToString("F0") + " m, expected on the uphill side of the knee (170-185 m)");
             }
             Check(plan.Clear, W, "violated: " + Describe(plan));
         }
@@ -635,6 +645,407 @@ namespace LiftBatch
             // Heights only (no move allowed): a bent line keeps its nodes; the result is the kept plan.
             LiftTowerFit bent = s_Planner.Fit(t, 120f, 1000f + c.RopeAboveBase(0), 1000f + c.RopeAboveBase(0), c, new[] { 60f }, false, 60f);
             Check(bent.Moved == null && bent.Plan == bent.Kept, W, "allowMove false still moved: " + DescribeFit(bent));
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        // LP-16: T115, the tram lines that re-fit after their own write (field/2026-10-20/logs/SkiResortMod.Mod.log)
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        // The 1,605 m tram as the loop guard left it: "Towers [nodes]" block of edge 120310:57 at log :1796 (23:09:46.933; node lines
+        // and the span line under each). Members from net Elevation (15 -> T45). Ropes from the fit blocks ("station ropes y").
+        private static readonly LogNode[] Tram1605 =
+        {
+            N(382f, 992.93f, 992.78f, 10.6f, 22.8f, 32.1f, 18.9f),
+            N(64f, 1172.78f, 1157.54f, 5.6f, -3.3f, -5.1f, -1.2f),
+            N(322f, 1184.14f, 1184.14f, 11.0f, 23.4f, 5.8f, -4.0f),
+            N(32f, 1317.61f, 1302.54f, 15.2f, 13.1f, 8.8f, 3.8f),
+            N(148f, 1318.20f, 1318.10f, 2.7f, 13.3f, 25.6f, 18.2f),
+            N(20f, 1369.69f, 1369.51f, 0.1f, -1.6f, -1.7f, -0.8f),
+            N(76f, 1375.85f, 1375.78f, 9.1f, 11.7f, 13.5f, 17.2f),
+            N(96f, 1463.71f, 1448.29f, -2.6f, 1.9f, 5.8f, 1.6f),
+            N(52f, 1531.80f, 1531.77f, 1.2f, 1.8f, 3.1f, 7.6f),
+            N(166f, 1593.08f, 1577.97f, 6.3f, 25.5f, 23.3f, 14.5f),
+            N(48f, 1711.43f, 1711.33f, -2.8f, -9.7f, -10.2f, -6.8f),
+            N(82f, 1783.61f, 1783.54f, 13.1f, 22.7f, 12.6f, -0.9f),
+            N(84f, 1863.17f, 1862.95f, -0.1f, 0.7f, 9.0f, 7.6f),
+            N(32f, 1923.33f, 1923.08f, -0.3f, -3.3f, -2.4f, -1.2f),
+            N(0f, 1937.73f, 1937.47f),
+        };
+        private static readonly int[] Tram1605Members = { 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0 };
+
+        // The 2,292 m tram: block of edge 346939:43 at log :4851 (23:14:35.249), after the guard; all T30.
+        private static readonly LogNode[] Tram2292 =
+        {
+            N(510f, 960.48f, 959.91f, 25.3f, 46.3f, 28.5f, 7.6f),
+            N(475f, 1203.00f, 1203.00f, 45.2f, 63.7f, 55.4f, 23.6f),
+            N(475f, 1327.99f, 1327.74f, 1.4f, 25.7f, 3.6f, 13.7f),
+            N(832f, 1600.67f, 1600.61f, 62.6f, 151.6f, 163.2f, 107.2f),
+            N(0f, 2106.69f, 2105.86f),
+        };
+        private static readonly int[] Tram2292Members = { 0, 0, 0 };
+
+        private static void Lp16TramRefit()
+        {
+            const string W = "planner/LP-16";
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("tram");
+            var lines = new (string Name, LogNode[] Log, int[] Members, float RopeA, float RopeB)[]
+            {
+                ("tram 1605 m (edge 120310:57, log :1796)", Tram1605, Tram1605Members, 1019.18f, 1963.98f),
+                ("tram 2292 m (edge 346939:43, log :4851)", Tram2292, Tram2292Members, 986.73f, 2132.94f),
+            };
+            foreach (var ln in lines)
+            {
+                Profile p = Reconstruct(ln.Log);
+                LiftTerrainSampler t = (s, l) => p.At(s);   // no cross-slope (the log has none mid-span; as LP-1..LP-12)
+                float[] inner = InnerAlong(ln.Log);
+                LiftTowerPlan current = s_Planner.PlanFixed(t, p.Length, ln.RopeA, ln.RopeB, c, inner, ln.Members, null, assign: false);
+                LiftTowerFit oldFit = s_Planner.Fit(t, p.Length, ln.RopeA, ln.RopeB, c, inner, true, 1000f);
+                LiftTowerFit fit = s_Planner.Fit(t, p.Length, ln.RopeA, ln.RopeB, c, inner, true, 1000f, ln.Members);
+
+                // Height writes the fit system would make at these nodes: the old rule (|dy| > 0.25 m) and T115's one-sided rule.
+                int oldWrites = 0, newWrites = 0, memberChanges = 0, oldMemberChanges = 0;
+                for (int i = 1; i < ln.Log.Length - 1; i++)
+                {
+                    LiftPlanNode n = fit.Plan.Nodes[i];
+                    float target = n.GroundM + LiftTowerEdit.ElevationM(c, n.Member);
+                    float oldTarget = oldFit.Plan.Nodes[i].GroundM + LiftTowerEdit.ElevationM(c, oldFit.Plan.Nodes[i].Member);
+                    if (math.abs(ln.Log[i].Y - oldTarget) > 0.25f || oldFit.Plan.Nodes[i].Member != ln.Members[i - 1] ||
+                        math.abs(oldFit.Plan.Nodes[i].AlongM - inner[i - 1]) > 0.05f)
+                        oldWrites++;
+                    if (oldFit.Plan.Nodes[i].Member != ln.Members[i - 1])
+                        oldMemberChanges++;
+                    if (n.Member != ln.Members[i - 1])
+                        memberChanges++;
+                    if (n.Member != ln.Members[i - 1] || math.abs(n.AlongM - inner[i - 1]) > 0.05f || LiftTowerEdit.HeightWrite(ln.Log[i].Y, target))
+                        newWrites++;
+                }
+                s_Report.Add("LP-16 " + ln.Name + " as left by the guard | current " + (current.Clear ? "clear" : "VIOLATED") +
+                             "; old fit: " + oldFit.Mode + ", " + oldMemberChanges + " member change(s), " + oldWrites + " node write(s)" +
+                             " -> T115 fit: " + fit.Mode + ", " + memberChanges + " member change(s), " + newWrites + " node write(s) | " +
+                             DescribeFit(fit));
+                Check(current.Clear, W, ln.Name + ": the replayed line is not clear as it stands: " + Describe(current));
+                Check(fit.Mode == LiftFitMode.Kept && memberChanges == 0, W, ln.Name + ": the T115 fit changed members: " + DescribeFit(fit));
+                Check(newWrites == 0, W, ln.Name + ": the T115 fit would write " + newWrites + " node(s) on a fitted line");
+                // Identity holds on the next re-fit too (the carve stops once nothing is written).
+                LiftTowerFit again = s_Planner.Fit(t, p.Length, ln.RopeA, ln.RopeB, c, InnerAlong(fit.Plan), true, 1000f, MembersOf(fit.Plan));
+                Check(again.Mode == LiftFitMode.Kept && Same(again.Plan, fit.Plan), W, ln.Name + ": re-fit not identity: " + DescribeFit(again));
+            }
+
+
+            // The carve ratchet (log :1541 / :1655 / :1769, node 345662:37: ground 1158.50 -> 1158.11 -> 1157.78, the node re-grounded
+            // each time; t6 1370.31 -> 1369.96 -> 1369.69): each write lowers the node by the drift and the carve lowers the ground under
+            // it by ~0.85 of that. Model, not a measurement: count the writes until the line settles, old rule vs T115.
+            int Ratchet(Func<float, float, bool> write)
+            {
+                float y = 1158.50f, ground = 1158.11f;
+                int writes = 0;
+                for (int round = 0; round < 12; round++)
+                {
+                    if (!write(y, ground))
+                        break;
+                    float drop = y - ground;
+                    y = ground;
+                    ground -= 0.85f * drop;
+                    writes++;
+                }
+                return writes;
+            }
+            int before = Ratchet((y, target) => math.abs(y - target) > 0.25f);
+            int after = Ratchet(LiftTowerEdit.HeightWrite);
+            s_Report.Add("LP-16 carve ratchet model (sink 0.85 x drop, from the log) | old rule hits the guard (3 writes), T115 none | " +
+                         "old rule " + before + " write(s), T115 " + after + " write(s)");
+            Check(before >= 3, W, "the ratchet model does not reproduce the guard: " + before + " write(s)");
+            Check(after == 0, W, "the T115 rule still chases the carved ground: " + after + " write(s)");
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        // LP-17: T48 round 2 objective (fewest towers) — before / after on the 2026-10-20 lines
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        // The engine's lines before our fit touched them: the "Towers [nodes]" block that precedes each first fit block in
+        // field/2026-10-20/logs/SkiResortMod.Mod.log (block line / fit line), station ropes from the fit header.
+        private static readonly LogNode[] Fg516 =   // :496 / :566, fixedGrip edge 345181:25
+        {
+            N(60f, 940.84f, 940.84f, -1.4f, -1.8f, -1.4f, -0.6f), N(57f, 945.27f, 945.28f, 0.5f, 0.4f, -0.3f, -0.5f),
+            N(57f, 950.52f, 950.50f, 1.5f, 1.6f, 0.8f, 0.1f), N(57f, 961.87f, 961.87f, 1.1f, 0.9f, 1.0f, 0.5f),
+            N(57f, 983.82f, 983.83f, -0.4f, 0.8f, 3.4f, 2.3f), N(57f, 1007.45f, 1007.46f, -2.6f, -2.3f, -2.2f, -0.6f),
+            N(57f, 1018.02f, 1018.02f, 1.1f, 2.9f, 5.1f, 3.1f), N(57f, 1041.16f, 1041.28f, -0.1f, 2.2f, 3.1f, 1.4f),
+            N(57f, 1067.34f, 1067.34f, -1.9f, -2.3f, -2.1f, -1.6f), N(0f, 1087.91f, 1087.91f),
+        };
+        private static readonly LogNode[] Dq328 =   // :947 / :999, detachable edge 403362:13
+        {
+            N(34f, 1186.16f, 1186.16f, -2.5f, -3.7f, -3.7f, -1.9f), N(22f, 1167.52f, 1166.24f, 2.3f, 3.3f, 3.7f, 3.5f),
+            N(81f, 1148.33f, 1145.51f, 3.1f, 3.3f, 5.6f, 4.7f), N(81f, 1115.14f, 1115.14f, 8.2f, 10.1f, 10.6f, 6.6f),
+            N(16f, 1144.26f, 1140.03f, 5.6f, 6.4f, 6.8f, 6.4f), N(47f, 1158.37f, 1152.87f, -1.2f, -3.7f, -3.6f, -1.2f),
+            N(47f, 1186.16f, 1186.16f, -2.2f, -3.7f, -3.8f, -3.7f), N(0f, 1201.45f, 1201.45f),
+        };
+        private static readonly LogNode[] Fg312 =   // :1182 / :1231, fixedGrip edge 291093:119 (Short with 5 towers)
+        {
+            N(57f, 1162.09f, 1162.09f, -2.9f, -2.3f, -2.3f, -2.8f), N(57f, 1142.89f, 1142.92f, 1.4f, 1.2f, 1.0f, 1.4f),
+            N(57f, 1113.58f, 1113.58f, 4.8f, 8.7f, 10.1f, 8.0f), N(28f, 1120.64f, 1117.04f, 4.5f, 4.9f, 5.1f, 5.1f),
+            N(56f, 1143.03f, 1138.96f, -2.7f, -2.3f, -2.4f, -2.9f), N(56f, 1164.14f, 1164.14f, 0.8f, -1.9f, -2.4f, -2.6f),
+            N(0f, 1192.52f, 1192.52f),
+        };
+        private static readonly LogNode[] Gd483 =   // :1311 / :1348, gondola edge 130230:5
+        {
+            N(180f, 1191.71f, 1191.71f, 2.2f, -2.3f, 7.1f, -2.9f), N(30f, 1274.89f, 1274.89f, 2.5f, 2.9f, 1.6f, 0.2f),
+            N(137f, 1295.46f, 1295.65f, -2.8f, -1.8f, 10.9f, 5.2f), N(137f, 1299.85f, 1299.79f, -4.0f, 2.2f, 2.7f, 2.6f),
+            N(0f, 1353.32f, 1353.32f),
+        };
+        private static readonly LogNode[] Dq619 =   // :2103 / :2155, detachable edge 408987:29
+        {
+            N(88f, 952.62f, 952.62f, -0.7f, -0.3f, -1.1f, -1.5f), N(88f, 975.09f, 975.08f, -1.5f, -2.0f, 1.1f, 2.5f),
+            N(88f, 990.16f, 990.15f, -2.0f, -1.1f, -3.8f, -3.3f), N(88f, 1003.68f, 1003.67f, 2.2f, -0.2f, -3.7f, -3.2f),
+            N(88f, 1029.71f, 1029.70f, 0.4f, 4.6f, 6.8f, 3.6f), N(88f, 1049.67f, 1049.69f, 2.5f, 5.8f, 6.5f, 4.1f),
+            N(88f, 1066.78f, 1066.76f, 1.1f, 1.1f, -0.3f, -0.2f), N(0f, 1109.56f, 1109.56f),
+        };
+        private static readonly LogNode[] Gd619 =   // :2233 / :2271, gondola edge 412873:7 (Short with 2 towers)
+        {
+            N(206f, 955.94f, 955.94f, -1.4f, -2.9f, -3.2f, -0.2f), N(206f, 989.47f, 989.44f, -0.1f, -2.1f, -0.4f, 0.7f),
+            N(206f, 1039.06f, 1039.08f, 7.5f, 4.1f, 7.5f, 0.8f), N(0f, 1103.06f, 1103.06f),
+        };
+        private static readonly LogNode[] Tram1605Engine =   // :1454 / :1537, tram edge 379445:69 (13 clicked nodes)
+        {
+            N(382f, 992.93f, 992.78f, 7.9f, 17.3f, 23.8f, 7.9f), N(64f, 1159.03f, 1158.50f, -5.4f, -11.4f, -10.5f, -3.9f),
+            N(322f, 1184.26f, 1184.15f, 8.2f, 17.6f, -3.0f, -11.7f), N(32f, 1302.86f, 1302.61f, 3.5f, 4.3f, 3.1f, 1.1f),
+            N(148f, 1318.45f, 1318.20f, 3.2f, 14.0f, 26.3f, 19.1f), N(20f, 1370.83f, 1370.31f, 0.1f, -1.1f, -1.0f, -0.4f),
+            N(76f, 1376.13f, 1375.85f, 6.9f, 7.0f, 6.3f, 7.5f), N(96f, 1451.53f, 1450.20f, -11.2f, -5.3f, 1.1f, -0.6f),
+            N(52f, 1532.11f, 1531.80f, -1.6f, -4.0f, -5.7f, -4.2f), N(166f, 1578.19f, 1578.08f, -5.3f, 17.2f, 18.3f, 12.8f),
+            N(48f, 1713.01f, 1711.78f, -2.9f, -8.7f, -9.6f, -6.5f), N(82f, 1783.61f, 1783.54f, 13.3f, 23.1f, 13.2f, -0.1f),
+            N(84f, 1864.09f, 1863.46f, 0.8f, 1.5f, 9.8f, 8.3f), N(32f, 1924.01f, 1923.33f, -0.3f, -2.9f, -2.1f, -1.1f),
+            N(0f, 1937.73f, 1937.47f),
+        };
+
+        private static void Lp17Objective()
+        {
+            const string W = "planner/LP-17";
+            var lines = new (string Name, LogNode[] Log, string Type, float RopeA, float RopeB)[]
+            {
+                ("FG 516 m (log :566)", Fg516, "fixedGrip", 947.84f, 1097.81f),
+                ("FG 312 m (log :1231, Short)", Fg312, "fixedGrip", 1169.13f, 1199.56f),
+                ("DQ 328 m (log :999)", Dq328, "detachable", 1194.16f, 1209.45f),
+                ("DQ 619 m (log :2155)", Dq619, "detachable", 960.62f, 1117.56f),
+                ("GD 483 m (log :1348)", Gd483, "gondola", 1201.71f, 1363.32f),
+                ("GD 619 m (log :2271, Short)", Gd619, "gondola", 965.94f, 1113.06f),
+                ("tram 1605 m (log :1537)", Tram1605Engine, "tram", 1019.18f, 1963.98f),
+                ("tram 2292 m (log :4851)", Tram2292, "tram", 986.73f, 2132.94f),
+            };
+            int fewer = 0, tallerAndFewer = 0;
+            var legacy = new LiftTowerPlanner { LegacySpacing = true };
+            foreach (var ln in lines)
+            {
+                Profile p = Reconstruct(ln.Log);
+                LiftTowerPlanConstants c = LiftTowerPlanConstants.For(ln.Type);
+                LiftTerrainSampler t = (s, l) => p.At(s);
+                LiftTowerPlan before = legacy.Plan(t, p.Length, ln.RopeA, ln.RopeB, c);
+                LiftTowerPlan after = PlanAndReplan("LP-17/" + ln.Name, t, p.Length, c, p.Start, p.End, ln.RopeA, ln.RopeB);
+                s_Report.Add("LP-17 " + ln.Name + " free plan | 2026-10-19 objective -> fewest towers | {" + before.MemberCounts() + "} " +
+                             Describe(before) + "  ->  {" + after.MemberCounts() + "} " + Describe(after));
+                Check(after.LineTowers <= before.LineTowers, W, ln.Name + ": more towers than the 2026-10-19 objective: " + Describe(after));
+                Check(after.Clear || !before.Clear, W, ln.Name + ": the 2026-10-19 plan is clear and the new one is not: " + Describe(after));
+                if (after.LineTowers < before.LineTowers)
+                {
+                    fewer++;
+                    if (MaxMember(after) > MaxMember(before))
+                        tallerAndFewer++;
+                }
+            }
+            s_Report.Add("LP-17 summary | fewer towers on most lines, taller members where they save one | fewer on " + fewer + " / " +
+                         lines.Length + " line(s), taller max member on " + tallerAndFewer);
+            Check(fewer >= lines.Length / 2, W, "fewer towers on only " + fewer + " of " + lines.Length + " lines");
+
+            // The 2026-10-19 LP-7 knee (190-210 m on a 260 m FG line): the breakover rule never costs a tower in round 2.
+            LiftTowerPlanConstants fg = LiftTowerPlanConstants.For("fixedGrip");
+            Func<float, float> g = s => s <= 190f ? 1000f + 0.5f * s : s >= 210f ? 1100f : 1095f + 0.5f * (s - 190f) - 0.0125f * (s - 190f) * (s - 190f);
+            LiftTowerPlan kOld = legacy.Plan((s, l) => g(s), 260f, g(0f) + fg.RopeAboveBase(0), g(260f) + fg.RopeAboveBase(0), fg);
+            LiftTowerPlan kNew = PlanAndReplan("LP-17/knee", (s, l) => g(s), 260f, fg, g(0f), g(260f));
+            s_Report.Add("LP-17 FG knee 190-210 m (the 2026-10-19 LP-7) | breakover rule after the tower count | " + Describe(kOld) + "  ->  " + Describe(kNew));
+            Check(kNew.LineTowers <= kOld.LineTowers && kNew.Clear, W, "knee: " + Describe(kNew));
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        // LP-18 / LP-19: the lift-line tool's edit model (LiftLineEdit; T48 steps 3c + 4)
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>A straight line along +x from (0, ground(0), 0); the profile's along = world x.</summary>
+        private static LiftLineEdit EditOn(Profile p, LiftTowerPlanConstants c, float ropeA, float ropeB)
+        {
+            var a = new float3(0f, p.Start, 0f);
+            var b = new float3(p.Length, p.End, 0f);
+            return new LiftLineEdit(c, a, b, ropeA, ropeB);
+        }
+
+        private static void CheckEmission(string where, LiftLineEdit e, LiftTerrainSampler t)
+        {
+            const string W = "planner/LP-18";
+            List<LiftLineNode> nodes = e.Emit();
+            LiftTowerPlan plan = e.Plan;
+            Check(nodes.Count == plan.Nodes.Length, W, where + ": emitted " + nodes.Count + " node(s) for a plan of " + plan.Nodes.Length);
+            if (nodes.Count != plan.Nodes.Length)
+                return;
+            Check(nodes[0].Kind == LiftLineNodeKind.Station && nodes[nodes.Count - 1].Kind == LiftLineNodeKind.Station &&
+                  nodes[0].Position.Equals(e.A) && nodes[nodes.Count - 1].Position.Equals(e.B), W, where + ": station ends not the stub nodes");
+            var inner = new float[nodes.Count - 2];
+            var members = new int[nodes.Count - 2];
+            for (int i = 1; i < nodes.Count - 1; i++)
+            {
+                LiftLineNode n = nodes[i];
+                LiftPlanNode pn = plan.Nodes[i];
+                float e0 = LiftTowerEdit.ElevationM(e.C, pn.Member);
+                Check(n.Member == pn.Member && math.abs(n.Position.y - (pn.GroundM + e0)) < 1e-3f && math.abs(n.ElevationM - e0) < 1e-4f, W,
+                      where + ": node " + (i + 1) + " not at ground + E of its member");
+                e.Project(n.Position, out float lateral);
+                Check(math.abs(lateral) < 1e-3f && math.abs(n.Position.x - pn.AlongM) < 1e-3f, W, where + ": node " + (i + 1) + " off the line");
+                Check((n.Kind == LiftLineNodeKind.Pinned) == e.IsPinned(pn.AlongM), W, where + ": node " + (i + 1) + " pin flag");
+                inner[i - 1] = pn.AlongM;
+                members[i - 1] = pn.Member;
+            }
+            // Short is impossible on a tool line: the fit of the built line (heights only, the tool's members) is the plan itself.
+            LiftTowerFit fit = s_Planner.Fit(t, e.LengthM, e.RopeA, e.RopeB, e.C, inner, false, 0f, members);
+            Check(fit.Mode == LiftFitMode.Kept || !plan.Clear, W, where + ": the fit of the tool line is " + fit.Mode + " for a clear plan");
+            if (plan.Clear)
+                Check(Same(fit.Plan, plan), W, where + ": the fit changed the tool line: " + DescribeFit(fit) + " vs " + Describe(plan));
+        }
+
+        private static void Lp18ToolEmission()
+        {
+            const string W = "planner/LP-18";
+            var lines = new (string Name, LogNode[] Log, string Type, float RopeA, float RopeB)[]
+            {
+                ("GD 619 m (log :2271)", Gd619, "gondola", 965.94f, 1113.06f),
+                ("DQ 328 m (log :999)", Dq328, "detachable", 1194.16f, 1209.45f),
+                ("FG 516 m (log :566)", Fg516, "fixedGrip", 947.84f, 1097.81f),
+                ("tram 2292 m (log :4851)", Tram2292, "tram", 986.73f, 2132.94f),
+            };
+            foreach (var ln in lines)
+            {
+                Profile p = Reconstruct(ln.Log);
+                LiftTowerPlanConstants c = LiftTowerPlanConstants.For(ln.Type);
+                LiftTerrainSampler t = (s, l) => p.At(s);
+                LiftLineEdit e = EditOn(p, c, ln.RopeA, ln.RopeB);
+                e.Replan(t);
+                s_Report.Add("LP-18 tool line " + ln.Name + " | emitted nodes = the plan, clear, the fit keeps it | " + e.Describe());
+                Check(e.Plan.Clear, W, ln.Name + ": the tool's plan is not clear: " + e.Describe());
+                CheckEmission(ln.Name, e, t);
+            }
+        }
+
+        private static void Lp19Pins()
+        {
+            const string W = "planner/LP-19";
+            Profile p = Reconstruct(Gd619);
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("gondola");
+            LiftTerrainSampler t = (s, l) => p.At(s);
+            LiftLineEdit e = EditOn(p, c, 965.94f, 1113.06f);
+            LiftTowerPlan free = e.Replan(t);
+            string freeText = Describe(free);
+
+            // (a) a click on the line pins a tower there (snapped to the 5 m grid); the planner fills around it.
+            Check(e.AddPin(203f) == LiftLineEditResult.Done, W, "add pin at 203 m refused");
+            e.Replan(t);
+            int at = e.TowerNear(205f, 0.01f);
+            Check(at > 0 && e.IsPinned(205f), W, "no pinned tower at 205 m (203 snapped): " + e.Describe());
+            CheckEmission("pin 205", e, t);
+            for (int s = 0; s < e.Plan.Spans.Length; s++)
+                Check(e.Plan.Spans[s].LengthM <= c.MaxSpanM + 1e-3f, W, "pinned plan span " + (s + 1) + " over the max: " + e.Describe());
+            s_Report.Add("LP-19 GD 619 m pins | (a) pin at 203 -> tower at 205 (grid), planner fills around it | " + Describe(e.Plan));
+
+            // (b) drag it to 300 m: the pin moves, nothing stays at 205.
+            Check(e.MoveTower(205f, 298f) == LiftLineEditResult.Done, W, "move 205 -> 298 refused");
+            e.Replan(t);
+            Check(e.IsPinned(300f) && !e.IsPinned(205f) && e.TowerNear(205f, 0.01f) < 0 && e.TowerNear(300f, 0.01f) > 0, W,
+                  "move did not land at 300 m: " + e.Describe());
+            CheckEmission("pin 300", e, t);
+            s_Report.Add("LP-19 GD 619 m pins | (b) drag 205 -> 298 -> pinned at 300 | " + Describe(e.Plan));
+
+            // (c) idempotence with pins: re-planning the same pins gives the same line.
+            LiftTowerPlan before = e.Plan;
+            e.Replan(t);
+            Check(Same(before, e.Plan), W, "re-plan with the same pins changed the line");
+
+            // (d) right click on the pinned tower unpins it: the free plan comes back.
+            Check(e.RemoveTower(300f) == LiftLineEditResult.Done && e.Pins.Count == 0, W, "unpin refused");
+            e.Replan(t);
+            Check(Same(e.Plan, free), W, "unpinned plan != the free plan: " + Describe(e.Plan) + " vs " + freeText);
+
+            // (e) right click on a FREE tower: every other tower is pinned where it stands, this one goes.
+            float drop = e.Plan.Nodes[1].AlongM;
+            int towersBefore = e.Plan.LineTowers;
+            Check(e.RemoveTower(drop) == LiftLineEditResult.Done, W, "remove free tower refused");
+            Check(e.Pins.Count == towersBefore - 1, W, "remove free: " + e.Pins.Count + " pins, expected " + (towersBefore - 1));
+            e.Replan(t);
+            Check(e.TowerNear(drop, e.RemovedRadiusM - 0.01f) < 0, W, "a tower came back within " + e.RemovedRadiusM.ToString("F0") +
+                  " m of the removed spot " + drop.ToString("F0") + " m: " + e.Describe());
+            for (int s = 0; s < e.Plan.Spans.Length; s++)
+                Check(e.Plan.Spans[s].LengthM <= c.MaxSpanM + 1e-3f, W, "after the remove a span exceeds the max: " + e.Describe());
+            for (int i = 0; i < e.Pins.Count; i++)
+                Check(e.TowerNear(e.Pins[i], 0.01f) > 0, W, "a frozen tower moved: pin " + e.Pins[i].ToString("F0"));
+            CheckEmission("remove free", e, t);
+            s_Report.Add("LP-19 GD 619 m pins | (e) right click the free tower at " + drop.ToString("F0") + " m: the others pinned, the planner fills what exceeds the max span | " + e.Describe());
+
+            // (f) refusals: within MinSpanM of a station or of a pin; dragging a free tower pins it.
+            e.ClearPins();
+            e.Replan(t);
+            Check(e.AddPin(c.MinSpanM * 0.5f) == LiftLineEditResult.TooCloseToStation, W, "pin next to the base station accepted");
+            Check(e.AddPin(e.LengthM - c.MinSpanM * 0.5f) == LiftLineEditResult.TooCloseToStation, W, "pin next to the top station accepted");
+            Check(e.AddPin(300f) == LiftLineEditResult.Done && e.AddPin(305f) == LiftLineEditResult.TooCloseToPin, W, "pin 5 m from a pin accepted");
+            e.ClearPins();
+            e.Replan(t);
+            float freeAt = e.Plan.Nodes[1].AlongM;
+            Check(e.MoveTower(freeAt, freeAt + 1f) == LiftLineEditResult.Done && e.IsPinned(freeAt), W, "click-drag in place did not pin the free tower");
+
+            // (g) the registry: the built line is a tool line (either direction, 0.5 m tolerance), another line is not.
+            var reg = new LiftToolLines();
+            e.Replan(t);
+            List<LiftLineNode> emitted = e.Emit();
+            reg.Register("gondola", emitted);
+            var inner = new List<float3>();
+            for (int i = 1; i < emitted.Count - 1; i++)
+                inner.Add(emitted[i].Position + new float3(0.3f, 5f, -0.2f));
+            Check(reg.Match(inner, out int[] mem, out bool[] pin) != null && mem[0] == emitted[1].Member && pin[0], W, "registry: own line not matched");
+            inner.Reverse();
+            Check(reg.Match(inner, out mem, out _) != null && mem[mem.Length - 1] == emitted[1].Member, W, "registry: reversed line not matched");
+            inner[0] += new float3(2f, 0f, 0f);
+            Check(reg.Match(inner, out _, out _) == null, W, "registry: a node 2 m off still matched");
+        }
+
+        /// <summary>LP-20: the vanilla net-tool path with round 2 (T115 hysteresis + the fewest-towers objective; the span raise is
+        /// scoped to the lift-line tool, so the engine splits at m_MaxPylonDistance FG 60 / DQ 90 / GD 250 as tonight). Tonight's lines
+        /// at the engine's equal split (ceil(L / max) spans, CourseSplitSystem.cs:3487-3493), then the fit.</summary>
+        private static void Lp20VanillaAfterPatch()
+        {
+            const string W = "planner/LP-20";
+            var lines = new (string Name, LogNode[] Log, string Type, float RopeA, float RopeB, bool ExpectClear)[]
+            {
+                ("GD 619 m (log :2271, Short x2 tonight)", Gd619, "gondola", 965.94f, 1113.06f, true),
+                ("FG 312 m (log :1231, Short tonight)", Fg312, "fixedGrip", 1169.13f, 1199.56f, false),
+                ("DQ 328 m drawn in ONE click (tonight: 7 clicked spans, Moved clear)", Dq328, "detachable", 1194.16f, 1209.45f, false),
+            };
+            foreach (var ln in lines)
+            {
+                Profile p = Reconstruct(ln.Log);
+                LiftTowerPlanConstants c = LiftTowerPlanConstants.For(ln.Type);
+                LiftTerrainSampler t = (s, l) => p.At(s);
+                float vanillaMax = ln.Type == "fixedGrip" ? 60f : ln.Type == "detachable" ? 90f : 250f;   // m_MaxPylonDistance
+                int spans = (int)math.ceil((p.Length - 0.16f) / vanillaMax);
+                var inner = new float[spans - 1];
+                for (int i = 0; i < inner.Length; i++)
+                    inner[i] = p.Length * (i + 1) / spans;
+                LiftTowerFit fit = s_Planner.Fit(t, p.Length, ln.RopeA, ln.RopeB, c, inner, true, vanillaMax, new int[inner.Length]);
+                s_Report.Add("LP-20 vanilla net tool with round 2, " + ln.Name + " | engine split " + spans + " x " +
+                             (p.Length / spans).ToString("F0") + " m, then the fit" + (ln.ExpectClear ? ": clear" : ": whatever the nodes allow (Short = use the tool)") + " | " + DescribeFit(fit));
+                if (ln.ExpectClear)
+                    Check(fit.Plan.Clear, W, ln.Name + ": not clear on the vanilla path: " + DescribeFit(fit));
+                Check(fit.Plan.LineTowers == inner.Length, W, ln.Name + ": node count changed");
+            }
+        }
+
+        private static int[] MembersOf(LiftTowerPlan p)
+        {
+            var m = new int[p.Nodes.Length - 2];
+            for (int i = 1; i < p.Nodes.Length - 1; i++)
+                m[i - 1] = p.Nodes[i].Member;
+            return m;
         }
 
         private static void Lp15EngineNumbers()

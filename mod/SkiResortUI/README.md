@@ -36,6 +36,7 @@ time into `types/` and are never committed.
 | `npm run check` | Run the gate again on the current `build/` (rewrites or deletes `build/.gate-pass`). |
 | `npm run contract:lock` | Rewrite `tools/contract.lock` (binding names and shape fields) after a deliberate `HUB_CONTRACT` bump; review its diff (hub-u2-spec.md 4.7 rule 3). |
 | `node tools/check-bundle.js --contract-only` | The source and contract checks (rules 1-7, 10-18: C#/TS names and shapes, the lock, locale parity, inputs, glyphs, panel-binding scope, hook order, placeholder entries, untranslated text, header/footer focus, build-item and enum parity with C#, the UI rules self-test) without a bundle. Never writes `build/.gate-pass`. `--src=<copy of src>`, `--cs-dir=`, `--hub-cs=`, `--locale=` and `--lock=` point it at fault copies. |
+| `node tools/test-hub-layout.js` | T114 "never a scrollbar": after `npm run build`, headless Chrome / Edge over the harness at three window heights and text scale 1.0 / 1.25; FAILS on any content overflow (`--shots=<dir>` for screenshots). |
 | `node tools/test-hub-rules.js` | Rule R18 alone: the literal oracles of `src/hub/hubRules.ts` (76 checks in Round E1; 80 after the E1 fixer). |
 | `npm run dev` | sync-types, then `webpack --watch --env deploy`: every rebuild is gated, and only a passing bundle is copied into the Mods folder. Needs `SkiResortMod.dll` already deployed. For live reload, start the game with `--developerMode --uiDeveloperMode`. |
 
@@ -110,6 +111,7 @@ src/hub/BuildStrip.tsx    the footer Build strip (nine tiles, two one-string lin
 src/hub/hubText.ts    the panel's locale keys + English fallbacks (must equal root LocaleEN.cs)
 src/hub/buildItems.ts build-item icons and ordering, run-kind map
 src/hub/parts.tsx     Num / numArg (LocalizedNumber), Tip/TipLines (cs2/ui Tooltip), InfoLine, FlexBar, marks, cx
+src/hub/fit.tsx       T114: Fold (one open per view), useFitPage + Pager (lists), useViewPager (a view taller than the panel pages)
 src/hub/hub.module.scss  the panel's styles
 ```
 

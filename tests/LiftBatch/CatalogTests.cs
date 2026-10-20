@@ -594,9 +594,9 @@ namespace LiftBatch
             object[][] rows =
             {
                 new object[] { "aFrame", "SkiAFrameDayLodge", "lodge", 20.0, 4.0, 0.5, 0.5, 360, 0, 6, 40000, 3000, false, false, 1.0f, LodgeRoadRule.Base, true },
-                new object[] { "hut", "SkiLodgeHut", "lodgeHut", 16.0, 4.0, 0.5, 0.75, 200, 0, 4, 50000, 3000, false, false, 1.0f, LodgeRoadRule.Mountain, true },
+                new object[] { "hut", "SkiLodgeHut", "lodgeHut", 16.0, 4.0, 0.5, 0.75, 200, 0, 0, 50000, 3000, false, false, 1.0f, LodgeRoadRule.Mountain, true },   // T113: jobs 0 (roadless, option A; was 4)
                 new object[] { "mid", "SkiLodgeMid", "lodgeMid", 30.0, 8.0, 0.5, 0.5, 720, 20, 12, 200000, 8000, false, false, 1.5f, LodgeRoadRule.Base, true },
-                new object[] { "summit", "SkiLodgeSummit", "lodgeSummit", 40.0, 12.0, 0.5, 1.0, 480, 40, 8, 1500000, 18000, false, true, 3.0f, LodgeRoadRule.Mountain, true },
+                new object[] { "summit", "SkiLodgeSummit", "lodgeSummit", 40.0, 12.0, 0.5, 1.0, 480, 40, 0, 1500000, 18000, false, true, 3.0f, LodgeRoadRule.Mountain, true },   // T113: jobs 0 (was 8)
                 new object[] { "grand", "SkiLodgeGrand", "lodgeGrand", 40.0, 12.0, 0.6, 0.6, 1080, 40, 18, 1200000, 20000, false, true, 3.0f, LodgeRoadRule.Base, true },
             };
             Eq(rows.Length, SkiCatalog.Lodges.Count, W, "Lodges.Count");
@@ -657,7 +657,7 @@ namespace LiftBatch
                 Eq(1000f, p.RadiusM, W, at + "RadiusM");
                 Eq(1.15, p.ExpertFactor, W, at + "ExpertFactor");
                 Eq(0.70, p.BackcountryServedMin, W, at + "BackcountryServedMin");
-                Eq(2, p.Jobs, W, at + "Jobs");
+                Eq(0, p.Jobs, W, at + "Jobs (T113: roadless, demands nothing, was 2)");
                 Eq(15000, p.BuildCost, W, at + "BuildCost");
                 Eq(1500, p.Upkeep, W, at + "Upkeep");
                 Eq(false, p.ForbidMultiple, W, at + "ForbidMultiple");
@@ -1283,8 +1283,18 @@ namespace LiftBatch
                 if (Check(fm.Success, w, prefab + ": no m_ForbidMultiple in the mirror"))
                     Eq(forbid ? "true" : "false", fm.Groups[1].Value, w, prefab + " m_ForbidMultiple");
             }
-            MirrorNum(text, @"""m_Workplaces"":\s*(-?[0-9.]+)", jobs, w, prefab + " Workplace m_Workplaces");
+            // T113 (DECISIONS 308 option A): a roadless mountain row (jobs 0) carries no Workplace at all; the rest keep theirs.
+            if (jobs == 0)
+                Check(!text.Contains("Game.Prefabs.Workplace, Game"), w, prefab + ": jobs 0 in SkiCatalog but a Workplace in the mirror");
+            else
+                MirrorNum(text, @"""m_Workplaces"":\s*(-?[0-9.]+)", jobs, w, prefab + " Workplace m_Workplaces");
             MirrorNum(text, @"""m_Upkeep"":\s*(-?[0-9.]+)", upkeep, w, prefab + " ServiceConsumption m_Upkeep");
+            if (topLevel)
+            {
+                // T113: the top-level idiom (PIPELINE section 6): billed (CityServiceBuilding) Parks and Recreation (ServiceObject).
+                Check(text.Contains("Game.Prefabs.CityServiceBuilding, Game"), w, prefab + ": top-level without CityServiceBuilding (upkeep never billed)");
+                Check(text.Contains("5c1f656a5ea20284197a71e4997b4187"), w, prefab + ": top-level without ServiceObject Parks and Recreation");
+            }
         }
 
         private static void MirrorNum(string text, string pattern, double want, string w, string what)

@@ -33,11 +33,16 @@
  *     bindings (resorts$, selectedResort$, runs$, lifts$) and the local view$, so a snow, guest or
  *     money push (resortLive$, runLive$, problems$) never re-renders the frame, the header or the
  *     difficulty bar: the leaf components that show those numbers subscribe them.
+ *   - T114 (2026-10-20, docs/research/ui/hub-round-t114-2026-10-20.md): the body is the anchor (.bodyAnchor, position relative) of
+ *     two overlays drawn over the top of the content: the header's ski-area list (HubHeader AreaList) and the problems band's +N
+ *     popover (StatusBlock ProblemsPopover, anchored under the band); ONE dimming backdrop (OverlayBackdrop) closes either; both
+ *     close on panel mount and on an area switch. The body's ref is FitContext for the
+ *     list pager (fit.tsx useFitPage). The panel's content must fit without the Scrollable's bar (harness/layout-check.js).
  *   - LAYOUT (spec 4.1). cs2/ui Panel renders header, content and footer as three divs, the
  *     content div holding the Scrollable (index.js@684600; Panel wrapper `uS` @733600), so the
  *     footer never scrolls. DraggablePanel places itself at top = y * (viewport - panel height)
  *     (`Gj`, index.js@720659), so a content-sized panel moves its header, X and footer whenever its
- *     content changes height (J6). Fix: `.panelFixed { height: 72vh; max-height: 780rem }`,
+ *     content changes height (J6). Fix: `.panelFixed { height: 72vh; max-height: 780rem }` (T114: 78vh / 845rem),
  *     applied while a live sign, a run row or a lift row exists; otherwise the U1 `max-height: 72vh`
  *     (the start card and the mismatch state are short panels; the one change of height happens at
  *     a state change). Width formula unchanged (U1 fixer round, resort-hub-understand.md 5.6 item 5).
@@ -68,8 +73,9 @@ import { BuildStrip, MISMATCH_FOOTER, OkFooter } from "./BuildStrip";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { GuestsView } from "./GuestsView";
 import { HistoryView } from "./HistoryView";
-import { HubHeader } from "./HubHeader";
-import { NO_FOCUS, focused$, resetHoverRun, sendHoverRun, useHubConnection, view$ } from "./hubState";
+import { AreaList, HubHeader } from "./HubHeader";
+import { NO_FOCUS, areaListOpen$, focused$, folds$, openFold, problemsOpen$, resetHoverRun, sendHoverRun, useHubConnection, view$ } from "./hubState";
+import { FitContext, Pager, useViewPager } from "./fit";
 import type { HubConnection } from "./hubState";
 import { HUB_FMT, HUB_LOC } from "./hubText";
 import { useLayoutReport } from "./layoutReport";
@@ -92,6 +98,16 @@ export interface HubPanelProps {
 
 /** Right side, near the top (research 2.F.8). */
 export const HUB_PANEL_INITIAL_POSITION = { x: 0.98, y: 0.15 };
+
+/** T114: the backdrop of the two overlays (area list, problems popover): a click anywhere else in the content closes them. */
+function OverlayBackdrop(): JSX.Element | null {
+  const areas = useValue(areaListOpen$);
+  const probs = useValue(problemsOpen$);
+  if (!areas && !probs) return null;
+  return (
+    <div className={styles.overlayBackdrop} onClick={() => { areaListOpen$.update(false); problemsOpen$.update(false); }} />
+  );
+}
 
 /** contract = HUB_CONTRACT (3 in Round E1, 4 since Round S1): everything. */
 function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | null }): JSX.Element {
@@ -125,6 +141,8 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
   // Panel mount: forget the last hover (no send); unmount: clear it in C# (design 7.3).
   useEffect(() => {
     resetHoverRun();
+    areaListOpen$.update(false);   // T114: the overlays start closed
+    problemsOpen$.update(false);
     return () => sendHoverRun(NULL_ENTITY);
   }, []);
 
@@ -139,7 +157,14 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
       if (!still) focused$.update(NO_FOCUS);
     }
     sendHoverRun(NULL_ENTITY);
+    problemsOpen$.update(false);   // T114: the popover lists the old area's rows
   }, [areaKey]);
+
+  // T114: the view pager (fit.tsx): a view still taller than the box after its folds shows its rows page by page. Runs and Lifts page
+  // their own lists. A view switch, a fold toggle or an area switch returns to page 1.
+  const folds = useValue(folds$);
+  const viewPager = useViewPager(viewRef, contentRef, hasSign && view !== "runs" && view !== "lifts",
+    `${view}|${openFold(folds, view)}|${areaKey}`, styles.foldRow);
 
   // Plain markup only: an error-boundary fallback must not be able to throw.
   const title = t(LOC.title);
@@ -175,6 +200,7 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
             {shownView}
           </ErrorBoundary>
         </div>
+        {viewPager.pages > 1 && <Pager fit={viewPager} />}
       </>
     );
   }
@@ -202,10 +228,16 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
       className={cx(styles.panel, fixed && styles.panelFixed)}
       contentClassName={styles.panelContent}
     >
-      <div ref={contentRef} className={styles.body}>
-        {body}
-        {stampNote && <div className={styles.stampNote}>{stampNote}</div>}
-      </div>
+      <FitContext.Provider value={contentRef}>
+        <div ref={contentRef} className={cx(styles.body, styles.bodyAnchor)}>
+          {body}
+          {stampNote && <div className={styles.stampNote}>{stampNote}</div>}
+          <OverlayBackdrop />
+          <ErrorBoundary where="panel.areas" fallback={failed}>
+            <AreaList />
+          </ErrorBoundary>
+        </div>
+      </FitContext.Provider>
     </Panel>
   );
 }
