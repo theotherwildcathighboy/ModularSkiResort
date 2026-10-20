@@ -1,0 +1,86 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiHydrantBoxBareB Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.ColorProperties, Game",
+                "name": "ColorProperties",
+                "active": true,
+                "m_ColorVariations": {
+                    "$id": 3,
+                    "$type": "3|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+VariationSet, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 4,
+                            "$type": "4|Game.Prefabs.ColorProperties+VariationSet, Game",
+                            "m_Colors": {
+                                "$id": 5,
+                                "$type": "5|UnityEngine.Color[], UnityEngine.CoreModule",
+                                "$rlength": 3,
+                                "$rcontent": [
+                                    { "$type": "6|UnityEngine.Color, UnityEngine.CoreModule", 0.25, 0.26, 0.275, 1 },
+                                    { "$type": 6, 1.0, 0.3125, 0.125, 1 },
+                                    { "$type": 6, 1, 1, 1, 1 }
+                                ]
+                            },
+                            "m_VariationGroup": ""
+                        }
+                    ]
+                },
+                "m_ChannelsBinding": {
+                    "$id": 6,
+                    "$type": "7|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+ColorChannelBinding, Game]], mscorlib",
+                    "$rlength": 3,
+                    "$rcontent": [
+                        { "$id": 7, "$type": "8|Game.Prefabs.ColorProperties+ColorChannelBinding, Game", "m_ChannelId": 0, "m_CanBeModifiedByExternal": false },
+                        { "$id": 8, "$type": 8, "m_ChannelId": 1, "m_CanBeModifiedByExternal": false },
+                        { "$id": 9, "$type": 8, "m_ChannelId": 2, "m_CanBeModifiedByExternal": false }
+                    ]
+                },
+                "m_VariationRanges": { "$type": "9|Unity.Mathematics.int3, Unity.Mathematics", "x": 0, "y": 0, "z": 4 },
+                "m_AlphaRanges": { "$type": 9, "x": 0, "y": 0, "z": 0 },
+                "m_ExternalColorSource": 0
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:0927d70a398ea0e52768bb963fdf0992",
+    "m_SurfaceAssets": {
+        "$id": 10,
+        "$type": "10|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:babb77059ae4000ef8e6f926c736992e"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "11|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "12|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -0.265,
+            "y": 2.98023224E-08,
+            "z": -0.277124375
+        },
+        "max": {
+            "$type": 12,
+            "x": 0.265,
+            "y": 0.9204999,
+            "z": 0.458882
+        }
+    },
+    "m_SurfaceArea": 2.18899417,
+    "m_IndexCount": 816,
+    "m_VertexCount": 322,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

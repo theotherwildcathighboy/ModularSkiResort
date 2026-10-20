@@ -1,0 +1,179 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiSnowGunTowerB Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 3,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.EmissiveProperties, Game",
+                "name": "EmissiveProperties",
+                "active": true,
+                "m_SingleLights": {
+                    "$id": 3,
+                    "$type": "3|System.Collections.Generic.List`1[[Game.Prefabs.EmissiveProperties+SingleLightMapping, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 4,
+                            "$type": "4|Game.Prefabs.EmissiveProperties+SingleLightMapping, Game",
+                            "purpose": 71,
+                            "color": { "$type": "5|UnityEngine.Color, UnityEngine.CoreModule", 1, 1, 1, 1 },
+                            "colorOff": { "$type": 5, 0, 0, 0, 1 },
+                            "intensity": 0.6,
+                            "luminance": 0,
+                            "responseTime": 0,
+                            "animationIndex": -1,
+                            "materialId": 0
+                        }
+                    ]
+                },
+                "m_MultiLights": {
+                    "$id": 5,
+                    "$type": "6|System.Collections.Generic.List`1[[Game.Prefabs.EmissiveProperties+MultiLightMapping, Game]], mscorlib",
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_AnimationCurves": {
+                    "$id": 6,
+                    "$type": "7|System.Collections.Generic.List`1[[Game.Prefabs.EmissiveProperties+AnimationProperties, Game]], mscorlib",
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                },
+                "m_SignalGroupAnimations": {
+                    "$id": 7,
+                    "$type": "8|System.Collections.Generic.List`1[[Game.Prefabs.EmissiveProperties+SignalGroupAnimation, Game]], mscorlib",
+                    "$rlength": 0,
+                    "$rcontent": [
+                    ]
+                }
+            },
+            {
+                "$id": 8,
+                "$type": "9|Game.Prefabs.LodProperties, Game",
+                "name": "LodProperties",
+                "active": true,
+                "m_Bias": 0,
+                "m_ShadowBias": 0,
+                "m_LodMeshes": {
+                    "$id": 9,
+                    "$type": "10|Game.Prefabs.RenderPrefab[], Game",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        $fstrref:"CID:56a95f1f7e40ae1a44a6062dc69b7ac2",
+                        $fstrref:"CID:9207ca326b0abe561686cfb2c592f690"
+                    ]
+                }
+            },
+            {
+                "$id": 10,
+                "$type": "11|Game.Prefabs.ColorProperties, Game",
+                "name": "ColorProperties",
+                "active": true,
+                "m_ColorVariations": {
+                    "$id": 11,
+                    "$type": "12|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+VariationSet, Game]], mscorlib",
+                    "$rlength": 3,
+                    "$rcontent": [
+                        {
+                            "$id": 12,
+                            "$type": "13|Game.Prefabs.ColorProperties+VariationSet, Game",
+                            "m_Colors": {
+                                "$id": 13,
+                                "$type": "14|UnityEngine.Color[], UnityEngine.CoreModule",
+                                "$rlength": 3,
+                                "$rcontent": [
+                                    { "$type": 5, 1.0, 0.775, 0.05, 1 },
+                                    { "$type": 5, 1.0, 0.3125, 0.125, 1 },
+                                    { "$type": 5, 0.275, 0.2875, 0.3125, 1 }
+                                ]
+                            },
+                            "m_VariationGroup": ""
+                        },
+                        {
+                            "$id": 14,
+                            "$type": 13,
+                            "m_Colors": {
+                                "$id": 15,
+                                "$type": 14,
+                                "$rlength": 3,
+                                "$rcontent": [
+                                    { "$type": 5, 0.0875, 0.3375, 0.775, 1 },
+                                    { "$type": 5, 1.0, 0.3125, 0.125, 1 },
+                                    { "$type": 5, 0.825, 0.85, 0.875, 1 }
+                                ]
+                            },
+                            "m_VariationGroup": ""
+                        },
+                        {
+                            "$id": 16,
+                            "$type": 13,
+                            "m_Colors": {
+                                "$id": 17,
+                                "$type": 14,
+                                "$rlength": 3,
+                                "$rcontent": [
+                                    { "$type": 5, 0.1375, 0.1375, 0.15, 1 },
+                                    { "$type": 5, 1.0, 0.3125, 0.125, 1 },
+                                    { "$type": 5, 0.75, 0.10, 0.0875, 1 }
+                                ]
+                            },
+                            "m_VariationGroup": ""
+                        }
+                    ]
+                },
+                "m_ChannelsBinding": {
+                    "$id": 18,
+                    "$type": "15|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+ColorChannelBinding, Game]], mscorlib",
+                    "$rlength": 3,
+                    "$rcontent": [
+                        { "$id": 19, "$type": "16|Game.Prefabs.ColorProperties+ColorChannelBinding, Game", "m_ChannelId": 0, "m_CanBeModifiedByExternal": false },
+                        { "$id": 20, "$type": 16, "m_ChannelId": 1, "m_CanBeModifiedByExternal": false },
+                        { "$id": 21, "$type": 16, "m_ChannelId": 2, "m_CanBeModifiedByExternal": false }
+                    ]
+                },
+                "m_VariationRanges": { "$type": "17|Unity.Mathematics.int3, Unity.Mathematics", "x": 0, "y": 0, "z": 4 },
+                "m_AlphaRanges": { "$type": 17, "x": 0, "y": 0, "z": 0 },
+                "m_ExternalColorSource": 0
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:130268578861e0aabadf2415e31c3eb1",
+    "m_SurfaceAssets": {
+        "$id": 22,
+        "$type": "18|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:19a9cc6d244d7537139ee6b2d2f9ca40"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "19|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "20|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -0.6950134,
+            "y": 0,
+            "z": -1.10766411
+        },
+        "max": {
+            "$type": 20,
+            "x": 0.6481956,
+            "y": 7.96577072,
+            "z": 0.8684366
+        }
+    },
+    "m_SurfaceArea": 32.8853836,
+    "m_IndexCount": 5130,
+    "m_VertexCount": 2260,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}
