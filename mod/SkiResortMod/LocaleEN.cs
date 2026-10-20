@@ -954,11 +954,11 @@ namespace SkiResortMod
                 // longer lowers the bill (SkiMoneyRules.LiftUpkeepBillingOf), so a reduced row whose status is No power is
                 // billed reduced only because its ski area has no counted run (NoOpenRun). hubRules.ts liftCostReason still
                 // picks this key for that row, so the key keeps its slot and names the true reason (text only, contract 6).
-                { "SkiResort.Hub.LIFT_COST_REDUCED[NoPower]", "Billed at a quarter: no open run in its ski area" },
+                { "SkiResort.Hub.LIFT_COST_REDUCED[NoPower]", "Billed reduced: no open run in its ski area (a quarter; a tram half)" },
                 { "SkiResort.Hub.LIFT_COST_REDUCED[Unfinished]", "Billed at a quarter while unfinished" },
                 { "SkiResort.Hub.LIFT_COST_REDUCED[SectionMissing]", "Billed at a quarter while a section is missing" },
                 // Round M2 (R3, T2): a complete, powered lift whose ski area has no counted run (hubText.ts liftCostReducedNoOpenRun).
-                { "SkiResort.Hub.LIFT_COST_REDUCED[NoOpenRun]", "Billed at a quarter: no open run in its ski area" },
+                { "SkiResort.Hub.LIFT_COST_REDUCED[NoOpenRun]", "Billed reduced: no open run in its ski area (a quarter; a tram half)" },
                 { "SkiResort.Hub.LIFT_ACTIONS", "Click to fly there (to the gap if a section is missing). The pen renames it." },
                 { "SkiResort.Hub.LIFTS_TOTAL_LENGTH", "Total lift length" },
                 { "SkiResort.Hub.LIFTS_TOTAL_CAPACITY", "Capacity, all lifts" },
@@ -1012,7 +1012,9 @@ namespace SkiResortMod
                 // Round M2 (R2, T1): changed in place; a running lift alone no longer opens the gate, and NotKnownYet also
                 // covers a new sign without a score (fixer, review-ui-hub-money F2: shortened to 58 characters so the
                 // one-line ticket slot shows it whole; hubText.ts holds the same text).
-                { "SkiResort.Hub.TICKETS_NOTE[NothingOpen]", "No lift tickets now: no run is open." },
+                // T137 S2 (DECISIONS 358): the off-season hint (OffSeasonStaffSystem halves lodge and school staff; Inactive = vanilla upkeep x0.1, no wages,
+                // CityServiceBudgetSystem.cs:398-411).
+                { "SkiResort.Hub.TICKETS_NOTE[NothingOpen]", "No lift tickets now: no run is open. Off-season, lodges drop to half staff (Options); set one Inactive: a tenth of upkeep, no wages." },
                 { "SkiResort.Hub.TICKETS_NOTE[NotKnownYet]", "No lift tickets yet: runs are being checked after a load or a new sign." },
                 { "SkiResort.Hub.SECTION[Money]", "Finances" },
                 { "SkiResort.Hub.MONEY_TICKETS[Off]", "Lift tickets: off" },
@@ -1225,10 +1227,10 @@ namespace SkiResortMod
                 // Round M2 (R3, T2): changed in place, the third reduced case.
                 // Phase D (DECISIONS 171 ruling 2, skeptic MUST-1; was "...; a quarter while unfinished, without power or with no
                 // open run in its ski area. ..."): an unpowered lift still pays in full; two reductions remain.
-                { "SkiResort.Hub.MONEY_TIP[Lifts]", "{BASE} per month per lift + {PERKM} per km of line, in full even without power; a quarter while unfinished or with no open run. Now {FULL} in full, {REDUCED} at a quarter." },
+                { "SkiResort.Hub.MONEY_TIP[Lifts]", "{BASE} per month per lift + {PERKM} per km of line, in full even without power; a quarter while unfinished or with no open run (a tram half). Now {FULL} full, {REDUCED} reduced." },
                 // Catalog Phase B: the lifts row's tooltip when two or more lift types are offered (each type's rates on its own line).
                 // Phase D (as MONEY_TIP[Lifts]; was "...; a quarter while unfinished, without power or with no open run ...").
-                { "SkiResort.Hub.MONEY_TIP[LiftsTypes]", "Each lift: its kind's base per month + a rate per km of line, in full even without power; a quarter while unfinished or with no open run. Now {FULL} in full, {REDUCED} at a quarter." },
+                { "SkiResort.Hub.MONEY_TIP[LiftsTypes]", "Each lift: its kind's base per month + a rate per km of line, in full even without power; a quarter while unfinished or with no open run (a tram half). Now {FULL} full, {REDUCED} reduced." },
                 { "SkiResort.Hub.MONEY_TIP_LIFT_RATE", "{TYPE}: {BASE} per month + {PERKM} per km" },
                 { "SkiResort.Hub.MONEY_TIP[Buildings]", "Upkeep {UPKEEP} · wages {WAGES} for {FILLED} of {JOBS} staff, at the Parks & Recreation budget." },
                 { "SkiResort.Hub.BUILD_LINE_RUN", "{NAME} · {FEE} + {PERHA} per ha" },

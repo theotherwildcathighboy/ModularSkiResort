@@ -593,7 +593,7 @@ namespace LiftBatch
             // S1 import flip (2026-10-13, §10.1): every tier is imported, so every row is Expected.
             object[][] rows =
             {
-                new object[] { "aFrame", "SkiAFrameDayLodge", "lodge", 20.0, 4.0, 0.5, 0.5, 360, 0, 6, 40000, 3000, false, false, 1.0f, LodgeRoadRule.Base, true },
+                new object[] { "aFrame", "SkiAFrameDayLodge", "lodge", 20.0, 4.0, 0.5, 0.5, 360, 0, 4, 40000, 3000, false, false, 1.0f, LodgeRoadRule.Base, true },   // T137 C2: jobs 4 (was 6)
                 new object[] { "hut", "SkiLodgeHut", "lodgeHut", 16.0, 4.0, 0.5, 0.75, 200, 0, 0, 50000, 3000, false, false, 1.0f, LodgeRoadRule.Mountain, true },   // T113: jobs 0 (roadless, option A; was 4)
                 new object[] { "mid", "SkiLodgeMid", "lodgeMid", 30.0, 8.0, 0.5, 0.5, 720, 20, 12, 200000, 8000, false, false, 1.5f, LodgeRoadRule.Base, true },
                 new object[] { "summit", "SkiLodgeSummit", "lodgeSummit", 40.0, 12.0, 0.5, 1.0, 480, 40, 0, 1500000, 18000, false, true, 3.0f, LodgeRoadRule.Mountain, true },   // T113: jobs 0 (was 8)
@@ -639,9 +639,9 @@ namespace LiftBatch
                 Eq("school", s.BuildItemId, W, "school item");
                 Eq(12.0, s.ScoreValue, W, "school ScoreValue");
                 Eq(1.2, s.DemandFactor, W, "school DemandFactor");
-                Eq(6, s.Jobs, W, "school Jobs (instructors; econ-2 round 2, was 10)");
+                Eq(4, s.Jobs, W, "school Jobs (instructors; T137 C1, was 6; econ-2 round 2, was 10)");
                 Eq(80000, s.BuildCost, W, "school BuildCost");
-                Eq(4000, s.Upkeep, W, "school Upkeep (econ-2 round 2, was 6000)");
+                Eq(3000, s.Upkeep, W, "school Upkeep (T137 C1, was 4000; econ-2 round 2, was 6000)");
                 Eq(true, s.ForbidMultiple, W, "school ForbidMultiple");
                 Eq(LodgeRoadRule.Base, s.RoadRule, W, "school RoadRule (R9)");
                 Eq(true, s.Expected, W, "school Expected (S1 import flip, 2026-10-13)");

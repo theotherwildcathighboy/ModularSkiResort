@@ -74,6 +74,28 @@ namespace ResortBatch
             SeamConsts();         // CG-1 (other groups' aliases, reflection)
             RideTimeSpeed();      // CG-2
             LocaleTexts();        // CG-T
+            OffSeasonTexts();     // CG-T137
+        }
+
+        /// <summary>CG-T137 (DECISIONS 358): the hub texts of the T137 build. S2: the closed-gate note names the off-season half staff
+        /// and vanilla's Inactive (a tenth); S1: the reduced lift texts no longer say "at a quarter" flat (the tram bills half).</summary>
+        private static void OffSeasonTexts()
+        {
+            const string W = "catalog-guard-t137";
+            string path = RepoFile("mod/SkiResortMod/LocaleEN.cs");
+            if (!Check(path != null, W, "mod/SkiResortMod/LocaleEN.cs not found"))
+                return;
+            Dictionary<string, string> loc = SingleLineEntries(File.ReadAllLines(path));
+            if (Check(loc.TryGetValue("SkiResort.Hub.TICKETS_NOTE[NothingOpen]", out string note), W, "TICKETS_NOTE[NothingOpen] not single-line"))
+                Check(note.Contains("half staff") && note.Contains("Inactive") && note.Contains("a tenth of upkeep, no wages"), W,
+                      "TICKETS_NOTE[NothingOpen] = \"" + note + "\" must name the off-season half staff and Inactive (a tenth of upkeep, no wages: CityServiceUpkeepSystem.cs:630-633) (T137 S2)");
+            foreach (string key in new[] { "SkiResort.Hub.LIFT_COST_REDUCED[NoOpenRun]", "SkiResort.Hub.LIFT_COST_REDUCED[NoPower]",
+                                           "SkiResort.Hub.MONEY_TIP[Lifts]", "SkiResort.Hub.MONEY_TIP[LiftsTypes]" })
+            {
+                if (Check(loc.TryGetValue(key, out string text), W, key + " not single-line"))
+                    Check(text.Contains("a tram half") && SkiMoneyRules.ShuttleNoOpenRunShare == 0.5f, W,
+                          key + " = \"" + text + "\" must say the tram bills half with no open run (T137 S1, ShuttleNoOpenRunShare 0.5)");
+            }
         }
 
         private static bool Check(bool cond, string where, string msg)

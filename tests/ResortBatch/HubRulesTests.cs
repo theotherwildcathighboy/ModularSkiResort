@@ -1318,12 +1318,12 @@ namespace ResortBatch
             }
             Check(priceOk, w, "H17 price factor C# = the TS table: " + priceFirst);
             // The Options texts and the hub tooltip bake "40", "60" and "200" (Settings/LocaleEN.cs Locals who ski and Lift ticket
-            // price; MONEY_PRICE_TIP[Curve] through PRICE_NO_EFFECT_MAX): the no-effect edge 240 - 200, the default (60 since
-            // econ-2 round 2, where the factor is 0.9: "about 90 % as many at 60"), the cap.
-            Check(SkiDayRules.PriceFullAt - SkiDayRules.PriceSpan == 40 && SkiMoneyRules.TicketPriceDefault == 60 &&
+            // price; MONEY_PRICE_TIP[Curve] through PRICE_NO_EFFECT_MAX): the no-effect edge 240 - 200, the default (80 since T137, 60 since
+            // econ-2 round 2; the factor at 80 is 0.8: "80 % at 80"), the cap.
+            Check(SkiDayRules.PriceFullAt - SkiDayRules.PriceSpan == 40 && SkiMoneyRules.TicketPriceDefault == 80 &&
                   SkiDayRules.PriceMax == 200 && SkiMoneyRules.TicketPriceMax == 200 &&
-                  SkiDayRules.PriceFactor(SkiMoneyRules.TicketPriceDefault, 0) == 0.9,
-                  w, "H17 price edge 40, default 60 (factor 0.9), cap 200 (the Options texts say so)");
+                  SkiDayRules.PriceFactor(SkiMoneyRules.TicketPriceDefault, 0) == 0.8,
+                  w, "H17 price edge 40, default 80 (factor 0.8; T137 I1, was 60), cap 200 (the Options texts say so)");
 
             // H18 (Round M2 R5, thaw-rules.md §3): Season reads the live gun gates when known. Arguments (gating, runs,
             // open, anyGunRun, gunsLiveKnown, anyGunOn, topKnown, T, freezing 0, margin 2). Eight checks.

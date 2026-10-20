@@ -26,6 +26,7 @@
 #                  $plength match the real array counts). Also in LANES: rope-lane m_Hanging <= 0.01 (R31).
 #  10. SHIPPED   - every (name, type, CID) of tools/shipped-prefabs.json (tools/freeze-shipped.ps1) is still an owned prefab
 #                  with that CID (FAIL otherwise); an owned non-RenderPrefab not in the list WARNs until re-frozen (T74).
+#  13. STUBNET   - every station stub marker net is wider than the widest lift line and has no lanes (T121 / T126).
 #
 # Ownership = directories named Ski* under ImportedData, Ski* prefabs inside the
 # Editor library folder (c030ee3ff256df91), plus legacy FixedGripChairLift (reported).
@@ -639,6 +640,48 @@ if ($usExit -ne 0) {
 } else {
     $rows.Add("OK    USENGLISH $(($usOut | Select-Object -Last 1)) | $(($usSelf | Select-Object -Last 1))")
 }
+
+# ---- 13. STUBNET: station stub marker nets (T121 / T126, 2026-10-20; research/art/station-stubs-2026-10-20.md) -----------
+# A shared node takes the net prefab with the highest NetData.m_NodePriority (GenerateNodesSystem.cs:1690-1765, strict >),
+# which is the composition width (NetInitializeSystem.cs:135): a stub marker no wider than a line hands its tip node to the
+# line and the engine stands the line's pillar there (T126). A stub piece with lanes draws them as floating rope pieces
+# wherever the station has no anchor sub-lane of that same lane prefab (LaneSystem.cs:4049-4070 matches by prefab; T121).
+# FAIL: an owned MarkerNet power line whose width is <= the widest owned lift line, or whose pieces carry NetPieceLanes.
+$snByCid = @{}
+foreach ($p in $ownedPrefabs) {
+    $c = "$($p.FullName).cid"
+    if (Test-Path $c) { $snByCid[([IO.File]::ReadAllText($c)).Trim().ToLower()] = $p.FullName }
+}
+function Get-StubNetInfo([string]$netText) {
+    $w = 0.0; $lanes = $false
+    foreach ($sm in [regex]::Matches($netText, '"m_Section":\s*\$fstrref:"CID:([0-9a-f]{32})"')) {
+        $sf = $snByCid[$sm.Groups[1].Value]; if (-not $sf) { continue }
+        foreach ($pm in [regex]::Matches([IO.File]::ReadAllText($sf), '"m_Piece":\s*\$fstrref:"CID:([0-9a-f]{32})"')) {
+            $pf = $snByCid[$pm.Groups[1].Value]; if (-not $pf) { continue }
+            $pt = [IO.File]::ReadAllText($pf)
+            $wm = [regex]::Match($pt, '(?m)^    "m_Width":\s*([0-9.]+)')
+            if ($wm.Success) { $w += [double]$wm.Groups[1].Value }
+            if ($pt -match 'Game\.Prefabs\.NetPieceLanes,') { $lanes = $true }
+        }
+    }
+    return @{ Width = $w; Lanes = $lanes }
+}
+$snLines = @{}; $snMarkers = @{}
+foreach ($p in $ownedPrefabs) {
+    $t = [IO.File]::ReadAllText($p.FullName)
+    if ($t -notmatch '^\{\s*"\$id":\s*0,\s*"\$type":\s*"0\|Game\.Prefabs\.PowerLinePrefab,') { continue }
+    $nm = [regex]::Match($t, '(?m)^    "name":\s*"([^"]+)"').Groups[1].Value
+    if ($t -match 'Game\.Prefabs\.MarkerNet,') { $snMarkers[$nm] = Get-StubNetInfo $t } else { $snLines[$nm] = Get-StubNetInfo $t }
+}
+$snMax = 0.0; $snMaxName = "-"
+foreach ($k in $snLines.Keys) { if ($snLines[$k].Width -gt $snMax) { $snMax = $snLines[$k].Width; $snMaxName = $k } }
+foreach ($k in ($snMarkers.Keys | Sort-Object)) {
+    $m = $snMarkers[$k]
+    if ($m.Width -le $snMax) { $rows.Add("FAIL  STUBNET   ${k}: width $($m.Width) <= $snMaxName $snMax - the stub tip node takes the line prefab and grows a pillar (T126; strict > in FindNodePrefab)"); $failures++ }
+    elseif ($m.Lanes) { $rows.Add("FAIL  STUBNET   ${k}: its piece carries NetPieceLanes - unanchored stub lanes float beyond the station nose (T121)"); $failures++ }
+    else { $rows.Add("OK    STUBNET   ${k}: width $($m.Width) > widest line $snMaxName $snMax, no lanes") }
+}
+if ($snMarkers.Count -eq 0) { $rows.Add("WARN  STUBNET   no owned MarkerNet power line found (check the ownership filter)"); $warnings++ }
 
 # ---- summary -------------------------------------------------------------------------
 $rows | ForEach-Object { Write-Output $_ }

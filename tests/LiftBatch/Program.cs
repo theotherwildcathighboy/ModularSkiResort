@@ -122,6 +122,8 @@ namespace LiftBatch
                 Console.WriteLine("PLAN  " + line);
             // T125 (docs/research/field/2026-10-20/playthrough/lift-tool-build.md): the lift tool's input state machine (TI-1..TI-8).
             LiftToolInputTests.Run(Check);
+            // T123 (docs/research/lifts/tower-numbers-build-2026-10-20.md): tower number tiles, wrap, layout, reconcile (TN-1..TN-9).
+            TowerNumberTests.Run(Check);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  LiftBatch checks={0} failures={1}", s_Checks, s_Failures));

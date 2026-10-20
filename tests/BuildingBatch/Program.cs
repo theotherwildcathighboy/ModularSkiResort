@@ -64,6 +64,7 @@ namespace BuildingBatch
             DiffLog();
             EfficiencyRule();
             MountainJobs();
+            OffSeasonTests.Run(Check);   // T137 OS1-OS6
             foreach (Gate g in Gates)
                 PrefabGate(g);
             Console.WriteLine($"BuildingBatch: {s_Pass} passed, {s_Fail} failed");

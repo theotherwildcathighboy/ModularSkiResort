@@ -108,8 +108,19 @@ namespace LiftBatch
                     tram = def;
                 Eq(!shuttle, LiftClosedRule.ClosedForLift(true, def), W, def.Id + " held when its area has no open run");
                 Eq(false, LiftClosedRule.ClosedForLift(false, def), W, def.Id + " not closed while a run is open");
-                Eq(shuttle, LiftClosedRule.AreaOpenForBilling(false, def), W, def.Id + " billed as open with no open run");
+                // T137 S1 (DECISIONS 358; was `Eq(shuttle, ...)`: the tram billed full all year): every type bills NoOpenRun with
+                // no open run; the tram's share is 50 %, the Loop types' 25 %.
+                Eq(false, LiftClosedRule.AreaOpenForBilling(false, def), W, def.Id + " billed NoOpenRun with no open run (T137 S1)");
                 Eq(true, LiftClosedRule.AreaOpenForBilling(true, def), W, def.Id + " billed as open with an open run");
+                Eq(shuttle ? 0.5f : 0.25f, LiftClosedRule.NoOpenRunShare(def), W, def.Id + " no-open-run share (T137 S1: tram 50 %, else 25 %)");
+            }
+            Eq(0.25f, LiftClosedRule.NoOpenRunShare(null), W, "an untyped row's no-open-run share is 25 %");
+            if (tram != null)
+            {
+                // The 10-20 playthrough's tram: 2,233 m at 11,000 + 4,500/km = 21,048.5 full; T137 S1 off-season 10,524.25 (was 21,048.5).
+                float off = SkiMoneyRules.LiftRate(SkiMoneyRules.LiftUpkeepBillingOf(true, LiftClosedRule.AreaOpenForBilling(false, tram)),
+                                                   2233f, tram.FixedPerMonth, tram.PerKmPerMonth, LiftClosedRule.NoOpenRunShare(tram));
+                Check(Math.Abs(off - 10524.25f) < 0.01f, W, "tram 2,233 m off-season bill " + off + " (T137 S1: half of 21,048.5)");
             }
             Check(LiftClosedRule.HoldsWhenClosed(null) && LiftClosedRule.ClosedForLift(true, null), W,
                   "an untyped row keeps the hold (as before)");

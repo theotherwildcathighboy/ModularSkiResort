@@ -8,7 +8,7 @@
 // the Welcome Sign they link to by distance (SchoolLinkRules, 5 km): the sign's WorkProvider.m_MaxWorkers = the sum of SignJobs
 // over every LIVE top-level building linked to it, the number the ServiceUpgrade combine gave the sign before T113
 // (CityUtils.GetCityServiceWorkplaceMaxWorkers, CityUtils.cs:41-78: owner + each installed upgrade's WorkplaceData; vanilla
-// counted Inactive upgrades too, so does this rule). Staff work at the sign (it has the road) and "ride up".
+// counted Inactive upgrades too; since T137 an Inactive building carries 0, SignJobsFor). Staff work at the sign (it has the road) and "ride up".
 //
 // EFFICIENCY (D3 slice, DECISIONS 309 / 344): the sign's staffing factors (WorkProviderSystem writes NotEnoughEmployees,
 // SickEmployees and EmployeeHappiness into the sign's Efficiency buffer, WorkProviderSystem.cs:252-281) now describe the mountain
@@ -70,6 +70,18 @@ namespace SkiResortMod.Systems
         {
             float p = own * staffing;
             return p > 0f && !float.IsInfinity(p) ? p : 0f;
+        }
+
+        /// <summary>T137 (DECISIONS 358): the jobs one roadless building puts on its sign. An Inactive building puts none (was: Inactive
+        /// counted, as vanilla's upgrade combine did): vanilla bills an Inactive top-level building no wages
+        /// (CityServiceUpkeepSystem.GetUpkeepOfEmployeeWage :630-633), so a closed hut or summit lodge must not keep paying its staff
+        /// through the sign. A lodge's jobs halve off-season (OffSeasonRules.HalfJobs; <paramref name="offSeasonHalf"/> = its sign's
+        /// area is off-season and the setting is on); patrol rows (<paramref name="lodge"/> false) stay full.</summary>
+        public static int SignJobsFor(int signJobs, bool inactive, bool lodge, bool offSeasonHalf)
+        {
+            if (signJobs <= 0 || inactive)
+                return 0;
+            return lodge && offSeasonHalf ? OffSeasonRules.HalfJobs(signJobs) : signJobs;
         }
 
         /// <summary>The one log word list of a sign's carried jobs, e.g. "summit 8 + patrol hut 2".</summary>

@@ -4808,6 +4808,7 @@ namespace SkiResortMod.Systems
             // 2026-10-20 sim round (DECISIONS 347 c / d): the station LV icon state and the mountain jobs on the signs.
             World.GetExistingSystemManaged<StationLvIconSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<MountainJobsSystem>()?.AppendDump(sb);
+            World.GetExistingSystemManaged<OffSeasonStaffSystem>()?.AppendDump(sb);   // T137
         }
 
         /// <summary>Round F7 D7 (docs/research/field-test-7-fixes.md A3 / B3): the sign utility hook's lines (per

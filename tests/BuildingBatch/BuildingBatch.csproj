@@ -28,6 +28,9 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortIndex.cs" Link="SkiResortIndex.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SchoolLinkRules.cs" Link="SchoolLinkRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\MountainJobsRules.cs" Link="MountainJobsRules.cs" />
+    <!-- T137 (2026-10-20): off-season half staffing, OS1-OS6. -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\OffSeasonRules.cs" Link="OffSeasonRules.cs" />
+    <Compile Include="OffSeasonTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortScore.cs" Link="SkiResortScore.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SchoolRule.cs" Link="SchoolRule.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\PatrolRule.cs" Link="PatrolRule.cs" />

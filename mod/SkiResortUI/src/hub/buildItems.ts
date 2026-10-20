@@ -187,12 +187,12 @@ export interface BuildingDraw {
  *  a difference). A value 0 draws no row (vanilla's asset panel does the same). Lines and runs are not buildings: no row. */
 export const BUILDING_DRAW: Readonly<Partial<Record<BuildItemId, BuildingDraw>>> = {
   sign: { prefab: "SkiResortGate", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: true },
-  lodge: { prefab: "SkiAFrameDayLodge", upkeep: 3000, power: 1500, water: 1000, garbage: 80, workers: 6, keepsSlope: false },
+  lodge: { prefab: "SkiAFrameDayLodge", upkeep: 3000, power: 1500, water: 1000, garbage: 80, workers: 4, keepsSlope: false },
   lodgeHut: { prefab: "SkiLodgeHut", upkeep: 3000, power: 0, water: 0, garbage: 0, workers: 4, keepsSlope: true },
   lodgeMid: { prefab: "SkiLodgeMid", upkeep: 8000, power: 3500, water: 2300, garbage: 190, workers: 12, keepsSlope: true },
   lodgeSummit: { prefab: "SkiLodgeSummit", upkeep: 18000, power: 0, water: 0, garbage: 0, workers: 8, keepsSlope: true },
   lodgeGrand: { prefab: "SkiLodgeGrand", upkeep: 20000, power: 3500, water: 5000, garbage: 430, workers: 18, keepsSlope: false },
-  school: { prefab: "SkiSchool", upkeep: 4000, power: 2500, water: 1700, garbage: 130, workers: 6, keepsSlope: true },
+  school: { prefab: "SkiSchool", upkeep: 3000, power: 2500, water: 1700, garbage: 130, workers: 4, keepsSlope: true },
   patrolHut: { prefab: "SkiPatrolHut", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, keepsSlope: true },
   patrolHQ: { prefab: "SkiPatrolHQ", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, keepsSlope: true },
   baseStation: { prefab: "SkiBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, keepsSlope: true },

@@ -16,10 +16,10 @@
 //     as public transportation fees (label "Book resort income as public transportation fees"). Persisted under this property
 //     name — never rename.
 //   * SeasonPassShare / SeasonPassMultiplier (DECISIONS 240): read live by SkiLiftTicketSystem through
-//     SkiMoneyRules.ClampPassShare / ClampPassMultiplier (Mod.Settings?.X ?? DefaultX); defaults 50 % (0 = passes off) and 4.
+//     SkiMoneyRules.ClampPassShare / ClampPassMultiplier (Mod.Settings?.X ?? DefaultX); defaults 50 % (0 = passes off) and 2 (T137; was 4).
 //     Persisted under these property names — never rename.
 //   * LessonShare / LessonMultiplier (DECISIONS 241): the lesson fee, read live by SkiLiftTicketSystem
-//     through SkiMoneyRules.ClampLessonShare / ClampLessonMultiplier (Mod.Settings?.X ?? DefaultX); defaults 20 % (0 = lessons off)
+//     through SkiMoneyRules.ClampLessonShare / ClampLessonMultiplier (Mod.Settings?.X ?? DefaultX); defaults 30 % (T137; was 20) (0 = lessons off)
 //     and 1.5 × the lift ticket. LessonMultiplier is a float slider (Game.UI.Menu AutomaticSettings.cs:1083: float + SettingsUISlider =
 //     FloatSlider). Persisted under these property names — never rename.
 //   * EnableSnowGating (D13): read only through SnowLineSystem.IsSnowGatingEnabled() (true when the
@@ -199,8 +199,8 @@ namespace SkiResortMod.Settings
         public const bool DefaultDiagnosticMeasurements = false;   // code review 2026-10-19 D4 / D9: measurement scaffolding off
         public const bool DefaultBookTicketsAsFees = true;   // DECISIONS 239
         public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;             // 50 % (0 = passes off); DECISIONS 240
-        public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;   // 4 lift tickets
-        public const int DefaultLessonShare = SkiMoneyRules.LessonShareDefault;               // 20 % (0 = lessons off); DECISIONS 241
+        public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;   // 2 lift tickets (T137 I3; was 4)
+        public const int DefaultLessonShare = SkiMoneyRules.LessonShareDefault;               // 30 % (0 = lessons off); T137 I2, was 20 (DECISIONS 241)
         public const float DefaultLessonMultiplier = SkiMoneyRules.LessonMultiplierDefault;   // 1.5 lift tickets
         public const float DefaultSnowmakingBonusCelsius = RunSnowRules.DefaultSnowmakingMarginC;   // 3.3 (T09: 38 F; D14 was 2, before that 3)
         // Round E1 addendum A1, kept in F7: 8 = the look of the game's lot outline (snap distance 8 × 0.3,
@@ -261,7 +261,7 @@ namespace SkiResortMod.Settings
         /// <summary>LiftTicketPrice (Round E1 ch4, D26): read live by SkiLiftTicketSystem (and by SkiResortStatsSystem
         /// for the hub; header LIFT TICKET PRICE readers). Persisted under
         /// this property name — never rename. 0 = tickets off; 0-200 step 5 (SkiMoneyRules.TicketPriceMax /
-        /// TicketPriceStep); default SkiMoneyRules.TicketPriceDefault (60 since DECISIONS 241; was 40). unit "money" = Game.UI.Unit.kMoney
+        /// TicketPriceStep); default SkiMoneyRules.TicketPriceDefault (80 since T137 I1, DECISIONS 358; 60 since DECISIONS 241; was 40). unit "money" = Game.UI.Unit.kMoney
         /// (Game.UI/Unit.cs:49, 1.6.0f1 and 1.6.2f1; fallback "integer" if the Options row renders it badly,
         /// UNVERIFIED until field step 2).</summary>
         [SettingsUISlider(min = 0f, max = 200f, step = 5f, unit = "money")]
@@ -313,6 +313,12 @@ namespace SkiResortMod.Settings
         [SettingsUISlider(min = SkiMoneyRules.LessonMultiplierMin, max = SkiMoneyRules.LessonMultiplierMax, step = SkiMoneyRules.LessonMultiplierStep, unit = "floatSingleFraction")]
         [SettingsUISection(SectionMain, GroupBalance)]
         public float LessonMultiplier { get; set; }
+
+        /// <summary>OffSeasonHalfStaff (T137, DECISIONS 358): on = lodges and the ski school keep half their workplaces while their
+        /// ski area has had no open run for 12 game hours (OffSeasonStaffSystem, OffSeasonRules). Read live (on when settings are not
+        /// loaded); turning it off restores full staff on the next poll. Default on. Persisted under this property name — never rename.</summary>
+        [SettingsUISection(SectionMain, GroupBalance)]
+        public bool OffSeasonHalfStaff { get; set; }
 
         // --- Ski days (Round S1, s1-spec §2.11; ski-days spec ch4 §E; header SKI DAYS) ----------
         // Persisted under these property names — never rename. Read only through the *Of readers below.
@@ -534,9 +540,10 @@ namespace SkiResortMod.Settings
             LodgeSpendPerGuest = DefaultLodgeSpendPerGuest;             // Catalog Phase B (round-2-contract §9, D15): 15 since DECISIONS 241, 0 = off
             BookTicketsAsFees = DefaultBookTicketsAsFees;               // DECISIONS 239: on
             SeasonPassShare = DefaultSeasonPassShare;                   // DECISIONS 240: 50 %, 0 = off
-            SeasonPassMultiplier = DefaultSeasonPassMultiplier;         // 4 lift tickets
-            LessonShare = DefaultLessonShare;                           // DECISIONS 241: 20 %, 0 = off
+            SeasonPassMultiplier = DefaultSeasonPassMultiplier;         // 2 lift tickets (T137)
+            LessonShare = DefaultLessonShare;                           // T137: 30 % (DECISIONS 241: 20 %), 0 = off
             LessonMultiplier = DefaultLessonMultiplier;                 // 1.5 lift tickets
+            OffSeasonHalfStaff = OffSeasonRules.DefaultEnabled;         // T137: on
             SkiDayLocalsPct = DefaultSkiDayLocalsPct;                   // S1 (s1-spec §2.11)
             SkiDayTouristsPct = DefaultSkiDayTouristsPct;               // S1
             SkiDayReachKm = DefaultSkiDayReachKm;                       // S1

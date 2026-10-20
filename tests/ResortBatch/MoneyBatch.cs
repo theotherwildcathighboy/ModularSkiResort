@@ -174,8 +174,8 @@ namespace ResortBatch
         private static void Lessons(Func<bool, string, string, bool> check)
         {
             const string w = "money T16";
-            check(SkiMoneyRules.LessonShareMax == 50 && SkiMoneyRules.LessonShareStep == 5 && SkiMoneyRules.LessonShareDefault == 20, w,
-                  "LessonShare Max / Step / Default = 50 / 5 / 20");
+            check(SkiMoneyRules.LessonShareMax == 50 && SkiMoneyRules.LessonShareStep == 5 && SkiMoneyRules.LessonShareDefault == 30, w,
+                  "LessonShare Max / Step / Default = 50 / 5 / 30 (T137 I2, was 20)");
             check(SkiMoneyRules.LessonMultiplierMin == 1.0f && SkiMoneyRules.LessonMultiplierMax == 3.0f &&
                   SkiMoneyRules.LessonMultiplierStep == 0.5f && SkiMoneyRules.LessonMultiplierDefault == 1.5f, w,
                   "LessonMultiplier Min / Max / Step / Default = 1.0 / 3.0 / 0.5 / 1.5");
@@ -450,8 +450,8 @@ namespace ResortBatch
             check(sameBits, w, "the 10-argument Chance should equal the 11-argument one with passHolder false, bit for bit");
 
             // Constants (the Options sliders and the defaults).
-            check(SkiMoneyRules.PassMultiplierMin == 2 && SkiMoneyRules.PassMultiplierMax == 10 && SkiMoneyRules.PassMultiplierDefault == 4, w,
-                  "multiplier constants 2..10, default 4");
+            check(SkiMoneyRules.PassMultiplierMin == 2 && SkiMoneyRules.PassMultiplierMax == 10 && SkiMoneyRules.PassMultiplierDefault == 2, w,
+                  "multiplier constants 2..10, default 2 (T137 I3, was 4)");
             check(SkiMoneyRules.PassShareMax == 100 && SkiMoneyRules.PassShareStep == 5 && SkiMoneyRules.PassShareDefault == 50, w,
                   "share constants 0..100 step 5, default 50");
             check(SkiMoneyRules.ClampPassShare(-5) == 0 && SkiMoneyRules.ClampPassShare(130) == 100 && SkiMoneyRules.ClampPassShare(55) == 55, w,
@@ -475,6 +475,18 @@ namespace ResortBatch
                   "LiftFullRate(3000, 11000, 4500) " + SkiMoneyRules.LiftFullRate(3000f, 11000f, 4500f));
             check(SkiMoneyRules.LiftRate(Billing.Full, 3000f, 11000f, 4500f) == 24500f, w, "LiftRate(Full, 3000, 11000, 4500)");
             check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2000f, 8000f, 3000f) == 3500f, w, "LiftRate(NoOpenRun, 2000, 8000, 3000)");
+            // T137 S1 (DECISIONS 358): the per-type no-open-run share (the tram 50 %); Unfinished keeps 25 %; a bad share reads 25 %.
+            check(SkiMoneyRules.ShuttleNoOpenRunShare == 0.5f, w, "ShuttleNoOpenRunShare 0.5 (T137 S1)");
+            check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2233f, 11000f, 4500f, 0.5f) == 10524.25f, w,
+                  "the playthrough tram 2,233 m off-season: 10,524.25 (half of 21,048.5; was 21,048.5 full) " +
+                  SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2233f, 11000f, 4500f, 0.5f));
+            check(SkiMoneyRules.LiftRate(Billing.Unfinished, 2233f, 11000f, 4500f, 0.5f) == 5262.125f, w,
+                  "Unfinished keeps the 25 % share whatever the type's no-open-run share");
+            check(SkiMoneyRules.LiftRate(Billing.Full, 2233f, 11000f, 4500f, 0.5f) == 21048.5f, w, "Full ignores the share");
+            check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2000f, 8000f, 3000f, float.NaN) == 3500f &&
+                  SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2000f, 8000f, 3000f, 1.5f) == 3500f &&
+                  SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2000f, 8000f, 3000f, 0.25f) == SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2000f, 8000f, 3000f),
+                  w, "a share that is NaN or outside 0..1 reads 25 %; 0.25 = the four-argument overload");
             check(SkiMoneyRules.LiftFullRate(float.NaN, 5000f, 2000f) == 5000f && SkiMoneyRules.LiftFullRate(-5f, 5000f, 2000f) == 5000f,
                   w, "a non-finite or negative length counts as 0 m");
             check(SkiMoneyRules.LiftFullRate(1000f, float.NaN, -2000f) == 0f, w, "non-finite / negative rate parts read 0");
@@ -567,7 +579,7 @@ namespace ResortBatch
             check(SkiMoneyRules.LiftFixedPerMonth == 2500f, w, "LiftFixedPerMonth " + SkiMoneyRules.LiftFixedPerMonth);
             check(SkiMoneyRules.LiftPerKmPerMonth == 1000f, w, "LiftPerKmPerMonth " + SkiMoneyRules.LiftPerKmPerMonth);
             check(SkiMoneyRules.LiftReducedShare == 0.25f, w, "LiftReducedShare " + SkiMoneyRules.LiftReducedShare);
-            check(SkiMoneyRules.TicketPriceDefault == 60, w, "TicketPriceDefault " + SkiMoneyRules.TicketPriceDefault + " (60 since econ-2 round 2)");
+            check(SkiMoneyRules.TicketPriceDefault == 80, w, "TicketPriceDefault " + SkiMoneyRules.TicketPriceDefault + " (80 since T137 I1; 60 since econ-2 round 2)");
             check(SkiMoneyRules.TicketPriceMax == 200, w, "TicketPriceMax " + SkiMoneyRules.TicketPriceMax);
             check(SkiMoneyRules.TicketPriceStep == 5, w, "TicketPriceStep " + SkiMoneyRules.TicketPriceStep);
             check(SkiMoneyRules.TicksPerDay == 262144, w, "TicksPerDay " + SkiMoneyRules.TicksPerDay);

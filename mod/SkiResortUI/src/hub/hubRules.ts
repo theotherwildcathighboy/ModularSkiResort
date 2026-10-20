@@ -622,8 +622,8 @@ export function incomeNote(live: ResortLive, price: number): IncomeNote {
 export const PRICE_FULL_AT = 240;
 export const PRICE_SPAN = 200;
 export const PRICE_MAX = 200;
-/** The highest price with no effect on ski days (240 − 200 = 40; the default price is 60 since econ-2 round 2, C#
- *  SkiMoneyRules.TicketPriceDefault, where the factor is 0.9). */
+/** The highest price with no effect on ski days (240 − 200 = 40; the default price is 80 since T137 (60 since econ-2 round 2), C#
+ *  SkiMoneyRules.TicketPriceDefault, where the factor is 0.8). */
 export const PRICE_NO_EFFECT_MAX = PRICE_FULL_AT - PRICE_SPAN;
 /** The prices whose factor the price line's tooltip shows (MONEY_PRICE_TIP[Curve] P1..P3). */
 export const PRICE_EXAMPLES: readonly number[] = [80, 120, PRICE_MAX];

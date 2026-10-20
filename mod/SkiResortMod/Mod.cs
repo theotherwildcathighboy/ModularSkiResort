@@ -546,6 +546,13 @@ namespace SkiResortMod
             // The phase must stay Modification4B or the anchor is skipped and the system silently never prints.
             updateSystem.UpdateAfter<LiftTowerDiagSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
 
+            // T123 (docs/research/lifts/tower-numbers-build-2026-10-20.md): per-tower number tiles (Secondary sub-objects of the
+            // line towers). Fed by LiftCensusSystem (OnCensusBuilt). Anchor is load-bearing: AFTER LiftCensusSystem at Modification4B
+            // (towers are in the node buffers by Modification3, SystemOrder.cs:136) and BEFORE Modification5, where
+            // SecondaryObjectReferencesSystem files a Created tile into its tower's SubObject buffer (SystemOrder.cs:206).
+            // Writes nothing while the SkiNumTile prefabs are not loaded (the baked plates show).
+            updateSystem.UpdateAfter<TowerNumberTileSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
+
             // T48 step 2 (docs/research/field/2026-10-19/tower-planner-build-1.md): READ-ONLY overlay of the planned towers and rope of
             // the selected lift line (the plan LiftTowerDiagSystem logs as "Towers [plan]"). Anchor is load-bearing for the reason of
             // SkiStationAlignSystem below: OverlayRenderSystem (Rendering, SystemOrder.cs:687, 1.6.2 :688) consumes and clears the
@@ -678,6 +685,12 @@ namespace SkiResortMod
             // every 64 frames; the phase is NOT load-bearing: WorkProviderSystem's tick (GameSimulation, slice every 512 frames)
             // reads m_MaxWorkers whenever it runs, and nothing vanilla rewrites it for a city service building after its Created frame.
             updateSystem.UpdateAt<MountainJobsSystem>(SystemUpdatePhase.GameSimulation);
+
+            // Off-season staff (T137, DECISIONS 358): lodges and the ski school keep half their workplaces while their ski area has had no
+            // open run for 12 game hours (OffSeasonRules; MountainJobsSystem halves the hut / summit sign jobs through IsHalf). Polls every
+            // 256 frames; the phase is NOT load-bearing for the same reason as MountainJobsSystem (WorkProviderSystem reads m_MaxWorkers
+            // whenever it runs).
+            updateSystem.UpdateAt<OffSeasonStaffSystem>(SystemUpdatePhase.GameSimulation);
 
             // Station LV icon (T117 follow-up, DECISIONS 347 d): removes the vanilla LowVoltageNotConnected icon from a station whose
             // LV stub has a wire (ConnectionWarningSystem counts only edges AT the stub node; a wire that local-connected onto the

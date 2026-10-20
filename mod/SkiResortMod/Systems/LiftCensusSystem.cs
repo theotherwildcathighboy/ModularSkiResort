@@ -245,6 +245,7 @@ namespace SkiResortMod.Systems
         private Game.UI.NameSystem m_NameSystem;
         private LiftTowerFitSystem m_TowerFit;     // T48 step 3: fits new / changed lines (writes at Modification1 of a later frame)
         private LiftTowerDiagSystem m_TowerDiag;   // T03 step 1: read-only tower log; fed after each build, printed on DumpCensus
+        private TowerNumberTileSystem m_TowerNumbers;   // T123: per-tower number tiles; fed after each build, reconciled once quiet
 
         // ── queries ───────────────────────────────────────────────────────────────────────────────
         private EntityQuery m_EdgeProbe, m_NodeProbe, m_StationProbe, m_DeletedObjectProbe, m_DeletedLaneProbe;
@@ -758,6 +759,7 @@ namespace SkiResortMod.Systems
             m_NameSystem = World.GetOrCreateSystemManaged<Game.UI.NameSystem>();
             m_TowerDiag = World.GetOrCreateSystemManaged<LiftTowerDiagSystem>();
             m_TowerFit = World.GetOrCreateSystemManaged<LiftTowerFitSystem>();
+            m_TowerNumbers = World.GetOrCreateSystemManaged<TowerNumberTileSystem>();
             // Phase D (round-4-contract §1.3): the guard's clock, the simulation frame (SimulationSystem.cs:68; the mod's
             // precedent: SkiLiftChargeSystem, SkiDaySystem, SkiResortStatsSystem).
             m_Simulation = World.GetOrCreateSystemManaged<Game.Simulation.SimulationSystem>();
@@ -1267,6 +1269,8 @@ namespace SkiResortMod.Systems
             m_TowerDiag?.OnCensusBuilt(m_Edges);
             // T48 step 3 (LiftTowerFitSystem header): the same edges; it queues new signatures and fits them once the census is quiet.
             m_TowerFit?.OnCensusBuilt(m_Edges);
+            // T123 (TowerNumberTileSystem header): the same edges; it renumbers and reconciles the tower number tiles once quiet.
+            m_TowerNumbers?.OnCensusBuilt(m_Edges);
         }
 
         private void Harvest()

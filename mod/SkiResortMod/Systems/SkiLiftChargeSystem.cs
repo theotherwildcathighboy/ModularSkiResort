@@ -384,7 +384,7 @@ namespace SkiResortMod.Systems
                          // read as an exception to the no-counted-run quarter; it is not one).
                          $"{SkiMoneyRules.LiftPerKmPerMonth:F0}/km of line (complete, with or without power; by lift type since Catalog Phase B: " +
                          $"{TypeRatesText()}), " +
-                         $"{SkiMoneyRules.LiftReducedShare * 100f:F0} % while unfinished or while its ski area " +
+                         $"{SkiMoneyRules.LiftReducedShare * 100f:F0} % while unfinished or while its ski area (a tram {SkiMoneyRules.ShuttleNoOpenRunShare * 100f:F0} %, T137 S1) " +
                          "has no counted run (kept maintained; full until the area's first score after a load is released; " +
                          "power does not change the bill, Phase D); " +
                          "lift = a lift census row (lone stations included); ski area = nearest Welcome Sign within " +
@@ -520,7 +520,8 @@ namespace SkiResortMod.Systems
                 // AreaRunOpen(sign)`, :483): an unpowered complete lift is billed like a powered one, so its area is read too.
                 // T13: the same read (AreaRunState) also steps the area's closed state, once per area per snapshot.
                 bool areaRunOpen = AreaRunState(sign, frame, out bool areaClosed);
-                // DECISIONS 347 (e): a Shuttle type (the tram, sightseeing) runs with no open run: never closed, billed full.
+                // DECISIONS 347 (e): a Shuttle type (the tram, sightseeing) runs with no open run: never closed. T137 S1
+                // (DECISIONS 358; was "billed full"): it bills NoOpenRun at LiftClosedRule.NoOpenRunShare (50 %; Loop types 25 %).
                 LiftTypeDef def = SkiCatalog.LiftByIndex(r.Type) ?? SkiCatalog.Lifts[0];
                 areaClosed = LiftClosedRule.ClosedForLift(areaClosed, def);
                 bool areaOpen = !complete || LiftClosedRule.AreaOpenForBilling(areaRunOpen, def);
@@ -530,7 +531,7 @@ namespace SkiResortMod.Systems
                 SkiMoneyRules.LiftBilling billing = SkiMoneyRules.LiftUpkeepBillingOf(complete, areaOpen);
                 // Catalog Phase B (round-2-contract §6.4; was SkiMoneyRules.LiftRate(billing, r.LengthM), the fixed-grip
                 // consts, :467): the row type's two rate numbers; an untyped row bills as fixed-grip (Lifts[0]) (def: above).
-                float rate = SkiMoneyRules.LiftRate(billing, r.LengthM, def.FixedPerMonth, def.PerKmPerMonth);
+                float rate = SkiMoneyRules.LiftRate(billing, r.LengthM, def.FixedPerMonth, def.PerKmPerMonth, LiftClosedRule.NoOpenRunShare(def));
                 float km = math.isfinite(r.LengthM) && r.LengthM > 0f ? r.LengthM / 1000f : 0f;
                 var lc = new LiftCharge
                 {
@@ -672,7 +673,10 @@ namespace SkiResortMod.Systems
                 case SkiMoneyRules.LiftBilling.Full: billed = "full"; break;
                 case SkiMoneyRules.LiftBilling.NoPower: billed = "at 25 %: no power"; break;   // Phase D: unreachable (LiftUpkeepBillingOf), kept for the enum
                 // Round M2 T2: without this case the default would print "unfinished".
-                case SkiMoneyRules.LiftBilling.NoOpenRun: billed = "at 25 %: no open run in its ski area"; break;
+                // T137 S1: the type's share (the tram 50 %, sightseeing; the others 25 %).
+                case SkiMoneyRules.LiftBilling.NoOpenRun:
+                    billed = $"at {LiftClosedRule.NoOpenRunShare(SkiCatalog.LiftByIndex(c.Type)) * 100f:F0} %: no open run in its ski area";
+                    break;
                 default: billed = "at 25 %: unfinished"; break;
             }
             // F7 E4 (header POWER): power is read only for Complete rows; the others carry Powered = true
@@ -925,8 +929,8 @@ namespace SkiResortMod.Systems
                 : "n/a";
             // Round M2 T2 (build-contract.md §6.8): the reduced part names how many are reduced for no open run.
             string body = $"-{debit} this pass (carry {m_CarryFraction:F2}) — rate {rateBucket}/month = {m_TotalFull} lift(s) " +
-                          $"full ({m_TotalFullKm:F1} km) + {m_TotalReduced} at 25 % ({m_TotalReducedKm:F1} km; {m_TotalNoOpenRun} " +
-                          $"for no open run); by type: {ByType()}; by ski area: {ByArea()}; balance {balance}";
+                          $"full ({m_TotalFullKm:F1} km) + {m_TotalReduced} reduced ({m_TotalReducedKm:F1} km; {m_TotalNoOpenRun} " +
+                          $"for no open run: 25 %, a tram 50 %; unfinished 25 %); by type: {ByType()}; by ski area: {ByArea()}; balance {balance}";
             switch (m_ChargeLog.Offer(now, force, body, debit, rateBucket))
             {
                 case LogWindow.Verdict.Plain:
@@ -1099,7 +1103,7 @@ namespace SkiResortMod.Systems
                     sb.Append("    ski area ").Append(sign == Entity.Null ? "not linked" : Fmt(sign)).Append(": ")
                       .Append(rc.Lifts).Append(" lift(s), ").Append(rc.Complete).Append(" complete, ")
                       .Append(rc.Operating).Append(" operating, ").Append(rc.Full).Append(" full (")
-                      .Append(rc.FullKm.ToString("F1")).Append(" km) + ").Append(rc.Reduced).Append(" at 25 % (")
+                      .Append(rc.FullKm.ToString("F1")).Append(" km) + ").Append(rc.Reduced).Append(" reduced (")
                       .Append(rc.ReducedKm.ToString("F1")).Append(" km; ").Append(rc.NoOpenRun).Append(" for no open run) = ")
                       .Append(rc.RatePerMonth.ToString("F2")).Append("/month\n");
                 }

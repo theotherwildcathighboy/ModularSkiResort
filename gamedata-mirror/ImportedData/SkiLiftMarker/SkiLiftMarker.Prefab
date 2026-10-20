@@ -75,7 +75,7 @@
             {
                 "$id": 10,
                 "$type": "9|Game.Prefabs.NetSectionInfo, Game",
-                "m_Section": $fstrref:"CID:83cbb5ffed1c4539b2bbbf8ec7541a02",
+                "m_Section": $fstrref:"CID:5f24f2686c2b4f178f2f9d52b1fb76fd",
                 "m_RequireAll": {
                     "$id": 11,
                     "$type": 6,

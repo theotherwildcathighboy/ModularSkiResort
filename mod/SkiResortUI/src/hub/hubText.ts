@@ -356,11 +356,11 @@ export const HUB_LOC = {
   // Phase D (DECISIONS 171 ruling 2, skeptic MUST-1, build-rules.md section 3.2; was "Billed at 25 %: no power"): power no
   // longer lowers the bill, so a reduced row whose status is No power is billed reduced only for NoOpenRun;
   // hubRules.liftCostReason still picks this key for it, so the text names that reason (text only, contract 6).
-  liftCostReducedNoPower: ["SkiResort.Hub.LIFT_COST_REDUCED[NoPower]", "Billed at a quarter: no open run in its ski area"],
+  liftCostReducedNoPower: ["SkiResort.Hub.LIFT_COST_REDUCED[NoPower]", "Billed reduced: no open run in its ski area (a quarter; a tram half)"],
   liftCostReducedUnfinished: ["SkiResort.Hub.LIFT_COST_REDUCED[Unfinished]", "Billed at a quarter while unfinished"],
   liftCostReducedSectionMissing: ["SkiResort.Hub.LIFT_COST_REDUCED[SectionMissing]", "Billed at a quarter while a section is missing"],
   // Round M2 T2 (thaw-rules.md section 2 item 8): a complete, powered lift in a ski area with no counted run.
-  liftCostReducedNoOpenRun: ["SkiResort.Hub.LIFT_COST_REDUCED[NoOpenRun]", "Billed at a quarter: no open run in its ski area"],
+  liftCostReducedNoOpenRun: ["SkiResort.Hub.LIFT_COST_REDUCED[NoOpenRun]", "Billed reduced: no open run in its ski area (a quarter; a tram half)"],
   liftActions: ["SkiResort.Hub.LIFT_ACTIONS", "Click to fly there (to the gap if a section is missing). The pen renames it."],
   liftsTotalLength: ["SkiResort.Hub.LIFTS_TOTAL_LENGTH", "Total lift length"],
   liftsTotalCapacity: ["SkiResort.Hub.LIFTS_TOTAL_CAPACITY", "Capacity, all lifts"],
@@ -418,7 +418,7 @@ export const HUB_LOC = {
   guestsNoteSinceLoad: ["SkiResort.Hub.GUESTS_NOTE[SinceLoad]", "Counting started when you loaded the city, partway through the month."],
   ticketsNoteOff: ["SkiResort.Hub.TICKETS_NOTE[Off]", "Lift tickets are off: the Lift ticket price in Options is 0."],
   ticketsNoteNoEfficiency: ["SkiResort.Hub.TICKETS_NOTE[NoEfficiency]", "No lift tickets now: the Welcome Sign is not running."],
-  ticketsNoteNothingOpen: ["SkiResort.Hub.TICKETS_NOTE[NothingOpen]", "No lift tickets now: no run is open."],
+  ticketsNoteNothingOpen: ["SkiResort.Hub.TICKETS_NOTE[NothingOpen]", "No lift tickets now: no run is open. Off-season, lodges drop to half staff (Options); set one Inactive: a tenth of upkeep, no wages."],
   ticketsNoteNotKnownYet: ["SkiResort.Hub.TICKETS_NOTE[NotKnownYet]", "No lift tickets yet: runs are being checked after a load or a new sign."],
 
   // ---- money view (6.9) ----
@@ -697,10 +697,10 @@ export const HUB_FMT = {
   moneyRowLifts: ["SkiResort.Hub.MONEY_ROW[Lifts]", "Lifts · {N} · {LEN} of line"],
   // Phase D (DECISIONS 171 ruling 2, skeptic MUST-1; identical in LocaleEN.cs, R4, CG-T8): an unpowered lift still pays
   // in full; the two remaining reductions are unfinished and no open run (SkiMoneyRules.LiftUpkeepBillingOf).
-  moneyTipLifts: ["SkiResort.Hub.MONEY_TIP[Lifts]", "{BASE} per month per lift + {PERKM} per km of line, in full even without power; a quarter while unfinished or with no open run. Now {FULL} in full, {REDUCED} at a quarter."],
+  moneyTipLifts: ["SkiResort.Hub.MONEY_TIP[Lifts]", "{BASE} per month per lift + {PERKM} per km of line, in full even without power; a quarter while unfinished or with no open run (a tram half). Now {FULL} full, {REDUCED} reduced."],
   /** Contract 6: MONEY_TIP[Lifts] when two or more lift types are offered (each has its own rates, one
    *  MONEY_TIP_LIFT_RATE line per type follows). Phase D: reworded as MONEY_TIP[Lifts]. */
-  moneyTipLiftsTypes: ["SkiResort.Hub.MONEY_TIP[LiftsTypes]", "Each lift: its kind's base per month + a rate per km of line, in full even without power; a quarter while unfinished or with no open run. Now {FULL} in full, {REDUCED} at a quarter."],
+  moneyTipLiftsTypes: ["SkiResort.Hub.MONEY_TIP[LiftsTypes]", "Each lift: its kind's base per month + a rate per km of line, in full even without power; a quarter while unfinished or with no open run (a tram half). Now {FULL} full, {REDUCED} reduced."],
   moneyTipLiftRate: ["SkiResort.Hub.MONEY_TIP_LIFT_RATE", "{TYPE}: {BASE} per month + {PERKM} per km"],
   moneyTipBuildings: ["SkiResort.Hub.MONEY_TIP[Buildings]", "Upkeep {UPKEEP} · wages {WAGES} for {FILLED} of {JOBS} staff, at the Parks & Recreation budget."],
   // build strip (6.10)

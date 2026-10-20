@@ -27,8 +27,9 @@
 //
 // SYNC: every PollFrames simulation frames, Game mode only. Targets = SumBySign over the published top-level links (place /
 // remove / relink / Move It / sign bulldozed all reach those links at the next recompute). Carriers = every sign that has a
-// target or a WorkProvider (the load pass scans the signs once). Inactive buildings count (vanilla's combine counted Inactive
-// upgrades). A sign that is gone drops out. No component is ever removed.
+// target or a WorkProvider (the load pass scans the signs once). T137: an Inactive building carries 0 (was: Inactive counted, as vanilla's combine counted Inactive
+// upgrades). A sign that is gone drops out. No component is ever removed. T137 (DECISIONS 358): a lodge's sign jobs (hut 4, summit 8)
+// halve while OffSeasonStaffSystem.IsHalf(its sign) (off-season, setting on); patrol stays full (MountainJobsRules.SignJobsFor).
 //
 // LOGS: "created"; one load line; one line per sign change "MountainJobs [sign] Welcome Sign i:v workplaces a -> b (summit 8 +
 // patrol hut 2; ...)"; "!!!" once on a throw (then disabled until the next load). DUMP: AppendDump (hub "Dump diagnostics").
@@ -58,6 +59,7 @@ namespace SkiResortMod.Systems
 
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private SkiResortAttractivenessSystem m_Attractiveness;
+        private OffSeasonStaffSystem m_OffSeason;   // T137: the hut's and the summit lodge's sign jobs halve off-season
         private EntityQuery m_SignProviderQuery;
         private EntityQuery m_EfficiencyParamQuery;
 
@@ -78,6 +80,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
+            m_OffSeason = World.GetOrCreateSystemManaged<OffSeasonStaffSystem>();
             m_SignProviderQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[] { ComponentType.ReadOnly<Building>(), ComponentType.ReadOnly<PrefabRef>(), ComponentType.ReadOnly<WorkProvider>() },
@@ -203,7 +206,7 @@ namespace SkiResortMod.Systems
                 Entity b = m_Buildings[i];
                 bool live = EntityManager.Exists(b) && !EntityManager.HasComponent<Deleted>(b) && !EntityManager.HasComponent<Temp>(b);
                 m_SignRefs.Add(m_Signs[i] == Entity.Null ? EntityRef.Null : LiftCensusSystem.Ref(m_Signs[i]));
-                m_Jobs.Add(live ? SignJobsOf(b, out _) : 0);
+                m_Jobs.Add(live ? SeasonalSignJobsOf(b, m_Signs[i], out _) : 0);
                 m_Live.Add(live);
             }
             MountainJobsRules.SumBySign(m_SignRefs, m_Jobs, m_Live, m_Targets);
@@ -228,6 +231,24 @@ namespace SkiResortMod.Systems
             return 0;
         }
 
+        /// <summary>T137 (DECISIONS 358): SignJobsOf through MountainJobsRules.SignJobsFor — 0 for an Inactive building, halved for a
+        /// LODGE row while its sign's area is off-season and the setting is on (OffSeasonStaffSystem.IsHalf); patrol rows stay full.</summary>
+        private int SeasonalSignJobsOf(Entity building, Entity sign, out string name)
+        {
+            int full = SignJobsOf(building, out name);
+            if (full <= 0)
+                return 0;
+            bool inactive = EntityManager.TryGetComponent(building, out Building bld) && BuildingUtils.CheckOption(bld, BuildingOption.Inactive);
+            bool lodge = EntityManager.TryGetComponent(building, out PrefabRef pr) && m_PrefabCatalog.LodgeDefs.ContainsKey(pr.m_Prefab);
+            bool half = lodge && m_OffSeason.IsHalf(sign);
+            int jobs = MountainJobsRules.SignJobsFor(full, inactive, lodge, half);
+            if (inactive)
+                name += " (Inactive: 0)";
+            else if (jobs != full)
+                name += " (off-season half)";
+            return jobs;
+        }
+
         /// <summary>"summit 8 + patrol hut 2" for the live buildings linked to <paramref name="sign"/> (log and DUMP).</summary>
         private string BreakdownOf(Entity sign)
         {
@@ -237,7 +258,7 @@ namespace SkiResortMod.Systems
             {
                 if (m_Signs[i] != sign || !m_Live[i])
                     continue;
-                int j = SignJobsOf(m_Buildings[i], out string name);
+                int j = SeasonalSignJobsOf(m_Buildings[i], sign, out string name);
                 if (j <= 0)
                     continue;
                 names.Add(name + " " + Id(m_Buildings[i]));

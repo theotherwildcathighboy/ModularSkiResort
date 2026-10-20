@@ -78,7 +78,7 @@
                 "$type": "8|Game.Prefabs.Workplace, Game",
                 "name": "Workplace",
                 "active": true,
-                "m_Workplaces": 6,
+                "m_Workplaces": 4,
                 "m_MinimumWorkersLimit": 0,
                 "m_Complexity": 1,
                 "m_EveningShiftProbability": 0.3,

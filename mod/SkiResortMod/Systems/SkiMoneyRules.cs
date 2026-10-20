@@ -80,7 +80,7 @@ namespace SkiResortMod.Systems
         public const float LiftPerKmPerMonth = SkiCatalog.FixedGrip.PerKmPerMonth;
         public const float LiftReducedShare = 0.25f;
         // D26
-        public const int TicketPriceDefault = 60;   // DECISIONS 241: was 40; the ski-day price factor at 60 is 0.9
+        public const int TicketPriceDefault = 80;   // T137 I1 (DECISIONS 358): was 60 (DECISIONS 241; 40 before); the ski-day price factor at 80 is 0.8
         public const int TicketPriceMax = 200;
         public const int TicketPriceStep = 5;
         // time (TimeSystem.kTicksPerDay, Game.Simulation/TimeSystem.cs:18; the ECS systems assert it at arm time)
@@ -132,8 +132,24 @@ namespace SkiResortMod.Systems
         /// <summary>Catalog Phase B: LiftRate with the lift type's two rate numbers; any billing but Full bills
         /// LiftReducedShare (global policy) of the full rate.</summary>
         public static float LiftRate(LiftBilling billing, float lengthM, float fixedPerMonth, float perKmPerMonth)
-            => billing == LiftBilling.Full ? LiftFullRate(lengthM, fixedPerMonth, perKmPerMonth)
-                                           : LiftReducedShare * LiftFullRate(lengthM, fixedPerMonth, perKmPerMonth);
+            => LiftRate(billing, lengthM, fixedPerMonth, perKmPerMonth, LiftReducedShare);
+
+        /// <summary>T137 S1 (DECISIONS 358): the share a Shuttle type (the tram, sightseeing) bills while its ski area has no
+        /// open run: it keeps running (DECISIONS 347 e), so half the full rate instead of the quarter of a stopped lift.</summary>
+        public const float ShuttleNoOpenRunShare = 0.5f;
+
+        /// <summary>T137 S1: LiftRate with the type's share for NoOpenRun (<paramref name="noOpenRunShare"/>, LiftClosedRule.NoOpenRunShare);
+        /// Unfinished and NoPower keep LiftReducedShare. A share that is not finite or not in 0..1 reads LiftReducedShare.</summary>
+        public static float LiftRate(LiftBilling billing, float lengthM, float fixedPerMonth, float perKmPerMonth, float noOpenRunShare)
+        {
+            float full = LiftFullRate(lengthM, fixedPerMonth, perKmPerMonth);
+            if (billing == LiftBilling.Full)
+                return full;
+            float share = billing == LiftBilling.NoOpenRun && math.isfinite(noOpenRunShare) && noOpenRunShare >= 0f && noOpenRunShare <= 1f
+                ? noOpenRunShare
+                : LiftReducedShare;
+            return share * full;
+        }
 
         // ── Catalog Phase B seam S3 (round-2-contract §6.2, D15): lodge spend per paying guest ─────────────────────
         public const int LodgeSpendDefault = SkiCatalog.LodgeSpend.Default;   // 15 (DECISIONS 241; was 0 = off; ResortBatch CG-1)
@@ -211,7 +227,7 @@ namespace SkiResortMod.Systems
         // ── Season passes ────────────────────────────────────────────────────────────────────────────────────────────────
         public const int PassMultiplierMin = 2;
         public const int PassMultiplierMax = 10;
-        public const int PassMultiplierDefault = 4;
+        public const int PassMultiplierDefault = 2;   // T137 I3 (DECISIONS 358): was 4; a season is about six ski days
         public const int PassShareMax = 100;
         public const int PassShareStep = 5;
         public const int PassShareDefault = 50;   // 0 = passes off
@@ -299,7 +315,7 @@ namespace SkiResortMod.Systems
         // and is booked exactly like tickets. Called from the ticket job (Burst).
         public const int LessonShareMax = 50;
         public const int LessonShareStep = 5;
-        public const int LessonShareDefault = 20;   // 0 = lessons off
+        public const int LessonShareDefault = 30;   // 0 = lessons off; T137 I2 (DECISIONS 358): was 20
         public const float LessonMultiplierMin = 1.0f;
         public const float LessonMultiplierMax = 3.0f;
         public const float LessonMultiplierStep = 0.5f;

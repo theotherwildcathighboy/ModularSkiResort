@@ -898,9 +898,10 @@ namespace SkiResortMod.Systems
                 lodges = new[]
                 {
                     // Catalog Phase B (round-2-contract §1.5; was SkiCatalog.cs:296 { LodgeAFrame, 360, "lodge" }):
-                    // the A-frame = SkiAFrameDayLodge.Prefab (m_UpgradeCost 40000, m_Upkeep 3000, m_Workplaces 6, ForbidMultiple false).
+                    // the A-frame = SkiAFrameDayLodge.Prefab (m_UpgradeCost 40000, m_Upkeep 3000, m_Workplaces 4, ForbidMultiple false).
+                    // T137 C2 (DECISIONS 358): jobs 6 -> 4 (vanilla leisure parks of attraction 30-40 carry 2-10 jobs).
                     new LodgeDef(0, "aFrame", Names.LodgeAFrame, "lodge", b: 20, e: 4, mu: 0.5, muSummit: 0.5, capacity: 360,
-                                 priceTolerance: 0, jobs: 6, buildCost: 40000, upkeep: 3000, forbidMultiple: false,
+                                 priceTolerance: 0, jobs: 4, buildCost: 40000, upkeep: 3000, forbidMultiple: false,
                                  luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.Base, expected: true),
                     new LodgeDef(1, "hut", Names.LodgeHut, "lodgeHut", b: 16, e: 4, mu: 0.5, muSummit: 0.75, capacity: 200,
                                  priceTolerance: 0, jobs: 0, buildCost: 50000, upkeep: 3000, forbidMultiple: false,
@@ -920,8 +921,9 @@ namespace SkiResortMod.Systems
                 //    roadless and are not written) ──
                 schools = new[]
                 {
-                    new SchoolDef(Names.School, "school", School.ScoreValue, School.DemandFactor, jobs: 6, buildCost: 80000,
-                                  upkeep: 4000, forbidMultiple: true, roadRule: LodgeRoadRule.Base, expected: true),
+                    // T137 C1 (DECISIONS 358): jobs 6 -> 4, upkeep 4,000 -> 3,000 (SkiSchool.Prefab in the same round).
+                    new SchoolDef(Names.School, "school", School.ScoreValue, School.DemandFactor, jobs: 4, buildCost: 80000,
+                                  upkeep: 3000, forbidMultiple: true, roadRule: LodgeRoadRule.Base, expected: true),
                 };
                 patrols = new[]
                 {

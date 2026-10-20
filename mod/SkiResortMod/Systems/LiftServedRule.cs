@@ -705,11 +705,20 @@ namespace SkiResortMod.Systems
             return areaClosed && HoldsWhenClosed(type);
         }
 
-        /// <summary>The billing's area state after the exemption: a running tram is billed as an open lift (full rate), not at
-        /// the 25 % "no open run" share (SkiMoneyRules.LiftUpkeepBillingOf).</summary>
+        /// <summary>The billing's area state. T137 S1 (DECISIONS 358; was `areaRunOpen || !HoldsWhenClosed(type)`: a running tram
+        /// billed full all year): every type now bills NoOpenRun while its area has no open run; the tram's share of it is
+        /// <see cref="NoOpenRunShare"/>. The type argument stays for the callers and the tests.</summary>
         public static bool AreaOpenForBilling(bool areaRunOpen, LiftTypeDef type)
         {
-            return areaRunOpen || !HoldsWhenClosed(type);
+            return areaRunOpen;
+        }
+
+        /// <summary>T137 S1: the share of the full rate a lift bills while its area has no open run: a Shuttle type keeps running
+        /// for sightseers (DECISIONS 347 e) and bills SkiMoneyRules.ShuttleNoOpenRunShare (50 %); a Loop type or an untyped row
+        /// stands and bills SkiMoneyRules.LiftReducedShare (25 %).</summary>
+        public static float NoOpenRunShare(LiftTypeDef type)
+        {
+            return HoldsWhenClosed(type) ? SkiMoneyRules.LiftReducedShare : SkiMoneyRules.ShuttleNoOpenRunShare;
         }
     }
 }

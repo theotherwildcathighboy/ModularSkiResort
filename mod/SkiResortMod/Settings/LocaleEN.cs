@@ -149,7 +149,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
                     "What each guest pays on arrival, one price for every ski area. Above 40 it lowers ski days " +
                     "(about 90 % as many at 60, 80 % at 80, 20 % at 200); visitors the game sends on its own come " +
-                    "at any price and still pay it. 0 turns lift tickets off. Default 60."
+                    "at any price and still pay it. 0 turns lift tickets off. Default 80."
                 },
                 // Catalog Phase B (round-2-contract §8.6 / §9, D15): the contract's text plus D15's "price 0 = nothing
                 // charged" (documented in the slider tip) and the default. Multipliers: SkiCatalog.LodgeDef.SpendMultiplier.
@@ -182,7 +182,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LessonShare)),
                     "At a ski area with a working ski school, this share of the people who go skiing that day also take " +
                     "a lesson. The household pays from what it has left after the lift ticket or pass. 0 turns lessons " +
-                    "off. Default 20 %."
+                    "off. Default 30 %."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LessonMultiplier)),
@@ -192,6 +192,17 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LessonMultiplier)),
                     "A lesson costs this many lift tickets at the day's ticket price. Needs a lift ticket price above 0. " +
                     "Default 1.5."
+                },
+                // T137 (DECISIONS 358): the off-season half staffing.
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.OffSeasonHalfStaff)),
+                    "Half staff off-season"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.OffSeasonHalfStaff)),
+                    "On: when a ski area has had no open run for half a day, its lodges and ski school keep half their " +
+                    "jobs, so half the wages, until a run opens again. Upkeep stays. To cut a closed lodge further, set it " +
+                    "Inactive in its info panel (a tenth of its upkeep, no wages). Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassShare)),
@@ -212,7 +223,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SeasonPassMultiplier)),
                     "A season pass costs this many lift tickets at the ticket price when it is sold, locked for the " +
                     "season. It pays off for a household that skis more often than this many times. Needs a lift " +
-                    "ticket price above 0. Default 4."
+                    "ticket price above 0. Default 2."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.EnableSnowGating)),
