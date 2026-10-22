@@ -563,6 +563,7 @@ namespace SkiResortMod.Systems
             m_LastError = null;
             m_ArmLogged = false;
             m_LaneScanLogged = false;
+            m_HarvestVerified = m_HarvestFullThisLoad = false;   // R-4: the lane-harvest watchdog re-arms per load
             m_IdleLogged = false;
             m_CensusWarned = false;
             m_CensusBuilt = false;
@@ -1325,14 +1326,81 @@ namespace SkiResortMod.Systems
         /// Mover test inverted). R28: the track ropes are the only HV lanes; the haul ropes (LV, 8) fail the flag.</summary>
         private bool m_LaneScanLogged;   // M9: one cost line per load
 
+        // R-4 (docs/research/lifts/lift-scale-2026-10-22.md, DECISIONS 369; ChairPinSystem.Harvest.cs is the twin): the census's
+        // line edges + their end nodes are the owners (LiftCensusSystem.CopyLineOwners), their SubLane buffers the lanes
+        // (LiftLaneHarvest.Scoped, Shuttle movers) — O(lift edges) instead of every utility lane of the city. The full scan
+        // (FullLaneScan) runs when the census is not built, and once per load next to the first scoped harvest as the watchdog;
+        // a difference is a WARN and keeps the full scan for the rest of the load.
+        private readonly List<Entity> m_HarvestOwners = new List<Entity>();
+        private readonly HashSet<Entity> m_HarvestSeen = new HashSet<Entity>();
+        private readonly List<Entity> m_HarvestMissed = new List<Entity>();
+        private readonly List<Entity> m_HarvestExtra = new List<Entity>();
+        private bool m_HarvestVerified, m_HarvestFullThisLoad;   // per load (OnGameLoadingComplete)
+
         private void HarvestLanes()
         {
             IReadOnlyDictionary<Entity, LiftTypeDef> lineTypes = m_PrefabCatalog.LiftLineTypes;
             m_Lanes.Clear();
+            double msPerTick = 1000.0 / Stopwatch.Frequency;
+            int owners = m_CensusBuilt && m_Census != null && !m_HarvestFullThisLoad ? m_Census.CopyLineOwners(m_HarvestOwners) : -1;
+            if (owners < 0)
+            {
+                long f0 = Stopwatch.GetTimestamp();
+                FullLaneScan(m_Lanes, out int seen, out int hv);
+                if (!m_LaneScanLogged)
+                {
+                    m_LaneScanLogged = true;
+                    Mod.Log.Info($"TramShuttle [cost] lane harvest (first harvest of the load): full scan " +
+                                 $"({(m_HarvestFullThisLoad ? "the watchdog found a difference this load" : "census not built")}): {seen} " +
+                                 $"utility lane(s) in the city, {hv} of an HV lane prefab, {m_Lanes.Count} kept as tram cable lane(s), " +
+                                 $"{(Stopwatch.GetTimestamp() - f0) * msPerTick:F2} ms");
+                }
+                return;
+            }
+
+            long s0 = Stopwatch.GetTimestamp();
+            int visited = LiftLaneHarvest.Scoped(EntityManager, m_HarvestOwners, lineTypes, MoverKind.Shuttle, m_Lanes, m_HarvestSeen);
+            LiftLaneHarvest.SortByLane(m_Lanes);
+            double scopedMs = (Stopwatch.GetTimestamp() - s0) * msPerTick;
+            if (m_HarvestVerified)
+                return;
+
+            m_HarvestVerified = true;
+            var check = new List<LiftLoopCache.CableLane>();
+            long w0 = Stopwatch.GetTimestamp();
+            FullLaneScan(check, out int citySeen, out int cityHv);
+            double watchdogMs = (Stopwatch.GetTimestamp() - w0) * msPerTick;
+            LiftLaneHarvest.Compare(check, m_Lanes, m_HarvestMissed, m_HarvestExtra);
+            bool same = m_HarvestMissed.Count == 0 && m_HarvestExtra.Count == 0;
+            m_LaneScanLogged = true;
+            Mod.Log.Info($"TramShuttle [cost] lane harvest (first scoped harvest of the load): scoped {m_Lanes.Count} tram cable lane(s) " +
+                         $"from {owners} line edge/node owner(s) ({visited} SubLane entries) in {scopedMs:F3} ms; watchdog full scan " +
+                         $"{citySeen} utility lane(s) in the city, {cityHv} of an HV lane prefab, {check.Count} kept, {watchdogMs:F2} ms — " +
+                         (same ? "identical sets; the rest of this load harvests scoped"
+                               : $"{m_HarvestMissed.Count} missed / {m_HarvestExtra.Count} extra; this harvest and the rest of the load " +
+                                 "use the full scan (WARN below)"));
+            if (same)
+                return;
+            m_HarvestFullThisLoad = true;
+            if (m_HarvestMissed.Count > 0)
+                Mod.Log.Warn($"TramShuttle [harvest] the city-wide lane scan found {m_HarvestMissed.Count} tram cable lane(s) the " +
+                             $"census-scoped harvest missed ({LiftLaneHarvest.Describe(EntityManager, m_HarvestMissed, 5)}) — using the " +
+                             "full scan for the rest of this load; please report this line (R-4 watchdog)");
+            if (m_HarvestExtra.Count > 0)
+                Mod.Log.Warn($"TramShuttle [harvest] the census-scoped harvest kept {m_HarvestExtra.Count} lane(s) the city-wide scan did " +
+                             $"not ({LiftLaneHarvest.Describe(EntityManager, m_HarvestExtra, 5)}) — the two filters drifted; using the " +
+                             "full scan for the rest of this load; please report this line (R-4 watchdog)");
+            m_Lanes.Clear();
+            m_Lanes.AddRange(check);
+        }
+
+        private void FullLaneScan(List<LiftLoopCache.CableLane> lanes, out int lanesSeen, out int lanesHv)
+        {
+            IReadOnlyDictionary<Entity, LiftTypeDef> lineTypes = m_PrefabCatalog.LiftLineTypes;
             // M9 (code review 2026-10-19): every utility lane of the city is in this query; the lane PREFAB is tested first through
             // the shared cached lookup (CableLanePrefabs), so only HV-lane-prefab lanes pay for the owner read.
-            long laneScanStart = System.Diagnostics.Stopwatch.GetTimestamp();
-            int lanesSeen = 0, lanesHv = 0;
+            lanesSeen = 0;
+            lanesHv = 0;
             // REVIEW #16 pattern (ChairPinSystem's main-thread chunk reads, code-review-2026-10/REVIEW.md #16): complete the
             // writers of the query's components before the main-thread GetNativeArray reads below.
             m_LaneQuery.CompleteDependency();
@@ -1363,7 +1431,7 @@ namespace SkiResortMod.Systems
                             !lineTypes.TryGetValue(ownerPrefab.m_Prefab, out LiftTypeDef lineDef) || lineDef == null ||
                             lineDef.Mover != MoverKind.Shuttle)
                             continue;
-                        m_Lanes.Add(new LiftLoopCache.CableLane
+                        lanes.Add(new LiftLoopCache.CableLane
                         {
                             m_Lane = entities[i],
                             m_Owner = ownerEntity,
@@ -1380,14 +1448,7 @@ namespace SkiResortMod.Systems
             {
                 chunks.Dispose();
             }
-            if (!m_LaneScanLogged)
-            {
-                m_LaneScanLogged = true;
-                Mod.Log.Info($"TramShuttle [cost] lane scan (first harvest of the load): {lanesSeen} utility lane(s) in the city, {lanesHv} of an HV " +
-                             $"lane prefab, {m_Lanes.Count} kept as tram cable lane(s), " +
-                             $"{(System.Diagnostics.Stopwatch.GetTimestamp() - laneScanStart) * 1000.0 / System.Diagnostics.Stopwatch.Frequency:F2} ms " +
-                             "(lane prefab tested first through a cached lookup)");
-            }
+            LiftLaneHarvest.SortByLane(lanes);   // R-4: one stable lane order whichever harvest ran (LiftLaneHarvest header ORDER)
         }
 
         private void HarvestCabins()

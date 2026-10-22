@@ -8,14 +8,14 @@
 //
 // TILES (assets/blender/number_tiles.py, the source of every constant below): per plate class 11 one-quad prefabs,
 // SkiNumTile<cls>Blank (the baked numeral's whole window) and SkiNumTile<cls>N0..N9 (one digit cell = window / 3). Per plate face
-// a number is 1-3 digit tiles centred in the window (digit i of k at (i - (k-1)/2) cells from the window centre); 1-2 digit numbers
+// a number is 1-3 digit tiles centered in the window (digit i of k at (i - (k-1)/2) cells from the window center); 1-2 digit numbers
 // put the Blank behind them (digits LayerM in front of it), 3 digits fill the window alone. So <= 3 tiles per face, 6 per tower.
 // Chairs (T124) will add a class row and plate rows; nothing here is tower-specific beyond the tables.
 //
 // FRAME (measured from the shipped LOD0 FBXs, number_tiles.py --measure-plates -> docs/research/lifts/
-// tower-numbers-plates-2026-10-20.json): every numbered tower has two plates, centre x 0, front quads facing +Z and -Z; the +Z face's
+// tower-numbers-plates-2026-10-20.json): every numbered tower has two plates, center x 0, front quads facing +Z and -Z; the +Z face's
 // viewer-right is -X, the -Z face's is +X. The tile prefab faces +Z with its text running along -X (number_tiles.py FRAME), so the
-// +Z face takes it unrotated and the -Z face rotated 180 deg about Y. Plate rows hold the FRONT quad's centre (6 mm proud of the host).
+// +Z face takes it unrotated and the -Z face rotated 180 deg about Y. Plate rows hold the FRONT quad's center (6 mm proud of the host).
 
 using System;
 using System.Collections.Generic;
@@ -33,7 +33,7 @@ namespace SkiResortMod.Systems
         public const float LayerM = 0.003f;            // number_tiles.py LAYER_M: digits in front of the Blank
         public const float MatchTolM = 0.01f;          // an existing tile within 1 cm of its slot is kept
 
-        /// <summary>One plate class (number_tiles.py CLASSES; win_u = the numeral window's centre right of the plate centre,
+        /// <summary>One plate class (number_tiles.py CLASSES; win_u = the numeral window's center right of the plate center,
         /// cell = window width / 3, h = the window height).</summary>
         public sealed class TileClass
         {
@@ -55,7 +55,7 @@ namespace SkiResortMod.Systems
             new TileClass("T3", 0.1200f, 0.300f, 0.248f),   // tram lattice: plate 0.56 x 0.26 (tram_tower.plate_layout)
         };
 
-        /// <summary>A numbered tower prefab's plates (prefab frame, metres): front-quad centre y and the z of its +Z / -Z faces.</summary>
+        /// <summary>A numbered tower prefab's plates (prefab frame, meters): front-quad center y and the z of its +Z / -Z faces.</summary>
         public readonly struct TowerPlate
         {
             public readonly string Prefab;
@@ -131,7 +131,7 @@ namespace SkiResortMod.Systems
         public struct Slot
         {
             public int Glyph;           // Blank or 0..9
-            public float OffsetCells;   // from the window centre, in cell widths, toward the viewer's right
+            public float OffsetCells;   // from the window center, in cell widths, toward the viewer's right
             public bool Front;          // a digit layered in front of the Blank
         }
 

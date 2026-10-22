@@ -138,6 +138,12 @@ namespace SkiResortMod.Systems
             /// <summary>Catalog Phase B (addendum 1): the up-lane rule decided this loop (false = the two chains could not
             /// be told apart: kept as found) and whether it swapped the chain order found.</summary>
             public bool m_UpLaneDecided, m_UpLaneSwapped;
+            /// <summary>R-3 (lift-scale-2026-10-22.md): ChairPinSystem's far-loop pace state (LiftMoverMath.LoopPace, seeded
+            /// at each rebuild) and the box its chairs can occupy (segments + hang; set when the mover's flat arrays are
+            /// built). Mover data only: nothing in this file reads them.</summary>
+            public LiftMoverMath.LoopPace m_Pace;
+            public float3 m_BoxMin, m_BoxMax;
+            public bool m_BoxKnown;
         }
 
         public readonly List<Loop> m_Loops = new List<Loop>();

@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    MoverBench: the headless benchmark of the chair mover's MATH (R-3, docs/research/lifts/lift-scale-2026-10-22.md).
+    Run from the ModularSkiResort root:
+      see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
+    Unlike the *Batch hosts this one references the INSTALLED game's managed DLLs (CSII_MANAGEDPATH, set by the modding
+    toolchain): LiftLoopCache.Sample and LiftLoopSampler need Colossal.Mathematics (Bezier4x3, ClampLength) and
+    Game.Net.NetUtils.GetNodeRotation, so the benchmark runs the real code, not a transcription. Only pure math is executed
+    (no Unity engine call), which loads fine on net8 (probe 2026-10-22). The DLLs are copied into bin/ (gitignored,
+    tests/**/bin/), never committed or redistributed. No EntityManager here: what costs per chair in the game on top of the
+    math (5 EntityManager calls per chair before R-3) is the field number in the report.
+    Lives OUTSIDE mod/SkiResortMod on purpose (the mod csproj globs **/*.cs). LangVersion 9.0 = the mod's.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <RootNamespace>MoverBench</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <TieredPGO>true</TieredPGO>
+    <GameManaged>$(CSII_MANAGEDPATH)</GameManaged>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLoopCache.cs" Link="LiftLoopCache.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLoopTopology.cs" Link="LiftLoopTopology.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLoopSampler.cs" Link="LiftLoopSampler.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftMoverMath.cs" Link="LiftMoverMath.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\ShuttleProfile.cs" Link="ShuttleProfile.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiCatalog.cs" Link="SkiCatalog.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\StationAlign.cs" Link="StationAlign.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\EntityRef.cs" Link="EntityRef.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Game"><HintPath>$(GameManaged)\Game.dll</HintPath></Reference>
+    <Reference Include="Colossal.Mathematics"><HintPath>$(GameManaged)\Colossal.Mathematics.dll</HintPath></Reference>
+    <Reference Include="Unity.Mathematics"><HintPath>$(GameManaged)\Unity.Mathematics.dll</HintPath></Reference>
+    <Reference Include="Unity.Entities"><HintPath>$(GameManaged)\Unity.Entities.dll</HintPath></Reference>
+    <Reference Include="Unity.Collections"><HintPath>$(GameManaged)\Unity.Collections.dll</HintPath></Reference>
+    <Reference Include="Colossal.Core"><HintPath>$(GameManaged)\Colossal.Core.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

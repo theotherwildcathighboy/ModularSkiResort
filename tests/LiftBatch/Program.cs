@@ -124,6 +124,8 @@ namespace LiftBatch
             LiftToolInputTests.Run(Check);
             // T123 (docs/research/lifts/tower-numbers-build-2026-10-20.md): tower number tiles, wrap, layout, reconcile (TN-1..TN-9).
             TowerNumberTests.Run(Check);
+            // R-3 / R-4 (docs/research/lifts/lift-scale-2026-10-22.md): far-loop pace, bounds cadence, lane scope (MP-1..MP-10).
+            LoopPaceTests.Run(Check);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  LiftBatch checks={0} failures={1}", s_Checks, s_Failures));

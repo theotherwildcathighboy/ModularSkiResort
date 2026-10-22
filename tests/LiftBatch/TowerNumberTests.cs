@@ -1,11 +1,11 @@
 // TowerNumberTests — T123 (per-tower number tiles; docs/research/lifts/tower-numbers-build-2026-10-20.md): the pure core
 // TowerNumberTiles.cs, headless. TN-1..TN-9.
 //   TN-1 wrap: 1..200 as is, 201 -> 1, 400 -> 200, 401 -> 1, int.MaxValue in range, < 1 -> 0 (no tiles).
-//   TN-2 layout: 7 = Blank + 7 centred; 42 = Blank + 4 / 2 at -/+ half a cell; 128 / 200 = three digits, no Blank; every number
+//   TN-2 layout: 7 = Blank + 7 centered; 42 = Blank + 4 / 2 at -/+ half a cell; 128 / 200 = three digits, no Blank; every number
 //        1..2000 has <= 3 tiles per face, digits inside the window, a Blank exactly when it has fewer than 3 digits.
 //   TN-3 display numbers: 450 towers in any input order -> the tower at rank r shows Wrap(r); reversed when the base is last.
 //   TN-4 geometry: every plate row x number: two faces, tiles in front of their face (Blank / 3-digit at TileDepthM, layered digits
-//        LayerM further), centred on the window, the -Z face rotated 180 deg about Y and mirrored in x.
+//        LayerM further), centered on the window, the -Z face rotated 180 deg about Y and mirrored in x.
 //   TN-5 reconcile: identical = no-op; 42 -> 43 = one delete + one create per face; 99 -> 100 = the Blank and two digits go,
 //        three digits come (shared digits in a new slot are re-made); a tile moved 2 cm is re-made; duplicates are deleted.
 //   TN-6 renumber after a section edit: a tower added after tower 3 of 10 changes the tiles of towers 4..11 only.
@@ -160,7 +160,7 @@ namespace LiftBatch
                 }
             }
             Check(bad == 0, W, bad + " plate x number layouts off (first " + first + ")");
-            // the window centre of a 1-digit number sits WinU right of the plate centre on both faces
+            // the window center of a 1-digit number sits WinU right of the plate center on both faces
             TowerNumberTiles.Desired(TowerNumberTiles.Plates[0], 7, tiles);
             Check(Math.Abs(tiles[1].LocalPos.x + TowerNumberTiles.Classes[0].WinU) < 1e-5f && Math.Abs(tiles[3].LocalPos.x - TowerNumberTiles.Classes[0].WinU) < 1e-5f,
                   W, "7 on FG12: +Z digit at x -WinU, -Z digit at x +WinU");

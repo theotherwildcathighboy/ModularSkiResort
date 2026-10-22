@@ -234,7 +234,7 @@ function walkSrc(dir, pred, acc) {
 // last line. Delete an entry once its comments are converted.
 // Documents about the spellings themselves (they list British words as their subject): not scanned.
 const SPELLING_DOCS = ["docs/research/us-english-sweep-2026-10-20.md"];
-const PENDING = ["assets/blender/number_tiles.py", "mod/SkiResortMod/Systems/TowerNumberTiles.cs", "tests/LiftBatch/TowerNumberTests.cs"];
+const PENDING = [];
 
 // --self-test: the gate's own fixtures (each British sample must hit, each US / allowed sample must not).
 if (process.argv.includes("--self-test")) {

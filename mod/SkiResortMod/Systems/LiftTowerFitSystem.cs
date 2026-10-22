@@ -36,6 +36,13 @@
 // MOVED (T128): the free plan's own members travel with its nodes, spares get the shortest clearing member (LiftTowerPlanner.Fit);
 // a standing line within LiftTowerPlanner.KeepTolM of the floor is kept (grid noise, not Short).
 //
+// TOOL LINES (T48 round 2; R-6 2026-10-22, docs/research/lifts/lift-tool-split-fix-2026-10-22.md): a line the lift-line tool built
+// is fitted heights-only with the tool's members, never Moved. Exact match = LiftToolLines.Match (same node count); when the engine
+// split the tool's courses into more edges (CourseSplitSystem elevation transitions), LiftToolLines.MatchSplit still recognizes it
+// (every emitted node within 0.5 m, ends = the tool's, extras on the line) and gives each extra split node the member that keeps the
+// rope on the planned chord (ChordMembers). One Info line per such match; a WARN when a tool line's pinned towers stay put on a
+// Short line, or when a line holding a tool line's pinned nodes did NOT match and is Moved. Ordinary lines: unchanged.
+//
 // LOGS (silence impossible): one ARMED line per load; per fitted line a "Towers [fit]" block (per tower: position before -> after,
 // member before -> after, elevation, rope; per span: length, lowest carrier over the high side before -> after and where, max rope
 // above ground) + one "Towers [fit summary]"; "already fitted" one line; Short = WARN with the tower count the line needs; skips
@@ -277,12 +284,55 @@ namespace SkiResortMod.Systems
             for (int i = 1; i < n - 1; i++)
                 innerPts.Add(pts[i]);
             LiftToolLines.Line toolLine = m_LineTool.ToolLines.Match(innerPts, out int[] toolMembers, out _);
+            // R-6 (DECISIONS 368-369; docs/research/lifts/lift-tool-split-fix-2026-10-22.md): the engine built the tool's courses as
+            // MORE edges (CourseSplitSystem elevation-transition splits, CourseSplitSystem.cs:2884-2942). Still a tool line when every
+            // emitted node has its own path node within 0.5 m: the extras get the member that keeps the rope on the planned chord, and
+            // nothing is moved.
+            LiftToolMatch split = null;
+            string splitNote = string.Empty;
+            if (toolLine == null)
+            {
+                split = m_LineTool.ToolLines.MatchSplit(pts);
+                if (split != null)
+                {
+                    toolLine = split.Line;
+                    toolMembers = (int[])split.Members.Clone();
+                    var ground = new float[n - 2];
+                    for (int i = 0; i < n - 2; i++)
+                        ground[i] = sampler(inner[i], 0f);
+                    LiftToolLines.ChordMembers(c, inner, ground, toolMembers, oldMembers, length, ropeA, ropeB);
+                    var at = new StringBuilder();
+                    for (int i = 0; i < n - 2; i++)
+                        if (split.Extra[i])
+                            at.Append(at.Length > 0 ? ", " : string.Empty).Append(F(inner[i], "F0")).Append(" m ")
+                              .Append(Short(c.Ladder[toolMembers[i]].Name));
+                    splitNote = $"; {split.Extras} extra engine split node(s) at {at} (members nearest the planned chord; an extra that breaks the clearance is re-filled)";
+                    Mod.Log.Info($"Towers [fit]: {head} — TOOL LINE matched despite engine splits: {split.Registered} tool node(s) " +
+                                 $"({split.Pins} pinned) found within {LiftToolLines.MatchTolM:F1} m among {n - 2} line node(s), " +
+                                 $"{split.Extras} extra split node(s){(split.Reversed ? ", path runs top to base" : string.Empty)}; " +
+                                 "heights only, never moved, the tool's members kept" + splitNote);
+                }
+            }
+            LiftToolLines.Line partial = null;
+            int partialFound = 0, partialPins = 0;
+            if (toolLine == null)
+                partial = m_LineTool.ToolLines.BestPartial(pts, out partialFound, out partialPins);
             LiftTowerPlan before = m_Planner.PlanFixed(sampler, length, ropeA, ropeB, c, inner, oldMembers, null, assign: false);
             // T115: the line's own members are passed in, so a line that clears as it stands is Kept unchanged (hysteresis).
             LiftTowerFit fit = m_Planner.Fit(sampler, length, ropeA, ropeB, c, inner, straight && toolLine == null, engineMax,
-                                             toolLine != null ? toolMembers : oldMembers);
+                                             toolLine != null ? toolMembers : oldMembers, split?.Extra);
             LiftTowerPlan plan = fit.Plan;
             m_Fitted++;
+            // R-6: a pinned tower must never move silently.
+            int toolPins = split != null ? split.Pins : toolLine != null ? toolLine.Pins : 0;
+            if (toolLine != null && toolPins > 0 && fit.Mode == LiftFitMode.Short)
+                Mod.Log.Warn($"Towers [fit]: {head} — tool line with {toolPins} pinned tower(s) is not clear with heights alone " +
+                             $"(min floor margin {Sg(plan.MinFloorMarginM)} m): the pinned towers stay where they were placed; a clear line " +
+                             "would need them moved (open the lift tool on that section, move them, build again)");
+            if (partial != null && partialPins > 0 && fit.Mode == LiftFitMode.Moved)
+                Mod.Log.Warn($"Towers [fit]: {head} — {partialFound} of {partial.Inner.Length} node(s) of a tool line ({partialPins} " +
+                             $"pinned) are on this line but it did not match the tool's plan (ends or a node more than " +
+                             $"{LiftToolLines.MatchTolM:F1} m off): fitted as an ordinary line, so the PINNED towers MOVE (please send the log)");
             if (plan.Nodes.Length != n)
             {
                 Mod.Log.Warn($"Towers [fit]: {head} — the fit returned {plan.Nodes.Length} nodes for {n} (two nodes in one {c.StepM:F0} m sample?): " +
@@ -346,7 +396,7 @@ namespace SkiResortMod.Systems
               .Append(laneB ? " (rope lane)" : " (node + " + F(c.RopeAboveBase(0), "F2") + ")").Append("; rules floor ").Append(F(c.FloorM, "F1"))
               .Append(" + drop ").Append(F(c.CarrierDropM, "F1")).Append(" over the high side (±").Append(F(c.HalfWidthM, "F1"))
               .Append(" m), max rope ").Append(c.MaxRopeAboveGroundM > 0f ? F(c.MaxRopeAboveGroundM, "F0") : "none")
-              .Append(toolLine != null ? $"; TOOL LINE (lift-line tool, {toolLine.Pins} pinned): heights only with the tool's members, never moved" : string.Empty)
+              .Append(toolLine != null ? $"; TOOL LINE (lift-line tool, {toolPins} pinned): heights only with the tool's members, never moved{splitNote}" : string.Empty)
               .Append(cutNote).Append('\n');
             for (int i = 0; i < n; i++)
             {

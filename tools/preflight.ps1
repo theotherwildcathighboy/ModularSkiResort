@@ -27,6 +27,8 @@
 #  10. SHIPPED   - every (name, type, CID) of tools/shipped-prefabs.json (tools/freeze-shipped.ps1) is still an owned prefab
 #                  with that CID (FAIL otherwise); an owned non-RenderPrefab not in the list WARNs until re-frozen (T74).
 #  13. STUBNET   - every station stub marker net is wider than the widest lift line and has no lanes (T121 / T126).
+#  14. POWERFLOW - every owned lift line (PowerLinePrefab, not a MarkerNet) carries ElectricityConnection Voltage High (1),
+#                  Direction Both (3), Capacity == the vanilla Low-voltage Line's 800000 (DECISIONS 369 / R-1).
 #
 # Ownership = directories named Ski* under ImportedData, Ski* prefabs inside the
 # Editor library folder (c030ee3ff256df91), plus legacy FixedGripChairLift (reported).
@@ -682,6 +684,31 @@ foreach ($k in ($snMarkers.Keys | Sort-Object)) {
     else { $rows.Add("OK    STUBNET   ${k}: width $($m.Width) > widest line $snMaxName $snMax, no lanes") }
 }
 if ($snMarkers.Count -eq 0) { $rows.Add("WARN  STUBNET   no owned MarkerNet power line found (check the ownership filter)"); $warnings++ }
+
+# ---- 14. POWERFLOW: the lift lines' electricity connection (DECISIONS 369 / R-1, 2026-10-22) -------------------------------
+# Lifts carry power up the mountain on purpose, at the vanilla Low-voltage Line's rating (dump 00_BaseGame/Game.Prefabs.PowerLinePrefab/
+# Low-voltage Line: m_Voltage 0, m_Direction 3, m_Capacity 800000; the High-voltage Line is 4000000). Voltage stays High (1): High is
+# what makes the lines snap to our station stubs (NetInitializeSystem.cs:2416-2425, layer PowerlineHigh). Capacity is the edge capacity
+# of the city flow graph (ElectricityEdgeGraphSystem.cs:77-79; Simulation.Flow/Edge.cs:28-43), re-read from the prefab on every load
+# (Serialization/ElectricityGraphSystem.cs:68-77,:99-121); a prefab with NO ElectricityConnection gets 400000 / Both (:70-71).
+# Demand through a line is tiny (tram base 1213 W wanted, top stations 0, lodges 2500-3500), so the cap never binds. FAIL on any drift:
+# a 4000000 here would make a lift a vanilla HV trunk, a 0 would cut the power-up-the-mountain feature, a missing component falls to 400000.
+$pfWant = @{ Voltage = 1; Direction = 3; Capacity = 800000 }
+$pfSeen = 0
+foreach ($p in $ownedPrefabs) {
+    $t = [IO.File]::ReadAllText($p.FullName)
+    if ($t -notmatch '^\{\s*"\$id":\s*0,\s*"\$type":\s*"0\|Game\.Prefabs\.PowerLinePrefab,') { continue }
+    if ($t -match 'Game\.Prefabs\.MarkerNet,') { continue }
+    $nm = [regex]::Match($t, '(?m)^    "name":\s*"([^"]+)"').Groups[1].Value
+    $m = [regex]::Match($t, '"\$type":\s*"\d+\|Game\.Prefabs\.ElectricityConnection, Game",\s*"name":\s*"ElectricityConnection",\s*"active":\s*true,\s*"m_Voltage":\s*(\d+),\s*"m_Direction":\s*(\d+),\s*"m_Capacity":\s*(\d+)')
+    $pfSeen++
+    if (-not $m.Success) { $rows.Add("FAIL  POWERFLOW  ${nm}: no ElectricityConnection block in the expected shape (a missing component loads as 400000 / Both, Serialization/ElectricityGraphSystem.cs:70-71)"); $failures++; continue }
+    $v = [int]$m.Groups[1].Value; $d = [int]$m.Groups[2].Value; $c = [int]$m.Groups[3].Value
+    if ($v -ne $pfWant.Voltage -or $d -ne $pfWant.Direction -or $c -ne $pfWant.Capacity) {
+        $rows.Add("FAIL  POWERFLOW  ${nm}: Voltage $v / Direction $d / Capacity $c, want $($pfWant.Voltage) / $($pfWant.Direction) / $($pfWant.Capacity) (High snaps to our stubs; Both; the vanilla Low-voltage Line's 800000; DECISIONS 369)"); $failures++
+    } else { $rows.Add("OK    POWERFLOW  ${nm}: High / Both / $c (the vanilla LV rating)") }
+}
+if ($pfSeen -eq 0) { $rows.Add("WARN  POWERFLOW  no owned lift line PowerLinePrefab found (check the ownership filter)"); $warnings++ }
 
 # ---- summary -------------------------------------------------------------------------
 $rows | ForEach-Object { Write-Output $_ }

@@ -38,6 +38,11 @@ before upload.)*
 Stations are grid transformers: feed the base station's area with power and the lift line
 carries it up the mountain. No power = no lift (icons will tell you).
 
+- Lift lines show in the electricity overlay as high-voltage lines.
+- The base station acts as a transformer: wire a low-voltage line into its low-voltage stub.
+- Do not connect city high-voltage lines to a lift tower or lift line (untested, can break the lift).
+- Remove all lifts before uninstalling the mod.
+
 ## Playing nice
 
 - Anarchy works as the escape hatch for stubborn placements.

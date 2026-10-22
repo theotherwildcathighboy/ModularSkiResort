@@ -829,7 +829,8 @@ namespace SkiResortMod.Systems
         /// has; the spare nodes go to the midpoints of the longest spans; heights by phase (c). (3) Short: neither is clear: the better
         /// of the two by floor margin, and the tower count the free plan needs.</summary>
         public LiftTowerFit Fit(LiftTerrainSampler terrain, float lengthM, float ropeA, float ropeB, LiftTowerPlanConstants c,
-                                IList<float> currentInnerAlongM, bool allowMove, float engineMaxSpanM, IList<int> currentMembers = null)
+                                IList<float> currentInnerAlongM, bool allowMove, float engineMaxSpanM, IList<int> currentMembers = null,
+                                IList<bool> spareNodes = null)
         {
             var fit = new LiftTowerFit { Inner = currentInnerAlongM.Count };
             LiftTowerPlanConstants cm = c;
@@ -849,6 +850,23 @@ namespace SkiResortMod.Systems
                     fit.Mode = LiftFitMode.Kept;
                     fit.Plan = current;
                     return fit;
+                }
+                // R-6: a tool line the engine split (LiftToolLines.MatchSplit): the extra split nodes (spareNodes) take the T128 spare
+                // fill (the shortest member that keeps both of their spans clear) while every tool node keeps its member; only when
+                // that is still not clear does phase (c) below re-assign the whole line.
+                if (spareNodes != null && spareNodes.Count == currentInnerAlongM.Count && spareNodes.Contains(true))
+                {
+                    var spareMembers = new List<int>(currentMembers.Count);
+                    for (int i = 0; i < currentMembers.Count; i++)
+                        spareMembers.Add(spareNodes[i] ? -1 : currentMembers[i]);
+                    LiftTowerPlan filled = PlanFixedCore(terrain, lengthM, ropeA, ropeB, c, currentInnerAlongM, spareMembers, null, false, true);
+                    if (KeepClear(filled))
+                    {
+                        fit.Kept = filled;
+                        fit.Mode = LiftFitMode.Kept;
+                        fit.Plan = filled;
+                        return fit;
+                    }
                 }
             }
             fit.Kept = PlanFixed(terrain, lengthM, ropeA, ropeB, c, currentInnerAlongM);

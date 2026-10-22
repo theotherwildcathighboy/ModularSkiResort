@@ -355,6 +355,28 @@ namespace SkiResortMod.Systems
             return rows.Count;
         }
 
+        /// <summary>R-4 (docs/research/lifts/lift-scale-2026-10-22.md, DECISIONS 369): the lift-line edges of the last build and
+        /// their end nodes, each once, edge order (LiftLaneScope.OwnersOf) — the entities whose Game.Net.SubLane buffers hold
+        /// every lift cable lane, for ChairPinSystem's and TramShuttleSystem's lane harvests. <paramref name="into"/> is cleared
+        /// first. Returns −1 (nothing copied) when the census is not armed or has not built this load: the caller then scans
+        /// the city. Main thread; O(line edges), allocation-free once the scratch has grown.</summary>
+        internal int CopyLineOwners(List<Entity> into)
+        {
+            into.Clear();
+            if (!IsArmed || Builds == 0)
+                return -1;
+            m_OwnerEdgeScratch.Clear();
+            for (int i = 0; i < m_Edges.Count; i++)
+            {
+                LiftCensus.Edge e = m_Edges[i];
+                m_OwnerEdgeScratch.Add(new LiftLaneScope.LineEdge<Entity> { Edge = Ent(e.Id), Start = Ent(e.Start), End = Ent(e.End) });
+            }
+            return LiftLaneScope.OwnersOf(m_OwnerEdgeScratch, into, m_OwnerSeen);
+        }
+
+        private readonly List<LiftLaneScope.LineEdge<Entity>> m_OwnerEdgeScratch = new List<LiftLaneScope.LineEdge<Entity>>();
+        private readonly HashSet<Entity> m_OwnerSeen = new HashSet<Entity>();
+
         // ── Round E1 accessors (econ-round spec ch2 §3.4; e1-spec I-13, R1; header ROUND E1). Stage 0
         // declared the signatures; stream S2 filled them. Main thread.
 

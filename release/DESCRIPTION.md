@@ -31,6 +31,10 @@ guide included on the mod page.
   power lines in the same places
 - Chairs don't move (yet) — that's the roadmap headline
 - Best experienced with Tourism Overhaul (credits below)
+- Lifts are power-line networks: they show in the electricity overlay, the base station acts
+  as a transformer (wire a low-voltage line into its stub), and the line carries power up the
+  mountain. Do not connect city high-voltage lines to a lift tower. Remove all lifts before
+  uninstalling the mod.
 
 **Companion code mod** (required, bundled): keeps chairs pinned to the cable, bridges
 station power into the electricity grid, and carries the seasonal/snow-line groundwork.

@@ -23,6 +23,10 @@
 // asks Match() for every line it fits: a line whose every inner node is a registered tool node (xz within MatchTolM) is a TOOL
 // LINE — heights only with the tool's members (never Moved, so a pinned node is never snapped). In-session only (the registry is
 // not saved): after a load the fit's hysteresis (Fit currentMembers) keeps a clear line as it is.
+// R-6 (2026-10-22, docs/research/lifts/lift-tool-split-fix-2026-10-22.md): the engine can build a tool line with MORE nodes than
+// emitted (CourseSplitSystem elevation-transition splits). MatchSplit still recognizes it (every emitted inner node has its own
+// path node within MatchTolM, the ends are the tool's, the extras lie on the line); the extras get ChordMembers (the rope stays
+// on the planned chord) and the whole line is fitted heights-only, never Moved.
 
 using System.Collections.Generic;
 using System.Globalization;
@@ -415,6 +419,37 @@ namespace SkiResortMod.Systems
         public static float MinLengthM(LiftTowerPlanConstants c, bool bothStations) =>
             bothStations ? 2f * c.MinSpanM : 2f * c.StepM;
 
+        /// <summary>A rope-lane anchor this far (xz) from the end node or nearer belongs to this end (LiftTowerFitSystem.StationRope).</summary>
+        public const float AnchorSearchM = 30f;
+
+        /// <summary>R-6 follow-up (2026-10-22): the rope height the BUILT line will have at a station end, so the tool plans with what
+        /// the fit reads. LaneSystem anchors the line's rope lane end to the station: anchors are the world end points of the HV
+        /// sub-lanes of the node's sub-objects (order 0) and of the node's owner, the station (order 2) (FindAnchors,
+        /// Game.Net/LaneSystem.cs:2371-2416, :2441-2453; FindAnchor :4049-4071, applied :4117-4121); the fit takes the LOWEST
+        /// rope-lane end within AnchorSearchM of the node. <paramref name="subObjectAnchors"/> / <paramref name="ownerAnchors"/> =
+        /// those world points (the lower order wins when it has any within reach); none -> <paramref name="fallback"/> (stub node
+        /// + the shortest member's rope, the old rule). <paramref name="fromLane"/> = an anchor was used.</summary>
+        public static float StationRope(IList<float3> subObjectAnchors, IList<float3> ownerAnchors, float3 node, float fallback,
+                                        out bool fromLane)
+        {
+            float best = Lowest(subObjectAnchors, node);
+            if (float.IsPositiveInfinity(best))
+                best = Lowest(ownerAnchors, node);
+            fromLane = !float.IsPositiveInfinity(best);
+            return fromLane ? best : fallback;
+        }
+
+        private static float Lowest(IList<float3> anchors, float3 node)
+        {
+            float best = float.PositiveInfinity;
+            if (anchors == null)
+                return best;
+            for (int i = 0; i < anchors.Count; i++)
+                if (math.distance(anchors[i].xz, node.xz) <= AnchorSearchM)
+                    best = math.min(best, anchors[i].y);
+            return best;
+        }
+
         /// <summary>The player name of a lift type id (SkiCatalog LiftTypeDef.Id); "Lift" when unknown.</summary>
         public static string TypeName(string typeId)
         {
@@ -451,10 +486,38 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>In-session registry of lines built by the lift-line tool (see the header TOOL LINES).</summary>
+    /// <summary>R-6: a tool line found in a built path that the engine split into more nodes than the tool emitted
+    /// (LiftToolLines.MatchSplit). Per inner path node: the tool's member (-1 = an EXTRA engine split node), pinned, extra.</summary>
+    public sealed class LiftToolMatch
+    {
+        public LiftToolLines.Line Line;
+        public int[] Members;      // tool member per inner path node; -1 = extra split node (the fit gives it ChordMembers)
+        public bool[] Pinned;
+        public bool[] Extra;
+        public int Registered;     // tool inner nodes found (= Line.Inner.Length)
+        public int Extras;         // inner path nodes the tool did not emit
+        public int Pins;           // pinned tool nodes found
+        public bool Reversed;      // the path runs from the tool's last end to its first
+    }
+
+    /// <summary>In-session registry of lines built by the lift-line tool (see the header TOOL LINES).
+    /// R-6 (DECISIONS 368-369; docs/research/lifts/lift-tool-split-fix-2026-10-22.md): the engine may build a tool course as more
+    /// edges than emitted (CourseSplitSystem.CheckHeightRange elevation transitions, CourseSplitSystem.cs:2884-2942; crossings).
+    /// MatchSplit then recognizes the line when every emitted inner node has its own path node within MatchTolM, in order, the
+    /// path's ends are the tool's ends (EndTolM) and every extra node lies on the tool's straight line (ExtraLateralTolM).</summary>
     public sealed class LiftToolLines
     {
         public const float MatchTolM = 0.5f;
+        /// <summary>The path's end nodes vs the tool's emitted ends (station stub / loose end / fresh ground node: the same node,
+        /// so 0 in practice; 2 m allows float noise and never confuses two different lines' ends).</summary>
+        public const float EndTolM = 2f;
+        /// <summary>An extra split node lies on the course, so on the tool's straight xz line; farther off = another line.</summary>
+        public const float ExtraLateralTolM = 1f;
+        /// <summary>ChordMembers: two members whose ropes are this close in distance to the planned chord tie (the taller wins).</summary>
+        public const float ChordTolM = 0.25f;
+        /// <summary>ChordMembers hysteresis: the extra node's current member is kept while the chord moves less than this (the
+        /// ground under a written node shifts a few decimeters with our own carve, T115).</summary>
+        public const float ChordHystM = 0.5f;
         public const int MaxLines = 64;
 
         public sealed class Line
@@ -464,6 +527,8 @@ namespace SkiResortMod.Systems
             public int[] Members;
             public bool[] Pinned;
             public int Pins;
+            public float3 EndA, EndB;  // emitted first / last node positions (R-6 MatchSplit)
+            public bool HasEnds;
         }
 
         private readonly List<Line> m_Lines = new List<Line>();
@@ -475,6 +540,12 @@ namespace SkiResortMod.Systems
         {
             int inner = math.max(0, emitted.Count - 2);
             var line = new Line { TypeId = typeId, Inner = new float3[inner], Members = new int[inner], Pinned = new bool[inner] };
+            if (emitted.Count >= 2)
+            {
+                line.EndA = emitted[0].Position;
+                line.EndB = emitted[emitted.Count - 1].Position;
+                line.HasEnds = true;
+            }
             for (int i = 0; i < inner; i++)
             {
                 LiftLineNode n = emitted[i + 1];
@@ -525,6 +596,161 @@ namespace SkiResortMod.Systems
                 }
             }
             return null;
+        }
+
+        /// <summary>R-6: the registered line this built path is, allowing EXTRA engine split nodes. <paramref name="path"/> = every
+        /// node of the path in order, ends included (world positions). Needs: the path's ends within EndTolM of the tool's ends
+        /// (either direction); every tool inner node matched, in order, by its own path node within MatchTolM (xz); every other
+        /// inner path node within ExtraLateralTolM of the tool's end-to-end xz line. Newest line first; null when none.</summary>
+        public LiftToolMatch MatchSplit(IList<float3> path)
+        {
+            if (path == null || path.Count < 3)
+                return null;
+            int n = path.Count - 2;
+            for (int l = m_Lines.Count - 1; l >= 0; l--)
+            {
+                Line line = m_Lines[l];
+                if (!line.HasEnds || line.Inner.Length > n)
+                    continue;
+                for (int dir = 0; dir < 2; dir++)
+                {
+                    float3 first = dir == 0 ? line.EndA : line.EndB, last = dir == 0 ? line.EndB : line.EndA;
+                    if (math.distance(path[0].xz, first.xz) > EndTolM || math.distance(path[path.Count - 1].xz, last.xz) > EndTolM)
+                        continue;
+                    LiftToolMatch m = Assign(line, path, dir == 1);
+                    if (m != null)
+                        return m;
+                }
+            }
+            return null;
+        }
+
+        private static LiftToolMatch Assign(Line line, IList<float3> path, bool reversed)
+        {
+            int n = path.Count - 2, r = line.Inner.Length;
+            var m = new LiftToolMatch
+            {
+                Line = line, Members = new int[n], Pinned = new bool[n], Extra = new bool[n], Registered = r, Reversed = reversed,
+            };
+            int j = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float3 p = path[i + 1];
+                int reg = reversed ? r - 1 - j : j;
+                if (j < r && math.distance(p.xz, line.Inner[reg].xz) <= MatchTolM)
+                {
+                    m.Members[i] = line.Members[reg];
+                    m.Pinned[i] = line.Pinned[reg];
+                    m.Pins += line.Pinned[reg] ? 1 : 0;
+                    j++;
+                    continue;
+                }
+                if (Lateral(line.EndA, line.EndB, p) > ExtraLateralTolM)
+                    return null;
+                m.Members[i] = -1;
+                m.Extra[i] = true;
+                m.Extras++;
+            }
+            return j == r ? m : null;
+        }
+
+        /// <summary>xz distance of <paramref name="p"/> from the segment a -> b.</summary>
+        public static float Lateral(float3 a, float3 b, float3 p)
+        {
+            float2 ab = b.xz - a.xz;
+            float len2 = math.lengthsq(ab);
+            if (len2 < 1e-6f)
+                return math.distance(a.xz, p.xz);
+            float t = math.saturate(math.dot(p.xz - a.xz, ab) / len2);
+            return math.distance(a.xz + ab * t, p.xz);
+        }
+
+        /// <summary>R-6 diagnostics (a line that did NOT match): the registered line with the most inner nodes found in
+        /// <paramref name="path"/> (xz within MatchTolM, any order), <paramref name="found"/> / <paramref name="pins"/> of them; null
+        /// when no registered node is on the path. The fit WARNs when it would move such a line's pinned towers.</summary>
+        public Line BestPartial(IList<float3> path, out int found, out int pins)
+        {
+            found = pins = 0;
+            Line best = null;
+            if (path == null)
+                return null;
+            for (int l = m_Lines.Count - 1; l >= 0; l--)
+            {
+                Line line = m_Lines[l];
+                int f = 0, p = 0;
+                for (int k = 0; k < line.Inner.Length; k++)
+                {
+                    for (int i = 0; i < path.Count; i++)
+                    {
+                        if (math.distance(path[i].xz, line.Inner[k].xz) <= MatchTolM)
+                        {
+                            f++;
+                            p += line.Pinned[k] ? 1 : 0;
+                            break;
+                        }
+                    }
+                }
+                if (f > found)
+                {
+                    found = f;
+                    pins = p;
+                    best = line;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>R-6: members for the EXTRA split nodes of a matched tool line (members[i] &lt; 0), so the rope stays on the plan:
+        /// the planned chord runs between the neighboring tool nodes' ropes (ground + RopeAboveBase(member); the station ropes at
+        /// the ends) and an extra node gets the member whose rope is NEAREST that chord (a tie goes to the taller: never a dip
+        /// below the planned rope when a member sits exactly between). <paramref name="current"/> (the node's member now, -1
+        /// unknown) is kept while its rope is within ChordHystM of the best one's distance (no flip-flop on re-fits). Tool nodes
+        /// are not touched. Pure. The fit then checks the clearance; an extra that breaks it is re-filled by the planner
+        /// (LiftTowerPlanner.Fit spareNodes, T128 FillSpare).</summary>
+        public static void ChordMembers(LiftTowerPlanConstants c, IList<float> innerAlongM, IList<float> groundM, int[] members,
+                                        IList<int> current, float lengthM, float ropeA, float ropeB)
+        {
+            int n = members.Length;
+            var tool = (int[])members.Clone();   // the chord runs between TOOL nodes only, never an extra filled in this pass
+            for (int i = 0; i < n; i++)
+            {
+                if (tool[i] >= 0)
+                    continue;
+                int a = i - 1, b = i + 1;
+                while (a >= 0 && tool[a] < 0)
+                    a--;
+                while (b < n && tool[b] < 0)
+                    b++;
+                float sa = a >= 0 ? innerAlongM[a] : 0f, sb = b < n ? innerAlongM[b] : lengthM;
+                float ra = a >= 0 ? groundM[a] + c.RopeAboveBase(tool[a]) : ropeA;
+                float rb = b < n ? groundM[b] + c.RopeAboveBase(tool[b]) : ropeB;
+                float t = sb - sa > 1e-3f ? math.saturate((innerAlongM[i] - sa) / (sb - sa)) : 0.5f;
+                float chord = math.lerp(ra, rb, t);
+                int pick = Nearest(c, groundM[i], chord);
+                int cur = current != null && i < current.Count ? current[i] : -1;
+                if (cur >= 0 && cur < c.Ladder.Length && cur != pick &&
+                    math.abs(groundM[i] + c.RopeAboveBase(cur) - chord) <= math.abs(groundM[i] + c.RopeAboveBase(pick) - chord) + ChordHystM)
+                    pick = cur;
+                members[i] = pick;
+            }
+        }
+
+        /// <summary>The member whose rope (ground + RopeAboveBase) is nearest <paramref name="ropeY"/>; a tie (within ChordTolM) goes
+        /// to the taller.</summary>
+        public static int Nearest(LiftTowerPlanConstants c, float ground, float ropeY)
+        {
+            int best = 0;
+            float bestD = float.PositiveInfinity;
+            for (int m = 0; m < c.Ladder.Length; m++)
+            {
+                float d = math.abs(ground + c.RopeAboveBase(m) - ropeY);
+                if (d <= bestD + ChordTolM)   // ascending ladder: a near-tie takes the taller member
+                {
+                    best = m;
+                    bestD = math.min(bestD, d);
+                }
+            }
+            return best;
         }
     }
 }

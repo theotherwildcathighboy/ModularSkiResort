@@ -177,6 +177,20 @@
 //   held branch taken only while a loop is held. Identity holds per consumer-state path: the 64-frame power read can see a
 //   one-dispatch shortfall window a 256-frame poller would miss (LiftServedRule header).
 //
+// SCALE ROUND R-3 / R-4 (2026-10-22; docs/research/lifts/lift-scale-2026-10-22.md, DECISIONS 368-369) — the mover at release
+// scale (20 lifts, ~3,000 chairs; target < 0.5 ms a frame on the main thread, no cost that grows with the city):
+//   * The running loops' Transforms are written by a Burst IJobParallelFor (ChairPinSystem.Mover.cs: MoveChairsJob over flat
+//     native copies of the loop cache; LiftLoopSampler.cs = LiftLoopCache.SampleSegments + MoveChair's pose, the same math).
+//     Main thread per pass: O(loops) + the bounds tags + one schedule. Threading and ECS ordering: Mover.cs header.
+//   * Far-loop pace (LiftMoverMath.cs): a loop ≥ 500 m from the camera is written every k-th pass (k ≤ 8, a chair never steps
+//     more than 0.5 mrad on screen), exact on return (positions are a function of the clock); the bounds refresh is per loop,
+//     its own speed, 2 m near / 2 m × k far (was: global, at the fastest loop's speed).
+//   * The managed per-chair path (MoveChair) stays: held loops (Phase D's frozen writes) and the dev tab's A/B switch.
+//   * R-4: the cable lanes come from the census's line edges and their nodes (ChairPinSystem.Harvest.cs, LiftLaneHarvest.cs),
+//     with the city-wide scan as a once-per-load watchdog; lanes are sorted by entity whichever path ran.
+//   * Logs: "[cost] chair mover" gains p50 / p95 / max + chairs + near / far + Updated tags per second; "[mover]" says once per
+//     load whether the job runs Burst-compiled (WARN if not); "[cost] lane harvest" replaces "[cost] lane scan".
+//
 // ─────────────────────────────────────────────────────────────────────────────────────────
 // HOW A CHAIR IS PINNED (all game types verified against the decompiled Game.dll, fullsrc)
 //
@@ -642,6 +656,7 @@ namespace SkiResortMod.Systems
                 ComponentType.Exclude<Temp>());
 
             m_RenderingSystem = World.GetOrCreateSystemManaged<Game.Rendering.RenderingSystem>();
+            MoverOnCreate();   // R-3: the Burst mover's lookups, flat arrays and the camera (ChairPinSystem.Mover.cs)
 
             Mod.Log.Info($"{nameof(ChairPinSystem)} created");
         }
@@ -675,6 +690,7 @@ namespace SkiResortMod.Systems
             // and offsets; clear them so no reader sees them between this load and the first rebuild. LoopGeneration moves
             // so generation-keyed readers (hub stats) drop what they derived from them. The HV-lane prefab cache is
             // hygiene (M9).
+            MoverReset();      // R-3: the last job completed, flat arrays dirty, cost window and harvest watchdog re-armed
             m_LoopCache.Clear();
             LoopGeneration++;
             CableLanePrefabs.Clear();
@@ -750,6 +766,7 @@ namespace SkiResortMod.Systems
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
             base.OnGamePreload(purpose, mode);
+            MoverCompleteJob();   // R-3: never leave the mover job running into a load (it never throws)
             try
             {
                 if (m_HoldLog.Count > 0)
@@ -784,6 +801,7 @@ namespace SkiResortMod.Systems
             {
                 // nothing left to report to
             }
+            MoverDispose();   // R-3: completes the mover job, frees the persistent flat arrays (never throws)
             base.OnDestroy();
         }
 
@@ -793,6 +811,10 @@ namespace SkiResortMod.Systems
             m_DiagLastUpdateFrame = m_RenderingSystem.frameIndex;
             try
             {
+                // R-3 (ChairPinSystem.Mover.cs): last frame's mover job is complete before anything below reads or writes the
+                // flat arrays or a chair's Transform on the main thread; its result counts become the "last pass" numbers.
+                MoverCompleteJob();
+
                 // Phase D (round-4-contract §4.2): the end of a "[state]" burst is written at most 10 s after the last line,
                 // whatever path this update takes (the census's precedent). Per frame: one int compare while nothing is
                 // folded.
@@ -1272,153 +1294,15 @@ namespace SkiResortMod.Systems
                 m_DiagLastExit = "moving: phase unchanged (paused)";
                 return;
             }
+            // R-3: the render-clock advance of this pass (sim speed and fps both in it) sizes a far loop's stride; ≤ 0 (the first
+            // pass of a load, a clock step back) means stride 1 for every loop.
+            double passDtS = m_LastMoveTimeS >= 0.0 ? timeS - m_LastMoveTimeS : 0.0;
             m_LastMoveTimeS = timeS;
             m_DiagLastTimeS = timeS;
 
-            long moverStart = System.Diagnostics.Stopwatch.GetTimestamp();   // M10: once-per-load cost line below
-            int moved = 0, inPlace = 0, missing = 0, riding = 0;
-            int heldWrites = 0;   // Phase D: frozen-pose writes of held loops (not "moved": S-8 liveness only)
-            for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
-            {
-                LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
-                riding += loop.m_Chairs.Count;
-                // Phase D (§3.2 step 5): a HELD loop is written only at a rebuild or the hold's entry, at the frozen pose
-                // (LiftLoopHold.FrozenPhase = PhaseOf's product at FrozenTimeS, bit for bit); its chairs count in riding.
-                // Taken only while some loop is held, so a powered city runs the lines below exactly as before.
-                if (m_HeldLoopCount > 0 && l < m_HoldByLoop.Count && m_HoldByLoop[l].Held)
-                {
-                    LoopHold hold = m_HoldByLoop[l];
-                    if (rebuilt || hold.PoseDirty)
-                    {
-                        double frozen = LiftLoopHold.FrozenPhase(loop.m_SpeedMps, hold.FrozenTimeS);
-                        for (int i = 0; i < loop.m_Chairs.Count; i++)
-                        {
-                            double s = (loop.m_Offsets[i] + frozen) % loop.m_Length;
-                            switch (MoveChair(loop.m_Chairs[i], loop.m_GripTops[i], loop, s))
-                            {
-                                case MoveResult.Moved: heldWrites++; break;
-                                case MoveResult.InPlace: break;
-                                case MoveResult.Missing: missing++; break;
-                            }
-                        }
-                        hold.PoseDirty = false;
-                    }
-                    continue;
-                }
-                double phase = PhaseOf(loop, timeS);
-                for (int i = 0; i < loop.m_Chairs.Count; i++)
-                {
-                    double s = (loop.m_Offsets[i] + phase) % loop.m_Length;
-                    switch (MoveChair(loop.m_Chairs[i], loop.m_GripTops[i], loop, s))
-                    {
-                        case MoveResult.Moved: moved++; break;
-                        case MoveResult.InPlace: inPlace++; break;
-                        case MoveResult.Missing: missing++; break;
-                    }
-                }
-            }
-            if (riding > 0 && !m_BoundsCostLogged)
-            {
-                m_MoverCostTicks += System.Diagnostics.Stopwatch.GetTimestamp() - moverStart;
-                m_MoverCostPasses++;
-            }
-            if (missing > 0)
-                m_LoopCacheDirty = true; // roster chair died mid-window — heal next rebuild
-
-            m_DiagLastMoved = moved;
-            m_DiagLastInPlace = inPlace;
-            m_DiagLastMissing = missing;
-            m_DiagLastRiding = riding;
-            if (moved > 0)
-                m_DiagPassesWithMoves++;
-            m_DiagHeldWrites += heldWrites;
-            // Phase D (round-4-contract §4.3; was ChairPinSystem.cs:1093-1095): the held count appended only when > 0, as
-            // m_HeldExitSuffix (PollHolds rebuilds it only when the count changes; "" for a powered city), so this line still
-            // makes one string per frame, as before Phase D (round-4 review: no per-frame suffix format).
-            m_DiagLastExit = null;   // L9: LastExitText() formats it from m_DiagLast* when the dev tab / dump reads it
-
-            // Phase D (skeptic S-8; was ChairPinSystem.cs:1097-1101 `moved > 0`): a frozen-pose write proves the pass
-            // alive too (a city loaded with every lift unpowered moves nothing); the held count is appended only when > 0,
-            // so a powered city's line is unchanged.
-            if ((moved > 0 || heldWrites > 0) && !m_MovingAliveLogged)
-            {
-                m_MovingAliveLogged = true;
-                Mod.Log.Info($"{nameof(ChairPinSystem)} [moving] pass alive — {riding} chair(s) riding " +
-                             $"{m_LoopCache.m_Loops.Count} loop(s), {m_StaticFallbackChairs} static-fallback" +
-                             LiftLoopHold.HeldSuffix(m_HeldChairsForPower, m_HeldChairCount - m_HeldChairsForPower));
-            }
-
-            // Bounds refresh: CullingInfo + the static search tree only re-read Transform on
-            // Updated — tag the whole roster every BoundsRefreshMeters of travel (~2 m lag
-            // ceiling at any sim speed; suppressed entirely while paused because phase
-            // freezes). CleanUpSystem strips the tags at end of frame. Catalog Phase B (§5.2 item 6): the travel of the
-            // FASTEST moving loop, (TimeS − last) × its speed (fixed-grip only: 2.5 × Δt, the former phase delta).
-            if ((timeS - m_LastBoundsTimeS) * m_MaxLoopSpeedMps >= BoundsRefreshMeters)
-            {
-                m_LastBoundsTimeS = timeS;
-                long boundsStart = System.Diagnostics.Stopwatch.GetTimestamp();
-                // M10 (code review 2026-10-19): one batched AddComponent for the whole roster instead of one structural change
-                // per chair (~250 chairs per km of fixed-grip, every BoundsRefreshMeters of travel).
-                var tagChairs = new NativeList<Entity>(64, Allocator.Temp);
-                try
-                {
-                    for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
-                    {
-                        // Phase D (round-4-contract §3.2 step 7): a held loop's chairs do not travel — no refresh (its pose was
-                        // tagged once at the hold's entry, below). m_MaxLoopSpeedMps is the rebuild's, as before, so the
-                        // running loops keep their cadence.
-                        if (m_HeldLoopCount > 0 && l < m_HoldByLoop.Count && m_HoldByLoop[l].Held)
-                            continue;
-                        CollectChairsToTag(m_LoopCache.m_Loops[l], tagChairs);
-                    }
-                    if (tagChairs.Length > 0)
-                        EntityManager.AddComponent<Updated>(tagChairs.AsArray());
-                }
-                finally
-                {
-                    tagChairs.Dispose();
-                }
-                if (!m_BoundsCostLogged)
-                {
-                    m_BoundsCostTicks += System.Diagnostics.Stopwatch.GetTimestamp() - boundsStart;
-                    m_BoundsCostPasses++;
-                }
-            }
-            if (!m_BoundsCostLogged && m_MoverCostPasses >= MoverCostPassesToLog)
-            {
-                m_BoundsCostLogged = true;
-                double msPerTick = 1000.0 / System.Diagnostics.Stopwatch.Frequency;
-                Mod.Log.Info($"{nameof(ChairPinSystem)} [cost] chair mover (once per load, first {m_MoverCostPasses} moving passes): mean " +
-                             $"{m_MoverCostTicks * msPerTick / m_MoverCostPasses:F3} ms per pass over {riding} chair(s) in {m_LoopCache.m_Loops.Count} loop(s); " +
-                             $"bounds tag (one batched AddComponent): {m_BoundsCostPasses} refresh(es), mean " +
-                             $"{(m_BoundsCostPasses > 0 ? m_BoundsCostTicks * msPerTick / m_BoundsCostPasses : 0.0):F3} ms");
-            }
-
-            // Phase D (round-4-contract §3.2 step 6): the hold-entry bounds tag — one Updated per chair of a loop that was
-            // frozen this frame (the bounds-refresh guard above), so CullingInfo and the static search tree hold the
-            // exact frozen pose (they re-read Transform only on Updated, PreCullingSystem.cs:709-718) instead of a pose
-            // up to BoundsRefreshMeters stale. CleanUpSystem strips the tags at the end of the frame.
-            if (m_HeldLoopCount > 0)
-            {
-                for (int l = 0; l < m_LoopCache.m_Loops.Count && l < m_HoldByLoop.Count; l++)
-                {
-                    LoopHold hold = m_HoldByLoop[l];
-                    if (!hold.Held || !hold.TagBounds)
-                        continue;
-                    hold.TagBounds = false;
-                    var heldTag = new NativeList<Entity>(32, Allocator.Temp);
-                    try
-                    {
-                        CollectChairsToTag(m_LoopCache.m_Loops[l], heldTag);
-                        if (heldTag.Length > 0)
-                            EntityManager.AddComponent<Updated>(heldTag.AsArray());
-                    }
-                    finally
-                    {
-                        heldTag.Dispose();
-                    }
-                }
-            }
+            // R-3 (lift-scale-2026-10-22.md, DECISIONS 369): the move pass, the far-loop pace and the bounds refresh live in
+            // ChairPinSystem.Mover.cs (RunMovePass): a Burst job writes the running loops' Transforms on worker threads.
+            RunMovePass(timeS, passDtS, rebuilt);
         }
 
         /// <summary>M10: the loop's chairs that can take an Updated tag now (alive, not Deleted / Updated / Created).</summary>
@@ -1614,67 +1498,11 @@ namespace SkiResortMod.Systems
             //    catalog's lift-line set, an explicit whitelist (ext-chk X1), fetched ONCE before the chunk loop.
             //    Catalog Phase B (§5.2 item 1; was LiftLinePrefabSet.Contains): the line → type view, fetched once; a lane
             //    counts when its owner's line type moves as a Loop (Shuttle lines — the tram, Phase C — are not harvested).
-            IReadOnlyDictionary<Entity, LiftTypeDef> lineTypes = m_PrefabCatalog.LiftLineTypes;
-            var lanes = new List<LiftLoopCache.CableLane>();
-            // M9 (code review 2026-10-19): the query is every utility lane of the city (water, sewage, power, fences); the lane
-            // PREFAB is tested first through a cached lookup (CableLanePrefabs), so only HV-lane-prefab lanes pay for the owner
-            // read. One cost line per load (m_LaneScanLogged).
-            long laneScanStart = System.Diagnostics.Stopwatch.GetTimestamp();
-            int lanesSeen = 0, lanesHv = 0;
-            chunks = m_LaneQuery.ToArchetypeChunkArray(Allocator.Temp);
-            try
-            {
-                var entityHandle = GetEntityTypeHandle();
-                var laneHandle = GetComponentTypeHandle<Game.Net.Lane>(isReadOnly: true);
-                var curveHandle = GetComponentTypeHandle<Curve>(isReadOnly: true);
-                var ownerHandle = GetComponentTypeHandle<Owner>(isReadOnly: true);
-                var prefabRefHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
-                for (int c = 0; c < chunks.Length; c++)
-                {
-                    var entities = chunks[c].GetNativeArray(entityHandle);
-                    var laneData = chunks[c].GetNativeArray(ref laneHandle);
-                    var curves = chunks[c].GetNativeArray(ref curveHandle);
-                    var owners = chunks[c].GetNativeArray(ref ownerHandle);
-                    var prefabRefs = chunks[c].GetNativeArray(ref prefabRefHandle);
-                    lanesSeen += entities.Length;
-                    for (int i = 0; i < entities.Length; i++)
-                    {
-                        if (!CableLanePrefabs.IsHighVoltage(EntityManager, prefabRefs[i].m_Prefab))
-                            continue;
-                        lanesHv++;
-                        Entity ownerEntity = owners[i].m_Owner;
-                        if (ownerEntity == Entity.Null ||
-                            !EntityManager.TryGetComponent<PrefabRef>(ownerEntity, out var ownerPrefab) ||
-                            !lineTypes.TryGetValue(ownerPrefab.m_Prefab, out LiftTypeDef lineDef) || lineDef == null ||
-                            lineDef.Mover != MoverKind.Loop)
-                            continue;
-                        lanes.Add(new LiftLoopCache.CableLane
-                        {
-                            m_Lane = entities[i],
-                            m_Owner = ownerEntity,
-                            m_Bezier = curves[i].m_Bezier,
-                            m_Start = laneData[i].m_StartNode,
-                            m_End = laneData[i].m_EndNode,
-                            m_Length = curves[i].m_Length,
-                            m_TypeIndex = lineDef.Index,   // Catalog Phase B
-                        });
-                    }
-                }
-            }
-            finally
-            {
-                chunks.Dispose();
-            }
-
+            //    R-4 (lift-scale-2026-10-22.md, DECISIONS 369): the lanes come from the census's line edges and their end nodes
+            //    (HarvestCableLanes, ChairPinSystem.Harvest.cs), not from every utility lane of the city; the city-wide scan is
+            //    kept as the once-per-load watchdog and as the fallback while the census is not armed (the Editor).
+            List<LiftLoopCache.CableLane> lanes = HarvestCableLanes();
             m_LastBuildHadLanes = lanes.Count > 0;
-            if (!m_LaneScanLogged)
-            {
-                m_LaneScanLogged = true;
-                Mod.Log.Info($"{nameof(ChairPinSystem)} [cost] lane scan (first rebuild of the load): {lanesSeen} utility lane(s) in the city, " +
-                             $"{lanesHv} of an HV lane prefab, {lanes.Count} kept as chairlift cable lane(s), " +
-                             $"{(System.Diagnostics.Stopwatch.GetTimestamp() - laneScanStart) * 1000.0 / System.Diagnostics.Stopwatch.Frequency:F2} ms " +
-                             "(lane prefab tested first through a cached lookup)");
-            }
 
             // Station ownership map for the loop walk (entry 102): PathNode owners are
             // entity indices, and a station's anchors may be stamped with the station
@@ -1739,7 +1567,7 @@ namespace SkiResortMod.Systems
             m_DiagLastRebuildFrame = m_RenderingSystem.frameIndex;
             m_DiagStations = stations.Count;
             m_DiagLanesMatched = lanes.Count;
-            m_DiagLaneTotal = m_LaneQuery.CalculateEntityCount();
+            // m_DiagLaneTotal: set by HarvestCableLanes (the city-wide count when the full scan ran; R-4).
 
             // 3. Roster: every live chair joins its loop (by owner edge) or falls back to
             //    milestone-1 static pinning. Riding chairs are enrolled once with vanilla
@@ -1931,6 +1759,12 @@ namespace SkiResortMod.Systems
                 for (int rank = 0; rank < n; rank++)
                     loop.m_Offsets[order[rank]] = rank * spacing;
             }
+
+            // R-3 (ChairPinSystem.Mover.cs): every loop's far-loop pace starts fresh (staggered, bounds clock = now: the roster
+            // pass above tagged every rider Updated), and the Burst job's flat arrays are rebuilt before the next move pass.
+            for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
+                m_LoopCache.m_Loops[l].m_Pace = LiftMoverMath.Seed(l, s_Pace.MaxStride, seedTimeS);
+            m_MoverArraysDirty = true;
 
             // 5. Deletion-gap retry (reconnect rebuilds can land between vanilla deleting
             //    old chairs and spawning replacements): loops without riders stay dirty
@@ -2517,6 +2351,7 @@ namespace SkiResortMod.Systems
                     for (int i = 0; i < loop.m_Offsets.Count; i++)
                         loop.m_Offsets[i] = LiftLoopHold.Rebase(loop.m_Offsets[i], loop.m_SpeedMps, hold.FrozenTimeS, timeS,
                                                                 loop.m_Length);
+                    m_MoverArraysDirty = true;   // R-3: the Burst job reads the offsets from its own flat copy
                     double place = FrozenPlace(loop, hold.FrozenTimeS);
                     hold.Held = false;
                     hold.PoseDirty = false;

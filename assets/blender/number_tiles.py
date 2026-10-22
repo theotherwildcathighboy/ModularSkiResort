@@ -9,8 +9,8 @@ number_tiles.py — per-tower number tiles (T123, DECISIONS 358; route V1 of doc
 WHAT IT MAKES. Per tower plate class, 11 one-quad tiles: `SkiNumTile<cls>Blank` (covers the baked numeral's whole
 window) and `SkiNumTile<cls>N0..N9` (one digit cell, a third of the window wide). The code mod (TowerNumberTileSystem)
 hangs them on every line tower as Secondary sub-objects: per plate face a number 1..200 is drawn as 1-3 digit tiles
-centred in the window; for 1-2 digits the Blank tile sits behind them (digits LAYER_M in front of it), 3 digits fill
-the window on their own. So at most 3 tiles per face, exact centring for every count, and the baked plate (glyph +
+centered in the window; for 1-2 digits the Blank tile sits behind them (digits LAYER_M in front of it), 3 digits fill
+the window on their own. So at most 3 tiles per face, exact centering for every count, and the baked plate (glyph +
 height numeral) is the fallback when the tiles are off or the prefabs are missing.
 
 CLASSES (the shipped plates; frames and numbers MEASURED from the shipped LOD0 FBXs with --measure-plates, 2026-10-20,
@@ -27,7 +27,7 @@ texels): field sRGB 0.851, ink sRGB 0.051 (T1) / 0.039 (T2, T3), MaskMap R (meta
 welcome_sign.text_triangles / tram_tower._text_coverage paint the baked numeral with.
 
 FRAME (load-bearing). The tile quad is authored in Blender's XZ plane facing -Y, text left -> right along +X, up +Z,
-origin at the quad centre, and exported WITHOUT orient_for_net. export_fbx maps (x, y, z) -> (x, z, -y) and the game
+origin at the quad center, and exported WITHOUT orient_for_net. export_fbx maps (x, y, z) -> (x, z, -y) and the game
 negates FBX x (PIPELINE "Frame rule", DECISIONS 245), so in the prefab frame the tile faces +Z, reads left -> right
 along -X, up +Y: exactly the shipped plate's +Z face (measured: normal (0, 0, 1), viewer-right (-1, 0, 0)). The -Z
 face takes the tile rotated 180 deg about Y.
@@ -48,13 +48,13 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import cs2_asset  # noqa: E402
 
 # -- the classes ---------------------------------------------------------------------------------------------------
-# window = the baked numeral's area, metres in the plate's own frame (u = viewer-right from the plate centre, v = up):
-#   T1: plate_raster puts the glyph square in [b + 1 px, b + inner_h - 1 px] and centres the numeral in
+# window = the baked numeral's area, meters in the plate's own frame (u = viewer-right from the plate center, v = up):
+#   T1: plate_raster puts the glyph square in [b + 1 px, b + inner_h - 1 px] and centers the numeral in
 #       [glyph right + 2 px, w - b - 2 px] (b = 0.006, inner_h = 0.148, px = 1 / 362 m measured on FG12P):
-#       numeral span 0.157 .. 0.351 from the left edge, centre 0.254 -> u +0.074; the tiles span 0.200 (to the border's
+#       numeral span 0.157 .. 0.351 from the left edge, center 0.254 -> u +0.074; the tiles span 0.200 (to the border's
 #       inner edge minus 1 mm) x the inner height 0.148.
-#   T2 / T3: tram_tower.plate_layout centres the numeral in avail = [b + pad + gs + pad, W - b - pad] (b 0.006, pad
-#       0.008, gs = H - 2 (b + pad)): gondola 0.194 .. 0.426 (centre u +0.090), tram 0.254 .. 0.546 (centre u +0.120);
+#   T2 / T3: tram_tower.plate_layout centers the numeral in avail = [b + pad + gs + pad, W - b - pad] (b 0.006, pad
+#       0.008, gs = H - 2 (b + pad)): gondola 0.194 .. 0.426 (center u +0.090), tram 0.254 .. 0.546 (center u +0.120);
 #       the tiles span avail + 4 mm each side x (H - 2 b).
 # cap_max = the baked numeral's own cap rule (T1 inner_h - 6 px; T2 / T3 0.85 * gs) - the tiles never print larger.
 CLASSES = {
@@ -146,7 +146,7 @@ def layout(cls, condense=CONDENSE):
 
 # -- rasters (rows bottom-up, linear coverage) -------------------------------------------------------------------------
 def _cov(tris, w, h, x0_m, y0_m, ppm):
-    """Coverage (h, w) of triangles given in metres; pixel (0, 0) bottom-left sits at (x0_m, y0_m)."""
+    """Coverage (h, w) of triangles given in meters; pixel (0, 0) bottom-left sits at (x0_m, y0_m)."""
     Ws, Hs = w * SS, h * SS
     xs = x0_m + (np.arange(Ws) + 0.5) / (SS * ppm)
     ys = y0_m + (np.arange(Hs) + 0.5) / (SS * ppm)
@@ -169,7 +169,7 @@ def _cov(tris, w, h, x0_m, y0_m, ppm):
 
 
 def digit_tris_m(cls, d, condense=CONDENSE):
-    """Digit d's triangles in metres, centred in its cell: x by the tabular advance box, y by the digits' common band."""
+    """Digit d's triangles in meters, centered in its cell: x by the tabular advance box, y by the digits' common band."""
     f = font_metrics()
     L = layout(cls, condense)
     s = L["em"]
@@ -178,7 +178,7 @@ def digit_tris_m(cls, d, condense=CONDENSE):
 
 
 def digit_ink(cls, d, w, h, condense=CONDENSE):
-    """Ink coverage (h, w) of a digit cell rendered at w x h px (cell_w x win_h metres)."""
+    """Ink coverage (h, w) of a digit cell rendered at w x h px (cell_w x win_h meters)."""
     L = layout(cls, condense)
     ppm = w / L["cell_w"]
     return _cov(digit_tris_m(cls, d, condense), w, h, -L["cell_w"] / 2.0, -CLASSES[cls]["win_h"] / 2.0, ppm)
@@ -228,7 +228,7 @@ def tile_size(cls, glyph):
 
 
 def build_tile(cls, glyph, name=None):
-    """One quad, Blender XZ plane facing -Y (see FRAME), origin at its centre, UVs on its atlas cell."""
+    """One quad, Blender XZ plane facing -Y (see FRAME), origin at its center, UVs on its atlas cell."""
     w, h = tile_size(cls, glyph)
     c0, r0, cw, chh = cell_rect(cls, 10 if glyph is None else glyph)
     inset = 4.0 if glyph is None else 0.0           # the Blank samples the plain field well inside its cell
@@ -276,7 +276,7 @@ def baked_plate(cls, ppm, numeral):
 
 
 def number_tiles(n):
-    """The tiles of number n (1..200 after the wrap) on one face: [(glyph or None, u offset from the window centre)].
+    """The tiles of number n (1..200 after the wrap) on one face: [(glyph or None, u offset from the window center)].
     Mirrors TowerNumberTiles.Layout in the code mod (LiftBatch tests pin the C# side)."""
     s = str(n)
     out = [] if len(s) == MAX_DIGITS else [(None, 0.0)]
@@ -300,7 +300,7 @@ def compose(cls, n, ppm, condense=CONDENSE, tile_ppm=None):
     for glyph, off in number_tiles(n):
         tw = c["win_w"] if glyph is None else L["cell_w"]
         th = c["win_h"]
-        cu = pw / 2.0 + c["win_u"] + off * L["cell_w"]          # tile centre from the plate's left edge
+        cu = pw / 2.0 + c["win_u"] + off * L["cell_w"]          # tile center from the plate's left edge
         x0, x1 = int(round((cu - tw / 2) * ppm)), int(round((cu + tw / 2) * ppm))
         y0, y1 = int(round((ph - th) / 2 * ppm)), int(round((ph + th) / 2 * ppm))
         if glyph is None:
@@ -407,8 +407,8 @@ def preview(out_dir):
 
 # -- measurement (the code mod's plate table) ------------------------------------------------------------------------
 def measure_plates(import_root, out_json):
-    """Find both plate FRONT quads of every class tower in its shipped LOD0 FBX: centre, normal and viewer-right in the
-    PREFAB frame (game = (-fx, fy, fz) / 100: FBX centimetres, the game negates FBX x)."""
+    """Find both plate FRONT quads of every class tower in its shipped LOD0 FBX: center, normal and viewer-right in the
+    PREFAB frame (game = (-fx, fy, fz) / 100: FBX centimeters, the game negates FBX x)."""
     from mathutils import Vector
     res = {}
     for cls, towers in CLASS_TOWERS.items():

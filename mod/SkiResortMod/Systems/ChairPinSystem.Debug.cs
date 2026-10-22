@@ -140,6 +140,93 @@ namespace SkiResortMod.Systems
             moving.children.Add(Val("Last hold change", () => m_HoldLastChange));
             list.Add(moving);
 
+            // ── R-3 / R-4 (docs/research/lifts/lift-scale-2026-10-22.md, ChairPinSystem.Mover.cs header): the mover at scale.
+            // Plain fields only (the 10 Hz cost contract); the percentile row sorts ≤ 600 floats into a reused list.
+            var scale = new DebugUI.Foldout { displayName = "Mover scale (R-3 / R-4)", opened = false };
+            scale.children.Add(Val("Path / Burst-compiled / stress / sync-measure", () =>
+                $"{m_DiagMoverPath} / {m_DiagBurst} / x{s_StressFactor} / {(s_SyncMeasure ? "on" : "off")}"));
+            scale.children.Add(Val("Far-loop pace", () => s_Pace.Enabled
+                ? $"on: >= {s_Pace.FarMinM:F0} m, stride <= {s_Pace.MaxStride}, step <= {s_Pace.MaxStepRadians * 1000.0:F1} mrad"
+                : "off (every loop every pass)"));
+            scale.children.Add(Val("Last pass: riding / written / loops near / far / bounds tags", () =>
+                $"{m_PassRiding} / {m_PassWritten} / {m_PassNear} / {m_PassFar} / {m_PassTags}"));
+            scale.children.Add(Val("Main thread p50 / p95 / max (window)", () => MoverCostShort()));
+            scale.children.Add(Val("Bounds Updated tags / s (window)", () =>
+            {
+                float seconds = m_TagWindowStart >= 0f ? UnityEngine.Time.realtimeSinceStartup - m_TagWindowStart : 0f;
+                return seconds > 0f ? $"{m_TagTotal / seconds:F0} ({m_TagTotal} in {seconds:F1} s)" : "-";
+            }));
+            scale.children.Add(Val("Lane harvest: mode / owners / SubLane entries / ms / city utility lanes", () =>
+                $"{m_DiagHarvestMode} / {m_DiagHarvestOwners} / {m_DiagHarvestVisited} / {m_DiagHarvestMs:F3} / {m_DiagLaneTotal}"));
+            scale.children.Add(new DebugUI.Button
+            {
+                displayName = s_MoverUseJob ? "Mover: switch to the MANAGED path (A/B)" : "Mover: switch to the BURST job",
+                action = () =>
+                {
+                    s_MoverUseJob = !s_MoverUseJob;
+                    ResetMoverCostWindow();
+                    Mod.Log.Info($"{nameof(ChairPinSystem)} [debug tab]: mover path = {(s_MoverUseJob ? "Burst job" : "managed")}");
+                    DebugSystem.Rebuild(BuildSkiResortDebugUI);
+                }
+            });
+            scale.children.Add(new DebugUI.Button
+            {
+                displayName = s_Pace.Enabled ? "Far-loop pace: turn OFF" : "Far-loop pace: turn ON",
+                action = () =>
+                {
+                    s_Pace.Enabled = !s_Pace.Enabled;
+                    ResetMoverCostWindow();
+                    Mod.Log.Info($"{nameof(ChairPinSystem)} [debug tab]: far-loop pace {(s_Pace.Enabled ? "on" : "off")}");
+                    DebugSystem.Rebuild(BuildSkiResortDebugUI);
+                }
+            });
+            scale.children.Add(new DebugUI.Button
+            {
+                displayName = $"Far-loop pace: min distance {s_Pace.FarMinM:F0} m (cycle 250 / 500 / 1000 / 2000)",
+                action = () =>
+                {
+                    s_Pace.FarMinM = s_Pace.FarMinM < 250f ? 250f : s_Pace.FarMinM < 500f ? 500f
+                                   : s_Pace.FarMinM < 1000f ? 1000f : s_Pace.FarMinM < 2000f ? 2000f : 250f;
+                    ResetMoverCostWindow();
+                    Mod.Log.Info($"{nameof(ChairPinSystem)} [debug tab]: far-loop pace min distance {s_Pace.FarMinM:F0} m");
+                    DebugSystem.Rebuild(BuildSkiResortDebugUI);
+                }
+            });
+            scale.children.Add(new DebugUI.Button
+            {
+                displayName = $"Stress: x{s_StressFactor} (cycle 1 / 4 / 16)",
+                action = () =>
+                {
+                    s_StressFactor = s_StressFactor <= 1 ? 4 : s_StressFactor <= 4 ? 16 : 1;
+                    ResetMoverCostWindow();
+                    Mod.Log.Info($"{nameof(ChairPinSystem)} [debug tab]: stress x{s_StressFactor} (the move work runs {s_StressFactor} " +
+                                 "time(s) per pass; bounds tags are not multiplied)");
+                    DebugSystem.Rebuild(BuildSkiResortDebugUI);
+                }
+            });
+            scale.children.Add(new DebugUI.Button
+            {
+                displayName = s_SyncMeasure ? "Sync-measure: turn OFF" : "Sync-measure: turn ON (the job is timed on the main thread)",
+                action = () =>
+                {
+                    s_SyncMeasure = !s_SyncMeasure;
+                    ResetMoverCostWindow();
+                    Mod.Log.Info($"{nameof(ChairPinSystem)} [debug tab]: sync-measure {(s_SyncMeasure ? "on" : "off")}");
+                    DebugSystem.Rebuild(BuildSkiResortDebugUI);
+                }
+            });
+            scale.children.Add(new DebugUI.Button
+            {
+                displayName = "Reset the cost window",
+                action = () => ResetMoverCostWindow()
+            });
+            scale.children.Add(new DebugUI.Button
+            {
+                displayName = "Log mover cost now (mod log)",
+                action = () => Mod.Log.Info(MoverCostLine("debug tab, current window"))
+            });
+            list.Add(scale);
+
             // ── Round L1: lift census, park, reconnect episodes, alignment aid ─────────────
             var census = new DebugUI.Foldout { displayName = "Lift census (L1)", opened = false };
             census.children.Add(Val("Census armed / revision / builds", () =>

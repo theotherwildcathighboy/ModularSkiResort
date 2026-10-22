@@ -21,6 +21,11 @@
 //     NetInitializeSystem.cs:2180-2181) are raised to the planner's MaxSpanM (FG 60 -> 90, DQ 90 -> 245; gondola 250 and tram 1000
 //     already reach it) and restored when it closes — the CursorAimSystem precedent (a prefab-entity data write, logged). The
 //     vanilla net tool keeps its own split (LiftBatch LP-20: a permanent raise cut tonight's DQ 328 m line to one engine node).
+//   * R-6 (2026-10-22, docs/research/lifts/lift-tool-split-fix-2026-10-22.md): CourseSplitSystem.CheckHeightRange ALSO cuts a
+//     course where its height profile changes elevation class (FreeHeight transition nodes, CourseSplitSystem.cs:2884-2942) — the
+//     2026-10-20 "Temp-edge MISMATCH" (16 for 10, 22 for 13). While the tool is open the line prefabs carry PlacementFlags.ShoreLine,
+//     the gate that skips it (SetSplitGate). Crossings with other HV nets still split; the fit matches a line with extra nodes
+//     (LiftToolLines.MatchSplit), and a mismatch logs the split points ("engine split points not in the plan").
 //   * CalculateElevation re-derives each node's Elevation from the terrain beside it (CourseSplitSystem.cs:3549-3647); the fit
 //     system then writes Elevation = (E, E) exactly (the T48 step 3 ladder rule), recognizing the line as a TOOL LINE through
 //     ToolLines (LiftLineEdit.cs LiftToolLines): heights only, with the tool's members, never moved — a pinned node is never
@@ -303,6 +308,52 @@ namespace SkiResortMod.Systems
                 sb.Append(def.Id).Append(' ').Append(len.ToString("F0")).Append(" m; ");
             }
             Mod.Log.Info($"LiftLine [spans]: {(raised ? "raised for the tool" : "vanilla values back")}: {(sb.Length > 0 ? sb.ToString() : "no change")}");
+            SetSplitGate(raised);
+        }
+
+        /// <summary>Line prefabs whose PlaceableNetData got the ShoreLine bit from us (removed again when the tool closes).</summary>
+        private readonly HashSet<Entity> m_GateAdded = new HashSet<Entity>();
+
+        /// <summary>R-6 (docs/research/lifts/lift-tool-split-fix-2026-10-22.md): while the tool is open the four line prefabs carry
+        /// PlacementFlags.ShoreLine, the one prefab-side gate of CourseSplitSystem.CheckHeightRange's elevation segmentation
+        /// (CourseSplitSystem.cs:2884: sampleTerrain && !RequireElevated && !ShoreLine). Without it the engine cuts a tool course
+        /// wherever its height profile changes elevation class (GetElevationType :2655-2662: 2 / 4 m above the ground at the piece's
+        /// sides, m_ElevationLimit 4, NetInitializeSystem.cs:874): a span with an end tower of Elevation >= 4 m follows the chord where
+        /// it is above the ground (:1381-1385, :1437-1438), and ground steeper than m_MaxSlopeSteepness is filled (:1436-1450), so
+        /// the 2026-10-20 tool lines were built with 16 / 22 edges for 10 / 13 planned. Other readers of the bit: CalculateElevation
+        /// (:3574-3592, only over water >= 4 m deep) and ValidationHelpers.CheckSurface (:1604, the underwater check of OnGround
+        /// nets is skipped); NetToolSystem (:6221) only when the vanilla net tool is the active tool, which it is not while ours is.
+        /// Same window and restore discipline as the span raise.</summary>
+        private void SetSplitGate(bool on)
+        {
+            var sb = new StringBuilder();
+            if (on)
+            {
+                foreach (Entity line in m_VanillaSpans.Keys)
+                {
+                    if (!EntityManager.TryGetComponent<PlaceableNetData>(line, out var pnd) ||
+                        (pnd.m_PlacementFlags & Game.Net.PlacementFlags.ShoreLine) != 0)
+                        continue;
+                    pnd.m_PlacementFlags |= Game.Net.PlacementFlags.ShoreLine;
+                    EntityManager.SetComponentData(line, pnd);
+                    m_GateAdded.Add(line);
+                    sb.Append(m_Catalog.LiftLineTypes.TryGetValue(line, out LiftTypeDef d) ? d.Id : Fmt(line)).Append(' ');
+                }
+            }
+            else
+            {
+                foreach (Entity line in m_GateAdded)
+                {
+                    if (!EntityManager.TryGetComponent<PlaceableNetData>(line, out var pnd))
+                        continue;
+                    pnd.m_PlacementFlags &= ~Game.Net.PlacementFlags.ShoreLine;
+                    EntityManager.SetComponentData(line, pnd);
+                    sb.Append(m_Catalog.LiftLineTypes.TryGetValue(line, out LiftTypeDef d) ? d.Id : Fmt(line)).Append(' ');
+                }
+                m_GateAdded.Clear();
+            }
+            if (sb.Length > 0)
+                Mod.Log.Info($"LiftLine [split gate]: {(on ? "ON (no elevation-transition splits of the tool's courses)" : "OFF (vanilla placement flags back)")}: {sb.ToString().TrimEnd()}");
         }
 
         protected override void OnStartRunning()
@@ -614,14 +665,16 @@ namespace SkiResortMod.Systems
                 return;
             }
             m_Top = end;
-            // End ropes: the end node + the shortest member's rope (the line's own HV lane rides node y + lane y, LaneSystem.cs
-            // :4112-4115; the 2026-10-20 fit lines read 947.84 at a 940.84 stub = +7.0 FG, tram +26.25). A loose end is a tower
-            // node at ground + E(member), whose rope is ground + TopM[member] - RopeBelowTopM = node y + RopeAboveBase(0): the same
-            // formula (LiftTowerFitSystem uses it for any line end without a rope lane).
-            float ropeA = a.y + m_C.RopeAboveBase(0), ropeB = b.y + m_C.RopeAboveBase(0);
+            // End ropes. A STATION end: the height the built line's rope lane will have there, read as the fit reads it (R-6
+            // follow-up, LiftLineInput.StationRope: the lowest HV sub-lane anchor of the stub node's sub-objects / its station within
+            // 30 m; the 2026-10-20 DQ base was 5.3 m under the old rule, log :807). A loose end is a tower node at ground + E(member),
+            // whose rope is ground + TopM[member] - RopeBelowTopM = node y + RopeAboveBase(0); a ground end gets the shortest
+            // member's rope on its fresh node: both keep the node formula (LiftTowerFitSystem uses it for any end without a lane).
+            float ropeA = EndRope(m_Base, a, out string srcA), ropeB = EndRope(end, b, out string srcB);
             m_Edit = new LiftLineEdit(m_C, a, b, ropeA, ropeB);
             m_State = ToolState.Edit;
-            Replan($"line {m_Type.Id} {Describe(m_Base)} -> {Describe(m_Top)}, {m_Edit.LengthM:F0} m, end ropes {ropeA:F2} / {ropeB:F2}");
+            Replan($"line {m_Type.Id} {Describe(m_Base)} -> {Describe(m_Top)}, {m_Edit.LengthM:F0} m, end ropes {ropeA:F2} ({srcA}) / " +
+                   $"{ropeB:F2} ({srcB})");
         }
 
         /// <summary>The station or loose end under the cursor (the nearer of the two, each within its pick radius, of the wanted type).
@@ -771,6 +824,47 @@ namespace SkiResortMod.Systems
         }
 
         private float3 NodePos(Entity node) => EntityManager.GetComponentData<Game.Net.Node>(node).m_Position;
+
+        /// <summary>The rope height the tool plans with at an end (see UpdatePick); <paramref name="source"/> for the log.</summary>
+        private float EndRope(LineEnd e, float3 pos, out string source)
+        {
+            float fallback = pos.y + m_C.RopeAboveBase(0);
+            if (e.Kind != LiftLineEndKind.Station || !EntityManager.Exists(e.Node))
+            {
+                source = "node + " + m_C.RopeAboveBase(0).ToString("F2");
+                return fallback;
+            }
+            var sub = new List<float3>();
+            if (EntityManager.TryGetBuffer(e.Node, true, out DynamicBuffer<Game.Objects.SubObject> subObjects))
+                for (int i = 0; i < subObjects.Length; i++)
+                    AddAnchors(subObjects[i].m_SubObject, sub);
+            var own = new List<float3>();
+            if (EntityManager.TryGetComponent<Owner>(e.Node, out var owner))
+                AddAnchors(owner.m_Owner, own);
+            float rope = LiftLineInput.StationRope(sub, own, pos, fallback, out bool fromLane);
+            source = fromLane ? $"station rope lane anchor, node + {rope - pos.y:F2}"
+                              : $"no rope lane anchor within {LiftLineInput.AnchorSearchM:F0} m: node + {m_C.RopeAboveBase(0):F2}";
+            return rope;
+        }
+
+        /// <summary>World end points of an object's prefab HV sub-lanes (the anchors LaneSystem.FindAnchors offers a line lane,
+        /// LaneSystem.cs:2371-2416: both ends when the sub-lane joins two nodes, else its start).</summary>
+        private void AddAnchors(Entity obj, List<float3> list)
+        {
+            if (obj == Entity.Null || !EntityManager.TryGetComponent<Game.Objects.Transform>(obj, out var t) ||
+                !EntityManager.TryGetComponent<PrefabRef>(obj, out var pr) ||
+                !EntityManager.TryGetBuffer(pr.m_Prefab, true, out DynamicBuffer<Game.Prefabs.SubLane> lanes))
+                return;
+            for (int i = 0; i < lanes.Length; i++)
+            {
+                Game.Prefabs.SubLane sl = lanes[i];
+                if (!CableLanePrefabs.IsHighVoltage(EntityManager, sl.m_Prefab))
+                    continue;
+                list.Add(Game.Objects.ObjectUtils.LocalToWorld(t, sl.m_Curve.a));
+                if (sl.m_NodeIndex.x != sl.m_NodeIndex.y)
+                    list.Add(Game.Objects.ObjectUtils.LocalToWorld(t, sl.m_Curve.d));
+            }
+        }
 
         /// <summary>The end's live world position (a node may have been refitted since the pick).</summary>
         private float3 EndPos(LineEnd e) =>
@@ -1018,9 +1112,71 @@ namespace SkiResortMod.Systems
             m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
             LiftToolLines.Line reg = ToolLines.Register(m_Type.Id, m_Emitted);
             m_State = ToolState.Applying;
-            Say($"LiftLine [build]: APPLIED — {temps} Temp edge(s) (planned {expected}{(temps == expected ? string.Empty : "; MISMATCH, please send the log")}), " +
+            Say($"LiftLine [build]: APPLIED — {temps} Temp edge(s) (planned {expected}{(temps == expected ? string.Empty : "; MISMATCH: the fit still matches the line when every planned node is built (R-6)")}), " +
                 $"{m_Emitted.Count - 2} tower(s), {reg.Pins} pinned; registered as a tool line (the fit keeps its nodes and members); " +
                 $"{ToolLines.Count} tool line(s) this session");
+            if (temps != expected)
+                Mod.Log.Info(DescribeSplits());
+        }
+
+        /// <summary>R-6: the Temp nodes of this line that the tool did not emit (engine split points), each with its along from the
+        /// first end, its height above the ground and whether every planned node has a Temp node within 0.5 m (what the fit's
+        /// MatchSplit needs).</summary>
+        private string DescribeSplits()
+        {
+            var nodes = new List<float3>();
+            using (var edges = m_TempEdgeQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < edges.Length; i++)
+                {
+                    if (EntityManager.GetComponentData<PrefabRef>(edges[i]).m_Prefab != m_LinePrefab)
+                        continue;
+                    Game.Net.Edge ed = EntityManager.GetComponentData<Game.Net.Edge>(edges[i]);
+                    AddNodePos(nodes, ed.m_Start);
+                    AddNodePos(nodes, ed.m_End);
+                }
+            }
+            TerrainHeightData hd = m_TerrainSystem.GetHeightData();
+            var sb = new StringBuilder();
+            int extras = 0, planned = 0;
+            for (int k = 0; k < nodes.Count; k++)
+            {
+                bool emitted = false;
+                for (int j = 0; j < m_Emitted.Count && !emitted; j++)
+                    emitted = math.distance(nodes[k].xz, m_Emitted[j].Position.xz) <= LiftToolLines.MatchTolM;
+                if (emitted || m_Emitted.Count < 2 ||
+                    LiftToolLines.Lateral(m_Emitted[0].Position, m_Emitted[m_Emitted.Count - 1].Position, nodes[k]) > LiftToolLines.ExtraLateralTolM)
+                    continue;   // a planned node, or not on this line (a station's own stub node)
+                extras++;
+                float along = m_Edit != null ? m_Edit.Project(nodes[k], out _) : 0f;
+                float above = hd.isCreated ? nodes[k].y - TerrainUtils.SampleHeight(ref hd, nodes[k]) : float.NaN;
+                sb.Append(extras == 1 ? string.Empty : ", ").Append(along.ToString("F0")).Append(" m (")
+                  .Append(above >= 0f ? "+" : string.Empty).Append(above.ToString("F1")).Append(" m)");
+            }
+            for (int j = 0; j < m_Emitted.Count; j++)
+            {
+                for (int k = 0; k < nodes.Count; k++)
+                {
+                    if (math.distance(nodes[k].xz, m_Emitted[j].Position.xz) <= LiftToolLines.MatchTolM)
+                    {
+                        planned++;
+                        break;
+                    }
+                }
+            }
+            return $"LiftLine [build]: engine split points not in the plan: {extras} at {(extras > 0 ? sb.ToString() : "-")} (along from the " +
+                   $"first end, node above the ground); planned nodes found {planned} of {m_Emitted.Count}; split gate " +
+                   $"{(m_GateAdded.Count > 0 ? "on" : "OFF")} (R-6: elevation transitions are gated, so extras now mean crossings or a gate miss)";
+        }
+
+        private void AddNodePos(List<float3> list, Entity node)
+        {
+            if (node == Entity.Null || !EntityManager.TryGetComponent<Game.Net.Node>(node, out var n))
+                return;
+            for (int i = 0; i < list.Count; i++)
+                if (math.distancesq(list[i].xz, n.m_Position.xz) < 1e-4f)
+                    return;
+            list.Add(n.m_Position);
         }
 
         // ── preview ─────────────────────────────────────────────────────────────────────────────

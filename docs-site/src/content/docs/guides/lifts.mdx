@@ -50,6 +50,18 @@ Limits per lift type:
 - **Out-of-envelope lines** (canyon crossings, cliffs): towers float, as vanilla power lines trench and float in the same places.
 - **Stations:** no terrain flattening. Site on level ground or terraform first.
 
+## Power
+
+A lift line is a power-line network, so it behaves like one.
+
+- **Electricity overlay:** lift lines and stub nodes show as high-voltage lines.
+- **Base station = transformer:** wire a low-voltage line into the base station's low-voltage stub. The lift line carries that power up the mountain to the top station, which has no consumer of its own.
+- **City high-voltage lines:** do not connect them to a lift tower or lift line. The result is untested and can break the lift.
+
+## Uninstall
+
+Bulldoze all lifts before removing the mod. Leftover lift pieces turn into missing-prefab placeholders. Behavior after removal is untested.
+
 ## Scoring
 
 Conditions for a lift to add to the ski area score:

@@ -73,6 +73,9 @@
     <!-- T123 (2026-10-20, docs/research/lifts/tower-numbers-build-2026-10-20.md): per-tower number tiles, the pure core. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\TowerNumberTiles.cs" Link="TowerNumberTiles.cs" />
     <Compile Include="TowerNumberTests.cs" />
+    <!-- R-3 / R-4 (2026-10-22, docs/research/lifts/lift-scale-2026-10-22.md): the far-loop pace, bounds cadence and lane scope. -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftMoverMath.cs" Link="LiftMoverMath.cs" />
+    <Compile Include="LoopPaceTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />
