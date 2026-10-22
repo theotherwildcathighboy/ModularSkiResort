@@ -1,26 +1,32 @@
-Creative Commons Attribution 4.0 International (CC BY 4.0)
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)
 
 Copyright (c) 2026 theotherwildcathighboy
 
 The art assets in this directory and everything generated from it — meshes (FBX),
 textures, previews, the exported import folders and the in-game asset prefabs built
-from them — are licensed under the Creative Commons Attribution 4.0 International
-licence.
+from them — are licensed under the Creative Commons Attribution-NonCommercial-ShareAlike
+4.0 International license.
 
 You are free to share (copy and redistribute the material in any medium or format)
-and adapt (remix, transform, and build upon the material for any purpose, even
-commercially), under the following terms:
+and adapt (remix, transform, and build upon the material), under the following terms:
 
-  Attribution — You must give appropriate credit ("Modular Ski Resort by theotherwildcathighboy"), provide a link to the licence, and indicate if changes were made. You may
+  Attribution — You must give appropriate credit ("Modular Ski Resort by theotherwildcathighboy"), provide a link to the license, and indicate if changes were made. You may
   do so in any reasonable manner, but not in any way that suggests the licensor
   endorses you or your use.
 
+  NonCommercial — You may not use the material for commercial purposes.
+
+  ShareAlike — If you remix, transform, or build upon the material, you must
+  distribute your contributions under the same license as the original.
+
   No additional restrictions — You may not apply legal terms or technological
-  measures that legally restrict others from doing anything the licence permits.
+  measures that legally restrict others from doing anything the license permits.
 
 Third-party works incorporated (each CC BY 4.0, modified — see assets/external/*/SOURCE.md
-and release/CREDITS.md for what was reused). Anyone redistributing or adapting the derived
-meshes must credit these authors as well as "Modular Ski Resort by theotherwildcathighboy":
+and release/CREDITS.md for what was reused). CC BY 4.0 allows adapted material to be
+shared under CC BY-NC-SA 4.0; the original works themselves remain CC BY 4.0 from their
+authors. Anyone redistributing or adapting the derived meshes must credit these authors
+as well as "Modular Ski Resort by theotherwildcathighboy":
 
   "Chair Lift" by Kagelok
   https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236
@@ -31,8 +37,8 @@ meshes must credit these authors as well as "Modular Ski Resort by theotherwildc
 Tiling materials from ambientCG (https://ambientcg.com) are CC0 and carry no attribution
 requirement.
 
-Full legal code: https://creativecommons.org/licenses/by/4.0/legalcode
-Human-readable summary: https://creativecommons.org/licenses/by/4.0/
+Full legal code: https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+Human-readable summary: https://creativecommons.org/licenses/by-nc-sa/4.0/
 
-The generators that produce these assets (assets/blender/*.py) are code and are
-covered by the MIT licence in the repository root, not by this file.
+The generators that produce these assets (assets/blender/*.py) and the code mod are code
+and are covered by the MIT license in the repository root, not by this file.

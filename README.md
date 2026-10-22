@@ -1,10 +1,11 @@
 # Modular Ski Resort — a Cities: Skylines II mod
 
-Build a real ski resort in CS2: draw a fixed-grip chairlift like a road (auto-height
-towers, sagging cable, pinned chairs), anchor the area with a welcome-sign gate whose
-upgrade menu builds the resort (lodge first), paint groomed/snowmaking runs that the
-game's own snow simulation keeps white when the guns can run — and that melt when they
-can't. Attractiveness and tourism economics react to trails, lifts, and season.
+Build a real ski resort in CS2: draw fixed-grip and detachable chairlifts, gondolas and an
+aerial tram with one lift tool (auto-height numbered towers, a cable the chairs and cabins ride),
+start a ski area with a Welcome Sign, place standalone lodges, a Ski School and patrol buildings,
+and paint runs that the game's own snow simulation keeps open at 3 ft of snow (snow guns October
+to March) — and that melt when the snow goes. Attractiveness, tourism and a resort economy
+(tickets, passes, lessons, lodge spend) react to runs, lifts and season. Base game only.
 
 Started 2026-08-03. Working chairlift beta in 5 days; see docs/TIMELINE.md.
 
@@ -23,7 +24,7 @@ Started 2026-08-03. Working chairlift beta in 5 days; see docs/TIMELINE.md.
 ## License
 
 Code (the C# mod, the Blender generators, the tools) is MIT — see `LICENSE`. Art assets and
-everything generated from them are CC-BY-4.0 — see `assets/LICENSE`. Design references are
+everything generated from them are CC BY-NC-SA 4.0 — see `assets/LICENSE` (DECISIONS 375). Design references are
 credited in `release/CREDITS.md`; no third-party code is included, and the GPL-licensed mods we
 studied (ParkManager, ParkingLotTool) were re-derived from the game's own systems, never copied.
 Two CC BY 4.0 Sketchfab models (Kagelok's "Chair Lift", Wilin_Amaurea's gondola drafts) are

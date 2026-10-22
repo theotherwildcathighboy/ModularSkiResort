@@ -43,7 +43,7 @@ hut, the patrol building at Song Mountain (New York). Source: docs-site credits 
 
 The following models were used as modeling references and, where stated, as mesh sources. Each is
 licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/) and
-was modified for Cities: Skylines II (re-scaled, re-topologised, re-UV'd and re-textured; see
+was modified for Cities: Skylines II (re-scaled, re-topologized, re-UV'd and re-textured; see
 `assets/external/*/SOURCE.md` for exactly what was reused).
 
 - **"Chair Lift" by Kagelok** — https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236 —

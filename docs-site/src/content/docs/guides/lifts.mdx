@@ -7,8 +7,8 @@ import { Steps, Aside } from '@astrojs/starlight/components';
 import Shot from '../../../components/Shot.astro';
 import Icon from '../../../components/Icon.astro';
 
-A lift is a **base station**, a **top station** and the **lift line** between them. The line is a network drawn
-like a road. Towers, cable and carriers are generated.
+A lift is a **base station**, a **top station** and the **lift line** between them. One lift tool draws the line for
+all four types; it plans the towers, and the cable and carriers are generated.
 
 ## Build Order
 
@@ -21,12 +21,28 @@ like a road. Towers, cable and carriers are generated.
    <Icon name="lift-tram" alt="Aerial tram icon" /> Aerial tram.
 2. **Base station:** bottom of the lift.
 3. **Top station:** top of the lift, facing the base station. A guide line shows when the stations are straight to each other.
-4. **Lift line:** drawn station to station.
-5. **Power:** low-voltage line to the base station.
+4. **Lift line:** open the lift tool from the hub (the line tile of the type) or with **Ctrl+Shift+L**. Click the base station, then the top station. The tool plans the towers and shows them before anything is built.
+5. **Adjust, then build:** press **Enter**. See Lift Tool below.
+6. **Power:** low-voltage line to the base station.
 
 </Steps>
 
 <Shot label="The three tiles of the hub's Lifts tab (base, top, line) with a fixed-grip pair placed and the guide line showing." />
+
+## Lift Tool
+
+One input model for every lift type. The prompt at the top of the screen names what the next click does.
+
+- **Start:** click a station, a loose line end or open ground; then click the other end.
+- **Add a tower:** click the line.
+- **Move a tower:** drag it. It stays where you put it, pinned, while the planner refits the rest.
+- **Remove a tower:** drag it off the line and release.
+- **Step back:** right click undoes one action. With nothing left to undo it closes the tool.
+- **Build:** **Enter**. **Esc** closes the tool without building.
+- **Preview:** the cable is colored by how far it clears the ground, so a bad line shows before it is built.
+- **Planner:** fits tower heights to the terrain and uses the fewest towers the lift type allows. Option *Plan lift towers*, default on.
+- **Tower numbers:** every tower shows its number, counted up the line from the base station, 1 to 200, then back to 1. All chairs show the same number.
+- **Already-lined station:** refused. Bulldoze a section first, then click its two loose ends.
 
 ## Section Redo
 
@@ -45,9 +61,9 @@ Option **Lift building aids** (default on): the bulldozer warns what a click on 
 Limits per lift type:
 
 - **Steepest slope:** fixed-grip **80 %**, detachable **90 %**, gondola **120 %**, aerial tram **250 %**.
-- **Longest tower span:** fixed-grip **60 m**, detachable **90 m**, gondola **250 m**, tram **1,000 m**.
-- **Towers:** height follows terrain; concrete foundations; grounding matches vanilla power pylons on sensible lines.
-- **Out-of-envelope lines** (canyon crossings, cliffs): towers float, as vanilla power lines trench and float in the same places.
+- **Longest tower span:** fixed-grip **90 m**, detachable **245 m**, gondola **245 m**, tram **1,000 m**. The planner adds towers to stay under it.
+- **Towers:** height follows terrain; concrete foundations; grounding matches vanilla power pylons on sensible lines. Heights come in steps: see [Lift Types](/reference/lifts/).
+- **Out-of-envelope lines** (canyon crossings, cliffs): the result can look wrong, as vanilla power lines do in the same places.
 - **Stations:** no terrain flattening. Site on level ground or terraform first.
 
 ## Power

@@ -14,7 +14,7 @@ a hub line that points to the log.
 |---|---|
 | *More than 5 km from every Welcome Sign* | Place a Welcome Sign nearby. Unlinked runs and lifts score **0**. |
 | *No lodge* | Build one near the sign from the Buildings tab. |
-| *All lodges are switched off* / *Lodges switched off: N* | Switch one on under Upgrades in the Welcome Sign info panel. |
+| *All lodges are switched off* / *Lodges switched off: N* | A lodge counts only while it is not set to Inactive in its own info panel. Clear that setting on one. |
 | *Lodge is not at a road* / *Welcome Sign is not at a road* | Deck side (lodge) or front (sign) must touch a road. |
 | *Welcome Sign at 74 %: …* | Sign efficiency below **100 %**. Causes: staff, power, water, sewage, garbage, budget. Every cause costing **5 %** or more is listed. |
 | *No lift yet* / *Runs unconnected to a lift: N* | Run counts less until a running lift reaches its top: within **150 m** of the line, at most **15 m** above the top station. |
@@ -62,7 +62,7 @@ Tickets missing from the Economy panel: check the log first, then [Economy](/gui
 
 ## Common Cases
 
-- **Run never opens.** Status line shows *snow measured* or *estimated*. Open requires **15 cm** on **60 %** of the run. Fixes: raise *Snowmaking margin*; build as Snowmaking; on a map without winter, turn off **Snow & season gating**.
+- **Run never opens.** Status line shows *snow measured* or *estimated*. Open requires **3 ft (91 cm)** of snow on **60 %** of the run. Fixes: raise *Snowmaking margin*; build as Snowmaking (guns run October to March only); on a map without winter, turn off **Snow & season gating**.
 - **Chairs stopped.** Hub: *Lift X: chairs not moving*. The lift still counts. Log: `Lifts [state]`, `Lift [power]`.
 - **Hub button missing.** Options > Modular Ski Resort > Main > Ski Resort hub. The panel is always in the Universal Mod Panel.
 - **DLL and UI version mismatch notice.** Reinstall the mod. Building works; resort statistics stay hidden until both halves match.

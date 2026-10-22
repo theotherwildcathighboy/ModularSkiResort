@@ -103,6 +103,11 @@ gongola and lift station detailed drafts" by Wilin_Amaurea
 (https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db),
 both licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), modified.
 
+**License**: code MIT; art assets (meshes, textures) CC BY-NC-SA 4.0
+(https://creativecommons.org/licenses/by-nc-sa/4.0/): reuse them in free mods with credit to
+"Modular Ski Resort by theotherwildcathighboy", share your changes under the same license, no
+commercial use.
+
 ---
 
 *Ideas, not promises (public): chair numbers, riders on the chairs, a one-click button that removes all ski resort content before you uninstall.*

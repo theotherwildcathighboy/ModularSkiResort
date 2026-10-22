@@ -18,8 +18,8 @@ Four lift families. A line and its two stations share one type.
 | Line speed | 2.5 m/s | 5.0 m/s | 5.5 m/s | 10 m/s, 60 s dwell at each terminal |
 | Design spacing | 15 m | 30 m | 60 m | n/a (shuttle) |
 | Steepest slope | 80 % | 90 % | 120 % | 250 % |
-| Longest span between towers | 60 m | 90 m | 250 m | 1,000 m |
-| Tallest tower | 16 m | 10 m | 28 m | 30 m |
+| Longest span between towers (tower planner) | 90 m | 245 m | 245 m | 1,000 m |
+| Tower heights | 8, 12, 16, 20 m | 10 to 20 m, steps of 2 m | 12, 16, 20 m | 30, 45, 60 m |
 | Base station | 60,000 | 125,000 | 190,000 | 300,000 |
 | Top station | 30,000 | 65,000 | 110,000 | 190,000 |
 | Line, per km | 7,500 | 15,000 | 21,875 | 33,750 |
@@ -28,10 +28,12 @@ Four lift families. A line and its two stations share one type.
 | Share of that value in summer | 25 % | 25 % | 75 % | 100 % |
 | Serves a run if | within 150 m of the line, ≤ 15 m above the top station | Same | Same | within 300 m of the top terminal |
 
+{/* Spans and heights: LiftTowerPlanner.For (maxSpanM 90 / 245 / 245 / 1000) and its ladders; steepest slope: the line prefabs' m_MaxSlopeSteepness. */}
+
 ## Running Cost
 
 - **Billing:** full amount every month, including without power.
-- **Reduction:** ×**0.25** while the lift is unfinished or its ski area has no open run.
+- **Reduction:** ×**0.25** while the lift is unfinished or its ski area has no open run. The tram keeps running with no open run and bills ×**0.5** then.
 
 ## Score Value
 
@@ -56,3 +58,7 @@ Design figure in skiers per hour, shown in the hub.
 ## Tram Operation
 
 Shuttle: two cabins travel back and forth and dwell at each terminal.
+
+## Summer
+
+A ski area with no open run for one game hour stops its chairlifts and gondolas. Only the tram keeps running, as sightseeing. A running tram with no open run bills **half** its running cost; a stopped lift bills **a quarter**.

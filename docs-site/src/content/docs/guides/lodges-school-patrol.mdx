@@ -7,8 +7,8 @@ import { Aside } from '@astrojs/starlight/components';
 import Shot from '../../../components/Shot.astro';
 import Icon from '../../../components/Icon.astro';
 
-All three are upgrades of the **Welcome Sign**. Placed from the hub **Buildings** tab, near the sign. Costs and
-numbers: [Buildings](/reference/buildings/).
+All three are standalone buildings, placed from the hub **Buildings** tab like any other building. Each belongs to the
+nearest **Welcome Sign** within **5 km**. Costs and numbers: [Buildings](/reference/buildings/).
 
 <Shot label="The hub's Buildings tab: lodge tier picker, Ski School and patrol tiles." />
 
@@ -33,7 +33,8 @@ Guest entry point and capacity source. No lodge: attraction score **0**.
 - **Services:** staff, power, water. Missing services lower sign efficiency, and attraction with it.
 - **Distance to runs:** ski-day guests only target a lodge within **800 m** of the ski area's runs or lift stations.
 - **Parking:** car spaces within **300 m** of the lodge (parking lot or street parking). Warning state: *"No parking near the lodge"*.
-- **Power state:** a switched-off lodge counts **0**. Switch on under **Upgrades** in the Welcome Sign info panel.
+- **Power state:** a lodge set to Inactive in its own info panel counts **0**.
+- **Off-season staff:** after **12 game hours** with no open run, lodges and the Ski School keep **half** their jobs (rounded up) until a run opens again. The jobs of the Mountain Hut and Swanky Summit Lodge, carried by the Welcome Sign, halve too. Patrol stays full. Upkeep is not reduced; setting a building Inactive cuts it to a tenth and stops its wages. Option *Half staff off-season*, default on.
 
 ## Ski School
 
@@ -48,7 +49,7 @@ Guest entry point and capacity source. No lodge: attraction score **0**.
 
 Two buildings: <Icon name="building-patrol-hut" alt="Ski Patrol Hut icon" /> **Ski Patrol Hut**, <Icon name="building-patrol-hq" alt="Ski Patrol HQ icon" /> **Ski Patrol HQ**.
 
-- **Placement:** on the Welcome Sign, near steep runs.
+- **Placement:** within **5 km** of the Welcome Sign, near steep runs.
 - **Effect:** black and double-black runs within **1 km** score **15 %** more.
 - **Unserved runs:** within **1 km**, count at least **70 %** instead of **40 %**.
 
