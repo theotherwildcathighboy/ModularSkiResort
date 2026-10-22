@@ -147,7 +147,7 @@
     },
     "concrete": {
       "set": "Concrete034",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_159",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Concrete034_159",
       "N": 159,
       "ppm": 53.01,
       "tile_sq": 3.0,
@@ -172,7 +172,7 @@
     },
     "deck": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_61",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_61",
       "N": 61,
       "ppm": 39.76,
       "tile_sq": 1.54,
@@ -201,7 +201,7 @@
     },
     "galv": {
       "set": "Metal032",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_53",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Metal032_53",
       "N": 53,
       "ppm": 26.51,
       "tile_sq": 2.0,
@@ -278,7 +278,7 @@
     },
     "lux_balrail": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_76",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_76",
       "N": 76,
       "ppm": 31.81,
       "tile_sq": 2.4,
@@ -307,7 +307,7 @@
     },
     "lux_drive": {
       "set": "Concrete034",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_64",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Concrete034_64",
       "N": 64,
       "ppm": 21.2,
       "tile_sq": 3.0,
@@ -356,7 +356,7 @@
     },
     "lux_glulam": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_82",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_82",
       "N": 82,
       "ppm": 53.01,
       "tile_sq": 1.54,
@@ -385,7 +385,7 @@
     },
     "lux_paver": {
       "set": "Bricks096",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Bricks096_42",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Bricks096_42",
       "N": 42,
       "ppm": 26.51,
       "tile_sq": 1.6,
@@ -430,7 +430,7 @@
     },
     "lux_siding_red": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_148",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_148",
       "N": 148,
       "ppm": 53.01,
       "tile_sq": 2.8,
@@ -459,7 +459,7 @@
     },
     "lux_siding_walnut": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_148",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_148",
       "N": 148,
       "ppm": 53.01,
       "tile_sq": 2.8,
@@ -488,7 +488,7 @@
     },
     "lux_slate": {
       "set": "RoofingTiles003",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\RoofingTiles003_102",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/RoofingTiles003_102",
       "N": 102,
       "ppm": 31.81,
       "tile_sq": 3.2,
@@ -513,7 +513,7 @@
     },
     "lux_stone_tan": {
       "set": "Bricks096",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Bricks096_127",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Bricks096_127",
       "N": 127,
       "ppm": 53.01,
       "tile_sq": 2.4,
@@ -542,7 +542,7 @@
     },
     "lux_tg": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_127",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_127",
       "N": 127,
       "ppm": 53.01,
       "tile_sq": 2.4,
@@ -587,7 +587,7 @@
     },
     "lux_vboard_red": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_148",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_148",
       "N": 148,
       "ppm": 53.01,
       "tile_sq": 2.8,
@@ -648,7 +648,7 @@
     },
     "plaster": {
       "set": "Plaster002",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Plaster002_106",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Plaster002_106",
       "N": 106,
       "ppm": 53.01,
       "tile_sq": 2.0,
@@ -689,7 +689,7 @@
     },
     "timber_lap": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_127",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_127",
       "N": 127,
       "ppm": 53.01,
       "tile_sq": 2.4,
@@ -718,7 +718,7 @@
     },
     "timber_shake": {
       "set": "WoodSiding013",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding013_95",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding013_95",
       "N": 95,
       "ppm": 53.01,
       "tile_sq": 1.8,
@@ -3471,7 +3471,7 @@
     "keyword": "CommercialLow"
   },
   "emissive": true,
-  "review_pack": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\preview\\review\\SkiLodgeSwankyBottomCommercialLowB.blend",
+  "review_pack": "assets/preview/review/SkiLodgeSwankyBottomCommercialLowB.blend",
   "stage_seconds": {
     "build": 1.9,
     "parts": 210.4,

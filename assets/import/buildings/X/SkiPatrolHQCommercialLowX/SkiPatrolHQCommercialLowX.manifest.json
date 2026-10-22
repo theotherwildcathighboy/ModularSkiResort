@@ -79,12 +79,12 @@
     "signset": false,
     "no_signset": false,
     "no_fine": false,
-    "signset_out": "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/signs",
+    "signset_out": "%TEMP%/scratchpad/signs",
     "tiled": true,
     "sheet_tex": 4096,
     "far_tex": 1024,
     "sheet_layout": "rollout",
-    "sheet_dir": "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/sheet/SkiTileSheetX",
+    "sheet_dir": "%TEMP%/scratchpad/sheet/SkiTileSheetX",
     "weather_level": "auto",
     "window_kit": "v2",
     "window_mode": "auto",
@@ -134,7 +134,7 @@
   "materials": {
     "concrete": {
       "set": "Concrete034",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_371",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Concrete034_371",
       "N": 371,
       "ppm": 123.78,
       "tile_sq": 3.0,
@@ -159,7 +159,7 @@
     },
     "deck": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_143",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_143",
       "N": 143,
       "ppm": 92.84,
       "tile_sq": 1.54,
@@ -188,7 +188,7 @@
     },
     "galv": {
       "set": "Metal032",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_124",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Metal032_124",
       "N": 124,
       "ppm": 61.89,
       "tile_sq": 2.0,
@@ -297,7 +297,7 @@
     },
     "slate": {
       "set": "RoofingTiles003",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\RoofingTiles003_317",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/RoofingTiles003_317",
       "N": 317,
       "ppm": 99.02,
       "tile_sq": 3.2,
@@ -322,7 +322,7 @@
     },
     "timber_heavy": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_191",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_191",
       "N": 191,
       "ppm": 123.78,
       "tile_sq": 1.54,
@@ -351,7 +351,7 @@
     },
     "timber_lap": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_297",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_297",
       "N": 297,
       "ppm": 123.78,
       "tile_sq": 2.4,
@@ -380,7 +380,7 @@
     },
     "timber_shake": {
       "set": "WoodSiding013",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding013_223",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding013_223",
       "N": 223,
       "ppm": 123.78,
       "tile_sq": 1.8,
@@ -405,7 +405,7 @@
     },
     "timber_vboard": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_297",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_297",
       "N": 297,
       "ppm": 123.78,
       "tile_sq": 2.4,
@@ -450,7 +450,7 @@
     },
     "trim_grain": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_149",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_149",
       "N": 149,
       "ppm": 61.89,
       "tile_sq": 2.4,
@@ -2073,7 +2073,7 @@
     "layout": "rollout",
     "sheet": {
       "name": "SkiTileSheetX",
-      "workspace": "../../../../../../../../../%USERNAME%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/sheet/SkiTileSheetX",
+      "workspace": "%TEMP%/scratchpad/sheet/SkiTileSheetX",
       "A": 4096,
       "hash": "0d3e5eee7bf6c131",
       "owner": "SkiSchoolCommercialLowX",
@@ -2732,7 +2732,7 @@
         "sign_hqname_face"
       ],
       "mesh": "SkiSignSetPatrolHQB",
-      "asset_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\claude\\C--Users-USER-Documents-ClaudeProjects\\8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d\\scratchpad\\signs\\SkiSignSetPatrolHQB",
+      "asset_dir": "%TEMP%/scratchpad/signs/SkiSignSetPatrolHQB",
       "tris": 2,
       "cull": {
         "extent_m": [

@@ -37,7 +37,7 @@
     "../preview/props/B",
     "--review",
     "--json",
-    "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/38d24a4a-44c3-4d12-8079-26649af2ccd6/scratchpad/real_kit.json"
+    "%TEMP%/scratchpad/real_kit.json"
   ],
   "letter": "B",
   "kind": "prop (hosted sub-object, ground; no engine base rule)",
@@ -218,7 +218,7 @@
       "../preview/props/B",
       "--review",
       "--json",
-      "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/38d24a4a-44c3-4d12-8079-26649af2ccd6/scratchpad/real_kit.json"
+      "%TEMP%/scratchpad/real_kit.json"
     ],
     "letter": "B",
     "A": 1024,

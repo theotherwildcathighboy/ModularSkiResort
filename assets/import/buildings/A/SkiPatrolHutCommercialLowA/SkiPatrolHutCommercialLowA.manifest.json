@@ -134,7 +134,7 @@
     },
     "concrete": {
       "set": "Concrete034",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_541",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Concrete034_541",
       "N": 541,
       "ppm": 180.24,
       "tile_sq": 3.0,
@@ -159,7 +159,7 @@
     },
     "deck": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_208",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_208",
       "N": 208,
       "ppm": 135.18,
       "tile_sq": 1.54,
@@ -188,7 +188,7 @@
     },
     "galv": {
       "set": "Metal032",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_180",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Metal032_180",
       "N": 180,
       "ppm": 90.12,
       "tile_sq": 2.0,
@@ -297,7 +297,7 @@
     },
     "timber_heavy": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_278",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_278",
       "N": 278,
       "ppm": 180.24,
       "tile_sq": 1.54,
@@ -326,7 +326,7 @@
     },
     "timber_lap": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_433",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_433",
       "N": 433,
       "ppm": 180.24,
       "tile_sq": 2.4,
@@ -355,7 +355,7 @@
     },
     "timber_vboard": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_433",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_433",
       "N": 433,
       "ppm": 180.24,
       "tile_sq": 2.4,
@@ -792,7 +792,7 @@
     "keyword": "CommercialLow"
   },
   "emissive": true,
-  "review_pack": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\preview\\review\\SkiPatrolHutCommercialLowA.blend",
+  "review_pack": "assets/preview/review/SkiPatrolHutCommercialLowA.blend",
   "stage_seconds": {
     "build": 0.1,
     "parts": 0.2,

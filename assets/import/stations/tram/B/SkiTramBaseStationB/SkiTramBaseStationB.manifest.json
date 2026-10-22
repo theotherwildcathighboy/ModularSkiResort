@@ -102,7 +102,7 @@
     "skirt_ack_probe": false,
     "area_only": false,
     "cabin": null,
-    "carriers": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\catalog\\carriers.json",
+    "carriers": "catalog/carriers.json",
     "no_validate": false,
     "weather": "on",
     "closeups": null,
@@ -111,7 +111,7 @@
     "tiled": true,
     "sheet_tex": 4096,
     "far_tex": null,
-    "sheet_dir": "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/27c14f37-9edb-4e7a-a58b-010f451281d3/scratchpad/t76/sheetB/_SkiTramSheetB",
+    "sheet_dir": "%TEMP%/scratchpad/t76/sheetB/_SkiTramSheetB",
     "tiled_step": 0
   },
   "tris": {
@@ -6213,7 +6213,7 @@
       "hash": "a42b11b6dd083882",
       "owner": "SkiTramBaseStationB",
       "is_owner": true,
-      "workspace": "../../../../../../../../../../%USERNAME%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/27c14f37-9edb-4e7a-a58b-010f451281d3/scratchpad/t76/sheetB/_SkiTramSheetB",
+      "workspace": "%TEMP%/scratchpad/t76/sheetB/_SkiTramSheetB",
       "files": [
         "SkiTramSheetB_BaseColor.png",
         "SkiTramSheetB_Normal.png",

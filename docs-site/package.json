@@ -9,11 +9,13 @@
     "dev": "astro dev",
     "lock:check": "node tools/docs-lock-check.js",
     "lock:relock": "node tools/docs-lock-check.js --relock",
-    "build": "npm run lock:check && astro build",
+    "build": "npm run lock:check && astro build && node tools/check-base-links.js",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "links:check": "node tools/check-base-links.js"
   },
   "dependencies": {
+    "@astrojs/markdown-satteri": "0.4.4",
     "@astrojs/starlight": "0.42.6",
     "astro": "7.3.8"
   }

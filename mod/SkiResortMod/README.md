@@ -31,7 +31,7 @@ SkiResortMod/
 ## Build
 
 ```powershell
-cd "%USERPROFILE%\Documents\ClaudeProjects\ModularSkiResort\mod\SkiResortMod"
+cd <repo>\mod\SkiResortMod        # <repo> = your checkout of ModularSkiResort
 dotnet build
 ```
 

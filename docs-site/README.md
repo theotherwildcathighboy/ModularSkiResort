@@ -14,8 +14,15 @@ npm run build        # static site into dist/ (also builds the search index)
 npm run preview      # serve dist/ at http://localhost:4321/
 ```
 
-`npm run build` must pass before anything is merged. It fails on broken frontmatter and on an unknown
-sidebar slug. It does **not** check links; to check them, build and look for broken internal hrefs.
+`npm run build` must pass before anything is merged. It fails on broken frontmatter, on an unknown
+sidebar slug and on a root-relative link that lacks the base path or points at nothing
+(`tools/check-base-links.js`, run after the build with the same `DOCS_BASE`).
+
+**Links.** Write links in page content as plain root-relative paths, `[Lifts](/guides/lifts/)`; never hard-code the
+repository name. A remark-style mdast plugin in `astro.config.mjs` prefixes the configured base onto them at build time, and
+`src/routeMiddleware.ts` does the same for the home page hero buttons. Check a Pages build locally (PowerShell):
+`$env:DOCS_SITE='https://<owner>.github.io'; $env:DOCS_BASE='/<repo>'; npm run build` (the check runs inside the build);
+run `npm run links:check` alone against an existing `dist/`. Under Git Bash set `MSYS_NO_PATHCONV=1` or the shell rewrites `/<repo>`.
 
 Versions are pinned exactly in `package.json`. Astro is pinned to **7.3.8**, not the newest: Starlight 0.42.6 needs
 Astro 7.2.10 or newer, 7.3.0 fails against it, and 7.4.x wants Node 22.22, which is newer than some machines have.
@@ -45,7 +52,9 @@ src/components/Shot.astro       Labeled gray box for a screenshot that does not 
 src/components/Icon.astro       One of the mod's own icons inline (public/icons/, copied from the game-side icon set)
 src/assets/resort-logo-*.svg    The launcher glyph (peak and snowflake) for the header and home hero; white and navy
 src/styles/custom.css           The only custom style (the look: palette tokens, fonts; the Shot box, inline icons, timeline refs)
-astro.config.mjs                Title, sidebar (explicit, in this order), base path
+astro.config.mjs                Title, sidebar (explicit, in this order), base path, the base-link plugin
+src/routeMiddleware.ts          Prefixes the base onto home hero button links (Starlight route middleware)
+tools/check-base-links.js       Post-build check: every root-relative URL in dist/ has the base and resolves
 ```
 
 The sidebar is written by hand in `astro.config.mjs`, so a new page needs a line there.
@@ -66,7 +75,7 @@ The sidebar is written by hand in `astro.config.mjs`, so a new page needs a line
    show. Never a mock-up, never a screenshot of the wrong build.
 5. **Mark what is unverified.** Anything not yet read off the live game carries a "(to confirm)" and a caution
    aside, and goes on the open list in the skeleton note. Remove the mark when it has been checked.
-6. **Nothing private ships.** No absolute `C:\Users\...` paths, no ledger or ticket numbers in visible text, no
+6. **Nothing private ships.** No absolute local paths (a drive letter plus a user folder), no ledger or ticket numbers in visible text, no
    copy-paste from `docs/DECISIONS.md` (the ledger is private: the storyline is a retelling).
 7. **Use Starlight's pieces where they help**: `Steps` for procedures, `Tabs` for alternatives, `Aside` for a
    note, tip or caution. Prefer a table for numbers.

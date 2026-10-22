@@ -135,7 +135,7 @@
     },
     "concrete": {
       "set": "Concrete034",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_364",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Concrete034_364",
       "N": 364,
       "ppm": 121.2,
       "tile_sq": 3.0,
@@ -160,7 +160,7 @@
     },
     "deck": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_140",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_140",
       "N": 140,
       "ppm": 90.9,
       "tile_sq": 1.54,
@@ -205,7 +205,7 @@
     },
     "galv": {
       "set": "Metal032",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_121",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Metal032_121",
       "N": 121,
       "ppm": 60.6,
       "tile_sq": 2.0,
@@ -330,7 +330,7 @@
     },
     "siding_paint": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_291",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_291",
       "N": 291,
       "ppm": 121.2,
       "tile_sq": 2.4,
@@ -355,7 +355,7 @@
     },
     "timber_heavy": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_187",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_187",
       "N": 187,
       "ppm": 121.2,
       "tile_sq": 1.54,
@@ -384,7 +384,7 @@
     },
     "timber_lap": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_291",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_291",
       "N": 291,
       "ppm": 121.2,
       "tile_sq": 2.4,
@@ -948,7 +948,7 @@
     "keyword": "CommercialLow"
   },
   "emissive": true,
-  "review_pack": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\preview\\review\\SkiSchoolCommercialLowA.blend",
+  "review_pack": "assets/preview/review/SkiSchoolCommercialLowA.blend",
   "stage_seconds": {
     "build": 0.2,
     "parts": 3.3,

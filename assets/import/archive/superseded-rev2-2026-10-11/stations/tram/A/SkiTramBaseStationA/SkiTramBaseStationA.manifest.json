@@ -63,7 +63,7 @@
     "finish": true,
     "lods": true,
     "export": true,
-    "preview": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\preview\\stations",
+    "preview": "assets/preview/stations",
     "review": "",
     "atlas": "4096",
     "min_ppm": 25.0,
@@ -74,10 +74,10 @@
     "skirt_ack_probe": false,
     "area_only": false,
     "cabin": null,
-    "carriers": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\catalog\\carriers.json",
+    "carriers": "catalog/carriers.json",
     "no_validate": false,
     "weather": "on",
-    "closeups": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\preview\\stations\\detail1-closeups-2026-10-11"
+    "closeups": "assets/preview/stations/detail1-closeups-2026-10-11"
   },
   "tris": {
     "0": 12868,

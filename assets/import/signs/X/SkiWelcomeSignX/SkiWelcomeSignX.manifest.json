@@ -40,7 +40,7 @@
   "spec": "civic-sign-2026-10",
   "prefab": "SkiResortGate",
   "args": {
-    "out": "%USERPROFILE%/Documents/ClaudeProjects/ModularSkiResort/assets/import/signs/X",
+    "out": "assets/import/signs/X",
     "export": true,
     "name": "SkiWelcomeSignX",
     "masts": 2,
@@ -57,7 +57,7 @@
     "ao_samples": 48,
     "no_validate": false,
     "no_fine": false,
-    "signset_out": "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/signs_ws"
+    "signset_out": "%TEMP%/scratchpad/signs_ws"
   },
   "kind": "building",
   "lot": [
@@ -110,7 +110,7 @@
     },
     "concrete": {
       "set": "Concrete034",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_691",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Concrete034_691",
       "N": 691,
       "ppm": 230.46,
       "tile_sq": 3.0,
@@ -135,7 +135,7 @@
     },
     "galv": {
       "set": "Metal032",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_230",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Metal032_230",
       "N": 230,
       "ppm": 115.23,
       "tile_sq": 2.0,
@@ -160,7 +160,7 @@
     },
     "rock": {
       "set": "Rock030",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Rock030_576",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Rock030_576",
       "N": 576,
       "ppm": 230.46,
       "tile_sq": 2.5,
@@ -185,7 +185,7 @@
     },
     "stone_rubble": {
       "set": "Bricks096",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Bricks096_737",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Bricks096_737",
       "N": 737,
       "ppm": 230.46,
       "tile_sq": 3.2,
@@ -214,7 +214,7 @@
     },
     "timber_heavy": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_355",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_355",
       "N": 355,
       "ppm": 230.46,
       "tile_sq": 1.54,
@@ -243,7 +243,7 @@
     },
     "timber_shake": {
       "set": "WoodSiding013",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding013_415",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding013_415",
       "N": 415,
       "ppm": 230.46,
       "tile_sq": 1.8,
@@ -268,7 +268,7 @@
     },
     "timber_vboard": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_553",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_553",
       "N": 553,
       "ppm": 230.46,
       "tile_sq": 2.4,
@@ -329,7 +329,7 @@
     },
     "plank": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_2048",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_2048",
       "N": 2048,
       "ppm": 128.0,
       "tile_sq": 16.0,
@@ -614,7 +614,7 @@
         "header_aspect_err_px": -0.8
       }
     },
-    "dir": "%USERPROFILE%\\AppData\\Local\\Temp\\welcome_sign\\SkiWelcomeSignX_2048_611350e8",
+    "dir": "%TEMP%/welcome_sign/SkiWelcomeSignX_2048_611350e8",
     "rects": {
       "emblem": [
         0.007812,
@@ -869,7 +869,7 @@
         "sign_gateflakeR_face"
       ],
       "mesh": "SkiSignSetGateB",
-      "asset_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\claude\\C--Users-USER-Documents-ClaudeProjects\\8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d\\scratchpad\\signs_ws\\SkiSignSetGateB",
+      "asset_dir": "%TEMP%/scratchpad/signs_ws/SkiSignSetGateB",
       "tris": 6,
       "cull": {
         "extent_m": [

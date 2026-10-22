@@ -136,7 +136,7 @@
     },
     "concrete": {
       "set": "Concrete034",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_177",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Concrete034_177",
       "N": 177,
       "ppm": 58.92,
       "tile_sq": 3.0,
@@ -161,7 +161,7 @@
     },
     "deck": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_68",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_68",
       "N": 68,
       "ppm": 44.19,
       "tile_sq": 1.54,
@@ -190,7 +190,7 @@
     },
     "galv": {
       "set": "Metal032",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_59",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Metal032_59",
       "N": 59,
       "ppm": 29.46,
       "tile_sq": 2.0,
@@ -331,7 +331,7 @@
     },
     "stone_rubble": {
       "set": "Bricks096",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Bricks096_189",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Bricks096_189",
       "N": 189,
       "ppm": 58.92,
       "tile_sq": 3.2,
@@ -360,7 +360,7 @@
     },
     "timber_heavy": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_91",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_91",
       "N": 91,
       "ppm": 58.92,
       "tile_sq": 1.54,
@@ -389,7 +389,7 @@
     },
     "timber_lap": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_141",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_141",
       "N": 141,
       "ppm": 58.92,
       "tile_sq": 2.4,
@@ -1020,7 +1020,7 @@
     "keyword": "CommercialLow"
   },
   "emissive": true,
-  "review_pack": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\preview\\review\\SkiLodgeAFrameCommercialLowB.blend",
+  "review_pack": "assets/preview/review/SkiLodgeAFrameCommercialLowB.blend",
   "stage_seconds": {
     "build": 0.0,
     "parts": 2.3,

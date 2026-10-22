@@ -120,7 +120,7 @@
   "materials": {
     "concrete": {
       "set": "Concrete034",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_405",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Concrete034_405",
       "N": 405,
       "ppm": 135.06,
       "tile_sq": 3.0,
@@ -145,7 +145,7 @@
     },
     "deck": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_156",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_156",
       "N": 156,
       "ppm": 101.3,
       "tile_sq": 1.54,
@@ -174,7 +174,7 @@
     },
     "galv": {
       "set": "Metal032",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_135",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Metal032_135",
       "N": 135,
       "ppm": 67.53,
       "tile_sq": 2.0,
@@ -251,7 +251,7 @@
     },
     "lux_glulam": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_208",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_208",
       "N": 208,
       "ppm": 135.06,
       "tile_sq": 1.54,
@@ -280,7 +280,7 @@
     },
     "lux_rock": {
       "set": "Rock030",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Rock030_223",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Rock030_223",
       "N": 223,
       "ppm": 74.28,
       "tile_sq": 3.0,
@@ -305,7 +305,7 @@
     },
     "lux_siding_walnut": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_378",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_378",
       "N": 378,
       "ppm": 135.06,
       "tile_sq": 2.8,
@@ -334,7 +334,7 @@
     },
     "lux_slate": {
       "set": "RoofingTiles003",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\RoofingTiles003_259",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/RoofingTiles003_259",
       "N": 259,
       "ppm": 81.04,
       "tile_sq": 3.2,
@@ -375,7 +375,7 @@
     },
     "plaster": {
       "set": "Plaster002",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Plaster002_270",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Plaster002_270",
       "N": 270,
       "ppm": 135.06,
       "tile_sq": 2.0,
@@ -400,7 +400,7 @@
     },
     "stone_rubble": {
       "set": "Bricks096",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Bricks096_432",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Bricks096_432",
       "N": 432,
       "ppm": 135.06,
       "tile_sq": 3.2,
@@ -429,7 +429,7 @@
     },
     "timber_heavy": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_208",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_208",
       "N": 208,
       "ppm": 135.06,
       "tile_sq": 1.54,
@@ -458,7 +458,7 @@
     },
     "timber_lap": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_324",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_324",
       "N": 324,
       "ppm": 135.06,
       "tile_sq": 2.4,
@@ -1254,7 +1254,7 @@
     "keyword": "CommercialLow"
   },
   "emissive": true,
-  "review_pack": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\preview\\review\\SkiLodgeSwankyTopCommercialLowB.blend",
+  "review_pack": "assets/preview/review/SkiLodgeSwankyTopCommercialLowB.blend",
   "stage_seconds": {
     "build": 0.1,
     "parts": 4.2,

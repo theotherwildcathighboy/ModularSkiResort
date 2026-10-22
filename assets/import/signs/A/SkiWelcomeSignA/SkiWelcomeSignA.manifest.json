@@ -109,7 +109,7 @@
     },
     "concrete": {
       "set": "Concrete034",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_346",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Concrete034_346",
       "N": 346,
       "ppm": 115.23,
       "tile_sq": 3.0,
@@ -134,7 +134,7 @@
     },
     "galv": {
       "set": "Metal032",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_115",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Metal032_115",
       "N": 115,
       "ppm": 57.61,
       "tile_sq": 2.0,
@@ -159,7 +159,7 @@
     },
     "rock": {
       "set": "Rock030",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Rock030_288",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Rock030_288",
       "N": 288,
       "ppm": 115.23,
       "tile_sq": 2.5,
@@ -184,7 +184,7 @@
     },
     "stone_rubble": {
       "set": "Bricks096",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Bricks096_369",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Bricks096_369",
       "N": 369,
       "ppm": 115.23,
       "tile_sq": 3.2,
@@ -213,7 +213,7 @@
     },
     "timber_heavy": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_177",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_177",
       "N": 177,
       "ppm": 115.23,
       "tile_sq": 1.54,
@@ -242,7 +242,7 @@
     },
     "timber_shake": {
       "set": "WoodSiding013",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding013_207",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding013_207",
       "N": 207,
       "ppm": 115.23,
       "tile_sq": 1.8,
@@ -267,7 +267,7 @@
     },
     "timber_vboard": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_277",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_277",
       "N": 277,
       "ppm": 115.23,
       "tile_sq": 2.4,
@@ -328,7 +328,7 @@
     },
     "plank": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_2048",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_2048",
       "N": 2048,
       "ppm": 128.0,
       "tile_sq": 16.0,
@@ -613,7 +613,7 @@
         "header_aspect_err_px": -0.4
       }
     },
-    "dir": "%USERPROFILE%\\AppData\\Local\\Temp\\welcome_sign\\SkiWelcomeSignA_1024_739fe588",
+    "dir": "%TEMP%/welcome_sign/SkiWelcomeSignA_1024_739fe588",
     "rects": {
       "emblem": [
         0.007812,
@@ -778,7 +778,7 @@
     "layout": "assets/we/K45_WE/layouts/SkiResortGate.wedefault.xml",
     "frame": "game: lot-centre origin at grade, +Z road, y up"
   },
-  "review_pack": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\assets\\preview\\review\\SkiWelcomeSignA.blend",
+  "review_pack": "assets/preview/review/SkiWelcomeSignA.blend",
   "previews": [
     "assets\\preview\\signs\\SkiWelcomeSignA_pbr_front.png",
     "assets\\preview\\signs\\SkiWelcomeSignA_pbr_three_quarter.png",

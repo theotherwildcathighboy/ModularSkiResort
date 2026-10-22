@@ -238,7 +238,7 @@
     "verify": true,
     "plate_number": "27",
     "hanger_offset": null,
-    "carriers": "%USERPROFILE%\\Documents\\ClaudeProjects\\ModularSkiResort\\catalog\\carriers.json",
+    "carriers": "catalog/carriers.json",
     "ab": null,
     "basecolor": [
       0.13,

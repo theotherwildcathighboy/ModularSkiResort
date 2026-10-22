@@ -79,12 +79,12 @@
     "signset": false,
     "no_signset": false,
     "no_fine": false,
-    "signset_out": "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/signs",
+    "signset_out": "%TEMP%/scratchpad/signs",
     "tiled": true,
     "sheet_tex": 4096,
     "far_tex": 1024,
     "sheet_layout": "rollout",
-    "sheet_dir": "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/sheet/SkiTileSheetX",
+    "sheet_dir": "%TEMP%/scratchpad/sheet/SkiTileSheetX",
     "weather_level": "auto",
     "window_kit": "v2",
     "window_mode": "auto",
@@ -135,7 +135,7 @@
   "materials": {
     "concrete": {
       "set": "Concrete034",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_47",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Concrete034_47",
       "N": 47,
       "ppm": 15.57,
       "tile_sq": 3.0,
@@ -160,7 +160,7 @@
     },
     "deck": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_18",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_18",
       "N": 18,
       "ppm": 11.68,
       "tile_sq": 1.54,
@@ -189,7 +189,7 @@
     },
     "galv": {
       "set": "Metal032",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_16",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Metal032_16",
       "N": 16,
       "ppm": 7.79,
       "tile_sq": 2.0,
@@ -266,7 +266,7 @@
     },
     "lux_glulam": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_24",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_24",
       "N": 24,
       "ppm": 15.57,
       "tile_sq": 1.54,
@@ -295,7 +295,7 @@
     },
     "lux_rock": {
       "set": "Rock030",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Rock030_26",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Rock030_26",
       "N": 26,
       "ppm": 8.56,
       "tile_sq": 3.0,
@@ -320,7 +320,7 @@
     },
     "lux_siding_walnut": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_44",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_44",
       "N": 44,
       "ppm": 15.57,
       "tile_sq": 2.8,
@@ -349,7 +349,7 @@
     },
     "lux_slate": {
       "set": "RoofingTiles003",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\RoofingTiles003_30",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/RoofingTiles003_30",
       "N": 30,
       "ppm": 9.34,
       "tile_sq": 3.2,
@@ -390,7 +390,7 @@
     },
     "plaster": {
       "set": "Plaster002",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Plaster002_31",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Plaster002_31",
       "N": 31,
       "ppm": 15.57,
       "tile_sq": 2.0,
@@ -415,7 +415,7 @@
     },
     "stone_rubble": {
       "set": "Bricks096",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Bricks096_50",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Bricks096_50",
       "N": 50,
       "ppm": 15.57,
       "tile_sq": 3.2,
@@ -444,7 +444,7 @@
     },
     "timber_heavy": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_24",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_24",
       "N": 24,
       "ppm": 15.57,
       "tile_sq": 1.54,
@@ -473,7 +473,7 @@
     },
     "timber_lap": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_37",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_37",
       "N": 37,
       "ppm": 15.57,
       "tile_sq": 2.4,
@@ -518,7 +518,7 @@
     },
     "trim_grain": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_19",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_19",
       "N": 19,
       "ppm": 7.79,
       "tile_sq": 2.4,
@@ -2898,7 +2898,7 @@
     "layout": "rollout",
     "sheet": {
       "name": "SkiTileSheetX",
-      "workspace": "../../../../../../../../../%USERNAME%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/sheet/SkiTileSheetX",
+      "workspace": "%TEMP%/scratchpad/sheet/SkiTileSheetX",
       "A": 4096,
       "hash": "0d3e5eee7bf6c131",
       "owner": "SkiSchoolCommercialLowX",

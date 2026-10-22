@@ -643,6 +643,17 @@ if ($usExit -ne 0) {
     $rows.Add("OK    USENGLISH $(($usOut | Select-Object -Last 1)) | $(($usSelf | Select-Object -Last 1))")
 }
 
+# ---- 12b. USERPATHS: no absolute C:\Users paths in tracked or new files (release blocker 2026-10-22; DECISIONS 377) -----
+# Generators (cs2_bldg.py, welcome_sign.py, lodge.py, cs2_review.write_pack) still write absolute paths into new manifests:
+# this gate stops them reaching a commit. Use repo-relative paths or %USERPROFILE% / %TEMP% placeholders.
+$upOut = @(& node (Join-Path $PSScriptRoot "check-no-user-paths.js") 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    foreach ($l in $upOut) { if ("$l" -match '^\S+:\d+: ') { $rows.Add("FAIL  USERPATHS $l"); $failures++ } }
+    if (-not ($upOut | Where-Object { "$_" -match '^\S+:\d+: ' })) { $rows.Add("FAIL  USERPATHS $($upOut -join ' ')"); $failures++ }
+} else {
+    $rows.Add("OK    USERPATHS $(($upOut | Select-Object -Last 1))")
+}
+
 # ---- 13. STUBNET: station stub marker nets (T121 / T126, 2026-10-20; research/art/station-stubs-2026-10-20.md) -----------
 # A shared node takes the net prefab with the highest NetData.m_NodePriority (GenerateNodesSystem.cs:1690-1765, strict >),
 # which is the composition width (NetInitializeSystem.cs:135): a stub marker no wider than a line hands its tip node to the

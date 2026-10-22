@@ -99,12 +99,12 @@
     "signset": false,
     "no_signset": false,
     "no_fine": false,
-    "signset_out": "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/signs",
+    "signset_out": "%TEMP%/scratchpad/signs",
     "tiled": true,
     "sheet_tex": 4096,
     "far_tex": 1024,
     "sheet_layout": "rollout",
-    "sheet_dir": "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/sheet/SkiTileSheetX",
+    "sheet_dir": "%TEMP%/scratchpad/sheet/SkiTileSheetX",
     "weather_level": "auto",
     "window_kit": "v2",
     "window_mode": "auto",
@@ -173,7 +173,7 @@
     },
     "concrete": {
       "set": "Concrete034",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_124",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Concrete034_124",
       "N": 124,
       "ppm": 41.25,
       "tile_sq": 3.0,
@@ -198,7 +198,7 @@
     },
     "deck": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_48",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_48",
       "N": 48,
       "ppm": 30.94,
       "tile_sq": 1.54,
@@ -243,7 +243,7 @@
     },
     "galv": {
       "set": "Metal032",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_41",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Metal032_41",
       "N": 41,
       "ppm": 20.62,
       "tile_sq": 2.0,
@@ -368,7 +368,7 @@
     },
     "siding_paint": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_99",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_99",
       "N": 99,
       "ppm": 41.25,
       "tile_sq": 2.4,
@@ -409,7 +409,7 @@
     },
     "slate": {
       "set": "RoofingTiles003",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\RoofingTiles003_106",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/RoofingTiles003_106",
       "N": 106,
       "ppm": 33.0,
       "tile_sq": 3.2,
@@ -434,7 +434,7 @@
     },
     "timber_heavy": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_64",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_64",
       "N": 64,
       "ppm": 41.25,
       "tile_sq": 1.54,
@@ -463,7 +463,7 @@
     },
     "timber_lap": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_99",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_99",
       "N": 99,
       "ppm": 41.25,
       "tile_sq": 2.4,
@@ -492,7 +492,7 @@
     },
     "trim_grain_w": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_50",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_50",
       "N": 50,
       "ppm": 20.62,
       "tile_sq": 2.4,
@@ -2492,7 +2492,7 @@
     "layout": "rollout",
     "sheet": {
       "name": "SkiTileSheetX",
-      "workspace": "../../../../../../../../../%USERNAME%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d/scratchpad/sheet/SkiTileSheetX",
+      "workspace": "%TEMP%/scratchpad/sheet/SkiTileSheetX",
       "A": 4096,
       "hash": "0d3e5eee7bf6c131",
       "owner": "SkiSchoolCommercialLowX",
@@ -3162,7 +3162,7 @@
         "sign_nosled_face"
       ],
       "mesh": "SkiSignSetSchoolB",
-      "asset_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\claude\\C--Users-USER-Documents-ClaudeProjects\\8dcfa75f-7f8d-49cb-8d5a-712486fd8b6d\\scratchpad\\signs\\SkiSignSetSchoolB",
+      "asset_dir": "%TEMP%/scratchpad/signs/SkiSignSetSchoolB",
       "tris": 22,
       "cull": {
         "extent_m": [

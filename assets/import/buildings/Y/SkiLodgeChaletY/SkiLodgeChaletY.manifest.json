@@ -57,7 +57,7 @@
     "school": false,
     "patrol": null,
     "recipe": "L3",
-    "out": "%USERPROFILE%/Documents/ClaudeProjects/ModularSkiResort/assets/import/buildings/Y",
+    "out": "assets/import/buildings/Y",
     "export": true,
     "name": null,
     "letter": "Y",
@@ -79,12 +79,12 @@
     "signset": false,
     "no_signset": false,
     "no_fine": false,
-    "signset_out": "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/53053c24-fec1-438f-876d-c1cf1da0ed31/scratchpad/signs",
+    "signset_out": "%TEMP%/scratchpad/signs",
     "tiled": true,
     "sheet_tex": 4096,
     "far_tex": 1024,
     "sheet_layout": "rollout",
-    "sheet_dir": "%USERPROFILE%/AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/53053c24-fec1-438f-876d-c1cf1da0ed31/scratchpad/sheet/SkiTileSheetY",
+    "sheet_dir": "%TEMP%/scratchpad/sheet/SkiTileSheetY",
     "weather_level": "auto",
     "window_kit": "v2",
     "window_mode": "auto",
@@ -155,7 +155,7 @@
     },
     "concrete": {
       "set": "Concrete034",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Concrete034_65",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Concrete034_65",
       "N": 65,
       "ppm": 21.81,
       "tile_sq": 3.0,
@@ -180,7 +180,7 @@
     },
     "deck": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_25",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_25",
       "N": 25,
       "ppm": 16.36,
       "tile_sq": 1.54,
@@ -225,7 +225,7 @@
     },
     "galv": {
       "set": "Metal032",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Metal032_22",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Metal032_22",
       "N": 22,
       "ppm": 10.9,
       "tile_sq": 2.0,
@@ -354,7 +354,7 @@
     },
     "slate": {
       "set": "RoofingTiles003",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\RoofingTiles003_56",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/RoofingTiles003_56",
       "N": 56,
       "ppm": 17.45,
       "tile_sq": 3.2,
@@ -379,7 +379,7 @@
     },
     "stone_rubble": {
       "set": "Bricks096",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Bricks096_70",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Bricks096_70",
       "N": 70,
       "ppm": 21.81,
       "tile_sq": 3.2,
@@ -408,7 +408,7 @@
     },
     "timber_heavy": {
       "set": "Planks021",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\Planks021_34",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/Planks021_34",
       "N": 34,
       "ppm": 21.81,
       "tile_sq": 1.54,
@@ -437,7 +437,7 @@
     },
     "timber_lap": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_52",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_52",
       "N": 52,
       "ppm": 21.81,
       "tile_sq": 2.4,
@@ -466,7 +466,7 @@
     },
     "timber_shake": {
       "set": "WoodSiding013",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding013_39",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding013_39",
       "N": 39,
       "ppm": 21.81,
       "tile_sq": 1.8,
@@ -507,7 +507,7 @@
     },
     "trim_grain_s2": {
       "set": "WoodSiding009",
-      "filtered_dir": "%USERPROFILE%\\AppData\\Local\\Temp\\cs2_bldg_prefilter\\WoodSiding009_26",
+      "filtered_dir": "%TEMP%/cs2_bldg_prefilter/WoodSiding009_26",
       "N": 26,
       "ppm": 10.9,
       "tile_sq": 2.4,
@@ -4148,7 +4148,7 @@
     "layout": "rollout",
     "sheet": {
       "name": "SkiTileSheetY",
-      "workspace": "../../../../../../../../AppData/Local/Temp/claude/C--Users-USER-Documents-ClaudeProjects/53053c24-fec1-438f-876d-c1cf1da0ed31/scratchpad/sheet/SkiTileSheetY",
+      "workspace": "%TEMP%/scratchpad/sheet/SkiTileSheetY",
       "A": 4096,
       "hash": "fc7dc07ba0849367",
       "owner": "SkiSchoolY",

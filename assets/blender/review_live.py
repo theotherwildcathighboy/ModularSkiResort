@@ -73,8 +73,16 @@ import mathutils
 # Constants
 # --------------------------------------------------------------------------------------
 
-REPO_ROOT = r"%USERPROFILE%\Documents\ClaudeProjects\ModularSkiResort"
-REVIEW_DIR = os.path.join(REPO_ROOT, "assets", "preview", "review")
+# The repo root comes from the environment: set MODULAR_SKI_RESORT_REPO to the checkout folder before
+# starting Blender (no user-specific path lives in this file). Without it, the pack folder is
+# inferred from the open .blend when that file sits in <repo>/assets/preview/review/, and failing
+# that _review_dir() raises with this instruction (pass review_dir= to load()/install() instead).
+REPO_ROOT = os.environ.get("MODULAR_SKI_RESORT_REPO", "")
+if not REPO_ROOT and bpy.data.filepath:
+    _here = os.path.dirname(os.path.abspath(bpy.data.filepath))
+    if os.path.normcase(os.path.normpath(_here)).endswith(os.path.normcase(os.path.join("assets", "preview", "review"))):
+        REPO_ROOT = os.path.normpath(os.path.join(_here, "..", "..", ".."))
+REVIEW_DIR = os.path.join(REPO_ROOT, "assets", "preview", "review") if REPO_ROOT else ""
 FG8N_PACK = "SkiLiftTowerFG8N"        # <review_dir>/SkiLiftTowerFG8N.blend (cs2_review.STANDIN_FBX)
 STANDIN_CMD = ("blender --background --factory-startup --python assets/blender/cs2_review.py "
                "-- --stand-in")
@@ -142,6 +150,9 @@ def _clean(name):
 
 
 def _review_dir(review_dir=None):
+    if not (review_dir or REVIEW_DIR):
+        raise RuntimeError("review_live: repo root unknown; set the MODULAR_SKI_RESORT_REPO environment variable "
+                           "to the repository folder and restart Blender, or pass review_dir=")
     return os.path.abspath(review_dir or REVIEW_DIR)
 
 

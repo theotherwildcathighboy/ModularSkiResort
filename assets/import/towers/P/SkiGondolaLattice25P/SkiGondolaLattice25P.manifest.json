@@ -45,7 +45,7 @@
     "family": "gondola",
     "height": null,
     "all": true,
-    "out": "%USERPROFILE%\\AppData\\Local\\Temp\\claude\\C--Users-USER-Documents-ClaudeProjects\\e0c848b4-c7c1-4952-9e28-9bce9e9c775e\\scratchpad\\held\\towers\\P",
+    "out": "%TEMP%/scratchpad/held/towers/P",
     "letter": "P",
     "finish": true,
     "lods": true,

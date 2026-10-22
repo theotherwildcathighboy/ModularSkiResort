@@ -6,15 +6,29 @@ description: What changed in each version of Modular Ski Resort.
 import { Aside } from '@astrojs/starlight/components';
 
 <Aside type="note">
-Version history starts with the first Paradox Mods release. Until then: one running entry from
-the early beta, covering the first working lift network only.
+Version history starts with the first Paradox Mods release, 1.0.0. Newest release first. Beta builds
+before it are not listed, and beta saves are not supported by 1.0.0.
 </Aside>
 
-## Unreleased (beta)
+## 1.0.0 (YYYY-MM-DD)
 
-- First-ever working chairlift network for CS2: drawable lift line, station snapping, cable anchoring, sagging
-  haul rope with chairs riding the catenary
-- Dynamic tower heights (8/12/16 m) selected by terrain, with foundation piers
-- Base and top stations (no terrain flattening: site them like a real resort)
-- Vanilla recolor support (steel and safety pads)
-- Snow-line-aware code mod groundwork
+First public release. Release date to be filled in at upload.
+
+- Save compatible with previous: n/a (first release)
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 1, MonthInProgress 1
+- Do not load in older versions: no
+
+What is in it:
+
+- Four lift types: fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Chairs and cabins move
+  along the cable; the tram shuttles two cabins.
+- One lift tool: click the base station and the top station, click the line to add a tower, drag to move one, Enter builds.
+  The tower planner fits tower heights to the terrain with the fewest towers the type allows. Towers are numbered.
+- Ski runs you draw: natural, groomed, snowmaking, night and cat track, each rated green to double black from its slope.
+- Cat track grading tool.
+- Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs
+  (October to March), powder days, seasons.
+- Welcome Sign, five lodges, Ski School, two patrol buildings.
+- The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
+- Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.
+- Works on the base game; no other mod is required.

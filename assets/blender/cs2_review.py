@@ -1136,7 +1136,9 @@ def _signset_extra(manifest, letter):
     mesh = ss["mesh"]
     cands = []
     if ss.get("asset_dir"):
-        cands.append(ss["asset_dir"])
+        # manifests store repo-relative or %TEMP% paths (no user name); resolve against the repo
+        cands.append(os.path.expandvars(ss["asset_dir"]) if os.path.isabs(os.path.expandvars(ss["asset_dir"]))
+                     else os.path.join(REPO_ROOT, ss["asset_dir"]))
     cands.append(os.path.join(REPO_ROOT, "assets", "import", "signs", mesh[-1:] or letter, mesh))
     for d in cands:
         fbx = os.path.join(d, f"{mesh}.fbx")
