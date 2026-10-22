@@ -1,11 +1,12 @@
 # Credits & Attribution
 
-- **Modular Golf Course Pack** (Paradox Mods ID 144768) — the modular-recreation concept
-  that inspired this project's architecture.
-- **Meapy — CS2-TourismOverhaul** — the tourism/attraction framework this mod integrates
-  with; studied for compatibility and design reference.
+- **Modular Golf Course Pack** by joergeske (Paradox Mods ID 144768) — the modular-recreation
+  concept that inspired this project's architecture. Credit only; not required.
+- **Meapy — CS2-TourismOverhaul** — studied for how tourism and attractions work and for
+  compatibility. Credit only; not required. The mod detects it by assembly name to show a hub
+  notice and changes nothing in it.
 - **Yenyang — Recolor** — the asset color convention (channel masks, light-albedo regions)
-  follows the standard their mod established; hosted towers are recolorable via its painter.
+  follows the standard their mod established; line towers are recolorable via its painter (optional).
 - **krzychu124 — Scene Explorer** — indispensable for live ECS debugging during development.
 - **CitiesSkylinesModding community** — agents-plugins toolchain and documentation.
 - Reference photography: Arapahoe Basin's original Pallavicini lift (Yan double) — this
@@ -27,6 +28,16 @@
   time from typefaces installed on the build machine (Bookman Old Style Bold for the resort-identity
   boards, Franklin Gothic Demi Cond for the utility boards). Only the rendered textures ship; no font
   file is included or required. The lift boards are lettered with Blender's built-in font.
+
+## Asset inspirations
+
+Each asset follows a real lift or building (reference only; nothing is copied):
+A-frame lodge, Arapahoe Basin (Colorado); fixed-grip chairlift, the Pallavicini lift at Arapahoe Basin;
+detachable quad, the Collins lift at Alta (Utah); gondola, loosely the Aspen gondola; aerial tram,
+the Jackson Hole Aerial Tram (Wyoming); Grand lodge, the Peak 7 lodge at Breckenridge (Colorado);
+chalet, a peak lodge at Courchevel (France); Ski School, the kids' ski school at Palisades Tahoe
+(California); small patrol hut, the Lady Morgan patrol shack at Deer Valley (Utah); large patrol
+hut, the patrol building at Song Mountain (New York). Source: docs-site credits page.
 
 ## Third-party 3D models (CC BY 4.0)
 

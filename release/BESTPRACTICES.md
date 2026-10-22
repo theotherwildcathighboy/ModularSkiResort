@@ -1,50 +1,68 @@
-# Ski Lift Best Practices (player guide draft)
+# Modular Ski Resort: best practices (player guide draft)
 
-## Build order — two ways that work
+*Matches the build of 2026-10-22. Sources: release/LISTING-NOTES-2026-10-22.md.*
 
-**Line-first (recommended — perfect alignment for free):**
-1. Draw the lift line up the mountain first — one straight segment is geometrically
-   perfect; click intermediate points where you want towers (denser on rough terrain).
-2. Place the **base station** snapping onto the line's lower end, then the **top
-   station** on the upper end. Cables, power, and chairs reconnect automatically.
+## First resort, in order
 
-**Stations-first (classic):**
-1. Place base station, then top station (eyeball the alignment).
-2. Draw the line from the base snap point to the top snap point.
+1. Open the Ski Resort panel (button at the top left). On the **Buildings** tab, place the **Welcome Sign** with its front on a road.
+2. Place a **lodge** near where the runs will be. The A-Frame Day Lodge is the cheapest with real capacity. No lodge, no attraction score.
+3. On the **Lifts** tab, pick a lift type. Place the **base station** at the bottom and the **top station** at the top, facing the base station. A guide line shows when they are straight.
+4. Click the base station with the lift tool, click the top station, then press **Enter**.
+5. Connect a **low-voltage power line** to the base station (see Power).
+6. On the **Runs** tab, pick a run type and draw runs downhill from the top station.
+7. Wait for snow. The status line reads *Open* when runs open.
 
-*(Line-first pending final in-game verification of chair re-seating — remove this note
-before upload.)*
+If the panel shows a problem line ("No lift yet", "Lodge is not at a road"), click it. It flies to the cause.
 
-## Terrain expectations
+## Where to build
 
-- Fixed-grip lifts refuse grades above 80% — that's aerial tram terrain (future pack).
-- Towers auto-select their height (8/12/16 m) and stand on concrete foundations. On
-  reasonable lift lines they ground themselves like vanilla power pylons.
-- **If you push a lift somewhere absurd, you get absurd results** — a line flung across a
-  canyon or up a cliff wall will float towers, exactly like vanilla power lines trench and
-  float in the same places. The game engine bends the same way for everything; build like
-  a lift engineer and it looks like real engineering.
-- Stations do not flatten terrain. Site them on reasonably level ground, or terraform
-  first (or use Move It afterward).
+- Snow decides everything. While you place a sign or draw a run, the game shows the average winter snow line and a fainter line below it where snow guns start to work (option, on by default). Build on or above both.
+- A run needs snow to open: 3 feet (91 cm) over 60 percent of it. Snowmaking and night runs make their own snow where it is cold enough, October through March.
+- A mountain with no real winter needs the option **Snow & season gating** turned off. Then every run counts as open all year.
 
-## Ski school
+## Lifts
 
-- Terrain tip: level the ground at the top of the magic carpet bubble, then use the slope tool down to its base.
-
-*(Draft note: reference shot docs/research/field/2026-10-15/shots/21.30.27.94.png. Remove before upload.)*
+- **Lift tool.** Click the line to add a tower. Drag a tower to move it; it stays where you put it. Drag a tower off the line to remove it. Right click steps back one action. Enter builds. Esc closes. Ctrl+Shift+L opens the tool from the keyboard.
+- **Let the planner work first.** It picks tower heights to fit the ground and uses the fewest towers the lift type allows. Move towers only where you want them. The preview colors the cable by how far it clears the ground.
+- **Steep or uneven ground.** Build one section at a time. To fix one section, bulldoze it and click its two ends again. The other sections keep their towers, cable and chairs.
+- **Pick the type for the terrain.** Steepest slope: fixed-grip 80 percent, detachable 90, gondola 120, tram 250. The tram reaches farthest between towers (1,000 m).
+- **Stations sit on the slope.** They do not flatten the ground. The tram base terminal does level a pad. Site stations on reasonably level ground, or terraform first.
+- **Push a lift across a canyon or up a cliff face and the result can look wrong**, as vanilla power lines do in the same places. Use the preview.
+- Towers are numbered up the line from the base station.
 
 ## Power
 
-Stations are grid transformers: feed the base station's area with power and the lift line
-carries it up the mountain. No power = no lift (icons will tell you).
+Lifts are power-line networks, so they follow power-line rules.
 
 - Lift lines show in the electricity overlay as high-voltage lines.
-- The base station acts as a transformer: wire a low-voltage line into its low-voltage stub.
-- Do not connect city high-voltage lines to a lift tower or lift line (untested, can break the lift).
-- Remove all lifts before uninstalling the mod.
+- The base station acts as a transformer. Wire a **low-voltage line** into the stub at the front corner of the base station. The line carries the power up the mountain. The top station needs no hookup.
+- No power, no lift. The panel lists it as a problem.
+- **Do not connect city high-voltage lines to a lift tower or lift line.** Untested; it can break the lift.
+- **Remove all lifts before uninstalling the mod.** What leftover lift pieces do after removal is untested.
+
+## Runs
+
+- Draw runs from the top of a lift downhill. The rating comes from the hardest unavoidable pitch, so a flat runout does not hide a steep drop.
+- A run counts at full value only while a running lift reaches its top. Without one it counts as backcountry, at 40 percent by default.
+- Mix green, blue and black runs. A resort with all three scores more.
+- **Cat tracks** link runs across the hill. They need a slope under 25 percent. If the ground is too steep, use the **Grade cat track** tool (Runs tab, or Ctrl+Shift+K): click points up the hill and press Enter to grade the ground first, then draw the cat track on it.
+- The **tree tool** plans glades on and around runs. Ctrl+Shift+G toggles it.
+
+## Ski School
+
+- A Ski School adds to the attraction score only while a green run counts. It also sells lessons.
+- Terrain tip: level the ground at the top of the magic carpet area, then use the slope tool down to its base.
+
+## Money
+
+- Lifts, runs, lodges, the Ski School and staff cost money all year. Income comes with snow.
+- Default lift ticket price is 80. Above 40 it lowers the number of ski days; the Guests view shows what limits them.
+- Off-season, lodges and the Ski School drop to half staff on their own after 12 game hours with no open run. Building upkeep keeps running, so consider switching idle lodges off in their info panel.
+- Season passes sell to residents once per season. Tourists never buy one.
+- The game's Economy panel has no ski resort line. Resort income is booked as public transportation fees; the full picture is in the panel's **Finances** view.
 
 ## Playing nice
 
-- Anarchy works as the escape hatch for stubborn placements.
-- Recoloring: stations recolor via the vanilla picker (steel + safety pads); line towers
-  need Recolor mod's painter tool (they belong to the network).
+- Move It works on every building in the pack.
+- Recoloring: stations recolor with the game's color picker (steel and safety pads). Line towers need the Recolor mod's painter tool.
+- Start from a new city. The first public release makes no promise for saves from test builds.

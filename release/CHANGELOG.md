@@ -30,12 +30,21 @@ Notes...
 - Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 1, MonthInProgress 1
 - Do not load in older versions: no
 
-First public release. Notes to be written at release.
+First public release. Draft notes (check against the build at upload):
+
+- Four lift types: fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Chairs and cabins move
+  along the cable; the tram shuttles two cabins.
+- One lift tool: click the base station and the top station, click the line to add a tower, drag to move one, Enter builds.
+  The tower planner fits tower heights to the terrain with the fewest towers the type allows. Towers are numbered.
+- Ski runs you draw: natural, groomed, snowmaking, night and cat track, each rated green to double black from its slope.
+- Cat track grading tool.
+- Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs
+  (October to March), powder days, seasons.
+- Welcome Sign, five lodges, Ski School, two patrol buildings.
+- The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
+- Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.
+- Works on the base game; no other mod is required.
 
 ## Beta notes (pre-release, not a release entry)
-- First-ever working chairlift network for CS2: drawable lift line, station snapping,
-  cable anchoring, sagging haul rope with chairs riding the catenary
-- Dynamic tower heights (8/12/16 m) selected by terrain, with foundation piers
-- Base + top stations (no terrain flattening — site them like a real resort)
-- Vanilla recolor support (steel + safety pads)
-- Snow-line-aware code mod groundwork
+Early beta builds only: the first working chairlift network (drawn line, station snapping, sagging cable) and snow-line
+groundwork. Everything above came after. Beta saves are not supported by the first public release.

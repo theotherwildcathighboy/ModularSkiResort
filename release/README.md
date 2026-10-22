@@ -13,7 +13,8 @@ the game. Two build artifacts, uploaded as ONE hybrid Paradox Mods item (DECISIO
 
 ## Contents
 
-- `DESCRIPTION.md` — listing copy draft (long description). Keep in sync with feature state.
+- `DESCRIPTION.md` — listing copy draft (short + long description). Keep in sync with feature state.
+- `LISTING-NOTES-2026-10-22.md` — every claim in the listing copy with its source, what is unverified, open questions.
 - `CREDITS.md` — attribution (REQUIRED before upload, per project commitment).
 - `CHANGELOG.md` — player-facing version history; seeded during beta.
 - `BESTPRACTICES.md` — the player guide (build order, workflow rules). Draft from
