@@ -812,7 +812,7 @@ namespace SkiResortMod.Systems
                         SpacingM = 40f, DesignSpacingM = 60f,                           // D1 / §3.1 (rides ≈ 60 m); RS §5 60 m. T43 2026-10-16: SpacingM 45 -> 40 (mirrors SkiGondolaHV m_Spacing; 140 m edges spawn 3 cabins, not 2: ~1,984 -> ~3,200/h)
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
                         FixedPerMonth = 8000f, PerKmPerMonth = 3000f, LineBuildPer8m = 175, ElevationCostPer10m = 15,
-                        StationCostBase = 190000, StationCostTop = 110000, ScoreValue = 25.0, SummerShare = 0.75,
+                        StationCostBase = 190000, StationCostTop = 110000, ScoreValue = 25.0, SummerShare = 0.25,
                         Envelope = new LiftEnvelope(250f, 1.2f, 0f, 0.004f, 6f, 28f),
                         CloseElectricityView = true, LineExpected = true,
                         // S1 lift flip (2026-10-13, round-2-contract §10.1, build/s1-fix-codeflip.md): SkiGondolaHV and

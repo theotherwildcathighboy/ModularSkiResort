@@ -316,9 +316,9 @@ namespace ResortBatch
             Check(pt3.LiftsValue == 70, w + " PT3", "LiftsValue 15 + 25 + 30 = 70");
 
             List<Score.RunInput> ms = Summer(Medium());
-            Score.Result ps1 = Row("PS1", Area(two), ms, Lifts(GD, FG, FG), 21.75, 24, 12, 30.654758106, 31, 22);
-            Check(ps1.LiftsValue == 37 && ps1.LiftsApplied == 21.75 && ps1.LiftShare == 21.75 / 37.0, w + " PS1",
-                  $"gondola λ 0.75: applied 18.75 + 1.5 + 1.5 = 21.75 of 37 (got {R(ps1.LiftsApplied)})");
+            Score.Result ps1 = Row("PS1", Area(two), ms, Lifts(GD, FG, FG), 9.25, 24, 12, 24.165525061, 24, 17);
+            Check(ps1.LiftsValue == 37 && ps1.LiftsApplied == 9.25 && ps1.LiftShare == 9.25 / 37.0, w + " PS1",
+                  $"gondola λ 0.25 (DECISIONS 376): applied 6.25 + 1.5 + 1.5 = 9.25 of 37 (got {R(ps1.LiftsApplied)})");
             Score.Result ps2 = Row("PS2", Area(two), ms, Lifts(TR, FG, FG), 33, 24, 12, 34.978250586, 35, 25);
             Check(ps2.LiftsApplied == 33, w + " PS2", "tram λ 1: 30 + 1.5 + 1.5 = 33");
             Row("PS3", Area(two), ms, Lifts(DQ, FG, FG), 6.75, 24, 12, 22.392304845, 22, 16);

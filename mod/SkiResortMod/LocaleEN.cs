@@ -871,7 +871,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RECEIPT_TIP[Runs]", "Each run's value now, from its difficulty, size, type, lift and snow. The Runs view lists them." },
                 // Catalog Phase B (R12; CG-T4: every Loop type's "<name> <ScoreValue>" in index order and the summer-share words):
                 // changed in place.
-                { "SkiResort.Hub.RECEIPT_TIP[Lifts]", "Each complete lift with power adds fixed-grip 6, detachable 15, gondola 25. While no run counts, chairlifts add a quarter and gondolas three quarters." },
+                { "SkiResort.Hub.RECEIPT_TIP[Lifts]", "Each complete lift with power adds fixed-grip 6, detachable 15, gondola 25. While no run counts, chairlifts and gondolas add a quarter." },
                 // Catalog Phase B: the school's line of the receipt's parts tooltip (shown while ResortLive.schoolValue > 0).
                 { "SkiResort.Hub.RECEIPT_TIP[School]", "A ski school adds its value while a green run counts." },
                 { "SkiResort.Hub.RECEIPT_TIP[Variety]", "× 1.15 while a green, a blue and a black or harder run all count, else × 1." },

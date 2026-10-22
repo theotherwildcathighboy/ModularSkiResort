@@ -20,8 +20,8 @@
 //         T2 SkiResort.Hub.LIFT_CAPACITY_TIP contains {SEATS} and {SPEED} and no digit (HUB_FMT since contract 6);
 //         T3 SkiResort.Hub.LIFT_RIDE_TIP contains {SPEED} and no digit apart from the game-speed "1×";
 //         T4 SkiResort.Hub.RECEIPT_TIP[Lifts] names every Loop row "<name> <ScoreValue:0>" in index order (fixed-grip 6,
-//            detachable 15, gondola 25) and the summer-share words of every λ < 1 (0.25 "a quarter", 0.75 "three
-//            quarters");
+//            detachable 15, gondola 25) and the summer-share words of every λ < 1 (0.25 "a quarter" for all three
+//            chairlift-class types since DECISIONS 376);
 //         T5 SkiResort.Hub.RECEIPT_TIP[LodgeBase] contains "up to <Ladder.ExtraCap>" (24);
 //         T6 BUILD_TIP_SCHOOL "+<School.ScoreValue>" and "<(DemandFactor − 1) × 100> %" (+12, 20 %); BUILD_TIP_PATROL
 //            "<RadiusM / 1000> km", "<(ExpertFactor − 1) × 100> %", "<BackcountryServedMin × 100> %" (1 km, 15 %, 70 %);

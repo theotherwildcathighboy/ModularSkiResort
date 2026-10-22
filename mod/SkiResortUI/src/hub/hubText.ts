@@ -56,7 +56,7 @@
  * MONEY_TIP_LIFT_RATE, the Assets.NAME of every new build item (the upgrades without a shown area reuse
  * BUILD_HINT_LODGE_SELECTED, whose text names no lodge). Changed in place: RECEIPT_TIP[LodgeBase] (the ladder), RECEIPT_TIP[Lifts]
  * (per type), Assets.NAME[SkiBaseStationBuilding|SkiTopStationBuilding] ("Fixed-Grip ...", D17). The numbers baked in
- * them (+12, 20 %, 1 km, 15 %, 70 %, 40, 300 m, up to 24, 6 / 15 / 25, a quarter / three quarters) are SkiCatalog's:
+ * them (+12, 20 %, 1 km, 15 %, 70 %, 40, 300 m, up to 24, 6 / 15 / 25, a quarter) are SkiCatalog's:
  * tests/ResortBatch CatalogGuardTests CG-T2..T6 derive them from the catalog and FAIL on a difference.
  * Phase D "unpowered lifts are inert" (2026-10-11, code round 4, hub group; docs/research/art/assets-2026-10/code-round-4/
  * round-4-contract.md section 4.4 with round-4-contract-skeptic.md MUST-1 / MUST-3, DECISIONS 171 rulings; identical in
@@ -256,8 +256,8 @@ export const HUB_LOC = {
   receiptTipLodgeBase: ["SkiResort.Hub.RECEIPT_TIP[LodgeBase]", "Best lodge's base plus the others' extras, up to 24 more. Half while no run counts, more for a summit lodge a lift reaches."],
   receiptTerrain: ["SkiResort.Hub.RECEIPT[Terrain]", "Runs, lifts and school"],
   receiptTipRuns: ["SkiResort.Hub.RECEIPT_TIP[Runs]", "Each run's value now, from its difficulty, size, type, lift and snow. The Runs view lists them."],
-  // Contract 6 (R12 per-type values; CG-T4 guards "fixed-grip 6", "detachable 15", "gondola 25", "a quarter", "three quarters").
-  receiptTipLifts: ["SkiResort.Hub.RECEIPT_TIP[Lifts]", "Each complete lift with power adds fixed-grip 6, detachable 15, gondola 25. While no run counts, chairlifts add a quarter and gondolas three quarters."],
+  // Contract 6 (R12 per-type values; CG-T4 guards "fixed-grip 6", "detachable 15", "gondola 25", "a quarter").
+  receiptTipLifts: ["SkiResort.Hub.RECEIPT_TIP[Lifts]", "Each complete lift with power adds fixed-grip 6, detachable 15, gondola 25. While no run counts, chairlifts and gondolas add a quarter."],
   /** Contract 6: the school's line of the RECEIPT_PARTS tooltip (shown while ResortLive.schoolValue > 0). */
   receiptTipSchool: ["SkiResort.Hub.RECEIPT_TIP[School]", "A ski school adds its value while a green run counts."],
   receiptTipVariety: ["SkiResort.Hub.RECEIPT_TIP[Variety]", "× 1.15 while a green, a blue and a black or harder run all count, else × 1."],
