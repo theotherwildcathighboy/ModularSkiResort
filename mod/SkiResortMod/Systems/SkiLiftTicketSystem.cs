@@ -139,11 +139,6 @@ namespace SkiResortMod.Systems
         /// `Guests [month]` totals take month baselines of it).</summary>
         internal long FeeBookedThisLoad => m_FeeBookedTotal;
 
-        internal bool TryGetLastGate(Entity sign, out SkiMoneyRules.TicketGate gate)
-        {
-            return m_LastGate.TryGetValue(sign, out gate);
-        }
-
         private SimulationSystem m_SimulationSystem;
         private TimeSystem m_TimeSystem; // the midday re-arm and the [cost] clock
         private CitySystem m_CitySystem;

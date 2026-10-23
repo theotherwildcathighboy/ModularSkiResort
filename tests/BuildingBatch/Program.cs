@@ -6,9 +6,9 @@
 //      linked, L7 a nearer new sign takes the school (not sticky), L8 no sign at all.
 //   C  the one count rule (SchoolLinkRules.Count): C1 active + live, C2 Inactive, C3 not live, C4 a child and a top-level
 //      school in one area (2 listed, active), C5 an inactive child + an active top-level school.
-//   I  invariant: a linked top-level school yields the same slot facts as the ServiceUpgrade child did, hence the same
-//      SkiResortScore.Result (all fields, Equals), SchoolValue, ski-day SchoolFactor, lessons and HubProblems rows; over four
-//      fixtures (green counted / no counted green / no runs / school Inactive). I5: an unlinked school = no school.
+//   I  a linked top-level school's slot facts (1 listed, on = active) and what follows from them: SchoolValue, lessons and the
+//      HubProblems row 25; over four fixtures (green counted / no counted green / no runs / school Inactive). I5: an unlinked
+//      school = no school.
 //   D  the link-log diff (SchoolLinkRules.Diff): Linked, Relinked, Unlinked (new and lost), Removed, distance-only = no line,
 //      stable order, empty before -> one line per school (the per-load re-log).
 //   E  SchoolLinkRules.AreaEfficiency: E1 no top-level lodge = the sign's own, E2 the tier-weighted mean x the sign, E3 a lodge
@@ -131,14 +131,6 @@ namespace BuildingBatch
             Check(n == 2 && on, "C5", "inactive child + active top-level: on");
         }
 
-        /// <summary>The slot facts of area A, child path: the sign's InstalledUpgrade entry (Inactive bit = !active).</summary>
-        private static (int schools, bool on) ChildPath(bool active)
-        {
-            int n = 0; bool on = false;
-            SchoolLinkRules.Count(ref n, ref on, active, live: true);
-            return (n, on);
-        }
-
         /// <summary>The slot facts of area A, top-level path: resolve the school, count it into the slot it links to.</summary>
         private static (int schools, bool on, bool linked) TopLevelPath(SkiResortIndex signs, float2 xz, bool active)
         {
@@ -222,26 +214,19 @@ namespace BuildingBatch
             };
             foreach (var f in fixtures)
             {
-                var child = ChildPath(f.active);
                 var top = TopLevelPath(signs, near, f.active);
-                Check(top.linked && child.schools == top.schools && child.on == top.on, f.id + " slot",
-                      $"child ({child.schools}, {child.on}) == top-level ({top.schools}, {top.on})");
-                Score.Result rc = Score.Compute(Area(child.on), f.runs, new List<Score.LiftInput>(), new List<Score.RunPart>());
+                Check(top.linked && top.schools == 1 && top.on == f.active, f.id + " slot",
+                      $"top-level ({top.schools}, {top.on}), linked {top.linked}");
                 Score.Result rt = Score.Compute(Area(top.on), f.runs, new List<Score.LiftInput>(), new List<Score.RunPart>());
-                Check(rc.Equals(rt), f.id + " result", $"Result equal in every field (A {rc.Attraction} / {rt.Attraction}, S {rc.S:F3} / {rt.S:F3})");
-                Check(rt.SchoolValue == f.schoolValue && rc.SchoolValue == rt.SchoolValue, f.id + " schoolValue",
-                      $"schoolValue {rt.SchoolValue} (expected {f.schoolValue})");
-                double fc = SchoolRule.DemandFactorOf(rc.SchoolActive, rc.GreenCounted);
-                double ft = SchoolRule.DemandFactorOf(rt.SchoolActive, rt.GreenCounted);
-                Check(fc == ft, f.id + " ski days", $"SchoolFactor {fc} == {ft}");
-                int lc = Lessons(rc.SchoolActive), lt = Lessons(rt.SchoolActive);
-                Check(lc == lt && (f.active ? lt > 0 : lt == 0), f.id + " lessons", $"lessons {lc} == {lt}");
-                string pc = RowsText(Problems(rc)), pt = RowsText(Problems(rt));
+                Check(rt.SchoolValue == f.schoolValue, f.id + " schoolValue", $"schoolValue {rt.SchoolValue} (expected {f.schoolValue})");
+                int lt = Lessons(rt.SchoolActive);
+                Check(f.active ? lt > 0 : lt == 0, f.id + " lessons", $"lessons {lt}");
+                string pt = RowsText(Problems(rt));
                 bool has25 = pt.Contains(((int)HubProblemCode.SchoolNoGreenRun).ToString() + "/");
-                Check(pc == pt && has25 == f.row25, f.id + " problems", $"rows [{pc}] == [{pt}], row 25 {(has25 ? "on" : "off")}");
+                Check(has25 == f.row25, f.id + " problems", $"rows [{pt}], row 25 {(has25 ? "on" : "off")}");
             }
 
-            // I5: beyond the tether the school is no school for A (the child could not be built there: the 5 km tether).
+            // I5: beyond the tether the school is no school for A.
             var far = TopLevelPath(signs, new float2(-5200f, 0f), true);
             Score.Result rNone = Score.Compute(Area(false), fixtures[0].runs, new List<Score.LiftInput>(), new List<Score.RunPart>());
             Score.Result rFar = Score.Compute(Area(far.on), fixtures[0].runs, new List<Score.LiftInput>(), new List<Score.RunPart>());

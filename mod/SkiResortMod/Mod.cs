@@ -582,23 +582,6 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<SkiPlacementInfoviewSystem, Game.UI.InGame.InfoviewsUISystem>(
                 SystemUpdatePhase.UIUpdate);
 
-            // Sign utilities (docs/research/field/2026-10-04/findings/sign-utilities.md): the sign has no consumption of its
-            // own, the lodge's lands on it through ServiceUpgradeSystem (Modification4, SystemOrder.cs:170; consumers
-            // added by ModificationBarrier4, UpdateAfter, :90), which queues no road edge, so the road never gets its
-            // link to the supply sink. This system queues the sign's Building.m_RoadEdge into both road graph
-            // systems' public queues when an upgrade of a Welcome Sign is Created or Deleted. Anchor is load-bearing:
-            // Modification5 sees the consumers already added or removed, RoadConnectionSystem's road edge
-            // (Modification4B, :180) and this frame's Created / Deleted tags (Cleanup, :54); it must run BEFORE
-            // ElectricityRoadConnectionGraphSystem (:246), whose job drains the queue in the same frame, and
-            // WaterPipeRoadConnectionGraphSystem (:247) is registered after it. ONE anchor only: each UpdateBefore
-            // call adds its own entry (UpdateSystem.cs:173-176, :278-292), so a second anchor on the water system
-            // would run it twice a frame. ModificationSystem runs in MainLoop, paused included (SystemOrder.cs:60;
-            // ModificationSystem.cs:19-26); no update interval applies there (UpdateSystem.cs:183-221). The system
-            // calls RequireForUpdate on its event query, so an idle frame runs none of its code. All lines identical
-            // in 1.6.2.
-            updateSystem.UpdateBefore<SkiSignUtilityHookSystem, Game.Simulation.ElectricityRoadConnectionGraphSystem>(
-                SystemUpdatePhase.Modification5);
-
             // Lodge road connection:
             // clears NoRoadConnection (sets RequireRoad) and OwnerSide on the lodge PREFAB at every Game-mode load,
             // the state the game gives an upgrade allowed a road (BuildingInitializeSystem.cs:177-188); an Editor

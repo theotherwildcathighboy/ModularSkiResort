@@ -120,7 +120,6 @@ namespace SkiResortMod.Systems
         public ToolState State => m_State;
         internal LiftLineEdit Edit => m_Edit;
         internal int HoverTower => m_HoverTower;
-        internal int HoverStation => m_HoverStation;
         internal bool Dragging => !float.IsNaN(m_DragFrom);
         internal bool DragOff => Dragging && m_DragOff;
         internal string LastMessage { get; private set; } = string.Empty;

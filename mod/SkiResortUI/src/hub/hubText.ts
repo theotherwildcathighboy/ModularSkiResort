@@ -383,7 +383,6 @@ export const HUB_LOC = {
 
   tileHistory: ["SkiResort.Hub.TILE[History]", "History"],
   tileTipHistory: ["SkiResort.Hub.TILE_TIP[History]", "Guests and finances of every month this ski area has recorded."],
-  sectionHistory: ["SkiResort.Hub.SECTION[History]", "History"],
   historyScopeArea: ["SkiResort.Hub.HISTORY[ScopeArea]", "This ski area"],
   historyScopeCity: ["SkiResort.Hub.HISTORY[ScopeCity]", "Whole city"],
   historyTipScope: ["SkiResort.Hub.HISTORY_TIP[Scope]", "Whole city adds every ski area that exists now; a deleted one's history goes with it. No attraction line: each area has its own."],

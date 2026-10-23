@@ -131,8 +131,7 @@
 // prefab data does not change in a session): pricePerHa (SkiRunFees.PerHaFee), cost, costPerKm (HubRules.LiftLinePerKm),
 // monthly / monthlyPerKm (SkiMoneyRules lift rates) and monthlyPerHa (SkiRunUpkeepSystem.CostPerHaMonth); `price` is the run's
 // base fee (SkiRunFees.BaseFee), -1 for every other item. Values by kind: Line = the type row's LinePerKm / FixedPerMonth /
-// PerKmPerMonth; Station / Sign = PlaceableObjectData.m_ConstructionCost; Lodge / School / Patrol =
-// ServiceUpgradeData.m_UpgradeCost (else PlaceableObjectData). A found prefab whose cost differs from its row's informational
+// PerKmPerMonth; Station / Sign / Lodge / School / Patrol = PlaceableObjectData.m_ConstructionCost. A found prefab whose cost differs from its row's informational
 // mirror (StationDef / LodgeDef / SchoolDef / PatrolDef / SignDef.BuildCost) writes one WARN per item per load ("Hub [items]
 // drift: … — the prefab wins").
 //   * Hint: HINT[LiftNoPair] on a line item when HubRules.LiftNoPair holds over the shown area's rows of that lift type
@@ -148,20 +147,14 @@
 //     RefreshLocks re-resolves the items when the catalog's Generation moves (a "Hub [items]" WARN, at most
 //     Tuning.CatalogItemLinesMax per load); station tests ask the catalog (IsStation); the DUMP has a "PrefabCatalog: …" line
 //     (Describe()) after the build line.
-//   * Upgrade items: every item whose row IsUpgrade (lodge tiers, school, patrol huts) launches through the lodge path below;
-//     m_UpgradeItem is the launched index. "Active" = the object tool in Upgrade mode holding any upgrade item's prefab (a tier
-//     placed from the sign's own upgrade menu is active too).
+//   * Upgrade items: every item whose row IsUpgrade (lodge tiers, school, patrol huts) is a top-level building (no
+//     ServiceUpgradeData; tests/BuildingBatch P1) and is placed like a station after the hub's soft checks (below).
 //   * Locks, precedence top to bottom, reason byte → locale key: 3 Missing (an Expected item's prefab MISSING), 1 Locked
-//     (progression), 2 NoSign (an upgrade item, no live sign), 4 AlreadyBuilt (the prefab's ServiceUpgradeData.m_ForbidMultiple
-//     and the shown sign's InstalledUpgrade already holds that prefab: the UX mirror of the engine's AlreadyUpgraded error,
-//     Game.Buildings/ValidationHelpers.cs:49-72, run for every ServiceUpgrade by ValidationSystem.cs:1026;
-//     UpgradeMenuUISystem.cs:346-364 only marks the menu row). Reason 5 is retired (there is no limit on lodges of any tier),
-//     not reused. The Not linked view (no shown sign) applies only 3 / 1 / 2. The prefab's m_ForbidMultiple is the truth; a row
-//     that disagrees writes one WARN per item per load (a luxury-lodge prefab imported before its surgery flips ForbidMultiple
-//     to false shows AlreadyBuilt on a sign that has one, and the WARN names why). The push signature multiplies the reason by
-//     8. ApplyLaunch re-checks AlreadyBuilt on the sign the upgrade launch picks (the shown sign, the selected sign or the
-//     nearest one) before ActivatePrefabTool and refuses with one Info line and LastTriggerText: the shown-sign lock alone is
-//     evaluated without a sign in the Not linked view.
+//     (progression), 2 NoSign (an upgrade item, no live sign), 4 AlreadyBuilt (a ForbidMultiple row, today only the school, and
+//     a live building of that prefab already linked to the shown sign: TopLevelConflict). Reason 5 is retired (there is no limit
+//     on lodges of any tier), not reused. The Not linked view (no shown sign) applies only 3 / 1 / 2. The push signature
+//     multiplies the reason by 8. TopLevelUpgradeLaunchAllowed re-checks NoSign and AlreadyBuilt at launch time (the shown sign,
+//     else the one nearest the camera) and refuses with one Info line and LastTriggerText.
 //   * Locked first: ToolSystem.ActivatePrefabTool itself does not check it (ToolSystem.cs:263-277, same in 1.6.2) while both
 //     vanilla callers do (ToolbarUISystem.cs:922-932, 1.6.2 :983; UpgradeMenuUISystem.cs:379-390):
 //     EntityManager.HasEnabledComponent<Locked>(prefab entity) (Colossal.Entities.EntitiesExtensions; Locked is
@@ -172,49 +165,15 @@
 //     (ObjectToolSystem.cs:2987-3016, 1.6.2 :3046-3075: a non-upgrade ObjectPrefab → Create; AreaToolSystem.cs:3013-3021,
 //     1.6.2 :3024; NetToolSystem.cs:5557-5569, 1.6.2 :5685). Another mod may insert a tool ahead of vanilla
 //     (ToolBaseSystem.cs:315), so the log names the tool that actually took it (toolID, ToolBaseSystem.cs:142) and its mode.
-//   * "Active" (the item's tool is the active tool): activeTool.GetPrefab() is the item's prefab. ObjectToolSystem.GetPrefab
-//     returns the prefab in Create/Brush/Stamp/Line/Curve and NULL in Upgrade/Move (ObjectToolSystem.cs:2836-2847, 1.6.2
-//     :2848-2859), so the lodge is tested apart: activeTool is the object tool, its `prefab` is the lodge and actualMode ==
-//     Upgrade. Clicking an active item sets activeTool = DefaultToolSystem (the vanilla way, UpgradeMenuUISystem.cs:264-271).
-//   * Lodge (upgrade path). (1) Sign: the hub's selected resort when it is a live sign; else the selected entity if it is a
-//     live Welcome Sign; else the sign nearest the camera pivot at any distance (SkiRunOwnershipSystem.TryNearestGateEntity
-//     returns it beyond the tether too, SkiRunOwnershipSystem.cs:570-606); none → refused with a line (the tile is locked by
-//     REASON[NoSign]). The launch never moves the camera ("camera kept" in the launch line). (2) activeTool = DefaultTool when
-//     it is not already: under mouse/keyboard that runs UpgradeMenuUISystem.OnToolChanged → ClearUpgradeSelection
-//     synchronously (the activeTool setter invokes EventToolChanged, ToolSystem.cs:84-98; subscription
-//     UpgradeMenuUISystem.cs:153-160; OnToolChanged :423-428, ClearUpgradeSelection :264-271), so the selection-change event
-//     of step 3, raised on the next SelectedInfoUISystem update (SelectedInfoUISystem.cs:378-381), finds no upgrade selected
-//     and does not switch our lodge tool off (OnSelectionChanged :414-421). UpgradeMenuUISystem.cs is identical in 1.6.2 over
-//     :140-440; SelectedInfoUISystem's lines too. (3) SelectedInfoUISystem.SetSelection(sign) (= ToolSystem.selected = sign,
-//     SelectedInfoUISystem.cs:456-462; the public route, UpgradeMenu's SelectUpgrade is private, :379). (4) Locked check +
-//     ActivatePrefabTool(lodge): the object tool takes a ServiceUpgrade prefab with PlaceableObjectData in Upgrade mode
-//     (ObjectToolSystem.cs:2992-2999, 1.6.2 :3051-3058). (5) Verify two UIUpdates later (ToolSystem runs the tool's OnUpdate in
-//     the next MainLoop, before UIUpdate, SystemOrder.cs:58, 67): the object tool must be active with the lodge in Upgrade mode
-//     on that sign; otherwise → DefaultTool and one "!!! Hub lodge launch" line naming the cause. The trap this guards:
-//     ObjectToolSystem silently drops Upgrade to Create when GetUpgradable(ToolSystem.selected) has no InstalledUpgrade buffer
-//     (ObjectToolSystem.cs:3246-3249, 1.6.2 :3305-3308), a free-standing lodge; and the upgrade target is
-//     GetUpgradable(selected) (:3318, :4187-4198; 1.6.2 :3377, :4246-4257). After the verify a watch runs every frame while the
-//     hub-launched lodge is the active tool: Create mode, or a selection that is not one of our signs, cancels to the default
-//     tool with a "!!!" line (another of our signs: follows it, logged). The lodge stays a ServiceUpgrade of the sign.
-//     (6) When the launch ends (placement ended, the resort switch ended it, the verify failed, the watch canceled it), the sign
-//     is deselected only when step (3) is what selected it (m_LaunchSelectedSign) and the world selection is still that sign
-//     (docs/research/ui/hub-selector-p1-p3-2026-10-19.md). Vanilla keeps the owner selected after its own upgrade placement:
-//     ObjectToolSystem never writes ToolSystem.selected (it only reads it, :3246, :3318, :4198; 1.6.2 the same), it ends itself
-//     only after a ForbidMultiple / extension apply (:3468-3471, 1.6.2 :3527) or an OwnerSide cancel (:3406-3409), and the
-//     activeTool setter keeps the selection (ToolSystem.cs:84-111); the default tool clears it only on its own cancel or an
-//     empty click (DefaultToolSystem.cs:936, :1144, :1184). There the player selected the building first; from the hub we did,
-//     and the sign's vanilla panel that our selection opened stayed open after the lodge was placed. A sign the player had
-//     selected before the launch stays selected, like vanilla; a selection the player moved elsewhere is never touched. One
-//     "Hub [upgrade]" line per deselect. (7) Only an upgrade-kind row whose prefab carries ServiceUpgradeData takes this path
-//     (m_ItemViaUpgrade, SkiPrefabCatalogSystem.IsUpgradePrefab, resolved per load;
-//     docs/research/field/2026-10-19/school-top-level-t100.md section 4). The converted ski school is top-level:
-//     ActivatePrefabTool like a station (no Upgrade mode, no 5 km circle), after the hub's soft checks
-//     (TopLevelUpgradeLaunchAllowed: a sign exists; the shown sign has no linked school yet, TopLevelConflict over
-//     SkiResortAttractivenessSystem.CopyTopLevelLinks); the launch line names the sign nearest the camera and its distance.
-//     ActiveItemIndex / UpgradeItemOnCursor / LodgeOnCursor use the same predicate, so the strip highlights it as a tool.
-//     (8) The five lodges and both patrol huts are top-level too and take the same path with no change here (the predicate is
-//     per prefab; docs/research/field/2026-10-20/lodges-top-level-build.md). Their rows are not ForbidMultiple, so
-//     TopLevelConflict never locks them; world selection and the Not linked view read CopyTopLevelLinks / TryGetTopLevelLink.
+//   * "Active" (the item's tool is the active tool): activeTool.GetPrefab() is the item's prefab (ObjectToolSystem.GetPrefab returns
+//     it in Create/Brush/Stamp/Line/Curve, ObjectToolSystem.cs:2836-2847, 1.6.2 :2848-2859); the lift tool lights its type's line
+//     tile. Clicking an active item sets activeTool = DefaultToolSystem (the vanilla way, UpgradeMenuUISystem.cs:264-271).
+//   * Upgrade-kind rows: ActivatePrefabTool like a station (no Upgrade mode, no 5 km circle), after the hub's soft checks
+//     (TopLevelUpgradeLaunchAllowed: a sign exists; the shown sign has no linked building of a ForbidMultiple row yet,
+//     TopLevelConflict over SkiResortAttractivenessSystem.CopyTopLevelLinks); the launch line names the sign nearest the camera
+//     and its distance (docs/research/field/2026-10-19/school-top-level-t100.md section 4,
+//     docs/research/field/2026-10-20/lodges-top-level-build.md). World selection and the Not linked view read
+//     CopyTopLevelLinks / TryGetTopLevelLink.
 //
 // Focus (fly, never select): the DebugSystemSearch.FocusEntity recipe (Game.Debug/DebugSystemSearch.cs:625-645, 1.6.2
 // :646-666) minus its selection, on the orbit camera (CameraUpdateSystem.orbitCameraController / activeCameraController;
@@ -245,11 +204,6 @@
 // kind), calls FocusAfterSwitch. Select() itself, world selection (rule 2), the event rules 1/4/5/6 (ReconcileResorts) and the
 // binding pushes never move the camera. FocusAfterSwitch:
 //   * Not linked (Null): the camera stays: the view has no sign, its items can lie anywhere, and each of its rows flies on click.
-//   * a sign: first, a lodge on the cursor (the object tool holding our lodge in Upgrade mode, hub-launched or from the sign's
-//     own upgrade menu) whose target sign (ToolSystem.selected, ObjectToolSystem.cs:3318) is not the new sign is ended:
-//     activeTool = DefaultTool (the setter does not clear the selection, ToolSystem.cs:84-111), one "Hub [lodge]" line; a fly
-//     would leave the lodge's work area 5-10 km behind. This also happens when the camera stays because it is already on the new
-//     sign (the player then looks at that sign while the lodge would attach to the old one).
 //   * already on the sign (HubCameraRules.AlreadyOn: the active controller's pivot within KeepZoomFraction × zoom of the sign's
 //     TryGetPosition point, and zoom ≤ KeepMaxZoomM) → the camera stays.
 //   * else → the focusBuilding path (ApplyFocusBuilding, the header pin's path: zoom max(radius × 2.5, FocusBuildingMinZoomM),
@@ -292,8 +246,8 @@
 // buttons) lists all ids.
 //
 // DUMP (dev tab / the hub's dumpHub trigger, event time only): this system's state, then the stats system's, the piste map's,
-// the census, the infoview, citizen presence, station power, SkiSignUtilityHookSystem.AppendDump and LodgeRoadSystem.AppendDump
-// (AppendRoadAndUtilities: resolved with GetExistingSystemManaged at DUMP time like m_PisteMap, each call guarded so a throw
+// the census, the infoview, citizen presence, station power, LodgeRoadSystem.AppendDump
+// (AppendLodgeRoads: resolved with GetExistingSystemManaged at DUMP time like m_PisteMap, guarded so a throw
 // lands in the DUMP text and never closes the hub), then the catalog.
 
 using System;
@@ -370,9 +324,7 @@ namespace SkiResortMod.Systems
             /// <summary>"Hub [items]" lines (the build items re-resolved after a prefab catalog re-resolution) written per load; the DUMP's
             /// PrefabCatalog line counts the rest.</summary>
             public const int CatalogItemLinesMax = 8;
-            /// <summary>UIUpdates between the lodge launch and its Upgrade-mode verify (lodge path step 5).</summary>
-            public const int LodgeVerifyUpdates = 2;
-            /// <summary>Requests queued between two OnUpdates before further ones are dropped (logged).</summary>
+                /// <summary>Requests queued between two OnUpdates before further ones are dropped (logged).</summary>
             public const int QueueCapacity = 32;
             /// <summary>Distinct uiError messages logged per load.</summary>
             public const int UiErrorsMax = 32;
@@ -446,10 +398,6 @@ namespace SkiResortMod.Systems
 
         private readonly PrefabBase[] m_ItemPrefab = new PrefabBase[ItemCount];
         private readonly Entity[] m_ItemPrefabEntity = new Entity[ItemCount];
-        // The item goes through LaunchUpgrade (the sign's Upgrade mode): its row is an upgrade kind and the resolved prefab carries
-        // ServiceUpgradeData (SkiPrefabCatalogSystem.IsUpgradePrefab). A converted top-level building (SkiSchool) is false: placed like
-        // a station. Set in ResolveItems (prefab data is fixed for a load), read per frame by ActiveItemIndex / UpgradeItemOnCursor.
-        private readonly bool[] m_ItemViaUpgrade = new bool[ItemCount];
         // CopyTopLevelLinks scratch (event time: locks, launches, Not linked check).
         private readonly List<Entity> m_SchoolScratch = new List<Entity>(2);
         private readonly List<Entity> m_SchoolSignScratch = new List<Entity>(2);
@@ -463,7 +411,7 @@ namespace SkiResortMod.Systems
         private readonly int[] m_ItemMonthly = new int[ItemCount];
         private readonly int[] m_ItemMonthlyPerHa = new int[ItemCount];
         private readonly int[] m_ItemMonthlyPerKm = new int[ItemCount];
-        // Offered this load; the engine's ForbidMultiple (the prefab's ServiceUpgradeData, else the row) for the AlreadyBuilt lock; the
+        // Offered this load; the row's ForbidMultiple for the AlreadyBuilt lock; the
         // row's luxury label (the DUMP only: no lock hangs on it); the per-load "drift logged" marks (one WARN per item per load).
         private readonly bool[] m_ItemSent = new bool[ItemCount];
         private readonly bool[] m_ItemForbidMultiple = new bool[ItemCount];
@@ -759,7 +707,6 @@ namespace SkiResortMod.Systems
         private LiftLineToolSystem m_LiftLineTool;   // the Lifts tab's lift generator (public API only; the lift session owns it)
         private CatTrackGradeToolSystem m_GradeTool; // the Runs tab's grading chip (public API only)
         private SkiPisteMapSystem m_PisteMap;        // DUMP only
-        private SkiSignUtilityHookSystem m_SignUtilityHook;   // DUMP only
         private LodgeRoadSystem m_LodgeRoad;                  // DUMP only
         private EntityQuery m_CitizenQuery;          // DUMP only (citizens at a lodge / sign)
         private EntityQuery m_ConsumerQuery;         // DUMP only (station ElectricityConsumer)
@@ -856,16 +803,6 @@ namespace SkiResortMod.Systems
         private int m_LayoutLines;
         private bool m_LayoutCapLogged;
 
-        // Upgrade launch state (header Launching): every IsUpgrade item (lodge tiers, school, patrol huts) takes this path;
-        // m_UpgradeItem = the launched item's index, −1 none.
-        private int m_UpgradeItem = -1;
-        private Entity m_LodgeSign;
-        private int m_LodgeVerifyCountdown;
-        private bool m_LodgeWatch;
-        // The sign the hub's launch selected in the world (header Launching, lodge step 6); Null when the player had it selected
-        // already (theirs, kept like vanilla) or no launch owns the selection.
-        private Entity m_LaunchSelectedSign;
-
         // Dev tab / DUMP (plain fields written on events).
         public string HandshakeText { get; private set; } = "no uiHello yet";
         // Session flags, never reset on load. The UI module loads once at game start and its HubRoot says uiHello once; none
@@ -875,16 +812,12 @@ namespace SkiResortMod.Systems
         private static bool s_NoHelloWarned;
         private static float s_FirstArmAt = -1f;
         public string LastTriggerText { get; private set; } = "-";
-        public string LodgeStateText { get; private set; } = "-";
         public string LastSelectText { get; private set; } = "-";
         public long TriggerCount;
         public int UiErrorRepeats;
 
         /// <summary>`runs` pushes this session.</summary>
         public long RunsPushes => m_RunsPush.Pushes;
-
-        /// <summary>The hub's selected resort: a live sign, or Entity.Null = the "Not linked" view.</summary>
-        public Entity SelectedResort => m_SelectedResort;
 
         public bool IsArmed => m_Armed;
         public bool IsDisabled => m_Disabled;
@@ -895,7 +828,7 @@ namespace SkiResortMod.Systems
         /// SkiPisteMapSystem.</summary>
         internal bool PisteMapVisible => m_Armed && !m_Disabled && m_UiContractOk && m_HubOpen != null && m_HubOpen.value && m_PisteMapOn;
 
-        /// <summary>The shown area (= SelectedResort): a live sign, or Entity.Null = the Not linked entry.</summary>
+        /// <summary>The hub's selected area: a live sign, or Entity.Null = the Not linked entry.</summary>
         internal Entity ShownSign => m_SelectedResort;
 
         /// <summary>The run the mouse is over in the hub's run list (Null = none). Validated.</summary>
@@ -1054,12 +987,6 @@ namespace SkiResortMod.Systems
                 UiErrorRepeats = 0;
                 m_NonFiniteLogged = false;
                 s_NonFinite = 0;
-                m_UpgradeItem = -1;
-                m_LodgeSign = Entity.Null;
-                m_LodgeVerifyCountdown = 0;
-                m_LodgeWatch = false;
-                m_LaunchSelectedSign = Entity.Null;
-                LodgeStateText = "-";
                 Array.Clear(m_ItemDriftLogged, 0, m_ItemDriftLogged.Length);   // one drift WARN per item per load
                 m_SentMismatchLogged = false;
                 m_LockSign = Entity.Null;
@@ -1172,14 +1099,11 @@ namespace SkiResortMod.Systems
                              "open — not in a pass where a new or removed sign already switched, not within " +
                              $"FollowQuietAfterUserS={HubRules.FollowQuietAfterUserS:0.#} s of the player's own switch, at " +
                              $"most one per FollowMinIntervalS={HubRules.FollowMinIntervalS:0.#} s, never moving the camera; " +
-                             "piste map on at load (D19, drawn by SkiPisteMapSystem); upgrade launch (lodge tiers, school, " +
-                             $"patrol huts) on the selected resort, verified {Tuning.LodgeVerifyUpdates} UI updates later " +
-                             "(LodgeVerifyUpdates) then watched; ‹ › (UI requests only) and the upgrade launch fly to the " +
+                             "piste map on at load (D19, drawn by SkiPisteMapSystem); ‹ › (UI requests only) fly to the " +
                              "sign unless the camera " +
                              $"is already on it (pivot within {HubCameraRules.KeepZoomFraction} × zoom of the sign and zoom " +
                              $"<= {HubCameraRules.KeepMaxZoomM} m: HubCameraRules.KeepZoomFraction, KeepMaxZoomM), Not " +
-                             "linked never moves it, a switch to a sign ends an upgrade (lodge, school, patrol hut) on the " +
-                             "cursor bound to another sign; " +
+                             "linked never moves it; " +
                              "a lift that closes in another resort than the one shown is logged (Hub [bind-notice]); " +
                              $"focus zoom = radius × {Tuning.FocusZoomFactor} at {Tuning.FocusPitchDeg}° " +
                              $"(FocusZoomFactor, FocusPitchDeg; no selection, OD6), buildings >= {Tuning.FocusBuildingMinZoomM} m " +
@@ -1243,7 +1167,6 @@ namespace SkiResortMod.Systems
                     ApplyHover(m_HoverRequest);
                 }
 
-                LodgeStep();
                 ReconcileSelection();
                 PushPanelData();
             }
@@ -1710,31 +1633,12 @@ namespace SkiResortMod.Systems
                              "flies on click)");
                 return "not moved";
             }
-            EndLodgeForSwitch(sign);
             if (CameraAlreadyOn(sign, out string view))
             {
                 Mod.Log.Info($"Hub [focus] switcher: already on {ResortLabel(sign)} — {view}; camera not moved");
                 return "already on";
             }
             return ApplyFocusBuilding(sign, "switcher: fly — " + view) ? "fly" : "fly failed";
-        }
-
-        /// <summary>The numbers for a launch's "camera kept" line - the pivot's horizontal distance to
-        /// <paramref name="sign"/> and the zoom, with a note beyond the game's placement range
-        /// (HubCameraRules.PlacementRangeM). Never moves the camera. Event time only.</summary>
-        private string CameraKeptNote(Entity sign)
-        {
-            if (!TryCameraView(out float3 pivot, out float zoom))
-                return "camera state unknown";
-            int element = -1;
-            if (!SelectedInfoUISystem.TryGetPosition(sign, EntityManager, ref element, out Entity _, out float3 at,
-                    out Bounds3 _, out quaternion _))
-                return $"zoom {zoom:F0}; the sign has no position";
-            float d = math.distance(pivot.xz, at.xz);
-            string range = d > HubCameraRules.PlacementRangeM
-                ? $"; BEYOND the game's {HubCameraRules.PlacementRangeM:F0} m placement range - expect its red range error"
-                : "";
-            return $"pivot {d:F0} m from the sign at zoom {zoom:F0}{range}";
         }
 
         /// <summary>HubCameraRules.AlreadyOn for <paramref name="sign"/>: the
@@ -1783,36 +1687,6 @@ namespace SkiResortMod.Systems
             {
                 return false;   // a controller being torn down (the CameraPoint precedent): treated as unknown
             }
-        }
-
-        /// <summary>A switch to a sign ends a lodge on the cursor whose target sign is another one (the object tool's upgrade target
-        /// is ToolSystem.selected, ObjectToolSystem.cs:3318) before the camera flies, and also when it stays because it is already on
-        /// the new sign (the player then looks at the new sign while the lodge would still attach to the old one). The verify countdown
-        /// counts as "on the cursor" (a launch and a switch in one queue drain: the tool's mode is not Upgrade yet). Any upgrade item
-        /// on the cursor counts (a lodge tier, the school, a patrol hut), hub-launched or from the sign's own upgrade menu. One
-        /// "Hub [upgrade]" line. Event time only.</summary>
-        private void EndLodgeForSwitch(Entity target)
-        {
-            int onCursor = UpgradeItemOnCursor();
-            if (onCursor < 0)
-                return;
-            bool verifying = m_LodgeVerifyCountdown > 0 && onCursor == m_UpgradeItem;
-            if (m_ObjectTool.actualMode != ObjectToolSystem.Mode.Upgrade && !verifying)
-                return;   // not an upgrade (Create): the watch / verify own that case
-            Entity bound = m_ToolSystem.selected;
-            if (bound == target)
-                return;   // the upgrade already goes on the sign the camera flies to
-            bool hub = (m_LodgeWatch || verifying) && onCursor == m_UpgradeItem;
-            string how = hub ? "launched from the hub" : "from the sign's upgrade menu";
-            string id = Items[onCursor].Id;
-            m_LodgeWatch = false;
-            m_LodgeVerifyCountdown = 0;
-            m_ToolSystem.activeTool = m_DefaultTool;   // ToolSystem.cs:84-98; the selection is kept (:101-111)
-            LodgeStateText = $"{id}: ended, the hub switched to {Ent(target)}";
-            Mod.Log.Info($"Hub [upgrade] {id} placement ended by the resort switch — it was on the cursor ({how}) for sign " +
-                         $"{Ent(bound)}, not {ResortLabel(target)}: default tool (its tile puts it on the shown resort's sign)");
-            if (hub)
-                ReleaseLaunchSelection(id, "ended by the resort switch");
         }
 
         /// <summary>Rules 1, 4, 5, 6, the bind notices and rule 7 — only when the stats rows changed
@@ -2413,11 +2287,6 @@ namespace SkiResortMod.Systems
                 if (opened)
                     return;
             }
-            if (m_ItemViaUpgrade[item])
-            {
-                LaunchUpgrade(item, prefab, source);
-                return;
-            }
             // An upgrade-kind row whose prefab is top-level (the ski school) is placed like a station; the hub keeps its
             // soft locks (NoSign, one school per sign) and names the sign it will link to.
             string link = "";
@@ -2437,129 +2306,20 @@ namespace SkiResortMod.Systems
             LastTriggerText = $"launch {id}: {(ok ? "ok" : "no tool took it")} -> {ToolId(tool)}";
         }
 
-        /// <summary>The lodge-launch path, for every upgrade item (lodge tiers, school, patrol huts). Picks the sign, re-checks
-        /// AlreadyBuilt on that sign (the hub's lock reads the shown sign only, and none in the Not linked view), then hands the
-        /// prefab to the object tool in Upgrade mode and verifies it two UI updates later.</summary>
-        private void LaunchUpgrade(int item, PrefabBase upgrade, string source)
-        {
-            string id = Items[item].Id;
-            // (1) Pick the sign: the hub's selected resort, else the selected sign, else the sign nearest
-            //     the camera.
-            Entity sign;
-            string pick;
-            Entity selected = m_ToolSystem.selected;
-            if (m_SelectedResort != Entity.Null && m_Ownership.IsLiveGate(m_SelectedResort))
-            {
-                sign = m_SelectedResort;
-                pick = "the hub's selected resort";
-            }
-            else if (m_Ownership.IsLiveGate(selected))
-            {
-                sign = selected;
-                pick = "the selected sign";
-            }
-            else
-            {
-                // At any distance: beyond the tether the fly below takes the player there.
-                float3 at = CameraPoint();
-                m_Ownership.TryNearestGateEntity(at.xz, out sign, out float distance);
-                pick = $"the sign nearest the camera ({distance:F0} m)";
-            }
-            if (sign == Entity.Null)
-            {
-                Mod.Log.Info($"Hub [launch] {id} refused — no Ski Area Welcome Sign in this city (place one first) ({source})");
-                LastTriggerText = $"launch {id}: no sign";
-                return;
-            }
-
-            // (1a) The one-per-sign rule on the picked sign, before anything moves. The engine refuses a second ForbidMultiple upgrade
-            //      itself (AlreadyUpgraded: Game.Buildings/ValidationHelpers.cs:49-72, ValidationSystem.cs:1026); this only spares the
-            //      player a cursor the game would then refuse. Lodge tiers are not ForbidMultiple, so only the school can hit it.
-            byte conflict = UpgradeConflict(sign, item, out Entity other);
-            if (conflict != ReasonNone)
-            {
-                Mod.Log.Info($"Hub [launch] {id} refused — already built on that sign (ForbidMultiple; the game would refuse it too): " +
-                             $"{Ent(other)} {PrefabNameOf(other)} on {pick} {Ent(sign)} ({source})");
-                LastTriggerText = $"launch {id} on {Ent(sign)}: refused, already built";
-                return;
-            }
-
-            // (1b) A build-tile launch never moves the camera: the player is already looking where they want to build. The vanilla
-            //      upgrade tool does not move it either (ObjectToolSystem / UpgradeMenuUISystem reference no camera), so the launch line
-            //      says "camera kept". Beyond the game's placement range the game shows its own red range error
-            //      (ValidationHelpers.cs:2065-2107, m_MaxPlacementDistance 5000); the line names the distance.
-            string camera = "camera kept (" + CameraKeptNote(sign) + ")";
-
-            // (2) Default tool first (clears a selected upgrade synchronously).
-            if (m_ToolSystem.activeTool != m_DefaultTool)
-                m_ToolSystem.activeTool = m_DefaultTool;
-            // (3) Select the sign (the object tool's upgrade target is GetUpgradable(selected)). Remember whether WE select it; a
-            //     relaunch on the sign an earlier launch of ours selected keeps owning it.
-            if (selected != sign)
-                m_LaunchSelectedSign = sign;
-            else if (m_LaunchSelectedSign != sign)
-                m_LaunchSelectedSign = Entity.Null;   // the player's own selection: kept when the placement ends
-            m_SelectedInfo.SetSelection(sign);
-            // (4) Locked was checked by the caller; launch.
-            bool ok = m_ToolSystem.ActivatePrefabTool(upgrade);
-            ToolBaseSystem tool = m_ToolSystem.activeTool;
-            m_UpgradeItem = item;
-            m_LodgeSign = sign;
-            m_LodgeWatch = false;
-            m_LodgeVerifyCountdown = ok ? Tuning.LodgeVerifyUpdates : 0;
-            if (ok)
-            {
-                Mod.Log.Info($"Hub [launch] {id} -> {ToolId(tool)} mode {ModeText(tool)} locked=False ok=True on {pick} " +
-                             $"{Ent(sign)}; {camera} — verifying Upgrade mode in {Tuning.LodgeVerifyUpdates} UI updates " +
-                             $"({source})");
-                LodgeStateText = $"{id}: verifying on sign {Ent(sign)}";
-            }
-            else
-            {
-                Mod.Log.Error($"!!! Hub upgrade launch ({id}): no tool accepted the prefab '{Items[item].Prefab}' " +
-                              $"(ActivatePrefabTool returned false and switched to the default tool) — sign {Ent(sign)} " +
-                              $"selected ({camera}), nothing placed ({source})");
-                LodgeStateText = $"{id}: failed, no tool took the prefab";
-                ReleaseLaunchSelection(id, "launch failed (no tool)");
-            }
-            LastTriggerText = $"launch {id} on {Ent(sign)}: {(ok ? "verifying" : "FAILED")}";
-        }
-
-        /// <summary>Whether <paramref name="sign"/>'s InstalledUpgrade buffer already holds <paramref name="item"/>'s prefab while it
-        /// is ForbidMultiple (ReasonAlreadyBuilt: the engine's AlreadyUpgraded test, Game.Buildings/ValidationHelpers.cs:49-72: same
-        /// owner, same prefab, another entity); ReasonNone otherwise or for a non-upgrade item / a sign without the buffer. Deleted and
-        /// Temp entries are skipped. There is no cross-prefab rule. <paramref name="conflict"/> = the installed upgrade that decides.
-        /// Event time (RefreshLocks cadence, launches).</summary>
+        /// <summary>ReasonAlreadyBuilt when an upgrade-kind <paramref name="item"/> already has a building linked to
+        /// <paramref name="sign"/> (TopLevelConflict); ReasonNone otherwise or for a non-upgrade item. <paramref name="conflict"/> =
+        /// the building that decides. Event time (RefreshLocks cadence).</summary>
         private byte UpgradeConflict(Entity sign, int item, out Entity conflict)
         {
             conflict = Entity.Null;
             if (sign == Entity.Null || item < 0 || item >= ItemCount || !Items[item].IsUpgrade)
                 return ReasonNone;
-            if (!m_ItemViaUpgrade[item])
-                return TopLevelConflict(sign, item, out conflict);   // The school is no child of the sign
-            Entity prefab = m_ItemPrefabEntity[item];
-            if (!m_ItemForbidMultiple[item] || prefab == Entity.Null || !EntityManager.Exists(sign) ||
-                !EntityManager.TryGetBuffer(sign, isReadOnly: true, out DynamicBuffer<Game.Buildings.InstalledUpgrade> upgrades))
-                return ReasonNone;
-            for (int k = 0; k < upgrades.Length; k++)
-            {
-                Entity u = upgrades[k].m_Upgrade;
-                if (u == Entity.Null || !EntityManager.Exists(u) || EntityManager.HasComponent<Deleted>(u) ||
-                    EntityManager.HasComponent<Temp>(u) || !EntityManager.TryGetComponent(u, out PrefabRef prefabRef))
-                    continue;
-                if (prefabRef.m_Prefab == prefab)
-                {
-                    conflict = u;
-                    return ReasonAlreadyBuilt;
-                }
-            }
-            return ReasonNone;
+            return TopLevelConflict(sign, item, out conflict);
         }
 
-        /// <summary>The hub's SOFT one-per-sign lock for an upgrade-kind row whose
-        /// prefab is top-level (the ski school): the engine no longer refuses a second one (no ServiceUpgradeData, so no
-        /// AlreadyUpgraded), and a second school adds nothing (SchoolActive is a flag). ReasonAlreadyBuilt when the row is
-        /// ForbidMultiple (m_ItemForbidMultiple: the row decides without ServiceUpgradeData, ReadItemValues) and a live school of
+        /// <summary>The hub's SOFT one-per-sign lock for an upgrade-kind row (top-level, so the engine has no AlreadyUpgraded rule
+        /// for it); a second school adds nothing (SchoolActive is a flag). ReasonAlreadyBuilt when the row is
+        /// ForbidMultiple (m_ItemForbidMultiple, ReadItemValues) and a live school of
         /// the same prefab is linked to <paramref name="sign"/> (SkiResortAttractivenessSystem.CopyTopLevelLinks, the last
         /// recompute). Event time only (RefreshLocks cadence, launches).</summary>
         private byte TopLevelConflict(Entity sign, int item, out Entity conflict)
@@ -2619,160 +2379,8 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>The lodge-launch watch (header Launching). Per frame: an int compare; while a hub-launched
-        /// upgrade is on the cursor, a few field reads.</summary>
-        private void LodgeStep()
-        {
-            if (m_LodgeVerifyCountdown > 0)
-            {
-                if (--m_LodgeVerifyCountdown == 0)
-                    VerifyLodge();
-                return;
-            }
-            if (m_LodgeWatch)
-                WatchLodge();
-        }
-
-        /// <summary>The hub-launched upgrade item (m_UpgradeItem) is the object tool's prefab.</summary>
-        private bool LodgeOnCursor()
-        {
-            return m_UpgradeItem >= 0 && m_ItemViaUpgrade[m_UpgradeItem] && m_ToolSystem.activeTool == m_ObjectTool &&
-                   ReferenceEquals(m_ObjectTool.prefab, m_ItemPrefab[m_UpgradeItem]);
-        }
-
-        /// <summary>ANY upgrade item's prefab is the object tool's (hub-launched or placed from the
-        /// sign's own upgrade menu); the item index, else −1. Event time and the per-frame ActiveItemIndex (≤ 7 reference
-        /// compares while the object tool is active).</summary>
-        private int UpgradeItemOnCursor()
-        {
-            if (m_ToolSystem.activeTool != m_ObjectTool)
-                return -1;
-            PrefabBase held = m_ObjectTool.prefab;
-            if (ReferenceEquals(held, null))
-                return -1;
-            for (int i = 0; i < ItemCount; i++)
-            {
-                if (m_ItemViaUpgrade[i] && m_ItemPrefab[i] != null && ReferenceEquals(held, m_ItemPrefab[i]))
-                    return i;
-            }
-            return -1;
-        }
-
-        private string UpgradeId => m_UpgradeItem >= 0 && m_UpgradeItem < ItemCount ? Items[m_UpgradeItem].Id : "upgrade";
-
-        private void VerifyLodge()
-        {
-            ToolBaseSystem tool = m_ToolSystem.activeTool;
-            bool onCursor = LodgeOnCursor();
-            ObjectToolSystem.Mode mode = m_ObjectTool.actualMode;
-            Entity selected = m_ToolSystem.selected;
-            string id = UpgradeId;
-            if (onCursor && mode == ObjectToolSystem.Mode.Upgrade && selected == m_LodgeSign)
-            {
-                m_LodgeWatch = true;
-                LodgeStateText = $"{id}: on the cursor, Upgrade mode on sign {Ent(m_LodgeSign)}";
-                Mod.Log.Info($"Hub [launch] {id} verified — object tool in Upgrade mode on sign {Ent(m_LodgeSign)}");
-                return;
-            }
-            string cause;
-            if (tool == m_DefaultTool)
-                cause = "the default tool is active (the launch was cancelled, or a selection change switched the tool off)";
-            else if (tool != m_ObjectTool)
-                cause = $"tool '{ToolId(tool)}' is active instead of the object tool (another mod's tool, or a later click)";
-            else if (!onCursor)
-                cause = "the object tool holds another prefab";
-            else if (mode != ObjectToolSystem.Mode.Upgrade)
-                cause = $"the object tool fell back to {mode} mode: the selected entity {Ent(selected)} has no " +
-                        "InstalledUpgrade buffer (ObjectToolSystem.cs:3246-3249, 1.6.2 :3305-3308) — it would place a " +
-                        $"free-standing {id}";
-            else
-                cause = $"the selection moved to {Ent(selected)} (expected sign {Ent(m_LodgeSign)})";
-            bool cancelled = false;
-            if (onCursor)
-            {
-                m_ToolSystem.activeTool = m_DefaultTool;
-                cancelled = true;
-            }
-            LodgeStateText = $"{id}: verify FAILED: " + cause;
-            Mod.Log.Error($"!!! Hub upgrade launch ({id}) failed — {cause}; " +
-                          (cancelled
-                              ? "switched to the default tool so nothing can be placed off its sign"
-                              : "it is not on the cursor, nothing to cancel"));
-            ReleaseLaunchSelection(id, "launch over (verify failed)");
-        }
-
-        /// <summary>The hub's launch is over. Deselects the sign only when the launch selected
-        /// it AND the world selection is still that sign (SelectedInfoUISystem.SetSelection = ToolSystem.selected,
-        /// SelectedInfoUISystem.cs:456-462; the vanilla info panel closes on its next update). A sign the player had selected
-        /// before the launch, or a selection they moved since, is never touched. One line per deselect, one when kept
-        /// because the selection moved. Event time only.</summary>
-        private void ReleaseLaunchSelection(string id, string why)
-        {
-            Entity mine = m_LaunchSelectedSign;
-            m_LaunchSelectedSign = Entity.Null;
-            if (mine == Entity.Null)
-                return;   // the player's own selection (or nothing of ours): vanilla keeps the owner selected, so do we
-            Entity now = m_ToolSystem.selected;
-            if (now != mine)
-            {
-                Mod.Log.Info($"Hub [upgrade] {id} {why}: sign {Ent(mine)} not deselected — the selection is {Ent(now)} now, not ours");
-                return;
-            }
-            m_SelectedInfo.SetSelection(Entity.Null);
-            if (m_ToolSystem.selected == mine)
-                m_ToolSystem.selected = Entity.Null;   // SetSelection skips when its cached entity is already Null (:458)
-            Mod.Log.Info($"Hub [upgrade] {id} {why}: deselected sign {Ent(mine)} — the hub's launch had selected it " +
-                         "(vanilla keeps an owner the player selected; T97 P3)");
-        }
-
-        private void WatchLodge()
-        {
-            string id = UpgradeId;
-            if (!LodgeOnCursor())
-            {
-                m_LodgeWatch = false;
-                LodgeStateText = $"{id}: ended (tool now '{ToolId(m_ToolSystem.activeTool)}')";
-                Mod.Log.Info($"Hub [upgrade] {id} placement ended — tool now '{ToolId(m_ToolSystem.activeTool)}'");
-                ReleaseLaunchSelection(id, "placement ended");
-                return;
-            }
-            ObjectToolSystem.Mode mode = m_ObjectTool.actualMode;
-            Entity selected = m_ToolSystem.selected;
-            if (mode != ObjectToolSystem.Mode.Upgrade)
-            {
-                m_LodgeWatch = false;
-                m_ToolSystem.activeTool = m_DefaultTool;
-                LodgeStateText = $"{id}: cancelled, left Upgrade mode ({mode})";
-                Mod.Log.Error($"!!! Hub upgrade ({id}): the object tool left Upgrade mode (now {mode}; selected {Ent(selected)} " +
-                              "has no InstalledUpgrade buffer, ObjectToolSystem.cs:3246-3249) — switched to the default tool so " +
-                              $"no free-standing {id} can be placed");
-                ReleaseLaunchSelection(id, "cancelled (left Upgrade mode)");
-                return;
-            }
-            if (selected != m_LodgeSign)
-            {
-                if (m_Ownership.IsLiveGate(selected))
-                {
-                    Mod.Log.Info($"Hub [upgrade] {id} now goes on sign {Ent(selected)} (selection changed from {Ent(m_LodgeSign)})");
-                    m_LodgeSign = selected;
-                    m_LaunchSelectedSign = Entity.Null;   // not our selection any more, kept when the placement ends
-                    LodgeStateText = $"{id}: on the cursor, Upgrade mode on sign {Ent(m_LodgeSign)}";
-                }
-                else
-                {
-                    m_LodgeWatch = false;
-                    m_ToolSystem.activeTool = m_DefaultTool;
-                    LodgeStateText = $"{id}: cancelled, selection moved to {Ent(selected)}";
-                    Mod.Log.Error($"!!! Hub upgrade ({id}): the selection moved to {Ent(selected)}, which is not a Welcome Sign, " +
-                                  "while it was on the cursor — switched to the default tool so it cannot attach to another " +
-                                  "building (the upgrade target is the selected entity, ObjectToolSystem.cs:3318)");
-                    m_LaunchSelectedSign = Entity.Null;   // the player's selection now, never deselected
-                }
-            }
-        }
-
         /// <summary>Where the camera looks (the active controller's pivot), else the camera position.
-        /// Event time only (upgrade launch).</summary>
+        /// Event time only (upgrade-kind launch).</summary>
         private float3 CameraPoint()
         {
             try
@@ -2792,9 +2400,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The build item whose tool is active, or -1 (header Launching, "Active"). Per frame while the build section is open:
-        /// two field reads and up to ItemCount reference compares. An upgrade item is active while the object tool holds its prefab in
-        /// Upgrade mode (any upgrade item, hub-launched or from the sign's own menu; GetPrefab is null in Upgrade mode,
-        /// ObjectToolSystem.cs:2836-2847).</summary>
+        /// two field reads and up to ItemCount reference compares.</summary>
         private int ActiveItemIndex()
         {
             ToolBaseSystem tool = m_ToolSystem.activeTool;
@@ -2808,18 +2414,12 @@ namespace SkiResortMod.Systems
                         return i;
                 return -1;
             }
-            if (tool == m_ObjectTool)
-            {
-                int upgrade = UpgradeItemOnCursor();
-                if (upgrade >= 0)
-                    return m_ObjectTool.actualMode == ObjectToolSystem.Mode.Upgrade ? upgrade : -1;
-            }
             PrefabBase active = tool.GetPrefab();
             if (ReferenceEquals(active, null))
                 return -1;
             for (int i = 0; i < ItemCount; i++)
             {
-                if (!m_ItemViaUpgrade[i] && ReferenceEquals(active, m_ItemPrefab[i]))   // The school is an ordinary tool
+                if (ReferenceEquals(active, m_ItemPrefab[i]))
                     return i;
             }
             return -1;
@@ -3309,11 +2909,10 @@ namespace SkiResortMod.Systems
         /// <summary>The six optional item numbers, read once at arm time (prefab data does not change in a session). Run fees and rates
         /// need no prefab; a missing building prefab sends cost −1. A uint above int.MaxValue is sent as int.MaxValue. By the row's
         /// kind: Line = its lift type's row (LinePerKm, FixedPerMonth, PerKmPerMonth: the fixed-grip row is what those consts alias,
-        /// CG-1); Station / Sign = PlaceableObjectData.m_ConstructionCost; Lodge / School / Patrol = ServiceUpgradeData.m_UpgradeCost
-        /// (else PlaceableObjectData); Run: base fee and rates. Also the upgrade items' lock facts (ForbidMultiple from the prefab's
-        /// ServiceUpgradeData, the truth ValidateUpgrade reads; the luxury label from the lodge row, for the DUMP) and one drift WARN
-        /// per item per load when a FOUND prefab's cost or ForbidMultiple differs from its SkiCatalog row (informational mirrors:
-        /// "the prefab wins").</summary>
+        /// CG-1); Station / Sign / Lodge / School / Patrol = PlaceableObjectData.m_ConstructionCost; Run: base fee and rates. Also
+        /// the upgrade items' lock facts (ForbidMultiple from the row; the luxury label from the lodge row, for the DUMP) and one
+        /// drift WARN per item per load when a FOUND prefab's cost differs from its SkiCatalog row (informational mirror: "the prefab
+        /// wins").</summary>
         private void ReadItemValues()
         {
             for (int i = 0; i < ItemCount; i++)
@@ -3326,7 +2925,7 @@ namespace SkiResortMod.Systems
                 Entity prefab = m_ItemPrefabEntity[i];
                 bool live = prefab != Entity.Null && EntityManager.Exists(prefab);
                 int rowCost = -1;
-                bool rowForbid = false, hasUpgradeData = false, prefabForbid = false;
+                bool rowForbid = false;
                 switch (item.Kind)
                 {
                     case BuildItemKind.Run:
@@ -3348,16 +2947,8 @@ namespace SkiResortMod.Systems
                     case BuildItemKind.School:
                     case BuildItemKind.Patrol:
                     {
-                        if (live && EntityManager.TryGetComponent(prefab, out ServiceUpgradeData upgrade))
-                        {
-                            m_ItemCost[i] = ClampCost(upgrade.m_UpgradeCost);
-                            hasUpgradeData = true;
-                            prefabForbid = upgrade.m_ForbidMultiple;
-                        }
-                        else if (live && EntityManager.TryGetComponent(prefab, out PlaceableObjectData placeable))
-                        {
+                        if (live && EntityManager.TryGetComponent(prefab, out PlaceableObjectData placeable))
                             m_ItemCost[i] = ClampCost(placeable.m_ConstructionCost);
-                        }
                         LodgeDef lodge = SkiCatalog.LodgeByPrefab(item.Prefab);
                         SchoolDef school = lodge == null ? SkiCatalog.SchoolByPrefab(item.Prefab) : null;
                         PatrolDef patrol = lodge == null && school == null ? SkiCatalog.PatrolByPrefab(item.Prefab) : null;
@@ -3399,17 +2990,13 @@ namespace SkiResortMod.Systems
                         break;
                     }
                 }
-                // The engine validates the prefab's flag (ValidationHelpers.cs:49-72), so the lock follows the prefab;
-                // the row decides only while the prefab has no ServiceUpgradeData (or is MISSING: the item is locked anyway).
-                m_ItemForbidMultiple[i] = hasUpgradeData ? prefabForbid : rowForbid;
+                // A top-level building has no engine one-per-sign rule; the row decides the hub's soft lock.
+                m_ItemForbidMultiple[i] = rowForbid;
                 if (!live || m_ItemDriftLogged[i])
                     continue;
                 string drift = null;
                 if (rowCost >= 0 && m_ItemCost[i] >= 0 && m_ItemCost[i] != rowCost)
                     drift = $"costs {m_ItemCost[i]}, SkiCatalog says {rowCost}";
-                if (hasUpgradeData && prefabForbid != rowForbid)
-                    drift = (drift == null ? "" : drift + "; ") +
-                            $"ForbidMultiple {prefabForbid}, SkiCatalog says {rowForbid} (the AlreadyBuilt lock follows the prefab)";
                 if (drift != null)
                 {
                     m_ItemDriftLogged[i] = true;
@@ -4360,7 +3947,6 @@ namespace SkiResortMod.Systems
                 BuildItemDef item = Items[i];
                 m_ItemPrefab[i] = null;
                 m_ItemPrefabEntity[i] = Entity.Null;
-                m_ItemViaUpgrade[i] = false;
                 m_ItemPrice[i] = -1;
                 m_PrefabCatalog.TryGetPrefab(SkiCatalog.TypeNameOf(item.Kind), item.Prefab, out Entity entity, out PrefabBase prefab);
                 bool found = prefab != null && entity != Entity.Null;
@@ -4368,7 +3954,6 @@ namespace SkiResortMod.Systems
                 {
                     m_ItemPrefab[i] = prefab;
                     m_ItemPrefabEntity[i] = entity;
-                    m_ItemViaUpgrade[i] = item.IsUpgrade && m_PrefabCatalog.IsUpgradePrefab(entity);
                 }
                 bool expectedName = SkiCatalog.IsExpected(item.Prefab);
                 LiftTypeDef type = s_ItemTypeIndex[i] >= 0 ? SkiCatalog.LiftByIndex(s_ItemTypeIndex[i]) : null;
@@ -4520,7 +4105,7 @@ namespace SkiResortMod.Systems
               .Append(", OpenHubOnSignSelect ").Append(Mod.Settings == null || Mod.Settings.OpenHubOnSignSelect)
               .Append(", LiftBuildAids ").Append(Mod.Settings == null || Mod.Settings.LiftBuildAids).Append('\n');
             // "upgrade launch": every upgrade item takes the lodge path.
-            sb.Append("  ").Append(ToolText()).Append("; upgrade launch: ").Append(LodgeStateText).Append('\n');
+            sb.Append("  ").Append(ToolText()).Append('\n');
             sb.Append("  selected resort: ").Append(ResortLabel(m_SelectedResort)).Append("; last select: ").Append(LastSelectText)
               .Append("; last layout: ").Append(m_LastLayout ?? "-").Append('\n');
             sb.Append("  hub v3: ").Append(HubV3Text()).Append('\n');
@@ -4576,7 +4161,7 @@ namespace SkiResortMod.Systems
             sb.Append("  infoview: ").Append(m_Infoview.StateText()).Append('\n');
             AppendCitizenPresence(sb);
             AppendStationPower(sb);
-            AppendRoadAndUtilities(sb);
+            AppendLodgeRoads(sb);
             m_Catalog.AppendDump(sb);
             Mod.Log.Info(sb.ToString().TrimEnd('\n'));
             // Tower diagnostic (docs/research/field/2026-10-15/build/T03-tower-diag.md): the "Towers [nodes]" blocks, one per lift
@@ -4663,27 +4248,11 @@ namespace SkiResortMod.Systems
             World.GetExistingSystemManaged<OffSeasonStaffSystem>()?.AppendDump(sb);
         }
 
-        /// <summary>The sign utility hook's lines (per
-        /// sign: road edge, ElectricityConsumer / WaterConsumer, the road's link to the supply sink) and the lodge
-        /// road system's lines (per lodge and sign: road edge; "Lodge roads: n lodge(s), c with a road"). Both
-        /// systems are resolved at DUMP time with GetExistingSystemManaged (the m_PisteMap rule: never create a
-        /// system from here). A throw in either is written into the DUMP and does not close the hub.</summary>
-        private void AppendRoadAndUtilities(StringBuilder sb)
+        /// <summary>The lodge road system's lines (per lodge and sign: road edge; "Lodge roads: n lodge(s), c with a road"), resolved
+        /// at DUMP time with GetExistingSystemManaged (the m_PisteMap rule: never create a system from here). A throw is written into
+        /// the DUMP and does not close the hub.</summary>
+        private void AppendLodgeRoads(StringBuilder sb)
         {
-            m_SignUtilityHook ??= World.GetExistingSystemManaged<SkiSignUtilityHookSystem>();
-            if (m_SignUtilityHook == null)
-                sb.Append("  sign utility hook: system not registered\n");
-            else
-            {
-                try
-                {
-                    m_SignUtilityHook.AppendDump(sb);
-                }
-                catch (Exception e)
-                {
-                    sb.Append("\n  sign utility hook: DUMP failed (").Append(e.GetType().Name).Append(": ").Append(e.Message).Append(")\n");
-                }
-            }
             m_LodgeRoad ??= World.GetExistingSystemManaged<LodgeRoadSystem>();
             if (m_LodgeRoad == null)
                 sb.Append("  lodge roads: system not registered\n");

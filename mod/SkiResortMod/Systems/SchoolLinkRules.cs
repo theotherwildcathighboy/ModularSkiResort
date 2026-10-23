@@ -2,10 +2,9 @@
 // Rule (same as lifts): a building with no Owner belongs to the nearest live Welcome Sign within the tether
 // (SkiRunOwnershipSystem.TetherMeters, 5000 m; SkiResortIndex.TryResolve breaks ties by distance, Index, Version; 5000.00 m
 // in, 5000.01 m out; a non-finite position never links). None = not linked, counts for no area. Not sticky: a nearer new sign
-// takes the building. Nothing is stored or serialized. A school that is still a ServiceUpgrade child keeps the buffer rule.
+// takes the building. Nothing is stored or serialized.
 // One count rule (Count): every school counted for an area adds 1 to Schools; SchoolActive is true when any is live and not
-// Inactive. The child path passes its InstalledUpgrade entry's Inactive bit, the top-level path its own Building.m_OptionMask
-// (BuildingPoliciesSystem.cs:100-130 mirrors the same bit into the entry), so every downstream number follows one flag.
+// Inactive (the building's own Building.m_OptionMask), so every downstream number follows one flag.
 // Log discipline (Diff): the system keeps the last published link per building and logs ONE line per change: Linked, Relinked
 // (another sign is nearer), Unlinked (sign bulldozed or building moved away), Removed. Stable order (Index, Version).
 // Kind* tags the log line and the count path. AreaEfficiency: once lodges carry their own staffing and utilities, the area's

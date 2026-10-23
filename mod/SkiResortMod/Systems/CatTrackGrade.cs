@@ -49,7 +49,6 @@ namespace SkiResortMod.Systems
     public sealed class GradeParams
     {
         public const float DefaultMaxGrade = 0.25f;
-        public const float MinMaxGrade = 0.05f;
         public const float DefaultTopWidthM = 8f; // the cat-track run default width
         public const float DefaultCutRun = 1.5f;
         public const float DefaultFillRun = 2f;

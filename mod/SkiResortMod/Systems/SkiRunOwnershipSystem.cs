@@ -400,13 +400,6 @@ namespace SkiResortMod.Systems
         /// gates on this, so an exception in the sweep or the load pass never switches the cascade off.</summary>
         internal bool PrefabSetsReady => m_PrefabSetsReady;
 
-        /// <summary>This load's load pass completed. BindCharge is refused before it.</summary>
-        internal bool LoadPassDone => m_LoadPassDone;
-
-        /// <summary>This load's load pass threw or a run's migration failed. The sweep still runs (migration, re-link, orphan) but never
-        /// charges.</summary>
-        internal bool LoadPassFailed => m_LoadPassFailed;
-
         /// <summary>A NEW run drawn now would be bound (and charged) by this load's sweep: armed, not disabled, load pass completed.
         /// False after any ownership exception this load. SkiRunDrawFeedbackSystem's new-run warning reads it.</summary>
         internal bool BindsNewRuns => m_Armed && !m_Disabled && m_LoadPassDone;

@@ -236,7 +236,6 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_SeenMeetings = new HashSet<Entity>();
         private readonly List<Entity> m_PruneScratch = new List<Entity>(8);
         private readonly List<Entity> m_SignScratch = new List<Entity>(4);
-        private readonly List<Entity> m_LodgeScratch = new List<Entity>(4);
         private readonly List<SkiResortAttractivenessSystem.LodgeInfo> m_LodgeInfoScratch = new List<SkiResortAttractivenessSystem.LodgeInfo>(4);
         private readonly List<Entity> m_RunScratch = new List<Entity>(16);
         private readonly List<Entity> m_StationScratch = new List<Entity>(8);

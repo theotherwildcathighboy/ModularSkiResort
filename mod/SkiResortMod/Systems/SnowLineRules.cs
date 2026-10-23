@@ -98,11 +98,6 @@ namespace SkiResortMod.Systems
             return baseHeight + (meanC - thresholdC) / lapsePerM;
         }
 
-        public static float LocalTemperature(float baseHeight, float meanC, float elevation, float lapsePerM)
-        {
-            return meanC - (elevation - baseHeight) * lapsePerM;
-        }
-
         /// <summary>Grid origin that keeps the lattice world-anchored (a multiple of the cell size) so the contour does not shimmer as
         /// the pivot moves.</summary>
         public static float Origin(float centre, int side, float cell)

@@ -51,7 +51,7 @@
  *     Entity.Null is { index: 0, version: 0 } (EntityRef.IsNull).
  *   - Rows written by C# with JsonWriter.TypeBegin carry an extra "__Type" field; ignore it. Every
  *     TypeBegin name is "SkiResortMod.<TS interface name>".
- *   - Conventions: -1 = unknown (rendered "–" by numArg / NumOrDash);
+ *   - Conventions: -1 = unknown (rendered "–" by numArg);
  *     the two arrays of a pair (resorts / resortLive, runs / runLive) are joined by key (`sign`,
  *     `entity`), never by index alone (src/hub/hubRules.ts liveOf, runLiveMap); costs arrive
  *     positive; ProblemRow.factor is an EfficiencyFactor enum name the UI translates;
@@ -691,11 +691,6 @@ export interface HistoryArea {
  *  C# SkiTripSystems.UnknownLabel (no gate rule compares string constants; both sides test the literal "?":
  *  tools/test-hub-rules.js T11.8 and ResortBatch SkiDayTests section X). */
 export const TRIP_PLANNER_UNKNOWN = "?";
-
-/** Locale key of a level's name (root LocaleEN.cs: "Clear" ... "Thick forest"). */
-export function gladeLevelNameKey(level: number): string {
-  return `SkiResort.GladeTooltip.LEVEL_NAME[${clampGladeLevel(level)}]`;
-}
 
 export function clampGladeLevel(level: number): number {
   const n = Math.round(Number.isFinite(level) ? level : GLADE_LEVEL_DEFAULT);

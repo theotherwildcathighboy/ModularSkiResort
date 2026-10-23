@@ -140,9 +140,6 @@ namespace SkiResortMod.Systems
             /// <summary>UIUpdate frames after a load before the first rating (plus the heights-ready check). Unverified as sufficient.</summary>
             public const int WarmupFrames = 120;
 
-            /// <summary>Background duty factor while the hub is open (= SkiRunRatingRules.DutyFactorOpen)</summary>
-            public const float BackgroundDutyFactor = SkiRunRatingRules.DutyFactorOpen;
-
             /// <summary>Frames between leaving the terrain tool and the terrain epoch bump (tunable, unmeasured)</summary>
             public const int TerrainEpochDelayFrames = 30;
 
@@ -172,9 +169,6 @@ namespace SkiResortMod.Systems
             /// run to walk (a rebuild of an empty list measures nothing)</summary>
             public const int ServiceCostLogAfterRebuilds = 32;
         }
-
-        /// <summary>summary.lifts while the lift count was not cheaply known. Retired: kept only so an un-updated caller compiles.</summary>
-        public const int LiftsUnknown = -1;
 
         /// <summary>RunRow.RateState values (= SkiRunRatingRules)</summary>
         public const byte RatePending = SkiRunRatingRules.RatePending, RateRated = SkiRunRatingRules.RateRated,

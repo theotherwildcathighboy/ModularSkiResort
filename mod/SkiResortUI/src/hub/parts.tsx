@@ -51,12 +51,6 @@ export function Num({ value, unit, signed }: { value: number; unit: Unit; signed
   return <LocalizedNumber value={value} unit={unit} signed={signed} />;
 }
 
-/** "–" for the -1 "unknown" convention of the contract, else <Num> */
-export function NumOrDash({ value, unit, signed }: { value: number; unit: Unit; signed?: boolean }): JSX.Element {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 && !signed) return <span>{"–"}</span>;
-  return <Num value={value} unit={unit} signed={signed} />;
-}
-
 /** A placeholder entry ("... {N} ...") rendered through LocalizedString with its arguments.
  *  The only way to render an entry of HUB_FMT (src/l10n.ts header; gate rule 5). */
 export function LocText({ entry, args }: { entry: LocEntry; args: Record<string, string | JSX.Element> }): JSX.Element {

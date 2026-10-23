@@ -188,15 +188,6 @@ export const BUILD_RUN_KIND: Readonly<Partial<Record<BuildItemId, RunKind>>> = {
   runCatTrack: RUN_KIND.CatTrack,
 };
 
-/** The build id whose prefab is a run of this kind. */
-export const RUN_KIND_ITEM: Readonly<Record<RunKind, BuildItemId>> = {
-  [RUN_KIND.Groomed]: "runGroomed",
-  [RUN_KIND.Snowmaking]: "runSnowmaking",
-  [RUN_KIND.Night]: "runNight",
-  [RUN_KIND.Natural]: "runNatural",
-  [RUN_KIND.CatTrack]: "runCatTrack",
-};
-
 export function isBuildItemId(id: string): id is BuildItemId {
   return (BUILD_ITEM_IDS as readonly string[]).indexOf(id) >= 0;
 }

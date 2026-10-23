@@ -6,9 +6,7 @@
 // Key patterns (verified against decompiled Game.UI.InGame.PrefabUISystem.GetTitleAndDescription, PrefabUISystem.cs:1498-1528,
 // 1.6.0f1):
 //   - plain assets:                Assets.NAME[<prefab name>] / Assets.DESCRIPTION[<prefab name>]
-//   - ServiceUpgrade assets:       Assets.UPGRADE_NAME[...] / Assets.UPGRADE_DESCRIPTION[...]
-//     (a prefab carrying Game.Prefabs.ServiceUpgrade has its selected-info panel read the UPGRADE_* keys; the plain keys
-//     are supplied too for every other UI path, e.g. search)
+//     (Assets.UPGRADE_NAME / UPGRADE_DESCRIPTION are read only for a ServiceUpgrade prefab; the mod ships none)
 //
 // Rules:
 //   - Every SkiResort.Hub.* text must equal its src/hub/hubText.ts tuple (gate rule R4 of mod/SkiResortUI/tools/check-bundle.js
@@ -54,39 +52,24 @@ namespace SkiResortMod
                 { "Assets.DESCRIPTION[SkiResortGate]", "The ski area's entrance. It opens the Ski Resort panel." },
 
                 // --- Lodge ----------------------------------------------------------------
-                // One line, both keys (the selected-info panel reads UPGRADE_*).
                 { "Assets.NAME[SkiAFrameDayLodge]", "A-Frame Day Lodge" },
                 { "Assets.DESCRIPTION[SkiAFrameDayLodge]", "A first lodge, where guests arrive." },
-                { "Assets.UPGRADE_NAME[SkiAFrameDayLodge]", "A-Frame Day Lodge" },
-                { "Assets.UPGRADE_DESCRIPTION[SkiAFrameDayLodge]", "A first lodge, where guests arrive." },
                 // The four lodge tiers, the school and the two patrol huts. One line each, no "Needs educated staff" line.
                 { "Assets.NAME[SkiLodgeHut]", "Mountain Hut" },
                 { "Assets.DESCRIPTION[SkiLodgeHut]", "A small hut on the slopes, no road needed. Counts more in summer near a lift's top." },
-                { "Assets.UPGRADE_NAME[SkiLodgeHut]", "Mountain Hut" },
-                { "Assets.UPGRADE_DESCRIPTION[SkiLodgeHut]", "A small hut on the slopes, no road needed. Counts more in summer near a lift's top." },
                 { "Assets.NAME[SkiLodgeMid]", "Chalet Lodge" },
                 { "Assets.DESCRIPTION[SkiLodgeMid]", "A bigger base lodge: more ski-day guests and a higher ticket price." },
-                { "Assets.UPGRADE_NAME[SkiLodgeMid]", "Chalet Lodge" },
-                { "Assets.UPGRADE_DESCRIPTION[SkiLodgeMid]", "A bigger base lodge: more ski-day guests and a higher ticket price." },
                 // The two luxury tiers say "Swanky" (the summit lodge is its smaller sibling, mesh SkiLodgeSwankyTop*).
                 { "Assets.NAME[SkiLodgeSummit]", "Swanky Summit Lodge" },
                 { "Assets.DESCRIPTION[SkiLodgeSummit]", "Glass-and-stone restaurant on the mountain, near a lift's top station." },
-                { "Assets.UPGRADE_NAME[SkiLodgeSummit]", "Swanky Summit Lodge" },
-                { "Assets.UPGRADE_DESCRIPTION[SkiLodgeSummit]", "Glass-and-stone restaurant on the mountain, near a lift's top station." },
                 { "Assets.NAME[SkiLodgeGrand]", "Swanky Grand Lodge" },
                 { "Assets.DESCRIPTION[SkiLodgeGrand]", "The resort's flagship base lodge: great hall and dining pavilion." },
-                { "Assets.UPGRADE_NAME[SkiLodgeGrand]", "Swanky Grand Lodge" },
-                { "Assets.UPGRADE_DESCRIPTION[SkiLodgeGrand]", "The resort's flagship base lodge: great hall and dining pavilion." },
                 { "Assets.NAME[SkiSchool]", "Ski School" },
                 { "Assets.DESCRIPTION[SkiSchool]", "Teaches on the green runs: the ski area scores more and locals come more often. Terrain tip: level the ground at the top of the magic carpet bubble, then use the slope tool down to its base." },
                 { "Assets.NAME[SkiPatrolHut]", "Ski Patrol Hut" },
                 { "Assets.DESCRIPTION[SkiPatrolHut]", "Patrols the steep runs nearby. No road needed." },
-                { "Assets.UPGRADE_NAME[SkiPatrolHut]", "Ski Patrol Hut" },
-                { "Assets.UPGRADE_DESCRIPTION[SkiPatrolHut]", "Patrols the steep runs nearby. No road needed." },
                 { "Assets.NAME[SkiPatrolHQ]", "Ski Patrol HQ" },
                 { "Assets.DESCRIPTION[SkiPatrolHQ]", "Patrol headquarters: patrols the steep runs nearby. No road needed." },
-                { "Assets.UPGRADE_NAME[SkiPatrolHQ]", "Ski Patrol HQ" },
-                { "Assets.UPGRADE_DESCRIPTION[SkiPatrolHQ]", "Patrol headquarters: patrols the steep runs nearby. No road needed." },
 
                 // --- Lift network ---------------------------------------------------------
                 // The fixed-grip stations' names gain the type, so the picker's types read apart; hubText.ts ASSET_NAME equals them.
@@ -215,11 +198,6 @@ namespace SkiResortMod
                 { "Assets.DESCRIPTION[SkiLiftMarkerLV]", "A short wire end at a base station's front corner, where its low-voltage power connects." },
                 { "Assets.NAME[SkiBeaconRed]", "Warning Beacon (Red, Blinking)" },
                 { "Assets.DESCRIPTION[SkiBeaconRed]", "A red aircraft-warning light that blinks day and night. Tall lift towers carry one." },
-                // Tram prototype (test only; never the real SkiTramHV).
-                { "Assets.NAME[SkiTramHVProto]", "Ski Resort — test line: Aerial Tram Prototype (delete after test)" },
-                { "Assets.DESCRIPTION[SkiTramHVProto]", "A one-off test line for a field test. Remove it when the test is done." },
-                { "Assets.NAME[SkiTramHVProtoH]", "Ski Resort — test line: Aerial Tram Prototype H (delete after test)" },
-                { "Assets.DESCRIPTION[SkiTramHVProtoH]", "A one-off test line for a field test. Remove it when the test is done." },
 
                 // --- Building dressing ----------------------------------------------------------------------------------
                 // The kit (props/B): one object prefab per loadout and color set; the buildings place them as sub-objects,
@@ -285,29 +263,6 @@ namespace SkiResortMod
                 // UIObject of SkiCatTrack.Prefab.
                 { "Assets.NAME[SkiCatTrack]", "Ski Cat Track (probe)" },
                 { "Assets.DESCRIPTION[SkiCatTrack]", "An invisible service track for mountain lodges: no cars, no paving, the snow shows. Test piece." },
-                // Import probes (deleted after their test).
-                { "Assets.NAME[SkiProbeSheet]", "Ski Resort — import probe B: Sheet (delete after test)" },
-                { "Assets.DESCRIPTION[SkiProbeSheet]", "A test object for one import session. Remove it when the test is done." },
-                { "Assets.NAME[SkiProbeSheetUser]", "Ski Resort — import probe B: Sheet Sharer (delete after test)" },
-                { "Assets.DESCRIPTION[SkiProbeSheetUser]", "A test object for one import session. Remove it when the test is done." },
-                { "Assets.NAME[SkiProbeSheetLate]", "Ski Resort — import probe B: Late Sheet Sharer (delete after test)" },
-                { "Assets.DESCRIPTION[SkiProbeSheetLate]", "A test object for one import session. Remove it when the test is done." },
-                { "Assets.NAME[SkiProbeSignSet]", "Ski Resort — import probe B: Sign Set (delete after test)" },
-                { "Assets.DESCRIPTION[SkiProbeSignSet]", "A test object for one import session. Remove it when the test is done." },
-                { "Assets.NAME[SkiProbeRack]", "Ski Resort — import probe B: Rack (delete after test)" },
-                { "Assets.DESCRIPTION[SkiProbeRack]", "A test object for one import session. Remove it when the test is done." },
-                { "Assets.NAME[SkiProbeCoatA]", "Ski Resort — import probe A: Coat (delete after test)" },
-                { "Assets.DESCRIPTION[SkiProbeCoatA]", "A test object for one import session. Remove it when the test is done." },
-                { "Assets.NAME[SkiProbeFndA]", "Ski Resort — import probe A: Foundation (delete after test)" },
-                { "Assets.DESCRIPTION[SkiProbeFndA]", "A test object for one import session. Remove it when the test is done." },
-                // FndA is the one probe that is a ServiceUpgrade (its prefab carries Game.Prefabs.ServiceUpgrade), so the panel
-                // and Find It read the UPGRADE_* keys (header).
-                { "Assets.UPGRADE_NAME[SkiProbeFndA]", "Ski Resort — import probe A: Foundation (delete after test)" },
-                { "Assets.UPGRADE_DESCRIPTION[SkiProbeFndA]", "A test object for one import session. Remove it when the test is done." },
-                { "Assets.NAME[SkiProbeGlsA]", "Ski Resort — import probe A: Glass (delete after test)" },
-                { "Assets.DESCRIPTION[SkiProbeGlsA]", "A test object for one import session. Remove it when the test is done." },
-                { "Assets.NAME[SkiProbeLodA]", "Ski Resort — import probe A: LOD (delete after test)" },
-                { "Assets.DESCRIPTION[SkiProbeLodA]", "A test object for one import session. Remove it when the test is done." },
 
                 // --- Safety-net fence (fences/A) ------------------------------------------------------------------------------
                 // NAME / DESCRIPTION of SkiSafetyFence equal the staged SkiSafetyFence_en-US.loc byte for byte
@@ -319,8 +274,6 @@ namespace SkiResortMod
                 { "Assets.DESCRIPTION[SkiNetPost]", "The safety net fence's end post. The fence places it by itself." },
                 { "Assets.NAME[SkiSafetyFenceLane]", "Safety Net Fence Lane (part of the fence)" },
                 { "Assets.DESCRIPTION[SkiSafetyFenceLane]", "The netting the safety net fence draws between its posts." },
-                { "Assets.NAME[SkiSafetyFenceProbe]", "Ski Resort — fence probe: Chain-Link Test (delete after test)" },
-                { "Assets.DESCRIPTION[SkiSafetyFenceProbe]", "A test fence for one field test. Remove it when the test is done." },
 
                 // --- Run dressing (deployed; the runs place them along their edges) ---------------------------------------------
                 { "Assets.NAME[SkiSnowGunTowerLow]", "Fan Gun, Tower (Low)" },
@@ -1072,7 +1025,6 @@ namespace SkiResortMod
                 // The History view (src/hub/hubText.ts HISTORY entries, identical text, gate R4).
                 { "SkiResort.Hub.TILE[History]", "History" },
                 { "SkiResort.Hub.TILE_TIP[History]", "Guests and finances of every month this ski area has recorded." },
-                { "SkiResort.Hub.SECTION[History]", "History" },
                 { "SkiResort.Hub.HISTORY[ScopeArea]", "This ski area" },
                 { "SkiResort.Hub.HISTORY[ScopeCity]", "Whole city" },
                 { "SkiResort.Hub.HISTORY_TIP[Scope]", "Whole city adds every ski area that exists now; a deleted one's history goes with it. No attraction line: each area has its own." },

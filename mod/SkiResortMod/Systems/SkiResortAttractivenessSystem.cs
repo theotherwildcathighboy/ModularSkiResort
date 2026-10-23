@@ -53,10 +53,9 @@
 //     PrefabRef} None {Temp, Deleted} (Park is on the sign and on every lodge, Park.cs:26-41, so the walk sees
 //     parks, signs and lodges only; no Transform, header SYNC POINTS). A Destroyed sign
 //     stays; its efficiency reads 0.
-//   * Lodge = an InstalledUpgrade entry of the sign whose PrefabRef is the lodge prefab and whose building is
-//     in the walk; ACTIVE ⇔ !BuildingUtils.CheckOption(entry, BuildingOption.Inactive) (vanilla mirrors the
-//     lodge's option into the entry, BuildingPoliciesSystem.cs:100-113, and uses the same test,
-//     UpgradeUtils.cs:24). A lodge building in the walk listed by no sign is an ORPHAN.
+//   * Lodge = a lodge-prefab building in the walk, top-level (no Owner), linked by LinkTopLevel (header TOP-LEVEL
+//     BUILDINGS); ACTIVE ⇔ !BuildingUtils.CheckOption(Building, BuildingOption.Inactive). A lodge in the walk linked to no
+//     sign is an ORPHAN.
 //   * Run = an area of the BOUND-RUN query {Area, Geometry, PrefabRef, SkiRunBinding} None {Temp, Deleted}
 //     whose binding's m_Gate is one of this recompute's signs and whose prefab has an ownership kind
 //     (SkiRunOwnershipSystem.KindOf ≥ 0: groomed, snowmaking, night, natural). Inputs: the catalog's
@@ -103,7 +102,7 @@
 // run values ascending), so a chunk reorder does not move it.
 //
 // SNAPSHOT: the accessors (TryGetAreaScore, TryGetRunScore, TryGetLiftScore, CopyEfficiencyFactors, CopySigns,
-// CopyActiveLodges, CopySiteMembers, ...) are main-thread plain reads of the last recompute (frozen while paused).
+// CopyActiveLodgeInfo, CopySiteMembers, ...) are main-thread plain reads of the last recompute (frozen while paused).
 // Double-buffered (m_Cur / m_Next, swapped at the end of a recompute), allocation-free once the pools have grown.
 // LodgeSetRevision moves at a load, when a recompute publishes other (sign, active lodges) lists and when WriteProviders
 // drops a deleted lodge; consumers SkiDaySystem, SkiLodgeParkingSystem, SkiLiftTicketSystem's gate watch.
@@ -154,12 +153,11 @@
 //
 // TOP-LEVEL BUILDINGS (docs/research/lodges-top-level-spec.md). Every resort building prefab (5 lodges, the school, 2 patrol
 // huts) is top-level (no ServiceUpgrade): no Owner, no sign lists it. The park walk collects lodge, school and patrol
-// buildings WITHOUT Owner (an archetype test, chunk.Has) into m_TopLevel with their kind; after the child entries (ReadSign,
-// union-safe: a restored ServiceUpgrade prefab still reads through the sign's buffer) LinkTopLevel resolves each to the
-// nearest live sign within TetherMeters over this recompute's sign index (SchoolLinkRules.Resolve, the lift rule; not
-// sticky) and counts it by the child path's rule: a lodge into Active / ActiveInfo / Inactive (first sign wins,
+// buildings WITHOUT Owner (an archetype test, chunk.Has) into m_TopLevel with their kind; after the signs (ReadSign)
+// LinkTopLevel resolves each to the nearest live sign within TetherMeters over this recompute's sign index
+// (SchoolLinkRules.Resolve, the lift rule; not sticky) and counts it: a lodge into Active / ActiveInfo / Inactive (first sign wins,
 // m_LodgeClaimed; an unlinked lodge is an orphan: no provider), the school through SchoolLinkRules.Count, an active patrol
-// hut into PatrolEntities. Active = Building.m_OptionMask (the bit vanilla mirrors into a child's entry). A top-level lodge
+// hut into PatrolEntities. Active = Building.m_OptionMask. A top-level lodge
 // has its own Efficiency buffer (CityServiceBuilding); the area's efficiency = the sign's x the active top-level lodges'
 // mean weighted by tier base B (SchoolLinkRules.AreaEfficiency; school and patrol weigh 0), the lodges' factors merged
 // worst-per-factor into the area's list. The mountain lodges' jobs ride on the sign (MountainJobsSystem), so a mountain
@@ -771,20 +769,6 @@ namespace SkiResortMod.Systems
             return into.Count;
         }
 
-        /// <summary>AreaSlot.Active of <paramref name="sign"/> (lodge prefab, in its InstalledUpgrade, in the park
-        /// walk, not Inactive; first sign wins); clears <paramref name="into"/>; returns the count. NOT filtered
-        /// for Destroyed (the consumers' lookups judge it).</summary>
-        internal int CopyActiveLodges(Entity sign, List<Entity> into)
-        {
-            into.Clear();
-            if (m_Cur.TryGetSlot(sign, out AreaSlot slot))
-            {
-                for (int i = 0; i < slot.Active.Count; i++)
-                    into.Add(slot.Active[i]);
-            }
-            return into.Count;
-        }
-
         /// <summary>One ACTIVE lodge of the last recompute with its tier. LodgeIndex = SkiCatalog.Lodges index (the lodge's
         /// PrefabRef is its tier); SummitServed = within Ladder.SummitServedRadiusM of a complete, powered lift's top stub tip of
         /// its ski area (evaluated for rows with μ summit &gt; μ; false for the others). Every active lodge counts.</summary>
@@ -795,9 +779,9 @@ namespace SkiResortMod.Systems
             public bool SummitServed;
         }
 
-        /// <summary>The LodgeInfo of every lodge CopyActiveLodges returns for <paramref name="sign"/>, in the
-        /// same order; clears <paramref name="into"/>; returns the count (0 for an unknown sign). Main thread, plain copy
-        /// (allocation-free once the caller's list has grown). CopyActiveLodges is unchanged (base and mountain lodges).</summary>
+        /// <summary>The LodgeInfo of every active lodge of <paramref name="sign"/> (AreaSlot.Active order: lodge prefab, in the park
+        /// walk, not Inactive; first sign wins; base and mountain lodges; NOT filtered for Destroyed); clears <paramref name="into"/>;
+        /// returns the count (0 for an unknown sign). Main thread, plain copy (allocation-free once the caller's list has grown).</summary>
         internal int CopyActiveLodgeInfo(Entity sign, List<LodgeInfo> into)
         {
             into.Clear();
@@ -1229,7 +1213,7 @@ namespace SkiResortMod.Systems
             m_LodgeClaimed.Clear();
             for (int s = 0; s < next.SlotCount; s++)
                 ReadSign(next.Slots[s].Sign, next.Slots[s], ref stateHash);
-            LinkTopLevel(next, ref stateHash);  // top-level buildings by distance (after the child entries)
+            LinkTopLevel(next, ref stateHash);  // top-level buildings by distance (after the signs)
             ReadPatrolPositions(next);  // each area's active patrol huts' xz
 
             // 2. Member runs (bound-run walk): rating, snow, top node.
@@ -1372,8 +1356,8 @@ namespace SkiResortMod.Systems
                 var entityHandle = GetEntityTypeHandle();
                 var prefabRefHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
                 // Owner presence is an archetype fact (chunk.Has reads no component data, no sync): a lodge,
-                // school or patrol hut without Owner is TOP-LEVEL (header TOP-LEVEL BUILDINGS); a child stays with its
-                // sign's buffer (ReadSign).
+                // school or patrol hut without Owner is TOP-LEVEL (header TOP-LEVEL BUILDINGS); one with an Owner is counted
+                // for no area.
                 var ownerHandle = GetComponentTypeHandle<Owner>(isReadOnly: true);
                 using (var chunks = m_ParkQuery.ToArchetypeChunkArray(Allocator.Temp))
                 {
@@ -1439,10 +1423,9 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>One sign's efficiency and lodges, mixed into <paramref name="hash"/> — the
-        /// state poll's input. With a slot (the recompute) it also fills the slot: efficiency, percent, the
-        /// factors below 1 worst first, and the active / inactive member lodges (a lodge building in the walk,
-        /// first sign wins). Without one (the poll) it only hashes.</summary>
+        /// <summary>One sign's efficiency, mixed into <paramref name="hash"/> — the state poll's input. With a slot (the recompute)
+        /// it also fills the slot: efficiency, percent and the factors below 1 worst first. The lodges, the school and the patrol huts
+        /// are top-level and counted by LinkTopLevel. Without a slot (the poll) it only hashes.</summary>
         private void ReadSign(Entity sign, AreaSlot slot, ref ulong hash)
         {
             hash = SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(hash, unchecked((uint)sign.Index)), unchecked((uint)sign.Version));
@@ -1490,57 +1473,6 @@ namespace SkiResortMod.Systems
                 slot.Factors.Reverse();
             }
 
-            if (!EntityManager.TryGetBuffer(sign, isReadOnly: true, out DynamicBuffer<InstalledUpgrade> upgrades))
-                return;
-            // The lodge rows by tier (LodgeDefs), the school and the patrol huts, each view fetched once per sign.
-            HashSet<Entity> lodgePrefabs = m_PrefabCatalog.LodgePrefabSet;
-            IReadOnlyDictionary<Entity, LodgeDef> lodgeDefs = m_PrefabCatalog.LodgeDefs;
-            HashSet<Entity> schoolPrefabs = m_PrefabCatalog.SchoolPrefabSet;
-            HashSet<Entity> patrolPrefabs = m_PrefabCatalog.PatrolPrefabSet;
-            for (int u = 0; u < upgrades.Length; u++)
-            {
-                InstalledUpgrade entry = upgrades[u];
-                Entity upgrade = entry.m_Upgrade;
-                if (!EntityManager.TryGetComponent(upgrade, out PrefabRef prefabRef))
-                    continue;
-                Entity prefab = prefabRef.m_Prefab;
-                bool isLodge = lodgePrefabs.Contains(prefab);
-                bool isSchool = !isLodge && schoolPrefabs.Contains(prefab);
-                bool isPatrol = !isLodge && !isSchool && patrolPrefabs.Contains(prefab);
-                if (!isLodge && !isSchool && !isPatrol)
-                    continue;
-                bool active = !BuildingUtils.CheckOption(entry, BuildingOption.Inactive);
-                hash = SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(hash,
-                    unchecked((uint)upgrade.Index)), unchecked((uint)upgrade.Version)), active ? 1u : 0u);
-                if (slot == null)
-                    continue;
-                if (isLodge)
-                {
-                    Entity lodge = upgrade;
-                    if (!m_LiveLodges.Contains(lodge) || !m_LodgeClaimed.Add(lodge))
-                        continue;
-                    if (!active)
-                    {
-                        slot.Inactive.Add(lodge);
-                        continue;
-                    }
-                    slot.Active.Add(lodge);
-                    // The tier (the lodge's PrefabRef IS its tier; no serialized state). SummitServed is filled in
-                    // ScoreAreas, once the area's lifts are known.
-                    int index = lodgeDefs.TryGetValue(prefab, out LodgeDef def) ? def.Index : 0;
-                    slot.ActiveInfo.Add(new LodgeInfo { Lodge = lodge, LodgeIndex = (short)index, SummitServed = false });
-                }
-                else if (isSchool)
-                {
-                    slot.Schools++;
-                    if (active && IsLiveUpgrade(upgrade))
-                        slot.SchoolActive = true;
-                }
-                else if (active && IsLiveUpgrade(upgrade))
-                {
-                    slot.PatrolEntities.Add(upgrade);
-                }
-            }
         }
 
         /// <summary>A school or patrol hut entry counts while its building exists and is neither Deleted
@@ -1559,12 +1491,12 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>(header TOP-LEVEL BUILDINGS) Each top-level building of the last park walk mixes (entity, active)
-        /// into <paramref name="hash"/> — the same three words ReadSign mixes for a child entry, so the poll and the recompute
+        /// into <paramref name="hash"/> — three words (index, version, active), so the poll and the recompute
         /// agree — and a top-level lodge also its efficiency percent (staffing and utilities are its own now). With
         /// <paramref name="next"/> (the recompute) it also resolves the building's sign (SchoolLinkRules.Resolve over this
-        /// recompute's sign index, TetherMeters) and counts it into that area's slot by the child path's rules: a lodge into
-        /// Active / ActiveInfo (tier = its PrefabRef) or Inactive and m_LodgeClaimed (first sign wins, as ReadSign), the school
-        /// Active / ActiveInfo (tier = its PrefabRef) or Inactive and m_LodgeClaimed (first sign wins, as ReadSign), the school
+        /// recompute's sign index, TetherMeters) and counts it into that area's slot: a lodge into
+        /// Active / ActiveInfo (tier = its PrefabRef) or Inactive and m_LodgeClaimed (first sign wins), the school
+        /// through SchoolLinkRules.Count, an active patrol hut into PatrolEntities; the area's efficiency folds in its
         /// top-level lodges: efficiency = sign x their tier-weighted mean, SchoolLinkRules.AreaEfficiency; the factors merged,
         /// worst per factor), one log line per link change (SchoolLinkRules.Diff), and the links are published. Active = the
         /// building's own Building.m_OptionMask not Inactive (BuildingUtils.cs:351-354); reading Building syncs its writers

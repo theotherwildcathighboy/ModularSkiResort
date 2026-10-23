@@ -183,7 +183,6 @@ namespace SkiResortMod.Systems
 
         // Kill switch (dev tab): false parks every cabin in its hosted pose
         private static bool MovingShuttles = true;
-        internal static bool MovingShuttlesOn => MovingShuttles;
 
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private RenderingSystem m_RenderingSystem;

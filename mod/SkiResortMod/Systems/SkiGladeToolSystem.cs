@@ -314,10 +314,6 @@ namespace SkiResortMod.Systems
         /// at activation). Tooltip NO_RUNS detail.</summary>
         public int CityBoundRuns => m_CityBoundRuns;
 
-        /// <summary>Distance (m) from the last hovered unbound run's center to the nearest Welcome Sign, computed on the transition;
-        /// +inf = no sign; -1 = not computed.</summary>
-        public float UnboundNearestSignM => m_UnboundNearestSignM;
-
         // Last preview census (plain fields; the dev tab reads them at 10 Hz). PreviewThin / PreviewRemove count only Delete Temps
         // without Cancel (a canceled delete Temp keeps its original, ApplyObjectsSystem.cs:337-340, 474-482); those with Cancel are
         // PreviewDeleteCancelled.
@@ -348,8 +344,6 @@ namespace SkiResortMod.Systems
         public string LastError = "-";
         /// <summary>One-line summary of the last re-plan (the plan line without its prefix)</summary>
         public string LastPlan = "-";
-        /// <summary>Resolved species pool, e.g. "SpruceTree01, PineTree01, BirchTree01"</summary>
-        public string SpeciesPool => m_SpeciesPoolText;
 
         /// <summary>Implements the dev-tab hook declared in SkiGladeToolSystem.Debug.cs (the "Species pool" row). Field read only (10 Hz cost).</summary>
         partial void DescribeSpeciesPoolForDebug(ref string text)

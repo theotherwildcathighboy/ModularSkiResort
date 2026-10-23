@@ -517,9 +517,9 @@ function run(srcDir) {
         toggleBody.indexOf("if (connected) hubTriggers.toggleHub();") > toggleBody.indexOf("reportUiError("),
         root.includes("setRootMounted(true);") && root.includes("return () => setRootMounted(false);")], [true, true, true]);
     const hubCsT = fs.readFileSync(path.resolve(__dirname, "..", "..", "SkiResortMod", "Systems", "SkiResortHubUISystem.cs"), "utf8");
-    eq("T25.4 C#: launch via LaunchUpgrade only when the prefab is an upgrade; one no-uiHello WARN per session",
-      [/if \(m_ItemViaUpgrade\[item\]\)\s*\{\s*LaunchUpgrade\(item, prefab, source\);/.test(hubCsT),
-        hubCsT.includes("m_ItemViaUpgrade[i] = item.IsUpgrade && m_PrefabCatalog.IsUpgradePrefab(entity);"),
+    eq("T25.4 C#: an upgrade-kind item launches like a station after TopLevelUpgradeLaunchAllowed (no sign-Upgrade path); one no-uiHello WARN per session",
+      [hubCsT.includes("if (!TopLevelUpgradeLaunchAllowed(item, id, source, out link))"),
+        !/LaunchUpgrade\(|m_ItemViaUpgrade/.test(hubCsT),
         hubCsT.includes("private static bool s_NoHelloWarned;")], [true, true, true]);
   }
 
@@ -533,9 +533,9 @@ function run(srcDir) {
   const locale = fs.readFileSync(path.join(csDir, "LocaleEN.cs"), "utf8");
   const csTuples = new Map();
   for (const m of locale.matchAll(/\{\s*"([^"]+)",\s*"((?:[^"\\]|\\.)*)"\s*\}/g)) csTuples.set(m[1], m[2]);
-  const histKeys = [...tuples.keys()].filter((k) => /^SkiResort\.Hub\.(HISTORY|TILE\[History\]|TILE_TIP\[History\]|SECTION\[History\])/.test(k));
-  eq("T20.2 every HISTORY key of hubText.ts is in LocaleEN.cs with the same text (50 keys)",
-    [histKeys.length, histKeys.filter((k) => csTuples.get(k) !== tuples.get(k))], [50, []]);
+  const histKeys = [...tuples.keys()].filter((k) => /^SkiResort\.Hub\.(HISTORY|TILE\[History\]|TILE_TIP\[History\])/.test(k));
+  eq("T20.2 every HISTORY key of hubText.ts is in LocaleEN.cs with the same text (49 keys)",
+    [histKeys.length, histKeys.filter((k) => csTuples.get(k) !== tuples.get(k))], [49, []]);
   const viewSrc = read(path.join("hub", "HistoryView.tsx"));
   const H = HR;
   eq("T20.3 three range options (12 months, this season vs last, by season), each with a label and a tooltip in HistoryView",

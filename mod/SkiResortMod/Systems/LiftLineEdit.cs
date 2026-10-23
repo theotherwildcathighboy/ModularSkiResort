@@ -58,7 +58,6 @@ namespace SkiResortMod.Systems
         Unchanged,
         TooCloseToStation,
         TooCloseToPin,
-        OffLine,
         NoTower,
     }
 

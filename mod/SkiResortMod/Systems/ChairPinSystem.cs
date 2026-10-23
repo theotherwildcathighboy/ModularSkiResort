@@ -166,9 +166,6 @@ namespace SkiResortMod.Systems
         /// station identities).</summary>
         internal int LoopGeneration { get; private set; }
 
-        /// <summary>A carrier (chair) prefab of the catalog: a thin delegate kept for LiftCensusSystem.</summary>
-        internal bool IsChairPrefab(Entity prefab) => m_PrefabCatalog.IsCarrier(prefab);
-
         /// <summary>ADDITIVE: the fixed-grip line (SkiChairliftHV) prefab entity; Entity.Null when MISSING or before the first game / editor
         /// load.</summary>
         internal Entity ChairliftPrefab => m_PrefabCatalog.LineEntity(SkiCatalog.Lifts[0]);

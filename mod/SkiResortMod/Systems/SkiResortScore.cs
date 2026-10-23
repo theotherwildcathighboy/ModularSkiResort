@@ -131,7 +131,7 @@ namespace SkiResortMod.Systems
 
         public struct AreaInput
         {
-            public int ActiveLodges; // N: lodges in the sign's InstalledUpgrade buffer, not Inactive (read when Lodges == null)
+            public int ActiveLodges; // N: the area's active lodges (read when Lodges == null)
             public int InactiveLodges; // echoed for the hub
             public double Efficiency; // SignEfficiency(...) of the sign
             public ScoreSettings Settings;

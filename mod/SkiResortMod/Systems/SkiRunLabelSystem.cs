@@ -130,7 +130,6 @@ namespace SkiResortMod.Systems
 
         /// <summary>Counters this load (dev tab, DUMP).</summary>
         public int Rebuilds, MeshBuilds, Draws;
-        public int LabelCount => m_Labels.Count;
         public int LastDrawn { get; private set; }
 
         public string StateText()

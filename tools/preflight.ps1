@@ -29,6 +29,8 @@
 #  13. STUBNET   - every station stub marker net is wider than the widest lift line and has no lanes (T121 / T126).
 #  14. POWERFLOW - every owned lift line (PowerLinePrefab, not a MarkerNet) carries ElectricityConnection Voltage High (1),
 #                  Direction Both (3), Capacity == the vanilla Low-voltage Line's 800000 (DECISIONS 369 / R-1).
+#  15. LODGEPARK - every lodge tier and the Welcome Sign carry Game.Prefabs.Park (tools/check-lodge-park.ps1; the stats query
+#                  requires Game.Buildings.Park).
 #
 # Ownership = directories named Ski* under ImportedData, Ski* prefabs inside the
 # Editor library folder (c030ee3ff256df91), plus legacy FixedGripChairLift (reported).
@@ -720,6 +722,18 @@ foreach ($p in $ownedPrefabs) {
     } else { $rows.Add("OK    POWERFLOW  ${nm}: High / Both / $c (the vanilla LV rating)") }
 }
 if ($pfSeen -eq 0) { $rows.Add("WARN  POWERFLOW  no owned lift line PowerLinePrefab found (check the ownership filter)"); $warnings++ }
+
+# ---- 15. LODGEPARK: every lodge tier and the Welcome Sign carry Game.Prefabs.Park ----------------------------------------------
+# SkiResortStatsSystem's building query requires Game.Buildings.Park, so a lodge or sign prefab without Park is never counted.
+# tools/check-lodge-park.ps1 reads the names from SkiCatalog.cs and checks the mirror's prefab JSON; any FAIL line it prints is a FAIL.
+$lpOut = @(& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "check-lodge-park.ps1") 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    $lpFails = @($lpOut | Where-Object { "$_" -match '^FAIL' })
+    foreach ($l in $lpFails) { $rows.Add("FAIL  LODGEPARK $l"); $failures++ }
+    if ($lpFails.Count -eq 0) { $rows.Add("FAIL  LODGEPARK check-lodge-park.ps1 exit $LASTEXITCODE : $($lpOut -join ' ')"); $failures++ }
+} else {
+    $rows.Add("OK    LODGEPARK $(($lpOut | Select-Object -Last 1))")
+}
 
 # ---- summary -------------------------------------------------------------------------
 $rows | ForEach-Object { Write-Output $_ }

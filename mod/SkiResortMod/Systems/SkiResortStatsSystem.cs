@@ -6,10 +6,9 @@
 //   * Ski area = a live Ski Area Welcome Sign (a Destroyed sign stays live: SkiRunOwnershipSystem.IsLiveGate).
 //   * Run = its SkiRunCatalogSystem row's Gate (sticky from bind time, re-links free only when its sign died); Entity.Null means
 //     Not linked.
-//   * Lodge = an entry of a sign's InstalledUpgrade buffer (ServiceUpgradeReferencesSystem.cs:54-65 fills it from the upgrade's
-//     Owner), active unless its entry carries BuildingOption.Inactive (BuildingUtils.cs:356). A lodge-prefab building that no
-//     live sign lists is free-standing: Not linked. A top-level lodge (no Owner), the school and the patrol huts take the
-//     attraction snapshot's link (CopyTopLevelLinks: nearest live sign within the tether); each adds its jobs and its own upkeep
+//   * Lodge = a lodge-prefab building (top-level, no Owner), active unless its Building carries BuildingOption.Inactive
+//     (BuildingUtils.cs:351). One linked to no live sign is free-standing: Not linked. The lodges, the school and the patrol
+//     huts take the attraction snapshot's link (CopyTopLevelLinks: nearest live sign within the tether); each adds its jobs and its own upkeep
 //     and wages to its area.
 //   * Lift = the nearest live sign within SkiRunOwnershipSystem.TetherMeters of its base station (else top station, else the
 //     anchor edge's start node), ties by distance, Index, Version (SkiResortIndex); none means Not linked. Worked out every
@@ -751,7 +750,7 @@ namespace SkiResortMod.Systems
                          "lodges not lift-served, 25 school without a counted green run; LodgeNoRoad counts lodges whose row needs " +
                          "a road only; IfLodgesOn = the ladder with every lodge on; lodge spend in the net): ski areas = live Welcome " +
                          "Signs in (Index, Version) order + a Not linked row; runs by their bound sign (catalog Gate), lodges " +
-                         "by their sign's InstalledUpgrade buffer (else free-standing → Not linked), lifts and stations by the " +
+                         "by their published link (else free-standing → Not linked), lifts and stations by the " +
                          $"nearest live sign within TetherMeters={SkiRunOwnershipSystem.TetherMeters:F0} m of the base station " +
                          "(else top station, else the line's first node); score, run parts, lift parts and efficiency factors " +
                          "read from SkiResortAttractivenessSystem's last recompute (never recomputed here); per-run snow from " +
@@ -1264,11 +1263,10 @@ namespace SkiResortMod.Systems
             return sAll;
         }
 
-        /// <summary>Lodge rule: lodges listed in a live sign's InstalledUpgrade buffer belong to that sign; a top-level lodge (no Owner)
-        /// belongs to its published link (CopyTopLevelLinks: the attraction snapshot's nearest live sign within the tether, the score's
-        /// own membership; active = its own Building.m_OptionMask); every other live lodge building is free-standing (Not linked). No
-        /// lodge rows: the aggregate's LodgeIn (Score 0) and the live count of active listed lodges (the entry's BuildingOption.Inactive
-        /// bit, BuildingUtils.CheckOption(InstalledUpgrade, ...)).</summary>
+        /// <summary>Lodge rule: a lodge (top-level, no Owner) belongs to its published link (CopyTopLevelLinks: the attraction snapshot's
+        /// nearest live sign within the tether, the score's own membership; active = its own Building.m_OptionMask); every other live
+        /// lodge building is free-standing (Not linked). No lodge rows: the aggregate's LodgeIn (Score 0) and the live count of active
+        /// linked lodges. Also the per-sign SignNoRoad fact.</summary>
         private void CollectLodges(int resorts)
         {
             m_LodgeResort.Clear();
@@ -1283,22 +1281,8 @@ namespace SkiResortMod.Systems
                 Entity sign = m_SignEntities[s];
                 if (s < resorts)
                     m_Work[s].SignNoRoad = m_NoRoad.Contains(sign);
-                if (!EntityManager.HasBuffer<InstalledUpgrade>(sign))
-                    continue;
-                DynamicBuffer<InstalledUpgrade> upgrades = EntityManager.GetBuffer<InstalledUpgrade>(sign, isReadOnly: true);
-                for (int u = 0; u < upgrades.Length; u++)
-                {
-                    Entity upgrade = upgrades[u].m_Upgrade;
-                    if (EntityManager.TryGetComponent(upgrade, out PrefabRef pr) && lodgePrefabs.Contains(pr.m_Prefab) &&
-                        !m_LodgeResort.ContainsKey(upgrade))
-                    {
-                        m_LodgeResort[upgrade] = s;
-                        if (!BuildingUtils.CheckOption(upgrades[u], BuildingOption.Inactive))   // BuildingUtils.cs:356
-                            m_LodgeActive.Add(upgrade);
-                    }
-                }
             }
-            // Top-level lodges by their published link; a child listed above wins (first sign wins).
+            // Lodges (top-level) by their published link.
             for (int t = 0; t < m_TopLevel.Count; t++)
             {
                 Entity lodge = m_TopLevel[t];
@@ -3278,17 +3262,7 @@ namespace SkiResortMod.Systems
             }
             m_LodgeInfo.Clear();
             int patrols = 0;
-            if (EntityManager.HasBuffer<InstalledUpgrade>(sign))
-            {
-                HashSet<Entity> patrolPrefabs = m_PrefabCatalog.PatrolPrefabSet;
-                DynamicBuffer<InstalledUpgrade> upgrades = EntityManager.GetBuffer<InstalledUpgrade>(sign, isReadOnly: true);
-                for (int u = 0; u < upgrades.Length; u++)
-                {
-                    if (EntityManager.TryGetComponent(upgrades[u].m_Upgrade, out PrefabRef pr) && patrolPrefabs.Contains(pr.m_Prefab))
-                        patrols++;
-                }
-            }
-            // top-level patrol huts linked to this sign (the rebuild's CopyTopLevelLinks)
+            // patrol huts linked to this sign (the rebuild's CopyTopLevelLinks)
             HashSet<Entity> topPatrolPrefabs = m_PrefabCatalog.PatrolPrefabSet;
             for (int t = 0; t < m_TopLevel.Count; t++)
             {

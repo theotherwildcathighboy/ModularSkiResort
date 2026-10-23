@@ -5,7 +5,7 @@
 // SkiDayRules.CheckLodge. In memory only, reset on load.
 // Only lodges whose SkiCatalog row has LodgeRoadRule.Base are counted (the ski-day targets): mountain lodges (hut, summit:
 // roadless by design) and patrol huts never get a parking row, so row 21 can never name them. The tier comes from
-// SkiResortAttractivenessSystem.CopyActiveLodgeInfo (same lodge order as CopyActiveLodges); mountain lodges skipped by the
+// SkiResortAttractivenessSystem.CopyActiveLodgeInfo; mountain lodges skipped by the
 // last census are counted in the DUMP's system line.
 //
 // Phase: GameSimulation, UpdateAt (Mod.cs, after SkiDaySystem's line). Not anchored: the census reads the attraction
@@ -19,7 +19,7 @@
 // a component order version is no better a trigger (every car parking on a street lane moves it). The job scheduled on one
 // tick is completed and applied on the next, so the main thread never waits.
 //
-// The census (ParkingCensusJob, one Burst IJob), per (lodge, sign) pair from CopySigns / CopyActiveLodges:
+// The census (ParkingCensusJob, one Burst IJob), per (lodge, sign) pair from CopySigns / CopyActiveLodgeInfo:
 //   1. State = SkiDayRules.CheckLodge(IsLodgePrefab, OnLiveSign, Active = Building && !Inactive (BuildingUtils.cs:351),
 //      Destroyed = Destroyed || Deleted || no Building, LeisureTagged = Game.Buildings.LeisureProvider (Tourism Overhaul
 //      removes / restores it), HasRoad = Building.m_RoadEdge, NearestRunOrStationM = 0: slope-side is SkiDaySystem's to
@@ -450,7 +450,7 @@ namespace SkiResortMod.Systems
                 m_TicksSince = 0;
                 long t0 = Stopwatch.GetTimestamp();
 
-                // 3. The (lodge, sign) pairs of the attraction snapshot (first sign wins, as CopyActiveLodges does): Base road lodges only
+                // 3. The (lodge, sign) pairs of the attraction snapshot (first sign wins, as CopyActiveLodgeInfo does): Base road lodges only
                 // (the ski-day targets); mountain lodges are counted for the DUMP and get no row.
                 m_JobLodges.Clear();
                 m_JobSigns.Clear();

@@ -128,9 +128,6 @@ namespace SkiResortMod.Systems
         public int Builds, Draws;
         public float LastBuildMs, MaxBuildMs;
 
-        public float WinterMeanC => m_WinterMeanC;
-        public float SnowLineM => m_SnowLineM;
-        public float GunsLineM => m_GunsLineM;
 
         /// <summary>Dev tab / DUMP text (field reads only).</summary>
         public string StateText()

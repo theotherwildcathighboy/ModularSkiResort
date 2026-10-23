@@ -137,8 +137,7 @@ namespace SkiResortMod.Systems
             public const byte WalkerPathFailed = SkiDayTiming.Flag2WalkerPathFailed;    // 4: walker PathOwner Failed or Stuck (transient)
             public const byte VehiclePathFailed = SkiDayTiming.Flag2VehiclePathFailed;  // 8: lead vehicle PathOwner Failed or Stuck (transient)
             // Not markers: HasMarker reads only 1, 2, 4, 8
-            public const byte NeedOpen = SkiDayTiming.Flag2NeedOpen;                    // 16: household need open at the last pass (ShiftNeed)
-            public const byte NeedOpenBefore = SkiDayTiming.Flag2NeedOpenBefore;        // 32: … at the pass before
+            // 16 and 32 (SkiDayTiming.Flag2NeedOpen / Flag2NeedOpenBefore) are the household need bits ShiftNeed writes
             public const byte DeadlinePulled = SkiDayTiming.Flag2DeadlinePulled;        // 64: the deadline was pulled in (PullDeadline)
         }
 
@@ -217,7 +216,7 @@ namespace SkiResortMod.Systems
             public const int ArrivedBand = 499;      // 15: cls × 5 + band
             public const int FailedBand = 514;       // 15: cls × 5 + band
             public const int Scan = 529;             // 6: kind × 3 + ScanVerdict
-            public const int CarLeftFirstLook = 535; // 5: unused; never bumped, never printed
+            // 535..539: 5 unused slots (never bumped, never printed); reserved so the later bases do not move
             public const int DoorN = 540;            // 6: group × 3 + cls; group 0 arrivals with a door sample, 1 departed failures that moved off (hours in RH.Door)
             public const int DoorUnseen = 546;       // 3: cls: arrivals that left earlier but whose walker was never seen moving off
             public const int NeverMovedFailed = 549; // 3: cls: departed failures that never moved off
@@ -1397,7 +1396,7 @@ namespace SkiResortMod.Systems
 
             /// <summary>Car reserve × mode, counted once when a QUEUED car claim resolves (arrival or failure). Invariant: the block's sum =
             /// the queued car claims that resolved this month (not CarsEnqueued, which counts claims made). HeldAtHome is never set (bucket
-            /// 0 cannot fill) and the CarLeftFirstLook slot is no longer bumped; both slots stay in the layout.</summary>
+            /// 0 cannot fill) and the unused block at RM 535 is never bumped; both stay in the layout.</summary>
             private void CarReserveAtEnd(in SkiDayClaim c, int mb)
             {
                 if (c.Class != (byte)SkiDayRules.TravelClass.Car || c.CarEnqueued != 1)
@@ -1580,7 +1579,7 @@ namespace SkiResortMod.Systems
                     bool hasSite = li < Sites.Length && Sites[li].HasPosition != 0;
                     var facts = new SkiDayRules.LodgeFacts
                     {
-                        IsLodgePrefab = true,   // both from CopyActiveLodges (lodge prefab, installed on a live sign)
+                        IsLodgePrefab = true,   // both from CopyActiveLodgeInfo (lodge prefab, linked to a live sign)
                         OnLiveSign = true,
                         Active = hasB && !BuildingUtils.CheckOption(b, BuildingOption.Inactive),   // BuildingUtils.cs:351 (=)
                         Destroyed = Destroyeds.HasComponent(l) || Deleteds.HasComponent(l) || !hasB,

@@ -22,11 +22,9 @@
 //     still inside; SpendLeisure ends a visit at an inactive provider only on its own 1,024-frame pass, LeisureSystem.cs 1.6.2
 //     :283-312) gets the same baseline at the next leisure scan, so nobody is counted or charged twice.
 //
-// Targets: every live Welcome Sign (SkiRunOwnershipSystem.IsGatePrefab) and every active lodge listed in a live sign's
-// InstalledUpgrade buffer (SkiResortAttractivenessSystem.IsLodgePrefab: its LodgePrefabSet fetched once per rebuild, every lodge
-// tier; the school and the patrol huts are not targets), active = !BuildingUtils.CheckOption(entry, BuildingOption.Inactive),
-// BuildingUtils.cs:356. A top-level lodge (no Owner) is a target of its published link (SkiResortAttractivenessSystem
-// .CopyTopLevelLinks), active by its own Building.m_OptionMask. Free-standing (not linked) and out-of-service lodges are not targets
+// Targets: every live Welcome Sign (SkiRunOwnershipSystem.IsGatePrefab) and every active lodge (the catalog's LodgePrefabSet, fetched
+// once per rebuild, every lodge tier; the school and the patrol huts are not targets). A lodge (top-level, no Owner) is a target of
+// its published link (SkiResortAttractivenessSystem.CopyTopLevelLinks), active by its own Building.m_OptionMask (BuildingUtils.cs:351). Free-standing (not linked) and out-of-service lodges are not targets
 // (counted for the targets line only). The map building -> sign is rebuilt on the main thread between jobs when the Park query's
 // entity count moves, when the attraction model's Generation moves (a lodge switched on or off changes no count), every
 // Tuning.MapBackstopTicks ticks, and on the first tick after a load. Query {Building, Game.Buildings.Park, PrefabRef} None {Temp,
@@ -65,8 +63,8 @@
 // microseconds); `Guests [cost]` measures it after each load and daily at midday (CostSuffix is shared with the parking census and
 // the tickets).
 // SkiResortHistorySystem (UpdateAfter this system, same 16-frame interval) reads LastMonthStep, MonthFramesSimulated, MonthByJump and
-// LiveSigns; SkiDaySystem reads the leisure scan's phase (LastLeisureScanFrame) and the resident maps (TryResidentCounted /
-// TryResidentVisits).
+// LiveSigns; SkiDaySystem reads the leisure scan's phase (LastLeisureScanFrame) and the resident maps
+// (TryResidentVisits).
 // Per-load reset and re-arm in OnGameLoadingComplete (Game mode only). OnGamePreload completes jobs, books the finished scan and the
 // ticket system's batch in flight, and writes the month in progress (try/caught: GameSystemBase.cs:85-96 disables a system whose
 // OnGamePreload throws). A one-shot "!!!" disables the system for the load.
@@ -287,20 +285,10 @@ namespace SkiResortMod.Systems
             m_FeeAtMonthStart -= Math.Max(0L, feeSeeded);
         }
 
-        /// <summary>Was <paramref name="citizen"/> counted as a resident guest (leisure scan) in the ledger month
-        /// <paramref name="monthKey"/> (SkiMoneyRules.MonthKey)? False when that month is neither the ledger's month in progress nor the one
-        /// before it (then counted = false). Main thread, managed sets only (filled in ApplyScans, swapped at a roll, cleared at a start, a
-        /// jump and a load).</summary>
-        internal bool TryResidentCounted(Entity citizen, int monthKey, out bool counted)
-        {
-            bool held = TryResidentVisits(citizen, monthKey, out int visits);
-            counted = visits > 0;
-            return held;
-        }
-
         /// <summary>How many times <paramref name="citizen"/> was booked as a resident guest (leisure scan) in the ledger month
-        /// <paramref name="monthKey"/>; same months and false case as TryResidentCounted (then visits = 0). Main thread, managed maps
-        /// only.</summary>
+        /// <paramref name="monthKey"/> (SkiMoneyRules.MonthKey). False when that month is neither the ledger's month in progress nor the
+        /// one before it (then visits = 0). Main thread, managed maps only (filled in ApplyScans, swapped at a roll, cleared at a start, a
+        /// jump and a load).</summary>
         internal bool TryResidentVisits(Entity citizen, int monthKey, out int visits)
         {
             visits = 0;
@@ -1094,32 +1082,10 @@ namespace SkiResortMod.Systems
                 m_TargetSign.TryAdd(sign, sign);
                 m_Targets.Add(sign);
                 m_LiveSigns.Add(Ref(sign));
-                if (!EntityManager.HasBuffer<InstalledUpgrade>(sign))
-                    continue;
-                DynamicBuffer<InstalledUpgrade> upgrades = EntityManager.GetBuffer<InstalledUpgrade>(sign, isReadOnly: true);
-                for (int u = 0; u < upgrades.Length; u++)
-                {
-                    InstalledUpgrade entry = upgrades[u];
-                    Entity lodge = entry.m_Upgrade;
-                    if (!EntityManager.TryGetComponent(lodge, out PrefabRef pr) || !lodgePrefabs.Contains(pr.m_Prefab))
-                        continue;
-                    if (!m_ListedScratch.Add(lodge))
-                        continue;   // listed twice (should not happen): counted once
-                    if (BuildingUtils.CheckOption(entry, BuildingOption.Inactive))
-                    {
-                        m_LodgesOff++;   // out of service: not a target
-                        continue;
-                    }
-                    if (m_TargetSign.TryAdd(lodge, sign))
-                    {
-                        m_TargetLodges++;
-                        m_Targets.Add(lodge);
-                    }
-                }
             }
-            // Top-level lodges (no Owner, no buffer entry) by the attraction snapshot's published link (nearest live sign within the tether: the
-            // score's own membership, rebuilt on its Generation like the rest of this map); active = the lodge's own Building.m_OptionMask. A
-            // child listed above wins (m_ListedScratch).
+            // Lodges (top-level: no Owner) by the attraction snapshot's published link (nearest live sign within the tether: the score's own
+            // membership, rebuilt on its Generation like the rest of this map); active = the lodge's own Building.m_OptionMask. m_ListedScratch
+            // counts each lodge once.
             m_Attractiveness.CopyTopLevelLinks(m_TopScratch, m_TopSignScratch);
             for (int t = 0; t < m_TopScratch.Count; t++)
             {

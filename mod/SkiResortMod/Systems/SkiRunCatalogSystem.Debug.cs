@@ -40,7 +40,6 @@ namespace SkiResortMod.Systems
                 ? "-"
                 : $"{hub.TriggerCount} / {hub.RunsPushes} / {hub.UiErrorRepeats}"));
             list.Add(HubVal("Active tool / selection", () => hub == null ? "-" : hub.ToolText()));
-            list.Add(HubVal("Lodge launch", () => hub == null ? "-" : hub.LodgeStateText));
             list.Add(HubVal("Hub v3: piste map / follows / hovers", () => hub == null
                 ? "-"
                 : $"{(hub.PisteMapOn ? "on" : "off")} (visible {hub.PisteMapVisible}) / {hub.FollowCount} / {hub.HoverAccepted} (refused {hub.HoverRefused})"));

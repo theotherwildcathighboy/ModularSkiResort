@@ -208,18 +208,6 @@ namespace SkiResortMod.Systems
             get { EnsureFresh(); return m_PendingFound; }
         }
 
-        internal bool TryGetLiftType(Entity linePrefab, out LiftTypeDef def)
-        {
-            EnsureFresh();
-            return m_LineTypes.TryGetValue(linePrefab, out def);
-        }
-
-        internal bool IsLiftLine(Entity prefab)
-        {
-            EnsureFresh();
-            return m_LiftLines.Contains(prefab);
-        }
-
         /// <summary>LIVE VIEW: every FOUND lift line prefab entity (an explicit whitelist; the marker is not in it).</summary>
         internal HashSet<Entity> LiftLinePrefabSet
         {
@@ -245,22 +233,6 @@ namespace SkiResortMod.Systems
         {
             EnsureFresh();
             return def != null ? PrefabOf(def.LinePrefab) : null;
-        }
-
-        internal bool TryGetCarrier(Entity carrierPrefab, out LiftTypeDef def, out float gripTop)
-        {
-            EnsureFresh();
-            if (m_CarrierGripTops.TryGetValue(carrierPrefab, out gripTop) && m_CarrierTypes.TryGetValue(carrierPrefab, out def))
-                return true;
-            def = null;
-            gripTop = 0f;
-            return false;
-        }
-
-        internal bool IsCarrier(Entity prefab)
-        {
-            EnsureFresh();
-            return m_CarrierGripTops.ContainsKey(prefab);
         }
 
         /// <summary>LIVE VIEW: carrier prefab entity → bounds.max.y (pivot to grip top), &gt; 0 only. Use TryGetValue.</summary>
@@ -362,27 +334,12 @@ namespace SkiResortMod.Systems
             get { EnsureFresh(); return m_PatrolDefs; }
         }
 
-        internal bool TryGetPatrol(Entity prefab, out PatrolDef def)
-        {
-            EnsureFresh();
-            return m_PatrolDefs.TryGetValue(prefab, out def);
-        }
-
         /// <summary>A FOUND lodge, school or patrol prefab: every ServiceUpgrade of the sign the catalog knows. For
         /// event-time callers; a loop over every building fetches the three sets once instead.</summary>
         internal bool IsUpgradeBuilding(Entity prefab)
         {
             EnsureFresh();
             return m_Lodges.Contains(prefab) || m_Schools.Contains(prefab) || m_Patrols.Contains(prefab);
-        }
-
-        /// <summary>The runtime fact behind "launch through the sign's Upgrade tool": the prefab carries ServiceUpgradeData. False for
-        /// a converted top-level building (SkiSchool), which is placed like a station (ActivatePrefabTool); SkiCatalog's Kind-derived
-        /// BuildItemDef.IsUpgrade stays the row's default until every prefab of the family has converted (LiftBatch CatalogTests
-        /// asserts it). Event time only.</summary>
-        internal bool IsUpgradePrefab(Entity prefab)
-        {
-            return prefab != Entity.Null && EntityManager.HasComponent<ServiceUpgradeData>(prefab);
         }
 
         internal bool IsSign(Entity prefab)
@@ -396,12 +353,6 @@ namespace SkiResortMod.Systems
         {
             EnsureFresh();
             return FoundOf(catalogName);
-        }
-
-        internal PrefabBase PrefabBaseOf(string catalogName)
-        {
-            EnsureFresh();
-            return PrefabOf(catalogName);
         }
 
         /// <summary>The hub's item lookups: same resolver, same per-load cache. A catalog name asked with its own

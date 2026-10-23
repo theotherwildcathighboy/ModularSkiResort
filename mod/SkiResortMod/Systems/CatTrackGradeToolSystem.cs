@@ -103,7 +103,6 @@ namespace SkiResortMod.Systems
             : null;
         internal string LastPlanText { get; private set; } = "-";
         internal string LastApplyText { get; private set; } = "-";
-        internal int UndoCount => m_Undo.Count;
 
         private OverlayRenderSystem m_Overlay;
         private TerrainSystem m_TerrainSystem;

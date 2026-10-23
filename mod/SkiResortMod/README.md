@@ -5,26 +5,26 @@ C# code mod for Cities: Skylines II. This DLL owns the *dynamic* behavior of the
 attractiveness. The placeable pieces live in the asset pack, authored separately in the
 in-game Editor.
 
-Status: **compiling skeleton** (Phase 2 of the roadmap in `..\..\docs\SPEC.md` §13). Both
-gameplay systems are registered but disabled stubs; their header comments carry the
-implementation contract. The attractiveness patching research behind the scheduling decisions
-is in `..\..\docs\research\code-mod.md` — read it before touching system registration.
+Status: **feature-complete for 1.0**. Every gameplay system (lift network, runs and snow, buildings, attractiveness and
+tourism, ski days, the hub's C# side) is a `GameSystemBase` / `ToolBaseSystem` / `UISystemBase` in `Systems/`, registered
+in `Mod.cs` with a phase / anchor comment per system. The attractiveness patching research behind the scheduling decisions
+is in `..\..\docs\research\code-mod.md`; read it before touching system registration.
 
 ## Layout
 
 ```
 SkiResortMod/
 ├── SkiResortMod.csproj              official toolchain project (see notes below)
-├── Mod.cs                           IMod entry point: logging, settings, system registration
+├── Mod.cs                           IMod entry point: logging, settings, system registration (load-bearing order)
+├── LocaleEN.cs                      English asset names, hub and tooltip texts (the hub's hubText.ts tuples must equal it)
 ├── Settings/
 │   ├── SkiResortSettings.cs         ModSetting-derived options (Options → Mods in game)
 │   └── LocaleEN.cs                  English strings for the options UI
-├── Systems/
-│   ├── SkiResortAttractivenessSystem.cs   core aggregation system (stub, disabled)
-│   └── SnowLineSystem.cs                  climate gating (stub; logs climate constants)
+├── Systems/                         every system, its pure rule classes (*Rules.cs) and its Debug partials
+├── Textures/                        run decal and terrain textures loaded at runtime
 └── Properties/
     ├── PublishConfiguration.xml     Paradox Mods metadata — used only by `dotnet publish`
-    ├── Thumbnail.png                placeholder from the template
+    ├── Thumbnail.png                listing thumbnail
     └── PublishProfiles/             publish profiles from the template
 ```
 
@@ -49,8 +49,10 @@ That is the whole loop. The official `Mod.props`/`Mod.targets` (imported from
    No manual copying, ever.
 
 Then launch the game and enable the mod under **Options → Mods**. Logs land in
-`%CSII_USERDATAPATH%\Logs\` — our logger writes `SkiResortMod.Mod.log`. On loading a save,
-`SnowLineSystem` logs the climate constants needed to validate the SPEC §6.6 snow formula.
+`%CSII_USERDATAPATH%\Logs\` — our logger writes `SkiResortMod.Mod.log`.
+
+A compile check that deploys nothing is exactly `dotnet build -t:Compile` (no other flags: `--no-incremental` or
+`-t:Rebuild` fire `DeployWIP`; see the repo CLAUDE.md).
 
 There is no hot reload: rebuild, then restart the game.
 
@@ -67,8 +69,8 @@ the post-processed DLL — not the raw one — is what gets deployed.
 ## Do NOT run `dotnet publish`
 
 Publish invokes `ModPublisher.exe` against `Properties\PublishConfiguration.xml` and uploads
-to Paradox Mods. The configuration is placeholder-grade and the mod is nowhere near
-releasable. (SPEC §16 has the details.)
+to Paradox Mods. Publishing is a release-day step owned by Richard (docs/RELEASE-CHECKLIST.md), never part of a
+build or test loop.
 
 ## Editing rules that keep this project healthy
 
